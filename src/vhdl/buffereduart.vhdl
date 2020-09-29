@@ -447,7 +447,21 @@ begin  -- behavioural
         report "asserting rx_byte_stale due to UART selection";
       end if;
       report "Considering buffer memory transactions.";
-      if rx_byte_stale = '1' then
+      if tx_byte_written = '1' then
+        report "Committing byte $" & to_hstring(last_tx_byte_written(selected_uart)) & " to TX queue for uart #" & integer'image(selected_uart);
+        read_scheduled <= '0';
+          -- Schedule writing byte into TX buffer.
+          tx_byte_written <= '0';
+          if selected_uart < 8 then
+            -- Write to TX buffer, but only if not full
+            if uart_tx_full(selected_uart) = '0' then
+              buffer_writeaddress <= (512*selected_uart) + 256 + to_integer(uart_tx_buffer_pointer_write(selected_uart));
+              buffer_wdata <= last_tx_byte_written(selected_uart);
+              buffer_write <= '1';
+              uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
+            end if;
+          end if;
+      elsif rx_byte_stale = '1' then
         report "rx_byte_stale was asserted.";
         rx_byte_stale <= '0';
         if selected_uart < 8 then
@@ -464,27 +478,13 @@ begin  -- behavioural
         else
           read_scheduled <= '0';
         end if;
-      elsif tx_byte_written = '1' then
-        report "Committing byte $" & to_hstring(last_tx_byte_written(selected_uart)) & " to TX queue for uart #" & integer'image(selected_uart);
-        read_scheduled <= '0';
-          -- Schedule writing byte into TX buffer.
-          tx_byte_written <= '0';
-          if selected_uart < 8 then
-            -- Write to TX buffer, but only if not full
-            if uart_tx_full(selected_uart) = '0' then
-              buffer_writeaddress <= (512*selected_uart) + 256 + to_integer(uart_tx_buffer_pointer_write(selected_uart));
-              buffer_wdata <= last_tx_byte_written(selected_uart);
-              buffer_write <= '1';
-              uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
-            end if;
-          end if;
       else
         -- Neither a buffer read nor buffer write is scheduled, so we can check
         -- for arriving or departing bytes in the actual UARTs
         if tx_ready(cycled_uart_id)='1' and uart_tx_empty(cycled_uart_id)='0' and tx_inhibit(cycled_uart_id)=0 then
           -- We should send the next byte
           read_scheduled <= '1';
-          rx_target <= 16 + selected_uart;
+          rx_target <= 16 + cycled_uart_id;
           buffer_readaddress <= (512*cycled_uart_id) + 256 + to_integer(uart_tx_buffer_pointer_read(cycled_uart_id));
           report "TXBUFFER: Increment read position from $" & to_hstring(uart_tx_buffer_pointer_read(cycled_uart_id));
           uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
