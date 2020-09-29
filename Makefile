@@ -469,7 +469,7 @@ buffereduartsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDL
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl
 	$(GHDL) -m test_buffereduart
-	( ./test_buffereduart || $(GHDL) -r test_bufferuart )
+	( ./test_buffereduart || $(GHDL) -r test_buffereduart )
 
 
 # Get the gen_utils.vhd and conversions.vhd files from here: https://freemodelfoundry.com/fmf_VHDL_models.php
