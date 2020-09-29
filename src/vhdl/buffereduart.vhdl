@@ -85,7 +85,7 @@ architecture behavioural of buffereduart is
   signal rx_acknowledge : std_logic_vector(7 downto 0) := (others => '0');
 
   signal read_scheduled : std_logic := '0';
-  signal rx_target : integer range 0 to 255 := 255;
+  signal read_target : integer range 0 to 255 := 255;
 
   signal tx_byte_written : std_logic := '0';
   signal rx_byte_stale : std_logic := '0';
@@ -283,12 +283,14 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      read_scheduled <= '0';
+      read_target <= 255;
       tx_byte_written <= '0';          
       buffer_write <= '0';
       rx_acknowledge <= (others => '0');
       tx_trigger <= (others => '0');
       
-      report "selected_uart=" & integer'image(selected_uart);
+--      report "selected_uart=" & integer'image(selected_uart);
     
       -- Update status flags
       for i in 0 to 7 loop
@@ -305,7 +307,7 @@ begin  -- behavioural
         end if;
 
         -- RX buffer empty?
-        if i = 0 or i = 7 then
+        if false then -- i = 0 or i = 7 then
           report "uart_rx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_rx_buffer_pointer_write(i))
             &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i))
             & ", rx_full=" & std_logic'image(uart_rx_full(i))
@@ -368,15 +370,15 @@ begin  -- behavioural
           uart_tx_full(i) <= '0';
         end if;
         -- Has the TX buffer reached the low-water mark?
-        if uart_tx_buffer_pointer_write(i) >= uart_tx_buffer_pointer_read(i) then
+        if to_integer(uart_tx_buffer_pointer_write(i)) >= to_integer(uart_tx_buffer_pointer_read(i)) then
           -- Write point comes after read point, so simple subtraction
-          if (uart_tx_buffer_pointer_write(i) - uart_tx_buffer_pointer_read(i)) < 32 then
+          if (to_integer(uart_tx_buffer_pointer_write(i)) - to_integer(uart_tx_buffer_pointer_read(i))) < 32 then
             uart_tx_lowwater(i) <= '1';
           else
             uart_tx_lowwater(i) <= '0';            
           end if;
         else
-          if ((256 - uart_tx_buffer_pointer_read(i)) + uart_tx_buffer_pointer_write(i)) < 32 then
+          if ((256 - to_integer(uart_tx_buffer_pointer_read(i))) + to_integer(uart_tx_buffer_pointer_write(i))) < 32 then
             -- Write point comes before read, so it must have wrapped
             uart_tx_lowwater(i) <= '1';
           else
@@ -406,6 +408,7 @@ begin  -- behavioural
             if selected_uart < 8 then
               if uart_rx_empty(selected_uart)='0' then
                 -- Advance buffer position
+                report "RXBUFFER: Asserting rx_byte_stale due to write to $D0E2";
                 uart_rx_buffer_pointer_read(selected_uart) <= uart_rx_buffer_pointer_read(selected_uart) + 1;
                 rx_byte_stale <= '1';
               end if;
@@ -443,39 +446,39 @@ begin  -- behavioural
       last_selected_uart <= selected_uart;
       if last_selected_uart /= selected_uart then
         rx_byte_stale <= '1';
-        report "asserting rx_byte_stale due to UART selection";
+        report "RXBUFFER: asserting rx_byte_stale due to UART selection";
       end if;
-      report "Considering buffer memory transactions.";
+--      report "Considering buffer memory transactions.";
       if tx_byte_written = '1' then
-        report "Committing byte $" & to_hstring(last_tx_byte_written(selected_uart)) & " to TX queue for uart #" & integer'image(selected_uart);
+        report "TXBUFFER: Committing byte $" & to_hstring(last_tx_byte_written(selected_uart)) & " to TX queue for uart #" & integer'image(selected_uart);
         read_scheduled <= '0';
-          -- Schedule writing byte into TX buffer.
-          tx_byte_written <= '0';
-          if selected_uart < 8 then
-            -- Write to TX buffer, but only if not full
-            if uart_tx_full(selected_uart) = '0' then
-              buffer_writeaddress <= (512*selected_uart) + 256 + to_integer(uart_tx_buffer_pointer_write(selected_uart));
-              buffer_wdata <= last_tx_byte_written(selected_uart);
-              buffer_write <= '1';
-              uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
-            end if;
+        -- Schedule writing byte into TX buffer.
+        tx_byte_written <= '0';
+        if selected_uart < 8 then
+          -- Write to TX buffer, but only if not full
+          if uart_tx_full(selected_uart) = '0' then
+            buffer_writeaddress <= (512*selected_uart) + 256 + to_integer(uart_tx_buffer_pointer_write(selected_uart));
+            buffer_wdata <= last_tx_byte_written(selected_uart);
+            buffer_write <= '1';
+            uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
           end if;
+        end if;
+        read_scheduled <= '0';
       elsif rx_byte_stale = '1' then
         report "rx_byte_stale was asserted.";
         rx_byte_stale <= '0';
         if selected_uart < 8 then
           if uart_rx_empty(selected_uart) = '0' then
-            report "RXBUFFER: reading from non-empty buffer";
+            report "RXBUFFER: reading from non-empty buffer @ $" &
+              to_hstring(to_unsigned((512*selected_uart) + 0 + to_integer(uart_rx_buffer_pointer_read(selected_uart)),12));
             read_scheduled <= '1';
-            rx_target <= 0 + selected_uart;
+            read_target <= 0 + selected_uart;
           else
             report "RXBUFFER: buffer is empty. nothing to read";
             read_scheduled <= '0';
-            rx_target <= 255;
+            read_target <= 255;
           end if;
           buffer_readaddress <= (512*selected_uart) + 0 + to_integer(uart_rx_buffer_pointer_read(selected_uart));
-        else
-          read_scheduled <= '0';
         end if;
       else
         -- Neither a buffer read nor buffer write is scheduled, so we can check
@@ -483,13 +486,14 @@ begin  -- behavioural
         if tx_ready(cycled_uart_id)='1' and uart_tx_empty(cycled_uart_id)='0' and tx_inhibit(cycled_uart_id)=0 then
           -- We should send the next byte
           read_scheduled <= '1';
-          rx_target <= 16 + cycled_uart_id;
+          read_target <= 16 + cycled_uart_id;
           buffer_readaddress <= (512*cycled_uart_id) + 256 + to_integer(uart_tx_buffer_pointer_read(cycled_uart_id));
           report "TXBUFFER: Increment read position from $" & to_hstring(uart_tx_buffer_pointer_read(cycled_uart_id));
           uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
           tx_inhibit(cycled_uart_id) <= 7;
         elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' and rx_inhibit(cycled_uart_id) = 0 then
-          report "RXBUFFER: Received a byte from UART#" & integer'image(cycled_uart_id);
+          report "RXBUFFER: Received a byte from UART#" & integer'image(cycled_uart_id)
+            & ", byte=$" & to_hstring(rx_data(cycled_uart_id));
           rx_acknowledge(cycled_uart_id) <= '1';
           buffer_writeaddress <= (512*cycled_uart_id) + 0 + to_integer(uart_rx_buffer_pointer_write(cycled_uart_id));
           buffer_wdata <= rx_data(cycled_uart_id);
@@ -517,17 +521,15 @@ begin  -- behavioural
 
       -- Now process freshly read data
       if read_scheduled = '1' then
-        read_scheduled <= '0';
-        if rx_target < 8 then
+        if read_target < 8 then
           -- Read to refresh received data to present to CPU
           rx_data_for_reading(selected_uart) <= buffer_rdata;
-          rx_target <= 255;
-        elsif rx_target >= 16 and rx_target < 24 then
+          report "RXBUFFER: Read back value $" & to_hstring(buffer_rdata) & " for presenting as current value";
+        elsif read_target >= 16 and read_target < 24 then
           -- Read TX buffer to TX a byte
           report "TXBUFFER: Read back value $" & to_hstring(buffer_rdata) & " for immediate dispatch.";
-          tx_trigger(rx_target - 16) <= '1';
-          tx_data(rx_target - 16) <= buffer_rdata;
-          rx_target <= 255;
+          tx_trigger(read_target - 16) <= '1';
+          tx_data(read_target - 16) <= buffer_rdata;
         end if;
       end if;
 
