@@ -464,10 +464,10 @@ hyperramsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
-buffereduartsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl
+buffereduartsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(GHDL) -i $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
 	$(GHDL) -m test_buffereduart
 	( ./test_buffereduart || $(GHDL) -r test_buffereduart )
 
