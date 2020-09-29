@@ -47,11 +47,12 @@ architecture foo of test_buffereduart is
     -- Read $D0E1 status register
     ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
 
-    -- Enable loopback mode for testing, select uart #1
-    ( address => x"D0E0", write_p => '1', value => x"11", delay => 0),    
+    -- Enable loopback mode for testing, select uart #7
+    -- (which will be connected to UART #0 via the loopback)
+    ( address => x"D0E0", write_p => '1', value => x"17", delay => 0),    
     
     -- Set data rate for uart #1 very fast for testing
-    ( address => x"D0E4", write_p => '1', value => x"02", delay => 0),
+    ( address => x"D0E4", write_p => '1', value => x"04", delay => 0),
     ( address => x"D0E5", write_p => '1', value => x"00", delay => 0),
     ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),        
     
@@ -59,7 +60,7 @@ architecture foo of test_buffereduart is
     ( address => x"D0E0", write_p => '1', value => x"10", delay => 0),    
     
     -- Set data rate for uart #0 very fast for testing
-    ( address => x"D0E4", write_p => '1', value => x"02", delay => 0),
+    ( address => x"D0E4", write_p => '1', value => x"04", delay => 0),
     ( address => x"D0E5", write_p => '1', value => x"00", delay => 0),
     ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),
 
