@@ -105,11 +105,11 @@ architecture behavioural of buffereduart is
   -- Set when ANY IRQ condition for this UART is triggered
   signal uart_irq_status : std_logic_vector(7 downto 0) := (others => '0');
   -- Set when UART RX buffer is empty etc
-  signal uart_rx_empty : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_rx_empty : std_logic_vector(7 downto 0) := (others => '1');
   signal uart_rx_highwater : std_logic_vector(7 downto 0) := (others => '0');
   signal uart_rx_full : std_logic_vector(7 downto 0) := (others => '0');
   -- And similarly for TX buffers
-  signal uart_tx_empty : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_tx_empty : std_logic_vector(7 downto 0) := (others => '1');
   signal uart_tx_lowwater : std_logic_vector(7 downto 0) := (others => '0');
   signal uart_tx_full : std_logic_vector(7 downto 0) := (others => '0');
   -- Flags to enable interrupts on various conditions
@@ -287,9 +287,20 @@ begin  -- behavioural
       rx_acknowledge <= (others => '0');
       tx_trigger <= (others => '0');
 
+      report "selected_uart=" & integer'image(selected_uart);
+    
       -- Update status flags
       for i in 0 to 7 loop
         -- RX buffer empty?
+
+        if i = 0 then
+          report "uart_rx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_rx_buffer_pointer_write(i))
+            &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i));
+          report "uart_tx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_tx_buffer_pointer_write(i))
+            &", r=$" & to_hstring(uart_tx_buffer_pointer_read(i)) & ", tx_empty=" & std_logic'image(uart_tx_empty(i))
+            & ", tx_full=" & std_logic'image(uart_tx_full(i));
+        end if;
+        
         if uart_rx_buffer_pointer_write(i) = uart_rx_buffer_pointer_read(i) then
           uart_rx_empty(i) <= '1';
         else
