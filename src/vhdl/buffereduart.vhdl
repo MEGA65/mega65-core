@@ -295,10 +295,14 @@ begin  -- behavioural
 
         if i = 0 then
           report "uart_rx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_rx_buffer_pointer_write(i))
-            &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i));
+            &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i))
+            & ", rx_full=" & std_logic'image(uart_rx_full(i))
+            & ", rx_highwater=" & std_logic'image(uart_rx_highwater(i));
           report "uart_tx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_tx_buffer_pointer_write(i))
             &", r=$" & to_hstring(uart_tx_buffer_pointer_read(i)) & ", tx_empty=" & std_logic'image(uart_tx_empty(i))
-            & ", tx_full=" & std_logic'image(uart_tx_full(i));
+            & ", tx_full=" & std_logic'image(uart_tx_full(i))
+            & ", tx_lowwater=" & std_logic'image(uart_tx_lowwater(i));
+            
         end if;
         
         if uart_rx_buffer_pointer_write(i) = uart_rx_buffer_pointer_read(i) then
@@ -483,6 +487,20 @@ begin  -- behavioural
           tx_data(rx_target - 16) <= buffer_rdata;
           rx_target <= 255;
         end if;
+      end if;
+
+      if reset = '0' then
+        -- Clear all buffers on reset
+        uart_rx_empty <= (others => '1');
+        uart_rx_full <= (others => '0');
+        uart_tx_empty <= (others => '1');
+        uart_tx_full <= (others => '0');
+
+        uart_rx_buffer_pointer_write <= (others => to_unsigned(0,8));
+        uart_rx_buffer_pointer_read <= (others => to_unsigned(0,8));
+        uart_tx_buffer_pointer_write <= (others => to_unsigned(0,8));
+        uart_tx_buffer_pointer_read <= (others => to_unsigned(0,8));
+        
       end if;
       
     end if;
