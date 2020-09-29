@@ -46,7 +46,29 @@ architecture foo of test_buffereduart is
     ( address => x"D0E0", write_p => '0', value => x"00", delay => 0),
     -- Read $D0E1 status register
     ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
-    others => ( address => x"FFFF", write_p => '0', value => x"00", delay => 1)
+
+    -- Enable loopback mode for testing, select uart #1
+    ( address => x"D0E0", write_p => '1', value => x"11", delay => 0),    
+    
+    -- Set data rate for uart #1 very fast for testing
+    ( address => x"D0E4", write_p => '1', value => x"02", delay => 0),
+    ( address => x"D0E5", write_p => '1', value => x"00", delay => 0),
+    ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),        
+    
+    -- Enable loopback mode for testing, select uart #0
+    ( address => x"D0E0", write_p => '1', value => x"10", delay => 0),    
+    
+    -- Set data rate for uart #0 very fast for testing
+    ( address => x"D0E4", write_p => '1', value => x"02", delay => 0),
+    ( address => x"D0E5", write_p => '1', value => x"00", delay => 0),
+    ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),
+
+    -- Write a char to uart #0, which should then get received by uart #1
+    ( address => x"D0E3", write_p => '1', value => x"12", delay => 0),
+
+    -- End of procedure
+    others => ( address => x"FFFF", write_p => '0', value => x"00", delay => 1000)
+
     );
 
   signal idle_wait : integer := 0;
@@ -91,12 +113,17 @@ begin
   begin
 
     if rising_edge(cpuclock) then
-    
+
+
+      fastio_read <= '0';
+      fastio_write <= '0';
+      
       if idle_wait /= 0 then
         idle_wait <= idle_wait - 1;
       else
         
         if mem_jobs(cycles).address = x"FFFF" then
+          idle_wait <= mem_jobs(cycles).delay;
           expect_value <= '0';
           cycles <= 0;
           start_time <= current_time;          
