@@ -283,8 +283,10 @@ entity machine is
          pcm_modem2_data_in : in std_logic := '0';
          pcm_modem1_data_out : out std_logic := '0';
          pcm_modem2_data_out : out std_logic := '0';
-         i2s_bt_data_in : in std_logic := '0';
-         i2s_bt_data_out : out std_logic := '0';    
+         pcm_bluetooth_data_in : in std_logic := '0';
+         pcm_bluetooth_data_out : out std_logic := '0';    
+         pcm_bluetooth_clk_in : in std_logic := '0';
+         pcm_bluetooth_sync_in : in std_logic := '0';
          
          tmpSDA : inout std_logic := '1';
          tmpSCL : inout std_logic := '1';
@@ -1700,8 +1702,11 @@ begin
       pcm_modem2_data_in => pcm_modem2_data_in,
       pcm_modem1_data_out => pcm_modem1_data_out,
       pcm_modem2_data_out => pcm_modem2_data_out,
-      i2s_bt_data_in => i2s_bt_data_in,
-      i2s_bt_data_out => i2s_bt_data_out,
+
+      pcm_bluetooth_sync_in => pcm_bluetooth_sync_in,
+      pcm_bluetooth_clk_in => pcm_bluetooth_clk_in,
+      pcm_bluetooth_data_in => pcm_bluetooth_data_in,
+      pcm_bluetooth_data_out => pcm_bluetooth_data_out,
       
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,

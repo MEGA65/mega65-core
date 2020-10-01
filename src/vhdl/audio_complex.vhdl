@@ -104,10 +104,11 @@ entity audio_complex is
     i2s_slave_clk : in std_logic := '0';
     i2s_slave_sync : in std_logic := '0';
 
-    -- BT I2S L/R in
-    i2s_bt_data_in : in std_logic := '0';
-    -- BT I2S L/R out
-    i2s_bt_data_out : out std_logic := '0';
+    -- Bluetooth PCM audio interface
+    pcm_bluetooth_data_in : in std_logic := '0';
+    pcm_bluetooth_data_out : out std_logic := '0';    
+    pcm_bluetooth_clk_in : in std_logic := '0';
+    pcm_bluetooth_sync_in : in std_logic := '0';
     
     -- PWM Audio output
     -- (Nexys, MEGA65 PCB and similar boards only,
@@ -236,21 +237,22 @@ begin
     rx_sample => modem2_in
     );
     
-  -- I2S slave interface to RN52 Bluetooth
+  -- PCM master interface to RN52SRC Bluetooth
   i2s2: entity work.i2s_transceiver
     generic map ( clock_frequency => clock_frequency
                   )
     port map (
     cpuclock => cpuclock,
-    i2s_clk => i2s_slave_clk,
-    i2s_sync => i2s_slave_sync,
-    pcm_out => i2s_bt_data_out,
-    pcm_in => i2s_bt_data_in,
+    i2s_clk => pcm_bluetooth_clk_in,
+    i2s_sync => pcm_bluetooth_sync_in,
+    pcm_out => pcm_bluetooth_data_out,
+    pcm_in => pcm_bluetooth_data_in,
     tx_sample_left => bt_left_out,
     tx_sample_right => bt_right_out,
     rx_sample_left => bt_left_in,
     rx_sample_right => bt_right_in
     );
+
     
 
   i2sclock2: entity work.i2s_clock

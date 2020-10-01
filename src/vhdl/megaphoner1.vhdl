@@ -49,12 +49,16 @@ entity container is
 
          bluetooth_uart_rx : inout std_logic := '1';
          bluetooth_uart_tx : out std_logic := '1';
+         bluetooth_pcm_clk_in : in std_logic;
+         bluetooth_pcm_sync_in : in std_logic;
+         bluetooth_pcm_data_in : in std_logic;
+         bluetooth_pcm_data_out : out std_logic;
 
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
 
          smartcard_clk : inout std_logic;
-         smartcard_io : inout std_logic;
+         smartcard_io : inout std_logic;         
          
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
@@ -691,6 +695,12 @@ begin
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
 
+      -- RN52SRC as Bluetooth source, I2S slave
+      pcm_bluetooth_clk_in => bluetooth_pcm_clk_in,
+      pcm_bluetooth_sync_in => bluetooth_pcm_sync_in,
+      pcm_bluetooth_data_in => bluetooth_pcm_data_in,
+      pcm_bluetooth_data_out => bluetooth_pcm_data_out,
+      
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem1_pcm_clk_in,
       pcm_modem_sync_in => modem1_pcm_sync_in,

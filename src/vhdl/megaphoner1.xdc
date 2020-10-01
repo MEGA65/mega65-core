@@ -47,9 +47,11 @@ set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx
 # Bluetooth UART
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_rx]
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_tx]
-set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk]
-set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync]
-set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_out]
+# Bluetooth PCM audio interface
+set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk_in]
+set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync_in]
+set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_out]
+set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_in]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
