@@ -2605,6 +2605,9 @@ ueol1:
         adc #0
         sta utility_dmalist_srcaddr+1
 
+	;; We have to call this before initialising OpenROM
+	jsr setup_for_openrom
+	
         ;; load address is always $07FF (to skip $0801 header)
         ;; start @ zptempv32 + 44
         ;; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
@@ -2644,8 +2647,6 @@ ueol1:
         lda #$36 ;; IO + Kernel ROM @ $E000 (although Kernel is blank)
         sta hypervisor_cpuport01
 
-	jsr setup_for_openrom
-	
         ;; Next instruction exits hypervisor to user mode
         sta hypervisor_enterexit_trigger
 
