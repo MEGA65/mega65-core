@@ -38,6 +38,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 entity UART_TX_CTRL is
   Port ( SEND : in  STD_LOGIC;
@@ -134,7 +135,8 @@ begin
 	if (rising_edge(CLK)) then
     if (txState = RDY) then
       if (SEND = '1') then
-			  txData <= '1' & DATA & '0';
+        txData <= '1' & DATA & '0';
+        report "UART_TX: Sending byte $" & to_hstring(DATA);
       end if;
 		elsif (txState = LOAD_BIT) then
       txBit  <= txData(0);
