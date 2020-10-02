@@ -253,10 +253,14 @@ begin
 
                   pipeline_delay => 0,
 
+                  -- VSYNC was one too many raster lines long (HDMI test 7-25)
                   vsync_start => 576+1+10,
-                  vsync_end => 576+1+5+10,
-                  hsync_start => 720+12,
-                  hsync_end => 720+12+64,
+                  vsync_end => 576+1+4+10,
+
+                  -- Add 6 more clocks after the end of video lines before
+                  -- asserting HSYNC (HDMI test 7-25)
+                  hsync_start => 720+12+6,
+                  hsync_end => 720+12+6+64,
 
                   vga_hsync_start => 720+12,
                   vga_hsync_end => 720+12+64,                 
@@ -315,10 +319,12 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1+32,
-                  vsync_end => 480+1+5+32,
-                  hsync_start => 720+16,
-                  hsync_end => 720+16+62,
+                  -- Advance VSYNC 23 lines (HDMI test 7-25)
+                  vsync_start => 480+1+9,
+                  vsync_end => 480+1+5+9,
+                  -- Delay HSYNC by 6 cycles (HDMI test 7-25)
+                  hsync_start => 720+16+6,
+                  hsync_end => 720+16+62+6,
 
                   vga_hsync_start => 720+16,
                   vga_hsync_end => 720+16+62,
