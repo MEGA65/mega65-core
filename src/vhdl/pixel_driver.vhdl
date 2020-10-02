@@ -262,9 +262,8 @@ begin
                   -- asserting HSYNC (HDMI test 7-25)
                   hsync_start => 720+12+6,
                   hsync_end => 720+12+6+64,
-
-                  vga_hsync_start => 720+12,
-                  vga_hsync_end => 720+12+64,                 
+                  vga_hsync_start => 720+12+6,
+                  vga_hsync_end => 720+12+6+64,                 
                   
                   first_raster => 1+16,
                   last_raster => 576+16,
@@ -326,9 +325,8 @@ begin
                   -- Delay HSYNC by 6 cycles (HDMI test 7-25)
                   hsync_start => 720+16+6,
                   hsync_end => 720+16+62+6,
-
-                  vga_hsync_start => 720+16,
-                  vga_hsync_end => 720+16+62,
+                  vga_hsync_start => 720+16+6,
+                  vga_hsync_end => 720+16+6+62,
                   
                   first_raster => 1,
                   last_raster => 480,
