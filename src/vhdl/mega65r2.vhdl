@@ -310,6 +310,7 @@ architecture Behavioral of container is
   signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
   signal hdmi_dataenable : std_logic;
+  signal hdmi_hsync_drive : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -476,8 +477,9 @@ begin
       temp => fpga_temperature);
 
   hdmi_de <= hdmi_dataenable;
-  hdmi_hsync <= v_vga_hsync;
   hdmi_vsync <= v_vsync;
+
+  hdmi_hsync <= hdmi_hsync_drive;
   
   hdmiaudio: entity work.hdmi_spdif
     generic map ( samplerate => 44100 )
@@ -889,6 +891,17 @@ begin
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
+
+  process(clock27) is
+  begin
+    if rising_edge(clock27) then
+      -- HSYNC is arriving one cycle too early on this board according to the N5998A
+      -- protocol analyser. So we will simply add a delay stage to it.
+      -- (That way we don't mess up the perfectly correct frame timings as used for
+      -- other targets, e.g., the MEGA65 R3 board with different HDMI circuitry).
+      hdmi_hsync_drive <= v_vga_hsync;
+    end if;
+  end process;
   
   process (pixelclock) is
   begin
