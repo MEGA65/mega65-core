@@ -193,8 +193,9 @@ architecture behavioural of hdmi_i2c is
     -- Output mode
     ---------------
     x"AF06", -- HDMI mode
-    x"4c04", -- Deep colour off (HDMI only?)     - not needed
-    x"40C0", -- Turn on main HDMI data packets
+    x"4c00", -- Deep colour off, colour depth not indicated (hopefully fixes
+             -- the mangled GCP problem) 
+    x"4000", -- In fact, don't send GCP packets at all
 
     ---------------
     -- Audio setup
