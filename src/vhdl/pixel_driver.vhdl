@@ -253,10 +253,12 @@ begin
 
                   pipeline_delay => 0,
 
-                  -- XXX VSYNC was one too many raster lines long (HDMI test 7-25)
-                  -- XXX Reversed the above, because no PAL frames were being detected
-                  vsync_start => 576+1+10,
-                  vsync_end => 576+1+5+10,
+                  first_raster => 1+16,
+                  last_raster => 576+16,
+
+                  -- VSYNC comes 5 lines after video area, and lasts 5 raster lines
+                  vsync_start => 576+16+5,
+                  vsync_end   => 576+16+5+4,
 
                   -- Add 6 more clocks after the end of video lines before
                   -- asserting HSYNC (HDMI test 7-25)
@@ -265,9 +267,6 @@ begin
                   vga_hsync_start => 720+12+5,
                   vga_hsync_end => 720+12+5+64,                 
                   
-                  first_raster => 1+16,
-                  last_raster => 576+16,
-
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
                   lcd_last_raster => 1+576-(576-480)/2
