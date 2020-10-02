@@ -261,7 +261,21 @@ begin
         -- HDMI hsync
         if x = hsync_start then
           hsync_driver <= not hsync_polarity; 
-          hsync_uninverted_driver <= '1'; 
+          hsync_uninverted_driver <= '1';
+
+          -- VSYNC should switch at the same time as HSYNC
+          -- VSYNC is negative by default
+          if y = vsync_start then
+            lcd_vsync <= '0';
+            vsync_driver <= vsync_polarity;
+            vsync_uninverted_driver <= '1'; 
+          end if;
+          if y = vsync_end+1 then
+            lcd_vsync <= '1';
+            vsync_driver <= not vsync_polarity;
+            vsync_uninverted_driver <= '0'; 
+          end if;
+          
         end if;
         if x = hsync_end then
           hsync_driver <= hsync_polarity;
@@ -275,20 +289,7 @@ begin
         if x = vga_hsync_end then
           vga_hsync <= hsync_polarity;
         end if;
-
-        
-        -- VSYNC is negative by default
-        if y = vsync_start then
-          lcd_vsync <= '0';
-          vsync_driver <= vsync_polarity;
-          vsync_uninverted_driver <= '1'; 
-        end if;
-        if y = vsync_end+1 then
-          lcd_vsync <= '1';
-          vsync_driver <= not vsync_polarity;
-          vsync_uninverted_driver <= '0'; 
-        end if;
-
+       
         if x = (1 + pipeline_delay + narrow_start + viciv_pipeline_depth) and normal_y_active='1'  then
           narrow_dataenable_driver <= '1';
         end if;
