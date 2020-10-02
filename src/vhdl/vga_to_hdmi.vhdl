@@ -230,7 +230,7 @@ architecture synth of vga_to_hdmi is
     -- analyser
     constant hb_2 : u8(0 to 2) := ( x"84", x"01", x"0A" );
     constant pb_2 : u8(0 to 27) := (
-            0  => x"6E", -- checksum 84+01+0A+01+CKS = 6E
+            0  => x"6F", -- checksum 84+01+0A+01+CKS = 6F
             1  => x"01", -- 00000001  CT(3:0),RSVD,CC(2:0)
             2  => x"00", -- 00000000  F(27:25),SF(2:0),SS(1:0)
             3  => x"00", -- 00000000  F(37:35),CXT(4:0)
