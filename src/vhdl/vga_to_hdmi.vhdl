@@ -652,7 +652,9 @@ begin
             hb(2) <= hb_2;
             pb(2) <= pb_2;
 
-            if vga_vs_p = '1' and vga_vs_1 = '0' and vga_hs_p /= vga_hs_1 then -- once per frame
+            -- XXX Only check for falling edge on VSYNC, as HSYNC may not be
+            -- synchronised to VSYNC, depending on the video mode
+            if vga_vs_p = '1' and vga_vs_1 = '0' then --  and vga_hs_p /= vga_hs_1 then -- once per frame
                 data_req(3) <= '1';
             end if;
             hb(3) <= hb_3;
