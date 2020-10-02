@@ -253,9 +253,10 @@ begin
 
                   pipeline_delay => 0,
 
-                  -- VSYNC was one too many raster lines long (HDMI test 7-25)
+                  -- XXX VSYNC was one too many raster lines long (HDMI test 7-25)
+                  -- XXX Reversed the above, because no PAL frames were being detected
                   vsync_start => 576+1+10,
-                  vsync_end => 576+1+4+10,
+                  vsync_end => 576+1+5+10,
 
                   -- Add 6 more clocks after the end of video lines before
                   -- asserting HSYNC (HDMI test 7-25)
