@@ -2644,7 +2644,7 @@ ueol1:
         jsr task_set_c64_memorymap
         lda #$3f
         sta hypervisor_cpuport00
-        lda #$36 ;; IO + Kernel ROM @ $E000 (although Kernel is blank)
+        lda #$36 ;; IO + Kernel ROM @ $E000 (will be OpenROM KERNAL)
         sta hypervisor_cpuport01
 
         ;; Next instruction exits hypervisor to user mode
@@ -2743,15 +2743,21 @@ setup_for_openrom:
 ;;	map
 ;;	lda #0    ;; to give time to effect clearing irq_pending in CPU
 ;;	eom
-
+	
 	;; And ignore any queued NMI (these don't get cleared by the MAP trick)
+
+	;;  Clear pending NMI flag
+        lda hypervisor_feature_enables
+	and #$7f
+        sta hypervisor_feature_enables
+
+	;; Set safety-net NMI handler
 	lda #$40
 	sta $0420
 	lda #<$0420
 	sta $0318
 	lda #>$0420
-	sta $0319
-	
+	sta $0319	
 	rts
 
 flashmenu_dmalist:

@@ -2730,7 +2730,7 @@ begin
 
             when "111101" =>
               -- this section $D67D
-              return "1"
+              return nmi_pending
                 & iec_bus_active
                 & force_4502
                 & force_fast
@@ -4578,6 +4578,7 @@ begin
           force_fast <= last_value(4);
           force_4502 <= last_value(5);
           irq_defer_request <= last_value(6);
+          nmi_pending <= last_value(7);
           
           report "irq_pending, nmi_pending <= " & std_logic'image(last_value(6))
             & "," & std_logic'image(last_value(7));
