@@ -2734,7 +2734,7 @@ begin
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= pal_max_raster;
                 -- VSYNC is negative for 50Hz (required for some monitors)
-                hsync_polarity_internal <= '0';
+                hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '1';
                 if vicii_ntsc /= fastio_wdata(7) then
                   vicii_first_raster <= to_unsigned(0,9);
@@ -2743,7 +2743,7 @@ begin
                 sprite_y_adjust <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
-                hsync_polarity_internal <= '0';
+                hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '1';
                 if vicii_ntsc /= fastio_wdata(7) then
                   vicii_first_raster <= to_unsigned(0,9);
