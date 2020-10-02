@@ -310,6 +310,7 @@ architecture Behavioral of container is
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
   signal v_vga_hsync : std_logic;
+  signal v_hdmi_hsync : std_logic;
   signal v_vsync : std_logic;
   signal v_red : unsigned(7 downto 0);
   signal v_green : unsigned(7 downto 0);
@@ -547,7 +548,7 @@ begin
         vga_rst => reset_high, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
         vga_vs => v_vsync, -- active high vsync
-        vga_hs => v_vga_hsync, -- active high hsync
+        vga_hs => v_hdmi_hsync, -- active high hsync
         vga_de => hdmi_dataenable,   -- pixel enable
         vga_r => std_logic_vector(v_red),
         vga_g => std_logic_vector(v_green),
@@ -814,6 +815,7 @@ begin
       
       vsync           => v_vsync,
       vga_hsync       => v_vga_hsync,
+      hdmi_hsync       => v_hdmi_hsync,
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
