@@ -264,8 +264,9 @@ begin
                   -- asserting HSYNC (HDMI test 7-25)
                   hsync_start => 720+12+5,
                   hsync_end => 720+12+5+64,
-                  vga_hsync_start => 720+12+5,
-                  vga_hsync_end => 720+12+5+64,                 
+                  -- Again, VGA ends up a bit to the left, so make HSYNC earlier
+                  vga_hsync_start => 720,
+                  vga_hsync_end => 720+64,                 
                   
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
