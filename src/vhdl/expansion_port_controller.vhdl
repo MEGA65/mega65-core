@@ -374,10 +374,10 @@ begin
                 cart_access_rdata <= cart_d_in;
               when x"0008" =>
                 -- @IO:GS $7010008 - Directly read lower 8 cartridge address data lines.
-                cart_access_rdata <= cart_a_in(7 downto 0);
+                cart_access_rdata <= cart_a(7 downto 0);
               when x"0009" =>
                 -- @IO:GS $7010009 - Directly read upper 8 cartridge address data lines.
-                cart_access_rdata <= cart_a_in(15 downto 8);
+                cart_access_rdata <= cart_a(15 downto 8);
               when others =>
               cart_access_rdata <= cart_d_in;
             end case;
