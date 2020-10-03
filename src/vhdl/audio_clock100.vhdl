@@ -29,7 +29,7 @@ entity audio_clock is
     );
     port (
 
-      select_48000_or_not_44100 : in std_logic;
+      select_44100 : in std_logic;
       
         rsti    : in    std_logic;          -- reset in
         clki    : in    std_logic;          -- reference clock in
