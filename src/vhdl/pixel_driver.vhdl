@@ -324,8 +324,9 @@ begin
                   -- Delay HSYNC by 6 cycles (HDMI test 7-25)
                   hsync_start => 720+16+5,
                   hsync_end => 720+16+62+5,
-                  vga_hsync_start => 720+16+5,
-                  vga_hsync_end => 720+16+5+62,
+                  -- ... but not for VGA, or it ends up off-centre
+                  vga_hsync_start => 720+10,
+                  vga_hsync_end => 720+10+62,
                   
                   first_raster => 1,
                   last_raster => 480,
