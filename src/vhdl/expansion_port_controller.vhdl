@@ -109,7 +109,7 @@ end expansion_port_controller;
 architecture behavioural of expansion_port_controller is
 
   signal not_joystick_cartridge : std_logic := '0';
-  signal disable_joystick_cartridge : std_logic := '0';
+  signal disable_joystick_cartridge : std_logic := '1';
   signal force_joystick_cartridge : std_logic := '0';
   signal joy_read_toggle : std_logic := '0';
   signal invert_joystick : std_logic := '0';
