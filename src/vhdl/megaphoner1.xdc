@@ -38,10 +38,10 @@ set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifi_uart_tx]
 set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifi_uart_rx]
 
 # LoRa A and B header UARTs
-set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
-set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
-set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
-set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
+set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
+set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
+set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
+set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
 
 
 # Bluetooth UART
