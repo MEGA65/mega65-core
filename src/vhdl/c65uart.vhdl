@@ -222,10 +222,13 @@ architecture behavioural of c65uart is
 
   signal porto_internal : std_logic_vector(7 downto 0) := x"14";
 
-  -- Bit 0 = HDMI audio enable
-  -- Bit 1 = HDMI audio signed conversion
-  -- Bit 2 = Overlay audio on red and green channels for debug
-  signal portp_internal : std_logic_vector(7 downto 0) := x"03";
+  -- Bit 1 = disable DVI audio
+  -- Bit 7 = invert samples
+  -- Bit 4 = LED on mainboard
+  -- Bit 2 = visualise audio samples
+  -- Bit 3 = select 48KHz instead of 44.1KHz audio sample rate
+  signal portp_internal : std_logic_vector(7 downto 0) := x"09"; -- 48KHz, with
+                                                                 -- digital audio
 
   signal joyswap_internal : std_logic := '0';
   signal joya_rotate_internal : std_logic := '0';
