@@ -109,6 +109,7 @@ end expansion_port_controller;
 architecture behavioural of expansion_port_controller is
 
   signal not_joystick_cartridge : std_logic := '0';
+  signal disable_joystick_cartridge : std_logic := '0';
   signal force_joystick_cartridge : std_logic := '0';
   signal joy_read_toggle : std_logic := '0';
   signal invert_joystick : std_logic := '0';
@@ -205,7 +206,7 @@ begin
         not_joystick_cartridge <= '1';
       end if;
 
-      if not_joystick_cartridge = '0' or force_joystick_cartridge='1' then
+      if (not_joystick_cartridge = '0' or force_joystick_cartridge='1') and (disable_joystick_cartridge='0') then
         -- Set data lines to input
         cart_data_en <= '0'; -- negative sense on these lines: low = enable
         cart_addr_en <= '0'; -- negative sense on these lines: low = enable
@@ -322,7 +323,7 @@ begin
           elsif reset_counter /= 0 then
             reset_counter <= reset_counter - 1;
           elsif reset_counter = 0 then
-            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+            if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
               cart_reset <= reset and (not cart_force_reset);
               report "Releasing RESET on cartridge port";
             end if;
@@ -352,8 +353,7 @@ begin
                 cart_access_rdata(6) <= force_joystick_cartridge;
                 -- @IO:GS $7010001.5 - Joystick read toggle flag DEBUG
                 cart_access_rdata(5) <= joy_read_toggle;
-                -- @IO:GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
-                cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
+                cart_access_rdata(0) <= invert_joystick;
               when x"0002" =>
                 -- @IO:GS $7010002 - Counter of /IRQ triggers from cartridge
                 cart_access_rdata <= irq_count;
@@ -369,6 +369,15 @@ begin
               when x"0006" =>
                 -- @IO:GS $7010006 - Counter of /EXROM triggers from cartridge
                 cart_access_rdata <= exrom_count;
+              when x"0007" =>
+                -- @IO:GS $7010007 - Directly read cartridge port data lines.
+                cart_access_rdata <= cart_d_in;
+              when x"0008" =>
+                -- @IO:GS $7010008 - Directly read lower 8 cartridge address data lines.
+                cart_access_rdata <= cart_a_in(7 downto 0);
+              when x"0009" =>
+                -- @IO:GS $7010009 - Directly read upper 8 cartridge address data lines.
+                cart_access_rdata <= cart_a_in(15 downto 8);
               when others =>
               cart_access_rdata <= cart_d_in;
             end case;
@@ -461,8 +470,11 @@ begin
                   fake_reset_sequence_phase <= 0;
                 end if;
               elsif cart_access_address(15 downto 0) = x"0001" then
+                -- @ IO:GS $7010001.4 - Force disabling of joystick expander cartridge
                 -- @ IO:GS $7010001.6 - Force enabling of joystick expander cartridge
+                -- @ IO:GS $7010001.0 - Invert joystick line polarity for joystick expander cartridge
                 force_joystick_cartridge <= cart_access_wdata(6);
+                disable_joystick_cartridge <= cart_access_wdata(4);
                 invert_joystick <= cart_access_wdata(0);
               end if;
             end if;
@@ -474,7 +486,7 @@ begin
 
             cart_access_accept_strobe <= '1';
                   
-            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+            if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
             
               cart_a <= cart_access_address(15 downto 0);
               cart_rw <= cart_access_read;
@@ -522,7 +534,7 @@ begin
               
             if cart_access_read='1' then
               read_in_progress <= '1';
-              if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+              if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
                 -- Tri-state with pull-up
                 report "Tristating cartridge port data lines.";
                 if target = mega65r1 then
@@ -533,13 +545,13 @@ begin
               end if;
             else
               read_in_progress <= '0';
-              if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+              if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
                 cart_d <= cart_access_wdata;
                 report "Write data is $" & to_hstring(cart_access_wdata);
               end if;
             end if;
           else
-            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+            if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
               cart_access_accept_strobe <= '0';
               if target = mega65r1 then
                 cart_a <= (others => 'H');
