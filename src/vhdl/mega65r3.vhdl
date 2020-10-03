@@ -516,7 +516,8 @@ begin
         -- You have to update audio_clock if you change this
         fref        => 100.0
         )
-        port map (
+      port map (
+            select_48000_or_not_44100 => portp(3),
             ref_rst   => reset_high,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
@@ -535,10 +536,9 @@ begin
     pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
     
     hdmi0: entity work.vga_to_hdmi
-      generic map (pcm_fs => 48.0 -- 48.0KHz audio
-                   )
       port map (
-        dvi => '0',   -- Enable HDMI-style audio
+        select_48000_or_not_44100 => portp(3),
+        dvi => portp(1),   -- Disable HDMI-style audio if one
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -1003,7 +1003,7 @@ begin
                   O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
-  led <= pcm_acr;  
+--  led <= pcm_acr;  
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
@@ -1156,6 +1156,15 @@ begin
       
     end if;
 
+    -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
+    -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
+    -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
+    -- @IO:GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
+    -- @IO:GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
+    -- @IO:GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
+
+
+    
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
@@ -1164,7 +1173,7 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
---    led <= portp(4);
+    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;

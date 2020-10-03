@@ -29,6 +29,8 @@ entity audio_clock is
     );
     port (
 
+      select_48000_or_not_44100 : in std_logic;
+      
         rsti    : in    std_logic;          -- reset in
         clki    : in    std_logic;          -- reference clock in
         rsto    : out   std_logic;          -- reset out (from MMCM lock status)
@@ -177,10 +179,27 @@ begin
         -- 12.228 MHz is our goal, and we clock at 60MHz
         -- So we want to add 0.2038 x 2 = 0.4076 of a
         -- half-clock counter every cycle.
-        -- 27353573 / 2^26 = .407600001
-        -- 60MHz x .407600001 / 2 = 12.288000.01 MHz
+        -- 27487791 / 2^26 = .409600005
+        -- 60MHz x .409600005 / 2 = 12.288000.137 MHz
         -- i.e., well within the jitter of everything
-        clk12288_counter <= clk12288_counter + 27353573;
+
+        -- N5998A HDMI protocol analyser claims we are producing only 47764 samples
+        -- per second, instead of 48000.
+        -- Also, some TVs might not do 48KHz, so we will make it run-time
+        -- switchable to 44.1KHz.
+        -- This requires an 11.2896 MHz clock instead of 12.288MHz
+        -- 25254408 / 2^26 = 0.376320004
+        -- 60MHz x .376320004 / 2 = 11.289600134
+        -- i.e., with error in the milli-samples-per-second range
+        if select_48000_or_not_44100 = '1' then
+          -- 48KHz
+          clk12288_counter <= clk12288_counter + 27487791;
+        else
+          -- 44.1KHz
+          clk12288_counter <= clk12288_counter + 25254408;
+        end if;
+
+        
         -- Then pick out the right bit of our counter to
         -- get a very-close-to-12.288MHz-indeed clock
         clk_u <= clk12288_counter(26);

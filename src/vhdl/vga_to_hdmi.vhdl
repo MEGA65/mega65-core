@@ -27,13 +27,11 @@ use work.types_pkg.all;
 use work.hdmi_tx_encoder_pkg.all;
 
 entity vga_to_hdmi is
-    generic (
-
-        pcm_fs      : real                                 -- audio sample rate (kHz) e.g. 48.0
-
-    );
     port (
 
+      -- Select which of the two audio clocks above to use
+      select_48000_or_not_44100 : in std_logic;
+      
         dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
@@ -342,18 +340,6 @@ begin
     pcm_cs_v(8 to 15) <= "01000000"; -- category code
     pcm_cs_v(16 to 19) <= "0000";    -- source - do not take into account
     pcm_cs_v(20 to 23) <= "0000";    -- channel number - do not take into account
-    pcm_cs_v(24 to 27) <=            -- sample frequency
-        "0010" when pcm_fs = 22.05 else
-        "0000" when pcm_fs = 44.1  else
-        "0001" when pcm_fs = 88.2  else
-        "0011" when pcm_fs = 176.4 else
-        "0110" when pcm_fs = 24.0  else
-        "0100" when pcm_fs = 48.0  else
-        "0101" when pcm_fs = 96.0  else
-        "0111" when pcm_fs = 192.0 else
-        "1001" when pcm_fs = 768.0 else
-        "1100" when pcm_fs = 32.0  else
-        "1000";
     pcm_cs_v(28 to 29) <= "00";      -- clock accuracy level 2
     pcm_cs_v(30) <= '0';             -- reserved
     pcm_cs_v(31) <= '0';             -- reserved
@@ -377,6 +363,7 @@ begin
         end function xor_v;
 
     begin
+      
         if pcm_rst = '1' then
 
             iec_count   <= 0;
@@ -394,6 +381,13 @@ begin
 
         elsif rising_edge(pcm_clk) then
 
+          -- Inform sink of the correct audio sample rate
+          if select_48000_or_not_44100 = '1' then
+            pcm_cs_v(24 to 27) <= "0100"; -- 48KHz
+          else
+            pcm_cs_v(24 to 27) <= "0000"; -- 44.1KHz
+          end if;
+                    
           if pcm_clken = '1' then
             if iec_count < 40 then
               cs := pcm_cs_v(iec_count);

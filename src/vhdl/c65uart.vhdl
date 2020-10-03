@@ -703,7 +703,8 @@ begin  -- behavioural
           -- @IO:GS $D619 UARTMISC:UNUSED port o output value
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
-          -- @IO:GS $D61A UARTMISC:UNUSED port p output value
+          -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
+          
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
