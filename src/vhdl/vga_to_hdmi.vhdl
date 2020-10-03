@@ -260,11 +260,10 @@ architecture synth of vga_to_hdmi is
         );
 
     -- type 4: Source Product Descriptor #1
-    constant hb_4 : u8(0 to 2) := ( x"83", x"01", x"1A" );
+    constant hb_4 : u8(0 to 2) := ( x"83", x"01", x"19" );
     constant pb_4 : u8(0 to 27) := (
-      0 => x"58",     -- checksum
-      -- ASCIIZ Vendor
-      -- ASCIIZ Product
+      0 => x"50",     -- checksum
+      -- ASCIIZ Vendor (8 bytes): "MEGA65"
       1 => x"4D",
       2 => x"45",
       3 => x"47",
@@ -273,6 +272,7 @@ architecture synth of vga_to_hdmi is
       6 => x"35",
       7 => x"00",
       8 => x"00",
+      -- ASCIIZ Product (16 bytes): "MEGA65"
       9 => x"4D",
       10 => x"45",
       11 => x"47",
@@ -281,17 +281,18 @@ architecture synth of vga_to_hdmi is
       14 => x"35",
       15 => x"00",
       16 => x"00",
-
+      -- Source type (1 byte)
+      -- Indicate as "Game"
+      25 => x"09",
       others => x"00" -- zero
         );
 
     -- type 5: Source Product Descriptor #2 (test ahead of supporting scrolling
     -- SPD text ;)
-    constant hb_5 : u8(0 to 2) := ( x"83", x"01", x"1A" );
+    constant hb_5 : u8(0 to 2) := ( x"83", x"01", x"19" );
     constant pb_5 : u8(0 to 27) := (
-      0 => x"58",     -- checksum
-      -- ASCIIZ Vendor
-      -- ASCIIZ Product
+      0 => x"50",     -- checksum
+      -- ASCIIZ Vendor (8 bytes): "MEGA65"
       1 => x"4D",
       2 => x"45",
       3 => x"47",
@@ -300,6 +301,7 @@ architecture synth of vga_to_hdmi is
       6 => x"35",
       7 => x"00",
       8 => x"00",
+      -- ASCIIZ Product (16 bytes): "MEGA65"
       9 => x"4D",
       10 => x"45",
       11 => x"47",
@@ -308,7 +310,9 @@ architecture synth of vga_to_hdmi is
       14 => x"35",
       15 => x"00",
       16 => x"00",
-
+      -- Source type (1 byte)
+      -- Indicate as "Game"
+      25 => x"09",
       others => x"00" -- zero
         );
 
@@ -712,9 +716,13 @@ begin
             -- synchronised to VSYNC, depending on the video mode
             if vga_vs_p = '1' and vga_vs_1 = '0' then --  and vga_hs_p /= vga_hs_1 then -- once per frame
               data_req(3) <= '1';
-              if spd_toggle(5)='0' then
+              -- Send approximately once per second.
+              -- XXX Try sending two different versions to see if we can do
+              -- animated SPD :)
+              if spd_toggle="000000" then
                 data_req(4) <= '1';
-              else
+              end if;
+              if spd_toggle="100000" then
                 data_req(5) <= '1';
               end if;
               spd_toggle <= spd_toggle + 1;
