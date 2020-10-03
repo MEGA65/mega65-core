@@ -227,7 +227,7 @@ architecture behavioural of c65uart is
   -- Bit 4 = LED on mainboard
   -- Bit 2 = visualise audio samples
   -- Bit 3 = select 48KHz instead of 44.1KHz audio sample rate
-  signal portp_internal : std_logic_vector(7 downto 0) := x"09"; -- 48KHz, with
+  signal portp_internal : std_logic_vector(7 downto 0) := x"01"; -- 48KHz, with
                                                                  -- digital audio
 
   signal joyswap_internal : std_logic := '0';
