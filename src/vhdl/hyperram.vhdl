@@ -1586,7 +1586,7 @@ begin
         last_current_cache_line_update_all <= current_cache_line_update_all;              
         current_cache_line_address_drive <= current_cache_line_new_address;
         current_cache_line_drive <= current_cache_line_update;
-        current_cache_line_update_flags <= last_current_cache_line_update_flags;
+        last_current_cache_line_update_flags <= current_cache_line_update_flags;
       end if;
 
       -- See if slow_devices is asking for the next 8 bytes.
