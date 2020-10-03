@@ -191,7 +191,7 @@ begin
         -- 25254408 / 2^26 = 0.376320004
         -- 60MHz x .376320004 / 2 = 11.289600134
         -- i.e., with error in the milli-samples-per-second range
-        if select_48000_or_not_44100 = '1' then
+        if select_44100 = '0' then
           -- 48KHz
           clk12288_counter <= clk12288_counter + 27487791;
         else

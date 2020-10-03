@@ -28,7 +28,7 @@ entity audio_out_test_tone is
     port (
 
       -- Allow switching between these to audio sample rates
-      select_48000_or_not_44100 : in std_logic; 
+      select_44100 : in std_logic; 
       
         ref_rst     : in    std_logic;                      -- reference clock reset
         ref_clk     : in    std_logic;                      -- reference clock (100MHz)
@@ -60,7 +60,7 @@ begin
             ratio   => 256
         )
       port map (
-        select_48000_or_not_44100 => select_48000_or_not_44100,
+        select_44100 => select_44100,
             rsti    => ref_rst,
             clki    => ref_clk,
             rsto    => pcm_rst,

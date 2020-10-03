@@ -30,7 +30,7 @@ entity vga_to_hdmi is
     port (
 
       -- Select which of the two audio clocks above to use
-      select_48000_or_not_44100 : in std_logic;
+      select_44100 : in std_logic;
       
         dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
@@ -382,7 +382,7 @@ begin
         elsif rising_edge(pcm_clk) then
 
           -- Inform sink of the correct audio sample rate
-          if select_48000_or_not_44100 = '1' then
+          if select_44100 = '0' then
             pcm_cs_v(24 to 27) <= "0100"; -- 48KHz
           else
             pcm_cs_v(24 to 27) <= "0000"; -- 44.1KHz

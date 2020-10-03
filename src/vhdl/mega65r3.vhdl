@@ -517,7 +517,7 @@ begin
         fref        => 100.0
         )
       port map (
-            select_48000_or_not_44100 => portp(3),
+            select_44100 => portp(3),
             ref_rst   => reset_high,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
@@ -537,7 +537,7 @@ begin
     
     hdmi0: entity work.vga_to_hdmi
       port map (
-        select_48000_or_not_44100 => portp(3),
+        select_44100 => portp(3),
         dvi => portp(1),   -- Disable HDMI-style audio if one
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
