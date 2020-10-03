@@ -462,6 +462,7 @@ reset_machine_state:
         ;; disable IRQ/NMI sources
         sta $D01A
         lda #$7f
+	sta $d07f   		; Hide VIC-IV cross-hairs
         sta $DC0D
         sta $DD0D
 
