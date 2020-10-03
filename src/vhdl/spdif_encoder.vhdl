@@ -58,7 +58,7 @@ use work.debugtools.all;
 entity spdif_encoder is	 
   generic (
     clock_frequency : integer := 27000000;
-    sample_rate : integer := 44100;
+    sample_rate : integer := 48000;
     DATA_WIDTH: integer range 16 to 32 := 32); 
   port (
     clock27 : in std_logic;
@@ -84,7 +84,7 @@ architecture rtl of spdif_encoder is
   -- The actual calculation can't be done in VHDL as it needs to be calulcated
   -- using floating point precision to be accurate enough.
 --  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(65536*65536*(sample_rate*2*64)/clock_frequency,33);
-  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(897934496,33);
+  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(977343669,33);
   signal clocksummer : unsigned(32 downto 0) := (others => '0');
   signal last_clocksummer32 : std_logic := '0';
   
@@ -362,8 +362,8 @@ begin
                     chb_samp_ack <= '1';
                   end if;
 --                  report "next sample channel B for sample " & integer'image(samples_seen);
-                  if samples_seen = 44100 then
-                    report "44100 samples took " & integer'image((now / 1 us) - first_sample_time);
+                  if samples_seen = 48000 then
+                    report "48000 samples took " & integer'image((now / 1 us) - first_sample_time);
                   end if;
                   
                   if frame_cnt < 191 then  -- One block is 192 frames

@@ -181,7 +181,7 @@ architecture behavioural of hdmi_i2c is
     -- Input mode
     ---------------
     x"3C11", -- PAL 576p 4:3 aspect ratio video mode
-    x"1500", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync), 44.1KHz audio sample rate
+    x"1520", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync), 44.1KHz audio sample rate
     x"4810", -- Left justified data (D23 downto 8)
     -- according to documenation, style 2 should be x"1637" but it isn't. ARGH!
 --            x"1637", -- 444 output, 8 bit style 2, 1st half on rising edge - YCrCb clipping
@@ -215,12 +215,12 @@ architecture behavioural of hdmi_i2c is
 
     -- Audio CTS and N values
     -- See p93 SS4.4.2 of https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf
-    -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
-    -- N=6272 ($1880), CTS=30000 ($7530)
+    -- 27MHz pixel clock, 48KHz audio rate using Table 81:
+    -- N=6144 ($1800), CTS=30000 ($7530)
     -- Clock is 27MHz exactly, so the above values should work fine
     -- Big-endian byte order.
     -- Use $6000 for 192KHz audio sample rate
-    x"0100",x"0218",x"0380",  -- N   =  6272
+    x"0100",x"0218",x"0300",  -- N   =  6144
     x"0700",x"0875",x"0930",  -- CTS = 30000
     
 --            -- Set HDMI device name
