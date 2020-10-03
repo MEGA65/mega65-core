@@ -67,7 +67,7 @@ end entity vga_to_hdmi;
 architecture synth of vga_to_hdmi is
 
     constant SUBPACKETS     : integer := 4; -- per packet
-    constant PACKET_TYPES   : integer := 4; -- types of data packet supported in this design
+    constant PACKET_TYPES   : integer := 6; -- types of data packet supported in this design
 
     constant CTL_NULL       : std_logic_vector(3 downto 0) := "0000";
     constant CTL_PRE_VIDEO  : std_logic_vector(3 downto 0) := "0001"; -- video period preamble
@@ -161,6 +161,9 @@ architecture synth of vga_to_hdmi is
     signal data_req     : std_logic_vector(0 to PACKET_TYPES-1); -- } data packet handshaking
     signal data_ack     : std_logic_vector(0 to PACKET_TYPES-1); -- }
 
+    -- Used to animate SPD text by changing it periodically
+    signal spd_toggle : unsigned(5 downto 0) := to_unsigned(0,6);
+    
     signal hb_a         : u8(0 to 2);                       -- header bytes of audio sample packet in progress
     signal pb_a         : u8(0 to 27);                      -- packet bytes of audio sample packet in progress
     signal hb           : hb_array_t;                       -- header bytes for packet types 0..3
@@ -254,6 +257,59 @@ architecture synth of vga_to_hdmi is
             4 => x"00",     -- *NOT CONSTANT* VIC
             5 => x"B0",     -- *PART CONSTANT* YQ(1:0),CN(1:0),PR(3:0)
             others => x"00" -- zero
+        );
+
+    -- type 4: Source Product Descriptor #1
+    constant hb_4 : u8(0 to 2) := ( x"83", x"01", x"1A" );
+    constant pb_4 : u8(0 to 27) := (
+      0 => x"58",     -- checksum
+      -- ASCIIZ Vendor
+      -- ASCIIZ Product
+      1 => x"4D",
+      2 => x"45",
+      3 => x"47",
+      4 => x"41",
+      5 => x"36",
+      6 => x"35",
+      7 => x"00",
+      8 => x"00",
+      9 => x"4D",
+      10 => x"45",
+      11 => x"47",
+      12 => x"41",
+      13 => x"36",
+      14 => x"35",
+      15 => x"00",
+      16 => x"00",
+
+      others => x"00" -- zero
+        );
+
+    -- type 5: Source Product Descriptor #2 (test ahead of supporting scrolling
+    -- SPD text ;)
+    constant hb_5 : u8(0 to 2) := ( x"83", x"01", x"1A" );
+    constant pb_5 : u8(0 to 27) := (
+      0 => x"58",     -- checksum
+      -- ASCIIZ Vendor
+      -- ASCIIZ Product
+      1 => x"4D",
+      2 => x"45",
+      3 => x"47",
+      4 => x"41",
+      5 => x"36",
+      6 => x"35",
+      7 => x"00",
+      8 => x"00",
+      9 => x"4D",
+      10 => x"45",
+      11 => x"47",
+      12 => x"41",
+      13 => x"36",
+      14 => x"35",
+      15 => x"00",
+      16 => x"00",
+
+      others => x"00" -- zero
         );
 
     function sum( data : u8 ) return unsigned is
@@ -647,7 +703,7 @@ begin
             end loop;
 
             if vga_vs_p = '1' and vga_vs_1 = '0' then -- once per field
-                data_req(2) <= '1';
+              data_req(2) <= '1';
             end if;
             hb(2) <= hb_2;
             pb(2) <= pb_2;
@@ -655,7 +711,13 @@ begin
             -- XXX Only check for falling edge on VSYNC, as HSYNC may not be
             -- synchronised to VSYNC, depending on the video mode
             if vga_vs_p = '1' and vga_vs_1 = '0' then --  and vga_hs_p /= vga_hs_1 then -- once per frame
-                data_req(3) <= '1';
+              data_req(3) <= '1';
+              if spd_toggle(5)='0' then
+                data_req(4) <= '1';
+              else
+                data_req(5) <= '1';
+              end if;
+              spd_toggle <= spd_toggle + 1;
             end if;
             hb(3) <= hb_3;
             pb(3)(0 to 5) <= pb_3(0 to 5);
@@ -673,6 +735,12 @@ begin
             pb(3)(5)(0) <= pix_rep_s;
             pb(3)(6 to 27) <= pb_3(6 to 27);
 
+            hb(4) <= hb_4;
+            pb(4) <= pb_4;
+
+            hb(5) <= hb_5;
+            pb(5) <= pb_5;
+            
             for i in 0 to PACKET_TYPES-1 loop
                 if data_ack(i) = '1' then
                     data_req(i) <= '0';
@@ -707,10 +775,10 @@ begin
                             -- 2        video preamble
                             -- 8        video guardband
                             -- total: 66
-                            if data_req /= "0000" then
+                            if data_req /= "000000" then
                                 s1_period <= DATA_PRE; s1_enc <= ENC_DVI; s1_ctl <= CTL_PRE_DATA;
                                 s1_pcount <= (others => '0'); s1_dcount <= (others => '0');
-                                for i in 0 to 3 loop -- prioritize
+                                for i in 0 to (PACKET_TYPES-1) loop -- prioritize
                                     p := i;
                                     exit when data_req(p) = '1';
                                 end loop;
@@ -758,11 +826,11 @@ begin
                     if (s1_pcount = "11111") then   -- last clock of this packet
                         if  (blank_count >= 56)     -- there is enough blanking time for another packet
                         and (s1_dcount < 17)        -- we haven't exceeded the limit of 18 consecutive packets
-                        and (data_req /= "0000")    -- another packet is requested
+                        and (data_req /= "000000")    -- another packet is requested
                         then -- do another data packet
                             s1_pcount <= (others => '0');
                             s1_dcount <= s1_dcount+1;
-                            for i in 0 to 3 loop -- prioritize
+                            for i in 0 to (PACKET_TYPES-1) loop -- prioritize
                                 p := i;
                                 exit when data_req(p) = '1';
                             end loop;
