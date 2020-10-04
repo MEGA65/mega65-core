@@ -87,7 +87,7 @@ architecture rtl of spdif_encoder is
 --  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(977343669,33);
   -- For some reason the above results in a sample rate of ~89KHz,
   -- so we will reduce it accordingly
-  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(526983705,33);
+  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(526985741,33);
   signal clocksummer : unsigned(32 downto 0) := (others => '0');
   signal last_clocksummer32 : std_logic := '0';
   

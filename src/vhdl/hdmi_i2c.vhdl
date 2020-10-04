@@ -202,7 +202,7 @@ architecture behavioural of hdmi_i2c is
     ---------------
     
 --    x"0A1D",  -- SPDIF audio format, auto CTS
-    x"0A10",  -- SPDIF audio format, auto CTS, 128x sample rate, audio sample
+    x"0A10",  -- SPDIF audio format, 128x sample rate, audio sample
               -- packet instead of HBR audio stream packet
     x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
     -- stream, i.e no separate MCLK
@@ -220,8 +220,15 @@ architecture behavioural of hdmi_i2c is
     -- Clock is 27MHz exactly, so the above values should work fine
     -- Big-endian byte order.
     -- Use $6000 for 192KHz audio sample rate
+    -- XXX Except somehow this is all borked up. Our N5998A shows that the
+    -- sample rate was ~89KHz instead of 48KHz. Dropping the sample rate in the
+    -- SPDIF sender to get 48KHz sample rate reports and average CTS of 50074
+    -- instead of 30000.  Something VERY weird is going on here.
+    -- (Maybe our SPDIF sender is using short or long frames, as 50074/30000 ~=
+    -- 1.5 and 96/64 = 1.5? Anyway, we can try to fix it here).
     x"0100",x"0218",x"0300",  -- N   =  6144
-    x"0700",x"0875",x"0930",  -- CTS = 30000
+--    x"0700",x"0875",x"0930",  -- CTS = 30000
+    x"0700",x"08C3",x"099A",  -- CTS = 50074
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory
