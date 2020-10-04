@@ -80,8 +80,8 @@ set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_da
 # No debug UARTs on this revision of board, as we ran out of pins
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_rx] 
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_tx]
-set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
-set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
+set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
+set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 
 # MiniPCIe modem port 2
 set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
@@ -91,8 +91,8 @@ set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_da
 # No debug UARTs on this revision of board, as we ran out of pins
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx] 
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_tx]
-set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
-set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
+set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
+set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
