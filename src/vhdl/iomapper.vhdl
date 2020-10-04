@@ -789,8 +789,9 @@ begin
       porte(1) => keyboard_column8_select,
       porte(0) => capslock_from_keymapper,
       -- Port G is M65 only, and has bit-bash interfaces
-      portg(7 downto 6) => dummy_g(7 downto 6),
-      portg(5) => hpd_a,
+      portg(7) => hpd_a, -- ADV7511 hot plug detect
+      portg(6) => dummy_g(6),
+      portg(5) => sd_bitbash,
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
