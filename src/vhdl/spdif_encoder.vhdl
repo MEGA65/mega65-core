@@ -84,7 +84,10 @@ architecture rtl of spdif_encoder is
   -- The actual calculation can't be done in VHDL as it needs to be calulcated
   -- using floating point precision to be accurate enough.
 --  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(65536*65536*(sample_rate*2*64)/clock_frequency,33);
-  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(977343669,33);
+--  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(977343669,33);
+  -- For some reason the above results in a sample rate of ~89KHz,
+  -- so we will reduce it accordingly
+  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(526983706,33);
   signal clocksummer : unsigned(32 downto 0) := (others => '0');
   signal last_clocksummer32 : std_logic := '0';
   
