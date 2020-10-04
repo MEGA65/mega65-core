@@ -477,7 +477,8 @@ begin
       temp => fpga_temperature);
 
   hdmi_de <= hdmi_dataenable;
-  hdmi_vsync <= v_vsync;
+  -- We seem to need to invert HDMI HSYNC based on N5998A tests
+  hdmi_vsync <= not v_vsync;
 
   hdmi_hsync <= hdmi_hsync_drive;
   
