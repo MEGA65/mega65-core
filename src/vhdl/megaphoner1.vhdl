@@ -158,6 +158,7 @@ entity container is
          ----------------------------------------------------------------------
          headphone_left : out std_logic;
          headphone_right : out std_logic;
+         headphone_mic : in std_logic;
 
          ----------------------------------------------------------------------
          -- I2S speaker audio output
@@ -635,12 +636,13 @@ begin
 
 
       ---------------------------------------------------------------------------
-      -- IO lines to the ethernet controller (stub)
+      -- IO lines to the mems and headphone microphone
       ---------------------------------------------------------------------------
       micData0 => micData0,
       micData1 => micData1,
       micClk => micClk,
 --      micLRSel => micLRSel,
+      headphone_mic => headphone_mic,
 
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller (stub)

@@ -305,6 +305,7 @@ entity iomapper is
     micData1 : in std_logic;
     micClk : out std_logic := '0';
     micLRSel : out std_logic := '0';
+    headphone_mic : in std_logic;
 
     -- PDM audio output for headphones/line-out
     ampPWM_l : out std_logic := '0';
@@ -1198,6 +1199,7 @@ begin
     micData1 => micData1,
     micClk => micClk,
     micLRSel => micLRSel,
+    headphone_mic => headphone_mic,
 
     leftsid_audio => leftsid_audio,
     rightsid_audio => rightsid_audio,
