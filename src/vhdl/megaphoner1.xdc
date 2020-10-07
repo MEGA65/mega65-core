@@ -163,6 +163,9 @@ set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdClock]
 ##PWM Audio Amplifier
 set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports headphone_right]
+# Headphone jack microphone input
+set_property -dict {PACKAGE_PIN C6 IOSTANDARD LVCMOS33} [get_ports headphone_mic]
+
 
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[0]}]

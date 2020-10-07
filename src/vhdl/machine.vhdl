@@ -268,6 +268,7 @@ entity machine is
          micData1 : in std_logic;
          micClk : out std_logic := '1';
          micLRSel : out std_logic := '1';
+         headphone_mic : in std_logic := '1';
 
          -- I2S audio channels
          i2s_master_clk : out std_logic := '0';
@@ -1687,6 +1688,7 @@ begin
       micData1 => micData1,
       micClk => micClk,
       micLRSel => micLRSel,
+      headphone_mic => headphone_mic,
 
       -- I2S interfaces for various boards
       i2s_master_clk => i2s_master_clk,

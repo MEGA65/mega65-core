@@ -125,7 +125,8 @@ entity audio_complex is
     micData0 : in std_logic; --  (microphones 0 and 1)
     micData1 : in std_logic; --  (microphones 2 and 3)
     micClk : out std_logic;
-    micLRSel : out std_logic := '0'
+    micLRSel : out std_logic := '0';
+    headphone_mic : in std_logic
     
     );
 
@@ -146,6 +147,7 @@ architecture elizabethan of audio_complex is
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
   signal mic_divider : unsigned(7 downto 0) := "00000000";
+  signal headphone_mic_left : signed(15 downto 0) := to_signed(0,16);
   signal mems_mic0_left : signed(15 downto 0) := to_signed(0,16);
   signal mems_mic0_right : signed(15 downto 0) := to_signed(0,16);
   signal mems_mic1_left : signed(15 downto 0) := to_signed(0,16);
@@ -312,6 +314,13 @@ begin
       sample_bit => micData1,
       sample_out => mems_mic1_right);
 
+  michead: entity work.pdm_to_pcm
+    port map (
+      clock => cpuclock,
+      sample_clock => mic_do_sample_left,
+      sample_bit => headphone_mic,
+      sample_out => headphone_mic_left);
+  
   -- PWM/PDM digital audio output for Nexys4 series boards
   -- and on the MEGA65 PCB.
   pwm0: entity work.pcm_to_pdm
@@ -380,7 +389,7 @@ begin
     sources(11) => mems_mic0_right,
     sources(12) => mems_mic1_left,
     sources(13) => mems_mic1_right,
-    sources(14) => fm_left, -- spare input
+    sources(14) => headphone_mic_left, -- headphone jack input on megaphone
     sources(15) => fm_right, -- #15 can't be used, as shadowed by master volume
                              -- (gain is controlled by source 14)
 
