@@ -23,6 +23,11 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
 
+## Flop/secure mode LED
+set_property -dict { PACKAGE_PIN K1 IOSTANDARD LVCMOS33 } [get_ports flopled]
+## IR LED
+set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS33 } [get_ports irled]
+
 ## QSPI Flash on TE0725 has the same pinout as the Nexys4 boards
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports {QspiDB[0]}]
 set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33} [get_ports {QspiDB[1]}]
