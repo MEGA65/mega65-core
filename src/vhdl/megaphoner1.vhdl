@@ -39,6 +39,9 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
+         flopled : out std_logic := '1';
+         irled : out std_logic := '1';
+         
          wifi_uart_rx : inout std_logic := '1';
          wifi_uart_tx : out std_logic := '1';
 
@@ -341,6 +344,7 @@ architecture Behavioral of container is
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
 
+  signal portp : unsigned(7 downto 0);
   
 begin
 
@@ -415,7 +419,7 @@ begin
       clock325 => clock325,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
-      request_counter => led,
+--      request_counter => led,
 
       viciv_addr => hyper_addr,
       viciv_request_toggle => hyper_request_toggle,
@@ -534,6 +538,9 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
+      flopled => flopled,
+      portp_out => portp,
+      
       -- No IEC bus on this hardware, so no need to slow CPU down for it.
       iec_bus_active => '0',
       iec_srq_external => '1',
@@ -780,8 +787,15 @@ begin
 
   lcd_dclk <= clock27;
 
+  
   process (cpuclock)
-  begin    
+  begin
+
+    -- LED on TE0725
+    led <= portp(4);
+    -- High power IR LED for TV remote control
+    irled <= portp(5);
+    
     if rising_edge(cpuclock) then
       -- Connect Smartcard CLK and IO lines to IEC bus lines for easy control
       -- and debugging
