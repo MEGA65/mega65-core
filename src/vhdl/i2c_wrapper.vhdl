@@ -121,6 +121,8 @@ architecture behavioural of i2c_wrapper is
   signal adc2_smooth : unsigned(15 downto 0) := x"8000";
   signal adc3_smooth : unsigned(15 downto 0) := x"8000";
   
+  signal read_loops : unsigned(7 downto 0) := x"00";
+    
 begin
 
   i2c1: entity work.i2c_master
@@ -170,7 +172,10 @@ begin
       elsif fastio_addr(7 downto 0) = x"f5" then
         -- @IO:GS $FFD70F5 - ADC3 smoothed value (MSB)
         fastio_rdata <= adc3_smooth(15 downto 8);
-      elsif fastio_addr(7 downto 0) = "11111111" then
+      elsif fastio_addr(7 downto 0) = x"fe" then
+        -- Show count of read loops, so we can know if data is fresh enough.
+        fastio_rdata <= read_loops;
+      elsif fastio_addr(7 downto 0) = x"ff" then
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
       else
@@ -256,6 +261,7 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
+          read_loops <= read_loops + 1;
           i2c1_command_en <= '1';
           i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
           i2c1_wdata <= x"00";
