@@ -17,17 +17,15 @@ VIVADO=	./vivado_wrapper
 
 ifdef USE_LOCAL_CC65
 	# use locally installed binary (requires cc65 to be in the $PATH)
-	CC65=  cc65
-	CA65=  ca65 --cpu 4510
-	LD65=  ld65 -t none
-	CL65=  cl65 --config src/tests/vicii.cfg
+	CC65_PREFIX=
 else
 	# use the binary built from the submodule
-	CC65=  cc65/bin/cc65
-	CA65=  cc65/bin/ca65 --cpu 4510
-	LD65=  cc65/bin/ld65 -t none
-	CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+	CC65_PREFIX=$(PWD)/cc65/bin/
 endif
+CC65=  $(CC65_PREFIX)cc65
+CA65=  $(CC65_PREFIX)ca65 --cpu 4510
+LD65=  $(CC65_PREFIX)ld65 -t none
+CL65=  $(CC65_PREFIX)cl65 --config src/tests/vicii.cfg
 
 GHDL=  ghdl/build/bin/ghdl
 
@@ -81,7 +79,7 @@ $(SDCARD_DIR)/FREEZER.M65:
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-	( cd src/mega65-freezemenu && make FREEZER.M65 USE_LOCAL_CC65=$(USE_LOCAL_CC65))
+	( cd src/mega65-freezemenu && make FREEZER.M65 USE_LOCAL_CC65=1 CC65=$(CC65_PREFIX)cc65 CL65=$(CC65_PREFIX)cl65 )
 	cp src/mega65-freezemenu/FREEZER.M65 $(SDCARD_DIR)
 
 $(CBMCONVERT):
@@ -570,7 +568,7 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65))
+	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=1  CC65=$(CC65_PREFIX)cc65 CL65=$(CC65_PREFIX)cl65 )
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 	$(warning =============================================================)
