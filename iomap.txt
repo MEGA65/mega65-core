@@ -22,7 +22,8 @@ GS $7010000.5 - Force assertion of /RESET on cartridge port
 GS $7010000.5 - Read cartridge force reset (1=reset)
 GS $7010000.6 - Read cartridge /GAME flag
 GS $7010000.7 - Read cartridge /EXROM flag
-GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+GS $7010001.0 - Invert joystick line polarity for joystick expander cartridge
+GS $7010001.4 - Force disabling of joystick expander cartridge
 GS $7010001.5 - Joystick read toggle flag DEBUG
 GS $7010001.6 - 1=force joystick expansion mode.
 GS $7010001.6 - Force enabling of joystick expander cartridge
@@ -32,6 +33,9 @@ GS $7010003 - Counter of /NMI triggers from cartridge
 GS $7010004 - Counter of /DMA triggers from cartridge
 GS $7010005 - Counter of /GAME triggers from cartridge
 GS $7010006 - Counter of /EXROM triggers from cartridge
+GS $7010007 - Directly read cartridge port data lines.
+GS $7010008 - Directly read lower 8 cartridge address data lines.
+GS $7010009 - Directly read upper 8 cartridge address data lines.
 GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
@@ -124,18 +128,18 @@ C64 $D02D VIC-II:SPR6COL sprite 6 colour / 16-colour sprite transparency colour 
 C64 $D02E VIC-II:SPR7COL sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
 C65 $D02F VIC-III KEY register for unlocking extended registers.
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
-GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
+GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
 GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
 C64 $D030.0 VIC-II:C128FAST 2MHz select (for C128 2MHz emulation)
-C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM \@ \$DC00-\$DFFF
+C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
 C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
-C65 $D030.3 VIC-III:ROM8 Map C65 ROM \@ \$8000
-C65 $D030.4 VIC-III:ROMA Map C65 ROM \@ \$A000
-C65 $D030.5 VIC-III:ROMC Map C65 ROM \@ \$C000
+C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
+C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
+C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
 C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
-C65 $D030.7 VIC-III:ROME Map C65 ROM \@ \$E000
+C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
 C64 $D030 SUMMARY: C128 2MHz emulation
 C65 $D030 SUMMARY:VIC-III Control Register A
 C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
@@ -144,7 +148,7 @@ C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
 C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels
 C65 $D031.4 VIC-III:BPM Bit-Plane Mode
 C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
-C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
+C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
 C65 $D031 SUMMARY:VIC-III Control Register B
 C65 $D032 - Bitplane enable bits
@@ -209,8 +213,8 @@ GS $D052 VIC-IV:FNRASTER Read physical raster position
 GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
 GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
-GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
-GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
+GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
+GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
 GS $D054.5 VIC-IV:PALEMU video output pal simulation
@@ -255,7 +259,7 @@ GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
 GS $D070.1-0 VIC-IV:ABTPALSEL VIC-IV bitmap/text palette bank (alternate palette)
 GS $D070.3-2 VIC-IV:SPRPALSEL sprite palette bank
 GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
-GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
+GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
 GS $D070 NONE:VIC-IV palette bank selection
 GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
 GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
@@ -268,8 +272,10 @@ GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
 GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
 GS $D079 VIC-IV:RSTCOMP Raster compare value
 GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-GS $D07A.3-6 VIC-IV:RESERVED 
+GS $D07A.4-5 VIC-IV:RESERVED 
+GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
 GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+GS $D07A.7 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
 GS $D07B VIC-IV:Number of text rows to display
 GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
@@ -298,30 +304,25 @@ GS $D09F.2 - EQ flag inhibit state (DEBUG)
 C65 $D0A0 - C65 RAM Expansion controller
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
 C65 $D0A0-$D0FF SUMMARY:REC Reserved for C65 RAM Expansion Controller.
-GS $D0E0 Buffered UART1 Data register (read to accept a byte, write to transmit a byte)
-GS $D0E1.0 Buffered UART1 enable interrupt on TX buffer low-water mark
-GS $D0E1.1 Buffered UART1 enable interrupt on RX high-water mark
-GS $D0E1.2 Buffered UART1 enable interrupt on RX byte
-GS $D0E1.3 Buffered UART1 TX buffer full
-GS $D0E1.4 Buffered UART1 RX buffer full
-GS $D0E1.5 Buffered UART1 TX buffer empty
-GS $D0E1.6 Buffered UART1 RX buffer empty
-GS $D0E1.7 Buffered UART1 interrupt status
-GS $D0E1 Buffered UART1 Status register
-GS $D0E6 Buffered UART2 frequency divisor (LSB)
-GS $D0E7 Buffered UART2 frequency divisor (MSB)
-GS $D0E8 Buffered UART2 Data register (read to accept a byte, write to transmit a byte)
-GS $D0E9.0 Buffered UART2 enable interrupt on TX buffer low-water mark
-GS $D0E9.1 Buffered UART2 enable interrupt on RX high-water mark
-GS $D0E9.2 Buffered UART2 enable interrupt on RX byte
-GS $D0E9.3 Buffered UART2 TX buffer full
-GS $D0E9.4 Buffered UART2 RX buffer full
-GS $D0E9.5 Buffered UART2 TX buffer empty
-GS $D0E9.6 Buffered UART2 RX buffer empty
-GS $D0E9.7 Buffered UART2 interrupt status
-GS $D0E9 Buffered UART2 Status register
-GS $D0EE Buffered UART2 frequency divisor (LSB)
-GS $D0EF Buffered UART2 frequency divisor (MSB)
+GS $D0E0.0-3 Select active UART for other registers
+GS $D0E0.4 Enable loopback mode
+GS $D0E0.5 Buffered UART master RX buffer high-water IRQ enable
+GS $D0E0.6 Buffered UART master TX queue low-water IRQ enable
+GS $D0E0.7 Buffered UART master IRQ enable
+GS $D0E1.0 Buffered UART enable interrupt on TX buffer low-water mark
+GS $D0E1.1 Buffered UART enable interrupt on RX high-water mark
+GS $D0E1.2 Buffered UART enable interrupt on RX byte
+GS $D0E1.3 Buffered UART TX buffer full
+GS $D0E1.4 Buffered UART RX buffer full
+GS $D0E1.5 Buffered UART TX buffer empty
+GS $D0E1.6 Buffered UART RX buffer empty
+GS $D0E1.7 Buffered UART interrupt status
+GS $D0E1 Buffered UART Status register / interrupt select register
+GS $D0E2 Buffered UART Read register (write to ACK receipt of byte)
+GS $D0E3 Buffered UART Write register (write to send byte)
+GS $D0E4 Buffered UART bit rate divisor LSB
+GS $D0E5 Buffered UART bit rate divisor middle byte
+GS $D0E5 Buffered UART bit rate divisor MSB
 GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
@@ -414,7 +415,13 @@ GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd vir
 GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
 GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
 GS $D619 UARTMISC:UNUSED port o output value
-GS $D61A UARTMISC:UNUSED port p output value
+GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
+GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
+GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
+GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
+GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
+GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
+GS $D61A UARTMISC:SYSCTL System control flags (target specific)
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
 GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
 GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
@@ -521,7 +528,8 @@ GS $D657 CPU:HTRAP17 Writing triggers hypervisor trap \$17
 GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
 GS $D658 CPU:HTRAP18 Writing triggers hypervisor trap \$18
 GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
-GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy access (usually for access via serial debugger interface)
+GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
 GS $D659 CPU:HTRAP19 Writing triggers hypervisor trap \$19
 GS $D659 - Hypervisor virtualise hardware flags
 GS $D65A CPU:HTRAP1A Writing triggers hypervisor trap \$1A
@@ -619,10 +627,14 @@ GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
 GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
+GS $D689.2 - (read only, debug) sd_handshake signal.
 GS $D689.2 Set/read SD card sd_handshake signal
-GS $D689.3 - (read only) sd_data_ready signal.
+GS $D689.3 - (read only, debug) sd_data_ready signal.
 GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
+GS $D689.5 - F011 swap drive 0 / 1 
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
+GS $D68A.2 - Read only: is drive 0 virtualized F011
+GS $D68A.3 - Read only: is drive 1 virtualized F011
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
 GS $D68B.1 - F011 disk 1 present

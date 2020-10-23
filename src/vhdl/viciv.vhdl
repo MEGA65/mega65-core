@@ -694,6 +694,7 @@ architecture Behavioral of viciv is
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0) := to_unsigned(256,11);
+  signal viciv_rasterx_compare : unsigned(13 downto 0) := to_unsigned(8191,14);
   signal vicii_raster_compare_plus_one : unsigned(10 downto 0) := to_unsigned(256,11);
   signal vicii_x_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
   signal vicii_y_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
@@ -721,14 +722,18 @@ architecture Behavioral of viciv is
   signal irq_collisionspritesprite : std_logic := '0';
   signal irq_collisionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';
+  signal irq_rasterx : std_logic := '0';
+  signal irq_extras_enable : std_logic := '0';
   signal ack_lightpen : std_logic := '0';
   signal ack_collisionspritesprite : std_logic := '0';
   signal ack_collisionspritebitmap : std_logic := '0';
   signal ack_raster : std_logic := '0';
+  signal ack_rasterx : std_logic := '0';
   signal mask_lightpen : std_logic := '0';
   signal mask_collisionspritesprite : std_logic := '0';
   signal mask_collisionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
+  signal mask_rasterx : std_logic := '0';
   signal clear_collisionspritebitmap : std_logic := '0';
   signal clear_collisionspritebitmap_1 : std_logic := '0';
   signal clear_collisionspritesprite : std_logic := '0';
@@ -1724,7 +1729,7 @@ begin
           fastio_rdata(7) <= not irq_drive;
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= '1';       -- NC
+          fastio_rdata(4) <= irq_rasterx; 
           fastio_rdata(3) <= irq_lightpen;
           fastio_rdata(2) <= irq_collisionspritesprite;
           fastio_rdata(1) <= irq_collisionspritebitmap;
@@ -1733,7 +1738,7 @@ begin
           fastio_rdata(7) <= '1';       -- NC
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= '1';       -- NC
+          fastio_rdata(4) <= mask_rasterx;       
           fastio_rdata(3) <= mask_lightpen;
           fastio_rdata(2) <= mask_collisionspritesprite;
           fastio_rdata(1) <= mask_collisionspritebitmap;
@@ -2578,10 +2583,10 @@ begin
           sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=80 then
           -- @IO:GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
-          null;
+          viciv_rasterx_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=81 then
           -- @IO:GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
-          null;
+          viciv_rasterx_compare(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
         elsif register_number=82 then
         -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
         -- Allow setting of fine raster for IRQ (low bits)
@@ -2819,9 +2824,11 @@ begin
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-          -- @IO:GS $D07A.4-6 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.4-5 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
           -- @IO:GS $D07A.7 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
+          irq_extras_enable <= fastio_wdata(6);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
@@ -2974,11 +2981,13 @@ begin
 
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
+      irq_rasterx <= irq_rasterx and (not ack_rasterx);
       irq_lightpen <= irq_lightpen and (not ack_lightpen);
       irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
       irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
       -- Set IRQ line status to CPU
       irq_drive <= not ((irq_raster and mask_raster)
+                        or (irq_rasterx and mask_rasterx and irq_extras_enable)
                         or (irq_lightpen and mask_lightpen)
                         or (irq_collisionspritebitmap and mask_collisionspritebitmap)
                         or (irq_collisionspritesprite and mask_collisionspritesprite));
@@ -3105,6 +3114,9 @@ begin
           vicii_raster_compare_plus_one <= vicii_raster_compare + 1;
         else
           vicii_raster_compare_plus_one <= vicii_raster_compare;
+        end if;
+        if (xcounter_drive = viciv_rasterx_compare) then
+          irq_rasterx <= '1';
         end if;
         if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
