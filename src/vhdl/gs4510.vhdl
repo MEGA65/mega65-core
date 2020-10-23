@@ -213,42 +213,9 @@ entity gs4510 is
     -- When badline_toggle toggles, we need to act as though 40-43 clock cycles
     -- are being stolen from us (we should vary this based on sprite activity,
     -- but this should be enough for fixing many programs).
-    badline_toggle : in std_logic;
-    
-    ---------------------------------------------------------------------------
-    -- fast IO port (clocked at core clock). 1MB address space
-    ---------------------------------------------------------------------------
-    fastio_addr : inout std_logic_vector(19 downto 0) := (others => '0');
-    fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
-    fastio_read : inout std_logic := '0';
-    fastio_write : inout std_logic := '0';
-    fastio_wdata : inout std_logic_vector(7 downto 0) := (others => '0');
-    fastio_rdata : in std_logic_vector(7 downto 0);
-    hyppo_rdata : in std_logic_vector(7 downto 0);
-    hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
+    badline_toggle : in std_logic;    
     
     sector_buffer_mapped : in std_logic;
-    fastio_vic_rdata : in std_logic_vector(7 downto 0);
-    fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
-    colour_ram_cs : out std_logic := '0';
-    charrom_write_cs : out std_logic := '0';
-
-    ---------------------------------------------------------------------------
-    -- Slow device access 4GB address space
-    ---------------------------------------------------------------------------
-    slow_access_request_toggle : out std_logic := '0';
-    slow_access_ready_toggle : in std_logic;
-
-    slow_access_address : out unsigned(27 downto 0) := (others => '1');
-    slow_access_write : out std_logic := '0';
-    slow_access_wdata : out unsigned(7 downto 0) := x"00";
-    slow_access_rdata : in unsigned(7 downto 0);
-
-    -- Fast read interface for slow devices linear reading
-    -- (only hyperram)
-    slow_prefetched_request_toggle : inout std_logic := '0';
-    slow_prefetched_data : in unsigned(7 downto 0) := x"00";
-    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -1486,29 +1453,6 @@ begin
       );
   end generate;
   
-  shadowram0 : entity work.shadowram port map (
-    clkA      => clock,
-    addressa  => shadow_address_next,
-    wea       => shadow_write_next,
-    dia       => memory_access_wdata_next,
-    no_writes => shadow_no_write_count,
-    writes    => shadow_write_count,
-    doa       => shadow_rdata,
-    clkB      => chipram_clk,
-    addressb  => chipram_address,
-    dob       => chipram_dataout
-    );
-
-  zpcache0: entity work.ram36x1k port map (
-    clkl => clock,
-    clkr => clock,
-    wel(0) => cache_we,
-    addrl => std_logic_vector(cache_waddr),
-    addrr => std_logic_vector(cache_raddr),
-    unsigned(doutr) => cache_rdata,
-    dinl => std_logic_vector(cache_wdata)
-    );    
-      
   process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;

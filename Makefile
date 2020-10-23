@@ -181,6 +181,7 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhdl \
 			$(VHDLSRCDIR)/sid_voice.vhdl \
 
 CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
+			$(VHDLSRCDIR)/memcontroller.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
 			$(VHDLSRCDIR)/divider32.vhdl \
 			$(VHDLSRCDIR)/fast_divide.vhdl \
