@@ -47,7 +47,7 @@ architecture foo of test_memcontroller is
   signal idle_wait : integer := 1000;
   
   signal expect_value : std_logic := '0';
-  signal expected_value : unsigned(7 downto 0) := x"00";
+  signal expected_value : unsigned(47 downto 0) := to_unsigned(0,48);
 
   signal hr_d : unsigned(7 downto 0) := (others => '0');
   signal hr_rwds : std_logic := '0';
@@ -282,7 +282,7 @@ begin
 
       is_zp_access => '0',
 
-      bp_address => to_unsigned(0,28),
+      bp_address => to_unsigned(0,20),
 
       transaction_request_toggle => transaction_request_toggle,
       transaction_complete_toggle => transaction_complete_toggle,

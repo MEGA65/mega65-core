@@ -92,7 +92,15 @@ entity memcontroller is
     -- (only hyperram)
     slow_prefetched_request_toggle : inout std_logic := '0';
     slow_prefetched_data : in unsigned(7 downto 0) := x"00";
-    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1')
+    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+
+    ---------------------------------------------------------------------------
+    -- VIC-IV interface to fast/chip RAM
+    ---------------------------------------------------------------------------
+    chipram_clk : IN std_logic := '0';
+    chipram_address : IN unsigned(19 DOWNTO 0) := to_unsigned(0,20);
+    chipram_dataout : OUT unsigned(7 DOWNTO 0)
+    
     
     );
 end entity memcontroller;
@@ -123,6 +131,18 @@ architecture edwardian of memcontroller is
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
   signal last_fastram_write_request_toggle : std_logic := '0';
+
+  signal fastram_write_addr : integer range 0 to 1048975 := 0;
+  signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal fastram_write_bytecount : integer range 0 to 3 := 0;
+  
+  signal zpcache_we : std_logic := '0';
+  signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
+  signal zpcache_raddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
+  signal zpcache_rdata : unsigned(35 downto 0);
+  signal zpcache_wdata : unsigned(35 downto 0) := to_unsigned(0,36);
+
+  signal last_transaction_request_toggle : std_logic := '0';
   
 begin
 
@@ -180,7 +200,7 @@ begin
           if transaction_write = '1' then
             -- Its a write
 
-            if transaction_addr(27 downto 8) = bp_address then
+            if transaction_address(27 downto 8) = bp_address then
               -- Its to ZP, so also update the ZP cache
             else
               -- Not to ZP, so we can just commit the write immediately
@@ -190,7 +210,7 @@ begin
 
             -- Either way, request the data be written
             fastram_write_request_toggle <= not fastram_write_request_toggle;
-            fastram_write_addr <= transaction_address;
+            fastram_write_addr <= to_integer(transaction_address(19 downto 0));
             fastram_write_data <= transaction_wdata;
             fastram_write_bytecount <= transaction_length;
             
@@ -214,7 +234,7 @@ begin
       -- If we are writing to fastram, write out the queued bytes
       if fastram_write_now='1' then
         fastram_iface(0).addr <= fastram_next_address;
-        fastram_iface(0).wea <= '1';
+        fastram_iface(0).we <= '1';
         fastram_iface(0).wdata <= fastram_write_data_vector(7 downto 0);
 
         -- Get ready for writing the next byte
@@ -227,7 +247,7 @@ begin
         end if;
         fastram_write_data_vector(23 downto 0) <= fastram_write_data_vector(31 downto 8);
       else
-        fastram_iface(0).wea <= '0';
+        fastram_iface(0).we <= '0';
       end if;      
 
       -- Do we have a new write request to fastram?
