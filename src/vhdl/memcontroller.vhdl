@@ -65,6 +65,7 @@ entity memcontroller is
     fastio_read : inout std_logic := '0';
     fastio_write : inout std_logic := '0';
     fastio_wdata : inout std_logic_vector(7 downto 0) := (others => '0');
+    fastio_viciv_rdata : in std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
 
     -- Special paths for various memories
@@ -175,6 +176,26 @@ architecture edwardian of memcontroller is
   signal last_slowdev_read_complete_toggle : std_logic := '0';
   signal slowdev_write_complete_toggle : std_logic := '0';
   signal last_slowdev_write_complete_toggle : std_logic := '0';
+
+  signal fastio_request_toggle_int : std_logic := '0';
+  signal fastio_read_position : integer range 0 to 7 := 0;
+  signal fastio_read_bytes_remaining_plus_one : integer range 0 to 7 := 0;
+  signal fastio_read_bytecount : integer range 0 to 6 := 0;
+  signal fastio_write_bytes_remaining : integer range 0 to 6 := 0;
+  signal fastio_write_bytecount : integer range 0 to 6 := 0;
+  signal fastio_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal fastio_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal fastio_next_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal fastio_read_request_toggle : std_logic := '0';
+  signal fastio_write_request_toggle : std_logic := '0';
+  signal last_fastio_read_request_toggle : std_logic := '0';
+  signal last_fastio_write_request_toggle : std_logic := '0';
+  signal fastio_read_complete_toggle : std_logic := '0';
+  signal last_fastio_read_complete_toggle : std_logic := '0';
+  signal fastio_write_complete_toggle : std_logic := '0';
+  signal last_fastio_write_complete_toggle : std_logic := '0';
+  signal src_is_colourram : std_logic := '0';
+  signal src_is_viciv : std_logic := '0';
   
   signal zpcache_we : std_logic := '0';
   signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
@@ -220,6 +241,70 @@ begin
   process(cpuclock,cpuclock2x,cpuclock4x,cpuclock8x) is
   begin
     if rising_edge(cpuclock) then
+      colour_ram_cs <= '0';
+      if fastio_read_request_toggle /= last_fastio_read_request_toggle then
+        fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;
+        last_fastio_read_request_toggle <= fastio_read_request_toggle;
+      end if;
+      if fastio_write_request_toggle /= last_fastio_write_request_toggle then
+        report "saw fastio write request for " & integer'image(fastio_write_bytecount) & " bytes, toggle="
+          & std_logic'image(fastio_write_request_toggle)
+          & ", last_toggle=" & std_logic'image(last_fastio_write_request_toggle);
+        fastio_write_bytes_remaining <= fastio_write_bytecount;
+        last_fastio_write_request_toggle <= fastio_write_request_toggle;
+      end if;
+      
+      if (fastio_write_bytes_remaining /= 0) then
+        report "fastio write happening now";
+        -- Get ready for writing the next byte
+        fastio_next_address <= fastio_next_address + 1;
+        fastio_write_bytes_remaining <= fastio_write_bytes_remaining - 1;
+        fastio_write_data_vector(23 downto 0) <= fastio_write_data_vector(31 downto 8);
+
+        fastio_addr <= std_logic_vector(fastio_next_address);
+        fastio_wdata <= std_logic_vector(fastio_write_data_vector(7 downto 0));
+        fastio_write <= '1';
+
+        if fastio_write_bytes_remaining = 1 then
+          -- We are now writing our last byte, so we can report completion
+          report "wrote last byte to slowdev";
+          fastio_write_complete_toggle <= not fastio_write_complete_toggle;
+        end if;       
+      end if;      
+
+      if fastio_read_bytes_remaining_plus_one /= 0 then
+        report "fastio read happening now";
+        -- XXX some fastio devices have a wait state:
+        -- With this setup, we can pipeline the reads, but we still have to
+        -- have that extra cycle of delay before reading the first value
+        fastio_next_address <= fastio_next_address + 1;
+        fastio_read_bytes_remaining_plus_one <= fastio_read_bytes_remaining_plus_one - 1;
+
+        fastio_addr <= std_logic_vector(fastio_next_address);
+        fastio_write <= '0';
+        colour_ram_cs <= src_is_colourram;
+        
+        if fastio_read_bytes_remaining_plus_one = 1 then
+          -- We are now scheduling reading the last byte
+          fastio_read_complete_toggle <= not fastio_read_complete_toggle;
+        end if;
+
+        if fastio_read_position > 6 then
+          fastio_read_position <= 0;
+        else
+          fastio_read_position <= fastio_read_position + 1;
+          if src_is_viciv= '1' then
+            fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
+              <= unsigned(fastio_viciv_rdata);
+            report "fastio VIC-IV stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(slowdev_access_read_position);
+          else
+            fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
+              <= unsigned(fastio_rdata);
+            report "fastio stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(slowdev_access_read_position);
+          end if;
+        end if;        
+      end if;
+      
     end if;
     if rising_edge(cpuclock2x) then
       -- Slow devices is on 2x clock (81MHz) bus interface
@@ -301,6 +386,8 @@ begin
           if transaction_write = '1' then
             -- Its a write
 
+            -- XXX Also write to colour RAM if the write address is between $1F800-$1FFFF
+            
             if transaction_address(27 downto 8) = bp_address then
               -- Its to ZP, so also update the ZP cache
             else
@@ -349,9 +436,38 @@ begin
           -- the various clock domains.
           
           report "not fast/chip ram request @ $" & to_hstring(transaction_address);
-          
+
+          -- Schedule read/write via fastio bus or variant
+          if transaction_write = '1' then
+            fastio_write_request_toggle <= not fastram_write_request_toggle;
+          else
+            fastio_read_request_toggle <= not fastram_read_request_toggle;
+          end if;
+          fastio_next_address <= transaction_address(19 downto 0);
+          fastio_rdata_buffer <= to_unsigned(0,48);            
+                    
           if transaction_address(27 downto 20) = x"FF" then
-          -- FastIO range
+            -- FastIO range
+            if transaction_address(19 downto 16) = x"8" then
+              -- Colour RAM
+              -- (physically connected to the fastio bus: we should separate
+              -- it, and use 324MHz clock on it)
+              src_is_colourram <= '1';
+            elsif transaction_address(19 downto 14) = "111110" then
+              -- Hypervisor memory
+            elsif transaction_address(19 downto 12) = x"fe" then
+              -- Charrom write
+              charrom_write_cs <= transaction_write;
+            elsif ((transaction_address(19 downto 14)&"00") = x"d0")
+              and (transaction_address(11 downto 7) /= "000001")
+            then
+              -- VIC-IV fastio
+              src_is_viciv <= '1';
+            else
+              -- General fastio access
+              src_is_viciv <= '0';
+              src_is_colourram <= '0';
+            end if;
           elsif transaction_address(27 downto 26) /= "00" then
             -- Slow devices range
             report "slowdev request";

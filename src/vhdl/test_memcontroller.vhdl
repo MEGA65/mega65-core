@@ -310,6 +310,7 @@ begin
       fastio_read => fastio_read,
       fastio_write => fastio_write,
       fastio_wdata => fastio_wdata,
+      fastio_viciv_rdata => fastio_vic_rdata,
       fastio_rdata => fastio_rdata,
 
       fastio_vic_rdata => fastio_vic_rdata,
