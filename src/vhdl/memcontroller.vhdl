@@ -150,10 +150,11 @@ architecture edwardian of memcontroller is
   signal fastram_read_bytes_remaining : integer range 0 to 6 := 0;
   signal fastram_read_byte_position : integer range 0 to 6 := 0;
   signal fastram_job_end_token : integer range 0 to 32 := 32;
-  type read_tokens is array(0 to 5) of unsigned(4 downto 0);
-  signal fastram_read_tokens : read_tokens := (others => to_unsigned(0,5));
+  type read_tokens is array(0 to 5) of integer range 0 to 33;
+  signal fastram_read_tokens : read_tokens := (others => 33);
 
   signal fastram_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal fastram_rdata : unsigned(7 downto 0) := x"00";
   
   signal zpcache_we : std_logic := '0';
   signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
@@ -173,7 +174,7 @@ begin
     addressa  => fastram_iface(8).addr,
     wea       => fastram_iface(8).we,
     dia       => fastram_iface(8).wdata,
-    doa       => fastram_iface(0).rdata,
+    doa       => fastram_rdata,
     clkB      => chipram_clk,
     addressb  => chipram_address,
     dob       => chipram_dataout
@@ -247,15 +248,17 @@ begin
           end if;
         end if;
 
-        -- Notice when the read is complete, and tell the CPU
-        if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
-          last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
-          transaction_complete_toggle <= transaction_request_toggle;
-          transaction_rdata <= fastram_rdata_buffer;
-        end if;
-        
       end if;      
-    
+
+      -- Notice when the read is complete, and tell the CPU
+      if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
+        report "return read data to CPU";
+        last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
+        transaction_complete_toggle <= transaction_request_toggle;
+        transaction_rdata <= fastram_rdata_buffer;
+        fastram_job_end_token <= 32;
+      end if;        
+      
     end if;
     if rising_edge(cpuclock8x) then
       -- BRAM is on pipelined 8x clock (324MHz)
@@ -270,6 +273,9 @@ begin
       end loop;
       -- And reflect token ID through the pipeline for pickup
       fastram_iface(0).token_return <= fastram_iface(8).token;
+      -- XXX The following is because GHDL was doing weird things with having
+      -- iface(0).rdata directly attached to the fastram
+      fastram_iface(1).rdata <= fastram_rdata;
 
       -- By default idle the fast/chip RAM interface
       fastram_iface(0).addr <= 0;
@@ -302,6 +308,7 @@ begin
       end if;      
 
       if fastram_read_now='1' then
+        report "fastram_read_now asserted";
         fastram_iface(0).addr <= fastram_next_address;
         fastram_read_bytes_remaining <= fastram_read_bytes_remaining - 1;
         if fastram_read_bytes_remaining = 1 then
@@ -312,7 +319,7 @@ begin
           fastram_read_now <= '1';
         end if;
         -- Note the token ID and where it needs to go
-        fastram_read_tokens(fastram_read_byte_position) <= next_token;
+        fastram_read_tokens(fastram_read_byte_position) <= to_integer(next_token);
         fastram_read_byte_position <= fastram_read_byte_position + 1;
         
       end if;
@@ -328,7 +335,8 @@ begin
 
       -- Or read request to fastram
       if fastram_read_request_toggle /= last_fastram_read_request_toggle then
-        last_fastram_write_request_toggle <= fastram_write_request_toggle;
+        report "accepting fastram read request";
+        last_fastram_read_request_toggle <= fastram_read_request_toggle;
         fastram_read_bytes_remaining <= fastram_read_bytecount;
         fastram_next_address <= fastram_read_addr;
         fastram_read_now <= '1';
@@ -338,15 +346,17 @@ begin
         fastram_job_end_token <= 32; -- only tokens 0 -- 31 exist
       end if;
       for i in 0 to 5 loop
-        if fastram_iface(8).token_return = fastram_read_tokens(i) then
+        if to_integer(fastram_iface(8).token_return) = fastram_read_tokens(i) then
           -- We have read a byte we are waiting for
           fastram_rdata_buffer(i*8 + 7 downto i*8) <= fastram_iface(8).rdata;
+          report "stashing byte $" & to_hstring(fastram_iface(8).rdata) & " into byte " & integer'image(i);
         end if;
       end loop;
       if to_integer(fastram_iface(8).token_return) = fastram_job_end_token then
         -- This was the last byte we needed to read, so we can tell the slower
         -- interface to collect and present the result back to the CPU
-        fastram_read_complete_toggle <= fastram_read_request_toggle;
+        fastram_read_complete_toggle <= not fastram_read_complete_toggle;
+        report "end of fastram read request reached";
       end if;
       
       
