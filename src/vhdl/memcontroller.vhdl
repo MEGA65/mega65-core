@@ -115,6 +115,7 @@ architecture edwardian of memcontroller is
 
     -- Token is used for quick collection of read results
     token : unsigned(4 downto 0);
+    token_return : unsigned(4 downto 0);
   end record;
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
@@ -123,18 +124,36 @@ architecture edwardian of memcontroller is
                                                    we => '0',
                                                    wdata => x"00",
                                                    rdata => x"00",
-                                                   token => to_unsigned(0,5)));
+                                                   token => to_unsigned(0,5),
+                                                   token_return => to_unsigned(0,5)));
 
+  -- 162MHz request signals
+  signal fastram_write_addr : integer range 0 to 1048975 := 0;
+  signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal fastram_write_bytecount : integer range 0 to 3 := 0;
+  signal fastram_read_addr : integer range 0 to 1048975 := 0;
+  signal fastram_read_bytecount : integer range 0 to 3 := 0;
+  
+  -- 324MHz fast internal chip ram access signals
   signal fastram_write_now : std_logic := '0';
   signal fastram_next_address : integer range 0 to 1048975 := 0;
   signal fastram_write_bytes_remaining : integer range 0 to 3 := 0;
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
   signal last_fastram_write_request_toggle : std_logic := '0';
+  signal fastram_read_request_toggle : std_logic := '0';
+  signal last_fastram_read_request_toggle : std_logic := '0';
+  signal fastram_read_complete_toggle : std_logic := '0';
+  signal last_fastram_read_complete_toggle : std_logic := '0';
+  signal next_token : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal fastram_read_now : std_logic := '0';
+  signal fastram_read_bytes_remaining : integer range 0 to 6 := 0;
+  signal fastram_read_byte_position : integer range 0 to 6 := 0;
+  signal fastram_job_end_token : integer range 0 to 32 := 32;
+  type read_tokens is array(0 to 5) of unsigned(4 downto 0);
+  signal fastram_read_tokens : read_tokens := (others => to_unsigned(0,5));
 
-  signal fastram_write_addr : integer range 0 to 1048975 := 0;
-  signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal fastram_write_bytecount : integer range 0 to 3 := 0;
+  signal fastram_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
   
   signal zpcache_we : std_logic := '0';
   signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
@@ -213,11 +232,30 @@ begin
             fastram_write_addr <= to_integer(transaction_address(19 downto 0));
             fastram_write_data <= transaction_wdata;
             fastram_write_bytecount <= transaction_length;
+          else
+            -- Reading from chip/fast RAM.
+
+            -- Remember that we have accepted the job
+            last_transaction_request_toggle <= transaction_request_toggle;
+
+            -- Schedule read
+            fastram_read_request_toggle <= not fastram_read_request_toggle;
+            fastram_read_addr <= to_integer(transaction_address(19 downto 0));
+            fastram_read_bytecount <= transaction_length;
+            fastram_rdata_buffer <= to_unsigned(0,48);
             
           end if;
         end if;
-      end if;
-      
+
+        -- Notice when the read is complete, and tell the CPU
+        if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
+          last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
+          transaction_complete_toggle <= transaction_request_toggle;
+          transaction_rdata <= fastram_rdata_buffer;
+        end if;
+        
+      end if;      
+    
     end if;
     if rising_edge(cpuclock8x) then
       -- BRAM is on pipelined 8x clock (324MHz)
@@ -230,7 +268,23 @@ begin
       for i in 1 to 8 loop
         fastram_iface(i) <= fastram_iface(i-1);
       end loop;
+      -- And reflect token ID through the pipeline for pickup
+      fastram_iface(0).token_return <= fastram_iface(8).token;
 
+      -- By default idle the fast/chip RAM interface
+      fastram_iface(0).addr <= 0;
+      fastram_iface(0).we <= '0';
+      fastram_iface(0).wdata <= x"00";
+      -- And keep cycling the token IDs so that we can easily collect results
+      -- at the other end
+      fastram_iface(0).token <= next_token;
+      next_token <= next_token + 1;
+      fastram_read_byte_position <= 0;      
+
+      if fastram_write_now='1' or fastram_read_now='1' then
+        fastram_next_address <= fastram_next_address + 1;
+      end if;
+      
       -- If we are writing to fastram, write out the queued bytes
       if fastram_write_now='1' then
         fastram_iface(0).addr <= fastram_next_address;
@@ -238,18 +292,31 @@ begin
         fastram_iface(0).wdata <= fastram_write_data_vector(7 downto 0);
 
         -- Get ready for writing the next byte
-        fastram_next_address <= fastram_next_address + 1;
         fastram_write_bytes_remaining <= fastram_write_bytes_remaining - 1;
         if fastram_write_bytes_remaining = 1 then
           fastram_write_now <= '0';
         else
           fastram_write_now <= '1';
         end if;
-        fastram_write_data_vector(23 downto 0) <= fastram_write_data_vector(31 downto 8);
-      else
-        fastram_iface(0).we <= '0';
+        fastram_write_data_vector(23 downto 0) <= fastram_write_data_vector(31 downto 8);      
       end if;      
 
+      if fastram_read_now='1' then
+        fastram_iface(0).addr <= fastram_next_address;
+        fastram_read_bytes_remaining <= fastram_read_bytes_remaining - 1;
+        if fastram_read_bytes_remaining = 1 then
+          fastram_read_now <= '0';
+          -- Note which token will mark the end of the read job
+          fastram_job_end_token <= to_integer(next_token);
+        else
+          fastram_read_now <= '1';
+        end if;
+        -- Note the token ID and where it needs to go
+        fastram_read_tokens(fastram_read_byte_position) <= next_token;
+        fastram_read_byte_position <= fastram_read_byte_position + 1;
+        
+      end if;
+      
       -- Do we have a new write request to fastram?
       if fastram_write_request_toggle /= last_fastram_write_request_toggle then
         last_fastram_write_request_toggle <= fastram_write_request_toggle;
@@ -259,6 +326,30 @@ begin
         fastram_write_now <= '1';
       end if;
 
+      -- Or read request to fastram
+      if fastram_read_request_toggle /= last_fastram_read_request_toggle then
+        last_fastram_write_request_toggle <= fastram_write_request_toggle;
+        fastram_read_bytes_remaining <= fastram_read_bytecount;
+        fastram_next_address <= fastram_read_addr;
+        fastram_read_now <= '1';
+        fastram_read_byte_position <= 0;
+        -- Set end of job token initially to be invalid.
+        -- It will get updated with the correct value when the read job is underway
+        fastram_job_end_token <= 32; -- only tokens 0 -- 31 exist
+      end if;
+      for i in 0 to 5 loop
+        if fastram_iface(8).token_return = fastram_read_tokens(i) then
+          -- We have read a byte we are waiting for
+          fastram_rdata_buffer(i*8 + 7 downto i*8) <= fastram_iface(8).rdata;
+        end if;
+      end loop;
+      if to_integer(fastram_iface(8).token_return) = fastram_job_end_token then
+        -- This was the last byte we needed to read, so we can tell the slower
+        -- interface to collect and present the result back to the CPU
+        fastram_read_complete_toggle <= fastram_read_request_toggle;
+      end if;
+      
+      
     end if;
     
   end process;

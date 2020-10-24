@@ -43,8 +43,9 @@ architecture foo of test_memcontroller is
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
     );
 
-  -- Wait initially to allow hyperram to reset and set config register
-  signal idle_wait : integer := 1000;
+  -- Don't wait before starting
+  -- XXX HyperRAM not ready for first ~1000 cycles
+  signal idle_wait : integer := 1;
   
   signal expect_value : std_logic := '0';
   signal expected_value : unsigned(47 downto 0) := to_unsigned(0,48);
