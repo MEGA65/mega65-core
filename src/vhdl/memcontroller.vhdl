@@ -6,7 +6,6 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
-use work.victypes.all;
 
 entity memcontroller is
   generic(
@@ -93,8 +92,7 @@ entity memcontroller is
     -- (only hyperram)
     slow_prefetched_request_toggle : inout std_logic := '0';
     slow_prefetched_data : in unsigned(7 downto 0) := x"00";
-    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
-    
+    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1')
     
     );
 end entity memcontroller;
@@ -109,13 +107,15 @@ architecture edwardian of memcontroller is
 
     -- Token is used for quick collection of read results
     token : unsigned(4 downto 0);
-  end type;
+  end record;
 
-  signal fastram_iface : array 0 to 8 of fastram_interface := (others => ( addr => 0,
-                                                                           we => '0',
-                                                                           wdata => x"00",
-                                                                           rdata => x"00",
-                                                                           token => to_unsigned(0,5)));
+  type fri_array is array (natural range 0 to 8) of fastram_interface;
+  
+  signal fastram_iface : fri_array := (others => ( addr => 0,
+                                                   we => '0',
+                                                   wdata => x"00",
+                                                   rdata => x"00",
+                                                   token => to_unsigned(0,5)));
 
   signal fastram_write_now : std_logic := '0';
   signal fastram_next_address : integer range 0 to 1048975 := 0;
@@ -158,7 +158,7 @@ begin
     );    
 
   process(cpuclock,cpuclock2x,cpuclock4x,cpuclock8x) is
-
+  begin
     if rising_edge(cpuclock) then
     end if;
     if rising_edge(cpuclock2x) then

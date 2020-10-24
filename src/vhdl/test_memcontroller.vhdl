@@ -40,7 +40,7 @@ architecture foo of test_memcontroller is
     (address => x"0000400", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000091"),
 
     
-    others => ( address => x"FFFFFFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
+    others => ( address => x"FFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
     );
 
   -- Wait initially to allow hyperram to reset and set config register
@@ -63,8 +63,48 @@ architecture foo of test_memcontroller is
   signal hr2_clk_p : std_logic := '0';
   signal hr2_cs0 : std_logic := '0';
 
-  signal transacation_request_toggle : std_logic := '0';
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+  signal expansionram_read : std_logic;
+  signal expansionram_write : std_logic := '0';
+  signal expansionram_rdata : unsigned(7 downto 0);
+  signal expansionram_wdata : unsigned(7 downto 0) := x"42";
+  signal expansionram_address : unsigned(26 downto 0) := "000000100100011010001010111";
+  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_busy : std_logic;
+  signal current_cache_line : cache_row_t := (others => (others => '0'));
+  signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal current_cache_line_valid : std_logic := '0';
+
+  signal slow_prefetched_address : unsigned(26 downto 0);
+  signal slow_prefetched_data : unsigned(7 downto 0);
+  signal slow_prefetched_request_toggle : std_logic := '0';
+  signal slow_access_request_toggle : std_logic := '0';
+  signal slow_access_ready_toggle : std_logic;
+  signal last_slow_access_ready_toggle : std_logic;
+  signal slow_access_write : std_logic := '0';
+  signal slow_access_address : unsigned(27 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);  
+
+  signal fastio_addr : std_logic_vector(19 downto 0) := (others => '0');
+  signal fastio_addr_fast : std_logic_vector(19 downto 0);
+  signal fastio_read : std_logic;
+  signal fastio_write : std_logic;
+  signal fastio_wdata : std_logic_vector(7 downto 0);
+  signal fastio_rdata : std_logic_vector(7 downto 0);
+  signal fastio_vic_rdata : std_logic_vector(7 downto 0);
+  signal fastio_colour_ram_rdata : std_logic_vector(7 downto 0);
+
+  signal hyppo_rdata : std_logic_vector(7 downto 0);
+  signal hyppo_address_out : std_logic_vector(13 downto 0);
+
+  signal colour_ram_cs : std_logic;
+  signal charrom_write_cs : std_logic;
+  
+  
+  signal transaction_request_toggle : std_logic := '0';
   signal transaction_complete_toggle : std_logic := '0';
+  signal last_transaction_complete_toggle : std_logic := '0';
   signal transaction_is_instruction_fetch : std_logic := '0';
   signal transaction_length : integer range 0 to 3 := 0;
   signal transaction_address : unsigned(27 downto 0) := to_unsigned(0,28);
@@ -98,10 +138,10 @@ begin
       current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
 
-      viciv_addr => viciv_addr,
-      viciv_request_toggle => viciv_request_toggle,
-      viciv_data_out => viciv_data,
-      viciv_data_strobe => viciv_data_strobe,
+--    viciv_addr => viciv_addr,
+--    viciv_request_toggle => viciv_request_toggle,
+--    viciv_data_out => viciv_data,
+--    viciv_data_strobe => viciv_data_strobe,
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -140,7 +180,7 @@ begin
       RESETneg => hr_reset,
       RWDS => hr_rwds
       );
-    
+  
 
   fakehyper1: entity work.s27kl0641
     generic map (
@@ -163,7 +203,7 @@ begin
       RESETneg => hr2_reset,
       RWDS => hr2_rwds
       );
-    
+  
   
   slow_devices0: entity work.slow_devices
     generic map (
@@ -244,7 +284,7 @@ begin
 
       bp_address => to_unsigned(0,28),
 
-      transacation_request_toggle => transacation_request_toggle,
+      transaction_request_toggle => transaction_request_toggle,
       transaction_complete_toggle => transaction_complete_toggle,
       transaction_is_instruction_fetch => transaction_is_instruction_fetch,
       transaction_length => transaction_length,
@@ -288,34 +328,34 @@ begin
           ) is
   begin
     if false then 
-    report
-      "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
-      "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &
-      "hr_reset = " & std_logic'image(hr_reset) & ", " &
-      "hr_rwds = " & std_logic'image(hr_rwds) & ", " &
-      "hr_d = " & std_logic'image(hr_d(0))
-      & std_logic'image(hr_d(1))
-      & std_logic'image(hr_d(2))
-      & std_logic'image(hr_d(3))
-      & std_logic'image(hr_d(4))
-      & std_logic'image(hr_d(5))
-      & std_logic'image(hr_d(6))
-      & std_logic'image(hr_d(7))
-      & ".";
-    report
-      "hr2_cs0 = " & std_logic'image(hr2_cs0) & ", " &
-      "hr2_clk_p = " & std_logic'image(hr2_clk_p) & ", " &
-      "hr2_reset = " & std_logic'image(hr2_reset) & ", " &
-      "hr2_rwds = " & std_logic'image(hr2_rwds) & ", " &
-      "hr2_d = " & std_logic'image(hr2_d(0))
-      & std_logic'image(hr2_d(1))
-      & std_logic'image(hr2_d(2))
-      & std_logic'image(hr2_d(3))
-      & std_logic'image(hr2_d(4))
-      & std_logic'image(hr2_d(5))
-      & std_logic'image(hr2_d(6))
-      & std_logic'image(hr2_d(7))
-      & ".";
+      report
+        "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
+        "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &
+        "hr_reset = " & std_logic'image(hr_reset) & ", " &
+        "hr_rwds = " & std_logic'image(hr_rwds) & ", " &
+        "hr_d = " & std_logic'image(hr_d(0))
+        & std_logic'image(hr_d(1))
+        & std_logic'image(hr_d(2))
+        & std_logic'image(hr_d(3))
+        & std_logic'image(hr_d(4))
+        & std_logic'image(hr_d(5))
+        & std_logic'image(hr_d(6))
+        & std_logic'image(hr_d(7))
+        & ".";
+      report
+        "hr2_cs0 = " & std_logic'image(hr2_cs0) & ", " &
+        "hr2_clk_p = " & std_logic'image(hr2_clk_p) & ", " &
+        "hr2_reset = " & std_logic'image(hr2_reset) & ", " &
+        "hr2_rwds = " & std_logic'image(hr2_rwds) & ", " &
+        "hr2_d = " & std_logic'image(hr2_d(0))
+        & std_logic'image(hr2_d(1))
+        & std_logic'image(hr2_d(2))
+        & std_logic'image(hr2_d(3))
+        & std_logic'image(hr2_d(4))
+        & std_logic'image(hr2_d(5))
+        & std_logic'image(hr2_d(6))
+        & std_logic'image(hr2_d(7))
+        & ".";
     end if;
   end process;
 
@@ -351,7 +391,7 @@ begin
         idle_wait <= idle_wait - 1;
       elsif expect_value = '0' then
 
-        if mem_jobs(cycles).address = x"FFFFFFFFFFF" then
+        if mem_jobs(cycles).address = x"FFFFFFF" then
           report "DISPATCHER: Total sequence was " & integer'image(current_time - start_time) & "ns "
             & "(mean " & integer'image(1+(current_time-start_time)/cycles) & "ns ).";
           cycles <= 0;
@@ -368,25 +408,24 @@ begin
         transaction_length <= mem_jobs(cycles).bytes;
         transaction_request_toggle <= not transaction_request_toggle;
         
-          if start_time = 0 then
-            start_time <= current_time;
-          end if;
-          if (mem_jobs(cycles).write_p='0') then
-            report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
-              & to_hstring(mem_jobs(cycles).value);
-            expect_value <= '1';
-            expected_value <= mem_jobs(cycles).value;
-          else
-            report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
-              & to_hstring(mem_jobs(cycles).value);
-            expect_value <= '0';
-            dispatch_time <= current_time;
-          end if;
-
-          -- Perform transactions immediately after one another
-          idle_wait <= 0;
-        
+        if start_time = 0 then
+          start_time <= current_time;
         end if;
+        if (mem_jobs(cycles).write_p='0') then
+          report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+            & to_hstring(mem_jobs(cycles).value);
+          expect_value <= '1';
+          expected_value <= mem_jobs(cycles).value;
+        else
+          report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
+            & to_hstring(mem_jobs(cycles).value);
+          expect_value <= '0';
+          dispatch_time <= current_time;
+        end if;
+
+        -- Perform transactions immediately after one another
+        idle_wait <= 0;
+        
       end if;
     end if;
     

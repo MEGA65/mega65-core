@@ -52,7 +52,7 @@ architecture foo of test_hyperram is
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
-  
+
   signal cycles : integer := 0;
 
   signal expecting_byte : std_logic := '0';
