@@ -149,7 +149,7 @@ architecture behavioural of slow_devices is
   signal cart_access_accept_strobe : std_logic;
   signal cart_access_read_strobe : std_logic;
 
-  signal slow_access_last_request_toggle : std_logic := '1';
+  signal slow_access_last_request_toggle : std_logic := '0';
 
   signal expansionram_eternally_busy : std_logic := '1';
   signal expansionram_read_timeout : unsigned(23 downto 0) := to_unsigned(0,24);
@@ -285,9 +285,10 @@ begin
         expansionram_eternally_busy <= '0';
       end if;
       
-      report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
-        & std_logic'image(expansionram_data_ready_strobe)
-        & ", expansionram_busy = " & std_logic'image(expansionram_busy);
+--      report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
+--        & std_logic'image(expansionram_data_ready_strobe)
+--        & ", expansionram_busy = " & std_logic'image(expansionram_busy)
+--        & ", request_toggle = " & std_logic'image(slow_access_request_toggle);
       case state is
         when Idle =>
           -- Clear flags for expansion RAM access request
@@ -331,6 +332,7 @@ begin
 
           if slow_access_address = x"7FEFFFF" then
             -- @IO:GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
+            report "$7FEFFFF access";
             if slow_access_write='1' then
               sfx_emulation <= slow_access_wdata(0);
             end if;

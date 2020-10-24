@@ -39,6 +39,17 @@ architecture foo of test_memcontroller is
     (address => x"0000400", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000091"),
     (address => x"0000400", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000091"),
 
+    -- Now lets try some multi-byte reads and writes
+    (address => x"0000401", ifetch => '0', write_p => '1', bytes => 4, value => x"000012345678"),
+    (address => x"0000405", ifetch => '0', write_p => '1', bytes => 4, value => x"000090abcdef"),
+    (address => x"0000401", ifetch => '0', write_p => '0', bytes => 4, value => x"000012345678"),
+    (address => x"0000405", ifetch => '0', write_p => '0', bytes => 4, value => x"000090abcdef"),
+
+    -- And now try some simple slow device bus accesses
+    (address => x"7FEFFFF", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000001"),
+    (address => x"7FEFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000001"),
+    (address => x"7FEFFFF", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000000"),
+    (address => x"7FEFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000"),
     
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
     );
@@ -107,7 +118,7 @@ architecture foo of test_memcontroller is
   signal transaction_complete_toggle : std_logic := '0';
   signal last_transaction_complete_toggle : std_logic := '0';
   signal transaction_is_instruction_fetch : std_logic := '0';
-  signal transaction_length : integer range 0 to 3 := 0;
+  signal transaction_length : integer range 0 to 6 := 0;
   signal transaction_address : unsigned(27 downto 0) := to_unsigned(0,28);
   signal transaction_write : std_logic := '0';
   signal transaction_wdata : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -372,6 +383,7 @@ begin
   begin
 
     if transaction_complete_toggle /= last_transaction_complete_toggle then
+
       if expect_value = '1' then
         if expected_value = transaction_rdata then
           report "DISPATCHER: Read correct value $" & to_hstring(transaction_rdata)
@@ -382,10 +394,12 @@ begin
         end if;
         dispatch_time <= current_time;
       end if;        
+      -- Perform transactions immediately after one another
+      idle_wait <= 0;
       expect_value <= '0';
       last_transaction_complete_toggle <= transaction_complete_toggle;
     end if;
-
+   
     if transaction_complete_toggle = last_transaction_complete_toggle then
 
       if idle_wait /= 0 then
@@ -400,7 +414,6 @@ begin
         else
           cycles <= cycles + 1;        
         end if;
-
 
         transaction_address <= mem_jobs(cycles).address;
         transaction_write <= mem_jobs(cycles).write_p;
@@ -417,6 +430,7 @@ begin
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
           expected_value <= mem_jobs(cycles).value;
+          dispatch_time <= current_time;
         else
           report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
             & to_hstring(mem_jobs(cycles).value);
@@ -424,8 +438,9 @@ begin
           dispatch_time <= current_time;
         end if;
 
-        -- Perform transactions immediately after one another
-        idle_wait <= 0;
+        -- Allow enough time for jobs to finish
+        -- Some of the slow_devices tests can take a very long time
+        idle_wait <= 1024;
         
       end if;
     end if;

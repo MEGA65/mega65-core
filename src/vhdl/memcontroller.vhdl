@@ -49,7 +49,7 @@ entity memcontroller is
     -- Is the request an instruction fetch or not?
     transaction_is_instruction_fetch : in std_logic;
     -- Length of request (if not instruction fetch) in bytes
-    transaction_length : in integer range 0 to 3;
+    transaction_length : in integer range 0 to 6;
 
     transaction_address : in unsigned(27 downto 0);
     transaction_write : in std_logic;
@@ -127,17 +127,19 @@ architecture edwardian of memcontroller is
                                                    token => to_unsigned(0,5),
                                                    token_return => to_unsigned(0,5)));
 
+  constant fastram_pipeline_depth : integer := 8;
+  
   -- 162MHz request signals
   signal fastram_write_addr : integer range 0 to 1048975 := 0;
   signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal fastram_write_bytecount : integer range 0 to 3 := 0;
+  signal fastram_write_bytecount : integer range 0 to 6 := 0;
   signal fastram_read_addr : integer range 0 to 1048975 := 0;
-  signal fastram_read_bytecount : integer range 0 to 3 := 0;
+  signal fastram_read_bytecount : integer range 0 to 6 := 0;
   
   -- 324MHz fast internal chip ram access signals
   signal fastram_write_now : std_logic := '0';
   signal fastram_next_address : integer range 0 to 1048975 := 0;
-  signal fastram_write_bytes_remaining : integer range 0 to 3 := 0;
+  signal fastram_write_bytes_remaining : integer range 0 to 6 := 0;
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
   signal last_fastram_write_request_toggle : std_logic := '0';
@@ -155,6 +157,24 @@ architecture edwardian of memcontroller is
 
   signal fastram_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
   signal fastram_rdata : unsigned(7 downto 0) := x"00";
+
+  signal slow_access_request_toggle_int : std_logic := '0';
+  signal slowdev_access_read_position : integer range 0 to 7 := 0;
+  signal slowdev_read_bytes_remaining_plus_one : integer range 0 to 7 := 0;
+  signal slowdev_read_bytecount : integer range 0 to 6 := 0;
+  signal slowdev_write_bytes_remaining : integer range 0 to 6 := 0;
+  signal slowdev_write_bytecount : integer range 0 to 6 := 0;
+  signal slowdev_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal slowdev_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal slowdev_next_address : unsigned(27 downto 0) := to_unsigned(0,28);
+  signal slowdev_read_request_toggle : std_logic := '0';
+  signal slowdev_write_request_toggle : std_logic := '0';
+  signal last_slowdev_read_request_toggle : std_logic := '0';
+  signal last_slowdev_write_request_toggle : std_logic := '0';
+  signal slowdev_read_complete_toggle : std_logic := '0';
+  signal last_slowdev_read_complete_toggle : std_logic := '0';
+  signal slowdev_write_complete_toggle : std_logic := '0';
+  signal last_slowdev_write_complete_toggle : std_logic := '0';
   
   signal zpcache_we : std_logic := '0';
   signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
@@ -171,9 +191,9 @@ begin
   -- much higher throughput.
   fastram0 : entity work.shadowram port map (
     clkA      => cpuclock8x,
-    addressa  => fastram_iface(8).addr,
-    wea       => fastram_iface(8).we,
-    dia       => fastram_iface(8).wdata,
+    addressa  => fastram_iface(fastram_pipeline_depth).addr,
+    wea       => fastram_iface(fastram_pipeline_depth).we,
+    dia       => fastram_iface(fastram_pipeline_depth).wdata,
     doa       => fastram_rdata,
     clkB      => chipram_clk,
     addressb  => chipram_address,
@@ -203,16 +223,77 @@ begin
     end if;
     if rising_edge(cpuclock2x) then
       -- Slow devices is on 2x clock (81MHz) bus interface
+
+      if slowdev_read_request_toggle /= last_slowdev_read_request_toggle then
+        slowdev_read_bytes_remaining_plus_one <= slowdev_read_bytecount + 1;
+        last_slowdev_read_request_toggle <= slowdev_read_request_toggle;
+      end if;
+      if slowdev_write_request_toggle /= last_slowdev_write_request_toggle then
+        report "saw slowdev write request for " & integer'image(slowdev_write_bytecount) & " bytes, toggle="
+          & std_logic'image(slowdev_write_request_toggle)
+          & ", last_toggle=" & std_logic'image(last_slowdev_write_request_toggle);
+        slowdev_write_bytes_remaining <= slowdev_write_bytecount;
+        last_slowdev_write_request_toggle <= slowdev_write_request_toggle;
+      end if;
+      
+      if (slowdev_write_bytes_remaining /= 0) and (slow_access_ready_toggle = slow_access_request_toggle_int) then
+        report "slowdev write happening now";
+        -- Get ready for writing the next byte
+        slowdev_next_address <= slowdev_next_address + 1;
+        slowdev_write_bytes_remaining <= slowdev_write_bytes_remaining - 1;
+        slowdev_write_data_vector(23 downto 0) <= slowdev_write_data_vector(31 downto 8);
+
+        slow_access_address <= slowdev_next_address;
+        slow_access_wdata <= slowdev_write_data_vector(7 downto 0);
+        slow_access_write <= '1';
+        slow_access_request_toggle <= not slow_access_request_toggle_int;
+        slow_access_request_toggle_int <= not slow_access_request_toggle_int;
+
+        if slowdev_write_bytes_remaining = 1 then
+          -- We are now writing our last byte, so we can report completion
+          report "wrote last byte to slowdev";
+          slowdev_write_complete_toggle <= not slowdev_write_complete_toggle;
+        end if;       
+      end if;      
+
+      if slowdev_read_bytes_remaining_plus_one /= 0 and (slow_access_ready_toggle = slow_access_request_toggle_int) then
+        report "slowdev read happening now";
+        slowdev_next_address <= slowdev_next_address + 1;
+        slowdev_read_bytes_remaining_plus_one <= slowdev_read_bytes_remaining_plus_one - 1;
+
+        slow_access_address <= slowdev_next_address;
+        slow_access_write <= '0';
+        slow_access_request_toggle_int <= not slow_access_request_toggle_int;
+        slow_access_request_toggle <= not slow_access_request_toggle_int;
+
+        if slowdev_read_bytes_remaining_plus_one = 1 then
+          -- We are now scheduling reading the last byte
+          slowdev_read_complete_toggle <= not slowdev_read_complete_toggle;
+        end if;
+
+        if slowdev_access_read_position > 6 then
+          slowdev_access_read_position <= 0;
+        else
+          slowdev_access_read_position <= slowdev_access_read_position + 1;
+          slowdev_rdata_buffer(slowdev_access_read_position*8+7 downto slowdev_access_read_position*8)
+            <= slow_access_rdata;
+          report "slowdev stashing byte $" & to_hstring(slow_access_rdata) & " into byte " & integer'image(slowdev_access_read_position);
+        end if;
+        
+      end if;
+      
     end if;
     if rising_edge(cpuclock4x) then
       -- At 4x CPU clock (162MHz) we examine the CPU's requests, and
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
-      if cpuclock='1' and transaction_request_toggle /= last_transaction_request_toggle then
+      if (transaction_request_toggle /= last_transaction_request_toggle)
+      then
         -- Looks like a new request has come in.
         -- We really want to dispatch shadow RAM requests as fast as possible,
         -- so we check those immediately
+        report "transaction request for $" & to_hstring(transaction_address);
         if to_integer(transaction_address) <= chipram_size then
           -- Ok, so its fast RAM. But we need to know if it is a read or write
           -- operation, and whether it is to/from ZP or not, so that we can update
@@ -225,6 +306,7 @@ begin
             else
               -- Not to ZP, so we can just commit the write immediately
               last_transaction_request_toggle <= transaction_request_toggle;
+              report "immediate return from fastram write, because they never take >1 40MHz clock cycle";
               transaction_complete_toggle <= transaction_request_toggle;
             end if;
 
@@ -246,10 +328,57 @@ begin
             fastram_rdata_buffer <= to_unsigned(0,48);
             
           end if;
-        end if;
-
-      end if;      
-
+        else
+          -- NOT fast/chip RAM.
+          
+          -- Latency is still important, but not as critical as for fast RAM,
+          -- so we are able to flatten logic a little here.
+          -- We need to consider:
+          -- FastIO @ $FFxxxxx
+          -- SlowDevices @ $4000000-$7FFFFFF
+          -- SlowDevices @ $8000000-$FEFFFFF
+          -- (HyperRAM is handled by slow devices)
+          -- Other special cases that nominally live within the FastIO range:
+          --   VIC-IV registers
+          --   Colour RAM
+          --   Hypervisor RAM
+          
+          -- FastIO is @ 40.5MHz at present, while SlowDevices is clocked at cpu x2
+          -- (81MHz).  Thus we have separate little state-machines for each.  These
+          -- work broadly as for the fast/chip RAM case, with toggles to cross
+          -- the various clock domains.
+          
+          report "not fast/chip ram request @ $" & to_hstring(transaction_address);
+          
+          if transaction_address(27 downto 20) = x"FF" then
+          -- FastIO range
+          elsif transaction_address(27 downto 26) /= "00" then
+            -- Slow devices range
+            report "slowdev request";
+            
+            -- Remember that we have accepted the job
+            last_transaction_request_toggle <= transaction_request_toggle;
+            
+            -- Schedule read or write
+            slowdev_next_address <= transaction_address;
+            if transaction_write='0' then
+              report "requesting slowdev read";
+              slowdev_read_request_toggle <= not slowdev_read_request_toggle;
+              slowdev_read_bytecount <= transaction_length;
+              slowdev_rdata_buffer <= to_unsigned(0,48);
+              -- Mark reading as not yet having a byte scheduled for reading
+              slowdev_access_read_position <= 7;
+            else
+              report "requesting slowdev write";
+              slowdev_write_request_toggle <= not slowdev_write_request_toggle;
+              slowdev_write_data_vector <= transaction_wdata;
+              slowdev_write_bytecount <= transaction_length;
+            end if;
+            
+          end if;
+        end if;      
+      end if;
+    
       -- Notice when the read is complete, and tell the CPU
       if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
         report "return read data to CPU";
@@ -257,7 +386,22 @@ begin
         transaction_complete_toggle <= transaction_request_toggle;
         transaction_rdata <= fastram_rdata_buffer;
         fastram_job_end_token <= 32;
-      end if;        
+      end if;
+
+      -- Notice when the slowdev read or write is complete, and tell the CPU
+      if slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
+        report "return read data drom slowdev to CPU";
+        last_slowdev_read_complete_toggle <= slowdev_read_complete_toggle;
+        transaction_complete_toggle <= transaction_request_toggle;
+        transaction_rdata <= slowdev_rdata_buffer;
+      end if;
+      if slowdev_write_complete_toggle /= last_slowdev_write_complete_toggle then
+        report "slowdev write complete";
+        last_slowdev_write_complete_toggle <= slowdev_write_complete_toggle;
+        transaction_complete_toggle <= transaction_request_toggle;
+      end if;
+
+
       
     end if;
     if rising_edge(cpuclock8x) then
@@ -272,7 +416,7 @@ begin
         fastram_iface(i) <= fastram_iface(i-1);
       end loop;
       -- And reflect token ID through the pipeline for pickup
-      fastram_iface(0).token_return <= fastram_iface(8).token;
+      fastram_iface(0).token_return <= fastram_iface(fastram_pipeline_depth).token;
       -- XXX The following is because GHDL was doing weird things with having
       -- iface(0).rdata directly attached to the fastram
       fastram_iface(1).rdata <= fastram_rdata;
@@ -346,13 +490,13 @@ begin
         fastram_job_end_token <= 32; -- only tokens 0 -- 31 exist
       end if;
       for i in 0 to 5 loop
-        if to_integer(fastram_iface(8).token_return) = fastram_read_tokens(i) then
+        if to_integer(fastram_iface(fastram_pipeline_depth).token_return) = fastram_read_tokens(i) then
           -- We have read a byte we are waiting for
-          fastram_rdata_buffer(i*8 + 7 downto i*8) <= fastram_iface(8).rdata;
-          report "stashing byte $" & to_hstring(fastram_iface(8).rdata) & " into byte " & integer'image(i);
+          fastram_rdata_buffer(i*8 + 7 downto i*8) <= fastram_iface(fastram_pipeline_depth).rdata;
+--          report "stashing byte $" & to_hstring(fastram_iface(fastram_pipeline_depth).rdata) & " into byte " & integer'image(i);
         end if;
       end loop;
-      if to_integer(fastram_iface(8).token_return) = fastram_job_end_token then
+      if to_integer(fastram_iface(fastram_pipeline_depth).token_return) = fastram_job_end_token then
         -- This was the last byte we needed to read, so we can tell the slower
         -- interface to collect and present the result back to the CPU
         fastram_read_complete_toggle <= not fastram_read_complete_toggle;
