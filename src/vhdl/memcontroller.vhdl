@@ -114,6 +114,7 @@ architecture edwardian of memcontroller is
 
   type fastram_interface is record
     addr : integer range 0 to (chipram_size-1);
+    addr_return : integer range 0 to (chipram_size-1);
     we : std_logic;
     wdata : unsigned(7 downto 0);
     rdata : unsigned(7 downto 0);
@@ -130,6 +131,7 @@ architecture edwardian of memcontroller is
   type fri_array is array (natural range 0 to 8) of fastram_interface;
   
   signal fastram_iface : fri_array := (others => ( addr => 0,
+                                                   addr_return => 0,
                                                    we => '0',
                                                    wdata => x"00",
                                                    rdata => x"00",
@@ -216,7 +218,27 @@ architecture edwardian of memcontroller is
   signal zpcache_rdata : unsigned(35 downto 0);
   signal zpcache_wdata : unsigned(35 downto 0) := to_unsigned(0,36);
 
+  -- Instruction fetch buffer structures
+  -- First, we have the lowest layer, which runs at CPU x 8 (324MHz), and just
+  -- captures some bytes, and the number of bytes stored
+  signal fastram_next_instruction_store : std_logic := '0';
+  signal fastram_next_instruction_address : integer range 0 to (chipram_size-1) := 0;
+  signal fastram_next_instruction_address_plus_one : integer range 0 to (chipram_size-1) := 0;
+  signal fastram_next_instruction_address_plus_two : integer range 0 to (chipram_size-1) := 0;
+  signal fastram_next_instruction_position : integer range 0 to 6 := 6;
+  signal fastram_next_instruction_position_plus_one : integer range 0 to 6 := 6;
+  signal fastram_next_instruction_position_plus_two : integer range 0 to 6 := 6;
+  signal fastram_next_instruction_store_position : integer range 0 to 6 := 6;
+  signal ifetch_buffer324 : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal ifetch_buffer324_byte_count : integer range 0 to 6 := 6;
+  -- Then we periodically latch that into one of several buffers in a slower clockspeed
+  -- slot, so that we can present the desired instruction data to the CPU.
+  -- XXX We can also consider doing some creative pre-decoding of the
+  -- instruction, so that we can predict what the next instruction address will
+  -- be.
+  
   signal last_transaction_request_toggle : std_logic := '0';
+  
   
 begin
 
@@ -588,6 +610,22 @@ begin
       -- the same latency as driving it at 40MHz, but with better throughput
       -- and actually meeting timing closure
 
+      fastram_next_instruction_address <= fastram_next_instruction_address;
+      fastram_next_instruction_position <= fastram_next_instruction_position;
+      fastram_next_instruction_address_plus_one <= fastram_next_instruction_address + 1;
+      fastram_next_instruction_address_plus_two <= fastram_next_instruction_address + 2;
+      if fastram_next_instruction_position < 6 then
+        fastram_next_instruction_position_plus_one <= fastram_next_instruction_position + 1;
+      else
+        fastram_next_instruction_position_plus_one <= 6;
+      end if;
+      if fastram_next_instruction_position < 5 then
+        fastram_next_instruction_position_plus_two <= fastram_next_instruction_position + 2;
+      else
+        fastram_next_instruction_position_plus_two <= 6;
+      end if;
+        
+      
       -- Begin fetching next instruction if requested.
       -- We assume that if waiting for an instruction that no other memory accesses
       -- are going on, and thus that we can have shallower logic for the next_ifetch_address
@@ -597,6 +635,8 @@ begin
       if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
         last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
         fastram_next_ifetch_address <= instruction_fetch_address_in;
+        fastram_next_instruction_address <= instruction_fetch_address_in;
+        fastram_next_instruction_position <= 0;
       else
         if fastram_read_now='0' and fastram_write_now='0' then
           -- Advance address is nothing else is happening
@@ -617,7 +657,8 @@ begin
       fastram_iface(1).rdata <= fastram_rdata;
       -- And also the instruction fetch info
       fastram_iface(0).is_ifetch_return <= fastram_iface(fastram_pipeline_depth).is_ifetch;
-
+      fastram_iface(0).addr_return <= fastram_iface(fastram_pipeline_depth).addr;
+      
       -- By default idle the fast/chip RAM interface
       fastram_iface(0).addr <= 0;
       fastram_iface(0).we <= '0';
@@ -692,7 +733,7 @@ begin
         -- Set end of job token initially to be invalid.
         -- It will get updated with the correct value when the read job is underway
         fastram_job_end_token <= 32; -- only tokens 0 -- 31 exist
-      end if;
+      end if;      
       for i in 0 to 5 loop
         if to_integer(fastram_iface(fastram_pipeline_depth).token_return) = fastram_read_tokens(i) then
           -- We have read a byte we are waiting for
@@ -706,6 +747,41 @@ begin
         fastram_read_complete_toggle <= not fastram_read_complete_toggle;
         report "end of fastram read request reached";
       end if;
+
+      -- Is this byte the next byte of the instruction stream that we need?
+      report "addr_return=$" & to_hstring(to_unsigned(fastram_iface(fastram_pipeline_depth).addr_return,20))
+        & ", fastram_next_instruction_address=$" & to_hstring(to_unsigned(fastram_next_instruction_address,20));
+      
+      if fastram_iface(fastram_pipeline_depth).addr_return = fastram_next_instruction_address then
+        report "We just read the next instruction stream byte we need";
+        report "addr+1 = $" & to_hstring(to_unsigned(fastram_next_instruction_address_plus_one,20));
+        report "position+1 = " & integer'image(fastram_next_instruction_position_plus_one);
+        if fastram_next_instruction_store = '1' then
+          fastram_next_instruction_address <= fastram_next_instruction_address_plus_two;
+          fastram_next_instruction_position <= fastram_next_instruction_position_plus_two;
+        else
+          fastram_next_instruction_address <= fastram_next_instruction_address_plus_one;
+          fastram_next_instruction_position <= fastram_next_instruction_position_plus_one;
+        end if;
+        if fastram_next_instruction_store_position < 5 then
+          fastram_next_instruction_store <= '1';
+        else
+          fastram_next_instruction_store <= '0';
+        end if;
+      else
+        fastram_next_instruction_store <= '0';
+      end if;
+      fastram_next_instruction_store_position <= fastram_next_instruction_position;
+      if fastram_next_instruction_store='1' then
+        report "Storing byte $" & to_hstring(fastram_iface(fastram_pipeline_depth).rdata)
+          & " into ifetch_buffer324(" & integer'image(fastram_next_instruction_store_position) & ").";
+        ifetch_buffer324(7 downto 0) <= fastram_iface(fastram_pipeline_depth).rdata;
+        ifetch_buffer324(47 downto 8) <= ifetch_buffer324(39 downto 0);
+        ifetch_buffer324_byte_count <= fastram_next_instruction_store_position;
+      else
+        ifetch_buffer324 <= ifetch_buffer324;
+      end if;      
+      
       
       
     end if;
