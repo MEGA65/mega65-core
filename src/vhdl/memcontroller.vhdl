@@ -27,6 +27,26 @@ entity memcontroller is
     -- how many instruction bytes to fetch
     cpuis6502 : in std_logic;
 
+    -- Instruction fetch transaction requests from CPU
+    instruction_fetch_request_toggle : in std_logic;
+    instruction_fetch_address_in : in unsigned(27 downto 0);
+    instruction_feteched_address_out : out unsigned(27 downto 0) := (others => '1');
+    instruction_fetch_rdata : out unsigned(47 downto 0) := (others => '1');
+    
+    -- Memory transaction requests from CPU
+    transaction_request_toggle : in std_logic;
+    transaction_complete_toggle : out std_logic := '0';
+    -- Length of request (if not instruction fetch) in bytes
+    transaction_length : in integer range 0 to 6;
+
+    transaction_address : in unsigned(27 downto 0);
+    transaction_write : in std_logic;
+    -- Writing can be only upto 4 bytes
+    transaction_wdata : in unsigned(31 downto 0);
+    -- But reading can be 6 bytes, the maxmimum length of an instruction,
+    -- including prefix bytes)
+    transaction_rdata : out unsigned(47 downto 0); 
+    
     -- Is the request a ZP access? If so, then we use or update the
     -- ZP cache for this request.  As the CPU also indicates the number of
     -- bytes, this allows ZP pointer fetches, both 16-bit and 32-bit, to be
@@ -43,22 +63,6 @@ entity memcontroller is
     -- the cache based on a normal write, too.
     bp_address : in unsigned(27 downto 8);
     
-    -- Memory transaction requests from CPU
-    transaction_request_toggle : in std_logic;
-    transaction_complete_toggle : out std_logic := '0';
-    -- Is the request an instruction fetch or not?
-    transaction_is_instruction_fetch : in std_logic;
-    -- Length of request (if not instruction fetch) in bytes
-    transaction_length : in integer range 0 to 6;
-
-    transaction_address : in unsigned(27 downto 0);
-    transaction_write : in std_logic;
-    -- Writing can be only upto 4 bytes
-    transaction_wdata : in unsigned(31 downto 0);
-    -- But reading can be 6 bytes, the maxmimum length of an instruction,
-    -- including prefix bytes)
-    transaction_rdata : out unsigned(47 downto 0); 
-
     -- Now we have the interfaces to the various memories we control
     fastio_addr : out std_logic_vector(19 downto 0) := (others => '0');
     fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
@@ -109,7 +113,7 @@ end entity memcontroller;
 architecture edwardian of memcontroller is
 
   type fastram_interface is record
-    addr : integer range 0 to 1048575;
+    addr : integer range 0 to (chipram_size-1);
     we : std_logic;
     wdata : unsigned(7 downto 0);
     rdata : unsigned(7 downto 0);
@@ -117,6 +121,10 @@ architecture edwardian of memcontroller is
     -- Token is used for quick collection of read results
     token : unsigned(4 downto 0);
     token_return : unsigned(4 downto 0);
+
+    -- And similarly for instruction fetches
+    is_ifetch : std_logic;
+    is_ifetch_return : std_logic;
   end record;
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
@@ -125,21 +133,25 @@ architecture edwardian of memcontroller is
                                                    we => '0',
                                                    wdata => x"00",
                                                    rdata => x"00",
+                                                   is_ifetch => '0',
+                                                   is_ifetch_return => '0',
                                                    token => to_unsigned(0,5),
                                                    token_return => to_unsigned(0,5)));
 
   constant fastram_pipeline_depth : integer := 8;
   
   -- 162MHz request signals
-  signal fastram_write_addr : integer range 0 to 1048975 := 0;
+  signal fastram_write_addr : integer range 0 to (chipram_size-1) := 0;
   signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_bytecount : integer range 0 to 6 := 0;
-  signal fastram_read_addr : integer range 0 to 1048975 := 0;
+  signal fastram_read_addr : integer range 0 to (chipram_size-1) := 0;
   signal fastram_read_bytecount : integer range 0 to 6 := 0;
+  signal fastram_background_read : std_logic := '0';
   
   -- 324MHz fast internal chip ram access signals
   signal fastram_write_now : std_logic := '0';
-  signal fastram_next_address : integer range 0 to 1048975 := 0;
+  signal fastram_next_address : integer range 0 to (chipram_size-1) := 0;
+  signal fastram_next_ifetch_address : integer range 0 to (chipram_size-1) := 0;
   signal fastram_write_bytes_remaining : integer range 0 to 6 := 0;
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
@@ -382,9 +394,13 @@ begin
       then
         -- Looks like a new request has come in.
         -- We really want to dispatch shadow RAM requests as fast as possible,
-        -- so we check those immediately
+        -- so we check those immediately -- unless we have a request running in
+        -- the background
         report "transaction request for $" & to_hstring(transaction_address);
-        if to_integer(transaction_address) <= chipram_size then
+        if (to_integer(transaction_address) <= chipram_size)
+          and (fastram_write_request_toggle = last_fastram_write_request_toggle)
+          and (fastram_read_request_toggle = last_fastram_read_request_toggle)
+        then
           -- Ok, so its fast RAM. But we need to know if it is a read or write
           -- operation, and whether it is to/from ZP or not, so that we can update
           -- the cache.
@@ -418,7 +434,7 @@ begin
             fastram_read_addr <= to_integer(transaction_address(19 downto 0));
             fastram_read_bytecount <= transaction_length;
             fastram_rdata_buffer <= to_unsigned(0,48);
-            
+            fastram_background_read <= '0';
           end if;
         else
           -- NOT fast/chip RAM.
@@ -522,8 +538,12 @@ begin
       if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
         report "return read data to CPU";
         last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
-        transaction_complete_toggle <= transaction_request_toggle;
-        transaction_rdata <= fastram_rdata_buffer;
+        if fastram_background_read = '0' then
+          transaction_complete_toggle <= transaction_request_toggle;
+          transaction_rdata <= fastram_rdata_buffer;
+        else
+          -- We have some instruction bytes, do something useful with them.
+        end if;
         fastram_job_end_token <= 32;
       end if;
 
@@ -572,19 +592,28 @@ begin
       -- XXX The following is because GHDL was doing weird things with having
       -- iface(0).rdata directly attached to the fastram
       fastram_iface(1).rdata <= fastram_rdata;
+      -- And also the instruction fetch info
+      fastram_iface(0).is_ifetch_return <= fastram_iface(fastram_pipeline_depth).is_ifetch;
 
       -- By default idle the fast/chip RAM interface
       fastram_iface(0).addr <= 0;
       fastram_iface(0).we <= '0';
       fastram_iface(0).wdata <= x"00";
+      fastram_iface(0).is_ifetch <= '0';
       -- And keep cycling the token IDs so that we can easily collect results
       -- at the other end
       fastram_iface(0).token <= next_token;
       next_token <= next_token + 1;
-      fastram_read_byte_position <= 0;      
+      fastram_read_byte_position <= 0;
 
       if fastram_write_now='1' or fastram_read_now='1' then
         fastram_next_address <= fastram_next_address + 1;
+      else
+        -- If nothing else to do, then fetch the next byte in the instruction stream
+      -- Prepare other signals for doing background instruction fetches
+        fastram_iface(0).addr <= fastram_next_ifetch_address;
+        fastram_next_ifetch_address <= fastram_next_ifetch_address + 1;
+        fastram_iface(0).is_ifetch <= '1';
       end if;
       
       -- If we are writing to fastram, write out the queued bytes

@@ -124,12 +124,14 @@ architecture foo of test_memcontroller is
   signal transaction_request_toggle : std_logic := '0';
   signal transaction_complete_toggle : std_logic := '0';
   signal last_transaction_complete_toggle : std_logic := '0';
-  signal transaction_is_instruction_fetch : std_logic := '0';
   signal transaction_length : integer range 0 to 6 := 0;
   signal transaction_address : unsigned(27 downto 0) := to_unsigned(0,28);
   signal transaction_write : std_logic := '0';
   signal transaction_wdata : unsigned(31 downto 0) := to_unsigned(0,32);
   signal transaction_rdata : unsigned(47 downto 0) := to_unsigned(0,48);
+
+  signal instruction_fetch_request_toggle : std_logic := '0';
+  signal instruction_fetch_address_in : unsigned(27 downto 0) := to_unsigned(0,28);
   
 begin
 
@@ -325,9 +327,11 @@ begin
 
       bp_address => to_unsigned(0,20),
 
+      instruction_fetch_request_toggle => instruction_fetch_request_toggle,
+      instruction_fetch_address_in => instruction_fetch_address_in,
+      
       transaction_request_toggle => transaction_request_toggle,
       transaction_complete_toggle => transaction_complete_toggle,
-      transaction_is_instruction_fetch => transaction_is_instruction_fetch,
       transaction_length => transaction_length,
       transaction_address => transaction_address,
       transaction_write => transaction_write,
@@ -459,12 +463,16 @@ begin
           cycles <= cycles + 1;        
         end if;
 
-        transaction_address <= mem_jobs(cycles).address;
-        transaction_write <= mem_jobs(cycles).write_p;
-        transaction_wdata <= mem_jobs(cycles).value(31 downto 0);
-        transaction_is_instruction_fetch <= mem_jobs(cycles).ifetch;
-        transaction_length <= mem_jobs(cycles).bytes;
-        transaction_request_toggle <= not transaction_request_toggle;
+        if mem_jobs(cycles).ifetch='0' then
+          -- Normal memory transaction
+          transaction_address <= mem_jobs(cycles).address;
+          transaction_write <= mem_jobs(cycles).write_p;
+          transaction_wdata <= mem_jobs(cycles).value(31 downto 0);
+          transaction_length <= mem_jobs(cycles).bytes;
+          transaction_request_toggle <= not transaction_request_toggle;
+        else
+          -- Instruction (pre)fetch
+        end if;
         
         if start_time = 0 then
           start_time <= current_time;
