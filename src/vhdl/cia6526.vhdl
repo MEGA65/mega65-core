@@ -528,7 +528,7 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0_1mhz ='1' then
-              report "CIA" & to_hstring(unit) &  " timera ticked down to $" & to_hstring(reg_timera);
+--              report "CIA" & to_hstring(unit) &  " timera ticked down to $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
@@ -542,7 +542,7 @@ begin  -- behavioural
         end case;
       end if;
       if reg_timerb_start='1' and hypervisor_mode='0' then
-        report "CIA" & to_hstring(unit) & " timerb running. reg_timerb = $" & to_hstring(reg_timerb);
+--        report "CIA" & to_hstring(unit) & " timerb running. reg_timerb = $" & to_hstring(reg_timerb);
         if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
           -- underflow
           report "CIA" & to_hstring(unit) & " timerb underflow";
@@ -560,8 +560,8 @@ begin  -- behavioural
           when "00" => -- phi2 pulses
             if phi0_1mhz ='1' then
               if reg_timerb /= x"0000" then
-                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
-                  & " from $" & to_hstring(reg_timerb);
+--                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
+--                  & " from $" & to_hstring(reg_timerb);
                 reg_timerb <= to_unsigned(to_integer(reg_timerb) - 1,16);
               else
                 report "CIA" & to_hstring(unit) & " timerb ticking down to -1"
@@ -574,20 +574,20 @@ begin  -- behavioural
             -- positive CNT transitions
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
               if countin='1' and prev_countin='0' then
-                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+--                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
                 reg_timerb <= reg_timerb - 1;
                 reg_timerb_has_ticked <= '1';
               end if;
             end if; 
           when "10" => -- Timer A underflows
             if reg_timera_underflow='1' then
-              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+--              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
               reg_timerb <= reg_timerb - 1;
               reg_timerb_has_ticked <= '1';
             end if;
           when "11" => -- Timer A underflows, but only while CNT is high
             if reg_timera_underflow='1' and countin='1' then
-              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+--              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
               reg_timerb <= reg_timerb - 1;
               reg_timerb_has_ticked <= '1';
             end if;
@@ -614,7 +614,7 @@ begin  -- behavioural
 
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
-        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
+        report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
         register_number(7 downto 5) := "000";
         if hypervisor_mode='1' then
           register_number(4) := fastio_address(4);
@@ -648,8 +648,8 @@ begin  -- behavioural
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then
-        --report "writing $" & to_hstring(fastio_wdata)
-        --  & " to CIA register $" & to_hstring(register_number) severity note;
+        report "writing $" & to_hstring(fastio_wdata)
+          & " to CIA register $" & to_hstring(register_number) severity note;
         register_number(7 downto 5) := "000";
         if hypervisor_mode='1' then
           register_number(4) := fastio_address(4);

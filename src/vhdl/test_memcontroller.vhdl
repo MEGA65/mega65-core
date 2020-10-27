@@ -50,6 +50,10 @@ architecture foo of test_memcontroller is
     (address => x"7FEFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000001"),
     (address => x"7FEFFFF", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000000"),
     (address => x"7FEFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000"),
+
+    -- Simple write and then read via fastio to a dummy CIA
+    (address => x"ffd0d00", ifetch => '0', write_p => '1', bytes => 1, value => x"0000000000C1"),
+    (address => x"ffd0d00", ifetch => '0', write_p => '0', bytes => 1, value => x"0000000000C1"),
     
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
     );

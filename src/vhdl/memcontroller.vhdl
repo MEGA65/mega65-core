@@ -246,6 +246,7 @@ begin
         fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;
         last_fastio_read_request_toggle <= fastio_read_request_toggle;
       end if;
+
       if fastio_write_request_toggle /= last_fastio_write_request_toggle then
         report "saw fastio write request for " & integer'image(fastio_write_bytecount) & " bytes, toggle="
           & std_logic'image(fastio_write_request_toggle)
@@ -255,7 +256,7 @@ begin
       end if;
       
       if (fastio_write_bytes_remaining /= 0) then
-        report "fastio write happening now";
+        report "fastio write happening now. Data = $" & to_hstring(fastio_write_data_vector(7 downto 0));
         -- Get ready for writing the next byte
         fastio_next_address <= fastio_next_address + 1;
         fastio_write_bytes_remaining <= fastio_write_bytes_remaining - 1;
@@ -289,7 +290,7 @@ begin
           fastio_read_complete_toggle <= not fastio_read_complete_toggle;
         end if;
 
-        if fastio_read_position > 6 then
+        if fastio_read_position > 5 then
           fastio_read_position <= 0;
         else
           fastio_read_position <= fastio_read_position + 1;
@@ -437,14 +438,28 @@ begin
           
           report "not fast/chip ram request @ $" & to_hstring(transaction_address);
 
+          -- Remember that we have accepted the job
+          last_transaction_request_toggle <= transaction_request_toggle;
+          
           -- Schedule read/write via fastio bus or variant
           if transaction_write = '1' then
-            fastio_write_request_toggle <= not fastram_write_request_toggle;
+            report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
+              & " to " & std_logic'image(not fastio_write_request_toggle);
+            fastio_write_request_toggle <= not fastio_write_request_toggle;
+            -- XXX For single byte reads, we can probably do this asynchronously.
+            -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
+            -- and just have a flag to the CPU that indicates that we are still
+            -- busy.  Or we implement some kind of queue.  But for now, we will
+            -- just do it all synchronously.
           else
-            fastio_read_request_toggle <= not fastram_read_request_toggle;
+            report "fastio read request toggled";
+            fastio_read_request_toggle <= not fastio_read_request_toggle;
           end if;
           fastio_next_address <= transaction_address(19 downto 0);
-          fastio_rdata_buffer <= to_unsigned(0,48);            
+          fastio_rdata_buffer <= to_unsigned(0,48);
+          fastio_write_data_vector <= transaction_wdata;
+          fastio_write_bytecount <= transaction_length;
+          fastio_read_bytecount <= transaction_length;
                     
           if transaction_address(27 downto 20) = x"FF" then
             -- FastIO range
@@ -458,16 +473,19 @@ begin
             elsif transaction_address(19 downto 12) = x"fe" then
               -- Charrom write
               charrom_write_cs <= transaction_write;
-            elsif ((transaction_address(19 downto 14)&"00") = x"d0")
+            elsif ((transaction_address(19 downto 14)&"00"&transaction_address(11 downto 10)&"00") = x"d00")
               and (transaction_address(11 downto 7) /= "000001")
             then
               -- VIC-IV fastio
+              report "is VIC-IV access";
               src_is_viciv <= '1';
             else
               -- General fastio access
+              report "general fastio access";
               src_is_viciv <= '0';
               src_is_colourram <= '0';
             end if;
+            
           elsif transaction_address(27 downto 26) /= "00" then
             -- Slow devices range
             report "slowdev request";
@@ -506,7 +524,7 @@ begin
 
       -- Notice when the slowdev read or write is complete, and tell the CPU
       if slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
-        report "return read data drom slowdev to CPU";
+        report "return read data from slowdev to CPU";
         last_slowdev_read_complete_toggle <= slowdev_read_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
         transaction_rdata <= slowdev_rdata_buffer;
@@ -514,6 +532,19 @@ begin
       if slowdev_write_complete_toggle /= last_slowdev_write_complete_toggle then
         report "slowdev write complete";
         last_slowdev_write_complete_toggle <= slowdev_write_complete_toggle;
+        transaction_complete_toggle <= transaction_request_toggle;
+      end if;
+
+      -- Notice when the fastio read or write is complete, and tell the CPU
+      if fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
+        report "return read data from fastio to CPU";
+        last_fastio_read_complete_toggle <= fastio_read_complete_toggle;
+        transaction_complete_toggle <= transaction_request_toggle;
+        transaction_rdata <= fastio_rdata_buffer;
+      end if;
+      if fastio_write_complete_toggle /= last_fastio_write_complete_toggle then
+        report "fastio write complete";
+        last_fastio_write_complete_toggle <= fastio_write_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
       end if;
 
@@ -586,6 +617,7 @@ begin
       
       -- Do we have a new write request to fastram?
       if fastram_write_request_toggle /= last_fastram_write_request_toggle then
+        report "accepting fastio_write_request_toggle";
         last_fastram_write_request_toggle <= fastram_write_request_toggle;
         fastram_write_bytes_remaining <= fastram_write_bytecount;
         fastram_next_address <= fastram_write_addr;
@@ -595,7 +627,6 @@ begin
 
       -- Or read request to fastram
       if fastram_read_request_toggle /= last_fastram_read_request_toggle then
-        report "accepting fastram read request";
         last_fastram_read_request_toggle <= fastram_read_request_toggle;
         fastram_read_bytes_remaining <= fastram_read_bytecount;
         fastram_next_address <= fastram_read_addr;
