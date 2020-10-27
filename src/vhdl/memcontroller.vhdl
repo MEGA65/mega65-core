@@ -297,7 +297,11 @@ begin
           if src_is_viciv= '1' then
             fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
               <= unsigned(fastio_viciv_rdata);
-            report "fastio VIC-IV stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(slowdev_access_read_position);
+            report "fastio VIC-IV stashing byte $" & to_hstring(fastio_viciv_rdata) & " into byte " & integer'image(fastio_read_position);
+          elsif src_is_colourram='1' then
+            fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
+              <= unsigned(fastio_colour_ram_rdata);
+            report "fastio VIC-IV stashing byte $" & to_hstring(fastio_colour_ram_rdata) & " into byte " & integer'image(fastio_read_position);
           else
             fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
               <= unsigned(fastio_rdata);
