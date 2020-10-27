@@ -465,10 +465,10 @@ hyperramsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
-memctlsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_memcontroller.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/memcontroller.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl $(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
+memctlsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_memcontroller.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/memcontroller.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl $(VHDLSRCDIR)/ghdl_ram36x1k.vhdl $(VHDLSRCDIR)/cia6526.vhdl
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(GHDL) -i $(VHDLSRCDIR)/test_memcontroller.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/memcontroller.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl $(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_memcontroller.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/memcontroller.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl $(VHDLSRCDIR)/ghdl_ram36x1k.vhdl $(VHDLSRCDIR)/cia6526.vhdl
 	$(GHDL) -m test_memcontroller
 	( ./test_memcontroller || $(GHDL) -r test_memcontroller )
 

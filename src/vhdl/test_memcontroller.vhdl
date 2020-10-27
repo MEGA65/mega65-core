@@ -112,7 +112,8 @@ architecture foo of test_memcontroller is
 
   signal colour_ram_cs : std_logic;
   signal charrom_write_cs : std_logic;
-  
+
+  signal cia1_cs : std_logic := '0';  
   
   signal transaction_request_toggle : std_logic := '0';
   signal transaction_complete_toggle : std_logic := '0';
@@ -276,6 +277,28 @@ begin
 
       );
 
+  -- Add a dummy CIA so we have something on the fastio bus to access
+  cia1: entity work.cia6526
+    port map(
+      cpuclock => cpuclock,
+      phi0_1mhz => cpuclock,
+      todclock => '0',
+      reset => '1',
+      irq => open,
+      hypervisor_mode => '0',
+      cs => cia1_cs,
+
+      fastio_address => unsigned(fastio_addr(7 downto 0)),
+      fastio_write => fastio_write,
+      fastio_wdata => unsigned(fastio_wdata),
+      std_logic_vector(fastio_rdata) => fastio_rdata,
+      portain => (others => '1'),
+      portbin => (others => '1'),
+      flagin => '1',
+      spin => '1',
+      countin => '1'
+      );
+  
   memcontroller0: entity work.memcontroller
     generic map (
       target => mega65r3,
@@ -375,6 +398,13 @@ begin
   
   process (clock325) is
   begin
+    -- Control chip-select line for dummy CIA
+    if fastio_addr(19 downto 8) = x"D0D" then
+      cia1_cs <= '1';
+    else
+      cia1_cs <= '0';
+    end if;
+    
     if rising_edge(clock325) then
       current_time <= current_time + 3;
     end if;
