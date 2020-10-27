@@ -131,7 +131,7 @@ architecture foo of test_memcontroller is
   signal transaction_rdata : unsigned(47 downto 0) := to_unsigned(0,48);
 
   signal instruction_fetch_request_toggle : std_logic := '0';
-  signal instruction_fetch_address_in : unsigned(27 downto 0) := to_unsigned(0,28);
+  signal instruction_fetch_address_in : integer := 0;
   
 begin
 

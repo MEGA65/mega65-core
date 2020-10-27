@@ -29,7 +29,7 @@ entity memcontroller is
 
     -- Instruction fetch transaction requests from CPU
     instruction_fetch_request_toggle : in std_logic;
-    instruction_fetch_address_in : in unsigned(27 downto 0);
+    instruction_fetch_address_in : in integer;
     instruction_feteched_address_out : out unsigned(27 downto 0) := (others => '1');
     instruction_fetch_rdata : out unsigned(47 downto 0) := (others => '1');
     
@@ -152,6 +152,7 @@ architecture edwardian of memcontroller is
   signal fastram_write_now : std_logic := '0';
   signal fastram_next_address : integer range 0 to (chipram_size-1) := 0;
   signal fastram_next_ifetch_address : integer range 0 to (chipram_size-1) := 0;
+  signal last_instruction_fetch_request_toggle : std_logic := '0';
   signal fastram_write_bytes_remaining : integer range 0 to 6 := 0;
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
@@ -583,6 +584,24 @@ begin
       -- the same latency as driving it at 40MHz, but with better throughput
       -- and actually meeting timing closure
 
+      -- Begin fetching next instruction if requested.
+      -- We assume that if waiting for an instruction that no other memory accesses
+      -- are going on, and thus that we can have shallower logic for the next_ifetch_address
+      -- logic, by just having it always increment. This could come unstuck if
+      -- a write is still happening in the background, in which case we should
+      -- check if that is happening.
+      if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
+        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
+        fastram_next_ifetch_address <= instruction_fetch_address_in;
+      else
+        if fastram_read_now='0' and fastram_write_now='0' then
+          -- Advance address is nothing else is happening
+          fastram_next_ifetch_address <= fastram_next_ifetch_address + 1;
+        else
+          fastram_next_ifetch_address <= fastram_next_ifetch_address;
+        end if;
+      end if;
+      
       -- Update fast RAM pipeline stages
       for i in 1 to 8 loop
         fastram_iface(i) <= fastram_iface(i-1);
@@ -610,9 +629,9 @@ begin
         fastram_next_address <= fastram_next_address + 1;
       else
         -- If nothing else to do, then fetch the next byte in the instruction stream
-      -- Prepare other signals for doing background instruction fetches
+        -- Prepare other signals for doing background instruction fetches
+        report "idle cycle instruction prefetch from $" & to_hstring(to_unsigned(fastram_next_ifetch_address,20));
         fastram_iface(0).addr <= fastram_next_ifetch_address;
-        fastram_next_ifetch_address <= fastram_next_ifetch_address + 1;
         fastram_iface(0).is_ifetch <= '1';
       end if;
       
