@@ -52,8 +52,8 @@ architecture foo of test_memcontroller is
     (address => x"7FEFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000"),
 
     -- Simple write and then read via fastio to a dummy CIA
-    (address => x"ffd0d00", ifetch => '0', write_p => '1', bytes => 1, value => x"0000000000C1"),
-    (address => x"ffd0d00", ifetch => '0', write_p => '0', bytes => 1, value => x"0000000000C1"),
+    (address => x"ffd0d02", ifetch => '0', write_p => '1', bytes => 1, value => x"0000000000C1"),
+    (address => x"ffd0d02", ifetch => '0', write_p => '0', bytes => 1, value => x"0000000000C1"),
     
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '0', bytes => 1, value => x"000000000000")
     );
@@ -425,7 +425,14 @@ begin
             & " after " & integer'image(current_time - dispatch_time) & "ns.";
         else
           report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(transaction_rdata)
-            & " after " & integer'image(current_time - dispatch_time) & "ns.";            
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";
+          for i in 0 to 47 loop
+            if (expected_value(i) /= transaction_rdata(i)) then
+              report "BITERROR in bit " & integer'image(i)
+                & ", expected " & std_logic'image(expected_value(i))
+                & ", saw " & std_logic'image(transaction_rdata(i));
+            end if;
+          end loop;
         end if;
         dispatch_time <= current_time;
       end if;        

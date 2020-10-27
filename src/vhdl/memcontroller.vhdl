@@ -301,7 +301,7 @@ begin
           else
             fastio_rdata_buffer(fastio_read_position*8+7 downto fastio_read_position*8)
               <= unsigned(fastio_rdata);
-            report "fastio stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(slowdev_access_read_position);
+            report "fastio stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(fastio_read_position);
           end if;
         end if;        
       end if;
@@ -441,26 +441,6 @@ begin
           -- Remember that we have accepted the job
           last_transaction_request_toggle <= transaction_request_toggle;
           
-          -- Schedule read/write via fastio bus or variant
-          if transaction_write = '1' then
-            report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
-              & " to " & std_logic'image(not fastio_write_request_toggle);
-            fastio_write_request_toggle <= not fastio_write_request_toggle;
-            -- XXX For single byte reads, we can probably do this asynchronously.
-            -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
-            -- and just have a flag to the CPU that indicates that we are still
-            -- busy.  Or we implement some kind of queue.  But for now, we will
-            -- just do it all synchronously.
-          else
-            report "fastio read request toggled";
-            fastio_read_request_toggle <= not fastio_read_request_toggle;
-          end if;
-          fastio_next_address <= transaction_address(19 downto 0);
-          fastio_rdata_buffer <= to_unsigned(0,48);
-          fastio_write_data_vector <= transaction_wdata;
-          fastio_write_bytecount <= transaction_length;
-          fastio_read_bytecount <= transaction_length;
-                    
           if transaction_address(27 downto 20) = x"FF" then
             -- FastIO range
             if transaction_address(19 downto 16) = x"8" then
@@ -485,7 +465,28 @@ begin
               src_is_viciv <= '0';
               src_is_colourram <= '0';
             end if;
-            
+
+            -- Schedule read/write via fastio bus or variant
+            if transaction_write = '1' then
+              report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
+                & " to " & std_logic'image(not fastio_write_request_toggle);
+              fastio_write_request_toggle <= not fastio_write_request_toggle;
+            -- XXX For single byte reads, we can probably do this asynchronously.
+            -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
+            -- and just have a flag to the CPU that indicates that we are still
+            -- busy.  Or we implement some kind of queue.  But for now, we will
+            -- just do it all synchronously.
+            else
+              report "fastio read request toggled";
+              fastio_read_request_toggle <= not fastio_read_request_toggle;
+            end if;
+            fastio_next_address <= transaction_address(19 downto 0);
+            fastio_rdata_buffer <= to_unsigned(0,48);
+            fastio_write_data_vector <= transaction_wdata;
+            fastio_write_bytecount <= transaction_length;
+            fastio_read_bytecount <= transaction_length;
+            fastio_read_position <= 7;
+                        
           elsif transaction_address(27 downto 26) /= "00" then
             -- Slow devices range
             report "slowdev request";
