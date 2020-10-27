@@ -30,7 +30,7 @@ entity memcontroller is
     -- Instruction fetch transaction requests from CPU
     instruction_fetch_request_toggle : in std_logic;
     instruction_fetch_address_in : in integer;
-    instruction_feteched_address_out : out unsigned(27 downto 0) := (others => '1');
+    instruction_fetched_address_out : out integer;
     instruction_fetch_rdata : out unsigned(47 downto 0) := (others => '1');
     
     -- Memory transaction requests from CPU
@@ -254,6 +254,10 @@ begin
   process(cpuclock,cpuclock2x,cpuclock4x,cpuclock8x) is
   begin
     if rising_edge(cpuclock) then
+
+      fastio_addr <= (others => '1');
+      fastio_write <= '0';
+      
       colour_ram_cs <= '0';
       if fastio_read_request_toggle /= last_fastio_read_request_toggle then
         fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;

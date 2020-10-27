@@ -56,6 +56,9 @@ architecture foo of test_memcontroller is
     (address => x"ffd0d02", ifetch => '0', write_p => '0', bytes => 1, value => x"0000000000C1"),
     (address => x"ffd0d02", ifetch => '0', write_p => '1', bytes => 2, value => x"000000001234"),
     (address => x"ffd0d02", ifetch => '0', write_p => '0', bytes => 2, value => x"000000001234"),
+
+    -- Now request an instruction fetch from chip/fast RAM
+    (address => x"0000400", ifetch => '1', write_p => '0', bytes => 0, value => x"cdef12345678"),
     
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000000")
     );
@@ -132,6 +135,11 @@ architecture foo of test_memcontroller is
 
   signal instruction_fetch_request_toggle : std_logic := '0';
   signal instruction_fetch_address_in : integer := 0;
+  signal instruction_fetched_address_out : integer := 0;
+  signal instruction_fetch_rdata : unsigned(47 downto 0) := to_unsigned(0,48);
+
+  signal is_ifetch : std_logic := '0';
+  signal instruction_fetch_request_toggle_int : std_logic := '0';
   
 begin
 
@@ -329,6 +337,8 @@ begin
 
       instruction_fetch_request_toggle => instruction_fetch_request_toggle,
       instruction_fetch_address_in => instruction_fetch_address_in,
+      instruction_fetched_address_out => instruction_fetched_address_out,
+      instruction_fetch_rdata => instruction_fetch_rdata,
       
       transaction_request_toggle => transaction_request_toggle,
       transaction_complete_toggle => transaction_complete_toggle,
@@ -447,7 +457,17 @@ begin
       expect_value <= '0';
       last_transaction_complete_toggle <= transaction_complete_toggle;
     end if;
-   
+
+    if is_ifetch='1' and instruction_fetched_address_out = to_integer(mem_jobs(cycles).address) then
+      if expected_value = instruction_fetch_rdata then
+        report "DISPATCHER: Read correct instruction data $" & to_hstring(instruction_fetch_rdata)
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";
+      else
+        report "DISPATCHER: ERROR: Read incorrect instruction data $" & to_hstring(instruction_fetch_rdata)
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";        
+      end if;
+    end if;
+    
     if transaction_complete_toggle = last_transaction_complete_toggle then
 
       if idle_wait /= 0 then
@@ -463,6 +483,7 @@ begin
           cycles <= cycles + 1;        
         end if;
 
+        is_ifetch <= mem_jobs(cycles).ifetch;
         if mem_jobs(cycles).ifetch='0' then
           -- Normal memory transaction
           transaction_address <= mem_jobs(cycles).address;
@@ -470,26 +491,34 @@ begin
           transaction_wdata <= mem_jobs(cycles).value(31 downto 0);
           transaction_length <= mem_jobs(cycles).bytes;
           transaction_request_toggle <= not transaction_request_toggle;
+
+          if start_time = 0 then
+            start_time <= current_time;
+          end if;
+          if (mem_jobs(cycles).write_p='0') then
+            report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+              & to_hstring(mem_jobs(cycles).value);
+            expect_value <= '1';
+            expected_value <= mem_jobs(cycles).value;
+            dispatch_time <= current_time;
+          else
+            report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
+              & to_hstring(mem_jobs(cycles).value);
+            expect_value <= '0';
+            dispatch_time <= current_time;
+          end if;
+          
         else
           -- Instruction (pre)fetch
+          instruction_fetch_address_in <= to_integer(mem_jobs(cycles).address);
+          instruction_fetch_request_toggle <= not instruction_fetch_request_toggle_int;
+          instruction_fetch_request_toggle_int <= not instruction_fetch_request_toggle_int;
+
+          report "DISPATCHER: Instruction fetch from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+            & to_hstring(mem_jobs(cycles).value);
+          
         end if;
         
-        if start_time = 0 then
-          start_time <= current_time;
-        end if;
-        if (mem_jobs(cycles).write_p='0') then
-          report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
-            & to_hstring(mem_jobs(cycles).value);
-          expect_value <= '1';
-          expected_value <= mem_jobs(cycles).value;
-          dispatch_time <= current_time;
-        else
-          report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
-            & to_hstring(mem_jobs(cycles).value);
-          expect_value <= '0';
-          dispatch_time <= current_time;
-        end if;
-
         -- Allow enough time for jobs to finish
         -- Some of the slow_devices tests can take a very long time
         idle_wait <= 1024;
