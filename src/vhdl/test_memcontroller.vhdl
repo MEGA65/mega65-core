@@ -451,28 +451,46 @@ begin
           end loop;
         end if;
         dispatch_time <= current_time;
-      end if;        
+      end if;
+      if is_ifetch='0' then
+        -- Perform transactions immediately after one another
+        idle_wait <= 0;
+        expect_value <= '0';
+        last_transaction_complete_toggle <= transaction_complete_toggle;
+      end if;
+    end if;
+
+    if is_ifetch='1' and instruction_fetched_address_out /= to_integer(mem_jobs(cycles - 1).address) then
+      report "IFETCH: Presented instruction is for  $" & to_hstring(to_unsigned(instruction_fetched_address_out,20))
+        & ", I am waiting for $" & to_hstring(to_unsigned(to_integer(mem_jobs(cycles - 1).address),20));
+    end if;
+    if is_ifetch='1' and instruction_fetched_address_out = to_integer(mem_jobs(cycles - 1).address) then
+      if expected_value = instruction_fetch_rdata then
+        report "DISPATCHER: Read correct instruction data $" & to_hstring(instruction_fetch_rdata)
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";
+      else
+        report "DISPATCHER: ERROR: Read incorrect instruction data $" & to_hstring(instruction_fetch_rdata)
+          & " (expected $" & to_hstring(expected_value)
+          & " after " & integer'image(current_time - dispatch_time) & "ns.";        
+      end if;
+      -- Now hand control back to normal sequence
+      report "handing control back";
+      dispatch_time <= current_time;
+      is_ifetch <= '0';
       -- Perform transactions immediately after one another
       idle_wait <= 0;
       expect_value <= '0';
       last_transaction_complete_toggle <= transaction_complete_toggle;
     end if;
 
-    if is_ifetch='1' and instruction_fetched_address_out = to_integer(mem_jobs(cycles).address) then
-      if expected_value = instruction_fetch_rdata then
-        report "DISPATCHER: Read correct instruction data $" & to_hstring(instruction_fetch_rdata)
-            & " after " & integer'image(current_time - dispatch_time) & "ns.";
-      else
-        report "DISPATCHER: ERROR: Read incorrect instruction data $" & to_hstring(instruction_fetch_rdata)
-            & " after " & integer'image(current_time - dispatch_time) & "ns.";        
-      end if;
-    end if;
-    
+    report "yak: " & std_logic'image(transaction_complete_toggle) & std_logic'image(last_transaction_complete_toggle)
+      & integer'image(idle_wait) & std_logic'image(expect_value);
     if transaction_complete_toggle = last_transaction_complete_toggle then
 
       if idle_wait /= 0 then
         idle_wait <= idle_wait - 1;
       elsif expect_value = '0' then
+        report "moose";
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
           report "DISPATCHER: Total sequence was " & integer'image(current_time - start_time) & "ns "
@@ -513,7 +531,13 @@ begin
           instruction_fetch_address_in <= to_integer(mem_jobs(cycles).address);
           instruction_fetch_request_toggle <= not instruction_fetch_request_toggle_int;
           instruction_fetch_request_toggle_int <= not instruction_fetch_request_toggle_int;
+          expected_value <= mem_jobs(cycles).value;
 
+          -- Remember we have a transaction running, but don't ask for a normal
+          -- memory transaction
+          last_transaction_complete_toggle <= not transaction_complete_toggle;
+          
+          
           report "DISPATCHER: Instruction fetch from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           

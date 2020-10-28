@@ -244,6 +244,13 @@ architecture edwardian of memcontroller is
   signal ifetch_buffer162_addr : integer range 0 to (chipram_size-1) := 0;
   signal ifetch_buffer162_addr_drive : integer range 0 to (chipram_size-1) := 0;
   signal latch_ifetch_buffer324 : std_logic := '0';
+  -- The highlevel assembled 16-byte instruction fetch buffer
+  signal ifetch_buffer : unsigned(127 downto 0) := (others => '0');
+  signal ifetch_buffer_byte_count : integer range 0 to 16 := 0;
+  signal ifetch_buffer_addr : integer range 0 to (chipram_size-1) := 0;
+
+  signal instruction_fetched_address_out_drive : integer range 0 to (chipram_size-1) := 0;
+  signal instruction_fetched_rdata_drive : unsigned(47 downto 0) := (others => '0');  
   
   signal last_transaction_request_toggle : std_logic := '0';
   
@@ -425,6 +432,9 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      instruction_fetched_address_out <= instruction_fetched_address_out_drive;
+      instruction_fetch_rdata <= instruction_fetched_rdata_drive;      
+      
       if (transaction_request_toggle /= last_transaction_request_toggle)
       then
         -- Looks like a new request has come in.
@@ -613,7 +623,23 @@ begin
         last_fastram_next_instruction_loaded_toggle <= fastram_next_instruction_loaded_toggle;
         report "ifetch latched instruction data @ $" & to_hstring(to_unsigned(ifetch_buffer162_addr,20))
           & " = $" & to_hstring(ifetch_buffer162);
-      end if;        
+      end if;
+      -- Check instruction fetch buffer to see if it has content we need.
+      if ifetch_buffer162_addr = instruction_fetch_address_in then
+        -- We have exactly the instruction we need, so present it, and reset
+        -- the instruction fetch buffer
+        report "ifetch has delivered the instruction we need. Storing and returning to CPU";
+        instruction_fetched_address_out_drive <= ifetch_buffer162_addr;
+        instruction_fetched_rdata_drive <= ifetch_buffer162;
+        ifetch_buffer(47 downto 0) <= ifetch_buffer162;
+        ifetch_buffer_byte_count <= 6;
+        ifetch_buffer_addr <= ifetch_buffer162_addr;
+      else
+        -- Update the ifetch buffer.
+        -- To simplify the logic, we alternate between shifting and storing
+        -- newly arrived data
+        
+      end if;
       
     end if;
     if rising_edge(cpuclock8x) then
