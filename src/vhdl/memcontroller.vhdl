@@ -638,7 +638,55 @@ begin
         -- Update the ifetch buffer.
         -- To simplify the logic, we alternate between shifting and storing
         -- newly arrived data
+
+        report "ifetch_buffer162_addr=$" & to_hstring(to_unsigned(ifetch_buffer162_addr,20));
         
+        -- Check if we already have the right data
+        if ifetch_buffer_addr = instruction_fetch_address_in and (ifetch_buffer_byte_count > 5) then
+          -- We have exactly the instruction we need, so present it, and reset
+          -- the instruction fetch buffer
+          report "ifetch has delivered the instruction we need. Storing and returning to CPU";
+          instruction_fetched_address_out_drive <= ifetch_buffer_addr;
+          instruction_fetched_rdata_drive <= ifetch_buffer(47 downto 0);
+          -- Check if we can store the newly read bytes
+        end if;
+        if ifetch_buffer162_addr = (ifetch_buffer_addr + ifetch_buffer_byte_count)
+          and ifetch_buffer_byte_count <= (16 - 6) then
+          ifetch_buffer((47 + ifetch_buffer_byte_count * 8) downto (ifetch_buffer_byte_count * 8))
+            <= ifetch_buffer162;
+          ifetch_buffer_byte_count <= ifetch_buffer_byte_count + 6;
+          report "Added 6 more instruction bytes to ifetch buffer. We now have "
+            & integer'image(ifetch_buffer_byte_count + 6)
+            & " byte in the buffer.";
+          -- Check if we should shuffle down
+        elsif (ifetch_buffer_addr < instruction_fetch_address_in)
+          and (instruction_fetch_address_in - ifetch_buffer_addr) < ifetch_buffer_byte_count
+          and (instruction_fetch_address_in - ifetch_buffer_addr) < 7 then
+          -- Shift down
+          ifetch_buffer_addr <= instruction_fetch_address_in;
+          case (instruction_fetch_address_in - ifetch_buffer_addr) is
+            when 1 => ifetch_buffer(119 downto 0) <= ifetch_buffer(127 downto 8);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 1;
+            when 2 => ifetch_buffer(111 downto 0) <= ifetch_buffer(127 downto 16);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 2;
+            when 3 => ifetch_buffer(103 downto 0) <= ifetch_buffer(127 downto 24);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 3;
+            when 4 => ifetch_buffer( 95 downto 0) <= ifetch_buffer(127 downto 32);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 4;
+            when 5 => ifetch_buffer( 87 downto 0) <= ifetch_buffer(127 downto 40);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 5;
+            when 6 => ifetch_buffer( 93 downto 0) <= ifetch_buffer(127 downto 48);
+                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 6;
+            when others =>
+              null;
+          end case;
+          report "Shuffling instruction fetch buffer down by "
+            & integer'image(instruction_fetch_address_in - ifetch_buffer_addr)
+            & " bytes. Remaining bytes = "
+            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in - ifetch_buffer_addr));              
+        else
+          
+        end if;
       end if;
       
     end if;
@@ -697,7 +745,7 @@ begin
       else
         -- If nothing else to do, then fetch the next byte in the instruction stream
         -- Prepare other signals for doing background instruction fetches
-        report "idle cycle instruction prefetch from $" & to_hstring(to_unsigned(fastram_next_ifetch_address,20));
+--        report "idle cycle instruction prefetch from $" & to_hstring(to_unsigned(fastram_next_ifetch_address,20));
         fastram_iface(0).addr <= fastram_next_ifetch_address;
         fastram_iface(0).is_ifetch <= '1';
       end if;
@@ -771,13 +819,13 @@ begin
       end if;
 
       -- Is this byte the next byte of the instruction stream that we need?
-      report "addr_return=$" & to_hstring(to_unsigned(fastram_iface(fastram_pipeline_depth).addr_return,20))
-        & ", fastram_next_instruction_address=$" & to_hstring(to_unsigned(fastram_next_instruction_address,20));
+--      report "addr_return=$" & to_hstring(to_unsigned(fastram_iface(fastram_pipeline_depth).addr_return,20))
+--        & ", fastram_next_instruction_address=$" & to_hstring(to_unsigned(fastram_next_instruction_address,20));
       
       if fastram_iface(fastram_pipeline_depth).addr_return = fastram_next_instruction_address then
-        report "We just read the next instruction stream byte we need";
-        report "addr+1 = $" & to_hstring(to_unsigned(fastram_next_instruction_address_plus_one,20));
-        report "position+1 = " & integer'image(fastram_next_instruction_position_plus_one);
+--        report "We just read the next instruction stream byte we need";
+--        report "addr+1 = $" & to_hstring(to_unsigned(fastram_next_instruction_address_plus_one,20));
+--        report "position+1 = " & integer'image(fastram_next_instruction_position_plus_one);
         if fastram_next_instruction_store = '1' then
           fastram_next_instruction_address <= fastram_next_instruction_address_plus_two;
           fastram_next_instruction_position <= fastram_next_instruction_position_plus_two;

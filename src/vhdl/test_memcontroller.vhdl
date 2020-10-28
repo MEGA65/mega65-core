@@ -57,8 +57,9 @@ architecture foo of test_memcontroller is
     (address => x"ffd0d02", ifetch => '0', write_p => '1', bytes => 2, value => x"000000001234"),
     (address => x"ffd0d02", ifetch => '0', write_p => '0', bytes => 2, value => x"000000001234"),
 
-    -- Now request an instruction fetch from chip/fast RAM
+    -- Now request some instruction fetches from chip/fast RAM
     (address => x"0000400", ifetch => '1', write_p => '0', bytes => 0, value => x"cdef12345678"),
+    (address => x"0000403", ifetch => '1', write_p => '0', bytes => 0, value => x"0090abcdef12"),
     
     others => ( address => x"FFFFFFF", ifetch => '0', write_p => '1', bytes => 1, value => x"000000000000")
     );
