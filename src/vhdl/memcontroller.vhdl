@@ -231,11 +231,19 @@ architecture edwardian of memcontroller is
   signal fastram_next_instruction_store_position : integer range 0 to 6 := 6;
   signal ifetch_buffer324 : unsigned(47 downto 0) := to_unsigned(0,48);
   signal ifetch_buffer324_byte_count : integer range 0 to 6 := 6;
+  signal ifetch_buffer324_end_address : integer range 0 to (chipram_size-1) := 0;
+  signal fastram_next_instruction_loaded_toggle : std_logic := '0';
+  signal last_fastram_next_instruction_loaded_toggle : std_logic := '0';
+  signal fastram_next_instruction_buffer324_end_address  : integer range 0 to (chipram_size-1) := 0;
   -- Then we periodically latch that into one of several buffers in a slower clockspeed
   -- slot, so that we can present the desired instruction data to the CPU.
   -- XXX We can also consider doing some creative pre-decoding of the
   -- instruction, so that we can predict what the next instruction address will
   -- be.
+  signal ifetch_buffer162 :  unsigned(47 downto 0) := to_unsigned(0,48);
+  signal ifetch_buffer162_addr : integer range 0 to (chipram_size-1) := 0;
+  signal ifetch_buffer162_addr_drive : integer range 0 to (chipram_size-1) := 0;
+  signal latch_ifetch_buffer324 : std_logic := '0';
   
   signal last_transaction_request_toggle : std_logic := '0';
   
@@ -600,7 +608,12 @@ begin
         transaction_complete_toggle <= transaction_request_toggle;
       end if;
 
-
+      -- Latch instruction fetch buffer
+      if last_fastram_next_instruction_loaded_toggle /= fastram_next_instruction_loaded_toggle then
+        last_fastram_next_instruction_loaded_toggle <= fastram_next_instruction_loaded_toggle;
+        report "ifetch latched instruction data @ $" & to_hstring(to_unsigned(ifetch_buffer162_addr,20))
+          & " = $" & to_hstring(ifetch_buffer162);
+      end if;        
       
     end if;
     if rising_edge(cpuclock8x) then
@@ -610,42 +623,25 @@ begin
       -- the same latency as driving it at 40MHz, but with better throughput
       -- and actually meeting timing closure
 
+      latch_ifetch_buffer324 <= '0';
+      if latch_ifetch_buffer324 = '1' then
+        ifetch_buffer162 <= ifetch_buffer324;
+      end if;
       fastram_next_instruction_address <= fastram_next_instruction_address;
       fastram_next_instruction_position <= fastram_next_instruction_position;
       fastram_next_instruction_address_plus_one <= fastram_next_instruction_address + 1;
       fastram_next_instruction_address_plus_two <= fastram_next_instruction_address + 2;
-      if fastram_next_instruction_position < 6 then
+      if fastram_next_instruction_position < 5 then
         fastram_next_instruction_position_plus_one <= fastram_next_instruction_position + 1;
       else
-        fastram_next_instruction_position_plus_one <= 6;
+        fastram_next_instruction_position_plus_one <= 0;
       end if;
-      if fastram_next_instruction_position < 5 then
+      if fastram_next_instruction_position < 4 then
         fastram_next_instruction_position_plus_two <= fastram_next_instruction_position + 2;
       else
-        fastram_next_instruction_position_plus_two <= 6;
+        fastram_next_instruction_position_plus_two <= fastram_next_instruction_position - 4;
       end if;
-        
-      
-      -- Begin fetching next instruction if requested.
-      -- We assume that if waiting for an instruction that no other memory accesses
-      -- are going on, and thus that we can have shallower logic for the next_ifetch_address
-      -- logic, by just having it always increment. This could come unstuck if
-      -- a write is still happening in the background, in which case we should
-      -- check if that is happening.
-      if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
-        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
-        fastram_next_ifetch_address <= instruction_fetch_address_in;
-        fastram_next_instruction_address <= instruction_fetch_address_in;
-        fastram_next_instruction_position <= 0;
-      else
-        if fastram_read_now='0' and fastram_write_now='0' then
-          -- Advance address is nothing else is happening
-          fastram_next_ifetch_address <= fastram_next_ifetch_address + 1;
-        else
-          fastram_next_ifetch_address <= fastram_next_ifetch_address;
-        end if;
-      end if;
-      
+              
       -- Update fast RAM pipeline stages
       for i in 1 to 8 loop
         fastram_iface(i) <= fastram_iface(i-1);
@@ -763,7 +759,15 @@ begin
           fastram_next_instruction_address <= fastram_next_instruction_address_plus_one;
           fastram_next_instruction_position <= fastram_next_instruction_position_plus_one;
         end if;
-        if fastram_next_instruction_store_position < 5 then
+        if fastram_next_instruction_store_position = 5 then
+          fastram_next_instruction_loaded_toggle <= not fastram_next_instruction_loaded_toggle;
+          latch_ifetch_buffer324 <= '1';
+          -- Adjust address for length of the fetch buffer
+          ifetch_buffer162_addr <= ifetch_buffer162_addr_drive - 5;
+        end if;
+
+        -- Note when we have filled the low-level instruction fetch buffer
+        if fastram_next_instruction_store_position < 6 then
           fastram_next_instruction_store <= '1';
         else
           fastram_next_instruction_store <= '0';
@@ -775,14 +779,33 @@ begin
       if fastram_next_instruction_store='1' then
         report "Storing byte $" & to_hstring(fastram_iface(fastram_pipeline_depth).rdata)
           & " into ifetch_buffer324(" & integer'image(fastram_next_instruction_store_position) & ").";
-        ifetch_buffer324(7 downto 0) <= fastram_iface(fastram_pipeline_depth).rdata;
-        ifetch_buffer324(47 downto 8) <= ifetch_buffer324(39 downto 0);
+        ifetch_buffer324(47 downto 40) <= fastram_iface(fastram_pipeline_depth).rdata;
+        ifetch_buffer324(39 downto 0) <= ifetch_buffer324(47 downto 8);
         ifetch_buffer324_byte_count <= fastram_next_instruction_store_position;
+        ifetch_buffer162_addr_drive <= fastram_iface(fastram_pipeline_depth).addr_return;
       else
         ifetch_buffer324 <= ifetch_buffer324;
       end if;      
       
-      
+      -- Begin fetching next instruction if requested.
+      -- We assume that if waiting for an instruction that no other memory accesses
+      -- are going on, and thus that we can have shallower logic for the next_ifetch_address
+      -- logic, by just having it always increment. This could come unstuck if
+      -- a write is still happening in the background, in which case we should
+      -- check if that is happening.
+      if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
+        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
+        fastram_next_ifetch_address <= instruction_fetch_address_in;
+        fastram_next_instruction_address <= instruction_fetch_address_in;
+        fastram_next_instruction_position <= 0;
+      else
+        if fastram_read_now='0' and fastram_write_now='0' then
+          -- Advance address is nothing else is happening
+          fastram_next_ifetch_address <= fastram_next_ifetch_address + 1;
+        else
+          fastram_next_ifetch_address <= fastram_next_ifetch_address;
+        end if;
+      end if;            
       
     end if;
     
