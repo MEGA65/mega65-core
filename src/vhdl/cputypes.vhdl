@@ -50,6 +50,7 @@ package cputypes is
   type microcodeops is record
 
     -- ALU control (flag setting is automatically handled based on ALU_mode)
+    -- ALU inputs
     mcALU_in_mem : std_logic;
     mcALU_in_bitmask : std_logic;
     mcALU_in_a : std_logic;
@@ -57,7 +58,13 @@ package cputypes is
     mcALU_in_y : std_logic;
     mcALU_in_z : std_logic;
     mcALU_in_spl : std_logic;
-    mcALU_mode : alu_function_t;
+    -- ALU operations
+    mcADD : std_logic;
+    mcLSR : std_logic;
+    mcEOR : std_logic;
+    mcAND : std_logic;
+    mcORA : std_logic;
+    -- ALU outputs
     mcALU_set_a : std_logic;
     mcALU_set_x : std_logic;
     mcALU_set_y : std_logic;
@@ -66,6 +73,7 @@ package cputypes is
     mcALU_set_mem : std_logic;
     mcALU_set_spl : std_logic;
 
+    -- Mage use and setting of processor flags by ALU
     mcADDCarry : std_logic;
     mcRecordCarry : std_logic;
     mcAssumeCarrySet : std_logic;
@@ -73,7 +81,8 @@ package cputypes is
     mcAllowBCD : std_logic;
     mcRecordN : std_logic;
     mcRecordZ : std_logic;
-    mcALU_set_mem : std_logic;
+    mcRecordV : std_logic;
+    mcRecordC : std_logic;
     mcTRBSetZ : std_logic;
     
     -- Do we write registers or results to memory?
