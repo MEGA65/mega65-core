@@ -95,11 +95,10 @@ package cputypes is
     mcBit0FromCarry : std_logic;
     mcBit7FromCarry : std_logic;
 
-    -- Do we write registers or results to memory?
-    mcStoreA : std_logic;
-    mcStoreX : std_logic;
-    mcStoreY : std_logic;
-    mcStoreZ : std_logic;
+    -- For SAX only, we have to munge together A and X
+    -- (on the 6502, this worked due to NMOS open collector construction
+    --  doing an implict AND)
+    mcStoreAX : std_logic;
 
     mcPushW : std_logic;
     mcBRK : std_logic;

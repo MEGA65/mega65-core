@@ -1140,10 +1140,10 @@
         I_ROW => (mcADD => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
         I_SBC => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
         I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
-        I_STA => (mcStoreA => '1', mcALU_set_mem => '1', others => '0'),
-        I_STX => (mcStoreX => '1', mcALU_set_mem => '1', others => '0'),
-        I_STY => (mcStoreY => '1', mcALU_set_mem => '1', others => '0'),
-        I_STZ => (mcStoreZ => '1', mcALU_set_mem => '1', others => '0'),
+        I_STA => (mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
+        I_STX => (mcALU_in_x => '1', mcALU_set_mem => '1', others => '0'),
+        I_STY => (mcALU_in_y => '1', mcALU_set_mem => '1', others => '0'),
+        I_STZ => (mcALU_in_z => '1', mcALU_set_mem => '1', others => '0'),
         I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
         I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
 
@@ -1167,7 +1167,7 @@
         I_RRA      => (mcADD => '1', mcLSR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
                        mcALU_in_a => '1', others => '0'),
         --    -- Store AND of A and X: Doesn't touch any flags
-        I_SAX => (mcStoreA => '1', mcStoreX => '1', mcALU_set_mem => '1', others => '0'),
+        I_SAX => (mcStoreAX => '1', mcALU_set_mem => '1', others => '0'),
         --    -- Load A and X at the same time, one of the more useful results
         I_LAX => (mcPassB => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
         -- Decrement, and then compare with accumulator
@@ -5868,8 +5868,8 @@
                         mc.mcRecordZ := '1';
                       when x"0B" =>
                         -- TSY
-                        mc.mcALU_in_y := '1';
-                        mc.mcStoreY := '1';
+                        mc.mcALU_in_sph := '1';
+                        mc.mcALU_set_y := '1';
                         mc.mcRecordN := '1';
                         mc.mcRecordZ := '1';
                       when x"10" =>
@@ -5887,7 +5887,7 @@
                         mc.mcALU_b_1 := '1';
                         mc.mcADD := '1';
                         mc.mcAssumeCarryClear := '1';
-                        mc.mcStoreA := '1';
+                        mc.mcALU_set_a := '1';
                         mc.mcRecordN := '1';
                         mc.mcRecordZ := '1';
                       when x"1B" =>
@@ -5896,7 +5896,7 @@
                         mc.mcALU_b_1 := '1';
                         mc.mcADD := '1';
                         mc.mcAssumeCarryClear := '1';
-                        mc.mcStoreZ := '1';
+                        mc.mcALU_set_z := '1';
                         mc.mcRecordN := '1';
                         mc.mcRecordZ := '1';
                       when x"20" =>
@@ -5928,7 +5928,15 @@
                         mc.mcALU_set_a := '1';
                         mc.mcRecordN := '1';
                         mc.mcRecordZ := '1';
-                      when x"2A" => alu_set_a := '1'; alu_mode := ALU_ROL; alu_in_a := '1'; -- ROL A
+                      when x"2A" =>
+                        -- ROL A
+                        mc.alu_in_a := '1';
+                        mc.mcADD := '1';
+                        mc.mcCarryFromBit7 := '1';
+                        mc.mcBit0FromCarry := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"2B" => reg_sph   <= reg_y;                                     -- TYS
                         report "ZPCACHE: Flushing cache due to setting SPH";
                         cache_flushing      <= '1';
@@ -5940,16 +5948,50 @@
                         if flag_n = '1' then do_branch16 := '1';
                         end if;
                       when x"38" => flag_c    <= '1';                  -- SEC
-                      when x"3A" => dec_set_a := '1'; dec_in := reg_a; -- DEC A
-                      when x"3B" => dec_set_z := '1'; dec_in := reg_z; -- DEZ
+                      when x"3A" =>
+                        -- DEC A
+                        mc.alu_in_a := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"3B" =>
+                        -- DEZ
+                        mc.alu_in_z := '1';
+                        mc.alu_set_z := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"40" => state     <= RTI;
-                      when x"42" => alu_set_a := '1'; alu_mode := ALU_NEG; alu_in_a := '1'; -- NEG A
-                      when x"43" => alu_set_a := '1'; alu_mode := ALU_ASR; alu_in_a := '1'; -- ASR A
+                      when x"42" =>
+                        -- NEG A
+                        mc.alu_in_a := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertA := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"43" =>
+                        -- ASR A
+                        mc.alu_in_a := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcLSR := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                        mc.mcCarryFromBit0 := '1';
                       when x"48" =>
                         -- PHA
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 1;
-                        memory_access_wdata(7 downto 0)    := reg_a;
+                        mc.alu_in_a := '1';
+                        mc.alu_set_mem := '1';
                         memory_access_resolve_address      := '1';
                         memory_access_address(15 downto 8) := reg_sph;
                         memory_access_address(7 downto 0)  := reg_sp;
@@ -5962,28 +6004,44 @@
                         mc.mcALU_set_a := '1';
                         mc.mcRecordN := '1';
                         mc.mcRecordZ := '1';
-                      when x"4A" => alu_set_a := '1'; alu_mode := ALU_LSR; alu_in_a := '1';                  -- LSR A
-                      when x"4B" => alu_in_a  := '1'; alu_set_z := '1'; alu_mode := ALU_PASS;                -- TAZ
-                      when x"4C" => pc_inc    := 0; pc_set := '1'; var_pc := instruction_bytes(23 downto 8); -- JMP
-                      when x"50" =>                                                                          -- BVC $rr
-                        if flag_v = '0' then do_branch8 := '1';
-                        end if;
-                      when x"53" => -- BVC $rrrr
-                        if flag_v = '0' then do_branch16 := '1';
-                        end if;
+                      when x"4A" =>
+                        -- LSR A
+                        mc.alu_in_a := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcLSR := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                        mc.mcCarryFromBit0 := '1';
+                        mc.mcZeroBit7 := '1';
+                      when x"4B" =>
+                        -- TAZ
+                        mc.alu_in_a := '1';
+                        mc.alu_set_z := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"4C" =>
+                        -- JMP
+                        pc_inc    := 0;
+                        pc_set := '1';
+                        var_pc := instruction_bytes(23 downto 8);
+                      when x"50" =>
+                        -- BVC $rr
+                        if flag_v = '0' then do_branch8 := '1'; end if;
+                      when x"53" =>
+                        -- BVC $rrrr
+                        if flag_v = '0' then do_branch16 := '1'; end if;
                       when x"5A" =>
                         -- PHY
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 1;
-                        memory_access_wdata(7 downto 0)    := reg_y;
+                        mc.alu_in_y := '1';
+                        mc.alu_set_mem := '1';
                         memory_access_resolve_address      := '1';
                         memory_access_address(15 downto 8) := reg_sph;
                         memory_access_address(7 downto 0)  := reg_sp;
                         dec_sp                             := 1;
-                      when x"5B" => reg_b <= reg_a; -- TAB
+                      when x"5B" =>
+                        -- TAB
+                        reg_b <= reg_a;
                         report "ZPCACHE: Flushing cache due to moving ZP";
-                        cache_flushing      <= '1';
-                        cache_flush_counter <= (others => '0');
                       when x"60" =>
                         -- RTS
                         if flat32_address_v = '0' then
@@ -6028,120 +6086,225 @@
                         mc.mcRecordZ := '1';
                         mc.mcRecordV := '1';
                         mc.mcRecordCarry := '1';
-                      when x"6A" => alu_set_a := '1'; alu_mode := ALU_ROR; alu_in_a := '1';   -- ROR A
-                      when x"6B" => alu_in_z  := '1'; alu_mode := ALU_PASS; alu_set_a := '1'; -- TZA
-                      when x"70" =>                                                           -- BVS $rr
-                        if flag_v = '1' then do_branch8 := '1';
-                        end if;
-                      when x"73" => -- BVS $rrrr
-                        if flag_v = '1' then do_branch16 := '1';
-                        end if;
-                      when x"78" => flag_i   <= '1';                                         -- SEI
-                      when x"7B" => alu_in_b := '1'; alu_mode := ALU_PASS; alu_set_a := '1'; -- TBA
+                      when x"6A" =>
+                        -- ROR A
+                        mc.alu_in_a  := '1';
+                        mc.mcLSR := '1';
+                        mc.mcALU_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                        mc.mcBit7FromCarry := '1';
+                        mc.mcCarryFromBit0 := '1';
+                      when x"6B" =>
+                        -- TZA
+                        mc.alu_in_z := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcRecordZ := '1';
+                        mc.mcRecordN := '1';
+                      when x"70" =>
+                        -- BVS $rr
+                        if flag_v = '1' then do_branch8 := '1'; end if;
+                      when x"73" =>
+                        -- BVS $rrrr
+                        if flag_v = '1' then do_branch16 := '1'; end if;
+                      when x"78" =>
+                        -- SEI
+                        flag_i   <= '1';
+                      when x"7B" =>
+                        -- TBA
+                        mc.alu_in_b := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"80" =>                                                          -- BRA $rr
                         do_branch8 := '1';
                       when x"83" => -- BRA $rrrr
                         do_branch16 := '1';
-                      when x"88" => dec_set_y := '1'; dec_in := reg_y; -- DEY
+                      when x"88" =>
+                        -- DEY
+                        mc.alu_in_y := '1';
+                        mc.alu_set_y := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"89" =>
                         -- BIT #$nn
-                        alu_in_a  := '1';
-                        alu_mode  := ALU_BIT;
-                        alu_arg   := instruction_bytes(15 downto 8);
-                        alu_set_a := '1';
-                      when x"8A" => alu_in_x := '1'; alu_mode := ALU_PASS; alu_set_a := '1'; -- TXA
-                      when x"90" =>                                                          -- BCC $rr
-                        if flag_c = '0' then do_branch8 := '1';
-                        end if;
-                      when x"93" => -- BCC $rrrr
-                        if flag_c = '0' then do_branch16 := '1';
-                        end if;
-                      when x"98" => alu_in_y := '1'; alu_mode := ALU_PASS; alu_set_a := '1'; -- TYA
-                      when x"9A" => reg_sp   <= reg_x;                                       -- TXS
+                        mc.alu_in_a  := '1';
+                        mc.mcalu_b_ibyte2 := '1';
+                        mc.mcAND := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"8A" =>
+                        -- TXA
+                        mc.alu_in_x := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"90" =>
+                        -- BCC $rr
+                        if flag_c = '0' then do_branch8 := '1'; end if;
+                      when x"93" =>
+                        -- BCC $rrrr
+                        if flag_c = '0' then do_branch16 := '1'; end if;
+                      when x"98" =>
+                        -- TYA
+                        mc.alu_in_y := '1';
+                        mc.alu_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"9A" =>
+                        -- TXS
+                        mc.alu_in_x := '1';
+                        mc.alu_set_spl := '1';
                       when x"A0" =>
                         -- LDY #$nn
-                        alu_in_y  := '1';
-                        alu_mode  := ALU_LOAD;
-                        alu_arg   := instruction_bytes(15 downto 8);
-                        alu_set_y := '1';
+                        mc.mcPassB := '1';
+                        mc.mcalu_b_ibyte2 := '1';
+                        mc.mcALU_set_y := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"A2" =>
                         -- LDX #$nn
-                        alu_in_x  := '1';
-                        alu_mode  := ALU_LOAD;
-                        alu_arg   := instruction_bytes(15 downto 8);
-                        alu_set_x := '1';
+                        mc.mcPassB := '1';
+                        mc.mcalu_b_ibyte2 := '1';
+                        mc.mcALU_set_x := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"A3" =>
                         -- LDZ #$nn
-                        alu_in_z  := '1';
-                        alu_mode  := ALU_LOAD;
-                        alu_arg   := instruction_bytes(15 downto 8);
-                        alu_set_z := '1';
-                      when x"A8" => alu_in_a := '1'; alu_mode := ALU_PASS; alu_set_y := '1'; -- TAY
+                        mc.mcPassB := '1';
+                        mc.mcalu_b_ibyte2 := '1';
+                        mc.mcALU_set_z := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"A8" =>
+                        -- TAY
+                        mc.alu_in_a := '1';
+                        mc.alu_set_y := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"A9" =>
                         -- LDA #$nn
-                        alu_in_a  := '1';
-                        alu_mode  := ALU_LOAD;
-                        alu_arg   := instruction_bytes(15 downto 8);
-                        alu_set_a := '1';
-                      when x"AA" => alu_in_a := '1'; alu_mode := ALU_PASS; alu_set_x := '1'; -- TAX
-                      when x"B0" =>                                                          -- BCS $rr
-                        if flag_c = '1' then do_branch8 := '1';
-                        end if;
-                      when x"B3" => -- BCS $rrrr
-                        if flag_c = '1' then do_branch16 := '1';
-                        end if;
-                      when x"B8" => flag_v     <= '0';                                         -- CLV
-                      when x"BA" => alu_in_spl := '1'; alu_mode := ALU_PASS; alu_set_x := '1'; -- TSX
+                        mc.mcPassB := '1';
+                        mc.mcalu_b_ibyte2 := '1';
+                        mc.mcALU_set_a := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"AA" =>
+                        -- TAX
+                        mc.alu_in_a := '1';
+                        mc.alu_set_x := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"B0" =>
+                        -- BCS $rr
+                        if flag_c = '1' then do_branch8 := '1'; end if;
+                      when x"B3" =>
+                        -- BCS $rrrr
+                        if flag_c = '1' then do_branch16 := '1'; end if;
+                      when x"B8" =>
+                        -- CLV
+                        flag_v     <= '0';
+                      when x"BA" =>
+                        -- TSX
+                        mc.alu_in_spl := '1';
+                        mc.alu_set_x := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"C0" =>
                         -- CPY #$nn
-                        alu_in_y := '1';
-                        alu_mode := ALU_CMP;
-                        alu_arg  := instruction_bytes(15 downto 8);
+                        mc.mcADD := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcALU_in_y := '1';
+                        mc.mcAssumeCarrySet := '1';
+                        mc.mcRecordCarry := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"C2" =>
                         -- CPZ #$nn
-                        alu_in_z := '1';
-                        alu_mode := ALU_CMP;
-                        alu_arg  := instruction_bytes(15 downto 8);
-                      when x"C8" => inc_set_y := 1; inc_in_z := '1'; -- INY
+                        mc.mcADD := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcALU_in_z := '1';
+                        mc.mcAssumeCarrySet := '1';
+                        mc.mcRecordCarry := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"C8" =>
+                        -- INY
+                        mc.alu_in_y := '1';
+                        mc.alu_set_z := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '0';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"C9" =>
                         -- CMP #$nn
-                        alu_in_a := '1';
-                        alu_mode := ALU_CMP;
-                        alu_arg  := instruction_bytes(15 downto 8);
-                      when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
-                      when x"d0" =>                                                -- BNE $rr
-                        if flag_z = '0' then do_branch8 := '1';
-                        end if;
-                      when x"d3" => -- BNE $rrrr
-                        if flag_z = '0' then do_branch16 := '1';
-                        end if;
-                      when x"D8" => flag_d <= '0'; -- CLD
-                        flat32_address_prime <= '1';
-                        flat32_address       <= flat32_address_prime;
+                        mc.mcADD := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcALU_in_a := '1';
+                        mc.mcAssumeCarrySet := '1';
+                        mc.mcRecordCarry := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"CA" =>
+                        -- DEX
+                        mc.alu_in_z := '1';
+                        mc.alu_set_z := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"d0" =>
+                        -- BNE $rr
+                        if flag_z = '0' then do_branch8 := '1'; end if;
+                      when x"d3" =>
+                        -- BNE $rrrr
+                        if flag_z = '0' then do_branch16 := '1'; end if;
+                      when x"D8" =>
+                        -- CLD
+                        flag_d <= '0';
                       when x"DA" =>
                         -- PHX
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 1;
-                        memory_access_wdata(7 downto 0)    := reg_x;
+                        mc.alu_in_x := '1';
+                        mc.alu_set_mem := '1';
                         memory_access_resolve_address      := '1';
                         memory_access_address(15 downto 8) := reg_sph;
                         memory_access_address(7 downto 0)  := reg_sp;
                         dec_sp                             := 1;
                       when x"DB" =>
                         -- PHZ
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 1;
-                        memory_access_wdata(7 downto 0)    := reg_z;
+                        mc.alu_in_z := '1';
+                        mc.alu_set_mem := '1';
                         memory_access_resolve_address      := '1';
                         memory_access_address(15 downto 8) := reg_sph;
                         memory_access_address(7 downto 0)  := reg_sp;
                         dec_sp                             := 1;
                       when x"E0" =>
                         -- CPX #$nn
-                        alu_in_x := '1';
-                        alu_mode := ALU_CMP;
-                        alu_arg  := instruction_bytes(15 downto 8);
-                      when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
+                        mc.mcADD := '1';
+                        mc.mcInvertB := '1';
+                        mc.mcALU_in_x := '1';
+                        mc.mcAssumeCarrySet := '1';
+                        mc.mcRecordCarry := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
+                      when x"E8" =>
+                        -- INX
+                        mc.alu_in_x := '1';
+                        mc.alu_set_x := '1';
+                        mc.mcALU_b_1 := '1';
+                        mc.mcInvertB := '0';
+                        mc.mcADD := '1';
+                        mc.mcAssumeCarryClear := '1';
+                        mc.mcRecordN := '1';
+                        mc.mcRecordZ := '1';
                       when x"E9" =>
                         -- SBC #$nn
                         mc.alu_in_a  := '1';
@@ -6154,13 +6317,15 @@
                         mc.mcRecordZ := '1';
                         mc.mcRecordV := '1';
                         mc.mcRecordCarry := '1';
-                      when x"EA" => map_interrupt_inhibit <= '0'; -- EOM / NOP
-                      when x"F0" =>                               -- BEQ $rr
-                        if flag_z = '1' then do_branch8 := '1';
-                        end if;
-                      when x"F3" => -- BEQ $rrrr
-                        if flag_z = '1' then do_branch16 := '1';
-                        end if;
+                      when x"EA" =>
+                        -- EOM / NOP
+                        map_interrupt_inhibit <= '0';
+                      when x"F0" =>
+                        -- BEQ $rr
+                        if flag_z = '1' then do_branch8 := '1'; end if;
+                      when x"F3" =>
+                         -- BEQ $rrrr
+                        if flag_z = '1' then do_branch16 := '1'; end if;
                       when x"F4" =>
                         -- PHW #$nnnn
                         memory_access_write                := '1';
@@ -6170,7 +6335,9 @@
                         memory_access_address(15 downto 8) := reg_sph;
                         memory_access_address(7 downto 0)  := reg_sp;
                         dec_sp                             := 2;
-                      when x"F8"  => flag_d <= '1'; -- SED
+                      when x"F8"  =>
+                        -- SED
+                        flag_d <= '1';
                       when others =>
                         -- Instruction requires multi-cycle processing
                         if is_indirect_v = '1' then
@@ -6525,17 +6692,9 @@
                 end if;
 
                 -- Now work out what to value we are writing to memory, if any
-                if reg_microcode.mcStoreA and reg_microcode.mcStoreX = '1' then
+                if reg_microcode.mcStoreAX then
                   -- Store and of A and X
                   var_wdata := reg_a and reg_x;
-                elsif reg_microcode.mcStoreA = '1' then
-                  var_wdata := reg_a;
-                elsif reg_microcode.mcStoreX = '1' then
-                  var_wdata := reg_x;
-                elsif reg_microcode.mcStoreY = '1' then
-                  var_wdata := reg_y;
-                elsif reg_microcode.mcStoreZ = '1' then
-                  var_wdata := reg_z;
                 elsif reg_microcode.mcADD = '1' then
                   -- SLO instruction writes result of ADD (=left shift), not of
                   -- the ORA
