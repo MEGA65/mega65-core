@@ -1084,13 +1084,13 @@ architecture Behavioural of gs4510 is
   type microcode_lut_t is array (instruction)
     of microcodeops;
   signal microcode_lut : microcode_lut_t := (
-    I_ADC => (mcADD => '1', mcADDCarry => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', others => '0', mcRecordV => '1'),
-    I_AND => (mcAND => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ADC => (mcADD => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', others => '0', mcRecordV => '1'),
+    I_AND => (mcAND => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     -- 6502 does shift left by addition
-    I_ASL => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_ASR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ASL => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ASR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     -- ASW is left-shift of 16-bit operand
-    I_ASW => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ASW => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_BIT => (mcAND => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_BRK => (mcBRK => '1', others => '0'),
     I_CMP => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
@@ -1099,7 +1099,7 @@ architecture Behavioural of gs4510 is
     I_CPZ => (mcADD => '1', mcInvertB => '1', mcALU_in_z => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_DEC => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
     I_DEW => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
-    I_EOR => (mcEOR => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_EOR => (mcEOR => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_INC => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
     I_INW => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
     -- Only indirect JMP/JSR are handled by microcode
@@ -1110,8 +1110,8 @@ architecture Behavioural of gs4510 is
     I_LDX => (mcLOAD => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_LDY => (mcLOAD => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_LDZ => (mcLOAD => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_LSR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_ORA => (mcORA => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_LSR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ORA => (mcORA => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_PHW => (mcPushW => '1', others => '0'),
     I_PLA=> (mcLOAD => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_PLP=> (mcLOAD => '1', mcALU_set_p => '1', others => '0'),
@@ -1121,18 +1121,18 @@ architecture Behavioural of gs4510 is
     -- RMB clears a specific bit. We implement this by having reg_bitmask set
     -- with the correct operand, after which we can just use AND.
     -- (SMB works with an inverted bitmask and OR.)
-    I_RMB => (mcAND => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
-    I_ROL => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_ROR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_ROW => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-    I_SBC => (mcADD => '1', mcADDCarry => '1', mcInvertB => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
-    I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
-    I_STA => (mcStoreA => '1', others => '0'),
-    I_STX => (mcStoreX => '1', others => '0'),
-    I_STY => (mcStoreY => '1', others => '0'),
-    I_STZ => (mcStoreZ => '1', others => '0'),
-    I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcmcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
-    I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
+    I_RMB => (mcAND => '1', mcALU_in_bitmask => '1', mcStoreALU => '1', others => '0'),
+    I_ROL => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ROR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ROW => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_SBC => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
+    I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcStoreALU => '1', others => '0'),
+    I_STA => (mcStoreA => '1', mcStoreALU => '1', others => '0'),
+    I_STX => (mcStoreX => '1', mcStoreALU => '1', others => '0'),
+    I_STY => (mcStoreY => '1', mcStoreALU => '1', others => '0'),
+    I_STZ => (mcStoreZ => '1', mcStoreALU => '1', others => '0'),
+    I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcmcALU_in_a => '1', mcStoreALU => '1', others => '0'),
+    I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcStoreALU => '1', others => '0'),
 
     -- 6502 unintended instructions
     -- XXX These will not be 100% correct yet, as our ALU doesn't (yet) support
@@ -1143,18 +1143,18 @@ architecture Behavioural of gs4510 is
     -- This one is a bit tricky, as we need to do the shift before the ORA.
     -- More the point, SLO puts the result of the SHIFT into memory, and the
     -- result of the ORA with that into A.
-    I_SLO => (mcORA => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1',
-              mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1',
+    I_SLO => (mcORA => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1',
+              mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1',
               others => '0'),
     -- Rotate left, then AND accumulator with result of operation
-    I_RLA => (mcADD => '1', mcAND => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_RLA => (mcADD => '1', mcAND => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
 --    -- LSR, then EOR accumulator with result of operation
-    I_SRE => (mcLSR => '1', mcEOR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_SRE => (mcLSR => '1', mcEOR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
 --    -- Rotate right, then ADC accumulator with result of operation
-    I_RRA => (mcADD => '1', mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
-              mcADDCarry => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', others => '0'),
+    I_RRA => (mcADD => '1', mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
+              mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', others => '0'),
 --    -- Store AND of A and X: Doesn't touch any flags
-    I_STA => (mcStoreA => '1', mcStoreX => '1', others => '0'),
+    I_SAX => (mcStoreA => '1', mcStoreX => '1', mcStoreALU => '1', others => '0'),
 --    -- Load A and X at the same time, one of the more useful results
     I_LDA => (mcLOAD => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     -- Decrement, and then compare with accumulator
@@ -1164,12 +1164,12 @@ architecture Behavioural of gs4510 is
               mcInvertB => '1', mcALU_in_a => '1', mcAssumeCarryClear => '1',
               mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
 --    -- ISC, then subtract result from accumulator
-    I_ISC => (mcADD => '1', mcADDCarry => '1', mcAssumeCarrySet => '1', mcInvertB => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', others => '0'),
+    I_ISC => (mcADD => '1', mcAssumeCarrySet => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', others => '0'),
 --    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
 --    -- and ROL in the microcode, and everything will already work.
     -- XXX ANC is only available in immediate mode, and so should be a
     -- single-cycle instruction?
---    I_ANC => (mcAND => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+--    I_ANC => (mcAND => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     -- XXX ALR is only available in immediate mode, and so should be a
     -- single-cycle instruction?
 --    I_ALR => (mcAND => '1', mcLSR => '1',
@@ -1182,7 +1182,7 @@ architecture Behavioural of gs4510 is
 --              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
     -- SBX = CMP + DEX
     -- XXX Immediate mode only, so should be a single cycle instruction
---    I_SBX => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_in_x => '1', mc_ALU_set_x => '1',
+--    I_SBX => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_in_x => '1', mcALU_set_x => '1',
 --              mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1',
 --              others => '0'),
     -- This one is quite hairy, as well as unrelabile.
@@ -1197,8 +1197,8 @@ architecture Behavioural of gs4510 is
 --    I_TAS => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
 --              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
       -- Ok, this next one is quite weird, but also quite doable
-    I_LAS => (mcAND => '1', mc_ALU_set_a => '1', mc_ALU_set_x => '1', mc_ALU_set_spl => '1',
-              mc_ALU_in_spl => '1', others => '0');
+    I_LAS => (mcAND => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcALU_set_spl => '1',
+              mcALU_in_spl => '1', others => '0');
 --    I_NOP => ( others=>'0'),
 -- I_KIL - XXX needs to be handled as Hypervisor trap elsewhere
     
@@ -2926,30 +2926,16 @@ begin
       reg_dmagic_line_mode <= '0';
       reg_dmagic_line_x_or_y <= '0';
     end procedure;
-    
-    procedure alu_op_cmp (
-      i1 : in unsigned(7 downto 0);
-      i2 : in unsigned(7 downto 0)) is
-      variable result : unsigned(8 downto 0) := to_unsigned(0,9);
-    begin
-      result := ("0"&i1) - ("0"&i2);
-      flag_z <= '0'; flag_c <= '0';
-      if result(7 downto 0)=x"00" then
-        flag_z <= '1';
-      end if;
-      if result(8)='0' then
-        flag_c <= '1';
-      end if;
-      flag_n <= result(7);
-    end alu_op_cmp;
-    
+        
     impure function alu_op_add (
       i1 : in unsigned(7 downto 0);
-      i2 : in unsigned(7 downto 0)) return unsigned is
+      i2 : in unsigned(7 downto 0);
+      carry_in : std_logic;
+      decimal_mode : in std_logic) return unsigned is
       -- Result is NVZC<8bit result>
       variable tmp : unsigned(11 downto 0) := x"000";
     begin
-      if flag_d='1' then
+      if decimal_mode='1' then
         tmp(8) := '0';
         tmp(7 downto 0) := (i1 and x"0f") + (i2 and x"0f") + ("0000000" & flag_c);
         
@@ -2964,12 +2950,12 @@ begin
                              + to_integer(i1 and x"f0") + to_integer(i2 and x"f0")
                              + 16;
         end if;
-        if (i1 + i2 + ( "0000000" & flag_c )) = x"00" then
+        if (i1 + i2 + ( "0000000" & carry_in )) = x"00" then
           report "add result SET Z";
           tmp(9) := '1'; -- Z flag
         else
           report "add result CLEAR Z (result=$"
-            & to_hstring((i1 + i2 + ( "0000000" & flag_c )));
+            & to_hstring((i1 + i2 + ( "0000000" & carry_in )));
           tmp(9) := '0'; -- Z flag
         end if;
         tmp(11) := tmp(7); -- N flag
@@ -2982,7 +2968,7 @@ begin
       else
         tmp(8 downto 0) := ("0"&i2)
                            + ("0"&i1)
-                           + ("00000000"&flag_c);
+                           + ("00000000"&carry_in);
         tmp(7 downto 0) := tmp(7 downto 0);
         tmp(11) := tmp(7); -- N flag
         if (tmp(7 downto 0) = x"00") then
@@ -3003,49 +2989,6 @@ begin
       --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp;
     end function alu_op_add;
-
-    impure function alu_op_sub (
-      i1 : in unsigned(7 downto 0);
-      i2 : in unsigned(7 downto 0)) return unsigned is
-      variable tmp : unsigned(11 downto 0) := x"000"; -- NVZC+8bit result
-      variable tmpd : unsigned(8 downto 0) := "000000000";
-    begin
-      tmp(8 downto 0) := ("0"&i1) - ("0"&i2)
-                         - "000000001" + ("00000000"&flag_c);
-      tmp(8) := not tmp(8); -- Carry flag
-      tmp(10) := (i1(7) xor tmp(7)) and (i1(7) xor i2(7)); -- Overflowflag
-      tmp(7 downto 0) := tmp(7 downto 0);
-      tmp(11) := tmp(7); -- Negative flag
-      if tmp(7 downto 0) = x"00" then
-        tmp(9) := '1';
-      else
-        tmp(9) := '0';  -- Zero flag
-      end if;
-      if flag_d='1' then
-        tmpd := (("00000"&i1(3 downto 0)) - ("00000"&i2(3 downto 0)))
-                - "000000001" + ("00000000" & flag_c);
-
-        if tmpd(4)='1' then
-          tmpd(3 downto 0) := tmpd(3 downto 0)-x"6";
-          tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4)) - "00001";
-        else
-          tmpd(8 downto 4) := ("0"&i1(7 downto 4)) - ("0"&i2(7 downto 4));
-        end if;
-        if tmpd(8)='1' then
-          tmpd(8 downto 0) := tmpd(8 downto 0) - ("0"&x"60");
-        end if;
-        tmp(7 downto 0) := tmpd(7 downto 0);
-      end if;
-                                        -- Return final value
-                                        --report "subtraction result of "
-                                        --  & "$" & to_hstring(std_logic_vector(i1)) 
-                                        --  & " - "
-                                        --  & "$" & to_hstring(std_logic_vector(i2)) 
-                                        --  & " - 1 + "
-                                        --  & "$" & std_logic'image(flag_c)
-                                        --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
-      return tmp(11 downto 0);
-    end function alu_op_sub;
 
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(7 downto 0))
@@ -6108,6 +6051,7 @@ begin
               -- optionally storing the result back if its an RMW or just a
               -- store operation with a complex addressing mode.
 
+              -- Work out the next state for the FSM
               if reg_microcode.mcBRK='1' then                
                 state <= Interrupt;
               elsif reg_microcode.mcJump='1' then
@@ -6118,517 +6062,195 @@ begin
                 state <= fast_fetch_state;                
               end if;
 
-              if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
-              if reg_microcode.mcSetA='1' then
-                reg_a <= memory_read_value;
-              end if;
-              if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
-              if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
-              if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
+              -- And otherwise, we mostly just set a pile of ALU flags
+              -- The ALU consists of three chained stages, in order to achieve
+              -- 6502 bug compatibility: right shift, binary operations, addition.
+              -- We have a parallel ALU implementation for the 16/32 bit operations.
 
-              if reg_microcode.mcBIT='1' then
-                set_nz(reg_a and memory_read_value);
-                flag_n <= memory_read_value(7);
-                flag_v <= memory_read_value(6);
+              -- Load A input to ALU
+              var_alu_a := x"00"; 
+              if reg_microcode.mcALU_in_mem='1' then
+                var_alu_a2 := transaction_rdata(7 downto 0);
               end if;
-              if reg_microcode.mcCMP='1' and (is_rmw='0') then
-                alu_op_cmp(reg_a,memory_read_value);
+              if reg_microcode.mcALU_in_bitmask = '1' then
+                var_alu_a2 := reg_bitmask;
               end if;
-              if reg_microcode.mcCPX='1' then
-                alu_op_cmp(reg_x,memory_read_value);
+              if reg_microcode.mcALU_in_a = '1'
+                and reg_microcode.mcALU_in_x = '1' then
+                var_alu_a2 := reg_a and reg_x;
+              elsif reg_microcode.mcALU_in_a = '1' then
+                var_alu_a2 := reg_a;
+              elsif reg_microcode.mcALU_in_x = '1' then
+                var_alu_a2 := reg_x;
               end if;
-              if reg_microcode.mcCPY='1' then
-                alu_op_cmp(reg_y,memory_read_value);
+              if reg_microcode.mcALU_in_y = '1' then
+                var_alu_a2 := reg_y;
+              end if;              
+              if reg_microcode.mcALU_in_x = '1' then
+                var_alu_a2 := reg_y;
+              end if;              
+              if reg_microcode.mcALU_in_spl = '1' then
+                var_alu_a2 := reg_sp;
+              end if;              
+
+              -- Load B input to ALU
+              if reg_microcode.mcALU_b_1 = '1' then
+                var_alu_b := x"01";
+              else
+                var_alu_b := transaction_rdata(7 downto 0);
               end if;
-              if reg_microcode.mcCPZ='1' then
-                alu_op_cmp(reg_z,memory_read_value);
+              if reg_microcode.mcInvertB='1' then
+                var_alu_b2 := not var_alu_b2;
+              else
+                var_alu_b2 := var_alu_b2;
               end if;
-              if reg_microcode.mcADC='1' and (is_rmw='0') then
-                reg_a <= a_add(7 downto 0);
-                flag_c <= a_add(8);  flag_z <= a_add(9);
-                flag_v <= a_add(10); flag_n <= a_add(11);
+
+              -- Now perform the various actions.
+
+              -- First, we do the right shift
+              if reg_microcode.mcLSR = '1' then
+                var_alu_r1(7) := '0';
+                var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
+              else
+                var_alu_r1 := var_alu_a;
               end if;
-              if reg_microcode.mcSBC='1' and (is_rmw='0') then
-                reg_a <= a_sub(7 downto 0);
-                flag_c <= a_sub(8);  flag_z <= a_sub(9);
-                flag_v <= a_sub(10); flag_n <= a_sub(11);
+
+              -- What is the value of carry flag going in?
+              if reg_microcode.mcAssumeCarrySet = '1' then
+                var_c_in := '1';
+              if reg_microcode.mcAssumeCarryClear = '0' then
+                var_c_in := '0';
+              else
+                var_c_in := flag_c;
               end if;
-              if reg_microcode.mcAND='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a and memory_read_value);
+            
+              -- Second, we do the ADD operation.
+              -- This is the most horrible part of the 6502.
+              -- We have to deal with BCD mode, among other things.
+              -- Return is NVZC<8 bit result>
+              if reg_microcode.mcADD = '1' then
+                var_alu_r2 := alu_op_add(var_alu_r1,var_alu_b2,
+                                         var_c_in,
+                                         reg_microcode.mcAllowBCD & flag_d);
+              else
+                -- No addition, no fancy flags
+                var_alu_r2(11 downto 8) := "0000";
+                var_alu_r2(7 downto 0) := var_alu_r1;
               end if;
-              if reg_microcode.mcORA='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a or memory_read_value);
+
+              -- Third, we do the binary operations
+              if reg_microcode.mcAND = '1' then
+                var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) and
+                                          var_alu_b2;
+              elsif reg_microcode.mcORA = '1' then
+                var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) or
+                                          var_alu_b2;
+              elsif reg_microcode.mcEOR = '1' then
+                var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
+                                          var_alu_b2;
               end if;
-              if reg_microcode.mcEOR='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a xor memory_read_value);
+
+              -- Calculate N flag
+              var_alu_r3(11) := var_alu_r3(7);
+              -- Calculate Z flag
+              if var_alu_r3(7 downto 0) /= x"00" then
+                var_alu_r3(9) := '0';
+              else
+                var_alu_r3(9) := '1';
               end if;
-              if reg_microcode.mcDEC='1' then
-                temp_value := memory_read_value - 1;
-                reg_t <= temp_value;                
-                flag_n <= temp_value(7);
-                if memory_read_value = x"01" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcINC='1' then
-                temp_value := memory_read_value + 1;
-                reg_t <= temp_value;                
-                flag_n <= temp_value(7);
-                if memory_read_value = x"ff" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcASR='1' then
-                temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcLSR='1' then
-                temp_value := '0'&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcROR='1' then
-                temp_value := flag_c&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcASL='1' then
-                temp_value := memory_read_value(6 downto 0)&'0';
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(7);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcROL='1' then
-                temp_value := memory_read_value(6 downto 0)&flag_c;
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(7);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
+              if reg_microcode.mcTRBSetZ = '1' then
+                -- TRB Z flag is simply from the comparison of A and loaded memory
+                if reg_a and transaction_rdata(7 downto 0) /= x"00" then
+                  var_alu_r3(9) := '0';
                 else
-                  flag_z <= '0';
+                  var_alu_r3(9) := '1';
                 end if;
               end if;
-              if reg_microcode.mcRMB='1' then
-                                        -- Clear bit based on opcode
-                reg_t <= memory_read_value and rmb_mask;
+              -- Update C flag from bit 0/7 as required
+              if reg_microcode.mcCarryFromBit7 = '1' then
+                var_alu_r3(8) := var_alu_a2(7);
               end if;
-              if reg_microcode.mcSMB='1' then
-                                        -- Set bit based on opcode
-                reg_t <= memory_read_value or smb_mask;
+              if reg_microcode.mcCarryFromBit0 = '1' then
+                var_alu_r3(8) := var_alu_a2(0);
+              end if;
+
+              -- Set bit 0 / 7 of result from C flag, if required
+              var_alu_r4 := var_alu_r3(7 downto 0);
+              if reg_microcode.mcBit0FromCarry = '1' then
+                var_alu_r4(0) := flag_c;
+              end if;
+              if reg_microcode.mcBit7FromCarry = '1' then
+                var_alu_r4(7) := flag_c;
               end if;
               
-              if reg_microcode.mcClearE='1' then
-                flag_e <= '0';
-                report "ZPCACHE: Flushing cache due to clearing E flag";
-                cache_flushing <= '1';
-                cache_flush_counter <= (others => '0');
-              end if;
-              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
-              if reg_microcode.mcMap='1' then c65_map_instruction; end if;
-
-                                        -- XXX Timing closure issue:
-                                        -- There are only 5 push instructions, but we currently read the
-                                        -- push indication from microcode, which is pushing timing
-                                        -- closure out for the CPU.  So we should instead just do a case
-                                        -- statement on the opcode
-                                        -- stack_push := reg_microcode.mcPush;
-              case reg_instruction is
-                when I_PHA => stack_push := '1';
-                when I_PHP => stack_push := '1';
-                when I_PHX => stack_push := '1';
-                when I_PHY => stack_push := '1';
-                when I_PHZ => stack_push := '1';
-                when others => stack_push := '0';
-              end case;              
-              stack_pop := reg_microcode.mcPop;
-              if reg_microcode.mcPop='1' then
-                state <= Pop;
-              end if;
-              if reg_microcode.mcStoreTRB='1' then
-                reg_t <= (reg_a xor x"FF") and memory_read_value;
-              end if;
-              if reg_microcode.mcStoreTSB='1' then
-                report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
-                reg_t <= reg_a or memory_read_value;
-              end if;
-              if reg_microcode.mcTestAZ = '1' then
-                if (reg_a and memory_read_value) = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcDelayedWrite='1' then
-                                        -- Do dummy write for RMW instructions if touching $D019
-                reg_t_high <= memory_read_value;
-
-                if reg_addr = x"D019" then
-                  report "memory: DUMMY WRITE for RMW on $D019" severity note;
-                  state <= DummyWrite;
-                else
-                                        -- Otherwise just the commit new value immediately
-                  state <= WriteCommit;
-                end if;
-                
-              end if;
-              if reg_microcode.mcWordOp='1' then
-                reg_t <= memory_read_value;
-                state <= WordOpReadHigh;
-              end if;
-              if (reg_microcode.mcWordOp or reg_microcode.mcDelayedWrite or
-                  reg_microcode.mcPop or reg_microcode.mcBRK) = '0' then
-                report "monitor_instruction_strobe assert (MicrocodeInterpret -- no special)";
-                monitor_instruction_strobe <= '1';
-              end if;               
-
-
-            when DummyWrite =>
-              state <= WriteCommit;
-            when WriteCommit =>
-              report "monitor_instruction_strobe assert (WriteCommit)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when Execute32 =>
-              report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
-              case reg_instruction is
-                when I_LDA =>
-                  reg_a <= reg_val32(7 downto 0);
-                  reg_x <= reg_val32(15 downto 8);
-                  reg_y <= reg_val32(23 downto 16);
-                  reg_z <= reg_val32(31 downto 24);
-                  if reg_val32 = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= reg_val32(31);
-                when I_CMP =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 - reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
-                when I_SBC =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  if flag_c='0' then
-                    vreg33 := vreg33 - reg_val32 - 1;
-                  else
-                    vreg33 := vreg33 - reg_val32;
-                  end if;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
-                when I_ADC =>
-                  -- Note: No decimal mode for 32-bit add!
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  if flag_c='0' then
-                    vreg33 := vreg33 + reg_val32;
-                  else
-                    vreg33 := vreg33 + reg_val32 + 1;
-                  end if;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
-                when I_ORA =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
-                when I_EOR =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) xor reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
-                when I_BIT =>
-                  flag_n <= reg_val32(31);
-                  flag_v <= reg_val32(30);
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                when I_AND =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
-                when I_INC =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33 := vreg33 + 1;
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_DEC =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33 := vreg33 - 1;
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_ASL =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(32 downto 1) := vreg33(31 downto 0);
-                  vreg33(0) := vreg33(32);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_ASR =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(30 downto 0) := vreg33(31 downto 1);
-                  vreg33(31) := reg_val32(31);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  flag_c <= vreg33(0);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_ROL =>
-                  vreg33 := flag_c & reg_val32;
-                  vreg33(32 downto 1) := vreg33(31 downto 0);
-                  vreg33(0) := vreg33(32);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_LSR =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(31 downto 0) := vreg33(32 downto 1);
-                  vreg33(32) := vreg33(0);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when I_ROR =>
-                  vreg33 := flag_c & reg_val32;
-                  vreg33(31 downto 0) := vreg33(32 downto 1);
-                  vreg33(32) := vreg33(0);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  axyz_phase <= 0;
-                  state <= StoreTarget32;
-                when others =>
-                  -- XXX: Don't lock CPU up if we get something odd here
-                  report "monitor_instruction_strobe assert (unknown instruction in Execute32)";
-                  monitor_instruction_strobe <= '1';
-                  state <= normal_fetch_state;
-              end case;
-              if is_rmw = '0' then
-                -- Go to next instruction by default
-                report "monitor_instruction_strobe assert (Execute32 non-RMW)";
-                monitor_instruction_strobe <= '1';
-                if reg_microcode.mcInstructionFetch='1' then
-                  report "Fast dispatch for next instruction by order of microcode";
-                  state <= fast_fetch_state;
-                else
-                  state <= normal_fetch_state;
-                end if;
-              end if;
-            when WordOpReadHigh =>
-              state <= WordOpWriteLow;
-              case reg_instruction is
-                when I_ASW =>
-                  temp_addr := memory_read_value(6 downto 0)&reg_t&'0';
-                  flag_n <= memory_read_value(6);
-                  if temp_addr = x"0000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  reg_t_high <= temp_addr(15 downto 8);
-                  reg_t <= temp_addr(7 downto 0);
-                when I_DEW =>
-                  temp_addr := (memory_read_value&reg_t) - 1;
-                  if temp_addr = x"0000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  reg_t_high <= temp_addr(15 downto 8);
-                  reg_t <= temp_addr(7 downto 0);
-                when I_INW =>
-                  temp_addr := (memory_read_value&reg_t) + 1;
-                  if temp_addr = x"0000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  reg_t_high <= temp_addr(15 downto 8);
-                  reg_t <= temp_addr(7 downto 0);
-                when I_PHW =>
-                  reg_t_high <= memory_read_value;
-                  state <= PushWordLow;
-                when I_ROW =>
-                  temp_addr := memory_read_value(6 downto 0)&reg_t&flag_c;
-                  flag_n <= memory_read_value(6);
-                  if temp_addr = x"0000" then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= memory_read_value(7);
-                  reg_t_high <= temp_addr(15 downto 8);
-                  reg_t <= temp_addr(7 downto 0);
-                when others =>
-                  report "monitor_instruction_strobe assert (invalid WordOp instruction)";
-                  monitor_instruction_strobe <= '1';
-                  state <= normal_fetch_state;
-              end case;
-            when PushWordLow =>
-                                        -- Push reg_t
-              stack_push := '1';
-              state <= PushWordHigh;
-            when PushWordHigh =>
-                                        -- Push reg_t_high
-              stack_push := '1';
-              report "monitor_instruction_strobe assert (PushWordHigh)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when WordOpWriteLow =>
-              reg_addr <= reg_addr + 1;
-              state <= WordOpWriteHigh;
-            when WordOpWriteHigh =>
-              report "monitor_instruction_strobe assert (WordOpWriteHigh)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when Pop =>
-              report "Pop" severity note;
-              if reg_microcode.mcStackA='1' then reg_a <= memory_read_value; end if;
-              if reg_microcode.mcStackX='1' then reg_x <= memory_read_value; end if;
-              if reg_microcode.mcStackY='1' then reg_y <= memory_read_value; end if;
-              if reg_microcode.mcStackZ='1' then reg_z <= memory_read_value; end if;
-              if reg_microcode.mcStackP='1' then
-                flag_n <= memory_read_value(7);
-                flag_v <= memory_read_value(6);
-                                        -- E cannot be set with PLP
-                flag_d <= memory_read_value(3);
-                flag_i <= memory_read_value(2);
-                flag_z <= memory_read_value(1);
-                flag_c <= memory_read_value(0);
+              -- Now work out what to value we are writing to memory, if any
+              if reg_microcode.mcStoreA and reg_microcode.mcStoreX = '1' then
+                -- Store and of A and X
+                var_wdata := reg_a and reg_x;
+              elsif reg_microcode.mcStoreA = '1' then
+                var_wdata := reg_a;
+              elsif reg_microcode.mcStoreX = '1' then
+                var_wdata := reg_x;
+              elsif reg_microcode.mcStoreY = '1' then
+                var_wdata := reg_y;
+              elsif reg_microcode.mcStoreZ = '1' then
+                var_wdata := reg_z;
+              elsif reg_microcode.mcADD = '1' then
+                -- SLO instruction writes result of ADD (=left shift), not of
+                -- the ORA
+                var_wdata := var_alu_r2(7 downto 0);
               else
-                set_nz(memory_read_value);
+                var_wdata := var_alu_r4;
+              end if;              
+              
+              -- Do actual write
+              if reg_microcode.mcStoreALU = '1' then
+                memory_access_write := '1';
+                memory_access_byte_count := 1;
+                memory_access_wdata := var_wdata;
+                memory_access_resolve_address := '1';
+                memory_access_address := reg_addr32;
               end if;
-              report "monitor_instruction_strobe assert (Pop)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
+
+              -- Also commit result to registers, if required
+              if reg_microcode.mcALU_set_a = '1' then
+                reg_a <= var_alu_r3(7 downto 0);
+              end if;
+              if reg_microcode.mcALU_set_x = '1' then
+                reg_x <= var_alu_r3(7 downto 0);
+              end if;
+              if reg_microcode.mcALU_set_y = '1' then
+                reg_y <= var_alu_r3(7 downto 0);
+              end if;
+              if reg_microcode.mcALU_set_z = '1' then
+                reg_z <= var_alu_r3(7 downto 0);
+              end if;
+              if reg_microcode.mcALU_set_spl = '1' then
+                reg_sp <= var_alu_r3(7 downto 0);
+              end if;
+              if reg_microcode.mcALU_set_p = '1' then
+                load_processor_flags(var_alu_r3(7 downto 0));
+              end if;
+
+              -- And update processor flags
+              if reg_microcode.mcRecordN = '1' then
+                flag_n <= var_alu_r3(11);
+              end if;
+              if reg_microcode.mcRecordV = '1' then
+                flag_v <= var_alu_r3(10);
+              end if;
+              if reg_microcode.mcRecordZ = '1' then
+                flag_z <= var_alu_r3(9);
+              end if;
+              if reg_microcode.mcRecordC = '1' then
+                flag_c <= var_alu_r3(8);
+              end if;
+              
             when others =>
               report "monitor_instruction_strobe assert (unknown CPU state)";
               monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
           end case;
-
-          -- Temporarily pick up memory access signals from combinatorial code
-          report "memory_access_address_next=$" & to_hstring(memory_access_address_next)
-            & ", memory_access_address=$" & to_hstring(memory_access_address);
-          memory_access_address :=  memory_access_address_next;
-          memory_access_read := memory_access_read_next;
-          memory_access_write := memory_access_write_next;
-          memory_access_resolve_address := memory_access_resolve_address_next;
-          memory_access_wdata := memory_access_wdata_next;
 
         end if;
 
@@ -6705,39 +6327,22 @@ begin
             reg_sph <= reg_sph + 1;
           end if;
         end if;
+
+        -- Now do ALU.
+        -- The ALU is a big of a pain, because of the NMOS bug compatibility
+        -- that we need to have.
+        -- The ALU control logic can also trigger memory writes, so it needs to
+        -- appear before the memory access logic.
+
+        
+        
         
         -- Effect memory accesses.
         -- Note that we cannot combine address resolution for read and write,
         -- because the resolution of some addresses is dependent on whether
         -- the operation is read or write.  ROM accesses are a good example.
-        -- We delay the memory write until the next cycle to minimise logic depth
-        
-        -- XXX - Try to fast-route low address lines to shadowram and other memory
-        -- blocks.
-        
-        -- Mark pages dirty as necessary        
-        if memory_access_write='1' then
-          report "MEMORY is write";
-          
-          -- Mark pages dirty as necessary        
-          if(reg_pages_dirty_next(0) = '1') then
-            reg_pages_dirty(0) <= '1';
-          end if;
-          if(reg_pages_dirty_next(1) = '1') then
-            reg_pages_dirty(1) <= '1';
-          end if;
-          if(reg_pages_dirty_next(2) = '1') then
-            reg_pages_dirty(2) <= '1';
-          end if;
-          if(reg_pages_dirty_next(3) = '1') then
-            reg_pages_dirty(3) <= '1';
-          end if;
 
-                                        -- Get the shadow RAM or ROM address on the bus fast to improve timing.
-          shadow_write <= '0';
-          shadow_write_flags(1) <= '1';
-
-          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" and hypervisor_mode='0' and (vdc_enabled='1') then
+        if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" and hypervisor_mode='0' and (vdc_enabled='1') then
             state <= VDCRead;
           end if;
 
