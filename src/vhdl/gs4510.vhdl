@@ -1107,55 +1107,55 @@ architecture Behavioural of gs4510 is
   type microcode_lut_t is array (instruction)
     of microcodeops;
   signal microcode_lut : microcode_lut_t := (
-      I_ADC => (mcADD => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', others => '0', mcRecordV => '1'),
+      I_ADC => (mcADD => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
       I_AND => (mcAND => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       -- 6502 does shift left by addition
-      I_ASL => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_ASR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_ASL => (mcADD => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcZeroBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_ASR => (mcLSR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       -- ASW is left-shift of 16-bit operand
-      I_ASW => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_ASW => (mcADD => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcZeroBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_BIT => (mcAND => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_BRK => (mcBRK => '1', others => '0'),
       I_CMP => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_CPX => (mcADD => '1', mcInvertB => '1', mcALU_in_x => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_CPY => (mcADD => '1', mcInvertB => '1', mcALU_in_y => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_CPZ => (mcADD => '1', mcInvertB => '1', mcALU_in_z => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_DEC => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
-      I_DEW => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+      I_DEC => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcALU_set_mem => '1', others => '0'),
+      I_DEW => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcALU_set_mem => '1', others => '0'),
       I_EOR => (mcEOR => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_INC => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
-      I_INW => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+      I_INC => (mcADD => '1', mcALU_b_1 => '1', mcALU_set_mem => '1', others => '0'),
+      I_INW => (mcADD => '1', mcALU_b_1 => '1', mcALU_set_mem => '1', others => '0'),
       -- Only indirect JMP/JSR are handled by microcode
       -- (Direct addressing modes are handled as single-cycle instructions)
       I_JMP => (mcJump => '1', others => '0'),
       I_JSR => (mcJump => '1', others => '0'),
-      I_LDA => (mcLOAD => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_LDX => (mcLOAD => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_LDY => (mcLOAD => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_LDZ => (mcLOAD => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_LSR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LDA => (mcPassB => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LDX => (mcPassB => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LDY => (mcPassB => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LDZ => (mcPassB => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LSR => (mcLSR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_ORA => (mcORA => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_PHW => (mcPushW => '1', others => '0'),
-      I_PLA => (mcLOAD => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_PLP => (mcLOAD => '1', mcALU_set_p => '1', others => '0'),
-      I_PLX => (mcLOAD => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_PLY => (mcLOAD => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_PLZ => (mcLOAD => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_PLA => (mcPassB => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_PLP => (mcPassB => '1', mcALU_set_p => '1', others => '0'),
+      I_PLX => (mcPassB => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_PLY => (mcPassB => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_PLZ => (mcPassB => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       -- RMB clears a specific bit. We implement this by having reg_bitmask set
       -- with the correct operand, after which we can just use AND.
       -- (SMB works with an inverted bitmask and OR.)
-      I_RMB => (mcAND => '1', mcALU_in_bitmask => '1', mcStoreALU => '1', others => '0'),
-      I_ROL => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_ROR => (mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
-      I_ROW => (mcADD => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_RMB => (mcAND => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
+      I_ROL => (mcADD => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_ROR => (mcLSR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_ROW => (mcADD => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       I_SBC => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
-      I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcStoreALU => '1', others => '0'),
-      I_STA => (mcStoreA => '1', mcStoreALU => '1', others => '0'),
-      I_STX => (mcStoreX => '1', mcStoreALU => '1', others => '0'),
-      I_STY => (mcStoreY => '1', mcStoreALU => '1', others => '0'),
-      I_STZ => (mcStoreZ => '1', mcStoreALU => '1', others => '0'),
-      I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcmcALU_in_a => '1', mcStoreALU => '1', others => '0'),
-      I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcStoreALU => '1', others => '0'),
+      I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
+      I_STA => (mcStoreA => '1', mcALU_set_mem => '1', others => '0'),
+      I_STX => (mcStoreX => '1', mcALU_set_mem => '1', others => '0'),
+      I_STY => (mcStoreY => '1', mcALU_set_mem => '1', others => '0'),
+      I_STZ => (mcStoreZ => '1', mcALU_set_mem => '1', others => '0'),
+      I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
+      I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
 
       -- 6502 unintended instructions
       -- XXX These will not be 100% correct yet, as our ALU doesn't (yet) support
@@ -1167,25 +1167,25 @@ architecture Behavioural of gs4510 is
       -- More the point, SLO puts the result of the SHIFT into memory, and the
       -- result of the ORA with that into A.
       I_SLO  => (mcORA => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1',
-      mcADD  => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1',
+      mcADD  => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1',
       others => '0'),
       -- Rotate left, then AND accumulator with result of operation
-      I_RLA => (mcADD => '1', mcAND => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_RLA => (mcADD => '1', mcAND => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       --    -- LSR, then EOR accumulator with result of operation
-      I_SRE => (mcLSR => '1', mcEOR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_SRE => (mcLSR => '1', mcEOR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       --    -- Rotate right, then ADC accumulator with result of operation
-      I_RRA      => (mcADD => '1', mcLSR => '1', mcALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
-      mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', others => '0'),
+      I_RRA      => (mcADD => '1', mcLSR => '1', mcALU_in_mem => '1', mcALU_set_mem => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
+                     mcALU_in_a => '1', others => '0'),
       --    -- Store AND of A and X: Doesn't touch any flags
-      I_SAX => (mcStoreA => '1', mcStoreX => '1', mcStoreALU => '1', others => '0'),
+      I_SAX => (mcStoreA => '1', mcStoreX => '1', mcALU_set_mem => '1', others => '0'),
       --    -- Load A and X at the same time, one of the more useful results
-      I_LDA => (mcLOAD => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_LAX => (mcPassB => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       -- Decrement, and then compare with accumulator
       -- DCP we can do, by doing a CMP without adding a fake carry bit, and then
       -- storing the result
-      I_DCP         => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1',
-      mcInvertB     => '1', mcALU_in_a => '1', mcAssumeCarryClear => '1',
-      mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+      I_DCP         => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcALU_set_mem => '1',
+                        mcALU_in_a => '1', mcAssumeCarryClear => '1',
+                        mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
       --    -- ISC, then subtract result from accumulator
       I_ISC => (mcADD => '1', mcAssumeCarrySet => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_set_a => '1', mcRecordCarry => '1', others => '0'),
       --    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
@@ -1205,7 +1205,7 @@ architecture Behavioural of gs4510 is
       --              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
       -- SBX = CMP + DEX
       -- XXX Immediate mode only, so should be a single cycle instruction
-      --    I_SBX => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_in_x => '1', mcALU_set_x => '1',
+      --    I_SBX => ( mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_in_x => '1', mcALU_set_x => '1',
       --              mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1',
       --              others => '0'),
       -- This one is quite hairy, as well as unrelabile.
@@ -6403,6 +6403,11 @@ begin
               if reg_microcode.mcALU_in_spl = '1' then
                 var_alu_a2 := reg_sp;
               end if;
+              if reg_microcode.mcInvertA='1' then
+                var_alu_a3 := not var_alu_a2;
+              else
+                var_alu_a3 := var_alu_a2;
+              end if;
 
               -- Load B input to ALU
               if reg_microcode.mcALU_b_1 = '1' then
@@ -6461,6 +6466,13 @@ begin
                   var_alu_b2;
               end if;
 
+              if reg_microcode.mcPassB = '1' Then
+                var_alu_r3(7 downto 0) := val_alu_b2;
+              end if;
+              if reg_microcode.mcZeroBit7 = '1' Then
+                var_alu_r3(7) := '0';
+              end if;
+
               -- Calculate N flag
               var_alu_r3(11) := var_alu_r3(7);
               -- Calculate Z flag
@@ -6479,10 +6491,10 @@ begin
               end if;
               -- Update C flag from bit 0/7 as required
               if reg_microcode.mcCarryFromBit7 = '1' then
-                var_alu_r3(8) := var_alu_a2(7);
+                var_alu_r3(8) := var_alu_a3(7);
               end if;
               if reg_microcode.mcCarryFromBit0 = '1' then
-                var_alu_r3(8) := var_alu_a2(0);
+                var_alu_r3(8) := var_alu_a3(0);
               end if;
 
               -- Set bit 0 / 7 of result from C flag, if required
@@ -6515,12 +6527,29 @@ begin
               end if;
 
               -- Do actual write
-              if reg_microcode.mcStoreALU = '1' then
+              if reg_microcode.mcALU_set_mem = '1' then
                 memory_access_write           := '1';
                 memory_access_byte_count      := 1;
                 memory_access_wdata           := var_wdata;
                 memory_access_resolve_address := '1';
                 memory_access_address         := reg_addr32;
+              end if;
+
+              if reg_microcode.mcPushW = '1' Then
+                memory_access_write           := '1';
+                memory_access_byte_count      := 2;
+                memory_access_wdata           := var_wdata;
+                memory_access_resolve_address := '1';
+
+                -- Decrement SP by one first before writing word
+                if flag_e = '0' then
+                  var_sp := (reg_sph & reg_sp) - 1;
+                else
+                  var_sp(15 downto 8) := reg_sph;
+                  var_sp(7 downto 0)  := reg_sp - 1;
+                end if;
+                memory_access_address(15 downto 0) := var_sp;
+                dec_sp                             := 2;
               end if;
 
               -- Also commit result to registers, if required
@@ -6553,7 +6582,7 @@ begin
               if reg_microcode.mcRecordZ = '1' then
                 flag_z <= var_alu_r3(9);
               end if;
-              if reg_microcode.mcRecordC = '1' then
+              if reg_microcode.mcRecordCarry = '1' then
                 flag_c <= var_alu_r3(8);
               end if;
             when others =>
