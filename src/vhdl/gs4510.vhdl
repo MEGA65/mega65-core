@@ -873,11 +873,11 @@ architecture Behavioural of gs4510 is
     I_BVC,I_EOR,I_KIL,I_SRE,I_NOP,I_EOR,I_LSR,I_SRE,I_CLI,I_EOR,I_NOP,I_SRE,I_NOP,I_EOR,I_LSR,I_SRE,
     I_RTS,I_ADC,I_KIL,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,I_PLA,I_ADC,I_ROR,I_ARR,I_JMP,I_ADC,I_ROR,I_RRA,
     I_BVS,I_ADC,I_KIL,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,I_SEI,I_ADC,I_NOP,I_RRA,I_NOP,I_ADC,I_ROR,I_RRA,
-    I_NOP,I_STA,I_NOP,I_SAX,I_STY,I_STA,I_STX,I_SAX,I_DEY,I_NOP,I_TXA,I_XAA,I_STY,I_STA,I_STX,I_SAX,
-    I_BCC,I_STA,I_KIL,I_AHX,I_STY,I_STA,I_STX,I_SAX,I_TYA,I_STA,I_TXS,I_TAS,I_SHY,I_STA,I_SHX,I_AHX,
+    I_NOP,I_STA,I_NOP,I_SAX,I_STY,I_STA,I_STX,I_SAX,I_DEY,I_NOP,I_TXA,I_ANE,I_STY,I_STA,I_STX,I_SAX,
+    I_BCC,I_STA,I_KIL,I_SHA,I_STY,I_STA,I_STX,I_SAX,I_TYA,I_STA,I_TXS,I_TAS,I_SHY,I_STA,I_SHX,I_SHA,
     I_LDY,I_LDA,I_LDX,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,I_TAY,I_LDA,I_TAX,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,
     I_BCS,I_LDA,I_KIL,I_LAX,I_LDY,I_LDA,I_LDX,I_LAX,I_CLV,I_LDA,I_TSX,I_LAS,I_LDY,I_LDA,I_LDX,I_LAX,
-    I_CPY,I_CMP,I_NOP,I_DCP,I_CPY,I_CMP,I_DEC,I_DCP,I_INY,I_CMP,I_DEX,I_AXS,I_CPY,I_CMP,I_DEC,I_DCP,
+    I_CPY,I_CMP,I_NOP,I_DCP,I_CPY,I_CMP,I_DEC,I_DCP,I_INY,I_CMP,I_DEX,I_SBX,I_CPY,I_CMP,I_DEC,I_DCP,
     I_BNE,I_CMP,I_KIL,I_DCP,I_NOP,I_CMP,I_DEC,I_DCP,I_CLD,I_CMP,I_NOP,I_DCP,I_NOP,I_CMP,I_DEC,I_DCP,
     I_CPX,I_SBC,I_NOP,I_ISC,I_CPX,I_SBC,I_INC,I_ISC,I_INX,I_SBC,I_NOP,I_SBC,I_CPX,I_SBC,I_INC,I_ISC,
     I_BEQ,I_SBC,I_KIL,I_ISC,I_NOP,I_SBC,I_INC,I_ISC,I_SED,I_SBC,I_NOP,I_ISC,I_NOP,I_SBC,I_INC,I_ISC
@@ -1084,161 +1084,125 @@ architecture Behavioural of gs4510 is
   type microcode_lut_t is array (instruction)
     of microcodeops;
   signal microcode_lut : microcode_lut_t := (
-    I_ADC => (mcADC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_AND => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_ASL => (mcASL => '1', mcDelayedWrite => '1', others => '0'),
-    I_ASR => (mcASR => '1', mcDelayedWrite => '1', others => '0'),
-    I_ASW => (mcWordOp => '1', others => '0'),
-    -- I_BBR - handled elsewhere
-    -- I_BBS - handled elsewhere
-    -- I_BCC - handled elsewhere
-    -- I_BCS - handled elsewhere
-    -- I_BEQ - handled elsewhere
-    I_BIT => (mcBIT => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    -- I_BMI - handled elsewhere
-    -- I_BNE - handled elsewhere
-    -- I_BPL - handled elsewhere
-    -- I_BRA - handled elsewhere
+    I_ADC => (mcADD => '1', mcADDCarry => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', others => '0', mcRecordV => '1'),
+    I_AND => (mcAND => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    -- 6502 does shift left by addition
+    I_ASL => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ASR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    -- ASW is left-shift of 16-bit operand
+    I_ASW => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_BIT => (mcAND => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     I_BRK => (mcBRK => '1', others => '0'),
-    -- I_BSR - handled elsewhere
-    -- I_BVC - handled elsewhere
-    -- I_BVS - handled elsewhere
-    -- I_CLC - Handled as a single-cycle op elsewhere
-    -- I_CLD - handled as a single-cycle op elsewhere
-    I_CLE => (mcClearE => '1', mcDecPC => '1', others => '0'),
-    I_CLI => (mcClearI => '1', mcDecPC => '1', others => '0'),
-    -- I_CLV - handled as a single-cycle op elsewhere
-    I_CMP => (mcCMP => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_CPX => (mcCPX => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_CPY => (mcCPY => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_CPZ => (mcCPZ => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_DEC => (mcDEC => '1', mcDelayedWrite => '1', others => '0'),
-    I_DEW => (mcWordOp => '1', others => '0'),
-    -- I_EOM - handled as a single-cycle op elsewhere
-    I_EOR => (mcEOR => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_INC => (mcINC => '1', mcDelayedWrite => '1', others => '0'),
-    I_INW => (mcWordOp => '1', others => '0'),
-    -- I_INX - handled as a single-cycle op elsewhere
-    -- I_INY - handled as a single-cycle op elsewhere
-    -- I_INZ - handled as a single-cycle op elsewhere
+    I_CMP => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_CPX => (mcADD => '1', mcInvertB => '1', mcALU_in_x => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_CPY => (mcADD => '1', mcInvertB => '1', mcALU_in_y => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_CPZ => (mcADD => '1', mcInvertB => '1', mcALU_in_z => '1', mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_DEC => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+    I_DEW => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+    I_EOR => (mcEOR => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_INC => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+    I_INW => (mcADD => '1', mcALU_b_1 => '1', mcStoreALU => '1', others => '0'),
+    -- Only indirect JMP/JSR are handled by microcode
+    -- (Direct addressing modes are handled as single-cycle instructions)
     I_JMP => (mcJump => '1', others => '0'),
-    I_JSR => (mcJump => '1', others => '0'),
-    I_LDA => (mcSetA => '1', mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
-    I_LDX => (mcSetX => '1', mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
-    I_LDY => (mcSetY => '1', mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
-    I_LDZ => (mcSetZ => '1', mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
-    I_LSR => (mcLSR => '1', mcDelayedWrite => '1', others => '0'),
-    I_MAP => (mcMap => '1', mcDecPC => '1', others => '0'),
-    -- I_NEG - handled as a single-cycle op elsewhere
-    I_ORA => (mcORA => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_PHA => (mcStoreA => '1', mcDecPC => '1', others => '0'),
-    I_PHP => (mcStoreP => '1', mcDecPC => '1', others => '0'),
-    I_PHW => (mcWordOp => '1', others => '0'),
-    I_PHX => (mcStoreX => '1', mcDecPC => '1', others => '0'),
-    I_PHY => (mcStoreY => '1', mcDecPC => '1', others => '0'),
-    I_PHZ => (mcStoreZ => '1', mcDecPC => '1', others => '0'),
-    I_PLA => (mcPop => '1', mcStackA => '1', mcDecPC => '1', others => '0'),
-    I_PLP => (mcPop => '1', mcStackP => '1', mcDecPC => '1', others => '0'),
-    I_PLX => (mcPop => '1', mcStackX => '1', mcDecPC => '1', others => '0'),
-    I_PLY => (mcPop => '1', mcStackY => '1', mcDecPC => '1', others => '0'),
-    I_PLZ => (mcPop => '1', mcStackZ => '1', mcDecPC => '1', others => '0'),
-    I_RMB => (mcRMB => '1', mcDelayedWrite => '1', others => '0'),
-    I_ROL => (mcROL => '1', mcDelayedWrite => '1', others => '0'),
-    I_ROR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
-    I_ROW => (mcWordOp => '1', others => '0'),
-    -- I_RTI - handled directly in gs4510.vhdl
-    -- I_RTS - handled directly in gs4510.vhdl
-    I_SBC => (mcSBC => '1', mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    -- I_SEC - handled as a single-cycle op elsewhere   
-    -- I_SED - handled as a single-cycle op elsewhere   
-    -- I_SEE - handled as a single-cycle op elsewhere   
-    -- I_SEI - handled as a single-cycle op elsewhere   
-    I_SMB => (mcSMB => '1', mcDelayedWrite => '1', others => '0'),
-    I_STA => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_STX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_STY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_STZ => (mcStoreZ => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    -- I_TAX - handled as a single-cycle op elsewhere   
-    -- I_TAY - handled as a single-cycle op elsewhere   
-    -- I_TAZ - handled as a single-cycle op elsewhere   
-    -- I_TBA - handled as a single-cycle op elsewhere   
-    I_TRB => (mcStoreTRB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
-              others => '0'),
-    I_TSB => (mcStoreTSB => '1', mcDelayedWrite => '1', mcTestAZ => '1', 
-              others => '0'),
-    -- I_TSX - handled as a single-cycle op elsewhere   
-    -- I_TSY - handled as a single-cycle op elsewhere   
-    -- I_TXA - handled as a single-cycle op elsewhere   
-    -- I_TXS - handled as a single-cycle op elsewhere   
-    -- I_TYA - handled as a single-cycle op elsewhere   
-    -- I_TYS - handled as a single-cycle op elsewhere   
-    -- I_TZA - handled as a single-cycle op elsewhere   
+    I_JSR => (mcJump => '1', others => '0'),    
+    I_LDA => (mcLOAD => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_LDX => (mcLOAD => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_LDY => (mcLOAD => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_LDZ => (mcLOAD => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_LSR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ORA => (mcORA => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_PHW => (mcPushW => '1', others => '0'),
+    I_PLA=> (mcLOAD => '1', mcALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_PLP=> (mcLOAD => '1', mcALU_set_p => '1', others => '0'),
+    I_PLX=> (mcLOAD => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_PLY=> (mcLOAD => '1', mcALU_set_y => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_PLZ=> (mcLOAD => '1', mcALU_set_z => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    -- RMB clears a specific bit. We implement this by having reg_bitmask set
+    -- with the correct operand, after which we can just use AND.
+    -- (SMB works with an inverted bitmask and OR.)
+    I_RMB => (mcAND => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
+    I_ROL => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ROR => (mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_ROW => (mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit15 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    I_SBC => (mcADD => '1', mcADDCarry => '1', mcInvertB => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', mcAllowBCD => '1', mcRecordV => '1', others => '0'),
+    I_SMB => (mcORA => '1', mcALU_in_bitmask => '1', mcALU_set_mem => '1', others => '0'),
+    I_STA => (mcStoreA => '1', others => '0'),
+    I_STX => (mcStoreX => '1', others => '0'),
+    I_STY => (mcStoreY => '1', others => '0'),
+    I_STZ => (mcStoreZ => '1', others => '0'),
+    I_TRB => (mcInvertA => '1', mcAND => '1', mcTRBSetZ => '1', mcmcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
+    I_TSB => (mcORA => '1', mcTRBSetZ => '1', mcALU_in_a => '1', mcALU_set_mem => '1', others => '0'),
 
-    -- 6502 illegals
-    -- XXX - incomplete: these have only the microcode for the "dominant" action
-    -- for the most part so far.
+    -- 6502 unintended instructions
+    -- XXX These will not be 100% correct yet, as our ALU doesn't (yet) support
+    -- all the vaguries of the 6502 ALU when multiple functions are selected
+    -- at the same time    
+
     -- Shift left, then OR accumulator with result of operation
-    I_SLO => (mcASL => '1', mcORA => '1',
-              mcDelayedWrite => '1', others => '0'),
+    -- This one is a bit tricky, as we need to do the shift before the ORA.
+    -- More the point, SLO puts the result of the SHIFT into memory, and the
+    -- result of the ORA with that into A.
+    I_SLO => (mcORA => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordN => '1', mcRecordZ => '1',
+              mcADD => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1',
+              others => '0'),
     -- Rotate left, then AND accumulator with result of operation
-    I_RLA => (mcROL => '1', mcAND => '1',
-              mcDelayedWrite => '1', others => '0'),
-    -- LSR, then EOR accumulator with result of operation
-    I_SRE => (mcLSR => '1', mcEOR => '1',
-              mcDelayedWrite => '1', others => '0'),
-    -- Rotate right, then ADC accumulator with result of operation
-    I_RRA => (mcROR => '1', mcADC => '1',
-              mcDelayedWrite => '1', others => '0'),
-    -- Store AND of A and X: Doesn't touch any flags
-    I_SAX => (mcStoreA => '1', mcStoreX => '1',
-              mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    -- Load A and X at the same time, one of the more useful results
-    I_LAX => (mcSetX => '1', mcSetA => '1',
-              mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
+    I_RLA => (mcADD => '1', mcAND => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit0FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+--    -- LSR, then EOR accumulator with result of operation
+    I_SRE => (mcLSR => '1', mcEOR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcZeroBit7 => '1', mcCarryFromBit0 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+--    -- Rotate right, then ADC accumulator with result of operation
+    I_RRA => (mcADD => '1', mcLSR => '1', mc_ALU_in_mem => '1', mcStoreALU => '1', mcRecordCarry => '1', mcBit7FromCarry => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1',
+              mcADDCarry => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', others => '0'),
+--    -- Store AND of A and X: Doesn't touch any flags
+    I_STA => (mcStoreA => '1', mcStoreX => '1', others => '0'),
+--    -- Load A and X at the same time, one of the more useful results
+    I_LDA => (mcLOAD => '1', mcALU_set_a => '1', mcALU_set_x => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
     -- Decrement, and then compare with accumulator
-    I_DCP => (mcDEC => '1', mcCMP => '1',
-              mcDelayedWrite => '1', others => '0'),
-    -- INC, then subtract result from accumulator
-    I_ISC => (mcINC => '1', mcSBC => '1',
-              mcDelayedWrite => '1', others => '0'),
-    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
-    -- and ROL in the microcode, and everything will already work.
-    I_ANC => (mcAND => '1', mcROL => '1',
-              mcInstructionFetch => '1', mcIncPC => '1',
-              -- XXX push bit7 to carry
-              others => '0'),
-    I_ALR => (mcAND => '1', mcLSR => '1',
-              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_ARR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
-    I_XAA => (mcAND => '1',
-              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
-    I_AXS => (mcAND => '1', mcInstructionFetch => '1', mcIncPC => '1',
-              others => '0'),
-    I_AHX => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_SHY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_SHX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_TAS => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
-              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
-    I_LAS => (mcSetA => '1',
-              mcSetNZ => '1', mcIncPC => '1', 
-              mcInstructionFetch => '1', others => '0'),
-    I_NOP => ( others=>'0'),
-    -- I_KIL - XXX needs to be handled as Hypervisor trap elsewhere
+    -- DCP we can do, by doing a CMP without adding a fake carry bit, and then
+    -- storing the result
+    I_DCP => (mcADD => '1', mcInvertB => '1', mcALU_b_1 => '1', mcStoreALU => '1',
+              mcInvertB => '1', mcALU_in_a => '1', mcAssumeCarryClear => '1',
+              mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+--    -- ISC, then subtract result from accumulator
+    I_ISC => (mcADD => '1', mcADDCarry => '1', mcAssumeCarrySet => '1', mcInvertB => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcRecordCarry => '1', others => '0'),
+--    -- Like AND, but pushes bit7 into C.  Here we can simply enable both AND
+--    -- and ROL in the microcode, and everything will already work.
+    -- XXX ANC is only available in immediate mode, and so should be a
+    -- single-cycle instruction?
+--    I_ANC => (mcAND => '1', mcALU_in_a => '1', mc_ALU_set_a => '1', mcCarryFromBit7 => '1', mcRecordN => '1', mcRecordZ => '1', others => '0'),
+    -- XXX ALR is only available in immediate mode, and so should be a
+    -- single-cycle instruction?
+--    I_ALR => (mcAND => '1', mcLSR => '1',
+--              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    -- XXX ARR is only available in immediate mode, and so should be a
+    -- single-cycle instruction?
+--    I_ARR => (mcROR => '1', mcDelayedWrite => '1', others => '0'),
+    -- XXX ANE is unstable, and we cause a hypervisor trap when encountering it.
+--    I_ANE => (mcAND => '1',
+--              mcInstructionFetch => '1', mcIncPC => '1', others => '0'),
+    -- SBX = CMP + DEX
+    -- XXX Immediate mode only, so should be a single cycle instruction
+--    I_SBX => (mcADD => '1', mcInvertB => '1', mcALU_in_a => '1', mcALU_in_x => '1', mc_ALU_set_x => '1',
+--              mcAssumeCarrySet => '1', mcRecordCarry => '1', mcRecordN => '1', mcRecordZ => '1',
+--              others => '0'),
+    -- This one is quite hairy, as well as unrelabile.
+    -- We just trigger a trap instead
+--    I_SHA => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+--              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+    -- Same with these next three, also:
+--    I_SHY => (mcStoreY => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+--              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+--    I_SHX => (mcStoreX => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+--              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+--    I_TAS => (mcStoreA => '1', mcWriteMem => '1', mcInstructionFetch => '1', 
+--              mcWriteRegAddr => '1',mcIncPC => '1',  others => '0'),
+      -- Ok, this next one is quite weird, but also quite doable
+    I_LAS => (mcAND => '1', mc_ALU_set_a => '1', mc_ALU_set_x => '1', mc_ALU_set_spl => '1',
+              mc_ALU_in_spl => '1', others => '0');
+--    I_NOP => ( others=>'0'),
+-- I_KIL - XXX needs to be handled as Hypervisor trap elsewhere
     
-    others => ( mcInstructionFetch => '1', others => '0'));
+    others => ( others => '0'));
 
 -- Each math unit takes two inputs and gives one output.
 -- The second input may be ignored for some math units.
@@ -5576,7 +5540,7 @@ begin
                   when I_ARR => is_load <= '1';
                   when I_AXS => is_load <= '1';
                   when I_LAS => null;
-                  when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
+                  when I_ANE | I_SHA | I_SHX | I_SHY | I_TAS => 
                     state <= TrapToHypervisor;
                     -- Trap $46 = 6502 Unstable illegal instruction encountered
                     hypervisor_trap_port <= "1000110";                     
@@ -6135,814 +6099,218 @@ begin
               end if;              
             when ValueLoaded =>
               -- transaction_rdata now contains the data we need
-              -- So now is the time to actually interpret the instruction's microcode
-              
-                                        -- Process instruction next cycle
-              if flat32_address='1' and flat32_enabled='1' then
-                                        -- 32bit absolute jsr/jmp
-                report "Far-JSR/JMP - got 2nd arg";
-                state <= Flat32Got2ndArgument;
+              -- So now is the time to actually interpret the instruction's microcode              
+            when MicrocodeInterpret =>
+              -- At this point, we have the argument available in transaction_rdata,
+              -- and all the single-cycle instructions, branches and jumps have
+              -- been dealt with.
+              -- Here our focus is on doing the ALU operation, and then
+              -- optionally storing the result back if its an RMW or just a
+              -- store operation with a complex addressing mode.
+
+              if reg_microcode.mcBRK='1' then                
+                state <= Interrupt;
+              elsif reg_microcode.mcJump='1' then
+                report "Setting PC: mcJump=1";
+                set_pc := '1';
+                var_pc := reg_addr;
               else
-                                        -- normal instruction
-                state <= Cycle3;
+                state <= fast_fetch_state;                
               end if;
 
-                                        -- Fetch arg2 if required (only for 3 byte addressing modes)
-                                        -- Also begin processing operations that don't need any more data
-                                        -- to start, so that we don't waste a cycle on every 2-byte instruction.
-                                        -- (We have this block last, so that it can override the destination
-                                        -- state).
-              case reg_addressingmode is
-                when M_impl => null;
-                when M_InnX => null;
-                when M_nn =>
-                  temp_addr := reg_b & memory_read_value;
-                  reg_addr <= temp_addr;
-                  if is_load='1' or is_rmw='1' then
-                    report "VAL32: ZP LoadTarget";
-                    -- Idle memory bus while latching address
-                    memory_access_read := '0';
-                    memory_access_write := '0';
-                    state <= LoadTarget;
-                  else
-                                        -- (reading next instruction argument byte as default action)
-                    state <= MicrocodeInterpret;
-                  end if;
-                when M_immnn => null;
-                                        -- handled in MicrocodeInterpret
-                when M_A => null;
-                                        -- handled in MicrocodeInterpret
-                when M_rr =>
-                                        -- XXX For non-taken branches, we can just proceed directly to fetching
-                                        -- the next instruction: this makes non-taken branches need only
-                                        -- 2 cycles, like on real 6502.  If a branch is taken, then it
-                                        -- takes one extra cycle (see Cycle3)
-                  if (reg_instruction=I_BEQ and flag_z='0') or
-                    (reg_instruction=I_BNE and flag_z='1') or
-                    (reg_instruction=I_BCS and flag_c='0') or
-                    (reg_instruction=I_BCC and flag_c='1') or
-                    (reg_instruction=I_BVS and flag_v='0') or
-                    (reg_instruction=I_BVC and flag_v='1') or
-                    (reg_instruction=I_BMI and flag_n='0') or
-                    (reg_instruction=I_BPL and flag_n='1') then
-                    report "monitor_instruction_strobe assert (8-bit branch not taken)";
-                    monitor_instruction_strobe <= '1';
-                    state <= fast_fetch_state;
-                    if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
-                  end if;
-                when M_InnY => null;
-                when M_InnZ => null;
-                when M_nnX =>
-                  temp_addr := reg_b & (memory_read_value + reg_X);
-                  reg_addr <= temp_addr;
-                  if is_load='1' or is_rmw='1' then
-                    -- Idle memory bus while latching address
-                    memory_access_read := '0';
-                    memory_access_write := '0';
-                    state <= LoadTarget;
-                  else
-                                        -- (reading next instruction argument byte as default action)
-                    state <= MicrocodeInterpret;
-                  end if;
-                when M_InnSPY => null;
-                when M_nnY =>
-                  temp_addr := reg_b & (memory_read_value + reg_Y);
-                  reg_addr <= temp_addr;
-                  if is_load='1' or is_rmw='1' then
-                    -- Idle memory bus while latching address
-                    memory_access_read := '0';
-                    memory_access_write := '0';
-                    state <= LoadTarget;
-                  else
-                                        -- (reading next instruction argument byte as default action)
-                    state <= MicrocodeInterpret;
-                  end if;
-                when others =>
-                  pc_inc := '1';
-                  null;
+              if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
+              if reg_microcode.mcSetA='1' then
+                reg_a <= memory_read_value;
+              end if;
+              if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
+              if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
+              if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
+
+              if reg_microcode.mcBIT='1' then
+                set_nz(reg_a and memory_read_value);
+                flag_n <= memory_read_value(7);
+                flag_v <= memory_read_value(6);
+              end if;
+              if reg_microcode.mcCMP='1' and (is_rmw='0') then
+                alu_op_cmp(reg_a,memory_read_value);
+              end if;
+              if reg_microcode.mcCPX='1' then
+                alu_op_cmp(reg_x,memory_read_value);
+              end if;
+              if reg_microcode.mcCPY='1' then
+                alu_op_cmp(reg_y,memory_read_value);
+              end if;
+              if reg_microcode.mcCPZ='1' then
+                alu_op_cmp(reg_z,memory_read_value);
+              end if;
+              if reg_microcode.mcADC='1' and (is_rmw='0') then
+                reg_a <= a_add(7 downto 0);
+                flag_c <= a_add(8);  flag_z <= a_add(9);
+                flag_v <= a_add(10); flag_n <= a_add(11);
+              end if;
+              if reg_microcode.mcSBC='1' and (is_rmw='0') then
+                reg_a <= a_sub(7 downto 0);
+                flag_c <= a_sub(8);  flag_z <= a_sub(9);
+                flag_v <= a_sub(10); flag_n <= a_sub(11);
+              end if;
+              if reg_microcode.mcAND='1' and (is_rmw='0') then
+                reg_a <= with_nz(reg_a and memory_read_value);
+              end if;
+              if reg_microcode.mcORA='1' and (is_rmw='0') then
+                reg_a <= with_nz(reg_a or memory_read_value);
+              end if;
+              if reg_microcode.mcEOR='1' and (is_rmw='0') then
+                reg_a <= with_nz(reg_a xor memory_read_value);
+              end if;
+              if reg_microcode.mcDEC='1' then
+                temp_value := memory_read_value - 1;
+                reg_t <= temp_value;                
+                flag_n <= temp_value(7);
+                if memory_read_value = x"01" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcINC='1' then
+                temp_value := memory_read_value + 1;
+                reg_t <= temp_value;                
+                flag_n <= temp_value(7);
+                if memory_read_value = x"ff" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcASR='1' then
+                temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                flag_n <= temp_value(7);
+                if temp_value = x"00" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcLSR='1' then
+                temp_value := '0'&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                flag_n <= temp_value(7);
+                if temp_value = x"00" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcROR='1' then
+                temp_value := flag_c&memory_read_value(7 downto 1);
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(0);
+                flag_n <= temp_value(7);
+                if temp_value = x"00" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcASL='1' then
+                temp_value := memory_read_value(6 downto 0)&'0';
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(7);
+                flag_n <= temp_value(7);
+                if temp_value = x"00" then
+                  flag_z <= '1';
+                else flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcROL='1' then
+                temp_value := memory_read_value(6 downto 0)&flag_c;
+                reg_t <= temp_value;
+                flag_c <= memory_read_value(7);
+                flag_n <= temp_value(7);
+                if temp_value = x"00" then
+                  flag_z <= '1';
+                else
+                  flag_z <= '0';
+                end if;
+              end if;
+              if reg_microcode.mcRMB='1' then
+                                        -- Clear bit based on opcode
+                reg_t <= memory_read_value and rmb_mask;
+              end if;
+              if reg_microcode.mcSMB='1' then
+                                        -- Set bit based on opcode
+                reg_t <= memory_read_value or smb_mask;
+              end if;
+              
+              if reg_microcode.mcClearE='1' then
+                flag_e <= '0';
+                report "ZPCACHE: Flushing cache due to clearing E flag";
+                cache_flushing <= '1';
+                cache_flush_counter <= (others => '0');
+              end if;
+              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
+              if reg_microcode.mcMap='1' then c65_map_instruction; end if;
+
+                                        -- XXX Timing closure issue:
+                                        -- There are only 5 push instructions, but we currently read the
+                                        -- push indication from microcode, which is pushing timing
+                                        -- closure out for the CPU.  So we should instead just do a case
+                                        -- statement on the opcode
+                                        -- stack_push := reg_microcode.mcPush;
+              case reg_instruction is
+                when I_PHA => stack_push := '1';
+                when I_PHP => stack_push := '1';
+                when I_PHX => stack_push := '1';
+                when I_PHY => stack_push := '1';
+                when I_PHZ => stack_push := '1';
+                when others => stack_push := '0';
               end case;              
-            when Flat32Got2ndArgument =>
-                                        -- Flat 32bit JMP/JSR instructions require 4 address bytes.
-                                        -- At this point, we have the 2nd byte.  If the addressing mode
-                                        -- is absolute, then we can keep the 2 bytes already read, and just
-                                        -- read the last two address bytes.  If indirect, or indirectX, then
-                                        -- we need to begin reading from the 1st byte at the prescribed
-                                        -- address. IndirectX mode for flat 32 bit addressing will
-                                        -- multiply X by 4, so that it allows referencing of 256 unique
-                                        -- non-overlapping addresses, unlike JSR/JMP ($nnnn,X) on the
-                                        -- 65CE02/4502 where X is not scaled, resulting in only 128
-                                        -- non-overlapping addresses.
-              if reg_addressingmode = M_nnnn then
-                                        -- Store and read last two bytes
-                reg_addr32(15 downto 8) <= memory_read_value;
-                reg_addr32(7 downto 0) <= reg_addr(7 downto 0);
-                pc_inc := '1';
-                state <= Flat32Byte3;
-              elsif reg_addressingmode = M_Innnn then
-                                        -- Dereference, and read all four bytes
-                reg_addr(15 downto 8) <= memory_read_value;
-                state <= Flat32Dereference0;
-              elsif reg_addressingmode = M_InnnnX then
-                                        -- Add (X*4), dereference, and read all four bytes
-                reg_addr(15 downto 2) <= (memory_read_value & reg_addr(7 downto 2))
-                                         + to_integer(reg_x);
-                state <= Flat32Dereference1;
-              else
-                                        -- unknown mode
-                report "monitor_instruction_strobe assert (unknown mode in 32-bit flat addressed instruction)";
-                monitor_instruction_strobe <= '1';
-                state <= normal_fetch_state;
+              stack_pop := reg_microcode.mcPop;
+              if reg_microcode.mcPop='1' then
+                state <= Pop;
               end if;
-            when Flat32Byte3 =>
-              pc_inc := '1';
-              reg_addr32(23 downto 16) <= memory_read_value;
-              state <= Flat32Byte4;              
-            when Flat32Byte4 =>
-              pc_inc := '1';
-              reg_addr32(31 downto 24) <= memory_read_value;
-              if (reg_instruction = I_JMP) then
-                state <= Flat32Translate;
-              else
-                state <= Flat32SaveAddress;
+              if reg_microcode.mcStoreTRB='1' then
+                reg_t <= (reg_a xor x"FF") and memory_read_value;
               end if;
-            when Flat32SaveAddress =>
-                                        -- Convert address back to virtual memory form, so that RTS page-fault
-                                        -- and reload the page if necessary.
-                                        -- We do this easily by just remembering the page number when we
-                                        -- far JMP/JSR somewhere (or when the hypervisor sets it during a
-                                        -- page fault).
-                                        -- This also means that we can distinguish between physical pages
-                                        -- and virtual addressed pages.
-              reg_addr32save(31 downto 14) <= reg_pagenumber;
-              reg_addr32save(13 downto 0) <= reg_pc(13 downto 0);
-              pc_inc := '0';
-              stack_push := '1';
-              state <= Flat32SaveAddress2;
-            when Flat32SaveAddress2 =>
-              pc_inc := '0';
-              stack_push := '1';
-              state <= Flat32SaveAddress3;
-            when Flat32SaveAddress3 =>
-              pc_inc := '0';
-              stack_push := '1';
-              state <= Flat32SaveAddress4;
-            when Flat32SaveAddress4 =>
-              pc_inc := '0';
-              stack_push := '1';
-              state <= Flat32Translate;
-            when Flat32RTS =>
-                                        -- Pull 32-bit address off the stack.
-                                        -- To save CPU complexity here, we will require the stack to have
-                                        -- the values LSB first, and then use the Flat32Dereference sequence
-                                        -- to pull the values in.
-              pc_inc := '0';
-              reg_addr <= ((reg_sph&reg_sp)+1);              
-              reg_sp <= reg_sp + 4;
-              if flag_e='0' and reg_sp(7 downto 2)="111111" then
-                reg_sph <= reg_sph + 1;
+              if reg_microcode.mcStoreTSB='1' then
+                report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
+                reg_t <= reg_a or memory_read_value;
               end if;
-              state <= Flat32Dereference0;
-            when Flat32Dereference0 =>
-              report "Far return: pulling return address from stack at $"
-                & to_hstring(reg_addr);
-              pc_inc := '0';
-              reg_addr <= reg_addr + 1;
-              state <= Flat32Dereference1;
-            when Flat32Dereference1 =>
-              pc_inc := '0';
-              reg_addr <= reg_addr + 1;
-              reg_addr32(7 downto 0) <= memory_read_value;
-              state <= Flat32Dereference2;
-            when Flat32Dereference2 =>
-              pc_inc := '0';
-              reg_addr <= reg_addr + 1;
-              reg_addr32(15 downto 8) <= memory_read_value;
-              state <= Flat32Dereference3;
-            when Flat32Dereference3 =>
-              pc_inc := '0';
-              reg_addr <= reg_addr + 1;
-              reg_addr32(23 downto 16) <= memory_read_value;
-              state <= Flat32Dereference4;
-            when Flat32Dereference4 =>
-              reg_addr32(31 downto 24) <= memory_read_value;
-              state <= Flat32Translate;
-            when Flat32Translate =>
-                                        -- We have the 32-bit address for a far JMP or JSR.
-                                        -- See if this 16KB page is loaded anywhere, and if so,
-                                        -- map it in and jump there.  Else trap to hypervisor so that it
-                                        -- can be mapped.
-                                        -- We only allow a very few pages of VM to be loaded at a time.
-                                        -- VM addresses are indicated by bit 31 being set.  The bottom 14
-                                        -- bits are within a page, so the page number is indicated by bits
-                                        -- (30 downto 14) = 17 bits. How annoying. So for now we will allow
-                                        -- only 1GB of virtual address space, and look at bits 29 downto
-                                        -- 14.
-                                        -- If bit31 is clear, then we assume it is direct addressed.
-
-                                        -- Remember page number for far RTS
-              reg_pagenumber <= reg_addr32(31 downto 14);
-
-              report "Far translate: input address = $" & to_hstring(reg_addr32);
-              
-              pc_inc := '0';
-              state <= Flat32Dispatch;
-              if (reg_addr32(31)='0') then
-                                        -- Not virtal address, so map and jump
-                report "Far-JMP/JSR: Long address is physical, so not translating.";
-                null;
-              else
-                                        -- Is virtual address, so see if it is in the page table.
-                report "Far JMP/JSR: Long address is virtual, so translate it";
-                state <= Flat32Dispatch;
-                if reg_addr32(29 downto 14) = reg_page0_logical then
-                  report "Far JMP/JSR: $" & to_hstring(reg_addr32)
-                    & " matches reg_page0_logical ( = page $"
-                    & to_hstring(reg_page0_logical)
-                    & "), so translating to physical page $"
-                    & to_hstring(reg_page0_physical);
-                  reg_addr32(29 downto 14) <= reg_page0_physical;
-                  reg_addr32(31 downto 30) <= "00";
-                  reg_pageactive <= '1';
-                  reg_pageid <= "00";
-                elsif reg_addr32(29 downto 14) = reg_page1_logical then
-                  reg_addr32(29 downto 14) <= reg_page1_physical;
-                  reg_addr32(31 downto 30) <= "00";
-                  reg_pageactive <= '1';
-                  reg_pageid <= "01";
-                elsif reg_addr32(29 downto 14) = reg_page2_logical then
-                  reg_addr32(29 downto 14) <= reg_page2_physical;
-                  reg_addr32(31 downto 30) <= "00";
-                  reg_pageactive <= '1';
-                  reg_pageid <= "10";
-                elsif reg_addr32(29 downto 14) = reg_page3_logical then
-                  reg_addr32(29 downto 14) <= reg_page3_physical;
-                  reg_addr32(31 downto 30) <= "00";
-                  reg_pageactive <= '1';
-                  reg_pageid <= "11";
+              if reg_microcode.mcTestAZ = '1' then
+                if (reg_a and memory_read_value) = x"00" then
+                  flag_z <= '1';
                 else
-                                        -- Page fault!
-                  report "Far-JMP/JSR/RTS: Page fault! Trapping to hypervisor";
-                  report "Request is for virtual address $" & to_hstring(reg_addr32);
-                  state <= TrapToHypervisor;
-                                        -- Trap #65 ($41) = Page fault.
-                  hypervisor_trap_port <= "1000001";
+                  flag_z <= '0';
                 end if;
               end if;
-            when Flat32Dispatch =>
-              report "Far dispatch: physical address is $" & to_hstring(reg_addr32)
-                & " + $4000";
-                                        -- MAP the appropriate 16KB block in to $4000-$7FFF,
-                                        -- then set PC to $4000 + (reg_addr32 & #$3FFF).
-                                        -- NOTE: To avoid complexity in the CPU, the $4000 offset is NOT
-                                        -- applied to the MAPping.  It is the hypervisor's job to
-                                        -- subtract $4000 from the address before storing in reg_pageX_physical
-              pc_inc := '0';
-              reg_pc(15 downto 14) <= "01";
-              reg_pc(13 downto 0) <= reg_addr32(13 downto 0);
-                                        -- Offsets are x 256 bytes.  16KB = 64 x 256 bytes, so the bottom
-                                        -- six bits of the offset will always be zero.
-              reg_offset_low(5 downto 0) <= "000000";
-                                        -- Then the upper 6 bits will be bits (19 downto 14) of reg_addr32
-              reg_offset_low(11 downto 6) <= reg_addr32(19 downto 14);
-                                        -- Finally, set the upper address bits into the MB register for
-                                        -- the lower map.
-              reg_mb_low <= reg_addr32(27 downto 20);
-                                        -- MAP upper 16KB of lower 32KB of address space
-              reg_map_low <= "1100";
-                                        -- Now we can start fetching the instruction.
-              report "monitor_instruction_strobe assert (Flat32 dispatch)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when Cycle3 =>
-                                        -- Show serial monitor what we are doing.
-              if (reg_addressingmode /= M_A) then
-                monitor_arg1 <= reg_arg1;
-                monitor_ibytes(1) <= '1';
-              else
-                                        -- For RTS we use arg1 for the optional immediate argument.
-                                        -- So for implied mode, we set this to zero to provide the
-                                        -- normal behaviour.
-                monitor_arg1 <= x"00";
-              end if;
+              if reg_microcode.mcDelayedWrite='1' then
+                                        -- Do dummy write for RMW instructions if touching $D019
+                reg_t_high <= memory_read_value;
 
-              if reg_instruction = I_RTS or reg_instruction = I_RTI then
-                                        -- Special case RTS and RTI so that we don't waste clock cycles
-                if reg_instruction = I_RTI then
-                  state <= RTI;
+                if reg_addr = x"D019" then
+                  report "memory: DUMMY WRITE for RMW on $D019" severity note;
+                  state <= DummyWrite;
                 else
-                  state <= RTS1;
+                                        -- Otherwise just the commit new value immediately
+                  state <= WriteCommit;
                 end if;
-                                        -- Read first byte from stack
-                stack_pop := '1';
-              else
-                case reg_addressingmode is
-                  when M_impl =>  -- Handled in MicrocodeInterpret
-                  when M_A =>     -- Handled in MicrocodeInterpret
-                  when M_InnX =>                    
-                    temp_addr := reg_b & (reg_arg1+reg_X);
-                    reg_addr <= temp_addr + 1;
-                    state <= InnXReadVectorLow;
-                  when M_nn =>
-                    temp_addr := reg_b & reg_arg1;
-                    reg_addr <= temp_addr;
-                    if is_load='1' or is_rmw='1' then
-                      -- Idle memory bus while latching address
-                      memory_access_read := '0';
-                      memory_access_write := '0';
-                      state <= LoadTarget;
-                    else
-                                        -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
-                  when M_immnn => -- Handled in MicrocodeInterpret
-                  when M_nnnn =>
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-
-                    reg_addr(15 downto 8) <= memory_read_value;
-
-                    -- If it is a branch, write the low bits of the programme
-                    -- counter now.  We will read the 2nd argument next cycle
-                    if reg_instruction = I_JSR or reg_instruction = I_BSR then
-                      dec_sp := '1';
-                      state <= CallSubroutine;
-                    else
-                      if is_load='1' or is_rmw='1' then
-                        -- Idle memory bus while latching address
-                        memory_access_read := '0';
-                        memory_access_write := '0';
-                        state <= LoadTarget;
-                      else
-                        -- (reading next instruction argument byte as default action)
-                        state <= MicrocodeInterpret;
-                      end if;
-                    end if;
-                  when M_nnrr =>
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-
-                    reg_t <= memory_read_value;
-                    state <= ZPRelReadZP;
-                  when M_InnY =>
-                    temp_addr := reg_b&reg_arg1;
-                    reg_addr <= temp_addr + 1;
-                    state <= InnYReadVectorLow;
-                  when M_InnZ =>
-                    temp_addr := reg_b&reg_arg1;
-                    reg_addr <= temp_addr + 1;
-                    report "VAL32: InnZReadVectorLow read address set to $"& to_hstring(memory_access_address);
-                    state <= InnZReadVectorLow;
-                  when M_rr =>
-                    temp_addr := reg_pc +
-                                 to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                            reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                            reg_arg1);
-                    if (reg_instruction=I_BRA) or
-                      (reg_instruction=I_BSR) or
-                      (reg_instruction=I_BEQ and flag_z='1') or
-                      (reg_instruction=I_BNE and flag_z='0') or
-                      (reg_instruction=I_BCS and flag_c='1') or
-                      (reg_instruction=I_BCC and flag_c='0') or
-                      (reg_instruction=I_BVS and flag_v='1') or
-                      (reg_instruction=I_BVC and flag_v='0') or
-                      (reg_instruction=I_BMI and flag_n='1') or
-                      (reg_instruction=I_BPL and flag_n='0') then
-                                        -- Branch will be taken. Calculate destination address by
-                                        -- sign-extending the 8-bit offset.
-                      report "Taking 8-bit branch" severity note;
-                      report "Setting PC (8-bit branch)";
-                      
-                                        -- Charge one cycle for branches that are taken
-                      if temp_addr(15 downto 8) /= reg_pc(15 downto 8) then
-                                        -- 1 cycle for branch taken, + 1 cycle extra for page crossing
-                        phi_new_backlog <= 2;
-                      else
-                        phi_new_backlog <= 1;
-                      end if;
-                      phi_add_backlog <= charge_for_branches_taken;
-
-                      pc_inc := '0';
-                      reg_pc <= temp_addr;
-                                        -- Take an extra cycle when taking a branch.  This avoids
-                                        -- poor timing due to memory-to-memory activity in a
-                                        -- single cycle.
-
-                      report "monitor_instruction_strobe assert (8-bit branch taken)";
-                      monitor_instruction_strobe <= '1';
-                      state <= normal_fetch_state;
-
-                    else
-                      report "NOT Taking 8-bit branch" severity note;
-                                        -- Branch will not be taken.
-                                        -- fetch next instruction now to save a cycle
-                      report "monitor_instruction_strobe assert (8-bit branch not taken)";
-                      monitor_instruction_strobe <= '1';
-                      state <= fast_fetch_state;
-                      if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
-                    end if;   
-                  when M_rrrr =>
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-
-                    reg_addr(15 downto 8) <= memory_read_value;
-                                        -- Now work out if the branch will be taken
-                    if (reg_instruction=I_BRA) or
-                      (reg_instruction=I_BSR) or
-                      (reg_instruction=I_BEQ and flag_z='1') or
-                      (reg_instruction=I_BNE and flag_z='0') or
-                      (reg_instruction=I_BCS and flag_c='1') or
-                      (reg_instruction=I_BCC and flag_c='0') or
-                      (reg_instruction=I_BVS and flag_v='1') or
-                      (reg_instruction=I_BVC and flag_v='0') or
-                      (reg_instruction=I_BMI and flag_n='1') or
-                      (reg_instruction=I_BPL and flag_n='0') then
-                                        -- Branch will be taken, so finish reading address
-                      state <= B16TakeBranch;
-                    else
-                                        -- Branch will not be taken.
-                                        -- Skip second byte and proceed directly to
-                                        -- fetching next instruction
-                      report "monitor_instruction_strobe assert (16-bit branch not taken)";
-                      monitor_instruction_strobe <= '1';
-                      state <= normal_fetch_state;
-                    end if;
-                  when M_nnX =>
-                    temp_addr := reg_b & (reg_arg1 + reg_X);
-                    reg_addr <= temp_addr;
-                    if is_load='1' or is_rmw='1' then
-                      -- Idle memory bus while latching address
-                      memory_access_read := '0';
-                      memory_access_write := '0';
-                      state <= LoadTarget;
-                    else
-                                        -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
-                  when M_nnY =>
-                    temp_addr := reg_b & (reg_arg1 + reg_Y);
-                    reg_addr <= temp_addr;
-                    if is_load='1' or is_rmw='1' then
-                      -- Idle memory bus while latching address
-                      memory_access_read := '0';
-                      memory_access_write := '0';
-                      state <= LoadTarget;
-                    else
-                                        -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
-                  when M_nnnnY =>
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-                    reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
-                    if is_load='1' or is_rmw='1' then
-                      -- Idle memory bus while latching address
-                      memory_access_read := '0';
-                      memory_access_write := '0';
-                      state <= LoadTarget;
-                    else
-                                        -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
-                  when M_nnnnX =>
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-                    reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-                    if is_load='1' or is_rmw='1' then
-                      -- Idle memory bus while latching address
-                      memory_access_read := '0';
-                      memory_access_write := '0';
-                      state <= LoadTarget;
-                    else
-                                        -- (reading next instruction argument byte as default action)
-                      state <= MicrocodeInterpret;
-                    end if;
-                  when M_Innnn =>
-                                        -- Only JMP and JSR have this mode
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-                    reg_addr(15 downto 8) <= memory_read_value;
-                    state <= JumpDereference;
-                  when M_InnnnX =>
-                                        -- Only JMP and JSR have this mode
-                    last_byte3 <= memory_read_value;
-                    last_bytecount <= 3;
-                    monitor_arg2 <= memory_read_value;
-                    monitor_ibytes(0) <= '1';
-                    reg_addr <= to_unsigned(
-                      to_integer(memory_read_value&reg_addr(7 downto 0))
-                      + to_integer(reg_x),16);
-                    state <= JumpDereference;
-                  when M_InnSPY =>
-                    -- XXX If this is really about stack relative, should it
-                    -- be applying BP as part of the offset?  Maybe it should,
-                    -- if we want a way to do stack-relative with stacks deeper
-                    -- than 256 bytes? But probably not.
-                    temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
-                                              +to_integer(reg_sph&reg_sp),16);
-                    reg_addr <= temp_addr + 1;
-                    state <= InnSPYReadVectorLow;
-                  when M_immnnnn =>                
-                    reg_t <= reg_arg1;
-                    reg_t_high <= memory_read_value;
-                    state <= PushWordLow;
-                end case;
-              end if;
-            when CallSubroutine =>
-              if reg_instruction = I_BSR then
-                                        -- Convert destination address to relative
-                reg_addr <= reg_pc + reg_addr - 1;
-              end if;
-              
-                                        -- Push PCH
-              dec_sp := '1';
-              pc_inc := '0';
-              state <= CallSubroutine2;
-            when CallSubroutine2 =>
-                                        -- Finish determining subroutine address
-              pc_inc := '0';
-
-              report "Jumping to $" & to_hstring(reg_addr)
-                severity note;
-                                        -- Immediately start reading the next instruction
-              if fast_fetch_state = InstructionDecode then
-                                        -- Fast dispatch, so bump PC ready for next cycle
-                report "Setting PC in JSR/BSR (fast dispatch)";
-                reg_pc <= reg_addr + 1;
-              else
-                                        -- Normal dispatch
-                report "Setting PC in JSR/BSR (normal dispatch)";
-                reg_pc <= reg_addr;
-              end if;
-              report "monitor_instruction_strobe assert (JSR/BSR)";
-              monitor_instruction_strobe <= '1';
-              state <= fast_fetch_state;
-            when JumpAbsXReadArg2 =>
-              last_byte3 <= memory_read_value;
-              last_bytecount <= 3;
-              monitor_arg2 <= memory_read_value;
-              monitor_ibytes(0) <= '1';
-              reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
-              state <= MicrocodeInterpret;
-            when TakeBranch8 =>
-                                        -- Branch will be taken (for ZP bit fiddle instructions only)
-              report "Setting PC: 8-bit branch will be taken";
-              reg_pc <= reg_pc +
-                        to_integer(reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
-                                   reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
-                                   reg_t);
-              report "monitor_instruction_strobe assert (TakeBranch8)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when Pull =>
-                                        -- Also used for immediate mode loading
-              set_nz(memory_read_value);
-              report "pop_a = " & std_logic'image(pop_a) severity note;
-              if pop_a='1' then reg_a <= memory_read_value; end if;
-              if pop_x='1' then reg_x <= memory_read_value; end if;
-              if pop_y='1' then reg_y <= memory_read_value; end if;
-              if pop_z='1' then reg_z <= memory_read_value; end if;
-              if pop_p='1' then
-                load_processor_flags(memory_read_value);
-              end if;
-
-                                        -- ... and fetch next instruction
-              report "monitor_instruction_strobe assert (Stack pull instruction)";
-              monitor_instruction_strobe <= '1';
-              state <= fast_fetch_state;
-              if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
-            when B16TakeBranch =>
-              report "Setting PC: 16-bit branch will be taken";
-              reg_pc <= reg_pc + to_integer(reg_addr) - 1;
-                                        -- Charge one cycle for branches that are taken
-              phi_new_backlog <= 1;
-              phi_add_backlog <= charge_for_branches_taken;
-              report "monitor_instruction_strobe assert (take 16-bit branch)";
-              monitor_instruction_strobe <= '1';
-              state <= normal_fetch_state;
-            when InnXReadVectorLow =>
-              reg_addr(7 downto 0) <= memory_read_value;
-              state <= InnXReadVectorHigh;
-            when InnXReadVectorHigh =>
-              reg_addr <=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
-              if is_load='1' or is_rmw='1' then
-                -- Idle memory bus while latching address
-                memory_access_read := '0';
-                memory_access_write := '0';
-                state <= LoadTarget;
-              else
-                                        -- (reading next instruction argument byte as default action)
-                state <= MicrocodeInterpret;
-              end if;
-            when InnSPYReadVectorLow =>
-              reg_addr(7 downto 0) <= memory_read_value;
-              state <= InnSPYReadVectorHigh;
-            when InnSPYReadVectorHigh =>
-              reg_addr <=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
-                            + to_integer(reg_y),16);
-              if is_load='1' or is_rmw='1' then
-                -- Idle memory bus while latching address
-                memory_access_read := '0';
-                memory_access_write := '0';
-                state <= LoadTarget;
-              else
-                                        -- (reading next instruction argument byte as default action)
-                state <= MicrocodeInterpret;
-              end if;
-            when InnYReadVectorLow =>
-              reg_addr(7 downto 0) <= memory_read_value;
-              state <= InnYReadVectorHigh;
-            when InnYReadVectorHigh =>
-              reg_addr <=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
-                            + to_integer(reg_y),16);
-              if is_load='1' or is_rmw='1' then
-                -- Idle memory bus while latching address
-                memory_access_read := '0';
-                memory_access_write := '0';
-                state <= LoadTarget;
-              else
-                                        -- (reading next instruction argument byte as default action)
-                state <= MicrocodeInterpret;
-              end if;
-            when InnZReadVectorLow =>
-              report "VAL32: InnZReadVectorLow value read as $" & to_hstring(memory_read_value)
-                & ", memory_access_address was $" & to_hstring(memory_access_address);
-              reg_addr_lsbs(7 downto 0) <= memory_read_value;
-              if zp32bit_pointer_enabled='1' then
-                report "VAL32: zp32bit_pointer_enabled=1, so proceeding to InnZReadVectorByte2";
-                state <= InnZReadVectorByte2;
-                reg_addr <= reg_addr + 1;
-              else
-                reg_addr(7 downto 0) <= memory_read_value;
-                state <= InnZReadVectorHigh;
-              end if;
-            when InnZReadVectorByte2 =>
-                                        -- Do addition of Z register as we go along, so that we don't have
-                                        -- a 32-bit carry.
-              reg_addr <= reg_addr + 1;
-              if (reg_instruction = I_STA) and (next_is_axyz32_instruction='1') then
-                report "VAL32/ABS32: not adding value of Z for 32-bit STA ($nn),Z because it is using 32-bit AXYZ register";
                 
-                temp17 :=
-                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
-                              + 0,17);
-              else
-                report "VAL32/ABS32: Adding "
-                  & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )
-                  & " to " & integer'image(to_integer(reg_z));
+              end if;
+              if reg_microcode.mcWordOp='1' then
+                reg_t <= memory_read_value;
+                state <= WordOpReadHigh;
+              end if;
+              if (reg_microcode.mcWordOp or reg_microcode.mcDelayedWrite or
+                  reg_microcode.mcPop or reg_microcode.mcBRK) = '0' then
+                report "monitor_instruction_strobe assert (MicrocodeInterpret -- no special)";
+                monitor_instruction_strobe <= '1';
+              end if;               
 
-                temp17 :=
-                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
-                              + to_integer(reg_z),17);
-              end if;
-              reg_addr_lsbs <= temp17(15 downto 0);
-              pointer_carry <= temp17(16);
-              state <= InnZReadVectorByte3;
-            when InnZReadVectorByte3 =>
-                                        -- Do addition of Z register as we go along, so that we don't have
-                                        -- a 32-bit carry.
-              if pointer_carry='1' then
-                temp9 := to_unsigned(to_integer(memory_read_value)+1,9);
-              else 
-                temp9 := to_unsigned(to_integer(memory_read_value)+0,9);
-              end if;
-              reg_addr_msbs(7 downto 0) <= temp9(7 downto 0);
-              pointer_carry <= temp9(8);
-              state <= InnZReadVectorByte4;
-            when InnZReadVectorByte4 =>
-                                        -- Do addition of Z register as we go along, so that we don't have
-                                        -- a 32-bit carry.
-              if pointer_carry='1' then
-                temp9 := to_unsigned(to_integer(memory_read_value)+1,9);
-              else 
-                temp9 := to_unsigned(to_integer(memory_read_value)+0,9);
-              end if;
-              reg_addr_msbs(15 downto 8) <= temp9(7 downto 0);
-              reg_addr(15 downto 0) <= reg_addr_lsbs;
-              report "VAL32/ABS32: final address is $"
-                & to_hstring(temp9(3 downto 0))
-                & to_hstring(reg_addr_msbs(7 downto 0))
-                & to_hstring(reg_addr_lsbs);
-              if is_load='1' or is_rmw='1' then
-                report "VAL32: (ZP),Z LoadTarget";
-                -- Idle memory bus while latching address
-                memory_access_read := '0';
-                memory_access_write := '0';
-                state <= LoadTarget;
-              else
-                                        -- (reading next instruction argument byte as default action)
-                state <= MicrocodeInterpret;
-              end if;
-            when InnZReadVectorHigh =>
-              reg_addr <=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
-                            + to_integer(reg_z),16);
-              if is_load='1' or is_rmw='1' then
-                -- Idle memory bus while latching address
-                memory_access_read := '0';
-                memory_access_write := '0';
-                state <= LoadTarget;
-              else
-                                        -- (reading next instruction argument byte as default action)
-                state <= MicrocodeInterpret;
-              end if;
-            when ZPRelReadZP =>
-                                        -- Here we are reading the ZP memory location
-                                        -- Check if the appropriate bit is set/clear
-              if memory_read_value(to_integer(reg_opcode(6 downto 4)))
-                =reg_opcode(7) then
-                                        -- Take branch, so read next byte with relative offset
-                                        -- (default action is reading next instruction byte, so no need
-                                        -- to do it here).
-                state <= TakeBranch8;
-              else
-                                        -- Don't take branch, so just skip over branch byte
-                report "monitor_instruction_strobe assert (don't take ZP bit check branch)";
-                monitor_instruction_strobe <= '1';
-                state <= normal_fetch_state;
-              end if;
-            when JumpDereference =>
-                                        -- reg_addr holds the address we want to load a 16 bit address
-                                        -- from for a JMP or JSR.
-                                        -- XXX should this only step the bottom 8 bits for ($nn,X)
-                                        -- dereferencing?
-              if emu6502='1' then
-                reg_addr(7 downto 0) <= reg_addr(7 downto 0) + 1;
-              else
-                reg_addr <= reg_addr + 1;
-              end if;
-              state <= JumpDereference2;
-            when JumpDereference2 =>
-              reg_t <= memory_read_value;
-              state <= JumpDereference3;
-            when JumpDereference3 =>
-                                        -- Finished dereferencing, set PC
-              reg_addr <= memory_read_value&reg_t;
-              report "Setting PC: Finished dereferencing JMP";
-              reg_pc <= memory_read_value&reg_t;
-              if reg_instruction=I_JMP then
-                report "monitor_instruction_strobe assert (JMP indirect)";
-                monitor_instruction_strobe <= '1';
-                state <= normal_fetch_state;
-              else
-                report "MAP: Doing JSR ($nnnn) to $"&to_hstring(memory_read_value&reg_t);
-                dec_sp := '1';
-                state <= CallSubroutine;
-              end if;
+
             when DummyWrite =>
               state <= WriteCommit;
             when WriteCommit =>
               report "monitor_instruction_strobe assert (WriteCommit)";
               monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
-            when LoadTarget =>
-              -- If an instruction was preceeded with NEG / NEG, then the load
-              -- is into all four registers, AXYZ, as a pseudo register.
-              -- We only support this for certain instructions and instruction
-              -- modes.
-              report "VAL32: next_is_axyz32_instruction = " & std_logic'image(next_is_axyz32_instruction)
-                & ", reg_instruction = " & instruction'image(reg_instruction) & ", reg_addr=$" & to_hstring(reg_addr);
-              if next_is_axyz32_instruction = '1' then
-                case reg_instruction is
-                  when I_BIT | I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
-                    | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR =>
-                    report "VAL32: Proceeding to LoadTarget32";
-                    state <= LoadTarget32;
-                    axyz_phase <= 1;
-                  when others =>
-                    -- Process other instructions normally
-                    report "VAL32: Ignoring unsupported instruction " & instruction'image(reg_instruction);
-                    state <= MicrocodeInterpret;
-                end case;
-              else
-                state <= MicrocodeInterpret;
-              end if;
-            when LoadTarget32 =>
-              reg_val32(31 downto 24) <= memory_read_value;
-              reg_val32(23 downto 0) <= reg_val32(31 downto 8);
-              report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", at axyz_phase = " & integer'image(axyz_phase);
-              if axyz_phase /= 4 then
-                -- More bytes to read, so schedule next byte to read                
-                report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
-                axyz_phase <= axyz_phase + 1;
-              else
-                -- Already got the four bytes, so now trigger the execution
-                state <= Execute32;                    
-              end if;
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               case reg_instruction is
@@ -7151,13 +6519,6 @@ begin
               end case;
               if is_rmw = '0' then
                 -- Go to next instruction by default
-                if fast_fetch_state = InstructionDecode then
-                  pc_inc := reg_microcode.mcIncPC;
-                else
-                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
-                  pc_inc := '0';
-                end if;
-                pc_dec := reg_microcode.mcDecPC;
                 report "monitor_instruction_strobe assert (Execute32 non-RMW)";
                 monitor_instruction_strobe <= '1';
                 if reg_microcode.mcInstructionFetch='1' then
@@ -7167,266 +6528,6 @@ begin
                   state <= normal_fetch_state;
                 end if;
               end if;
-            when StoreTarget32 =>
-              if axyz_phase /= 4 then
-                reg_val32(23 downto 0) <= reg_val32(31 downto 8);
-                axyz_phase <= axyz_phase + 1;
-              end if;              
-              if axyz_phase = 4 then
-                -- Go to next instruction by default
-                if fast_fetch_state = InstructionDecode then
-                  pc_inc := reg_microcode.mcIncPC;
-                else
-                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
-                  pc_inc := '0';
-                end if;
-                pc_dec := reg_microcode.mcDecPC;
-                report "monitor_instruction_strobe assert (StoreTarget32)";
-                monitor_instruction_strobe <= '1';
-                if reg_microcode.mcInstructionFetch='1' then
-                  report "Fast dispatch for next instruction by order of microcode";
-                  state <= fast_fetch_state;
-                else
-                  state <= normal_fetch_state;
-                end if;
-              end if;
-            when MicrocodeInterpret =>
-                                        -- By this stage we have the address of the operand in
-                                        -- reg_addr, and if it is a load instruction then the contents
-                                        -- will be in memory_read_value
-                                        -- Branches (except JMP) have been taken care of elsewhere, as
-                                        -- have a lot of the other fancy instructions.  That just leaves
-                                        -- us with loads, stores and reaad/modify/write instructions
-
-              report "BACKGROUNDDMA: in MicrocodeInterpret";
-              
-                                        -- Go to next instruction by default
-              if next_is_axyz32_instruction = '1' and reg_instruction = I_STA then
-                -- 32-bit store begins here, and the other 3 bytes get written
-                -- in common with the 32-bit RMW instructions
-                axyz_phase <= 1;
-                reg_val32(23 downto 0) <= reg_val32(31 downto 8);
-                state <= StoreTarget32;
-              else
-                if fast_fetch_state = InstructionDecode then
-                  pc_inc := reg_microcode.mcIncPC;
-                else
-                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
-                  pc_inc := '0';
-                end if;
-                pc_dec := reg_microcode.mcDecPC;
-                if reg_microcode.mcInstructionFetch='1' then
-                  report "monitor_instruction_strobe assert (MicrocodeInterpret mcInstructionFetch=1)";
-                  monitor_instruction_strobe <= '1';
-                  report "Fast dispatch for next instruction by order of microcode";
-                  state <= fast_fetch_state;
-                else
-                                        -- (this gets overriden below for RMW and other instruction types)
-                  state <= normal_fetch_state;
-                end if;
-              end if;
-              
-              if reg_addressingmode = M_immnn then
-                last_byte2 <= memory_read_value;
-                last_bytecount <= 2;
-                monitor_arg1 <= memory_read_value;
-                monitor_ibytes(1) <= '1';
-              end if;
-
-              if reg_microcode.mcBRK='1' then                
-                state <= Interrupt;
-              end if;
-              
-              if reg_microcode.mcJump='1' then
-                report "Setting PC: mcJump=1";
-                reg_pc <= reg_addr;
-              end if;
-
-              if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
-              if reg_microcode.mcSetA='1' then
-                reg_a <= memory_read_value;
-              end if;
-              if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
-              if reg_microcode.mcSetY='1' then reg_y <= memory_read_value; end if;
-              if reg_microcode.mcSetZ='1' then reg_z <= memory_read_value; end if;
-
-              if reg_microcode.mcBIT='1' then
-                set_nz(reg_a and memory_read_value);
-                flag_n <= memory_read_value(7);
-                flag_v <= memory_read_value(6);
-              end if;
-              if reg_microcode.mcCMP='1' and (is_rmw='0') then
-                alu_op_cmp(reg_a,memory_read_value);
-              end if;
-              if reg_microcode.mcCPX='1' then
-                alu_op_cmp(reg_x,memory_read_value);
-              end if;
-              if reg_microcode.mcCPY='1' then
-                alu_op_cmp(reg_y,memory_read_value);
-              end if;
-              if reg_microcode.mcCPZ='1' then
-                alu_op_cmp(reg_z,memory_read_value);
-              end if;
-              if reg_microcode.mcADC='1' and (is_rmw='0') then
-                reg_a <= a_add(7 downto 0);
-                flag_c <= a_add(8);  flag_z <= a_add(9);
-                flag_v <= a_add(10); flag_n <= a_add(11);
-              end if;
-              if reg_microcode.mcSBC='1' and (is_rmw='0') then
-                reg_a <= a_sub(7 downto 0);
-                flag_c <= a_sub(8);  flag_z <= a_sub(9);
-                flag_v <= a_sub(10); flag_n <= a_sub(11);
-              end if;
-              if reg_microcode.mcAND='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a and memory_read_value);
-              end if;
-              if reg_microcode.mcORA='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a or memory_read_value);
-              end if;
-              if reg_microcode.mcEOR='1' and (is_rmw='0') then
-                reg_a <= with_nz(reg_a xor memory_read_value);
-              end if;
-              if reg_microcode.mcDEC='1' then
-                temp_value := memory_read_value - 1;
-                reg_t <= temp_value;                
-                flag_n <= temp_value(7);
-                if memory_read_value = x"01" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcINC='1' then
-                temp_value := memory_read_value + 1;
-                reg_t <= temp_value;                
-                flag_n <= temp_value(7);
-                if memory_read_value = x"ff" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcASR='1' then
-                temp_value := memory_read_value(7)&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcLSR='1' then
-                temp_value := '0'&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcROR='1' then
-                temp_value := flag_c&memory_read_value(7 downto 1);
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(0);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcASL='1' then
-                temp_value := memory_read_value(6 downto 0)&'0';
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(7);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcROL='1' then
-                temp_value := memory_read_value(6 downto 0)&flag_c;
-                reg_t <= temp_value;
-                flag_c <= memory_read_value(7);
-                flag_n <= temp_value(7);
-                if temp_value = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcRMB='1' then
-                                        -- Clear bit based on opcode
-                reg_t <= memory_read_value and rmb_mask;
-              end if;
-              if reg_microcode.mcSMB='1' then
-                                        -- Set bit based on opcode
-                reg_t <= memory_read_value or smb_mask;
-              end if;
-              
-              if reg_microcode.mcClearE='1' then
-                flag_e <= '0';
-                report "ZPCACHE: Flushing cache due to clearing E flag";
-                cache_flushing <= '1';
-                cache_flush_counter <= (others => '0');
-              end if;
-              if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
-              if reg_microcode.mcMap='1' then c65_map_instruction; end if;
-
-                                        -- XXX Timing closure issue:
-                                        -- There are only 5 push instructions, but we currently read the
-                                        -- push indication from microcode, which is pushing timing
-                                        -- closure out for the CPU.  So we should instead just do a case
-                                        -- statement on the opcode
-                                        -- stack_push := reg_microcode.mcPush;
-              case reg_instruction is
-                when I_PHA => stack_push := '1';
-                when I_PHP => stack_push := '1';
-                when I_PHX => stack_push := '1';
-                when I_PHY => stack_push := '1';
-                when I_PHZ => stack_push := '1';
-                when others => stack_push := '0';
-              end case;              
-              stack_pop := reg_microcode.mcPop;
-              if reg_microcode.mcPop='1' then
-                state <= Pop;
-              end if;
-              if reg_microcode.mcStoreTRB='1' then
-                reg_t <= (reg_a xor x"FF") and memory_read_value;
-              end if;
-              if reg_microcode.mcStoreTSB='1' then
-                report "memory_read_value = $" & to_hstring(memory_read_value) & ", A = $" & to_hstring(reg_a) severity note;
-                reg_t <= reg_a or memory_read_value;
-              end if;
-              if reg_microcode.mcTestAZ = '1' then
-                if (reg_a and memory_read_value) = x"00" then
-                  flag_z <= '1';
-                else
-                  flag_z <= '0';
-                end if;
-              end if;
-              if reg_microcode.mcDelayedWrite='1' then
-                                        -- Do dummy write for RMW instructions if touching $D019
-                reg_t_high <= memory_read_value;
-
-                if reg_addr = x"D019" then
-                  report "memory: DUMMY WRITE for RMW on $D019" severity note;
-                  state <= DummyWrite;
-                else
-                                        -- Otherwise just the commit new value immediately
-                  state <= WriteCommit;
-                end if;
-                
-              end if;
-              if reg_microcode.mcWordOp='1' then
-                reg_t <= memory_read_value;
-                state <= WordOpReadHigh;
-              end if;
-              if (reg_microcode.mcWordOp or reg_microcode.mcDelayedWrite or
-                  reg_microcode.mcPop or reg_microcode.mcBRK) = '0' then
-                report "monitor_instruction_strobe assert (MicrocodeInterpret -- no special)";
-                monitor_instruction_strobe <= '1';
-              end if;               
             when WordOpReadHigh =>
               state <= WordOpWriteLow;
               case reg_instruction is

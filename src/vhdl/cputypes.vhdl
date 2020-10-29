@@ -40,89 +40,53 @@ package cputypes is
 
     -- 6502 illegals
     I_SLO,I_RLA,I_SRE,I_RRA,I_SAX,I_LAX,I_DCP,I_ISC,
-    I_ANC,I_ALR,I_ARR,I_XAA,I_AXS,I_AHX,I_SHY,I_SHX,
+    I_ANC,I_ALR,I_ARR,I_ANE,I_SBX,I_SHA,I_SHY,I_SHX,
     I_TAS,I_LAS,I_NOP,I_KIL
     
     );
 
   type ilut9bit is array(0 to 511) of instruction;
-    
   
   type microcodeops is record
-    -- Do we increment PC?
-    mcIncPC : std_logic;
 
-    -- Decrement PC (to fix PC following stack operations)
-    mcDecPC : std_logic;
+    -- ALU control (flag setting is automatically handled based on ALU_mode)
+    mcALU_in_mem : std_logic;
+    mcALU_in_bitmask : std_logic;
+    mcALU_in_a : std_logic;
+    mcALU_in_x : std_logic;
+    mcALU_in_y : std_logic;
+    mcALU_in_z : std_logic;
+    mcALU_in_spl : std_logic;
+    mcALU_mode : alu_function_t;
+    mcALU_set_a : std_logic;
+    mcALU_set_x : std_logic;
+    mcALU_set_y : std_logic;
+    mcALU_set_z : std_logic;
+    mcALU_set_p : std_logic;
+    mcALU_set_mem : std_logic;
+    mcALU_set_spl : std_logic;
 
-    -- How shall we exit this instruction?
-    mcInstructionFetch : std_logic;
-    mcInstructionDecode : std_logic;
-
-    -- Mark instruction RMW
-    mcRMW : std_logic;
-    -- 16bit operations
-    mcWordOp : std_logic;
-
-    mcBRK : std_logic;
+    mcADDCarry : std_logic;
+    mcRecordCarry : std_logic;
+    mcAssumeCarrySet : std_logic;
+    mcAssumeCarryClear : std_logic;
+    mcAllowBCD : std_logic;
+    mcRecordN : std_logic;
+    mcRecordZ : std_logic;
+    mcALU_set_mem : std_logic;
+    mcTRBSetZ : std_logic;
     
-    -- Set NZ based on currently read memory
-    mcSetNZ : std_logic;
-    -- And registers
-    mcSetA : std_logic;
-    mcSetX : std_logic;
-    mcSetY : std_logic;
-    mcSetZ : std_logic;
-
-    -- Do we write registers to memory?
+    -- Do we write registers or results to memory?
     mcStoreA : std_logic;
-    mcStoreP : std_logic;
     mcStoreX : std_logic;
     mcStoreY : std_logic;
     mcStoreZ : std_logic;
-    mcStoreTRB : std_logic;
-    mcStoreTSB : std_logic;
 
-    mcTestAZ : std_logic;
-
-    mcDelayedWrite : std_logic;
-    mcWriteMem : std_logic;
-    mcWriteRegAddr : std_logic;
     mcPop : std_logic;
-    mcBreakFlag : std_logic;
+    mcPush : std_logic;
     
-    -- Special instructions
-    mcJump : std_logic;
-    mcMap : std_logic;
-    mcClearI : std_logic;
-    mcClearE : std_logic;
-
-    mcStackA : std_logic;
-    mcStackP : std_logic;
-    mcStackX : std_logic;
-    mcStackY : std_logic;
-    mcStackZ : std_logic;
-
-    mcADC : std_logic;
-    mcAND : std_logic;
-    mcORA : std_logic;
-    mcEOR : std_logic;
-    mcASL : std_logic;
-    mcASR : std_logic;
-    mcLSR : std_logic;
-    mcBIT : std_logic;
-    mcSBC : std_logic;
-    mcCMP : std_logic;
-    mcCPX : std_logic;
-    mcCPY : std_logic;
-    mcCPZ : std_logic;
-    mcDEC : std_logic;
-    mcINC : std_logic;
-    mcROL : std_logic;
-    mcROR : std_logic;
-    mcRMB : std_logic;
-    mcSMB : std_logic;
-    
+    mcBreakFlag : std_logic;    
+      
   end record;
 
   type microcoderom_t is array (instruction) of microcodeops;
