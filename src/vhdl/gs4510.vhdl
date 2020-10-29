@@ -693,7 +693,7 @@
     signal reg_t_high : unsigned(7 downto 0) := (others => '0');
 
     signal reg_val32                  : unsigned(31 downto 0) := to_unsigned(0,32);
-    signal next_is_axyz32_instruction : std_logic             := '0';
+    signal is_axyz32_instruction      : std_logic             := '0';
     signal value32_enabled            : std_logic             := '0';
     signal axyz_phase                 : integer range 0 to 4  := 0;
 
@@ -2805,7 +2805,7 @@
         else
           -- Write using the memory controller -- but skip writing to "ROM" if we
           -- have it write-protected at the moment
-          if long_address(27 downto 17) /= "00000000001" or rom_write_protect='0' then
+          if long_address(27 downto 17) /= "00000000001" or rom_writeprotect='0' then
             memory_access_Address           := long_address;
             memory_access_write             := '1';
             memory_access_wdata(7 downto 0) := value;
@@ -3279,6 +3279,7 @@
       variable memory_access_write           : std_logic             := '0';
       variable memory_access_resolve_address : std_logic             := '0';
       variable memory_access_wdata           : unsigned(31 downto 0)  := x"FFFFFFFF";
+      variable memory_access_byte_count      : integer range 0 to 4 := 0;
 
       variable pc_inc     : integer range 0 to 6 := 0;
       variable pc_set     : std_logic            := '0';
@@ -4681,7 +4682,7 @@
 
                 -- And work out start address of pushed data = SP - 3
                 -- Here we honour the E flag, to know if stack is 8 or 16 bit.
-                temp_addr := reg_sph&reg_spl;
+                temp_addr := reg_sph&reg_sp;
                 if flag_e='1' then
                   -- 8-bit stack address
                   temp_addr(7 downto 0) := temp_addr(7 downto 0) - 3;
@@ -4714,7 +4715,7 @@
                 sp_inc3 := '1';
 
                 -- SP is currently pointing to 1 byte before the 3 we need.
-                temp_addr := reg_sph&reg_spl;
+                temp_addr := reg_sph&reg_sp;
                 if flag_e='1' then
                   -- 8-bit stack address
                   temp_addr(7 downto 0) := temp_addr(7 downto 0) + 1;
@@ -4726,7 +4727,7 @@
                 -- XXX Just do a hypervisor trap in that case, and implement it
                 -- in software? Or add states to CPU state machine to do writes
                 -- byte at a time? Or make memory controller do the wrapping internally?
-                memory_access_address(15 downto 0) := reg_sph&reg_spl;
+                memory_access_address(15 downto 0) := reg_sph&reg_sp;
                 memory_access_resolve_address      := '1';
                 memory_access_byte_count           := 3;
                 memory_access_write                := '0';
@@ -4744,7 +4745,7 @@
                 sp_inc2 := '1';
 
                 -- SP is currently pointing to 1 byte before the 2 we need.
-                temp_addr := reg_sph&reg_spl;
+                temp_addr := reg_sph&reg_sp;
                 if flag_e='1' then
                   -- 8-bit stack address
                   temp_addr(7 downto 0) := temp_addr(7 downto 0) + 1;
@@ -4756,7 +4757,7 @@
                 -- XXX Just do a hypervisor trap in that case, and implement it
                 -- in software? Or add states to CPU state machine to do writes
                 -- byte at a time? Or make memory controller do the wrapping internally?
-                memory_access_address(15 downto 0) := reg_sph&reg_spl;
+                memory_access_address(15 downto 0) := reg_sph&reg_sp;
                 memory_access_resolve_address      := '1';
                 memory_access_byte_count           := 2;
                 memory_access_write                := '0';
@@ -5185,28 +5186,28 @@
                     report "monitor_instruction_strobe assert (DMA swap/mix unimplemented function abort)";
                     monitor_instruction_strobe <= '1';
                 end case;
-              -- XXX Potential security issue: Ideally we should not allow a DMA to
-              -- write to Hypervisor memory, so as to make it harder to overwrite
-              -- hypervisor memory.  However, we currently use it to do exactly
-              -- that in the hickup routine.  Thus before we implement such
-              -- protection, we need to change hickup to use a simple copy
-              -- routine. We then need to get a bit creative about how we
-              -- implement the restriction, as the hypervisor memory doesnt
-              -- exist in its own 1MB off address space, so we can't easily
-              -- quarantine it by blockinig DMA to that section off address
-              -- space. It does live in its own 64KB of address space, however.
-              -- that would involve adding a wrap-around check on the bottom 16
-              -- bits of the address.
-              -- One question is: Does it make sense to try to protect against
-              -- this, since the hypervisor memory is only accessible from
-              -- hypervisor mode, and any exploit via DMA requires another
-              -- exploit first.  Perhaps the only additional issue is if a DMA
-              -- chained request went feral, but even that requires at least a
-              -- significant bug in the hypervisor.  We could just disable
-              -- chained DMA in the hypevisor as a simple safety catch, as this
-              -- will provide the main value, without a burdonsome change. But
-              -- even that gets used in hyppo when clearing the screen on
-              -- boot.
+                -- XXX Potential security issue: Ideally we should not allow a DMA to
+                -- write to Hypervisor memory, so as to make it harder to overwrite
+                -- hypervisor memory.  However, we currently use it to do exactly
+                -- that in the hickup routine.  Thus before we implement such
+                -- protection, we need to change hickup to use a simple copy
+                -- routine. We then need to get a bit creative about how we
+                -- implement the restriction, as the hypervisor memory doesnt
+                -- exist in its own 1MB off address space, so we can't easily
+                -- quarantine it by blockinig DMA to that section off address
+                -- space. It does live in its own 64KB of address space, however.
+                -- that would involve adding a wrap-around check on the bottom 16
+                -- bits of the address.
+                -- One question is: Does it make sense to try to protect against
+                -- this, since the hypervisor memory is only accessible from
+                -- hypervisor mode, and any exploit via DMA requires another
+                -- exploit first.  Perhaps the only additional issue is if a DMA
+                -- chained request went feral, but even that requires at least a
+                -- significant bug in the hypervisor.  We could just disable
+                -- chained DMA in the hypevisor as a simple safety catch, as this
+                -- will provide the main value, without a burdonsome change. But
+                -- even that gets used in hyppo when clearing the screen on
+                -- boot.
               when DMAgicFill =>
                 -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
                 -- 0)
@@ -5615,865 +5616,865 @@
                 end if;
               when InstructionDecode4502 =>
 
-                -- By default the instruction is not affected by any prefixes
-                flat32_address             <= '0';
-                flat32_address_v           <= '0';
-                next_is_axyz32_instruction <= '0';
-                is_axyz32_instruction_v    := '0';
-                is_16bit_operation         <= '0';
-                is_16bit_operation_v       := '0';
-                zp32bit_pointer_enabled    <= '0';
-                zp32bit_pointer_enabled_v  := '0';
-                do_branch8                 := '0';
-                do_branch16                := '0';
-                prefix_bytes               := 0;
+                  -- By default the instruction is not affected by any prefixes
+                  flat32_address             <= '0';
+                  flat32_address_v           <= '0';
+                  is_axyz32_instruction      <= '0';
+                  is_axyz32_instruction_v    := '0';
+                  is_16bit_operation         <= '0';
+                  is_16bit_operation_v       := '0';
+                  zp32bit_pointer_enabled    <= '0';
+                  zp32bit_pointer_enabled_v  := '0';
+                  do_branch8                 := '0';
+                  do_branch16                := '0';
+                  prefix_bytes               := 0;
 
-                -- Always start getting the next instruction ready
-                fetch_instruction_please := '1';
-                -- and setup to match it.
-                -- We have to overwrite this assignment (or clear
-                -- instruction_from_transaction) if the next instruction is not
-                -- at the immediately following memory location.
-                -- XXX Do we really need this here? More the point, can it cause
-                -- false positivies?
-                target_instruction_addr <= target_instruction_addr + 1;
+                  -- Always start getting the next instruction ready
+                  fetch_instruction_please := '1';
+                  -- and setup to match it.
+                  -- We have to overwrite this assignment (or clear
+                  -- instruction_from_transaction) if the next instruction is not
+                  -- at the immediately following memory location.
+                  -- XXX Do we really need this here? More the point, can it cause
+                  -- false positivies?
+                  target_instruction_addr <= target_instruction_addr + 1;
 
-                -- First, work out if the instruction is ready.
-                if instruction_from_transaction='0' and target_instruction_addr /= instruction_fetched_address_out then
-                  -- We are waiting for the instruction to arrive, which means it
-                  -- wasn't in the buffer. So toggle the request line to make sure it
-                  -- gets fetched.
-                  -- XXX We should do this only once, not continuously.
-                  instruction_fetch_request_toggle <= not instruction_fetch_request_toggle;
-                else
-
-                  -- We now have 6 bytes of instruction data, regardless of where
-                  -- it has come from, so lets get the data from the correct
-                  -- source, and munge it as appropriate.
-                  if instruction_from_transaction='1' then
-                    instruction_bytes := instruction_fetch_rdata;
+                  -- First, work out if the instruction is ready.
+                  if instruction_from_transaction='0' and target_instruction_addr /= instruction_fetched_address_out then
+                    -- We are waiting for the instruction to arrive, which means it
+                    -- wasn't in the buffer. So toggle the request line to make sure it
+                    -- gets fetched.
+                    -- XXX We should do this only once, not continuously.
+                    instruction_fetch_request_toggle <= not instruction_fetch_request_toggle;
                   else
-                    instruction_bytes := transaction_rdata;
-                  end if;
 
-                  -- Now check for prefixes.  This also implicitly skips
-                  -- single NOP instructions(!)
-                  if instruction_bytes(23 downto 0) = x"EA4242"
-                    or instruction_bytes(23 downto 0) = x"4242EA" then
-                    -- NEG / NEG prefix = 32-bit ZP pointers
-                    -- NOP prefix = Q 32-bit pseudo register
-                    instruction_bytes(23 downto 0)  := instruction_bytes(47 downto 24);
-                    instruction_bytes(47 downto 24) := x"EAEAEA";
-                    next_is_axyz32_instruction      <= '1';
-                    is_axyz32_instruction_v         := '1';
-                    zp32bit_pointer_enabled         <= '1';
-                    zp32bit_pointer_enabled_v       := '1';
-                    prefix_bytes                    := 3;
-                  elsif instruction_bytes(15 downto 0) = x"4242" then
-                    -- NEG / NEG prefix = Q 32-bit pseudo register
-                    instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
-                    instruction_bytes(47 downto 32) := x"EAEA";
-                    next_is_axyz32_instruction      <= '1';
-                    is_axyz32_instruction_v         := '1';
-                    prefix_bytes                    := 2;
-                  elsif instruction_bytes(15 downto 0) = x"D8D8" then
-                    -- CLD / CLD prefix = Flat 32-bit jump or branch
-                    instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
-                    instruction_bytes(47 downto 32) := x"EAEA";
-                    flat32_address                  <= flat32_enabled;
-                    flat32_address_v                := flat32_enabled;
-                    prefix_bytes                    := 2;
-                  elsif instruction_bytes(7 downto 0) = x"EA" then
-                    -- NOP prefix = 32-bit ZP pointers
-                    instruction_bytes(39 downto 0)  := instruction_bytes(47 downto 8);
-                    instruction_bytes(47 downto 39) := x"EA";
-                    zp32bit_pointer_enabled         <= '1';
-                    zp32bit_pointer_enabled_v       := '1';
-                    prefix_bytes                    := 1;
-                  end if;
+                    -- We now have 6 bytes of instruction data, regardless of where
+                    -- it has come from, so lets get the data from the correct
+                    -- source, and munge it as appropriate.
+                    if instruction_from_transaction='1' then
+                      instruction_bytes := instruction_fetch_rdata;
+                    else
+                      instruction_bytes := transaction_rdata;
+                    end if;
 
-                  -- Show previous instruction
-                  disassemble_last_instruction;
-                  -- Start recording this instruction
-                  last_instruction_pc <= reg_pc - 1;
-                  last_opcode         <= instruction_bytes(7 downto 0);
-                  last_bytecount      <= 1;
+                    -- Now check for prefixes.  This also implicitly skips
+                    -- single NOP instructions(!)
+                    if instruction_bytes(23 downto 0) = x"EA4242"
+                      or instruction_bytes(23 downto 0) = x"4242EA" then
+                      -- NEG / NEG prefix = 32-bit ZP pointers
+                      -- NOP prefix = Q 32-bit pseudo register
+                      instruction_bytes(23 downto 0)  := instruction_bytes(47 downto 24);
+                      instruction_bytes(47 downto 24) := x"EAEAEA";
+                      is_axyz32_instruction           <= '1';
+                      is_axyz32_instruction_v         := '1';
+                      zp32bit_pointer_enabled         <= '1';
+                      zp32bit_pointer_enabled_v       := '1';
+                      prefix_bytes                    := 3;
+                    elsif instruction_bytes(15 downto 0) = x"4242" then
+                      -- NEG / NEG prefix = Q 32-bit pseudo register
+                      instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
+                      instruction_bytes(47 downto 32) := x"EAEA";
+                      is_axyz32_instruction           <= '1';
+                      is_axyz32_instruction_v         := '1';
+                      prefix_bytes                    := 2;
+                    elsif instruction_bytes(15 downto 0) = x"D8D8" then
+                      -- CLD / CLD prefix = Flat 32-bit jump or branch
+                      instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
+                      instruction_bytes(47 downto 32) := x"EAEA";
+                      flat32_address                  <= flat32_enabled;
+                      flat32_address_v                := flat32_enabled;
+                      prefix_bytes                    := 2;
+                    elsif instruction_bytes(7 downto 0) = x"EA" then
+                      -- NOP prefix = 32-bit ZP pointers
+                      instruction_bytes(39 downto 0)  := instruction_bytes(47 downto 8);
+                      instruction_bytes(47 downto 39) := x"EA";
+                      zp32bit_pointer_enabled         <= '1';
+                      zp32bit_pointer_enabled_v       := '1';
+                      prefix_bytes                    := 1;
+                    end if;
 
-                  -- Prepare microcode vector in case we need it next cycle
-                  reg_microcode <=
-                    microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
-                  reg_addressingmode <= mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                  reg_instruction    <= instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                  -- And also get it ready for this cycle
-                  var_microcode :=
-                    microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
-                  var_addressingmode := mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                  var_instruction    := instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                  phi_add_backlog    <= '1';
-                  phi_new_backlog    <= cycle_count_lut(to_integer(timing6502&instruction_bytes(7 downto 0)));
+                    -- Show previous instruction
+                    disassemble_last_instruction;
+                    -- Start recording this instruction
+                    last_instruction_pc <= reg_pc - 1;
+                    last_opcode         <= instruction_bytes(7 downto 0);
+                    last_bytecount      <= 1;
 
-                  -- Update PC based on addressing mode, so that we can more
-                  -- quickly fetch the instruction bytes for the next instruction
-                  -- We remember to also skip the prefix bytes
+                    -- Prepare microcode vector in case we need it next cycle
+                    reg_microcode <=
+                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
+                    reg_addressingmode <= mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                    reg_instruction    <= instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                    -- And also get it ready for this cycle
+                    var_microcode :=
+                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
+                    var_addressingmode := mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                    var_instruction    := instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                    phi_add_backlog    <= '1';
+                    phi_new_backlog    <= cycle_count_lut(to_integer(timing6502&instruction_bytes(7 downto 0)));
 
-                  case var_addressingmode is
-                    when M_impl | M_A =>
-                      pc_inc := prefix_bytes + 1;
-                    when M_InnX | M_nn | M_immnn | M_rr | M_InnY | M_InnZ | M_nnX | M_InnSPY | M_nnY =>
-                      pc_inc := prefix_bytes + 2;
-                    when M_nnnn | M_nnrr | M_rrrr | M_nnnnY | M_nnnnX | M_Innnn | M_InnnnX | M_immnnnn =>
-                      pc_inc := prefix_bytes + 3;
-                  end case;
+                    -- Update PC based on addressing mode, so that we can more
+                    -- quickly fetch the instruction bytes for the next instruction
+                    -- We remember to also skip the prefix bytes
 
-                  is_rmw               <= '0'; is_load <= '0';
-                  is_rmw_v             := '0'; is_load_v := '0';
-                  rmw_dummy_write_done <= '0';
-                  case instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))) is
-                    -- Note if instruction is RMW
-                    when I_INC | I_DEC | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR | I_TSB | I_TRB | I_RMB | I_SMB
-                      -- There are a few 16-bit RMWs as well
-                      -- (PHW $nnnn is a funny one, because we load normally, and
-                      -- then store to stack, so we treat it like an RMW, because
-                      -- two memory accesses are required.)
-                      | I_INW | I_DEW | I_ASW | I_PHW | I_ROW =>
-                      is_rmw <= '1'; is_rmw_v := '1';
-                    -- Note if instruction LOADs value from memory
-                    when I_BIT | I_AND | I_ORA | I_EOR | I_ADC | I_SBC | I_CMP | I_CPX | I_CPY | I_CPZ
-                      | I_LDA | I_LDX | I_LDY | I_LDZ =>
-                      is_load <= '1'; is_load_v := '1';
-                    -- Also if it is a store
-                    when I_STA | I_STX | I_STY | I_STZ =>
-                      is_store <= '1'; is_store_v := '1';
-
-                    -- And 6502 unintended opcodes
-                    when I_SLO                                 => is_rmw <= '1';
-                    when I_RLA                                 => is_rmw <= '1';
-                    when I_SRE                                 => is_rmw <= '1';
-                    when I_SAX                                 => null;
-                    when I_LAX                                 => is_load <= '1';
-                    when I_RRA                                 => is_rmw  <= '1';
-                    when I_DCP                                 => is_rmw  <= '1';
-                    when I_ISC                                 => is_rmw  <= '1';
-                    when I_ANC                                 => is_load <= '1';
-                    when I_ALR                                 => is_load <= '1';
-                    when I_ARR                                 => is_load <= '1';
-                    when I_AXS                                 => is_load <= '1';
-                    when I_LAS                                 => null;
-                    when I_ANE | I_SHA | I_SHX | I_SHY | I_TAS =>
-                      state <= TrapToHypervisor;
-                      -- Trap $46 = 6502 Unstable illegal instruction encountered
-                      hypervisor_trap_port <= "1000110";
-                    when I_KIL =>
-                      state <= TrapToHypervisor;
-                      -- Trap $47 = 6502 KIL instruction encountered
-                      hypervisor_trap_port <= "1000111";
-                    -- Nothing special for other instructions
-                    when others => null;
-                  end case;
-
-                  -- 4502 doesn't allow interrupts immediately following a
-                  -- single-cycle instruction
-                  if (hypervisor_mode='0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
-                    -- An interrupt has occurred
-                    report "Interrupt detected, decrementing PC so we push correct value onto the stack";
-                    state   <= Interrupt;
-                    pc_dec1 := '1';
-                    pc_inc  := 0;
-                    -- Make sure reg_instruction /= I_BRK, so that B flag is not
-                    -- erroneously set.
-                    reg_instruction <= I_SEI;
-                  else
-                    reg_opcode <= instruction_bytes(7 downto 0);
-                    -- Present instruction to serial monitor;
-                    monitor_ibytes        <= instruction_bytes(23 downto 0);
-                    monitor_instructionpc <= reg_pc;
-
-                    -- Check for 16-bit operations
-                    case instruction_bytes(7 downto 0) is
-                      when x"C3" | -- DEW $nn
-                        x"CB" |    -- ASW $nnnn
-                        x"E3" |    -- INW $nnnn
-                        x"EB" |    -- ROW $nnnn
-                        x"FC" =>   -- PHW $nnnn
-                        is_16bit_operation_v := '1';
-                        is_16bit_operation   := '1';
-                      when others =>
-                        -- We don't treat PHW #$nnnn ($F4) as a 16-bit
-                        -- operation, as we actually handle it as a single-cycle
-                        -- instructoin.
-                        null;
+                    case var_addressingmode is
+                      when M_impl | M_A =>
+                        pc_inc := prefix_bytes + 1;
+                      when M_InnX | M_nn | M_immnn | M_rr | M_InnY | M_InnZ | M_nnX | M_InnSPY | M_nnY =>
+                        pc_inc := prefix_bytes + 2;
+                      when M_nnnn | M_nnrr | M_rrrr | M_nnnnY | M_nnnnX | M_Innnn | M_InnnnX | M_immnnnn =>
+                        pc_inc := prefix_bytes + 3;
                     end case;
 
-                    report "Executing instruction "
-                    & instruction'image(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))))
-                    severity note;
+                    is_rmw               <= '0'; is_load <= '0';
+                    is_rmw_v             := '0'; is_load_v := '0';
+                    rmw_dummy_write_done <= '0';
+                    case instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))) is
+                      -- Note if instruction is RMW
+                      when I_INC | I_DEC | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR | I_TSB | I_TRB | I_RMB | I_SMB
+                        -- There are a few 16-bit RMWs as well
+                        -- (PHW $nnnn is a funny one, because we load normally, and
+                        -- then store to stack, so we treat it like an RMW, because
+                        -- two memory accesses are required.)
+                        | I_INW | I_DEW | I_ASW | I_PHW | I_ROW =>
+                        is_rmw <= '1'; is_rmw_v := '1';
+                      -- Note if instruction LOADs value from memory
+                      when I_BIT | I_AND | I_ORA | I_EOR | I_ADC | I_SBC | I_CMP | I_CPX | I_CPY | I_CPZ
+                        | I_LDA | I_LDX | I_LDY | I_LDZ =>
+                        is_load <= '1'; is_load_v := '1';
+                      -- Also if it is a store
+                      when I_STA | I_STX | I_STY | I_STZ =>
+                        is_store <= '1'; is_store_v := '1';
 
-                    -- On the C65, interrupts cannot happen following
-                    -- single-cycle instructions, as part of the optimisation of
-                    -- the 65CE02. It served no vital role on the C65, however.
-                    -- We previously mirrored this on the MEGA65, partly because
-                    -- it meant that we could be sure that no interrupts could
-                    -- happen between an instruction prefix and the instruction.
-                    -- However now that we fetch an entire instruction in one go,
-                    -- including any prefix bytes, we don't need that protection
-                    -- any more. This means we can process a great many
-                    -- instructions in a single cycle, and generally have simpler
-                    -- logic.  Essentially if the instruction ISNT one that we
-                    -- can process in a single cycle, then we dispatch the load
-                    -- or store that is required next.
-
-                    -- Work out relevant bit mask for RMB/SMB
-                    case instruction_bytes(6 downto 4) is
-                      when "000"  => reg_bitmask <= "00000001";
-                      when "001"  => reg_bitmask <= "00000010";
-                      when "010"  => reg_bitmask <= "00000100";
-                      when "011"  => reg_bitmask <= "00001000";
-                      when "100"  => reg_bitmask <= "00010000";
-                      when "101"  => reg_bitmask <= "00100000";
-                      when "110"  => reg_bitmask <= "01000000";
-                      when "111"  => reg_bitmask <= "10000000";
+                      -- And 6502 unintended opcodes
+                      when I_SLO                                 => is_rmw <= '1';
+                      when I_RLA                                 => is_rmw <= '1';
+                      when I_SRE                                 => is_rmw <= '1';
+                      when I_SAX                                 => null;
+                      when I_LAX                                 => is_load <= '1';
+                      when I_RRA                                 => is_rmw  <= '1';
+                      when I_DCP                                 => is_rmw  <= '1';
+                      when I_ISC                                 => is_rmw  <= '1';
+                      when I_ANC                                 => is_load <= '1';
+                      when I_ALR                                 => is_load <= '1';
+                      when I_ARR                                 => is_load <= '1';
+                      when I_AXS                                 => is_load <= '1';
+                      when I_LAS                                 => null;
+                      when I_ANE | I_SHA | I_SHX | I_SHY | I_TAS =>
+                        state <= TrapToHypervisor;
+                        -- Trap $46 = 6502 Unstable illegal instruction encountered
+                        hypervisor_trap_port <= "1000110";
+                      when I_KIL =>
+                        state <= TrapToHypervisor;
+                        -- Trap $47 = 6502 KIL instruction encountered
+                        hypervisor_trap_port <= "1000111";
+                      -- Nothing special for other instructions
                       when others => null;
                     end case;
 
-                    case instruction_bytes(7 downto 0) is
-                      -- XXX Also implement PLA/X/Y/Z as single-cycle
-                      when x"03" =>
-                        flag_e <= '1'; -- SEE
-                        report "ZPCACHE: Flushing cache due to setting E flag";
-                        cache_flushing      <= '1';
-                        cache_flush_counter <= (others => '0');
-                      when x"08" =>
-                        -- PHP
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 1;
-                        memory_access_wdata(7 downto 0)    := virtual_reg_p;
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 1;
-                      when x"09" =>
-                        -- ORA #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcORA := '1';
-                        mc.mcalu_b_ibyte2;
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"0A" =>
-                        -- ASL A
-                        mc.mcALU_set_a := '1';
-                        mc.mcASL := '1';
-                        mc.mcALU_in_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"0B" =>
-                        -- TSY
-                        mc.mcALU_in_sph := '1';
-                        mc.mcALU_set_y := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"10" =>
-                        -- BPL $rr
-                        if flag_n = '0' then do_branch8 := '1';
-                        end if;
-                      when x"13" =>
-                        -- BPL $rrrr
-                        if flag_n = '0' then do_branch16 := '1';
-                        end if;
-                      when x"18" => flag_c    <= '0';                -- CLC
-                      when x"1A" =>
-                        -- INC A
-                        mc.mcALU_in_a := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"1B" =>
-                        -- INZ
-                        mc.mcALU_in_z := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcALU_set_z := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"20" =>
-                        -- JSR
-                        pc_inc                        := 0;
-                        pc_set                        := '1';
-                        var_pc                        := instruction_bytes(23 downto 8);
-                        memory_access_write           := '1';
-                        memory_access_byte_count      := 2;
-                        memory_access_resolve_address := '1';
-                        -- Decrement SP by one first before writing word
-                        if flag_e = '0' then
-                          var_sp := (reg_sph & reg_sp) - 1;
-                        else
-                          var_sp(15 downto 8) := reg_sph;
-                          var_sp(7 downto 0)  := reg_sp - 1;
-                        end if;
-                        memory_access_address(15 downto 0) := var_sp;
-                        dec_sp                             := 2;
-                        -- JSR pushes the address of its 3rd byte to the stack,
-                        -- not the address of the next instruction.  This is a
-                        -- well known 6502 weirdness
-                        memory_access_wdata(15 downto 0) := reg_pc + 2;
-                      when x"29" =>
-                        -- AND #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcAND := '1';
-                        mc.mcalu_b_ibyte2;
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"2A" =>
-                        -- ROL A
-                        mc.alu_in_a := '1';
-                        mc.mcADD := '1';
-                        mc.mcCarryFromBit7 := '1';
-                        mc.mcBit0FromCarry := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"2B" => reg_sph   <= reg_y;                                     -- TYS
-                        report "ZPCACHE: Flushing cache due to setting SPH";
-                        cache_flushing      <= '1';
-                        cache_flush_counter <= (others => '0');
-                      when x"30" => -- BMI $rr
-                        if flag_n = '1' then do_branch8 := '1';
-                        end if;
-                      when x"33" => -- BMI $rrrr
-                        if flag_n = '1' then do_branch16 := '1';
-                        end if;
-                      when x"38" => flag_c    <= '1';                  -- SEC
-                      when x"3A" =>
-                        -- DEC A
-                        mc.alu_in_a := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"3B" =>
-                        -- DEZ
-                        mc.alu_in_z := '1';
-                        mc.alu_set_z := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"40" => state     <= RTI;
-                      when x"42" =>
-                        -- NEG A
-                        mc.alu_in_a := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertA := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"43" =>
-                        -- ASR A
-                        mc.alu_in_a := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcLSR := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcCarryFromBit0 := '1';
-                      when x"48" =>
-                        -- PHA
-                        mc.alu_in_a := '1';
-                        mc.alu_set_mem := '1';
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 1;
-                      when x"49" =>
-                        -- EOR #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcEOR := '1';
-                        mc.mcalu_b_ibyte2;
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"4A" =>
-                        -- LSR A
-                        mc.alu_in_a := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcLSR := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcCarryFromBit0 := '1';
-                        mc.mcZeroBit7 := '1';
-                      when x"4B" =>
-                        -- TAZ
-                        mc.alu_in_a := '1';
-                        mc.alu_set_z := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"4C" =>
-                        -- JMP
-                        pc_inc    := 0;
-                        pc_set := '1';
-                        var_pc := instruction_bytes(23 downto 8);
-                      when x"50" =>
-                        -- BVC $rr
-                        if flag_v = '0' then do_branch8 := '1'; end if;
-                      when x"53" =>
-                        -- BVC $rrrr
-                        if flag_v = '0' then do_branch16 := '1'; end if;
-                      when x"5A" =>
-                        -- PHY
-                        mc.alu_in_y := '1';
-                        mc.alu_set_mem := '1';
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 1;
-                      when x"5B" =>
-                        -- TAB
-                        reg_b <= reg_a;
-                        report "ZPCACHE: Flushing cache due to moving ZP";
-                      when x"60" =>
-                        -- RTS
-                        if flat32_address_v = '0' then
-                          state <= RTS;
-                        else
-                          state <= Flat32RTS;
-                        end if;
-                      when x"62" =>
-                        -- RTS #$nn
-                        if flat32_address_v = '0' then
-                          state <= RTS;
-                        else
-                          state <= Flat32RTS;
-                        end if;
-                        inc_sp := instruction_bytes(15 downto 8);
-                      when x"63" => -- BSR $rrrr
-                        do_branch16                   := '1';
-                        memory_access_write           := '1';
-                        memory_access_byte_count      := 2;
-                        memory_access_resolve_address := '1';
-                        -- Decrement SP by one first before writing word
-                        if flag_e = '0' then
-                          var_sp := (reg_sph & reg_sp) - 1;
-                        else
-                          var_sp(15 downto 8) := reg_sph;
-                          var_sp(7 downto 0)  := reg_sp - 1;
-                        end if;
-                        memory_access_address(15 downto 0) := var_sp;
-                        dec_sp                             := 2;
-                        -- JSR pushes the address of its 3rd byte to the stack,
-                        -- not the address of the next instruction.  This is a
-                        -- well known 6502 weirdness
-                        memory_access_wdata(15 downto 0) := reg_pc + 2;
-                      when x"69" =>
-                        -- ADC #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcADD := '1';
-                        mc.mcAddCarry := '1';
-                        mc.mcalu_b_ibyte2;
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcRecordV := '1';
-                        mc.mcRecordCarry := '1';
-                      when x"6A" =>
-                        -- ROR A
-                        mc.alu_in_a  := '1';
-                        mc.mcLSR := '1';
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcBit7FromCarry := '1';
-                        mc.mcCarryFromBit0 := '1';
-                      when x"6B" =>
-                        -- TZA
-                        mc.alu_in_z := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcRecordN := '1';
-                      when x"70" =>
-                        -- BVS $rr
-                        if flag_v = '1' then do_branch8 := '1'; end if;
-                      when x"73" =>
-                        -- BVS $rrrr
-                        if flag_v = '1' then do_branch16 := '1'; end if;
-                      when x"78" =>
-                        -- SEI
-                        flag_i   <= '1';
-                      when x"7B" =>
-                        -- TBA
-                        mc.alu_in_b := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"80" =>                                                          -- BRA $rr
-                        do_branch8 := '1';
-                      when x"83" => -- BRA $rrrr
-                        do_branch16 := '1';
-                      when x"88" =>
-                        -- DEY
-                        mc.alu_in_y := '1';
-                        mc.alu_set_y := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"89" =>
-                        -- BIT #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcalu_b_ibyte2 := '1';
-                        mc.mcAND := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"8A" =>
-                        -- TXA
-                        mc.alu_in_x := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"90" =>
-                        -- BCC $rr
-                        if flag_c = '0' then do_branch8 := '1'; end if;
-                      when x"93" =>
-                        -- BCC $rrrr
-                        if flag_c = '0' then do_branch16 := '1'; end if;
-                      when x"98" =>
-                        -- TYA
-                        mc.alu_in_y := '1';
-                        mc.alu_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"9A" =>
-                        -- TXS
-                        mc.alu_in_x := '1';
-                        mc.alu_set_spl := '1';
-                      when x"A0" =>
-                        -- LDY #$nn
-                        mc.mcPassB := '1';
-                        mc.mcalu_b_ibyte2 := '1';
-                        mc.mcALU_set_y := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"A2" =>
-                        -- LDX #$nn
-                        mc.mcPassB := '1';
-                        mc.mcalu_b_ibyte2 := '1';
-                        mc.mcALU_set_x := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"A3" =>
-                        -- LDZ #$nn
-                        mc.mcPassB := '1';
-                        mc.mcalu_b_ibyte2 := '1';
-                        mc.mcALU_set_z := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"A8" =>
-                        -- TAY
-                        mc.alu_in_a := '1';
-                        mc.alu_set_y := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"A9" =>
-                        -- LDA #$nn
-                        mc.mcPassB := '1';
-                        mc.mcalu_b_ibyte2 := '1';
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"AA" =>
-                        -- TAX
-                        mc.alu_in_a := '1';
-                        mc.alu_set_x := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"B0" =>
-                        -- BCS $rr
-                        if flag_c = '1' then do_branch8 := '1'; end if;
-                      when x"B3" =>
-                        -- BCS $rrrr
-                        if flag_c = '1' then do_branch16 := '1'; end if;
-                      when x"B8" =>
-                        -- CLV
-                        flag_v     <= '0';
-                      when x"BA" =>
-                        -- TSX
-                        mc.alu_in_spl := '1';
-                        mc.alu_set_x := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"C0" =>
-                        -- CPY #$nn
-                        mc.mcADD := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcALU_in_y := '1';
-                        mc.mcAssumeCarrySet := '1';
-                        mc.mcRecordCarry := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"C2" =>
-                        -- CPZ #$nn
-                        mc.mcADD := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcALU_in_z := '1';
-                        mc.mcAssumeCarrySet := '1';
-                        mc.mcRecordCarry := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"C8" =>
-                        -- INY
-                        mc.alu_in_y := '1';
-                        mc.alu_set_z := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '0';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"C9" =>
-                        -- CMP #$nn
-                        mc.mcADD := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcALU_in_a := '1';
-                        mc.mcAssumeCarrySet := '1';
-                        mc.mcRecordCarry := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"CA" =>
-                        -- DEX
-                        mc.alu_in_z := '1';
-                        mc.alu_set_z := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"d0" =>
-                        -- BNE $rr
-                        if flag_z = '0' then do_branch8 := '1'; end if;
-                      when x"d3" =>
-                        -- BNE $rrrr
-                        if flag_z = '0' then do_branch16 := '1'; end if;
-                      when x"D8" =>
-                        -- CLD
-                        flag_d <= '0';
-                      when x"DA" =>
-                        -- PHX
-                        mc.alu_in_x := '1';
-                        mc.alu_set_mem := '1';
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 1;
-                      when x"DB" =>
-                        -- PHZ
-                        mc.alu_in_z := '1';
-                        mc.alu_set_mem := '1';
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 1;
-                      when x"E0" =>
-                        -- CPX #$nn
-                        mc.mcADD := '1';
-                        mc.mcInvertB := '1';
-                        mc.mcALU_in_x := '1';
-                        mc.mcAssumeCarrySet := '1';
-                        mc.mcRecordCarry := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"E8" =>
-                        -- INX
-                        mc.alu_in_x := '1';
-                        mc.alu_set_x := '1';
-                        mc.mcALU_b_1 := '1';
-                        mc.mcInvertB := '0';
-                        mc.mcADD := '1';
-                        mc.mcAssumeCarryClear := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                      when x"E9" =>
-                        -- SBC #$nn
-                        mc.alu_in_a  := '1';
-                        mc.mcADD := '1';
-                        mc.mcAddCarry := '1';
-                        mc.mcalu_b_ibyte2;
-                        mc.mcInvertB := '1';
-                        mc.mcALU_set_a := '1';
-                        mc.mcRecordN := '1';
-                        mc.mcRecordZ := '1';
-                        mc.mcRecordV := '1';
-                        mc.mcRecordCarry := '1';
-                      when x"EA" =>
-                        -- EOM / NOP
-                        map_interrupt_inhibit <= '0';
-                      when x"F0" =>
-                        -- BEQ $rr
-                        if flag_z = '1' then do_branch8 := '1'; end if;
-                      when x"F3" =>
-                         -- BEQ $rrrr
-                        if flag_z = '1' then do_branch16 := '1'; end if;
-                      when x"F4" =>
-                        -- PHW #$nnnn
-                        memory_access_write                := '1';
-                        memory_access_byte_count           := 2;
-                        memory_access_wdata(15 downto 0)   := instruction_bytes(23 downto 8);
-                        memory_access_resolve_address      := '1';
-                        memory_access_address(15 downto 8) := reg_sph;
-                        memory_access_address(7 downto 0)  := reg_sp;
-                        dec_sp                             := 2;
-                      when x"F8"  =>
-                        -- SED
-                        flag_d <= '1';
-                      when others =>
-                        -- Instruction requires multi-cycle processing
-                        if is_indirect_v = '1' then
-                          -- Resolve indirect address
-                          memory_access_write           := '0';
-                          memory_access_resolve_address := '1';
-                          if zp32bit_pointer_enabled_v = '1' then
-                            memory_access_byte_count := 4;
-                          else
-                            memory_access_byte_count := 2;
+                    -- 4502 doesn't allow interrupts immediately following a
+                    -- single-cycle instruction
+                    if (hypervisor_mode='0') and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
+                      -- An interrupt has occurred
+                      report "Interrupt detected, decrementing PC so we push correct value onto the stack";
+                      state   <= Interrupt;
+                      pc_dec1 := '1';
+                      pc_inc  := 0;
+                      -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                      -- erroneously set.
+                      reg_instruction <= I_SEI;
+                    else
+                      reg_opcode <= instruction_bytes(7 downto 0);
+                      -- Present instruction to serial monitor;
+                      monitor_ibytes        <= instruction_bytes(23 downto 0);
+                      monitor_instructionpc <= reg_pc;
+
+                      -- Check for 16-bit operations
+                      case instruction_bytes(7 downto 0) is
+                        when x"C3" | -- DEW $nn
+                          x"CB" |    -- ASW $nnnn
+                          x"E3" |    -- INW $nnnn
+                          x"EB" |    -- ROW $nnnn
+                          x"FC" =>   -- PHW $nnnn
+                          is_16bit_operation_v := '1';
+                          is_16bit_operation   := '1';
+                        when others =>
+                          -- We don't treat PHW #$nnnn ($F4) as a 16-bit
+                          -- operation, as we actually handle it as a single-cycle
+                          -- instructoin.
+                          null;
+                      end case;
+
+                      report "Executing instruction "
+                      & instruction'image(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))))
+                      severity note;
+
+                      -- On the C65, interrupts cannot happen following
+                      -- single-cycle instructions, as part of the optimisation of
+                      -- the 65CE02. It served no vital role on the C65, however.
+                      -- We previously mirrored this on the MEGA65, partly because
+                      -- it meant that we could be sure that no interrupts could
+                      -- happen between an instruction prefix and the instruction.
+                      -- However now that we fetch an entire instruction in one go,
+                      -- including any prefix bytes, we don't need that protection
+                      -- any more. This means we can process a great many
+                      -- instructions in a single cycle, and generally have simpler
+                      -- logic.  Essentially if the instruction ISNT one that we
+                      -- can process in a single cycle, then we dispatch the load
+                      -- or store that is required next.
+
+                      -- Work out relevant bit mask for RMB/SMB
+                      case instruction_bytes(6 downto 4) is
+                        when "000"  => reg_bitmask <= "00000001";
+                        when "001"  => reg_bitmask <= "00000010";
+                        when "010"  => reg_bitmask <= "00000100";
+                        when "011"  => reg_bitmask <= "00001000";
+                        when "100"  => reg_bitmask <= "00010000";
+                        when "101"  => reg_bitmask <= "00100000";
+                        when "110"  => reg_bitmask <= "01000000";
+                        when "111"  => reg_bitmask <= "10000000";
+                        when others => null;
+                      end case;
+
+                      case instruction_bytes(7 downto 0) is
+                        -- XXX Also implement PLA/X/Y/Z as single-cycle
+                        when x"03" =>
+                          flag_e <= '1'; -- SEE
+                          report "ZPCACHE: Flushing cache due to setting E flag";
+                          cache_flushing      <= '1';
+                          cache_flush_counter <= (others => '0');
+                        when x"08" =>
+                          -- PHP
+                          memory_access_write                := '1';
+                          memory_access_byte_count           := 1;
+                          memory_access_wdata(7 downto 0)    := virtual_reg_p;
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 1;
+                        when x"09" =>
+                          -- ORA #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcORA := '1';
+                          mc.mcalu_b_ibyte2;
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"0A" =>
+                          -- ASL A
+                          mc.mcALU_set_a := '1';
+                          mc.mcASL := '1';
+                          mc.mcALU_in_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"0B" =>
+                          -- TSY
+                          mc.mcALU_in_sph := '1';
+                          mc.mcALU_set_y := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"10" =>
+                          -- BPL $rr
+                          if flag_n = '0' then do_branch8 := '1';
                           end if;
-                          state <= IndirectResolved;
-                          case var_addressingmode is
-                            -- ... And for the indirect modes, start reading the
-                            -- indirect address
-                            when M_Innnn =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
-                            when M_InnnnX =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
-                            when M_InnSPY =>
-                              memory_access_address := to_unsigned(to_integer(reg_b&reg_arg1)
-                                  +to_integer(reg_sph&reg_sp),16);
-                            when M_InnX =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
-                            when M_InnY | M_InnZ =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
-                            when others =>
-                              report "Unexpected addressing mode encountered in indirect access." severity fatal;
-                          end case;
-                        elsif is_load_v = '1' or is_rmw_v = '1' then
-                          -- Schedule the load
-                          memory_access_write           := '0';
+                        when x"13" =>
+                          -- BPL $rrrr
+                          if flag_n = '0' then do_branch16 := '1';
+                          end if;
+                        when x"18" => flag_c    <= '0';                -- CLC
+                        when x"1A" =>
+                          -- INC A
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"1B" =>
+                          -- INZ
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"20" =>
+                          -- JSR
+                          pc_inc                        := 0;
+                          pc_set                        := '1';
+                          var_pc                        := instruction_bytes(23 downto 8);
+                          memory_access_write           := '1';
+                          memory_access_byte_count      := 2;
                           memory_access_resolve_address := '1';
-                          case var_addressingmode is
-                            -- Handle the direct addressing modes, by immediately
-                            -- scheduling the memory read ...
-                            when M_nn =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
-                              state                              <= ValueLoaded;
-                            when M_nnX =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
-                              state                              <= ValueLoaded;
-                            when M_nnY =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
-                              state                              <= ValueLoaded;
-                            when M_nnnn =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
-                              state                              <= ValueLoaded;
-                            when M_nnnnX =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
-                              state                              <= ValueLoaded;
-                            when M_nnnnY =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
-                              state                              <= ValueLoaded;
-                            when others =>
-                              report "Unexpected addressing mode encountered in direct load." severity fatal;
-                          end case;
-                        elsif is_store_v = '1' then
-                          -- Schedule the store
-                          memory_access_write           := '0';
-                          memory_access_resolve_address := '1';
-                          if is_axyz32_instruction_v = '1' then
-                            -- 32-bit write
-                            -- XXX We ignore if it is STA/X/Y or Z, and treat all
-                            -- four as the same.
-                            memory_access_byte_count          <= 4;
-                            memory_access_wdata(7 downto 0)   <= reg_a;
-                            memory_access_wdata(15 downto 8)  <= reg_x;
-                            memory_access_wdata(23 downto 16) <= reg_y;
-                            memory_access_wdata(31 downto 24) <= reg_z;
+                          -- Decrement SP by one first before writing word
+                          if flag_e = '0' then
+                            var_sp := (reg_sph & reg_sp) - 1;
                           else
-                            memory_access_byte_count <= 1;
-                            case var_instruction is
-                              when I_STA => memory_access_wdata(7 downto 0) <= reg_a;
-                              when I_STX => memory_access_wdata(7 downto 0) <= reg_x;
-                              when I_STY => memory_access_wdata(7 downto 0) <= reg_y;
-                              when I_STZ => memory_access_wdata(7 downto 0) <= reg_z;
+                            var_sp(15 downto 8) := reg_sph;
+                            var_sp(7 downto 0)  := reg_sp - 1;
+                          end if;
+                          memory_access_address(15 downto 0) := var_sp;
+                          dec_sp                             := 2;
+                          -- JSR pushes the address of its 3rd byte to the stack,
+                          -- not the address of the next instruction.  This is a
+                          -- well known 6502 weirdness
+                          memory_access_wdata(15 downto 0) := reg_pc + 2;
+                        when x"29" =>
+                          -- AND #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcAND := '1';
+                          mc.mcalu_b_ibyte2;
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"2A" =>
+                          -- ROL A
+                          mc.mcALU_in_a := '1';
+                          mc.mcADD := '1';
+                          mc.mcCarryFromBit7 := '1';
+                          mc.mcBit0FromCarry := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"2B" => reg_sph   <= reg_y;                                     -- TYS
+                          report "ZPCACHE: Flushing cache due to setting SPH";
+                          cache_flushing      <= '1';
+                          cache_flush_counter <= (others => '0');
+                        when x"30" => -- BMI $rr
+                          if flag_n = '1' then do_branch8 := '1';
+                          end if;
+                        when x"33" => -- BMI $rrrr
+                          if flag_n = '1' then do_branch16 := '1';
+                          end if;
+                        when x"38" => flag_c    <= '1';                  -- SEC
+                        when x"3A" =>
+                          -- DEC A
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"3B" =>
+                          -- DEZ
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"40" => state     <= RTI;
+                        when x"42" =>
+                          -- NEG A
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertA := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"43" =>
+                          -- ASR A
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcLSR := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcCarryFromBit0 := '1';
+                        when x"48" =>
+                          -- PHA
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 1;
+                        when x"49" =>
+                          -- EOR #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcEOR := '1';
+                          mc.mcalu_b_ibyte2;
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"4A" =>
+                          -- LSR A
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcLSR := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcCarryFromBit0 := '1';
+                          mc.mcZeroBit7 := '1';
+                        when x"4B" =>
+                          -- TAZ
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"4C" =>
+                          -- JMP
+                          pc_inc    := 0;
+                          pc_set := '1';
+                          var_pc := instruction_bytes(23 downto 8);
+                        when x"50" =>
+                          -- BVC $rr
+                          if flag_v = '0' then do_branch8 := '1'; end if;
+                        when x"53" =>
+                          -- BVC $rrrr
+                          if flag_v = '0' then do_branch16 := '1'; end if;
+                        when x"5A" =>
+                          -- PHY
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 1;
+                        when x"5B" =>
+                          -- TAB
+                          reg_b <= reg_a;
+                          report "ZPCACHE: Flushing cache due to moving ZP";
+                        when x"60" =>
+                          -- RTS
+                          if flat32_address_v = '0' then
+                            state <= RTS;
+                          else
+                            state <= Flat32RTS;
+                          end if;
+                        when x"62" =>
+                          -- RTS #$nn
+                          if flat32_address_v = '0' then
+                            state <= RTS;
+                          else
+                            state <= Flat32RTS;
+                          end if;
+                          inc_sp := instruction_bytes(15 downto 8);
+                        when x"63" => -- BSR $rrrr
+                          do_branch16                   := '1';
+                          memory_access_write           := '1';
+                          memory_access_byte_count      := 2;
+                          memory_access_resolve_address := '1';
+                          -- Decrement SP by one first before writing word
+                          if flag_e = '0' then
+                            var_sp := (reg_sph & reg_sp) - 1;
+                          else
+                            var_sp(15 downto 8) := reg_sph;
+                            var_sp(7 downto 0)  := reg_sp - 1;
+                          end if;
+                          memory_access_address(15 downto 0) := var_sp;
+                          dec_sp                             := 2;
+                          -- JSR pushes the address of its 3rd byte to the stack,
+                          -- not the address of the next instruction.  This is a
+                          -- well known 6502 weirdness
+                          memory_access_wdata(15 downto 0) := reg_pc + 2;
+                        when x"69" =>
+                          -- ADC #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcADD := '1';
+                          mc.mcAddCarry := '1';
+                          mc.mcalu_b_ibyte2;
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcRecordV := '1';
+                          mc.mcRecordCarry := '1';
+                        when x"6A" =>
+                          -- ROR A
+                          mc.mcALU_in_a  := '1';
+                          mc.mcLSR := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcBit7FromCarry := '1';
+                          mc.mcCarryFromBit0 := '1';
+                        when x"6B" =>
+                          -- TZA
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcRecordN := '1';
+                        when x"70" =>
+                          -- BVS $rr
+                          if flag_v = '1' then do_branch8 := '1'; end if;
+                        when x"73" =>
+                          -- BVS $rrrr
+                          if flag_v = '1' then do_branch16 := '1'; end if;
+                        when x"78" =>
+                          -- SEI
+                          flag_i   <= '1';
+                        when x"7B" =>
+                          -- TBA
+                          mc.mcALU_in_b := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"80" =>                                                          -- BRA $rr
+                          do_branch8 := '1';
+                        when x"83" => -- BRA $rrrr
+                          do_branch16 := '1';
+                        when x"88" =>
+                          -- DEY
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_y := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"89" =>
+                          -- BIT #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcAND := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"8A" =>
+                          -- TXA
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"90" =>
+                          -- BCC $rr
+                          if flag_c = '0' then do_branch8 := '1'; end if;
+                        when x"93" =>
+                          -- BCC $rrrr
+                          if flag_c = '0' then do_branch16 := '1'; end if;
+                        when x"98" =>
+                          -- TYA
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"9A" =>
+                          -- TXS
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_spl := '1';
+                        when x"A0" =>
+                          -- LDY #$nn
+                          mc.mcPassB := '1';
+                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcALU_set_y := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"A2" =>
+                          -- LDX #$nn
+                          mc.mcPassB := '1';
+                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcALU_set_x := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"A3" =>
+                          -- LDZ #$nn
+                          mc.mcPassB := '1';
+                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"A8" =>
+                          -- TAY
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_y := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"A9" =>
+                          -- LDA #$nn
+                          mc.mcPassB := '1';
+                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"AA" =>
+                          -- TAX
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_x := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"B0" =>
+                          -- BCS $rr
+                          if flag_c = '1' then do_branch8 := '1'; end if;
+                        when x"B3" =>
+                          -- BCS $rrrr
+                          if flag_c = '1' then do_branch16 := '1'; end if;
+                        when x"B8" =>
+                          -- CLV
+                          flag_v     <= '0';
+                        when x"BA" =>
+                          -- TSX
+                          mc.mcALU_in_spl := '1';
+                          mc.mcALU_set_x := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"C0" =>
+                          -- CPY #$nn
+                          mc.mcADD := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcALU_in_y := '1';
+                          mc.mcAssumeCarrySet := '1';
+                          mc.mcRecordCarry := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"C2" =>
+                          -- CPZ #$nn
+                          mc.mcADD := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcALU_in_z := '1';
+                          mc.mcAssumeCarrySet := '1';
+                          mc.mcRecordCarry := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"C8" =>
+                          -- INY
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '0';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"C9" =>
+                          -- CMP #$nn
+                          mc.mcADD := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcALU_in_a := '1';
+                          mc.mcAssumeCarrySet := '1';
+                          mc.mcRecordCarry := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"CA" =>
+                          -- DEX
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_z := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"d0" =>
+                          -- BNE $rr
+                          if flag_z = '0' then do_branch8 := '1'; end if;
+                        when x"d3" =>
+                          -- BNE $rrrr
+                          if flag_z = '0' then do_branch16 := '1'; end if;
+                        when x"D8" =>
+                          -- CLD
+                          flag_d <= '0';
+                        when x"DA" =>
+                          -- PHX
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 1;
+                        when x"DB" =>
+                          -- PHZ
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 1;
+                        when x"E0" =>
+                          -- CPX #$nn
+                          mc.mcADD := '1';
+                          mc.mcInvertB := '1';
+                          mc.mcALU_in_x := '1';
+                          mc.mcAssumeCarrySet := '1';
+                          mc.mcRecordCarry := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"E8" =>
+                          -- INX
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_x := '1';
+                          mc.mcALU_b_1 := '1';
+                          mc.mcInvertB := '0';
+                          mc.mcADD := '1';
+                          mc.mcAssumeCarryClear := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                        when x"E9" =>
+                          -- SBC #$nn
+                          mc.mcALU_in_a  := '1';
+                          mc.mcADD := '1';
+                          mc.mcAddCarry := '1';
+                          mc.mcalu_b_ibyte2;
+                          mc.mcInvertB := '1';
+                          mc.mcALU_set_a := '1';
+                          mc.mcRecordN := '1';
+                          mc.mcRecordZ := '1';
+                          mc.mcRecordV := '1';
+                          mc.mcRecordCarry := '1';
+                        when x"EA" =>
+                          -- EOM / NOP
+                          map_interrupt_inhibit <= '0';
+                        when x"F0" =>
+                          -- BEQ $rr
+                          if flag_z = '1' then do_branch8 := '1'; end if;
+                        when x"F3" =>
+                           -- BEQ $rrrr
+                          if flag_z = '1' then do_branch16 := '1'; end if;
+                        when x"F4" =>
+                          -- PHW #$nnnn
+                          memory_access_write                := '1';
+                          memory_access_byte_count           := 2;
+                          memory_access_wdata(15 downto 0)   := instruction_bytes(23 downto 8);
+                          memory_access_resolve_address      := '1';
+                          memory_access_address(15 downto 8) := reg_sph;
+                          memory_access_address(7 downto 0)  := reg_sp;
+                          dec_sp                             := 2;
+                        when x"F8"  =>
+                          -- SED
+                          flag_d <= '1';
+                        when others =>
+                          -- Instruction requires multi-cycle processing
+                          if is_indirect_v = '1' then
+                            -- Resolve indirect address
+                            memory_access_write           := '0';
+                            memory_access_resolve_address := '1';
+                            if zp32bit_pointer_enabled_v = '1' then
+                              memory_access_byte_count := 4;
+                            else
+                              memory_access_byte_count := 2;
+                            end if;
+                            state <= IndirectResolved;
+                            case var_addressingmode is
+                              -- ... And for the indirect modes, start reading the
+                              -- indirect address
+                              when M_Innnn =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
+                              when M_InnnnX =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
+                              when M_InnSPY =>
+                                memory_access_address := to_unsigned(to_integer(reg_b&reg_arg1)
+                                    +to_integer(reg_sph&reg_sp),16);
+                              when M_InnX =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
+                              when M_InnY | M_InnZ =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
+                              when others =>
+                                report "Unexpected addressing mode encountered in indirect access." severity fatal;
+                            end case;
+                          elsif is_load_v = '1' or is_rmw_v = '1' then
+                            -- Schedule the load
+                            memory_access_write           := '0';
+                            memory_access_resolve_address := '1';
+                            case var_addressingmode is
+                              -- Handle the direct addressing modes, by immediately
+                              -- scheduling the memory read ...
+                              when M_nn =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
+                                state                              <= ValueLoaded;
+                              when M_nnX =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
+                                state                              <= ValueLoaded;
+                              when M_nnY =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
+                                state                              <= ValueLoaded;
+                              when M_nnnn =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
+                                state                              <= ValueLoaded;
+                              when M_nnnnX =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
+                                state                              <= ValueLoaded;
+                              when M_nnnnY =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
+                                state                              <= ValueLoaded;
+                              when others =>
+                                report "Unexpected addressing mode encountered in direct load." severity fatal;
+                            end case;
+                          elsif is_store_v = '1' then
+                            -- Schedule the store
+                            memory_access_write           := '0';
+                            memory_access_resolve_address := '1';
+                            if is_axyz32_instruction_v = '1' then
+                              -- 32-bit write
+                              -- XXX We ignore if it is STA/X/Y or Z, and treat all
+                              -- four as the same.
+                              memory_access_byte_count          <= 4;
+                              memory_access_wdata(7 downto 0)   <= reg_a;
+                              memory_access_wdata(15 downto 8)  <= reg_x;
+                              memory_access_wdata(23 downto 16) <= reg_y;
+                              memory_access_wdata(31 downto 24) <= reg_z;
+                            else
+                              memory_access_byte_count <= 1;
+                              case var_instruction is
+                                when I_STA => memory_access_wdata(7 downto 0) <= reg_a;
+                                when I_STX => memory_access_wdata(7 downto 0) <= reg_x;
+                                when I_STY => memory_access_wdata(7 downto 0) <= reg_y;
+                                when I_STZ => memory_access_wdata(7 downto 0) <= reg_z;
+                              end case;
+                            end if;
+
+                            case var_addressingmode is
+                              -- Handle the direct addressing modes, by immediately
+                              -- scheduling the memory read ...
+                              when M_nn =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
+                              when M_nnX =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
+                              when M_nnY =>
+                                memory_access_address(15 downto 8) := reg_b;
+                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
+                              when M_nnnn =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
+                              when M_nnnnX =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
+                              when M_nnnnY =>
+                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
+                              when others =>
+                                report "Unexpected addressing mode encountered in direct store." severity fatal;
                             end case;
                           end if;
+                      end case;
 
-                          case var_addressingmode is
-                            -- Handle the direct addressing modes, by immediately
-                            -- scheduling the memory read ...
-                            when M_nn =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
-                            when M_nnX =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
-                            when M_nnY =>
-                              memory_access_address(15 downto 8) := reg_b;
-                              memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
-                            when M_nnnn =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
-                            when M_nnnnX =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
-                            when M_nnnnY =>
-                              memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
-                            when others =>
-                              report "Unexpected addressing mode encountered in direct store." severity fatal;
-                          end case;
-                        end if;
-                    end case;
+                      -- Adjust PC based on taking branches
+                      if do_branch8 = '1' then
+                        pc_inc := to_integer(instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15) &
+                            instruction_bytes(15 downto 8));
+                      end if;
+                      if do_branch16 = '1' then
+                        pc_inc := to_integer(instruction_bytes(23 downto 8));
+                      end if;
 
-                    -- Adjust PC based on taking branches
-                    if do_branch8 = '1' then
-                      pc_inc := to_integer(instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15) &
-                          instruction_bytes(15 downto 8));
-                    end if;
-                    if do_branch16 = '1' then
-                      pc_inc := to_integer(instruction_bytes(23 downto 8));
-                    end if;
-
-                    -- Allow monitor to trace through single-cycle instructions
-                    if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
-                      report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
-                      state  <= normal_fetch_state;
-                      pc_inc := 0;
-                    else
-                      report "monitor_instruction_strobe assert (4510 single cycle instruction)";
-                    end if;
-                    monitor_instruction_strobe <= '1';
-                  end if; -- have current instruction
-                end if;
+                      -- Allow monitor to trace through single-cycle instructions
+                      if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                        report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
+                        state  <= normal_fetch_state;
+                        pc_inc := 0;
+                      else
+                        report "monitor_instruction_strobe assert (4510 single cycle instruction)";
+                      end if;
+                      monitor_instruction_strobe <= '1';
+                    end if; -- have current instruction
+                  end if;
               when IndirectResolved =>
                 -- At this point transaction_rdata contains the 16 or 32 bits of
                 -- address.
@@ -6507,6 +6508,7 @@
                   case reg_addressingmode is
                     when M_InnY => temp_addr := temp_addr + reg_y;
                     when M_InnZ => temp_addr := temp_addr + reg_z;
+                    when others => null;
                   end case;
                   memory_access_resolve_address      := '1';
                   memory_access_address(15 downto 0) := temp_addr;
@@ -6530,239 +6532,239 @@
                   state               <= fast_fetch_state;
                 end if;
               when ValueLoaded =>
-              -- transaction_rdata now contains the data we need
-              -- So now is the time to actually interpret the instruction's microcode
+                -- transaction_rdata now contains the data we need
+                -- So now is the time to actually interpret the instruction's microcode
               when MicrocodeInterpret =>
-                -- At this point, we have the argument available in transaction_rdata,
-                -- and all the single-cycle instructions, branches and jumps have
-                -- been dealt with.
-                -- Here our focus is on doing the ALU operation, and then
-                -- optionally storing the result back if its an RMW or just a
-                -- store operation with a complex addressing mode.
+                  -- At this point, we have the argument available in transaction_rdata,
+                  -- and all the single-cycle instructions, branches and jumps have
+                  -- been dealt with.
+                  -- Here our focus is on doing the ALU operation, and then
+                  -- optionally storing the result back if its an RMW or just a
+                  -- store operation with a complex addressing mode.
 
-                -- Work out the next state for the FSM
-                if reg_microcode.mcBRK='1' then
-                  state <= Interrupt;
-                elsif reg_microcode.mcJump='1' then
-                  report "Setting PC: mcJump=1";
-                  set_pc := '1';
-                  var_pc := reg_addr;
-                else
-                  state <= fast_fetch_state;
-                end if;
+                  -- Work out the next state for the FSM
+                  if reg_microcode.mcBRK='1' then
+                    state <= Interrupt;
+                  elsif reg_microcode.mcJump='1' then
+                    report "Setting PC: mcJump=1";
+                    pc_set := '1';
+                    var_pc := reg_addr;
+                  else
+                    state <= fast_fetch_state;
+                  end if;
 
-                -- And otherwise, we mostly just set a pile of ALU flags
-                -- The ALU consists of three chained stages, in order to achieve
-                -- 6502 bug compatibility: right shift, binary operations, addition.
-                -- We have a parallel ALU implementation for the 16/32 bit operations.
+                  -- And otherwise, we mostly just set a pile of ALU flags
+                  -- The ALU consists of three chained stages, in order to achieve
+                  -- 6502 bug compatibility: right shift, binary operations, addition.
+                  -- We have a parallel ALU implementation for the 16/32 bit operations.
 
-                -- Pick the correct source of microcode data for running the ALU
-                if state = MicrocodeInterpret Then
-                  mc := reg_microcode;
-                else
-                  mc := var_mc;
-                endif;
+                  -- Pick the correct source of microcode data for running the ALU
+                  if state = MicrocodeInterpret Then
+                    mc := reg_microcode;
+                  else
+                    mc := var_mc;
+                  end if;
 
-                -- Load A input to ALU
-                var_alu_a := x"00";
-                if reg_microcode.mcALU_in_mem='1' then
-                  var_alu_a2 := transaction_rdata(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_in_bitmask = '1' then
-                  var_alu_a2 := reg_bitmask;
-                end if;
-                if reg_microcode.mcALU_in_a = '1'
-                  and reg_microcode.mcALU_in_x = '1' then
-                  var_alu_a2 := reg_a and reg_x;
-                elsif reg_microcode.mcALU_in_a = '1' then
-                  var_alu_a2 := reg_a;
-                elsif reg_microcode.mcALU_in_x = '1' then
-                  var_alu_a2 := reg_x;
-                end if;
-                if reg_microcode.mcALU_in_y = '1' then
-                  var_alu_a2 := reg_y;
-                end if;
-                if reg_microcode.mcALU_in_x = '1' then
-                  var_alu_a2 := reg_y;
-                end if;
-                if reg_microcode.mcALU_in_spl = '1' then
-                  var_alu_a2 := reg_sp;
-                end if;
-                if reg_microcode.mcInvertA='1' then
-                  var_alu_a3 := not var_alu_a2;
-                else
-                  var_alu_a3 := var_alu_a2;
-                end if;
+                  -- Load A input to ALU
+                  var_alu_a := x"00";
+                  if reg_microcode.mcALU_in_mem='1' then
+                    var_alu_a2 := transaction_rdata(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_in_bitmask = '1' then
+                    var_alu_a2 := reg_bitmask;
+                  end if;
+                  if reg_microcode.mcALU_in_a = '1'
+                    and reg_microcode.mcALU_in_x = '1' then
+                    var_alu_a2 := reg_a and reg_x;
+                  elsif reg_microcode.mcALU_in_a = '1' then
+                    var_alu_a2 := reg_a;
+                  elsif reg_microcode.mcALU_in_x = '1' then
+                    var_alu_a2 := reg_x;
+                  end if;
+                  if reg_microcode.mcALU_in_y = '1' then
+                    var_alu_a2 := reg_y;
+                  end if;
+                  if reg_microcode.mcALU_in_x = '1' then
+                    var_alu_a2 := reg_y;
+                  end if;
+                  if reg_microcode.mcALU_in_spl = '1' then
+                    var_alu_a2 := reg_sp;
+                  end if;
+                  if reg_microcode.mcInvertA='1' then
+                    var_alu_a3 := not var_alu_a2;
+                  else
+                    var_alu_a3 := var_alu_a2;
+                  end if;
 
-                -- Load B input to ALU
-                if reg_microcode.mcALU_b_1 = '1' then
-                  var_alu_b := x"01";
-                else
-                  var_alu_b := transaction_rdata(7 downto 0);
-                end if;
-                if reg_microcode.mcInvertB='1' then
-                  var_alu_b2 := not var_alu_b2;
-                else
-                  var_alu_b2 := var_alu_b2;
-                end if;
+                  -- Load B input to ALU
+                  if reg_microcode.mcALU_b_1 = '1' then
+                    var_alu_b := x"01";
+                  else
+                    var_alu_b := transaction_rdata(7 downto 0);
+                  end if;
+                  if reg_microcode.mcInvertB='1' then
+                    var_alu_b2 := not var_alu_b2;
+                  else
+                    var_alu_b2 := var_alu_b2;
+                  end if;
 
-                -- Now perform the various actions.
+                  -- Now perform the various actions.
 
-                -- First, we do the right shift
-                if reg_microcode.mcLSR = '1' then
-                  var_alu_r1(7)          := '0';
-                  var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
-                else
-                  var_alu_r1 := var_alu_a;
-                end if;
+                  -- First, we do the right shift
+                  if reg_microcode.mcLSR = '1' then
+                    var_alu_r1(7)          := '0';
+                    var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
+                  else
+                    var_alu_r1 := var_alu_a;
+                  end if;
 
-                -- What is the value of carry flag going in?
-                if reg_microcode.mcAssumeCarrySet = '1' then
-                  var_c_in := '1';
-                elsif reg_microcode.mcAssumeCarryClear = '0' then
-                  var_c_in := '0';
-                else
-                  var_c_in := flag_c;
-                end if;
+                  -- What is the value of carry flag going in?
+                  if reg_microcode.mcAssumeCarrySet = '1' then
+                    var_c_in := '1';
+                  elsif reg_microcode.mcAssumeCarryClear = '0' then
+                    var_c_in := '0';
+                  else
+                    var_c_in := flag_c;
+                  end if;
 
-                -- Second, we do the ADD operation.
-                -- This is the most horrible part of the 6502.
-                -- We have to deal with BCD mode, among other things.
-                -- Return is NVZC<8 bit result>
-                if reg_microcode.mcADD = '1' then
-                  var_alu_r2 := alu_op_add(var_alu_r1,var_alu_b2,
-                      var_c_in,
-                      reg_microcode.mcAllowBCD & flag_d);
-                else
-                  -- No addition, no fancy flags
-                  var_alu_r2(11 downto 8) := "0000";
-                  var_alu_r2(7 downto 0)  := var_alu_r1;
-                end if;
+                  -- Second, we do the ADD operation.
+                  -- This is the most horrible part of the 6502.
+                  -- We have to deal with BCD mode, among other things.
+                  -- Return is NVZC<8 bit result>
+                  if reg_microcode.mcADD = '1' then
+                    var_alu_r2 := alu_op_add(var_alu_r1,var_alu_b2,
+                        var_c_in,
+                        reg_microcode.mcAllowBCD and flag_d);
+                  else
+                    -- No addition, no fancy flags
+                    var_alu_r2(11 downto 8) := "0000";
+                    var_alu_r2(7 downto 0)  := var_alu_r1;
+                  end if;
 
-                -- Third, we do the binary operations
-                if reg_microcode.mcAND = '1' then
-                  var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) and
-                    var_alu_b2;
-                elsif reg_microcode.mcORA = '1' then
-                  var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) or
-                    var_alu_b2;
-                elsif reg_microcode.mcEOR = '1' then
-                  var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
-                    var_alu_b2;
-                end if;
+                  -- Third, we do the binary operations
+                  if reg_microcode.mcAND = '1' then
+                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) and
+                      var_alu_b2;
+                  elsif reg_microcode.mcORA = '1' then
+                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) or
+                      var_alu_b2;
+                  elsif reg_microcode.mcEOR = '1' then
+                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
+                      var_alu_b2;
+                  end if;
 
-                if reg_microcode.mcPassB = '1' Then
-                  var_alu_r3(7 downto 0) := var_alu_b2;
-                end if;
-                if reg_microcode.mcZeroBit7 = '1' Then
-                  var_alu_r3(7) := '0';
-                end if;
+                  if reg_microcode.mcPassB = '1' Then
+                    var_alu_r3(7 downto 0) := var_alu_b2;
+                  end if;
+                  if reg_microcode.mcZeroBit7 = '1' Then
+                    var_alu_r3(7) := '0';
+                  end if;
 
-                -- Calculate N flag
-                var_alu_r3(11) := var_alu_r3(7);
-                -- Calculate Z flag
-                if var_alu_r3(7 downto 0) /= x"00" then
-                  var_alu_r3(9) := '0';
-                else
-                  var_alu_r3(9) := '1';
-                end if;
-                if reg_microcode.mcTRBSetZ = '1' then
-                  -- TRB Z flag is simply from the comparison of A and loaded memory
-                  if reg_a and transaction_rdata(7 downto 0) /= x"00" then
+                  -- Calculate N flag
+                  var_alu_r3(11) := var_alu_r3(7);
+                  -- Calculate Z flag
+                  if var_alu_r3(7 downto 0) /= x"00" then
                     var_alu_r3(9) := '0';
                   else
                     var_alu_r3(9) := '1';
                   end if;
-                end if;
-                -- Update C flag from bit 0/7 as required
-                if reg_microcode.mcCarryFromBit7 = '1' then
-                  var_alu_r3(8) := var_alu_a3(7);
-                end if;
-                if reg_microcode.mcCarryFromBit0 = '1' then
-                  var_alu_r3(8) := var_alu_a3(0);
-                end if;
-
-                -- Set bit 0 / 7 of result from C flag, if required
-                var_alu_r4 := var_alu_r3(7 downto 0);
-                if reg_microcode.mcBit0FromCarry = '1' then
-                  var_alu_r4(0) := flag_c;
-                end if;
-                if reg_microcode.mcBit7FromCarry = '1' then
-                  var_alu_r4(7) := flag_c;
-                end if;
-
-                -- Now work out what to value we are writing to memory, if any
-                if reg_microcode.mcStoreAX then
-                  -- Store and of A and X
-                  var_wdata := reg_a and reg_x;
-                elsif reg_microcode.mcADD = '1' then
-                  -- SLO instruction writes result of ADD (=left shift), not of
-                  -- the ORA
-                  var_wdata := var_alu_r2(7 downto 0);
-                else
-                  var_wdata := var_alu_r4;
-                end if;
-
-                -- Do actual write
-                if reg_microcode.mcALU_set_mem = '1' then
-                  memory_access_write           := '1';
-                  memory_access_byte_count      := 1;
-                  memory_access_wdata           := var_wdata;
-                  memory_access_resolve_address := '1';
-                  memory_access_address         := reg_addr32;
-                end if;
-
-                if reg_microcode.mcPushW = '1' Then
-                  memory_access_write           := '1';
-                  memory_access_byte_count      := 2;
-                  memory_access_wdata           := var_wdata;
-                  memory_access_resolve_address := '1';
-
-                  -- Decrement SP by one first before writing word
-                  if flag_e = '0' then
-                    var_sp := (reg_sph & reg_sp) - 1;
-                  else
-                    var_sp(15 downto 8) := reg_sph;
-                    var_sp(7 downto 0)  := reg_sp - 1;
+                  if reg_microcode.mcTRBSetZ = '1' then
+                    -- TRB Z flag is simply from the comparison of A and loaded memory
+                    if reg_a and transaction_rdata(7 downto 0) /= x"00" then
+                      var_alu_r3(9) := '0';
+                    else
+                      var_alu_r3(9) := '1';
+                    end if;
                   end if;
-                  memory_access_address(15 downto 0) := var_sp;
-                  dec_sp                             := 2;
-                end if;
+                  -- Update C flag from bit 0/7 as required
+                  if reg_microcode.mcCarryFromBit7 = '1' then
+                    var_alu_r3(8) := var_alu_a3(7);
+                  end if;
+                  if reg_microcode.mcCarryFromBit0 = '1' then
+                    var_alu_r3(8) := var_alu_a3(0);
+                  end if;
 
-                -- Also commit result to registers, if required
-                if reg_microcode.mcALU_set_a = '1' then
-                  reg_a <= var_alu_r3(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_set_x = '1' then
-                  reg_x <= var_alu_r3(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_set_y = '1' then
-                  reg_y <= var_alu_r3(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_set_z = '1' then
-                  reg_z <= var_alu_r3(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_set_spl = '1' then
-                  reg_sp <= var_alu_r3(7 downto 0);
-                end if;
-                if reg_microcode.mcALU_set_p = '1' then
-                  load_processor_flags(var_alu_r3(7 downto 0));
-                end if;
+                  -- Set bit 0 / 7 of result from C flag, if required
+                  var_alu_r4 := var_alu_r3(7 downto 0);
+                  if reg_microcode.mcBit0FromCarry = '1' then
+                    var_alu_r4(0) := flag_c;
+                  end if;
+                  if reg_microcode.mcBit7FromCarry = '1' then
+                    var_alu_r4(7) := flag_c;
+                  end if;
 
-                -- And update processor flags
-                if reg_microcode.mcRecordN = '1' then
-                  flag_n <= var_alu_r3(11);
-                end if;
-                if reg_microcode.mcRecordV = '1' then
-                  flag_v <= var_alu_r3(10);
-                end if;
-                if reg_microcode.mcRecordZ = '1' then
-                  flag_z <= var_alu_r3(9);
-                end if;
-                if reg_microcode.mcRecordCarry = '1' then
-                  flag_c <= var_alu_r3(8);
-                end if;
-              when others =>
+                  -- Now work out what to value we are writing to memory, if any
+                  if reg_microcode.mcStoreAX then
+                    -- Store and of A and X
+                    var_wdata := reg_a and reg_x;
+                  elsif reg_microcode.mcADD = '1' then
+                    -- SLO instruction writes result of ADD (=left shift), not of
+                    -- the ORA
+                    var_wdata := var_alu_r2(7 downto 0);
+                  else
+                    var_wdata := var_alu_r4;
+                  end if;
+
+                  -- Do actual write
+                  if reg_microcode.mcALU_set_mem = '1' then
+                    memory_access_write           := '1';
+                    memory_access_byte_count      := 1;
+                    memory_access_wdata           := var_wdata;
+                    memory_access_resolve_address := '1';
+                    memory_access_address         := reg_addr32;
+                  end if;
+
+                  if reg_microcode.mcPushW = '1' Then
+                    memory_access_write           := '1';
+                    memory_access_byte_count      := 2;
+                    memory_access_wdata           := var_wdata;
+                    memory_access_resolve_address := '1';
+
+                    -- Decrement SP by one first before writing word
+                    if flag_e = '0' then
+                      var_sp := (reg_sph & reg_sp) - 1;
+                    else
+                      var_sp(15 downto 8) := reg_sph;
+                      var_sp(7 downto 0)  := reg_sp - 1;
+                    end if;
+                    memory_access_address(15 downto 0) := var_sp;
+                    dec_sp                             := 2;
+                  end if;
+
+                  -- Also commit result to registers, if required
+                  if reg_microcode.mcALU_set_a = '1' then
+                    reg_a <= var_alu_r3(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_set_x = '1' then
+                    reg_x <= var_alu_r3(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_set_y = '1' then
+                    reg_y <= var_alu_r3(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_set_z = '1' then
+                    reg_z <= var_alu_r3(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_set_spl = '1' then
+                    reg_sp <= var_alu_r3(7 downto 0);
+                  end if;
+                  if reg_microcode.mcALU_set_p = '1' then
+                    load_processor_flags(var_alu_r3(7 downto 0));
+                  end if;
+
+                  -- And update processor flags
+                  if reg_microcode.mcRecordN = '1' then
+                    flag_n <= var_alu_r3(11);
+                  end if;
+                  if reg_microcode.mcRecordV = '1' then
+                    flag_v <= var_alu_r3(10);
+                  end if;
+                  if reg_microcode.mcRecordZ = '1' then
+                    flag_z <= var_alu_r3(9);
+                  end if;
+                  if reg_microcode.mcRecordCarry = '1' then
+                    flag_c <= var_alu_r3(8);
+                  end if;
+                when others =>
                 report "monitor_instruction_strobe assert (unknown CPU state)";
                 monitor_instruction_strobe <= '1';
                 state                      <= normal_fetch_state;
@@ -6770,7 +6772,7 @@
 
           end if;
 
-          report "pc_inc = " & std_logic'image(pc_inc)
+          report "pc_inc = $" & to_hstring(to_unsigned(integer'image(pc_inc),16))
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
           & ", reg_addr=$" & to_hstring(reg_addr)
@@ -7050,7 +7052,7 @@
     end process;
 
     -- output all monitor values based on current state, not one clock delayed.
-    monitor_memory_access_address <= x"0"&memory_access_address_next;
+    monitor_memory_access_address <= x"0"&memory_access_address;
     monitor_watch_match           <= '0'; -- set if writing to watched address
     monitor_state                 <= to_unsigned(processor_state'pos(state),8)&read_data;
     monitor_hypervisor_mode       <= hypervisor_mode;
