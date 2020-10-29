@@ -46,6 +46,9 @@ entity gs4510 is
   port (
     mathclock : in  std_logic;
     Clock     : in  std_logic;
+    clock2x   : in  std_logic;
+    clock4x   : in  std_logic;
+    clock8x   : in  std_logic;
     phi_1mhz  : in  std_logic;
     phi_2mhz  : in  std_logic;
     phi_3mhz  : in  std_logic;
@@ -1348,10 +1351,10 @@ begin
       chipram_size => 393216
     )
     port map (
-      cpuclock   => cpuclock,
-      cpuclock2x => pixelclock,
-      cpuclock4x => clock163,
-      cpuclock8x => clock325,
+      cpuclock   => clock,
+      cpuclock2x => clock2x,
+      cpuclock4x => clock4x,
+      cpuclock8x => clock8x,
 
       privileged_access => '1',
 

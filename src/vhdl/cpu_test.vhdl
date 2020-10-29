@@ -7,24 +7,24 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity cpu_test is
-  
+
 end cpu_test;
 
 architecture behavior of cpu_test is
 
   type CharFile is file of character;
-  
+
   signal pmoda : std_logic_vector(7 downto 0) := "11111111";
   signal pmodc : std_logic_vector(7 downto 0) := "11111111";
-  
+
   signal pixelclock : std_logic := '1';
   signal cpuclock : std_logic := '1';
   signal clock50mhz : std_logic := '1';
   signal clock27 : std_logic := '1';
   signal clock100 : std_logic := '1';
-  signal clock163 : std_logic := '1';
+  signal clock162 : std_logic := '1';
   signal clock200 : std_logic := '1';
-  signal clock325 : std_logic := '1';
+  signal clock324 : std_logic := '1';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -48,7 +48,7 @@ architecture behavior of cpu_test is
 
   signal UART_TXD : std_logic := '0';
   signal RsRx : std_logic := '0';
-  
+
   signal sseg_ca : std_logic_vector(7 downto 0) := x"00";
   signal sseg_an : std_logic_vector(7 downto 0) := x"00";
 
@@ -62,7 +62,7 @@ architecture behavior of cpu_test is
           cache_read_data : out std_logic_vector(150 downto 0)
           );
   end component;
-  
+
   -- Sample ethernet frame to test CRC calculation
   type ram_t is array (0 to 4095) of unsigned(7 downto 0);
   signal frame : ram_t := (
@@ -79,7 +79,7 @@ architecture behavior of cpu_test is
     x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
     x"25", x"A6",
 
-    
+
     others => x"00");
 
   signal eth_rxdv : std_logic := '0';
@@ -111,7 +111,7 @@ architecture behavior of cpu_test is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-  
+
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
@@ -175,11 +175,11 @@ architecture behavior of cpu_test is
   signal hr2_reset : std_logic := '0';
   signal hr2_clk_n : std_logic := '0';
   signal hr2_clk_p : std_logic := '0';
-  signal hr2_cs0 : std_logic := '0'; 
+  signal hr2_cs0 : std_logic := '0';
 
   signal audio_left : std_logic_vector(19 downto 0) := (others => '0');
   signal audio_right : std_logic_vector(19 downto 0) := (others => '0');
-  
+
 begin
 
   fh0: if false generate
@@ -204,7 +204,7 @@ begin
       RESETneg => hr_reset,
       RWDS => hr_rwds
       );
-    
+
 
   fakehyper1: entity work.s27kl0641
     generic map (
@@ -226,8 +226,8 @@ begin
       CK => hr2_clk_p,
       RESETneg => hr2_reset,
       RWDS => hr2_rwds
-      );    
-  
+      );
+
   fake_expansion_port0: entity work.fake_expansion_port
     port map (
       cpuclock => cpuclock,
@@ -241,11 +241,11 @@ begin
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
       cart_reset => cart_reset,
-      
+
       cart_nmi => cart_nmi,
       cart_irq => cart_irq,
       cart_dma => cart_dma,
-      
+
       cart_exrom => cart_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
@@ -254,7 +254,7 @@ begin
       cart_io1 => cart_io1,
       cart_game => cart_game,
       cart_io2 => cart_io2,
-      
+
       cart_d => cart_d,
       cart_d_read => cart_d_read,
       cart_a => cart_a
@@ -263,8 +263,8 @@ begin
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
-      clock163 => clock163,
-      clock325 => clock325,
+      clock163 => clock162,
+      clock325 => clock324,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
@@ -273,7 +273,7 @@ begin
       viciv_request_toggle => hyper_request_toggle,
       viciv_data_out => hyper_data,
       viciv_data_strobe => hyper_data_strobe,
-      
+
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
@@ -285,9 +285,9 @@ begin
 
       current_cache_line => current_cache_line,
       current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,     
+      current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
+
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
@@ -304,7 +304,7 @@ begin
 --      hr_clk_n => hr_clk_n,
       );
   end generate;
-  
+
   hdmiaudio: entity work.hdmi_spdif
     generic map ( samplerate => 44100 )
     port map (
@@ -312,7 +312,7 @@ begin
       spdif_out => open,
       left_in => audio_left,
       right_in => audio_right
-      );  
+      );
 
   sd0: if false generate
   slow_devices0: entity work.slow_devices
@@ -324,9 +324,9 @@ begin
       cpu_game => cpu_game,
 
       sector_buffer_mapped => sector_buffer_mapped,
-      
+
       qspidb => qspidb,
-      qspicsn => qspicsn,      
+      qspicsn => qspicsn,
       qspisck => qspisck,
 
       slow_access_request_toggle => slow_access_request_toggle,
@@ -340,15 +340,15 @@ begin
       expansionram_current_cache_line_address => current_cache_line_address,
       expansionram_current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
+
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
       expansionram_write => expansionram_write,
       expansionram_address => expansionram_address,
       expansionram_rdata => expansionram_rdata,
-      expansionram_wdata => expansionram_wdata,      
-          
+      expansionram_wdata => expansionram_wdata,
+
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -359,11 +359,11 @@ begin
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
       cart_reset => cart_reset,
-      
+
       cart_nmi => cart_nmi,
       cart_irq => cart_irq,
       cart_dma => cart_dma,
-      
+
       cart_exrom => cart_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
@@ -372,7 +372,7 @@ begin
       cart_io1 => cart_io1,
       cart_game => cart_game,
       cart_io2 => cart_io2,
-      
+
       cart_d_in => cart_d_read,
       cart_d => cart_d,
       cart_a => cart_a
@@ -389,15 +389,16 @@ begin
       portb_pins => (others => '1'),
 
       lcd_dataenable => lcd_dataenable,
-      
+
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       clock100 => clock100,
       clock27 => clock27,
-      clock162 => clock163,
+      clock162 => clock162,
+      clock324 => clock324,
       clock200 => clock200,
-      
+
       uartclock    => cpuclock,
       btnCpuReset      => reset,
       irq => irq,
@@ -408,14 +409,14 @@ begin
       hyper_addr => hyper_addr,
       hyper_request_toggle => hyper_request_toggle,
       hyper_data => hyper_data,
-      hyper_data_strobe => hyper_data_strobe,     
-      
+      hyper_data_strobe => hyper_data_strobe,
+
       sector_buffer_mapped => sector_buffer_mapped,
-      
+
       restore_key => '1',
 
       caps_lock_key => '1',
-      
+
       no_hyppo => '0',
 
       iec_bus_active => '0',
@@ -423,31 +424,31 @@ begin
 
       kbd_datestamp => (others => '0'),
       kbd_commit => (others => '0'),
-      
+
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => (others => '0'),
 --      buffereduart2_rx => '1',
-      
+
       ps2data => '1',
       ps2clock => '1',
 
       pcm_modem1_data_out => pcm_modem1_data_out,
-      
+
       keyleft => '1',
       keyup => '1',
-      
+
       fa_left => '1',
       fa_right => '1',
       fa_up => '1',
       fa_down => '1',
       fa_fire => '1',
-      
+
       fb_left => '1',
       fb_right => '1',
       fb_up => '1',
       fb_down => '1',
       fb_fire => '1',
-      
+
       fa_potx => '0',
       fa_poty => '0',
       fb_potx => '0',
@@ -457,17 +458,17 @@ begin
       f_track0 => '1',
       f_writeprotect => '1',
       f_rdata => f_rdata,
-      f_diskchanged => '1',      
-      
+      f_diskchanged => '1',
+
       pot_drain => pot_drain,
-      
+
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_address => slow_access_address,
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-      
+
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
@@ -479,7 +480,7 @@ begin
       iec_atn_o => iec_atn_o,
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
-      
+
 --      pmod_clock => '0',
 --      pmod_start_of_sequence => '1',
 --      pmod_data_in => "0000",
@@ -498,7 +499,7 @@ begin
       micData0 => '0',
       micData1 => '0',
       tmpInt => '0',
-      tmpCT => '0',      
+      tmpCT => '0',
 
       eth_txd => eth_txd,
       eth_txen => eth_txen,
@@ -509,13 +510,13 @@ begin
 
       audio_left => audio_left,
       audio_right => audio_right,
-      
+
       vsync           => vsync,
       vga_hsync           => hsync,
       vgared          => vgared,
       vgagreen        => vgagreen,
       vgablue         => vgablue,
-      
+
       led             => led,
       sw              => sw,
       btn             => btn,
@@ -525,7 +526,7 @@ begin
       widget_capslock => '1',
       widget_joya => (others => '1'),
       widget_joyb => (others => '1'),
-      
+
       -- UART monitor interface
       uart_txd        => uart_txd,
       rsrx            => rsrx,
@@ -586,88 +587,88 @@ begin
   begin  -- process tb
 
     wait for 3 ns;
-    
+
     for i in 1 to 2000000 loop
       clock27 <= '0';
       wait for 18519 ps;
       clock27 <= '1';
-      wait for 18519 ps;      
+      wait for 18519 ps;
     end loop;
-    
+
   end process;
-  
-  
+
+
   process
   begin  -- process tb
     report "beginning simulation" severity note;
 
     wait for 3 ns;
-    
+
     for i in 1 to 2000000 loop
 
-    clock325 <= '0';
+    clock324 <= '0';
     pixelclock <= '0';
     cpuclock <= '0';
-    clock163 <= '0';
+    clock162 <= '0';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
-    clock163 <= '1';
+    clock162 <= '1';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
     pixelclock <= '1';
-    clock163 <= '0';
+    clock162 <= '0';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
-    clock163 <= '1';
+    clock162 <= '1';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
     pixelclock <= '0';
     cpuclock <= '1';
-    clock163 <= '0';
+    clock162 <= '0';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
-    clock163 <= '1';
+    clock162 <= '1';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
     pixelclock <= '1';
-    clock163 <= '0';
+    clock162 <= '0';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
 
-    clock163 <= '1';
+    clock162 <= '1';
 
-    clock325 <= '1';
+    clock324 <= '1';
     wait for 1.5 ns;
-    clock325 <= '0';
+    clock324 <= '0';
     wait for 1.5 ns;
-      
+
       if i = 10 then
         reset <= '1';
         report "Releasing reset";
@@ -724,7 +725,7 @@ begin
         -- Disassert carrier
         eth_rxdv <= '0';
         eth_clock_tick;
-      end if; 
+      end if;
       -- Wait a few cycles before feeding next frame
       for j in 1 to 10000 loop
         eth_clock_tick;
@@ -745,7 +746,7 @@ begin
 --      wait for 190 ns;
 --    end loop;
 --  end process;
-  
+
   process
     variable txbyte : unsigned(7 downto 0) := x"00";
     variable txbits : integer range 0 to 7 := 0;
@@ -766,9 +767,8 @@ begin
         end if;
       end if;
       wait for 10 ns;
-      
-    end loop;
-  end process;  
-  
-end behavior;
 
+    end loop;
+  end process;
+
+end behavior;

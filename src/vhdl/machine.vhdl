@@ -63,6 +63,7 @@ entity machine is
          clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
+         clock324 : in std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          reset_out : out std_logic := '1';
@@ -956,6 +957,9 @@ begin
       chipselect_enables => chipselect_enables,
       mathclock => cpuclock,
       clock => cpuclock,
+      clock2x => pixelclock,
+      clock4x => clock162,
+      clock8x => clock324,
       reset =>reset_combined,
       reset_out => reset_out,
       irq => combinedirq,
