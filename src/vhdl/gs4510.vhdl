@@ -1094,11 +1094,20 @@ architecture Behavioural of gs4510 is
   signal cache_flushing      : std_logic            := '1';
   signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
 
-  signal memory_access_address_next         : unsigned(27 downto 0);
-  signal memory_access_read_next            : std_logic;
-  signal memory_access_write_next           : std_logic;
-  signal memory_access_resolve_address_next : std_logic;
-  signal memory_access_wdata_next           : unsigned(7 downto 0);
+  signal instruction_fetch_request_toggle : std_logic;
+  signal instruction_fetch_address_in : integer;
+  signal instruction_fetched_address_out : integer;
+  signal instruction_fetch_rdata : unsigned(47 downto 0) := (others => '1');
+  signal transaction_request_toggle : std_logic;
+  signal transaction_complete_toggle : std_logic := '0';
+  signal transaction_length : integer range 0 to 6;
+  signal transaction_address : unsigned(27 downto 0);
+  signal transaction_write : std_logic;
+  signal transaction_wdata : unsigned(31 downto 0);
+  signal transaction_rdata : unsigned(47 downto 0);
+  signal slow_prefetched_request_toggle : std_logic := '0';
+  signal slow_prefetched_data : unsigned(7 downto 0) := x"00";
+  signal slow_prefetched_address : unsigned(26 downto 0) := (others => '1');
 
   signal cycle_counter           : unsigned(15 downto 0) := (others => '0');
   signal cycles_per_frame        : unsigned(31 downto 0) := (others => '0');
@@ -1690,21 +1699,6 @@ begin
       cpuport_value <= x"3F";
       force_fast    <= '0';
 
-      -- Stop memory accesses
-      colour_ram_cs         <= '0';
-      shadow_write          <= '0';
-      shadow_write_flags(0) <= '1';
-      fastio_read           <= '0';
-      fastio_write          <= '0';
-      --chipram_we <= '0';
-      --chipram_datain <= x"c0";
-
-      slow_access_request_toggle_drive <= slow_access_ready_toggle_buffer;
-      slow_access_write_drive          <= '0';
-      slow_access_address_drive        <= (others => '1');
-      slow_access_wdata_drive          <= (others => '1');
-      slow_access_desired_ready_toggle <= slow_access_ready_toggle;
-
       wait_states          <= (others => '0');
       wait_states_non_zero <= '0';
       mem_reading          <= '0';
@@ -1796,16 +1790,8 @@ begin
       elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
-          is_pending_dma_access <= '0';
-          shadow_address        <= to_integer(resolved_vdc_to_viciv_address)+(4*65536);
-          vdc_mem_addr          <= vdc_mem_addr + 1;
-          read_source           <= Shadow;
-          accessing_shadow      <= '1';
-          accessing_rom         <= '0';
-          -- XXX Allow time for access to shadow RAM to complete
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
-          proceed              <= '0';
+          long_address := to_unsigned(to_integer(resolved_vdc_to_viciv_address)+(4*65536),28);
+          vdc_mem_addr <= vdc_mem_addr + 1;
         else
           accessing_cpuport <= '1';
           -- Read simulated VDC registers
