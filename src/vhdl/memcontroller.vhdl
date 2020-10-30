@@ -530,7 +530,7 @@ begin
           if transaction_write = '1' then
             -- Its a write
             last_transaction_request_toggle <= transaction_request_toggle;
-            report "immediate return from fastram write, because they never take >1 40MHz clock cycle";
+            report "COMPLETE: immediate return from fastram write, because they never take >1 40MHz clock cycle";
             transaction_complete_toggle <= transaction_request_toggle;
 
             fastram_write_request_toggle <= not fastram_write_request_toggle;
@@ -585,11 +585,12 @@ begin
             src_is_colourram <= '1';
           elsif transaction_address(19 downto 14) = "111110" then
             -- Hypervisor memory
+            report "HYPPO RAM request";
             if transaction_write = '1' then
               -- Its a write
               
               last_transaction_request_toggle <= transaction_request_toggle;
-              report "immediate return from hyppo write, because they never take >1 40MHz clock cycle";
+              report "COMPLETE: immediate return from hyppo write, because they never take >1 40MHz clock cycle";
               transaction_complete_toggle <= transaction_request_toggle;
               
               -- Either way, request the data be written
@@ -625,28 +626,27 @@ begin
             report "general fastio access";
             src_is_viciv <= '0';
             src_is_colourram <= '0';
-          end if;
           
-          -- Schedule read/write via fastio bus or variant
-          if transaction_write = '1' then
-            report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
-              & " to " & std_logic'image(not fastio_write_request_toggle);
-            fastio_write_request_toggle <= not fastio_write_request_toggle;
-          -- XXX For single byte reads, we can probably do this asynchronously.
-          -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
-          -- and just have a flag to the CPU that indicates that we are still
-          -- busy.  Or we implement some kind of queue.  But for now, we will
-          -- just do it all synchronously.
-          else
-            report "fastio read request toggled";
-            fastio_read_request_toggle <= not fastio_read_request_toggle;
+            -- Schedule read/write via fastio bus or variant
+            if transaction_write = '1' then
+              report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
+                & " to " & std_logic'image(not fastio_write_request_toggle);
+              fastio_write_request_toggle <= not fastio_write_request_toggle;
+            -- XXX For single byte reads, we can probably do this asynchronously.
+            -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
+            -- and just have a flag to the CPU that indicates that we are still
+            -- busy.  Or we implement some kind of queue.  But for now, we will
+            -- just do it all synchronously.
+            else
+              report "fastio read request toggled";
+              fastio_read_request_toggle <= not fastio_read_request_toggle;
+            end if;
+            fastio_next_address_new <= transaction_address(19 downto 0);
+            fastio_write_data_vector_new <= transaction_wdata;
+            fastio_write_bytecount <= transaction_length;
+            fastio_read_bytecount <= transaction_length;
+            fastio_read_position <= 7;
           end if;
-          fastio_next_address_new <= transaction_address(19 downto 0);
-          fastio_write_data_vector_new <= transaction_wdata;
-          fastio_write_bytecount <= transaction_length;
-          fastio_read_bytecount <= transaction_length;
-          fastio_read_position <= 7;
-          
         elsif transaction_address(27 downto 26) /= "00" then
           -- Slow devices range
           report "slowdev request";
@@ -677,6 +677,7 @@ begin
         report "return read data to CPU";
         last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
         if fastram_background_read = '0' then
+          report "COMPLETE: marking complete due to fastram read";
           transaction_complete_toggle <= transaction_request_toggle;
           transaction_rdata <= fastram_rdata_buffer;
         else
@@ -688,6 +689,7 @@ begin
         report "return HYPPO RAM read data to CPU: $" & to_hstring(hyppo_rdata_buffer);
         last_hyppo_read_complete_toggle <= hyppo_read_complete_toggle;
         if hyppo_background_read = '0' then
+          report "COMPLETE: marking complete due to hyppo read";
           transaction_complete_toggle <= transaction_request_toggle;
           transaction_rdata <= hyppo_rdata_buffer;
         else
@@ -698,26 +700,26 @@ begin
 
       -- Notice when the slowdev read or write is complete, and tell the CPU
       if slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
-        report "return read data from slowdev to CPU";
+        report "COMPLETE: return read data from slowdev to CPU";
         last_slowdev_read_complete_toggle <= slowdev_read_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
         transaction_rdata <= slowdev_rdata_buffer;
       end if;
       if slowdev_write_complete_toggle /= last_slowdev_write_complete_toggle then
-        report "slowdev write complete";
+        report "COMPLETE: slowdev write complete";
         last_slowdev_write_complete_toggle <= slowdev_write_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
       end if;
 
       -- Notice when the fastio read or write is complete, and tell the CPU
       if fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
-        report "return read data from fastio to CPU";
+        report "COMPLETE: return read data from fastio to CPU";
         last_fastio_read_complete_toggle <= fastio_read_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
         transaction_rdata <= fastio_rdata_buffer;
       end if;
       if fastio_write_complete_toggle /= last_fastio_write_complete_toggle then
-        report "fastio write complete";
+        report "COMPLETE: fastio write complete";
         last_fastio_write_complete_toggle <= fastio_write_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
       end if;

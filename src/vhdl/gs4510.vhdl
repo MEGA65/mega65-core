@@ -745,8 +745,6 @@
         Unmapped            -- 0x0a
       );
 
-    signal read_source : memory_source;
-
     type processor_state is (
         -- Reset and interrupts
         ResetLow,
@@ -1895,9 +1893,11 @@
         end case;
       end function;
 
-      procedure disassemble_last_instruction is
+        procedure disassemble_instruction(
+            pc : in unsigned(15 downto 0);
+            ibytes : in unsigned(23 downto 0)) is
         variable justification : side             := RIGHT;
-        variable size          : width            := 0;
+          variable size          : width            := 0;
         variable s             : string(1 to 119) := (others => ' ');
         variable t             : string(1 to 100) := (others => ' ');
         variable virtual_reg_p : std_logic_vector(7 downto 0);
@@ -1906,100 +1906,100 @@
         if last_bytecount > 0 then
           -- Program counter
           s(1)      := '$';
-          s(2 to 5) := to_hstring(last_instruction_pc)(1 to 4);
+          s(2 to 5) := to_hstring(pc)(1 to 4);
           -- opcode and arguments
-          s(7 to 8) := to_hstring(last_opcode)(1 to 2);
+          s(7 to 8) := to_hstring(ibytes(7 downto 0))(1 to 2);
           if last_bytecount > 1 then
-            s(10 to 11) := to_hstring(last_byte2)(1 to 2);
+            s(10 to 11) := to_hstring(ibytes(15 downto 8))(1 to 2);
           end if;
           if last_bytecount > 2 then
-            s(13 to 14) := to_hstring(last_byte3)(1 to 2);
+            s(13 to 14) := to_hstring(ibytes(23 downto 16))(1 to 2);
           end if;
           -- instruction name
-          t(1 to 5)   := instruction'image(instruction_lut(to_integer(last_opcode)));
+          t(1 to 5)   := instruction'image(instruction_lut(to_integer(ibytes(7 downto 0))));
           s(17 to 19) := t(3 to 5);
 
           -- Draw 0-7 digit on BBS/BBR instructions
-          case instruction_lut(to_integer(emu6502&last_opcode)) is
+          case instruction_lut(to_integer(emu6502&ibytes(7 downto 0))) is
             when I_BBS =>
-              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
+              s(20 to 20) := to_hstring("0"&ibytes(6 downto 4))(1 to 1);
             when I_BBR =>
-              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
+              s(20 to 20) := to_hstring("0"&ibytes(6 downto 4))(1 to 1);
             when others =>
               null;
           end case;
 
           -- Draw arguments
-          case mode_lut(to_integer(emu6502&last_opcode)) is
+          case mode_lut(to_integer(emu6502&ibytes(7 downto 0))) is
             when M_impl => null;
             when M_InnX =>
               s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(24 to 25) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(26 to 28) := ",X)";
             when M_nn =>
               s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(23 to 24) := to_hstring(ibytes(15 downto 8))(1 to 2);
             when M_immnn =>
               s(22 to 23) := "#$";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(24 to 25) := to_hstring(ibytes(15 downto 8))(1 to 2);
             when M_A    => null;
             when M_nnnn =>
               s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(23 to 26) := to_hstring(ibytes(23 downto 8))(1 to 4);
             when M_nnrr =>
               s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(23 to 24) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(25 to 26) := ",$";
-              s(27 to 30) := to_hstring(last_instruction_pc + 3 + last_byte3)(1 to 4);
+              s(27 to 30) := to_hstring(pc + 3 + ibytes(23 downto 16))(1 to 4);
             when M_rr =>
               s(22) := '$';
               if last_byte2(7)='0' then
-                s(23 to 26) := to_hstring(last_instruction_pc + 2 + last_byte2)(1 to 4);
+                s(23 to 26) := to_hstring(pc + 2 + ibytes(15 downto 8))(1 to 4);
               else
-                s(23 to 26) := to_hstring(last_instruction_pc + 2 - 256 + last_byte2)(1 to 4);
+                s(23 to 26) := to_hstring(pc + 2 - 256 + ibytes(15 downto 8))(1 to 4);
               end if;
             when M_InnY =>
               s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(24 to 25) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(26 to 28) := "),Y";
             when M_InnZ =>
               s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(24 to 25) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(26 to 28) := "),Z";
             when M_rrrr =>
               s(22)       := '$';
-              s(23 to 26) := to_hstring(last_instruction_pc + 2 + (last_byte3 & last_byte2))(1 to 4);
+              s(23 to 26) := to_hstring(pc + 2 + (ibytes(23 downto 8)))(1 to 4);
             when M_nnX =>
               s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(23 to 24) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(25 to 26) := ",X";
             when M_nnnnY =>
               s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(23 to 26) := to_hstring(ibytes(23 downto 8))(1 to 4);
               s(27 to 28) := ",Y";
             when M_nnnnX =>
               s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(23 to 26) := to_hstring(ibytes(23 downto 8))(1 to 4);
               s(27 to 28) := ",X";
             when M_Innnn =>
               s(22 to 23) := "($";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(24 to 27) := to_hstring(ibytes(23 downto 8))(1 to 4);
               s(28 to 28) := ")";
             when M_InnnnX =>
               s(22 to 23) := "($";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(24 to 27) := to_hstring(ibytes(23 downto 8))(1 to 4);
               s(28 to 30) := ",X)";
             when M_InnSPY =>
               s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(24 to 25) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(26 to 31) := ",SP),Y";
             when M_nnY =>
               s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(23 to 24) := to_hstring(ibytes(15 downto 8))(1 to 2);
               s(25 to 26) := ",Y";
             when M_immnnnn =>
               s(22 to 23) := "#$";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(24 to 27) := to_hstring(ibytes(23 downto 8))(1 to 4);
           end case;
 
           -- Show registers
@@ -2172,8 +2172,6 @@
 
         last_action  <= 'R'; last_address <= real_long_address;
         long_address := long_address_read;
-
-        read_source <= MemController;
 
         report "Reading from long address $" & to_hstring(long_address) severity note;
         mem_reading <= '1';
@@ -5285,6 +5283,7 @@
                     state <= InstructionDecode4502;
                   end if;
                   fetch_instruction_please := '1';
+                  var_pc := reg_pc;
                 end if;
               when InstructionDecode4502 =>
 
@@ -5346,6 +5345,7 @@
                       zp32bit_pointer_enabled         <= '1';
                       zp32bit_pointer_enabled_v       := '1';
                       prefix_bytes                    := 3;
+                      map_interrupt_inhibit <= '0';  
                     elsif instruction_bytes_v(15 downto 0) = x"4242" then
                       -- NEG / NEG prefix = Q 32-bit pseudo register
                       instruction_bytes_v(31 downto 0)  := instruction_bytes_v(47 downto 16);
@@ -5367,11 +5367,12 @@
                       zp32bit_pointer_enabled         <= '1';
                       zp32bit_pointer_enabled_v       := '1';
                       prefix_bytes                    := 1;
+                      map_interrupt_inhibit <= '0';  
                     end if;
                     instruction_bytes <= instruction_bytes_v;
 
                     -- Show previous instruction
-                    disassemble_last_instruction;
+                    disassemble_instruction(reg_pc,instruction_bytes(23 downto 0));
                     -- Start recording this instruction
                     last_instruction_pc <= reg_pc;
                     last_opcode         <= instruction_bytes(7 downto 0);
@@ -5590,7 +5591,7 @@
                           -- JSR
                           pc_inc                        := 0;
                           pc_set                        := '1';
-                          var_pc                        := instruction_bytes(23 downto 8);
+                          var_pc                        := instruction_bytes_v(23 downto 8);
                           memory_access_write           := '1';
                           memory_access_byte_count      := 2;
                           memory_access_resolve_address := '1';
@@ -5607,6 +5608,10 @@
                           -- not the address of the next instruction.  This is a
                           -- well known 6502 weirdness
                           memory_access_wdata(15 downto 0) := reg_pc + 2;
+                          -- Because we have to first push to the stack, then
+                          -- fetch the next instruction, we need to switch states
+                          fetch_instruction_please := '0';
+                          state <= normal_fetch_state;
                         when x"29" =>
                           -- AND #$nn
                           mc.mcALU_in_a  := '1';
@@ -5762,6 +5767,10 @@
                           -- not the address of the next instruction.  This is a
                           -- well known 6502 weirdness
                           memory_access_wdata(15 downto 0) := reg_pc + 2;
+                          -- Because we have to first push to the stack, then
+                          -- fetch the next instruction, we need to switch states
+                          fetch_instruction_please := '0';
+                          state <= normal_fetch_state;
                         when x"64" =>
                           -- STZ $nn
                           mc.mcALU_in_z := '1';
@@ -6565,18 +6574,24 @@
             -- requested address is not in the instruction pre-fetch buffer.
             -- Simplest approach here is to toggle it once when we enter
             -- InstructionDecode state if the instruction is not ready there for us.
-              else
+            else
                 -- Have to fetch instruction via normal memory channel
-              transaction_request_toggle <= not transaction_request_toggle_int;
-              transaction_request_toggle_int <= not transaction_request_toggle_int;
-              expected_transaction_complete_toggle <= not transaction_complete_toggle;
-              transaction_address        <= vreg33(27 downto 0);
-              transaction_length         <= 6;
-              transaction_write          <= '0';
-              waiting_on_mem_controller  <= '1';
-              -- instruction bytes will arrive as a normal memory transaction
-              instruction_from_transaction <= '1';
-              report "Fetching instruction via general memory transaction interface";
+                if memory_access_read = '0' and memory_access_write = '0'  then
+                  transaction_request_toggle <= not transaction_request_toggle_int;
+                  transaction_request_toggle_int <= not transaction_request_toggle_int;
+                  expected_transaction_complete_toggle <= not transaction_complete_toggle;
+                  transaction_address        <= vreg33(27 downto 0);
+                  transaction_length         <= 6;
+                  transaction_write          <= '0';
+                  waiting_on_mem_controller  <= '1';
+                  -- instruction bytes will arrive as a normal memory transaction
+                  instruction_from_transaction <= '1';
+                  report "Fetching instruction via general memory transaction interface. Addr=$"
+                      & to_hstring(vreg33(27 downto 0));
+                else
+                  report "Holding off fetching the next instruction due to bus contention";
+                  state <= normal_fetch_state;
+                end if;
             end if;
           else
           -- Normal memory access
@@ -6797,8 +6812,7 @@
 
         report "final memory access was $" & to_hstring(memory_access_address)
         & ", read=" & std_logic'image(memory_access_read)
-        & ", write=" & std_logic'image(memory_access_write)
-        & " to " & memory_source'image(read_source);
+        & ", write=" & std_logic'image(memory_access_write);
 
         if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
           frame_counter           <= frame_counter + 1;
