@@ -8,7 +8,7 @@
   -- *    Ettore Perazzoli <ettore@comm2000.it>
   -- *    Andreas Boose <viceteam@t-online.de>
   -- *
-  -- *  This program is free software; you can redistribute it and/or modify
+  -- *  This program   is free software; you can redistribute it and/or modify
   -- *  it under the terms of the GNU Lesser General Public License as
   -- *  published by the Free Software Foundation; either version 3 of the
   -- *  License, or (at your option) any later version.
@@ -403,18 +403,11 @@
 
     signal pending_dma_busy                         : std_logic             := '0';
     signal pending_dma_address                      : unsigned(27 downto 0) := to_unsigned(2,28);
-    signal is_pending_dma_access                    : std_logic             := '0';
-    signal is_pending_dma_access_lower_latched      : std_logic             := '0';
-    signal is_pending_dma_access_lower_latched_last : std_logic             := '0';
     -- 0 = no target set
-    -- 1 = audio dma channel 0 LSB
-    -- 2 = audio dma channel 0 MSB
+    -- 1 = audio dma channel 0
     -- ...
-    -- 7 = audio dma channel 3 LSB
-    -- 8 = audio dma channel 3 MSB
-    signal pending_dma_target       : integer range 0 to 8 := 0;
-    signal last_pending_dma_target  : integer range 0 to 8 := 0;
-    signal last_pending_dma_target2 : integer range 0 to 8 := 0;
+    -- 4 = audio dma channel 3
+    signal pending_dma_target       : integer range 0 to 4 := 0;
 
     signal cpu_pcm_bypass_int  : std_logic := '0';
     signal pwm_mode_select_int : std_logic := '0';
@@ -801,20 +794,21 @@
 
     type processor_state is (
         -- Reset and interrupts
-        ResetLow,                                  -- 0x00
-        ResetReady,                                -- 0x01
-        Interrupt,InterruptPushPCL,InterruptPushP, -- 0x02, 0x03, 0x04
-        VectorRead,                                -- 0x05
+        ResetLow,
+        ResetReady,
+        Interrupt,InterruptPushPCL,InterruptPushP,
+        VectorRead,
+        VectorReadDone,
 
         -- Hypervisor traps
-        TrapToHypervisor,ReturnFromHypervisor, -- 0x06, 0x07
+        TrapToHypervisor,ReturnFromHypervisor,
 
         -- DMAgic
-        DMAgicTrigger,                    -- 0x08
-        DMAgicReadOptions,DMAgicReadList, -- 0x09, 0x0a
-        DMAgicGetReady,                   -- 0x0b
-        DMAgicFill,                       -- 0x0c
-        DMAgicCopyRead,DMAgicCopyWrite,   -- 0x0d, 0x0e
+        DMAgicTrigger,
+        DMAgicReadOptions,DMAgicReadList,
+        DMAgicGetReady,
+        DMAgicFill,
+        DMAgicCopyRead,DMAgicCopyWrite,
 
         -- Normal instructions
         InstructionWait,     -- Wait for PC to become available on       0x0f
@@ -1484,7 +1478,7 @@
 
 
       -- purpose: obtain the byte of memory that has been read
-      impure function read_d7xx_register
+      impure function read_d7xx_register(the_read_address : unsigned(7 downto 0))
         return unsigned is
         variable value : unsigned(7 downto 0);
       begin
@@ -2377,7 +2371,6 @@
           proceed          <= '1';
         else
           report "Preparing to read via memory controller @ $" & to_hstring(long_address);
-          is_pending_dma_access <= '0';
           proceed               <= '0';
           -- XXX Export request, toggle request line, set flag to indicate we are
           -- waiting for a response
@@ -2511,7 +2504,7 @@
 
       procedure write_long_byte(
           real_long_address : in unsigned(27 downto 0);
-          value             : in unsigned(31 downto 0)) is
+          value             : in unsigned(7 downto 0)) is
         variable long_address : unsigned(27 downto 0);
       begin
         -- Schedule the memory write to the appropriate destination.
@@ -2948,9 +2941,8 @@
                 if vdc_enabled='1' and short_address(11 downto 0)=x"601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
                   -- We map VDC RAM always to $40000
                   -- So we re-map this write to $4xxxx
-                  long_address(27 downto 16) := x"004";
-                  long_address(15 downto 0)  := resolved_vdc_to_viciv_address;
-
+                  temp_address(27 downto 16) := x"004";
+                  temp_address(15 downto 0)  := resolved_vdc_to_viciv_address;
                 end if;
             end case;
           else
@@ -3302,7 +3294,6 @@
       variable pc_inc     : integer range 0 to 65535 := 0;
       variable pc_set     : std_logic            := '0';
       variable pc_dec1    : std_logic            := '0';
-      variable dec_sp     : std_logic            := '0';
       variable push_value : unsigned(7 downto 0) := (others => '0');
 
       variable temp_addr   : unsigned(15 downto 0) := (others => '0');
@@ -3620,7 +3611,6 @@
         -- or CPU reads background DMA data in place of instruction arguments
         if cpuspeed_internal = x"40" then
           shadow_address        <= to_integer(pending_dma_address);
-          is_pending_dma_access <= '1';
         else
           shadow_address <= shadow_address_next;
         end if;
@@ -3643,20 +3633,12 @@
         -- while non-shadow RAM accesses are happening, e.g., on the fastio bus.
         -- Thus we have to read shadow_rdata directly.
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata)
-        & ", pending_dma_target = " & integer'image(pending_dma_target)
-        & ", last_pending_dma_target = " & integer'image(last_pending_dma_target)
-        & ", is_pending_dma_access_lower_latched = " & std_logic'image(is_pending_dma_access_lower_latched);
+        & ", pending_dma_target = " & integer'image(pending_dma_target);
 
-        -- XXX Add the extra cycle delay because we don't do the clever clock
-        -- crossing trick to get the address to the shadowram a cycle early
-
-        last_pending_dma_target <= pending_dma_target;
-        --      last_pending_dma_target2 <= last_pending_dma_target;
-        is_pending_dma_access_lower_latched_last <= is_pending_dma_access_lower_latched;
-        if is_pending_dma_access_lower_latched_last='1'
-          and last_pending_dma_target = pending_dma_target
-          --        and last_pending_dma_target2 = last_pending_dma_target
-          and pending_dma_target /= 0 then
+        -- XXX Rework background audio DMA to use new memory transaction model
+        -- (We can do 8/16 bit fetches identically, because new memory transaction
+        -- model allows multi-byte transactions).
+        if pending_dma_target /= 0 then
           report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
           pending_dma_target <= 0 ;
@@ -3670,127 +3652,46 @@
           case pending_dma_target is
             when 0 => -- no pending job
               null;
-            when 1 | 3 | 5 | 7 => -- Audio DMA LSB
-              audio_dma_current_value((pending_dma_target - 1)/2)(7 downto 0) <= signed(shadow_rdata);
-            when 2 | 4 | 6 | 8 => -- Audio DMA MSB
-              if audio_dma_sample_width((pending_dma_target - 1)/2) = "00" then
-                -- Lower nybl
-                audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 12) <= signed(shadow_rdata(2 downto 0));
-                audio_dma_current_value((pending_dma_target - 1)/2)(11 downto 0)  <= (others => '0');
-                audio_dma_current_value((pending_dma_target - 1)/2)(15)           <= shadow_rdata(3) xor audio_dma_signed((pending_dma_target - 1)/2);
-              elsif audio_dma_sample_width((pending_dma_target - 1)/2) = "01" then
-                -- Upper nybl
-                audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 12) <= signed(shadow_rdata(6 downto 4));
-                audio_dma_current_Value((pending_dma_target - 1)/2)(11 downto 0)  <= (others => '0');
-                audio_dma_current_value((pending_dma_target - 1)/2)(15)           <= shadow_rdata(7) xor audio_dma_signed((pending_dma_target - 1)/2);
-              else
-                -- 8 or 16 bit sample
-                audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
-                audio_dma_current_value((pending_dma_target - 1)/2)(15)          <= shadow_rdata(7) xor audio_dma_signed((pending_dma_target - 1)/2);
-              end if;
-              audio_dma_sample_valid((pending_dma_target - 1)/2) <= '1';
-              audio_dma_pending_msb((pending_dma_target - 1)/2)  <= '0';
-              audio_dma_pending((pending_dma_target - 1)/2)      <= '0';
+            when 1 | 2 | 3 | 4 => -- Audio DMA
+              case audio_dma_sample_width((pending_dma_target - 1)) is
+                when "00" =>
+                  -- Lower nybl
+                  audio_dma_current_value((pending_dma_target - 1))(14 downto 12) <= signed(transaction_rdata(2 downto 0));
+                  audio_dma_current_value((pending_dma_target - 1))(11 downto 0)  <= (others => '0');
+                  audio_dma_current_value((pending_dma_target - 1))(15)           <= transaction_rdata(3) xor audio_dma_signed((pending_dma_target - 1));
+                when "01" =>
+                  -- Upper nybl
+                  audio_dma_current_value((pending_dma_target - 1))(14 downto 12) <= signed(transaction_rdata(6 downto 4));
+                  audio_dma_current_Value((pending_dma_target - 1))(11 downto 0)  <= (others => '0');
+                  audio_dma_current_value((pending_dma_target - 1))(15)           <= transaction_rdata(7) xor audio_dma_signed((pending_dma_target - 1));
+                when "10" =>
+                  -- 8 or 16 bit sample
+                  audio_dma_current_value((pending_dma_target - 1))(14 downto 8) <= signed(transaction_rdata(6 downto 0));
+                  audio_dma_current_value((pending_dma_target - 1))(15)          <= transaction_rdata(7) xor audio_dma_signed((pending_dma_target - 1));
+                when "11" =>
+                  audio_dma_current_value((pending_dma_target - 1))(14 downto 0) <= signed(transaction_rdata(14 downto 0));
+                  audio_dma_current_value((pending_dma_target - 1))(15)          <= transaction_rdata(15) xor audio_dma_signed((pending_dma_target - 1));
+                when others => null;
+              end case;
+              audio_dma_sample_valid((pending_dma_target - 1)) <= '1';
+              audio_dma_pending((pending_dma_target - 1))      <= '0';
           end case;
           pending_dma_busy <= '0';
         end if;
         if pending_dma_busy='0' then
-          if audio_dma_pending(0)='1' then
-            if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
-              -- We still need to read the MSB after
-              audio_dma_sample_valid(0) <= '0';
-              audio_dma_pending_msb(0)  <= '0';
-              audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
-              report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 1";
-              pending_dma_target               <= 1; -- ch0 LSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
-            else
-              if audio_dma_sample_width(0)="11" then
-                -- Only invalidate sample when reading LSB of a 16-bit sample
-                audio_dma_sample_valid(0) <= '0';
-              end if;
-              audio_dma_pending(0)      <= '0';
-              audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
-              report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
+          for i in 0 to 3 loop
+            if audio_dma_pending(i)='1' then
+              audio_dma_pending(i) <= '0';
+              audio_dma_current_addr(i) <= audio_dma_current_addr(i) + 1;
+              report "audio_dma_current_value: scheduling read of $" & to_hstring(audio_dma_current_addr(i));
               pending_dma_busy <= '1';
               report "BACKGROUNDDMA: Set target to 2";
-              pending_dma_target               <= 2; -- ch0 MSB
+              pending_dma_target <= i + 1;
               pending_dma_address(27 downto 0) <= (others => '0');
               pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
+              exit;
             end if;
-          elsif audio_dma_pending(2)='1' then
-            if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
-              -- We still need to read the MSB after
-              audio_dma_sample_valid(2) <= '0';
-              audio_dma_pending_msb(2)  <= '0';
-              audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
-              report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(2));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 5";
-              pending_dma_target               <= 5; -- ch2 LSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
-            else
-              audio_dma_sample_valid(2) <= '0';
-              audio_dma_pending(2)      <= '0';
-              audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
-              report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(2));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 6";
-              pending_dma_target               <= 6; -- ch2 MSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
-            end if;
-          elsif audio_dma_pending(3)='1' then
-            if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
-              -- We still need to read the MSB after
-              audio_dma_sample_valid(3) <= '0';
-              audio_dma_pending_msb(3)  <= '0';
-              audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
-              report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(3));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 7";
-              pending_dma_target               <= 7; -- ch3 LSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
-            else
-              audio_dma_sample_valid(3) <= '0';
-              audio_dma_pending(3)      <= '0';
-              audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
-              report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(3));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 8";
-              pending_dma_target               <= 8; -- ch3 MSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
-            end if;
-          elsif audio_dma_pending(1)='1' then
-            if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
-              -- We still need to read the MSB after
-              audio_dma_sample_valid(1) <= '0';
-              audio_dma_pending_msb(1)  <= '0';
-              audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
-              report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 3";
-              pending_dma_target               <= 3; -- ch1 LSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
-            else
-              audio_dma_sample_valid(1) <= '0';
-              audio_dma_pending(1)      <= '0';
-              audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
-              report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
-              pending_dma_busy <= '1';
-              report "BACKGROUNDDMA: Set target to 4";
-              pending_dma_target               <= 4; -- ch1 MSB
-              pending_dma_address(27 downto 0) <= (others => '0');
-              pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
-            end if;
-          end if;
+          end loop;
         end if;
 
         for i in 0 to 3 loop
@@ -4667,6 +4568,9 @@
                 else
                   memory_access_address := x"000FFF"&vector;
                 end if;
+                memory_access_read := '1';
+                memory_access_byte_count := 2;
+                state <= VectorReadDone;
               when VectorReadDone =>
                 -- Assume that the memory controller has completed our request,
                 -- and loaded the 16-bit value
@@ -4826,7 +4730,7 @@
                   memory_access_read       := '0';
                   memory_access_write      := monitor_mem_write_drive;
                   memory_access_byte_count := 1;
-                  memory_access_wdata      := monitor_mem_wdata_drive;
+                  memory_access_wdata(7 downto 0) := monitor_mem_wdata_drive;
                   state                    <= MonitorMemoryAccess;
                   if monitor_mem_read='1' then
                     -- and optionally set PC
@@ -5417,7 +5321,7 @@
                 & to_hstring(dmagic_dest_addr) & ").";
                 memory_access_read            := '0';
                 memory_access_write           := '1';
-                memory_access_wdata           := dmagic_src_addr(15 downto 8);
+                memory_access_wdata(7 downto 0) := dmagic_src_addr(15 downto 8);
                 memory_access_resolve_address := '0';
                 memory_access_address         := dmagic_dest_addr(35 downto 8);
 
@@ -5435,6 +5339,10 @@
                   end if;
                 end if;
               when VDCRead =>
+                -- Implement VDC block copys
+                -- XXX Update this to use the new wide memory transaction interface.
+                -- XXX Better, make VDC block copies be simulated using DMAgic, so that
+                -- we have fewer states in the CPU's state machine
                 state            <= VDCWrite;
                 vdc_word_count   <= vdc_word_count - 1;
                 vdc_mem_addr_src <= vdc_mem_addr_src + 1;
@@ -5456,7 +5364,7 @@
 
                 memory_access_read                  := '0';
                 memory_access_write                 := '1';
-                memory_access_wdata                 := read_data;
+                memory_access_wdata(7 downto 0)     := transaction_rdata(7 downto 0);
                 memory_access_resolve_address       := '0';
                 memory_access_address(27 downto 16) := x"004";
                 report "MEMORY Setting memory_access_address to resolved_vdc_to_viciv_src_address ($004"
@@ -5572,7 +5480,7 @@
                   else
                     memory_access_write := '0';
                   end if;
-                  memory_access_wdata           := reg_t;
+                  memory_access_wdata(7 downto 0) := reg_t;
                   memory_access_resolve_address := '0';
                   report "MEMORY Setting memory_access_address to dmagic_dest_addr ($"
                   & to_hstring(dmagic_dest_addr) & ").";
@@ -5705,7 +5613,7 @@
                     elsif instruction_bytes_v(7 downto 0) = x"EA" then
                       -- NOP prefix = 32-bit ZP pointers
                       instruction_bytes_v(39 downto 0)  := instruction_bytes_v(47 downto 8);
-                      instruction_bytes_v(47 downto 39) := x"EA";
+                      instruction_bytes_v(47 downto 40) := x"EA";
                       zp32bit_pointer_enabled         <= '1';
                       zp32bit_pointer_enabled_v       := '1';
                       prefix_bytes                    := 1;
@@ -5876,12 +5784,12 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 1;
+                          sp_dec                             := 1;
                         when x"09" =>
                           -- ORA #$nn
                           mc.mcALU_in_a  := '1';
                           mc.mcORA := '1';
-                          mc.mcalu_b_ibyte2;
+                          mc.mcalu_b_ibyte2 := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
@@ -5943,7 +5851,7 @@
                             var_sp(7 downto 0)  := reg_sp - 1;
                           end if;
                           memory_access_address(15 downto 0) := var_sp;
-                          dec_sp                             := 2;
+                          sp_dec                             := 2;
                           -- JSR pushes the address of its 3rd byte to the stack,
                           -- not the address of the next instruction.  This is a
                           -- well known 6502 weirdness
@@ -5952,7 +5860,7 @@
                           -- AND #$nn
                           mc.mcALU_in_a  := '1';
                           mc.mcAND := '1';
-                          mc.mcalu_b_ibyte2;
+                          mc.mcalu_b_ibyte2 := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
@@ -6023,12 +5931,12 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 1;
+                          sp_dec                             := 1;
                         when x"49" =>
                           -- EOR #$nn
                           mc.mcALU_in_a  := '1';
                           mc.mcEOR := '1';
-                          mc.mcalu_b_ibyte2;
+                          mc.mcalu_b_ibyte2 := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
@@ -6065,7 +5973,7 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 1;
+                          sp_dec                             := 1;
                         when x"5B" =>
                           -- TAB
                           reg_b <= reg_a;
@@ -6098,7 +6006,7 @@
                             var_sp(7 downto 0)  := reg_sp - 1;
                           end if;
                           memory_access_address(15 downto 0) := var_sp;
-                          dec_sp                             := 2;
+                          sp_dec                             := 2;
                           -- JSR pushes the address of its 3rd byte to the stack,
                           -- not the address of the next instruction.  This is a
                           -- well known 6502 weirdness
@@ -6113,7 +6021,7 @@
                           mc.mcALU_in_a  := '1';
                           mc.mcADD := '1';
                           mc.mcAddCarry := '1';
-                          mc.mcalu_b_ibyte2;
+                          mc.mcalu_b_ibyte2 := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
@@ -6365,7 +6273,7 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 1;
+                          sp_dec                             := 1;
                         when x"DB" =>
                           -- PHZ
                           mc.mcALU_in_z := '1';
@@ -6373,7 +6281,7 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 1;
+                          sp_dec                             := 1;
                         when x"E0" =>
                           -- CPX #$nn
                           mc.mcADD := '1';
@@ -6398,7 +6306,7 @@
                           mc.mcALU_in_a  := '1';
                           mc.mcADD := '1';
                           mc.mcAddCarry := '1';
-                          mc.mcalu_b_ibyte2;
+                          mc.mcalu_b_ibyte2 := '1';
                           mc.mcInvertB := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
@@ -6422,7 +6330,7 @@
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
-                          dec_sp                             := 2;
+                          sp_dec                             := 2;
                         when x"F8"  =>
                           -- SED
                           flag_d <= '1';
@@ -6544,10 +6452,10 @@
                   -- Address is 32-bit flat address
                   -- Store the address directly
                   if reg_addressingmode = M_InnZ then
-                    memory_access_address := transaction_rdata(31 downto 0) + reg_z;
+                    memory_access_address := transaction_rdata(27 downto 0) + reg_z;
                     reg_addr32            <= transaction_rdata(31 downto 0) + reg_z;
                   else
-                    memory_access_address := transaction_rdata(31 downto 0);
+                    memory_access_address := transaction_rdata(27 downto 0);
                     reg_addr32            <= transaction_rdata(31 downto 0);
                   end if;
                   memory_access_resolve_address := '0';
@@ -6589,6 +6497,8 @@
                   -- Here our focus is on doing the ALU operation, and then
                   -- optionally storing the result back if its an RMW or just a
                   -- store operation with a complex addressing mode.
+
+                  memory_access_address  := reg_addr32(27 downto 0);
 
                   -- Work out the next state for the FSM
                   if reg_microcode.mcBRK='1' then
@@ -6668,7 +6578,7 @@
                     var_alu_r1(7)          := '0';
                     var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
                   else
-                    var_alu_r1 := var_alu_a;
+                    var_alu_r1(7 downto 0) := var_alu_a;
                   end if;
 
                   -- What is the value of carry flag going in?
@@ -6685,13 +6595,13 @@
                   -- We have to deal with BCD mode, among other things.
                   -- Return is NVZC<8 bit result>
                   if reg_microcode.mcADD = '1' then
-                    var_alu_r2 := alu_op_add(var_alu_r1,var_alu_b2,
+                    var_alu_r2 := alu_op_add(var_alu_r1(7 downto 0),var_alu_b2(7 downto 0),
                         var_c_in,
                         reg_microcode.mcAllowBCD and flag_d);
                   else
                     -- No addition, no fancy flags
                     var_alu_r2(11 downto 8) := "0000";
-                    var_alu_r2(7 downto 0)  := var_alu_r1;
+                    var_alu_r2(7 downto 0)  := var_alu_r1(7 downto 0);
                   end if;
 
                   -- Third, we do the binary operations
@@ -6723,7 +6633,7 @@
                   end if;
                   if reg_microcode.mcTRBSetZ = '1' then
                     -- TRB Z flag is simply from the comparison of A and loaded memory
-                    if reg_a and transaction_rdata(7 downto 0) /= x"00" then
+                    if (reg_a and transaction_rdata(7 downto 0)) /= x"00" then
                       var_alu_r3(9) := '0';
                     else
                       var_alu_r3(9) := '1';
@@ -6738,7 +6648,7 @@
                   end if;
 
                   -- Set bit 0 / 7 of result from C flag, if required
-                  var_alu_r4 := var_alu_r3(7 downto 0);
+                  var_alu_r4(7 downto 0) := var_alu_r3(7 downto 0);
                   if reg_microcode.mcBit0FromCarry = '1' then
                     var_alu_r4(0) := flag_c;
                   end if;
@@ -6747,15 +6657,15 @@
                   end if;
 
                   -- Now work out what to value we are writing to memory, if any
-                  if reg_microcode.mcStoreAX then
+                  if reg_microcode.mcStoreAX = '1' then
                     -- Store and of A and X
-                    var_wdata := reg_a and reg_x;
+                    var_wdata(7 downto 0) := reg_a and reg_x;
                   elsif reg_microcode.mcADD = '1' then
                     -- SLO instruction writes result of ADD (=left shift), not of
                     -- the ORA
-                    var_wdata := var_alu_r2(7 downto 0);
+                    var_wdata(7 downto 0) := var_alu_r2(7 downto 0);
                   else
-                    var_wdata := var_alu_r4;
+                    var_wdata(7 downto 0) := var_alu_r4(7 downto 0);
                   end if;
 
                   -- Do actual write
@@ -6764,7 +6674,8 @@
                     memory_access_byte_count      := 1;
                     memory_access_wdata           := var_wdata;
                     memory_access_resolve_address := '1';
-                    memory_access_address         := reg_addr32;
+
+                    -- Address is expected to be already set
                   end if;
 
                   if reg_microcode.mcPushW = '1' Then
@@ -6781,7 +6692,7 @@
                       var_sp(7 downto 0)  := reg_sp - 1;
                     end if;
                     memory_access_address(15 downto 0) := var_sp;
-                    dec_sp                             := 2;
+                    sp_dec := 2;
                   end if;
 
                   -- Also commit result to registers, if required
@@ -6850,7 +6761,7 @@
           end if;
 
 
-          report "pc_inc = $" & to_hstring(to_unsigned(integer'image(pc_inc),16))
+          report "pc_inc = $" & to_hstring(to_unsigned(pc_inc,16))
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
           & ", reg_addr=$" & to_hstring(reg_addr)
@@ -6879,7 +6790,7 @@
           -- This must come AFTER reg_pc has been incremented, so that we have
           -- the incremented / branched address available
           if fetch_instruction_please = '1' then
-            vreg33(27 downto 0) := resolve_address_to_long(var_pc);
+            vreg33(27 downto 0) := resolve_address_to_long(var_pc, false);
             if to_integer(vreg33) < (chipram_size - 5 ) then
               -- Instruction is in chip/fast RAM
               instruction_fetch_address_in <= to_integer(vreg33(19 downto 0));
@@ -7094,8 +7005,6 @@
           end if;
 
           if memory_access_write='1' then
-            is_pending_dma_access_lower := '0';
-
             if memory_access_resolve_address = '1' then
               long_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
             else
