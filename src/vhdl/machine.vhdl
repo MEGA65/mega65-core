@@ -1150,6 +1150,12 @@ begin
       transaction_wdata           => transaction_wdata,
       transaction_rdata           => transaction_rdata,
 
+      fastio_addr => unsigned(fastio_addr),
+      fastio_read => fastio_read,
+      fastio_write => fastio_write,
+      fastio_wdata => unsigned(fastio_wdata),
+      std_logic_vector(fastio_rdata) => fastio_rdata,
+
       cpu_leds => cpu_leds,
 
       sector_buffer_mapped => sector_buffer_mapped,

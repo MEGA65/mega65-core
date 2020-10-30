@@ -205,6 +205,15 @@
       sector_buffer_mapped : in std_logic;
 
       --------------------------------------------------------------------------
+      -- Loop-backed fastio interface to CPU's memory mapped registers
+      --------------------------------------------------------------------------
+      fastio_addr : in unsigned(19 downto 0);
+      fastio_read : in std_logic;
+      fastio_write : in std_logic;
+      fastio_wdata : in unsigned(7 downto 0);
+      fastio_rdata : out unsigned(7 downto 0) := (others => 'Z');
+
+      --------------------------------------------------------------------------
       -- Interface to memory
       --------------------------------------------------------------------------
       transaction_request_toggle : out std_logic := '0';
@@ -264,6 +273,9 @@
 
     signal virtualise_sd0 : std_logic := '0';
     signal virtualise_sd1 : std_logic := '0';
+
+    signal d700_triggered : std_logic := '0';
+    signal d705_triggered : std_logic := '0';
 
     signal dat_bitplane_addresses_drive : sprite_vector_eight := (
         others => to_unsigned(0,8));
@@ -2172,71 +2184,30 @@
         -- Schedule the memory read from the appropriate source.
 
         report "MEMORY long_address = $" & to_hstring(long_address);
-        -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
-        -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
-        if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
-          report "Preparing for reading hypervisor register";
-          read_source <= HypervisorRegister;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          proceed              <= '0';
-          hyperport_num        <= real_long_address(5 downto 0);
-        elsif (long_address = x"ffd3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          accessing_cpuport <= '1';
-          -- Read VDC status #141
-          -- Lie and always claim that VDC is ready
-          read_source          <= CPUPort;
-          proceed              <= '0';
-          cpuport_num          <= x"3";
-        elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
+
+        -- VDC data register can be mapped to memory if the correct register is selected
+        if (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
           if vdc_reg_num = x"1f" then
             report "Preparing to read from Shadow for simulated VDC access";
             long_address := to_unsigned(to_integer(resolved_vdc_to_viciv_address)+(4*65536),28);
             vdc_mem_addr <= vdc_mem_addr + 1;
-          else
-            accessing_cpuport <= '1';
-            -- Read simulated VDC registers
-            read_source          <= CPUPort;
-            proceed              <= '0';
-            cpuport_num          <= x"4";
           end if;
-        elsif (long_address = x"0000000") or (long_address = x"0000001") then
-          accessing_cpuport <= '1';
-          report "Preparing to read from a CPUPort";
-          read_source <= CPUPort;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          proceed              <= '0';
-          cpuport_num          <= real_long_address(3 downto 0);
-        elsif (long_address = x"ffd30a0") or (long_address = x"ffd10a0") then
-          accessing_cpuport <= '1';
-          report "Preparing to read from CPU memory expansion controller port";
-          read_source <= CPUPort;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          proceed              <= '0';
-          cpuport_num          <= "0010";
-        elsif (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
-          report "Preparing to read from a DMAgicRegister or from the internal CPU register array";
-          read_source <= PrePreparedData;
-          -- Do the read this cycle, so that it is ready fast at the beginning of
-          -- the next cycle
-          preprepared_data <= read_d7xx_register(long_address(7 downto 0));
-          proceed          <= '1';
-        else
-          report "Preparing to read via memory controller @ $" & to_hstring(long_address);
-          proceed               <= '0';
-          -- XXX Export request, toggle request line, set flag to indicate we are
-          -- waiting for a response
-          memory_access_Address     := long_address;
-          memory_access_read        := '1';
-          memory_access_write       := '0';
-          memory_access_byte_count  := 1;
-          waiting_on_mem_controller <= '1';
         end if;
+        -- CPU IO ports get mapped to fastio area
+        if (long_address = x"0000000") or (long_address = x"0000001") then
+          long_address(27 downto 20) := x"ff";
+        end if;
+
+        report "Preparing to read via memory controller @ $" & to_hstring(long_address);
+        proceed               <= '0';
+
+        memory_access_address     := long_address;
+        memory_access_read        := '1';
+        memory_access_write       := '0';
+        memory_access_byte_count  := 1;
       end read_long_address;
 
-      impure function read_hypervisor_register
+      impure function read_hypervisor_register(hyperport_num : unsigned(5 downto 0))
         return unsigned is
         variable value : unsigned(7 downto 0);
       begin
@@ -2366,327 +2337,42 @@
 
         last_action <= 'W'; last_value <= value; last_address <= real_long_address;
 
-        if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          vdc_mem_addr <= vdc_mem_addr + 1;
+        long_address := long_address_write;
+
+        last_write_address <= real_long_address;
+
+        -- Start DMAgic jobs?
+        if (long_address = x"FFD3700") or (long_address = x"FFD1700") then
+          d700_triggered <= '1';
+          -- Set low order bits of DMA list address
+          reg_dmagic_addr(7 downto 0) <= value;
+          reg_dmagic_addr(27 downto 23) <= (others => '0');
+        elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
+          d705_triggered <= '1';
+          reg_dmagic_addr(7 downto 0) <= value;
         end if;
 
-        -- Set GeoRAM page (gets munged later with GeoRAM base and mask values
-        -- provided by the hypervisor)
-        if real_long_address(27 downto 16) = x"ffd" then
-          if real_long_address(11 downto 0) = x"fff" then
-            georam_block <= value;
-          elsif real_long_address(11 downto 0) = x"ffe" then
-            georam_blockpage <= value;
-          end if;
-        end if;
-
-        -- And REU registers
+        -- Trigger REU DMA via $FF00 ?
         if real_long_address(15 downto 0) = x"ff00" then
           if reu_ff00_pending = '1' then
           -- XXX Start REU job
           end if;
         end if;
-        if real_long_address(27 downto 16) = x"ffd" then
-          if real_long_address(11 downto 0) = x"f01" then
-            reu_cmd_autoload   <= value(5);
-            reu_cmd_ff00decode <= value(4);
-            reu_cmd_operation  <= std_logic_vector(value(1 downto 0));
-            if value(7)='1' and value(4)='0' then
-            -- XXX Start REU job by copying REU registers to DMAgic registers,
-            -- setting REU job flag and starting the job.
-            elsif value(7)='1' and value(4)='1' then
-              -- XXX Defer starting REU job until $FF00 is written
-              reu_ff00_pending <= '1';
-            end if;
-          elsif real_long_address(11 downto 0) = x"f02" then
-            reu_c64_startaddr(7 downto 0) <= value;
-          elsif real_long_address(11 downto 0) = x"f03" then
-            reu_c64_startaddr(15 downto 8) <= value;
-          elsif real_long_address(11 downto 0) = x"f04" then
-            reu_c64_startaddr(7 downto 0) <= value;
-          elsif real_long_address(11 downto 0) = x"f05" then
-            reu_reu_startaddr(15 downto 8) <= value;
-          elsif real_long_address(11 downto 0) = x"f06" then
-            reu_reu_startaddr(23 downto 16) <= value;
-          elsif real_long_address(11 downto 0) = x"f07" then
-            reu_transfer_length(7 downto 0) <= value;
-          elsif real_long_address(11 downto 0) = x"f08" then
-            reu_transfer_length(15 downto 8) <= value;
-          elsif real_long_address(11 downto 0) = x"f09" then
-            reu_useless_interrupt_mask(7 downto 5) <= value(7 downto 5);
-          elsif real_long_address(11 downto 0) = x"f0a" then
-            reu_hold_c64_address <= value(7);
-            reu_hold_reu_address <= value(6);
-          end if;
+
+        -- Setup memory access
+        memory_access_wdata(7 downto 0) := value;
+        memory_access_byte_count        := 1;
+        memory_access_address           := long_address;
+
+        -- Advance address for VDC access, and translate address
+        if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") and (hypervisor_mode='0') and (vdc_enabled='1') then
+          vdc_mem_addr <= vdc_mem_addr + 1;
+          memory_access_address(27 downto 16) := x"004";
+          memory_access_address(15 downto 0) := vdc_mem_addr;
         end if;
 
-        long_address := long_address_write;
-
-        last_write_address <= real_long_address;
-
-        -- Write to CPU port
-        if (long_address = x"0000000") then
-          report "MEMORY: Writing to CPU DDR register" severity note;
-          if value = x"40" then
-            force_fast <= '0';
-          elsif value = x"41" then
-            force_fast <= '1';
-          else
-            cpuport_ddr <= value;
-          end if;
-          report "ZPCACHE: Flushing cache due to write to $01";
-          cache_flushing      <= '1';
-          cache_flush_counter <= (others => '0');
-        elsif (long_address = x"0000001") then
-          report "MEMORY: Writing to CPU PORT register" severity note;
-          cpuport_value <= value;
-          report "ZPCACHE: Flushing cache due to write to $01";
-          cache_flushing      <= '1';
-          cache_flush_counter <= (others => '0');
-        -- Write to DMAgic registers if required
-        elsif (long_address = x"FFD30A0") or (long_address = x"FFD10A0") then
-          -- @ IO:C65 $D0A0 - C65 RAM Expansion controller
-          -- The specifications of this interface is VERY under-documented.
-          -- There are two versions: 512KB and 1MB - 8MB
-
-          -- 512KB version is relatively simple:
-          -- Bit 3 - CPU sees expansion bank 0 or 1
-          -- Bit 2 - VIC uses expansion (1) or internal (0) RAM
-          -- Bit 1 - VIC address range (0=$C0000-$DFFFF, 1=$E0000-$FFFFF)
-          -- Bit 0 - VIC sees expansion bank 0 or 1
-          -- Writing %xxxxx0xx -> VIC sees internal 128KB
-          -- Writing %xxxxx100 -> VIC sees expansion RAM bank 0, $C0000-$DFFFF
-          -- Writing %xxxxx110 -> VIC sees expansion RAM bank 0, $E0000-$FFFFF
-          -- Writing %xxxxx101 -> VIC sees expansion RAM bank 1, $C0000-$DFFFF
-          -- Writing %xxxxx111 -> VIC sees expansion RAM bank 1, $E0000-$FFFFF
-          -- Writing %xxxx0xxx -> CPU sees expansion bank 0 (presumably at $80000-$FFFFF)
-          -- Writing %xxxx1xxx -> CPU sees expansiob bank 1 (presumably at $80000-$FFFFF)
-
-          -- 1MB-8MB version lacks documentation that I can find.
-          -- Bit x - CART - presumably enable cartridge memory visibility?
-          -- On read:
-          -- Bit 7 - Indicate error condition?
-          -- DMAgic sees expanded RAM from BANK $40 onwards?
-          -- Presumably something controls what we see in the 1MB address space
-
-          -- For now, just always report an error condition.
-          rec_status <= x"80";
-        elsif (long_address = x"FFD3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          -- @IO:64 $D600 VDC:REGSEL VDC Register Select
-          -- VDC register select #141
-          vdc_reg_num <= value;
-        elsif (long_address = x"FFD3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          -- @IO:64 $D601 VDC:DATA VDC Data Access Register
-          case vdc_reg_num is
-            when x"12" =>
-              vdc_mem_addr(15 downto 8) <= value;
-            when x"13" =>
-              vdc_mem_addr(7 downto 0) <= value;
-            when x"20" =>
-              vdc_mem_addr_src(15 downto 8) <= value;
-            when x"21" =>
-              vdc_mem_addr_src(7 downto 0) <= value;
-            when x"1E" =>
-              vdc_word_count(7 downto 0) <= value;
-            when others =>
-              null;
-          end case;
-        elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then
-          -- Set low order bits of DMA list address
-          reg_dmagic_addr(7 downto 0) <= value;
-          -- @IO:C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
-          -- DMA gets triggered when we write here. That actually happens through
-          -- memory_access_write.
-          -- We also clear out the upper address bits in case an enhanced job had
-          -- set them.
-          reg_dmagic_addr(27 downto 23) <= (others => '0');
-        elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
-          -- Set low order bits of DMA list address, without starting
-          -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
-          reg_dmagic_addr(7 downto 0) <= value;
-        elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
-          -- @IO:C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
-          reg_dmagic_addr(15 downto 8) <= value;
-        elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
-          -- @IO:C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
-          reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
-          reg_dmagic_addr(27 downto 23) <= (others => '0');
-          reg_dmagic_withio             <= value(7);
-        elsif (long_address = x"FFD3703") or (long_address = x"FFD1703") then
-          -- @IO:GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
-          support_f018b <= value(0); -- setable dmagic mode
-        elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
-          -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
-          reg_dmagic_addr(27 downto 20) <= value;
-        elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
-          -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
-          reg_dmagic_addr(7 downto 0) <= value;
-        elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
-          -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
-          -- @IO:GS $D710.1 - CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
-          -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
-          badline_enable  <= value(0);
-          slow_interrupts <= value(1);
-          vdc_enabled     <= value(2);
-          -- @IO:GS $D710.3 CPU:BRCOST 1=charge extra cycle(s) for branches taken
-          charge_for_branches_taken <= value(3);
-          -- @IO:GS $D710.4-5 CPU:BADEXTRA Cost of badlines minus 40. ie. 00=40 cycles, 11 = 43 cycles.
-          badline_extra_cycles <= value(5 downto 4);
-        elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
-          audio_dma_enable         <= value(7);
-          audio_dma_disable_writes <= value(5);
-          cpu_pcm_bypass_int       <= value(4);
-          pwm_mode_select_int      <= value(3);
-        elsif (long_address = x"FFD3712") or (long_address = x"FFD1712") then
-          audio_dma_swap              <= value(1);
-          audio_dma_saturation_enable <= value(0);
-        elsif (long_address = x"FFD371C") or (long_address = x"FFD171C") then
-          audio_dma_pan_volume(0) <= value;
-        elsif (long_address = x"FFD371D") or (long_address = x"FFD171D") then
-          audio_dma_pan_volume(1) <= value;
-        elsif (long_address = x"FFD371E") or (long_address = x"FFD171E") then
-          audio_dma_pan_volume(2) <= value;
-        elsif (long_address = x"FFD371F") or (long_address = x"FFD171F") then
-          audio_dma_pan_volume(3) <= value;
-        elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
-          or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
-          or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
-          or (long_address(27 downto 4) = x"FFD375") or (long_address(27 downto 4) = x"FFD175")
-        then
-          case long_address(3 downto 0) is
-            -- We put this one first, so that writing linearly will correctly
-            -- initialise things when freezing and unfreezing
-            when x"0" => audio_dma_enables(to_integer(long_address(7 downto 4)-2)) <= value(7);
-              audio_dma_repeat(to_integer(long_address(7 downto 4)-2))       <= value(6);
-              audio_dma_signed(to_integer(long_address(7 downto 4)-2))       <= value(5);
-              audio_dma_sine_wave(to_integer(long_address(7 downto 4)-2))    <= value(4);
-              audio_dma_stop(to_integer(long_address(7 downto 4)-2))         <= value(3);
-              audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
-              report "Setting Audio DMA channel "
-              & integer'image(to_integer(long_address(7 downto 4)-2)) &
-              " flags to $" & to_hstring(value);
-            when x"1" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-            when x"2" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-            when x"3" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-            when x"4" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-            when x"5" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-            when x"6" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-              report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-              & " <time_base to $" & to_hstring(value);
-            when x"7" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)  <= value;
-            when x"8" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8) <= value;
-              report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-              & " <top_addr to $" & to_hstring(value);
-            when x"9" => audio_dma_volume(to_integer(long_address(7 downto 4)-2))                         <= value;
-            when x"a" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-            when x"b" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-            when x"c" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-              audio_dma_current_addr_set_flag(to_integer(long_address(7 downto 4)-2))
-              <= not audio_dma_current_addr_set_flag(to_integer(long_address(7 downto 4)-2));
-            when x"d" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-            when x"e" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-            when x"f" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-              audio_dma_timing_counter_set_flag(to_integer(long_address(7 downto 4)-2))
-              <= not audio_dma_timing_counter_set_flag(to_integer(long_address(7 downto 4)-2));
-            when others => null;
-          end case;
-        -- @IO:GS $D770-3 32-bit multiplier input A
-        elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
-          reg_mult_a(7 downto 0) <= value;
-          div_n(7 downto 0)      <= value;
-          div_start_over         <= '1';
-        elsif (long_address = x"FFD3771") or (long_address = x"FFD1771") then
-          reg_mult_a(15 downto 8) <= value;
-          div_n(15 downto 8)      <= value;
-          div_start_over          <= '1';
-        elsif (long_address = x"FFD3772") or (long_address = x"FFD1772") then
-          reg_mult_a(23 downto 16) <= value;
-          div_n(23 downto 16)      <= value;
-          div_start_over           <= '1';
-        elsif (long_address = x"FFD3773") or (long_address = x"FFD1773") then
-          reg_mult_a(31 downto 24) <= value;
-          div_n(31 downto 24)      <= value;
-          div_start_over           <= '1';
-        -- @IO:GS $D774-7 32-bit multiplier input B
-        elsif (long_address = x"FFD3774") or (long_address = x"FFD1774") then
-          reg_mult_b(7 downto 0) <= value;
-          div_d(7 downto 0)      <= value;
-          div_start_over         <= '1';
-        elsif (long_address = x"FFD3775") or (long_address = x"FFD1775") then
-          reg_mult_b(15 downto 8) <= value;
-          div_d(15 downto 8)      <= value;
-          div_start_over          <= '1';
-        elsif (long_address = x"FFD3776") or (long_address = x"FFD1776") then
-          reg_mult_b(23 downto 16) <= value;
-          div_d(23 downto 16)      <= value;
-          div_start_over           <= '1';
-        elsif (long_address = x"FFD3777") or (long_address = x"FFD1777") then
-          reg_mult_b(31 downto 24) <= value;
-          div_d(31 downto 24)      <= value;
-          div_start_over           <= '1';
-        elsif (long_address(27 downto 6)&"00"=x"FFD378")
-          or (long_address(27 downto 6)&"00"=x"FFD178") then
-          -- Math unit register writing
-          reg_math_write_toggle <= not reg_math_write_toggle;
-          reg_math_regnum       <= to_integer(long_address(5 downto 2));
-          reg_math_regbyte      <= to_integer(long_address(1 downto 0));
-          reg_math_write_value  <= value;
-        elsif (long_address(27 downto 4)=x"FFD37C") or (long_address(27 downto 4)=x"FFD17C") then
-          -- Math unit input select registers
-          reg_math_config(to_integer(long_address(3 downto 0))).source_a <= to_integer(value(3 downto 0));
-          reg_math_config(to_integer(long_address(3 downto 0))).source_b <= to_integer(value(7 downto 4));
-        elsif (long_address(27 downto 4)=x"FFD37D") or (long_address(27 downto 4)=x"FFD17D") then
-          -- Math unit input select registers
-          reg_math_config(to_integer(long_address(3 downto 0))).latched     <= value(7);
-          reg_math_config(to_integer(long_address(3 downto 0))).do_add      <= value(6);
-          reg_math_config(to_integer(long_address(3 downto 0))).output_high <= value(5);
-          reg_math_config(to_integer(long_address(3 downto 0))).output_low  <= value(4);
-          reg_math_config(to_integer(long_address(3 downto 0))).output      <= to_integer(value(3 downto 0));
-        elsif (long_address = x"FFD37E0") or (long_address = x"FFD17E0") then
-          -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
-          reg_math_latch_interval <= value;
-        elsif (long_address = x"FFD37E1") or (long_address = x"FFD17E1") then
-          -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
-          -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
-          -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
-          math_unit_flags        <= value;
-          reg_math_cycle_counter <= to_unsigned(0,32);
-        elsif (long_address = x"FFD37E8") or (long_address = x"FFD17E8") then
-          reg_math_cycle_compare(7 downto 0) <= value;
-        elsif (long_address = x"FFD37E9") or (long_address = x"FFD17E9") then
-          reg_math_cycle_compare(15 downto 8) <= value;
-        elsif (long_address = x"FFD37EA") or (long_address = x"FFD17EA") then
-          reg_math_cycle_compare(23 downto 16) <= value;
-        elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
-          reg_math_cycle_compare(31 downto 24) <= value;
-        elsif (long_address = x"FFD37FB") then
-          -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
-          cartridge_enable <= value(1);
-        elsif (long_address = x"FFD37FC") then
-        -- @IO:GS $D7FC DEBUG chip-select enables for various devices
-        --        chipselect_enables <= std_logic_vector(value);
-        elsif (long_address = x"FFD37FD") then
-          -- @IO:GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
-          -- @IO:GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
-          -- @IO:GS $D7FD.0 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
-          force_exrom <= value(7);
-          force_game  <= value(6);
-          power_down  <= value(0);
-        elsif (long_address = x"FFD37FE") then
-          -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
-          ocean_cart_mode <= value(1);
-        elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
-          null;
-        else
-          -- Write using the memory controller -- but skip writing to "ROM" if we
-          -- have it write-protected at the moment
-          if long_address(27 downto 17) /= "00000000001" or rom_writeprotect='0' then
-            memory_access_address           := long_address;
-            memory_access_write             := '1';
-            memory_access_wdata(7 downto 0) := value;
-            memory_access_byte_count        := 1;
-            waiting_on_mem_controller       <= '1';
-          end if;
+        if long_address(27 downto 17) /= "00000000001" or rom_writeprotect='0' then
+          memory_access_write             := '1';
         end if;
       end write_long_byte;
 
@@ -2964,6 +2650,11 @@
           -- Bitplane offset
           temp_address(12 downto 0) := dat_offset_drive(12 downto 0);
           report "C65 VIC-III DAT: Address translated to $" & to_hstring(temp_address);
+        end if;
+
+        -- CPU ports at $0000/$0001: map to fastio interface
+        if temp_address = x"0000000" or temp_address = x"0000001" then
+          temp_address(27 downto 20) := x"FF";
         end if;
 
         return temp_address;
@@ -3423,8 +3114,495 @@
         end if;
       end if;
 
+      fastio_rdata <= (others => 'Z');
+      if fastio_read = '1' Then
+        if fastio_addr = x"00000" Then
+          -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
+          fastio_rdata <= cpuport_ddr;
+        elsif fastio_addr = x"00001" Then
+          -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
+          fastio_rdata <= cpuport_value;
+        elsif fastio_addr(19 downto 8) = x"D37" Then
+          -- $D7xx registers
+          fastio_rdata <= read_d7xx_register(fastio_addr(7 downto 0));
+        elsif hypervisor_mode='1'
+           and (fastio_addr(19 downto 4) = x"D364"
+           or  fastio_addr(19 downto 4) = x"D365"
+           or  fastio_addr(19 downto 4) = x"D366"
+           or  fastio_addr(19 downto 4) = x"D367") then
+           -- $D640-$D67F hypervisor mode registers
+           fastio_rdata <= read_hypervisor_register(fastio_addr(5 downto 0));
+        elsif fastio_addr(19 downto 4) = x"D10A"
+          or fastio_addr(19 downto 4) = x"D30A" Then
+          -- CPU RAM expansion controller
+          -- @ IO:C65 $D0A0 - C65 RAM Expansion controller
+          -- The specifications of this interface is VERY under-documented.
+          -- There are two versions: 512KB and 1MB - 8MB
+
+          -- 512KB version is relatively simple:
+          -- Bit 3 - CPU sees expansion bank 0 or 1
+          -- Bit 2 - VIC uses expansion (1) or internal (0) RAM
+          -- Bit 1 - VIC address range (0=$C0000-$DFFFF, 1=$E0000-$FFFFF)
+          -- Bit 0 - VIC sees expansion bank 0 or 1
+          -- Writing %xxxxx0xx -> VIC sees internal 128KB
+          -- Writing %xxxxx100 -> VIC sees expansion RAM bank 0, $C0000-$DFFFF
+          -- Writing %xxxxx110 -> VIC sees expansion RAM bank 0, $E0000-$FFFFF
+          -- Writing %xxxxx101 -> VIC sees expansion RAM bank 1, $C0000-$DFFFF
+          -- Writing %xxxxx111 -> VIC sees expansion RAM bank 1, $E0000-$FFFFF
+          -- Writing %xxxx0xxx -> CPU sees expansion bank 0 (presumably at $80000-$FFFFF)
+          -- Writing %xxxx1xxx -> CPU sees expansiob bank 1 (presumably at $80000-$FFFFF)
+
+            -- 1MB-8MB version lacks documentation that I can find.
+            -- Bit x - CART - presumably enable cartridge memory visibility?
+            -- On read:
+            -- Bit 7 - Indicate error condition?
+            -- DMAgic sees expanded RAM from BANK $40 onwards?
+            -- Presumably something controls what we see in the 1MB address space
+
+            -- For now, just always report an error condition.
+            fastio_rdata <= x"80"; -- rec_status
+         elsif fastio_addr = x"D0600" or fastio_addr = x"D1600" or fastio_addr = x"D3600" Then
+           fastio_rdata <= vdc_status;
+         elsif fastio_addr = x"D0601" or fastio_addr = x"D1601" or fastio_addr = x"D3601" Then
+            -- Read VDC registers EXCEPT register $1F
+            -- (which is handled in the address resolver, instead)
+            fastio_rdata <= x"ff";
+        end if;
+      end if;
+
       -- BEGINNING OF MAIN PROCESS FOR CPU
       if rising_edge(clock) and all_pause='0' then
+
+        -- Implement fastio interface for CPU-provided registers
+        if fastio_write = '1' Then
+          if fastio_addr = x"00000" Then
+            cpuport_ddr <= fastio_wdata;
+          elsif fastio_addr = x"00001" Then
+            cpuport_value <= fastio_wdata;
+            -- Set GeoRAM page (gets munged later with GeoRAM base and mask values
+            -- provided by the hypervisor)
+          elsif fastio_addr = x"d0fff" or fastio_addr = x"d1fff" or fastio_addr = x"d3fff" then
+            georam_block <= fastio_wdata;
+          elsif fastio_addr = x"d0fff" or fastio_addr = x"d1fff" or fastio_addr = x"d3fff" then
+            georam_blockpage <= fastio_wdata;
+          elsif fastio_addr = x"d0f01" or fastio_addr = x"d1f01" or fastio_addr = x"d3f01" then
+            reu_cmd_autoload   <= fastio_wdata(5);
+            reu_cmd_ff00decode <= fastio_wdata(4);
+            reu_cmd_operation  <= std_logic_vector(fastio_wdata(1 downto 0));
+            if fastio_wdata(7)='1' and fastio_wdata(4)='0' then
+              -- XXX Start REU job by copying REU registers to DMAgic registers,
+              -- setting REU job flag and starting the job.
+            elsif fastio_wdata(7)='1' and fastio_wdata(4)='1' then
+              -- XXX Defer starting REU job until $FF00 is written
+              reu_ff00_pending <= '1';
+            end if;
+          elsif fastio_addr = x"d0f02" or fastio_addr = x"d1f02" or fastio_addr = x"d3f02" then
+            reu_c64_startaddr(7 downto 0) <= fastio_wdata;
+          elsif fastio_addr = x"d0f03" or fastio_addr = x"d1f03" or fastio_addr = x"d3f03" then
+            reu_c64_startaddr(15 downto 8) <= fastio_wdata;
+          elsif fastio_addr = x"d0f04" or fastio_addr = x"d1f04" or fastio_addr = x"d3f04" then
+            reu_c64_startaddr(7 downto 0) <= fastio_wdata;
+          elsif fastio_addr = x"d0f05" or fastio_addr = x"d1f05" or fastio_addr = x"d3f05" then
+            reu_reu_startaddr(15 downto 8) <= fastio_wdata;
+          elsif fastio_addr = x"d0f06" or fastio_addr = x"d1f06" or fastio_addr = x"d3f06" then
+            reu_reu_startaddr(23 downto 16) <= fastio_wdata;
+          elsif fastio_addr = x"d0f07" or fastio_addr = x"d1f07" or fastio_addr = x"d3f07" then
+            reu_transfer_length(7 downto 0) <= fastio_wdata;
+          elsif fastio_addr = x"d0f08" or fastio_addr = x"d1f08" or fastio_addr = x"d3f08" then
+            reu_transfer_length(15 downto 8) <= fastio_wdata;
+          elsif fastio_addr = x"d0f09" or fastio_addr = x"d1f09" or fastio_addr = x"d3f09" then
+            reu_useless_interrupt_mask(7 downto 5) <= fastio_wdata(7 downto 5);
+          elsif fastio_addr = x"d0f0a" or fastio_addr = x"d1f0a" or fastio_addr = x"d3f0a" then
+            reu_hold_c64_address <= fastio_wdata(7);
+            reu_hold_reu_address <= fastio_wdata(6);
+          elsif fastio_addr(19 downto 8) = x"D37" Then
+            -- $D7xx registers
+            case fastio_addr(7 downto 0) is
+              when x"00" | x"05" =>
+                -- @IO:C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
+                -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+
+                -- DMA gets triggered when we write here. That actually happens through
+                -- memory_access_write.
+                null;
+              when x"01" =>
+                -- @IO:C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
+                reg_dmagic_addr(15 downto 8) <= fastio_wdata;
+              when x"02" =>
+                -- @IO:C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
+                reg_dmagic_addr(22 downto 16) <= fastio_wdata(6 downto 0);
+                reg_dmagic_addr(27 downto 23) <= (others => '0');
+                reg_dmagic_withio             <= fastio_wdata(7);
+              when x"0e" =>
+                -- Set low order bits of DMA list address, without starting
+                -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
+                reg_dmagic_addr(7 downto 0) <= fastio_wdata;
+              when x"03" =>
+                -- @IO:GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
+                support_f018b <= fastio_wdata(0);
+              when x"04" =>
+                -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
+                reg_dmagic_addr(27 downto 20) <= fastio_wdata;
+              when x"10" =>
+                -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
+                -- @IO:GS $D710.1 - CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
+                -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
+                badline_enable  <= fastio_wdata(0);
+                slow_interrupts <= fastio_wdata(1);
+                vdc_enabled     <= fastio_wdata(2);
+                -- @IO:GS $D710.3 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+                charge_for_branches_taken <= fastio_wdata(3);
+                -- @IO:GS $D710.4-5 CPU:BADEXTRA Cost of badlines minus 40. ie. 00=40 cycles, 11 = 43 cycles.
+                badline_extra_cycles <= fastio_wdata(5 downto 4);
+              when x"11" =>
+                audio_dma_enable         <= fastio_wdata(7);
+                audio_dma_disable_writes <= fastio_wdata(5);
+                cpu_pcm_bypass_int       <= fastio_wdata(4);
+                pwm_mode_select_int      <= fastio_wdata(3);
+              when x"12" =>
+                audio_dma_swap              <= fastio_wdata(1);
+                audio_dma_saturation_enable <= fastio_wdata(0);
+              when x"1C" =>
+                audio_dma_pan_volume(0) <= fastio_wdata;
+              when x"1D" =>
+                audio_dma_pan_volume(1) <= fastio_wdata;
+              when x"1E" =>
+                audio_dma_pan_volume(2) <= fastio_wdata;
+              when x"1F" =>
+                audio_dma_pan_volume(3) <= fastio_wdata;
+              when x"20" | x"21" | x"22" | x"23" | x"24" | x"25" | x"26" | x"27" |
+                   x"28" | x"29" | x"2A" | x"2B" | x"2C" | x"2D" | x"2E" | x"2F" |
+                   x"30" | x"31" | x"32" | x"33" | x"34" | x"35" | x"36" | x"37" |
+                   x"38" | x"39" | x"3A" | x"3B" | x"3C" | x"3D" | x"3E" | x"3F" |
+                   x"40" | x"41" | x"42" | x"43" | x"44" | x"45" | x"46" | x"47" |
+                   x"48" | x"49" | x"4A" | x"4B" | x"4C" | x"4D" | x"4E" | x"4F" |
+                   x"50" | x"51" | x"52" | x"53" | x"54" | x"55" | x"56" | x"57" |
+                   x"58" | x"59" | x"5A" | x"5B" | x"5C" | x"5D" | x"5E" | x"5F" =>
+                case fastio_addr(3 downto 0) is
+                  -- We put this one first, so that writing linearly will correctly
+                  -- initialise things when freezing and unfreezing
+                  when x"0" =>
+                    audio_dma_enables(to_integer(fastio_addr(7 downto 4)-2)) <= fastio_wdata(7);
+                    audio_dma_repeat(to_integer(fastio_addr(7 downto 4)-2))       <= fastio_wdata(6);
+                    audio_dma_signed(to_integer(fastio_addr(7 downto 4)-2))       <= fastio_wdata(5);
+                    audio_dma_sine_wave(to_integer(fastio_addr(7 downto 4)-2))    <= fastio_wdata(4);
+                    audio_dma_stop(to_integer(fastio_addr(7 downto 4)-2))         <= fastio_wdata(3);
+                    audio_dma_sample_width(to_integer(fastio_addr(7 downto 4)-2)) <= fastio_wdata(1 downto 0);
+                    report "Setting Audio DMA channel "
+                    & integer'image(to_integer(fastio_addr(7 downto 4)-2)) &
+                    " flags to $" & to_hstring(fastio_wdata);
+                  when x"1" => audio_dma_base_addr(to_integer(fastio_addr(7 downto 4)-2))(7 downto 0)   <= fastio_wdata;
+                  when x"2" => audio_dma_base_addr(to_integer(fastio_addr(7 downto 4)-2))(15 downto 8)  <= fastio_wdata;
+                  when x"3" => audio_dma_base_addr(to_integer(fastio_addr(7 downto 4)-2))(23 downto 16) <= fastio_wdata;
+                  when x"4" => audio_dma_time_base(to_integer(fastio_addr(7 downto 4)-2))(7 downto 0)   <= fastio_wdata;
+                  when x"5" => audio_dma_time_base(to_integer(fastio_addr(7 downto 4)-2))(15 downto 8)  <= fastio_wdata;
+                  when x"6" => audio_dma_time_base(to_integer(fastio_addr(7 downto 4)-2))(23 downto 16) <= fastio_wdata;
+                    report "Setting Audio DMA channel " & integer'image(to_integer(fastio_addr(7 downto 4)-2))
+                    & " <time_base to $" & to_hstring(fastio_wdata);
+                  when x"7" => audio_dma_top_addr(to_integer(fastio_addr(7 downto 4)-2))(7 downto 0)  <= fastio_wdata;
+                  when x"8" => audio_dma_top_addr(to_integer(fastio_addr(7 downto 4)-2))(15 downto 8) <= fastio_wdata;
+                    report "Setting Audio DMA channel " & integer'image(to_integer(fastio_addr(7 downto 4)-2))
+                    & " <top_addr to $" & to_hstring(fastio_wdata);
+                  when x"9" => audio_dma_volume(to_integer(fastio_addr(7 downto 4)-2))                         <= fastio_wdata;
+                  when x"a" => audio_dma_current_addr_set(to_integer(fastio_addr(7 downto 4)-2))(7 downto 0)   <= fastio_wdata;
+                  when x"b" => audio_dma_current_addr_set(to_integer(fastio_addr(7 downto 4)-2))(15 downto 8)  <= fastio_wdata;
+                  when x"c" => audio_dma_current_addr_set(to_integer(fastio_addr(7 downto 4)-2))(23 downto 16) <= fastio_wdata;
+                    audio_dma_current_addr_set_flag(to_integer(fastio_addr(7 downto 4)-2))
+                    <= not audio_dma_current_addr_set_flag(to_integer(fastio_addr(7 downto 4)-2));
+                  when x"d" => audio_dma_timing_counter_set(to_integer(fastio_addr(7 downto 4)-2))(7 downto 0)   <= fastio_wdata;
+                  when x"e" => audio_dma_timing_counter_set(to_integer(fastio_addr(7 downto 4)-2))(15 downto 8)  <= fastio_wdata;
+                  when x"f" => audio_dma_timing_counter_set(to_integer(fastio_addr(7 downto 4)-2))(23 downto 16) <= fastio_wdata;
+                    audio_dma_timing_counter_set_flag(to_integer(fastio_addr(7 downto 4)-2))
+                    <= not audio_dma_timing_counter_set_flag(to_integer(fastio_addr(7 downto 4)-2));
+                  when others => null;
+                end case;
+              -- @IO:GS $D770-3 32-bit multiplier input A
+              when x"70" =>
+                reg_mult_a(7 downto 0) <= fastio_wdata;
+                div_n(7 downto 0)      <= fastio_wdata;
+                div_start_over         <= '1';
+              when x"71" =>
+                reg_mult_a(15 downto 8) <= fastio_wdata;
+                div_n(15 downto 8)      <= fastio_wdata;
+                div_start_over          <= '1';
+              when x"72" =>
+                reg_mult_a(23 downto 16) <= fastio_wdata;
+                div_n(23 downto 16)      <= fastio_wdata;
+                div_start_over           <= '1';
+              when x"73" =>
+                reg_mult_a(31 downto 24) <= fastio_wdata;
+                div_n(31 downto 24)      <= fastio_wdata;
+                div_start_over           <= '1';
+              -- @IO:GS $D774-7 32-bit multiplier input B
+              when x"74" =>
+                reg_mult_b(7 downto 0) <= fastio_wdata;
+                div_d(7 downto 0)      <= fastio_wdata;
+                div_start_over         <= '1';
+              when x"75" =>
+                reg_mult_b(15 downto 8) <= fastio_wdata;
+                div_d(15 downto 8)      <= fastio_wdata;
+                div_start_over          <= '1';
+              when x"76" =>
+                reg_mult_b(23 downto 16) <= fastio_wdata;
+                div_d(23 downto 16)      <= fastio_wdata;
+                div_start_over           <= '1';
+              when x"77" =>
+                reg_mult_b(31 downto 24) <= fastio_wdata;
+                div_d(31 downto 24)      <= fastio_wdata;
+                div_start_over           <= '1';
+              when x"80" | x"81" | x"82" | x"83" | x"84" | x"85" | x"86" | x"87" |
+                   x"88" | x"89" | x"8A" | x"8B" | x"8C" | x"8D" | x"8E" | x"8F" |
+                   x"90" | x"91" | x"92" | x"93" | x"94" | x"95" | x"96" | x"97" |
+                   x"98" | x"99" | x"9A" | x"9B" | x"9C" | x"9D" | x"9E" | x"9F" |
+                   x"A0" | x"A1" | x"A2" | x"A3" | x"A4" | x"A5" | x"A6" | x"A7" |
+                   x"A8" | x"A9" | x"AA" | x"AB" | x"AC" | x"AD" | x"AE" | x"AF" |
+                   x"B0" | x"B1" | x"B2" | x"B3" | x"B4" | x"B5" | x"B6" | x"B7" |
+                   x"B8" | x"B9" | x"BA" | x"BB" | x"BC" | x"BD" | x"BE" | x"BF" =>
+                -- Math unit register writing
+                reg_math_write_toggle <= not reg_math_write_toggle;
+                reg_math_regnum       <= to_integer(fastio_addr(5 downto 2));
+                reg_math_regbyte      <= to_integer(fastio_addr(1 downto 0));
+                reg_math_write_value  <= fastio_wdata;
+              when x"C0" | x"C1" | x"C2" | x"C3" | x"C4" | x"C5" | x"C6" | x"C7" |
+                   x"C8" | x"C9" | x"CA" | x"CB" | x"CC" | x"CD" | x"CE" | x"CF" =>
+                -- Math unit input select registers
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).source_a <= to_integer(fastio_wdata(3 downto 0));
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).source_b <= to_integer(fastio_wdata(7 downto 4));
+              when x"D0" | x"D1" | x"D2" | x"D3" | x"D4" | x"D5" | x"D6" | x"D7" |
+                   x"D8" | x"D9" | x"DA" | x"DB" | x"DC" | x"DD" | x"DE" | x"DF" =>
+                -- Math unit input select registers
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).latched     <= fastio_wdata(7);
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).do_add      <= fastio_wdata(6);
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).output_high <= fastio_wdata(5);
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).output_low  <= fastio_wdata(4);
+                reg_math_config(to_integer(fastio_addr(3 downto 0))).output      <= to_integer(fastio_wdata(3 downto 0));
+              when x"E0" =>
+                -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
+                reg_math_latch_interval <= fastio_wdata;
+              when x"E1" =>
+                -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
+                -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
+                -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
+                math_unit_flags        <= fastio_wdata;
+                reg_math_cycle_counter <= to_unsigned(0,32);
+              when x"E8" =>
+                reg_math_cycle_compare(7 downto 0) <= fastio_wdata;
+              when x"E9" =>
+                reg_math_cycle_compare(15 downto 8) <= fastio_wdata;
+              when x"EA" =>
+                reg_math_cycle_compare(23 downto 16) <= fastio_wdata;
+              when x"EB" =>
+                reg_math_cycle_compare(31 downto 24) <= fastio_wdata;
+              when x"FB" =>
+                -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
+                cartridge_enable <= fastio_wdata(1);
+              when x"FC" =>
+                -- @IO:GS $D7FC DEBUG chip-select enables for various devices
+                --        chipselect_enables <= std_logic_vector(value);
+              when x"FD" =>
+                -- @IO:GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
+                -- @IO:GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
+                -- @IO:GS $D7FD.0 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
+                force_exrom <= fastio_wdata(7);
+                force_game  <= fastio_wdata(6);
+                power_down  <= fastio_wdata(0);
+              when x"FE" =>
+                -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+                ocean_cart_mode <= fastio_wdata(1);
+              when others => null;
+            end case;
+          elsif hypervisor_mode='1'
+            and (fastio_addr(19 downto 4) = x"D364"
+            or  fastio_addr(19 downto 4) = x"D365"
+            or  fastio_addr(19 downto 4) = x"D366"
+            or  fastio_addr(19 downto 4) = x"D367") then
+            -- $D640-$D67F hypervisor mode registers
+--            write_hypervisor_register(to_integer(fastio_addr(5 downto 0), fastio_wdata));
+            case fastio_addr(7 downto 0) is
+              -- @IO:GS $D640 HCPU:REGA Hypervisor A register storage
+              when x"40" => hyper_a <= last_value;
+              -- @IO:GS $D641 HCPU:REGX Hypervisor X register storage
+              when x"41" => hyper_x <= last_value;
+              -- @IO:GS $D642 HCPU_REGY Hypervisor Y register storage
+              when x"42" => hyper_y <= last_value;
+              -- @IO:GS $D643 HCPU:REGZ Hypervisor Z register storage
+              when x"43" => hyper_z <= last_value;
+              -- @IO:GS $D644 HCPU:REGB Hypervisor B register storage
+              when x"44" => hyper_b <= last_value;
+              -- @IO:GS $D645 HCPU:SPL Hypervisor SPL register storage
+              when x"45" => hyper_sp <= last_value;
+              -- @IO:GS $D646 HCPU:SPH Hypervisor SPH register storage
+              when x"46" => hyper_sph <= last_value;
+              -- @IO:GS $D647 HCPU:PFLAGS Hypervisor P register storage
+              when x"47" => hyper_p <= last_value;
+              -- @IO:GS $D648 HCPU:PCL Hypervisor PC-low register storage
+              when x"48" => hyper_pc(7 downto 0) <= last_value;
+              -- @IO:GS $D649 HCPU:PCH Hypervisor PC-high register storage
+              when x"49" => hyper_pc(15 downto 8) <= last_value;
+              -- @IO:GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
+              when x"4A" =>
+                hyper_map_low                     <= std_logic_vector(last_value(7 downto 4));
+                  hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
+              -- @IO:GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
+              when x"4B" => hyper_map_offset_low(7 downto 0) <= last_value;
+              -- @IO:GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
+              when x"4C" =>
+                hyper_map_high                     <= std_logic_vector(last_value(7 downto 4));
+                  hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
+              -- @IO:GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
+              when x"4D" => hyper_map_offset_high(7 downto 0) <= last_value;
+              -- @IO:GS $D64E HCPU:MAPLOMB Hypervisor MAPLO mega-byte number register storage
+              when x"4E" => hyper_mb_low <= last_value;
+              -- @IO:GS $D64F HCPU:MAPHIMB Hypervisor MAPHI mega-byte number register storage
+              when x"4F" => hyper_mb_high <= last_value;
+              -- @IO:GS $D650 HCPU:PORT00 Hypervisor CPU port \$00 value
+              when x"50" => hyper_port_00 <= last_value;
+              -- @IO:GS $D651 HCPU:PORT01 Hypervisor CPU port \$01 value
+              when x"51" => hyper_port_01 <= last_value;
+              -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+              -- @IO:GS $D652.0-1 HCPU:VICMODE VIC-II/VIC-III/VIC-IV mode select
+              -- @IO:GS $D652.2 HCPU:EXSID 0=Use internal SIDs, 1=Use external(1) SIDs
+              when x"52" => hyper_iomode <= last_value;
+              -- @IO:GS $D653 HCPU:DMASRCMB Hypervisor DMAgic source MB
+              when x"53" => hyper_dmagic_src_mb <= last_value;
+              -- @IO:GS $D654 HCPU:DMADSTMB Hypervisor DMAgic destination MB
+              when x"54" => hyper_dmagic_dst_mb <= last_value;
+              -- @IO:GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
+              when x"55" => hyper_dmagic_list_addr(7 downto 0) <= last_value;
+              -- @IO:GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
+              when x"56" => hyper_dmagic_list_addr(15 downto 8) <= last_value;
+              -- @IO:GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
+              when x"57" => hyper_dmagic_list_addr(23 downto 16) <= last_value;
+              -- @IO:GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
+              when x"58" => hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
+              -- @IO:GS $D659 - Hypervisor virtualise hardware flags
+              -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+              -- @IO:GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
+              when x"59" =>
+                virtualise_sd0 <= last_value(0);
+                virtualise_sd1 <= last_value(1);
+              -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
+              when x"5D" =>
+                reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
+                reg_pageactive             <= last_value(4);
+                reg_pages_dirty            <= std_logic_vector(last_value(3 downto 0));
+              -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
+              when x"5E" => reg_pagenumber(9 downto 2) <= last_value;
+              -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
+              when x"5F" => reg_pagenumber(17 downto 10) <= last_value;
+              -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
+              -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
+              -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
+              -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+              when x"60" => reg_page0_logical(7 downto 0) <= last_value;
+              when x"61" => reg_page0_logical(15 downto 8) <= last_value;
+              when x"62" => reg_page0_physical(7 downto 0) <= last_value;
+              when x"63" => reg_page0_physical(15 downto 8) <= last_value;
+              -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
+              -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
+              -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
+              -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+              when x"64" => reg_page1_logical(7 downto 0) <= last_value;
+              when x"65" => reg_page1_logical(15 downto 8) <= last_value;
+              when x"66" => reg_page1_physical(7 downto 0) <= last_value;
+              when x"67" => reg_page1_physical(15 downto 8) <= last_value;
+              -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
+              -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
+              -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
+              -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+              when x"68" => reg_page2_logical(7 downto 0) <= last_value;
+              when x"69" => reg_page2_logical(15 downto 8) <= last_value;
+              when x"6A" => reg_page2_physical(7 downto 0) <= last_value;
+              when x"6B" => reg_page2_physical(15 downto 8) <= last_value;
+              -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
+              -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
+              -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
+              -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
+              when x"6C" => reg_page3_logical(7 downto 0) <= last_value;
+              when x"6D" => reg_page3_logical(15 downto 8) <= last_value;
+              when x"6E" => reg_page3_physical(7 downto 0) <= last_value;
+              when x"6F" => reg_page3_physical(15 downto 8) <= last_value;
+              -- @IO:GS $D670 HCPU:GEORAMBASE Hypervisor GeoRAM base address (x MB)
+              when x"70" => georam_page(19 downto 12) <= last_value;
+              -- @IO:GS $D671 HCPU:GEORAMMASK Hypervisor GeoRAM address mask (applied to GeoRAM block register)
+              when x"71" => georam_blockmask <= last_value;
+              -- @IO:GS $D672 - Protected Hardware configuration
+              -- @IO:GS $D672.6 HCPU:MATRIXEN Enable composited Matrix Mode, and disable UART access to serial monitor.
+              when x"72" =>
+                hyper_protected_hardware <= last_value;
+                if last_value(7)='1' then
+                  -- If we attempt to enter secure mode, then we are forced out of
+                  -- the hypervisor, to make sure that the hypervisor cannot do
+                  -- naughty things to the secure container, like re-enable IO
+                  -- devices.
+                  state <= ReturnFromHypervisor;
+                end if;
+                if last_value(6)='1' then
+                  matrix_rain_seed <= cycle_counter(15 downto 0);
+                end if;
+              -- @IO:GS $D67C.0-7 HCPU:UARTDATA (write) Hypervisor write serial output to UART monitor
+              when x"7C" =>
+                monitor_char                 <= last_value;
+                monitor_char_toggle          <= monitor_char_toggle_internal;
+                monitor_char_toggle_internal <= not monitor_char_toggle_internal;
+                -- It can take hundreds of cycles before the serial monitor interface asserts
+                -- its busy flag, so we have an internal flag we assert until the monitor
+                -- interface asserts its.
+                immediate_monitor_char_busy <= '1';
+              -- @IO:GS $D67D.0 HCPU:RSVD RESERVED
+              -- @IO:GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
+              -- @IO:GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
+              -- @IO:GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
+              -- @IO:GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+              -- @IO:GS $D67D.5 HCPU:F4502 Hypervisor force CPU to 4502 personality, even in C64 IO mode.
+              -- @IO:GS $D67D.6 HCPU:PIRQ Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
+              -- @IO:GS $D67D.7 HCPU:PNMI Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
+              -- @IO:GS $D67D HCPU:WATCHDOG Hypervisor watchdog register: writing any value clears the watch dog
+              when x"7D" =>
+                flat32_enabled             <= last_value(1);
+                rom_writeprotect           <= last_value(2);
+                speed_gate_enable          <= last_value(3);
+                speed_gate_enable_internal <= last_value(3);
+                force_fast                 <= last_value(4);
+                force_4502                 <= last_value(5);
+                irq_defer_request          <= last_value(6);
+                nmi_pending                <= last_value(7);
+                report "irq_pending, nmi_pending <= " & std_logic'image(last_value(6))
+                       & "," & std_logic'image(last_value(7));
+                watchdog_fed <= '1';
+              -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
+              when x"7E" =>
+                hypervisor_upgraded <= '1';
+              when others => null;
+            end case;
+          elsif fastio_addr(19 downto 4) = x"D10A"
+            or fastio_addr(19 downto 4) = x"D30A" Then
+            -- CPU RAM expansion controller
+            case fastio_addr(3 downto 0) is
+              when x"0" => null; -- rec_status;
+              when others => null;
+            end case;
+          elsif fastio_addr = x"D0600" or fastio_addr = x"D1600" or fastio_addr = x"D3600" Then
+            vdc_reg_num <= fastio_wdata;
+          elsif fastio_addr = x"D0601" or fastio_addr = x"D1601" or fastio_addr = x"D3601" Then
+            -- Write VDC registers EXCEPT register $1F
+            -- (which is handled in the address resolver, instead)
+            case vdc_reg_num is
+              when x"12" =>
+                vdc_mem_addr(15 downto 8) <= fastio_wdata;
+              when x"13" =>
+                vdc_mem_addr(7 downto 0) <= fastio_wdata;
+              when x"20" =>
+                vdc_mem_addr_src(15 downto 8) <= fastio_wdata;
+              when x"21" =>
+                vdc_mem_addr_src(7 downto 0) <= fastio_wdata;
+              when x"1E" =>
+                vdc_word_count(7 downto 0) <= fastio_wdata;
+              when others =>
+                null;
+            end case;
+          end if;
+        end if;
 
         -- By default no memory access
         memory_access_read       := '0';
@@ -3894,264 +4072,7 @@
         -- Write to hypervisor registers if requested
         -- (This is separated out from the previous cycle to reduce the logic depth,
         -- and thus help achieve timing closure.)
-        if last_write_pending = '1' then
-          last_write_pending <= '0';
 
-          -- @IO:GS $D640 HCPU:REGA Hypervisor A register storage
-          if last_write_address = x"FFD3640" and hypervisor_mode='1' then
-            hyper_a <= last_value;
-          end if;
-          -- @IO:GS $D641 HCPU:REGX Hypervisor X register storage
-          if last_write_address = x"FFD3641" and hypervisor_mode='1' then
-            hyper_x <= last_value;
-          end if;
-          -- @IO:GS $D642 HCPU_REGY Hypervisor Y register storage
-          if last_write_address = x"FFD3642" and hypervisor_mode='1' then
-            hyper_y <= last_value;
-          end if;
-          -- @IO:GS $D643 HCPU:REGZ Hypervisor Z register storage
-          if last_write_address = x"FFD3643" and hypervisor_mode='1' then
-            hyper_z <= last_value;
-          end if;
-          -- @IO:GS $D644 HCPU:REGB Hypervisor B register storage
-          if last_write_address = x"FFD3644" and hypervisor_mode='1' then
-            hyper_b <= last_value;
-          end if;
-          -- @IO:GS $D645 HCPU:SPL Hypervisor SPL register storage
-          if last_write_address = x"FFD3645" and hypervisor_mode='1' then
-            hyper_sp <= last_value;
-          end if;
-          -- @IO:GS $D646 HCPU:SPH Hypervisor SPH register storage
-          if last_write_address = x"FFD3646" and hypervisor_mode='1' then
-            hyper_sph <= last_value;
-          end if;
-          -- @IO:GS $D647 HCPU:PFLAGS Hypervisor P register storage
-          if last_write_address = x"FFD3647" and hypervisor_mode='1' then
-            hyper_p <= last_value;
-          end if;
-          -- @IO:GS $D648 HCPU:PCL Hypervisor PC-low register storage
-          if last_write_address = x"FFD3648" and hypervisor_mode='1' then
-            hyper_pc(7 downto 0) <= last_value;
-          end if;
-          -- @IO:GS $D649 HCPU:PCH Hypervisor PC-high register storage
-          if last_write_address = x"FFD3649" and hypervisor_mode='1' then
-            hyper_pc(15 downto 8) <= last_value;
-          end if;
-          -- @IO:GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
-          if last_write_address = x"FFD364A" and hypervisor_mode='1' then
-            hyper_map_low                     <= std_logic_vector(last_value(7 downto 4));
-            hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
-          end if;
-          -- @IO:GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
-          if last_write_address = x"FFD364B" and hypervisor_mode='1' then
-            hyper_map_offset_low(7 downto 0) <= last_value;
-          end if;
-          -- @IO:GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
-          if last_write_address = x"FFD364C" and hypervisor_mode='1' then
-            hyper_map_high                     <= std_logic_vector(last_value(7 downto 4));
-            hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
-          end if;
-          -- @IO:GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
-          if last_write_address = x"FFD364D" and hypervisor_mode='1' then
-            hyper_map_offset_high(7 downto 0) <= last_value;
-          end if;
-          -- @IO:GS $D64E HCPU:MAPLOMB Hypervisor MAPLO mega-byte number register storage
-          if last_write_address = x"FFD364E" and hypervisor_mode='1' then
-            hyper_mb_low <= last_value;
-          end if;
-          -- @IO:GS $D64F HCPU:MAPHIMB Hypervisor MAPHI mega-byte number register storage
-          if last_write_address = x"FFD364F" and hypervisor_mode='1' then
-            hyper_mb_high <= last_value;
-          end if;
-          -- @IO:GS $D650 HCPU:PORT00 Hypervisor CPU port \$00 value
-          if last_write_address = x"FFD3650" and hypervisor_mode='1' then
-            hyper_port_00 <= last_value;
-          end if;
-          -- @IO:GS $D651 HCPU:PORT01 Hypervisor CPU port \$01 value
-          if last_write_address = x"FFD3651" and hypervisor_mode='1' then
-            hyper_port_01 <= last_value;
-          end if;
-          -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
-          -- @IO:GS $D652.0-1 HCPU:VICMODE VIC-II/VIC-III/VIC-IV mode select
-          -- @IO:GS $D652.2 HCPU:EXSID 0=Use internal SIDs, 1=Use external(1) SIDs
-          if last_write_address = x"FFD3652" and hypervisor_mode='1' then
-            hyper_iomode <= last_value;
-          end if;
-          -- @IO:GS $D653 HCPU:DMASRCMB Hypervisor DMAgic source MB
-          if last_write_address = x"FFD3653" and hypervisor_mode='1' then
-            hyper_dmagic_src_mb <= last_value;
-          end if;
-          -- @IO:GS $D654 HCPU:DMADSTMB Hypervisor DMAgic destination MB
-          if last_write_address = x"FFD3654" and hypervisor_mode='1' then
-            hyper_dmagic_dst_mb <= last_value;
-          end if;
-          -- @IO:GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
-          if last_write_address = x"FFD3655" and hypervisor_mode='1' then
-            hyper_dmagic_list_addr(7 downto 0) <= last_value;
-          end if;
-          -- @IO:GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
-          if last_write_address = x"FFD3656" and hypervisor_mode='1' then
-            hyper_dmagic_list_addr(15 downto 8) <= last_value;
-          end if;
-          -- @IO:GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
-          if last_write_address = x"FFD3657" and hypervisor_mode='1' then
-            hyper_dmagic_list_addr(23 downto 16) <= last_value;
-          end if;
-          -- @IO:GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
-          if last_write_address = x"FFD3658" and hypervisor_mode='1' then
-            hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
-          end if;
-          -- @IO:GS $D659 - Hypervisor virtualise hardware flags
-          -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
-          -- @IO:GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
-          if last_write_address = x"FFD3659" and hypervisor_mode='1' then
-            virtualise_sd0 <= last_value(0);
-            virtualise_sd1 <= last_value(1);
-          end if;
-          -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
-          if last_write_address = x"FFD365D" and hypervisor_mode='1' then
-            reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
-            reg_pageactive             <= last_value(4);
-            reg_pages_dirty            <= std_logic_vector(last_value(3 downto 0));
-          end if;
-          -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
-          if last_write_address = x"FFD365E" and hypervisor_mode='1' then
-            reg_pagenumber(9 downto 2) <= last_value;
-          end if;
-          -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
-          if last_write_address = x"FFD365F" and hypervisor_mode='1' then
-            reg_pagenumber(17 downto 10) <= last_value;
-          end if;
-          -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
-          -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
-          -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
-          -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
-          if last_write_address = x"FFD3660" and hypervisor_mode='1' then
-            reg_page0_logical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD3661" and hypervisor_mode='1' then
-            reg_page0_logical(15 downto 8) <= last_value;
-          end if;
-          if last_write_address = x"FFD3662" and hypervisor_mode='1' then
-            reg_page0_physical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD3663" and hypervisor_mode='1' then
-            reg_page0_physical(15 downto 8) <= last_value;
-          end if;
-          -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
-          -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
-          -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
-          -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
-          if last_write_address = x"FFD3664" and hypervisor_mode='1' then
-            reg_page1_logical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD3665" and hypervisor_mode='1' then
-            reg_page1_logical(15 downto 8) <= last_value;
-          end if;
-          if last_write_address = x"FFD3666" and hypervisor_mode='1' then
-            reg_page1_physical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD3667" and hypervisor_mode='1' then
-            reg_page1_physical(15 downto 8) <= last_value;
-          end if;
-
-          -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
-          -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
-          -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
-          -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
-          if last_write_address = x"FFD3668" and hypervisor_mode='1' then
-            reg_page2_logical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD3669" and hypervisor_mode='1' then
-            reg_page2_logical(15 downto 8) <= last_value;
-          end if;
-          if last_write_address = x"FFD366A" and hypervisor_mode='1' then
-            reg_page2_physical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD366B" and hypervisor_mode='1' then
-            reg_page2_physical(15 downto 8) <= last_value;
-          end if;
-          -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
-          -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
-          -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
-          -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
-          if last_write_address = x"FFD366C" and hypervisor_mode='1' then
-            reg_page3_logical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD366D" and hypervisor_mode='1' then
-            reg_page3_logical(15 downto 8) <= last_value;
-          end if;
-          if last_write_address = x"FFD366E" and hypervisor_mode='1' then
-            reg_page3_physical(7 downto 0) <= last_value;
-          end if;
-          if last_write_address = x"FFD366F" and hypervisor_mode='1' then
-            reg_page3_physical(15 downto 8) <= last_value;
-          end if;
-
-          -- @IO:GS $D670 HCPU:GEORAMBASE Hypervisor GeoRAM base address (x MB)
-          if last_write_address = x"FFD3670" and hypervisor_mode='1' then
-            georam_page(19 downto 12) <= last_value;
-          end if;
-          -- @IO:GS $D671 HCPU:GEORAMMASK Hypervisor GeoRAM address mask (applied to GeoRAM block register)
-          if last_write_address = x"FFD3671" and hypervisor_mode='1' then
-            georam_blockmask <= last_value;
-          end if;
-
-          -- @IO:GS $D672 - Protected Hardware configuration
-          -- @IO:GS $D672.6 HCPU:MATRIXEN Enable composited Matrix Mode, and disable UART access to serial monitor.
-          if last_write_address = x"FFD3672" and hypervisor_mode='1' then
-            hyper_protected_hardware <= last_value;
-            if last_value(7)='1' then
-              -- If we attempt to enter secure mode, then we are forced out of
-              -- the hypervisor, to make sure that the hypervisor cannot do
-              -- naughty things to the secure container, like re-enable IO
-              -- devices.
-              state <= ReturnFromHypervisor;
-            end if;
-            if last_value(6)='1' then
-              matrix_rain_seed <= cycle_counter(15 downto 0);
-            end if;
-          end if;
-
-          -- @IO:GS $D67C.0-7 HCPU:UARTDATA (write) Hypervisor write serial output to UART monitor
-          if last_write_address = x"FFD367C" and hypervisor_mode='1' then
-            monitor_char                 <= last_value;
-            monitor_char_toggle          <= monitor_char_toggle_internal;
-            monitor_char_toggle_internal <= not monitor_char_toggle_internal;
-            -- It can take hundreds of cycles before the serial monitor interface asserts
-            -- its busy flag, so we have an internal flag we assert until the monitor
-            -- interface asserts its.
-            immediate_monitor_char_busy <= '1';
-          end if;
-
-          -- @IO:GS $D67D.0 HCPU:RSVD RESERVED
-          -- @IO:GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
-          -- @IO:GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
-          -- @IO:GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
-          -- @IO:GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
-          -- @IO:GS $D67D.5 HCPU:F4502 Hypervisor force CPU to 4502 personality, even in C64 IO mode.
-          -- @IO:GS $D67D.6 HCPU:PIRQ Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
-          -- @IO:GS $D67D.7 HCPU:PNMI Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
-          -- @IO:GS $D67D HCPU:WATCHDOG Hypervisor watchdog register: writing any value clears the watch dog
-          if last_write_address = x"FFD367D" and hypervisor_mode='1' then
-            flat32_enabled             <= last_value(1);
-            rom_writeprotect           <= last_value(2);
-            speed_gate_enable          <= last_value(3);
-            speed_gate_enable_internal <= last_value(3);
-            force_fast                 <= last_value(4);
-            force_4502                 <= last_value(5);
-            irq_defer_request          <= last_value(6);
-            nmi_pending                <= last_value(7);
-
-            report "irq_pending, nmi_pending <= " & std_logic'image(last_value(6))
-            & "," & std_logic'image(last_value(7));
-            watchdog_fed <= '1';
-          end if;
-          -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
-          if last_write_address = x"FFD367E" and hypervisor_mode='1' then
-            hypervisor_upgraded <= '1';
-          end if;
-        end if;
 
         -- Allow matrix mode in hypervisor
         protected_hardware               <= hyper_protected_hardware;
