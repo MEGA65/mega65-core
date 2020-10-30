@@ -538,7 +538,7 @@ architecture Behavioral of machine is
   signal hyppo_address : std_logic_vector(13 downto 0);
 
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
-  signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
+  signal fastio_colour_ram_rdata : std_logic_vector(7 downto 0);
 
   --signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(19 DOWNTO 0);
@@ -755,6 +755,18 @@ architecture Behavioral of machine is
 
   signal dd00_bits : unsigned(1 downto 0);
 
+  signal instruction_fetch_request_toggle : std_logic;
+  signal instruction_fetch_address_in : integer;
+  signal instruction_fetched_address_out : integer;
+  signal instruction_fetch_rdata : unsigned(47 downto 0) := (others => '1');
+  signal transaction_request_toggle : std_logic;
+  signal transaction_complete_toggle : std_logic := '0';
+  signal transaction_length : integer range 0 to 6;
+  signal transaction_address : unsigned(27 downto 0);
+  signal transaction_write : std_logic;
+  signal transaction_wdata : unsigned(31 downto 0);
+  signal transaction_rdata : unsigned(47 downto 0);
+
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
@@ -944,6 +956,68 @@ begin
     end if;
   end process;
 
+  memcontroller0 : entity work.memcontroller
+    generic map (
+      target       => mega65r3,
+      chipram_1mb  => '0',
+      chipram_size => 393216
+    )
+    port map (
+      cpuclock   => cpuclock,
+      cpuclock2x => pixelclock,
+      cpuclock4x => clock162,
+      cpuclock8x => clock324,
+
+      privileged_access => '1',
+
+      cpuis6502 => '0',
+
+      is_zp_access => '0',
+
+      bp_address => to_unsigned(0,20),
+
+      instruction_fetch_request_toggle => instruction_fetch_request_toggle,
+      instruction_fetch_address_in     => instruction_fetch_address_in,
+      instruction_fetched_address_out  => instruction_fetched_address_out,
+      instruction_fetch_rdata          => instruction_fetch_rdata,
+
+      transaction_request_toggle  => transaction_request_toggle,
+      transaction_complete_toggle => transaction_complete_toggle,
+      transaction_length          => transaction_length,
+      transaction_address         => transaction_address,
+      transaction_write           => transaction_write,
+      transaction_wdata           => transaction_wdata,
+      transaction_rdata           => transaction_rdata,
+
+      fastio_addr        => fastio_addr,
+      fastio_addr_fast   => fastio_addr_fast,
+      fastio_read        => fastio_read,
+      fastio_write       => fastio_write,
+      fastio_wdata       => fastio_wdata,
+      fastio_viciv_rdata => fastio_vic_rdata,
+      fastio_rdata       => fastio_rdata,
+
+      fastio_vic_rdata        => fastio_vic_rdata,
+      fastio_colour_ram_rdata => fastio_colour_ram_rdata,
+      colour_ram_cs           => colour_ram_cs,
+      charrom_write_cs        => charrom_write_cs,
+
+      hyppo_rdata       => hyppo_rdata,
+      hyppo_address_out => hyppo_address,
+
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle   => slow_access_ready_toggle,
+      slow_access_address        => slow_access_address,
+      slow_access_write          => slow_access_write,
+      slow_access_wdata          => slow_access_wdata,
+      slow_access_rdata          => slow_access_rdata,
+
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      slow_prefetched_data           => slow_prefetched_data,
+      slow_prefetched_address        => slow_prefetched_address
+
+    );
+
   cpu0: entity work.gs4510
     generic map(target => target)
     port map(
@@ -957,9 +1031,6 @@ begin
       chipselect_enables => chipselect_enables,
       mathclock => cpuclock,
       clock => cpuclock,
-      clock2x => pixelclock,
-      clock4x => clock162,
-      clock8x => clock324,
       reset =>reset_combined,
       reset_out => reset_out,
       irq => combinedirq,
@@ -1066,36 +1137,22 @@ begin
       monitor_mem_trace_toggle => monitor_mem_trace_toggle,
       monitor_cpuport => monitor_cpuport,
 
-      slow_access_request_toggle => slow_access_request_toggle,
-      slow_access_ready_toggle => slow_access_ready_toggle,
-      slow_access_address => slow_access_address,
-      slow_access_write => slow_access_write,
-      slow_access_wdata => slow_access_wdata,
-      slow_access_rdata => slow_access_rdata,
-      -- XXX Termporarily no slow device prefetch support
---      slow_prefetched_address => slow_prefetched_address,
---      slow_prefetched_data => slow_prefetched_data,
---      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      instruction_fetch_request_toggle => instruction_fetch_request_toggle,
+      instruction_fetch_address_in     => instruction_fetch_address_in,
+      instruction_fetched_address_out  => instruction_fetched_address_out,
+      instruction_fetch_rdata          => instruction_fetch_rdata,
 
-      chipram_clk => pixelclock,
-      chipram_address => chipram_address,
-      chipram_dataout => chipram_data,
+      transaction_request_toggle  => transaction_request_toggle,
+      transaction_complete_toggle => transaction_complete_toggle,
+      transaction_length          => transaction_length,
+      transaction_address         => transaction_address,
+      transaction_write           => transaction_write,
+      transaction_wdata           => transaction_wdata,
+      transaction_rdata           => transaction_rdata,
 
       cpu_leds => cpu_leds,
 
-      fastio_addr => fastio_addr,
-      fastio_addr_fast => fastio_addr_fast,
-      fastio_read => fastio_read,
-      fastio_write => fastio_write,
-      fastio_wdata => fastio_wdata,
-      fastio_rdata => fastio_rdata,
       sector_buffer_mapped => sector_buffer_mapped,
-      fastio_vic_rdata => fastio_vic_rdata,
-      fastio_colour_ram_rdata => colour_ram_fastio_rdata,
-      hyppo_rdata => hyppo_rdata,
-      hyppo_address_out => hyppo_address,
-      colour_ram_cs => colour_ram_cs,
-      charrom_write_cs => charrom_write_cs,
 
       viciii_iomode => viciii_iomode,
 
@@ -1237,7 +1294,7 @@ begin
       --chipram_we => chipram_we,
       chipram_address => chipram_address,
       chipram_datain => chipram_data,
-      colour_ram_fastio_rdata => colour_ram_fastio_rdata,
+      colour_ram_fastio_rdata => fastio_colour_ram_rdata,
       colour_ram_cs => colour_ram_cs,
       charrom_write_cs => charrom_write_cs,
 

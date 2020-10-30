@@ -32,7 +32,7 @@ entity memcontroller is
     instruction_fetch_address_in : in integer;
     instruction_fetched_address_out : out integer;
     instruction_fetch_rdata : out unsigned(47 downto 0) := (others => '1');
-    
+
     -- Memory transaction requests from CPU
     transaction_request_toggle : in std_logic;
     transaction_complete_toggle : out std_logic := '0';
@@ -45,8 +45,8 @@ entity memcontroller is
     transaction_wdata : in unsigned(31 downto 0);
     -- But reading can be 6 bytes, the maxmimum length of an instruction,
     -- including prefix bytes)
-    transaction_rdata : out unsigned(47 downto 0); 
-    
+    transaction_rdata : out unsigned(47 downto 0);
+
     -- Is the request a ZP access? If so, then we use or update the
     -- ZP cache for this request.  As the CPU also indicates the number of
     -- bytes, this allows ZP pointer fetches, both 16-bit and 32-bit, to be
@@ -58,11 +58,11 @@ entity memcontroller is
     -- implement the controller, and not have it any slower than at present, at
     -- least for most use-cases.
     is_zp_access : in std_logic;
-    
+
     -- We need to know the ZP/BP address, so that we know if we need to update
     -- the cache based on a normal write, too.
     bp_address : in unsigned(27 downto 8);
-    
+
     -- Now we have the interfaces to the various memories we control
     fastio_addr : out std_logic_vector(19 downto 0) := (others => '0');
     fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
@@ -77,7 +77,7 @@ entity memcontroller is
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic := '0';
     charrom_write_cs : out std_logic := '0';
-        
+
     -- HYPPO hypervisor RAM interface
     hyppo_rdata : in std_logic_vector(7 downto 0);
     hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
@@ -105,8 +105,8 @@ entity memcontroller is
     chipram_clk : IN std_logic := '0';
     chipram_address : IN unsigned(19 DOWNTO 0) := to_unsigned(0,20);
     chipram_dataout : OUT unsigned(7 DOWNTO 0)
-    
-    
+
+
     );
 end entity memcontroller;
 
@@ -129,7 +129,7 @@ architecture edwardian of memcontroller is
   end record;
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
-  
+
   signal fastram_iface : fri_array := (others => ( addr => 0,
                                                    addr_return => 0,
                                                    we => '0',
@@ -141,7 +141,7 @@ architecture edwardian of memcontroller is
                                                    token_return => to_unsigned(0,5)));
 
   constant fastram_pipeline_depth : integer := 8;
-  
+
   -- 162MHz request signals
   signal fastram_write_addr : integer range 0 to (chipram_size-1) := 0;
   signal fastram_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -149,7 +149,7 @@ architecture edwardian of memcontroller is
   signal fastram_read_addr : integer range 0 to (chipram_size-1) := 0;
   signal fastram_read_bytecount : integer range 0 to 6 := 0;
   signal fastram_background_read : std_logic := '0';
-  
+
   -- 324MHz fast internal chip ram access signals
   signal fastram_write_now : std_logic := '0';
   signal fastram_next_address : integer range 0 to (chipram_size-1) := 0;
@@ -211,7 +211,7 @@ architecture edwardian of memcontroller is
   signal last_fastio_write_complete_toggle : std_logic := '0';
   signal src_is_colourram : std_logic := '0';
   signal src_is_viciv : std_logic := '0';
-  
+
   signal zpcache_we : std_logic := '0';
   signal zpcache_waddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
   signal zpcache_raddr : unsigned(9 downto 0 ) := to_unsigned(0,10);
@@ -250,11 +250,11 @@ architecture edwardian of memcontroller is
   signal ifetch_buffer_addr : integer range 0 to (chipram_size-1) := 0;
 
   signal instruction_fetched_address_out_drive : integer range 0 to (chipram_size-1) := 0;
-  signal instruction_fetched_rdata_drive : unsigned(47 downto 0) := (others => '0');  
-  
+  signal instruction_fetched_rdata_drive : unsigned(47 downto 0) := (others => '0');
+
   signal last_transaction_request_toggle : std_logic := '0';
-  
-  
+
+
 begin
 
   -- The main fast memory of the MEGA65, internal to the FPGA
@@ -286,7 +286,7 @@ begin
     addrr => std_logic_vector(zpcache_raddr),
     unsigned(doutr) => zpcache_rdata,
     dinl => std_logic_vector(zpcache_wdata)
-    );    
+    );
 
   process(cpuclock,cpuclock2x,cpuclock4x,cpuclock8x) is
   begin
@@ -294,7 +294,7 @@ begin
 
       fastio_addr <= (others => '1');
       fastio_write <= '0';
-      
+
       colour_ram_cs <= '0';
       if fastio_read_request_toggle /= last_fastio_read_request_toggle then
         fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;
@@ -308,7 +308,7 @@ begin
         fastio_write_bytes_remaining <= fastio_write_bytecount;
         last_fastio_write_request_toggle <= fastio_write_request_toggle;
       end if;
-      
+
       if (fastio_write_bytes_remaining /= 0) then
         report "fastio write happening now. Data = $" & to_hstring(fastio_write_data_vector(7 downto 0));
         -- Get ready for writing the next byte
@@ -324,8 +324,8 @@ begin
           -- We are now writing our last byte, so we can report completion
           report "wrote last byte to slowdev";
           fastio_write_complete_toggle <= not fastio_write_complete_toggle;
-        end if;       
-      end if;      
+        end if;
+      end if;
 
       if fastio_read_bytes_remaining_plus_one /= 0 then
         report "fastio read happening now";
@@ -338,7 +338,7 @@ begin
         fastio_addr <= std_logic_vector(fastio_next_address);
         fastio_write <= '0';
         colour_ram_cs <= src_is_colourram;
-        
+
         if fastio_read_bytes_remaining_plus_one = 1 then
           -- We are now scheduling reading the last byte
           fastio_read_complete_toggle <= not fastio_read_complete_toggle;
@@ -361,9 +361,9 @@ begin
               <= unsigned(fastio_rdata);
             report "fastio stashing byte $" & to_hstring(fastio_rdata) & " into byte " & integer'image(fastio_read_position);
           end if;
-        end if;        
+        end if;
       end if;
-      
+
     end if;
     if rising_edge(cpuclock2x) then
       -- Slow devices is on 2x clock (81MHz) bus interface
@@ -379,7 +379,7 @@ begin
         slowdev_write_bytes_remaining <= slowdev_write_bytecount;
         last_slowdev_write_request_toggle <= slowdev_write_request_toggle;
       end if;
-      
+
       if (slowdev_write_bytes_remaining /= 0) and (slow_access_ready_toggle = slow_access_request_toggle_int) then
         report "slowdev write happening now";
         -- Get ready for writing the next byte
@@ -397,8 +397,8 @@ begin
           -- We are now writing our last byte, so we can report completion
           report "wrote last byte to slowdev";
           slowdev_write_complete_toggle <= not slowdev_write_complete_toggle;
-        end if;       
-      end if;      
+        end if;
+      end if;
 
       if slowdev_read_bytes_remaining_plus_one /= 0 and (slow_access_ready_toggle = slow_access_request_toggle_int) then
         report "slowdev read happening now";
@@ -423,9 +423,9 @@ begin
             <= slow_access_rdata;
           report "slowdev stashing byte $" & to_hstring(slow_access_rdata) & " into byte " & integer'image(slowdev_access_read_position);
         end if;
-        
+
       end if;
-      
+
     end if;
     if rising_edge(cpuclock4x) then
       -- At 4x CPU clock (162MHz) we examine the CPU's requests, and
@@ -433,8 +433,8 @@ begin
       -- on the true memory address.  We work only using full 28-bit addresses.
 
       instruction_fetched_address_out <= instruction_fetched_address_out_drive;
-      instruction_fetch_rdata <= instruction_fetched_rdata_drive;      
-      
+      instruction_fetch_rdata <= instruction_fetched_rdata_drive;
+
       if (transaction_request_toggle /= last_transaction_request_toggle)
       then
         -- Looks like a new request has come in.
@@ -453,7 +453,7 @@ begin
             -- Its a write
 
             -- XXX Also write to colour RAM if the write address is between $1F800-$1FFFF
-            
+
             if transaction_address(27 downto 8) = bp_address then
               -- Its to ZP, so also update the ZP cache
             else
@@ -483,7 +483,7 @@ begin
           end if;
         else
           -- NOT fast/chip RAM.
-          
+
           -- Latency is still important, but not as critical as for fast RAM,
           -- so we are able to flatten logic a little here.
           -- We need to consider:
@@ -495,17 +495,17 @@ begin
           --   VIC-IV registers
           --   Colour RAM
           --   Hypervisor RAM
-          
+
           -- FastIO is @ 40.5MHz at present, while SlowDevices is clocked at cpu x2
           -- (81MHz).  Thus we have separate little state-machines for each.  These
           -- work broadly as for the fast/chip RAM case, with toggles to cross
           -- the various clock domains.
-          
+
           report "not fast/chip ram request @ $" & to_hstring(transaction_address);
 
           -- Remember that we have accepted the job
           last_transaction_request_toggle <= transaction_request_toggle;
-          
+
           if transaction_address(27 downto 20) = x"FF" then
             -- FastIO range
             if transaction_address(19 downto 16) = x"8" then
@@ -551,14 +551,14 @@ begin
             fastio_write_bytecount <= transaction_length;
             fastio_read_bytecount <= transaction_length;
             fastio_read_position <= 7;
-                        
+
           elsif transaction_address(27 downto 26) /= "00" then
             -- Slow devices range
             report "slowdev request";
-            
+
             -- Remember that we have accepted the job
             last_transaction_request_toggle <= transaction_request_toggle;
-            
+
             -- Schedule read or write
             slowdev_next_address <= transaction_address;
             if transaction_write='0' then
@@ -574,11 +574,11 @@ begin
               slowdev_write_data_vector <= transaction_wdata;
               slowdev_write_bytecount <= transaction_length;
             end if;
-            
+
           end if;
-        end if;      
+        end if;
       end if;
-    
+
       -- Notice when the read is complete, and tell the CPU
       if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
         report "return read data to CPU";
@@ -640,7 +640,7 @@ begin
         -- newly arrived data
 
         report "ifetch_buffer162_addr=$" & to_hstring(to_unsigned(ifetch_buffer162_addr,20));
-        
+
         -- Check if we already have the right data
         if ifetch_buffer_addr = instruction_fetch_address_in and (ifetch_buffer_byte_count > 5) then
           -- We have exactly the instruction we need, so present it, and reset
@@ -683,12 +683,12 @@ begin
           report "Shuffling instruction fetch buffer down by "
             & integer'image(instruction_fetch_address_in - ifetch_buffer_addr)
             & " bytes. Remaining bytes = "
-            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in - ifetch_buffer_addr));              
+            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in - ifetch_buffer_addr));
         else
-          
+
         end if;
       end if;
-      
+
     end if;
     if rising_edge(cpuclock8x) then
       -- BRAM is on pipelined 8x clock (324MHz)
@@ -715,7 +715,7 @@ begin
       else
         fastram_next_instruction_position_plus_two <= fastram_next_instruction_position - 4;
       end if;
-              
+
       -- Update fast RAM pipeline stages
       for i in 1 to 8 loop
         fastram_iface(i) <= fastram_iface(i-1);
@@ -728,7 +728,7 @@ begin
       -- And also the instruction fetch info
       fastram_iface(0).is_ifetch_return <= fastram_iface(fastram_pipeline_depth).is_ifetch;
       fastram_iface(0).addr_return <= fastram_iface(fastram_pipeline_depth).addr;
-      
+
       -- By default idle the fast/chip RAM interface
       fastram_iface(0).addr <= 0;
       fastram_iface(0).we <= '0';
@@ -749,7 +749,7 @@ begin
         fastram_iface(0).addr <= fastram_next_ifetch_address;
         fastram_iface(0).is_ifetch <= '1';
       end if;
-      
+
       -- If we are writing to fastram, write out the queued bytes
       if fastram_write_now='1' then
         fastram_iface(0).addr <= fastram_next_address;
@@ -763,8 +763,8 @@ begin
         else
           fastram_write_now <= '1';
         end if;
-        fastram_write_data_vector(23 downto 0) <= fastram_write_data_vector(31 downto 8);      
-      end if;      
+        fastram_write_data_vector(23 downto 0) <= fastram_write_data_vector(31 downto 8);
+      end if;
 
       if fastram_read_now='1' then
         report "fastram_read_now asserted";
@@ -780,9 +780,9 @@ begin
         -- Note the token ID and where it needs to go
         fastram_read_tokens(fastram_read_byte_position) <= to_integer(next_token);
         fastram_read_byte_position <= fastram_read_byte_position + 1;
-        
+
       end if;
-      
+
       -- Do we have a new write request to fastram?
       if fastram_write_request_toggle /= last_fastram_write_request_toggle then
         report "accepting fastio_write_request_toggle";
@@ -803,7 +803,7 @@ begin
         -- Set end of job token initially to be invalid.
         -- It will get updated with the correct value when the read job is underway
         fastram_job_end_token <= 32; -- only tokens 0 -- 31 exist
-      end if;      
+      end if;
       for i in 0 to 5 loop
         if to_integer(fastram_iface(fastram_pipeline_depth).token_return) = fastram_read_tokens(i) then
           -- We have read a byte we are waiting for
@@ -821,7 +821,7 @@ begin
       -- Is this byte the next byte of the instruction stream that we need?
 --      report "addr_return=$" & to_hstring(to_unsigned(fastram_iface(fastram_pipeline_depth).addr_return,20))
 --        & ", fastram_next_instruction_address=$" & to_hstring(to_unsigned(fastram_next_instruction_address,20));
-      
+
       if fastram_iface(fastram_pipeline_depth).addr_return = fastram_next_instruction_address then
 --        report "We just read the next instruction stream byte we need";
 --        report "addr+1 = $" & to_hstring(to_unsigned(fastram_next_instruction_address_plus_one,20));
@@ -859,8 +859,8 @@ begin
         ifetch_buffer162_addr_drive <= fastram_iface(fastram_pipeline_depth).addr_return;
       else
         ifetch_buffer324 <= ifetch_buffer324;
-      end if;      
-      
+      end if;
+
       -- Begin fetching next instruction if requested.
       -- We assume that if waiting for an instruction that no other memory accesses
       -- are going on, and thus that we can have shallower logic for the next_ifetch_address
@@ -879,13 +879,13 @@ begin
         else
           fastram_next_ifetch_address <= fastram_next_ifetch_address;
         end if;
-      end if;            
-      
+      end if;
+
     end if;
-    
+
   end process;
 
-    
-  
-  
+
+
+
 end edwardian;

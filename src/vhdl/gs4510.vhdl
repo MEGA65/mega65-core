@@ -46,9 +46,6 @@
     port (
       mathclock : in  std_logic;
       Clock     : in  std_logic;
-      clock2x   : in  std_logic;
-      clock4x   : in  std_logic;
-      clock8x   : in  std_logic;
       phi_1mhz  : in  std_logic;
       phi_2mhz  : in  std_logic;
       phi_3mhz  : in  std_logic;
@@ -182,15 +179,6 @@
 
       proceed_dbg_out : out std_logic;
 
-      ---------------------------------------------------------------------------
-      -- Export fast/chip RAM interface to VIC-IV
-      ---------------------------------------------------------------------------
-      chipram_we : OUT STD_LOGIC := '0';
-
-      chipram_clk     : IN  std_logic;
-      chipram_address : IN  unsigned(19 DOWNTO 0) := to_unsigned(0,20);
-      chipram_dataout : OUT unsigned(7 DOWNTO 0);
-
       cpu_leds : out std_logic_vector(3 downto 0);
 
       ---------------------------------------------------------------------------
@@ -219,25 +207,17 @@
       --------------------------------------------------------------------------
       -- Interface to memory
       --------------------------------------------------------------------------
-      fastio_addr : inout std_logic_vector(19 downto 0);
-      fastio_addr_fast : out std_logic_vector(19 downto 0);
-      fastio_read : inout std_logic := '0';
-      fastio_write : inout std_logic := '0';
-      fastio_wdata : inout std_logic_vector(7 downto 0);
-      fastio_rdata : in std_logic_vector(7 downto 0);
-      fastio_vic_rdata : in std_logic_vector(7 downto 0);
-      fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
-      colour_ram_cs : out std_logic := '0';
-      charrom_write_cs : out std_logic := '0';
-      hyppo_rdata : in std_logic_vector(7 downto 0);
-      hyppo_address_out : out std_logic_vector(13 downto 0);
-
-      slow_access_request_toggle : out std_logic := '0';
-      slow_access_ready_toggle : in std_logic := '0';
-      slow_access_write : out std_logic := '0';
-      slow_access_address : out unsigned(27 downto 0) := to_unsigned(0,28);
-      slow_access_wdata : out unsigned(7 downto 0) := to_unsigned(0,8);
-      slow_access_rdata : in unsigned(7 downto 0);
+      transaction_request_toggle : out std_logic := '0';
+      transaction_complete_toggle : in std_logic;
+      transaction_length : out integer range 0 to 6 := 0;
+      transaction_address : out unsigned(27 downto 0) := to_unsigned(0,28);
+      transaction_write : out std_logic := '0';
+      transaction_wdata : out unsigned(31 downto 0) := (others => '0');
+      transaction_rdata : in unsigned(47 downto 0);
+      instruction_fetch_request_toggle : inout std_logic;
+      instruction_fetch_address_in : out integer;
+      instruction_fetched_address_out : in integer;
+      instruction_fetch_rdata : in unsigned(47 downto 0) := (others => '1');
 
       ---------------------------------------------------------------------------
       -- VIC-III memory banking control
@@ -463,42 +443,6 @@
     signal phi_new_backlog           : integer range 0 to 127 := 0;
     signal last_phi16                : std_logic              := '0';
     signal last_phi_in               : std_logic              := '0';
-
-    -- IO has one waitstate for reading, 0 for writing
-    -- (Reading incurrs an extra waitstate due to read_data_copy)
-    -- XXX An extra wait state seems to be necessary when reading from dual-port
-    -- memories like colour ram.
-    -- XXX The palette RAMs take even longer, because the access is first latched
-    -- by the VIC-IV before being passed out.
-    constant ioread_48mhz     : unsigned(7 downto 0) := x"01";
-    constant colourread_48mhz : unsigned(7 downto 0) := x"02";
-    -- XXX Try outrageously many waitstates on palette
-    constant palette_48mhz : unsigned(7 downto 0) := x"03";
-    constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
-    constant shadow_48mhz  : unsigned(7 downto 0) := x"00";
-
-    signal shadow_wait_states         : unsigned(7 downto 0) := shadow_48mhz;
-    signal io_read_wait_states        : unsigned(7 downto 0) := ioread_48mhz;
-    signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
-    signal palette_read_wait_states   : unsigned(7 downto 0) := palette_48mhz;
-    signal io_write_wait_states       : unsigned(7 downto 0) := iowrite_48mhz;
-
-    -- Interface to slow device address space
-    signal slow_access_request_toggle_drive : std_logic             := '0';
-    signal slow_access_write_drive          : std_logic             := '0';
-    signal slow_access_address_drive        : unsigned(27 downto 0) := (others => '1');
-    signal slow_access_wdata_drive          : unsigned(7 downto 0)  := (others => '1');
-    signal slow_access_desired_ready_toggle : std_logic             := '0';
-    signal slow_access_ready_toggle_buffer  : std_logic             := '0';
-    signal slow_access_pending_write        : std_logic             := '0';
-    signal slow_access_data_ready           : std_logic             := '0';
-
-    signal slow_prefetch_enable : std_logic            := '0';
-    signal slow_prefetch_data   : unsigned(7 downto 0) := x"00";
-
-    -- Number of pending wait states
-    signal wait_states          : unsigned(7 downto 0) := x"05";
-    signal wait_states_non_zero : std_logic            := '1';
 
     signal word_flag : std_logic := '0';
 
@@ -1063,25 +1007,12 @@
     signal cache_flushing      : std_logic            := '1';
     signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
 
-    signal instruction_fetch_request_toggle : std_logic;
-    signal instruction_fetch_address_in : integer;
-    signal instruction_fetched_address_out : integer;
-    signal instruction_fetch_rdata : unsigned(47 downto 0) := (others => '1');
     signal target_instruction_addr : integer;
 
     signal instruction_from_transaction : std_logic := '0';
     signal waiting_on_mem_controller : std_logic := '0';
-    signal transaction_request_toggle : std_logic;
-    signal transaction_complete_toggle : std_logic := '0';
     signal expected_transaction_complete_toggle : std_logic := '0';
-    signal transaction_length : integer range 0 to 6;
-    signal transaction_address : unsigned(27 downto 0);
-    signal transaction_write : std_logic;
-    signal transaction_wdata : unsigned(31 downto 0);
-    signal transaction_rdata : unsigned(47 downto 0);
-    signal slow_prefetched_request_toggle : std_logic := '0';
-    signal slow_prefetched_data : unsigned(7 downto 0) := x"00";
-    signal slow_prefetched_address : unsigned(26 downto 0) := (others => '1');
+    signal transaction_request_toggle_int : std_logic := '0';
 
     signal cycle_counter           : unsigned(15 downto 0) := (others => '0');
     signal cycles_per_frame        : unsigned(31 downto 0) := (others => '0');
@@ -1330,68 +1261,6 @@
   begin
 
     monitor_cpuport <= cpuport_value(2 downto 0);
-
-    memcontroller0 : entity work.memcontroller
-      generic map (
-        target       => mega65r3,
-        chipram_1mb  => '0',
-        chipram_size => 393216
-      )
-      port map (
-        cpuclock   => clock,
-        cpuclock2x => clock2x,
-        cpuclock4x => clock4x,
-        cpuclock8x => clock8x,
-
-        privileged_access => '1',
-
-        cpuis6502 => '0',
-
-        is_zp_access => '0',
-
-        bp_address => to_unsigned(0,20),
-
-        instruction_fetch_request_toggle => instruction_fetch_request_toggle,
-        instruction_fetch_address_in     => instruction_fetch_address_in,
-        instruction_fetched_address_out  => instruction_fetched_address_out,
-        instruction_fetch_rdata          => instruction_fetch_rdata,
-
-        transaction_request_toggle  => transaction_request_toggle,
-        transaction_complete_toggle => transaction_complete_toggle,
-        transaction_length          => transaction_length,
-        transaction_address         => transaction_address,
-        transaction_write           => transaction_write,
-        transaction_wdata           => transaction_wdata,
-        transaction_rdata           => transaction_rdata,
-
-        fastio_addr        => fastio_addr,
-        fastio_addr_fast   => fastio_addr_fast,
-        fastio_read        => fastio_read,
-        fastio_write       => fastio_write,
-        fastio_wdata       => fastio_wdata,
-        fastio_viciv_rdata => fastio_vic_rdata,
-        fastio_rdata       => fastio_rdata,
-
-        fastio_vic_rdata        => fastio_vic_rdata,
-        fastio_colour_ram_rdata => fastio_colour_ram_rdata,
-        colour_ram_cs           => colour_ram_cs,
-        charrom_write_cs        => charrom_write_cs,
-
-        hyppo_rdata       => hyppo_rdata,
-        hyppo_address_out => hyppo_address_out,
-
-        slow_access_request_toggle => slow_access_request_toggle,
-        slow_access_ready_toggle   => slow_access_ready_toggle,
-        slow_access_address        => slow_access_address,
-        slow_access_write          => slow_access_write,
-        slow_access_wdata          => slow_access_wdata,
-        slow_access_rdata          => slow_access_rdata,
-
-        slow_prefetched_request_toggle => slow_prefetched_request_toggle,
-        slow_prefetched_data           => slow_prefetched_data,
-        slow_prefetched_address        => slow_prefetched_address
-
-      );
 
     fd0 : entity work.fast_divide
       port map (
@@ -2007,7 +1876,7 @@
             value(0) := '1'; -- Set if power is on, clear if power is off
             return value;
           when x"fe" =>
-            value(0)          := slow_prefetch_enable;
+            value(0)          := '0';
             value(1)          := ocean_cart_mode;
             value(7 downto 2) := (others => '0');
             return value;
@@ -2242,8 +2111,6 @@
         cpuport_value <= x"3F";
         force_fast    <= '0';
 
-        wait_states          <= (others => '0');
-        wait_states_non_zero <= '0';
         mem_reading          <= '0';
       end procedure reset_cpu_state;
 
@@ -2302,9 +2169,6 @@
 
         the_read_address <= long_address;
 
-        wait_states          <= x"00";
-        wait_states_non_zero <= '0';
-
         -- Schedule the memory read from the appropriate source.
 
         report "MEMORY long_address = $" & to_hstring(long_address);
@@ -2315,8 +2179,6 @@
           read_source <= HypervisorRegister;
           -- One cycle wait-state on hypervisor registers to remove the register
           -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
           proceed              <= '0';
           hyperport_num        <= real_long_address(5 downto 0);
         elsif (long_address = x"ffd3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
@@ -2324,8 +2186,6 @@
           -- Read VDC status #141
           -- Lie and always claim that VDC is ready
           read_source          <= CPUPort;
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
           proceed              <= '0';
           cpuport_num          <= x"3";
         elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
@@ -2337,8 +2197,6 @@
             accessing_cpuport <= '1';
             -- Read simulated VDC registers
             read_source          <= CPUPort;
-            wait_states          <= x"01";
-            wait_states_non_zero <= '1';
             proceed              <= '0';
             cpuport_num          <= x"4";
           end if;
@@ -2348,8 +2206,6 @@
           read_source <= CPUPort;
           -- One cycle wait-state on hypervisor registers to remove the register
           -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
           proceed              <= '0';
           cpuport_num          <= real_long_address(3 downto 0);
         elsif (long_address = x"ffd30a0") or (long_address = x"ffd10a0") then
@@ -2358,8 +2214,6 @@
           read_source <= CPUPort;
           -- One cycle wait-state on hypervisor registers to remove the register
           -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
           proceed              <= '0';
           cpuport_num          <= "0010";
         elsif (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
@@ -2819,8 +2673,6 @@
           force_game  <= value(6);
           power_down  <= value(0);
         elsif (long_address = x"FFD37FE") then
-          -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
-          slow_prefetch_enable <= value(0);
           -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
           ocean_cart_mode <= value(1);
         elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -4314,17 +4166,6 @@
 
         check_for_interrupts;
 
-        if wait_states = x"00" then
-          if last_action = 'R' then
-            report "MEMORY reading $" & to_hstring(last_address)
-            & " = $" & to_hstring(read_data) severity note;
-          end if;
-          if last_action = 'W' then
-            report "MEMORY writing $" & to_hstring(last_address)
-            & " <= $" & to_hstring(last_value) severity note;
-          end if;
-        end if;
-
         cpu_leds <= std_logic_vector(shadow_write_flags);
 
         if shadow_write='1' then
@@ -4367,7 +4208,6 @@
         -------------------------------------------------------------------------
         -- Real CPU work begins here.
         -------------------------------------------------------------------------
-        monitor_waitstates <= wait_states;
 
         -- Catch the CPU when it goes to the next instruction if single stepping.
         if ((monitor_mem_trace_mode='0' or
@@ -4481,8 +4321,6 @@
           reset_out            <= '0';
           state                <= ResetLow;
           proceed              <= '0';
-          wait_states          <= x"00";
-          wait_states_non_zero <= '0';
           watchdog_fed         <= '0';
           watchdog_countdown   <= 65535;
           report "resetting cpu: reset_drive = " & std_logic'image(reset_drive)
@@ -4502,23 +4340,7 @@
           -- XXX replace with single bit test flag for wait_states = 0 to reduce
           -- logic depth
           reset_out <= '1';
-          if wait_states_non_zero = '1' then
-            report "  $" & to_hstring(wait_states)
-            &" memory waitstates remaining.  Fastio_rdata = $"
-            & to_hstring(fastio_rdata)
-            & ", mem_reading=" & std_logic'image(mem_reading)
-            & ", fastio_addr=$" & to_hstring(fastio_addr)
-            severity note;
-
-            report "Waitstate countdown. wait_states=$" & to_hstring(wait_states);
-            if wait_states /= x"01" then
-              wait_states          <= wait_states - 1;
-              wait_states_non_zero <= '1';
-            else
-              wait_states_non_zero <= '0';
-              proceed              <= '1';
-            end if;
-          else
+          if true then
             -- End of wait states, so clear memory writing and reading
 
             if mem_reading='1' then
@@ -6803,8 +6625,9 @@
             -- InstructionDecode state if the instruction is not ready there for us.
             else
               -- Have to fetch instruction via normal memory channel
-              transaction_request_toggle <= not transaction_request_toggle;
-              expected_transaction_complete_toggle <= not transaction_request_toggle;
+              transaction_request_toggle <= not transaction_request_toggle_int;
+              transaction_request_toggle_int <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
               transaction_address        <= vreg33(27 downto 0);
               transaction_length         <= 6;
               transaction_write          <= '0';
@@ -6996,8 +6819,9 @@
               -- InstructionDecode if the instruction isn't preemptively loaded for us.
             else
               -- Normal memory fetch
-              transaction_request_toggle <= not transaction_request_toggle;
-              expected_transaction_complete_toggle <= not transaction_request_toggle;
+              transaction_request_toggle <= not transaction_request_toggle_int;
+              transaction_request_toggle_int <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '0';
@@ -7016,8 +6840,9 @@
               report "Ignoring write to ROM addr=$" & to_hstring(long_address) severity note;
             else
               report "MEMORY: Writing memory @ $" & to_hstring(long_address);
-              transaction_request_toggle <= not transaction_request_toggle;
-              expected_transaction_complete_toggle <= not transaction_request_toggle;
+              transaction_request_toggle <= not transaction_request_toggle_int;
+              transaction_request_toggle_int <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '1';
