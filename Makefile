@@ -63,7 +63,7 @@ else
 	GHDL=	ghdl/build/bin/ghdl
 	GHDL_DEPEND=$(GHDL)
 endif
-
+GHDL=/usr/local/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
 
@@ -371,6 +371,15 @@ simulate:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -i $(SIMULATIONVHDL)
 	$(GHDL) -m cpu_test
 	$(GHDL) -r cpu_test --assert-level=warning
+
+# GHDL with mcode backend for backtraces (PGS special debug version)
+GHDLGCC = /usr/local/bin/ghdl
+simulate-gcc:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDLGCC) -i -g $(SIMULATIONVHDL)
+	$(GHDLGCC) -m -g cpu_test
+	./cpu_test
 
 # GHDL with llvm backend
 simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
