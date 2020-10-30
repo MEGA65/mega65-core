@@ -5321,9 +5321,9 @@
                     -- it has come from, so lets get the data from the correct
                     -- source, and munge it as appropriate.
                     if instruction_from_transaction='1' then
-                      instruction_bytes_v := instruction_fetch_rdata;
-                    else
                       instruction_bytes_v := transaction_rdata;
+                    else
+                      instruction_bytes_v := instruction_fetch_rdata;
                     end if;
 
                     report "I believe I have the data for the next instruction: $"
@@ -5706,7 +5706,7 @@
                           -- JMP
                           pc_inc    := 0;
                           pc_set := '1';
-                          var_pc := instruction_bytes(23 downto 8);
+                          var_pc := instruction_bytes_v(23 downto 8);
                         when x"50" =>
                           -- BVC $rr
                           if flag_v = '0' then do_branch8 := '1'; end if;

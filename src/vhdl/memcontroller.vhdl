@@ -685,7 +685,7 @@ begin
         fastram_job_end_token <= 32;
       end if;
       if hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
-        report "return HYPPO RAM read data to CPU";
+        report "return HYPPO RAM read data to CPU: $" & to_hstring(hyppo_rdata_buffer);
         last_hyppo_read_complete_toggle <= hyppo_read_complete_toggle;
         if hyppo_background_read = '0' then
           transaction_complete_toggle <= transaction_request_toggle;
@@ -1082,7 +1082,7 @@ begin
         if to_integer(hyppo_iface(hyppo_pipeline_depth).token_return) = hyppo_read_tokens(i) then
           -- We have read a byte we are waiting for
           hyppo_rdata_buffer(i*8 + 7 downto i*8) <= hyppo_iface(hyppo_pipeline_depth).rdata;
---          report "stashing byte $" & to_hstring(hyppo_iface(hyppo_pipeline_depth).rdata) & " into byte " & integer'image(i);
+         report "stashing hyppo byte $" & to_hstring(hyppo_iface(hyppo_pipeline_depth).rdata) & " into byte " & integer'image(i);
         end if;
       end loop;
       if to_integer(hyppo_iface(hyppo_pipeline_depth).token_return) = hyppo_job_end_token then
