@@ -182,6 +182,7 @@ architecture edwardian of memcontroller is
   signal slowdev_write_bytecount : integer range 0 to 6 := 0;
   signal slowdev_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
   signal slowdev_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal slowdev_write_data_vector_new : unsigned(31 downto 0) := to_unsigned(0,32);
   signal slowdev_next_address : unsigned(27 downto 0) := to_unsigned(0,28);
   signal slowdev_read_request_toggle : std_logic := '0';
   signal slowdev_write_request_toggle : std_logic := '0';
@@ -297,10 +298,14 @@ begin
       fastio_addr <= (others => '1');
       fastio_write <= '0';
 
+      -- XXX Save one cycle by immediately initiating the first fastio read/write
+      -- when accepting the job
+      
       colour_ram_cs <= '0';
       if fastio_read_request_toggle /= last_fastio_read_request_toggle then
         fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;
         fastio_next_address <= fastio_next_address_new;
+        fastio_rdata_buffer <= to_unsigned(0,48);
         last_fastio_read_request_toggle <= fastio_read_request_toggle;
       end if;
 
@@ -376,12 +381,14 @@ begin
       if slowdev_read_request_toggle /= last_slowdev_read_request_toggle then
         slowdev_read_bytes_remaining_plus_one <= slowdev_read_bytecount + 1;
         last_slowdev_read_request_toggle <= slowdev_read_request_toggle;
+        slowdev_rdata_buffer <= to_unsigned(0,48);
       end if;
       if slowdev_write_request_toggle /= last_slowdev_write_request_toggle then
         report "saw slowdev write request for " & integer'image(slowdev_write_bytecount) & " bytes, toggle="
           & std_logic'image(slowdev_write_request_toggle)
           & ", last_toggle=" & std_logic'image(last_slowdev_write_request_toggle);
         slowdev_write_bytes_remaining <= slowdev_write_bytecount;
+        slowdev_write_data_vector <= slowdev_write_data_vector_new;
         last_slowdev_write_request_toggle <= slowdev_write_request_toggle;
       end if;
 
@@ -551,7 +558,6 @@ begin
               fastio_read_request_toggle <= not fastio_read_request_toggle;
             end if;
             fastio_next_address_new <= transaction_address(19 downto 0);
-            fastio_rdata_buffer <= to_unsigned(0,48);
             fastio_write_data_vector_new <= transaction_wdata;
             fastio_write_bytecount <= transaction_length;
             fastio_read_bytecount <= transaction_length;
@@ -565,18 +571,17 @@ begin
             last_transaction_request_toggle <= transaction_request_toggle;
 
             -- Schedule read or write
-            slowdev_next_address <= transaction_address;
+            slowdev_next_address_new <= transaction_address;
             if transaction_write='0' then
               report "requesting slowdev read";
               slowdev_read_request_toggle <= not slowdev_read_request_toggle;
               slowdev_read_bytecount <= transaction_length;
-              slowdev_rdata_buffer <= to_unsigned(0,48);
               -- Mark reading as not yet having a byte scheduled for reading
               slowdev_access_read_position <= 7;
             else
               report "requesting slowdev write";
               slowdev_write_request_toggle <= not slowdev_write_request_toggle;
-              slowdev_write_data_vector <= transaction_wdata;
+              slowdev_write_data_vector_new <= transaction_wdata;
               slowdev_write_bytecount <= transaction_length;
             end if;
 
