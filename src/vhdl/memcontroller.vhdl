@@ -127,6 +127,9 @@ architecture edwardian of memcontroller is
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
 
+  signal instruction_fetch_request_toggle_drive : std_logic;
+  signal instruction_fetch_address_in_drive : integer;
+  
   signal fastram_iface : fri_array := (others => ( addr => 0,
                                                    addr_return => 0,
                                                    we => '0',
@@ -505,6 +508,10 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      -- Give signals time to propagate from CPU to here
+      instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
+      instruction_fetch_address_in_drive <= instruction_fetch_address_in;
+      
       instruction_fetched_address_out <= instruction_fetched_address_out_drive;
       instruction_fetch_rdata <= instruction_fetched_rdata_drive;
 
@@ -731,7 +738,7 @@ begin
           & " = $" & to_hstring(ifetch_buffer162);
       end if;
       -- Check instruction fetch buffer to see if it has content we need.
-      if ifetch_buffer162_addr = instruction_fetch_address_in then
+      if ifetch_buffer162_addr = instruction_fetch_address_in_drive then
         -- We have exactly the instruction we need, so present it, and reset
         -- the instruction fetch buffer
         report "ifetch has delivered the instruction we need. Storing and returning to CPU";
@@ -748,7 +755,7 @@ begin
         report "ifetch_buffer162_addr=$" & to_hstring(to_unsigned(ifetch_buffer162_addr,20));
 
         -- Check if we already have the right data
-        if ifetch_buffer_addr = instruction_fetch_address_in and (ifetch_buffer_byte_count > 5) then
+        if ifetch_buffer_addr = instruction_fetch_address_in_drive and (ifetch_buffer_byte_count > 5) then
           -- We have exactly the instruction we need, so present it, and reset
           -- the instruction fetch buffer
           report "ifetch has delivered the instruction we need. Storing and returning to CPU";
@@ -765,12 +772,12 @@ begin
             & integer'image(ifetch_buffer_byte_count + 6)
             & " byte in the buffer.";
           -- Check if we should shuffle down
-        elsif (ifetch_buffer_addr < instruction_fetch_address_in)
-          and (instruction_fetch_address_in - ifetch_buffer_addr) < ifetch_buffer_byte_count
-          and (instruction_fetch_address_in - ifetch_buffer_addr) < 7 then
+        elsif (ifetch_buffer_addr < instruction_fetch_address_in_drive)
+          and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < ifetch_buffer_byte_count
+          and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < 7 then
           -- Shift down
-          ifetch_buffer_addr <= instruction_fetch_address_in;
-          case (instruction_fetch_address_in - ifetch_buffer_addr) is
+          ifetch_buffer_addr <= instruction_fetch_address_in_drive;
+          case (instruction_fetch_address_in_drive - ifetch_buffer_addr) is
             when 1 => ifetch_buffer(119 downto 0) <= ifetch_buffer(127 downto 8);
                       ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 1;
             when 2 => ifetch_buffer(111 downto 0) <= ifetch_buffer(127 downto 16);
@@ -787,9 +794,9 @@ begin
               null;
           end case;
           report "Shuffling instruction fetch buffer down by "
-            & integer'image(instruction_fetch_address_in - ifetch_buffer_addr)
+            & integer'image(instruction_fetch_address_in_drive - ifetch_buffer_addr)
             & " bytes. Remaining bytes = "
-            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in - ifetch_buffer_addr));
+            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in_drive - ifetch_buffer_addr));
         else
 
         end if;
@@ -973,11 +980,11 @@ begin
       -- logic, by just having it always increment. This could come unstuck if
       -- a write is still happening in the background, in which case we should
       -- check if that is happening.
-      if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
-        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
-        report "instruction_fetch_address_in = " & integer'image(instruction_fetch_address_in);
-        fastram_next_ifetch_address <= instruction_fetch_address_in;
-        fastram_next_instruction_address <= instruction_fetch_address_in;
+      if instruction_fetch_request_toggle_drive /= last_instruction_fetch_request_toggle then
+        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle_drive;
+        report "instruction_fetch_address_in_drive = " & integer'image(instruction_fetch_address_in_drive);
+        fastram_next_ifetch_address <= instruction_fetch_address_in_drive;
+        fastram_next_instruction_address <= instruction_fetch_address_in_drive;
         fastram_next_instruction_position <= 0;
       else
         if fastram_read_now='0' and fastram_write_now='0' then
