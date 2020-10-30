@@ -974,7 +974,9 @@ architecture Behavioral of viciv is
   signal chargen_y_pixels : integer := 0;
   signal top_borders_height_200 : unsigned(11 downto 0) := (others => '0');
   signal top_borders_height_400 : unsigned(11 downto 0) := (others => '0');
-  signal single_top_border_200 : unsigned(11 downto 0) := (others => '0');
+  -- single_top_border_200 must be >=12 at start for vhdl simulation to work
+  -- else there will be an out of bounds error generated
+  signal single_top_border_200 : unsigned(11 downto 0) := to_unsigned(12,12);
   signal single_top_border_400 : unsigned(11 downto 0) := (others => '0');
 
   signal viciv_flyback : std_logic := '0';
@@ -1432,15 +1434,31 @@ begin
                                          -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned(raster_correction
-                                       +safe_to_integer(single_top_border_200)
-                                       -safe_to_integer(vicii_first_raster)*2
-                                       -(3*2)
-                                       -- Display is always V400/600, so pixels
-                                       -- are double height
-                                       +safe_to_integer(vicii_y_smoothscroll)
-                                       +safe_to_integer(vicii_y_smoothscroll)
-                                       ,12);
+        report "vicii_y_smoothscroll = $" & to_hstring(vicii_y_smoothscroll);
+        report "vicii_y_smoothscroll = " & integer'image(to_integer(vicii_y_smoothscroll));
+        report "single_top_border_200 = " & integer'image(to_integer(single_top_border_200));
+        report "vicii_first_raster = " & integer'image(to_integer(vicii_first_raster));
+        report "raster_correction = " & integer'image(raster_correction);
+
+        if (single_top_border_200 > 20 ) then
+          y_chargen_start <= to_unsigned(raster_correction
+                                         +safe_to_integer(single_top_border_200)
+                                         -safe_to_integer(vicii_first_raster)*2
+                                         -(3*2)
+                                         -- Display is always V400/600, so pixels
+                                         -- are double height
+                                         +safe_to_integer(vicii_y_smoothscroll)
+                                         +safe_to_integer(vicii_y_smoothscroll)
+                                         ,12);
+        else
+          -- If the top border is really thin, then make sure we don't create
+          -- an invalid position.
+          y_chargen_start <= to_unsigned(raster_correction
+                                         +safe_to_integer(single_top_border_200)
+                                         +safe_to_integer(vicii_y_smoothscroll)
+                                         +safe_to_integer(vicii_y_smoothscroll)
+                                         ,12);
+        end if;
 
       else
         -- V400 mode : as above, but with the different constants

@@ -224,7 +224,7 @@
       transaction_wdata : out unsigned(31 downto 0) := (others => '0');
       transaction_rdata : in unsigned(47 downto 0);
       instruction_fetch_request_toggle : inout std_logic;
-      instruction_fetch_address_in : out integer;
+      instruction_fetch_address_in : out integer := 0;
       instruction_fetched_address_out : in integer;
       instruction_fetch_rdata : in unsigned(47 downto 0) := (others => '1');
 

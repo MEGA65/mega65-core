@@ -869,6 +869,7 @@ begin
       -- check if that is happening.
       if instruction_fetch_request_toggle /= last_instruction_fetch_request_toggle then
         last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle;
+        report "instruction_fetch_address_in = " & integer'image(instruction_fetch_address_in);
         fastram_next_ifetch_address <= instruction_fetch_address_in;
         fastram_next_instruction_address <= instruction_fetch_address_in;
         fastram_next_instruction_position <= 0;
