@@ -158,8 +158,10 @@ architecture edwardian of memcontroller is
   signal fastram_write_bytes_remaining : integer range 0 to 6 := 0;
   signal fastram_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastram_write_request_toggle : std_logic := '0';
+  signal fastram_write_request_toggle_drive : std_logic := '0';
   signal last_fastram_write_request_toggle : std_logic := '0';
   signal fastram_read_request_toggle : std_logic := '0';
+  signal fastram_read_request_toggle_drive : std_logic := '0';
   signal last_fastram_read_request_toggle : std_logic := '0';
   signal fastram_read_complete_toggle : std_logic := '0';
   signal last_fastram_read_complete_toggle : std_logic := '0';
@@ -307,6 +309,9 @@ architecture edwardian of memcontroller is
 
   signal last_transaction_request_toggle : std_logic := '0';
 
+  signal clock4xcounter : unsigned(1 downto 0) := to_unsigned(0,2);
+  signal safe_to_transfer_x4_to_x1 : std_logic := '0';
+  
 begin
 
   -- The main fast memory of the MEGA65, internal to the FPGA
@@ -508,6 +513,26 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      -- Work out when it is safe to transfer a signal to CPU clock domain.
+      -- This is on the last x4 sub-cycle of a x1 cycle, as it will cause the
+      -- signals to appear as though they were clocked at the slower rate.
+      -- But as we allow this indicator to propagate through, we assert it one
+      -- sub-cycle earlier
+      if clock4xcounter /= "11" then
+        clock4xcounter <= clock4xcounter + 1;
+      else
+        clock4xcounter <= to_unsigned(0,2);
+      end if;
+      if clock4xcounter(1 downto 0) = "10" then
+        safe_to_transfer_x4_to_x1 <= '1';
+      else
+        safe_to_transfer_x4_to_x1 <= '0';
+      end if;
+      
+      -- Improve timing for some critical signals
+      fastram_read_request_toggle_drive <= fastram_read_request;
+      fastram_write_request_toggle_drive <= fastram_write_request;
+      
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
       instruction_fetch_address_in_drive <= instruction_fetch_address_in;
@@ -528,8 +553,8 @@ begin
         end if;
         
         if (to_integer(transaction_address) <= chipram_size)
-          and (fastram_write_request_toggle = last_fastram_write_request_toggle)
-          and (fastram_read_request_toggle = last_fastram_read_request_toggle)
+          and (fastram_write_request_toggle_drive = last_fastram_write_request_toggle)
+          and (fastram_read_request_toggle_drive = last_fastram_read_request_toggle)
         then
           -- Ok, so its fast RAM. But we need to know if it is a read or write
           -- operation, and whether it is to/from ZP or not, so that we can update
@@ -680,7 +705,7 @@ begin
       end if;
 
       -- Notice when the read is complete, and tell the CPU
-      if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
+      if safe_to_transfer_x4_to_x1='1' and fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
         report "return read data to CPU";
         last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
         if fastram_background_read = '0' then
@@ -897,9 +922,9 @@ begin
       end if;
 
       -- Do we have a new write request to fastram?
-      if fastram_write_request_toggle /= last_fastram_write_request_toggle then
+      if fastram_write_request_toggle_drive /= last_fastram_write_request_toggle then
         report "accepting fastio_write_request_toggle";
-        last_fastram_write_request_toggle <= fastram_write_request_toggle;
+        last_fastram_write_request_toggle <= fastram_write_request_toggle_drive;
         fastram_write_bytes_remaining <= fastram_write_bytecount;
         fastram_next_address <= fastram_write_addr;
         fastram_write_data_vector <= fastram_write_data;
@@ -907,8 +932,8 @@ begin
       end if;
 
       -- Or read request to fastram
-      if fastram_read_request_toggle /= last_fastram_read_request_toggle then
-        last_fastram_read_request_toggle <= fastram_read_request_toggle;
+      if fastram_read_request_toggle_drive /= last_fastram_read_request_toggle then
+        last_fastram_read_request_toggle <= fastram_read_request_toggle_drive;
         fastram_read_bytes_remaining <= fastram_read_bytecount;
         fastram_next_address <= fastram_read_addr;
         fastram_read_now <= '1';

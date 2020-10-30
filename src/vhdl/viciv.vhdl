@@ -2067,6 +2067,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      -- Improve timing closure
+      vga60_select <= vga60_select_internal;
+      
       last_dd00_bits <= dd00_bits;
       if last_dd00_bits /= dd00_bits then
         viciv_legacy_mode_registers_touched <= '1';
@@ -2731,7 +2734,6 @@ begin
           -- @IO:GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
           vicii_ntsc <= fastio_wdata(7);
           pal50_select <= not fastio_wdata(7);
-          vga60_select <= fastio_wdata(6);
           vga60_select_internal <= fastio_wdata(6);
           -- Make sure that matrix
           -- mode display isn't jiggly
