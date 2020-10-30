@@ -5370,7 +5370,7 @@
                     -- Show previous instruction
                     disassemble_last_instruction;
                     -- Start recording this instruction
-                    last_instruction_pc <= reg_pc - 1;
+                    last_instruction_pc <= reg_pc;
                     last_opcode         <= instruction_bytes(7 downto 0);
                     last_bytecount      <= 1;
 
