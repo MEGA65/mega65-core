@@ -689,7 +689,6 @@
     signal monitor_mem_reading : std_logic := '0';
 
     -- Is CPU free to proceed with processing an instruction?
-    signal proceed                : std_logic            := '1';
     signal io_settle_delay        : std_logic            := '0';
     signal io_settle_counter      : unsigned(7 downto 0) := x"00";
     signal io_settle_trigger      : std_logic            := '0';
@@ -2199,7 +2198,6 @@
         end if;
 
         report "Preparing to read via memory controller @ $" & to_hstring(long_address);
-        proceed               <= '0';
 
         memory_access_address     := long_address;
         memory_access_read        := '1';
@@ -2819,7 +2817,7 @@
 
         result := signed(result_unsigned);
 
-        report "VOLMULT: $" & to_hstring(value) & " x $" & to_hstring(volume) & " = $ " & to_hstring(result);
+  --      report "VOLMULT: $" & to_hstring(value) & " x $" & to_hstring(volume) & " = $ " & to_hstring(result);
 
         return result(23 downto 0);
       end function;
@@ -3609,7 +3607,9 @@
         memory_access_write      := '0';
         memory_access_byte_count := 1;
         memory_access_set_address_based_on_addressingmode := '0';
-
+        -- And not requesting an instruction be fetched
+        fetch_instruction_please := '0';
+          
         -- And no ALU op
         mc  := (others => '0');
 
@@ -3655,8 +3655,8 @@
         end if;
         cpu_pcm_enable <= audio_dma_enable;
 
-        report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_right)
-        & ", sample valids=" & to_string(audio_dma_sample_valid);
+  --      report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_right)
+  --      & ", sample valids=" & to_string(audio_dma_sample_valid);
 
         -- Process result of background DMA
         -- Note: background DMA can ONLY access the shadow RAM, and can happen
@@ -3827,14 +3827,16 @@
 
         report "BACKGROUNDDMA: Audio enables = " & to_string(audio_dma_enables);
         for i in 0 to 3 loop
-          report "Audio DMA channel " & integer'image(i) & ": "
-          & "base=$" & to_hstring(audio_dma_base_addr(i))
-          & ", top_addr=$" & to_hstring(audio_dma_top_addr(i))
-          & ", timebase=$" & to_hstring(audio_dma_time_base(i))
-          & ", current_addr=$" & to_hstring(audio_dma_current_addr(i))
-          & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
-          & ", dma_pending=" & std_logic'image(audio_dma_pending(i))
-          ;
+          if false then
+            report "Audio DMA channel " & integer'image(i) & ": "
+            & "base=$" & to_hstring(audio_dma_base_addr(i))
+            & ", top_addr=$" & to_hstring(audio_dma_top_addr(i))
+            & ", timebase=$" & to_hstring(audio_dma_time_base(i))
+            & ", current_addr=$" & to_hstring(audio_dma_current_addr(i))
+            & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
+            & ", dma_pending=" & std_logic'image(audio_dma_pending(i))
+            ;
+          end if;
 
           if audio_dma_current_addr(i)(15 downto 0) = audio_dma_top_addr(i) then
             if audio_dma_repeat(i)='1' then
@@ -4241,7 +4243,6 @@
         if reset_drive='0' or watchdog_reset='1' then
           reset_out            <= '0';
           state                <= ResetLow;
-          proceed              <= '0';
           watchdog_fed         <= '0';
           watchdog_countdown   <= 65535;
           report "resetting cpu: reset_drive = " & std_logic'image(reset_drive)
@@ -4254,37 +4255,37 @@
           -- level, with a jitter of ~1 instruction at any point in time, which should
           -- be sufficient even for most fast loaders.
           report "PHI pause : " & integer'image(phi_backlog) & " CPU cycles remaining.";
-          proceed <= '0';
         else
           -- Honour wait states on memory accesses
           -- Clear memory access lines unless we are in a memory wait state
           -- XXX replace with single bit test flag for wait_states = 0 to reduce
           -- logic depth
           reset_out <= '1';
-          if true then
-            -- End of wait states, so clear memory writing and reading
 
-            if mem_reading='1' then
-              --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
-              mem_reading         <= '0';
-              monitor_mem_reading <= '0';
-            end if;
-
-            proceed <= '1';
+          if mem_reading='1' then
+            --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
+            mem_reading         <= '0';
+            monitor_mem_reading <= '0';
           end if;
 
-          monitor_proceed           <= proceed;
+          monitor_proceed           <= '0';
           monitor_request_reflected <= monitor_mem_attention_request_drive;
 
-          report "CPU state (a) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
+          report "CPU state (a) : phi_pause=" & std_logic'image(phi_pause);
 
+            report "instruction_from_transaction =" & std_logic'image(instruction_from_transaction)
+                & ", target_instruction_addr = " & integer'image(target_instruction_addr)
+                & ", instruction_fetched_address_out = " & integer'image(instruction_fetched_address_out);
+            report "waiting_on_mem_controller= " & std_logic'image(waiting_on_mem_controller)
+                & ", transaction_complete_toggle=" & std_logic'image(transaction_complete_toggle)
+                & ". expected_transaction_complete_toggle" & std_logic'image(expected_transaction_complete_toggle);
 
           -- CPU proceeds if proceed=1, or if we were waiting on the memory
           -- controller, but it has responded.
-          if proceed = '1' or
-            (waiting_on_mem_controller='1' and (transaction_complete_toggle = expected_transaction_complete_toggle)) then
+          if (waiting_on_mem_controller = '0') or (waiting_on_mem_controller='1' and (transaction_complete_toggle = expected_transaction_complete_toggle)) then
 
             -- Main state machine for CPU
+            monitor_proceed           <= '1';
 
             waiting_on_mem_controller <= '0';
 
@@ -4490,7 +4491,6 @@
                       memory_access_read  := '1';
                       monitor_mem_reading <= '1';
                       mem_reading         <= '1';
-                      proceed             <= '0';
                       state               <= MonitorMemoryAccess;
                     end if;
                   end if;
@@ -5326,6 +5326,10 @@
                       instruction_bytes_v := transaction_rdata;
                     end if;
 
+                    report "I believe I have the data for the next instruction: $"
+                     & to_hstring(instruction_bytes_v);
+
+
                     -- Now check for prefixes.  This also implicitly skips
                     -- single NOP instructions(!)
                     if instruction_bytes_v(23 downto 0) = x"EA4242"
@@ -6097,7 +6101,7 @@
                               when M_InnnnX =>
                                 memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_x;
                               when M_InnSPY =>
-                                memory_access_address := to_unsigned(to_integer(reg_b&reg_arg1)
+                                memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_b&reg_arg1)
                                     +to_integer(reg_sph&reg_sp),16);
                               when M_InnX =>
                                 memory_access_address(15 downto 8) := reg_b;
@@ -6539,22 +6543,24 @@
               instruction_fetch_address_in <= to_integer(vreg33(19 downto 0));
               target_instruction_addr      <= to_integer(vreg33(19 downto 0));
               -- Instruction will come from the dedicated ifetch interface
+              report "Fetching instruction via ifetch";
               instruction_from_transaction <= '0';
             -- XXX Toggle instruction_fetch_request_toggle is we believe that the
             -- requested address is not in the instruction pre-fetch buffer.
             -- Simplest approach here is to toggle it once when we enter
             -- InstructionDecode state if the instruction is not ready there for us.
-            else
-              -- Have to fetch instruction via normal memory channel
+              else
+                -- Have to fetch instruction via normal memory channel
               transaction_request_toggle <= not transaction_request_toggle_int;
               transaction_request_toggle_int <= not transaction_request_toggle_int;
-              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_complete_toggle;
               transaction_address        <= vreg33(27 downto 0);
               transaction_length         <= 6;
               transaction_write          <= '0';
               waiting_on_mem_controller  <= '1';
               -- instruction bytes will arrive as a normal memory transaction
               instruction_from_transaction <= '1';
+              report "Fetching instruction via general memory transaction interface";
             end if;
           else
           -- Normal memory access
@@ -6742,7 +6748,7 @@
               -- Normal memory fetch
               transaction_request_toggle <= not transaction_request_toggle_int;
               transaction_request_toggle_int <= not transaction_request_toggle_int;
-              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_complete_toggle;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '0';
@@ -6763,7 +6769,7 @@
               report "MEMORY: Writing memory @ $" & to_hstring(long_address);
               transaction_request_toggle <= not transaction_request_toggle_int;
               transaction_request_toggle_int <= not transaction_request_toggle_int;
-              expected_transaction_complete_toggle <= not transaction_request_toggle_int;
+              expected_transaction_complete_toggle <= not transaction_complete_toggle;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '1';

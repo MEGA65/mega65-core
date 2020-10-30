@@ -200,7 +200,9 @@ architecture edwardian of memcontroller is
   signal fastio_write_bytecount : integer range 0 to 6 := 0;
   signal fastio_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
   signal fastio_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal fastio_write_data_vector_new : unsigned(31 downto 0) := to_unsigned(0,32);
   signal fastio_next_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal fastio_next_address_new : unsigned(19 downto 0) := to_unsigned(0,20);
   signal fastio_read_request_toggle : std_logic := '0';
   signal fastio_write_request_toggle : std_logic := '0';
   signal last_fastio_read_request_toggle : std_logic := '0';
@@ -298,6 +300,7 @@ begin
       colour_ram_cs <= '0';
       if fastio_read_request_toggle /= last_fastio_read_request_toggle then
         fastio_read_bytes_remaining_plus_one <= fastio_read_bytecount + 1;
+        fastio_next_address <= fastio_next_address_new;
         last_fastio_read_request_toggle <= fastio_read_request_toggle;
       end if;
 
@@ -306,6 +309,8 @@ begin
           & std_logic'image(fastio_write_request_toggle)
           & ", last_toggle=" & std_logic'image(last_fastio_write_request_toggle);
         fastio_write_bytes_remaining <= fastio_write_bytecount;
+        fastio_next_address <= fastio_next_address_new;
+        fastio_write_data_vector <= fastio_write_data_vector_new;
         last_fastio_write_request_toggle <= fastio_write_request_toggle;
       end if;
 
@@ -545,9 +550,9 @@ begin
               report "fastio read request toggled";
               fastio_read_request_toggle <= not fastio_read_request_toggle;
             end if;
-            fastio_next_address <= transaction_address(19 downto 0);
+            fastio_next_address_new <= transaction_address(19 downto 0);
             fastio_rdata_buffer <= to_unsigned(0,48);
-            fastio_write_data_vector <= transaction_wdata;
+            fastio_write_data_vector_new <= transaction_wdata;
             fastio_write_bytecount <= transaction_length;
             fastio_read_bytecount <= transaction_length;
             fastio_read_position <= 7;
@@ -675,7 +680,7 @@ begin
                       ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 4;
             when 5 => ifetch_buffer( 87 downto 0) <= ifetch_buffer(127 downto 40);
                       ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 5;
-            when 6 => ifetch_buffer( 93 downto 0) <= ifetch_buffer(127 downto 48);
+            when 6 => ifetch_buffer( 79 downto 0) <= ifetch_buffer(127 downto 48);
                       ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 6;
             when others =>
               null;

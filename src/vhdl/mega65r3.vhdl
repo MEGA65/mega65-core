@@ -775,6 +775,7 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       clock162 => clock162,
+      clock324 => clock325,
       clock100 => clock100,
       clock200 => clock200,
       clock27 => clock27,
