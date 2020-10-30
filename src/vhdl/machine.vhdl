@@ -534,8 +534,6 @@ architecture Behavioral of machine is
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
-  signal hyppo_rdata : std_logic_vector(7 downto 0);
-  signal hyppo_address : std_logic_vector(13 downto 0);
 
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal fastio_colour_ram_rdata : std_logic_vector(7 downto 0);
@@ -1001,9 +999,6 @@ begin
       fastio_colour_ram_rdata => fastio_colour_ram_rdata,
       colour_ram_cs           => colour_ram_cs,
       charrom_write_cs        => charrom_write_cs,
-
-      hyppo_rdata       => hyppo_rdata,
-      hyppo_address_out => hyppo_address,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle   => slow_access_ready_toggle,
@@ -1587,8 +1582,6 @@ begin
       addr_fast => fastio_addr_fast,
       r => fastio_read, w => fastio_write,
       data_i => fastio_wdata, data_o => fastio_rdata,
-      hyppo_rdata => hyppo_rdata,
-      hyppo_address => hyppo_address,
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,

@@ -12,6 +12,7 @@ entity memcontroller is
     chipram_1mb : std_logic := '0';
     cpufrequency : integer := 40;
     chipram_size : integer := 393216;
+    hyppo_size : integer := 16384;
     target : mega65_target_t := mega65r2);
   port (
     -- Clocks used to drive interface to CPU and memories
@@ -77,10 +78,6 @@ entity memcontroller is
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic := '0';
     charrom_write_cs : out std_logic := '0';
-
-    -- HYPPO hypervisor RAM interface
-    hyppo_rdata : in std_logic_vector(7 downto 0);
-    hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
 
     ---------------------------------------------------------------------------
     -- Slow device access 4GB address space
@@ -174,6 +171,55 @@ architecture edwardian of memcontroller is
   signal fastram_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
   signal fastram_rdata : unsigned(7 downto 0) := x"00";
 
+
+  ---------
+  signal hyppo_iface : fri_array := (others => ( addr => 0,
+                                                   addr_return => 0,
+                                                   we => '0',
+                                                   wdata => x"00",
+                                                   rdata => x"00",
+                                                   is_ifetch => '0',
+                                                   is_ifetch_return => '0',
+                                                   token => to_unsigned(0,5),
+                                                   token_return => to_unsigned(0,5)));
+
+  -- HYPPO RAM is much smaller, so we shouldn't need such a long pipeline for
+  -- the signals to get gathered from around the die
+  constant hyppo_pipeline_depth : integer := 4;
+
+  -- 162MHz request signals
+  signal hyppo_write_addr : integer range 0 to (chipram_size-1) := 0;
+  signal hyppo_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal hyppo_write_bytecount : integer range 0 to 6 := 0;
+  signal hyppo_read_addr : integer range 0 to (chipram_size-1) := 0;
+  signal hyppo_read_bytecount : integer range 0 to 6 := 0;
+  signal hyppo_background_read : std_logic := '0';
+
+  -- 324MHz fast internal chip ram access signals
+  signal hyppo_write_now : std_logic := '0';
+  signal hyppo_next_address : integer range 0 to (chipram_size-1) := 0;
+  signal hyppo_next_ifetch_address : integer range 0 to (chipram_size-1) := 0;
+  signal hyppo_write_bytes_remaining : integer range 0 to 6 := 0;
+  signal hyppo_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal hyppo_write_request_toggle : std_logic := '0';
+  signal last_hyppo_write_request_toggle : std_logic := '0';
+  signal hyppo_read_request_toggle : std_logic := '0';
+  signal last_hyppo_read_request_toggle : std_logic := '0';
+  signal hyppo_read_complete_toggle : std_logic := '0';
+  signal last_hyppo_read_complete_toggle : std_logic := '0';
+  signal hyppo_read_now : std_logic := '0';
+  signal hyppo_read_bytes_remaining : integer range 0 to 6 := 0;
+  signal hyppo_read_byte_position : integer range 0 to 6 := 0;
+  signal hyppo_job_end_token : integer range 0 to 32 := 32;
+  signal hyppo_read_tokens : read_tokens := (others => 33);
+
+  signal hyppo_rdata_buffer : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal hyppo_rdata : unsigned(7 downto 0) := x"00";
+
+  
+  -----
+  
+  
   signal slow_access_request_toggle_int : std_logic := '0';
   signal slowdev_access_read_position : integer range 0 to 7 := 0;
   signal slowdev_read_bytes_remaining_plus_one : integer range 0 to 7 := 0;
@@ -184,6 +230,7 @@ architecture edwardian of memcontroller is
   signal slowdev_write_data_vector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal slowdev_write_data_vector_new : unsigned(31 downto 0) := to_unsigned(0,32);
   signal slowdev_next_address : unsigned(27 downto 0) := to_unsigned(0,28);
+  signal slowdev_next_address_new : unsigned(27 downto 0) := to_unsigned(0,28);
   signal slowdev_read_request_toggle : std_logic := '0';
   signal slowdev_write_request_toggle : std_logic := '0';
   signal last_slowdev_read_request_toggle : std_logic := '0';
@@ -257,7 +304,6 @@ architecture edwardian of memcontroller is
 
   signal last_transaction_request_toggle : std_logic := '0';
 
-
 begin
 
   -- The main fast memory of the MEGA65, internal to the FPGA
@@ -274,6 +320,21 @@ begin
     dob       => chipram_dataout
     );
 
+  -- The 16KB hypervisor memory.
+  -- We clock this at 8x CPU speed like the main fast/chip RAM, to minimise latency
+  block1: block
+  begin
+  hypporom : entity work.hyppo port map (
+    clk     => cpuclock8x,
+    address => hyppo_iface(hyppo_pipeline_depth).addr,
+    address_i => hyppo_iface(hyppo_pipeline_depth).addr,
+    we      => hyppo_iface(hyppo_pipeline_depth).we,
+    cs      => privileged_access,
+    data_o  => hyppo_rdata,
+    data_i  => hyppo_iface(hyppo_pipeline_depth).wdata
+    );
+  end block;
+  
   -- We don't actually use this, yet, but it is a simple ZP cache.
   -- Each line contains 20 bit upper address, and the 8-bit value
   -- stored in that location. Clocked at 4x CPU clock, so that we
@@ -454,6 +515,11 @@ begin
         -- so we check those immediately -- unless we have a request running in
         -- the background
         report "transaction request for $" & to_hstring(transaction_address);
+
+        if transaction_address(27 downto 8) = bp_address then
+          -- Its to ZP, so also update the ZP cache
+        end if;
+        
         if (to_integer(transaction_address) <= chipram_size)
           and (fastram_write_request_toggle = last_fastram_write_request_toggle)
           and (fastram_read_request_toggle = last_fastram_read_request_toggle)
@@ -463,19 +529,10 @@ begin
           -- the cache.
           if transaction_write = '1' then
             -- Its a write
+            last_transaction_request_toggle <= transaction_request_toggle;
+            report "immediate return from fastram write, because they never take >1 40MHz clock cycle";
+            transaction_complete_toggle <= transaction_request_toggle;
 
-            -- XXX Also write to colour RAM if the write address is between $1F800-$1FFFF
-
-            if transaction_address(27 downto 8) = bp_address then
-              -- Its to ZP, so also update the ZP cache
-            else
-              -- Not to ZP, so we can just commit the write immediately
-              last_transaction_request_toggle <= transaction_request_toggle;
-              report "immediate return from fastram write, because they never take >1 40MHz clock cycle";
-              transaction_complete_toggle <= transaction_request_toggle;
-            end if;
-
-            -- Either way, request the data be written
             fastram_write_request_toggle <= not fastram_write_request_toggle;
             fastram_write_addr <= to_integer(transaction_address(19 downto 0));
             fastram_write_data <= transaction_wdata;
@@ -493,99 +550,125 @@ begin
             fastram_rdata_buffer <= to_unsigned(0,48);
             fastram_background_read <= '0';
           end if;
-        else
-          -- NOT fast/chip RAM.
+        end if;
 
-          -- Latency is still important, but not as critical as for fast RAM,
-          -- so we are able to flatten logic a little here.
-          -- We need to consider:
-          -- FastIO @ $FFxxxxx
-          -- SlowDevices @ $4000000-$7FFFFFF
-          -- SlowDevices @ $8000000-$FEFFFFF
-          -- (HyperRAM is handled by slow devices)
-          -- Other special cases that nominally live within the FastIO range:
-          --   VIC-IV registers
-          --   Colour RAM
-          --   Hypervisor RAM
+        -- Maybe not fast/chip RAM.
 
-          -- FastIO is @ 40.5MHz at present, while SlowDevices is clocked at cpu x2
-          -- (81MHz).  Thus we have separate little state-machines for each.  These
-          -- work broadly as for the fast/chip RAM case, with toggles to cross
-          -- the various clock domains.
+        -- Latency is still important, but not as critical as for fast RAM,
+        -- so we are able to flatten logic a little here.
+        -- We need to consider:
+        -- FastIO @ $FFxxxxx
+        -- SlowDevices @ $4000000-$7FFFFFF
+        -- SlowDevices @ $8000000-$FEFFFFF
+        -- Other special cases that nominally live within the FastIO range:
+        --   VIC-IV registers
+        --   Colour RAM
+        --   VIC-IV palette memories
+        --   Hypervisor RAM
 
-          report "not fast/chip ram request @ $" & to_hstring(transaction_address);
+        -- FastIO is @ 40.5MHz at present, while SlowDevices is clocked at cpu x2
+        -- (81MHz).  Thus we have separate little state-machines for each.  These
+        -- work broadly as for the fast/chip RAM case, with toggles to cross
+        -- the various clock domains.
 
+        report "not fast/chip ram request @ $" & to_hstring(transaction_address);
+
+        -- Remember that we have accepted the job
+        last_transaction_request_toggle <= transaction_request_toggle;
+        
+        if transaction_address(27 downto 20) = x"FF" then
+          -- FastIO range
+          if transaction_address(19 downto 16) = x"8" then
+            -- Colour RAM
+            -- (physically connected to the fastio bus: we should separate
+            -- it, and use 324MHz clock on it)
+            src_is_colourram <= '1';
+          elsif transaction_address(19 downto 14) = "111110" then
+            -- Hypervisor memory
+            if transaction_write = '1' then
+              -- Its a write
+              
+              last_transaction_request_toggle <= transaction_request_toggle;
+              report "immediate return from hyppo write, because they never take >1 40MHz clock cycle";
+              transaction_complete_toggle <= transaction_request_toggle;
+              
+              -- Either way, request the data be written
+              hyppo_write_request_toggle <= not hyppo_write_request_toggle;
+              hyppo_write_addr <= to_integer(transaction_address(13 downto 0));
+              hyppo_write_data <= transaction_wdata;
+              hyppo_write_bytecount <= transaction_length;
+            else
+              -- Reading from chip/fast RAM.
+              
+              -- Remember that we have accepted the job
+              last_transaction_request_toggle <= transaction_request_toggle;
+              
+              -- Schedule read
+              hyppo_read_request_toggle <= not hyppo_read_request_toggle;
+              hyppo_read_addr <= to_integer(transaction_address(13 downto 0));
+              hyppo_read_bytecount <= transaction_length;
+              hyppo_rdata_buffer <= to_unsigned(0,48);
+              hyppo_background_read <= '0';
+            end if;
+            
+          elsif transaction_address(19 downto 12) = x"fe" then
+            -- Charrom write
+            charrom_write_cs <= transaction_write;
+          elsif ((transaction_address(19 downto 14)&"00"&transaction_address(11 downto 10)&"00") = x"d00")
+            and (transaction_address(11 downto 7) /= "000001")
+          then
+            -- VIC-IV fastio
+            report "is VIC-IV access";
+            src_is_viciv <= '1';
+          else
+            -- General fastio access
+            report "general fastio access";
+            src_is_viciv <= '0';
+            src_is_colourram <= '0';
+          end if;
+          
+          -- Schedule read/write via fastio bus or variant
+          if transaction_write = '1' then
+            report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
+              & " to " & std_logic'image(not fastio_write_request_toggle);
+            fastio_write_request_toggle <= not fastio_write_request_toggle;
+          -- XXX For single byte reads, we can probably do this asynchronously.
+          -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
+          -- and just have a flag to the CPU that indicates that we are still
+          -- busy.  Or we implement some kind of queue.  But for now, we will
+          -- just do it all synchronously.
+          else
+            report "fastio read request toggled";
+            fastio_read_request_toggle <= not fastio_read_request_toggle;
+          end if;
+          fastio_next_address_new <= transaction_address(19 downto 0);
+          fastio_write_data_vector_new <= transaction_wdata;
+          fastio_write_bytecount <= transaction_length;
+          fastio_read_bytecount <= transaction_length;
+          fastio_read_position <= 7;
+          
+        elsif transaction_address(27 downto 26) /= "00" then
+          -- Slow devices range
+          report "slowdev request";
+          
           -- Remember that we have accepted the job
           last_transaction_request_toggle <= transaction_request_toggle;
-
-          if transaction_address(27 downto 20) = x"FF" then
-            -- FastIO range
-            if transaction_address(19 downto 16) = x"8" then
-              -- Colour RAM
-              -- (physically connected to the fastio bus: we should separate
-              -- it, and use 324MHz clock on it)
-              src_is_colourram <= '1';
-            elsif transaction_address(19 downto 14) = "111110" then
-              -- Hypervisor memory
-            elsif transaction_address(19 downto 12) = x"fe" then
-              -- Charrom write
-              charrom_write_cs <= transaction_write;
-            elsif ((transaction_address(19 downto 14)&"00"&transaction_address(11 downto 10)&"00") = x"d00")
-              and (transaction_address(11 downto 7) /= "000001")
-            then
-              -- VIC-IV fastio
-              report "is VIC-IV access";
-              src_is_viciv <= '1';
-            else
-              -- General fastio access
-              report "general fastio access";
-              src_is_viciv <= '0';
-              src_is_colourram <= '0';
-            end if;
-
-            -- Schedule read/write via fastio bus or variant
-            if transaction_write = '1' then
-              report "fastio write request toggled from " & std_logic'image(fastio_write_request_toggle)
-                & " to " & std_logic'image(not fastio_write_request_toggle);
-              fastio_write_request_toggle <= not fastio_write_request_toggle;
-            -- XXX For single byte reads, we can probably do this asynchronously.
-            -- XXX Better, we can do ALL fastio writes asynch, even if multi-byte,
-            -- and just have a flag to the CPU that indicates that we are still
-            -- busy.  Or we implement some kind of queue.  But for now, we will
-            -- just do it all synchronously.
-            else
-              report "fastio read request toggled";
-              fastio_read_request_toggle <= not fastio_read_request_toggle;
-            end if;
-            fastio_next_address_new <= transaction_address(19 downto 0);
-            fastio_write_data_vector_new <= transaction_wdata;
-            fastio_write_bytecount <= transaction_length;
-            fastio_read_bytecount <= transaction_length;
-            fastio_read_position <= 7;
-
-          elsif transaction_address(27 downto 26) /= "00" then
-            -- Slow devices range
-            report "slowdev request";
-
-            -- Remember that we have accepted the job
-            last_transaction_request_toggle <= transaction_request_toggle;
-
-            -- Schedule read or write
-            slowdev_next_address_new <= transaction_address;
-            if transaction_write='0' then
-              report "requesting slowdev read";
-              slowdev_read_request_toggle <= not slowdev_read_request_toggle;
-              slowdev_read_bytecount <= transaction_length;
-              -- Mark reading as not yet having a byte scheduled for reading
-              slowdev_access_read_position <= 7;
-            else
-              report "requesting slowdev write";
-              slowdev_write_request_toggle <= not slowdev_write_request_toggle;
-              slowdev_write_data_vector_new <= transaction_wdata;
-              slowdev_write_bytecount <= transaction_length;
-            end if;
-
+          
+          -- Schedule read or write
+          slowdev_next_address_new <= transaction_address;
+          if transaction_write='0' then
+            report "requesting slowdev read";
+            slowdev_read_request_toggle <= not slowdev_read_request_toggle;
+            slowdev_read_bytecount <= transaction_length;
+            -- Mark reading as not yet having a byte scheduled for reading
+            slowdev_access_read_position <= 7;
+          else
+            report "requesting slowdev write";
+            slowdev_write_request_toggle <= not slowdev_write_request_toggle;
+            slowdev_write_data_vector_new <= transaction_wdata;
+            slowdev_write_bytecount <= transaction_length;
           end if;
+          
         end if;
       end if;
 
@@ -600,6 +683,17 @@ begin
           -- We have some instruction bytes, do something useful with them.
         end if;
         fastram_job_end_token <= 32;
+      end if;
+      if hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
+        report "return HYPPO RAM read data to CPU";
+        last_hyppo_read_complete_toggle <= hyppo_read_complete_toggle;
+        if hyppo_background_read = '0' then
+          transaction_complete_toggle <= transaction_request_toggle;
+          transaction_rdata <= hyppo_rdata_buffer;
+        else
+          -- We have some instruction bytes, do something useful with them.
+        end if;
+        hyppo_job_end_token <= 32;
       end if;
 
       -- Notice when the slowdev read or write is complete, and tell the CPU
@@ -892,6 +986,112 @@ begin
         end if;
       end if;
 
+
+      ------------------------------------------------------------------------------------------
+      -- HYPPO RAM state machine
+      ------------------------------------------------------------------------------------------
+      
+      -- Update fast RAM pipeline stages
+      for i in 1 to 8 loop
+        hyppo_iface(i) <= hyppo_iface(i-1);
+      end loop;
+      -- And reflect token ID through the pipeline for pickup
+      hyppo_iface(0).token_return <= hyppo_iface(hyppo_pipeline_depth).token;
+      -- XXX The following is because GHDL was doing weird things with having
+      -- iface(0).rdata directly attached to the fastram
+      hyppo_iface(1).rdata <= hyppo_rdata;
+      -- And also the instruction fetch info
+      hyppo_iface(0).is_ifetch_return <= hyppo_iface(hyppo_pipeline_depth).is_ifetch;
+      hyppo_iface(0).addr_return <= hyppo_iface(hyppo_pipeline_depth).addr;
+
+      -- By default idle the fast/chip RAM interface
+      hyppo_iface(0).addr <= 0;
+      hyppo_iface(0).we <= '0';
+      hyppo_iface(0).wdata <= x"00";
+      hyppo_iface(0).is_ifetch <= '0';
+      -- And keep cycling the token IDs so that we can easily collect results
+      -- at the other end
+      hyppo_iface(0).token <= next_token;
+      hyppo_read_byte_position <= 0;
+
+      if hyppo_write_now='1' or hyppo_read_now='1' then
+        hyppo_next_address <= hyppo_next_address + 1;
+      else
+        -- If nothing else to do, then fetch the next byte in the instruction stream
+        -- Prepare other signals for doing background instruction fetches
+--        report "idle cycle instruction prefetch from $" & to_hstring(to_unsigned(hyppo_next_ifetch_address,20));
+        hyppo_iface(0).addr <= hyppo_next_ifetch_address;
+        hyppo_iface(0).is_ifetch <= '1';
+      end if;
+
+      -- If we are writing to hyppo ram, write out the queued bytes
+      if hyppo_write_now='1' then
+        hyppo_iface(0).addr <= hyppo_next_address;
+        hyppo_iface(0).we <= '1';
+        hyppo_iface(0).wdata <= hyppo_write_data_vector(7 downto 0);
+
+        -- Get ready for writing the next byte
+        hyppo_write_bytes_remaining <= hyppo_write_bytes_remaining - 1;
+        if hyppo_write_bytes_remaining = 1 then
+          hyppo_write_now <= '0';
+        else
+          hyppo_write_now <= '1';
+        end if;
+        hyppo_write_data_vector(23 downto 0) <= hyppo_write_data_vector(31 downto 8);
+      end if;
+
+      if hyppo_read_now='1' then
+        report "hyppo_read_now asserted";
+        hyppo_iface(0).addr <= hyppo_next_address;
+        hyppo_read_bytes_remaining <= hyppo_read_bytes_remaining - 1;
+        if hyppo_read_bytes_remaining = 1 then
+          hyppo_read_now <= '0';
+          -- Note which token will mark the end of the read job
+          hyppo_job_end_token <= to_integer(next_token);
+        else
+          hyppo_read_now <= '1';
+        end if;
+        -- Note the token ID and where it needs to go
+        hyppo_read_tokens(hyppo_read_byte_position) <= to_integer(next_token);
+        hyppo_read_byte_position <= hyppo_read_byte_position + 1;
+
+      end if;
+
+      -- Do we have a new write request to hyppo?
+      if hyppo_write_request_toggle /= last_hyppo_write_request_toggle then
+        report "accepting fastio_write_request_toggle";
+        last_hyppo_write_request_toggle <= hyppo_write_request_toggle;
+        hyppo_write_bytes_remaining <= hyppo_write_bytecount;
+        hyppo_next_address <= hyppo_write_addr;
+        hyppo_write_data_vector <= hyppo_write_data;
+        hyppo_write_now <= '1';
+      end if;
+
+      -- Or read request to hyppo
+      if hyppo_read_request_toggle /= last_hyppo_read_request_toggle then
+        last_hyppo_read_request_toggle <= hyppo_read_request_toggle;
+        hyppo_read_bytes_remaining <= hyppo_read_bytecount;
+        hyppo_next_address <= hyppo_read_addr;
+        hyppo_read_now <= '1';
+        hyppo_read_byte_position <= 0;
+        -- Set end of job token initially to be invalid.
+        -- It will get updated with the correct value when the read job is underway
+        hyppo_job_end_token <= 32; -- only tokens 0 -- 31 exist
+      end if;
+      for i in 0 to 5 loop
+        if to_integer(hyppo_iface(hyppo_pipeline_depth).token_return) = hyppo_read_tokens(i) then
+          -- We have read a byte we are waiting for
+          hyppo_rdata_buffer(i*8 + 7 downto i*8) <= hyppo_iface(hyppo_pipeline_depth).rdata;
+--          report "stashing byte $" & to_hstring(hyppo_iface(hyppo_pipeline_depth).rdata) & " into byte " & integer'image(i);
+        end if;
+      end loop;
+      if to_integer(hyppo_iface(hyppo_pipeline_depth).token_return) = hyppo_job_end_token then
+        -- This was the last byte we needed to read, so we can tell the slower
+        -- interface to collect and present the result back to the CPU
+        hyppo_read_complete_toggle <= not hyppo_read_complete_toggle;
+        report "end of hyppo read request reached";
+      end if;
+      
     end if;
 
   end process;

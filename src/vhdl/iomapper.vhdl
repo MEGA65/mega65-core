@@ -92,7 +92,6 @@ entity iomapper is
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0) := (others => 'Z');
-        hyppo_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
         key_scancode : in unsigned(15 downto 0);
@@ -359,9 +358,7 @@ entity iomapper is
     touch2_y : out unsigned(11 downto 0) := (others => '0');
     
     viciii_iomode : in std_logic_vector(1 downto 0);
-    
-    hyppo_address : in std_logic_vector(13 downto 0);
-        
+            
     colourram_at_dc00 : in std_logic
     
     );
@@ -574,19 +571,6 @@ architecture behavioral of iomapper is
   signal dd00_bits_ddr : std_logic_vector(1 downto 0);
   
 begin
-
-  block1: block
-  begin
-  hypporom : entity work.hyppo port map (
-    clk     => cpuclock,
-    address => hyppo_address,
-    address_i => address(13 downto 0),
-    we      => w,
-    cs      => hyppocs,
-    data_o  => hyppo_rdata,
-    data_i  => data_i
-    );
-  end block;
 
   access0: block
   begin
