@@ -683,8 +683,7 @@
     signal zp32bit_pointer_enabled : std_logic := '0';
     -- Flag that indicates far JMP, JSR or RTS
     -- (set by two CLD's in a row before the instruction)
-    signal flat32_address       : std_logic := '0';
-    signal flat32_address_prime : std_logic := '0';
+    signal flat32_addressmode       : std_logic := '0';
     signal flat32_enabled       : std_logic := '1';
     -- flag for progressive carry calculation when loading a 32-bit pointer
     signal pointer_carry : std_logic := '0';
@@ -826,7 +825,7 @@
         InstructionDecode4502,
         InstructionDecode6502,
         IndirectResolved,
-        ValueLoaded,
+        MicrocodeInterpret,
 
         Flat32RTS,
         Pull,
@@ -1074,10 +1073,13 @@
     signal instruction_fetch_address_in : integer;
     signal instruction_fetched_address_out : integer;
     signal instruction_fetch_rdata : unsigned(47 downto 0) := (others => '1');
+    signal target_instruction_addr : integer;
+
     signal instruction_from_transaction : std_logic := '0';
     signal waiting_on_mem_controller : std_logic := '0';
     signal transaction_request_toggle : std_logic;
     signal transaction_complete_toggle : std_logic := '0';
+    signal expected_transaction_complete_toggle : std_logic := '0';
     signal transaction_length : integer range 0 to 6;
     signal transaction_address : unsigned(27 downto 0);
     signal transaction_write : std_logic;
@@ -1305,6 +1307,10 @@
     signal div_start_over : std_logic := '0';
     signal div_busy       : std_logic := '0';
 
+    signal instruction_bytes : unsigned(47 downto 0) := (others => '0');
+    signal is_store : std_logic := '0';
+    signal is_16bit_operation : std_logic := '0';
+
     -- purpose: map VDC linear address to VICII bitmap addressing here
     -- to keep it as simple as possible we assume fix 640x200x2 resolution
     -- for the access
@@ -1450,376 +1456,32 @@
     end generate;
 
     process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
-      procedure disassemble_last_instruction is
-        variable justification : side             := RIGHT;
-        variable size          : width            := 0;
-        variable s             : string(1 to 119) := (others => ' ');
-        variable t             : string(1 to 100) := (others => ' ');
-        variable virtual_reg_p : std_logic_vector(7 downto 0);
-      begin
-        --pragma synthesis_off
-        if last_bytecount > 0 then
-          -- Program counter
-          s(1)      := '$';
-          s(2 to 5) := to_hstring(last_instruction_pc)(1 to 4);
-          -- opcode and arguments
-          s(7 to 8) := to_hstring(last_opcode)(1 to 2);
-          if last_bytecount > 1 then
-            s(10 to 11) := to_hstring(last_byte2)(1 to 2);
-          end if;
-          if last_bytecount > 2 then
-            s(13 to 14) := to_hstring(last_byte3)(1 to 2);
-          end if;
-          -- instruction name
-          t(1 to 5)   := instruction'image(instruction_lut(to_integer(last_opcode)));
-          s(17 to 19) := t(3 to 5);
 
-          -- Draw 0-7 digit on BBS/BBR instructions
-          case instruction_lut(to_integer(emu6502&last_opcode)) is
-            when I_BBS =>
-              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
-            when I_BBR =>
-              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
-            when others =>
-              null;
-          end case;
+      variable memory_read_value : unsigned(7 downto 0);
 
-          -- Draw arguments
-          case mode_lut(to_integer(emu6502&last_opcode)) is
-            when M_impl => null;
-            when M_InnX =>
-              s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
-              s(26 to 28) := ",X)";
-            when M_nn =>
-              s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
-            when M_immnn =>
-              s(22 to 23) := "#$";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
-            when M_A    => null;
-            when M_nnnn =>
-              s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-            when M_nnrr =>
-              s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
-              s(25 to 26) := ",$";
-              s(27 to 30) := to_hstring(last_instruction_pc + 3 + last_byte3)(1 to 4);
-            when M_rr =>
-              s(22) := '$';
-              if last_byte2(7)='0' then
-                s(23 to 26) := to_hstring(last_instruction_pc + 2 + last_byte2)(1 to 4);
-              else
-                s(23 to 26) := to_hstring(last_instruction_pc + 2 - 256 + last_byte2)(1 to 4);
-              end if;
-            when M_InnY =>
-              s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
-              s(26 to 28) := "),Y";
-            when M_InnZ =>
-              s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
-              s(26 to 28) := "),Z";
-            when M_rrrr =>
-              s(22)       := '$';
-              s(23 to 26) := to_hstring(last_instruction_pc + 2 + (last_byte3 & last_byte2))(1 to 4);
-            when M_nnX =>
-              s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
-              s(25 to 26) := ",X";
-            when M_nnnnY =>
-              s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-              s(27 to 28) := ",Y";
-            when M_nnnnX =>
-              s(22)       := '$';
-              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-              s(27 to 28) := ",X";
-            when M_Innnn =>
-              s(22 to 23) := "($";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-              s(28 to 28) := ")";
-            when M_InnnnX =>
-              s(22 to 23) := "($";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-              s(28 to 30) := ",X)";
-            when M_InnSPY =>
-              s(22 to 23) := "($";
-              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
-              s(26 to 31) := ",SP),Y";
-            when M_nnY =>
-              s(22)       := '$';
-              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
-              s(25 to 26) := ",Y";
-            when M_immnnnn =>
-              s(22 to 23) := "#$";
-              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
-          end case;
+      variable memory_access_address         : unsigned(27 downto 0) := x"FFFFFFF";
+      variable memory_access_read            : std_logic             := '0';
+      variable memory_access_write           : std_logic             := '0';
+      variable memory_access_resolve_address : std_logic             := '0';
+      variable memory_access_wdata           : unsigned(31 downto 0)  := x"FFFFFFFF";
+      variable memory_access_byte_count      : integer range 0 to 4 := 0;
 
-          -- Show registers
-          s(36 to 96)      := "A:xx X:xx Y:xx Z:xx SP:xxxx P:xx $01=xx MAPLO:xxxx MAPHI:xxxx";
-          s(38 to 39)      := to_hstring(reg_a);
-          s(43 to 44)      := to_hstring(reg_x);
-          s(48 to 49)      := to_hstring(reg_y);
-          s(53 to 54)      := to_hstring(reg_z);
-          s(59 to 62)      := to_hstring(reg_sph&reg_sp);
-          virtual_reg_p(7) := flag_n;
-          virtual_reg_p(6) := flag_v;
-          virtual_reg_p(5) := flag_e;
-          virtual_reg_p(4) := '0';
-          virtual_reg_p(3) := flag_d;
-          virtual_reg_p(2) := flag_i;
-          virtual_reg_p(1) := flag_z;
-          virtual_reg_p(0) := flag_c;
-          s(66 to 67)      := to_hstring(virtual_reg_p);
-          s(73 to 74)      := to_hstring(cpuport_value or (not cpuport_ddr));
-          s(82 to 85)      := to_hstring(unsigned(reg_map_low)&reg_offset_low);
-          s(93 to 96)      := to_hstring(unsigned(reg_map_high)&reg_offset_high);
+      variable flat32_addressmode_v : std_logic := '0';
+      variable var_addressingmode : addressingmode := M_impl;
+      variable var_instruction    : instruction;
+      variable prefix_bytes : integer range 0 to 3 := 0;
+      variable is_store_v : std_logic := '0';
+      variable is_load_v : std_logic := '0';
+      variable is_rmw_v : std_logic := '0';
+      variable is_indirect_v : std_logic := '0';
+      variable is_axyz32_instruction_v : std_logic := '0';
+      variable zp32bit_pointer_enabled_v : std_logic := '0';
+      variable memory_access_set_address_based_on_addressingmode : std_logic := '0';
+      variable fetch_instruction_please : std_logic := '0';
+      variable sp_dec : integer range 0 to 255 := 0;
+      variable sp_inc : integer range 0 to 255 := 0;
+      variable var_microcode : microcodeops;
 
-          s(100 to 107) := "........";
-          if flag_n='1' then s(100) := 'N'; end if;
-          if flag_v='1' then s(101) := 'V'; end if;
-          if flag_e='1' then s(102) := 'E'; end if;
-          s(103) := '-';
-          if flag_d='1' then s(104) := 'D'; end if;
-          if flag_i='1' then s(105) := 'I'; end if;
-          if flag_z='1' then s(106) := 'Z'; end if;
-          if flag_c='1' then s(107) := 'C'; end if;
-
-          -- Show hypervisor/user mode flag
-          if hypervisor_mode='1' then
-            s(109) := 'H';
-          else
-            s(109) := 'U';
-          end if;
-
-          -- Show current CPU speed
-          s(111 to 113) := "000";
-          if vicii_2mhz='1' then s(111) := '1'; end if;
-          if viciii_fast='1' then s(112) := '1'; end if;
-          if viciv_fast='1' then s(113) := '1'; end if;
-          s(115 to 116) := to_hstring(cpuspeed_internal);
-          s(117 to 119) := "MHz";
-          -- Display disassembly
-          report s severity note;
-        end if;
-      --pragma synthesis_on
-      end procedure;
-
-      procedure reset_cpu_state is
-      begin
-        -- Set microcode state for reset
-
-        -- Disable all audio DMA channels, so we can recover from
-        -- any insane condition with them.
-        audio_dma_enables(0) <= '0';
-        audio_dma_enables(1) <= '0';
-        audio_dma_enables(2) <= '0';
-        audio_dma_enables(3) <= '0';
-
-        -- Enable chipselect for all peripherals and memories
-        chipselect_enables       <= x"EF";
-        cartridge_enable         <= '1';
-        hyper_protected_hardware <= x"00";
-
-        -- CPU starts in hypervisor
-        hypervisor_mode <= '1';
-
-        instruction_phase <= x"0";
-
-        -- Default register values
-        reg_b   <= x"00";
-        reg_a   <= x"11";
-        reg_x   <= x"22";
-        reg_y   <= x"33";
-        reg_z   <= x"00";
-        reg_sp  <= x"ff";
-        reg_sph <= x"01";
-        -- Reset entry point is now $8100 instead of $8000,
-        -- because $8000-$80FF in hypervisor space is reserved
-        -- for 64 x 4 byte entry points for hypervisor traps
-        -- from writing to $FFD3640-$FFD367F
-        hypervisor_trap_port <= "1000000";
-        report "Setting PC to $8100 on reset";
-        reg_pc <= x"8100";
-
-        -- Clear CPU MMU registers, and bank in hyppo ROM
-        -- XXX Need to update this for hypervisor mode
-        if no_hyppo='1' then
-          -- no hyppo
-          reg_offset_high <= x"000";
-          reg_map_high    <= "0000";
-          reg_offset_low  <= x"000";
-          reg_map_low     <= "0000";
-          reg_mb_high     <= x"00";
-          reg_mb_low      <= x"00";
-        else
-          -- with hyppo
-          reg_offset_high <= x"F00";
-          reg_map_high    <= "1000";
-          reg_offset_low  <= x"000";
-          reg_map_low     <= "0100";
-          reg_mb_high     <= x"FF";
-          reg_mb_low      <= x"80";
-        end if;
-
-        -- Default CPU flags
-        flag_c <= '0';
-        flag_d <= '0';
-        flag_i <= '1'; -- start with IRQ disabled
-        flag_z <= '0';
-        flag_n <= '0';
-        flag_v <= '0';
-        flag_e <= '1';
-
-        cpuport_ddr   <= x"FF";
-        cpuport_value <= x"3F";
-        force_fast    <= '0';
-
-        wait_states          <= (others => '0');
-        wait_states_non_zero <= '0';
-        mem_reading          <= '0';
-
-      end procedure reset_cpu_state;
-
-      procedure check_for_interrupts is
-      begin
-        -- No interrupts of any sort between MAP and EOM instructions.
-        if map_interrupt_inhibit='0' then
-          -- NMI is edge triggered.
-          if (nmi = '0' and nmi_state = '1') and (irq_defer_active='0') then
-            nmi_pending <= '1';
-          end if;
-          nmi_state <= nmi;
-          -- IRQ is level triggered.
-          if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
-            irq_pending <= '1';
-          else
-            irq_pending <= '0';
-          end if;
-        else
-          irq_pending <= '0';
-        end if;
-
-        -- Allow hypervisor to ban interrupts for 65,535 48MHz CPU cycles,
-        -- i.e., ~1,365 1MHz CPU cycles, i.e., ~1.37ms.  This is intended mainly
-        -- to be used by the hypervisor when passing control to the C64/C65 ROM
-        -- on boot, so that the IRQ/NMI vectors can be setup, before any
-        -- interrupt can occur.  The CIA and VIC chips now also properly clear
-        -- interrupts on reset, so hopefully this won't be needed, but it is a
-        -- good insurance policy in any case, including if some dill hits RESTORE
-        -- too fast during boot, which is also a hazard on a real C64/C65.
-        if irq_defer_request = '1' then
-          irq_defer_counter <= 65535;
-        else
-          if irq_defer_counter = 0 then
-            irq_defer_active <= '0';
-          else
-            irq_defer_active  <= '1';
-            irq_defer_counter <= irq_defer_counter - 1;
-          end if;
-        end if;
-
-      end procedure check_for_interrupts;
-
-      procedure read_long_address(
-          real_long_address : in unsigned(27 downto 0);
-          byte_count        : in integer range 0 to 4) is
-        variable long_address : unsigned(27 downto 0);
-      begin
-
-        last_action  <= 'R'; last_address <= real_long_address;
-        long_address := long_address_read;
-
-        read_source <= MemController;
-
-        report "Reading from long address $" & to_hstring(long_address) severity note;
-        mem_reading <= '1';
-
-        the_read_address <= long_address;
-
-        wait_states          <= x"00";
-        wait_states_non_zero <= '0';
-
-        -- Schedule the memory read from the appropriate source.
-
-        report "MEMORY long_address = $" & to_hstring(long_address);
-        -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
-        -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
-        if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
-          report "Preparing for reading hypervisor register";
-          read_source <= HypervisorRegister;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
-          proceed              <= '0';
-          hyperport_num        <= real_long_address(5 downto 0);
-        elsif (long_address = x"ffd3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          accessing_cpuport <= '1';
-          -- Read VDC status #141
-          -- Lie and always claim that VDC is ready
-          read_source          <= CPUPort;
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
-          proceed              <= '0';
-          cpuport_num          <= x"3";
-        elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
-          if vdc_reg_num = x"1f" then
-            report "Preparing to read from Shadow for simulated VDC access";
-            long_address := to_unsigned(to_integer(resolved_vdc_to_viciv_address)+(4*65536),28);
-            vdc_mem_addr <= vdc_mem_addr + 1;
-          else
-            accessing_cpuport <= '1';
-            -- Read simulated VDC registers
-            read_source          <= CPUPort;
-            wait_states          <= x"01";
-            wait_states_non_zero <= '1';
-            proceed              <= '0';
-            cpuport_num          <= x"4";
-          end if;
-        elsif (long_address = x"0000000") or (long_address = x"0000001") then
-          accessing_cpuport <= '1';
-          report "Preparing to read from a CPUPort";
-          read_source <= CPUPort;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
-          proceed              <= '0';
-          cpuport_num          <= real_long_address(3 downto 0);
-        elsif (long_address = x"ffd30a0") or (long_address = x"ffd10a0") then
-          accessing_cpuport <= '1';
-          report "Preparing to read from CPU memory expansion controller port";
-          read_source <= CPUPort;
-          -- One cycle wait-state on hypervisor registers to remove the register
-          -- decode from the critical path of memory access.
-          wait_states          <= x"01";
-          wait_states_non_zero <= '1';
-          proceed              <= '0';
-          cpuport_num          <= "0010";
-        elsif (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
-          report "Preparing to read from a DMAgicRegister or from the internal CPU register array";
-          read_source <= PrePreparedData;
-          -- Do the read this cycle, so that it is ready fast at the beginning of
-          -- the next cycle
-          preprepared_data <= read_d7xx_register(long_address(7 downto 0));
-          proceed          <= '1';
-        else
-          report "Preparing to read via memory controller @ $" & to_hstring(long_address);
-          is_pending_dma_access <= '0';
-          proceed               <= '0';
-          -- XXX Export request, toggle request line, set flag to indicate we are
-          -- waiting for a response
-          memory_access_Address     := long_address;
-          memory_access_read        := '1';
-          memory_access_write       := '0';
-          memory_access_byte_count  := 1;
-          waiting_on_mem_controller <= '1';
-        end if;
-
-      end read_long_address;
 
       -- purpose: obtain the byte of memory that has been read
       impure function read_d7xx_register
@@ -2359,6 +2021,374 @@
         end case;
       end function;
 
+      procedure disassemble_last_instruction is
+        variable justification : side             := RIGHT;
+        variable size          : width            := 0;
+        variable s             : string(1 to 119) := (others => ' ');
+        variable t             : string(1 to 100) := (others => ' ');
+        variable virtual_reg_p : std_logic_vector(7 downto 0);
+      begin
+        --pragma synthesis_off
+        if last_bytecount > 0 then
+          -- Program counter
+          s(1)      := '$';
+          s(2 to 5) := to_hstring(last_instruction_pc)(1 to 4);
+          -- opcode and arguments
+          s(7 to 8) := to_hstring(last_opcode)(1 to 2);
+          if last_bytecount > 1 then
+            s(10 to 11) := to_hstring(last_byte2)(1 to 2);
+          end if;
+          if last_bytecount > 2 then
+            s(13 to 14) := to_hstring(last_byte3)(1 to 2);
+          end if;
+          -- instruction name
+          t(1 to 5)   := instruction'image(instruction_lut(to_integer(last_opcode)));
+          s(17 to 19) := t(3 to 5);
+
+          -- Draw 0-7 digit on BBS/BBR instructions
+          case instruction_lut(to_integer(emu6502&last_opcode)) is
+            when I_BBS =>
+              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
+            when I_BBR =>
+              s(20 to 20) := to_hstring("0"&last_opcode(6 downto 4))(1 to 1);
+            when others =>
+              null;
+          end case;
+
+          -- Draw arguments
+          case mode_lut(to_integer(emu6502&last_opcode)) is
+            when M_impl => null;
+            when M_InnX =>
+              s(22 to 23) := "($";
+              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(26 to 28) := ",X)";
+            when M_nn =>
+              s(22)       := '$';
+              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+            when M_immnn =>
+              s(22 to 23) := "#$";
+              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+            when M_A    => null;
+            when M_nnnn =>
+              s(22)       := '$';
+              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+            when M_nnrr =>
+              s(22)       := '$';
+              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(25 to 26) := ",$";
+              s(27 to 30) := to_hstring(last_instruction_pc + 3 + last_byte3)(1 to 4);
+            when M_rr =>
+              s(22) := '$';
+              if last_byte2(7)='0' then
+                s(23 to 26) := to_hstring(last_instruction_pc + 2 + last_byte2)(1 to 4);
+              else
+                s(23 to 26) := to_hstring(last_instruction_pc + 2 - 256 + last_byte2)(1 to 4);
+              end if;
+            when M_InnY =>
+              s(22 to 23) := "($";
+              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(26 to 28) := "),Y";
+            when M_InnZ =>
+              s(22 to 23) := "($";
+              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(26 to 28) := "),Z";
+            when M_rrrr =>
+              s(22)       := '$';
+              s(23 to 26) := to_hstring(last_instruction_pc + 2 + (last_byte3 & last_byte2))(1 to 4);
+            when M_nnX =>
+              s(22)       := '$';
+              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(25 to 26) := ",X";
+            when M_nnnnY =>
+              s(22)       := '$';
+              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(27 to 28) := ",Y";
+            when M_nnnnX =>
+              s(22)       := '$';
+              s(23 to 26) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(27 to 28) := ",X";
+            when M_Innnn =>
+              s(22 to 23) := "($";
+              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(28 to 28) := ")";
+            when M_InnnnX =>
+              s(22 to 23) := "($";
+              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+              s(28 to 30) := ",X)";
+            when M_InnSPY =>
+              s(22 to 23) := "($";
+              s(24 to 25) := to_hstring(last_byte2)(1 to 2);
+              s(26 to 31) := ",SP),Y";
+            when M_nnY =>
+              s(22)       := '$';
+              s(23 to 24) := to_hstring(last_byte2)(1 to 2);
+              s(25 to 26) := ",Y";
+            when M_immnnnn =>
+              s(22 to 23) := "#$";
+              s(24 to 27) := to_hstring(last_byte3 & last_byte2)(1 to 4);
+          end case;
+
+          -- Show registers
+          s(36 to 96)      := "A:xx X:xx Y:xx Z:xx SP:xxxx P:xx $01=xx MAPLO:xxxx MAPHI:xxxx";
+          s(38 to 39)      := to_hstring(reg_a);
+          s(43 to 44)      := to_hstring(reg_x);
+          s(48 to 49)      := to_hstring(reg_y);
+          s(53 to 54)      := to_hstring(reg_z);
+          s(59 to 62)      := to_hstring(reg_sph&reg_sp);
+          virtual_reg_p(7) := flag_n;
+          virtual_reg_p(6) := flag_v;
+          virtual_reg_p(5) := flag_e;
+          virtual_reg_p(4) := '0';
+          virtual_reg_p(3) := flag_d;
+          virtual_reg_p(2) := flag_i;
+          virtual_reg_p(1) := flag_z;
+          virtual_reg_p(0) := flag_c;
+          s(66 to 67)      := to_hstring(virtual_reg_p);
+          s(73 to 74)      := to_hstring(cpuport_value or (not cpuport_ddr));
+          s(82 to 85)      := to_hstring(unsigned(reg_map_low)&reg_offset_low);
+          s(93 to 96)      := to_hstring(unsigned(reg_map_high)&reg_offset_high);
+
+          s(100 to 107) := "........";
+          if flag_n='1' then s(100) := 'N'; end if;
+          if flag_v='1' then s(101) := 'V'; end if;
+          if flag_e='1' then s(102) := 'E'; end if;
+          s(103) := '-';
+          if flag_d='1' then s(104) := 'D'; end if;
+          if flag_i='1' then s(105) := 'I'; end if;
+          if flag_z='1' then s(106) := 'Z'; end if;
+          if flag_c='1' then s(107) := 'C'; end if;
+
+          -- Show hypervisor/user mode flag
+          if hypervisor_mode='1' then
+            s(109) := 'H';
+          else
+            s(109) := 'U';
+          end if;
+
+          -- Show current CPU speed
+          s(111 to 113) := "000";
+          if vicii_2mhz='1' then s(111) := '1'; end if;
+          if viciii_fast='1' then s(112) := '1'; end if;
+          if viciv_fast='1' then s(113) := '1'; end if;
+          s(115 to 116) := to_hstring(cpuspeed_internal);
+          s(117 to 119) := "MHz";
+          -- Display disassembly
+          report s severity note;
+        end if;
+      --pragma synthesis_on
+      end procedure;
+
+      procedure reset_cpu_state is
+      begin
+        -- Set microcode state for reset
+
+        -- Disable all audio DMA channels, so we can recover from
+        -- any insane condition with them.
+        audio_dma_enables(0) <= '0';
+        audio_dma_enables(1) <= '0';
+        audio_dma_enables(2) <= '0';
+        audio_dma_enables(3) <= '0';
+
+        -- Enable chipselect for all peripherals and memories
+        chipselect_enables       <= x"EF";
+        cartridge_enable         <= '1';
+        hyper_protected_hardware <= x"00";
+
+        -- CPU starts in hypervisor
+        hypervisor_mode <= '1';
+
+        instruction_phase <= x"0";
+
+        -- Default register values
+        reg_b   <= x"00";
+        reg_a   <= x"11";
+        reg_x   <= x"22";
+        reg_y   <= x"33";
+        reg_z   <= x"00";
+        reg_sp  <= x"ff";
+        reg_sph <= x"01";
+        -- Reset entry point is now $8100 instead of $8000,
+        -- because $8000-$80FF in hypervisor space is reserved
+        -- for 64 x 4 byte entry points for hypervisor traps
+        -- from writing to $FFD3640-$FFD367F
+        hypervisor_trap_port <= "1000000";
+        report "Setting PC to $8100 on reset";
+        reg_pc <= x"8100";
+
+        -- Clear CPU MMU registers, and bank in hyppo ROM
+        -- XXX Need to update this for hypervisor mode
+        if no_hyppo='1' then
+          -- no hyppo
+          reg_offset_high <= x"000";
+          reg_map_high    <= "0000";
+          reg_offset_low  <= x"000";
+          reg_map_low     <= "0000";
+          reg_mb_high     <= x"00";
+          reg_mb_low      <= x"00";
+        else
+          -- with hyppo
+          reg_offset_high <= x"F00";
+          reg_map_high    <= "1000";
+          reg_offset_low  <= x"000";
+          reg_map_low     <= "0100";
+          reg_mb_high     <= x"FF";
+          reg_mb_low      <= x"80";
+        end if;
+
+        -- Default CPU flags
+        flag_c <= '0';
+        flag_d <= '0';
+        flag_i <= '1'; -- start with IRQ disabled
+        flag_z <= '0';
+        flag_n <= '0';
+        flag_v <= '0';
+        flag_e <= '1';
+
+        cpuport_ddr   <= x"FF";
+        cpuport_value <= x"3F";
+        force_fast    <= '0';
+
+        wait_states          <= (others => '0');
+        wait_states_non_zero <= '0';
+        mem_reading          <= '0';
+      end procedure reset_cpu_state;
+
+      procedure check_for_interrupts is
+      begin
+        -- No interrupts of any sort between MAP and EOM instructions.
+        if map_interrupt_inhibit='0' then
+          -- NMI is edge triggered.
+          if (nmi = '0' and nmi_state = '1') and (irq_defer_active='0') then
+            nmi_pending <= '1';
+          end if;
+          nmi_state <= nmi;
+          -- IRQ is level triggered.
+          if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
+            irq_pending <= '1';
+          else
+            irq_pending <= '0';
+          end if;
+        else
+          irq_pending <= '0';
+        end if;
+
+        -- Allow hypervisor to ban interrupts for 65,535 48MHz CPU cycles,
+        -- i.e., ~1,365 1MHz CPU cycles, i.e., ~1.37ms.  This is intended mainly
+        -- to be used by the hypervisor when passing control to the C64/C65 ROM
+        -- on boot, so that the IRQ/NMI vectors can be setup, before any
+        -- interrupt can occur.  The CIA and VIC chips now also properly clear
+        -- interrupts on reset, so hopefully this won't be needed, but it is a
+        -- good insurance policy in any case, including if some dill hits RESTORE
+        -- too fast during boot, which is also a hazard on a real C64/C65.
+        if irq_defer_request = '1' then
+          irq_defer_counter <= 65535;
+        else
+          if irq_defer_counter = 0 then
+            irq_defer_active <= '0';
+          else
+            irq_defer_active  <= '1';
+            irq_defer_counter <= irq_defer_counter - 1;
+          end if;
+        end if;
+      end procedure check_for_interrupts;
+
+      procedure read_long_address(
+          real_long_address : in unsigned(27 downto 0);
+          byte_count        : in integer range 0 to 4) is
+        variable long_address : unsigned(27 downto 0);
+      begin
+
+        last_action  <= 'R'; last_address <= real_long_address;
+        long_address := long_address_read;
+
+        read_source <= MemController;
+
+        report "Reading from long address $" & to_hstring(long_address) severity note;
+        mem_reading <= '1';
+
+        the_read_address <= long_address;
+
+        wait_states          <= x"00";
+        wait_states_non_zero <= '0';
+
+        -- Schedule the memory read from the appropriate source.
+
+        report "MEMORY long_address = $" & to_hstring(long_address);
+        -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
+        -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
+        if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
+          report "Preparing for reading hypervisor register";
+          read_source <= HypervisorRegister;
+          -- One cycle wait-state on hypervisor registers to remove the register
+          -- decode from the critical path of memory access.
+          wait_states          <= x"01";
+          wait_states_non_zero <= '1';
+          proceed              <= '0';
+          hyperport_num        <= real_long_address(5 downto 0);
+        elsif (long_address = x"ffd3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
+          accessing_cpuport <= '1';
+          -- Read VDC status #141
+          -- Lie and always claim that VDC is ready
+          read_source          <= CPUPort;
+          wait_states          <= x"01";
+          wait_states_non_zero <= '1';
+          proceed              <= '0';
+          cpuport_num          <= x"3";
+        elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
+          if vdc_reg_num = x"1f" then
+            report "Preparing to read from Shadow for simulated VDC access";
+            long_address := to_unsigned(to_integer(resolved_vdc_to_viciv_address)+(4*65536),28);
+            vdc_mem_addr <= vdc_mem_addr + 1;
+          else
+            accessing_cpuport <= '1';
+            -- Read simulated VDC registers
+            read_source          <= CPUPort;
+            wait_states          <= x"01";
+            wait_states_non_zero <= '1';
+            proceed              <= '0';
+            cpuport_num          <= x"4";
+          end if;
+        elsif (long_address = x"0000000") or (long_address = x"0000001") then
+          accessing_cpuport <= '1';
+          report "Preparing to read from a CPUPort";
+          read_source <= CPUPort;
+          -- One cycle wait-state on hypervisor registers to remove the register
+          -- decode from the critical path of memory access.
+          wait_states          <= x"01";
+          wait_states_non_zero <= '1';
+          proceed              <= '0';
+          cpuport_num          <= real_long_address(3 downto 0);
+        elsif (long_address = x"ffd30a0") or (long_address = x"ffd10a0") then
+          accessing_cpuport <= '1';
+          report "Preparing to read from CPU memory expansion controller port";
+          read_source <= CPUPort;
+          -- One cycle wait-state on hypervisor registers to remove the register
+          -- decode from the critical path of memory access.
+          wait_states          <= x"01";
+          wait_states_non_zero <= '1';
+          proceed              <= '0';
+          cpuport_num          <= "0010";
+        elsif (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+          report "Preparing to read from a DMAgicRegister or from the internal CPU register array";
+          read_source <= PrePreparedData;
+          -- Do the read this cycle, so that it is ready fast at the beginning of
+          -- the next cycle
+          preprepared_data <= read_d7xx_register(long_address(7 downto 0));
+          proceed          <= '1';
+        else
+          report "Preparing to read via memory controller @ $" & to_hstring(long_address);
+          is_pending_dma_access <= '0';
+          proceed               <= '0';
+          -- XXX Export request, toggle request line, set flag to indicate we are
+          -- waiting for a response
+          memory_access_Address     := long_address;
+          memory_access_read        := '1';
+          memory_access_write       := '0';
+          memory_access_byte_count  := 1;
+          waiting_on_mem_controller <= '1';
+        end if;
+      end read_long_address;
+
       impure function read_hypervisor_register
         return unsigned is
         variable value : unsigned(7 downto 0);
@@ -2806,7 +2836,7 @@
           -- Write using the memory controller -- but skip writing to "ROM" if we
           -- have it write-protected at the moment
           if long_address(27 downto 17) /= "00000000001" or rom_writeprotect='0' then
-            memory_access_Address           := long_address;
+            memory_access_address           := long_address;
             memory_access_write             := '1';
             memory_access_wdata(7 downto 0) := value;
             memory_access_byte_count        := 1;
@@ -2823,7 +2853,6 @@
         variable blocknum         : integer;
         variable lhc              : std_logic_vector(4 downto 0);
         variable char_access_addr : unsigned(15 downto 0);
-
       begin -- resolve_long_address
 
         -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
@@ -2916,7 +2945,7 @@
                   temp_address(27 downto 12) := x"FF80";
                 end if;
                 -- VDC RAM access
-                if vdc_enabled='1' and short_address(11 downto 0)=x"601" and vdc_reg_number = x"1f" and hypervisor_mode='0' then
+                if vdc_enabled='1' and short_address(11 downto 0)=x"601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
                   -- We map VDC RAM always to $40000
                   -- So we re-map this write to $4xxxx
                   long_address(27 downto 16) := x"004";
@@ -3157,7 +3186,6 @@
         -- Flush ZP/stack cache because memory map may have changed
         cache_flushing      <= '1';
         cache_flush_counter <= (others => '0');
-
       end c65_map_instruction;
 
       procedure dmagic_reset_options is
@@ -3261,7 +3289,6 @@
         return result(23 downto 0);
       end function;
 
-
       variable virtual_reg_p : std_logic_vector(7 downto 0);
       variable temp_pc       : unsigned(15 downto 0);
       variable temp_value    : unsigned(7 downto 0);
@@ -3272,16 +3299,7 @@
       variable execute_arg1   : unsigned(7 downto 0);
       variable execute_arg2   : unsigned(7 downto 0);
 
-      variable memory_read_value : unsigned(7 downto 0);
-
-      variable memory_access_address         : unsigned(27 downto 0) := x"FFFFFFF";
-      variable memory_access_read            : std_logic             := '0';
-      variable memory_access_write           : std_logic             := '0';
-      variable memory_access_resolve_address : std_logic             := '0';
-      variable memory_access_wdata           : unsigned(31 downto 0)  := x"FFFFFFFF";
-      variable memory_access_byte_count      : integer range 0 to 4 := 0;
-
-      variable pc_inc     : integer range 0 to 6 := 0;
+      variable pc_inc     : integer range 0 to 65535 := 0;
       variable pc_set     : std_logic            := '0';
       variable pc_dec1    : std_logic            := '0';
       variable dec_sp     : std_logic            := '0';
@@ -3312,11 +3330,14 @@
 
       variable long_address : unsigned(27 downto 0);
 
+      variable instruction_bytes_v : unsigned(47 downto 0);
+      variable do_branch8 : std_logic := '0';
+      variable do_branch16 : std_logic := '0';
+      variable is_16bit_operation_v : std_logic := '0';
+
       variable var_wdata : unsigned(31 downto 0);
       variable var_sp : unsigned(15 downto 0) := x"0000";
       variable var_pc : unsigned(15 downto 0) := x"0000";
-      variable pc_set : std_logic := '0';
-      variable pc_inc : integer range 0 to 65535 := 0;
 
       variable var_alu_a : unsigned(7 downto 0);
       variable var_alu_a1 : unsigned(7 downto 0);
@@ -3566,6 +3587,8 @@
         memory_access_read       := '0';
         memory_access_write      := '0';
         memory_access_byte_count := 1;
+        memory_access_set_address_based_on_addressingmode := '0';
+
         -- And no ALU op
         mc  := (others => '0');
 
@@ -4420,7 +4443,8 @@
         pc_set := '0'; pc_inc := 0; pc_dec1 := '0';
 
         -- Stack address unchanged
-        dec_sp := '0';
+        sp_dec := 0;
+        sp_inc := 0;
 
         -- No memory access
         memory_access_read            := '0';
@@ -4614,7 +4638,7 @@
           -- CPU proceeds if proceed=1, or if we were waiting on the memory
           -- controller, but it has responded.
           if proceed = '1' or
-            (waiting_on_mem_controller='1' and (transaction_complete_toggle = last_transaction_complete_toggle)) then
+            (waiting_on_mem_controller='1' and (transaction_complete_toggle = expected_transaction_complete_toggle)) then
 
             -- Main state machine for CPU
 
@@ -4654,7 +4678,7 @@
               when Interrupt =>
                 -- BRK or IRQ
                 -- Push P and PC
-                pc_inc := '0';
+                pc_inc := 0;
                 if nmi_pending='1' then
                   vector      <= x"a";
                   nmi_pending <= '0';
@@ -4671,14 +4695,14 @@
                 vreg33(7 downto 0)   := unsigned(virtual_reg_p);
                 if reg_instruction = I_BRK then
                   -- set B flag when pushing P
-                  vreg33(4) <= '1';
+                  vreg33(4) := '1';
                 else
                   -- clear B flag when pushing P
-                  vreg33(4) <= '0';
+                  vreg33(4) := '0';
                 end if;
 
                 -- SP should be decremented by 3 after operation
-                sp_dec3 := '1';
+                sp_dec := 3;
 
                 -- And work out start address of pushed data = SP - 3
                 -- Here we honour the E flag, to know if stack is 8 or 16 bit.
@@ -4712,7 +4736,7 @@
               when RTI =>
 
                 -- SP should be incremented by 3 after operation
-                sp_inc3 := '1';
+                sp_inc := 3;
 
                 -- SP is currently pointing to 1 byte before the 3 we need.
                 temp_addr := reg_sph&reg_sp;
@@ -4742,7 +4766,7 @@
               when RTS =>
 
                 -- SP should be incremented by 2 after operation
-                sp_inc2 := '1';
+                sp_inc := 2;
 
                 -- SP is currently pointing to 1 byte before the 2 we need.
                 temp_addr := reg_sph&reg_sp;
@@ -4767,12 +4791,8 @@
               when RTS1 =>
                 var_pc := transaction_rdata(15 downto 0);
                 pc_set := '1';
-                -- And set PC to the byte following, unless we are held, in which
-                -- case the increment will happen in InstructionFetch
-                if fast_fetch_state = InstructionDecode then
-                  pc_inc := 1;
-                  report "Pre-incrementing PC for immediate dispatch" severity note;
-                end if;
+                -- RTS address is target address - 1, so we add the 1 back on
+                pc_inc := 1;
                 state                      <= fast_fetch_state;
                 monitor_instruction_strobe <= '1';
                 report "monitor_instruction_strobe assert";
@@ -5578,7 +5598,7 @@
                   and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
                   and (monitor_irq_inhibit='0') then
                   -- An interrupt has occurred
-                  pc_inc := '0';
+                  pc_inc := 0;
                   state  <= Interrupt;
                   -- Make sure reg_instruction /= I_BRK, so that B flag is not
                   -- erroneously set.
@@ -5611,14 +5631,12 @@
                     state <= InstructionDecode4502;
                   end if;
                   fetch_instruction_please := '1';
-                  pc_inc                   := '1';
-
                 end if;
               when InstructionDecode4502 =>
 
                   -- By default the instruction is not affected by any prefixes
-                  flat32_address             <= '0';
-                  flat32_address_v           <= '0';
+                  flat32_addressmode         <= '0';
+                  flat32_addressmode_v       := '0';
                   is_axyz32_instruction      <= '0';
                   is_axyz32_instruction_v    := '0';
                   is_16bit_operation         <= '0';
@@ -5652,46 +5670,47 @@
                     -- it has come from, so lets get the data from the correct
                     -- source, and munge it as appropriate.
                     if instruction_from_transaction='1' then
-                      instruction_bytes := instruction_fetch_rdata;
+                      instruction_bytes_v := instruction_fetch_rdata;
                     else
-                      instruction_bytes := transaction_rdata;
+                      instruction_bytes_v := transaction_rdata;
                     end if;
 
                     -- Now check for prefixes.  This also implicitly skips
                     -- single NOP instructions(!)
-                    if instruction_bytes(23 downto 0) = x"EA4242"
-                      or instruction_bytes(23 downto 0) = x"4242EA" then
+                    if instruction_bytes_v(23 downto 0) = x"EA4242"
+                      or instruction_bytes_v(23 downto 0) = x"4242EA" then
                       -- NEG / NEG prefix = 32-bit ZP pointers
                       -- NOP prefix = Q 32-bit pseudo register
-                      instruction_bytes(23 downto 0)  := instruction_bytes(47 downto 24);
-                      instruction_bytes(47 downto 24) := x"EAEAEA";
+                      instruction_bytes_v(23 downto 0)  := instruction_bytes_v(47 downto 24);
+                      instruction_bytes_v(47 downto 24) := x"EAEAEA";
                       is_axyz32_instruction           <= '1';
                       is_axyz32_instruction_v         := '1';
                       zp32bit_pointer_enabled         <= '1';
                       zp32bit_pointer_enabled_v       := '1';
                       prefix_bytes                    := 3;
-                    elsif instruction_bytes(15 downto 0) = x"4242" then
+                    elsif instruction_bytes_v(15 downto 0) = x"4242" then
                       -- NEG / NEG prefix = Q 32-bit pseudo register
-                      instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
-                      instruction_bytes(47 downto 32) := x"EAEA";
+                      instruction_bytes_v(31 downto 0)  := instruction_bytes_v(47 downto 16);
+                      instruction_bytes_v(47 downto 32) := x"EAEA";
                       is_axyz32_instruction           <= '1';
                       is_axyz32_instruction_v         := '1';
                       prefix_bytes                    := 2;
-                    elsif instruction_bytes(15 downto 0) = x"D8D8" then
+                    elsif instruction_bytes_v(15 downto 0) = x"D8D8" then
                       -- CLD / CLD prefix = Flat 32-bit jump or branch
-                      instruction_bytes(31 downto 0)  := instruction_bytes(47 downto 16);
-                      instruction_bytes(47 downto 32) := x"EAEA";
-                      flat32_address                  <= flat32_enabled;
-                      flat32_address_v                := flat32_enabled;
+                      instruction_bytes_v(31 downto 0)  := instruction_bytes_v(47 downto 16);
+                      instruction_bytes_v(47 downto 32) := x"EAEA";
+                      flat32_addressmode              <= flat32_enabled;
+                      flat32_addressmode_v            := flat32_enabled;
                       prefix_bytes                    := 2;
-                    elsif instruction_bytes(7 downto 0) = x"EA" then
+                    elsif instruction_bytes_v(7 downto 0) = x"EA" then
                       -- NOP prefix = 32-bit ZP pointers
-                      instruction_bytes(39 downto 0)  := instruction_bytes(47 downto 8);
-                      instruction_bytes(47 downto 39) := x"EA";
+                      instruction_bytes_v(39 downto 0)  := instruction_bytes_v(47 downto 8);
+                      instruction_bytes_v(47 downto 39) := x"EA";
                       zp32bit_pointer_enabled         <= '1';
                       zp32bit_pointer_enabled_v       := '1';
                       prefix_bytes                    := 1;
                     end if;
+                    instruction_bytes <= instruction_bytes_v;
 
                     -- Show previous instruction
                     disassemble_last_instruction;
@@ -5702,16 +5721,16 @@
 
                     -- Prepare microcode vector in case we need it next cycle
                     reg_microcode <=
-                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
-                    reg_addressingmode <= mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                    reg_instruction    <= instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0))));
+                    reg_addressingmode <= mode_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0)));
+                    reg_instruction    <= instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0)));
                     -- And also get it ready for this cycle
                     var_microcode :=
-                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))));
-                    var_addressingmode := mode_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
-                    var_instruction    := instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0)));
+                      microcode_lut(instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0))));
+                    var_addressingmode := mode_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0)));
+                    var_instruction    := instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0)));
                     phi_add_backlog    <= '1';
-                    phi_new_backlog    <= cycle_count_lut(to_integer(timing6502&instruction_bytes(7 downto 0)));
+                    phi_new_backlog    <= cycle_count_lut(to_integer(timing6502&instruction_bytes_v(7 downto 0)));
 
                     -- Update PC based on addressing mode, so that we can more
                     -- quickly fetch the instruction bytes for the next instruction
@@ -5725,11 +5744,17 @@
                       when M_nnnn | M_nnrr | M_rrrr | M_nnnnY | M_nnnnX | M_Innnn | M_InnnnX | M_immnnnn =>
                         pc_inc := prefix_bytes + 3;
                     end case;
+                    case var_addressingmode is
+                      when M_InnX | M_InnY | M_InnZ | M_Innnn | M_InnSPY | M_InnnnX =>
+                        is_indirect_v := '1';
+                      when others =>
+                        is_indirect_v := '0';
+                    end case;
 
                     is_rmw               <= '0'; is_load <= '0';
                     is_rmw_v             := '0'; is_load_v := '0';
                     rmw_dummy_write_done <= '0';
-                    case instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))) is
+                    case instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0))) is
                       -- Note if instruction is RMW
                       when I_INC | I_DEC | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR | I_TSB | I_TRB | I_RMB | I_SMB
                         -- There are a few 16-bit RMWs as well
@@ -5758,7 +5783,7 @@
                       when I_ANC                                 => is_load <= '1';
                       when I_ALR                                 => is_load <= '1';
                       when I_ARR                                 => is_load <= '1';
-                      when I_AXS                                 => is_load <= '1';
+                      when I_SBX                                 => null;
                       when I_LAS                                 => null;
                       when I_ANE | I_SHA | I_SHX | I_SHY | I_TAS =>
                         state <= TrapToHypervisor;
@@ -5784,20 +5809,20 @@
                       -- erroneously set.
                       reg_instruction <= I_SEI;
                     else
-                      reg_opcode <= instruction_bytes(7 downto 0);
+                      reg_opcode <= instruction_bytes_v(7 downto 0);
                       -- Present instruction to serial monitor;
-                      monitor_ibytes        <= instruction_bytes(23 downto 0);
+                      monitor_ibytes        <= instruction_bytes_v(23 downto 0);
                       monitor_instructionpc <= reg_pc;
 
                       -- Check for 16-bit operations
-                      case instruction_bytes(7 downto 0) is
+                      case instruction_bytes_v(7 downto 0) is
                         when x"C3" | -- DEW $nn
                           x"CB" |    -- ASW $nnnn
                           x"E3" |    -- INW $nnnn
                           x"EB" |    -- ROW $nnnn
                           x"FC" =>   -- PHW $nnnn
                           is_16bit_operation_v := '1';
-                          is_16bit_operation   := '1';
+                          is_16bit_operation   <= '1';
                         when others =>
                           -- We don't treat PHW #$nnnn ($F4) as a 16-bit
                           -- operation, as we actually handle it as a single-cycle
@@ -5806,7 +5831,7 @@
                       end case;
 
                       report "Executing instruction "
-                      & instruction'image(instruction_lut(to_integer(emu6502&instruction_bytes(7 downto 0))))
+                      & instruction'image(instruction_lut(to_integer(emu6502&instruction_bytes_v(7 downto 0))))
                       severity note;
 
                       -- On the C65, interrupts cannot happen following
@@ -5824,7 +5849,7 @@
                       -- or store that is required next.
 
                       -- Work out relevant bit mask for RMB/SMB
-                      case instruction_bytes(6 downto 4) is
+                      case instruction_bytes_v(6 downto 4) is
                         when "000"  => reg_bitmask <= "00000001";
                         when "001"  => reg_bitmask <= "00000010";
                         when "010"  => reg_bitmask <= "00000100";
@@ -5836,7 +5861,7 @@
                         when others => null;
                       end case;
 
-                      case instruction_bytes(7 downto 0) is
+                      case instruction_bytes_v(7 downto 0) is
                         -- XXX Also implement PLA/X/Y/Z as single-cycle
                         when x"03" =>
                           flag_e <= '1'; -- SEE
@@ -5847,7 +5872,7 @@
                           -- PHP
                           memory_access_write                := '1';
                           memory_access_byte_count           := 1;
-                          memory_access_wdata(7 downto 0)    := virtual_reg_p;
+                          memory_access_wdata(7 downto 0)    := unsigned(virtual_reg_p);
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
@@ -5863,10 +5888,12 @@
                         when x"0A" =>
                           -- ASL A
                           mc.mcALU_set_a := '1';
-                          mc.mcASL := '1';
+                          mc.mcADD := '1';
                           mc.mcALU_in_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
+                          mc.mcCarryFromBit7 := '0';
+                          mc.mcZeroBit0 := '0';
                         when x"0B" =>
                           -- TSY
                           mc.mcALU_in_sph := '1';
@@ -6045,19 +6072,19 @@
                           report "ZPCACHE: Flushing cache due to moving ZP";
                         when x"60" =>
                           -- RTS
-                          if flat32_address_v = '0' then
+                          if flat32_addressmode_v = '0' then
                             state <= RTS;
                           else
                             state <= Flat32RTS;
                           end if;
                         when x"62" =>
                           -- RTS #$nn
-                          if flat32_address_v = '0' then
+                          if flat32_addressmode_v = '0' then
                             state <= RTS;
                           else
                             state <= Flat32RTS;
                           end if;
-                          inc_sp := instruction_bytes(15 downto 8);
+                          sp_inc := to_integer(instruction_bytes_v(15 downto 8));
                         when x"63" => -- BSR $rrrr
                           do_branch16                   := '1';
                           memory_access_write           := '1';
@@ -6076,6 +6103,11 @@
                           -- not the address of the next instruction.  This is a
                           -- well known 6502 weirdness
                           memory_access_wdata(15 downto 0) := reg_pc + 2;
+                        when x"64" =>
+                          -- STZ $nn
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
                         when x"69" =>
                           -- ADC #$nn
                           mc.mcALU_in_a  := '1';
@@ -6108,6 +6140,11 @@
                         when x"73" =>
                           -- BVS $rrrr
                           if flag_v = '1' then do_branch16 := '1'; end if;
+                        when x"74" =>
+                          -- STZ $nn,X
+                          mc.mcALU_in_z := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
                         when x"78" =>
                           -- SEI
                           flag_i   <= '1';
@@ -6121,6 +6158,21 @@
                           do_branch8 := '1';
                         when x"83" => -- BRA $rrrr
                           do_branch16 := '1';
+                        when x"84" =>
+                          -- STY $nn
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"85" =>
+                          -- STA $nn
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"86" =>
+                          -- STX $nn
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
                         when x"88" =>
                           -- DEY
                           mc.mcALU_in_y := '1';
@@ -6144,12 +6196,47 @@
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
+                        when x"8B" =>
+                          -- STY $nnnn,X
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"8C" =>
+                          -- STY $nnnn
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"8D" =>
+                          -- STA $nnnn
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"8E" =>
+                          -- STX $nnnn
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
                         when x"90" =>
                           -- BCC $rr
                           if flag_c = '0' then do_branch8 := '1'; end if;
                         when x"93" =>
                           -- BCC $rrrr
                           if flag_c = '0' then do_branch16 := '1'; end if;
+                        when x"94" =>
+                          -- STY $nn,X
+                          mc.mcALU_in_y := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"95" =>
+                          -- STA $nn,X
+                          mc.mcALU_in_a := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
+                        when x"96" =>
+                          -- STX $nn,Y
+                          mc.mcALU_in_x := '1';
+                          mc.mcALU_set_mem := '1';
+                          memory_access_set_address_based_on_addressingmode := '1';
                         when x"98" =>
                           -- TYA
                           mc.mcALU_in_y := '1';
@@ -6331,7 +6418,7 @@
                           -- PHW #$nnnn
                           memory_access_write                := '1';
                           memory_access_byte_count           := 2;
-                          memory_access_wdata(15 downto 0)   := instruction_bytes(23 downto 8);
+                          memory_access_wdata(15 downto 0)   := instruction_bytes_v(23 downto 8);
                           memory_access_resolve_address      := '1';
                           memory_access_address(15 downto 8) := reg_sph;
                           memory_access_address(7 downto 0)  := reg_sp;
@@ -6355,20 +6442,20 @@
                               -- ... And for the indirect modes, start reading the
                               -- indirect address
                               when M_Innnn =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
+                                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8);
                               when M_InnnnX =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
+                                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_x;
                               when M_InnSPY =>
                                 memory_access_address := to_unsigned(to_integer(reg_b&reg_arg1)
                                     +to_integer(reg_sph&reg_sp),16);
                               when M_InnX =>
                                 memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
+                                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8) + reg_x;
                               when M_InnY | M_InnZ =>
                                 memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
+                                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8);
                               when others =>
-                                report "Unexpected addressing mode encountered in indirect access." severity fatal;
+                                report "Unexpected addressing mode encountered in indirect access." severity error;
                             end case;
                           elsif is_load_v = '1' or is_rmw_v = '1' then
                             -- Schedule the load
@@ -6379,89 +6466,51 @@
                               -- scheduling the memory read ...
                               when M_nn =>
                                 memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
-                                state                              <= ValueLoaded;
+                                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8);
+                                state                              <= MicrocodeInterpret;
                               when M_nnX =>
                                 memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
-                                state                              <= ValueLoaded;
+                                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8) + reg_x;
+                                state                              <= MicrocodeInterpret;
                               when M_nnY =>
                                 memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
-                                state                              <= ValueLoaded;
+                                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8) + reg_y;
+                                state                              <= MicrocodeInterpret;
                               when M_nnnn =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
-                                state                              <= ValueLoaded;
+                                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8);
+                                state                              <= MicrocodeInterpret;
                               when M_nnnnX =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
-                                state                              <= ValueLoaded;
+                                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_x;
+                                state                              <= MicrocodeInterpret;
                               when M_nnnnY =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
-                                state                              <= ValueLoaded;
+                                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_y;
+                                state                              <= MicrocodeInterpret;
                               when others =>
-                                report "Unexpected addressing mode encountered in direct load." severity fatal;
+                                report "Unexpected addressing mode encountered in direct load." severity error;
                             end case;
                           elsif is_store_v = '1' then
                             -- Schedule the store
                             memory_access_write           := '0';
                             memory_access_resolve_address := '1';
-                            if is_axyz32_instruction_v = '1' then
-                              -- 32-bit write
-                              -- XXX We ignore if it is STA/X/Y or Z, and treat all
-                              -- four as the same.
-                              memory_access_byte_count          <= 4;
-                              memory_access_wdata(7 downto 0)   <= reg_a;
-                              memory_access_wdata(15 downto 8)  <= reg_x;
-                              memory_access_wdata(23 downto 16) <= reg_y;
-                              memory_access_wdata(31 downto 24) <= reg_z;
-                            else
-                              memory_access_byte_count <= 1;
-                              case var_instruction is
-                                when I_STA => memory_access_wdata(7 downto 0) <= reg_a;
-                                when I_STX => memory_access_wdata(7 downto 0) <= reg_x;
-                                when I_STY => memory_access_wdata(7 downto 0) <= reg_y;
-                                when I_STZ => memory_access_wdata(7 downto 0) <= reg_z;
-                              end case;
-                            end if;
 
-                            case var_addressingmode is
-                              -- Handle the direct addressing modes, by immediately
-                              -- scheduling the memory read ...
-                              when M_nn =>
-                                memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8);
-                              when M_nnX =>
-                                memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_x;
-                              when M_nnY =>
-                                memory_access_address(15 downto 8) := reg_b;
-                                memory_access_address(7 downto 0)  := instruction_bytes(15 downto 8) + reg_y;
-                              when M_nnnn =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8);
-                              when M_nnnnX =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_x;
-                              when M_nnnnY =>
-                                memory_access_address(15 downto 0) := instruction_bytes(23 downto 8) + reg_y;
-                              when others =>
-                                report "Unexpected addressing mode encountered in direct store." severity fatal;
-                            end case;
+                            memory_access_set_address_based_on_addressingmode := '1';
                           end if;
                       end case;
 
                       -- Adjust PC based on taking branches
                       if do_branch8 = '1' then
-                        pc_inc := to_integer(instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15) &
-                            instruction_bytes(15 downto 8));
+                        pc_inc := to_integer(instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15) &
+                            instruction_bytes_v(15 downto 8));
                       end if;
                       if do_branch16 = '1' then
-                        pc_inc := to_integer(instruction_bytes(23 downto 8));
+                        pc_inc := to_integer(instruction_bytes_v(23 downto 8));
                       end if;
 
                       -- Allow monitor to trace through single-cycle instructions
@@ -6525,16 +6574,15 @@
                 elsif is_load='1' or is_rmw='1' then
                   -- Do the actual load
                   memory_access_write := '0';
-                  state               <= ValueLoaded;
+                  state               <= MicrocodeInterpret;
                 elsif is_store='1' then
                   -- Store only
                   memory_access_write := '1';
                   state               <= fast_fetch_state;
                 end if;
-              when ValueLoaded =>
+              when MicrocodeInterpret =>
                 -- transaction_rdata now contains the data we need
                 -- So now is the time to actually interpret the instruction's microcode
-              when MicrocodeInterpret =>
                   -- At this point, we have the argument available in transaction_rdata,
                   -- and all the single-cycle instructions, branches and jumps have
                   -- been dealt with.
@@ -6578,6 +6626,8 @@
                     var_alu_a2 := reg_a and reg_x;
                   elsif reg_microcode.mcALU_in_a = '1' then
                     var_alu_a2 := reg_a;
+                  elsif reg_microcode.mcALU_in_b = '1' then
+                    var_alu_a2 := reg_b;
                   elsif reg_microcode.mcALU_in_x = '1' then
                     var_alu_a2 := reg_x;
                   end if;
@@ -6589,6 +6639,9 @@
                   end if;
                   if reg_microcode.mcALU_in_spl = '1' then
                     var_alu_a2 := reg_sp;
+                  end if;
+                  if reg_microcode.mcALU_in_sph = '1' then
+                    var_alu_a2 := reg_sph;
                   end if;
                   if reg_microcode.mcInvertA='1' then
                     var_alu_a3 := not var_alu_a2;
@@ -6772,6 +6825,31 @@
 
           end if;
 
+          if memory_access_set_address_based_on_addressingmode = '1' then
+            case var_addressingmode is
+              -- Handle the direct addressing modes, by immediately
+              -- scheduling the memory read ...
+              when M_nn =>
+                memory_access_address(15 downto 8) := reg_b;
+                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8);
+              when M_nnX =>
+                memory_access_address(15 downto 8) := reg_b;
+                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8) + reg_x;
+              when M_nnY =>
+                memory_access_address(15 downto 8) := reg_b;
+                memory_access_address(7 downto 0)  := instruction_bytes_v(15 downto 8) + reg_y;
+              when M_nnnn =>
+                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8);
+              when M_nnnnX =>
+                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_x;
+              when M_nnnnY =>
+                memory_access_address(15 downto 0) := instruction_bytes_v(23 downto 8) + reg_y;
+              when others =>
+                report "Unexpected addressing mode encountered in direct store." severity error;
+            end case;
+          end if;
+
+
           report "pc_inc = $" & to_hstring(to_unsigned(integer'image(pc_inc),16))
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
@@ -6804,7 +6882,7 @@
             vreg33(27 downto 0) := resolve_address_to_long(var_pc);
             if to_integer(vreg33) < (chipram_size - 5 ) then
               -- Instruction is in chip/fast RAM
-              instruction_fetch_request_in <= to_integer(vreg33(19 downto 0));
+              instruction_fetch_address_in <= to_integer(vreg33(19 downto 0));
               target_instruction_addr      <= to_integer(vreg33(19 downto 0));
               -- Instruction will come from the dedicated ifetch interface
               instruction_from_transaction <= '0';
@@ -6815,6 +6893,7 @@
             else
               -- Have to fetch instruction via normal memory channel
               transaction_request_toggle <= not transaction_request_toggle;
+              expected_transaction_complete_toggle <= not transaction_request_toggle;
               transaction_address        <= vreg33(27 downto 0);
               transaction_length         <= 6;
               transaction_write          <= '0';
@@ -6826,12 +6905,15 @@
           -- Normal memory access
           end if;
 
-          if dec_sp = '1' then
-            reg_sp <= reg_sp - 1;
-            if flag_e='0' and reg_sp=x"00" then
-              reg_sph <= reg_sph - 1;
+          if sp_dec /= 0 or sp_inc /= 0 then
+            var_sp := reg_sph & reg_sp;
+            var_sp := var_sp + sp_inc - sp_dec;
+            reg_sp <= var_sp(7 downto 0);
+            if flag_e='0' then
+              reg_sph <= var_sp(15 downto 8);
             end if;
           end if;
+
 
           -- Now do ALU.
           -- The ALU is a big of a pain, because of the NMOS bug compatibility
@@ -7004,6 +7086,7 @@
             else
               -- Normal memory fetch
               transaction_request_toggle <= not transaction_request_toggle;
+              expected_transaction_complete_toggle <= not transaction_request_toggle;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '0';
@@ -7025,6 +7108,7 @@
             else
               report "MEMORY: Writing memory @ $" & to_hstring(long_address);
               transaction_request_toggle <= not transaction_request_toggle;
+              expected_transaction_complete_toggle <= not transaction_request_toggle;
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '1';
@@ -7049,24 +7133,26 @@
         reg_math_config_drive <= reg_math_config;
 
       end if; -- if rising edge of clock
-    end process;
 
-    -- output all monitor values based on current state, not one clock delayed.
-    monitor_memory_access_address <= x"0"&memory_access_address;
-    monitor_watch_match           <= '0'; -- set if writing to watched address
-    monitor_state                 <= to_unsigned(processor_state'pos(state),8)&read_data;
-    monitor_hypervisor_mode       <= hypervisor_mode;
-    monitor_pc                    <= reg_pc;
-    monitor_a                     <= reg_a;
-    monitor_x                     <= reg_x;
-    monitor_y                     <= reg_y;
-    monitor_z                     <= reg_z;
-    monitor_sp                    <= reg_sph&reg_sp;
-    monitor_b                     <= reg_b;
-    monitor_interrupt_inhibit     <= map_interrupt_inhibit;
-    monitor_map_offset_low        <= reg_offset_low;
-    monitor_map_offset_high       <= reg_offset_high;
-    monitor_map_enables_low       <= unsigned(reg_map_low);
-    monitor_map_enables_high      <= unsigned(reg_map_high);
+      -- output all monitor values based on current state, not one clock delayed.
+      monitor_memory_access_address <= x"0"&memory_access_address;
+      monitor_watch_match           <= '0'; -- set if writing to watched address
+      monitor_state                 <= to_unsigned(processor_state'pos(state),8)&read_data;
+      monitor_hypervisor_mode       <= hypervisor_mode;
+      monitor_pc                    <= reg_pc;
+      monitor_a                     <= reg_a;
+      monitor_x                     <= reg_x;
+      monitor_y                     <= reg_y;
+      monitor_z                     <= reg_z;
+      monitor_sp                    <= reg_sph&reg_sp;
+      monitor_b                     <= reg_b;
+      monitor_interrupt_inhibit     <= map_interrupt_inhibit;
+      monitor_map_offset_low        <= reg_offset_low;
+      monitor_map_offset_high       <= reg_offset_high;
+      monitor_map_enables_low       <= unsigned(reg_map_low);
+      monitor_map_enables_high      <= unsigned(reg_map_high);
+
+  end process;
+
 
   end Behavioural;

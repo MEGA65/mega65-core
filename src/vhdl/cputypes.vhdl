@@ -54,11 +54,14 @@ package cputypes is
     mcALU_in_mem : std_logic;
     mcALU_in_bitmask : std_logic;
     mcALU_in_a : std_logic;
+    mcALU_in_b : std_logic;
     mcALU_in_x : std_logic;
     mcALU_in_y : std_logic;
     mcALU_in_z : std_logic;
     mcALU_in_spl : std_logic;
+    mcALU_in_sph : std_logic;
     mcALU_b_1 : std_logic;
+    mcalu_b_ibyte2 : std_logic;
     mcInvertA : std_logic;
     mcInvertB : std_logic;
     -- ALU operations
