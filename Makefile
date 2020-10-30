@@ -63,7 +63,6 @@ else
 	GHDL=	ghdl/build/bin/ghdl
 	GHDL_DEPEND=$(GHDL)
 endif
-GHDL=/usr/local/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
 
