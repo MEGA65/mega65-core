@@ -290,7 +290,7 @@
     signal last_opcode         : unsigned(7 downto 0)  := (others => '0');
     signal last_byte2          : unsigned(7 downto 0)  := (others => '0');
     signal last_byte3          : unsigned(7 downto 0)  := (others => '0');
-    signal last_bytecount      : integer range 0 to 3  := 0;
+    signal last_bytecount      : integer range 0 to 3  := 3;
     signal last_action         : character             := ' ';
     signal last_address        : unsigned(27 downto 0) := (others => '0');
     signal last_value          : unsigned(7 downto 0)  := (others => '0');
@@ -3171,6 +3171,9 @@
       -- BEGINNING OF MAIN PROCESS FOR CPU
       if rising_edge(clock) and all_pause='0' then
 
+        var_mc := (others => '0');
+        mc := (others => '0');
+          
         -- Implement fastio interface for CPU-provided registers
         if fastio_write = '1' Then
           if fastio_addr = x"00000" Then
@@ -5372,7 +5375,8 @@
                     -- Start recording this instruction
                     last_instruction_pc <= reg_pc;
                     last_opcode         <= instruction_bytes(7 downto 0);
-                    last_bytecount      <= 1;
+                    last_byte2         <= instruction_bytes(15 downto 8);
+                    last_byte3         <= instruction_bytes(23 downto 16);
 
                     -- Prepare microcode vector in case we need it next cycle
                     reg_microcode <=
@@ -5393,7 +5397,7 @@
 
                     case var_addressingmode is
                       when M_impl | M_A =>
-                        pc_inc := prefix_bytes + 1;
+                          pc_inc := prefix_bytes + 1;
                       when M_InnX | M_nn | M_immnn | M_rr | M_InnY | M_InnZ | M_nnX | M_InnSPY | M_nnY =>
                         pc_inc := prefix_bytes + 2;
                       when M_nnnn | M_nnrr | M_rrrr | M_nnnnY | M_nnnnX | M_Innnn | M_InnnnX | M_immnnnn =>
@@ -5932,7 +5936,7 @@
                         when x"A9" =>
                           -- LDA #$nn
                           mc.mcPassB := '1';
-                          mc.mcalu_b_ibyte2 := '1';
+                          mc.mcALU_b_ibyte2 := '1';
                           mc.mcALU_set_a := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
@@ -6179,6 +6183,7 @@
                       monitor_instruction_strobe <= '1';
                     end if; -- have current instruction
                   end if;
+                var_mc := mc;
               when IndirectResolved =>
                 -- At this point transaction_rdata contains the 16 or 32 bits of
                 -- address.
@@ -6246,11 +6251,11 @@
                   -- store operation with a complex addressing mode.
 
                   memory_access_address  := reg_addr32(27 downto 0);
-
+                    
                   -- Work out the next state for the FSM
                   if reg_microcode.mcBRK='1' then
                     state <= Interrupt;
-                  elsif reg_microcode.mcJump='1' then
+                  elsif var_mc.mcJump='1' then
                     report "Setting PC: mcJump=1";
                     pc_set := '1';
                     var_pc := reg_addr;
@@ -6258,223 +6263,8 @@
                     state <= fast_fetch_state;
                   end if;
 
-                  -- And otherwise, we mostly just set a pile of ALU flags
-                  -- The ALU consists of three chained stages, in order to achieve
-                  -- 6502 bug compatibility: right shift, binary operations, addition.
-                  -- We have a parallel ALU implementation for the 16/32 bit operations.
-
-                  -- Pick the correct source of microcode data for running the ALU
-                  if state = MicrocodeInterpret Then
-                    mc := reg_microcode;
-                  else
-                    mc := var_mc;
-                  end if;
-
-                  -- Load A input to ALU
-                  var_alu_a := x"00";
-                  if reg_microcode.mcALU_in_mem='1' then
-                    var_alu_a2 := transaction_rdata(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_in_bitmask = '1' then
-                    var_alu_a2 := reg_bitmask;
-                  end if;
-                  if reg_microcode.mcALU_in_a = '1'
-                    and reg_microcode.mcALU_in_x = '1' then
-                    var_alu_a2 := reg_a and reg_x;
-                  elsif reg_microcode.mcALU_in_a = '1' then
-                    var_alu_a2 := reg_a;
-                  elsif reg_microcode.mcALU_in_b = '1' then
-                    var_alu_a2 := reg_b;
-                  elsif reg_microcode.mcALU_in_x = '1' then
-                    var_alu_a2 := reg_x;
-                  end if;
-                  if reg_microcode.mcALU_in_y = '1' then
-                    var_alu_a2 := reg_y;
-                  end if;
-                  if reg_microcode.mcALU_in_x = '1' then
-                    var_alu_a2 := reg_y;
-                  end if;
-                  if reg_microcode.mcALU_in_spl = '1' then
-                    var_alu_a2 := reg_sp;
-                  end if;
-                  if reg_microcode.mcALU_in_sph = '1' then
-                    var_alu_a2 := reg_sph;
-                  end if;
-                  if reg_microcode.mcInvertA='1' then
-                    var_alu_a3 := not var_alu_a2;
-                  else
-                    var_alu_a3 := var_alu_a2;
-                  end if;
-
-                  -- Load B input to ALU
-                  if reg_microcode.mcALU_b_1 = '1' then
-                    var_alu_b := x"01";
-                  else
-                    var_alu_b := transaction_rdata(7 downto 0);
-                  end if;
-                  if reg_microcode.mcInvertB='1' then
-                    var_alu_b2 := not var_alu_b2;
-                  else
-                    var_alu_b2 := var_alu_b2;
-                  end if;
-
-                  -- Now perform the various actions.
-
-                  -- First, we do the right shift
-                  if reg_microcode.mcLSR = '1' then
-                    var_alu_r1(7)          := '0';
-                    var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
-                  else
-                    var_alu_r1(7 downto 0) := var_alu_a;
-                  end if;
-
-                  -- What is the value of carry flag going in?
-                  if reg_microcode.mcAssumeCarrySet = '1' then
-                    var_c_in := '1';
-                  elsif reg_microcode.mcAssumeCarryClear = '0' then
-                    var_c_in := '0';
-                  else
-                    var_c_in := flag_c;
-                  end if;
-
-                  -- Second, we do the ADD operation.
-                  -- This is the most horrible part of the 6502.
-                  -- We have to deal with BCD mode, among other things.
-                  -- Return is NVZC<8 bit result>
-                  if reg_microcode.mcADD = '1' then
-                    var_alu_r2 := alu_op_add(var_alu_r1(7 downto 0),var_alu_b2(7 downto 0),
-                        var_c_in,
-                        reg_microcode.mcAllowBCD and flag_d);
-                  else
-                    -- No addition, no fancy flags
-                    var_alu_r2(11 downto 8) := "0000";
-                    var_alu_r2(7 downto 0)  := var_alu_r1(7 downto 0);
-                  end if;
-
-                  -- Third, we do the binary operations
-                  if reg_microcode.mcAND = '1' then
-                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) and
-                      var_alu_b2;
-                  elsif reg_microcode.mcORA = '1' then
-                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) or
-                      var_alu_b2;
-                  elsif reg_microcode.mcEOR = '1' then
-                    var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
-                      var_alu_b2;
-                  end if;
-
-                  if reg_microcode.mcPassB = '1' Then
-                    var_alu_r3(7 downto 0) := var_alu_b2;
-                  end if;
-                  if reg_microcode.mcZeroBit7 = '1' Then
-                    var_alu_r3(7) := '0';
-                  end if;
-
-                  -- Calculate N flag
-                  var_alu_r3(11) := var_alu_r3(7);
-                  -- Calculate Z flag
-                  if var_alu_r3(7 downto 0) /= x"00" then
-                    var_alu_r3(9) := '0';
-                  else
-                    var_alu_r3(9) := '1';
-                  end if;
-                  if reg_microcode.mcTRBSetZ = '1' then
-                    -- TRB Z flag is simply from the comparison of A and loaded memory
-                    if (reg_a and transaction_rdata(7 downto 0)) /= x"00" then
-                      var_alu_r3(9) := '0';
-                    else
-                      var_alu_r3(9) := '1';
-                    end if;
-                  end if;
-                  -- Update C flag from bit 0/7 as required
-                  if reg_microcode.mcCarryFromBit7 = '1' then
-                    var_alu_r3(8) := var_alu_a3(7);
-                  end if;
-                  if reg_microcode.mcCarryFromBit0 = '1' then
-                    var_alu_r3(8) := var_alu_a3(0);
-                  end if;
-
-                  -- Set bit 0 / 7 of result from C flag, if required
-                  var_alu_r4(7 downto 0) := var_alu_r3(7 downto 0);
-                  if reg_microcode.mcBit0FromCarry = '1' then
-                    var_alu_r4(0) := flag_c;
-                  end if;
-                  if reg_microcode.mcBit7FromCarry = '1' then
-                    var_alu_r4(7) := flag_c;
-                  end if;
-
-                  -- Now work out what to value we are writing to memory, if any
-                  if reg_microcode.mcStoreAX = '1' then
-                    -- Store and of A and X
-                    var_wdata(7 downto 0) := reg_a and reg_x;
-                  elsif reg_microcode.mcADD = '1' then
-                    -- SLO instruction writes result of ADD (=left shift), not of
-                    -- the ORA
-                    var_wdata(7 downto 0) := var_alu_r2(7 downto 0);
-                  else
-                    var_wdata(7 downto 0) := var_alu_r4(7 downto 0);
-                  end if;
-
-                  -- Do actual write
-                  if reg_microcode.mcALU_set_mem = '1' then
-                    memory_access_write           := '1';
-                    memory_access_byte_count      := 1;
-                    memory_access_wdata           := var_wdata;
-                    memory_access_resolve_address := '1';
-
-                    -- Address is expected to be already set
-                  end if;
-
-                  if reg_microcode.mcPushW = '1' Then
-                    memory_access_write           := '1';
-                    memory_access_byte_count      := 2;
-                    memory_access_wdata           := var_wdata;
-                    memory_access_resolve_address := '1';
-
-                    -- Decrement SP by one first before writing word
-                    if flag_e = '0' then
-                      var_sp := (reg_sph & reg_sp) - 1;
-                    else
-                      var_sp(15 downto 8) := reg_sph;
-                      var_sp(7 downto 0)  := reg_sp - 1;
-                    end if;
-                    memory_access_address(15 downto 0) := var_sp;
-                    sp_dec := 2;
-                  end if;
-
-                  -- Also commit result to registers, if required
-                  if reg_microcode.mcALU_set_a = '1' then
-                    reg_a <= var_alu_r3(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_set_x = '1' then
-                    reg_x <= var_alu_r3(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_set_y = '1' then
-                    reg_y <= var_alu_r3(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_set_z = '1' then
-                    reg_z <= var_alu_r3(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_set_spl = '1' then
-                    reg_sp <= var_alu_r3(7 downto 0);
-                  end if;
-                  if reg_microcode.mcALU_set_p = '1' then
-                    load_processor_flags(var_alu_r3(7 downto 0));
-                  end if;
-
-                  -- And update processor flags
-                  if reg_microcode.mcRecordN = '1' then
-                    flag_n <= var_alu_r3(11);
-                  end if;
-                  if reg_microcode.mcRecordV = '1' then
-                    flag_v <= var_alu_r3(10);
-                  end if;
-                  if reg_microcode.mcRecordZ = '1' then
-                    flag_z <= var_alu_r3(9);
-                  end if;
-                  if reg_microcode.mcRecordCarry = '1' then
-                    flag_c <= var_alu_r3(8);
-                  end if;
+                  var_mc := reg_microcode;
+                    
                 when others =>
                 report "monitor_instruction_strobe assert (unknown CPU state)";
                 monitor_instruction_strobe <= '1';
@@ -6482,6 +6272,232 @@
             end case;
 
           end if;
+
+            -- And otherwise, we mostly just set a pile of ALU flags
+            -- The ALU consists of three chained stages, in order to achieve
+            -- 6502 bug compatibility: right shift, binary operations, addition.
+            -- We have a parallel ALU implementation for the 16/32 bit operations.
+
+          -- Load A input to ALU
+          var_alu_a := x"00";
+          if var_mc.mcALU_in_mem='1' then
+            var_alu_a2 := transaction_rdata(7 downto 0);
+          end if;
+          if var_mc.mcALU_in_bitmask = '1' then
+            var_alu_a2 := reg_bitmask;
+          end if;
+          if var_mc.mcALU_in_a = '1'
+              and var_mc.mcALU_in_x = '1' then
+            var_alu_a2 := reg_a and reg_x;
+          elsif var_mc.mcALU_in_a = '1' then
+            var_alu_a2 := reg_a;
+          elsif var_mc.mcALU_in_b = '1' then
+            var_alu_a2 := reg_b;
+          elsif var_mc.mcALU_in_x = '1' then
+            var_alu_a2 := reg_x;
+          end if;
+          if var_mc.mcALU_in_y = '1' then
+            var_alu_a2 := reg_y;
+          end if;
+          if var_mc.mcALU_in_x = '1' then
+            var_alu_a2 := reg_y;
+          end if;
+          if var_mc.mcALU_in_spl = '1' then
+            var_alu_a2 := reg_sp;
+          end if;
+          if var_mc.mcALU_in_sph = '1' then
+            var_alu_a2 := reg_sph;
+          end if;
+          if var_mc.mcInvertA='1' then
+            var_alu_a3 := not var_alu_a2;
+          else
+            var_alu_a3 := var_alu_a2;
+          end if;
+
+          -- Load B input to ALU
+          if var_mc.mcALU_b_1 = '1' then
+            report "ALU B $01";     
+            var_alu_b := x"01";
+          elsif var_mc.mcalu_b_ibyte2 = '1' then
+            report "ALU B ibyte2";     
+            var_alu_b := instruction_bytes_v(15 downto 8);
+          else      
+            report "ALU B trans data";     
+            var_alu_b := transaction_rdata(7 downto 0);
+          end if;
+          if var_mc.mcInvertB='1' then
+            var_alu_b2 := not var_alu_b;
+          else
+            var_alu_b2 := var_alu_b;
+          end if;
+
+          -- Now perform the various actions.
+
+          -- First, we do the right shift
+          if var_mc.mcLSR = '1' then
+            var_alu_r1(7)          := '0';
+            var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
+          else
+            var_alu_r1(7 downto 0) := var_alu_a;
+          end if;
+
+          -- What is the value of carry flag going in?
+          if var_mc.mcAssumeCarrySet = '1' then
+            var_c_in := '1';
+          elsif var_mc.mcAssumeCarryClear = '0' then
+            var_c_in := '0';
+          else
+            var_c_in := flag_c;
+          end if;
+
+          -- Second, we do the ADD operation.
+          -- This is the most horrible part of the 6502.
+          -- We have to deal with BCD mode, among other things.
+          -- Return is NVZC<8 bit result>
+          if var_mc.mcADD = '1' then
+            var_alu_r2 := alu_op_add(var_alu_r1(7 downto 0),var_alu_b2(7 downto 0),
+                                     var_c_in,
+                                     var_mc.mcAllowBCD and flag_d);
+          else
+            -- No addition, no fancy flags
+            var_alu_r2(11 downto 8) := "0000";
+            var_alu_r2(7 downto 0)  := var_alu_r1(7 downto 0);
+          end if;
+          
+          -- Third, we do the binary operations
+          if var_mc.mcAND = '1' then
+            var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) and
+                                      var_alu_b2;
+          elsif var_mc.mcORA = '1' then
+            var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) or
+                                      var_alu_b2;
+          elsif var_mc.mcEOR = '1' then
+            var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
+                                      var_alu_b2;
+          end if;
+          
+          if var_mc.mcPassB = '1' Then
+            var_alu_r3(7 downto 0) := var_alu_b2;
+          end if;
+          if var_mc.mcZeroBit7 = '1' Then
+            var_alu_r3(7) := '0';
+          end if;
+          
+          -- Calculate N flag
+          var_alu_r3(11) := var_alu_r3(7);
+          -- Calculate Z flag
+          if var_alu_r3(7 downto 0) /= x"00" then
+            var_alu_r3(9) := '0';
+          else
+            var_alu_r3(9) := '1';
+          end if;
+          if var_mc.mcTRBSetZ = '1' then
+            -- TRB Z flag is simply from the comparison of A and loaded memory
+            if (reg_a and transaction_rdata(7 downto 0)) /= x"00" then
+              var_alu_r3(9) := '0';
+            else
+              var_alu_r3(9) := '1';
+            end if;
+          end if;
+          -- Update C flag from bit 0/7 as required
+          if var_mc.mcCarryFromBit7 = '1' then
+            var_alu_r3(8) := var_alu_a3(7);
+          end if;
+          if var_mc.mcCarryFromBit0 = '1' then
+            var_alu_r3(8) := var_alu_a3(0);
+          end if;
+          
+          -- Set bit 0 / 7 of result from C flag, if required
+          var_alu_r4 := var_alu_r3;
+          if var_mc.mcBit0FromCarry = '1' then
+            var_alu_r4(0) := flag_c;
+          end if;
+          if var_mc.mcBit7FromCarry = '1' then
+            var_alu_r4(7) := flag_c;
+          end if;
+          
+          -- Now work out what to value we are writing to memory, if any
+          if var_mc.mcStoreAX = '1' then
+            -- Store and of A and X
+            var_wdata(7 downto 0) := reg_a and reg_x;
+          elsif var_mc.mcADD = '1' then
+            -- SLO instruction writes result of ADD (=left shift), not of
+            -- the ORA
+            var_wdata(7 downto 0) := var_alu_r2(7 downto 0);
+          else
+            var_wdata(7 downto 0) := var_alu_r4(7 downto 0);
+          end if;
+          
+          -- Do actual write
+          if var_mc.mcALU_set_mem = '1' then
+            memory_access_write           := '1';
+            memory_access_byte_count      := 1;
+            memory_access_wdata           := var_wdata;
+            memory_access_resolve_address := '1';
+            
+          -- Address is expected to be already set
+          end if;
+          
+          if var_mc.mcPushW = '1' Then
+            memory_access_write           := '1';
+            memory_access_byte_count      := 2;
+            memory_access_wdata           := var_wdata;
+            memory_access_resolve_address := '1';
+            
+            -- Decrement SP by one first before writing word
+            if flag_e = '0' then
+              var_sp := (reg_sph & reg_sp) - 1;
+            else
+              var_sp(15 downto 8) := reg_sph;
+              var_sp(7 downto 0)  := reg_sp - 1;
+            end if;
+            memory_access_address(15 downto 0) := var_sp;
+            sp_dec := 2;
+          end if;
+          
+          -- Also commit result to registers, if required
+          if var_mc.mcALU_set_a = '1' then
+            reg_a <= var_alu_r4(7 downto 0);
+          end if;
+          if var_mc.mcALU_set_x = '1' then
+            reg_x <= var_alu_r4(7 downto 0);
+          end if;
+          if var_mc.mcALU_set_y = '1' then
+            reg_y <= var_alu_r4(7 downto 0);
+          end if;
+          if var_mc.mcALU_set_z = '1' then
+            reg_z <= var_alu_r4(7 downto 0);
+          end if;
+          if var_mc.mcALU_set_spl = '1' then
+            reg_sp <= var_alu_r4(7 downto 0);
+          end if;
+          if var_mc.mcALU_set_p = '1' then
+            load_processor_flags(var_alu_r4(7 downto 0));
+          end if;
+          
+          -- And update processor flags
+          if var_mc.mcRecordN = '1' then
+            flag_n <= var_alu_r3(11);
+          end if;
+          if var_mc.mcRecordV = '1' then
+            flag_v <= var_alu_r3(10);
+          end if;
+          if var_mc.mcRecordZ = '1' then
+            flag_z <= var_alu_r3(9);
+          end if;
+          if var_mc.mcRecordCarry = '1' then
+            flag_c <= var_alu_r3(8);
+          end if;
+
+            report "ALU: set_a=" & std_logic'image(var_mc.mcALU_set_a)
+                & ", B=$" & to_hstring(var_alu_b2)
+                & ", R=$" & to_hstring(var_alu_r4)
+                & ", PassB=" & std_logic'image(var_mc.mcPassB)
+                & ", B_ibyte2=" & std_logic'image(mc.mcalu_b_ibyte2)                
+                & ", ibyte=$" & to_hstring(instruction_bytes_v(15 downto 8))
+                & ", RecN=" & std_logic'image(var_mc.mcRecordN)
+                & ", RecZ=" & std_logic'image(var_mc.mcRecordZ);
+            
 
           if memory_access_set_address_based_on_addressingmode = '1' then
             case var_addressingmode is
