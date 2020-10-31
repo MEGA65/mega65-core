@@ -139,8 +139,8 @@ architecture edwardian of memcontroller is
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
 
-  signal instruction_fetch_request_toggle_drive : std_logic;
-  signal instruction_fetch_address_in_drive : integer;
+  signal instruction_fetch_request_toggle_drive : std_logic := '0';
+  signal instruction_fetch_address_in_drive : integer := 0;
   
   signal fastram_iface : fri_array := (others => ( addr => 0,
                                                    addr_return => 0,
@@ -547,7 +547,11 @@ begin
       
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
-      instruction_fetch_address_in_drive <= instruction_fetch_address_in;
+      if instruction_fetch_address_in < chipram_size then
+        instruction_fetch_address_in_drive <= instruction_fetch_address_in;
+      else
+        instruction_fetch_address_in_drive <= 0;
+      end if;
       
       instruction_fetched_address_out <= instruction_fetched_address_out_drive;
       instruction_fetch_rdata <= instruction_fetched_rdata_drive;

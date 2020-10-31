@@ -6444,7 +6444,7 @@
             memory_access_wdata           := var_wdata;
             memory_access_resolve_address := '1';
             
-          -- Address is expected to be already set
+            -- Address is expected to be already set
           end if;
           
           if var_mc.mcPushW = '1' Then
@@ -6783,6 +6783,7 @@
               transaction_length         <= memory_access_byte_count;
               transaction_address        <= long_address;
               transaction_write          <= '0';
+              waiting_on_mem_controller <= '1';
             end if;
           end if;
 
@@ -6805,6 +6806,7 @@
               transaction_address        <= long_address;
               transaction_write          <= '1';
               transaction_wdata          <= memory_access_wdata;
+              waiting_on_mem_controller <= '1';
             end if;
           end if;
 
