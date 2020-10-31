@@ -1044,7 +1044,7 @@ begin
       chipselect_enables => chipselect_enables,
       mathclock => cpuclock,
       clock => cpuclock,
-      reset =>reset_combined,
+      reset_in =>reset_combined,
       reset_out => reset_out,
       irq => combinedirq,
       nmi => combinednmi,

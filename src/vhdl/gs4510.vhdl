@@ -49,7 +49,7 @@
       phi_1mhz  : in  std_logic;
       phi_2mhz  : in  std_logic;
       phi_3mhz  : in  std_logic;
-      reset     : in  std_logic;
+      reset_in  : in  std_logic;
       reset_out : out std_logic;
       irq       : in  std_logic;
       nmi       : in  std_logic;
@@ -254,7 +254,7 @@
 
     signal cpuspeed_internal : unsigned(7 downto 0) := (others => '0');
     signal cpuspeed_external : unsigned(7 downto 0) := (others => '0');
-
+      
     signal reset_drive      : std_logic := '0';
     signal cartridge_enable : std_logic := '0';
     signal gated_exrom      : std_logic := '1';
@@ -1327,7 +1327,7 @@
         );
     end generate;
 
-    process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
+    process (clock,reset_drive,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
 
       variable memory_read_value : unsigned(7 downto 0);
 
@@ -3812,7 +3812,7 @@
           end if;
         end loop;
 
-        if reset='1' then
+        if reset_drive='1' then
           report "Holding audio_dma";
         else
           report "Resetting audio_dma";
@@ -4241,7 +4241,7 @@
         --      report "monitor_instruction_strobe CLEARED";
 
         -- report "reset = " & std_logic'image(reset) severity note;
-        reset_drive <= reset;
+        reset_drive <= reset_in;
         if reset_drive='0' or watchdog_reset='1' then
           reset_out            <= '0';
           state                <= ResetLow;
