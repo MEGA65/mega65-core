@@ -323,8 +323,10 @@ architecture edwardian of memcontroller is
 
   signal last_transaction_request_toggle : std_logic := '0';
 
-  signal clock4xcounter : unsigned(1 downto 0) := to_unsigned(0,2);
-  signal safe_to_transfer_x4_to_x1 : std_logic := '0';
+  signal transaction_complete_toggle_drive : std_logic := '0'; 
+  signal transaction_rdata_drive : unsigned(47 downto 0) := to_unsigned(0,48);
+
+  signal even_cycle : std_logic := '0';
   
 begin
 
@@ -381,6 +383,10 @@ begin
       fastio_addr <= (others => '1');
       fastio_write <= '0';
 
+      -- Transfer transaction response back into CPU's clock domain
+      transaction_complete_toggle <= transaction_complete_toggle_drive;
+      transaction_rdata <= transaction_rdata_drive;
+      
       -- XXX Save one cycle by immediately initiating the first fastio read/write
       -- when accepting the job
       
@@ -527,22 +533,6 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
-      -- Work out when it is safe to transfer a signal to CPU clock domain.
-      -- This is on the last x4 sub-cycle of a x1 cycle, as it will cause the
-      -- signals to appear as though they were clocked at the slower rate.
-      -- But as we allow this indicator to propagate through, we assert it one
-      -- sub-cycle earlier
-      if clock4xcounter /= "11" then
-        clock4xcounter <= clock4xcounter + 1;
-      else
-        clock4xcounter <= to_unsigned(0,2);
-      end if;
-      if clock4xcounter(1 downto 0) = "10" then
-        safe_to_transfer_x4_to_x1 <= '1';
-      else
-        safe_to_transfer_x4_to_x1 <= '0';
-      end if;
-      
       -- Improve timing for some critical signals
       fastram_read_request_toggle_drive <= fastram_read_request_toggle;
       fastram_write_request_toggle_drive <= fastram_write_request_toggle;
@@ -557,10 +547,8 @@ begin
       end if;
       instruction_fetch_address_in_drive2 <= instruction_fetch_address_in_drive;
 
-      if safe_to_transfer_x4_to_x1='1' then
-        instruction_fetched_address_out <= instruction_fetched_address_out_drive;
-        instruction_fetch_rdata <= instruction_fetched_rdata_drive;
-      end if;
+      instruction_fetched_address_out <= instruction_fetched_address_out_drive;
+      instruction_fetch_rdata <= instruction_fetched_rdata_drive;
 
       if (transaction_request_toggle /= last_transaction_request_toggle)
       then
@@ -731,25 +719,25 @@ begin
       end if;
 
       -- Notice when the read is complete, and tell the CPU
-      if safe_to_transfer_x4_to_x1='1' and fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
+      if fastram_read_complete_toggle /= last_fastram_read_complete_toggle then
         report "return read data to CPU";
         last_fastram_read_complete_toggle <= fastram_read_complete_toggle;
         if fastram_background_read = '0' then
           report "COMPLETE: marking complete due to fastram read";
-          transaction_complete_toggle <= transaction_request_toggle;
-          transaction_rdata <= fastram_rdata_buffer;
+          transaction_complete_toggle_drive <= transaction_request_toggle;
+          transaction_rdata_drive <= fastram_rdata_buffer;
         else
           -- We have some instruction bytes, do something useful with them.
         end if;
         fastram_job_end_token <= 32;
       end if;
-      if safe_to_transfer_x4_to_x1='1' and hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
+      if hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
         report "return HYPPO RAM read data to CPU: $" & to_hstring(hyppo_rdata_buffer);
         last_hyppo_read_complete_toggle <= hyppo_read_complete_toggle;
         if hyppo_background_read = '0' then
           report "COMPLETE: marking complete due to hyppo read";
-          transaction_complete_toggle <= transaction_request_toggle;
-          transaction_rdata <= hyppo_rdata_buffer;
+          transaction_complete_toggle_drive <= transaction_request_toggle;
+          transaction_rdata_drive <= hyppo_rdata_buffer;
         else
           -- We have some instruction bytes, do something useful with them.
         end if;
@@ -757,11 +745,11 @@ begin
       end if;
 
       -- Notice when the slowdev read or write is complete, and tell the CPU
-      if safe_to_transfer_x4_to_x1='1' and slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
+      if slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
         report "COMPLETE: return read data from slowdev to CPU";
         last_slowdev_read_complete_toggle <= slowdev_read_complete_toggle;
-        transaction_complete_toggle <= transaction_request_toggle;
-        transaction_rdata <= slowdev_rdata_buffer;
+        transaction_complete_toggle_drive <= transaction_request_toggle;
+        transaction_rdata_drive <= slowdev_rdata_buffer;
       end if;
       if slowdev_write_complete_toggle /= last_slowdev_write_complete_toggle then
         report "COMPLETE: slowdev write complete";
@@ -770,11 +758,11 @@ begin
       end if;
 
       -- Notice when the fastio read or write is complete, and tell the CPU
-      if safe_to_transfer_x4_to_x1='1' and fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
+      if fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
         report "COMPLETE: return read data from fastio to CPU";
         last_fastio_read_complete_toggle <= fastio_read_complete_toggle;
-        transaction_complete_toggle <= transaction_request_toggle;
-        transaction_rdata <= fastio_rdata_buffer;
+        transaction_complete_toggle_drive <= transaction_request_toggle;
+        transaction_rdata_drive <= fastio_rdata_buffer;
       end if;
       if fastio_write_complete_toggle /= last_fastio_write_complete_toggle then
         report "COMPLETE: fastio write complete";
@@ -814,45 +802,54 @@ begin
           instruction_fetched_rdata_drive <= ifetch_buffer(47 downto 0);
           -- Check if we can store the newly read bytes
         end if;
-        if ifetch_buffer162_addr = (ifetch_buffer_addr + ifetch_buffer_byte_count)
+
+        -- Flatten the logic for determining the shuffling of the ifetch buffer
+        -- as much as possible, as this is very much on the critical path in
+        -- this 162MHz = ~6.2ns clock domain.
+        even_cycle <= not even_cycle;
+        if even_cycle = '1' then
+          if ifetch_buffer162_addr = (ifetch_buffer_addr + ifetch_buffer_byte_count)
           and ifetch_buffer_byte_count <= (16 - 6) then
-          ifetch_buffer((47 + ifetch_buffer_byte_count * 8) downto (ifetch_buffer_byte_count * 8))
-            <= ifetch_buffer162;
-          ifetch_buffer_byte_count <= ifetch_buffer_byte_count + 6;
-          report "Added 6 more instruction bytes to ifetch buffer. We now have "
-            & integer'image(ifetch_buffer_byte_count + 6)
-            & " byte in the buffer.";
+            ifetch_buffer((47 + ifetch_buffer_byte_count * 8) downto (ifetch_buffer_byte_count * 8))
+              <= ifetch_buffer162;
+            ifetch_buffer_byte_count <= ifetch_buffer_byte_count + 6;
+            report "Added 6 more instruction bytes to ifetch buffer. We now have "
+              & integer'image(ifetch_buffer_byte_count + 6)
+              & " byte in the buffer.";
           -- Check if we should shuffle down
-        elsif (ifetch_buffer_addr < instruction_fetch_address_in_drive)
+          end if;
+        else
+          if (ifetch_buffer_addr < instruction_fetch_address_in_drive)
           and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < ifetch_buffer_byte_count
           and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < 7 then
-          -- Shift down
-          ifetch_buffer_addr <= instruction_fetch_address_in_drive;
-          case (instruction_fetch_address_in_drive - ifetch_buffer_addr) is
-            when 1 => ifetch_buffer(119 downto 0) <= ifetch_buffer(127 downto 8);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 1;
-            when 2 => ifetch_buffer(111 downto 0) <= ifetch_buffer(127 downto 16);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 2;
-            when 3 => ifetch_buffer(103 downto 0) <= ifetch_buffer(127 downto 24);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 3;
-            when 4 => ifetch_buffer( 95 downto 0) <= ifetch_buffer(127 downto 32);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 4;
-            when 5 => ifetch_buffer( 87 downto 0) <= ifetch_buffer(127 downto 40);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 5;
-            when 6 => ifetch_buffer( 79 downto 0) <= ifetch_buffer(127 downto 48);
-                      ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 6;
-            when others =>
-              null;
-          end case;
-          report "Shuffling instruction fetch buffer down by "
-            & integer'image(instruction_fetch_address_in_drive - ifetch_buffer_addr)
-            & " bytes. Remaining bytes = "
-            & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in_drive - ifetch_buffer_addr));
-        else
-
+            -- Shift down
+            ifetch_buffer_addr <= instruction_fetch_address_in_drive;
+            case (instruction_fetch_address_in_drive - ifetch_buffer_addr) is
+              when 1 => ifetch_buffer(119 downto 0) <= ifetch_buffer(127 downto 8);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 1;
+              when 2 => ifetch_buffer(111 downto 0) <= ifetch_buffer(127 downto 16);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 2;
+              when 3 => ifetch_buffer(103 downto 0) <= ifetch_buffer(127 downto 24);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 3;
+              when 4 => ifetch_buffer( 95 downto 0) <= ifetch_buffer(127 downto 32);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 4;
+              when 5 => ifetch_buffer( 87 downto 0) <= ifetch_buffer(127 downto 40);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 5;
+              when 6 => ifetch_buffer( 79 downto 0) <= ifetch_buffer(127 downto 48);
+                        ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 6;
+              when others =>
+                null;
+            end case;
+            report "Shuffling instruction fetch buffer down by "
+              & integer'image(instruction_fetch_address_in_drive - ifetch_buffer_addr)
+              & " bytes. Remaining bytes = "
+              & integer'image(ifetch_buffer_byte_count - (instruction_fetch_address_in_drive - ifetch_buffer_addr));
+          else
+            
+          end if;
         end if;
       end if;
-
+      
     end if;
     if rising_edge(cpuclock8x) then
       -- BRAM is on pipelined 8x clock (324MHz)
