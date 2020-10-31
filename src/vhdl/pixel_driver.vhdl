@@ -103,6 +103,10 @@ end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
+  signal phi_1mhz_drive : std_logic := '0';
+  signal phi_2mhz_drive : std_logic := '0';
+  signal phi_3mhz_drive : std_logic := '0';
+  
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
   
@@ -429,13 +433,13 @@ begin
                
                );               
   
-  phi_1mhz_out <= phi2_1mhz_pal50 when pal50_select_internal='1' else
+  phi_1mhz_drive <= phi2_1mhz_pal50 when pal50_select_internal='1' else
                   phi2_1mhz_vga60 when vga60_select_internal='1'
                   else phi2_1mhz_ntsc60;
-  phi_2mhz_out <= phi2_2mhz_pal50 when pal50_select_internal='1' else
+  phi_2mhz_drive <= phi2_2mhz_pal50 when pal50_select_internal='1' else
                   phi2_2mhz_vga60 when vga60_select_internal='1'
                   else phi2_2mhz_ntsc60;
-  phi_3mhz_out <= phi2_3mhz_pal50 when pal50_select_internal='1' else
+  phi_3mhz_drive <= phi2_3mhz_pal50 when pal50_select_internal='1' else
                   phi2_3mhz_vga60 when vga60_select_internal='1'
                   else phi2_3mhz_ntsc60;
 
@@ -505,9 +509,18 @@ begin
               else plotting60;
   
   
-  process (clock81,clock27) is
+  process (cpuclock,clock81,clock27) is
   begin
 
+    -- Latch slow PHI clocks onto CPU clock
+    -- (these are 50% duty-cycle clocks, so there is no chance
+    -- of missing pulses)
+    if rising_edge(cpuclock) then
+      phi_1mhz_out <= phi_1mhz_drive;
+      phi_2mhz_out <= phi_2mhz_drive;
+      phi_3mhz_out <= phi_3mhz_drive;
+    end if;
+    
     if rising_edge(clock81) then
 
   report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "

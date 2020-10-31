@@ -383,6 +383,13 @@ begin
       fastio_addr <= (others => '1');
       fastio_write <= '0';
 
+      -- XXX This is a bit annoying that we have to delay this by a cycle,
+      -- but I can't figure out how to schedule it to only happen on the 1 in 4
+      -- 162MHz cycles that lines up with the CPU, AND tell Vivado that this is
+      -- what I have done, and that it means it should be safe.
+      instruction_fetched_address_out <= instruction_fetched_address_out_drive;
+      instruction_fetch_rdata <= instruction_fetched_rdata_drive;
+      
       -- Transfer transaction response back into CPU's clock domain
       transaction_complete_toggle <= transaction_complete_toggle_drive;
       transaction_rdata <= transaction_rdata_drive;
@@ -546,9 +553,6 @@ begin
         instruction_fetch_address_in_drive <= 0;
       end if;
       instruction_fetch_address_in_drive2 <= instruction_fetch_address_in_drive;
-
-      instruction_fetched_address_out <= instruction_fetched_address_out_drive;
-      instruction_fetch_rdata <= instruction_fetched_rdata_drive;
 
       if (transaction_request_toggle /= last_transaction_request_toggle)
       then
