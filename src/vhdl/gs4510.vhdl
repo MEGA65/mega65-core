@@ -2776,6 +2776,7 @@
           end if;
         -- flag_c <= tmp(8);
         else
+          report "binary mode addition of $" & to_hstring(i1) & " and $" & to_hstring(i2);
           tmp(8 downto 0) := ("0"&i2)
             + ("0"&i1)
             + ("00000000"&carry_in);
@@ -4400,17 +4401,19 @@
                 -- XXX Just do a hypervisor trap in that case, and implement it
                 -- in software? Or add states to CPU state machine to do writes
                 -- byte at a time? Or make memory controller do the wrapping internally?
-                memory_access_address(15 downto 0) := reg_sph&reg_sp;
+                memory_access_address(15 downto 0) := temp_addr;
                 memory_access_resolve_address      := '1';
                 memory_access_byte_count           := 3;
                 memory_access_write                := '0';
-                memory_access_read                 := '0';
+                memory_access_read                 := '1';
 
                 state <= RTI2;
               when RTI2 =>
                 load_processor_flags(transaction_rdata(7 downto 0));
                 var_pc := transaction_rdata(23 downto 8);
                 pc_set := '1';
+                fetch_instruction_please := '1';
+                monitor_instruction_strobe <= '1';
                 state  <= normal_fetch_state;
               when RTS =>
 
@@ -4430,19 +4433,21 @@
                 -- XXX Just do a hypervisor trap in that case, and implement it
                 -- in software? Or add states to CPU state machine to do writes
                 -- byte at a time? Or make memory controller do the wrapping internally?
-                memory_access_address(15 downto 0) := reg_sph&reg_sp;
+                memory_access_address(15 downto 0) := temp_addr;
                 memory_access_resolve_address      := '1';
                 memory_access_byte_count           := 2;
                 memory_access_write                := '0';
-                memory_access_read                 := '0';
+                memory_access_read                 := '1';
 
                 state <= RTS1;
               when RTS1 =>
+                report "RTS setting PC to $" & to_hstring(transaction_rdata) & " + 1";
                 var_pc := transaction_rdata(15 downto 0);
                 pc_set := '1';
                 -- RTS address is target address - 1, so we add the 1 back on
                 pc_inc := 1;
-                state                      <= fast_fetch_state;
+                fetch_instruction_please := '1';
+                state <= fast_fetch_state;
                 monitor_instruction_strobe <= '1';
                 report "monitor_instruction_strobe assert";
               when ProcessorHold =>
@@ -5371,8 +5376,8 @@
                     end if;
                     instruction_bytes <= instruction_bytes_v;
 
-                    -- Show previous instruction
-                    disassemble_instruction(reg_pc,instruction_bytes(23 downto 0));
+                    -- Show current instruction
+                    disassemble_instruction(reg_pc,instruction_bytes_v(23 downto 0));
                     -- Start recording this instruction
                     last_instruction_pc <= reg_pc;
                     last_opcode         <= instruction_bytes(7 downto 0);
@@ -5660,7 +5665,9 @@
                           mc.mcAssumeCarryClear := '1';
                           mc.mcRecordN := '1';
                           mc.mcRecordZ := '1';
-                        when x"40" => state     <= RTI;
+                        when x"40" =>
+                          state     <= RTI;
+                          fetch_instruction_please := '0';
                         when x"42" =>
                           -- NEG A
                           mc.mcALU_in_a := '1';
@@ -5741,6 +5748,7 @@
                           else
                             state <= Flat32RTS;
                           end if;
+                          fetch_instruction_please := '0';
                         when x"62" =>
                           -- RTS #$nn
                           if flat32_addressmode_v = '0' then
@@ -6304,17 +6312,13 @@
             var_alu_a2 := reg_b;
           elsif var_mc.mcALU_in_x = '1' then
             var_alu_a2 := reg_x;
-          end if;
-          if var_mc.mcALU_in_y = '1' then
+          elsif var_mc.mcALU_in_y = '1' then
             var_alu_a2 := reg_y;
-          end if;
-          if var_mc.mcALU_in_x = '1' then
-            var_alu_a2 := reg_y;
-          end if;
-          if var_mc.mcALU_in_spl = '1' then
+          elsif var_mc.mcALU_in_z = '1' then
+            var_alu_a2 := reg_z;
+          elsif var_mc.mcALU_in_spl = '1' then
             var_alu_a2 := reg_sp;
-          end if;
-          if var_mc.mcALU_in_sph = '1' then
+          elsif var_mc.mcALU_in_sph = '1' then
             var_alu_a2 := reg_sph;
           end if;
           if var_mc.mcInvertA='1' then
@@ -6322,16 +6326,13 @@
           else
             var_alu_a3 := var_alu_a2;
           end if;
-
+            
           -- Load B input to ALU
           if var_mc.mcALU_b_1 = '1' then
-            report "ALU B $01";     
             var_alu_b := x"01";
           elsif var_mc.mcalu_b_ibyte2 = '1' then
-            report "ALU B ibyte2";     
             var_alu_b := instruction_bytes_v(15 downto 8);
           else      
-            report "ALU B trans data";     
             var_alu_b := transaction_rdata(7 downto 0);
           end if;
           if var_mc.mcInvertB='1' then
@@ -6345,9 +6346,9 @@
           -- First, we do the right shift
           if var_mc.mcLSR = '1' then
             var_alu_r1(7)          := '0';
-            var_alu_r1(6 downto 0) := var_alu_a(7 downto 1);
+            var_alu_r1(6 downto 0) := var_alu_a3(7 downto 1);
           else
-            var_alu_r1(7 downto 0) := var_alu_a;
+            var_alu_r1(7 downto 0) := var_alu_a3;
           end if;
 
           -- What is the value of carry flag going in?
@@ -6366,7 +6367,7 @@
           if var_mc.mcADD = '1' then
             var_alu_r2 := alu_op_add(var_alu_r1(7 downto 0),var_alu_b2(7 downto 0),
                                      var_c_in,
-                                     var_mc.mcAllowBCD and flag_d);
+                                       var_mc.mcAllowBCD and flag_d);
           else
             -- No addition, no fancy flags
             var_alu_r2(11 downto 8) := "0000";
@@ -6383,6 +6384,9 @@
           elsif var_mc.mcEOR = '1' then
             var_alu_r3(7 downto 0) := var_alu_r2(7 downto 0) xor
                                       var_alu_b2;
+          else
+            -- If no action, then pass through A input unchanged
+            var_alu_r3 := var_alu_r2;
           end if;
           
           if var_mc.mcPassB = '1' Then
