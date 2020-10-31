@@ -80,6 +80,18 @@ entity memcontroller is
     charrom_write_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
+    -- HyperRAM/expansion RAM interface
+    ---------------------------------------------------------------------------
+    hyper_read_request : out std_logic := '0';
+    hyper_write_request : out std_logic := '0';
+    hyper_byte_count : out integer range 1 to 4 := 1;
+    hyper_address : out unsigned(26 downto 0) := to_unsigned(0,27);
+    hyper_wdata : out unsigned(31 downto 0) := to_unsigned(0,32);
+    hyper_rdata : in unsigned(31 downto 0) := to_unsigned(0,32);
+    hyper_ready : in std_logic := '0';
+    hyper_busy : in std_logic := '0';
+    
+    ---------------------------------------------------------------------------
     -- Slow device access 4GB address space
     ---------------------------------------------------------------------------
     slow_access_request_toggle : out std_logic := '0';
@@ -530,8 +542,8 @@ begin
       end if;
       
       -- Improve timing for some critical signals
-      fastram_read_request_toggle_drive <= fastram_read_request;
-      fastram_write_request_toggle_drive <= fastram_write_request;
+      fastram_read_request_toggle_drive <= fastram_read_request_toggle;
+      fastram_write_request_toggle_drive <= fastram_write_request_toggle;
       
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;

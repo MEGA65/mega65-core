@@ -9,9 +9,8 @@ use work.cputypes.all;
 
 ENTITY slow_devices IS
   generic (
-    has_quad_flash : std_logic := '0';
+    has_quad_flash : std_logic := '0';    
     has_psram : std_logic := '0';
-    has_hyperram : std_logic := '0';
     has_c64_cartridge_port : std_logic := '0';
     has_fakecartridge : std_logic := '0';
     target : mega65_target_t := mega65r1

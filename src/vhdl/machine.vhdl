@@ -111,6 +111,15 @@ entity machine is
          slow_prefetched_data : in unsigned(7 downto 0) := x"00";
          slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
 
+         hyper_read_request : out std_logic := '0';
+         hyper_write_request : out std_logic := '0';
+         hyper_byte_count : out integer range 1 to 4 := 1;
+         hyper_address : out unsigned(26 downto 0) := to_unsigned(0,27);
+         hyper_wdata : out unsigned(31 downto 0) := to_unsigned(0,32);
+         hyper_rdata : in unsigned(31 downto 0) := to_unsigned(0,32);
+         hyper_ready : in std_logic := '0';
+         hyper_busy : in std_logic := '0';
+
          sector_buffer_mapped : inout std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
@@ -1000,6 +1009,15 @@ begin
       colour_ram_cs           => colour_ram_cs,
       charrom_write_cs        => charrom_write_cs,
 
+      hyper_read_request => hyper_read_request,
+      hyper_write_request => hyper_write_request,
+      hyper_byte_count => hyper_byte_count,
+      hyper_address => hyper_address,
+      hyper_wdata => hyper_wdata,
+      hyper_rdata => hyper_rdata,
+      hyper_ready => hyper_ready,
+      hyper_busy  => hyper_busy,
+      
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle   => slow_access_ready_toggle,
       slow_access_address        => slow_access_address,
@@ -1246,12 +1264,7 @@ begin
       vga60_select => vga60_select,
       vsync_polarity => vsync_polarity,
       hsync_polarity => hsync_polarity,
-
-      hyper_addr => hyper_addr,
-      hyper_request_toggle => hyper_request_toggle,
-      hyper_data_in => hyper_data,
-      hyper_data_strobe_in => hyper_data_strobe,
-
+      
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,

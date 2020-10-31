@@ -145,11 +145,15 @@ architecture behavior of cpu_test is
 
   signal lcd_dataenable : std_logic := '1';
 
-  signal hyper_addr : unsigned(18 downto 3) := (others => '0');
-  signal hyper_request_toggle : std_logic := '0';
-  signal hyper_data : unsigned(7 downto 0) := x"00";
-  signal hyper_data_strobe : std_logic := '0';
-
+  signal hyper_read_request : std_logic := '0';
+  signal hyper_write_request : std_logic := '0';
+  signal hyper_byte_count : integer range 1 to 4 := 1;
+  signal hyper_address : unsigned(26 downto 0) := to_unsigned(0,27);
+  signal hyper_wdata : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal hyper_rdata : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal hyper_ready : std_logic := '0';
+  signal hyper_busy : std_logic := '0';
+  
   signal expansionram_read : std_logic := '0';
   signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0) := (others => '0');
@@ -262,32 +266,22 @@ begin
 
   hyperram0: entity work.hyperram
     port map (
-      pixelclock => pixelclock,
       clock163 => clock162,
       clock325 => clock324,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
 
-      viciv_addr => hyper_addr,
-      viciv_request_toggle => hyper_request_toggle,
-      viciv_data_out => hyper_data,
-      viciv_data_strobe => hyper_data_strobe,
-
-      -- reset => reset_out,
-      address => expansionram_address,
-      wdata => expansionram_wdata,
-      read_request => expansionram_read,
-      write_request => expansionram_write,
-      rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
-      busy => expansionram_busy,
-
-      current_cache_line => current_cache_line,
-      current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,
-      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-
+      read_request => hyper_read_request,
+      write_request => hyper_write_request,
+      transaction_byte_count => hyper_byte_count,
+      transaction_address => hyper_address,
+      transaction_wdata => hyper_wdata,
+      transaction_rdata => hyper_rdata,
+      
+      data_ready_strobe => hyper_ready,
+      busy => hyper_busy,
+      
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
@@ -399,17 +393,21 @@ begin
       clock324 => clock324,
       clock200 => clock200,
 
+      hyper_read_request => hyper_read_request,
+      hyper_write_request => hyper_write_request,
+      hyper_byte_count => hyper_byte_count,
+      hyper_address => hyper_address,
+      hyper_wdata => hyper_wdata,
+      hyper_rdata => hyper_rdata,
+      hyper_ready => hyper_ready,
+      hyper_busy => hyper_busy,     
+      
       uartclock    => cpuclock,
       btnCpuReset      => reset,
       irq => irq,
       nmi => '1',
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
-
-      hyper_addr => hyper_addr,
-      hyper_request_toggle => hyper_request_toggle,
-      hyper_data => hyper_data,
-      hyper_data_strobe => hyper_data_strobe,
 
       sector_buffer_mapped => sector_buffer_mapped,
 
