@@ -287,7 +287,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
 			$(SUPPORTVHDL) \
-			$(VFPGAVHDL) \
+#			$(VFPGAVHDL) \
 
 SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 			$(VHDLSRCDIR)/crc.vhdl \
