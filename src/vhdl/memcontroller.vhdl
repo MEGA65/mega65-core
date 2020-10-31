@@ -577,7 +577,7 @@ begin
             -- Its a write
             last_transaction_request_toggle <= transaction_request_toggle;
             report "COMPLETE: immediate return from fastram write, because they never take >1 40MHz clock cycle";
-            transaction_complete_toggle <= transaction_request_toggle;
+            transaction_complete_toggle_drive <= transaction_request_toggle;
 
             fastram_write_request_toggle <= not fastram_write_request_toggle;
             fastram_write_addr <= to_integer(transaction_address(19 downto 0));
@@ -637,7 +637,7 @@ begin
               
               last_transaction_request_toggle <= transaction_request_toggle;
               report "COMPLETE: immediate return from hyppo write, because they never take >1 40MHz clock cycle";
-              transaction_complete_toggle <= transaction_request_toggle;
+              transaction_complete_toggle_drive <= transaction_request_toggle;
               
               -- Either way, request the data be written
               hyppo_write_request_toggle <= not hyppo_write_request_toggle;
@@ -767,7 +767,7 @@ begin
       if fastio_write_complete_toggle /= last_fastio_write_complete_toggle then
         report "COMPLETE: fastio write complete";
         last_fastio_write_complete_toggle <= fastio_write_complete_toggle;
-        transaction_complete_toggle <= transaction_request_toggle;
+        transaction_complete_toggle_drive <= transaction_request_toggle;
       end if;
 
       -- Latch instruction fetch buffer
