@@ -543,6 +543,7 @@ begin
       -- Improve timing for some critical signals
       fastram_read_request_toggle_drive <= fastram_read_request_toggle;
       fastram_write_request_toggle_drive <= fastram_write_request_toggle;
+      fastio_write_data_vector_new <= transaction_wdata;
       
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
@@ -692,7 +693,6 @@ begin
               fastio_read_request_toggle <= not fastio_read_request_toggle;
             end if;
             fastio_next_address_new <= transaction_address(19 downto 0);
-            fastio_write_data_vector_new <= transaction_wdata;
             fastio_write_bytecount <= transaction_length;
             fastio_read_bytecount <= transaction_length;
             fastio_read_position <= 7;
@@ -758,7 +758,7 @@ begin
       if slowdev_write_complete_toggle /= last_slowdev_write_complete_toggle then
         report "COMPLETE: slowdev write complete";
         last_slowdev_write_complete_toggle <= slowdev_write_complete_toggle;
-        transaction_complete_toggle <= transaction_request_toggle;
+        transaction_complete_toggle_drive <= transaction_request_toggle;
       end if;
 
       -- Notice when the fastio read or write is complete, and tell the CPU
