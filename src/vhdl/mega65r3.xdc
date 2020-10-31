@@ -313,15 +313,15 @@ set_max_delay -from [get_clocks clock162] -to hr2_rwds 6
 set_max_delay -to [get_clocks clock162] -from hr_rwds 6
 set_max_delay -to [get_clocks clock162] -from hr2_rwds 6
 
-set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
-set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-
-set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
-set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
+#set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+#
+#set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
+#set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
 
 ##SMSC Ethernet PHY
 #
@@ -403,7 +403,8 @@ set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
 set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
 # Unconstain portp machine configuration bits
-set_false_path -through [get_pins machine0/iomapper0/block4b.c65uart0/portp_out_reg]
+set_false_path -through [get_pins machine0/iomapper0/block4b.c65uart0/portp_drive_reg]
+
 
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[3]/CE}]
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[4]/CE}]
