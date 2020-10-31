@@ -154,7 +154,7 @@ architecture edwardian of memcontroller is
                                                    token => to_unsigned(0,5),
                                                    token_return => to_unsigned(0,5)));
 
-  constant fastram_pipeline_depth : integer := 8;
+  constant fastram_pipeline_depth : integer := 4;
 
   -- 162MHz request signals
   signal fastram_write_addr : integer range 0 to (chipram_size-1) := 0;
@@ -334,7 +334,7 @@ begin
   -- We pipeline the pants out of it to get (a) timing closure; and (b) get
   -- much higher throughput.
   fastram0 : entity work.shadowram port map (
-    clkA      => cpuclock8x,
+    clkA      => cpuclock4x,
     addressa  => fastram_iface(fastram_pipeline_depth).addr,
     wea       => fastram_iface(fastram_pipeline_depth).we,
     dia       => fastram_iface(fastram_pipeline_depth).wdata,
@@ -849,14 +849,17 @@ begin
           end if;
         end if;
       end if;
-      
-    end if;
-    if rising_edge(cpuclock8x) then
-      -- BRAM is on pipelined 8x clock (324MHz)
+
+      -- BRAM is on pipelined 4x clock (162MHz)
       -- This is about as fast as we can clock BRAM in these FPGAs,
       -- and requires a lot of pipelining. The end result is still about
       -- the same latency as driving it at 40MHz, but with better throughput
-      -- and actually meeting timing closure
+      -- and actually meeting timing closure.
+
+      -- BUT 8x clock was pushing it a bit too much, so now we are handling it
+      -- in the 162MHz x4 clock domain instead.  This deals with the BRAM
+      -- latency problem, as well as some cross-domain timing crunches between
+      -- 324 and 162MHz clock domains
 
       latch_ifetch_buffer324 <= '0';
       if latch_ifetch_buffer324 = '1' then
@@ -1043,6 +1046,10 @@ begin
         end if;
       end if;
 
+
+      
+    end if;
+    if rising_edge(cpuclock8x) then
 
       ------------------------------------------------------------------------------------------
       -- HYPPO RAM state machine
