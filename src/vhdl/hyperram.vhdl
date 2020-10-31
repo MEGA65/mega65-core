@@ -203,6 +203,8 @@ architecture gothic of hyperram is
 
   signal hyperram0_select : std_logic := '0';
   signal hyperram1_select : std_logic := '0';
+  signal hyperram0_select_drive : std_logic := '0';
+  signal hyperram1_select_drive : std_logic := '0';
   signal hyperram_access_address : unsigned(26 downto 0) := to_unsigned(0,27);
   
 begin
@@ -312,6 +314,9 @@ begin
     end if;
 
     if rising_edge(clock163) then
+
+      hyperram0_select_drive <= hyperram0_select;
+      hyperram1_select_drive <= hyperram1_select;
       
       if in_simulation = true then
         write_latency2 <= to_unsigned(5,8);
@@ -511,8 +516,8 @@ begin
           report "Writing command, hyperram_access_address=$" & to_hstring(hyperram_access_address);
           report "hr_command = $" & to_hstring(hr_command);
           -- Call HyperRAM to attention
-          hr_cs0 <= not hyperram0_select;
-          hr_cs1 <= not (hyperram1_select or first_transaction);
+          hr_cs0 <= not hyperram0_select_drive;
+          hr_cs1 <= not (hyperram1_select_drive or first_transaction);
           
           hr_rwds <= 'Z';
           hr2_rwds <= 'Z';
@@ -551,7 +556,7 @@ begin
                 -- Initial latency is reduced by 2 cycles for the last bytes
                 -- of the access command, and by 1 more to cover state
                 -- machine latency
-                if hyperram1_select='0' then
+                if hyperram0_select_drive='1' then
                   countdown <= to_integer(write_latency);
                 else
                   countdown <= to_integer(write_latency2);
@@ -591,8 +596,8 @@ begin
             
             if countdown = 3 and (config_reg_write='0' or ram_reading='1') then
               extra_latency <= hr_rwds;
-              if (hr_rwds='1' and hyperram0_select='1')
-                or (hr2_rwds='1' and hyperram1_select='1')
+              if (hr_rwds='1' and hyperram0_select_drive='1')
+                or (hr2_rwds='1' and hyperram1_select_drive='1')
               then
                 report "Applying extra latency";
               end if;                    
@@ -642,7 +647,7 @@ begin
                 -- If we were asked to wait for extra latency,
                 -- then wait another 6 cycles.
                 extra_latency <= '0';
-                if hyperram0_select='1' then
+                if hyperram0_select_drive='1' then
                   countdown <= to_integer(extra_write_latency);
                 else
                   countdown <= to_integer(extra_write_latency2);
@@ -695,7 +700,7 @@ begin
           hr_d <= (others => 'Z');
           hr2_d <= (others => 'Z');
           
-          if hyperram0_select='1' then
+          if hyperram0_select_drive='1' then
             hr_d_last <= hr_d;
           else
             hr_d_last <= hr2_d;
@@ -706,7 +711,7 @@ begin
           if pause_phase = '1' then
             null;
           else
-            hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
+            hr_clk_phaseshift <= read_phase_shift xor hyperram1_select_drive;
             if countdown_is_zero = '0' then
               countdown <= countdown - 1;
             end if;
@@ -726,7 +731,7 @@ begin
               hr_clk_phaseshift <= write_phase_shift;
             end if;
             
-            if hyperram0_select='1' then
+            if hyperram0_select_drive='1' then
               last_rwds <= hr_rwds;
             else
               last_rwds <= hr2_rwds;
@@ -737,7 +742,7 @@ begin
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
             
-            if ((hr_rwds='1') and (hyperram0_select='1')) or ((hr2_rwds='1') and (hyperram1_select='1'))
+            if ((hr_rwds='1') and (hyperram0_select_drive='1')) or ((hr2_rwds='1') and (hyperram1_select_drive='1'))
             then
               hr_rwds_high_seen <= '1';
             else
@@ -746,13 +751,13 @@ begin
             --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
             end if;                
-            if (((hr_rwds='1') and (hyperram0_select='1')) or ((hr2_rwds='1') and (hyperram1_select='1')))
+            if (((hr_rwds='1') and (hyperram0_select_drive='1')) or ((hr2_rwds='1') and (hyperram1_select_drive='1')))
               or (hr_rwds_high_seen='1') then
               -- Data has arrived: Latch either odd or even byte
               -- as required.
 --                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
-              if hyperram0_select = '1' then
+              if hyperram0_select_drive = '1' then
                 ram_rdata(to_integer(byte_phase)*8+7 downto to_integer(byte_phase)*8) <= hr_d;
               else
                 ram_rdata(to_integer(byte_phase)*8+7 downto to_integer(byte_phase)*8) <= hr2_d;

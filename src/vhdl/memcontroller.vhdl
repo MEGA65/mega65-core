@@ -139,7 +139,7 @@ architecture edwardian of memcontroller is
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
 
-  signal instruction_fetch_request_toggle_drive : std_logic := '0';
+   signal instruction_fetch_request_toggle_drive : std_logic := '0';
   signal instruction_fetch_address_in_drive : integer := 0;
   
   signal fastram_iface : fri_array := (others => ( addr => 0,
@@ -563,6 +563,10 @@ begin
         -- so we check those immediately -- unless we have a request running in
         -- the background
         report "transaction request for $" & to_hstring(transaction_address);
+        if transaction_write = '1' then
+          report "transaction wdata is $" & to_hstring(transaction_wdata)
+            & " (" & integer'image(transaction_length) & " bytes)";
+        end if;
 
         if transaction_address(27 downto 8) = bp_address then
           -- Its to ZP, so also update the ZP cache
