@@ -12,18 +12,6 @@ set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
 create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
-## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
-## violations, and hopefully make everything synthesise faster.
-set_clock_groups -asynchronous \
-     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
-     -group { CLKFBOUT CLKOUT2 clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF }
-
-# Deal with more false paths crossing ethernet / cpu clock domains
-set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
-set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
-set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
-set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
-
 set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
 # General purpose LED on mother board
@@ -313,38 +301,27 @@ set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
  
 set hr0_dq_ports    [get_ports hr_d[*]]
-create_clock -period 12 -name rwds_clk      [get_ports hr_rwds]
-create_clock -period 12 -name virt_rwds_clk
-
-set_input_delay -clock [get_clocks virt_rwds_clk]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
-set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds_clk]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] 0
-set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] 0
-set_false_path  -fall_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -setup
-set_false_path  -rise_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -setup
-set_false_path  -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -hold
-set_false_path  -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -hold
-set_false_path -from [get_clocks clk_in] -to [get_clocks rwds_clk]
-set_false_path -from [get_clocks rwds_clk] -to [get_clocks clk_in]
-
 set hr2_dq_ports    [get_ports hr2_d[*]]
-create_clock -period 12 -name rwds2_clk      [get_ports hr2_rwds]
-create_clock -period 12 -name virt_rwds2_clk
 
-set_input_delay -clock [get_clocks virt_rwds2_clk]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
-set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds2_clk]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] 0
-set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] 0
-set_false_path  -fall_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -setup
-set_false_path  -rise_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -setup
-set_false_path  -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -hold
-set_false_path  -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -hold
-set_false_path -from [get_clocks clk_in] -to [get_clocks rwds2_clk]
-set_false_path -from [get_clocks rwds2_clk] -to [get_clocks clk_in]
+# Set 6ns max delay to/from various HyperRAM pins
+set_max_delay -from [get_clocks clock162] -to ${hr0_dq_ports} 6
+set_max_delay -from [get_clocks clock162] -to ${hr2_dq_ports} 6
+set_max_delay -to [get_clocks clock162] -from ${hr0_dq_ports} 6
+set_max_delay -to [get_clocks clock162] -from ${hr2_dq_ports} 6
+set_max_delay -from [get_clocks clock162] -to hr_rwds 6
+set_max_delay -from [get_clocks clock162] -to hr2_rwds 6
+set_max_delay -to [get_clocks clock162] -from hr_rwds 6
+set_max_delay -to [get_clocks clock162] -from hr2_rwds 6
+
+set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
+set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
+set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+
+set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
+set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
+set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
 
 ##SMSC Ethernet PHY
 #
@@ -425,6 +402,8 @@ set_property CONFIG_MODE SPIx4 [current_design]
 set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
 set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
+# Unconstain portp machine configuration bits
+set_false_path -through [get_pins machine0/iomapper0/block4b.c65uart0/portp_out_reg]
 
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[3]/CE}]
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[4]/CE}]
@@ -448,3 +427,19 @@ set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_mob
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_commenced_reg/D]
 set_max_delay -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_complete_reg/D] 0.000
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_dump_reg/D]
+
+
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 pixelclock clock325 hr_rwds } \
+     -group { CLKFBOUT CLKOUT2 clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF }
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks hr_rwds] -to [get_clocks clock162]
+set_false_path -from [get_clocks clock162] -to [get_clocks hr_rwds]
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
+set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
+

@@ -405,6 +405,7 @@ architecture Behavioral of container is
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
+  signal portp_drive : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
 
@@ -443,6 +444,7 @@ architecture Behavioral of container is
   signal tmds : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '1';
+  signal reset_high_drive : std_logic := '1';
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
@@ -522,8 +524,8 @@ begin
         fref        => 100.0
         )
       port map (
-            select_44100 => portp(3),
-            ref_rst   => reset_high,
+            select_44100 => portp_drive(3),
+            ref_rst   => reset_high_drive,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
@@ -542,15 +544,15 @@ begin
     
     hdmi0: entity work.vga_to_hdmi
       port map (
-        select_44100 => portp(3),
-        dvi => portp(1),   -- Disable HDMI-style audio if one
+        select_44100 => portp_drive(3),
+        dvi => portp_drive(1),   -- Disable HDMI-style audio if one
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 
-        vga_rst => reset_high, -- active high reset
+        vga_rst => reset_high_drive, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
         vga_vs => v_vsync, -- active high vsync
         vga_hs => v_hdmi_hsync, -- active high hsync
@@ -577,7 +579,7 @@ begin
     begin
         HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
-                rst     => reset_high,
+                rst     => reset_high_drive,
                 clk     => clock27,
                 clk_x5  => clock135p,
                 d       => tmds(i),
@@ -587,7 +589,7 @@ begin
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
-            rst     => reset_high,
+            rst     => reset_high_drive,
             clk     => clock27,
             clk_x5  => clock135p,
             d       => "0000011111",
@@ -1030,8 +1032,11 @@ begin
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
+
+      portp_drive <= portp;
       
       reset_high <= not btncpureset;
+      reset_high_drive <= reset_high;
       
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
@@ -1086,8 +1091,6 @@ begin
       max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
       max10_out_vector(11 downto 0) <= j21ddr;
       max10_out_vector(23 downto 12) <= j21out;
-      
-      reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
 --      led <= flopled_drive;
@@ -1165,12 +1168,12 @@ begin
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
-    if portp(7)='1' then
+    if portp_drive(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+    led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -1185,7 +1188,7 @@ begin
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp(2)='1' then
+    if portp_drive(2)='1' then
       vgagreen <= unsigned(audio_left(15 downto 8));
       vgared <= unsigned(audio_right(15 downto 8));
       hdmigreen <= unsigned(audio_left(15 downto 8));

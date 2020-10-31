@@ -139,8 +139,10 @@ architecture edwardian of memcontroller is
 
   type fri_array is array (natural range 0 to 8) of fastram_interface;
 
-   signal instruction_fetch_request_toggle_drive : std_logic := '0';
+  signal instruction_fetch_request_toggle_drive : std_logic := '0';
   signal instruction_fetch_address_in_drive : integer := 0;
+  signal instruction_fetch_request_toggle_drive2 : std_logic := '0';
+  signal instruction_fetch_address_in_drive2 : integer := 0;
   
   signal fastram_iface : fri_array := (others => ( addr => 0,
                                                    addr_return => 0,
@@ -547,14 +549,18 @@ begin
       
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
+      instruction_fetch_request_toggle_drive2 <= instruction_fetch_request_toggle_drive;
       if instruction_fetch_address_in < chipram_size then
         instruction_fetch_address_in_drive <= instruction_fetch_address_in;
       else
         instruction_fetch_address_in_drive <= 0;
       end if;
-      
-      instruction_fetched_address_out <= instruction_fetched_address_out_drive;
-      instruction_fetch_rdata <= instruction_fetched_rdata_drive;
+      instruction_fetch_address_in_drive2 <= instruction_fetch_address_in_drive;
+
+      if safe_to_transfer_x4_to_x1='1' then
+        instruction_fetched_address_out <= instruction_fetched_address_out_drive;
+        instruction_fetch_rdata <= instruction_fetched_rdata_drive;
+      end if;
 
       if (transaction_request_toggle /= last_transaction_request_toggle)
       then
@@ -737,7 +743,7 @@ begin
         end if;
         fastram_job_end_token <= 32;
       end if;
-      if hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
+      if safe_to_transfer_x4_to_x1='1' and hyppo_read_complete_toggle /= last_hyppo_read_complete_toggle then
         report "return HYPPO RAM read data to CPU: $" & to_hstring(hyppo_rdata_buffer);
         last_hyppo_read_complete_toggle <= hyppo_read_complete_toggle;
         if hyppo_background_read = '0' then
@@ -751,7 +757,7 @@ begin
       end if;
 
       -- Notice when the slowdev read or write is complete, and tell the CPU
-      if slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
+      if safe_to_transfer_x4_to_x1='1' and slowdev_read_complete_toggle /= last_slowdev_read_complete_toggle then
         report "COMPLETE: return read data from slowdev to CPU";
         last_slowdev_read_complete_toggle <= slowdev_read_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
@@ -764,7 +770,7 @@ begin
       end if;
 
       -- Notice when the fastio read or write is complete, and tell the CPU
-      if fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
+      if safe_to_transfer_x4_to_x1='1' and fastio_read_complete_toggle /= last_fastio_read_complete_toggle then
         report "COMPLETE: return read data from fastio to CPU";
         last_fastio_read_complete_toggle <= fastio_read_complete_toggle;
         transaction_complete_toggle <= transaction_request_toggle;
@@ -1025,11 +1031,11 @@ begin
       -- logic, by just having it always increment. This could come unstuck if
       -- a write is still happening in the background, in which case we should
       -- check if that is happening.
-      if instruction_fetch_request_toggle_drive /= last_instruction_fetch_request_toggle then
-        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle_drive;
-        report "instruction_fetch_address_in_drive = " & integer'image(instruction_fetch_address_in_drive);
-        fastram_next_ifetch_address <= instruction_fetch_address_in_drive;
-        fastram_next_instruction_address <= instruction_fetch_address_in_drive;
+      if instruction_fetch_request_toggle_drive2 /= last_instruction_fetch_request_toggle then
+        last_instruction_fetch_request_toggle <= instruction_fetch_request_toggle_drive2;
+        report "instruction_fetch_address_in_drive = " & integer'image(instruction_fetch_address_in_drive2);
+        fastram_next_ifetch_address <= instruction_fetch_address_in_drive2;
+        fastram_next_instruction_address <= instruction_fetch_address_in_drive2;
         fastram_next_instruction_position <= 0;
       else
         if fastram_read_now='0' and fastram_write_now='0' then
