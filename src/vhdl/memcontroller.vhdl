@@ -311,6 +311,8 @@ architecture edwardian of memcontroller is
   -- be.
   signal ifetch_buffer162 :  unsigned(47 downto 0) := to_unsigned(0,48);
   signal ifetch_buffer162_addr : integer range 0 to (chipram_size-1) := 0;
+  signal ifetch_buffer162_addr_strobe : std_logic := '0';
+  signal ifetch_buffer162_has_the_instruction : std_logic := '0';
   signal ifetch_buffer162_addr_drive : integer range 0 to (chipram_size-1) := 0;
   signal latch_ifetch_buffer324 : std_logic := '0';
   -- The highlevel assembled 16-byte instruction fetch buffer
@@ -540,10 +542,13 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      ifetch_buffer162_addr_strobe <= '0';
+      
       -- Improve timing for some critical signals
       fastram_read_request_toggle_drive <= fastram_read_request_toggle;
       fastram_write_request_toggle_drive <= fastram_write_request_toggle;
       fastio_write_data_vector_new <= transaction_wdata;
+      
       
       -- Give signals time to propagate from CPU to here
       instruction_fetch_request_toggle_drive <= instruction_fetch_request_toggle;
@@ -780,8 +785,15 @@ begin
         report "ifetch latched instruction data @ $" & to_hstring(to_unsigned(ifetch_buffer162_addr,20))
           & " = $" & to_hstring(ifetch_buffer162);
       end if;
+
       -- Check instruction fetch buffer to see if it has content we need.
+
+      -- We need a drive stage to flatten the logic, by removing the comparison
       if ifetch_buffer162_addr = instruction_fetch_address_in_drive then
+        ifetch_buffer162_has_the_instruction <= ifetch_buffer162_addr_strobe;
+      end if;
+
+      if ifetch_buffer162_has_the_instruction='1' then
         -- We have exactly the instruction we need, so present it, and reset
         -- the instruction fetch buffer
         report "ifetch has delivered the instruction we need. Storing and returning to CPU";
@@ -1006,6 +1018,7 @@ begin
           latch_ifetch_buffer324 <= '1';
           -- Adjust address for length of the fetch buffer
           ifetch_buffer162_addr <= ifetch_buffer162_addr_drive - 5;
+          ifetch_buffer162_addr_strobe <= '1';
         end if;
 
         -- Note when we have filled the low-level instruction fetch buffer
