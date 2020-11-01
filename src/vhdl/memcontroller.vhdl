@@ -320,6 +320,10 @@ architecture edwardian of memcontroller is
   signal ifetch_buffer_byte_count : integer range 0 to 16 := 0;
   signal ifetch_buffer_addr : integer range 0 to (chipram_size-1) := 0;
 
+  signal ifetch_buffer_has_next_bytes : std_logic := '0';
+  signal ifetch_buffer_shuffle_down : std_logic := '0';
+  signal ifetch_buffer_shuffle_down_count : integer range 0 to 16 := 0;
+
   signal instruction_fetched_address_out_drive : integer range 0 to (chipram_size-1) := 0;
   signal instruction_fetched_rdata_drive : unsigned(47 downto 0) := (others => '0');
 
@@ -792,7 +796,19 @@ begin
       if ifetch_buffer162_addr = instruction_fetch_address_in_drive then
         ifetch_buffer162_has_the_instruction <= ifetch_buffer162_addr_strobe;
       end if;
-
+      if ifetch_buffer162_addr = (ifetch_buffer_addr + ifetch_buffer_byte_count)
+        and ifetch_buffer_byte_count <= (16 - 6) then
+        ifetch_buffer_has_next_bytes <= ifetch_buffer162_addr_strobe;
+      end if;
+      if (ifetch_buffer_addr < instruction_fetch_address_in_drive)
+        and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < ifetch_buffer_byte_count
+        and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < 7 then
+        ifetch_buffer_shuffle_down <= '1';
+        ifetch_buffer_shuffle_down_count <= instruction_fetch_address_in_drive - ifetch_buffer_addr;
+      else
+        ifetch_buffer_shuffle_down_count <= 0;
+      end if;
+          
       if ifetch_buffer162_has_the_instruction='1' then
         -- We have exactly the instruction we need, so present it, and reset
         -- the instruction fetch buffer
@@ -802,6 +818,8 @@ begin
         ifetch_buffer(47 downto 0) <= ifetch_buffer162;
         ifetch_buffer_byte_count <= 6;
         ifetch_buffer_addr <= ifetch_buffer162_addr;
+        ifetch_buffer_shuffle_down <= '0';
+        ifetch_buffer_has_next_bytes <= '0';
       else
         -- Update the ifetch buffer.
         -- To simplify the logic, we alternate between shifting and storing
@@ -822,25 +840,19 @@ begin
         -- Flatten the logic for determining the shuffling of the ifetch buffer
         -- as much as possible, as this is very much on the critical path in
         -- this 162MHz = ~6.2ns clock domain.
-        even_cycle <= not even_cycle;
-        if even_cycle = '1' then
-          if ifetch_buffer162_addr = (ifetch_buffer_addr + ifetch_buffer_byte_count)
-          and ifetch_buffer_byte_count <= (16 - 6) then
-            ifetch_buffer((47 + ifetch_buffer_byte_count * 8) downto (ifetch_buffer_byte_count * 8))
-              <= ifetch_buffer162;
-            ifetch_buffer_byte_count <= ifetch_buffer_byte_count + 6;
-            report "Added 6 more instruction bytes to ifetch buffer. We now have "
-              & integer'image(ifetch_buffer_byte_count + 6)
-              & " byte in the buffer.";
-          -- Check if we should shuffle down
+        if ifetch_buffer_has_next_bytes = '1' then
+          ifetch_buffer((47 + ifetch_buffer_byte_count * 8) downto (ifetch_buffer_byte_count * 8))
+            <= ifetch_buffer162;
+          ifetch_buffer_byte_count <= ifetch_buffer_byte_count + 6;
+          report "Added 6 more instruction bytes to ifetch buffer. We now have "
+            & integer'image(ifetch_buffer_byte_count + 6)
+            & " byte in the buffer.";
           end if;
-        else
-          if (ifetch_buffer_addr < instruction_fetch_address_in_drive)
-          and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < ifetch_buffer_byte_count
-          and (instruction_fetch_address_in_drive - ifetch_buffer_addr) < 7 then
+          -- Check if we should shuffle down
+        elsif ifetch_buffer_shuffle_down = '1' then
             -- Shift down
             ifetch_buffer_addr <= instruction_fetch_address_in_drive;
-            case (instruction_fetch_address_in_drive - ifetch_buffer_addr) is
+            case (ifetch_buffer_shuffle_down_count) is
               when 1 => ifetch_buffer(119 downto 0) <= ifetch_buffer(127 downto 8);
                         ifetch_buffer_byte_count <= ifetch_buffer_byte_count - 1;
               when 2 => ifetch_buffer(111 downto 0) <= ifetch_buffer(127 downto 16);
