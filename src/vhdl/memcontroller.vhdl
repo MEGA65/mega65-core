@@ -154,7 +154,7 @@ architecture edwardian of memcontroller is
                                                    token => to_unsigned(0,5),
                                                    token_return => to_unsigned(0,5)));
 
-  constant fastram_pipeline_depth : integer := 5;
+  constant fastram_pipeline_depth : integer := 4;
 
   -- 162MHz request signals
   signal fastram_write_addr : integer range 0 to (chipram_size-1) := 0;
