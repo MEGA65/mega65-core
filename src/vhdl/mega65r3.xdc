@@ -304,15 +304,15 @@ set hr0_dq_ports    [get_ports hr_d[*]]
 set hr2_dq_ports    [get_ports hr2_d[*]]
 
 # Set 6ns max delay to/from various HyperRAM pins
-# (But add 16ns to the 6ns, because of weird ways Vivado calculates the apparent latency)
-set_max_delay -from [get_clocks clock162] -to ${hr0_dq_ports} 22
-set_max_delay -from [get_clocks clock162] -to ${hr2_dq_ports} 22
-set_max_delay -to [get_clocks clock162] -from ${hr0_dq_ports} 22
-set_max_delay -to [get_clocks clock162] -from ${hr2_dq_ports} 22
-set_max_delay -from [get_clocks clock162] -to hr_rwds 22
-set_max_delay -from [get_clocks clock162] -to hr2_rwds 22
-set_max_delay -to [get_clocks clock162] -from hr_rwds 22
-set_max_delay -to [get_clocks clock162] -from hr2_rwds 22
+# (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
+set_max_delay -from [get_clocks clock162] -to ${hr0_dq_ports} 23
+set_max_delay -from [get_clocks clock162] -to ${hr2_dq_ports} 23
+set_max_delay -to [get_clocks clock162] -from ${hr0_dq_ports} 23
+set_max_delay -to [get_clocks clock162] -from ${hr2_dq_ports} 23
+set_max_delay -from [get_clocks clock162] -to hr_rwds 23
+set_max_delay -from [get_clocks clock162] -to hr2_rwds 23
+set_max_delay -to [get_clocks clock162] -from hr_rwds 23
+set_max_delay -to [get_clocks clock162] -from hr2_rwds 23
 
 #set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
 #set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
