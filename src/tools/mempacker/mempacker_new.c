@@ -108,6 +108,7 @@ int main(int argc,char **argv)
 	  "\n"
 	  "  signal write_count : unsigned(7 downto 0) := x\"00\";\n"
 	  "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
+	  "  signal doa_drive : unsigned(7 downto 0);\n"
 	  "  \n"
 	  "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
 	  "  constant initram : ram_t := (\n",
@@ -139,7 +140,8 @@ int main(int argc,char **argv)
 	  "        no_write_count <= no_write_count + 1;        \n"
 	  "      end if;\n"
 	  //	  "      if %d>addressa then\n"	  
-	  "        doa <= ram(addressa);\n"
+	  "        doa_drive <= ram(addressa);\n"
+	  "        doa <= doa_drive;\n"
 	  //	  "      else\n"
 	  //	  "        doa <= x\"BD\";\n"
 	  //	  "      end if;\n"
