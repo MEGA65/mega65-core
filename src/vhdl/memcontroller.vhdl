@@ -154,7 +154,7 @@ architecture edwardian of memcontroller is
                                                    token => to_unsigned(0,5),
                                                    token_return => to_unsigned(0,5)));
 
-  constant fastram_pipeline_depth : integer := 5;
+  constant fastram_pipeline_depth : integer := 4;
 
   -- 162MHz request signals
   signal fastram_write_addr : integer range 0 to (chipram_size-1) := 0;
@@ -914,7 +914,9 @@ begin
       fastram_iface(0).token_return <= fastram_iface(fastram_pipeline_depth).token;
       -- XXX The following is because GHDL was doing weird things with having
       -- iface(0).rdata directly attached to the fastram
-      fastram_iface(1).rdata <= fastram_rdata;
+      -- As we have added an output register to the fast/chip RAM to improve
+      -- timing, we insert it yet another cycle later into the pipeline
+      fastram_iface(2).rdata <= fastram_rdata;
       -- And also the instruction fetch info
       fastram_iface(0).is_ifetch_return <= fastram_iface(fastram_pipeline_depth).is_ifetch;
       fastram_iface(0).addr_return <= fastram_iface(fastram_pipeline_depth).addr;
