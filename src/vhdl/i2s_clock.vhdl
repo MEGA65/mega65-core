@@ -51,23 +51,47 @@ architecture brutalist of i2s_clock is
   -- MCLK must be between ~2 and 6MHz for this mode, so we need to divide the 50MHz
   -- clock by 10.  The loop divides by 2 implicitly, so we need 5 cycles per
   -- clock phase.
-  constant clock_divider : integer := (clock_frequency/10000000) / 2;
+  -- This is not accurate enough. We need to instead accumulate so that we can
+  -- get to the 6.144MHz ideal I2S master clock to a high level of precision.
+  -- 32-bit counter using overflow to be 6.144MHz clock, we need to add:
+  -- 2^32 / (clock_frequency / 6.144MHz )
+  -- each cycle.  i.e.:
+  -- 2^32 x 6,144,000 / clock_frequency
+  -- VHDL arithmetic is 32-bit only, which is a pain, for this.
+  -- We can divide both sides by 100KHz to get:
+  -- 2^32 x 61.44 / (clock_frequency / 100KHz)
+  -- But we still have the problem of overflow on the left side, so lets reduce
+  -- precision to 24 bits:
+  -- 2^24 x 61.44 / (clock_frequency / 100KHz)
+  -- = 1,030,792,151.04 / (clock_frequency / 100KHz)
+
+  constant clock_frequency_100khz : integer := clock_frequency / 100000;
+  constant big_num : integer := 1030792151;
+
+  constant accumulator_value : integer := big_num / clock_frequency_100khz;
+  
+  constant clock_divider : integer := (clock_frequency/6144000) / 2;
+
+  signal accumulator : unsigned(24 downto 0) := to_unsigned(0,25);
+  signal last_accumulate_bit : std_logic := '0';
+  
   signal clock_counter : integer range 0 to (clock_divider - 1) := 0;
   constant sampleratedivider : integer := 64;
   signal sample_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
   signal i2s_clk_int : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
+
   
 begin
 
   process (cpuclock) is
   begin
     if rising_edge(cpuclock) then
-      if clock_counter /= 0 then
-        clock_counter <= clock_counter - 1;
-      else
-        clock_counter <= clock_divider - 1;
+      accumulator <= accumulator + accumulator_value;
+      if accumulator(23) /= last_accumulate_bit then
+        last_accumulate_bit <= accumulator(23);
+
         i2s_clk <= not i2s_clk_int;
         i2s_clk_int <= not i2s_clk_int;
         
