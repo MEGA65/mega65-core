@@ -64,18 +64,19 @@ architecture brutalist of i2s_clock is
   -- precision to 24 bits:
   -- 2^24 x 61.44 / (clock_frequency / 100KHz)
   -- = 1,030,792,151.04 / (clock_frequency / 100KHz)
-
-  constant clock_frequency_100khz : integer := clock_frequency / 100000;
-  constant big_num : integer := 1030792151;
-
-  constant accumulator_value : integer := big_num / clock_frequency_100khz;
+  -- This results in a jittery clock, though, which is sub-optimal.
+  -- Thus we should stick to a constant interval.
+  -- For now we will achieve this 
   
-  constant clock_divider : integer := (clock_frequency/6144000) / 2;
-
+  constant clock_frequency_100khz : integer := clock_frequency / 100000;
+--  constant big_num : integer := 1030792151;
+--  constant accumulator_value : integer := big_num / clock_frequency_100khz;
+  -- Yields 4.86MHz, but with zero jitter
+  constant accumulator_value : integer := 32768;
+  
   signal accumulator : unsigned(24 downto 0) := to_unsigned(0,25);
   signal last_accumulate_bit : std_logic := '0';
   
-  signal clock_counter : integer range 0 to (clock_divider - 1) := 0;
   constant sampleratedivider : integer := 64;
   signal sample_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
