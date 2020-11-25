@@ -7460,6 +7460,7 @@ begin
                   end if;
                   reg_t_high <= temp_addr(15 downto 8);
                   reg_t <= temp_addr(7 downto 0);
+                  flag_c <= temp_addr(15);
                 when I_DEW =>
                   temp_addr := (memory_read_value&reg_t) - 1;
                   if temp_addr = x"0000" then
