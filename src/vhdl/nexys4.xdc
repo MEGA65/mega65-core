@@ -7,6 +7,10 @@
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
 
+## Work around MMCM placement problem
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/CLKOUT0]
+
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
