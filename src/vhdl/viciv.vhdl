@@ -990,12 +990,6 @@ architecture Behavioral of viciv is
   type screenline_return_stack_t is  array (0 to 3) of unsigned(19 downto 0);
   signal screenline_return_stack : screenline_return_stack_t;
   signal screenline_return_stack_count : integer range 0 to 3 := 0;
-  -- Some tokens can also set other interesting parameters, such as whether
-  -- drawing should happen with the background being painted, or not, to
-  -- allow transparency.  This can be useful for using characters to draw
-  -- bullets etc, or even large animated sprite-like objects, consisting of
-  -- sets of characters.
-  signal screenline_transparent_background : std_logic := '0';
   -- We also allow shoving characters up or down, so that by displaying
   -- a set of screen characters (possibly via a GOSUB token), they can be
   -- displayed at any vertical offset, as well as horizontal offset via the
@@ -5043,7 +5037,7 @@ begin
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
           raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-          if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) = x"00" then
+          if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) /= x"00" then
             raster_buffer_write <= '1';
           else
             raster_buffer_write <= '0';
