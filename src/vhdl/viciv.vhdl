@@ -4850,6 +4850,7 @@ begin
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             end if;
           end if;
+          -- Get MSB if we are using 16-bit sprite pointers
           if vicii_sprite_pointer_address(23)='1' then
             raster_fetch_state <= SpritePointerComputeMSB;
           else
