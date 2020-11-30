@@ -932,6 +932,8 @@ architecture Behavioral of viciv is
   signal raster_buffer_max_write_address_hold : unsigned(9 downto 0) := to_unsigned(0,9+1);
   signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
+  signal no_raster_buffer_delay : std_logic := '1';
+  
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0) := to_unsigned(0,15+1);
   signal colourramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
@@ -2063,6 +2065,8 @@ begin
         sprite_extended_width_enables <= (others => '0');
         sprite_extended_height_enables <= (others => '0');
         sprite_sixteen_colour_enables <= (others => '0');
+        -- And raster re-write buffer delay also
+        no_raster_buffer_delay <= '1';
       end if;
       
       -- Drive stage for data from hyper RAM and signals out to it
@@ -2587,6 +2591,8 @@ begin
         elsif register_number=81 then
           -- @IO:GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
           viciv_rasterx_compare(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
+          no_raster_buffer_delay <= fastio_wdata(7);
         elsif register_number=82 then
         -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
         -- Allow setting of fine raster for IRQ (low bits)
@@ -3297,7 +3303,7 @@ begin
         -- Set write address to all 1's, so that it wraps to zero at the start
         raster_buffer_write_address(9 downto 0) <= (others => '1');
         -- Make sure we read and write to opposite halves of the raster buffer
-        raster_buffer_write_address(10) <= raster_buffer_half_toggle;
+        raster_buffer_write_address(10) <= raster_buffer_half_toggle xor no_raster_buffer_delay;
         raster_buffer_half_toggle <= not raster_buffer_half_toggle;
         raster_buffer_max_write_address_hold <= raster_buffer_max_write_address;
         report "setting raster_buffer_max_write_address_hold to $" & to_hstring(raster_buffer_max_write_address);
