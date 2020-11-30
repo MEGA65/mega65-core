@@ -3296,7 +3296,8 @@ begin
         -- Reset write address in raster buffer
         -- Set write address to all 1's, so that it wraps to zero at the start
         raster_buffer_write_address(9 downto 0) <= (others => '1');
-        raster_buffer_write_address(10) <= not raster_buffer_half_toggle;
+        -- Make sure we read and write to opposite halves of the raster buffer
+        raster_buffer_write_address(10) <= raster_buffer_half_toggle;
         raster_buffer_half_toggle <= not raster_buffer_half_toggle;
         raster_buffer_max_write_address_hold <= raster_buffer_max_write_address;
         report "setting raster_buffer_max_write_address_hold to $" & to_hstring(raster_buffer_max_write_address);
@@ -4844,7 +4845,7 @@ begin
             --  sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             if (reg_h640='1' or reg_h1280='1') then
               sprite_data_address(19 downto 14) <= sprite_pointer_address(19 downto 14);
-              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);              
             else
               sprite_data_address(19 downto 13) <= sprite_pointer_address(19 downto 13);
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
