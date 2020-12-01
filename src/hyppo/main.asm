@@ -1073,6 +1073,13 @@ f011Virtualised:
         lda #80
         sta $d058
 
+	;; Check internal drive / SD card status, and don't mount D81 if set to use internal drive
+	;; Not only would this be a waste of time, it also stomps the $D6A1 bit 0 that indicates
+	;; to use the internal drive.
+	lda $d6a1
+	and #$01
+	bne @dontMountD81
+	
         ;; set name of file we are looking for
         ;;
         ldx #<txt_MEGA65D81
@@ -1098,6 +1105,7 @@ f011Virtualised:
         ;;
         +Checkpoint "  mounted MEGA65.D81"
 
+@dontMountD81:
         ;; all done, move on to loading the ROM
         ;;
         jmp loadrom
@@ -3027,9 +3035,9 @@ msg_clusternumber:      !text "CURRENT CLUSTER=$$$$$$$$"
                         !8 0
 msg_sectoraddress:      !text "CURRENT SECTOR= $$$$$$$$"
                         !8 0
-msg_nod81:              !text "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)"
+msg_nod81:              !text "CANNOT MOUNT D81 - (ERRNO: $$)"
                         !8 0
-msg_d81mounted:         !text "MEGA65.D81 SUCCESSFULLY MOUNTED"
+msg_d81mounted:         !text "D81 SUCCESSFULLY MOUNTED"
                         !8 0
 msg_releasectrl:        !text "RELEASE CONTROL TO CONTINUE BOOTING."
                         !8 0
