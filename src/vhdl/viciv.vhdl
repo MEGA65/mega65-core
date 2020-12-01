@@ -4960,8 +4960,11 @@ begin
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
               raster_buffer_write_data(8) <= '1';
               if paint_full_colour_data(3 downto 0) /= x"F" then
+                -- Lower four bits of colour come from the nybl
                 raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
-                raster_buffer_write_data(7 downto 4) <= x"0";
+                -- Upper four from the foreground colour from screen RAM.
+                -- This makes it much more useful for paralax layers etc
+                raster_buffer_write_data(7 downto 4) <= paint_foreground(7 downto 4);
               else
                 raster_buffer_write_data(7 downto 0) <= paint_foreground;
               end if;
