@@ -1624,8 +1624,8 @@ begin  -- behavioural
               motor <= fastio_wdata(5);
 
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
-              if f011_ds(2 downto 1) = "00" then
-                if (f011_ds(0) xor f011_swap_drives) = '0' then
+              if fastio_wdata(2 downto 1) = "00" then
+                if (fastio_wdata(0) xor f011_swap_drives) = '0' then
                   f_motora <= not fastio_wdata(5); -- start motor on real drive
                   f_selecta <= not fastio_wdata(5);
                 else
@@ -1648,7 +1648,8 @@ begin  -- behavioural
               end if;
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
-              if not ((use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001"))  then
+              if not ((use_real_floppy0='1' and fastio_wdata(2 downto 0)="000")
+                      or (use_real_floppy2='1' and fastio_wdata(2 downto 0)="001"))  then
                 if (fastio_wdata(2 downto 0) /= f011_ds) then
                   f011_disk_changed <= '0';
                 end if;
