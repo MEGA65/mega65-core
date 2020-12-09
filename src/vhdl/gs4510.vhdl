@@ -4242,7 +4242,9 @@
 
         -- report "reset = " & std_logic'image(reset) severity note;
         reset_drive <= reset_in;
-        if reset_drive='0' or watchdog_reset='1' then
+        -- XXX DEBUG Disable watchdog reset while getting new CPU architecture
+        -- to run
+        if reset_drive='0' then --  or watchdog_reset='1' then
           reset_out            <= '0';
           state                <= ResetLow;
           watchdog_fed         <= '0';
