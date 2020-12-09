@@ -22,7 +22,7 @@ dos_and_process_trap:
         ;; Bits 6-1 are the only ones used.
         ;; Mask out bit 0 so that indirect jmp's are valid.
         ;;
-        and #$FE
+        and #$7E
         tax
         jmp (dos_and_process_trap_table,x)
 
