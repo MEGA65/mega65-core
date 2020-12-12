@@ -4138,9 +4138,6 @@
         if ((monitor_mem_trace_mode='0' or
             monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
             and (monitor_mem_attention_request_drive='0'))
-        -- PGS 20190510: Required for simulation to work, but breaks monitor memory
-        -- access when synthesised.
-        --        or ( monitor_mem_trace_toggle = 'U' or monitor_mem_attention_request_drive = 'U' )
         then
           monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
           normal_fetch_state            <= InstructionFetch;
