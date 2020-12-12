@@ -117,6 +117,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/crc.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/spdif_encoder.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_coeffs_mux.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/edid_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/soundSource.vhdl"]"\
@@ -268,6 +269,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sid_coeffs_mux.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/edid_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

@@ -1294,6 +1294,22 @@ begin
       std_logic_vector(fastio_rdata) => data_o
 
       );
+    i2c2: entity work.edid_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2chdmi_cs,
+
+      sda => hdmi_sda,
+      scl => hdmi_scl,
+    
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
   end generate i2cperiph_mega65r3;
   
   i2cperiph_mega65r2:
