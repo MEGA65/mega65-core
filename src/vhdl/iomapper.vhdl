@@ -1792,6 +1792,10 @@ begin
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGA65R3 asserted";
         end if;
+        if address(19 downto 8) = x"D73" then
+          i2chdmi_cs <= '1';
+          report "i2chdmi_cs for MEGA65R3 asserted";
+        end if;
       end if;      
 
       cs_driveram <= '0';
