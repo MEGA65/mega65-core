@@ -541,7 +541,7 @@ begin
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 1 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
-        dvi => portp_drive(1) xor max10_in_vector(12),
+        dvi => portp(1) xor max10_in_vector(12),
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -1036,7 +1036,7 @@ begin
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
-      
+
       reset_high <= not btncpureset;
       
       -- We need to pass audio to 12.288 MHz clock domain.
