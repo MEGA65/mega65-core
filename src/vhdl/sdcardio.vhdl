@@ -973,6 +973,9 @@ begin  -- behavioural
           when x"93" =>
             -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
+          when x"9f" =>
+            -- @IO:GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
+            fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"a0" =>
             -- @IO:GS $D6A0 - DEBUG FDC read status lines
             fastio_rdata(7) <= f_index;
@@ -2336,7 +2339,6 @@ begin  -- behavioural
               latched_disk_change_event <= '1';
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
-              -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"ad" => 
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
@@ -2528,6 +2530,7 @@ begin  -- behavioural
             when x"F0" =>
               -- @IO:GS $D6F0 - LCD panel brightness control
               lcdpwm_value <= fastio_wdata;
+              -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"F3" =>
               -- Accelerometer
               aclMOSI         <= fastio_wdata(1);

@@ -539,9 +539,9 @@ begin
       port map (
         select_44100 => portp(3),
         -- Disable HDMI-style audio if one
-        -- BUT allow dipswitch 1 of S3 on the MEGA65 R3 main board to INVERT
+        -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
-        dvi => portp(1) xor max10_in_vector(12),
+        dvi => portp(1) xor '1' xor max10_in_vector(13),
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
