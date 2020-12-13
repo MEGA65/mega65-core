@@ -6952,6 +6952,7 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when LoadTarget32 =>
+              next_is_axyz32_instruction <= '0';
               reg_val32(31 downto 24) <= memory_read_value;
               reg_val32(23 downto 0) <= reg_val32(31 downto 8);
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", at axyz_phase = " & integer'image(axyz_phase);
@@ -6965,6 +6966,7 @@ begin
               end if;
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
+              next_is_axyz32_instruction <= '0';
               case reg_instruction is
                 when I_LDA =>
                   reg_a <= reg_val32(7 downto 0);
@@ -7188,6 +7190,7 @@ begin
                 end if;
               end if;
             when StoreTarget32 =>
+              next_is_axyz32_instruction <= '0';
               if axyz_phase /= 4 then
                 reg_val32(23 downto 0) <= reg_val32(31 downto 8);
                 axyz_phase <= axyz_phase + 1;
