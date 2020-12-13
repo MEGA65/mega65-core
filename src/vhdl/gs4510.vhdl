@@ -5383,11 +5383,11 @@ begin
                 -- Normal fill
                 if dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(23 downto 0)
-                      <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
+                    dmagic_dest_addr(27 downto 0)
+                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(23 downto 0)
-                    <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(27 downto 0)
+                    <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
               else
@@ -5584,11 +5584,11 @@ begin
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               if dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr(23 downto 0)
-                    <= dmagic_src_addr(23 downto 0) + reg_dmagic_src_skip;
+                  dmagic_src_addr(27 downto 0)
+                    <= dmagic_src_addr(27 downto 0) + reg_dmagic_src_skip;
                 else
-                  dmagic_src_addr(23 downto 0)
-                    <= dmagic_src_addr(23 downto 0) - reg_dmagic_src_skip;
+                  dmagic_src_addr(27 downto 0)
+                    <= dmagic_src_addr(27 downto 0) - reg_dmagic_src_skip;
                 end if;
               end if;
                                         -- Set IO visibility for destination
@@ -5614,11 +5614,11 @@ begin
                                         -- in the C65 specifications document
                 if dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(23 downto 0)
-                      <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
+                    dmagic_dest_addr(27 downto 0)
+                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(23 downto 0)
-                      <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(27 downto 0)
+                      <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
                                         -- XXX we compare count with 1 before decrementing.
