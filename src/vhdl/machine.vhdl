@@ -156,6 +156,9 @@ entity machine is
 
          kbd_datestamp : in unsigned(13 downto 0);
          kbd_commit : in unsigned(31 downto 0);
+
+         max10_fpga_date : in unsigned(15 downto 0);
+         max10_fpga_commit : in unsigned(31 downto 0);
          
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -1435,6 +1438,8 @@ begin
 
       dd00_bits => dd00_bits,
       
+      max10_fpga_date => max10_fpga_date,
+      max10_fpga_commit => max10_fpga_commit,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
       

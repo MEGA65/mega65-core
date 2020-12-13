@@ -20,6 +20,9 @@ entity c65uart is
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
+    max10_fpga_date : in unsigned(15 downto 0);
+    max10_fpga_commit : in unsigned(31 downto 0);
+    
     kbd_datestamp : in unsigned(13 downto 0);
     kbd_commit : in unsigned(31 downto 0);        
 
@@ -788,6 +791,19 @@ begin  -- behavioural
         when x"33" => fastio_rdata <= fpga_commit(15 downto 8);
         when x"34" => fastio_rdata <= fpga_commit(23 downto 16);
         when x"35" => fastio_rdata <= fpga_commit(31 downto 24);
+        -- @IO:GS $D636 AUXFPGA:FWDATEL LSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D637 AUXFPGA:MFWDATEH MSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+        when x"36" => fastio_rdata <= max10_fpga_date(7 downto 0);
+        when x"37" => fastio_rdata <= max10_fpga_date(15 downto 8);
+        -- @IO:GS $D638 AUXFPGA:FWGIT0 LSB of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
+        when x"38" => fastio_rdata <= max10_fpga_commit(7 downto 0);
+        when x"39" => fastio_rdata <= max10_fpga_commit(15 downto 8);
+        when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
+        when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
+
                       
         when others =>
           report "Reading untied register, result = Z";
