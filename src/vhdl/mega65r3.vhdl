@@ -1046,7 +1046,7 @@ begin
       end if;
     end if;
 
-    if rising_edge(clock81p) then
+    if rising_edge(pixelclock) then
       -- Drive simple serial protocol with MAX10 FPGA
       -- We were previously using a 4-wire protocol with RX and TX lines,
       -- a sync line and clock line. But the clock was supposed to be via
