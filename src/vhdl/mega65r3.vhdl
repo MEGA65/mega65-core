@@ -258,6 +258,7 @@ architecture Behavioral of container is
 
   -- Communications with the MAX10 FPGA
   signal btncpureset : std_logic := '1';
+  signal legacy_reset : std_logic := '0';
   signal j21ddr : std_logic_vector(11 downto 0) := (others => '0');
   signal j21out : std_logic_vector(11 downto 0) := (others => '0');
   signal j21in : std_logic_vector(11 downto 0) := (others => '0');
@@ -1060,7 +1061,7 @@ begin
       if max10_counter < 64 then
         reset_from_max10 <= cpuclock;
       else
-        reset_from_max10 <= '0';
+        reset_from_max10 <= 'Z';
         max10_out_vector(11 downto 0) <= j21ddr;
         max10_out_vector(23 downto 12) <= j21out;
       end if;
@@ -1094,6 +1095,22 @@ begin
         max10_in_vector(0) <= max10_rx;
         max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
       end if;
+
+      -- Backward compatibility with the old MAX10 bitstreams that
+      -- really do just provide a reset line on this pin.
+      if max10_counter = 68 then
+        if reset_from_max10 = '0' then
+          btncpureset <= reset_from_max10;
+          max10_counter <= 68;
+          legacy_reset <= '1';
+        else
+          if legacy_reset='1' then
+            btncpureset <= '1';
+            legacy_reset <= '0';
+          end if;
+        end if;
+      end if;
+
     end if;
     
     -- Drive most ports, to relax timing
