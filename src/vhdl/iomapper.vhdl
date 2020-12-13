@@ -51,6 +51,9 @@ entity iomapper is
         hyper_trap_count : out unsigned(7 downto 0);
         viciv_frame_indicate : in std_logic;
 
+        max10_fpga_date : in unsigned(15 downto 0);
+        max10_fpga_commit : in unsigned(31 downto 0);
+
         kbd_datestamp : in unsigned(13 downto 0);
         kbd_commit : in unsigned(31 downto 0);
         
@@ -809,6 +812,8 @@ begin
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
 
+      max10_fpga_date => max10_fpga_date,
+      max10_fpga_commit => max10_fpga_commit,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
       
