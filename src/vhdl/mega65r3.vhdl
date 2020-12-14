@@ -1057,45 +1057,49 @@ begin
       -- variably clocked MAX10 to detect this, but other wise runs free at CPU
       -- clock speed.
 
-      if portp(6)='1' then
-        
-        -- Tick clock during 64 data cycles
-        if max10_counter < 64 then
-          reset_from_max10 <= cpuclock;
+      -- Tick clock during 64 data cycles
+      if max10_counter < 64 then
+        reset_from_max10 <= cpuclock;
+      else
+        reset_from_max10 <= 'Z';
+        max10_out_vector(11 downto 0) <= j21ddr;
+        max10_out_vector(23 downto 12) <= j21out;
+      end if;
+      if cpuclock = '0' then
+        -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
+        -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
+        if max10_counter = 71 then
+          max10_counter <= 0;
         else
-          reset_from_max10 <= 'Z';
-          max10_out_vector(11 downto 0) <= j21ddr;
-          max10_out_vector(23 downto 12) <= j21out;
+          max10_counter <= max10_counter + 1;
         end if;
-        if cpuclock = '0' then
-          -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
-          -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
-          if max10_counter = 71 then
-            max10_counter <= 0;
-          else
-            max10_counter <= max10_counter + 1;
-          end if;
-          -- Push out the 64 bits of data
-          if max10_counter = 63 then
-            max10_tx <= max10_out_vector(0);
-            -- Latch read values, if vector is not stuck low
-            if max10_in_vector /= x"0000000000000000" then
-              max10_fpga_commit <= max10_in_vector(47 downto 16);
-              max10_fpga_date <= max10_in_vector(63 downto 48);
-              j21in <= max10_in_vector(11 downto 0);
-              sw(15) <= not max10_in_vector(15);
-              sw(14) <= not max10_in_vector(14);
-              sw(13) <= not max10_in_vector(13);
-              sw(12) <= not max10_in_vector(12);
+        -- Push out the 64 bits of data
+        if max10_counter = 63 then
+          max10_tx <= max10_out_vector(0);
+          -- Latch read values, if vector is not stuck low
+          if max10_in_vector /= x"0000000000000000" then
+            max10_fpga_commit <= max10_in_vector(48 downto 17);
+            max10_fpga_date(15) <= '0';
+            max10_fpga_date(14 downto 0) <= max10_in_vector(63 downto 49);
+            j21in <= max10_in_vector(11 downto 0);
+            sw(15) <= not max10_in_vector(15);
+            sw(14) <= not max10_in_vector(14);
+            sw(13) <= not max10_in_vector(13);
+            sw(12) <= not max10_in_vector(12);
+            -- XXX DEBUG expose some more of the bits from the MAX10
+            -- for debug
+            sw(11 downto 0) <= max10_in_vector(27 downto 16);
+            if portp(6)='1' then
               btncpureset <= max10_in_vector(16);
             end if;
           end if;
-        else
-          -- Read from MAX10 on high phase of clock
-          max10_in_vector(0) <= max10_rx;
-          max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
         end if;
+      else
+        -- Read from MAX10 on high phase of clock
+        max10_in_vector(0) <= max10_rx;
+        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
       end if;
+    end if;
       
       -- Backward compatibility with the old MAX10 bitstreams that
       -- really do just provide a reset line on this pin.

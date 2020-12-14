@@ -973,6 +973,9 @@ begin  -- behavioural
           when x"93" =>
             -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
+          when x"9e" =>
+            -- @IO:GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
+            fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
           when x"9f" =>
             -- @IO:GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
             fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
