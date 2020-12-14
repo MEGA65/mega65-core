@@ -1101,8 +1101,9 @@ begin
       end if;
     end if;
       
-      -- Backward compatibility with the old MAX10 bitstreams that
-      -- really do just provide a reset line on this pin.
+    -- Backward compatibility with the old MAX10 bitstreams that
+    -- really do just provide a reset line on this pin.
+    if portp(5)='1' then
       if max10_counter = 68 then
         if reset_from_max10 = '0' then
           btncpureset <= reset_from_max10;
@@ -1115,7 +1116,6 @@ begin
           end if;
         end if;
       end if;
-
     end if;
     
     -- Drive most ports, to relax timing
