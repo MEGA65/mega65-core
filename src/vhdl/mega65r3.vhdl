@@ -1047,7 +1047,7 @@ begin
       end if;
     end if;
 
-    if rising_edge(pixelclock) and portp(6)='1' then
+    if rising_edge(pixelclock) then
       -- Drive simple serial protocol with MAX10 FPGA
       -- We were previously using a 4-wire protocol with RX and TX lines,
       -- a sync line and clock line. But the clock was supposed to be via
@@ -1056,46 +1056,49 @@ begin
       -- clock + sync where we hold the clock line low for long enough for the
       -- variably clocked MAX10 to detect this, but other wise runs free at CPU
       -- clock speed.
-      
-      -- Tick clock during 64 data cycles
-      if max10_counter < 64 then
-        reset_from_max10 <= cpuclock;
-      else
-        reset_from_max10 <= 'Z';
-        max10_out_vector(11 downto 0) <= j21ddr;
-        max10_out_vector(23 downto 12) <= j21out;
-      end if;
-      if cpuclock = '0' then
-        -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
-        -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
-        if max10_counter = 71 then
-          max10_counter <= 0;
+
+      if portp(6)='1' then
+        
+        -- Tick clock during 64 data cycles
+        if max10_counter < 64 then
+          reset_from_max10 <= cpuclock;
         else
-          max10_counter <= max10_counter + 1;
+          reset_from_max10 <= 'Z';
+          max10_out_vector(11 downto 0) <= j21ddr;
+          max10_out_vector(23 downto 12) <= j21out;
         end if;
-        -- Push out the 64 bits of data
-        if max10_counter = 63 then
-          max10_tx <= max10_out_vector(0);
-          -- Latch read values, if vector is not stuck low
-          if max10_in_vector /= x"0000000000000000" then
-            max10_fpga_commit <= max10_in_vector(47 downto 16);
-            max10_fpga_date <= max10_in_vector(63 downto 48);
-            j21in <= max10_in_vector(11 downto 0);
-            sw(15) <= not max10_in_vector(15);
-            sw(14) <= not max10_in_vector(14);
-            sw(13) <= not max10_in_vector(13);
-            sw(12) <= not max10_in_vector(12);
-            btncpureset <= max10_in_vector(16);
+        if cpuclock = '0' then
+          -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
+          -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
+          if max10_counter = 71 then
+            max10_counter <= 0;
+          else
+            max10_counter <= max10_counter + 1;
+          end if;
+          -- Push out the 64 bits of data
+          if max10_counter = 63 then
+            max10_tx <= max10_out_vector(0);
+            -- Latch read values, if vector is not stuck low
+            if max10_in_vector /= x"0000000000000000" then
+              max10_fpga_commit <= max10_in_vector(47 downto 16);
+              max10_fpga_date <= max10_in_vector(63 downto 48);
+              j21in <= max10_in_vector(11 downto 0);
+              sw(15) <= not max10_in_vector(15);
+              sw(14) <= not max10_in_vector(14);
+              sw(13) <= not max10_in_vector(13);
+              sw(12) <= not max10_in_vector(12);
+              btncpureset <= max10_in_vector(16);
+            end if;
+          else
+            max10_counter <= max10_counter + 1;
           end if;
         else
-          max10_counter <= max10_counter + 1;
+          -- Read from MAX10 on high phase of clock
+          max10_in_vector(0) <= max10_rx;
+          max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
         end if;
-      else
-        -- Read from MAX10 on high phase of clock
-        max10_in_vector(0) <= max10_rx;
-        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
       end if;
-
+      
       -- Backward compatibility with the old MAX10 bitstreams that
       -- really do just provide a reset line on this pin.
       if max10_counter = 68 then
@@ -1237,15 +1240,15 @@ begin
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
-    end if;
 
-    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
-    -- getting through
-    if portp(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
+      -- XXX DEBUG: Allow showing audio samples on video to make sure they are
+      -- getting through
+      if portp(2)='1' then
+        vgagreen <= unsigned(audio_left(15 downto 8));
+        vgared <= unsigned(audio_right(15 downto 8));
+        hdmigreen <= unsigned(audio_left(15 downto 8));
+        hdmired <= unsigned(audio_right(15 downto 8));
+      end if;
     end if;
     
   end process;    
