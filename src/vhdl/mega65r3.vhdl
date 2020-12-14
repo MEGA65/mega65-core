@@ -1089,8 +1089,6 @@ begin
               sw(12) <= not max10_in_vector(12);
               btncpureset <= max10_in_vector(16);
             end if;
-          else
-            max10_counter <= max10_counter + 1;
           end if;
         else
           -- Read from MAX10 on high phase of clock
