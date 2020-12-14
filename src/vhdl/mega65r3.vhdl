@@ -1047,7 +1047,7 @@ begin
       end if;
     end if;
 
-    if rising_edge(pixelclock) then
+    if rising_edge(pixelclock) and portp(6)='1' then
       -- Drive simple serial protocol with MAX10 FPGA
       -- We were previously using a 4-wire protocol with RX and TX lines,
       -- a sync line and clock line. But the clock was supposed to be via
@@ -1077,7 +1077,7 @@ begin
         if max10_counter = 63 then
           max10_tx <= max10_out_vector(0);
           -- Latch read values, if vector is not stuck low
-          if max10_in_vector /= x"00000000" then
+          if max10_in_vector /= x"0000000000000000" then
             max10_fpga_commit <= max10_in_vector(47 downto 16);
             max10_fpga_date <= max10_in_vector(63 downto 48);
             j21in <= max10_in_vector(11 downto 0);
@@ -1209,6 +1209,7 @@ begin
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
+    -- @IO:GS $D61A.6 SYSCTL:MAX10V2 If set, use new MAX10 communications protocol
     -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
     -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
     -- @IO:GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
