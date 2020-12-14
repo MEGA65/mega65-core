@@ -1099,24 +1099,25 @@ begin
         max10_in_vector(0) <= max10_rx;
         max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
       end if;
-    end if;
       
-    -- Backward compatibility with the old MAX10 bitstreams that
-    -- really do just provide a reset line on this pin.
-    if portp(5)='1' then
-      if max10_counter = 68 then
-        if reset_from_max10 = '0' then
-          btncpureset <= reset_from_max10;
-          max10_counter <= 68;
-          legacy_reset <= '1';
-        else
-          if legacy_reset='1' then
-            btncpureset <= '1';
-            legacy_reset <= '0';
+      -- Backward compatibility with the old MAX10 bitstreams that
+      -- really do just provide a reset line on this pin.
+      if portp(5)='1' then
+        if max10_counter = 68 then
+          if reset_from_max10 = '0' then
+            btncpureset <= reset_from_max10;
+            max10_counter <= 68;
+            legacy_reset <= '1';
+          else
+            if legacy_reset='1' then
+              btncpureset <= '1';
+              legacy_reset <= '0';
+            end if;
           end if;
         end if;
       end if;
     end if;
+
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
