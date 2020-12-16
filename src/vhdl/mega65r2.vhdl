@@ -410,6 +410,9 @@ architecture Behavioral of container is
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
+
+  signal max10_fpga_commit : std_logic_vector(31 downto 0) := (others => '0');
+  signal max10_fpga_date : std_logic_vector(15 downto 0) := (others => '0');
   
 begin
 
@@ -507,7 +510,7 @@ begin
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
-
+      
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
       
@@ -688,6 +691,9 @@ begin
       
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
+
+      max10_fpga_commit => unsigned(max10_fpga_commit),
+      max10_fpga_date => unsigned(max10_fpga_date),
       
       btncpureset => btncpureset,
       reset_out => reset_out,
