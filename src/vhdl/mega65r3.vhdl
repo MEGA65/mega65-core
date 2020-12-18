@@ -267,6 +267,7 @@ architecture Behavioral of container is
   signal max10_out_vector : std_logic_vector(63 downto 0) := (others => '0');
   signal max10_in_vector : std_logic_vector(63 downto 0) := (others => '0');
   signal max10_counter : integer range 0 to 79 := 0;
+  signal max10_clock_toggle : std_logic := '0';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   
@@ -1062,16 +1063,21 @@ begin
       -- variably clocked MAX10 to detect this, but other wise runs free at CPU
       -- clock speed.
 
+      max10_clock_toggle <= not max10_clock_toggle;
+      
       -- Tick clock during 64 data cycles
       if max10_counter < 64 then
-        reset_from_max10 <= cpuclock;
+        reset_from_max10 <= max10_clock_toggle;
       else
         reset_from_max10 <= 'Z';
         max10_out_vector(11 downto 0) <= j21ddr;
         max10_out_vector(23 downto 12) <= j21out;
       end if;
-      if cpuclock = '0' then
+      
+      if max10_clock_toggle = '0' then
 
+        led <= blink; blink <= not blink;  
+        
         -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
         -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
         if max10_counter = 79 then
@@ -1103,8 +1109,6 @@ begin
 
             -- XXX DEBUG make LED on mainboard show reset button status
 --            led <= max10_in_vector(16) xor max10_in_vector(15) xor max10_in_vector(14) xor max10_in_vector(13);
-
-            led <= blink; blink <= not blink;
             
           end if;
         end if;
