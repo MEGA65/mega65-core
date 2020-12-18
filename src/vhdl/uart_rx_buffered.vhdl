@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 
-entity uart_rx is
+entity uart_rx_buffered is
   generic ( name : in string := "?");
   Port ( clk : in  STD_LOGIC;
          bit_rate_divisor : in unsigned(23 downto 0);
@@ -13,9 +13,9 @@ entity uart_rx is
            data_acknowledge : in std_logic
 
            );
-end uart_rx;
+end uart_rx_buffered;
 
-architecture behavioural of uart_rx is
+architecture behavioural of uart_rx_buffered is
 
 -- Timer for the above
 signal bit_timer : unsigned(23 downto 0) := (others => '0');
