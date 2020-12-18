@@ -270,7 +270,8 @@ architecture Behavioral of container is
   signal max10_clock_toggle : std_logic := '0';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
-  
+  signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
+    
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -1010,6 +1011,7 @@ begin
         widget_joyb => (others => '1'),      
         
         sw => sw,
+        dipsw => dipsw,
 --      uart_rx => '1',
         btn => (others => '1')
         
@@ -1095,13 +1097,11 @@ begin
             max10_fpga_date(15) <= '0';
             max10_fpga_date(14 downto 0) <= max10_in_vector(63 downto 49);
             j21in <= max10_in_vector(11 downto 0);
-            sw(15) <= not max10_in_vector(15);
-            sw(14) <= not max10_in_vector(14);
-            sw(13) <= not max10_in_vector(13);
-            sw(12) <= not max10_in_vector(12);
-            -- XXX DEBUG expose some more of the bits from the MAX10
-            -- for debug
-            sw(11 downto 0) <= max10_in_vector(27 downto 16);
+            dipsw(3) <= not max10_in_vector(15);
+            dipsw(2) <= not max10_in_vector(14);
+            dipsw(1) <= not max10_in_vector(13);
+            dipsw(0) <= not max10_in_vector(12);
+            j21in <= max10_in_vector(27 downto 16);
 
             if portp(6)='1' then
               btncpureset <= max10_in_vector(16);

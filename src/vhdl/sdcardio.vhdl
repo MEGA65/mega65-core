@@ -113,6 +113,8 @@ entity sdcardio is
     drive_led : out std_logic := '0';
     motor : out std_logic := '0';
     
+    dipsw : in std_logic_vector(3 downto 0);
+    j21in : in std_logic_vector(11 downto 0);
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
     
@@ -973,6 +975,17 @@ begin  -- behavioural
           when x"93" =>
             -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
+          when x"9b" =>
+            -- @IO:GS $D69B DEBUG:J21INL Status of M65 R3 DIP switches
+            fastio_rdata(7 downto 0) <= unsigned(j21in(7 downto 0));
+          when x"9c" =>
+            -- @IO:GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
+            fastio_rdata(3 downto 0) <= unsigned(j21in(11 downto 8));
+            fastio_rdata(7 downto 4) <= "0000";
+          when x"9d" =>
+            -- @IO:GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
+            fastio_rdata(3 downto 0) <= unsigned(dipsw(3 downto 0));
+            fastio_rdata(7 downto 4) <= "0000";
           when x"9e" =>
             -- @IO:GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
             fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
