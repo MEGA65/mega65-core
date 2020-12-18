@@ -40,7 +40,7 @@ signal rxbuff_waddr : integer range 0 to 63 := 0;
 signal rxbuff_raddr : integer range 0 to 63 := 63;
 
 signal rxbuff_full : std_logic := '0';
-signal rxbuff_empty : std_logic := '0';
+signal rxbuff_empty : std_logic := '1';
 
 signal ack_pending : std_logic := '0';
 
