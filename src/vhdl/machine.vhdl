@@ -371,6 +371,7 @@ entity machine is
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          led : out std_logic_vector(15 downto 0) := (others => '0');
+         dipsw : in std_logic_vector(3 downto 0);
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
@@ -1530,6 +1531,7 @@ begin
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
+      dipsw => dipsw,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,

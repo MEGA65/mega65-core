@@ -349,6 +349,7 @@ entity iomapper is
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
     
+    dipsw : in std_logic_vector(3 downto 0);
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
     seg_led : out unsigned(31 downto 0) := (others => '0');
@@ -1399,8 +1400,10 @@ begin
     f_writeprotect => f_writeprotect,
     f_rdata => f_rdata,
     f_diskchanged => f_diskchanged,
-    
+
+    dipsw => dipsw,
     sw => sw,
+    j21in => j21in,
     btn => btn,
 
     -- Internal virtual 1541 interface
