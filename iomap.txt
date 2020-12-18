@@ -209,6 +209,7 @@ GS $D04F.3-0 VIC-IV:TEXTYPOS Character generator vertical position
 GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
 GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
 GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
+GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
 GS $D052 VIC-IV:FNRASTER Read physical raster position
 GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
 GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
@@ -272,10 +273,10 @@ GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
 GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
 GS $D079 VIC-IV:RSTCOMP Raster compare value
 GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
+GS $D07A.3 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
 GS $D07A.4-5 VIC-IV:RESERVED 
 GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
 GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
-GS $D07A.7 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
 GS $D07B VIC-IV:Number of text rows to display
 GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
@@ -420,6 +421,7 @@ GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
 GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
 GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
 GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
+GS $D61A.6 SYSCTL:MAX10V2 If set, use new MAX10 communications protocol
 GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
 GS $D61A UARTMISC:SYSCTL System control flags (target specific)
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
@@ -463,6 +465,12 @@ GS $D632 FPGA:FWGIT0 LSB of MEGA65 FPGA design git commit
 GS $D633 FPGA:FWGIT0 2nd byte of MEGA65 FPGA design git commit
 GS $D634 FPGA:FWGIT0 3rd byte of MEGA65 FPGA design git commit
 GS $D635 FPGA:FWGIT0 MSB of MEGA65 FPGA design git commit
+GS $D636 AUXFPGA:FWDATEL LSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+GS $D637 AUXFPGA:MFWDATEH MSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+GS $D638 AUXFPGA:FWGIT0 LSB of Auxilliary (MAX10) FPGA design git commit
+GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
+GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
+GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
@@ -656,6 +664,8 @@ GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
 GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
+GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
+GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
 GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
@@ -1292,6 +1302,7 @@ GS $FFD70F3 - ADC2 smoothed value (MSB)
 GS $FFD70F4 - ADC3 smoothed value (LSB)
 GS $FFD70F5 - ADC3 smoothed value (MSB)
 GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+GS $FFD7100-FF EDID:EDID E-EDID block (MEGA65 R3 and newer, only)
 GS $FFD7110-3F RTC:RTC Real-time Clock
 GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
 GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
