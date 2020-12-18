@@ -62,7 +62,7 @@ begin  -- behavioural
       if rxbuff_raddr + 1 = rxbuff_waddr then
         rxbuff_empty <= '1';
       elsif rxbuff_raddr = 63 and rxbuff_waddr = 0 then
-        rxbuff_emtpy <= '1';
+        rxbuff_empty <= '1';
       else
         rxbuff_empty <= '0';
       end if;
