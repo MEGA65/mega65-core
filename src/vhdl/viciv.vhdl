@@ -2825,10 +2825,10 @@ begin
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
+          -- @IO:GS $D07A.3 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4-5 VIC-IV:RESERVED 
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
-          -- @IO:GS $D07A.7 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           irq_extras_enable <= fastio_wdata(6);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
@@ -4839,6 +4839,12 @@ begin
                 sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
                 sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
                 sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+
+                sprite_data_address(19 downto 16) <= "0000";
+                sprite_data_address(16) <= '0';
+                sprite_data_address(15) <= sprite_pointer_address(15);
+                sprite_data_address(14) <= sprite_pointer_address(14);
+                sprite_data_address(13 downto 0) <= (ramdata_drive&"000000");
               end if;
             end if;
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
@@ -4874,6 +4880,8 @@ begin
           if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
             sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
           else
+            sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);            
+            sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
             sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
           end if;
           raster_fetch_state <= SpriteDataFetch;
