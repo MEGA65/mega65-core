@@ -40,6 +40,7 @@ signal rxbuff_waddr : integer range 0 to 63 := 0;
 signal rxbuff_raddr : integer range 0 to 63 := 63;
 
 signal rxbuff_full : std_logic := '0';
+signal rxbuff_empty : std_logic := '0';
 
 signal ack_pending : std_logic := '0';
 
@@ -57,6 +58,13 @@ begin  -- behavioural
         rxbuff_full <= '1';
       else
         rxbuff_full <= '0';
+      end if;
+      if rxbuff_raddr + 1 = rxbuff_waddr then
+        rxbuff_empty <= '1';
+      elsif rxbuff_raddr = 63 and rxbuff_waddr = 0 then
+        rxbuff_emtpy <= '1';
+      else
+        rxbuff_empty <= '0';
       end if;
 
       if false then
@@ -138,7 +146,7 @@ begin  -- behavioural
         rx_gone_high <= '0';
       end if;
 
-      if buffer_write = '0' and ack_pending = '0' and data_acknowledge = '0' and rxbuff_waddr /= rxbuff_raddr then
+      if buffer_write = '0' and ack_pending = '0' and data_acknowledge = '0' and rxbuff_empty='0' then
         -- Pull next char from the RX buffer
         if rxbuff_raddr /= 63 then
           rxbuff_raddr <= rxbuff_raddr + 1;
