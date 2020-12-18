@@ -345,7 +345,7 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/monitor_ctrl_ram.v \
 			$(VERILOGSRCDIR)/monitor_mem.v \
 			$(VERILOGSRCDIR)/UART_TX_CTRL.v \
-			$(VERILOGSRCDIR)/uart_rx.v
+			$(VERILOGSRCDIR)/uart_rx_buffered.v
 
 OPL3VERILOG=		$(VERILOGSRCDIR)/calc_phase_inc.v \
 			$(VERILOGSRCDIR)/calc_rhythm_phase.v \
@@ -853,7 +853,7 @@ iverilog/driver/iverilog:
 	ln -s ../../tgt-vhdl/vhdl.tgt iverilog/lib/ivl/vhdl.tgt
 
 $(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile $(VERILOGSRCDIR)/monitor_mem.v
-	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
+	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx_buffered.v )
 	# Now remove the dummy definitions of UART_TX_CTRL and uart_rx, as we will use the actual VHDL implementations of them.
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
 
