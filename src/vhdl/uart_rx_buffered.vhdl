@@ -113,7 +113,7 @@ begin  -- behavioural
           -- This was the last bit
           report "UART"&name&": Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
           if rxbuff_full = '0' then
-            rxbuff(rxbuff_waddr) <= unsigned(rx_data(8 downto 1));
+            rxbuff(rxbuff_waddr) <= rx_data(8 downto 1);
             if rxbuff_waddr = 63 then
               rxbuff_waddr <= 0;
             else
@@ -138,14 +138,14 @@ begin  -- behavioural
         rx_gone_high <= '0';
       end if;
 
-      if write_buffer = '0' and ack_pending = '0' and data_acknowledge = '0' and rxbuff_waddr /= rxbuff_raddr then
+      if buffer_write = '0' and ack_pending = '0' and data_acknowledge = '0' and rxbuff_waddr /= rxbuff_raddr then
         -- Pull next char from the RX buffer
         if rxbuff_raddr /= 63 then
           rxbuff_raddr <= rxbuff_raddr + 1;
         else
           rxbuff_raddr <= 0;
         end if;
-        data <= rxbuff(rxbuff_raddr);
+        data <= unsigned(rxbuff(rxbuff_raddr));
         ack_pending <= '1';
         data_ready <= '1';
       elsif ack_pending = '1' and data_acknowledge = '1' then
