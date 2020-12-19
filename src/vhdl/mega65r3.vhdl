@@ -265,7 +265,8 @@ architecture Behavioral of container is
   signal max10_fpga_date : std_logic_vector(15 downto 0) := (others => '0');
   signal max10_out_vector : std_logic_vector(63 downto 0) := (others => '0');
   signal max10_in_vector : std_logic_vector(63 downto 0) := (others => '0');
-  signal max10_counter : integer range 0 to 31 := 0;
+  signal max10_counter : integer range 0 to 79 := 0;
+  signal max10_clock_toggle : std_logic := '0';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
@@ -489,7 +490,7 @@ begin
 
              -- Place DONE pin under programmatic control
              USRDONEO=>fpga_done,--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output DISABLE
+             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output DISABLE
              );
 -- End of STARTUPE2_inst instantiation
 
@@ -1047,7 +1048,7 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1) xor '1' xor max10_in_vector(13);
+      dvi_select <= portp(1) xor '1' xor dipsw(1);
       
       reset_high <= not btncpureset;
       
@@ -1073,39 +1074,66 @@ begin
 --        led <= not led;
       end if;
 
-      -- Drive simple serial protocol with MAX10 FPGA
-      if max10_counter = 63 then
-        max10_counter <= 0;
-        reset_from_max10 <= '0';
-        max10_tx <= max10_out_vector(0);
-        -- Latch read values, if vector is not stuck low
-        if max10_in_vector /= x"00000000" then
-          max10_fpga_commit <= max10_in_vector(47 downto 16);
-          max10_fpga_date <= max10_in_vector(63 downto 48);
-          j21in <= max10_in_vector(11 downto 0);
-          sw(15) <= not max10_in_vector(15);
-          sw(14) <= not max10_in_vector(14);
-          sw(13) <= not max10_in_vector(13);
-          sw(12) <= not max10_in_vector(12);
-          btncpureset <= max10_in_vector(16);
+      -- We were previously using a 4-wire protocol with RX and TX lines,
+      -- a sync line and clock line. But the clock was supposed to be via
+      -- FPGA_DONE pin under user-control, but that didn't work.
+      -- As the MAX10 clock speed is highly variable, we will provide an integrated
+      -- clock + sync where we hold the clock line low for long enough for the
+      -- variably clocked MAX10 to detect this, but other wise runs free at CPU
+      -- clock speed.
+ 
+      max10_clock_toggle <= not max10_clock_toggle;
+
+      -- Tick clock during 64 data cycles, then go tri-state during the sync period
+      if max10_counter < 64 then
+        reset_from_max10 <= max10_clock_toggle;
+        led <= max10_clock_toggle;
+      else
+        reset_from_max10 <= 'Z';
+        led <= '1';
+        max10_out_vector(11 downto 0) <= j21ddr;
+        max10_out_vector(23 downto 12) <= j21out;
+      end if;     
+
+      
+      if max10_clock_toggle = '0' then
+        -- Tick clock on low phase
+        if max10_counter < 79 then
+          max10_counter <= max10_counter + 1;
+        else
+          max10_counter <= 0;
+        end if;
+        
+        -- Drive simple serial protocol with MAX10 FPGA
+        if max10_counter = 63 then
+          max10_tx <= max10_out_vector(0);
+          -- Latch read values, if vector is not stuck low
+          if max10_in_vector /= x"00000000" then
+            max10_fpga_commit <= max10_in_vector(47 downto 16);
+            max10_fpga_date <= max10_in_vector(63 downto 48);
+            j21in <= max10_in_vector(11 downto 0);
+            dipsw(3) <= not max10_in_vector(15);
+            dipsw(2) <= not max10_in_vector(14);
+            dipsw(1) <= not max10_in_vector(13);
+            dipsw(0) <= not max10_in_vector(12);
+            if portp(6) = '1' then
+              btncpureset <= max10_in_vector(16);
+            end if;
+          end if;
+        else
+          -- XXX Backward compatibility to older MAX10 firmware to keep
+          -- reset button working.
+          if max10_counter = 68 and reset_from_max10 = '0' then
+            btncpureset <= '0';
+          end if;
         end if;
       else
-        max10_counter <= max10_counter + 1;
-        if max10_counter = 1 then
-          reset_from_max10 <= '1';
-        else
-          reset_from_max10 <= 'Z';
-        end if;
-        -- XXX Backward compatibility to older MAX10 firmware to keep
-        -- reset button working.
-        if max10_counter = 8 and reset_from_max10 = '0' then
-          btncpureset <= '0';
-        end if;
+        -- Latch data on high phase of clock
+        max10_in_vector(0) <= max10_rx;
+        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
+        max10_out_vector(11 downto 0) <= j21ddr;
+        max10_out_vector(23 downto 12) <= j21out;
       end if;
-      max10_in_vector(0) <= max10_rx;
-      max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
-      max10_out_vector(11 downto 0) <= j21ddr;
-      max10_out_vector(23 downto 12) <= j21out;
       
       reset_high <= not btncpureset;
       
@@ -1190,7 +1218,7 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+--    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
