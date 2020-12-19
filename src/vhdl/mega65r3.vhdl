@@ -263,6 +263,7 @@ architecture Behavioral of container is
   signal j21in : std_logic_vector(11 downto 0) := (others => '0');
   signal max10_fpga_commit : unsigned(31 downto 0) := (others => '0');
   signal max10_fpga_date : unsigned(15 downto 0) := (others => '0');
+  signal max10_reset_out : std_logic := '1';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
@@ -782,6 +783,8 @@ begin
 
       max10_fpga_commit => max10_fpga_commit,
       max10_fpga_date => max10_fpga_date,
+
+      reset_button => max10_reset_out,
       dipsw => dipsw,
       j21in => j21in,
       j21out => j21out,
@@ -1063,9 +1066,15 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1); -- xor '1' xor dipsw(1);
+      dvi_select <= portp(1) xor '1' xor dipsw(1);
       
       reset_high <= not btncpureset;
+
+      if portp(5) = '1' then
+        btncpureset <= max10_reset_out;
+      else
+        btncpureset <= '1';
+      end if;
       
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
