@@ -268,6 +268,7 @@ architecture Behavioral of container is
   signal max10_counter : integer range 0 to 31 := 0;
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
+  signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
@@ -1003,6 +1004,7 @@ begin
       widget_joyb => (others => '1'),      
       
       sw => sw,
+      dipsw => dipsw,
 --      uart_rx => '1',
       btn => (others => '1')
          
