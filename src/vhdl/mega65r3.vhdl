@@ -490,7 +490,7 @@ begin
 
              -- Place DONE pin under programmatic control
              USRDONEO=>fpga_done,--1-bit input: User DONE pin output control
-             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output DISABLE
+             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output DISABLE
              );
 -- End of STARTUPE2_inst instantiation
 
