@@ -772,6 +772,23 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
+
+  max10: entity work.max10
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+
+      max10_clock_toggle => reset_from_max10,
+      max10_rx => max10_rx,
+      max10_tx => max10_tx,
+
+      max10_fpga_commit => max10_fpga_commit,
+      max10_fpga_date => max10_fpga_date,
+      dipsw => dipsw,
+      j21in => j21in
+      j21out => j21out,
+      j21ddr => j21ddr
+      );
   
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
@@ -1027,9 +1044,6 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
-    -- Drive communications to MAX10 at 40.5MHz
-    fpga_done <= clock41;
-
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
@@ -1074,67 +1088,6 @@ begin
 --        led <= not led;
       end if;
 
-      -- We were previously using a 4-wire protocol with RX and TX lines,
-      -- a sync line and clock line. But the clock was supposed to be via
-      -- FPGA_DONE pin under user-control, but that didn't work.
-      -- As the MAX10 clock speed is highly variable, we will provide an integrated
-      -- clock + sync where we hold the clock line low for long enough for the
-      -- variably clocked MAX10 to detect this, but other wise runs free at CPU
-      -- clock speed.
- 
-      max10_clock_toggle <= not max10_clock_toggle;
-
-      -- Tick clock during 64 data cycles, then go tri-state during the sync period
-      if max10_counter < 64 then
-        reset_from_max10 <= max10_clock_toggle;
-        led <= max10_clock_toggle;
-      else
-        reset_from_max10 <= 'Z';
-        led <= '1';
-        max10_out_vector(11 downto 0) <= j21ddr;
-        max10_out_vector(23 downto 12) <= j21out;
-      end if;     
-
-      
-      if max10_clock_toggle = '0' then
-        -- Tick clock on low phase
-        if max10_counter < 79 then
-          max10_counter <= max10_counter + 1;
-        else
-          max10_counter <= 0;
-        end if;
-        
-        -- Drive simple serial protocol with MAX10 FPGA
-        if max10_counter = 63 then
-          max10_tx <= max10_out_vector(0);
-          -- Latch read values, if vector is not stuck low
-          if max10_in_vector /= x"00000000" then
-            max10_fpga_commit <= max10_in_vector(47 downto 16);
-            max10_fpga_date <= max10_in_vector(63 downto 48);
-            j21in <= max10_in_vector(11 downto 0);
-            dipsw(3) <= not max10_in_vector(15);
-            dipsw(2) <= not max10_in_vector(14);
-            dipsw(1) <= not max10_in_vector(13);
-            dipsw(0) <= not max10_in_vector(12);
-            if portp(6) = '1' then
-              btncpureset <= max10_in_vector(16);
-            end if;
-          end if;
-        else
-          -- XXX Backward compatibility to older MAX10 firmware to keep
-          -- reset button working.
-          if max10_counter = 68 and reset_from_max10 = '0' then
-            btncpureset <= '0';
-          end if;
-        end if;
-      else
-        -- Latch data on high phase of clock
-        max10_in_vector(0) <= max10_rx;
-        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
-        max10_out_vector(11 downto 0) <= j21ddr;
-        max10_out_vector(23 downto 12) <= j21out;
-      end if;
-      
       reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
