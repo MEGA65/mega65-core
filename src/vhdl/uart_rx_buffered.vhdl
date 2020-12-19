@@ -52,6 +52,16 @@ begin  -- behavioural
   begin
     if rising_edge(CLK) then
 
+      report "rxbuff_full = " & std_logic'image(rxbuff_full)
+        & ", "
+        & "rxbuff_empty = " & std_logic'image(rxbuff_empty)
+        & ", "
+        & "rxbuff_raddr = " & integer'image(rxbuff_raddr)
+        & ", "
+        & "rxbuff_waddr = " & integer'image(rxbuff_waddr)
+        ;
+        
+      
       buffer_write := '0';
       
       if rxbuff_waddr = rxbuff_raddr then
@@ -150,10 +160,11 @@ begin  -- behavioural
         -- Pull next char from the RX buffer
         if rxbuff_raddr /= 63 then
           rxbuff_raddr <= rxbuff_raddr + 1;
+          data <= unsigned(rxbuff(rxbuff_raddr + 1));
         else
           rxbuff_raddr <= 0;
+          data <= unsigned(rxbuff(0));
         end if;
-        data <= unsigned(rxbuff(rxbuff_raddr));
         ack_pending <= '1';
         data_ready <= '1';
       elsif ack_pending = '1' and data_acknowledge = '1' then
