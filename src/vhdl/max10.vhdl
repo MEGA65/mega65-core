@@ -39,8 +39,8 @@ end max10;
 
 architecture Behavioral of max10 is
 
-  signal max10_out_vector : std_logic_vector(63 downto 0) := (others => '0');
-  signal max10_in_vector : std_logic_vector(63 downto 0) := (others => '0');
+  signal max10_out_vector : std_logic_vector(64 downto 0) := (others => '0');
+  signal max10_in_vector : std_logic_vector(64 downto 0) := (others => '0');
   signal max10_counter : integer range 0 to 79 := 0;
   signal max10_clock_toggle : std_logic := '0';
 
@@ -95,12 +95,12 @@ begin
         end if;
         
         -- Drive simple serial protocol with MAX10 FPGA
-        if max10_counter = 63 then
+        if max10_counter = 64 then
           max10_tx <= max10_out_vector(0);
           -- Latch read values, if vector is not stuck low
-          if max10_in_vector /= x"00000000" then
-            max10_fpga_commit_drive <= unsigned(max10_in_vector(47 downto 16));
-            max10_fpga_date_drive <= unsigned(max10_in_vector(63 downto 48));
+          if max10_in_vector /= std_logic_vector(to_unsigned(0,65)) then
+            max10_fpga_commit_drive <= unsigned(max10_in_vector(48 downto 17));
+            max10_fpga_date_drive <= unsigned(max10_in_vector(64 downto 49));
             j21in_drive <= max10_in_vector(11 downto 0);
             dipsw_drive(3) <= not max10_in_vector(15);
             dipsw_drive(2) <= not max10_in_vector(14);
@@ -118,7 +118,7 @@ begin
       else
         -- Latch data on high phase of clock
         max10_in_vector(0) <= max10_rx;
-        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
+        max10_in_vector(64 downto 1) <= max10_in_vector(63 downto 0);
         max10_out_vector(11 downto 0) <= j21ddr;
         max10_out_vector(23 downto 12) <= j21out;
       end if;            
