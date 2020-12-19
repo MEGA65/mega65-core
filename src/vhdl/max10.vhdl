@@ -76,8 +76,8 @@ begin
 
       -- Tick clock during 64 data cycles, then go tri-state during the sync period
       if max10_counter < 64 then
-        reset_button_drive <= max10_clock_toggle;
         led <= max10_clock_toggle;
+        max10_clkandsync <= max10_clock_toggle;
       else
         max10_clkandsync <= 'Z';
         led <= '1';
