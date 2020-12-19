@@ -1048,7 +1048,7 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1) xor '1' xor dipsw(1);
+      dvi_select <= portp(1); -- xor '1' xor dipsw(1);
       
       reset_high <= not btncpureset;
       
