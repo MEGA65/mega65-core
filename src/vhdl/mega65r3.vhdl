@@ -258,7 +258,6 @@ architecture Behavioral of container is
 
   -- Communications with the MAX10 FPGA
   signal btncpureset : std_logic := '1';
-  signal legacy_reset : std_logic := '0';
   signal j21ddr : std_logic_vector(11 downto 0) := (others => '0');
   signal j21out : std_logic_vector(11 downto 0) := (others => '0');
   signal j21in : std_logic_vector(11 downto 0) := (others => '0');
@@ -266,12 +265,10 @@ architecture Behavioral of container is
   signal max10_fpga_date : std_logic_vector(15 downto 0) := (others => '0');
   signal max10_out_vector : std_logic_vector(63 downto 0) := (others => '0');
   signal max10_in_vector : std_logic_vector(63 downto 0) := (others => '0');
-  signal max10_counter : integer range 0 to 79 := 0;
-  signal max10_clock_toggle : std_logic := '0';
+  signal max10_counter : integer range 0 to 31 := 0;
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
-  signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
-    
+  
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -458,8 +455,6 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
-
-  signal blink : std_logic := '0';
   
 begin
 
@@ -492,10 +487,8 @@ begin
              USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
 
              -- Place DONE pin under programmatic control
-             -- XXX Except that it doesn't work!
-             -- So we will disable this, and use a different method for this
              USRDONEO=>fpga_done,--1-bit input: User DONE pin output control
-             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output DISABLE
+             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output DISABLE
              );
 -- End of STARTUPE2_inst instantiation
 
@@ -777,247 +770,244 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
+  
+  machine0: entity work.machine
+    generic map (cpu_frequency => 40500000,
+                 target => mega65r3,
+                 hyper_installed => true -- For VIC-IV to know it can use
+                                         -- hyperram for full-colour glyphs
+                 )                 
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+      uartclock       => cpuclock, -- Match CPU clock
+      clock162 => clock162,
+      clock100 => clock100,
+      clock200 => clock200,
+      clock27 => clock27,
+      clock50mhz      => ethclock,
 
-  m0: if true generate
-    machine0: entity work.machine
-      generic map (cpu_frequency => 40500000,
-                   target => mega65r3,
-                   hyper_installed => true -- For VIC-IV to know it can use
-                                           -- hyperram for full-colour glyphs
-                   )                 
-      port map (
-        pixelclock      => pixelclock,
-        cpuclock        => cpuclock,
-        uartclock       => cpuclock, -- Match CPU clock
-        clock162 => clock162,
-        clock100 => clock100,
-        clock200 => clock200,
-        clock27 => clock27,
-        clock50mhz      => ethclock,
-        
-        hyper_addr => hyper_addr,
-        hyper_request_toggle => hyper_request_toggle,
-        hyper_data => hyper_data,
-        hyper_data_strobe => hyper_data_strobe,
-        
-        fast_key => fastkey,
-        
-        j21in => j21in,
-        j21out => j21out,
-        
-        j21ddr => j21ddr,
-        
-        max10_fpga_commit => unsigned(max10_fpga_commit),
-        max10_fpga_date => unsigned(max10_fpga_date),
-        
-        kbd_datestamp => kbd_datestamp,
-        kbd_commit => kbd_commit,
-        
-        btncpureset => btncpureset,
-        reset_out => reset_out,
-        irq => irq_combined,
-        nmi => nmi_combined,
-        restore_key => restore_key,
-        sector_buffer_mapped => sector_buffer_mapped,
-        
-        qspi_clock => qspi_clock,
-        qspicsn => qspicsn,
-        qspidb => qspidb,
-        
-        joy3 => joy3,
-        joy4 => joy4,
-        
-        fm_left => fm_left,
-        fm_right => fm_right,
-        
-        no_hyppo => '0',
-        
-        vsync           => v_vsync,
-        vga_hsync       => v_vga_hsync,
-        hdmi_hsync       => v_hdmi_hsync,
-        vgared          => v_red,
-        vgagreen        => v_green,
-        vgablue         => v_blue,
-        hdmi_sda        => hdmi_sda,
-        hdmi_scl        => hdmi_scl,
-        hpd_a           => hpd_a,
-        lcd_dataenable => lcd_dataenable,
-        hdmi_dataenable =>  hdmi_dataenable,
-        
-        ----------------------------------------------------------------------
-        -- CBM floppy  serial port
-        ----------------------------------------------------------------------
-        iec_clk_en => iec_clk_en_drive,
-        iec_data_en => iec_data_en_drive,
-        iec_srq_en => iec_srq_en_drive,
-        iec_data_o => iec_data_o_drive,
-        iec_reset => iec_reset_drive,
-        iec_clk_o => iec_clk_o_drive,
-        iec_srq_o => iec_srq_o_drive,
-        iec_data_external => iec_data_i_drive,
-        iec_clk_external => iec_clk_i_drive,
-        iec_srq_external => iec_srq_i_drive,
-        iec_atn_o => iec_atn_drive,
-        iec_bus_active => iec_bus_active,     
-        
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
+      
+      fast_key => fastkey,
+
+      j21in => j21in,
+      j21out => j21out,
+
+      j21ddr => j21ddr,
+
+      max10_fpga_commit => unsigned(max10_fpga_commit),
+      max10_fpga_date => unsigned(max10_fpga_date),
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
+      btncpureset => btncpureset,
+      reset_out => reset_out,
+      irq => irq_combined,
+      nmi => nmi_combined,
+      restore_key => restore_key,
+      sector_buffer_mapped => sector_buffer_mapped,
+
+      qspi_clock => qspi_clock,
+      qspicsn => qspicsn,
+      qspidb => qspidb,
+      
+      joy3 => joy3,
+      joy4 => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
+      
+      no_hyppo => '0',
+      
+      vsync           => v_vsync,
+      vga_hsync       => v_vga_hsync,
+      hdmi_hsync       => v_hdmi_hsync,
+      vgared          => v_red,
+      vgagreen        => v_green,
+      vgablue         => v_blue,
+      hdmi_sda        => hdmi_sda,
+      hdmi_scl        => hdmi_scl,
+      hpd_a           => hpd_a,
+      lcd_dataenable => lcd_dataenable,
+      hdmi_dataenable =>  hdmi_dataenable,
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  serial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en_drive,
+      iec_data_en => iec_data_en_drive,
+      iec_srq_en => iec_srq_en_drive,
+      iec_data_o => iec_data_o_drive,
+      iec_reset => iec_reset_drive,
+      iec_clk_o => iec_clk_o_drive,
+      iec_srq_o => iec_srq_o_drive,
+      iec_data_external => iec_data_i_drive,
+      iec_clk_external => iec_clk_i_drive,
+      iec_srq_external => iec_srq_i_drive,
+      iec_atn_o => iec_atn_drive,
+      iec_bus_active => iec_bus_active,     
+
 --      buffereduart_rx => '1',
-        buffereduart_ringindicate => (others => '0'),
-        
-        porta_pins => column(7 downto 0),
-        portb_pins => row(7 downto 0),
-        keyboard_column8 => column(8),
-        caps_lock_key => '1',
-        keyleft => keyleft,
-        keyup => keyup,
-        
-        fa_fire => fa_fire_drive,
-        fa_up => fa_up_drive,
-        fa_left => fa_left_drive,
-        fa_down => fa_down_drive,
-        fa_right => fa_right_drive,
-        
-        fb_fire => fb_fire_drive,
-        fb_up => fb_up_drive,
-        fb_left => fb_left_drive,
-        fb_down => fb_down_drive,
-        fb_right => fb_right_drive,
-        
-        fa_potx => fa_potx,
-        fa_poty => fa_poty,
-        fb_potx => fb_potx,
-        fb_poty => fb_poty,
-        pot_drain => pot_drain,
-        pot_via_iec => pot_via_iec,
-        
-        f_density => f_density,
-        f_motorb => f_motorb,
-        f_motora => f_motora,
-        f_selecta => f_selecta,
-        f_selectb => f_selectb,
-        f_stepdir => f_stepdir,
-        f_step => f_step,
-        f_wdata => f_wdata,
-        f_wgate => f_wgate,
-        f_side1 => f_side1,
-        f_index => f_index,
-        f_track0 => f_track0,
-        f_writeprotect => f_writeprotect,
-        f_rdata => f_rdata,
-        f_diskchanged => f_diskchanged,
-        
-        ---------------------------------------------------------------------------
-        -- IO lines to the ethernet controller
-        ---------------------------------------------------------------------------
-        eth_mdio => eth_mdio,
-        eth_mdc => eth_mdc,
-        eth_reset => eth_reset,
-        eth_rxd => eth_rxd,
-        eth_txd => eth_txd,
-        eth_txen => eth_txen,
-        eth_rxer => eth_rxer,
-        eth_rxdv => eth_rxdv,
-        eth_interrupt => '0',
-        
-        -------------------------------------------------------------------------
-        -- Lines for the SDcard interfaces
-        -------------------------------------------------------------------------
-        -- External one is bus 0, so that it has priority.
-        -- Internal SD card:
-        cs_bo => sdReset,
-        sclk_o => sdClock,
-        mosi_o => sdMOSI,
-        miso_i => sdMISO,
-        -- External microSD
-        cs2_bo => sd2reset,
-        sclk2_o => sd2Clock,
-        mosi2_o => sd2MOSI,
-        miso2_i => sd2MISO,
-        
-        slow_access_request_toggle => slow_access_request_toggle,
-        slow_access_ready_toggle => slow_access_ready_toggle,
-        slow_access_address => slow_access_address,
-        slow_access_write => slow_access_write,
-        slow_access_wdata => slow_access_wdata,
-        slow_access_rdata => slow_access_rdata,
-        
-        slow_prefetched_address => slow_prefetched_address,
-        slow_prefetched_data => slow_prefetched_data,
-        slow_prefetched_request_toggle => slow_prefetched_request_toggle,
-        
-        cpu_exrom => cpu_exrom,      
-        cpu_game => cpu_game,
-        cart_access_count => cart_access_count,
-        
+      buffereduart_ringindicate => (others => '0'),
+
+      porta_pins => column(7 downto 0),
+      portb_pins => row(7 downto 0),
+      keyboard_column8 => column(8),
+      caps_lock_key => '1',
+      keyleft => keyleft,
+      keyup => keyup,
+
+      fa_fire => fa_fire_drive,
+      fa_up => fa_up_drive,
+      fa_left => fa_left_drive,
+      fa_down => fa_down_drive,
+      fa_right => fa_right_drive,
+
+      fb_fire => fb_fire_drive,
+      fb_up => fb_up_drive,
+      fb_left => fb_left_drive,
+      fb_down => fb_down_drive,
+      fb_right => fb_right_drive,
+
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
+      pot_drain => pot_drain,
+      pot_via_iec => pot_via_iec,
+
+    f_density => f_density,
+    f_motorb => f_motorb,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_selectb => f_selectb,
+    f_stepdir => f_stepdir,
+    f_step => f_step,
+    f_wdata => f_wdata,
+    f_wgate => f_wgate,
+    f_side1 => f_side1,
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_diskchanged => f_diskchanged,
+      
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+      eth_mdc => eth_mdc,
+      eth_reset => eth_reset,
+      eth_rxd => eth_rxd,
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
+      eth_rxer => eth_rxer,
+      eth_rxdv => eth_rxdv,
+      eth_interrupt => '0',
+      
+      -------------------------------------------------------------------------
+      -- Lines for the SDcard interfaces
+      -------------------------------------------------------------------------
+      -- External one is bus 0, so that it has priority.
+      -- Internal SD card:
+      cs_bo => sdReset,
+      sclk_o => sdClock,
+      mosi_o => sdMOSI,
+      miso_i => sdMISO,
+      -- External microSD
+      cs2_bo => sd2reset,
+      sclk2_o => sd2Clock,
+      mosi2_o => sd2MOSI,
+      miso2_i => sd2MISO,
+
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      
+      cpu_exrom => cpu_exrom,      
+      cpu_game => cpu_game,
+      cart_access_count => cart_access_count,
+
 --      aclMISO => aclMISO,
-        aclMISO => '1',
+      aclMISO => '1',
 --      aclMOSI => aclMOSI,
 --      aclSS => aclSS,
 --      aclSCK => aclSCK,
 --      aclInt1 => aclInt1,
 --      aclInt2 => aclInt2,
-        aclInt1 => '1',
-        aclInt2 => '1',
-        
-        micData0 => '1',
-        micData1 => '1',
+      aclInt1 => '1',
+      aclInt2 => '1',
+    
+      micData0 => '1',
+      micData1 => '1',
 --      micClk => micClk,
 --      micLRSel => micLRSel,
-        
-        disco_led_en => disco_led_en,
-        disco_led_id => disco_led_id,
-        disco_led_val => disco_led_val,      
-        
-        flopled => flopled_drive,
-        flopmotor => flopmotor_drive,
-        ampPWM_l => pwm_l_drive,
-        ampPWM_r => pwm_r_drive,
-        audio_left => audio_left,
-        audio_right => audio_right,
-        
-        -- PC speakers left/right on main board
-        ampSD => i2s_sd,
-        i2s_master_clk => i2s_mclk,
-        i2s_master_sync => i2s_sync,
-        i2s_speaker_data_out => i2s_speaker,
-        
-        -- Normal connection of I2C peripherals to dedicated address space
-        i2c1sda => fpga_sda,
-        i2c1scl => fpga_scl,
-        
+
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,      
+      
+      flopled => flopled_drive,
+      flopmotor => flopmotor_drive,
+      ampPWM_l => pwm_l_drive,
+      ampPWM_r => pwm_r_drive,
+      audio_left => audio_left,
+      audio_right => audio_right,
+
+      -- PC speakers left/right on main board
+      ampSD => i2s_sd,
+      i2s_master_clk => i2s_mclk,
+      i2s_master_sync => i2s_sync,
+      i2s_speaker_data_out => i2s_speaker,
+      
+      -- Normal connection of I2C peripherals to dedicated address space
+      i2c1sda => fpga_sda,
+      i2c1scl => fpga_scl,
+
 --      tmpsda => fpga_sda,
 --      tmpscl => fpga_scl,
-        
-        portp_out => portp,
-        
-        -- No PS/2 keyboard for now
-        ps2data =>      '1',
-        ps2clock =>     '1',
-        
-        fpga_temperature => fpga_temperature,
-        
-        UART_TXD => UART_TXD,
-        RsRx => RsRx,
-        
-        -- Ignore widget board interface and other things
-        tmpint => '1',
-        tmpct => '1',
-        
-        -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
-        widget_matrix_col_idx => widget_matrix_col_idx,
-        widget_matrix_col => widget_matrix_col,
-        widget_restore => widget_restore,
-        widget_capslock => widget_capslock,
-        widget_joya => (others => '1'),
-        widget_joyb => (others => '1'),      
-        
-        sw => sw,
-        dipsw => dipsw,
+
+      portp_out => portp,
+      
+      -- No PS/2 keyboard for now
+      ps2data =>      '1',
+      ps2clock =>     '1',
+
+      fpga_temperature => fpga_temperature,
+      
+      UART_TXD => UART_TXD,
+      RsRx => RsRx,
+
+      -- Ignore widget board interface and other things
+      tmpint => '1',
+      tmpct => '1',
+
+      -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
+      
+      sw => sw,
 --      uart_rx => '1',
-        btn => (others => '1')
-        
-        );
-    end generate m0;
-    
+      btn => (others => '1')
+         
+      );
+
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
   bufg port map ( I => ethclock,
@@ -1035,9 +1025,7 @@ begin
     vdac_clk <= pixelclock;
 
     -- Drive communications to MAX10 at 40.5MHz
-    -- This doesn't work, as for some reason we can't actually control
-    -- the FPGA_DONE pin.
---    fpga_done <= clock41;
+    fpga_done <= clock41;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
@@ -1051,90 +1039,8 @@ begin
       else
         pcm_acr <= '1';
         acr_counter <= 0;
-
       end if;
     end if;
-
-    if rising_edge(pixelclock) then
-      
-      -- We were previously using a 4-wire protocol with RX and TX lines,
-      -- a sync line and clock line. But the clock was supposed to be via
-      -- FPGA_DONE pin under user-control, but that didn't work.
-      -- As the MAX10 clock speed is highly variable, we will provide an integrated
-      -- clock + sync where we hold the clock line low for long enough for the
-      -- variably clocked MAX10 to detect this, but other wise runs free at CPU
-      -- clock speed.
-
-      max10_clock_toggle <= not max10_clock_toggle;
-      
-      -- Tick clock during 64 data cycles
-      if max10_counter < 64 then
-        reset_from_max10 <= max10_clock_toggle;
-      else
-        reset_from_max10 <= 'Z';
-        max10_out_vector(11 downto 0) <= j21ddr;
-        max10_out_vector(23 downto 12) <= j21out;
-      end if;
-      
-      if max10_clock_toggle = '0' then
-
-        led <= blink; blink <= not blink;  
-        
-        -- SYNC pulse will be 8x clock ticks at 40.5MHz = ~200ns
-        -- Slowest MAX10 clock speed will be 55MHz, so this will be easy to detect.
-        if max10_counter = 79 then
-          max10_counter <= 0;
-        else
-          max10_counter <= max10_counter + 1;
-        end if;
-        -- Push out the 64 bits of data
-        if max10_counter = 63 then
-
-          max10_tx <= max10_out_vector(0);
-          -- Latch read values, if vector is not stuck low
-          if max10_in_vector /= x"0000000000000000" then
-            max10_fpga_commit <= max10_in_vector(48 downto 17);
-            max10_fpga_date(15) <= '0';
-            max10_fpga_date(14 downto 0) <= max10_in_vector(63 downto 49);
-            j21in <= max10_in_vector(11 downto 0);
-            dipsw(3) <= not max10_in_vector(15);
-            dipsw(2) <= not max10_in_vector(14);
-            dipsw(1) <= not max10_in_vector(13);
-            dipsw(0) <= not max10_in_vector(12);
-            j21in <= max10_in_vector(27 downto 16);
-
-            if portp(6)='1' then
-              btncpureset <= max10_in_vector(16);
-            end if;
-
-            -- XXX DEBUG make LED on mainboard show reset button status
---            led <= max10_in_vector(16) xor max10_in_vector(15) xor max10_in_vector(14) xor max10_in_vector(13);
-            
-          end if;
-        end if;
-      else
-        -- Read from MAX10 on high phase of clock
-        max10_in_vector(0) <= max10_rx;
-        max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
-      end if;
-      
-      -- Backward compatibility with the old MAX10 bitstreams that
-      -- really do just provide a reset line on this pin.
-      if portp(5)='1' then
-        if max10_counter = 68 then
-          if reset_from_max10 = '0' then
-            btncpureset <= reset_from_max10;
-            legacy_reset <= '1';
-          else
-            if legacy_reset='1' then
-              btncpureset <= '1';
-              legacy_reset <= '0';
-            end if;
-          end if;
-        end if;
-      end if;
-    end if;
-
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
@@ -1165,6 +1071,40 @@ begin
 --        led <= not led;
       end if;
 
+      -- Drive simple serial protocol with MAX10 FPGA
+      if max10_counter = 63 then
+        max10_counter <= 0;
+        reset_from_max10 <= '0';
+        max10_tx <= max10_out_vector(0);
+        -- Latch read values, if vector is not stuck low
+        if max10_in_vector /= x"00000000" then
+          max10_fpga_commit <= max10_in_vector(47 downto 16);
+          max10_fpga_date <= max10_in_vector(63 downto 48);
+          j21in <= max10_in_vector(11 downto 0);
+          sw(15) <= not max10_in_vector(15);
+          sw(14) <= not max10_in_vector(14);
+          sw(13) <= not max10_in_vector(13);
+          sw(12) <= not max10_in_vector(12);
+          btncpureset <= max10_in_vector(16);
+        end if;
+      else
+        max10_counter <= max10_counter + 1;
+        if max10_counter = 1 then
+          reset_from_max10 <= '1';
+        else
+          reset_from_max10 <= 'Z';
+        end if;
+        -- XXX Backward compatibility to older MAX10 firmware to keep
+        -- reset button working.
+        if max10_counter = 8 and reset_from_max10 = '0' then
+          btncpureset <= '0';
+        end if;
+      end if;
+      max10_in_vector(0) <= max10_rx;
+      max10_in_vector(63 downto 1) <= max10_in_vector(62 downto 0);
+      max10_out_vector(11 downto 0) <= j21ddr;
+      max10_out_vector(23 downto 12) <= j21out;
+      
       reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
@@ -1232,7 +1172,6 @@ begin
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
-    -- @IO:GS $D61A.6 SYSCTL:MAX10V2 If set, use new MAX10 communications protocol
     -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
     -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
     -- @IO:GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
@@ -1249,7 +1188,7 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
---    led <= portp(4);
+    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -1260,15 +1199,15 @@ begin
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
+    end if;
 
-      -- XXX DEBUG: Allow showing audio samples on video to make sure they are
-      -- getting through
-      if portp(2)='1' then
-        vgagreen <= unsigned(audio_left(15 downto 8));
-        vgared <= unsigned(audio_right(15 downto 8));
-        hdmigreen <= unsigned(audio_left(15 downto 8));
-        hdmired <= unsigned(audio_right(15 downto 8));
-      end if;
+    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
+    -- getting through
+    if portp(2)='1' then
+      vgagreen <= unsigned(audio_left(15 downto 8));
+      vgared <= unsigned(audio_right(15 downto 8));
+      hdmigreen <= unsigned(audio_left(15 downto 8));
+      hdmired <= unsigned(audio_right(15 downto 8));
     end if;
     
   end process;    
