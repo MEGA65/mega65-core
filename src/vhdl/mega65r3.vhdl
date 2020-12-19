@@ -778,6 +778,8 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
 
+      led => led,
+      
       max10_clock_toggle => reset_from_max10,
       max10_rx => max10_rx,
       max10_tx => max10_tx,

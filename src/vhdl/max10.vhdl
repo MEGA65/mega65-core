@@ -11,13 +11,18 @@ use UNISIM.VComponents.all;
 entity max10 is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
-
+         
+         ----------------------------------------------------------------------
+         -- Debug LED
+         ----------------------------------------------------------------------
+         led : out std_logic := '0';
+         
          ----------------------------------------------------------------------
          -- Comms link to MAX10 FPGA
          ----------------------------------------------------------------------
          max10_tx : out std_logic := '1';
          max10_rx : in std_logic;
-         max10_clkandsync : in std_logic;
+         max10_clkandsync : inout std_logic;
 
          ----------------------------------------------------------------------
          -- Data to/from MAX10
@@ -27,8 +32,8 @@ entity max10 is
          reset_button : out std_logic := '1';
          dipsw : out unsigned(3 downto 0) := (others => '0');
          j21in : out unsigned(11 downto 0) := (others => '0');
-         j21ddr : in unsigned(11 downto 0) := (others => '0');
-         j21out : in unsigned(11 downto 0) := (others => '0')
+         j21ddr : in std_logic_vector(11 downto 0) := (others => '0');
+         j21out : in std_logic_vector(11 downto 0) := (others => '0')
          );
 end max10;
 
@@ -94,15 +99,15 @@ begin
           max10_tx <= max10_out_vector(0);
           -- Latch read values, if vector is not stuck low
           if max10_in_vector /= x"00000000" then
-            max10_fpga_commit_drive <= max10_in_vector(47 downto 16);
-            max10_fpga_date_drive <= max10_in_vector(63 downto 48);
-            j21in_drive <= max10_in_vector(11 downto 0);
+            max10_fpga_commit_drive <= unsigned(max10_in_vector(47 downto 16));
+            max10_fpga_date_drive <= unsigned(max10_in_vector(63 downto 48));
+            j21in_drive <= unsigned(max10_in_vector(11 downto 0));
             dipsw_drive(3) <= not max10_in_vector(15);
             dipsw_drive(2) <= not max10_in_vector(14);
             dipsw_drive(1) <= not max10_in_vector(13);
             dipsw_drive(0) <= not max10_in_vector(12);
             if portp(6) = '1' then
-              btncpureset <= max10_in_vector(16);
+              reset_button_drive <= max10_in_vector(16);
             end if;
           end if;
         else
