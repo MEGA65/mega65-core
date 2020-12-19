@@ -106,9 +106,7 @@ begin
             dipsw_drive(2) <= not max10_in_vector(14);
             dipsw_drive(1) <= not max10_in_vector(13);
             dipsw_drive(0) <= not max10_in_vector(12);
-            if portp(6) = '1' then
-              reset_button_drive <= max10_in_vector(16);
-            end if;
+            reset_button_drive <= max10_in_vector(16);
           end if;
         else
           -- XXX Backward compatibility to older MAX10 firmware to keep
