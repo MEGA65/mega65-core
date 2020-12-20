@@ -266,7 +266,7 @@ architecture Behavioral of container is
   signal max10_reset_out : std_logic := '1';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
-  signal dipsw : std_logic_vector(3 downto 0) := (others => '0');
+  signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
