@@ -76,11 +76,11 @@ begin
 
       -- Tick clock during 64 data cycles, then go tri-state during the sync period
       if max10_counter < 64 then
-        led <= max10_clock_toggle;
+--        led <= max10_clock_toggle;
         max10_clkandsync <= max10_clock_toggle;
       else
         max10_clkandsync <= 'Z';
-        led <= '1';
+--        led <= '1';
         max10_out_vector(11 downto 0) <= j21ddr;
         max10_out_vector(23 downto 12) <= j21out;
       end if;     
@@ -108,6 +108,7 @@ begin
             dipsw_drive(1) <= not max10_in_vector(13);
             dipsw_drive(0) <= not max10_in_vector(12);
             reset_button_drive <= max10_in_vector(16);
+            led <= max10_in_vector(16);
           end if;
         else
           -- XXX Backward compatibility to older MAX10 firmware to keep
