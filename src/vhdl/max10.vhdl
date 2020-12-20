@@ -30,7 +30,7 @@ entity max10 is
          max10_fpga_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
          max10_fpga_date : out unsigned(15 downto 0) := to_unsigned(0,16);
          reset_button : out std_logic := '1';
-         dipsw : out std_logic_vector(3 downto 0) := (others => '0');
+         dipsw : out std_logic_vector(4 downto 0) := (others => '0');
          j21in : out std_logic_vector(11 downto 0) := (others => '0');
          j21ddr : in std_logic_vector(11 downto 0) := (others => '0');
          j21out : in std_logic_vector(11 downto 0) := (others => '0')
@@ -47,7 +47,7 @@ architecture Behavioral of max10 is
   signal max10_fpga_commit_drive : unsigned(31 downto 0) := to_unsigned(0,32);
   signal max10_fpga_date_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal reset_button_drive : std_logic := '1';
-  signal dipsw_drive : std_logic_vector(3 downto 0) := (others => '0');
+  signal dipsw_drive : std_logic_vector(4 downto 0) := (others => '0');
   signal j21in_drive : std_logic_vector(11 downto 0) := (others => '0');
   
   
@@ -102,6 +102,7 @@ begin
             max10_fpga_commit_drive <= unsigned(max10_in_vector(48 downto 17));
             max10_fpga_date_drive <= unsigned(max10_in_vector(64 downto 49));
             j21in_drive <= max10_in_vector(11 downto 0);
+            dipsw_drive(4) <= not max10_in_vector(16);
             dipsw_drive(3) <= not max10_in_vector(15);
             dipsw_drive(2) <= not max10_in_vector(14);
             dipsw_drive(1) <= not max10_in_vector(13);
