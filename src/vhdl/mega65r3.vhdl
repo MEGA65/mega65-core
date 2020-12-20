@@ -1070,11 +1070,7 @@ begin
       
       reset_high <= not btncpureset;
 
-      if portp(5) = '1' then
-        btncpureset <= max10_reset_out;
-      else
-        btncpureset <= '1';
-      end if;
+      btncpureset <= max10_reset_out;
       
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
