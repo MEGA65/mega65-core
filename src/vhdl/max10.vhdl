@@ -53,6 +53,7 @@ architecture Behavioral of max10 is
   signal dipsw_drive : std_logic_vector(4 downto 0) := (others => '0');
   signal j21in_drive : std_logic_vector(11 downto 0) := (others => '0');
   
+  signal reset_button_counter : integer range 0 to 255 := 0;
   
 begin
 
@@ -63,7 +64,19 @@ begin
       max10_fpga_date <= max10_fpga_date_drive;
       dipsw <= dipsw_drive;
       j21in <= j21in_drive;
-      reset_button <= reset_button_drive;
+
+      -- Also de-glitch reset_button_drive at the same time
+      led <= '1';
+      reset_button <= '1';
+      if reset_button_drive = '1' then
+        reset_button_counter <= 0;
+      elsif reset_button_counter < 255 then
+        reset_button_counter <= reset_button_counter + 1;
+      else
+        reset_button <= '0';
+        led <= '0';
+      end if;
+
     end if;
     
     if rising_edge(pixelclock) then
@@ -91,7 +104,7 @@ begin
       
       if max10_clock_toggle = '0' then
         -- Tick clock on low phase
-        if max10_counter < 79 then
+        if max10_counter /= 79 then
           max10_counter <= max10_counter + 1;
           if max10_rx = '1' then
             max10_saw_1 <= '1';
@@ -127,7 +140,6 @@ begin
             dipsw_drive(1) <= not max10_in_vector(13);
             dipsw_drive(0) <= not max10_in_vector(12);
             reset_button_drive <= max10_in_vector(16);
-            led <= max10_in_vector(16);
           end if;
         end if;
       else
