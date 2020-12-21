@@ -411,8 +411,10 @@ architecture Behavioral of container is
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
 
-  signal max10_fpga_commit : std_logic_vector(31 downto 0) := (others => '0');
-  signal max10_fpga_date : std_logic_vector(15 downto 0) := (others => '0');
+  signal max10_fpga_commit : unsigned(31 downto 0) := (others => '0');
+  signal max10_fpga_date : unsigned(15 downto 0) := (others => '0');
+  signal max10_reset_out : std_logic := '1';
+  signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
   
 begin
 
@@ -692,8 +694,8 @@ begin
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
 
-      max10_fpga_commit => unsigned(max10_fpga_commit),
-      max10_fpga_date => unsigned(max10_fpga_date),
+      max10_fpga_commit => max10_fpga_commit,
+      max10_fpga_date => max10_fpga_date,
       
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -888,6 +890,7 @@ begin
       widget_joyb => (others => '1'),      
       
       sw => sw,
+      dipsw => dipsw,
 --      uart_rx => '1',
       btn => (others => '1')
          
@@ -898,6 +901,27 @@ begin
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
+  max10: entity work.max10
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+
+--      led => led,
+      
+      max10_clkandsync => reset_from_max10,
+      max10_rx => max10_rx,
+      max10_tx => max10_tx,
+
+      max10_fpga_commit => max10_fpga_commit,
+      max10_fpga_date => max10_fpga_date,
+
+      reset_button => max10_reset_out,
+      dipsw => dipsw,
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr
+      );
+  
 
   process(clock27) is
   begin
@@ -931,41 +955,10 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
-      -- Drive simple serial protocol with MAX10 FPGA
-      if max10_counter = 31 then
-        max10_counter <= 0;
-        reset_from_max10 <= '0';
-        max10_tx <= max10_out_vector(0);
-        -- Latch read values, if vector is not stuck low
-        if max10_in_vector /= x"00000000" then
-          j21in <= max10_in_vector(11 downto 0);
-          sw(15) <= not max10_in_vector(15);
-          sw(14) <= not max10_in_vector(14);
-          sw(13) <= not max10_in_vector(13);
-          sw(12) <= not max10_in_vector(12);
-          btncpureset <= max10_in_vector(16);
-        end if;
-      else
-        max10_counter <= max10_counter + 1;
-        if max10_counter = 1 then
-          reset_from_max10 <= '1';
-        else
-          reset_from_max10 <= 'Z';
-        end if;
-        -- XXX Backward compatibility to older MAX10 firmware to keep
-        -- reset button working.
-        if max10_counter = 8 and reset_from_max10 = '0' then
-          btncpureset <= '0';
-        end if;
-      end if;
-      max10_in_vector(0) <= max10_rx;
-      max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
-      max10_out_vector(11 downto 0) <= j21ddr;
-      max10_out_vector(23 downto 12) <= j21out;
-        
-      
 --      led <= cart_exrom;
 --      led <= flopled_drive;
+
+      btncpureset <= max10_reset_out;
       
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;

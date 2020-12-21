@@ -3,7 +3,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
-use work.types_pkg.all;
 
 library UNISIM;
 use UNISIM.VComponents.all;
