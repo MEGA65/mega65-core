@@ -3520,6 +3520,11 @@ begin
       elsif displayy = y_chargen_start then
         before_y_chargen_start <= '0';
       end if;
+      -- Allow y_chargen_start to be shifted down mid-frame to allow
+      -- multiple character displays per screen, e.g., for fixed vs scrolling.
+      if displayy < y_chargen_start_minus_one then
+        before_y_chargen_start <= '1';
+      end if;
       if before_y_chargen_start = '1' and justbefore_y_chargen_start='0' then
         -- We have to reset the chargen Y value pipeline.
         -- So chargen_y goes to zero, but we then need to make sure we don't
