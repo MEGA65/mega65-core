@@ -157,8 +157,8 @@ entity machine is
          kbd_datestamp : in unsigned(13 downto 0);
          kbd_commit : in unsigned(31 downto 0);
 
-         max10_fpga_date : in unsigned(15 downto 0);
-         max10_fpga_commit : in unsigned(31 downto 0);
+         max10_fpga_date : in unsigned(15 downto 0) := to_unsigned(0,16);
+         max10_fpga_commit : in unsigned(31 downto 0) := to_unsigned(0,32);
          
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -371,7 +371,7 @@ entity machine is
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          led : out std_logic_vector(15 downto 0) := (others => '0');
-         dipsw : in std_logic_vector(4 downto 0);
+         dipsw : in std_logic_vector(4 downto 0) := (others => '0');
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
