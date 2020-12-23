@@ -617,6 +617,9 @@ try_flash_menu:
 	bne dont_launch_flash_menu
 	
 launch_flash_menu:
+
+	;; Disable digital audio when launching flash menu
+	jsr safe_video_mode
 	
 	;; Store where the flash menu should jump to if it doesn't need to do anything.
 	lda #<return_from_flashmenu
@@ -2513,11 +2516,23 @@ noutility_menu:
 	inc $d020
 num1:
 	jmp num1
+
+safe_video_mode:
+	;; No digital audio, just pure DVI
+	lda #$00
+	sta $d61a
+	;; NTSC
+	lda #$80
+	sta $d06f
+	rts
 	
 utility_menu:
 	;; Gets self-modified to prevent entering utility menu except on first boot
 	bit noutility_menu
 
+	;; Disable digital audio when utility menu
+	jsr safe_video_mode
+	
         ;; Display GIT commit again, so that it's easy to check commit of a build
         ldx #<msg_gitcommit
         ldy #>msg_gitcommit
