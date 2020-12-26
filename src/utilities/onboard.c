@@ -111,6 +111,8 @@ unsigned char check_input(char *m)
   return 1;
 }
 
+unsigned char video_mode=0;
+
 void main(void)
 {
   unsigned char valid;
@@ -124,9 +126,40 @@ void main(void)
   // Enable VIC-III attributes
   POKE(0xD031,0x20);
 
-  printf("%cOn-boarding utility\n",0x93);
+  printf("%cWelcome to the MEGA65!\n",0x93);
+  printf("\nBefore you go further, there are couple of things you need to do.\n");
+  printf("\nPress F1 to cycle through the default   video modes. \n");
+  printf("\nIf no picture displays within a few     seconds, press HELP to revert.\n");
+  printf("\nPress F3 - F13 to set the time and date.\n");
+  printf("\nPress RETURN when done.\n");
+ 
+  while(1) {
+    POKE(0x286,1);
+    printf("%c\n\n\n\n\n\n\n\n\n\n",0x13);    
+    printf("Video: %c",0x12);
+    POKE(0x286,7);
+    switch(video_mode) {
+    case 0: printf("DVI (no sound), NTSC 60Hz       "); break;
+    case 1: printf("DVI (no sound), PAL 50Hz        "); break;
+    case 2: printf("Enhanced (with sound), NTSC 60Hz"); break;
+    case 3: printf("Enhanced (with sound), PAL 50Hz "); break;
+    }
+    printf("%c",0x92);
+    
+    while(!PEEK(0xD610)) continue;
+    
+    switch(PEEK(0xD610)) {
+    case 0xF1:
+      video_mode++; video_mode&=0x03;
+      // NTSC / PAL
+      if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
+      // DVI / Enhanced
+      if (video_mode&2) POKE(0xD61A,0x02); else POKE(0xD61A,0x00);
+      break;
+    }
+    POKE(0xD610,0);
 
-  while(1) continue;
+  }
 
 }
 
