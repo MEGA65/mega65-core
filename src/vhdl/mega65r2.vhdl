@@ -225,8 +225,8 @@ entity container is
          ----------------------------------------------------------------------
          -- Comms link to MAX10 FPGA
          ----------------------------------------------------------------------
-         max10_tx : out std_logic := '1';
-         max10_rx : in std_logic;
+         max10_rx : out std_logic := '1';
+         max10_tx : in std_logic;
 
          ----------------------------------------------------------------------
          -- Serial monitor interface

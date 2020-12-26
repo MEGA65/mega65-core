@@ -19,8 +19,8 @@ entity max10 is
          ----------------------------------------------------------------------
          -- Comms link to MAX10 FPGA
          ----------------------------------------------------------------------
-         max10_tx : out std_logic := '1';
-         max10_rx : in std_logic;
+         max10_rx : out std_logic := '1';
+         max10_tx : in std_logic;
          max10_clkandsync : inout std_logic;
 
          ----------------------------------------------------------------------
@@ -105,10 +105,10 @@ begin
         -- Tick clock on low phase
         if max10_counter /= 79 then
           max10_counter <= max10_counter + 1;
-          if max10_rx = '1' then
+          if max10_tx = '1' then
             max10_saw_1 <= '1';
           end if;
-          if max10_rx = '0' then
+          if max10_tx = '0' then
             max10_saw_0 <= '1';
           end if;
         else
@@ -127,7 +127,7 @@ begin
         
         -- Drive simple serial protocol with MAX10 FPGA
         if max10_counter = 64 then
-          max10_tx <= max10_out_vector(0);
+          max10_rx <= max10_out_vector(0);
           -- Latch read values, if vector is not stuck low
           if max10_in_vector /= std_logic_vector(to_unsigned(0,65)) then
             max10_fpga_commit_drive <= unsigned(max10_in_vector(48 downto 17));
@@ -143,7 +143,7 @@ begin
         end if;
       else
         -- Latch data on high phase of clock
-        max10_in_vector(0) <= max10_rx;
+        max10_in_vector(0) <= max10_tx;
         max10_in_vector(64 downto 1) <= max10_in_vector(63 downto 0);
         max10_out_vector(11 downto 0) <= j21ddr;
         max10_out_vector(23 downto 12) <= j21out;
