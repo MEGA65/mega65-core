@@ -35,7 +35,7 @@ int load_util(char *filename, int ar_offset)
   header.self_lo=ar_offset&0xff;
   header.self_hi=(ar_offset>>8)&0xff;
   
-  FILE *f=fopen(filename,"r");
+  FILE *f=fopen(filename,"rb");
   if (!f) {
     fprintf(stderr,"Could not read utility '%s'\n",filename);
     exit(-1);
