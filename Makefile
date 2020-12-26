@@ -162,6 +162,7 @@ firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		$(BINDIR)/HICKUP.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
+		$(SDCARD_DIR)/ONBOARD.M65 \
 		$(SDCARD_DIR)/C000UTIL.BIN
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
@@ -680,6 +681,16 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
+$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+	# Make sure that result is not too big.  Top must be below <$8000 after loading, so that
+	# it doesn't overlap with hypervisor
+	test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
+
+
+
 $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
@@ -779,13 +790,13 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule update
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg
+$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg $(SDCARD_DIR)/ONBOARD.M65
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(UTILDIR)/megaflash-a100t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a100t.prg@50000
 
-$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg
+$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg $(SDCARD_DIR)/ONBOARD.M65
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(UTILDIR)/megaflash-a200t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a200t.prg@50000
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000
