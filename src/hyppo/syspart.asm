@@ -346,7 +346,9 @@ syspart_configsector_apply:
 	sta pal_ntsc_minus_1+1
         stx $d058
 	
-        ;; Set audio options
+        ;; Set audio and related options
+	lda $de0d
+	sta $d61a
 
 	;; Super SFX cartridge emulation
 	lda $de0c
