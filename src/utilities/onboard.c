@@ -149,6 +149,9 @@ void main(void)
     while(!PEEK(0xD610)) continue;
     
     switch(PEEK(0xD610)) {
+    case 0x1F:
+      video_mode=3;
+      // FALL THROUGH
     case 0xF1:
       video_mode++; video_mode&=0x03;
       // NTSC / PAL
