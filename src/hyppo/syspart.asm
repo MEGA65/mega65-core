@@ -44,6 +44,41 @@
 ;;     to be free.
 ;;     ---------------------------------------------------------------- */
 
+launch_onboarding:
+	jsr attempt_loadc65rom
+        ldx #<txt_ONBOARDM65
+        ldy #>txt_ONBOARDM65
+        jsr dos_setname
+
+        ;; Prepare 32-bit pointer for loading onboarding utility to $0801
+        ;; ($07FF so that 2-byte length header is effectively skipped)
+        lda #$FF
+        sta <dos_file_loadaddress+0
+        lda #$07
+        sta <dos_file_loadaddress+1
+	lda #$00
+        sta <dos_file_loadaddress+2
+        sta <dos_file_loadaddress+3
+
+        jsr dos_readfileintomemory
+	;; Don't try to run util if it can't be found
+	bcs loaded_onboarding
+
+	;; Couldn't load onboarding programme, so go to utility menu
+	;; as a fall-back, since we can't safely proceed from here.
+	jmp utility_menu
+	
+loaded_onboarding:	
+	;; Run util from in hypervisor context, similarly to how we run the flash menu
+	;; this means the whole thing must be less than ~29KB in size, to not run over
+	;; $8000-$BFFF where the hypervisor is mapped
+	lda $080d
+	cmp #$4c
+	beq @start_onboarding
+	jmp no_onboarding
+@start_onboarding
+	jmp run_util_in_hypervisor_context
+	
 syspart_open:
         ;; Open a system partition.
         ;; At this point, only syspart_start_sector and
@@ -100,7 +135,7 @@ spo3:	lda $de00,x
         jsr printhex
 
         ;; Show size of freeze slots
-        ldz syspart_freeze_slot_size_in_sectors+3
+        ldz syspart_freeze_slot_size_in_sectors+3 
         jsr printhex
         ldz syspart_freeze_slot_size_in_sectors+2
         jsr printhex
@@ -117,6 +152,9 @@ spo3:	lda $de00,x
         jsr printmessage
 
         jsr syspart_configsector_read
+	lda $de0e
+	bpl do_launch_onboarding
+no_onboarding:	
         jsr syspart_configsector_apply
         bcs spo4
 
@@ -126,7 +164,7 @@ spo3:	lda $de00,x
 
 spo4:	sec
         rts
-
+	
 syspart_openerror:
 
         ;; Report error opening system partition
@@ -141,6 +179,9 @@ syspart_openerror:
         clc
         rts
 
+do_launch_onboarding:
+	jmp launch_onboarding
+	
         ;; XXX These should return success/failure indication
 syspart_configsector_read_trap:
         jsr syspart_configsector_read
@@ -350,6 +391,10 @@ syspart_configsector_apply:
 	lda $de0d
 	sta $d61a
 
+	;; Trigger onboarding menu or not
+	;; (activated elsewhere)
+	// $de0e bit 7
+	
 	;; Super SFX cartridge emulation
 	lda $de0c
 	ldz #$00
@@ -506,6 +551,10 @@ msg_syspart_config_invalid:
         !text "SYSPART CONFIG INVALID. PLEASE SET."
         !8 0
 
+txt_ONBOARDM65:
+	!text "ONBOARD.M65"
+	!8 0
+	
 syspart_trap:
         sei
         cld

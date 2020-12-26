@@ -2690,6 +2690,8 @@ flash_menu:
         lda #<flashmenu_dmalist
         sta $d705
 
+	;; FALL THROUGH
+run_util_in_hypervisor_context:	
 	;; XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	;; Hypervisor memory map!
 	lda #$00
