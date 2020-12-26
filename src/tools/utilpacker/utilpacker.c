@@ -45,7 +45,7 @@ int load_util(char *filename, int ar_offset)
   while((bytes=fread(&util_body[len],1,32*1024-len,f))>0) {
     len+=bytes;
   }
-  if (len==32*1024) {
+  if (len>=32*1024) {
     fprintf(stderr,"ERROR: Utility '%s' is >=32KB.\n",filename);
     exit(-1);
   }
@@ -143,7 +143,7 @@ int main(int argc,char **argv)
     exit(-1);
   }
   
-  FILE *o=fopen(argv[1],"w");
+  FILE *o=fopen(argv[1],"wb");
   if (!o) {
     fprintf(stderr,"Could not open '%s' to write utility archive.\n",argv[1]);
     exit(-1);
