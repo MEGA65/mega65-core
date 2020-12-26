@@ -48,6 +48,18 @@ short i,x,y,z;
 short a1,a2,a3;
 unsigned char n=0;
 
+unsigned char safe_lpeek(unsigned long addr)
+{
+  unsigned char a,b,c;
+  a=1; b=2;
+  while (a!=b||b!=c) {
+    a=lpeek(addr);
+    b=lpeek(addr);
+    c=lpeek(addr);
+  }
+  return a;
+}
+
 void reconfig_fpga(unsigned long addr)
 {
 
@@ -111,7 +123,27 @@ unsigned char check_input(char *m)
   return 1;
 }
 
-unsigned char video_mode=0;
+unsigned char video_mode=0,c;
+unsigned char hour,min,sec,mday,month,year;
+
+char *month_name(int month)
+{
+  switch(month) {
+  case 1: return "Jan";
+  case 2: return "Feb";
+  case 3: return "Mar";
+  case 4: return "Apr";
+  case 5: return "May";
+  case 6: return "Jun";
+  case 7: return "Jul";
+  case 8: return "Aug";
+  case 9: return "Sep";
+  case 10: return "Oct";
+  case 11: return "Nov";
+  case 12: return "Dec";
+  }
+  return "???";
+}
 
 void main(void)
 {
@@ -145,10 +177,44 @@ void main(void)
     case 3: printf("Enhanced (with sound), PAL 50Hz "); break;
     }
     printf("%c",0x92);
+
+    sec=0;
+    min=0;
+    hour=0;
+    mday=0;
+    month=0;
+    year=0;
     
-    while(!PEEK(0xD610)) continue;
+    // Work out which RTC type based on target type
+    switch(PEEK(0xD629)) {
+    case 0x02: case 0x03:
+      // M65 desktop RTC
+      sec=safe_lpeek(0xffd7110);
+      min=safe_lpeek(0xffd7111);
+      hour=safe_lpeek(0xffd7112);
+      mday=safe_lpeek(0xffd7113);
+      month=safe_lpeek(0xffd7114);
+      year=safe_lpeek(0xffd7115);
+      year+=100;
+      break;
+    case 0x21:
+      // MEGAphone RTC
+      break;
+    default:
+      // No RTC
+      break;
+    }
+    POKE(0x286,1);
+    printf("\n\nTime:  ");
+    POKE(0x286,7);
+    printf("%c%02x:%02x.%02x %02x/%s/%04d%c",
+	   0x12,hour,min,sec,mday,month_name(month),year+1900,0x92);
+    POKE(0x286,1);
+    printf("\n");
     
-    switch(PEEK(0xD610)) {
+    c=PEEK(0xD610);
+    if (c) POKE(0xD610,0);
+    switch(c) {
     case 0x1F:
       video_mode=3;
       // FALL THROUGH
@@ -160,7 +226,6 @@ void main(void)
       if (video_mode&2) POKE(0xD61A,0x02); else POKE(0xD61A,0x00);
       break;
     }
-    POKE(0xD610,0);
 
   }
 
