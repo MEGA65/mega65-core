@@ -44,39 +44,41 @@
 ;;     to be free.
 ;;     ---------------------------------------------------------------- */
 
-launch_onboarding:
-	jsr attempt_loadc65rom
-        ldx #<txt_ONBOARDM65
-        ldy #>txt_ONBOARDM65
-        jsr dos_setname
+onboarding_dmalist:	
+        ;; MEGA65 Enhanced DMA options
+        !8 $0A      ;; Request format is F018A
+        !8 $80,$00  ;; Copy from $00xxxxx
+        !8 $81,$00  ;; Copy to $00xxxxx
 
-        ;; Prepare 32-bit pointer for loading onboarding utility to $0801
-        ;; ($07FF so that 2-byte length header is effectively skipped)
-        lda #$FF
-        sta <dos_file_loadaddress+0
-        lda #$07
-        sta <dos_file_loadaddress+1
-	lda #$00
-        sta <dos_file_loadaddress+2
-        sta <dos_file_loadaddress+3
+	;; Copy program down
+        !8 $00 ;; no more options
+	;; F018A DMA list
+        !8 $00 ;; copy + not chained request
+        !16 $77FF ;; size of copy 
+        !16 $0000 ;; starting addr 
+        !8 $04   ;; of bank $5
+        !16 $07FF ;; destination address is $0801 - 2
+        !8 $00   ;; of bank $0
+        !16 $0000 ;; modulo (unused)
 
-        jsr dos_readfileintomemory
-	;; Don't try to run util if it can't be found
-	bcs loaded_onboarding
 
-	;; Couldn't load onboarding programme, so go to utility menu
-	;; as a fall-back, since we can't safely proceed from here.
-	jmp utility_menu
 	
-loaded_onboarding:	
+launch_onboarding:
+
+	;; DMA copy the onboarding utility into place
+        lda #$ff
+        sta $d702
+        ;; lda #$ff
+        sta $d704  ;; dma list is in top MB of address space
+        lda #>onboarding_dmalist
+        sta $d701
+        ;; Trigger enhanced DMA
+        lda #<onboarding_dmalist
+        sta $d705	
+	
 	;; Run util from in hypervisor context, similarly to how we run the flash menu
 	;; this means the whole thing must be less than ~29KB in size, to not run over
 	;; $8000-$BFFF where the hypervisor is mapped
-	lda $080d
-	cmp #$4c
-	beq @start_onboarding
-	jmp no_onboarding
-@start_onboarding
 	jmp run_util_in_hypervisor_context
 	
 syspart_open:
@@ -180,6 +182,10 @@ syspart_openerror:
         rts
 
 do_launch_onboarding:
+	;; Only try onboarding on first boot
+	lda first_boot_flag_instruction
+	cmp #$4c
+	beq no_onboarding
 	jmp launch_onboarding
 	
         ;; XXX These should return success/failure indication
