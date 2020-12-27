@@ -297,7 +297,8 @@ void main(void)
       lpoke(0xffd6e0e,0x80);
 
       // write config sector back
-      lpoke(0xffd3680,0x03);
+      lpoke(0xffd3680,0x57);  // open write gate
+      lpoke(0xffd3680,0x03);  // actually write the sector
       while (lpeek(0xffd3680)&0x03) continue;
 
       // Now restart by reconfiguring the FPGA
