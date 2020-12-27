@@ -25,6 +25,8 @@
 ;The Save tab options must not be changed as the code relies on them being 
 ;defined in a particular way (although the text of the buttons can be changed).
 ;
+;The number of screen lines used to display a page's options must not exceed 20.
+;
 ;The pages are listed in an index for each tab such that the code can traverse
 ;the lists as defined here.  The number of pages in a tab must also be defined.
 ;
@@ -46,7 +48,6 @@
 ;	40	- 	Blank line, no data
 ;	50	-	MAC Address input.  requires 1 string (label), word
 ;			offset and data	area of 6 bytes for storage of address.
-;       60      -       time/date
 ;	
 ;===============================================================================
 
@@ -161,6 +162,21 @@ videoOptions0:
 	.defPStr	"video mode:"
 	.defPStr	"pal  50hz (720*576)"
 	.defPStr	"ntsc 60hz (720*480)"
+
+	.byte		$20
+	.word		$000D
+	.byte		$02
+	.defPStr	"digital video:"
+	.defPStr	"enhanced (with audio)"
+	.defPStr	"dvi only (no audio)"
+
+	.byte		$20
+	.word		$000E
+	.byte		$80
+	.defPStr	"onboarding utility on next boot:"
+	.defPStr	"yes"
+	.defPStr	"no"
+
 	.byte		$00
 videoOptions0_end:
 	.assert		(videoOptions0_end - videoOptions0) < 256, error, "Video Options 0 too large!"
@@ -190,11 +206,12 @@ audioOptions0:
 	.defPStr	"yes"
 
 	.byte		$20
-	.word		$000c
-	.byte		$01
-	.defPStr	"sfx cart emulation @ $df40:"
-	.defPStr	"off"
-	.defPStr	"on"
+	.word		$0003
+	.byte		$80
+	.defPStr	"dac algorithm:"
+	.defPStr	"pdm"
+	.defPStr	"pwm"
+
 
 	.byte		$20
 	.word		$0003
@@ -206,9 +223,15 @@ audioOptions0:
 	.byte		$00
 audioOptions0_end:
 	.assert		(audioOptions0_end - audioOptions0) < 256, error, "Audio Options 0 too large!"
+
+audioOptions1:
+audioOptions1_end:
+	.assert		(audioOptions1_end - audioOptions1) < 256, error, "Audio Options 1 too large!"
 	
+
 audioPageIndex:
 	.word		audioOptions0
+;	.word		audioOptions1
 
 
 ;-------------------------------------------------------------------------------

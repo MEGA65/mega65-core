@@ -2,7 +2,7 @@
 ;M65 Configuration Utility
 ;-------------------------
 ;
-;Version 00.99 beta
+;Version 00.99D alpha
 ;
 ;Written by Daniel England for the MEGA65 project.
 ;
@@ -44,6 +44,22 @@
 	.else
 	.setcpu		"4510"
 	.endif
+	
+	.macro	LDA_HYPERIO
+	.if	.not C64_MODE
+		LDA	(ptrTempData), Y
+	.else
+		LDA	#$00
+	.endif
+	.endmacro
+	
+	.macro	STA_HYPERIO
+	.if	.not C64_MODE
+		STA	(ptrTempData), Y
+	.endif
+	.endmacro
+	
+		
 ;-------------------------------------------------------------------------------
 
 
@@ -51,7 +67,8 @@
 ;Constants
 ;-------------------------------------------------------------------------------
 optLineOffs	=	$04
-optLineMaxC	=	(25 - optLineOffs - 2)
+;optLineMaxC	=	(25 - optLineOffs - 2)
+optLineMaxC	=	(25 - 5)
 tabMaxCount	=	$05			;Don't include "Save".
 
 
@@ -112,7 +129,20 @@ keyF7		=	$F7
 keyF8		=	$F8
 keyF9		=	$F9
 ;keyF10		=	$FA			;Doesn't work?
+keyHELP		= $1F
 	.endif
+
+;Greys
+;CLR_BCKGND	=	$0B
+;CLR_HIGHLT	=	$01
+;CLR_CTRLFC	=	$0F
+;CLR_INACTV	=	$0C
+
+;Familiar
+CLR_BCKGND	=	$0E
+CLR_HIGHLT	=	$01
+CLR_CTRLFC	=	$0F
+CLR_INACTV	=	$04
 
 ;-------------------------------------------------------------------------------
 
@@ -186,26 +216,26 @@ headerColours:
 	.byte		$02, $02, $07, $07, $05, $05, $06, $06
 	
 menuLine:
-	.byte		"inputBchipsetBvideoBaudioBnetwork   save"
+	.byte		"inputBchipsetBvideoBaudioBnetwork  Bdone"
 footerLine:
 	.byte		"                                page  / "
 
 helpText0:
-	.byte		"version 00.99c             "
+	.byte		": version 00.99d alpha     "
 helpText1:
-	.byte		"cursor up/down to navigate "
+	.byte		": crsr up/down to navigate "
 helpText2:
-	.byte		"f1/f2 to change tabs       "
+	.byte		": f1/f2 - change tabs      "
 helpText3:
 	;;  For now none of the tabs have multiple pages, so just repeat f1/f2 instruction
-	;; 	.byte		"f3/f4 to change pages      " 
-	.byte		"f1/f2 to change tabs       "
+;; 	.byte		": f3/f4 - change pages     " 
+	.byte		": f1/f2 - change tabs      "
 helpText4:
-	.byte		"f7 for save and exit       "
+	.byte		": f7 - save and exit opts  "
 helpText5:
-	.byte		"space or return for toggle "
+	.byte		": space or return to toggle"
 helpText6:
-	.byte		"any key for data entry     "
+	.byte		": any key for data entry   "
 
 helpTexts:
 	.word		helpText0, helpText1, helpText2, helpText3
@@ -227,7 +257,7 @@ saveConfSave0:
 saveConfFactory0:
        .defPStr        "the factory defaults and continue?"
 saveConfDflt0:
-	.defPStr	"as the default and exit?"
+	.defPStr	"as the defaults and exit?"
 	
 saveConfRest0:
 	.defPStr        "reset your machine now"
@@ -252,8 +282,9 @@ pageOptions:
 init:
 ;-------------------------------------------------------------------------------
 ; 	Init screen
-		LDA 	#$0B			;Border colour
+		LDA 	#CLR_BCKGND			;Border colour
 		STA 	$D020
+		
 		LDA 	#$00			;Screen colour
 		STA 	$D021
 
@@ -275,8 +306,8 @@ init:
 	.if	.not DEBUG_MODE
 	.if     .not C64_MODE
 		JSR	hypervisorLoadOrResetConfig
-	.endif
 		JSR	checkMagicBytes
+	.endif
 	.endif
 		
 		JSR	initMouse
@@ -483,14 +514,12 @@ hypervisorSaveConfig:
 		NOP
 		RTS
 
+	.if     .not C64_MODE
 ;-------------------------------------------------------------------------------
 hypervisorLoadOrResetConfig:	
 ;-------------------------------------------------------------------------------
 ;;      Load current options sector from SD card using Hypervisor trap		
-
-	;; As configure starts very early in the boot process, we can't rely on
-	;; HYPPO having probed the SD card busses, so we need to do it here.
-	
+		
 ;;      Hypervisor trap to read config
 		LDA	#$00
 		STA 	$D642
@@ -536,7 +565,8 @@ getDefaultSettings:
 	;; MAC address
 	;; Generate a random one
 		LDX	#$05
-@macrandom:	PHX
+@macrandom:	
+		PHX
 		JSR	getRandomByte
 		PLX
 		STA	optDfltBase+6, X
@@ -580,6 +610,8 @@ readRealTimeClock:
 	INZ
 	NOP
 	LDA (zp32),Z
+	;; Hide bit7 which indicates 24 hour time
+	and #$7f
 	STA optDfltBase+$1f0     	; hours
 	STA optSessBase+$1f0     	; hours
 	sta rtc_values+$0
@@ -635,7 +667,6 @@ getRandomByte:
 
 	        RTS
 	
-	
 ;-------------------------------------------------------------------------------
 checkMagicBytes:
 ;-------------------------------------------------------------------------------
@@ -669,6 +700,7 @@ checkMagicBytes:
 	cmp #$fe
 	beq @repairSettings
 	sta $d610
+	
 	JMP	@halt
 
 	;; User pressed F14, so reset to default settings and continue
@@ -677,8 +709,10 @@ checkMagicBytes:
 	sta $d610
 	jsr getDefaultSettings
 	
+	
 @exit:
 		RTS
+	.endif
 
 
 ;-------------------------------------------------------------------------------
@@ -865,7 +899,10 @@ doReadOpt:
 		TYA
 		PHA
 		LDY	#$00
-		LDA	(ptrTempData), Y
+;		LDA	(ptrTempData), Y
+		
+		LDA_HYPERIO
+		
 		STA	readTemp1
 		PLA
 		TAY
@@ -917,7 +954,10 @@ doReadOpt:
 		LDX	#$00
 @loopStr:
 		LDY	readTemp0
-		LDA	(ptrTempData), Y
+
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+
 		INC	readTemp0
 		
 		LDY	readTemp2
@@ -961,7 +1001,10 @@ doReadOpt:
 		LDX	#$00
 @loopMAC:
 		LDY	readTemp0
-		LDA	(ptrTempData), Y
+
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+		
 		INC	readTemp0
 		
 		LDY	readTemp2
@@ -1208,7 +1251,10 @@ doSaveOpt:
 		TYA
 		PHA
 		LDY	#$00
-		LDA	(ptrTempData), Y
+		
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+
 		STA	readTemp1		;current data in readTemp1
 		
 		PLA
@@ -1236,8 +1282,10 @@ doSaveOpt:
 
 @contTogg:
 		LDY	#$00			;store in current data
-		STA	(ptrTempData), Y
-		
+
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+
 		LDY	readTemp0		;skip past type, offset and flags
 		INY
 		INY
@@ -1275,7 +1323,10 @@ doSaveOpt:
 		INC	readTemp2
 		
 		LDY	readTemp0
-		STA	(ptrTempData), Y
+		
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+		
 		INC	readTemp0
 		
 		INX
@@ -1319,7 +1370,10 @@ doSaveOpt:
 		INC	readTemp2
 		
 		LDY	readTemp0
-		STA	(ptrTempData), Y
+
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+		
 		INC	readTemp0
 		
 		INX
@@ -1553,6 +1607,8 @@ doAppMACChar:
 	cmp #1
 	bne notRTCTab
 
+	.if     .not C64_MODE
+	
 	;;  Write-enable the clock
 	ldz #8
 	NOP
@@ -1573,6 +1629,8 @@ doAppMACChar:
 	jsr i2cwait
 	INZ
 	lda rtc_values+0
+	;; Always store RTC time in 24-hour format
+	ora #$80
 	NOP
 	STA (zp32),z
 	jsr i2cwait
@@ -1599,6 +1657,8 @@ doAppMACChar:
 	NOP
 	STA (zp32),z
 	LDZ #0	
+	
+	.endif
 	
 notRTCTab:		
 		RTS
@@ -1947,8 +2007,12 @@ doPerformSaveAction:
 @tstFactorySys:
 		CPX	#$04
 		BNE	@tstSaveSys
+		
+	.if .not C64_MODE
 		JSR	getDefaultSettings
 		JSR	readDefaultOpts
+	.endif
+		
 		RTS
 	
 @tstSaveSys:		
@@ -2071,14 +2135,14 @@ setupInputPage0:
 ;-------------------------------------------------------------------------------
 highlightInputTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$00
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2091,8 +2155,10 @@ highlightInputTab:
 ;-------------------------------------------------------------------------------
 setupChipsetPage0:
 ;-------------------------------------------------------------------------------
-	;; Re-read RTC everytime we display a tab, so to give fresh time
+	.if .not C64_MODE
+;; 	Re-read RTC everytime we display a tab, so to give fresh time
 		JSR readRealTimeClock
+	.endif
 
 		LDA	#$00
 		STA	pgeSelected
@@ -2110,14 +2176,14 @@ setupChipsetPage0:
 ;-------------------------------------------------------------------------------
 highlightChipsetTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$06
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2146,14 +2212,14 @@ setupVideoPage0:
 ;-------------------------------------------------------------------------------
 highlightVideoTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$0E
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2182,14 +2248,14 @@ setupAudioPage0:
 ;-------------------------------------------------------------------------------
 highlightAudioTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$14
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2218,14 +2284,14 @@ setupNetworkPage0:
 ;-------------------------------------------------------------------------------
 highlightNetworkTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$1A
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2254,14 +2320,14 @@ setupSavePage0:
 ;-------------------------------------------------------------------------------
 highlightSaveTab:
 ;-------------------------------------------------------------------------------
-		LDX	#$01
+		LDX	#CLR_HIGHLT
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
 		LDY	#$24
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2299,14 +2365,14 @@ hotTrackMouse:
 		JMP     @exit
 
 @update:
-		LDA	YPos
-		STA	mouseTemp0
+		LDA		YPos
+		STA		mouseTemp0
 		STA     mouseLastY
-		LDA	YPos + 1
-		STA	mouseTemp0 + 1
+		LDA		YPos + 1
+		STA		mouseTemp0 + 1
 		STA     mouseLastY + 1
 
-		LDX	#$02
+		LDX		#$02
 @yDiv8Loop:
 		LSR
 		STA	mouseTemp0 + 1
@@ -2365,14 +2431,14 @@ hotTrackMouse:
 		TXA
 		PHA
 
-		LDA	#$0B
+		LDA	#CLR_BCKGND
 		JSR	doHighlightSelected
 
 		PLA
 		TAX
 
 		STX	selectedOpt
-		LDA	#$01
+		LDA	#CLR_HIGHLT
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
@@ -2494,7 +2560,7 @@ doMouseClick:
 		TXA
 		PHA
 
-		LDA	#$0B
+		LDA	#CLR_BCKGND
 		JSR	doHighlightSelected
 
 		PLA
@@ -2596,7 +2662,7 @@ doClickMenu:
 		JMP	@tstUpdate
 		
 @tstSaveTab:
-		CMP	#$27
+		CMP	#$24
 		BCC	@exit
 		
 		LDA	#$05
@@ -2621,7 +2687,7 @@ doClickFooter:
 ;-------------------------------------------------------------------------------
 		LDA	mouseXCol
 		CMP	#$25
-		BNE 	@tstPrior
+		BNE @tstPrior
 		
 		JSR	moveNextPage
 		JSR	displayOptionsPage
@@ -2644,7 +2710,7 @@ moveTabLeft:
 ;-------------------------------------------------------------------------------
 		LDX	tabSelected
 		INX
-		CPX	#tabMaxCount
+		CPX	#(tabMaxCount + 1)
 		BCC	@done
 		
 		LDX	#$00
@@ -2663,7 +2729,7 @@ moveTabRight:
 		DEX
 		BPL	@done
 		
-		LDX	#tabMaxCount - 1
+		LDX	#tabMaxCount
 		
 @done:
 		STX	tabSelected
@@ -2725,7 +2791,7 @@ moveSelectDown:
 		CPX	#$FF
 		BEQ	@exit
 
-		LDA	#$0B
+		LDA	#CLR_BCKGND
 		JSR	doHighlightSelected
 		
 		LDX	selectedOpt
@@ -2763,7 +2829,7 @@ moveSelectUp:
 		CPX	#$FF
 		BEQ	@exit
 		
-		LDA	#$0B
+		LDA	#CLR_BCKGND
 		JSR	doHighlightSelected
 		
 		LDX	selectedOpt
@@ -3053,7 +3119,7 @@ displayOptionsPage:
 		LDY	#$00
 		STY	crsrIsDispl
 		
-		JSR 	clearScreen
+		JSR clearScreen
 		
 		JSR	highlightSelectedTab
 		JSR	updateFooter
@@ -3511,7 +3577,7 @@ doDispStringOpt:
 		PHA
 		
 		LDY	#$00			;Set colour for input field
-		LDA	#$0C
+		LDA	#CLR_CTRLFC
 @loop0:
 		STA	(ptrTempData), Y
 		INY
@@ -3621,7 +3687,7 @@ doDispMACOpt:
 		PHA
 		
 		LDY	#$00			;Set colour for input field
-		LDA	#$0C
+		LDA	#CLR_CTRLFC
 @loop0:
 		STA	(ptrTempData), Y
 		INY
@@ -3786,7 +3852,7 @@ doDispOptHdrLbl:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1
 		
-		LDA	#$0C			;Set colour for opt indicator
+		LDA	#CLR_CTRLFC		;Set colour for opt indicator
 		LDY	#$00
 		STA	(ptrTempData), Y
 		
@@ -3869,7 +3935,7 @@ doDispOptTogLbl:
 		ADC	#$00
 		STA	ptrTempData + 1
 		
-		LDA	#$0C			;Set colour for opt indicator
+		LDA	#CLR_CTRLFC			;Set colour for opt indicator
 		LDY	#$00
 		STA	(ptrTempData), Y
 		
@@ -4024,7 +4090,8 @@ clearScreen:
 		STA 	$0500, X
 		STA 	$0600, X
 		STA 	$0700, X
-		LDA 	#$0B			;Colour memory
+		
+		LDA 	#CLR_BCKGND			;Colour memory
 		STA 	$D800, X
 		STA 	$D900, X
 		STA 	$DA00, X
@@ -4070,7 +4137,7 @@ clearScreen:
 		ORA 	#$80			;Output in reverse
 		STA 	$0428, Y
 		
-		LDA	#$0C
+		LDA	#CLR_INACTV
 		STA	$D828, Y
 		
 		LDA 	footerLine, Y		
@@ -4078,7 +4145,7 @@ clearScreen:
 		ORA 	#$80			;Output in reverse
 		STA 	$07C0, Y
 		
-		LDA	#$0C
+		LDA	#CLR_INACTV
 		STA	$DBC0, Y
 		
 		DEY
@@ -4602,10 +4669,10 @@ MIRQ:
 		CMP	helpCntr
 		BNE	@cont0
 
-	;; Update help message approximately every 2 seconds
-		LDA	#<120
+	;; Update help message approximately every 5 seconds
+		LDA	#<350
 		STA	helpCntr
-		LDA	#>120
+		LDA	#>350
 		STA	helpCntr + 1
 		
 		LDA	currHelpTxt
