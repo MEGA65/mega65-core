@@ -270,6 +270,38 @@ void main(void)
       if (tm.tm_year>299) tm.tm_year=0;
       setrtc(&tm);
       break;
+    case 0x0d: case 0x0a:
+      // Return = save settings and proceed.
+      /*
+	We write a valid default configuration sector.
+      */
+
+      // First make sure we have the config sector freshly loaded
+      lpoke(0xffd3681,0x01);
+      lpoke(0xffd3682,0x00);
+      lpoke(0xffd3683,0x00);
+      lpoke(0xffd3684,0x00);
+      lpoke(0xffd3680,0x02);
+      while (lpeek(0xffd3680)&0x03) continue;
+
+      // Write version header
+      lpoke(0xffd6e00,0x01);
+      lpoke(0xffd6e01,0x01);
+
+      // Write PAL/NTSC flag
+      if (video_mode&1) lpoke(0xffd6e02,0x00); else lpoke(0xffd6e02,0x80);
+      // Write DVI/audio enable flag
+      if (video_mode&2) lpoke(0xffd6e0d,0x02); else lpoke(0xffd6e0d,0x00);
+      
+      // Write onboarding complete byte
+      lpoke(0xffd6e0e,0x80);
+
+      // write config sector back
+      lpoke(0xffd3680,0x03);
+      while (lpeek(0xffd3680)&0x03) continue;
+
+      // Now restart by reconfiguring the FPGA
+      reconfig_fpga(0);
     }
 
   }
