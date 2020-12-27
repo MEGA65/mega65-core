@@ -148,9 +148,6 @@ char *month_name(int month)
 
 void main(void)
 {
-  unsigned char valid;
-  unsigned char selected=0;
-  
   mega65_io_enable();
 
   // Disable OSK
@@ -231,6 +228,46 @@ void main(void)
       if (c&1) tm.tm_sec++; else tm.tm_sec--;
       if (tm.tm_sec>127) tm.tm_sec=59;
       if (tm.tm_sec>59) tm.tm_sec=0;
+      setrtc(&tm);
+      break;
+    case 0xF9: case 0xFA:
+      if (c&1) tm.tm_mday++; else tm.tm_mday--;
+      if (!tm.tm_mday) tm.tm_mday=31;
+      if (tm.tm_mday>127) tm.tm_mday=31;
+      if (tm.tm_mday>31) tm.tm_mday=1;
+      switch (tm.tm_mon) {
+      case 2:
+	if (tm.tm_mday>29) tm.tm_mday=1;
+	if ((tm.tm_year&3)||(tm.tm_year==0)||(tm.tm_year==200))
+	  { if (tm.tm_mday>28) tm.tm_mday=1; }
+	break;
+      case 4: case 6: case 9: case 11:
+	if (tm.tm_mday>30) tm.tm_mday=1;
+	break;
+      }
+      setrtc(&tm);
+      break;
+    case 0xFB: case 0xFC:
+      if (c&1) tm.tm_mon++; else tm.tm_mon--;
+      if (!tm.tm_mon) tm.tm_mon=12;
+      if (tm.tm_mon>127) tm.tm_mon=12;
+      if (tm.tm_mon>12) tm.tm_mon=1;
+      // Clip date to fit month
+      switch (tm.tm_mon) {
+      case 2:
+	if (tm.tm_mday>29) tm.tm_mday=29;
+	if ((tm.tm_year&3)||(tm.tm_year==0)||(tm.tm_year==200))
+	  { if (tm.tm_mday>28) tm.tm_mday=28; }
+	break;
+      case 4: case 6: case 9: case 11:
+	if (tm.tm_mday>30) tm.tm_mday=30;
+	break;
+      }
+      setrtc(&tm);
+      break;
+    case 0xFD: case 0xFE:
+      if (c&1) tm.tm_year++; else tm.tm_year--;
+      if (tm.tm_year>299) tm.tm_year=0;
       setrtc(&tm);
       break;
     }
