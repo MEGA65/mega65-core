@@ -215,6 +215,24 @@ void main(void)
       // DVI / Enhanced
       if (video_mode&2) POKE(0xD61A,0x02); else POKE(0xD61A,0x00);
       break;
+    case 0xF3: case 0xF4:
+      if (c&1) tm.tm_hour++; else tm.tm_hour--;
+      if (tm.tm_hour>127) tm.tm_hour=23;
+      if (tm.tm_hour>23) tm.tm_hour=0;
+      setrtc(&tm);
+      break;
+    case 0xF5: case 0xF6:
+      if (c&1) tm.tm_min++; else tm.tm_min--;
+      if (tm.tm_min>127) tm.tm_min=59;
+      if (tm.tm_min>59) tm.tm_min=0;
+      setrtc(&tm);
+      break;
+    case 0xF7: case 0xF8:
+      if (c&1) tm.tm_sec++; else tm.tm_sec--;
+      if (tm.tm_sec>127) tm.tm_sec=59;
+      if (tm.tm_sec>59) tm.tm_sec=0;
+      setrtc(&tm);
+      break;
     }
 
   }
