@@ -198,6 +198,12 @@ void main(void)
     printf("\n       F3 F5 F7 F9 F11 F13\n");
     POKE(0x286,1);
     printf("\n");
+
+    printf("Press ");
+    POKE(0x286,7);
+    printf("%cRETURN%c",0x12,0x92);
+    POKE(0x286,1);
+    printf(" when done to continue.\n");
     
     c=PEEK(0xD610);
     if (c) POKE(0xD610,0);
