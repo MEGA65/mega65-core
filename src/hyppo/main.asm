@@ -1447,9 +1447,6 @@ resetdisplay:
 pal_ntsc_minus_1:	
         lda #$80
         sta $d06f
-	;; Enable HDMI-compatible 48KHz audio 
-	lda #$01
-	sta $d61a
 
         ;; disable test pattern and various other strange video things that might be hanging around
         lda #$80
