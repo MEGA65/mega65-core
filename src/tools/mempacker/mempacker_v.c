@@ -113,8 +113,8 @@ int main(int argc,char **argv)
 		"always @(posedge clk)\n"
 		"begin\n"
 		"    if(we)\n"
-		"        ram[addr] = di;\n"
-		"    do = ram[addr];\n"
+		"        ram[addr] <= di;\n"
+		"    do <= ram[addr];\n"
 		"end\n"
 		"\n"
 		"endmodule\n");
