@@ -225,6 +225,8 @@ For ubuntu16, ```libpng12-0``` is already installed but that **does not work**.
 You need ```libpng-dev``` and apt will select ```libpng12-dev``` **which does work**.  
 ``` dpkg -l | grep libpng``` -> 1.2.54.
 
+* you have ```imagemagick``` installed (for /usr/bin/convert)
+
 1. you have a recent version of Xilinx Vivado installed.  
 .
 You must either install to directory ```/opt/Xilinx``` (to prevent issue with ```./vivado_wrapper```),  
