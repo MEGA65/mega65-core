@@ -13,6 +13,7 @@ OPHIS_MON= Ophis/bin/ophis -c
 JAVA = java
 KICKASS_JAR = KickAss/KickAss.jar
 
+VIVADO_DIR = /opt/Xilinx/Vivado
 VIVADO=	./vivado_wrapper
 
 ifdef USE_LOCAL_CC65
@@ -27,7 +28,10 @@ CA65=  $(CC65_PREFIX)ca65 --cpu 4510
 LD65=  $(CC65_PREFIX)ld65 -t none
 CL65=  $(CC65_PREFIX)cl65 --config src/tests/vicii.cfg
 
-GHDL=  ghdl/build/bin/ghdl
+ifeq (,$(wildcard oss-toolchain/Makefile))
+$(shell git submodule update --init)
+endif
+include oss-toolchain/Makefile
 
 CBMCONVERT=	cbmconvert/cbmconvert
 
@@ -40,6 +44,8 @@ VHDLSRCDIR=	$(SRCDIR)/vhdl
 VERILOGSRCDIR=	$(SRCDIR)/verilog
 
 SDCARD_DIR=	sdcard-files
+$(SDCARD_DIR):
+	mkdir -p $(SDCARD_DIR)
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -105,13 +111,6 @@ $(OPHIS):
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-
-$(GHDL):
-	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	git submodule init
-	git submodule update
-	( cd ghdl && ./configure --prefix=./build && make && make install )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
@@ -375,7 +374,7 @@ hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperra
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 
-i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl 
+i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
@@ -387,7 +386,7 @@ k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
 	$(GHDL) -m testkey
-	( ./testkey || $(GHDL) -r testkey ) 
+	( ./testkey || $(GHDL) -r testkey )
 
 
 fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
@@ -450,25 +449,22 @@ vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 # =======================================================================
 
 # ============================
-$(SDCARD_DIR)/CHARROM.M65:
+$(SDCARD_DIR)/CHARROM.M65: | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/CHARROM.M65)
-	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/CHARROM.M65 http://www.zimmers.net/anonftp/pub/cbm/firmware/characters/c65-caff.bin
 
 # ============================
-$(SDCARD_DIR)/MEGA65.ROM:
+$(SDCARD_DIR)/MEGA65.ROM: | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.ROM)
-	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111-390488-01.bin
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
-$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
+$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT) | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
-	mkdir -p $(SDCARD_DIR)
 	$(CBMCONVERT) -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
@@ -501,12 +497,12 @@ $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
 $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
 $(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
 	$(warning =============================================================)
@@ -516,7 +512,7 @@ $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
 $(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
 $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65)
 	$(warning =============================================================)
@@ -636,10 +632,9 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule update
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/build/mega65.rom $(UTILDIR)/megaflash.prg
+$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/build/mega65.rom $(UTILDIR)/megaflash.prg | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/build/mega65.rom@20000 $(UTILDIR)/megaflash.prg@50000
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
@@ -719,10 +714,10 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm $(BINDIR)/matrix_banner.txt:	.git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl $(SRCDIR)/monitor/version.a65 $(SRCDIR)/version.a65 $(SRCDIR)/version.asm $(BINDIR)/matrix_banner.txt:	.git $(SRCDIR)/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	./src/version.sh
+	./$(SRCDIR)/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
@@ -752,18 +747,16 @@ $(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSR
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
 
 
-$(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
+$(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	mkdir -p $(SDCARD_DIR)
 	/usr/$(BINDIR)/convert -colors 128 -depth 8 +dither assets/mega65_320x64.png $(BINDIR)/mega65_320x64_128colour.png
 	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by hyppo
-$(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
+$(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	mkdir -p $(SDCARD_DIR)
 	cp $(BINDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -794,12 +787,12 @@ $(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile $(TOOLDIR)/ftphelper.c
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CC) $(COPT) -o $(TOOLDIR)/mega65_ftp $(TOOLDIR)/mega65_ftp.c $(TOOLDIR)/ftphelper.c -lreadline
 
-$(TOOLDIR)/bitinfo:	$(TOOLDIR)/bitinfo.c Makefile 
+$(TOOLDIR)/bitinfo:	$(TOOLDIR)/bitinfo.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/bitinfo $(TOOLDIR)/bitinfo.c
 
-$(TOOLDIR)/bit2core:	$(TOOLDIR)/bit2core.c Makefile 
+$(TOOLDIR)/bit2core:	$(TOOLDIR)/bit2core.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/bit2core $(TOOLDIR)/bit2core.c
@@ -816,6 +809,12 @@ $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 
 #-----------------------------------------------------------------------------
 
+preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
+
+# Should Vivado or the oss-toolchain be used?
+ifdef USE_VIVADO
+# Use Vivado
+
 # Generate Vivado .xpr from .tcl
 vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v $(VERILOGSRCDIR)/monitor_mem.v
 	$(warning =============================================================)
@@ -823,9 +822,7 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIM
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
-preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
-
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v preliminaries
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v preliminaries | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	echo MOOSE $@ from $<
@@ -841,17 +838,95 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULA
 #	@echo "Design looks good. Generating bitfile."
 #	@echo "---------------------------------------------------------"
 
-	mkdir -p $(SDCARD_DIR)
 	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 	# Make a copy named after the commit and datestamp, for easy going back to previous versions
 	cp $@ $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.bit
 
-$(BINDIR)/%.mcs:	$(BINDIR)/%.bit
+$(BINDIR)/%.mcs:	$(BINDIR)/%.bit | $(SDCARD_DIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	mkdir -p $(SDCARD_DIR)
 	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
+
+else
+# Use oss-toolchain
+
+toolchain-dependencies: | $(VIVADO_DIR)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Installing dependencies )
+	( cd oss-toolchain && $(MAKE) install_dependencies ) \
+	&& apt install autoconf gperf flex bison default-jre libpng-dev imagemagick python2
+
+toolchain:
+	( cd oss-toolchain && $(MAKE) init && $(MAKE) )
+
+clean-toolchain:
+	( cd oss-toolchain && $(MAKE) clean )
+
+XILINX_BOARDS =
+
+define DECLARE_XILINX_BOARD=
+$1_FPGA_FAMILY = $2
+$1_FPGA_ARCH = $3
+$1_FPGA_PART = $4
+$1_VERILOG = $5
+$1_VHDL = $6
+XILINX_BOARDS += $1
+endef
+
+$(eval $(call DECLARE_XILINX_BOARD, \
+nexys4, artix7, xc7, xc7a100tcsg324-1, \
+$(wildcard $(VERILOGSRCDIR)/*.v), $(NEXYSVHDL)))
+
+$(eval $(call DECLARE_XILINX_BOARD, \
+nexys4ddr, artix7, xc7, xc7a100tcsg324-1, \
+$(wildcard $(VERILOGSRCDIR)/*.v), $(NEXYSVHDL)))
+
+$(eval $(call DECLARE_XILINX_BOARD, \
+nexys4ddr-widget, artix7, xc7, xc7a100tcsg324-1, \
+$(wildcard $(VERILOGSRCDIR)/*.v), $(NEXYSVHDL)))
+
+XILINXBINDIR=$(BINDIR)/xilinx
+$(XILINXBINDIR):
+	mkdir -p $(XILINXBINDIR)
+
+.PRECIOUS: $(XILINXBINDIR)/%.bba $(XILINXBINDIR)/%.bin $(XILINXBINDIR)/%.json $(XILINXBINDIR)/%.fasm $(XILINXBINDIR)/%.frames $(XILINXBINDIR)/%.bit
+
+$(XILINXBINDIR)/%.bba: | $(BBAEXPORT) $(XILINXBINDIR)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	python3 $(BBAEXPORT) --device $* --bba $@
+
+$(XILINXBINDIR)/%.bin: $(XILINXBINDIR)/%.bba | $(BBASM)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(BBASM) --le $< $@
+
+$(XILINXBINDIR)/%.frames: $(XILINXBINDIR)/%.fasm | $(FASM2FRAMES)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(shell bash -c "source $(XRAYENV) && python3 $(FASM2FRAMES) --db-root '$(XRAYDBDIR)/$($*_FPGA_FAMILY)' --part $($*_FPGA_PART) $< > $@ || ( rm $@ ; return 1 )" )
+
+define XILINX_BOARD_BUILDER=
+$$(XILINXBINDIR)/$1.json: $$($1_VERILOG) $$($1_VHDL) | $$(YOSYS) $$(GHDL_YOSYS_PLUGIN) preliminaries
+	$$(warning =============================================================)
+	$$(warning ~~~~~~~~~~~~~~~~> Making: $$@)
+	$$(GHDL_YOSYS) -p "ghdl $$($1_VHDL) -e gs4510; read_verilog $$($1_VERILOG); synth_xilinx -flatten -abc9 -arch $$($1_FPGA_ARCH) -top cpu6502; write_json $$@"
+
+$$(XILINXBINDIR)/$1.fasm: $$(XILINXBINDIR)/$$($1_FPGA_PART).bin $$(XILINXBINDIR)/$1.json | $$(NEXTPNR)
+	$$(warning =============================================================)
+	$$(warning ~~~~~~~~~~~~~~~~> Making: $$@)
+	$$(NEXTPNR) --chipdb $$(XILINXBINDIR)/$$($1_FPGA_PART).bin --xdc $$(VHDLSRCDIR)/$1.xdc --json $$(XILINXBINDIR)/$1.json --write $$(XILINXBINDIR)/$1_routed.json --fasm $$@
+
+$$(BINDIR)/$1.bit: $$(XILINXBINDIR)/$1.frames | $$(XC7FRAMES2BIT) $$(SDCARD_DIR)
+	$$(warning =============================================================)
+	$$(warning ~~~~~~~~~~~~~~~~> Making: $$@)
+	$$(shell bash -c "source $$(XRAYENV) && $$(XC7FRAMES2BIT) --part_file '$$(XRAYDBDIR)/$$($1_FPGA_FAMILY)/$$($1_FPGA_PART)/part.yaml' --part_name $$($1_FPGA_PART) --frm_file $$< --output_file $$@" )
+endef
+$(foreach B,$(XILINX_BOARDS),$(eval $(call XILINX_BOARD_BUILDER,$B)))
+# bin/nexys4.bit, bin/nexys4ddr.bit, bin/nexys4ddr-widget.bit, etc.
+
+endif
 
 $(BINDIR)/ethermon:	$(TOOLDIR)/ethermon.c
 	$(warning =============================================================)
@@ -894,6 +969,7 @@ clean:
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
+	rm -rf $(XILINXBINDIR)
 
 cleangen:
 	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65

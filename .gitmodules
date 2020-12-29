@@ -13,9 +13,6 @@
 [submodule "iverilog"]
 	path = iverilog
 	url = https://github.com/steveicarus/iverilog.git
-[submodule "ghdl"]
-	path = ghdl
-	url = https://github.com/ghdl/ghdl.git
 [submodule "src/mega65-freezemenu"]
 	path = src/mega65-freezemenu
 	url = https://github.com/MEGA65/mega65-freezemenu.git
