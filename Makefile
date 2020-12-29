@@ -292,40 +292,46 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/UART_TX_CTRL.v \
 			$(VERILOGSRCDIR)/uart_rx.v
 
+XILINX_VIVADO_LIB_DIR=xilinx-vivado
+UNISIMDIR=$(XILINX_VIVADO_LIB_DIR)/unisim
+$(UNISIMDIR): $(GHDL)
+	$(GHDL_LIB)/ghdl/vendors/compile-xilinx-vivado.sh --unisim --ghdl "$(GHDL_BIN)"
 
-simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+GHDL_M = $(GHDL) -m -P$(XILINX_VIVADO_LIB_DIR)
+
+simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(SIMULATIONVHDL)
-	$(GHDL) -m cpu_test
+	$(GHDL_M) cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
 
-nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
+nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL) | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
-	$(GHDL) -m cpu_test
+	$(GHDL_M) cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
 
 
 KVFILES=$(VHDLSRCDIR)/test_kv.vhdl $(VHDLSRCDIR)/keyboard_to_matrix.vhdl $(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 	$(VHDLSRCDIR)/widget_to_matrix.vhdl $(VHDLSRCDIR)/ps2_to_matrix.vhdl $(VHDLSRCDIR)/keymapper.vhdl \
 	$(VHDLSRCDIR)/keyboard_complex.vhdl $(VHDLSRCDIR)/virtual_to_matrix.vhdl
-kvsimulate:	$(GHDL) $(KVFILES)
+kvsimulate:	$(GHDL) $(KVFILES) | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(KVFILES)
-	$(GHDL) -m test_kv
+	$(GHDL_M) test_kv
 	./test_kv || $(GHDL) -r test_kv
 
 OSKFILES=$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl
-osksimulate:	$(GHDL) $(OSKFILES) $(TOOLDIR)/osk_image
+osksimulate:	$(GHDL) $(OSKFILES) $(TOOLDIR)/osk_image | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(OSKFILES)
-	$(GHDL) -m test_osk
+	$(GHDL_M) test_osk
 	( ./test_osk || $(GHDL) -r test_osk ) 2>&1 | $(TOOLDIR)/osk_image
 
 MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
@@ -337,11 +343,11 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl \
 	$(VHDLSRCDIR)/termmem.vhdl
 
-mmsimulate:	$(GHDL) $(MMFILES) $(TOOLDIR)/osk_image
+mmsimulate:	$(GHDL) $(MMFILES) $(TOOLDIR)/osk_image | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MMFILES)
-	$(GHDL) -m test_matrix
+	$(GHDL_M) test_matrix
 	( ./test_matrix || $(GHDL) -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
 
 MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
@@ -352,77 +358,77 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
-mfmsimulate: $(GHDL) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
+mfmsimulate: $(GHDL) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MFMFILES)
-	$(GHDL) -m test_mfm
+	$(GHDL_M) test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
 
-pdmsimulate: $(GHDL) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+pdmsimulate: $(GHDL) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
-	$(GHDL) -m test_pdm
+	$(GHDL_M) test_pdm
 	( ./test_pdm || $(GHDL) -r test_pdm )
 
-hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/reconfig.vhdl $(VHDLSRCDIR)/icape2sim.vhdl
+hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/reconfig.vhdl $(VHDLSRCDIR)/icape2sim.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/reconfig.vhdl $(VHDLSRCDIR)/icape2sim.vhdl
-	$(GHDL) -m test_hyperram
+	$(GHDL_M) test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 
-i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
+i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
-	$(GHDL) -m test_i2c
+	$(GHDL_M) test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
 
-k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
-	$(GHDL) -m testkey
+	$(GHDL_M) testkey
 	( ./testkey || $(GHDL) -r testkey )
 
 
-fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
-	$(GHDL) -m test_framepacker
+	$(GHDL_M) test_framepacker
 	( ./test_framepacker || $(GHDL) -r test_framepacker )
 
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
 
-miimsimulate:	$(GHDL) $(MIIMFILES)
+miimsimulate:	$(GHDL) $(MIIMFILES) | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MIIMFILES)
-	$(GHDL) -m test_miim
+	$(GHDL_M) test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
 
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
-asciisimulate:	$(GHDL) $(ASCIIFILES)
+asciisimulate:	$(GHDL) $(ASCIIFILES) | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(ASCIIFILES)
-	$(GHDL) -m test_ascii
+	$(GHDL_M) test_ascii
 	( ./test_ascii || $(GHDL) -r test_ascii )
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
-spritesimulate:	$(GHDL) $(SPRITEFILES)
+spritesimulate:	$(GHDL) $(SPRITEFILES) | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(SPRITEFILES)
-	$(GHDL) -m test_sprite
+	$(GHDL_M) test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
 
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
@@ -435,11 +441,11 @@ $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
-vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
+vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl | $(UNISIMDIR)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
-	$(GHDL) -m frame_test
+	$(GHDL_M) frame_test
 	./frame_test || $(GHDL) -r frame_test
 
 
@@ -911,7 +917,7 @@ define XILINX_BOARD_BUILDER=
 $$(XILINXBINDIR)/$1.json: $$($1_VERILOG) $$($1_VHDL) | $$(YOSYS) $$(GHDL_YOSYS_PLUGIN) preliminaries
 	$$(warning =============================================================)
 	$$(warning ~~~~~~~~~~~~~~~~> Making: $$@)
-	$$(GHDL_YOSYS) -p "ghdl $$($1_VHDL) -e gs4510; read_verilog $$($1_VERILOG); synth_xilinx -flatten -abc9 -arch $$($1_FPGA_ARCH) -top cpu6502; write_json $$@"
+	$$(GHDL_YOSYS) -p "ghdl --mb-comments $$($1_VHDL) -e gs4510; read_verilog $$($1_VERILOG); synth_xilinx -flatten -abc9 -arch $$($1_FPGA_ARCH) -top cpu6502; write_json $$@"
 
 $$(XILINXBINDIR)/$1.fasm: $$(XILINXBINDIR)/$$($1_FPGA_PART).bin $$(XILINXBINDIR)/$1.json | $$(NEXTPNR)
 	$$(warning =============================================================)
