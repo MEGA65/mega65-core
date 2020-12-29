@@ -220,7 +220,7 @@ decoder3to8 dec3to8(ir[6:4], ir_dec);
 
 
   // Branch-to-self detection
-  // synthesis translate off
+  // synthesis translate_off
   reg [15:0] last_fetch_addr;
   always @(posedge clk)
     begin
@@ -242,6 +242,6 @@ decoder3to8 dec3to8(ir[6:4], ir_dec);
       $display("FETCH ADDR: %04x byte: %02x  1C: %d 2C: %d  pc_hold: %d intg: %g",address,ir_next,onecycle,twocycle,pc_hold, intg);
     end
   end
-  // synthesis translate on
+  // synthesis translate_on
 
 endmodule
