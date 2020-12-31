@@ -124,7 +124,6 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/vicii_sprites.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_rx.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/uart_rx_buffered.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
@@ -419,10 +418,6 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/UART_TX_CTRL.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/uart_rx_buffered.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

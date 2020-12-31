@@ -200,7 +200,7 @@ reg uart_char_waiting;
 UART_TX_CTRL tx_ctrl(.SEND(tx_send),.BIT_TMR_MAX(bit_rate_divisor_reg),
                      .DATA(tx_data),.CLK(clk),.READY(tx_ready),.UART_TX(tx));
                      
-uart_rx_buffered rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART_RX(rx),
+uart_rx rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART_RX(rx),
                 .data(rx_data), .data_ready(rx_data_ready), .data_acknowledge(rx_data_ack));
                 
 // MON_UART_BITRATE_LO, MON_UART_BITRATE_HI
