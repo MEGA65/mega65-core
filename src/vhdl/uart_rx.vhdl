@@ -31,8 +31,6 @@ signal uart_rx_bit : std_logic := '1';
 
 signal data_ready_internal : std_logic := '0';
 
-signal rx_gone_high : std_logic := '0';
-
 type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
 
 begin  -- behavioural
@@ -59,10 +57,6 @@ begin  -- behavioural
       if uart_rx_debounced = x"F" and uart_rx_bit = '0' then
         uart_rx_bit <= '1';
       end if;
-
-      if uart_rx_debounced = x"F" then
-        rx_gone_high <= '1';
-      end if;
       
       -- Update bit clock
       if to_integer(bit_timer)<to_integer(bit_rate_divisor) then
@@ -72,7 +66,7 @@ begin  -- behavioural
       end if;
       -- Look for start of first bit
       -- XXX Should debounce this!
-      if rx_state = Idle and uart_rx_bit='0' and rx_gone_high = '1' then
+      if rx_state = Idle and uart_rx_bit='0' then
         report "UART"&name&": start receiving byte (divider = $"
           & to_hstring(bit_rate_divisor) & ")" severity note;
         -- Start receiving next byte
@@ -118,8 +112,6 @@ begin  -- behavioural
       if (bit_timer = 0 or uart_rx_bit = '1') and rx_state = WaitForRise then
 --        report "UART"&name&": Cancelling reception in WaitForRise";
         rx_state <= Idle;
-        -- Don't keep receiving $00 if UART_RX stays low.
-        rx_gone_high <= '0';
       end if;
     end if;
   end process;
