@@ -10,10 +10,11 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <string.h>
+#include <unistd.h>
 
 int util_len=0;
 unsigned char header_magic[4]={'M','6','5','U'};
-unsigned char util_body[32*1024];
+unsigned char util_body[(32+1)*1024];
 
 // XXX - We really should have a checksum or other integrity check
 #define HEADER_LEN 44
@@ -50,11 +51,6 @@ int load_util(char *filename, int ar_offset)
     exit(-1);
   }
 
-  int next_offset=ar_offset+HEADER_LEN+len;
-  header.next_lo=next_offset&0xff;
-  header.next_hi=(next_offset>>8)&0xff;
-
-  
   // Search utility for name string
   header.name[0]=0;
   for(int i=0;i<len;i++)
@@ -69,13 +65,51 @@ int load_util(char *filename, int ar_offset)
       }
     }
   for(int i=0;i<4;i++) header.magic[i]=header_magic[i];
-  header.length_lo=len&0xff;
-  header.length_hi=(len>>8)&0xff;
 
   if (!header.name[0]) {
     fprintf(stderr,"ERROR: Utility does not contain PROP.M65U.NAME= string.\n");
     exit(-1);
   }
+
+#ifdef DONT_EXOMIZE
+  fclose(f);
+#else
+  // Exomize pack the utility
+  {
+    char cmd[1024];
+    unlink("exomized.prg");
+    snprintf(cmd,1024,"exomizer sfx sys -o exomized.prg %s",filename);
+    system(cmd);
+
+    f=fopen("exomized.prg","rb");
+    if (!f) {
+      fprintf(stderr,"Could not read packed utility from exomized.prg\n");
+      exit(-1);
+    }
+    len=0;
+    int bytes;
+    while((bytes=fread(&util_body[len],1,32*1024-len,f))>0) {
+      len+=bytes;
+    }
+
+    // Now post-pend PROP.M65U.NAME=.... string so that HYPPO's utility menu
+    // can still find it.
+    snprintf((char *)&util_body[len],1024,"PROP.M65U.NAME=%s",header.name);
+    len+=strlen((char *)&util_body[len]);
+    
+    if (len>=32*1024) {
+      fprintf(stderr,"ERROR: Utility '%s' packs to >=32KB (utility menu context has hypervisor in upper 32KB)\n",filename);
+      exit(-1);
+    }        
+  }
+#endif
+
+  header.length_lo=len&0xff;
+  header.length_hi=(len>>8)&0xff;
+  
+  int next_offset=ar_offset+HEADER_LEN+len;
+  header.next_lo=next_offset&0xff;
+  header.next_hi=(next_offset>>8)&0xff; 
   
   // Find entry point low by looking for SYS token
   for(int i=0;i<256;i++)
@@ -122,6 +156,7 @@ int load_util(char *filename, int ar_offset)
   util_len=(header.length_hi<<8)+header.length_lo;
   
   fclose(f);
+
   return 0;
 }
 
