@@ -442,7 +442,7 @@ architecture Behavioral of viciv is
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
-  signal character_number : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal character_number : unsigned(10 downto 0) := to_unsigned(0,11);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
                            FetchScreenRamLine2,
@@ -544,8 +544,8 @@ architecture Behavioral of viciv is
   -- should we skip as we advance each row.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- And display_row_width is how many characters to display on each row
-  signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal display_row_width : unsigned(9 downto 0) := to_unsigned(40,10);
+  signal display_row_width_minus1 : unsigned(9 downto 0) := to_unsigned(40,10);
   signal display_row_count : unsigned(7 downto 0) := to_unsigned(25-1,8);
   signal display_row_number : unsigned(7 downto 0) := to_unsigned(25,8);
 
@@ -1398,11 +1398,11 @@ begin
       if reg_h640='0' then
         -- 40 column mode
         virtual_row_width <= to_unsigned(40,16);
-        display_row_width <= to_unsigned(40,8);
+        display_row_width <= to_unsigned(40,10);
       elsif reg_h640='1' then
         -- 80 column mode
         virtual_row_width <= to_unsigned(80,16);
-        display_row_width <= to_unsigned(80,8);
+        display_row_width <= to_unsigned(80,10);
       end if;
 
       if reg_v400='0' then
@@ -1923,7 +1923,7 @@ begin
           fastio_rdata(6) <= enable_raster_delay;
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width);
+          fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width(7 downto 0));
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);
         elsif register_number=96 then
@@ -1991,7 +1991,7 @@ begin
           fastio_rdata(6 downto 4) <= (others => '0');
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
-          fastio_rdata <= std_logic_vector(display_row_count);
+          fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
         elsif register_number=124 then  -- $D307C
           -- fastio_rdata(3 downto 0) <= x"F";
           -- XXX debug why VIC-III blink attribute is not blinking
@@ -2650,8 +2650,8 @@ begin
           -- @IO:GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
           vicii_hot_regs_enable <= fastio_wdata(7);
         elsif register_number=94 then
-          -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
-          display_row_width <= unsigned(fastio_wdata);
+          -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
+          display_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=95 then
           -- @IO:GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
           sprite_h640_msbs <= fastio_wdata;
@@ -2667,6 +2667,9 @@ begin
         elsif register_number=99 then
           -- @IO:GS $D063.0-3 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
+          -- row (MSBs)
+          display_row_width(9 downto 8) <= unsigned(fastio_wdata(5 downto 4));
           -- @IO:GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
           glyphs_from_hyperram <= fastio_wdata(7);
         elsif register_number=100 then
@@ -3988,7 +3991,7 @@ begin
             render_activity <= "001";
 
             -- Reset screen row (bad line) state
-            character_number <= to_unsigned(1,9);
+            character_number <= to_unsigned(1,11);
             end_of_row_16 <= '0'; end_of_row <= '0';
             report "COLOURRAM: Setting colourramaddress via first_card_of_row."
               & " text_mode=" & std_logic'image(text_mode)
@@ -4561,7 +4564,7 @@ begin
           -- We are counting the number characters, not the number of bytes, so
           -- no need multiply row width by two for 16-bit character mode
           -- if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
-          if character_number = display_row_width_minus1 then
+          if character_number(10 downto 0) = display_row_width_minus1 then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
