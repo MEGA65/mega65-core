@@ -834,6 +834,7 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
+  signal chars_are_foreground : std_logic := '1';
   signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
@@ -4118,6 +4119,11 @@ begin
           -- token).
           glyph_paint_background <= '1';
 
+          -- By default, characters are drawn in the foreground.
+          -- With this flag, you can make them go into the background, so that
+          -- sprites can appear in front of them
+          chars_are_foreground <= '1';
+
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
 
@@ -4606,6 +4612,9 @@ begin
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
+
+              -- Also allow forcing of the following characters to be background
+              chars_are_foreground <= not glyph_width_deduct(3);
               
             -- ... and don't paint anything, because it is just
             -- a tab stop.
@@ -4984,7 +4993,7 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';
+              raster_buffer_write_data(8) <= chars_are_foreground;
               if paint_full_colour_data(3 downto 0) /= x"F" then
                 -- Lower four bits of colour come from the nybl
                 raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
@@ -5006,7 +5015,7 @@ begin
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 13) <= paint_full_colour_data(3 downto 0);
               raster_buffer_write_data(12 downto 9) <= (others => paint_full_colour_data(0));
-              raster_buffer_write_data(8) <= paint_full_colour_data(3);
+              raster_buffer_write_data(8) <= paint_full_colour_data(3) and chars_are_foreground;
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -5041,7 +5050,7 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';
+              raster_buffer_write_data(8) <= chars_are_foreground;
               if paint_full_colour_data(7 downto 0) /= x"FF" then
                 raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
               else
@@ -5058,7 +5067,7 @@ begin
                 & " ( + 1 ?)";
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
-              raster_buffer_write_data(8) <= paint_full_colour_data(7);
+              raster_buffer_write_data(8) <= paint_full_colour_data(7) and chars_are_foreground;
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
