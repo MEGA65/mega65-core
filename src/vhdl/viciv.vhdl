@@ -1934,7 +1934,8 @@ begin
           fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
         elsif register_number=99 then
           fastio_rdata(7) <= glyphs_from_hyperram;
-          fastio_rdata(6 downto 4) <= (others => '0');
+          fastio_rdata(6) <= '0';
+          fastio_rdata(5 downto 4) <= std_logic_vector(display_row_width(9 downto 8));
           fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 24));
         elsif register_number=100 then
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
