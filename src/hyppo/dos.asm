@@ -38,7 +38,7 @@ dos_and_process_trap_table:
         !16 trap_dos_selectdrive
         !16 trap_dos_getdisksize              ;; not currently implememted
         !16 trap_dos_getcwd                   ;; not currently implememted
-        !16 trap_dos_chdir                    ;; not currently implememted
+        !16 trap_dos_chdir                    
         !16 trap_dos_mkdir                    ;; not currently implememted
 
         ;; $10 - $1E
@@ -764,6 +764,28 @@ trap_dos_closedir:
 trap_dos_readfile:
 	jsr dos_readfile	
         jmp return_from_trap_with_carry_flag
+
+trap_dos_chdir:
+
+        ;; Opens file in current dirent structure
+        ;; XXX - This means we must preserve the dirent struct when
+        ;; context-switching to avoid a race-condition
+
+        jsr dos_chdir
+        bcc tdcd1
+
+        +Checkpoint "trap_dos_chdir <success>"
+
+        jmp return_from_trap_with_success
+
+tdcd1:
+        +Checkpoint "trap_dos_chdir <failure>"
+
+        lda dos_error_code
+        jmp return_from_trap_with_failure
+
+;;         ========================
+
 	
 trap_dos_openfile:
 
@@ -911,7 +933,6 @@ td81we1:
 
 trap_dos_getdisksize:
 trap_dos_getcwd:
-trap_dos_chdir:
 trap_dos_mkdir:
 trap_dos_rmdir:
 trap_dos_writefile:
@@ -2067,6 +2088,42 @@ dcf_simple:
 
 ;;         ========================
 
+dos_chdir:
+	;; Works similarly to dos_openfile, i.e. you must first have the
+	;; directory in the dirent structure, found via dos_findfile
+
+        ;; Check if the file is a directory, if so, refuse to open it.
+        ;;
+        lda dos_dirent_type_and_attribs
+        and #fs_fat32_attribute_isdirectory
+        beq dcd_is_a_directory
+
+        lda #dos_errorcode_not_a_directory
+        jmp dos_return_error
+	
+;;         ========================
+
+dcd_is_a_directory:
+
+        jsr dos_set_current_file_from_dirent
+        bcc l3_dos_return_error_already_set
+
+	;; copy cluster number into current directory
+
+	;; Copy cluster of requesteed directory into disk CWD cluster
+	ldx #3
+dcd1:	lda dos_dirent_cluster,x
+	sta dos_disk_cwd_cluster,x
+	dex
+	bpl dcd1
+
+	;; Return success
+	sec
+	rts
+
+;;         ========================
+	
+	
 dos_openfile:
 
         ;; Open the file that is in the dirent structure
