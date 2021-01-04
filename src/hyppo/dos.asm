@@ -2750,7 +2750,7 @@ drce6:  lda (<dos_scratch_vector),y
         bne drce6
 
 drce_copied_extension:
-
+	
 	;; Trim spaces from the end of the filename
 	cpx #0
 	beq @filename0bytes
@@ -2765,20 +2765,15 @@ drce_copied_extension:
 	;; And trim trailing . from file name in case extension
 	;; was all spaces. But don't trim it if the filename starts
 	;; with ., so that we don't mess up . and .. directories
-	lda #$2e
+	lda dos_dirent_longfilename-1,x
 	;; Is last char a . ?
-	cmp dos_dirent_longfilename-1,x
+	cmp #$2e
 	bne @notrailingdot
-	;; and first char NOT a dot?
-	cmp dos_dirent_longfilename
-	beq @notrailingdot
 
 @hastrailingdot:
 	
 	;; Cut . from end of filename
 	dex
-	lda #$20
-	sta dos_dirent_longfilename,x
 
 @notrailingdot:
 	
