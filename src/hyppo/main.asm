@@ -3255,7 +3255,7 @@ dos_opendir_entry:
         ;; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
         ;;          structure, particularly the length as calculated here:
         ;;
-        dos_dirent_structure_length = 64+1+11+4+4+1
+        dos_dirent_structure_length = 64+1+11+1+4+4+1
 
         ;; Current long filename (max 64 bytes)
         ;;
