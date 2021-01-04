@@ -2102,7 +2102,7 @@ dos_chdir:
         ;;
         lda dos_dirent_type_and_attribs
         and #fs_fat32_attribute_isdirectory
-        beq dcd_is_a_directory
+        bne dcd_is_a_directory
 
         lda #dos_errorcode_not_a_directory
         jmp dos_return_error
@@ -2737,7 +2737,40 @@ drce6:  lda (<dos_scratch_vector),y
 
 drce_copied_extension:
 
-        ;; null terminate short name for convenience in our debugging
+	;; Trim spaces from the end of the filename
+	cpx #0
+	beq @filename0bytes
+	lda #$20
+	cmp dos_dirent_longfilename-1,x
+	bne @nomorespaces
+	dex
+	jmp drce_copied_extension
+	
+@nomorespaces:
+
+	;; And trim trailing . from file name in case extension
+	;; was all spaces. But don't trim it if the filename starts
+	;; with ., so that we don't mess up . and .. directories
+	lda #$2e
+	;; Is last char a . ?
+	cmp dos_dirent_longfilename-1,x
+	bne @notrailingdot
+	;; and first char NOT a dot?
+	cmp dos_dirent_longfilename
+	beq @notrailingdot
+
+@hastrailingdot:
+	
+	;; Cut . from end of filename
+	dex
+	lda #$20
+	sta dos_dirent_longfilename,x
+
+@notrailingdot:
+	
+@filename0bytes:
+
+	;; null terminate short name for convenience in our debugging
         ;;
         lda #$00
         sta dos_dirent_longfilename,x
