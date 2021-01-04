@@ -2470,17 +2470,6 @@ eight3char1:
 drce_cont0:
         tya        ;; from safe keeping
 
-        ;; if bit-4 = 1 -> Directory
-        ;; we ignore directories (for now)
-        ;;
-        and #$10
-        cmp #$10                ;; %00010000 Directory
-        bne drce_cont1
-        jmp drce_directory        ;; MATCH -> must be Directory
-
-drce_cont1:
-        tya        ;; from safe keeping
-
         ;; if bit-3 = 1 -> Vol ID
         ;; we process the Vol ID different (for now)
         ;;
