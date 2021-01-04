@@ -3255,10 +3255,11 @@ dos_opendir_entry:
         ;; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
         ;;          structure, particularly the length as calculated here:
         ;;
-        dos_dirent_structure_length = 64+1+11+1+4+4+1
+        dos_dirent_structure_length = dos_dirent_struct_end - dos_dirent_struct_start
 
         ;; Current long filename (max 64 bytes)
         ;;
+dos_dirent_struct_start:	
 dos_dirent_longfilename:
         !text "Venezualen casaba melon productio" ;; 33-chars
         !text "n statistics (2012-2015).txt  "    ;; 30-chars
@@ -3279,6 +3280,7 @@ dos_dirent_length:
 
 dos_dirent_type_and_attribs:
         !8 0
+dos_dirent_struct_end:	
 
 ;;         ========================
 
