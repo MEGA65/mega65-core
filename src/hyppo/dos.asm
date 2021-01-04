@@ -2476,7 +2476,7 @@ drce_cont0:
         and #$08
         cmp #$08                ;; %00001000 Vol-ID
         bne drce_cont2
-        jmp drce_volumeid        ;; MATCH -> must be Vol-ID
+	jmp drce_cont_next_part	; Ignore it
 
 drce_cont2:
         tya        ;; from safe keeping
@@ -2486,7 +2486,9 @@ drce_cont2:
         ;;
         and #$06                ;; %00000110
         beq drce_cont3        ;; branch if equal to zero (ie not Hidden OR System)
-        jmp drce_hidden
+	;; Ignore hidden/system files for now
+	;; XXX We should have a flag to enable/disable this behaviour
+	jmp drce_cont_next_part
 
 drce_cont3:
 
@@ -2494,30 +2496,6 @@ drce_cont3:
         ;; so we process this entry regardless of if read-only (bit0) or not
 
         jmp drce_normalrecord
-
-;;         ========================
-
-drce_hidden:
-
-        +Checkpoint  "is hidden/system, so skip this record"
-
-        jmp drce_cont_next_part
-
-;;         ========================
-
-drce_volumeid:
-
-        +Checkpoint "is Volume ID, so skip this record"
-
-        jmp drce_cont_next_part
-
-;;         ========================
-
-drce_directory:
-
-        +Checkpoint "is Directory, so skip this record"
-
-        jmp drce_cont_next_part
 
 ;;         ========================
 
