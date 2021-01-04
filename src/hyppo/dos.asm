@@ -71,7 +71,7 @@ dos_and_process_trap_table:
         !16 trap_dos_loadfile
         !16 trap_dos_geterrorcode
         !16 trap_dos_setup_transfer_area
-        !16 invalid_subfunction
+        !16 trap_dos_cdrootdir
         !16 invalid_subfunction
 
         ;; $40 - $4E
@@ -765,6 +765,11 @@ trap_dos_readfile:
 	jsr dos_readfile	
         jmp return_from_trap_with_carry_flag
 
+
+trap_dos_cdrootdir:
+	jsr dos_cdroot
+	jmp return_from_trap_with_success
+	
 trap_dos_chdir:
 
         ;; Opens file in current dirent structure
@@ -1882,6 +1887,7 @@ dos_cdroot:
 
         ;; get offset of disk entry
         ;;
+	
         ldx dos_disk_table_offset
         lda dos_disk_table + fs_fat32_root_dir_cluster +0,x
         sta dos_disk_cwd_cluster
