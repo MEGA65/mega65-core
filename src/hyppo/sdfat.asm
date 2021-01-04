@@ -188,7 +188,7 @@ sdtimeoutreset:
         lda #$00
         sta sdcounter+0
         sta sdcounter+1
-        lda #$f7
+        lda #$f3
         sta sdcounter+2
         rts
 
