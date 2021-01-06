@@ -1923,18 +1923,18 @@ begin
         cpuport_num <= real_long_address(3 downto 0);
       elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
         -- Reading from chipram
-        -- @ IO:C64 $0000002-$000FFFF - 64KB RAM
-        -- @ IO:C65 $0010000-$001FFFF - 64KB RAM
-        -- @ IO:C65 $0020000-$003FFFF - 128KB ROM (can be used as RAM in M65 mode)
-        -- @ IO:C65 $002A000-$002BFFF - 8KB C64 BASIC ROM
-        -- @ IO:C65 $002D000-$002DFFF - 4KB C64 CHARACTER ROM
-        -- @ IO:C65 $002E000-$002FFFF - 8KB C64 KERNAL ROM
-        -- @ IO:C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
-        -- @ IO:C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
-        -- @ IO:C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
-        -- @ IO:C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
-        -- @ IO:C65 $0030000-$0031FFF - 16KB C65 DOS ROM
-        -- @ IO:M65 $0040000-$005FFFF - 128KB RAM (in place of C65 cartridge support)
+        -- @IO:C64 $0000002-$000FFFF - 64KB RAM
+        -- @IO:C65 $0010000-$001FFFF - 64KB RAM
+        -- @IO:C65 $0020000-$003FFFF - 128KB ROM (can be used as RAM in M65 mode)
+        -- @IO:C65 $002A000-$002BFFF - 8KB C64 BASIC ROM
+        -- @IO:C65 $002D000-$002DFFF - 4KB C64 CHARACTER ROM
+        -- @IO:C65 $002E000-$002FFFF - 8KB C64 KERNAL ROM
+        -- @IO:C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
+        -- @IO:C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
+        -- @IO:C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
+        -- @IO:C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
+        -- @IO:C65 $0030000-$0031FFF - 16KB C65 DOS ROM
+        -- @IO:M65 $0040000-$005FFFF - 128KB RAM (in place of C65 cartridge support)
         report "Preparing to read from Shadow. shadow_address_next = $" & to_hstring(to_unsigned(shadow_address_next,20));
         is_pending_dma_access <= '0';
         shadow_address <= shadow_address_next;

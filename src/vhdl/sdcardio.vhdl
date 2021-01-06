@@ -930,8 +930,10 @@ begin  -- behavioural
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
-            -- @IO:GS $D68A.2 - Read only: is drive 0 virtualized F011
-            -- @IO:GS $D68A.3 - Read only: is drive 1 virtualized F011
+            -- @IO:GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
+            -- @IO:GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
+            -- @IO:GS $D68A.2 SD:VDC0 (read only) Set if drive 0 is virtualized (sectors delivered via serial monitor interface)
+            -- @IO:GS $D68A.3 SD:VDC1 (read only) Set if drive 1 is virtualized (sectors delivered via serial monitor interface)
             fastio_rdata(0) <= colourram_at_dc00;
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
@@ -1623,6 +1625,13 @@ begin  -- behavioural
 
             when "00000" =>
               -- @IO:C65 $D080 - F011 FDC control
+              -- @IO:C65 $D080.7 FDC:IRQ When set, enables interrupts to occur. Clearing clears any pending interrupt and disables interrupts until set again.
+              -- @IO:C65 $D080.6 FDC:LED Drive LED blinks when set
+              -- @IO:C65 $D080.5 FDC:MOTOR Activates drive motor and LED (unless LED signal is also set, causing the drive LED to blink)
+              -- @IO:C65 $D080.4 FDC:SWAP Swap upper and lower halves of data buffer (i.e. invert bit 8 of the sector buffer)
+              -- @IO:C65 $D080.3 FDC:SIDE Directly controls the SIDE signal to the floppy drive, i.e., selecting which side of the media is active.
+              -- @IO:C65 $D080.0-2 FDC:DS Drive select (0 to 7). Internal drive is 0. Second floppy drive on internal cable is 1. Other values reserved for C1565 external drive interface.
+             
               -- CONTROL |  IRQ  |  LED  | MOTOR | SWAP  | SIDE  |  DS2  |  DS1  |  DS0  | 0 RW
               --IRQ     When set, enables interrupts to occur,  when reset clears and
               --        disables interrupts.
@@ -1675,8 +1684,18 @@ begin  -- behavioural
               end if;
 
             when "00001" =>           -- $D081
-              -- @IO:C65 $D081 - F011 FDC command
+              -- @IO:C65 $D081 FDC:COMMAND F011 FDC command register
               -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
+              -- @IO:C65 $D081.7 FDC:WRCMD Command is a write operation if set
+              -- @IO:C65 $D081.6 FDC:RDCMD Command is a read operation if set
+              -- @IO:C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
+              -- @IO:C65 $D081.4 FDC:STEP Writing 1 causes the head to step in the indicated direction
+              -- @IO:C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs
+              -- outward)
+              -- @IO:C65 $D081.2 FDC:ALGO Selects reading and writing algorithm (currently ignored).
+              -- @IO:C65 $D081.1 FDC:ALT Selects alternate DPLL read recovery method (not implemented)
+              -- @IO:C65 $D081.0 FDC:NOBUF Reset the sector buffer read/write pointers
+
               --WRITE   must be set to perform write operations.
               --READ    must be set for all read operations.
               --FREE    allows free-format read or write vs formatted
@@ -1963,19 +1982,19 @@ begin  -- behavioural
               end case;
 
             when "00100" =>
-              -- @IO:C65 $D084 - F011 FDC track
+              -- @IO:C65 $D084 FDC:TRACK F011 FDC track selection register
               f011_track <= fastio_wdata;
 
             when "00101" =>
-              -- @IO:C65 $D085 - F011 FDC sector
+              -- @IO:C65 $D085 FDC:SECTOR F011 FDC sector selection register
               f011_sector <= fastio_wdata;
 
             when "00110" =>
-              -- @IO:C65 $D086 - F011 FDC side
+              -- @IO:C65 $D086 FDC:SIDE F011 FDC side selection register
               f011_side <= fastio_wdata;
 
             when "00111" =>
-              -- @IO:C65 $D087 - F011 FDC data register (read/write)
+              -- @IO:C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
               if last_was_d087='0' then
                 report "$D087 write : trigger sector buffer write of $" & to_hstring(fastio_wdata);
                 sb_cpu_write_request <= '1';
@@ -1986,11 +2005,13 @@ begin  -- behavioural
               f011_eq_inhibit <= '0';
 
             when "01000" =>
+              -- @IO:C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
               f011_reg_clock <= fastio_wdata;
             when "01001" =>
+              -- @IO:C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
               f011_reg_step <= fastio_wdata;
             when "01010" =>
-              -- P Code: Read only
+              -- @IO:C65 $D089 FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
               null;
               
             when others => null;
@@ -2011,7 +2032,7 @@ begin  -- behavioural
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
 
-            -- @IO:GS $D680 - SD controller status/command
+            -- @IO:GS $D680 SD:CMDANDSTAT SD controller status/command
             when x"80" =>
               -- status / command register
               case fastio_wdata is
@@ -2242,37 +2263,53 @@ begin  -- behavioural
 
             when x"81" =>
               -- @IO:GS $D681-$D684 - SD controller SD sector address
+              -- @IO:GS $D681 SD:SECTOR0 SD controller SD sector address (LSB)
+              -- @IO:GS $D682 SD:SECTOR1 SD controller SD sector address (2nd byte)
+              -- @IO:GS $D683 SD:SECTOR2 SD controller SD sector address (3rd byte)
+              -- @IO:GS $D684 SD:SECTOR3 SD controller SD sector address (MSB)
               sd_sector(7 downto 0) <= fastio_wdata;
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
             when x"86" =>
-              -- @ IO:GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
+              -- @IO:GS $D686 SD:FILLVAL WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
               sd_fill_value <= fastio_wdata;
-            when x"89" => f011sd_buffer_select <= fastio_wdata(7);
-                          -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
-                          sd_handshake <= fastio_wdata(2);
-                          sd_handshake_internal <= fastio_wdata(2);
-                          autotune_enable <= not fastio_wdata(4);
-                          f011_swap_drives <= fastio_wdata(5);
+            when x"89" =>
+              -- @ IO:GS $D689.0 SD:BUFBIT8 (read only) reads bit 8 of the sector buffer pointer
+              -- @ IO:GS $D689.1 SD:BUFFFULL (read only) if set, indicates that the sector buffer is full and has not yet been read
+              -- @ IO:GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
+              -- @ IO:GS $D689.3 SD:DRDY SD Card Data Ready indication
+              -- @ IO:GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
+              -- @ IO:GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
+              -- @ IO:GS $D689.7 SD:BUFFSEL 
+              sd_handshake <= fastio_wdata(2);
+              sd_handshake_internal <= fastio_wdata(2);
+              autotune_enable <= not fastio_wdata(4);
+              f011_swap_drives <= fastio_wdata(5);
+              f011sd_buffer_select <= fastio_wdata(7);
 
-                          -- ================================================================== END
-                          -- the section above was for the SDcard
-                          -- ==================================================================
-
-                          -- ================================================================== START
-                          -- the section below is for OTHER I/O
-                          -- ==================================================================
+              -- ================================================================== END
+              -- the section above was for the SDcard
+              -- ==================================================================
+                          
+              -- ================================================================== START
+              -- the section below is for OTHER I/O
+              -- ==================================================================
 
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               f011_mega_disk <= fastio_wdata(6);
               f011_mega_disk2 <= fastio_wdata(7);
-              -- @IO:GS $D68B.5 - F011 disk 2 write protect
+              -- @IO:GS $D68B.7 SD:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.6 SD:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.5 SD:D1WP Write protect F011 drive 1
+              -- @IO:GS $D68B.4 SD:D1P F011 drive 1 media present
+              -- @IO:GS $D68B.3 SD:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+              -- @IO:GS $D68B.2 SD:D0WP Write protect F011 drive 0
+              -- @IO:GS $D68B.1 SD:D0P F011 drive 0 media present
+              -- @IO:GS $D68B.0 SD:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
               f011_disk2_write_protected <= not fastio_wdata(5);
-              -- @IO:GS $D68B.4 - F011 disk 2 present
               f011_disk2_present <= fastio_wdata(4);
-              -- @IO:GS $D68B.3 - F011 disk 2 disk image enable
               diskimage2_enable <= fastio_wdata(3);
               
               -- @IO:GS $D68B.2 - F011 disk 1 write protect

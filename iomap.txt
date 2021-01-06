@@ -233,12 +233,13 @@ GS $D05C VIC-IV:SIDBDRWD Width of single side border
 GS $D05D.0-5 VIC-IV:SIDBDRWD side border width (MSB)
 GS $D05D.6 VIC-IV:RSTDELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
 GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
-GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
+GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
 GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
 GS $D060 VIC-IV:SCRNPTR screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV:SCRNPTR screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
 GS $D063.0-3 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
 GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
 GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV:COLPTR colour RAM base address (bits 15 - 8)
@@ -287,14 +288,31 @@ GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
 GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
 GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
 GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
+C65 $D080.0-2 FDC:DS Drive select (0 to 7). Internal drive is 0. Second floppy drive on internal cable is 1. Other values reserved for C1565 external drive interface.
+C65 $D080.3 FDC:SIDE Directly controls the SIDE signal to the floppy drive, i.e., selecting which side of the media is active.
+C65 $D080.4 FDC:SWAP Swap upper and lower halves of data buffer (i.e. invert bit 8 of the sector buffer)
+C65 $D080.5 FDC:MOTOR Activates drive motor and LED (unless LED signal is also set, causing the drive LED to blink)
+C65 $D080.6 FDC:LED Drive LED blinks when set
+C65 $D080.7 FDC:IRQ When set, enables interrupts to occur. Clearing clears any pending interrupt and disables interrupts until set again.
 C65 $D080 - F011 FDC control
-C65 $D081 - F011 FDC command
+C65 $D081.0 FDC:NOBUF Reset the sector buffer read/write pointers
+C65 $D081.1 FDC:ALT Selects alternate DPLL read recovery method (not implemented)
+C65 $D081.2 FDC:ALGO Selects reading and writing algorithm (currently ignored).
+C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs
+C65 $D081.4 FDC:STEP Writing 1 causes the head to step in the indicated direction
+C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
+C65 $D081.6 FDC:RDCMD Command is a read operation if set
+C65 $D081.7 FDC:WRCMD Command is a write operation if set
+C65 $D081 FDC:COMMAND F011 FDC command register
 C65 $D082 - F011 FDC Status A port (read only)
 C65 $D083 - F011 FDC Status B port (read only)
-C65 $D084 - F011 FDC track
-C65 $D085 - F011 FDC sector
-C65 $D086 - F011 FDC side
-C65 $D087 - F011 FDC data register (read/write)
+C65 $D084 FDC:TRACK F011 FDC track selection register
+C65 $D085 FDC:SECTOR F011 FDC sector selection register
+C65 $D086 FDC:SIDE F011 FDC side selection register
+C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
+C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
+C65 $D089 FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
+C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
 GS $D09B - FSM state of low-level SD controller (DEBUG)
 GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
@@ -421,7 +439,6 @@ GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
 GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
 GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
 GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
-GS $D61A.6 SYSCTL:MAX10V2 If set, use new MAX10 communications protocol
 GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
 GS $D61A UARTMISC:SYSCTL System control flags (target specific)
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
@@ -626,32 +643,49 @@ GS $D680.4 - SD controller SDHC mode flag
 GS $D680.5 - SD controller SDIO FSM ERROR flag
 GS $D680.6 - SD controller SDIO error flag
 GS $D680.7 - SD controller primary / secondary SD card 
-GS $D680 - SD controller status/command
+GS $D680 SD:CMDANDSTAT SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
+GS $D681 SD:SECTOR0 SD controller SD sector address (LSB)
+GS $D682 SD:SECTOR1 SD controller SD sector address (2nd byte)
+GS $D683 SD:SECTOR2 SD controller SD sector address (3rd byte)
+GS $D684 SD:SECTOR3 SD controller SD sector address (MSB)
 GS $D685 - DEBUG Show current state ID of SD card interface
 GS $D686 - DEBUG SD card data token
-GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
+GS $D686 SD:FILLVAL WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
 GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
+GS $D689.0 SD:BUFBIT8 (read only) reads bit 8 of the sector buffer pointer
+GS $D689.1 SD:BUFFFULL (read only) if set, indicates that the sector buffer is full and has not yet been read
 GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
 GS $D689.2 - (read only, debug) sd_handshake signal.
-GS $D689.2 Set/read SD card sd_handshake signal
+GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
 GS $D689.3 - (read only, debug) sd_data_ready signal.
+GS $D689.3 SD:DRDY SD Card Data Ready indication
 GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
+GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
 GS $D689.5 - F011 swap drive 0 / 1 
+GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
-GS $D68A.2 - Read only: is drive 0 virtualized F011
-GS $D68A.3 - Read only: is drive 1 virtualized F011
+GS $D689.7 SD:BUFFSEL 
+GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
+GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
+GS $D68A.2 SD:VDC0 (read only) Set if drive 0 is virtualized (sectors delivered via serial monitor interface)
+GS $D68A.3 SD:VDC1 (read only) Set if drive 1 is virtualized (sectors delivered via serial monitor interface)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
+GS $D68B.0 SD:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
 GS $D68B.1 - F011 disk 1 present
+GS $D68B.1 SD:D0P F011 drive 0 media present
 GS $D68B.2 - F011 disk 1 write protect
-GS $D68B.3 - F011 disk 2 disk image enable
-GS $D68B.4 - F011 disk 2 present
-GS $D68B.5 - F011 disk 2 write protect
+GS $D68B.2 SD:D0WP Write protect F011 drive 0
+GS $D68B.3 SD:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.4 SD:D1P F011 drive 1 media present
+GS $D68B.5 SD:D1WP Write protect F011 drive 1
 GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
+GS $D68B.6 SD:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
+GS $D68B.7 SD:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
@@ -664,7 +698,7 @@ GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
 GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
-GS $D69B DEBUG:J21INL Status of M65 R3 DIP switches
+GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
 GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
 GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
