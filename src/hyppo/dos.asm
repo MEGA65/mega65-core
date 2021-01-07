@@ -2137,6 +2137,23 @@ dcd1:	lda dos_dirent_cluster,x
 	dex
 	bpl dcd1
 
+	;; Check if cluster 0. If so, cd to root directory
+	;; (its a convention to put cluster 0 in references to the root directory
+	;; on some FAT implementations, apparently).
+	
+	ldx #3
+	lda #0
+dcd2:	ora dos_disk_cwd_cluster,x
+	dex
+	bpl dcd2
+
+	cmp #0
+	bne @nonZeroCluster
+
+	;; Is cluster 0, so change to root directory
+	jmp dos_cdroot
+	
+@nonZeroCluster:
 	;; Return success
 	sec
 	rts
