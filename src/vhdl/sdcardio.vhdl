@@ -2281,7 +2281,7 @@ begin  -- behavioural
               -- @ IO:GS $D689.3 SD:DRDY SD Card Data Ready indication
               -- @ IO:GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
               -- @ IO:GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
-              -- @ IO:GS $D689.7 SD:BUFFSEL 
+              -- @ IO:GS $D689.7 SD:BUFFSEL Set to switch sector buffer to view SD card direct access, clear for access to the F011 FDC sector buffer.
               sd_handshake <= fastio_wdata(2);
               sd_handshake_internal <= fastio_wdata(2);
               autotune_enable <= not fastio_wdata(4);
@@ -2321,6 +2321,10 @@ begin  -- behavioural
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
+            -- @IO:GS $D68C SD:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
+            -- @IO:GS $D68D SD:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
+            -- @IO:GS $D68E SD:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
+            -- @IO:GS $D68F SD:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
             when x"8c" =>
               if hypervisor_mode='1' then
                 diskimage_sector(7 downto 0) <= fastio_wdata;
@@ -2339,6 +2343,10 @@ begin  -- behavioural
               end if;
 
             -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
+            -- @IO:GS $D690 SD:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
+            -- @IO:GS $D691 SD:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
+            -- @IO:GS $D692 SD:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
+            -- @IO:GS $D693 SD:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
             when x"90" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(7 downto 0) <= fastio_wdata;
@@ -2358,6 +2366,14 @@ begin  -- behavioural
 
             when x"a0" =>
               -- @IO:GS $D6A0 - 3.5" FDC control line debug access
+              -- @IO:GS $D6A0.7 FDC:DENSITY Control floppy drive density select line
+              -- @IO:GS $D6A0.6 FDC:DBGMOTORA Control floppy drive MOTOR line
+              -- @IO:GS $D6A0.5 FDC:DBGMOTORA Control floppy drive SELECT line
+              -- @IO:GS $D6A0.4 FDC:DBGDIR Control floppy drive STEPDIR line
+              -- @IO:GS $D6A0.3 FDC:DBGDIR Control floppy drive STEP line
+              -- @IO:GS $D6A0.2 FDC:DBGWDATA Control floppy drive WDATA line
+              -- @IO:GS $D6A0.1 FDC:DBGWGATE Control floppy drive WGATE line
+              -- @IO:GS $D6A0.0 FDC:DBGWGATE Control floppy drive SIDE1 line
               f_density <= fastio_wdata(7);
 
               f_motora <= '1'; f_motorb <= '1';
@@ -2381,6 +2397,9 @@ begin  -- behavioural
               -- Setting F011 drives to use SD card is a privileged operation,
               -- so that you can't take advantage of stale contents of the
               -- sector number to get direct access to the SD card that way.
+              -- @IO:GS $D6A1.0 FDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
+              -- @IO:GS $D6A1.2 FDC:USEREAL2 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
+              -- @IO:GS $D6A1.1 FDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
               if fastio_wdata(0)='1' or hypervisor_mode='1' or use_real_floppy0=fastio_wdata(0) then
                 use_real_floppy0 <= fastio_wdata(0);
               end if;
@@ -2391,21 +2410,27 @@ begin  -- behavioural
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
             when x"a2" =>
+              -- @IO:GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic
+              -- interval (decrease to increase data rate)
               cycles_per_interval <= fastio_wdata;
             when x"ad" => 
+              -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
+              -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
+              -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+              -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
               volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
               pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-              -- @IO:GS $D6AF.0 - f011_rsector_found
-              -- @IO:GS $D6AF.1 - f011_wsector_found
-              -- @IO:GS $D6AF.2 - f011_eq_inhibit
-              -- @IO:GS $D6AF.3 - f011_rnf
-              -- @IO:GS $D6AF.4 - f011_drq
-              -- @IO:GS $D6AF.5 - f011_lost
+              -- @IO:GS $D6AF.0 SD:VFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.1 SD:VFOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.2 SD:VFOUND Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.3 SD:VFOUND Manually set f011_rnf signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.4 SD:VFOUND Manually set f011_drq signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.5 SD:VFOUND Manually set f011_lost signal (indented for virtual F011 mode only)
               f011_rsector_found <= fastio_wdata(0);
               f011_wsector_found <= fastio_wdata(1);
               f011_eq_inhibit <= fastio_wdata(2);
@@ -2413,38 +2438,49 @@ begin  -- behavioural
               f011_drq <= fastio_wdata(4);
               f011_lost <= fastio_wdata(5);
             when x"B0" =>
+              -- @IO:GS $D6B0.6 MISCIO:TCHFLX Flip X axis of touch interface if set
+              -- @IO:GS $D6B0.7 MISCIO:TCHFLX Flip Y axis of touch interface if set
               touch_flip_x <= fastio_wdata(6);
               touch_flip_x_internal <= fastio_wdata(6);
               touch_flip_y <= fastio_wdata(7);
               touch_flip_y_internal <= fastio_wdata(7);
             when x"B1" =>
+              -- @IO:GS $D6B1 MISCIO:TCHXSCALE Set X scale value for touch interface (LSB)
               touch_scale_x(7 downto 0) <= fastio_wdata;
               touch_scale_x_internal(7 downto 0) <= fastio_wdata;
             when x"B2" =>
+              -- @IO:GS $D6B2 MISCIO:TCHXSCALE Set X scale value for touch interface (MSB)
               touch_scale_x_internal(15 downto 8) <= fastio_wdata;
               touch_scale_x(15 downto 8) <= fastio_wdata;
             when x"B3" =>
+              -- @IO:GS $D6B3 MISCIO:TCHYSCALE Set Y scale value for touch interface (LSB)
               touch_scale_y(7 downto 0) <= fastio_wdata;
               touch_scale_y_internal(7 downto 0) <= fastio_wdata;
             when x"B4" =>
+              -- @IO:GS $D6B4 MISCIO:TCHYSCALE Set Y scale value for touch interface (MSB)
               touch_scale_y(15 downto 8) <= fastio_wdata;
               touch_scale_y_internal(15 downto 8) <= fastio_wdata;
             when x"B5" =>
+              -- @IO:GS $D6B5 MISCIO:TCHXDELTA Set X delta value for touch interface (LSB)
               touch_delta_x(7 downto 0) <= fastio_wdata;
               touch_delta_x_internal(7 downto 0) <= fastio_wdata;
             when x"B6" =>
+              -- @IO:GS $D6BB MISCIO:TCHXDELTA Set X delta value for touch interface (MSB)
               touch_delta_x(15 downto 8) <= fastio_wdata;
               touch_delta_x_internal(15 downto 8) <= fastio_wdata;
             when x"B7" =>
+              -- @IO:GS $D6B7 MISCIO:TCHYDELTA Set Y delta value for touch interface (LSB)
               touch_delta_y(7 downto 0) <= fastio_wdata;
               touch_delta_y_internal(7 downto 0) <= fastio_wdata;
             when x"B8" =>
+              -- @IO:GS $D6B8 MISCIO:TCHYDELTA Set Y delta value for touch interface (MSB)
               touch_delta_y(15 downto 8) <= fastio_wdata;
               touch_delta_y_internal(15 downto 8) <= fastio_wdata;
             when x"BF" =>
-              -- @IO:GS $D6BF.7 - Enable/disable touch panel I2C communications
+              -- @IO:GS $D6BF.7 MISCIO:TCHI2CEN Enable/disable touch panel I2C communications
               touch_enabled <= fastio_wdata(7);
               touch_enabled_internal <= fastio_wdata(7);
+              -- @IO:GS $D6BF.0-6 MISCIO:TCHBYTENUM Select byte number for touch panel communications instrumentation
               touch_byte_num(6 downto 0) <= fastio_wdata(6 downto 0);
             when x"C4" =>
               -- @IO:GS $D6C4 FPGA:REGNUM Select ICAPE2 FPGA configuration register for reading WRITE ONLY
@@ -2520,20 +2556,21 @@ begin  -- behavioural
               qspi_clock <= fastio_wdata(1);
               qspi_clock_int <= fastio_wdata(1);
             when x"CF" =>
-              -- @IO:GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
+              -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
                 trigger_reconfigure <= '1';
               end if;              
             when x"D0" =>
+              -- @IO:GS $D6D0 MISCIO:I2CBUSSEL Select I2C bus number (I2C busses vary between MEGA65 and MEGAphone variants)
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>
               -- @IO:GS $D6D1 - I2C control/status
-              -- @IO:GS $D6D1.0 - I2C reset
-              -- @IO:GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
-              -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
-              -- @IO:GS $D6D1.5 - I2C bus 1 swap SDA/SCL pins
-              -- @IO:GS $D6D1.6 - I2C busy flag
-              -- @IO:GS $D6D1.7 - I2C ack error
+              -- @IO:GS $D6D1.0 MISCIO:I2CRST I2C reset
+              -- @IO:GS $D6D1.1 MISCIO:I2CL I2C command latch write strobe (write 1 to trigger command)
+              -- @IO:GS $D6D1.2 MISCIO:I2CRW I2C Select read (1) or write (0)
+              -- @IO:GS $D6D1.5 MISCIO:I2CSW I2C bus 1 swap SDA/SCL pins
+              -- @IO:GS $D6D1.6 MISCIO:I2CBSY I2C busy flag
+              -- @IO:GS $D6D1.7 MISCIO:I2CERR I2C ack error
               if i2c_bus_id = x"00" then
                 i2c0_reset <= fastio_wdata(0);
                 i2c0_reset_internal <= fastio_wdata(0);
@@ -2560,7 +2597,7 @@ begin  -- behavioural
                 i2c1_debug_sda <= fastio_wdata(7);
               end if;
             when x"D2" =>
-              -- @IO:GS $D6D2.7-1 - I2C address
+              -- @IO:GS $D6D2.7-1 MISCIO:I2CADDR I2C address
               if i2c_bus_id = x"00" then
                 i2c0_address <= fastio_wdata(7 downto 1);
                 i2c0_address_internal <= fastio_wdata(7 downto 1);
@@ -2569,7 +2606,7 @@ begin  -- behavioural
                 i2c1_address_internal <= fastio_wdata(7 downto 1);
               end if;
             when x"D3" =>
-              -- @IO:GS $D6D3 - I2C data write register
+              -- @IO:GS $D6D3 MISCIO:I2CWDATA I2C data write register
               if i2c_bus_id = x"00" then
                 i2c0_wdata <= fastio_wdata;
                 i2c0_wdata_internal <= fastio_wdata;
@@ -2578,12 +2615,12 @@ begin  -- behavioural
                 i2c1_wdata_internal <= fastio_wdata;
               end if;
             when x"D4" =>
-              -- @IO:GS $D6D4 - I2C data read register
+              -- @IO:GS $D6D4 MISCIO:I2CRDATA I2C data read register
               null;
             when x"F0" =>
-              -- @IO:GS $D6F0 - LCD panel brightness control
+              -- @IO:GS $D6F0 MISCIO:LCDBRIGHT LCD panel brightness control
               lcdpwm_value <= fastio_wdata;
-              -- @IO:GS $D6F3 - Accelerometer bit-bashing port
+            -- @IO:GS $D6F3 MISCIO:ACCELBASH Accelerometer bit-bashing port (debug only)
             when x"F3" =>
               -- Accelerometer
               aclMOSI         <= fastio_wdata(1);
@@ -2593,11 +2630,11 @@ begin  -- behavioural
               aclSCK          <= fastio_wdata(3);
               aclSCKinternal  <= fastio_wdata(3);
             when x"F4" =>
-              -- @IO:GS $D6F4 - Audio Mixer register select
+              -- @IO:GS $D6F4 AUDIOMIX:REGSEL Audio Mixer register select
               audio_mix_reg <= fastio_wdata(7 downto 0);
               audio_mix_reg_int <= fastio_wdata(7 downto 0);
             when x"F5" =>
-              -- @IO:GS $D6F5 - Audio Mixer register write port
+              -- @IO:GS $D6F5 AUDIOMIX:REGWDATA Audio Mixer register write port
               -- Write to audio mixer register.
               -- Minor complication is that the registers are 16-bits wide in
               -- the audio mixer, so we have to write to the correct half of
@@ -2618,7 +2655,10 @@ begin  -- behavioural
               end if;
               audio_mix_write <= '1';
               
-            -- @IO:GS $D6F8 - 16-bit digital audio out (left LSB)
+            -- @IO:GS $D6F8 AUDIO:DIGILLSB 16-bit digital audio out (left LSB)
+            -- @IO:GS $D6F9 AUDIO:DIGILMSB 16-bit digital audio out (left MSB)
+            -- @IO:GS $D6FA AUDIO:DIGIRLSB 16-bit digital audio out (right LSB)
+            -- @IO:GS $D6FB AUDIO:DIGIRMSB 16-bit digital audio out (right MSB)
             when x"F8" =>
               -- 16-bit digital audio out
               pcm_left(7 downto 0) <= signed(fastio_wdata);
