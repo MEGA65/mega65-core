@@ -2532,10 +2532,12 @@ drce_cont3:
 
 drce_longname:
 
-        +Checkpoint "is LFN, so skip this record"
+disable_lfn_byte:	
+	jmp drce_cont_next_part
 
-        jmp drce_cont_next_part
-
+	inc $d020
+	jmp drce_longname
+	
         ;; make sure long entry type is "filename" (=$00)
         ;;
         ldy #fs_fat32_dirent_offset_lfn_type
@@ -2606,7 +2608,7 @@ drce3:  lda (<dos_scratch_vector),y
         dez
         bne drce3
 
-        ;; Copy first part of LFN
+        ;; Copy third part of LFN
         ;;
         ldy #fs_fat32_dirent_offset_lfn_part3_start
         ldz #fs_fat32_dirent_offset_lfn_part3_chars
@@ -2951,7 +2953,7 @@ ddie:   !text "xx drd_deleted_or_invalid_entry"
 ;;         ========================
 
 lfn_piece_offsets:
-        !8 0,13,13*2,13*3,13*4
+        !8 13*0,13*1,13*2,13*3,13*4
 
 ;;         ========================
 

@@ -442,6 +442,15 @@ done_audio:
         lda $de05
         sta mouse_detect_ctrl
 
+	;; Enable/disable experimental long filename support
+	lda #$4c 		; Disable LFN support by default
+	sta disable_lfn_byte
+	lda $de0f
+	bpl @nolfn
+	;; Diable jump that disables LFN support 
+	lda #$2c 		; BIT $xxxx opcode
+	sta disable_lfn_byte
+@nolfn:
         ;; Copy MAC address
         ldx #$05
 maccopy:
