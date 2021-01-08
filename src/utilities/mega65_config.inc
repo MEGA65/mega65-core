@@ -123,7 +123,7 @@ rtc_values:
 	.byte		$01			;bits for testing/setting
 	.defPStr	"dmagic revision:"	;label
 	.defPStr	'f018 (c65 roms < 910523)'		;option unset
-	.defPStr	"f018b (c65 roms >= 910523)"	;option set
+	.defPStr	"f018b"	;option set
 
 	.byte		$20			;option input type
 	.word		$0004			;offset into config table
@@ -141,6 +141,14 @@ rtc_values:
 	.byte		$00, $00, $00, $00
 	.byte		$00, $00, $00, $00
 	.byte		$00, $00, $00, $00
+
+	.byte		$20			;option input type
+	.word		$0007			;offset into config table
+	.byte		$80			;bits for testing/setting
+	.defPStr	"long fn support (experimental):"	;label
+	.defPStr	"disable";option unset
+	.defPStr	'enable';option set
+
 
 	.byte		$00			;end of list type
 chipsetOptions0_end:
@@ -258,7 +266,7 @@ networkPageIndex:
 savePageCnt	=	1
 
 ;*******************************************************************************
-;Do not change the order or number of options in these lists!
+;Do not change the order or number of options in these lists without code change!
 ;*******************************************************************************
 saveOptions0:
 	.byte           $10
@@ -286,3 +294,30 @@ saveOptions2:
 	
 savePageIndex:
 	.word		saveOptions0, saveOptions1, saveOptions2
+
+
+;-------------------------------------------------------------------------------
+;Help tab
+;-------------------------------------------------------------------------------
+helpPageCnt	=	1
+
+;*******************************************************************************
+;Do not change the order or number of options in these lists!
+;*******************************************************************************
+helpOptions0:
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$10
+	.defPStr	"ok"
+
+	.byte		$00
+	
+helpPageIndex:
+	.word		helpOptions0
