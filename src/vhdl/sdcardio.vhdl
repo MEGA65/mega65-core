@@ -790,6 +790,14 @@ begin  -- behavioural
 
           when "00010" =>             -- READ $D082
             -- @IO:C65 $D082 - F011 FDC Status A port (read only)
+            -- @IO:C65 $D082.7 FDC:BUSY F011 FDC busy flag (command is being executed) (read only)
+            -- @IO:C65 $D082.6 FDC:DRQ F011 FDC DRQ flag (one or more bytes of data are ready) (read only)
+            -- @IO:C65 $D082.5 FDC:EQ F011 FDC CPU and disk pointers to sector buffer are equal, indicating that the sector buffer is either full or empty. (read only)
+            -- @IO:C65 $D082.4 FDC:RNF F011 FDC Request Not Found (RNF), i.e., a sector read or write operation did not find the requested sector (read only)
+            -- @IO:C65 $D082.3 FDC:CRC F011 FDC CRC check failure flag (read only)
+            -- @IO:C65 $D082.2 FDC:LOST F011 LOST flag (data was lost during transfer, i.e., CPU did not read data fast enough) (read only)
+            -- @IO:C65 $D082.1 FDC:PROT F011 Disk write protect flag (read only)
+            -- @IO:C65 $D082.0 FDC:TK0 F011 Head is over track 0 flag (read only)
             -- STAT A  | BUSY  |  DRQ  |  EQ   |  RNF  |  CRC  | LOST  | PROT  |  TKQ  | 2 R
             --BUSY    command is being executed
             --DRQ     disk interface has transferred a byte
@@ -806,6 +814,14 @@ begin  -- behavioural
           when "00011" =>             -- READ $D083 
             -- @IO:C65 $D083 - F011 FDC Status B port (read only)
             -- STAT B  | RDREQ | WTREQ |  RUN  | NGATE | DSKIN | INDEX |  IRQ  | DSKCHG| 3 R
+            -- @IO:C65 $D083.7 FDC:RDREQ F011 Read Request flag, i.e., the requested sector was found during a read operation (read only)
+            -- @IO:C65 $D083.6 FDC:WTREQ F011 Write Request flag, i.e., the requested sector was found during a write operation (read only)
+            -- @IO:C65 $D083.5 FDC:RUN F011 Successive match.  A synonym of RDREQ on the 45IO47 (read only)
+            -- @IO:C65 $D083.4 FDC:WGATE F011 write gate flag. Indicates that the drive is currently writing to media.  Bad things may happen if a write transaction is aborted (read only)
+            -- @IO:C65 $D083.3 FDC:DISKIN F011 Disk sense (read only)
+            -- @IO:C65 $D083.2 FDC:INDEX F011 Index hole sense (read only)
+            -- @IO:C65 $D083.1 FDC:IRQ The floppy controller has generated an interrupt (read only). Note that interrupts are not currently implemented on the 45GS27.
+            -- @IO:C65 $D083.0 FDC:DSKCHG F011 disk change sense (read only)
             -- RDREQ   sector found during formatted read
             -- WTREQ   sector found during formatted write
             -- RUN     indicates successive matches during find operation
@@ -2011,7 +2027,7 @@ begin  -- behavioural
               -- @IO:C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
               f011_reg_step <= fastio_wdata;
             when "01010" =>
-              -- @IO:C65 $D089 FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
+              -- @IO:C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
               null;
               
             when others => null;

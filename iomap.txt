@@ -304,7 +304,23 @@ C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
 C65 $D081.6 FDC:RDCMD Command is a read operation if set
 C65 $D081.7 FDC:WRCMD Command is a write operation if set
 C65 $D081 FDC:COMMAND F011 FDC command register
+C65 $D082.0 FDC:TK0 F011 Head is over track 0 flag (read only)
+C65 $D082.1 FDC:PROT F011 Disk write protect flag (read only)
+C65 $D082.2 FDC:LOST F011 LOST flag (data was lost during transfer, i.e., CPU did not read data fast enough) (read only)
+C65 $D082.3 FDC:CRC F011 FDC CRC check failure flag (read only)
+C65 $D082.4 FDC:RNF F011 FDC Request Not Found (RNF), i.e., a sector read or write operation did not find the requested sector (read only)
+C65 $D082.5 FDC:EQ F011 FDC CPU and disk pointers to sector buffer are equal, indicating that the sector buffer is either full or empty. (read only)
+C65 $D082.6 FDC:DRQ F011 FDC DRQ flag (one or more bytes of data are ready) (read only)
+C65 $D082.7 FDC:BUSY F011 FDC busy flag (command is being executed) (read only)
 C65 $D082 - F011 FDC Status A port (read only)
+C65 $D083.0 FDC:DSKCHG F011 disk change sense (read only)
+C65 $D083.1 FDC:IRQ The floppy controller has generated an interrupt (read only). Note that interrupts are not currently implemented on the 45GS27.
+C65 $D083.2 FDC:INDEX F011 Index hole sense (read only)
+C65 $D083.3 FDC:DISKIN F011 Disk sense (read only)
+C65 $D083.4 FDC:WGATE F011 write gate flag. Indicates that the drive is currently writing to media.  Bad things may happen if a write transaction is aborted (read only)
+C65 $D083.5 FDC:RUN F011 Successive match.  A synonym of RDREQ on the 45IO47 (read only)
+C65 $D083.6 FDC:WTREQ F011 Write Request flag, i.e., the requested sector was found during a write operation (read only)
+C65 $D083.7 FDC:RDREQ F011 Read Request flag, i.e., the requested sector was found during a read operation (read only)
 C65 $D083 - F011 FDC Status B port (read only)
 C65 $D084 FDC:TRACK F011 FDC track selection register
 C65 $D085 FDC:SECTOR F011 FDC sector selection register
