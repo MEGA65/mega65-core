@@ -143,7 +143,7 @@ rtc_values:
 	.byte		$00, $00, $00, $00
 
 	.byte		$20			;option input type
-	.word		$0007			;offset into config table
+	.word		$000F			;offset into config table
 	.byte		$80			;bits for testing/setting
 	.defPStr	"long fn support (experimental):"	;label
 	.defPStr	"disable";option unset

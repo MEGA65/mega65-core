@@ -230,10 +230,10 @@ bootstrap:
 	
 
 themeColours:
-;Familiar
-	.byte	$00, $0E, $01, $0F, $04, $00, $00, $00
 ;CorpNeuvue
 	.byte	$01, $06, $0E, $0C, $04, $01, $00, $00
+;Familiar
+	.byte	$00, $0E, $01, $0F, $04, $00, $00, $00
 ;Traditional
 	.byte	$06, $0E, $01, $0F, $03, $00, $00, $00
 ;Slate
@@ -244,7 +244,7 @@ themeColours:
 CNT_THEMES = 5
 
 themeIndex:
-	.byte	$00
+	.byte	$FF
 
 clr_ctltxt:
 	.byte	$00
@@ -407,6 +407,8 @@ init:
 	
 		JSR	initState
 		
+		JSR	themeNext
+		
 	.if	.not DEBUG_MODE
 	.if     .not C64_MODE
 		JSR	hypervisorLoadOrResetConfig
@@ -489,6 +491,8 @@ main:
 		BNE	@tstDownKey
 		
 		JSR	themeNext
+		JSR	displayOptionsPage
+		
 		JMP	@inputLoop
 		
 @tstDownKey:
@@ -648,8 +652,6 @@ themeNext:
 		
 		LDA	clr_ctltxt 			;Screen colour
 		STA	$D021
-		
-		JSR	displayOptionsPage
 		
 		RTS
 
