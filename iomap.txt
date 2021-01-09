@@ -327,8 +327,8 @@ C65 $D085 FDC:SECTOR F011 FDC sector selection register
 C65 $D086 FDC:SIDE F011 FDC side selection register
 C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
 C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
-C65 $D089 FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
 C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
+C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
 GS $D09B - FSM state of low-level SD controller (DEBUG)
 GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
