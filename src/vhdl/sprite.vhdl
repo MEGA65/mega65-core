@@ -535,6 +535,9 @@ begin  -- behavioural
             else
               -- Transparent pixel, don't draw.
               sprite_number_out <= sprite_number_in;
+              sprite_colour_out <= sprite_colour_in;
+              sprite_map_out <= sprite_map_in;
+              sprite_fg_map_out <= sprite_fg_map_in;
               is_sprite_out <= is_sprite_in;
               null;
             end if;
