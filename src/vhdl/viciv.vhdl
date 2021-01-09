@@ -3730,7 +3730,7 @@ begin
         -- text = $E (foreground and background, and not alpha sprite pixel)
         -- sprite white fg (=+$20) on blue bg (= no +$10) = $21, as expected
         if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
-          palette_address(3) <= '1';
+          palette_address(3) <= '1';          
         else
           palette_address(3) <= postsprite_inborder;
         end if;
@@ -4359,8 +4359,9 @@ begin
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
-          if viciii_extended_attributes='1' then
-            -- 8-bit colour RAM in VIC-III/IV mode
+          if viciii_extended_attributes='1' or glyph_full_colour='1' then
+            -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
+            -- full-colour text mode
             glyph_colour_drive <= colourramdata;
           else
             -- 16 colours only in VIC-II mode
