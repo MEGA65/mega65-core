@@ -775,7 +775,7 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
 
-      led => led,
+--      led => led,
       
       max10_clkandsync => reset_from_max10,
       max10_rx => max10_rx,
@@ -1177,7 +1177,7 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
---    led <= portp(4);
+    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
