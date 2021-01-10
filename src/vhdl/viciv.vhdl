@@ -4389,8 +4389,12 @@ begin
           end if;
           -- Record colour and attribute information from colour RAM
           -- XXX We do this even in bitmap mode!
-          glyph_colour_drive(7 downto 4) <= "0000";
-          glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
+          if glyph_full_colour='0' then
+            glyph_colour_drive(7 downto 4) <= "0000";
+            glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
+          else
+            glyph_colour_drive <= colourramdata;
+          end if;
           glyph_bold_drive <= '0';
           glyph_underline_drive <= '0';
           glyph_reverse_drive <= '0';
