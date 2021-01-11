@@ -690,38 +690,38 @@ GS $D68A.2 SD:VDC0 (read only) Set if drive 0 is virtualized (sectors delivered 
 GS $D68A.3 SD:VDC1 (read only) Set if drive 1 is virtualized (sectors delivered via serial monitor interface)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
-GS $D68B.0 SD:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.0 SDFDC:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
 GS $D68B.1 - F011 disk 1 present
-GS $D68B.1 SD:D0P F011 drive 0 media present
+GS $D68B.1 SDFDC:D0P F011 drive 0 media present
 GS $D68B.2 - F011 disk 1 write protect
-GS $D68B.2 SD:D0WP Write protect F011 drive 0
-GS $D68B.3 SD:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
-GS $D68B.4 SD:D1P F011 drive 1 media present
-GS $D68B.5 SD:D1WP Write protect F011 drive 1
+GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
+GS $D68B.3 SDFDC:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.4 SDFDC:D1P F011 drive 1 media present
+GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
 GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
-GS $D68B.6 SD:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
-GS $D68B.7 SD:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
 GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
 GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
-GS $D68C SD:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
+GS $D68C SDFDC:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
 GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
 GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
-GS $D68D SD:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
+GS $D68D SDFDC:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
 GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
 GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
-GS $D68E SD:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
+GS $D68E SDFDC:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
 GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
-GS $D68F SD:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
+GS $D68F SDFDC:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
-GS $D690 SD:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
-GS $D691 SD:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
-GS $D692 SD:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
-GS $D693 SD:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
+GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
+GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
+GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
+GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
 GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
 GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
@@ -738,11 +738,11 @@ GS $D6A0.6 FDC:DBGMOTORA Control floppy drive MOTOR line
 GS $D6A0.7 FDC:DENSITY Control floppy drive density select line
 GS $D6A0 - DEBUG FDC read status lines
 GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
-GS $D6A1.0 FDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
-GS $D6A1.1 FDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
+GS $D6A1.0 SDFDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
 GS $D6A1.1 - Match any sector on a real floppy read/write
+GS $D6A1.1 SDFDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
 GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
-GS $D6A1.2 FDC:USEREAL2 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
+GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
 GS $D6A1.3-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
 GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic

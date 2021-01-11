@@ -2136,7 +2136,7 @@ begin  -- behavioural
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   else
-                    sd_state <= ReadSector;
+                    sd_state <= ReadSector;                    
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     -- Put into SD card buffer, not F011 buffer
@@ -2314,33 +2314,35 @@ begin  -- behavioural
 
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
-              f011_mega_disk <= fastio_wdata(6);
-              f011_mega_disk2 <= fastio_wdata(7);
-              -- @IO:GS $D68B.7 SD:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.6 SD:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.5 SD:D1WP Write protect F011 drive 1
-              -- @IO:GS $D68B.4 SD:D1P F011 drive 1 media present
-              -- @IO:GS $D68B.3 SD:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
-              -- @IO:GS $D68B.2 SD:D0WP Write protect F011 drive 0
-              -- @IO:GS $D68B.1 SD:D0P F011 drive 0 media present
-              -- @IO:GS $D68B.0 SD:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
-              f011_disk2_write_protected <= not fastio_wdata(5);
-              f011_disk2_present <= fastio_wdata(4);
+              if hypervisor_mode='1' then
+                f011_mega_disk <= fastio_wdata(6);
+                f011_mega_disk2 <= fastio_wdata(7);
+                f011_disk2_write_protected <= not fastio_wdata(5);
+                -- @IO:GS $D68B.2 - F011 disk 1 write protect
+                f011_write_protected <= not fastio_wdata(2);                
+                -- @IO:GS $D68B.1 - F011 disk 1 present
+                f011_disk1_present <= fastio_wdata(1);
+                f011_disk2_present <= fastio_wdata(4);
+              end if;
+              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
+              -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
+              -- @IO:GS $D68B.3 SDFDC:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+              -- @IO:GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
+              -- @IO:GS $D68B.1 SDFDC:D0P F011 drive 0 media present
+              -- @IO:GS $D68B.0 SDFDC:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
               diskimage2_enable <= fastio_wdata(3);
               
-              -- @IO:GS $D68B.2 - F011 disk 1 write protect
-              f011_write_protected <= not fastio_wdata(2);                
-              -- @IO:GS $D68B.1 - F011 disk 1 present
-              f011_disk1_present <= fastio_wdata(1);
               -- @IO:GS $D68B.0 - F011 disk 1 disk image enable
               diskimage1_enable <= fastio_wdata(0);
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-            -- @IO:GS $D68C SD:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
-            -- @IO:GS $D68D SD:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
-            -- @IO:GS $D68E SD:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
-            -- @IO:GS $D68F SD:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
+            -- @IO:GS $D68C SDFDC:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
+            -- @IO:GS $D68D SDFDC:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
+            -- @IO:GS $D68E SDFDC:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
+            -- @IO:GS $D68F SDFDC:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
             when x"8c" =>
               if hypervisor_mode='1' then
                 diskimage_sector(7 downto 0) <= fastio_wdata;
@@ -2359,10 +2361,10 @@ begin  -- behavioural
               end if;
 
             -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
-            -- @IO:GS $D690 SD:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
-            -- @IO:GS $D691 SD:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
-            -- @IO:GS $D692 SD:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
-            -- @IO:GS $D693 SD:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
+            -- @IO:GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
+            -- @IO:GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
+            -- @IO:GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
+            -- @IO:GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
             when x"90" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(7 downto 0) <= fastio_wdata;
@@ -2413,9 +2415,9 @@ begin  -- behavioural
               -- Setting F011 drives to use SD card is a privileged operation,
               -- so that you can't take advantage of stale contents of the
               -- sector number to get direct access to the SD card that way.
-              -- @IO:GS $D6A1.0 FDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
-              -- @IO:GS $D6A1.2 FDC:USEREAL2 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
-              -- @IO:GS $D6A1.1 FDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
+              -- @IO:GS $D6A1.0 SDFDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
+              -- @IO:GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
+              -- @IO:GS $D6A1.1 SDFDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
               if fastio_wdata(0)='1' or hypervisor_mode='1' or use_real_floppy0=fastio_wdata(0) then
                 use_real_floppy0 <= fastio_wdata(0);
               end if;
