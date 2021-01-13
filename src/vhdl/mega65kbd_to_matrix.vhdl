@@ -190,9 +190,12 @@ begin  -- behavioural
               output_vector(95 downto 0) <= disco_vector;
             else
               output_vector <= (others => '0');
-              if flopmotor='1' or (flopled='1' and counter(24)='1') then
+              if flopmotor='1' then
                 output_vector(23 downto 0) <= x"00FF00";
                 output_vector(47 downto 24) <= x"00FF00";
+              elsif (flopled='1' and counter(24)='1') then
+                output_vector(23 downto 0) <= x"FF0000";
+                output_vector(47 downto 24) <= x"FF0000";
               end if;
               if powerled='1' then
                 output_vector(71 downto 48) <= x"00FF00";
