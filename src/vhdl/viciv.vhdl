@@ -5028,7 +5028,7 @@ begin
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 13) <= paint_full_colour_data(3 downto 0);
               raster_buffer_write_data(12 downto 9) <= (others => paint_full_colour_data(0));
-              raster_buffer_write_data(8) <= (paint_full_colour_data(3) or force_chars_foreground) and (not force_chars_background));
+              raster_buffer_write_data(8) <= (paint_full_colour_data(3) or force_chars_foreground) and (not force_chars_background);
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -5170,7 +5170,7 @@ begin
             else
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
               raster_buffer_write_data(8) <= not force_chars_foreground;
-              raster_buffer_write_data(7 downto 0) <= 'paint_background;
+              raster_buffer_write_data(7 downto 0) <= paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
