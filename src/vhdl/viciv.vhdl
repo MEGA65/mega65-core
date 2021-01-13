@@ -834,7 +834,8 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
-  signal chars_are_foreground : std_logic := '1';
+  signal force_chars_foreground : std_logic := '1';
+  signal force_chars_background : std_logic := '0';
   signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
@@ -4120,9 +4121,12 @@ begin
           glyph_paint_background <= '1';
 
           -- By default, characters are drawn in the foreground.
-          -- With this flag, you can make them go into the background, so that
-          -- sprites can appear in front of them
-          chars_are_foreground <= '1';
+          -- If force_chars_background is set, then chars are forced into the background.
+          -- If force_chars_foreground is set, then chars are forced into the foreground
+          -- (ignoreing if a particular colour bit would normally be required
+          -- to achieve this).
+          force_chars_foreground <= '1';
+          force_chars_background <= '0';
 
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
@@ -4618,8 +4622,10 @@ begin
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
 
-              -- Also allow forcing of the following characters to be background
-              chars_are_foreground <= not glyph_width_deduct(3);
+              -- Also allow forcing of the following characters to be
+              -- background or foreground
+              force_chars_foreground <= glyph_width_deduct(3);
+              force_chars_background <= glyph_flip_horizontal;
               
             -- ... and don't paint anything, because it is just
             -- a tab stop.
@@ -4990,7 +4996,7 @@ begin
           if paint_full_colour_data(3 downto 0) = x"0" then
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(8) <= force_chars_foreground;
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- foreground pixel
@@ -4998,7 +5004,9 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= chars_are_foreground;
+              -- 
+              raster_buffer_write_data(8) <= not force_chars_background;
+                
               if paint_full_colour_data(3 downto 0) /= x"F" then
                 -- Lower four bits of colour come from the nybl
                 raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
@@ -5020,7 +5028,7 @@ begin
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 13) <= paint_full_colour_data(3 downto 0);
               raster_buffer_write_data(12 downto 9) <= (others => paint_full_colour_data(0));
-              raster_buffer_write_data(8) <= paint_full_colour_data(3) and chars_are_foreground;
+              raster_buffer_write_data(8) <= (paint_full_colour_data(3) or force_chars_foreground) and (not force_chars_background));
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -5047,7 +5055,7 @@ begin
           if paint_full_colour_data(7 downto 0) = x"00" then
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(8) <= force_chars_foreground;
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- foreground pixel
@@ -5055,7 +5063,7 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= chars_are_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
               if paint_full_colour_data(7 downto 0) /= x"FF" then
                 raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
               else
@@ -5072,7 +5080,7 @@ begin
                 & " ( + 1 ?)";
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
-              raster_buffer_write_data(8) <= paint_full_colour_data(7) and chars_are_foreground;
+              raster_buffer_write_data(8) <= (paint_full_colour_data(7) or force_chars_foreground) and (not force_chars_background);
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -5157,10 +5165,12 @@ begin
             paint_buffer <= paint_buffer_hflip_ramdata;
             if paint_ramdata(0)='1' then
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             else
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;
+              raster_buffer_write_data(7 downto 0) <= 'paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -5180,10 +5190,12 @@ begin
             paint_buffer<= '0'&paint_buffer(7 downto 1);
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_buffer(0)='1' then
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
               report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
             else
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;              
+              raster_buffer_write_data(7 downto 0) <= paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
@@ -5261,9 +5273,11 @@ begin
             paint_buffer <= paint_buffer_hflip_ramdata;
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_ramdata(0)='1' then
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             else
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;
+              raster_buffer_write_data(7 downto 0) <= paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -5281,16 +5295,20 @@ begin
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             case paint_buffer(1 downto 0) is
               when "00" =>
-                raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+                raster_buffer_write_data(8) <= not force_chars_foreground;
+                raster_buffer_write_data(7 downto 0) <= paint_background;
                 report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
               when "01" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc1;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_mc1;
                 report "Painting multi-colour 2 pixel in colour $" & to_hstring(paint_mc1) severity note;
               when "10" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc2;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_mc2;
                 report "Painting multi-colour 3 pixel in colour $" & to_hstring(paint_mc2) severity note;
               when "11" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_foreground;
                 report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
               when others =>
                 null;
