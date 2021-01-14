@@ -204,6 +204,8 @@ architecture Behavioral of viciv is
 
   signal reset_drive : std_logic := '0';
 
+  signal bitplane_bank_select : unsigned(2 downto 0) := "000";
+  
   signal iomode_set_toggle_last : std_logic := '0';
 
   signal before_y_chargen_start : std_logic := '1';
@@ -1997,8 +1999,8 @@ begin
           fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
         elsif register_number=124 then  -- $D307C
           -- fastio_rdata(3 downto 0) <= x"F";
-          -- XXX debug why VIC-III blink attribute is not blinking
-          fastio_rdata(3 downto 0) <= std_logic_vector(to_unsigned(viciii_blink_phase_counter,4));
+          fastio_rdata(2 downto 0) <= std_logic_vector(bitplane_bank_select);
+          fastio_rdata(3) <= '0';
           fastio_rdata(4) <= hsync_polarity_internal;
           fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= "11";
@@ -2843,8 +2845,10 @@ begin
           -- @IO:GS $D07B VIC-IV:Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
-          -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
-          null;                    
+          -- @IO:GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
+          -- are fetched from.
+          bitplane_bank_select <= fastio_write(0 to 2);
+          -- @IO:GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
@@ -4795,6 +4799,8 @@ begin
             end if;
 
             -- Odd bitplanes come from 2nd 64KB RAM, even bitplanes from first.
+            -- But also allow shifting bitplanes higher in memory
+            sprite_pointer_address(19 downto 17) <= bitplane_bank_select;
             if (sprite_fetch_sprite_number mod 2) = 0 then
               sprite_pointer_address(16) <= '0';
             else
@@ -4881,6 +4887,8 @@ begin
               & integer'image(sprite_fetch_sprite_number)
               & " pointer value = $" & to_hstring(ramdata_drive);
           else
+            -- Bitplane fetches happen here
+            
             --sprite_data_address <= sprite_pointer_address;
             --sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             --  sprite_data_address(16) <= '0';
