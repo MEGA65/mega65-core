@@ -2847,7 +2847,7 @@ begin
         elsif register_number=124 then
           -- @IO:GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
           -- are fetched from.
-          bitplane_bank_select <= unsigned(fastio_write(0 to 2));
+          bitplane_bank_select <= unsigned(fastio_write(2 downto 0));
           -- @IO:GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
