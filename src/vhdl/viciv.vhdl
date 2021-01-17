@@ -4758,7 +4758,7 @@ begin
           render_activity <= "101";
 
           sprite_datavalid <= '0';
-          if sprite_fetch_sprite_number = 16 then
+          if sprite_fetch_sprite_number = 16 or (sprite_fetch_sprite_number = 8 and bitplane_mode = '0') then
             -- Done fetching sprites
             raster_fetch_state <= Idle;
           elsif sprite_fetch_sprite_number < 8 then
