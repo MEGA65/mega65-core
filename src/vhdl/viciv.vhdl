@@ -999,16 +999,12 @@ architecture Behavioral of viciv is
   -- a set of screen characters (possibly via a GOSUB token), they can be
   -- displayed at any vertical offset, as well as horizontal offset via the
   -- GOTOX tokens.
-  -- _empty_rows indicates the number of blank rasters at the top of the char,
-  -- before showing the characterr, i.e., how many pixels to shove a character
-  -- down.
-  -- _skip_rows indicates how many of the pixels of the character to skip at
-  -- top of a character, so that the bottom half of a shoved row can be displayed
-  -- on the subsequent line, by drawing it one each in both lines, once with
-  -- _empty_rows and and once with _skip_rows set to the same number, which is
-  -- the number of pixels vertical shift down the screen compared with normal.
-  signal screenline_y_empty_rows : integer := 0;
-  signal screenline_y_skip_rows : integer := 0;
+  -- The draw_mask combined with the Y fine address offset mechanism allows
+  -- shifting a character up or down, and then masking off the parts that would
+  -- come from the previous or next character
+  signal screenline_draw_mask : unsigned(7 downto 0) := (others => '1');
+  signal screenline_draw_mask_drive : unsigned(7 downto 0) := (others => '1');
+  signal draw_mask_blank : std_logic := '0';
 
   -- For accumulating the last token
   signal screen_line_last_token : unsigned(15 downto 0) := x"0000";
@@ -4132,6 +4128,9 @@ begin
           force_chars_foreground <= '1';
           force_chars_background <= '0';
 
+          -- By default, draw all pixel rows of each character
+          screenline_draw_mask <= (others => '1');
+          
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
 
@@ -4312,6 +4311,10 @@ begin
           if glyph_with_alpha='1' then
             report "glyph is alpha blended";
           end if;
+
+          -- Work out if we are drawing this line of this char
+          draw_mask_blank <= not screenline_draw_mask(to_integer(chargen_y_hold));
+          
           if glyph_full_colour='1' then
             report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
@@ -4367,9 +4370,13 @@ begin
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
+          -- Also hold the 2nd colour RAM byte for use as the draw mask,
+          -- if its a GOTOX token with the appropriate bit set
+          screenline_draw_mask_drive <= colourramdata;
+          
           if viciii_extended_attributes='1' or glyph_full_colour='1' then
             -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
-            -- full-colour text mode
+            -- full-colour text mode            
             glyph_colour_drive <= colourramdata;
           else
             -- 16 colours only in VIC-II mode
@@ -4502,7 +4509,7 @@ begin
             report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data)
               & ", full_colour_fetch_count = " & integer'image(full_colour_fetch_count);
             if glyph_flip_horizontal='0' then
-              if glyph_visible='0' then
+              if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(63 downto 56) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(63 downto 56) <= "11111111";
@@ -4513,7 +4520,7 @@ begin
               end if;
               full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
             else
-              if glyph_visible='0' then
+              if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(7 downto 0) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(7 downto 0) <= "11111111";
@@ -4554,7 +4561,7 @@ begin
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             full_colour_data(63 downto 56) <= "00000000";
           end if;
           if glyph_reverse='1' then
@@ -4619,6 +4626,12 @@ begin
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
 
+              if glyph_4bit='1' then
+                screenline_draw_mask <= screenline_draw_mask;
+              else
+                screenline_draw_mask <= (others => '1');
+              end if; 
+              
               -- Allow setting of the glyph y offset in GOTO tokens
               glyph_y_offset <= to_integer(glyph_width_deduct(2 downto 0));
               
@@ -5157,7 +5170,7 @@ begin
               &paint_ramdata(4)&paint_ramdata(5)
               &paint_ramdata(6)&paint_ramdata(7);
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             paint_buffer_noflip_ramdata <= "00000000";
             paint_buffer_hflip_ramdata <= "00000000";
             paint_buffer_noflip_chardata <= "00000000";
@@ -5262,7 +5275,7 @@ begin
               &paint_ramdata(4)&paint_ramdata(5)
               &paint_ramdata(6)&paint_ramdata(7);
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             paint_buffer_noflip_ramdata <= "00000000";
             paint_buffer_hflip_ramdata <= "00000000";
             paint_buffer_noflip_chardata <= "00000000";
