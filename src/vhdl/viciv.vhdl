@@ -4866,12 +4866,11 @@ begin
               sprite_data_address(14) <= sprite_pointer_address(14);
               sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
 
-              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
+              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 17) <= "000";
               sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
               sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
               sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
-              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000")  + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
-              
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
             else 
               if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
                 sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
@@ -4921,14 +4920,20 @@ begin
           -- XXX It would be nice to use bit 7 to indicate to source from
           -- colour RAM, but for now we just clip to the 1MB chip RAM range
           report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
-          if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
-            sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+          if sprite_continuous_pointer_monitoring='1' then
+            sprite_data_address <= (ramdata_drive(5 downto 0)&sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0))
+                                   + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);            
           else
-            sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);            
-            sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
-            sprite_data_address(13 downto 0) <= sprite_data_address(13 downto 0);
-            sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
-            sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= sprite_data_address(13 downto 0);
+            if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            else
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);            
+              sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
+              sprite_data_address(13 downto 0) <= sprite_data_address(13 downto 0);
+              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= sprite_data_address(13 downto 0);
+            end if;
+          end if;
           raster_fetch_state <= SpriteDataFetch;
         when SpriteDataFetch =>
           -- Show what we are doing in debug display mode
