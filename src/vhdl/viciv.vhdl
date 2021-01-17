@@ -4928,7 +4928,7 @@ begin
             sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
             sprite_data_address(13 downto 0) <= sprite_data_address(13 downto 0);
             sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
-          end if;
+            sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= sprite_data_address(13 downto 0);
           raster_fetch_state <= SpriteDataFetch;
         when SpriteDataFetch =>
           -- Show what we are doing in debug display mode
