@@ -4518,7 +4518,6 @@ begin
           if hyper_data_strobe='1' then
             report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data)
               & ", full_colour_fetch_count = " & integer'image(full_colour_fetch_count);
-            paint_alternate_palette <= glyph_reverse and glyph_bold;
             if glyph_flip_horizontal='0' then
               if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(63 downto 56) <= "00000000";
@@ -4531,7 +4530,6 @@ begin
               end if;
               full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
             else
-              paint_alternate_palette <= glyph_reverse and glyph_bold;
               if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(7 downto 0) <= "00000000";
               elsif glyph_underline='1' then
@@ -4576,7 +4574,6 @@ begin
           if glyph_visible='0' or draw_mask_blank='1' then
             full_colour_data(63 downto 56) <= "00000000";
           end if;
-          paint_alternate_palette <= glyph_reverse and glyph_bold;
           if glyph_reverse='1' and glyph_bold='0' then
             if glyph_4bit='0' or glyph_flip_horizontal='0' then
               -- Don't flip byte nybl order
@@ -4632,6 +4629,7 @@ begin
             paint_blink <= glyph_blink;
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
+            paint_alternate_palette <= glyph_reverse and glyph_bold;
             
             if glyph_goto='1' then
               -- Glyph is tab-stop glyph
@@ -5160,6 +5158,7 @@ begin
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
           report "LEGACY: Painting mono card";
+          -- Delay of paint_alternate_palette for mono is correct
           paint_alternate_palette <= glyph_reverse and glyph_bold;
           if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
@@ -5266,6 +5265,7 @@ begin
         when PaintMultiColour =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
+          -- Paint_alternate_palette seems to not work in multi-colour mode
           paint_alternate_palette <= glyph_reverse and glyph_bold;
           if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
