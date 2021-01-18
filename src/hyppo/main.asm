@@ -2731,8 +2731,13 @@ setup_for_openrom:
 	;; Tell KERNAL screen is at $0400
 	lda #>$0400
 	sta $0288
+
+	lda $fff9
+	cmp #$ff
+	beq @notOpenROM
 	;; OpenROMs setup (XXX Won't work with Commodore C65 ROMs!)
 	jsr ($fff8)
+@notOpenROM:
 	;; make sure not in quote mode etc
 	lda #$00
 	sta $d8 ;; number of insertions outstanding = 0
