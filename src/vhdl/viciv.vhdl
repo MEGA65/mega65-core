@@ -906,6 +906,7 @@ architecture Behavioral of viciv is
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
   signal inborder : std_logic := '0';
+  signal pixel_alt_palette : std_logic := '0';
   signal postsprite_inborder : std_logic := '0';
   signal inborder_drive : std_logic := '0';
   signal inborder_t1 : std_logic := '0';
