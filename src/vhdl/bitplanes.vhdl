@@ -75,6 +75,7 @@ entity bitplanes is
     signal x1280_in : in xposition;
     signal y_in : in yposition;
     signal border_in : in std_logic;
+    signal alt_palette_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
@@ -90,6 +91,7 @@ entity bitplanes is
     signal x_out : out xposition := 0;
     signal y_out : out yposition := 0;
     signal border_out : out std_logic := '0';
+    signal alt_palette_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0) := (others => '0');
     signal alpha_out : out unsigned(7 downto 0) := (others => '0');
     signal sprite_colour_out : out unsigned(7 downto 0) := (others => '0');
@@ -334,6 +336,7 @@ begin  -- behavioural
       x_out <= x_in;
       y_out <= y_in;
       border_out <= border_in;
+      alt_palette_out <= alt_palette_in;
       is_foreground_out <= is_foreground_in;
       is_background_out <= is_background_in;
 

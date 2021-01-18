@@ -95,6 +95,7 @@ entity vicii_sprites is
     signal y_in : in yposition;
     signal yfine_in : in yposition;
     signal border_in : in std_logic;
+    signal alt_palette_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
 
@@ -104,6 +105,7 @@ entity vicii_sprites is
     signal x_out : out xposition := 0;
     signal y_out : out yposition := 0;
     signal border_out : out std_logic;
+    signal alt_palette_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0) := (others => '0');
     signal alpha_out : out unsigned(7 downto 0) := (others => '0');
     signal sprite_colour_out : out unsigned(7 downto 0) := (others => '0');
@@ -288,6 +290,15 @@ architecture behavioural of vicii_sprites is
   signal is_sprite_1_0 : std_logic;
   signal is_sprite_0_bp : std_logic;
   signal is_sprite_final : std_logic;
+  signal alt_palette_7_6 : std_logic;
+  signal alt_palette_6_5 : std_logic;
+  signal alt_palette_5_4 : std_logic;
+  signal alt_palette_4_3 : std_logic;
+  signal alt_palette_3_2 : std_logic;
+  signal alt_palette_2_1 : std_logic;
+  signal alt_palette_1_0 : std_logic;
+  signal alt_palette_0_bp : std_logic;
+  signal alt_palette_final : std_logic;
   signal sprite_number_7_6 : integer range 0 to 7;
   signal sprite_number_6_5 : integer range 0 to 7;
   signal sprite_number_5_4 : integer range 0 to 7;
@@ -367,6 +378,7 @@ begin
              y_in => y_in,
              yfine_in => yfine_in,
              border_in => border_in,
+             alt_palette_in => alt_palette_in,
              pixel_in => pixel_in,
              alpha_in => alpha_in,
              is_sprite_in => '0',
@@ -379,6 +391,7 @@ begin
              y_out => y_7_6,
              yfine_out => yfine_7_6,
              border_out => border_7_6,
+             alt_palette_out => alt_palette_7_6,
              pixel_out => pixel_7_6,
              alpha_out => alpha_7_6,
              is_sprite_out => is_sprite_7_6,
@@ -443,6 +456,7 @@ begin
              y_in => y_7_6,
              yfine_in => yfine_7_6,
              border_in => border_7_6,
+             alt_palette_in => alt_palette_7_6,
              pixel_in => pixel_7_6,
              alpha_in => alpha_7_6,
              is_sprite_in => is_sprite_7_6,
@@ -455,6 +469,7 @@ begin
              y_out => y_6_5,
              yfine_out => yfine_6_5,
              border_out => border_6_5,
+             alt_palette_out => alt_palette_6_5,
              pixel_out => pixel_6_5,
              alpha_out => alpha_6_5,
              is_sprite_out => is_sprite_6_5,
@@ -520,6 +535,7 @@ begin
              y_in => y_6_5,
              yfine_in => yfine_6_5,
              border_in => border_6_5,
+             alt_palette_in => alt_palette_6_5,
              pixel_in => pixel_6_5,
              alpha_in => alpha_6_5,
              is_sprite_in => is_sprite_6_5,
@@ -532,6 +548,7 @@ begin
              y_out => y_5_4,
              yfine_out => yfine_5_4,
              border_out => border_5_4,
+             alt_palette_out => alt_palette_5_4,
              pixel_out => pixel_5_4,
              alpha_out => alpha_5_4,
              is_sprite_out => is_sprite_5_4,
@@ -597,6 +614,7 @@ begin
              y_in => y_5_4,
              yfine_in => yfine_5_4,
              border_in => border_5_4,
+             alt_palette_in => alt_palette_5_4,
              pixel_in => pixel_5_4,
              alpha_in => alpha_5_4,
              is_sprite_in => is_sprite_5_4,
@@ -609,6 +627,7 @@ begin
              y_out => y_4_3,
              yfine_out => yfine_4_3,
              border_out => border_4_3,
+             alt_palette_out => alt_palette_4_3,
              pixel_out => pixel_4_3,
              alpha_out => alpha_4_3,
              is_sprite_out => is_sprite_4_3,
@@ -674,6 +693,7 @@ begin
              y_in => y_4_3,
              yfine_in => yfine_4_3,
              border_in => border_4_3,
+             alt_palette_in => alt_palette_4_3,
              pixel_in => pixel_4_3,
              alpha_in => alpha_4_3,
              is_sprite_in => is_sprite_4_3,
@@ -686,6 +706,7 @@ begin
              y_out => y_3_2,
              yfine_out => yfine_3_2,
              border_out => border_3_2,
+             alt_palette_out => alt_palette_3_2,
              pixel_out => pixel_3_2,
              alpha_out => alpha_3_2,
              is_sprite_out => is_sprite_3_2,
@@ -751,6 +772,7 @@ begin
              y_in => y_3_2,
              yfine_in => yfine_3_2,
              border_in => border_3_2,
+             alt_palette_in => alt_palette_3_2,
              pixel_in => pixel_3_2,
              alpha_in => alpha_3_2,
              is_sprite_in => is_sprite_3_2,
@@ -763,6 +785,7 @@ begin
              y_out => y_2_1,
              yfine_out => yfine_2_1,
              border_out => border_2_1,
+             alt_palette_out => alt_palette_2_1,
              pixel_out => pixel_2_1,
              alpha_out => alpha_2_1,
              is_sprite_out => is_sprite_2_1,
@@ -828,6 +851,7 @@ begin
              y_in => y_2_1,
              yfine_in => yfine_2_1,
              border_in => border_2_1,
+             alt_palette_in => alt_palette_2_1,
              pixel_in => pixel_2_1,
              alpha_in => alpha_2_1,
              is_sprite_in => is_sprite_2_1,
@@ -840,6 +864,7 @@ begin
              y_out => y_1_0,
              yfine_out => yfine_1_0,
              border_out => border_1_0,
+             alt_palette_out => alt_palette_1_0,
              pixel_out => pixel_1_0,
              alpha_out => alpha_1_0,
              is_sprite_out => is_sprite_1_0,
@@ -905,6 +930,7 @@ begin
              y_in => y_1_0,
              yfine_in => yfine_1_0,
              border_in => border_1_0,
+             alt_palette_in => alt_palette_1_0,
              pixel_in => pixel_1_0,
              alpha_in => alpha_1_0,
              is_sprite_in => is_sprite_1_0,
@@ -916,6 +942,7 @@ begin
              x640_out => x640_0_bp,
              y_out => y_0_bp,
              border_out => border_0_bp,
+             alt_palette_out => alt_palette_0_bp,
              pixel_out => pixel_0_bp,
              alpha_out => alpha_0_bp,
              is_sprite_out => is_sprite_0_bp,
@@ -992,6 +1019,7 @@ begin
              x1280_in => x640_0_bp,
              y_in => y_0_bp,
              border_in => border_0_bp,
+             alt_palette_in => alt_palette_0_bp,
              pixel_in => pixel_0_bp,
              alpha_in => alpha_0_bp,
              is_sprite_in => is_sprite_0_bp,
@@ -1002,6 +1030,7 @@ begin
              x_out => x_out,
              y_out => y_out,
              border_out => border_out,
+             alt_palette_out => alt_palette_final,
              pixel_out => pixel_final,
              alpha_out => alpha_final,
              is_sprite_out => is_sprite_final,
@@ -1015,7 +1044,7 @@ begin
              );
 
   
-  process(cpuclock,fastio_addr,is_sprite_final,sprite_colour_final,pixel_final,alpha_final) is
+  process(cpuclock,fastio_addr,is_sprite_final,sprite_colour_final,alt_palette_final,pixel_final,alpha_final) is
     variable register_bank : unsigned(7 downto 0) := x"00";
     variable register_page : unsigned(3 downto 0) := "0000";
     variable register_num : unsigned(7 downto 0) := x"00";
@@ -1130,7 +1159,9 @@ begin
       -- XXX Do we need to make sure we have the foreground and background
       -- values set correctly here for the alpha blending?
       alpha_out <= x"ff";
+      alt_palette_out <= '0';
     else
+      alt_palette_out <= alt_palette_final;
       pixel_out <= pixel_final;
       alpha_out <= alpha_final;
     end if;

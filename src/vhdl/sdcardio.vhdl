@@ -1127,19 +1127,19 @@ begin  -- behavioural
             -- @IO:GS $D6BA TOUCH:TOUCH1YLSB Touch pad touch #1 Y LSB
             fastio_rdata <= touch_y1(7 downto 0);
           when x"BB" =>
-            -- @IO:GS $D6BB.0-1 TOUCH:TOUCH1XMSB Touch pad touch #1 X MSBs
-            -- @IO:GS $D6BB.5-4 TOUCH:TOUCH1YMSB Touch pad touch #1 Y MSBs
+            -- @IO:GS $D6BB.0-1 TOUCH:TOUCH1XMSB Touch pad touch \#1 X MSBs
+            -- @IO:GS $D6BB.5-4 TOUCH:TOUCH1YMSB Touch pad touch \#1 Y MSBs
             fastio_rdata(1 downto 0) <= touch_x1(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y1(9 downto 8);
           when x"BC" =>
-            -- @IO:GS $D6BC TOUCH:TOUCH2XLSB Touch pad touch #2 X LSB
+            -- @IO:GS $D6BC TOUCH:TOUCH2XLSB Touch pad touch \#2 X LSB
             fastio_rdata <= touch_x2(7 downto 0);
           when x"BD" =>
-            -- @IO:GS $D6BD TOUCH:TOUCH2YLSB Touch pad touch #2 Y LSB
+            -- @IO:GS $D6BD TOUCH:TOUCH2YLSB Touch pad touch \#2 Y LSB
             fastio_rdata <= touch_y2(7 downto 0);
           when x"BE" =>
-            -- @IO:GS $D6BE.0-1 TOUCH:TOUCH2XMSB Touch pad touch #2 X MSBs
-            -- @IO:GS $D6BE.5-4 TOUCH:TOUCH2YMSB Touch pad touch #2 Y MSBs
+            -- @IO:GS $D6BE.0-1 TOUCH:TOUCH2XMSB Touch pad touch \#2 X MSBs
+            -- @IO:GS $D6BE.5-4 TOUCH:TOUCH2YMSB Touch pad touch \#2 Y MSBs
             fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
           when x"BF" =>

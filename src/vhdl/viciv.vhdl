@@ -411,6 +411,7 @@ architecture Behavioral of viciv is
   signal full_colour_fetch_count : integer range 0 to 8 := 0;
   signal full_colour_data : unsigned(63 downto 0) := (others => '0');
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
+  signal paint_alternate_palette : std_logic := '0';
 
   -- chipram access management registers
   signal next_ramaddress : unsigned(19 downto 0) := to_unsigned(0,20);
@@ -679,6 +680,7 @@ architecture Behavioral of viciv is
   signal postsprite_pixel_colour : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal postsprite_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal postsprite_sprite_number : integer range 0 to 7;
+  signal postsprite_alternate_palette : std_logic := '0';
   signal alpha_blend_alpha : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal pixel_is_sprite : std_logic;
 
@@ -1236,11 +1238,13 @@ begin
               y_in => to_yposition(vicii_sprite_ycounter),
               yfine_in => to_yposition(vicii_ycounter_v400),
               border_in => inborder_drive,
+              alt_palette_in => pixel_alt_palette,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
               pixel_out => postsprite_pixel_colour,
               alpha_out => postsprite_alpha_value,
               border_out => postsprite_inborder,
+              alt_palette_out => postsprite_alternate_palette,
               is_sprite_out => pixel_is_sprite,
               sprite_number_out => postsprite_sprite_number,
               is_background_out => pixel_is_background_out,
@@ -3598,6 +3602,8 @@ begin
           severity note;
         pixel_colour <= raster_buffer_read_data(7 downto 0);
         pixel_alpha <= raster_buffer_read_data(16 downto 9);
+        -- 18th bit indicates to use primary or alternate palette
+        pixel_alt_palette <= raster_buffer_read_data(17);
         -- 9th bit indicates foreground for sprite collission handling
         pixel_is_background <= not raster_buffer_read_data(8);
         pixel_is_foreground <= raster_buffer_read_data(8);
@@ -3693,8 +3699,7 @@ begin
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
         alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
         if pixel_is_sprite='0' then
-          -- Bold + reverse = use alternate palette
-          if (glyph_bold and glyph_reverse)='1' then
+          if postsprite_alternate_palette='1' then
             palette_address(9 downto 8) <= palette_bank_chargen_alt;
             alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           else
@@ -4508,23 +4513,25 @@ begin
           if hyper_data_strobe='1' then
             report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data)
               & ", full_colour_fetch_count = " & integer'image(full_colour_fetch_count);
+            paint_alternate_palette <= glyph_reverse and glyph_bold;
             if glyph_flip_horizontal='0' then
               if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(63 downto 56) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(63 downto 56) <= "11111111";
-              elsif glyph_reverse='1' then
+              elsif glyph_reverse='1' and glyph_bold='0' then
                 full_colour_data(63 downto 56) <= hyper_data xor "11111111";
               else
                 full_colour_data(63 downto 56) <= hyper_data;                  
               end if;
               full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
             else
+              paint_alternate_palette <= glyph_reverse and glyph_bold;
               if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(7 downto 0) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(7 downto 0) <= "11111111";
-              elsif glyph_reverse='1' then
+              elsif glyph_reverse='1' and glyph_bold='0' then
                 full_colour_data(7 downto 0) <= hyper_data xor "11111111";
               else
                 full_colour_data(7 downto 0) <= hyper_data;                  
@@ -4564,7 +4571,8 @@ begin
           if glyph_visible='0' or draw_mask_blank='1' then
             full_colour_data(63 downto 56) <= "00000000";
           end if;
-          if glyph_reverse='1' then
+          paint_alternate_palette <= glyph_reverse and glyph_bold;
+          if glyph_reverse='1' and glyph_bold='0' then
             if glyph_4bit='0' or glyph_flip_horizontal='0' then
               -- Don't flip byte nybl order
               full_colour_data(63 downto 56) <= ramdata xor "11111111";
@@ -5009,6 +5017,10 @@ begin
       end if;
 
       raster_buffer_write <= '0';
+
+      -- Always write if we are using the primary or alternate palette
+      raster_buffer_write_data(17) <= paint_alternate_palette;
+      
       case paint_fsm_state is
         when Idle =>
           if paint_ready /= '1' then
@@ -5143,7 +5155,8 @@ begin
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
           report "LEGACY: Painting mono card";
-          if glyph_reverse='1' then
+          paint_alternate_palette <= glyph_reverse and glyph_bold;
+          if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
@@ -5248,7 +5261,8 @@ begin
         when PaintMultiColour =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
-          if glyph_reverse='1' then
+          paint_alternate_palette <= glyph_reverse and glyph_bold;
+          if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
