@@ -681,6 +681,7 @@ architecture Behavioral of viciv is
   signal postsprite_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal postsprite_sprite_number : integer range 0 to 7;
   signal postsprite_alternate_palette : std_logic := '0';
+  signal postsprite_alternate_palette_delayed : std_logic := '0';
   signal alpha_blend_alpha : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal pixel_is_sprite : std_logic;
 
@@ -3684,6 +3685,9 @@ begin
       --report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
       --  & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
 
+      -- One pixel delay required for alternate palette selection
+      postsprite_alternate_palette_delayed <= postsprite_alternate_palette;
+      
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
@@ -3700,7 +3704,7 @@ begin
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
         alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
         if pixel_is_sprite='0' then
-          if postsprite_alternate_palette='1' then
+          if postsprite_alternate_palette_delayed='1' then
             palette_address(9 downto 8) <= palette_bank_chargen_alt;
             alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           else
