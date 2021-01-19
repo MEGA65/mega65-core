@@ -943,6 +943,7 @@ architecture Behavioral of viciv is
   signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
   signal no_raster_buffer_delay : std_logic := '1';
+  signal raster_buffer_double_line : std_logic := '0';
   
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0) := to_unsigned(0,15+1);
@@ -2070,6 +2071,7 @@ begin
         sprite_sixteen_colour_enables <= (others => '0');
         -- And raster re-write buffer delay also
         no_raster_buffer_delay <= '1';
+        raster_buffer_double_line <= '0';
       end if;
       
       -- Drive stage for data from hyper RAM and signals out to it
@@ -2594,6 +2596,8 @@ begin
         elsif register_number=81 then
           -- @IO:GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
           viciv_rasterx_compare(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D051.6 VIC-IV:DBLRR When set, the Raster Rewrite Buffer is only updated every 2nd raster line, limiting resolution to V200, but allowing more cycles for Raster-Rewrite actions.
+          raster_buffer_double_line <= fastio_wdata(6);
           -- @IO:GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
           no_raster_buffer_delay <= fastio_wdata(7);
         elsif register_number=82 then
@@ -3291,14 +3295,16 @@ begin
       end if;
 
       last_was_fetch_start <= is_fetch_start;
-        is_fetch_start <= '0';
-      if no_raster_buffer_delay='0' then
-        if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start) then
-          is_fetch_start <= '1';
-        end if;
-      else
-        if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start_double_buffered) then
-          is_fetch_start <= '1';
+      is_fetch_start <= '0';
+      if raster_buffer_double_line='0' or ycounter(0)='0' then
+        if no_raster_buffer_delay='0' then
+          if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start) then
+            is_fetch_start <= '1';
+          end if;
+        else
+          if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start_double_buffered) then
+            is_fetch_start <= '1';
+          end if;
         end if;
       end if;
       if is_fetch_start='1' and last_was_fetch_start='0' then
