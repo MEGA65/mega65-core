@@ -1890,7 +1890,8 @@ begin
         elsif register_number=80 then
           fastio_rdata <= std_logic_vector(xcounter_drive(7 downto 0));
         elsif register_number=81 then
-          fastio_rdata(7 downto 6) <= "00";
+          fastio_rdata(7) <= no_raster_buffer_delay;
+          fastio_rdata(6) <= raster_buffer_double_line;
           fastio_rdata(5 downto 0) <= std_logic_vector(xcounter_drive(13 downto 8));
         elsif register_number=82 then
           -- Read physical raster LSB
