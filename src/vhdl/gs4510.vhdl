@@ -2340,14 +2340,14 @@ begin
             when x"75" => return reg_mult_b(15 downto 8);
             when x"76" => return reg_mult_b(23 downto 16);
             when x"77" => return reg_mult_b(31 downto 24);
-            -- @IO:GS $D768 MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D769 MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76A MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76B MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76C MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76D MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76E MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
-            -- @IO:GS $D76F MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D768 MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D769 MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76A MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76B MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76C MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76D MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76E MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+            -- @IO:GS $D76F MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
             -- @IO:GS $D770 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
             -- @IO:GS $D771 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
             -- @IO:GS $D772 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
