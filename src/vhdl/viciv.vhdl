@@ -109,6 +109,7 @@ entity viciv is
 
     dat_even : out std_logic;
     dat_offset : out unsigned(15 downto 0);
+    dat_bitplane_bank : out unsigned(2 downto 0) := "000";
     dat_bitplane_addresses : out sprite_vector_eight;
 
     -- Used to synchronise our frame with an external frame generator
@@ -2855,6 +2856,7 @@ begin
           -- @IO:GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
           -- are fetched from.
           bitplane_bank_select <= unsigned(fastio_wdata(2 downto 0));
+          dat_bitplane_bank <= unsigned(fastio_wdata(2 downto 0));
           -- @IO:GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);

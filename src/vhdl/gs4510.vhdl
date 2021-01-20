@@ -82,6 +82,7 @@ entity gs4510 is
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
+    dat_bitplane_bank : in unsigned(2 downto 0);
     dat_offset : in unsigned(15 downto 0);
     dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
@@ -8091,7 +8092,8 @@ begin
       report "C65 VIC-III DAT: Address before translation is $" & to_hstring(temp_address);
       if temp_address(27 downto 3) & "000" = x"FFD1040"
         or temp_address(27 downto 3) & "000" = x"FFD3040" then
-        temp_address(27 downto 17) := (others => '0');
+        temp_address(27 downto 20) := (others => '0');
+        temp_address(19 downto 17) := dat_bitplane_bank;
         temp_address(16) := temp_address(0); -- odd/even bitplane bank select
         -- Bit plane address
         -- (VIC-III tells us if it is an odd or even frame if using V400+INT bits)

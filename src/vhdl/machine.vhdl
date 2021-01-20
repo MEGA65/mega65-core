@@ -722,6 +722,7 @@ architecture Behavioral of machine is
 
   signal dat_even : std_logic;
   signal dat_offset : unsigned(15 downto 0);
+  signal dat_bitplane_bank : unsigned(2 downto 0);
   signal dat_bitplane_addresses : sprite_vector_eight;  
 
   signal pota_x : unsigned(7 downto 0);
@@ -982,6 +983,7 @@ begin
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
       dat_even => dat_even,
+      dat_bitplane_bank => dat_bitplane_bank,
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
@@ -1221,6 +1223,7 @@ begin
 
       dat_even => dat_even,
       dat_offset => dat_offset,
+      dat_bitplane_bank => dat_bitplane_bank,
       dat_bitplane_addresses => dat_bitplane_addresses,
      
       -- Pixel stream to ethernet video packer
