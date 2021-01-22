@@ -821,6 +821,7 @@ begin
 
     if rising_edge(clock27) then
       -- VGA direct output
+      COUNT <= COUNT + '1';
       vga_red <= buffer_vgared(7 downto 4);
       vga_green <= buffer_vgagreen(7 downto 4);
       vga_blue <= buffer_vgablue(7 downto 4);
@@ -837,14 +838,6 @@ begin
       -- No physical keyboard
       portb_pins <= (others => '1');
 
-    end if;
-  end process;
-
-  process (CLK_IN)
-  begin
-    if rising_edge(CLK_IN) then
-      -- VGA direct output
-      COUNT <= COUNT + '1';
     end if;
   end process;
 
