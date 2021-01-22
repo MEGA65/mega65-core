@@ -22,7 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
-
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -34,14 +34,14 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;
+  Port ( CLK_IN : in STD_LOGIC;
 --         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
          flopled : out std_logic := '1';
          irled : out std_logic := '1';
-         
+
          wifi_uart_rx : inout std_logic := '1';
          wifi_uart_tx : out std_logic := '1';
 
@@ -61,8 +61,8 @@ entity container is
          i2c1scl : inout std_logic;
 
          smartcard_clk : inout std_logic;
-         smartcard_io : inout std_logic;         
-         
+         smartcard_io : inout std_logic;
+
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
@@ -220,7 +220,7 @@ architecture Behavioral of container is
   signal clock162 : std_logic;
   signal clock200 : std_logic;
   signal clock325 : std_logic;
-  
+
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -232,12 +232,12 @@ architecture Behavioral of container is
 
   signal slow_prefetched_address : unsigned(26 downto 0);
   signal slow_prefetched_data : unsigned(7 downto 0);
-  signal slow_prefetched_request_toggle : std_logic; 
-  
+  signal slow_prefetched_request_toggle : std_logic;
+
   signal sector_buffer_mapped : std_logic;
 
-  signal kbd_datestamp : unsigned(13 downto 0)  := to_unsigned(0,14);  
-  signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);  
+  signal kbd_datestamp : unsigned(13 downto 0)  := to_unsigned(0,14);
+  signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
 
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
@@ -314,7 +314,7 @@ architecture Behavioral of container is
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
-  
+
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
 
   signal i2c_joya_fire : std_logic;
@@ -343,9 +343,9 @@ architecture Behavioral of container is
   signal hyper_request_toggle : std_logic := '0';
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
-
+  signal COUNT : std_logic_vector (30 downto 0);
   signal portp : unsigned(7 downto 0);
-  
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -411,7 +411,6 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
@@ -425,7 +424,7 @@ begin
       viciv_request_toggle => hyper_request_toggle,
       viciv_data_out => hyper_data,
       viciv_data_strobe => hyper_data_strobe,
-      
+
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
@@ -437,9 +436,9 @@ begin
 
       current_cache_line => current_cache_line,
       current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,     
+      current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
+
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
@@ -453,9 +452,9 @@ begin
       hr2_rwds => open,
       hr2_reset => open,
       hr2_clk_p => open,
-      hr2_clk_n => open      
+      hr2_clk_n => open
       );
-  
+
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
@@ -491,7 +490,7 @@ begin
 
       slow_prefetched_address => slow_prefetched_address,
       slow_prefetched_data => slow_prefetched_data,
-      slow_prefetched_request_toggle => slow_prefetched_request_toggle,      
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
 
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -540,14 +539,14 @@ begin
 
       flopled => flopled,
       portp_out => portp,
-      
+
       -- No IEC bus on this hardware, so no need to slow CPU down for it.
       iec_bus_active => '0',
       iec_srq_external => '1',
 
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
-      
+
       btncpureset => '1',
       reset_out => reset_out,
       irq => irq,
@@ -561,7 +560,7 @@ begin
       hyper_request_toggle => hyper_request_toggle,
       hyper_data => hyper_data,
       hyper_data_strobe => hyper_data_strobe,
-      
+
       -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
       cpu_game => '1',
@@ -709,7 +708,7 @@ begin
       pcm_bluetooth_sync_in => bluetooth_pcm_sync_in,
       pcm_bluetooth_data_in => bluetooth_pcm_data_in,
       pcm_bluetooth_data_out => bluetooth_pcm_data_out,
-      
+
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem1_pcm_clk_in,
       pcm_modem_sync_in => modem1_pcm_sync_in,
@@ -752,7 +751,7 @@ begin
       buffereduart_tx(5) => bluetooth_uart_tx,
       buffereduart_tx(6) => lora1_uart_tx,
       buffereduart_tx(7) => lora2_uart_tx,
-      
+
       -- Ring indicate on MEGAphone PCB is not directly readable.
       -- Rather it will cause FPGA to power on, if it was off.
       -- FPGA programme needs to probe M.2 modules for clues as to why
@@ -787,15 +786,14 @@ begin
 
   lcd_dclk <= clock27;
 
-  
   process (cpuclock)
   begin
 
     -- LED on TE0725
-    led <= portp(4);
+    -- led <= portp(4);
     -- High power IR LED for TV remote control
     irled <= portp(5);
-    
+
     if rising_edge(cpuclock) then
       -- Connect Smartcard CLK and IO lines to IEC bus lines for easy control
       -- and debugging
@@ -815,8 +813,9 @@ begin
       end if;
     end if;
   end process;
-  
-  
+
+
+
   process (clock27,cpuclock)
   begin
 
@@ -841,7 +840,15 @@ begin
     end if;
   end process;
 
+  process (CLK_IN)
+  begin
+    if rising_edge(CLK_IN) then
+      -- VGA direct output
+      COUNT <= COUNT + '1';
+    end if;
+  end process;
 
+led <= COUNT(20);
 
   -- XXX Ethernet should be 250Mbit fibre port on this board
   -- eth_clock <= cpuclock;
