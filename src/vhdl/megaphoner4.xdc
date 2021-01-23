@@ -22,17 +22,8 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 
 # HDMI output
 ############## HDMIOUT define##################
-
-#set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports {gp[0]}]
-#set_property -dict {PACKAGE_PIN E1 IOSTANDARD LVCMOS33} [get_ports {gn[0]}]
-#set_property -dict {PACKAGE_PIN H1 IOSTANDARD LVCMOS33} [get_ports {gp[1]}]
-#set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports {gn[1]}]
-#set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {gp[2]}]
-#set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports {gn[2]}]
-#set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33 SLEW FAST DRIVE 24} [get_ports gp_clk_p]
-#set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33 SLEW FAST DRIVE 24} [get_ports gp_clk_n]
-#set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[0]}]
-#set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[1]}]
+set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[0]}]
+set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[1]}]
 
 set_property PACKAGE_PIN D3 [get_ports TMDS_clk_n]
 set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
@@ -82,7 +73,6 @@ set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx
 set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
 set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
 
-
 # Bluetooth UART
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_rx]
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_tx]
@@ -110,16 +100,15 @@ set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports smartcard_io]
 # Smartcard SenseA connects to GPIO12 of the bluetooth module
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_sense]
 
-
 # MiniPCIe modem port 1
 set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
 set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
 set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
 # No debug UARTs on this revision of board, as we ran out of pins
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_rx]
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_tx]
-set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
+set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx]
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 
 # MiniPCIe modem port 2
@@ -128,9 +117,9 @@ set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sy
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
 set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 # No debug UARTs on this revision of board, as we ran out of pins
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx]
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_tx]
-set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
+set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
@@ -205,7 +194,6 @@ set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports headphone_rig
 # Headphone jack microphone input
 set_property -dict {PACKAGE_PIN C6 IOSTANDARD LVCMOS33} [get_ports headphone_mic]
 
-
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[0]}]
 set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[1]}]
@@ -247,9 +235,7 @@ set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitp
 set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start_reg[5]/C}] -to [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/p_0_out/A[5]}]
 set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start_reg[5]/C}] -to [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/p_0_out/A[10]}]
 
-
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[0]/CE}]
-
 
 set_multicycle_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[4]/CE}] 1
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[2]/CE}]
@@ -270,7 +256,6 @@ set_property CFGBVS VCCO [current_design]
 set_property CONFIG_MODE SPIx4 [current_design]
 set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
 set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
-
 
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[4]/CE}]
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/tx_preamble_count_reg[4]/S}]
