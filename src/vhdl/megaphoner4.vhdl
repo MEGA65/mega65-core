@@ -22,6 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
+use work.types_pkg.all;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 -- Uncomment the following library declaration if using
@@ -111,17 +112,22 @@ entity container is
          vga_green : out  UNSIGNED (3 downto 0);
          vga_blue : out  UNSIGNED (3 downto 0);
 
+         TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_clk_p : out STD_LOGIC;
+         TMDS_clk_n : out STD_LOGIC;
+         hdmi_gnd : out STD_LOGIC_VECTOR(1 downto 0):= (others => '0');
          ----------------------------------------------------------------------
          -- LCD output
          ----------------------------------------------------------------------
-         lcd_vsync : out STD_LOGIC;
-         lcd_hsync : out  STD_LOGIC;
-         lcd_display_enable : out std_logic;
-         lcd_pwm : out std_logic;
-         lcd_dclk : out std_logic;
-         lcd_red : out  UNSIGNED (5 downto 0);
-         lcd_green : out  UNSIGNED (5 downto 0);
-         lcd_blue : out  UNSIGNED (5 downto 0);
+    --     lcd_vsync : out STD_LOGIC;
+    --     lcd_hsync : out  STD_LOGIC;
+    --     lcd_display_enable : out std_logic;
+    --     lcd_pwm : out std_logic;
+    --     lcd_dclk : out std_logic;
+    --     lcd_red : out  UNSIGNED (5 downto 0);
+    --     lcd_green : out  UNSIGNED (5 downto 0);
+    --     lcd_blue : out  UNSIGNED (5 downto 0);
 
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -343,8 +349,48 @@ architecture Behavioral of container is
   signal hyper_request_toggle : std_logic := '0';
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
-  signal COUNT : std_logic_vector (30 downto 0);
+
   signal portp : unsigned(7 downto 0);
+
+  signal pcm_clk : std_logic := '0';
+  signal pcm_rst : std_logic := '1';
+  signal pcm_clken : std_logic := '0';
+  signal pcm_l : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_r : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_acr : std_logic := '0';
+  signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+  signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+
+  signal v_vga_hsync : std_logic;
+  signal buffer_vga_vsync : std_logic;
+  signal buffer_vga_hsync : std_logic;
+  signal v_hdmi_vsync : std_logic;
+  signal v_hdmi_hsync : std_logic;
+  signal v_vsync : std_logic;
+  signal v_red : unsigned(7 downto 0);
+  signal v_green : unsigned(7 downto 0);
+  signal v_blue : unsigned(7 downto 0);
+  signal hdmi_dataenable : std_logic;
+
+  signal hdmired : UNSIGNED (7 downto 0);
+  signal hdmigreen : UNSIGNED (7 downto 0);
+  signal hdmiblue : UNSIGNED (7 downto 0);
+  signal hdmi_int : std_logic;
+  signal COUNT : std_logic_vector (30 downto 0);
+
+  signal hdmi_is_progressive : boolean := true;
+  signal hdmi_is_pal : boolean := true;
+  signal hdmi_is_30khz : boolean := true;
+  signal hdmi_is_limited : boolean := true;
+  signal hdmi_is_widescreen : boolean := true;
+
+  signal vga_blank : std_logic := '0';
+
+  signal tmds : slv_9_0_t(0 to 2);
+
+  signal reset_high : std_logic := '1';
+
+  signal dvi_select : std_logic := '1';
 
 begin
 
@@ -382,7 +428,6 @@ begin
              );
 -- End of STARTUPE2_inst instantiation
 
-
     -- New clocking setup, using more optimised selection of multipliers
   -- and dividers, as well as the ability of some clock outputs to provide an
   -- inverted clock for free.
@@ -403,6 +448,65 @@ begin
                clock200  => clock200,   --  200     MHz
                clock325  => clock325    --  325     MHz
                );
+
+  hdmi0: entity work.vga_to_hdmi
+    port map (
+      select_44100 => portp(3),
+      -- Disable HDMI-style audio if one
+      -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
+      -- this behaviour
+      dvi => dvi_select,
+      vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+      aspect => "01", -- 01=4:3, 10=16:9
+      pix_rep => '0', -- no pixel repetition
+      vs_pol => '1',  -- 1=active high
+      hs_pol => '1',
+
+      vga_rst => reset_high, -- active high reset
+      vga_clk => clock27, -- VGA pixel clock
+      vga_vs => v_hdmi_vsync, -- active high vsync
+      vga_hs => v_hdmi_hsync, -- active high hsync
+      vga_de => hdmi_dataenable,   -- pixel enable
+
+      vga_r => std_logic_vector(v_red),
+      vga_g => std_logic_vector(v_green),
+      vga_b => std_logic_vector(v_blue),
+
+      -- Feed in audio
+      pcm_rst => pcm_rst, -- active high audio reset
+      pcm_clk => pcm_clk, -- audio clock at fs
+      pcm_clken => pcm_clken, -- audio clock enable
+      pcm_l => pcm_l,
+      pcm_r => pcm_r,
+      pcm_acr => pcm_acr, -- 1KHz
+      pcm_n => pcm_n, -- ACR N value
+      pcm_cts => pcm_cts, -- ACR CTS value
+
+      tmds => tmds
+      );
+
+   -- serialiser: in this design we use TMDS SelectIO outputs
+  GEN_HDMI_DATA: for i in 0 to 2 generate
+  begin
+      HDMI_DATA: entity work.serialiser_10to1_selectio
+          port map (
+              rst     => reset_high,
+              clk     => clock27,
+              clk_x5  => clock135p,
+              d       => tmds(i),
+              out_p   => TMDS_data_p(i),
+              out_n   => TMDS_data_n(i)
+          );
+  end generate GEN_HDMI_DATA;
+  HDMI_CLK: entity work.serialiser_10to1_selectio
+      port map (
+          rst     => reset_high,
+          clk     => clock27,
+          clk_x5  => clock135p,
+          d       => "0000011111",
+          out_p   => TMDS_clk_p,
+          out_n   => TMDS_clk_n
+      );
 
   fpgatemp0: fpgatemp
     generic map (DELAY_CYCLES => 480)
@@ -528,14 +632,14 @@ begin
                                          -- hyperram for full-colour glyphs
                  )
     port map (
-      pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
-      uartclock       => cpuclock, -- Match CPU clock
+      pixelclock => pixelclock,
+      cpuclock => cpuclock,
+      uartclock => cpuclock, -- Match CPU clock
       clock162 => clock162,
       clock100 => clock100,
       clock200 => clock200,
       clock27 => clock27,
-      clock50mhz      => ethclock,
+      clock50mhz => ethclock,
 
       flopled => flopled,
       portp_out => portp,
@@ -626,20 +730,18 @@ begin
 
       no_hyppo => '0',
 
-      vsync           => vga_vsync,
-      vga_hsync           => vga_hsync,
-      lcd_vsync => lcd_vsync,
-      lcd_hsync => lcd_hsync,
-      lcd_dataenable => lcd_display_enable,
-      vgared(7 downto 0)          => buffer_vgared,
-      vgagreen(7 downto 0)        => buffer_vgagreen,
-      vgablue(7 downto 0)         => buffer_vgablue,
+      vsync => buffer_vga_vsync,
+      vga_hsync => buffer_vga_hsync,
+      hdmi_hsync => v_hdmi_hsync,
+      hdmi_dataenable => hdmi_dataenable,
+      vgared(7 downto 0) => buffer_vgared,
+      vgagreen(7 downto 0) => buffer_vgagreen,
+      vgablue(7 downto 0) => buffer_vgablue,
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       keyleft => '0',
       keyup => '0',
-
 
       ---------------------------------------------------------------------------
       -- IO lines to the mems and headphone microphone
@@ -698,7 +800,7 @@ begin
       -- Touch screen
       touchSDA => touch_SDA,
       touchSCL => touch_scl,
-      lcdpwm =>  lcd_pwm,
+  --    lcdpwm =>  lcd_pwm,
 
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
@@ -730,16 +832,16 @@ begin
 --      uart_tx => jclo(2),
 
       -- Buffered UARTs for cellular modems etc
-      buffereduart_rx(0) => modem1_uart_rx,
+--      buffereduart_rx(0) => modem1_uart_rx,
 --      buffereduart_rx(1) => modem1_debug_uart_rx,
-      buffereduart_rx(1) => '1',
-      buffereduart_rx(2) => modem2_uart_rx,
+ --     buffereduart_rx(1) => '1',
+ --     buffereduart_rx(2) => modem2_uart_rx,
 --      buffereduart_rx(3) => modem2_debug_uart_rx,
-      buffereduart_rx(3) => '1',
-      buffereduart_rx(4) => wifi_uart_rx,
-      buffereduart_rx(5) => bluetooth_uart_rx,
-      buffereduart_rx(6) => lora1_uart_rx,
-      buffereduart_rx(7) => lora2_uart_rx,
+ --     buffereduart_rx(3) => '1',
+ --     buffereduart_rx(4) => wifi_uart_rx,
+ --     buffereduart_rx(5) => bluetooth_uart_rx,
+--      buffereduart_rx(6) => lora1_uart_rx,
+ --     buffereduart_rx(7) => lora2_uart_rx,
 
       buffereduart_tx(0) => modem1_uart_tx,
 --      buffereduart_tx(1) => modem1_debug_uart_tx,
@@ -784,13 +886,13 @@ begin
 --      sseg_an => sseg_an
       );
 
-  lcd_dclk <= clock27;
+ -- lcd_dclk <= clock27;
 
   process (cpuclock)
   begin
 
     -- LED on TE0725
-    -- led <= portp(4);
+    -- led <= vga_hsync; -- portp(4);
     -- High power IR LED for TV remote control
     irled <= portp(5);
 
@@ -814,22 +916,25 @@ begin
     end if;
   end process;
 
-
-
-  process (clock27,cpuclock)
+    process (clock27,cpuclock)
   begin
 
     if rising_edge(clock27) then
       -- VGA direct output
-      COUNT <= COUNT + '1';
+      -- VGA
       vga_red <= buffer_vgared(7 downto 4);
       vga_green <= buffer_vgagreen(7 downto 4);
       vga_blue <= buffer_vgablue(7 downto 4);
+      vga_vsync <= buffer_vga_vsync;
+      vga_hsync <= buffer_vga_hsync;
+
+      -- hdmi_hsync => v_hdmi_hsync,
+      -- hdmi_dataenable => hdmi_dataenable,
 
       -- VGA out on LCD panel
-      lcd_blue <= buffer_vgablue(7 downto 2);
-      lcd_red <= buffer_vgared(7 downto 2);
-      lcd_green <= buffer_vgagreen(7 downto 2);
+  --    lcd_blue <= buffer_vgablue(7 downto 2);
+  --    lcd_red <= buffer_vgared(7 downto 2);
+  --    lcd_green <= buffer_vgagreen(7 downto 2);
 
     end if;
 
@@ -841,9 +946,25 @@ begin
     end if;
   end process;
 
-led <= COUNT(20);
-
   -- XXX Ethernet should be 250Mbit fibre port on this board
   -- eth_clock <= cpuclock;
+
+  process (v_hdmi_hsync)
+  begin
+    if rising_edge(v_hdmi_hsync) then
+      --Counter
+      COUNT <= COUNT + '1';
+    end if;
+  end process;
+
+  v_red <= buffer_vgared;
+  v_green <= buffer_vgagreen;
+  v_blue  <= buffer_vgablue;
+
+  led <= COUNT(10);
+
+  -- HDMI
+  -- led <= hdmi_dataenable;
+  v_hdmi_vsync <= buffer_vga_vsync;
 
 end Behavioral;
