@@ -2176,12 +2176,12 @@ begin
             -- @IO:GS $D727 DMA:CH0TADDR Audio DMA channel 0 top address LSB
             -- @IO:GS $D728 DMA:CH0TADDR Audio DMA channel 0 top address middle byte
             -- @IO:GS $D729 DMA:CH0VOLUME Audio DMA channel 0 playback volume
-            -- @IO:GS $D72A DMA:CH0FREQ Audio DMA channel 0 current address LSB
-            -- @IO:GS $D72B DMA:CH0FREQ Audio DMA channel 0 current address middle byte
-            -- @IO:GS $D72C DMA:CH0FREQ Audio DMA channel 0 current address MSB
-            -- @IO:GS $D72D DMA:CH0FREQ Audio DMA channel 0 timing counter LSB
-            -- @IO:GS $D72E DMA:CH0FREQ Audio DMA channel 0 timing counter middle byte
-            -- @IO:GS $D72F DMA:CH0FREQ Audio DMA channel 0 timing counter address MSB
+            -- @IO:GS $D72A DMA:CH0CURADDR Audio DMA channel 0 current address LSB
+            -- @IO:GS $D72B DMA:CH0CURADDR Audio DMA channel 0 current address middle byte
+            -- @IO:GS $D72C DMA:CH0CURADDR Audio DMA channel 0 current address MSB
+            -- @IO:GS $D72D DMA:CH0TMRADDR Audio DMA channel 0 timing counter LSB
+            -- @IO:GS $D72E DMA:CH0TMRADDR Audio DMA channel 0 timing counter middle byte
+            -- @IO:GS $D72F DMA:CH0TMRADDR Audio DMA channel 0 timing counter address MSB
 
             -- @IO:GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
             -- @IO:GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
@@ -2198,12 +2198,12 @@ begin
             -- @IO:GS $D737 DMA:CH1TADDR Audio DMA channel 1 top address LSB
             -- @IO:GS $D738 DMA:CH1TADDR Audio DMA channel 1 top address middle byte
             -- @IO:GS $D739 DMA:CH1VOLUME Audio DMA channel 1 playback volume
-            -- @IO:GS $D73A DMA:CH1FREQ Audio DMA channel 1 current address LSB
-            -- @IO:GS $D73B DMA:CH1FREQ Audio DMA channel 1 current address middle byte
-            -- @IO:GS $D73C DMA:CH1FREQ Audio DMA channel 1 current address MSB
-            -- @IO:GS $D73D DMA:CH1FREQ Audio DMA channel 1 timing counter LSB
-            -- @IO:GS $D73E DMA:CH1FREQ Audio DMA channel 1 timing counter middle byte
-            -- @IO:GS $D73F DMA:CH1FREQ Audio DMA channel 1 timing counter address MSB
+            -- @IO:GS $D73A DMA:CH1CURADDR Audio DMA channel 1 current address LSB
+            -- @IO:GS $D73B DMA:CH1CURADDR Audio DMA channel 1 current address middle byte
+            -- @IO:GS $D73C DMA:CH1CURADDR Audio DMA channel 1 current address MSB
+            -- @IO:GS $D73D DMA:CH1TMRADDR Audio DMA channel 1 timing counter LSB
+            -- @IO:GS $D73E DMA:CH1TMRADDR Audio DMA channel 1 timing counter middle byte
+            -- @IO:GS $D73F DMA:CH1TMRADDR Audio DMA channel 1 timing counter address MSB
 
             -- @IO:GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
             -- @IO:GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
@@ -2220,12 +2220,12 @@ begin
             -- @IO:GS $D747 DMA:CH2TADDR Audio DMA channel 2 top address LSB
             -- @IO:GS $D748 DMA:CH2TADDR Audio DMA channel 2 top address middle byte
             -- @IO:GS $D749 DMA:CH2VOLUME Audio DMA channel 2 playback volume
-            -- @IO:GS $D74A DMA:CH2FREQ Audio DMA channel 2 current address LSB
-            -- @IO:GS $D74B DMA:CH2FREQ Audio DMA channel 2 current address middle byte
-            -- @IO:GS $D74C DMA:CH2FREQ Audio DMA channel 2 current address MSB
-            -- @IO:GS $D74D DMA:CH2FREQ Audio DMA channel 2 timing counter LSB
-            -- @IO:GS $D74E DMA:CH2FREQ Audio DMA channel 2 timing counter middle byte
-            -- @IO:GS $D74F DMA:CH2FREQ Audio DMA channel 2 timing counter address MSB
+            -- @IO:GS $D74A DMA:CH2CURADDR Audio DMA channel 2 current address LSB
+            -- @IO:GS $D74B DMA:CH2CURADDR Audio DMA channel 2 current address middle byte
+            -- @IO:GS $D74C DMA:CH2CURADDR Audio DMA channel 2 current address MSB
+            -- @IO:GS $D74D DMA:CH2TMRADDR Audio DMA channel 2 timing counter LSB
+            -- @IO:GS $D74E DMA:CH2TMRADDR Audio DMA channel 2 timing counter middle byte
+            -- @IO:GS $D74F DMA:CH2TMRADDR Audio DMA channel 2 timing counter address MSB
                           
             -- @IO:GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
             -- @IO:GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
@@ -2242,12 +2242,12 @@ begin
             -- @IO:GS $D757 DMA:CH3TADDR Audio DMA channel 3 top address LSB
             -- @IO:GS $D758 DMA:CH3TADDR Audio DMA channel 3 top address middle byte
             -- @IO:GS $D759 DMA:CH3VOLUME Audio DMA channel 3 playback volume
-            -- @IO:GS $D75A DMA:CH3FREQ Audio DMA channel 3 current address LSB
-            -- @IO:GS $D75B DMA:CH3FREQ Audio DMA channel 3 current address middle byte
-            -- @IO:GS $D75C DMA:CH3FREQ Audio DMA channel 3 current address MSB
-            -- @IO:GS $D75D DMA:CH3FREQ Audio DMA channel 3 timing counter LSB
-            -- @IO:GS $D75E DMA:CH3FREQ Audio DMA channel 3 timing counter middle byte
-            -- @IO:GS $D75F DMA:CH3FREQ Audio DMA channel 3 timing counter address MSB
+            -- @IO:GS $D75A DMA:CH3CURADDR Audio DMA channel 3 current address LSB
+            -- @IO:GS $D75B DMA:CH3CURADDR Audio DMA channel 3 current address middle byte
+            -- @IO:GS $D75C DMA:CH3CURADDR Audio DMA channel 3 current address MSB
+            -- @IO:GS $D75D DMA:CH3TMRADDR Audio DMA channel 3 timing counter LSB
+            -- @IO:GS $D75E DMA:CH3TMRADDR Audio DMA channel 3 timing counter middle byte
+            -- @IO:GS $D75F DMA:CH3TMRADDR Audio DMA channel 3 timing counter address MSB
 
                           
             -- $D720-$D72F - Audio DMA channel 0                          
