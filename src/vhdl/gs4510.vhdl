@@ -6828,6 +6828,15 @@
         end if;
         reg_math_config_drive <= reg_math_config;
 
+        monitor_z(0) <= reset_drive;
+        monitor_z(1) <= reset_in;
+          if state = ResetLow then
+              monitor_z(2) <= '1';
+            else
+              monitor_z(2) <= '0';
+              end if;
+          monitor_z(7 downto 3) <= "10100";
+          
       end if; -- if rising edge of clock
 
       -- output all monitor values based on current state, not one clock delayed.
@@ -6839,7 +6848,8 @@
       monitor_a                     <= reg_a;
       monitor_x                     <= reg_x;
       monitor_y                     <= reg_y;
-      monitor_z                     <= reg_z;
+--      monitor_z                     <= reg_z;
+        
       monitor_sp                    <= reg_sph&reg_sp;
       monitor_b                     <= reg_b;
       monitor_interrupt_inhibit     <= map_interrupt_inhibit;
