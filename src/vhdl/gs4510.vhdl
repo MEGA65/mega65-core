@@ -6828,14 +6828,19 @@
         end if;
         reg_math_config_drive <= reg_math_config;
 
-        monitor_z(0) <= reset_drive;
-        monitor_z(1) <= reset_in;
+          -- XXX Debug why new CPU approach locks up when synthesised
+          monitor_z(0) <= reset_drive;
+          monitor_z(1) <= reset_in;
+          monitor_z(3)  <= waiting_on_mem_controller;
+          monitor_z(4) <= transaction_complete_toggle;
+          monitor_z(5) <= expected_transaction_complete_toggle;
+          monitor_z(6) <= fetch_instruction_please;
           if state = ResetLow then
               monitor_z(2) <= '1';
             else
               monitor_z(2) <= '0';
               end if;
-          monitor_z(7 downto 3) <= "10100";
+          monitor_z(7) <= '1';
           
       end if; -- if rising edge of clock
 
