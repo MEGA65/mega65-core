@@ -21,6 +21,8 @@ entity memcontroller is
     cpuclock4x : std_logic;
     cpuclock8x : std_logic;
 
+    debug_out : out unsigned(31 downto 0) := to_unsigned(0,32);
+    
     -- Allows us to know if hypervisor memory is mapped or not
     privileged_access : in std_logic;
 
@@ -206,6 +208,8 @@ architecture edwardian of memcontroller is
   -- the signals to get gathered from around the die
   constant hyppo_pipeline_depth : integer := 4;
 
+  signal debug_out_drive : unsigned(31 downto 0) := to_unsigned(0,32);
+  
   -- 162MHz request signals
   signal hyppo_write_addr : integer range 0 to (chipram_size-1) := 0;
   signal hyppo_write_data : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -546,6 +550,13 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      debug_out_drive(31) <= transaction_request_toggle;
+      debug_out_drive(30) <= hyppo_read_complete_toggle;
+      debug_out_drive(29) <= transaction_complete_toggle_drive;
+      debug_out_drive(28) <= hyppo_read_request_toggle;
+      debug_out_drive(27 downto 24) <= to_unsigned(hyppo_job_end_token,4);
+      debug_out_drive(23 downto 0) <= transaction_address(23 downto 0);
+      
       ifetch_buffer162_addr_strobe <= '0';
       
       -- Improve timing for some critical signals
@@ -647,7 +658,7 @@ begin
             -- Hypervisor memory
             report "HYPPO RAM request";
             if transaction_write = '1' then
-              -- Its a write
+              -- Its a write to hypervisor memory
               
               last_transaction_request_toggle <= transaction_request_toggle;
               report "COMPLETE: immediate return from hyppo write, because they never take >1 40MHz clock cycle";
@@ -659,7 +670,7 @@ begin
               hyppo_write_data <= transaction_wdata;
               hyppo_write_bytecount <= transaction_length;
             else
-              -- Reading from chip/fast RAM.
+              -- Reading from hypervisor RAM
               
               -- Remember that we have accepted the job
               last_transaction_request_toggle <= transaction_request_toggle;

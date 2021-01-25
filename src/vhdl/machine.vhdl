@@ -774,6 +774,8 @@ architecture Behavioral of machine is
   signal transaction_wdata : unsigned(31 downto 0);
   signal transaction_rdata : unsigned(47 downto 0);
 
+  signal memdebug : unsigned(31 downto 0);
+  
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
@@ -975,6 +977,8 @@ begin
       cpuclock4x => clock162,
       cpuclock8x => clock324,
 
+      debug_out => memdebug,
+      
       privileged_access => '1',
 
       cpuis6502 => '0',
@@ -1069,6 +1073,8 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      memdebug => memdebug,
+      
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
       cpu_pcm_enable => cpu_pcm_enable,

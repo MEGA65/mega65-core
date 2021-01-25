@@ -58,6 +58,8 @@
 
       all_pause : in std_logic;
 
+      memdebug : in unsigned(31 downto 0);
+        
       hyper_trap            : in  std_logic;
       cpu_hypervisor_mode   : out std_logic := '0';
       privileged_access     : out std_logic := '0';
@@ -6579,6 +6581,7 @@
             -- InstructionDecode state if the instruction is not ready there for us.
             else
                 -- Have to fetch instruction via normal memory channel
+                -- (this includes hypervisor instruction fetches for the time being)
                 if memory_access_read = '0' and memory_access_write = '0'  then
                   transaction_request_toggle <= not transaction_request_toggle_int;
                   transaction_request_toggle_int <= not transaction_request_toggle_int;
@@ -6831,16 +6834,20 @@
           -- XXX Debug why new CPU approach locks up when synthesised
           monitor_z(0) <= reset_drive;
           monitor_z(1) <= reset_in;
+          if state = ResetLow then
+            monitor_z(2) <= '1';
+          else
+            monitor_z(2) <= '0';
+          end if;
           monitor_z(3)  <= waiting_on_mem_controller;
           monitor_z(4) <= transaction_complete_toggle;
           monitor_z(5) <= expected_transaction_complete_toggle;
           monitor_z(6) <= fetch_instruction_please;
-          if state = ResetLow then
-              monitor_z(2) <= '1';
-            else
-              monitor_z(2) <= '0';
-              end if;
           monitor_z(7) <= '1';
+
+          monitor_x <= memdebug(31 downto 24);
+          monitor_y <= memdebug(23 downto 16);
+          monitor_sp <= memdebug(15 downto 0);
           
       end if; -- if rising edge of clock
 
@@ -6851,11 +6858,11 @@
       monitor_hypervisor_mode       <= hypervisor_mode;
       monitor_pc                    <= reg_pc;
       monitor_a                     <= reg_a;
-      monitor_x                     <= reg_x;
-      monitor_y                     <= reg_y;
+--      monitor_x                     <= reg_x;
+--      monitor_y                     <= reg_y;
 --      monitor_z                     <= reg_z;
         
-      monitor_sp                    <= reg_sph&reg_sp;
+--      monitor_sp                    <= reg_sph&reg_sp;
       monitor_b                     <= reg_b;
       monitor_interrupt_inhibit     <= map_interrupt_inhibit;
       monitor_map_offset_low        <= reg_offset_low;
