@@ -392,9 +392,7 @@ begin
   begin
     if rising_edge(cpuclock) then
 
-      led <= not led;
-      
-      debug_out_drive(3 downto 0) <= debug_out_drive(3 downto 0) + 1;
+      debug_out_drive(19 downto 0) <= debug_out_drive(19 downto 0) + 1;
     
       fastio_addr <= (others => '1');
       fastio_write <= '0';
@@ -489,7 +487,7 @@ begin
     end if;
     if rising_edge(cpuclock2x) then
       -- Slow devices is on 2x clock (81MHz) bus interface
-
+      
       if slowdev_read_request_toggle /= last_slowdev_read_request_toggle then
         slowdev_read_bytes_remaining_plus_one <= slowdev_read_bytecount + 1;
         last_slowdev_read_request_toggle <= slowdev_read_request_toggle;
@@ -556,12 +554,14 @@ begin
       -- prepare to submit them to the state machinery depending
       -- on the true memory address.  We work only using full 28-bit addresses.
 
+      led <= not led;     
+      
       debug_out_drive(31) <= transaction_request_toggle;
       debug_out_drive(30) <= hyppo_read_complete_toggle;
       debug_out_drive(29) <= transaction_complete_toggle_drive;
       debug_out_drive(28) <= hyppo_read_request_toggle;
       debug_out_drive(27 downto 24) <= to_unsigned(hyppo_job_end_token,4);
-      debug_out_drive(23 downto 4) <= transaction_address(23 downto 4);
+      debug_out_drive(23 downto 20) <= transaction_address(23 downto 20);
       
       ifetch_buffer162_addr_strobe <= '0';
       
