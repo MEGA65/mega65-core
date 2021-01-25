@@ -392,6 +392,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      debug_out <= debug_out_drive;
+      
       debug_out_drive(19 downto 0) <= debug_out_drive(19 downto 0) + 1;
     
       fastio_addr <= (others => '1');
