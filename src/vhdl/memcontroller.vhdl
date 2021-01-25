@@ -393,8 +393,6 @@ begin
     if rising_edge(cpuclock) then
 
       debug_out <= debug_out_drive;
-      
-      debug_out_drive(19 downto 0) <= debug_out_drive(19 downto 0) + 1;
     
       fastio_addr <= (others => '1');
       fastio_write <= '0';
@@ -563,7 +561,9 @@ begin
       debug_out_drive(29) <= transaction_complete_toggle_drive;
       debug_out_drive(28) <= hyppo_read_request_toggle;
       debug_out_drive(27 downto 24) <= to_unsigned(hyppo_job_end_token,4);
-      debug_out_drive(23 downto 20) <= transaction_address(23 downto 20);
+      debug_out_drive(23 downto 21) <= "000";
+      debug_out_drive(20 downto 16) <= hyppo_iface(hyppo_pipeline_depth).token_return;
+      debug_out_drive(15 downto 0) <= transaction_address(15 downto 0);
       
       ifetch_buffer162_addr_strobe <= '0';
       
