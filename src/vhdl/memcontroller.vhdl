@@ -21,7 +21,7 @@ entity memcontroller is
     cpuclock4x : std_logic;
     cpuclock8x : std_logic;
 
-    debug_out : out unsigned(31 downto 0) := to_unsigned(0,32);
+    debug_out : out unsigned(31 downto 0) := (others => '1');
     
     -- Allows us to know if hypervisor memory is mapped or not
     privileged_access : in std_logic;
@@ -208,7 +208,7 @@ architecture edwardian of memcontroller is
   -- the signals to get gathered from around the die
   constant hyppo_pipeline_depth : integer := 4;
 
-  signal debug_out_drive : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal debug_out_drive : unsigned(31 downto 0) := (others => '1');
   
   -- 162MHz request signals
   signal hyppo_write_addr : integer range 0 to (chipram_size-1) := 0;

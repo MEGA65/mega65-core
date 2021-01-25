@@ -6834,12 +6834,8 @@
           -- XXX Debug why new CPU approach locks up when synthesised
           monitor_z(0) <= reset_drive;
           monitor_z(1) <= reset_in;
-          if state = ResetLow then
-            monitor_z(2) <= '1';
-          else
-            monitor_z(2) <= '0';
-          end if;
-          monitor_z(3)  <= waiting_on_mem_controller;
+          monitor_z(2) <= waiting_on_mem_controller;
+          monitor_z(3) <= transaction_request_toggle_int;
           monitor_z(4) <= transaction_complete_toggle;
           monitor_z(5) <= expected_transaction_complete_toggle;
           monitor_z(6) <= fetch_instruction_please;
