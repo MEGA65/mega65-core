@@ -54,6 +54,7 @@ use work.cputypes.all;
 
 entity machine is
   generic (cpu_frequency : integer;
+           chipram_size : integer := 393216;
            hyper_installed : boolean := false;
            target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
@@ -969,7 +970,7 @@ begin
     generic map (
       target       => mega65r3,
       chipram_1mb  => '0',
-      chipram_size => 393216
+      chipram_size => chipram_size
     )
     port map (
       cpuclock   => cpuclock,
@@ -1036,7 +1037,8 @@ begin
     );
 
   cpu0: entity work.gs4510
-    generic map(target => target)
+    generic map(target => target,
+                chipram_size => chipram_size)
     port map(
       phi_1mhz => phi_1mhz,
       phi_2mhz => phi_2mhz,

@@ -760,6 +760,7 @@ begin
   
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
+                 chipram_size => 524288,
                  target => mega65r3,
                  hyper_installed => true -- For VIC-IV to know it can use
                                          -- hyperram for full-colour glyphs
