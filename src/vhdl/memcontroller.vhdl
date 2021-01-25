@@ -390,6 +390,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      debug_out_drive(3 downto 0) <= debug_out_drive(3 downto 0) + 1;
+    
       fastio_addr <= (others => '1');
       fastio_write <= '0';
 
@@ -555,7 +557,7 @@ begin
       debug_out_drive(29) <= transaction_complete_toggle_drive;
       debug_out_drive(28) <= hyppo_read_request_toggle;
       debug_out_drive(27 downto 24) <= to_unsigned(hyppo_job_end_token,4);
-      debug_out_drive(23 downto 0) <= transaction_address(23 downto 0);
+      debug_out_drive(23 downto 4) <= transaction_address(23 downto 4);
       
       ifetch_buffer162_addr_strobe <= '0';
       
@@ -1095,7 +1097,7 @@ begin
       -- HYPPO RAM state machine
       ------------------------------------------------------------------------------------------
       
-      -- Update fast RAM pipeline stages
+      -- Update Hyppo RAM pipeline stages
       for i in 1 to 8 loop
         hyppo_iface(i) <= hyppo_iface(i-1);
       end loop;
