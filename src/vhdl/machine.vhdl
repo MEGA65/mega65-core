@@ -76,6 +76,8 @@ entity machine is
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
+         memled : inout std_logic := '0';
+         
          fast_key : in std_logic := '1';
          iec_bus_active : in std_logic;
 
@@ -978,6 +980,8 @@ begin
       cpuclock4x => clock162,
       cpuclock8x => clock324,
 
+      led => memled,
+      
       debug_out => memdebug,
       
       privileged_access => '1',

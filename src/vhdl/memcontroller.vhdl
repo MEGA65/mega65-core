@@ -16,12 +16,14 @@ entity memcontroller is
     target : mega65_target_t := mega65r2);
   port (
     -- Clocks used to drive interface to CPU and memories
-    cpuclock : std_logic;
-    cpuclock2x : std_logic;
-    cpuclock4x : std_logic;
-    cpuclock8x : std_logic;
+    cpuclock : in std_logic;
+    cpuclock2x : in std_logic;
+    cpuclock4x : in std_logic;
+    cpuclock8x : in std_logic;
 
     debug_out : out unsigned(31 downto 0) := (others => '1');
+
+    led : inout std_logic := '0';
     
     -- Allows us to know if hypervisor memory is mapped or not
     privileged_access : in std_logic;
@@ -390,6 +392,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      led <= not led;
+      
       debug_out_drive(3 downto 0) <= debug_out_drive(3 downto 0) + 1;
     
       fastio_addr <= (others => '1');

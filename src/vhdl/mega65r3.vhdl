@@ -458,6 +458,7 @@ architecture Behavioral of container is
   signal hyper_ready : std_logic := '0';
   signal hyper_busy : std_logic := '0';
 
+  signal memled : std_logic;
   
 begin
 
@@ -776,6 +777,8 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
+      memled => memled,
+      
       hyper_read_request => hyper_read_request,
       hyper_write_request => hyper_write_request,
       hyper_byte_count => hyper_byte_count,
@@ -1174,7 +1177,9 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp_drive(4);
+--    led <= portp_drive(4);
+    led <= memled;
+    
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
