@@ -91,15 +91,15 @@ set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
 set_property -dict {PACKAGE_PIN R11 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[1]}]
 set_property -dict {PACKAGE_PIN R12 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[2]}]
 
-set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[3]}]
-set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[4]}]
+set_property -dict {PACKAGE_PIN K1 IOSTANDARD TMDS_33} [get_ports {fpga_pins[3]}]
+set_property -dict {PACKAGE_PIN K2 IOSTANDARD TMDS_33} [get_ports {fpga_pins[4]}]
 
 # Power/GND x 2
 set_property -dict {PACKAGE_PIN R13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[5]}]
 set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[6]}]
 
-set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[7]}]
-set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[8]}]
+set_property -dict {PACKAGE_PIN G2 IOSTANDARD TMDS_33} [get_ports {fpga_pins[7]}]
+set_property -dict {PACKAGE_PIN H2 IOSTANDARD TMDS_33} [get_ports {fpga_pins[8]}]
 
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD TMDS_33} [get_ports {diff_n}]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD TMDS_33} [get_ports {diff_p}]
@@ -109,14 +109,14 @@ set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[9
 set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[10]}]
 
 
-set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[11]}]
-set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[12]}]
-set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[13]}]
-set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[14]}]
-set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[15]}]
-set_property -dict {PACKAGE_PIN H1 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[16]}]
-set_property -dict {PACKAGE_PIN E1 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[17]}]
-set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[18]}]
+set_property -dict {PACKAGE_PIN D3 IOSTANDARD TMDS_33} [get_ports {fpga_pins[11]}]
+set_property -dict {PACKAGE_PIN E3 IOSTANDARD TMDS_33} [get_ports {fpga_pins[12]}]
+set_property -dict {PACKAGE_PIN J3 IOSTANDARD TMDS_33} [get_ports {fpga_pins[13]}]
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD TMDS_33} [get_ports {fpga_pins[14]}]
+set_property -dict {PACKAGE_PIN G1 IOSTANDARD TMDS_33} [get_ports {fpga_pins[15]}]
+set_property -dict {PACKAGE_PIN H1 IOSTANDARD TMDS_33} [get_ports {fpga_pins[16]}]
+set_property -dict {PACKAGE_PIN E1 IOSTANDARD TMDS_33} [get_ports {fpga_pins[17]}]
+set_property -dict {PACKAGE_PIN F1 IOSTANDARD TMDS_33} [get_ports {fpga_pins[18]}]
 set_property -dict {PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[19]}]
 set_property -dict {PACKAGE_PIN E2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[20]}]
 set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[21]}]

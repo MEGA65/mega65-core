@@ -127,7 +127,7 @@ architecture Behavioral of container is
   
 begin
 
-  HDMI_CLK: entity work.serialiser_10to1_selectio
+  s1: entity work.serialiser_10to1_selectio
     port map (
       rst     => '0',
       clk     => clock27,
@@ -137,25 +137,86 @@ begin
       out_n   => diff_n
       );
   
+
+  s2: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(4),
+      out_n   => fpga_pins(3)
+      );
   
-  gen_pin1:
-  for i in 1 to 70 generate
-      pin1: entity work.pin_id
-        port map (
-          clock => pixelclock,
-          pin_number => to_unsigned(i,8),
-          pin => fpga_pins(i)
-          );
-  end generate gen_pin1;
-  gen_pin2:
-  for i in 75 to 100 generate
-      pin2: entity work.pin_id
-        port map (
-          clock => pixelclock,
-          pin_number => to_unsigned(i,8),
-          pin => fpga_pins(i)
-          );
-  end generate gen_pin2;
+  s3: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(8),
+      out_n   => fpga_pins(7)
+      );
+  
+  s4: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(12),
+      out_n   => fpga_pins(11)
+      );
+  
+  s5: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(13),
+      out_n   => fpga_pins(14)
+      );
+  
+  s6: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(16),
+      out_n   => fpga_pins(15)
+      );
+  
+  s7: entity work.serialiser_10to1_selectio
+    port map (
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => fpga_pins(18),
+      out_n   => fpga_pins(17)
+      );
+  
+  
+--  gen_pin1:
+--  for i in 1 to 70 generate
+--      pin1: entity work.pin_id
+--        port map (
+--          clock => pixelclock,
+--          pin_number => to_unsigned(i,8),
+--          pin => fpga_pins(i)
+--          );
+--  end generate gen_pin1;
+--  gen_pin2:
+--  for i in 75 to 100 generate
+--      pin2: entity work.pin_id
+--        port map (
+--          clock => pixelclock,
+--          pin_number => to_unsigned(i,8),
+--          pin => fpga_pins(i)
+--          );
+--  end generate gen_pin2;
 
   i2sclock2: entity work.i2s_clock
     generic map (
