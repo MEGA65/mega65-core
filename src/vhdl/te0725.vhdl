@@ -124,8 +124,9 @@ architecture Behavioral of container is
   
 begin
 
-  U_OBUF: obufds
+  U_OBUF: obuftds
     port map (
+      t   => '0',
       i   => diff,
       o   => diff_p,
       ob  => diff_n
@@ -711,12 +712,13 @@ begin
     end;
     
   begin
-    if rising_edge(ethclock) then
+    if rising_edge(cpuclock) then
       i2s_master_clk <= i2s_master_clk_int;
       i2s_sync <= i2s_sync_int;      
 
       diff <= not diff_int;
       diff_int <= not diff_int;
+      led <= not diff_int;  
       
       if divisor /= 0 then
         divisor <= divisor - 1;
@@ -734,7 +736,7 @@ begin
           else
             table_dir <= '1';
             table_neg <= not table_neg;
-            led <= not led;
+--            led <= not led;
           end if;
         end if;
       end if;
