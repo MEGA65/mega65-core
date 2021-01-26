@@ -93,18 +93,18 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- "[file normalize "$origin_dir/ipcore_dir/dotclock100.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/clocking.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram9x4k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram36x1k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplane.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sprite.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pal_simulation.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_voice.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_filters.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_voice.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_filters.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_videobuffer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x512.vhdl"]"\
@@ -115,11 +115,10 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/crc.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplanes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vicii_sprites.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_rx.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_6581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_complex.vhdl"]"\
@@ -175,7 +174,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/fake_expansion_port.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/machine.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/te0725.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rain.vhdl"]"\
@@ -251,7 +250,7 @@ set file "vhdl/victypes.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_coeffs.vhd"
+set file "vhdl/sid_coeffs.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -299,11 +298,11 @@ set file "vhdl/sprite.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_voice.vhd"
+set file "vhdl/sid_voice.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_filters.vhd"
+set file "vhdl/sid_filters.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -363,7 +362,7 @@ set file "vhdl/version.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/UART_TX_CTRL.vhd"
+set file "vhdl/UART_TX_CTRL.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -375,11 +374,7 @@ set file "vhdl/termmem.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_6581.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/shadowram.vhdl"
+set file "vhdl/sid_6581.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -523,11 +518,11 @@ set file "vhdl/machine.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/fpgatemp.vhd"
+set file "vhdl/fpgatemp.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "ipcore_dir/dotclock100.vhd"
+set file "vhdl/clocking.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

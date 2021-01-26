@@ -39,6 +39,9 @@ entity container is
 --         nmi : in  STD_LOGIC;
 
          fpga_pins : out std_logic_vector(1 to 100) := (others => '1');
+
+         diff_p : out std_logic;
+         diff_n : out std_logic;
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -116,7 +119,18 @@ architecture Behavioral of container is
 
   subtype sine_vector_type is std_logic_vector( 8 downto 0 );
 
+  signal diff : std_logic := '0';
+  signal diff_int : std_logic := '0';
+  
 begin
+
+  U_OBUF: obufds
+    port map (
+      i   => diff,
+      o   => diff_p,
+      ob  => diff_n
+      );
+
   
   gen_pin1:
   for i in 1 to 70 generate
@@ -160,16 +174,15 @@ begin
 
   fpga_pins(74) <= i2s_master_clk;
   fpga_pins(72) <= i2s_sync;
-  
-  dotclock1: entity work.dotclock100
-    port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock200 => clock200,
-               clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+
+  clocks1: entity work.clocking
+    port map ( clk_in    => CLK_IN,
+               clock41   => cpuclock,   --   40.5   MHz
+               clock50   => ethclock,   --   50     MHz
+               clock81p  => pixelclock, --   81     MHz
+               clock81n  => clock81n,   --   81     MHz
+               clock100  => clock100,   --  100     MHz
+               clock200  => clock200   --  200     MHz
                );
 
   -- Update sample value
@@ -698,6 +711,9 @@ begin
     if rising_edge(ethclock) then
       i2s_master_clk <= i2s_master_clk_int;
       i2s_sync <= i2s_sync_int;      
+
+      diff <= not diff_int;
+      diff_int <= not diff_int;
       
       if divisor /= 0 then
         divisor <= divisor - 1;

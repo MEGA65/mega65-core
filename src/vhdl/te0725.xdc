@@ -100,8 +100,15 @@ set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[6
 
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[7]}]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[8]}]
-set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[9]}]
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[10]}]
+
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD TMDS33} [get_ports {diff_n}]
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD TMDS33} [get_ports {diff_p}]
+
+# Dummy assignments to allow us to reassign F3/F4 to a diff pair for testing.
+set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[9]}]
+set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[10]}]
+
+
 set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[11]}]
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[12]}]
 set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[13]}]
