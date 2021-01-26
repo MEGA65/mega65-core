@@ -171,6 +171,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/slow_devices.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fake_expansion_port.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/serialiser_10to1_selectio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/te0725.vhdl"]"\
@@ -468,6 +469,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/gs4510.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/serialiser_10to1_selectio.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

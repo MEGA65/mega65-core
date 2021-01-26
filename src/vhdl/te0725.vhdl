@@ -94,6 +94,9 @@ architecture Behavioral of container is
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
+  signal clock27 : std_logic;
+  signal clock135p : std_logic;
+  signal clock135n : std_logic;
   signal clock240 : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic;
@@ -124,14 +127,16 @@ architecture Behavioral of container is
   
 begin
 
-  U_OBUF: obuftds
+  HDMI_CLK: entity work.serialiser_10to1_selectio
     port map (
-      t   => '0',
-      i   => diff,
-      o   => diff_p,
-      ob  => diff_n
+      rst     => '0',
+      clk     => clock27,
+      clk_x5  => clock135p,
+      d       => "0000011111",
+      out_p   => diff_p,
+      out_n   => diff_n
       );
-
+  
   
   gen_pin1:
   for i in 1 to 70 generate
@@ -182,10 +187,13 @@ begin
 
   clocks1: entity work.clocking
     port map ( clk_in    => CLK_IN,
+               clock27   => clock27,    --   27     MHz
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
                clock100  => clock100,   --  100     MHz
+               clock135p => clock135p,  --  135     MHz
+               clock135n => clock135n,  --  135     MHz
                clock200  => clock200   --  200     MHz
                );
 
