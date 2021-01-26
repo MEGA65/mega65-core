@@ -147,8 +147,6 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ghdl_alpha_blend.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/framepacker.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/asym_ram.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ethernet.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ethernet_miim.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cia6526.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/c65uart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mouse_input.vhdl"]"\
@@ -173,7 +171,6 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/slow_devices.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fake_expansion_port.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/machine.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/te0725.vhdl"]"\
@@ -342,10 +339,6 @@ set file "vhdl/asym_ram.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/ethernet_miim.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
 set file "vhdl/crc.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -423,10 +416,6 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/framepacker.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/ethernet.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -511,10 +500,6 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/slow_devices.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/machine.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

@@ -29,8 +29,8 @@ use Std.TextIO.all;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
@@ -104,7 +104,7 @@ architecture Behavioral of container is
   signal i2s_master_clk : std_logic := '0';
   signal i2s_sync : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
-  signal sample : unsigned(15 downto 0) := x"0001";
+  signal sample : signed(15 downto 0) := x"0001";
   signal table_offset : integer range 0 to 255 := 0;
   signal table_dir : std_logic := '1';
   signal table_neg : std_logic := '0';
@@ -153,17 +153,21 @@ begin
 
   i2sclock2: entity work.i2s_clock
     generic map (
+      clock_frequency => 40500000,
       -- Modems and some other peripherals only need 8KHz,
       sample_rate => 44100
       )
     port map (
-      clock50mhz => ethclock,
+      cpuclock => cpuclock,
       i2s_clk => i2s_master_clk_int,
       i2s_sync => i2s_sync_int);
   
   -- I2S master for stereo speakers
-  i2s4: entity work.i2s_transceiver port map (
-    clock50mhz => ethclock,
+  i2s4: entity work.i2s_transceiver generic map (
+      clock_frequency => 40500000
+    )
+    port map (
+    cpuclock => cpuclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_sync_int,
     pcm_out => fpga_pins(71),
@@ -180,7 +184,6 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock81n  => clock81n,   --   81     MHz
                clock100  => clock100,   --  100     MHz
                clock200  => clock200   --  200     MHz
                );
