@@ -1899,7 +1899,8 @@ begin
         elsif register_number=83 then
           -- Read physical raster MSB and raster compare source flag
 	  fastio_rdata(7) <= vicii_is_raster_source;
-          fastio_rdata(6 downto 4) <= "000";
+          fastio_rdata(6) <= shadow_mask_enable;
+          fastio_rdata(5 downto 4) <= "00";
           fastio_rdata(3 downto 0) <= std_logic_vector(ycounter_drive(11 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
@@ -2608,9 +2609,11 @@ begin
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
         -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
+        -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-        -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          shadow_mask_enable <= fastio_wdata(6);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
