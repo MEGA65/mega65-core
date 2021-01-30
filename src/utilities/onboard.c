@@ -33,6 +33,8 @@ unsigned short device_id;
 unsigned short cfi_data[512];
 unsigned short cfi_length=0;
 
+unsigned char crt_mode=1;
+
 unsigned char reconfig_disabled=0;
 
 unsigned char data_buffer[512];
@@ -156,6 +158,14 @@ void main(void)
   // Enable VIC-III attributes
   POKE(0xD031,0x20);
 
+  // Disable CRT emulation to begin with
+  POKE(0xD054,0);
+
+  // Ensure screen colours right
+  POKE(0xD020,6);
+  POKE(0xD021,6);
+  POKE(0x286,0x01);
+  
   printf("%cWelcome to the MEGA65!\n",0x93);
   printf("\nBefore you go further, there are couple of things you need to do.\n");
   printf("\nPress F1 to cycle through the default   video modes. \n");
@@ -177,6 +187,18 @@ void main(void)
     printf("%c\n",0x92);
     POKE(0x286,14);
     printf("       F1\n");
+
+    POKE(0x286,1);
+    printf("\nCRT Emulation: %c",0x12);
+    POKE(0x286,7);
+    switch(crt_mode) {
+    case 0: printf("Disabled"); break;
+    case 1: printf("Enabled "); break;
+    }
+    printf("%c\n",0x92);
+    POKE(0x286,14);
+    printf("               C\n");
+      
     
     tm.tm_sec=0;
     tm.tm_min=0;
@@ -208,6 +230,10 @@ void main(void)
     c=PEEK(0xD610);
     if (c) POKE(0xD610,0);
     switch(c) {
+    case 0x43: case 0x63:
+      // Toggle CRT emulation
+      crt_mode^=1;
+      break;
     case 0x1F:
       video_mode=3;
       // FALL THROUGH
@@ -298,6 +324,9 @@ void main(void)
       if (video_mode&1) lpoke(0xffd6e02,0x00); else lpoke(0xffd6e02,0x80);
       // Write DVI/audio enable flag
       if (video_mode&2) lpoke(0xffd6e0d,0x02); else lpoke(0xffd6e0d,0x00);
+
+      // Write CRT emulation byte
+      if (crt_mode) lpoke(0xffd6e21,0x20); else lpoke(0xffd6e21,0x00);
       
       // Write onboarding complete byte
       lpoke(0xffd6e0e,0x80);
@@ -311,6 +340,8 @@ void main(void)
       reconfig_fpga(0);
     }
 
+    if (crt_mode) POKE(0xD054,0x20); else POKE(0xD054,0x00);
+    
   }
 
 }

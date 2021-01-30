@@ -382,8 +382,10 @@ syspart_configsector_apply:
 
 	;; Set $D054 options
 	;; (eg scanline emulation ($20) and horizontal blur filter ($08))
-	lda $de21
-	sta $d054
+	lda #$28
+	trb $d054
+	and $de21
+	tsb $d054
 	
         ;; Set PAL/NTSC mode (keeping $D058 value)
         ldx $d058

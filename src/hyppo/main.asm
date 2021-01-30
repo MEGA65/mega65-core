@@ -1483,8 +1483,9 @@ pal_ntsc_minus_1:
 
         ;; Now switch to 16-bit text mode so that we can use proportional
         ;; characters and full-colour characters for chars >$FF for the logo
+	;; Also enable CRT emulation
         ;;
-        lda #$c5
+        lda #$e5
         sta $d054        ;; VIC-IV Control Register C
 
         ;; and 80 bytes (40 16-bit characters) per row.
