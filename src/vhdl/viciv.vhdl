@@ -840,6 +840,8 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
+  signal glyph_alternate_palette_invert : std_logic := '0';
+  signal glyph_bold_and_reverse : std_logic := '0';
   signal force_chars_foreground : std_logic := '1';
   signal force_chars_background : std_logic := '0';
   signal last_hyper_request_toggle : std_logic := '0';
@@ -4147,6 +4149,9 @@ begin
           -- token).
           glyph_paint_background <= '1';
 
+          -- And don't invert palettes by default
+          glyph_alternate_palette_invert <= '0';
+
           -- By default, characters are drawn in the foreground.
           -- If force_chars_background is set, then chars are forced into the background.
           -- If force_chars_foreground is set, then chars are forced into the foreground
@@ -4442,6 +4447,11 @@ begin
           glyph_reverse_drive <= '0';
           glyph_visible_drive <= '1';
           glyph_blink_drive <= '0';
+
+          -- Get bold + reverse combination, even if not in VIC-III extended attribute
+          -- mode, so that we can check for it in GOTOX tokens.
+          glyph_bold_and_reverse <= colourramdata(5) and colourramdata(6);
+          
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if multicolour_mode='1' then
             -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
@@ -4666,6 +4676,10 @@ begin
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
+
+              -- Allow bold + reverse on a GOTOX token to switch
+              -- primary/alternate palette selection for all chars that follow
+              glyph_alternate_palette_invert <= glyph_bold_and_reverse;
 
               -- Also allow forcing of the following characters to be
               -- background or foreground
@@ -5039,7 +5053,7 @@ begin
       raster_buffer_write <= '0';
 
       -- Always write if we are using the primary or alternate palette
-      raster_buffer_write_data(17) <= paint_alternate_palette;
+      raster_buffer_write_data(17) <= paint_alternate_palette xor glyph_alternate_palette_invert;
       
       case paint_fsm_state is
         when Idle =>
