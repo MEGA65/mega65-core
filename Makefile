@@ -107,13 +107,16 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/pngprepare/giftotiles \
 	$(TOOLDIR)/i2cstatemapper
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65 $(SDCARD_DIR)/AUDIOMIX.M65 $(SDCARD_DIR)/C64THUMB.M65 $(SDCARD_DIR)/C65THUMB.M65
 
-$(SDCARD_DIR)/FREEZER.M65:
+$(SDCARD_DIR)/FREEZER.M65 $(SDCARD_DIR)/AUDIOMIX.M65 $(SDCARD_DIR)/C64THUMB.M65 $(SDCARD_DIR)/C65THUMB.M65:
 	git submodule init
 	git submodule update
-	( cd src/mega65-freezemenu && make FREEZER.M65 USE_LOCAL_CC65=$(USE_LOCAL_CC65))
+	( cd src/mega65-freezemenu && make FREEZER.M65 AUDIOMIX.M65 USE_LOCAL_CC65=$(USE_LOCAL_CC65))
 	cp src/mega65-freezemenu/FREEZER.M65 $(SDCARD_DIR)
+	cp src/mega65-freezemenu/AUDIOMIX.M65 $(SDCARD_DIR)
+	cp src/mega65-freezemenu/C64THUMB.M65 $(SDCARD_DIR)
+	cp src/mega65-freezemenu/C65THUMB.M65 $(SDCARD_DIR)
 
 $(CBMCONVERT):
 	git submodule init
