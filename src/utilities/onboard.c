@@ -331,7 +331,7 @@ void confirm_video_mode_change(void)
 
 	POKE(0xD610,0);
 	
-	video_mode=last_video_mode;
+	//	video_mode=last_video_mode;
 	// NTSC / PAL
 	if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
 	// DVI / Enhanced
@@ -349,7 +349,7 @@ void confirm_video_mode_change(void)
       // Don't try: Revert and restore
       lcopy(0x12000,0x0400,1000);
       lcopy(0x12400,0xff80000,1000);
-      video_mode=last_video_mode;
+      //      video_mode=last_video_mode;
   }
 
   
