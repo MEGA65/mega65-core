@@ -314,14 +314,16 @@ void confirm_video_mode_change(void)
 	}
 	if (!time_left) break;
       }
-      if (PEEK(0xD610)==0x4b||PEEK(0xD610==0x6b)) {
+      switch(PEEK(0xD610)) {
+      case 0x4b: case 0x6b:
 	POKE(0xD610,0);
 	// Keep new mode
 	lcopy(0x12000,0x0400,1000);
 	lcopy(0x12400,0xff80000,1000);
 	return;
-      } else {
+      default:
 	// Revert and restore
+	
 	video_mode=last_video_mode;
 	// NTSC / PAL
 	if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
@@ -463,7 +465,7 @@ void main(void)
       video_mode++; video_mode&=0x03;
 
       video_mode_change_pending=1;
-      video_mode_frame_number=PEEK(0xD7FA);
+      video_mode_frame_number=PEEK(0xD7FA)-1;
 
       break;
     case 0xF3: case 0xF4:
@@ -534,41 +536,49 @@ void main(void)
 	We write a valid default configuration sector.
       */
 
-      // First make sure we have the config sector freshly loaded
-      lpoke(0xffd3681,0x01);
-      lpoke(0xffd3682,0x00);
-      lpoke(0xffd3683,0x00);
-      lpoke(0xffd3684,0x00);
-      lpoke(0xffd3680,0x02);
-      while (lpeek(0xffd3680)&0x03) continue;
-
-      // Write version header
-      lpoke(0xffd6e00,0x01);
-      lpoke(0xffd6e01,0x01);
-
-      // Write PAL/NTSC flag
-      if (video_mode&1) lpoke(0xffd6e02,0x00); else lpoke(0xffd6e02,0x80);
-      // Write DVI/audio enable flag
-      if (video_mode&2) lpoke(0xffd6e0d,0x00); else lpoke(0xffd6e0d,0x02);
-
-      // Write CRT emulation byte
-      if (crt_mode) lpoke(0xffd6e21,0x20); else lpoke(0xffd6e21,0x00);
+      if (video_mode_change_pending) {
+	// If we have a video mode change pending, try it now
+	confirm_video_mode_change();
+	video_mode_change_pending=0;
+	last_video_mode=video_mode;
+      } else {
       
-      // Write onboarding complete byte
-      lpoke(0xffd6e0e,0x80);
-
-      // write config sector back
-      lpoke(0xffd3680,0x57);  // open write gate
-      lpoke(0xffd3680,0x03);  // actually write the sector
-      while (lpeek(0xffd3680)&0x03) continue;
-
-      // Now restart by reconfiguring the FPGA
-      reconfig_fpga(0);
+	// First make sure we have the config sector freshly loaded
+	lpoke(0xffd3681,0x01);
+	lpoke(0xffd3682,0x00);
+	lpoke(0xffd3683,0x00);
+	lpoke(0xffd3684,0x00);
+	lpoke(0xffd3680,0x02);
+	while (lpeek(0xffd3680)&0x03) continue;
+	
+	// Write version header
+	lpoke(0xffd6e00,0x01);
+	lpoke(0xffd6e01,0x01);
+	
+	// Write PAL/NTSC flag
+	if (video_mode&1) lpoke(0xffd6e02,0x00); else lpoke(0xffd6e02,0x80);
+	// Write DVI/audio enable flag
+	if (video_mode&2) lpoke(0xffd6e0d,0x00); else lpoke(0xffd6e0d,0x02);
+	
+	// Write CRT emulation byte
+	if (crt_mode) lpoke(0xffd6e21,0x20); else lpoke(0xffd6e21,0x00);
+	
+	// Write onboarding complete byte
+	lpoke(0xffd6e0e,0x80);
+	
+	// write config sector back
+	lpoke(0xffd3680,0x57);  // open write gate
+	lpoke(0xffd3680,0x03);  // actually write the sector
+	while (lpeek(0xffd3680)&0x03) continue;
+	
+	// Now restart by reconfiguring the FPGA
+	reconfig_fpga(0);
+      }
     }
 
     if (video_mode_change_pending) {
-      if ((video_mode_frame_number^PEEK(0xD7FA))==0x80) {
-	// After ~2 - 3 seconds of selecting a mode, try to activate it
+      if (!((video_mode_frame_number^PEEK(0xD7FA))&0x3f)) {
+	// After ~1 seconds of selecting a mode, try to activate it
 
 	confirm_video_mode_change();
 	
