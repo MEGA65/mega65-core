@@ -419,7 +419,7 @@ void main(void)
     POKE(0x286,1);
     printf("\nTime:  ");
     POKE(0x286,7);
-    printf("%c%02d:%02d.%02d %02d/%s/%04d%c  ",
+    printf("%c%02d:%02d:%02d %02d/%s/%04d%c  ",
 	   0x12,tm.tm_hour,tm.tm_min,tm.tm_sec,tm.tm_mday,month_name(tm.tm_mon),tm.tm_year+1900,0x92);
     POKE(0x286,14);
     printf("\n       F3 F5 F7 F9 F11 F13\n");
