@@ -54,11 +54,14 @@ task_set_c64_memorymap:
         lda #$01
         trb $d030
 
+	;; Clear 16-bit text mode, but keep CRT emulation and horizontal filter settings
+	lda #$e7
+        trb $d054	
+	
         ;; 40 column mode normal C64 screen
         lda #$00
         sta $d030
         sta $d031
-        sta $d054
         lda $dd00
         ora #$03
         sta $dd00

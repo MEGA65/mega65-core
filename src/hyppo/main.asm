@@ -2004,11 +2004,6 @@ g61:    sta $0800,x
         inx
         bne g61
 
-        ;; reset video mode to normal
-        ;; and return CPU to slow speed for exit
-        lda #$00
-        sta $d054
-
         lda #<40
         sta $d058
         lda #>40
