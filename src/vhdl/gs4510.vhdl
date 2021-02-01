@@ -2141,6 +2141,9 @@ begin
                             & reg_dmagic_addr(22 downto 16);
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
+            -- @IO:GS $D70F.7 MATH:DIVBUSY Set if hardware divider is busy
+            -- @IO:GS $D70F.6 MATH:MULBUSY Set if hardware multiplier is busy
+            when x"0F" => return div_busy & "0000000";              
             when x"10" => return "00" & badline_extra_cycles  & charge_for_branches_taken & vdc_enabled & slow_interrupts & badline_enable;
             -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
