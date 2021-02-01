@@ -206,10 +206,14 @@ void test_audio(void)
 	while(PEEK(0xD012U)!=0x80) {
 	  POKE(0xD438U,0x0f);
 	  POKE(0xD478U,0x0f);
+
+	  if (PEEK(0xD610)) break;
 	  continue;
 	}
 	
 	while(PEEK(0xD012U)==0x80) continue;
+
+	if (PEEK(0xD610)) break;
       }
 	 
     }
@@ -221,6 +225,7 @@ void test_audio(void)
       POKE(0xD438U,frames);
       POKE(0xD458U,frames);
       POKE(0xD478U,frames);
+      if (PEEK(0xD610)) break;
       continue;
     }
     
@@ -323,6 +328,8 @@ void confirm_video_mode_change(void)
 	return;
       default:
 	// Revert and restore
+
+	POKE(0xD610,0);
 	
 	video_mode=last_video_mode;
 	// NTSC / PAL
@@ -375,7 +382,7 @@ void main(void)
  
   while(1) {
     POKE(0x286,1);
-    printf("%c\n\n\n\n\n\n\n\n\n",0x13);    
+    printf("%c\n\n\n\n\n\n\n\n",0x13);    
     printf("Video: %c",0x12);
     POKE(0x286,7);
     switch(video_mode) {
@@ -386,12 +393,13 @@ void main(void)
     }
     printf("%c\n",0x92);
     POKE(0x286,14);
-    printf("       F1 or SPACE = cycle through modes");
+    printf("       TAB = cycle through modes\n");
+    printf("       SPACE = apply and test mode.");
 
     POKE(0x286,1);
-    printf("\nTest Audio: ");
+    printf("\n\nTest Audio (set video mode first): ");
     POKE(0x286,14);
-    printf("A = play a tune\n");
+    printf("\n       A = play a tune\n");
     
     POKE(0x286,1);
     printf("\nCRT Emulation: %c",0x12);
@@ -419,8 +427,10 @@ void main(void)
     POKE(0x286,1);
     printf("\nTime:  ");
     POKE(0x286,7);
-    printf("%c%02d:%02d:%02d %02d/%s/%04d%c  ",
-	   0x12,tm.tm_hour,tm.tm_min,tm.tm_sec,tm.tm_mday,month_name(tm.tm_mon),tm.tm_year+1900,0x92);
+    if (tm.tm_sec<61) {
+      printf("%c%02d:%02d:%02d %02d/%s/%04d%c  ",
+	     0x12,tm.tm_hour,tm.tm_min,tm.tm_sec,tm.tm_mday,month_name(tm.tm_mon),tm.tm_year+1900,0x92);
+    }
     POKE(0x286,14);
     printf("\n       F3 F5 F7 F9 F11 F13\n");
     POKE(0x286,1);
@@ -461,12 +471,19 @@ void main(void)
       last_video_mode=video_mode;
       
       break;
-    case 0xF1: case 0x20:
+    case 0x09: case 0xF1: 
       video_mode++; video_mode&=0x03;
 
-      video_mode_change_pending=1;
+      if (video_mode!=last_video_mode)
+	video_mode_change_pending=1;
+      else
+	video_mode_change_pending=0;
       video_mode_frame_number=PEEK(0xD7FA)-1;
 
+      break;
+    case 0x20:
+      confirm_video_mode_change();
+      video_mode_change_pending=0;
       break;
     case 0xF3: case 0xF4:
       if (c&1) tm.tm_hour++; else tm.tm_hour--;
@@ -576,6 +593,7 @@ void main(void)
       }
     }
 
+#if 0
     if (video_mode_change_pending) {
       if (!((video_mode_frame_number^PEEK(0xD7FA))&0x3f)) {
 	// After ~1 seconds of selecting a mode, try to activate it
@@ -587,6 +605,7 @@ void main(void)
       }
       
     }
+#endif
     
     if (crt_mode) POKE(0xD054,0x20); else POKE(0xD054,0x00);
     
