@@ -68,28 +68,32 @@ inputOptions0:
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$02			;bits for testing/setting
+;	.byte		$02			;bits for testing/setting
+	.byte		$01			;bits for testing/setting
 	.defPStr	"joystick 1 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$08			;bits for testing/setting
+;	.byte		$08			;bits for testing/setting
+	.byte		$04			;bits for testing/setting
 	.defPStr	"joystick 1 amiga mouse detection:"	;label
 	.defPStr	'conservative'		;option unset
 	.defPStr	"aggressive"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$01			;bits for testing/setting
+;	.byte		$01			;bits for testing/setting
+	.byte		$02			;bits for testing/setting
 	.defPStr	"joystick 2 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$04			;bits for testing/setting
+;	.byte		$04			;bits for testing/setting
+	.byte		$08			;bits for testing/setting
 	.defPStr	"joystick 2 amiga mouse detection:"	;label
 	.defPStr	'conservative'		;option unset
 	.defPStr	"aggressive"	;option set
@@ -179,11 +183,11 @@ videoOptions0:
 	.defPStr	"dvi only (no audio)"
 
 	.byte		$20
-	.word		$000E
-	.byte		$80
-	.defPStr	"onboarding utility on next boot:"
-	.defPStr	"yes"
-	.defPStr	"no"
+	.word		$0021
+	.byte		$20
+	.defPStr	"crt emulation:"
+	.defPStr	"on"
+	.defPStr	"off"
 
 	.byte		$00
 videoOptions0_end:
@@ -269,16 +273,16 @@ savePageCnt	=	1
 ;Do not change the order or number of options in these lists without code change!
 ;*******************************************************************************
 saveOptions0:
-	.byte           $10
-	.defPStr        "exit without saving"
-       	.byte           $10
-        .defPStr        "apply and test settings now"
-        .byte           $10
-        .defPStr        "restore factory defaults"  
- 	.byte		$10
+	.byte		$10
+	.defPStr	"exit without saving"
+	.byte		$10
+	.defPStr	"restore factory defaults"
+	.byte		$10
+	.defPStr	"exit and reboot to onboarding"
+	.byte		$10
 	.defPStr	"save as defaults and exit"
 	.byte		$00
-	
+
 saveOptions1:
 	.byte		$40
 	.byte		$40
