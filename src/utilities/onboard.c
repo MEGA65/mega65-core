@@ -242,7 +242,7 @@ void main(void)
       // NTSC / PAL
       if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
       // DVI / Enhanced
-      if (video_mode&2) POKE(0xD61A,0x02); else POKE(0xD61A,0x00);
+      if (video_mode&2) POKE(0xD61A,0x00); else POKE(0xD61A,0x02);
       break;
     case 0xF3: case 0xF4:
       if (c&1) tm.tm_hour++; else tm.tm_hour--;
@@ -323,7 +323,7 @@ void main(void)
       // Write PAL/NTSC flag
       if (video_mode&1) lpoke(0xffd6e02,0x00); else lpoke(0xffd6e02,0x80);
       // Write DVI/audio enable flag
-      if (video_mode&2) lpoke(0xffd6e0d,0x02); else lpoke(0xffd6e0d,0x00);
+      if (video_mode&2) lpoke(0xffd6e0d,0x00); else lpoke(0xffd6e0d,0x02);
 
       // Write CRT emulation byte
       if (crt_mode) lpoke(0xffd6e21,0x20); else lpoke(0xffd6e21,0x00);
