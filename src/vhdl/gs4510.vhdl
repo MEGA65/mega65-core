@@ -835,6 +835,8 @@ architecture Behavioural of gs4510 is
     DMAgicGetReady,                               -- 0x0b
     DMAgicFill,                                   -- 0x0c
     DMAgicCopyRead,DMAgicCopyWrite,               -- 0x0d, 0x0e
+    DMAgicCopyPauseForAudioDMA,
+    DMAgicFillPauseForAudioDMA,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
@@ -5555,6 +5557,11 @@ begin
                 end if;
               else
                 dmagic_count <= dmagic_count - 1;
+
+                if pending_dma_busy='1' then
+                  state <= DMAgicFillPauseForAudioDMA;
+                end if;
+                
               end if;
             when VDCRead =>
               state <= VDCWrite;
@@ -5604,8 +5611,12 @@ begin
               reg_t <= memory_read_value;
 
                                         -- Set IO visibility for source
-              cpuport_value(0) <= dmagic_src_io;              
-              state <= DMAgicCopyRead;
+              cpuport_value(0) <= dmagic_src_io;
+              if pending_dma_busy='1' then
+                state <= DMAgicCopyPauseForAudioDMA;
+              else
+                state <= DMAgicCopyRead;
+              end if;
 
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               
@@ -5644,6 +5655,14 @@ begin
                 else
                   dmagic_count <= dmagic_count - 1;
                 end if;
+              end if;
+            when DMAgicCopyPauseForAudioDMA =>
+              if pending_dma_busy = '0' then
+                state <= DMAgicCopyRead;
+              end if;
+            when DMAgicFillPauseForAudioDMA =>
+              if pending_dma_busy = '0' then
+                state <= DMAgicFill;
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
@@ -8371,7 +8390,14 @@ begin
           report "MEMORY Setting memory_access_address to resolved_vdc_to_viciv_src_address ($004"
             & to_hstring(resolved_vdc_to_viciv_src_address) & ").";
           memory_access_address(15 downto 0) := resolved_vdc_to_viciv_address;
-              
+
+        when DMAgicCopyPauseForAudioDMA | DMAgicFillPauseForAudioDMA =>
+          -- Schedule a non-shadow-RAM access, so that any pending audio DMA
+          -- can occur
+          memory_access_read := '0';
+          memory_access_resolve_address := '0';
+          memory_access_address(27 downto 0) := x"FFFFFFF";
+          
         when DMAgicCopyRead =>
           -- Do memory read
           memory_access_read := '1';
@@ -8379,7 +8405,6 @@ begin
           report "MEMORY Setting memory_access_address to dmagic_src_addr ($"
             & to_hstring(dmagic_src_addr) & ").";
           memory_access_address := dmagic_src_addr(35 downto 8);
-
           -- redirect memory read to IO block if required
           -- address is in 256ths of a byte, so must be shifted up 8 bits
           -- hence 23 downto 20 instead of 15 downto 12 
