@@ -186,8 +186,8 @@ videoOptions0:
 	.word		$0021
 	.byte		$20
 	.defPStr	"crt emulation:"
-	.defPStr	"on"
 	.defPStr	"off"
+	.defPStr	"on"
 
 	.byte		$00
 videoOptions0_end:
