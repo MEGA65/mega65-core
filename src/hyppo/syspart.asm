@@ -386,7 +386,7 @@ syspart_configsector_apply:
 	trb $d054
 	and $de21
 	tsb $d054
-	
+
         ;; Set PAL/NTSC mode (keeping $D058 value)
         ldx $d058
         lda $d06f

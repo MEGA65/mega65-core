@@ -479,7 +479,7 @@ reset_machine_state:
         sta $d031
         ;; 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
         lda #$c5
-        sta $d054
+        tsb $d054
 
         ;; Setup I2C peripherals on the MEGAphone platform
         jsr targetspecific_setup
@@ -1483,7 +1483,7 @@ pal_ntsc_minus_1:
 
         ;; Now switch to 16-bit text mode so that we can use proportional
         ;; characters and full-colour characters for chars >$FF for the logo
-	;; Also enable CRT emulation
+	;; Also enable CRT emulation by default.
         ;;
         lda #$e5
         sta $d054        ;; VIC-IV Control Register C
@@ -2707,8 +2707,8 @@ setup_for_openrom:
 	!8 $8d,$01,$00 ;; ABS STA $0001
 
 	;; We should also reset video mode to normal
-	lda #$40
-	sta $d054
+	lda #$97
+	trb $d054
 
 	;; Clear memory map at $4000-5FFF
 	;; (Why on earth do we even map some of the HyperRAM there, anyway???)
