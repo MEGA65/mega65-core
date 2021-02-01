@@ -126,6 +126,9 @@ unsigned char check_input(char *m)
   return 1;
 }
 
+unsigned char last_video_mode=0;
+unsigned char video_mode_change_pending=0;
+unsigned char video_mode_frame_number=0;
 unsigned char video_mode=0,c;
 struct m65_tm tm;
 
@@ -148,6 +151,203 @@ char *month_name(int month)
   return "???";
 }
 
+unsigned char frames;
+unsigned char note;
+unsigned char sid_num;
+unsigned int sid_addr;
+unsigned int notes[5]={5001,5613,4455,2227,3338};
+
+void test_audio(void)
+{
+  /*
+    Play notes and samples through 4 SIDs and left/right digi
+  */
+
+  // Reset all sids
+  lfill(0xffd3400,0,0x100);
+  
+  // Full volume on all SIDs
+  POKE(0xD418U,0x0f);
+  POKE(0xD438U,0x0f);
+  POKE(0xD458U,0x0f);
+  POKE(0xD478U,0x0f);
+
+  for(note=0;note<5;note++)
+    {
+      switch(note) {
+      case 0: sid_num=0; break;
+      case 1: sid_num=2; break;
+      case 2: sid_num=1; break;
+      case 3: sid_num=3; break;
+      case 4: sid_num=0; break;
+      }
+	
+      sid_addr=0xd400+(0x20*sid_num);
+
+      // Play note
+      POKE(sid_addr+0,notes[note]&0xff);
+      POKE(sid_addr+1,notes[note]>>8);
+      POKE(sid_addr+4,0x10);
+      POKE(sid_addr+5,0x0c);
+      POKE(sid_addr+6,0x00);
+      POKE(sid_addr+4,0x11);
+
+      // Wait 1/2 second before next note
+      // (==25 frames)
+      /* 
+	 So the trick here, is that we need to decide if we are doing 4-SID mode,
+	 where all SIDs are 1/2 volume (gain can of course be increased to compensate),
+	 or whether we allow the primary pair of SIDs to be louder.
+	 We have to write to 4-SID registers at least every couple of frames to keep them active
+      */
+      for(frames=0;frames<35;frames++) {
+	// Make sure all 4 SIDs remain active
+	// by proding while waiting
+	while(PEEK(0xD012U)!=0x80) {
+	  POKE(0xD438U,0x0f);
+	  POKE(0xD478U,0x0f);
+	  continue;
+	}
+	
+	while(PEEK(0xD012U)==0x80) continue;
+      }
+	 
+    }
+
+  // Silence SIDs gradually to avoid pops
+  for(frames=15;frames<=0;frames--) {
+    while(PEEK(0xD012U)!=0x80) {
+      POKE(0xD418U,frames);
+      POKE(0xD438U,frames);
+      POKE(0xD458U,frames);
+      POKE(0xD478U,frames);
+      continue;
+    }
+    
+    while(PEEK(0xD012U)==0x80) continue;
+  }
+
+  // Reset all sids
+  lfill(0xffd3400,0,0x100);
+
+  
+} 
+
+void draw_dialog_box(void)
+{
+  POKE(0x0400 + 6*40 + 5,112);
+  for (i=6;i<35;i++) POKE(0x0400 + 6*40 + i,0x40);
+  POKE(0x0400 + 6*40 + 35,110);
+  for (i=5;i<36;i++) lpoke(0xFF80000 + 6*40 + i,0x08);
+  for(y=7;y<15;y++) {
+    POKE(0x0400 + y*40 + 5,0x5d);
+    for (i=6;i<35;i++) POKE(0x0400 + y*40 + i,0x20);
+    POKE(0x0400 + y*40 + 35,0x5d);
+    for (i=5;i<36;i++) lpoke(0xFF80000 + y*40 + i,0x08);
+  }
+  POKE(0x0400 + 15*40 + 5,109);
+  for (i=6;i<35;i++) POKE(0x0400 + 15*40 + i,0x40);
+  POKE(0x0400 + 15*40 + 35,125);
+  for (i=5;i<36;i++) lpoke(0xFF80000 + 15*40 + i,0x08);
+
+}
+
+unsigned char last_frame_number=0;
+unsigned short time_left=0;
+
+void confirm_video_mode_change(void)
+{
+
+  // First backup screen and colour RAM
+  lcopy(0x0400,0x12000,1000);
+  lcopy(0xff80000,0x12400,1000);
+
+  draw_dialog_box();
+  
+  POKE(0x0286,7);
+  printf("\023\n\n\n\n\n\n"
+	 "\035\035\035\035\035\035Try video mode:\n"
+	 "\035\035\035\035\035\035  ");
+  POKE(0x286,1);
+  switch(video_mode) {
+  case 0 : printf("NTSC, Pure DVI"); break;
+  case 1 : printf("PAL, Pure DVI"); break;
+  case 2 : printf("NTSC, Digital Audio"); break;
+  case 3 : printf("PAL, Digital Audio"); break;
+  }
+  printf("\n\n\035\035\035\035\035\035(Will revert on fail after\n"
+	 "\035\035\035\035\035\03515 seconds.)");
+  printf("\n"
+	 "\035\035\035\035\035\035        (Y)es or (N)o?");
+  
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  
+  switch(PEEK(0xD610)) {
+    case 0x59: case 0x79: // Y
+
+      POKE(0xD610,0);
+      
+      // Set video mode
+      
+      // NTSC / PAL
+      if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
+      // DVI / Enhanced
+      if (video_mode&2) POKE(0xD61A,0x00); else POKE(0xD61A,0x02);
+      POKE(0xD011,0x1b);
+
+      // Draw "Press K to keep new video mode" dialog
+      draw_dialog_box();
+
+      POKE(0x0286,7);
+      printf("\023\n\n\n\n\n\n"
+	     "\035\035\035\035\035\035Press K to keep video mode.\n");
+
+      time_left=50*15;
+      last_frame_number=PEEK(0xD7FA);
+      while(!PEEK(0xD610)) {
+	printf("\023\n\n\n\n\n\n\n\n"
+	       "\035\035\035\035\035\035Timeout in %2d sec.",time_left/50);
+	if (last_frame_number!=PEEK(0xD7FA)) {
+	  last_frame_number=PEEK(0xD7FA);
+	  time_left--;
+	}
+	if (!time_left) break;
+      }
+      if (PEEK(0xD610)==0x4b||PEEK(0xD610==0x6b)) {
+	POKE(0xD610,0);
+	// Keep new mode
+	lcopy(0x12000,0x0400,1000);
+	lcopy(0x12400,0xff80000,1000);
+	return;
+      } else {
+	// Revert and restore
+	video_mode=last_video_mode;
+	// NTSC / PAL
+	if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
+	// DVI / Enhanced
+	if (video_mode&2) POKE(0xD61A,0x00); else POKE(0xD61A,0x02);
+	POKE(0xD011,0x1b);
+	// Restore screen
+	lcopy(0x12000,0x0400,1000);
+	lcopy(0x12400,0xff80000,1000);
+      }
+      
+      break;
+    default:
+      POKE(0xD610,0);
+
+      // Don't try: Revert and restore
+      lcopy(0x12000,0x0400,1000);
+      lcopy(0x12400,0xff80000,1000);
+      video_mode=last_video_mode;
+  }
+
+  
+  
+}
+
+
 void main(void)
 {
   mega65_io_enable();
@@ -168,14 +368,12 @@ void main(void)
   
   printf("%cWelcome to the MEGA65!\n",0x93);
   printf("\nBefore you go further, there are couple of things you need to do.\n");
-  printf("\nPress F1 to cycle through the default   video modes. \n");
-  printf("\nIf no picture displays within a few     seconds, press HELP to revert.\n");
-  printf("\nPress F3 - F13 to set the time and date.\n");
+  printf("\nPress F3 - F13 to set the time and date.");
   printf("\nPress RETURN when done.\n");
  
   while(1) {
     POKE(0x286,1);
-    printf("%c\n\n\n\n\n\n\n\n\n\n",0x13);    
+    printf("%c\n\n\n\n\n\n\n\n\n",0x13);    
     printf("Video: %c",0x12);
     POKE(0x286,7);
     switch(video_mode) {
@@ -186,8 +384,13 @@ void main(void)
     }
     printf("%c\n",0x92);
     POKE(0x286,14);
-    printf("       F1\n");
+    printf("       F1 or SPACE = cycle through modes");
 
+    POKE(0x286,1);
+    printf("\nTest Audio: ");
+    POKE(0x286,14);
+    printf("A = play a tune\n");
+    
     POKE(0x286,1);
     printf("\nCRT Emulation: %c",0x12);
     POKE(0x286,7);
@@ -197,7 +400,7 @@ void main(void)
     }
     printf("%c\n",0x92);
     POKE(0x286,14);
-    printf("               C\n");
+    printf("               C = toggle\n");
       
     
     tm.tm_sec=0;
@@ -230,19 +433,38 @@ void main(void)
     c=PEEK(0xD610);
     if (c) POKE(0xD610,0);
     switch(c) {
+    case 0x41: case 0x61:
+      POKE(0xD020,0);
+      test_audio();
+      POKE(0xD020,6);
+      break;
     case 0x43: case 0x63:
       // Toggle CRT emulation
       crt_mode^=1;
       break;
     case 0x1F:
-      video_mode=3;
-      // FALL THROUGH
-    case 0xF1:
+      // HELP key
+      video_mode=0;
+      video_mode_change_pending=1;
+
+      // Make restoration of video mode take effect immediately
+
+      // NTSC
+      POKE(0xD06F,0x80);
+      // DVI
+      POKE(0xD61A,0x02);
+      POKE(0xD011,0x1b);
+
+      video_mode_change_pending=0;
+      last_video_mode=video_mode;
+      
+      break;
+    case 0xF1: case 0x20:
       video_mode++; video_mode&=0x03;
-      // NTSC / PAL
-      if (video_mode&1) POKE(0xD06F,0x00); else POKE(0xD06F,0x80);
-      // DVI / Enhanced
-      if (video_mode&2) POKE(0xD61A,0x00); else POKE(0xD61A,0x02);
+
+      video_mode_change_pending=1;
+      video_mode_frame_number=PEEK(0xD7FA);
+
       break;
     case 0xF3: case 0xF4:
       if (c&1) tm.tm_hour++; else tm.tm_hour--;
@@ -297,6 +519,10 @@ void main(void)
       }
       setrtc(&tm);
       break;
+    case 0x42: case 0x62:
+      for(i=0;i<256;i++) POKE(0x0400+i,i);
+      
+      break;
     case 0xFD: case 0xFE:
       if (c&1) tm.tm_year++; else tm.tm_year--;
       if (tm.tm_year>299) tm.tm_year=0;
@@ -340,6 +566,18 @@ void main(void)
       reconfig_fpga(0);
     }
 
+    if (video_mode_change_pending) {
+      if ((video_mode_frame_number^PEEK(0xD7FA))==0x80) {
+	// After ~2 - 3 seconds of selecting a mode, try to activate it
+
+	confirm_video_mode_change();
+	
+	video_mode_change_pending=0;
+	last_video_mode=video_mode;
+      }
+      
+    }
+    
     if (crt_mode) POKE(0xD054,0x20); else POKE(0xD054,0x00);
     
   }
