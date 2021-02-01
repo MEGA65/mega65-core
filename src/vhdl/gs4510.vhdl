@@ -7491,6 +7491,7 @@ begin
                   else
                     flag_z <= '0';
                   end if;
+                  flag_n <= temp_addr(15);
                   reg_t_high <= temp_addr(15 downto 8);
                   reg_t <= temp_addr(7 downto 0);
                 when I_INW =>
@@ -7500,6 +7501,7 @@ begin
                   else
                     flag_z <= '0';
                   end if;
+                  flag_n <= temp_addr(15);
                   reg_t_high <= temp_addr(15 downto 8);
                   reg_t <= temp_addr(7 downto 0);
                 when I_PHW =>
