@@ -30,7 +30,7 @@ use work.debugtools.all;
 entity pcm_clock is
   generic (
     clock_frequency : integer;
-    sample_rate : integer := 8000
+    sample_rate : integer := 96000
     );
   port (
     cpuclock : in std_logic;
