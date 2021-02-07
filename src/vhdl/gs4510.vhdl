@@ -4297,12 +4297,17 @@ begin
         -- catch to this is that the C64 mode kernal on a C65 uses new
         -- instructions when checking the drive number to decide whether to use
         -- the new DOS or IEC serial.  Thus we need code in the Kernal to run
-        -- in 4502 mode.  XXX The check here is not completely perfect, but
-        -- should cover all likely situations, since only the use of MAP could
-        -- upset it.
-        if (reg_pc(15 downto 11) = "111")
-          and ((cpuport_value(1) or (not cpuport_ddr(1)))='1')
-          and (reg_map_high(3) = '0') then
+        -- in 4502 mode.
+        -- Because the new DOS uses new instructions, we have to also catch that
+        -- case.  DOS runs with non-zero CPU mapping, so we will use that as the
+        -- additional test.
+        if
+          -- C64 KERNAL requires 4510, not 6510
+          ((reg_pc(15 downto 11) = "111") and ((cpuport_value(1) or (not cpuport_ddr(1)))='1'))
+          -- Anything which has been MAPped is assume to need 4510 (includes C65 DOS)
+          or (reg_map_low /= "0000")
+          or (reg_map_high /= "0000")
+        then
           emu6502 <= '0';
         else 
           emu6502 <= '1';
