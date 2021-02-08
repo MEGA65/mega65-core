@@ -64,6 +64,7 @@ architecture behavioural of cia6526 is
   signal reg_porta_pending : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_porta_pending_timer : integer range 0 to 4 := 0;
   signal last_phi0_1mhz : std_logic := '0';
+  signal dd00_delay : std_logic := '0';
   
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
@@ -682,9 +683,12 @@ begin  -- behavioural
           when x"00" =>
             -- $DD00 writes are for IEC serial port.
             -- We delay the writes to the correct cycle of the instruction
-            if cpu_slow='0' and unit=x"1" then
+            if cpu_slow='0' and unit=x"1" or dd00_delay='0' then
               reg_porta_out<=std_logic_vector(fastio_wdata);
             else
+              if reg_porta_pending_timer /= 0 then
+                reg_porta_out <= reg_porta_pending;
+              end if;
               reg_porta_pending <= std_logic_vector(fastio_wdata);
               reg_porta_pending_timer <= 4;
             end if;           
@@ -834,6 +838,7 @@ begin  -- behavioural
             -- @IO:GS $DD1B.0-6 CIA2:TODHOUR TOD hours value
             -- @IO:GS $DD1B.7 CIA2:TODAMPM TOD AM/PM flag
             -- @IO:GS $DD1C CIA2:ALRMJIF TOD Alarm 10ths of seconds value
+            -- @IO:GS $DD1C.7 CIA2:DD00DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
             -- @IO:GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
             -- @IO:GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
             -- @IO:GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
@@ -858,6 +863,7 @@ begin  -- behavioural
           when x"1b" => reg_tod_hours <= fastio_wdata(6 downto 0);
                         reg_tod_ampm <= fastio_wdata(7);
           when x"1c" => reg_alarm_dsecs <= fastio_wdata;
+                        dd00_delay <= fastio_wdata(7);
           when x"1d" => reg_alarm_secs <= fastio_wdata;
           when x"1e" => reg_alarm_mins <= fastio_wdata;
           when x"1f" => reg_alarm_hours <= fastio_wdata(6 downto 0);
