@@ -683,7 +683,7 @@ begin  -- behavioural
           when x"00" =>
             -- $DD00 writes are for IEC serial port.
             -- We delay the writes to the correct cycle of the instruction
-            if cpu_slow='0' and unit=x"1" or dd00_delay='0' then
+            if cpu_slow='0' or unit=x"1" or dd00_delay='0' then
               reg_porta_out<=std_logic_vector(fastio_wdata);
             else
               if reg_porta_pending_timer /= 0 then
