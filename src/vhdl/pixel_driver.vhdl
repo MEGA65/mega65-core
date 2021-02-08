@@ -240,7 +240,12 @@ begin
   -- http://read.pudn.com/downloads222/doc/1046129/CEA861D.pdf
   -- (This is the mode lines that the ADV7511 should want to see)
   frame50: entity work.frame_generator 
-    generic map ( frame_width => 864,        
+    generic map (
+
+                  -- XXX To match C64 timing, we have to very slightly trim the
+                  -- raster lines.  This reduces our CPU 1MHz frequency error
+                  -- from -486 Hz to +139 Hz
+                  frame_width => 864 - 1,        
                   frame_height => 625,        -- 312 lines x 2 fields
 
                   x_zero_position => 864-45,
