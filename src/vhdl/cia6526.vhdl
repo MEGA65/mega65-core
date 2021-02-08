@@ -17,6 +17,11 @@ entity cia6526 is
     reset : in std_logic;
     irq : out std_logic := 'H';
 
+    -- If 1, then delay writes to PORTA (ie., IEC serial bus)
+    -- by 4 1MHz clock cycles, so that it is as though it were
+    -- written at the end of an STA $nnnn instruction
+    cpu_slow : in std_logic;
+    
     hypervisor_mode : in std_logic;
     
     seg_led : out unsigned(31 downto 0);
@@ -55,6 +60,11 @@ end cia6526;
 
 architecture behavioural of cia6526 is
 
+  -- Keep track if we have a pending write to port A waiting
+  signal reg_porta_pending : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porta_pending_timer : integer range 0 to 4 := 0;
+  signal last_phi0_1mhz : std_logic := '0';
+  
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '0');
@@ -362,6 +372,17 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
+      -- Check for time-delayed writes to IEC port
+      last_phi0_1mhz <= phi0_1mhz;
+      if phi0_1mhz='0' and last_phi0_1mhz='1' then
+        if reg_porta_pending_timer /= 0 then
+          reg_porta_pending_timer <= reg_porta_pending_timer - 1;
+        end if;
+        if reg_porta_pending_timer = 1 then
+          reg_porta_out <= reg_porta_pending;
+        end if;
+      end if;
+      
       sp_ddr <= reg_serialport_direction;
       
       if reset='0' then
@@ -658,8 +679,15 @@ begin  -- behavioural
         end if;
         register_number(3 downto 0) := fastio_address(3 downto 0);
         case register_number is
-          when x"00" => 
-                       reg_porta_out<=std_logic_vector(fastio_wdata);
+          when x"00" =>
+            -- $DD00 writes are for IEC serial port.
+            -- We delay the writes to the correct cycle of the instruction
+            if cpu_slow='0' and unit=x"1" then
+              reg_porta_out<=std_logic_vector(fastio_wdata);
+            else
+              reg_porta_pending <= std_logic_vector(fastio_wdata);
+              reg_porta_pending_timer <= 4;
+            end if;           
           when x"01" =>  
             
             reg_portb_out<=std_logic_vector(fastio_wdata);

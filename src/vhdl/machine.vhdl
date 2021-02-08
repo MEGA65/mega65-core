@@ -758,6 +758,8 @@ architecture Behavioral of machine is
   signal dim_shift : std_logic;
 
   signal dd00_bits : unsigned(1 downto 0);
+
+  signal cpu_slow : std_logic;
   
 begin
 
@@ -954,6 +956,7 @@ begin
       phi_1mhz => phi_1mhz,
       phi_2mhz => phi_2mhz,
       phi_3mhz => phi_3mhz,
+      cpu_slow => cpu_slow,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
@@ -1426,6 +1429,7 @@ begin
       pixelclk => pixelclock,
       clock50mhz => clock50mhz,
       pal_mode => pal50_select,
+      cpu_slow => cpu_slow,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,

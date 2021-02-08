@@ -18,8 +18,9 @@ entity iomapper is
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
-
+        
         dd00_bits : out unsigned(1 downto 0) := "11";
+        cpu_slow : in std_logic;
         
         accessible_row : out integer range 0 to 255 := 255;
         accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
@@ -694,6 +695,7 @@ begin
     cpuclock => cpuclock,
     phi0_1mhz => phi0_1mhz,
     todclock => viciv_frame_indicate,
+    cpu_slow => cpu_slow,
     reset => reset,    
     irq => cia1_irq,
     hypervisor_mode => cpu_hypervisor_mode,
@@ -724,6 +726,7 @@ begin
     cpuclock => cpuclock,
     phi0_1mhz => phi0_1mhz,
     todclock => viciv_frame_indicate,
+    cpu_slow => cpu_slow,
     reset => reset,
     irq => nmi,
     hypervisor_mode => cpu_hypervisor_mode,

@@ -49,6 +49,9 @@ entity gs4510 is
     phi_1mhz : in std_logic;
     phi_2mhz : in std_logic;
     phi_3mhz : in std_logic;
+
+    cpu_slow : out std_logic := '0';
+    
     reset : in std_logic;
     reset_out : out std_logic;
     irq : in std_logic;
@@ -4709,27 +4712,35 @@ begin
             when "100" => -- 1mhz
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
+              cpu_slow <= '1';
             when "101" => -- 1mhz
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
+              cpu_slow <= '1';
             when "110" => -- 3.5mhz
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
+              cpu_slow <= '1';
             when "111" => -- full speed
               cpuspeed <= x"40";
               cpuspeed_internal <= x"40";
+              cpu_slow <= '0';
             when "000" => -- 2mhz
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
+              cpu_slow <= '1';
             when "001" => -- full speed
               cpuspeed <= x"40";
               cpuspeed_internal <= x"40";
+              cpu_slow <= '0';
             when "010" => -- 3.5mhz
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
+              cpu_slow <= '1';
             when "011" => -- full speed
               cpuspeed <= x"40";
               cpuspeed_internal <= x"40";
+              cpu_slow <= '0';
             when others =>
               null;
           end case;
