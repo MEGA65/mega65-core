@@ -65,6 +65,10 @@ architecture behavioural of cia6526 is
   signal reg_porta_pending_timer : integer range 0 to 4 := 0;
   signal last_phi0_1mhz : std_logic := '0';
   signal dd00_delay : std_logic := '0';
+  signal portain_delay0 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delay1 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delay2 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delayed : unsigned(7 downto 0) := (others => '0');
   
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
@@ -382,6 +386,17 @@ begin  -- behavioural
         if reg_porta_pending_timer = 1 then
           reg_porta_out <= reg_porta_pending;
         end if;
+        -- Three cycle delay on read, also
+        portain_delay0 <= unsigned(portain);
+        portain_delay1 <= portain_delay0;
+        portain_delay2 <= portain_delay1;
+      end if;
+      if dd00_delay = '0' then
+        portain_delayed <= unsigned(portain);
+      else
+        portain_delayed(2 downto 0) <= unsigned(portain(2 downto 0));
+        portain_delayed(5 downto 3) <= portain_delay2(5 downto 3);
+        portain_delayed(7 downto 6) <= unsigned(portain(7 downto 6));
       end if;
       
       sp_ddr <= reg_serialport_direction;
@@ -618,7 +633,8 @@ begin  -- behavioural
       end if;
       
       -- Calculate read value for porta and portb
-      reg_porta_read <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);        
+      
+      reg_porta_read <= ddr_pick(reg_porta_ddr,std_logic_vector(portain_delayed),reg_porta_out);        
       reg_portb_read <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);        
 
       -- Check for negative edge on FLAG
