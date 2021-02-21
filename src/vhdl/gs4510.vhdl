@@ -550,6 +550,10 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
+  signal reg_dmagic_draw_spiral : std_logic := '0';
+  signal reg_dmagic_spiral_len : integer range 0 to 41 := 0;
+  signal reg_dmagic_spiral_len_remaining : integer range 0 to 41 := 0;
+  signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
 
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
@@ -5269,6 +5273,10 @@ begin
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
                     when x"0A" => job_is_f018b <= '0';
                     when x"0B" => job_is_f018b <= '1';
+                    when x"53" => reg_dmagic_draw_spiral <= '1';
+                                  reg_dmagic_spiral_phase <= "00";
+                                  reg_dmagic_spiral_len <= 39;
+                                  reg_dmagic_spiral_len_remaining <= 38;
                     when others => null;
                   end case;
                 end if;
@@ -5401,11 +5409,36 @@ begin
                                         -- Update address and check for end of job.
                                         -- XXX Ignores modulus, whose behaviour is insufficiently defined
                                         -- in the C65 specifications document
-              if reg_dmagic_line_mode = '0' then
-                -- Normal fill
-                if dmagic_dest_hold='0' then
-                  if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(27 downto 0)
+              if reg_dmagic_draw_spiral = '1' then
+                -- Draw the dreaded Shallan Spriral
+                case reg_dmagic_spiral_phase is
+                  when "00" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 1;
+                  when "01" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 40;
+                  when "10" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 1;
+                  when others => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 40;
+                end case;
+                if reg_dmagic_spiral_len_remaining /= 0 then
+                  reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len_remaining - 1;
+                else
+                  -- Calculate details for next phase of the spiral
+                  if reg_dmagic_spiral_phase(0) = '0' then
+                    -- Next phase is vertical, so reduce spiral length by 40 -
+                    -- 24 = 17
+                    reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len - 16;
+                  else
+                    reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len;
+                  end if;
+                  if reg_dmagic_spiral_len /= 0 then
+                    reg_dmagic_spiral_len <= reg_dmagic_spiral_len - 1;
+                  end if;
+                  reg_dmagic_spiral_phase <= reg_dmagic_spiral_phase + 1;
+                end if;
+                
+              elsif reg_dmagic_line_mode = '0' then
+                  -- Normal fill
+                  if dmagic_dest_hold='0' then
+                    if dmagic_dest_direction='0' then
+                      dmagic_dest_addr(27 downto 0)
                       <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
                   else
                     dmagic_dest_addr(27 downto 0)
