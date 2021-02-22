@@ -22,27 +22,27 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 
 # HDMI output
 ############## HDMIOUT define##################
-set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[0]}]
-set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[1]}]
+#set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[0]}]
+#set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[1]}]
 
-set_property PACKAGE_PIN D3 [get_ports TMDS_clk_n]
+set_property PACKAGE_PIN A3 [get_ports TMDS_clk_n]
 set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
-set_property PACKAGE_PIN E3 [get_ports TMDS_clk_p]
+set_property PACKAGE_PIN A4 [get_ports TMDS_clk_p]
 set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_p]
 
-set_property PACKAGE_PIN E1 [get_ports {TMDS_data_n[0]}]
+set_property PACKAGE_PIN B2 [get_ports {TMDS_data_n[0]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[0]}]
-set_property PACKAGE_PIN F1 [get_ports {TMDS_data_p[0]}]
+set_property PACKAGE_PIN B3 [get_ports {TMDS_data_p[0]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[0]}]
 
-set_property PACKAGE_PIN G1 [get_ports {TMDS_data_n[1]}]
+set_property PACKAGE_PIN A1 [get_ports {TMDS_data_n[1]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[1]}]
-set_property PACKAGE_PIN H1 [get_ports {TMDS_data_p[1]}]
+set_property PACKAGE_PIN B1 [get_ports {TMDS_data_p[1]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[1]}]
 
-set_property PACKAGE_PIN J2 [get_ports {TMDS_data_n[2]}]
+set_property PACKAGE_PIN C1 [get_ports {TMDS_data_n[2]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
-set_property PACKAGE_PIN J3 [get_ports {TMDS_data_p[2]}]
+set_property PACKAGE_PIN C2 [get_ports {TMDS_data_p[2]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 
 ## LED on TE0725
@@ -68,7 +68,7 @@ set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifi_uart_tx]
 set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifi_uart_rx]
 
 # LoRa A and B header UARTs
-set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
+#set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
 set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
 set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
 set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
@@ -80,16 +80,16 @@ set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uar
 set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk_in]
 set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync_in]
 set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_out]
-set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_in]
+#set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_in]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
 set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 
 # I2S Audio data for speakers
-set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
+#set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
 set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
-set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
+#set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 set_property -dict {PACKAGE_PIN U4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
 # Smart card interface
@@ -113,7 +113,7 @@ set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_t
 
 # MiniPCIe modem port 2
 set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
-set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
+#set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
 set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 # No debug UARTs on this revision of board, as we ran out of pins
@@ -123,34 +123,34 @@ set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_r
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
-set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
-set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports vga_hsync]
-set_property -dict {PACKAGE_PIN M3 IOSTANDARD LVCMOS33} [get_ports {vga_red[0]}]
-set_property -dict {PACKAGE_PIN M2 IOSTANDARD LVCMOS33} [get_ports {vga_red[1]}]
-set_property -dict {PACKAGE_PIN M1 IOSTANDARD LVCMOS33} [get_ports {vga_red[2]}]
-set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {vga_red[3]}]
-set_property -dict {PACKAGE_PIN N1 IOSTANDARD LVCMOS33} [get_ports {vga_green[0]}]
-set_property -dict {PACKAGE_PIN N2 IOSTANDARD LVCMOS33} [get_ports {vga_green[1]}]
-set_property -dict {PACKAGE_PIN R2 IOSTANDARD LVCMOS33} [get_ports {vga_green[2]}]
-set_property -dict {PACKAGE_PIN P2 IOSTANDARD LVCMOS33} [get_ports {vga_green[3]}]
-set_property -dict {PACKAGE_PIN R1 IOSTANDARD LVCMOS33} [get_ports {vga_blue[0]}]
-set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[1]}]
-set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[2]}]
-set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}]
+set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports vsync]
+set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports hsync]
+set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {vga_red[0]}]
+set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports {vga_red[1]}]
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {vga_red[2]}]
+set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports {vga_red[3]}]
+set_property -dict {PACKAGE_PIN R1 IOSTANDARD LVCMOS33} [get_ports {vga_green[0]}]
+set_property -dict {PACKAGE_PIN P2 IOSTANDARD LVCMOS33} [get_ports {vga_green[1]}]
+set_property -dict {PACKAGE_PIN N2 IOSTANDARD LVCMOS33} [get_ports {vga_green[2]}]
+set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {vga_green[3]}]
+set_property -dict {PACKAGE_PIN N1 IOSTANDARD LVCMOS33} [get_ports {vga_blue[0]}]
+set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports {vga_blue[1]}]
+set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports {vga_blue[2]}]
+set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}]
 
 # LCD display
 set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports {lcd_red[0]}]
 set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[1]}]
 set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[2]}]
 set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[3]}]
-set_property -dict {PACKAGE_PIN A4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[4]}]
-set_property -dict {PACKAGE_PIN A3 IOSTANDARD LVCMOS33} [get_ports {lcd_red[5]}]
+#set_property -dict {PACKAGE_PIN A4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[4]}]
+#set_property -dict {PACKAGE_PIN A3 IOSTANDARD LVCMOS33} [get_ports {lcd_red[5]}]
 
-set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33} [get_ports {lcd_green[0]}]
-set_property -dict {PACKAGE_PIN B3 IOSTANDARD LVCMOS33} [get_ports {lcd_green[1]}]
-set_property -dict {PACKAGE_PIN B1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[2]}]
+#set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33} [get_ports {lcd_green[0]}]
+#set_property -dict {PACKAGE_PIN B3 IOSTANDARD LVCMOS33} [get_ports {lcd_green[1]}]
+#set_property -dict {PACKAGE_PIN B1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[2]}]
 set_property -dict {PACKAGE_PIN A1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[3]}]
-set_property -dict {PACKAGE_PIN C1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[4]}]
+#set_property -dict {PACKAGE_PIN C1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[4]}]
 #set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {lcd_green[5]}]
 
 set_property -dict {PACKAGE_PIN E2 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[0]}]
@@ -174,9 +174,9 @@ set_property PULLUP true [get_ports touch_sda]
 set_property PULLUP true [get_ports touch_scl]
 
 # MEMS microphones
-set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports micData0]
+#set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports micData0]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports micData1]
-set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports micClk]
+#set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports micClk]
 
 #USB-RS232 Interface
 set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports monitor_rx]
@@ -189,7 +189,7 @@ set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdClock]
 
 ##PWM Audio Amplifier
-set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
+#set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports headphone_right]
 # Headphone jack microphone input
 set_property -dict {PACKAGE_PIN C6 IOSTANDARD LVCMOS33} [get_ports headphone_mic]
