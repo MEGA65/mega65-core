@@ -1137,7 +1137,7 @@ begin
       y_zero => external_frame_y_zero,     
 
       -- Pixel data from the video pipeline
-      -- (clocked at 100MHz pixel clock)
+      -- (clocked at 81MHz pixel clock)
       red_i => vgared_osk,
       green_i => vgagreen_osk,
       blue_i => vgablue_osk,
