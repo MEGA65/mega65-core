@@ -24,24 +24,24 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 ############## HDMIOUT define##################
 
 set_property PACKAGE_PIN A3 [get_ports TMDS_clk_n]
-set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
+set_property IOSTANDARD LVDS18 [get_ports TMDS_clk_n]
 set_property PACKAGE_PIN A4 [get_ports TMDS_clk_p]
-set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_p]
+set_property IOSTANDARD LVDS18 [get_ports TMDS_clk_p]
 
 set_property PACKAGE_PIN B2 [get_ports {TMDS_data_n[0]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[0]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_n[0]}]
 set_property PACKAGE_PIN B3 [get_ports {TMDS_data_p[0]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[0]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_p[0]}]
 
 set_property PACKAGE_PIN A1 [get_ports {TMDS_data_n[1]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[1]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_n[1]}]
 set_property PACKAGE_PIN B1 [get_ports {TMDS_data_p[1]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[1]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_p[1]}]
 
 set_property PACKAGE_PIN C1 [get_ports {TMDS_data_n[2]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_n[2]}]
 set_property PACKAGE_PIN C2 [get_ports {TMDS_data_p[2]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
+set_property IOSTANDARD LVDS18 [get_ports {TMDS_data_p[2]}]
 
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
