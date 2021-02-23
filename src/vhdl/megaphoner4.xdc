@@ -24,32 +24,32 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 ############## HDMIOUT define##################
 
 set_property PACKAGE_PIN A3 [get_ports TMDS_clk_n]
-set_property IOSTANDARD HSLVDCI_18 [get_ports TMDS_clk_n]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports TMDS_clk_n]
 set_property PACKAGE_PIN A4 [get_ports TMDS_clk_p]
-set_property IOSTANDARD HSLVDCI_18 [get_ports TMDS_clk_p]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports TMDS_clk_p]
 
 set_property PACKAGE_PIN B2 [get_ports {TMDS_data_n[0]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_n[0]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[0]}]
 set_property PACKAGE_PIN B3 [get_ports {TMDS_data_p[0]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_p[0]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[0]}]
 
 set_property PACKAGE_PIN A1 [get_ports {TMDS_data_n[1]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_n[1]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[1]}]
 set_property PACKAGE_PIN B1 [get_ports {TMDS_data_p[1]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_p[1]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[1]}]
 
 set_property PACKAGE_PIN C1 [get_ports {TMDS_data_n[2]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_n[2]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[2]}]
 set_property PACKAGE_PIN C2 [get_ports {TMDS_data_p[2]}]
-set_property IOSTANDARD HSLVDCI_18 [get_ports {TMDS_data_p[2]}]
+set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[2]}]
 
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
 
 ## Flop/secure mode LED
-set_property -dict { PACKAGE_PIN K1 IOSTANDARD LVCMOS33 } [get_ports flopled]
+set_property -dict { PACKAGE_PIN K1 IOSTANDARD LVCMOS18 } [get_ports flopled]
 ## IR LED
-set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS33 } [get_ports irled]
+set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS18 } [get_ports irled]
 
 ## QSPI Flash on TE0725 has the same pinout as the Nexys4 boards
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports {QspiDB[0]}]
@@ -59,21 +59,21 @@ set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 
 # Line for shutting down VCC_FPGA, i.e., for the FPGA to turn itself off when phone is idle
-set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS33} [get_ports power_down]
+set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS18} [get_ports power_down]
 
 # WiFi header UART
-set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifi_uart_tx]
-set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifi_uart_rx]
+set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS18} [get_ports wifi_uart_tx]
+set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS18} [get_ports wifi_uart_rx]
 
 # LoRa A and B header UARTs
 #set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
-set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
-set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
-set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
+set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS18} [get_ports lora1_uart_tx]
+set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS18} [get_ports lora2_uart_rx]
+set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS18} [get_ports lora2_uart_tx]
 
 # Bluetooth UART
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_rx]
-set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_tx]
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS18} [get_ports bluetooth_uart_rx]
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS18} [get_ports bluetooth_uart_tx]
 # Bluetooth PCM audio interface
 set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk_in]
 set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync_in]
@@ -81,8 +81,8 @@ set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm
 #set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_in]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
-set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
-set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
+set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS18} [get_ports i2c1sda]
+set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS18} [get_ports i2c1scl]
 
 # I2S Audio data for speakers
 #set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
@@ -91,8 +91,8 @@ set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 set_property -dict {PACKAGE_PIN U4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
 # Smart card interface
-set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS33} [get_ports smartcard_clk]
-set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports smartcard_io]
+set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS18} [get_ports smartcard_clk]
+set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS18} [get_ports smartcard_io]
 # Smartcard RST connects to P17 of U12, the 2nd IO expander
 #set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_rst]
 # Smartcard SenseA connects to GPIO12 of the bluetooth module
@@ -111,12 +111,12 @@ set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_t
 
 # MiniPCIe modem port 2
 set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
-#set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
+#set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS18} [get_ports modem2_pcm_sync_in]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
 set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 # No debug UARTs on this revision of board, as we ran out of pins
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx]
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_tx]
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS18} [get_ports modem2_debug_uart_rx]
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS18} [get_ports modem2_debug_uart_tx]
 set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
@@ -166,8 +166,8 @@ set_property -dict {PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[1]}
 #set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports lcd_pwm]
 
 # Touch interface I2C bus
-set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports touch_sda]
-set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS33} [get_ports touch_scl]
+set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS18} [get_ports touch_sda]
+set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS18} [get_ports touch_scl]
 set_property PULLUP true [get_ports touch_sda]
 set_property PULLUP true [get_ports touch_scl]
 
