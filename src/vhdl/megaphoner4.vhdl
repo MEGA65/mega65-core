@@ -89,7 +89,6 @@ entity container is
          ----------------------------------------------------------------------
          micData0 : in std_logic;
          micData1 : in std_logic;
-         micClk : out std_logic;
 
          ----------------------------------------------------------------------
          -- Touch screen interface
@@ -110,7 +109,6 @@ entity container is
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_clk_p : out STD_LOGIC;
          TMDS_clk_n : out STD_LOGIC;
-         hdmi_gnd : out STD_LOGIC_VECTOR(1 downto 0):= (others => '0');
 
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -148,15 +146,12 @@ entity container is
          -- Analog headphone jack output
          -- (amplifier enable is on an IO expander)
          ----------------------------------------------------------------------
-         headphone_left : out std_logic;
          headphone_right : out std_logic;
          headphone_mic : in std_logic;
 
          ----------------------------------------------------------------------
          -- I2S speaker audio output
          ----------------------------------------------------------------------
-         i2s_mclk : out std_logic;
-         i2s_sync : out std_logic;
          i2s_speaker : out std_logic;
          i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
                                           -- instead of 32

@@ -22,8 +22,6 @@ set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
 
 # HDMI output
 ############## HDMIOUT define##################
-#set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[0]}]
-#set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {hdmi_gnd[1]}]
 
 set_property PACKAGE_PIN A3 [get_ports TMDS_clk_n]
 set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
@@ -123,8 +121,8 @@ set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_r
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
-set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports vsync]
-set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports hsync]
+set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
+set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports vga_hsync]
 set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {vga_red[0]}]
 set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports {vga_red[1]}]
 set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {vga_red[2]}]
