@@ -52,11 +52,10 @@ begin
   begin
     if rising_edge(clock40mhz) then
 
+      transition_point <= to_integer(cycles_per_interval(7 downto 1));        
+      
       if interval_countdown = 0 then
         interval_countdown <= to_integer(cycles_per_interval);
-
-        transition_point <= to_integer(cycles_per_interval(7 downto 1));
-        
       else
         interval_countdown <= interval_countdown - 1;
       end if;
@@ -90,21 +89,21 @@ begin
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
-        bit_queue(15) <= last_bit0 xor byte_in(7) xor clock_byte_in(7);
+        bit_queue(15) <= (last_bit0 nor byte_in(7)) xor not clock_byte_in(7);
         bit_queue(14) <= byte_in(7);
-        bit_queue(13) <= byte_in(7) xor byte_in(6) xor clock_byte_in(6);
+        bit_queue(13) <= (byte_in(7) nor byte_in(6)) xor not clock_byte_in(6);
         bit_queue(12) <= byte_in(6);
-        bit_queue(11) <= byte_in(6) xor byte_in(5) xor clock_byte_in(5);
+        bit_queue(11) <= (byte_in(6) nor byte_in(5)) xor not clock_byte_in(5);
         bit_queue(10) <= byte_in(5);
-        bit_queue( 9) <= byte_in(5) xor byte_in(4) xor clock_byte_in(4);
+        bit_queue( 9) <= (byte_in(5) nor byte_in(4)) xor not clock_byte_in(4);
         bit_queue( 8) <= byte_in(4);
-        bit_queue( 7) <= byte_in(4) xor byte_in(3) xor clock_byte_in(3);
+        bit_queue( 7) <= (byte_in(4) nor byte_in(3)) xor not clock_byte_in(3);
         bit_queue( 6) <= byte_in(3);
-        bit_queue( 5) <= byte_in(3) xor byte_in(2) xor clock_byte_in(2);
+        bit_queue( 5) <= (byte_in(3) nor byte_in(2)) xor not clock_byte_in(2);
         bit_queue( 4) <= byte_in(2);
-        bit_queue( 3) <= byte_in(2) xor byte_in(1) xor clock_byte_in(1);
+        bit_queue( 3) <= (byte_in(2) nor byte_in(1)) xor not clock_byte_in(1);
         bit_queue( 2) <= byte_in(1);
-        bit_queue( 1) <= byte_in(1) xor byte_in(0) xor clock_byte_in(0);
+        bit_queue( 1) <= (byte_in(1) nor byte_in(0)) xor not clock_byte_in(0);
         bit_queue( 0) <= byte_in(0);
         last_bit0 <= byte_in(0);
         
