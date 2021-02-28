@@ -47,7 +47,7 @@ begin
   mfmenc0:
     entity work.mfm_bits_to_gaps port map (
       clock40mhz => cpuclock,
-      cycles_per_interval => to_unsigned(80,0),
+      cycles_per_interval => to_unsigned(80,8),
       write_precomp_enable => '1',
       ready_for_next => ready_for_next,
       f_write => f_write,
