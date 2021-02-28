@@ -133,6 +133,10 @@ architecture behavior of mfm_test is
     
     others => x"0000"
     );
+
+  signal byte_counter : integer := 0;
+
+  signal last_ready_for_next : std_logic := '0';
   
 begin
 
@@ -155,7 +159,7 @@ begin
     entity work.mfm_bits_to_gaps port map (
       clock40mhz => cpuclock,
       cycles_per_interval => to_unsigned(80,8),
-      write_precomp_enable => '1',
+      write_precomp_enable => '0',
       ready_for_next => ready_for_next,
       f_write => f_write,
       byte_valid => byte_valid,
@@ -166,28 +170,23 @@ begin
   process (cpuclock)
   begin
     if rising_edge(cpuclock) then
-      if ready_for_next = '1' then
+      last_ready_for_next <= ready_for_next;
+      if ready_for_next = '1' and last_ready_for_next = '0' then
         byte_valid <= '1';
+        byte_in <= mfm_data(byte_counter)(15 downto 8);
+        clock_byte_in <= mfm_data(byte_counter)(7 downto 0);
+        report "Feeding byte #" & integer'image(byte_counter) & " into MFM encoder: $" & to_hstring(mfm_data(byte_counter));
+        if byte_counter < 1024 then
+          byte_counter <= byte_counter + 1;
+        else
+          byte_counter <= 0;
+        end if;
       else
         byte_valid <= '0';
       end if;
     end if;
   end process;
-  
-  
-  process
-  begin  -- process tb
-
-    for i in 1 to 2000000 loop
-      cpuclock <= '0';
-      wait for 12500 ps;
-      cpuclock <= '1';
-      wait for 12500 ps;      
-    end loop;
     
-  end process;
-  
-  
   process
   begin  -- process tb
     report "beginning simulation" severity note;
