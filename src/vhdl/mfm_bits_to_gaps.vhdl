@@ -37,9 +37,8 @@ architecture behavioural of mfm_bits_to_gaps is
 
   signal clock_bits : unsigned(7 downto 0) := x"FF";
 
-  signal bit_input_queue : unsigned(15 downto 0);
-  signal bit_queue : unsigned(1 downto 0);
-  signal bits_queued : integer range 0 to 7 := 0;
+  signal bit_queue : unsigned(15 downto 0);
+  signal bits_queued : integer range 0 to 15 := 0;
 
   signal interval_countdown : integer range 0 to 255 := 0;
   signal transition_point : integer range 0 to 256 := 256;
@@ -58,11 +57,7 @@ begin
         if bits_queued /= 0 then
           bits_queued <= bits_queued - 1;
           
-          if bit_queue(0)='1' then
-            transition_point <= to_integer(cycles_per_interval(7 downto 1));
-          else
-            transition_point <= 256;
-          end if;
+          transition_point <= to_integer(cycles_per_interval(7 downto 1));
         end if;
         
       else
@@ -91,27 +86,24 @@ begin
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
-        bit_input_queue(15) <= last_bit0 xor byte_in(7) xor '1' xor clock_byte_in(7);
-        bit_input_queue(14) <= byte_in(7);
-        bit_input_queue(13) <= byte_in(7) xor byte_in(6) xor '1' xor clock_byte_in(6);
-        bit_input_queue(12) <= byte_in(6);
-        bit_input_queue(11) <= byte_in(6) xor byte_in(5) xor '1' xor clock_byte_in(5);
-        bit_input_queue(10) <= byte_in(5);
-        bit_input_queue( 9) <= byte_in(5) xor byte_in(4) xor '1' xor clock_byte_in(4);
-        bit_input_queue( 8) <= byte_in(4);
-        bit_input_queue( 7) <= byte_in(4) xor byte_in(3) xor '1' xor clock_byte_in(3);
-        bit_input_queue( 6) <= byte_in(3);
-        bit_input_queue( 5) <= byte_in(3) xor byte_in(2) xor '1' xor clock_byte_in(2);
-        bit_input_queue( 4) <= byte_in(2);
-        bit_input_queue( 3) <= byte_in(2) xor byte_in(1) xor '1' xor clock_byte_in(1);
-        bit_input_queue( 2) <= byte_in(1);
-        bit_input_queue( 1) <= byte_in(1) xor byte_in(0) xor '1' xor clock_byte_in(0);
-        bit_input_queue( 0) <= byte_in(0);
+        bit_queue(15) <= last_bit0 xor byte_in(7) xor '1' xor clock_byte_in(7);
+        bit_queue(14) <= byte_in(7);
+        bit_queue(13) <= byte_in(7) xor byte_in(6) xor '1' xor clock_byte_in(6);
+        bit_queue(12) <= byte_in(6);
+        bit_queue(11) <= byte_in(6) xor byte_in(5) xor '1' xor clock_byte_in(5);
+        bit_queue(10) <= byte_in(5);
+        bit_queue( 9) <= byte_in(5) xor byte_in(4) xor '1' xor clock_byte_in(4);
+        bit_queue( 8) <= byte_in(4);
+        bit_queue( 7) <= byte_in(4) xor byte_in(3) xor '1' xor clock_byte_in(3);
+        bit_queue( 6) <= byte_in(3);
+        bit_queue( 5) <= byte_in(3) xor byte_in(2) xor '1' xor clock_byte_in(2);
+        bit_queue( 4) <= byte_in(2);
+        bit_queue( 3) <= byte_in(2) xor byte_in(1) xor '1' xor clock_byte_in(1);
+        bit_queue( 2) <= byte_in(1);
+        bit_queue( 1) <= byte_in(1) xor byte_in(0) xor '1' xor clock_byte_in(0);
+        bit_queue( 0) <= byte_in(0);
         last_bit0 <= byte_in(0);
         
-        bit_input_queue <= byte_in;
-        -- Invert clock bits so that we can calculate using them.
-        clock_bits <= not clock_byte_in;
         ready_for_next <= '0';
       end if;
       

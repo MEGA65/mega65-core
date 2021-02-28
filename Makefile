@@ -403,7 +403,11 @@ simulatemfm:	$(GHDL_DEPEND) $(MFMTESTSRCS)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MFMTESTSRCS)
-	$(GHDL) -m -g mfm_test
+	$(GHDL) -m mfm_test
+	$(GHDL) -r mfm_test --assert-level=warning
+# for non-mcode ghdl
+#	$(GHDL) -i $(MFMTESTSRCS)
+#	$(GHDL) -m -g mfm_test
 
 nocpu:	$(GHDL_DEPEND) $(NOCPUSIMULATIONVHDL)
 	$(warning =============================================================)
