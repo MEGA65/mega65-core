@@ -60,7 +60,7 @@ ifdef USE_LOCAL_GHDL
 	GHDL_DEPEND=
 else
 	# use the binary built from the submodule
-	GHDL=	ghdl/build/bin/ghdl
+	GHDL=	ghdl/ghdl_mcode
 	GHDL_DEPEND=$(GHDL)
 endif
 
