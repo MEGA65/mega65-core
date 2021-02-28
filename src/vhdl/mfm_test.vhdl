@@ -26,6 +26,113 @@ architecture behavior of mfm_test is
   signal clock_byte_in : unsigned(7 downto 0) := x"FB";
 
   signal f_rdata : std_logic;
+
+  type byte_array_t is array (0 to 65536) of unsigned(15 downto 0);
+
+  -- Disk data consists of bytes of data and clock data.
+  -- Normal bytes have clock = $FF
+  -- Sync bytes are $A1 with clock byte = $FB
+  signal mfm_data : byte_array_t := (
+    -- Following the C65 manual instructions for disk format
+
+    -- 12 x gap 3* 
+    x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",x"0000",
+    -- 3x A1/FB mark
+    x"A1FB",x"A1FB",x"A1FB",
+    -- Header mark
+    x"FEFF",
+    x"28FF", -- Track number
+    x"01FF", -- Side number (inverted on 1581)
+    x"01FF", -- Sector number
+    x"02FF", -- Sectors = 512 bytes long
+    -- CRC bytes
+    x"00FF",x"00FF",
+    -- Gap 2 (23 x $4E)
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    -- Gap 2 (12 x $00)
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    -- 3x A1/FB mark
+    x"A1FB",x"A1FB",x"A1FB",
+    -- Data mark
+    x"FBFF",
+    -- Sector data
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+    x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",x"00FF",
+
+    -- CRC bytes
+    x"00FF",x"00FF",
+    
+    -- Gap 3 (24 x $4E)
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
+    
+    others => x"0000"
+    );
   
 begin
 
