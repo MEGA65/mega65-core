@@ -27,6 +27,35 @@ architecture behavior of mfm_test is
 
   signal f_rdata : std_logic;
 
+  -- Indicate when we have hit the start of the gap leading
+  -- to the data area (this is so that sector writing can
+  -- begin.  It does have to take account of the latency of
+  -- the write stage, and also any write precompensation).
+  signal sector_found : std_logic := '0';
+  signal sector_data_gap : std_logic := '0';
+  signal found_track : unsigned(7 downto 0) := x"00";
+  signal found_sector : unsigned(7 downto 0) := x"00";
+  signal found_side : unsigned(7 downto 0) := x"00";
+
+    -- Bytes of the sector when reading
+  signal first_byte : std_logic := '0';
+  signal byte_out_valid : std_logic := '0';
+  signal byte_out : unsigned(7 downto 0);
+  signal crc_error : std_logic := '0';
+  signal sector_end : std_logic := '0';
+
+  signal last_sector_end : std_logic := '0';
+  signal last_sector_found : std_logic := '0';
+  signal last_crc_error : std_logic := '0';
+  
+  -- The track/sector/side we are being asked to find
+  signal target_track : unsigned(7 downto 0) := x"28";
+  signal target_sector : unsigned(7 downto 0) := x"01";
+  signal target_side : unsigned(7 downto 0) := x"01";
+  signal target_any : std_logic := '0';
+
+  signal byte_count : integer := 0;
+  
   type byte_array_t is array (0 to 65536) of unsigned(15 downto 0);
 
   -- Disk data consists of bytes of data and clock data.
@@ -167,9 +196,36 @@ begin
       clock_byte_in => clock_byte_in
     );
 
+  decoder0: entity work.mfm_decoder port map (
+    clock40mhz => cpuclock,
+    f_rdata => f_write,
+    cycles_per_interval => to_unsigned(80,8),
+    invalidate => '0',
+
+    target_track => target_track,
+    target_sector => target_sector,
+    target_side => target_side,
+    target_any => target_any,
+
+    sector_found => sector_found,
+    sector_data_gap => sector_data_gap,
+    found_track => found_track,
+    found_sector => found_sector,
+    found_side => found_side,
+
+    first_byte => first_byte,
+    byte_valid => byte_out_valid,
+    byte_out => byte_out,
+    crc_error => crc_error,
+    sector_end => sector_end
+    );  
+  
   process (cpuclock)
   begin
     if rising_edge(cpuclock) then
+
+      -- Encoder
+      
       last_ready_for_next <= ready_for_next;
       if ready_for_next = '1' and last_ready_for_next = '0' then
         byte_valid <= '1';
@@ -184,6 +240,33 @@ begin
       else
         byte_valid <= '0';
       end if;
+
+      -- Decoder
+      last_sector_found <= sector_found;
+      last_sector_end <= sector_end;
+      last_crc_error <= crc_error;
+      if crc_error /= last_crc_error then
+        report "STATUS: crc_error=" & std_logic'image(crc_error);
+      end if;
+      if sector_found /= last_sector_found then
+        report "STATUS: sector_found=" & std_logic'image(sector_found);
+      end if;
+      if sector_end /= last_sector_end then
+        report "STATUS: sector_end=" & std_logic'image(sector_end)
+          & ", after reading " & integer'image(byte_count) & " bytes.";
+      end if;
+      if byte_out_valid='1' then
+        report "Read sector byte $" & to_hstring(byte_out)
+          & " (first=" & std_logic'image(first_byte)
+          & ")";
+        byte_count <= byte_count + 1;
+      end if;
+      if (sector_end or crc_error)='1' then
+        report "End of sector reached: crc_error="
+          & std_logic'image(crc_error);        
+      end if;
+
+      
     end if;
   end process;
     

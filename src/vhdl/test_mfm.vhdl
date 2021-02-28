@@ -22,10 +22,10 @@ architecture foo of test_mfm is
   signal target_side : unsigned(7 downto 0) := x"01";
   signal target_any : std_logic := '0';
 
-    -- Indicate when we have hit the start of the gap leading
-    -- to the data area (this is so that sector writing can
-    -- begin.  It does have to take account of the latency of
-    -- the write stage, and also any write precompensation).
+  -- Indicate when we have hit the start of the gap leading
+  -- to the data area (this is so that sector writing can
+  -- begin.  It does have to take account of the latency of
+  -- the write stage, and also any write precompensation).
   signal sector_found : std_logic := '0';
   signal sector_data_gap : std_logic := '0';
   signal found_track : unsigned(7 downto 0) := x"00";
