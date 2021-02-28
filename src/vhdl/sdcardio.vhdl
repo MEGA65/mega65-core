@@ -271,7 +271,11 @@ architecture behavioural of sdcardio is
                       HyperTrapRead2,                 -- 0x0A
                       HyperTrapWrite,                 -- 0x0B
                       F011WriteSector,                -- 0x0C
-                      DoneWritingSector);             -- 0x0D
+                      DoneWritingSector,              -- 0x0D
+
+                      FDCFormatTrackSyncWait,         -- 0x0E
+                      FDCFormatTrack                  -- 0x0F
+                      );
   signal sd_state : sd_state_t := Idle;
 
   -- Diagnostic register for determining SD/SDHC card state.
@@ -1667,6 +1671,11 @@ begin  -- behavioural
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
+              if f011_ds /= fastio_wdata(2 downto 0) then
+                -- When switching drive, clear write gate
+                f_wgate <= '1';
+              end if;
+              
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
               if fastio_wdata(2 downto 1) = "00" then
                 if (fastio_wdata(0) xor f011_swap_drives) = '0' then
@@ -1763,6 +1772,31 @@ begin  -- behavioural
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
+                when x"A0" | x"A1" | x"A4" | x"A5" =>
+                  -- Track write
+                  -- It doesn't matter if you enable buffering or not, for
+                  -- track write, as we just enforce unbuffered operation,
+                  -- since it is the only way that it is used on the C65, and
+                  -- thus the MEGA65.
+                  -- (Conversely, when we get to that point, we will probably only
+                  -- support buffered mode for sector writes).
+
+                  -- Clear the LOST and DRQ flags at the beginning.
+                  f011_lost <= '0';
+                  f011_drq <= '0';
+
+                  -- We clear the write gate until we hit a sync pulse, and
+                  -- only then begin writing.  The write gate will be closed
+                  -- again at the next sync pulse.
+                  f_wgate <= '1';
+
+                  -- Only allow formatting when real drive is used
+                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
+                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
+                    sd_state <= FDCFormatTrackSyncWait;
+                  end if;
+                   
+                  
                 when x"40" | x"44" =>         -- read sector
                   -- calculate sector number.
                   -- physical sector on disk = track * $14 + sector on track
@@ -2868,6 +2902,22 @@ begin  -- behavioural
             end if;
           end if;
 
+        when FDCFormatTrackSyncWait =>
+          -- Wait for negative edge on f_sync line
+          last_f_index <= f_index;
+          if (f_index='0' and last_f_index='1') then
+            sd_state <= FDCFormatTrack;
+            f_wgate <= '0';
+          end if;
+        when FDCFormatTrack =>
+          -- Close write gate and finish formatting when we hit the next
+          -- negative edge on the INDEX hole sensor of the floppy.
+          last_f_index <= f_index;
+          if (f_index='0' and last_f_index='1') then
+            f_wgate <= '1';
+            sd_state <= Idle;
+          end if;
+          
         when FDCReadingSector =>
           if fdc_read_request='1' then
             -- We have an FDC request in progress.
