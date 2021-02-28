@@ -33,11 +33,11 @@ end mfm_bits_to_gaps;
 
 architecture behavioural of mfm_bits_to_gaps is
 
-  signal last_bit : std_logic := '0';
+  signal last_bit0 : std_logic := '0';
 
   signal clock_bits : unsigned(7 downto 0) := x"FF";
 
-  signal bit_input_queue : unsigned(7 downto 0);
+  signal bit_input_queue : unsigned(15 downto 0);
   signal bit_queue : unsigned(1 downto 0);
   signal bits_queued : integer range 0 to 7 := 0;
 
@@ -71,9 +71,13 @@ begin
 
       -- Request flux reversal
       if interval_countdown = transition_point then
-        f_write <= '1';
+        f_write <= not bit_queue(15);
+        bit_queue(15 downto 1) <= bit_queue(14 downto 0);
+        if bits_queued /= 0 then
+          bits_queued <= bits_queued - 1;
+        end if;
       else
-        f_write <= '0';
+        f_write <= '1';
       end if;
       
       if bits_queued = 0 then
@@ -84,18 +88,31 @@ begin
       
       if byte_valid='1' then
         report "latched byte $" & to_hstring(byte_in) & "(clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
-        bits_queued <= 8;
+        bits_queued <= 16;
         -- Get the bits to send
+        -- Combined data and clock byte to produce the full vector.        
+        bit_input_queue(15) <= last_bit0 xor byte_in(7) xor '1' xor clock_byte_in(7);
+        bit_input_queue(14) <= byte_in(7);
+        bit_input_queue(13) <= byte_in(7) xor byte_in(6) xor '1' xor clock_byte_in(6);
+        bit_input_queue(12) <= byte_in(6);
+        bit_input_queue(11) <= byte_in(6) xor byte_in(5) xor '1' xor clock_byte_in(5);
+        bit_input_queue(10) <= byte_in(5);
+        bit_input_queue( 9) <= byte_in(5) xor byte_in(4) xor '1' xor clock_byte_in(4);
+        bit_input_queue( 8) <= byte_in(4);
+        bit_input_queue( 7) <= byte_in(4) xor byte_in(3) xor '1' xor clock_byte_in(3);
+        bit_input_queue( 6) <= byte_in(3);
+        bit_input_queue( 5) <= byte_in(3) xor byte_in(2) xor '1' xor clock_byte_in(2);
+        bit_input_queue( 4) <= byte_in(2);
+        bit_input_queue( 3) <= byte_in(2) xor byte_in(1) xor '1' xor clock_byte_in(1);
+        bit_input_queue( 2) <= byte_in(1);
+        bit_input_queue( 1) <= byte_in(1) xor byte_in(0) xor '1' xor clock_byte_in(0);
+        bit_input_queue( 0) <= byte_in(0);
+        last_bit0 <= byte_in(0);
+        
         bit_input_queue <= byte_in;
         -- Invert clock bits so that we can calculate using them.
         clock_bits <= not clock_byte_in;
         ready_for_next <= '0';
-      else
-        -- Else MFM encode the bit
-        bits_queued <= 16;
-        bit_queue(0) <= (bit_in nor last_bit) xor clock_bits;
-        bit_queue(1) <= bit_in;
-        last_bit <= bit_in;
       end if;
       
     end if;    
