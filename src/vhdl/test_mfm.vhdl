@@ -44,9 +44,27 @@ architecture foo of test_mfm is
   signal last_crc_error : std_logic := '0';
 
   signal byte_count : integer := 0;
-                                       
+
+  signal ready_for_next : std_logic := '0';
+  signal byte_valid_in : std_logic := '0';
+  signal byte_in : unsigned(7 downto 0) := x"00";
+  signal clock_byte_in : unsigned(7 downto 0) := x"FF";
+  
 begin
 
+  encoder0: entity work.mfm_bits_to_gaps port map (
+    clock40mhz => clock40mhz,
+    cycles_per_interval => cycles_per_interval,
+    write_precomp_enable => '0',
+
+    ready_for_next => ready_for_next,
+    f_write => f_rdata,
+
+    byte_valid => byte_valid_in,
+    byte_in => byte_in,
+    clock_byte_in => clock_byte_in
+    );
+  
   decoder0: entity work.mfm_decoder port map (
     clock50mhz => clock50mhz,
     f_rdata => f_rdata,

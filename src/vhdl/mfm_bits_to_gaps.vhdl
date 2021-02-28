@@ -38,11 +38,12 @@ architecture behavioural of mfm_bits_to_gaps is
   signal clock_bits : unsigned(7 downto 0) := x"FF";
 
   signal bit_queue : unsigned(15 downto 0);
-  signal bits_queued : integer range 0 to 15 := 0;
+  signal bits_queued : integer range 0 to 16 := 0;
 
   signal interval_countdown : integer range 0 to 255 := 0;
   signal transition_point : integer range 0 to 256 := 256;
-  
+
+  signal last_byte_valid : std_logic := '0';
   
 begin
 
@@ -74,15 +75,16 @@ begin
       else
         f_write <= '1';
       end if;
-      
+
       if bits_queued = 0 then
         ready_for_next <= '1';
       else
         ready_for_next <= '0';
       end if;
-      
-      if byte_valid='1' then
-        report "latched byte $" & to_hstring(byte_in) & "(clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
+
+      last_byte_valid <= byte_valid;
+      if byte_valid='1' and last_byte_valid='0' then
+        report "latched byte $" & to_hstring(byte_in) & " (clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
