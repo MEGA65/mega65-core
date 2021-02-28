@@ -177,8 +177,9 @@ begin
       file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
       while not endfile(trace) loop
         Read(trace,c);
+--        report "Floppy read bit " & std_logic'image(std_logic(to_unsigned(character'pos(c),8)(4)));
         f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
-        wait for 6 ns;
+        wait for 60 ns;
       end loop;
       file_close(trace);
     end loop;
@@ -198,6 +199,9 @@ begin
 
   decoder0: entity work.mfm_decoder port map (
     clock40mhz => cpuclock,
+    -- Decode data from log file
+--    f_rdata => f_rdata,
+    -- Decode written data
     f_rdata => f_write,
     cycles_per_interval => to_unsigned(80,8),
     invalidate => '0',
