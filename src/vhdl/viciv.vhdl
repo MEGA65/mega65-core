@@ -4799,6 +4799,8 @@ begin
           -- Show what we are doing in debug display mode
           render_activity <= "101";
 
+          sprite_pointer_address(19 downto 17) <= "000";
+          
           sprite_datavalid <= '0';
           if sprite_fetch_sprite_number = 16 or (sprite_fetch_sprite_number = 8 and bitplane_mode = '0') then
             -- Done fetching sprites
@@ -4912,6 +4914,7 @@ begin
           -- we need to allow the address computation to add the sprite number
           -- from the ram data to be added to the upper bits of the
           -- sprite_data_offsets() value for the sprite
+          sprite_data_address(19 downto 16) <= "0000";
           if sprite_fetch_sprite_number < 8 then
             -- But only accept the new sprite data address at the start of
             -- display of a sprite
