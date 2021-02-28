@@ -74,8 +74,8 @@ architecture behavior of mfm_test is
     x"01FF", -- Side number (inverted on 1581)
     x"01FF", -- Sector number
     x"02FF", -- Sectors = 512 bytes long
-    -- CRC bytes
-    x"00FF",x"00FF",
+    -- CRC bytes (see src/tools/c1581-crc.c for generation)
+    x"4FFF",x"D2FF",
     -- Gap 2 (23 x $4E)
     x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
     x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",x"4EFF",
