@@ -274,7 +274,9 @@ architecture behavioural of sdcardio is
                       DoneWritingSector,              -- 0x0D
 
                       FDCFormatTrackSyncWait,         -- 0x0E
-                      FDCFormatTrack                  -- 0x0F
+                      FDCFormatTrack,                 -- 0x0F
+                      F011WriteSectorRealDriveWait,   -- 0x10
+                      F011WriteSectorRealDrive        -- 0x11
                       );
   signal sd_state : sd_state_t := Idle;
 
@@ -1930,6 +1932,12 @@ begin  -- behavioural
                                            or f011_disk2_write_protected='1') then
                     f011_rnf <= '1';
                     report "Drive 1 selected, but not mounted.";
+                  elsif virtualise_f011_drive0='0' and f011_ds="000" and use_real_floppy0='1' then
+                    -- Access to real first floppy drive
+                    sd_state <= F011WriteSectorRealDriveWait;
+                  elsif virtualise_f011_drive1='0' and f011_ds="001" and use_real_floppy2='1' then
+                    -- Access to real second floppy drive
+                    sd_state <= F011WriteSectorRealDriveWait;
                   elsif f011_ds(2 downto 1) /= x"00" then
                     -- only 2 drives supported for now
                     f011_rnf <= '1';
@@ -2461,7 +2469,7 @@ begin  -- behavioural
                                
               f_stepdir <= fastio_wdata(4);
               f_step <= fastio_wdata(3);
-              f_wdata <= fastio_wdata(2);
+--              f_wdata <= fastio_wdata(2);
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
             when x"a1" =>
@@ -2965,7 +2973,22 @@ begin  -- behavioural
 
             last_fw_ready_for_next <= '1';
           end if;
+
+        when F011WriteSectorRealDriveWait =>
+          -- Wait until the target sector header is found, or
+          -- six index pulses have passed
+
+          -- XXX Not implemented yet
           
+          sd_state <= Idle;
+          
+        when F011WriteSectorRealDrive =>
+
+          -- Write the various bytes of the sector, including the sync marks etc
+
+          -- XXX Not implemented yet
+          
+          sd_state <= Idle;
           
         when FDCReadingSector =>
           if fdc_read_request='1' then
