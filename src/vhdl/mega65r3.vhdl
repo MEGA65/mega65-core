@@ -1130,11 +1130,14 @@ begin
       iec_clk_i_drive <= iec_clk_i;
       iec_data_i_drive <= iec_data_i;
 
-      last_iec_atn_drive <= iec_atn_drive;
-      if (iec_srq_i_drive /= iec_srq_i)
-        or (iec_clk_i_drive /= iec_clk_i)
-        or (iec_data_i_drive /= iec_data_i)
-        or (iec_atn_drive /= last_iec_atn_drive) then
+--      last_iec_atn_drive <= iec_atn_drive;
+--      if (iec_srq_i_drive /= iec_srq_i)
+--        or (iec_clk_i_drive /= iec_clk_i)
+--        or (iec_data_i_drive /= iec_data_i)
+--        or (iec_atn_drive /= last_iec_atn_drive) then
+      if ((iec_srq_o_drive and iec_srq_en_drive) = '1')
+        or ((iec_clk_o_drive and iec_clk_en_drive) = '1')
+        or ((iec_data_o_drive and iec_data_en_drive) = '1')
         iec_bus_active <= '1';
       else
         iec_bus_active <= '0';
