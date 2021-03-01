@@ -360,7 +360,13 @@ architecture behavioural of sdcardio is
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
 
+  -- Signals for controlling writing to floppies
+  signal fw_ready_for_next : std_logic := '0';
+  signal fw_byte_valid : std_logic := '0';
+  signal fw_byte_in : unsigned(7 downto 0);  
+  signal f011_write_precomp : std_logic := '0';
   signal f011_reg_clock : unsigned(7 downto 0) := x"FF";
+  
   signal f011_reg_step : unsigned(7 downto 0) := x"80"; -- 8ms steps
   signal f011_reg_pcode : unsigned(7 downto 0) := x"00";
   signal counter_16khz : integer := 0;
@@ -508,7 +514,7 @@ architecture behavioural of sdcardio is
   signal write_sector_gate_open : std_logic := '0';
   signal write_sector0_gate_open : std_logic := '0';
   signal write_sector_gate_timeout : integer range 0 to 65535 := 0;
-  
+
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -678,6 +684,18 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  
+  mfmencoder0: entity work.mfm_bits_to_gaps port map (
+      clock40mhz => clock,
+      cycles_per_interval => cycles_per_interval,
+      write_precomp_enable => f011_write_precomp,
+      ready_for_next => fw_ready_for_next,
+      f_write => f_wdata,
+      byte_valid => fw_byte_valid,
+      byte_in => fw_byte_in,
+      clock_byte_in => f011_reg_clock
+    );
+  
   -- Reader for real floppy drive
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
@@ -2908,6 +2926,10 @@ begin  -- behavioural
           if (f_index='0' and last_f_index='1') then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
+
+            -- Grab the first byte
+            
+            
           end if;
         when FDCFormatTrack =>
           -- Close write gate and finish formatting when we hit the next
