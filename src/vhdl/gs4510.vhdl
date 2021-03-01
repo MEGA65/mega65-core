@@ -270,6 +270,7 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal iec_bus_slow_enable : std_logic := '0';
   signal iec_bus_slowdown : std_logic := '0';
   signal iec_bus_cooldown : integer range 0 to 65535 := 0;
   
@@ -2634,6 +2635,10 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
+            when x"f1" =>
+            --@IO:GS $D7F1.0 CPU:IECBUSACT IEC bus is active
+              return "000000" & iec_bus_slow_enable & iec_bus_active;
+                          
             --@IO:GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
             --@IO:GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
             when x"f2" => return last_cycles_per_frame(7 downto 0);
@@ -3132,6 +3137,8 @@ begin
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
         cartridge_enable <= value(1);
+      elsif (long_address = x"FFD37F1") then
+        iec_bus_slow_enable <= value(1);
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
@@ -3830,7 +3837,7 @@ begin
       -- cancels POKe0,65 / holding CAPS LOCK to force full CPU speed.
       -- If you set the 40MHz select register, then the slowdown doesn't
       -- apply, as the programmer is assumed to know what they are doing.
-      if iec_bus_active='1' then
+      if iec_bus_active='1' and iec_bus_slow_enable='1' then
         iec_bus_slowdown <= '1';
         iec_bus_cooldown <= 40000;
       elsif iec_bus_cooldown /= 0 then
