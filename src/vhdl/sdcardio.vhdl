@@ -361,6 +361,7 @@ architecture behavioural of sdcardio is
   signal f011_motor : std_logic := '0';
 
   -- Signals for controlling writing to floppies
+  signal last_fw_ready_for_next : std_logic := '0';
   signal fw_ready_for_next : std_logic := '0';
   signal fw_byte_valid : std_logic := '0';
   signal fw_byte_in : unsigned(7 downto 0);  
@@ -2765,6 +2766,7 @@ begin  -- behavioural
           sdio_busy <= '0';
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
+          f_wgate <= '1';
 
           if sectorbuffercs='1' and fastio_write='1' then
             -- Writing via memory mapped sector buffer
@@ -2928,7 +2930,16 @@ begin  -- behavioural
             f_wgate <= '0';
 
             -- Grab the first byte
-            
+            if f011_drq='1' then
+              f011_lost <= '1';
+            end if;
+            -- Indicate we need another byte now
+            f011_drq <= '1';
+
+            fw_byte_in <= sb_cpu_wdata;
+            fw_byte_valid <= '1';
+
+            last_fw_ready_for_next <= '1';
             
           end if;
         when FDCFormatTrack =>
@@ -2939,6 +2950,22 @@ begin  -- behavioural
             f_wgate <= '1';
             sd_state <= Idle;
           end if;
+
+          last_fw_ready_for_next <= fw_ready_for_next;
+          if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
+            -- Grab the next byte
+            if f011_drq='1' then
+              f011_lost <= '1';
+            end if;
+            -- Indicate we need another byte now
+            f011_drq <= '1';
+
+            fw_byte_in <= sb_cpu_wdata;
+            fw_byte_valid <= '1';
+
+            last_fw_ready_for_next <= '1';
+          end if;
+          
           
         when FDCReadingSector =>
           if fdc_read_request='1' then
