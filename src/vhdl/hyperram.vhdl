@@ -378,6 +378,9 @@ architecture gothic of hyperram is
   signal read_request_held : std_logic := '0';
   signal write_request_held : std_logic := '0';
   signal mark_cache_for_prefetch : std_logic := '0';
+  signal last_mark_cache_for_prefetch : std_logic := '0';
+  signal mark_cache_for_prefetch162 : std_logic := '0';
+  signal last_mark_cache_for_prefetch162 : std_logic := '0';
 
   signal viciv_last_request_toggle : std_logic := '0';
   signal viciv_bank : unsigned(7 downto 0) := x"00";
@@ -672,7 +675,7 @@ begin
             -- Mark a cache line to receive the pre-fetched data, so that we don't
             -- have to wait for it all to turn up, before being able to return
             -- the first 8 bytes
-            mark_cache_for_prefetch <= '1';
+            mark_cache_for_prefetch <= not mark_cache_for_prefetch;
           end if;
           
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
@@ -1358,8 +1361,6 @@ begin
         read_request_delatch <= '0';
       end if;
       
-      mark_cache_for_prefetch <= '0';     
-      
       hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
       seven_plus_read_time_adjust <= to_unsigned(7 + read_time_adjust,6);
       thirtyone_plus_read_time_adjust <= to_unsigned(31 + read_time_adjust,6);
@@ -1512,7 +1513,10 @@ begin
         current_cache_line_valid <= current_cache_line_valid_drive;
       end if;
       
-      if mark_cache_for_prefetch='1' then
+      if mark_cache_for_prefetch /= last_mark_cache_for_prefetch
+        or mark_cache_for_prefetch162 /= last_mark_cache_for_prefetch162 then
+        last_mark_cache_for_prefetch <= mark_cache_for_prefetch;
+        last_mark_cache_for_prefetch162 <= mark_cache_for_prefetch162;
         if random_bits(1)='0' then
           report "Zeroing cache_row0_valids";
           cache_row0_valids <= (others => '0');
@@ -1875,7 +1879,7 @@ begin
               -- Mark a cache line to receive the pre-fetched data, so that we don't
               -- have to wait for it all to turn up, before being able to return
               -- the first 8 bytes
-              mark_cache_for_prefetch <= '1';
+              mark_cache_for_prefetch162 <= not mark_cache_for_prefetch162;
             
             elsif (request_toggle /= last_request_toggle)
               -- Only commence reads AFTER all pending writes have flushed,
