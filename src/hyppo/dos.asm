@@ -111,8 +111,8 @@ dos_and_process_trap_table:
         ;;
         !16 trap_task_toggle_rom_writeprotect
         !16 trap_task_toggle_force_4502
-        !16 invalid_subfunction
-        !16 invalid_subfunction
+        !16 trap_task_get_mapping
+        !16 trap_task_set_mapping
         !16 invalid_subfunction
         !16 invalid_subfunction
         !16 trap_serial_monitor_write
@@ -124,6 +124,32 @@ trap_serial_monitor_write:
 
 ;;         ========================
 
+trap_task_get_mapping:
+	jsr hypervisor_setup_copy_region
+	bcc @bad
+	ldy #5
+@copyloop:
+	lda hypervisor_maplolo,y
+	sta (<hypervisor_userspace_copy_vector),y
+	dey
+	bpl @copyloop
+	sec
+@bad:
+	jmp return_from_trap_with_carry_flag
+
+trap_task_set_mapping:
+	jsr hypervisor_setup_copy_region
+	bcc @bad2
+	ldy #5
+@copyloop2:
+	lda (<hypervisor_userspace_copy_vector),y
+	sta hypervisor_maplolo,y
+	dey
+	bpl @copyloop2
+	sec
+@bad2:
+	jmp return_from_trap_with_carry_flag
+	
 trap_task_toggle_force_4502:
         lda hypervisor_feature_enables
         eor #$20
