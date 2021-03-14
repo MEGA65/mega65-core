@@ -307,38 +307,18 @@ set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
  
 set hr0_dq_ports    [get_ports hr_d[*]]
-create_clock -period 12 -name rwds_clk      [get_ports hr_rwds]
-create_clock -period 12 -name virt_rwds_clk
-
-set_input_delay -clock [get_clocks virt_rwds_clk]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
-set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds_clk]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] 0
-set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] 0
-set_false_path  -fall_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -setup
-set_false_path  -rise_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -setup
-set_false_path  -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -hold
-set_false_path  -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -hold
-set_false_path -from [get_clocks clk_in] -to [get_clocks rwds_clk]
-set_false_path -from [get_clocks rwds_clk] -to [get_clocks clk_in]
-
 set hr2_dq_ports    [get_ports hr2_d[*]]
-create_clock -period 12 -name rwds2_clk      [get_ports hr2_rwds]
-create_clock -period 12 -name virt_rwds2_clk
+# Set 6ns max delay to/from various HyperRAM pins
+# (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
+set_max_delay -from [get_clocks clock162] -to ${hr0_dq_ports} 23
+set_max_delay -from [get_clocks clock162] -to ${hr2_dq_ports} 23
+set_max_delay -to [get_clocks clock162] -from ${hr0_dq_ports} 23
+set_max_delay -to [get_clocks clock162] -from ${hr2_dq_ports} 23
+set_max_delay -from [get_clocks clock162] -to hr_rwds 23
+set_max_delay -from [get_clocks clock162] -to hr2_rwds 23
+set_max_delay -to [get_clocks clock162] -from hr_rwds 23
+set_max_delay -to [get_clocks clock162] -from hr2_rwds 23
 
-set_input_delay -clock [get_clocks virt_rwds2_clk]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
-set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds2_clk]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] 0
-set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] 0
-set_false_path  -fall_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -setup
-set_false_path  -rise_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -setup
-set_false_path  -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -hold
-set_false_path  -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -hold
-set_false_path -from [get_clocks clk_in] -to [get_clocks rwds2_clk]
-set_false_path -from [get_clocks rwds2_clk] -to [get_clocks clk_in]
 
 ##SMSC Ethernet PHY
 #
