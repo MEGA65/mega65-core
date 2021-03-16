@@ -973,8 +973,8 @@ begin  -- behavioural
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
             -- @IO:GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
             -- @IO:GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
-            -- @IO:GS $D68A.2 SD:VDC0 (read only) Set if drive 0 is virtualized (sectors delivered via serial monitor interface)
-            -- @IO:GS $D68A.3 SD:VDC1 (read only) Set if drive 1 is virtualized (sectors delivered via serial monitor interface)
+            -- @IO:GS $D68A.2 SD:VFDC0 (read only) Set if drive 0 is virtualised (sectors delivered via serial monitor interface)
+            -- @IO:GS $D68A.3 SD:VFDC1 (read only) Set if drive 1 is virtualised (sectors delivered via serial monitor interface)
             fastio_rdata(0) <= colourram_at_dc00;
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
