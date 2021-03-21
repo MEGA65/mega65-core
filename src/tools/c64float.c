@@ -4,6 +4,8 @@
 */
 
 #include <stdio.h>
+#include <string.h>
+#include <strings.h>
 
 #pragma pack(1)
 struct c64float_struct {
@@ -82,6 +84,66 @@ test_case test_cases[]={
 			{ .f={{{0x00,0x00,0x00,0x00,0x00}}},0.0}
   };
 
+int string_to_c64float(char *s,c64float *f)
+{
+  unsigned char decimal_places_plus_one=0;
+  unsigned char sign=0;
+  unsigned long mantissa=0;
+  unsigned char exp=0;
+  unsigned char exp_mode=0;
+  unsigned char exp_sign=0;
+  
+  bzero(f,sizeof(c64float));
+
+  while(*s) {
+    if (*s=='-') {
+      if (exp_mode) {
+	if (!exp_sign) exp_sign=-1;
+	else return -1;
+      } else {
+	if (!sign) sign=-1;
+	else return -1;
+      }
+    }
+    else if (*s=='+') {
+      if (exp_mode) {
+	if (!exp_sign) exp_sign=+1;
+	else return -1;
+      } else {
+	if (!sign) sign=+1;
+	else return -1;
+      }
+    }
+    else if (*s=='.') {
+      if (exp_mode) return -1;
+      if (decimal_places_plus_one) return -1;
+      decimal_places_plus_one=1;
+    }
+    else if (isdigit(*s)) {
+      if (exp_mode) {
+	exp*=10;
+	exp+=(*s)-'0';
+      } else {
+	mantissa*=10;
+	mantissa+=(*s)-'0';
+	if (decimal_places_plus_one) decimal_places_plus_one++;
+      }
+    }
+    else if ((*s=='E')||(*s=='e')) {
+      if (exp_mode) return -1;
+      exp_mode=1;
+    }
+
+    s++;
+  }
+
+  printf("sign=%d, exp_sign=%d, exp=%d, man=%ld,decimal_places=%d\n",
+	 sign,exp_sign,exp,mantissa,decimal_places_plus_one);
+  
+  return 0;
+  
+}
+
 int main(int argc,char **argv)
 {
   double d;
@@ -98,10 +160,22 @@ int main(int argc,char **argv)
 
     // Allow 3 parts per billion error
     if (err>=0.000000003) {
-      printf("ERROR: Result was %.9g, but should have been %.9g (difference = %.9g, error fraction=%.9g)\n",
+      printf("ERROR converting from C64 floating point format to double: Result was %.9g, but should have been %.9g (difference = %.9g, error fraction=%.9g)\n",
 	     d,test_cases[i].d,test_cases[i].d-d,err);
       errors++;
     }
+
+    char str[80];
+    snprintf(str,80,"%.9g",test_cases[i].d);
+    string_to_c64float(str,&f);
+    
+    // Allow 3 parts per billion error
+    if (memcmp(&f,&test_cases[i].f,sizeof(c64float))) {
+      printf("ERROR parsing string to C64 floating point format: Result was %s\n",c64float_to_string(&f));
+      errors++;
+    }
+
+    
 
   }
 
