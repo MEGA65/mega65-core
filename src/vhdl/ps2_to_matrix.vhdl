@@ -263,7 +263,8 @@ begin  -- behavioural
                            when x"005" => km_index := 4;
                            when x"004" => km_index := 5;
                            when x"003" => km_index := 6;
-                           when x"072" =>
+                           -- Some keyboards use code 205 = $CD for cursor down
+                           when x"072" | x"0CD" =>
                              if joylock='0' then
                                cursor_down <= break; ps2 <= '1';
                              else
@@ -272,13 +273,13 @@ begin  -- behavioural
                                                   -- code for down
                                                   -- key and joy2 right?
                              end if;
-                           when x"075" => -- JOY2 LEFT
+                           when x"075" | when x"0C8" => -- JOY2 LEFT
                              if joylock='1' then
                                joy2(0) <= break;
                              else
                                cursor_up <= break; ps2 <= '1';
                              end if;
-                           when x"06B" => -- JOY2 UP
+                           when x"06B" | x"0CB" => -- JOY2 UP
                              if joylock='1' then
                                joy2(2) <= break;
                              else
