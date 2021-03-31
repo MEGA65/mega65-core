@@ -194,6 +194,11 @@ architecture gothic of hyperram is
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
 
+  -- As we move to enabling 80MHz operation, we are selectively applying
+  -- fast_cmd mode.  It seems to work fine for reads, but not for writes
+  -- at the moment.
+  signal fast_cmd_for_write_enabled : boolean := false;  
+  
   signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
   
@@ -2042,7 +2047,7 @@ begin
         when StartBackgroundWrite =>
           report "in StartBackgroundWrite to synchronise with clock";
           pause_phase <= '0';
-          if fast_cmd_mode='1' then
+          if fast_cmd_mode='1' and fast_cmd_for_write_enabled then
             state <= HyperRAMOutputCommand;
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '1';
@@ -2134,7 +2139,7 @@ begin
           pause_phase <= '0';
 
           if start_delay_expired = '1' then
-            if fast_cmd_mode='1' then
+            if fast_cmd_mode='1' and fast_cmd_for_write_enabled then
               state <= HyperRAMOutputCommand;
               hr_clk_fast <= '1';
               hr_clk_phaseshift <= write_phase_shift;         
