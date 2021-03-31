@@ -190,7 +190,7 @@ architecture gothic of hyperram is
   signal enable_current_cache_line : std_logic := '1';
 
   -- These three must be off for reliable operation on current PCBs
-  signal fast_cmd_mode : std_logic := '1';
+  signal fast_cmd_mode : std_logic := '0';
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
 
