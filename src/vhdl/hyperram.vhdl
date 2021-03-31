@@ -190,7 +190,7 @@ architecture gothic of hyperram is
   signal enable_current_cache_line : std_logic := '1';
 
   -- These three must be off for reliable operation on current PCBs
-  signal fast_cmd_mode : std_logic := '0';
+  signal fast_cmd_mode : std_logic := '1';
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
 
@@ -2323,46 +2323,20 @@ begin
 
           hr_clk_phaseshift <= write_byte_phase;
 
-          -- Toggle data while clock steady
---              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
---                & ", clock = " & std_logic'image(hr_clock)
---                & ", next_is_data = " & std_logic'image(next_is_data)
---                & ", countdown = " & integer'image(countdown)
---                & ", cs0= " & std_logic'image(hr_cs0);
+          -- Prepare for reading block data
+          is_block_read <= false;
+          if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
+            and (is_vic_fetch = false) then
+            block_valid <= '0';
+            block_address <= hyperram_access_address(26 downto 5);
+            is_block_read <= true;
+          end if;
           
-          hr_d <= hr_command(47 downto 40);
-          hr2_d <= hr_command(47 downto 40);
-          hr_command(47 downto 8) <= hr_command(39 downto 0);
+          pause_phase <= not pause_phase;
 
-          -- Also shift out config register values, if required
-          if config_reg_write='1' and ram_reading_held='0' then
-            report "shifting in conf value $" & to_hstring(conf_buf0);
-            hr_command(7 downto 0) <= conf_buf0;
-            conf_buf0 <= conf_buf1;
-            conf_buf1 <= conf_buf0;
-          else
-            hr_command(7 downto 0) <= x"00";
-          end if;
-          
-          report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
-          
-          if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
-            if hyperram0_select='1' then
-              extra_latency <= hr_rwds;
-            else
-              extra_latency <= hr2_rwds;
-            end if;
-            if (hr_rwds='1' and hyperram0_select='1')
-              or (hr2_rwds='1' and hyperram1_select='1') then
-              report "Applying extra latency";
-            end if;                    
-          end if;
-          if countdown = 1 then
-            countdown_is_zero <= '1';
-          else
-            countdown_is_zero <= '0';
-          end if;
-          if countdown_is_zero = '1' then
+          hr_clk_phaseshift <= write_phase_shift;
+
+          if countdown_timeout='1' then
             -- Finished shifting out
             if ram_reading_held = '1' then
               -- Reading: We can just wait until hr_rwds has gone low, and then
@@ -2370,11 +2344,12 @@ begin
               countdown <= 63;
               countdown_is_zero <= '0';
               hr_rwds_high_seen <= '0';
+              countdown_timeout <= '0';
               if fast_read_mode='1' then
                 hr_clk_fast <= '1';
                 state <= HyperRAMReadWait;
               else
-                pause_phase <= '0';                  
+                pause_phase <= '1';
                 hr_clk_fast <= '0';
                 state <= HyperRAMReadWaitSlow;
               end if;
@@ -2385,8 +2360,7 @@ begin
               -- registers that get setup, and then ANY write to the register
               -- area will write those values, which we have done by shifting
               -- those through and sending 48+16 bits instead of the usual
-              -- 48.
-
+              -- 48.                  
               if background_write='1' then
                 if background_write_source = '0' then
                   write_collect0_flushed <= '1';
@@ -2396,27 +2370,28 @@ begin
                   show_collect1 := true;
                 end if;
               end if;
-
+              
               report "Finished writing config register";
               state <= HyperRAMFinishWriting;
             else
               -- Writing to memory, so count down the correct number of cycles;
               -- Initial latency is reduced by 2 cycles for the last bytes
               -- of the access command, and by 1 more to cover state
-              -- machine latency                  
-              if hyperram0_select='1' then
+              -- machine latency
+              if hyperram1_select='0' then
                 countdown <= to_integer(write_latency);
               else
                 countdown <= to_integer(write_latency2);
               end if;
-              -- XXX Assumes write_latency > 0
+              -- XXX Doesn't work if write_latency(2) is $00
               countdown_is_zero <= '0';
-
-              -- We are now just about ready to start writing, so mark the
+              
+              
+              -- We are not just about ready to start writing, so mark the
               -- write buffer as too late to be added to, because we will
               -- snap-shot it in a moment.
               if background_write = '1' then
-                report "WRITE: Asserting toolate signal";
+                report "WRITE: Asserting toolate signal for collect" & std_logic'image(background_write_source);
                 background_write_count <= 4 + 2;
                 -- We know we can do upto 128 bytes at least per write,
                 -- before a refresh is required. So allow 16x8 byte writes to
@@ -2432,17 +2407,69 @@ begin
                   show_collect1 := true;
                 end if;
               end if;
-
               countdown_timeout <= '0';
               if fast_write_mode='1' then
+                hr_clk_fast <= '1';
                 state <= HyperRAMDoWrite;
               else
+                hr_clk_fast <= '0';
                 state <= HyperRAMDoWriteSlow;
               end if;
             end if;
           end if;
+          
+          -- In fast mode, we can't toggle data while the clock is steady
+          -- as we toggle it every cycle
+          report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+            & ", clock = " & std_logic'image(hr_clk)
+            & ", countdown = " & integer'image(countdown);
+          
+          hr_d <= hr_command(47 downto 40);
+          hr2_d <= hr_command(47 downto 40);
+          hr_command(47 downto 8) <= hr_command(39 downto 0);
+          
+          -- Also shift out config register values, if required
+          if config_reg_write='1' and ram_reading_held='0' then
+            report "shifting in conf value $" & to_hstring(conf_buf0);
+            hr_command(7 downto 0) <= conf_buf0;
+            conf_buf0 <= conf_buf1;
+            conf_buf1 <= conf_buf0;
+          else
+            hr_command(7 downto 0) <= x"00";
+          end if;
+          
+          report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
+          
+          if countdown = 3 and config_reg_write='1' then
+            if background_write='1' then
+              if background_write_source = '0' then
+                write_collect0_toolate <= '1';
+              else
+                write_collect1_toolate <= '1';
+              end if;
+            end if;
+          end if;
+          
+          if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
+            extra_latency <= hr_rwds;
+            if (hr_rwds='1' and hyperram0_select='1')
+              or (hr2_rwds='1' and hyperram1_select='1')
+            then
+              report "Applying extra latency";
+            end if;                    
+          end if;
+          if countdown = 1 then
+            countdown_is_zero <= '1';
+          end if;
+          if countdown /= 0 then
+            countdown <= countdown - 1;
+          else
+            report "asserting countdown_timeout";
+            countdown_timeout <= '1';
+          end if;
           byte_phase <= to_unsigned(0,6);
           write_byte_phase <= '0';
+
 
         when HyperRAMDoWrite =>
           hr_clk_phaseshift <= write_phase_shift;         
