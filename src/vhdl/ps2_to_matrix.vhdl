@@ -273,7 +273,7 @@ begin  -- behavioural
                                                   -- code for down
                                                   -- key and joy2 right?
                              end if;
-                           when x"075" | when x"0C8" => -- JOY2 LEFT
+                           when x"075" | x"0C8" => -- JOY2 LEFT
                              if joylock='1' then
                                joy2(0) <= break;
                              else
