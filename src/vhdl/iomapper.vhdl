@@ -1839,10 +1839,10 @@ begin
       end if;
 
       -- Now map the SIDs
-      -- @IO:C64 $D400-$D40F = right SID #1
-      -- @IO:C64 $D420-$D43F = right SID #2
-      -- @IO:C64 $D440-$D45F = left SID #1
-      -- @IO:C64 $D460-$D47F = left SID #2
+      -- @IO:C64 $D400-$D40F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
+      -- @IO:C64 $D420-$D43F = SID#2 (internally known as 'right SID #2' or as 'backsid')
+      -- @IO:C64 $D440-$D45F = SID#3 (internally known as 'left SID #1' or as 'leftsid')
+      -- @IO:C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'backsid')
       -- @IO:C64 $D480-$D4FF = repeated images of SIDs
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
