@@ -221,7 +221,7 @@ architecture behavioural of ethernet is
   signal rxbuffer_wdata : unsigned(7 downto 0);
   signal eth_rx_buffer_inuse : unsigned(3 downto 0) := "0000";
   signal rxbuff_id_cpuside : integer range 0 to 3 := 0;
-  signal rxbuff_id_ethside : integer range 0 to 3 := 1;
+  signal rxbuff_id_ethside : integer range 0 to 3 := 0;
   signal eth_rx_buffers_free : integer range 0 to 3 := 3;
  
   signal eth_tx_toggle_48mhz : std_logic := '1';
@@ -1586,8 +1586,9 @@ begin  -- behavioural
                 eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
                 -- Advance to next buffer, if there are any
-                if ((rxbuff_id_cpuside + 1) = rxbuff_id_ethside)
-                  or ((rxbuff_id_cpuside = 3) and (rxbuff_id_ethside = 0 )) then
+                if ((rxbuff_id_cpuside + 0) = rxbuff_id_ethside) then
+--                if ((rxbuff_id_cpuside + 1) = rxbuff_id_ethside) 
+--                  or ((rxbuff_id_cpuside = 3) and (rxbuff_id_ethside = 0 )) then
                   -- No more waiting packets
                   null;
                 else
