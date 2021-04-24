@@ -1257,7 +1257,9 @@ begin  -- behavioural
                 -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
                 fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
                 fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
-                fastio_rdata(7 downto 4) <= rx_rotate_count;
+                fastio_rdata(5 downto 4) <= rx_rotate_count(1 downto 0);
+                fastio_rdata(7) <= rxbuffer_end_of_packet_toggle_drive;
+                fastio_rdata(6) <= last_rxbuffer_end_of_packet_toggle;
               when x"01" =>
                 -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
                 fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
@@ -1291,7 +1293,7 @@ begin  -- behavioural
       -- We process them here to avoid contention on the dual-ported
       -- memory used for the buffer, to try to fix the corruption we have been
       -- seeing.
-
+      
       rxbuffer_end_of_packet_toggle_drive <= rxbuffer_end_of_packet_toggle;
       if (rxbuffer_end_of_packet_toggle = rxbuffer_end_of_packet_toggle_drive)
         and (last_rxbuffer_end_of_packet_toggle /= rxbuffer_end_of_packet_toggle) then
