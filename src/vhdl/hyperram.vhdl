@@ -190,14 +190,14 @@ architecture gothic of hyperram is
   signal enable_current_cache_line : std_logic := '1';
 
   -- These three must be off for reliable operation on current PCBs
-  signal fast_cmd_mode : std_logic := '0';
+  signal fast_cmd_mode : std_logic := '1';
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
 
   -- As we move to enabling 80MHz operation, we are selectively applying
   -- fast_cmd mode.  It seems to work fine for reads, but not for writes
   -- at the moment.
-  signal fast_cmd_for_write_enabled : boolean := false;  
+  signal fast_cmd_for_write_enabled : boolean := true;
   
   signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
@@ -2477,41 +2477,156 @@ begin
 
 
         when HyperRAMDoWrite =>
-          hr_clk_phaseshift <= write_phase_shift;         
 
-          report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
-            & ", count=" & integer'image(background_write_count);
-
-          -- Now snap-shot the write buffer data, and mark the slot as flushed
-          if background_write = '1' then
-            if background_write_source = '0' and write_collect0_toolate='1' and write_collect0_flushed = '0' then
-              write_collect0_flushed <= '1';
-              show_collect0 := true;
-              report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
-              background_write_fetch <= '1';
-              background_write_data <= write_collect0_data;
-              background_write_valids <= write_collect0_valids;
-              
-            elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
-              write_collect1_flushed <= '1';
-              show_collect1 := true;
-              report "WRITE: background_write_data copied from write_collect1";
-              background_write_data <= write_collect1_data;
-              background_write_valids <= write_collect1_valids;
+          -- Update cache
+          if cache_row0_address_matches_ram_address = '1' then
+            if ram_wdata_enlo_drive='1' then
+              cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+              cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
             end if;
-
-            -- Invalidate read cache when writing
-            if cache_enabled and hyperram_access_address_matches_cache_row0 = '1' then
+            if ram_wdata_enhi_drive='1' then
+              cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+              cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+            end if;
+            show_cache0 := true;
+          elsif cache_row1_address_matches_ram_address='1' then
+            if ram_wdata_enlo_drive='1' then
+              cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+              cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;        
+            end if;
+            if ram_wdata_enhi_drive='1' then
+              cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+              cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+            end if;
+            show_cache1 := true;
+          else
+            if random_bits(1)='0' then
               report "Zeroing cache_row0_valids";
               cache_row0_valids <= (others => '0');
-            elsif cache_enabled and hyperram_access_address_matches_cache_row1 = '1' then
+              cache_row0_address <= ram_address_drive(26 downto 3);
+              cache_row0_address_matches_ram_address <= '1';
+              if ram_wdata_enlo_drive='1' then
+                cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+                cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+              end if;
+              if ram_wdata_enhi_drive='1' then
+                cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+                cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+              end if;
+              show_cache0 := true;
+            else
               report "Zeroing cache_row1_valids";
               cache_row1_valids <= (others => '0');
+              cache_row1_address <= ram_address_drive(26 downto 3);
+              cache_row1_address_matches_ram_address <= '1';
+              if ram_wdata_enlo_drive='1' then
+                cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+                cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+              end if;
+              if ram_wdata_enhi_drive='1' then
+                cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+                cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+              end if;
+              show_cache1 := true;
+            end if;
+          end if;
+            
+          -- Fetch takes 2 cycles, so schedule one cycle before last read
+          -- and shift, so that it happens after that last shift, but
+          -- before it is needed again.
+          if background_write_count = 0 then
+            -- See if we have another write collect that we can
+            -- continue with
+            -- XXX We suspect that chained writes might be problematic on the
+            -- external hyperram for some strange reason, so disable them.
+            if write_continues /= 0 and background_chained_write='1' then
+              if background_write_fetch = '0' then
+                report "WRITECONTINUE: Continuing write: Requesting fetch.";                      
+                background_write_fetch <= '1';
+              end if;
+            else
+              report "WRITECONTINUE: No continuation. Terminating write.";
+              report "asserting countdown_timeout";
+              countdown_timeout <= '1';
+            end if;
+          end if;                
+          
+          report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
+            & ", count=" & integer'image(background_write_count)
+            & ", background_write_fetch = " & std_logic'image(background_write_fetch)
+            & ", background_write_valids = " & to_string(background_write_valids)
+            & ", write_blocked=" & std_logic'image(write_blocked);
+          
+          -- Now snap-shot the write buffer data, and mark the slot as flushed
+          if background_write = '1' and
+            ( (background_write_next_address_matches_collect0 = '1')
+              or (background_write_next_address_matches_collect1 = '1') )
+          then
+            if background_chained_write = '0' then
+              report "WRITE: background_chained_write <= 1";
+            end if;
+            background_chained_write <= '1';
+          else
+            if background_chained_write = '1' then
+              report "WRITE: background_chained_write <= 0";
+            end if;
+            background_chained_write <= '0';
+
+            if hr_clock_phase165="11" and (background_write_valids = "00000000")
+              and (read_request='1' or write_request='1' or write_blocked='1') then
+              report "LatencyWait: Aborting tail of background write due to incoming job/write_blocked";
+              state <= HyperRAMFinishWriting;              
+            end if;
+                
+            
+          end if;
+          
+          if background_write_fetch = '1' then
+            report "WRITE: Doing fetch of background write data";
+            background_write_fetch <= '0';
+            background_write_next_address <= background_write_next_address + 1;
+            write_continues <= write_continues - 1;
+            background_write_count <= 7;
+            if background_write_next_address_matches_collect0 = '1' and background_write_source = '0' then
+              show_collect0 := true;
+              report "WRITE: background_write_data copied from write_collect0 (@ $"
+                & to_hstring(write_collect0_address&"000")
+                & "). Valids = " & to_string(write_collect0_valids)
+                & ", next addr was $" & to_hstring(background_write_next_address&"000");
+              
+              background_write_next_address <= write_collect0_address + 1;
+              background_write_next_address_matches_collect0 <= '0';
+              background_write_next_address_matches_collect1 <= collect1_matches_collect0_plus_1;
+              
+              background_write_data <= write_collect0_data;
+              background_write_valids <= write_collect0_valids;
+              write_collect0_flushed <= '1';
+              
+            elsif background_write_next_address_matches_collect1 = '1' and background_write_source = '1' then
+              show_collect1 := true;
+              report "WRITE: background_write_data copied from write_collect1. Valids = " & to_string(write_collect1_valids)
+                & ", next addr was $" & to_hstring(background_write_next_address&"000");
+              background_write_next_address <= write_collect1_address + 1;
+              background_write_next_address_matches_collect0 <= collect0_matches_collect1_plus_1;
+              background_write_next_address_matches_collect1 <= '0';
+              
+              background_write_data <= write_collect1_data;
+              background_write_valids <= write_collect1_valids;
+              write_collect1_flushed <= '1';
+            else
+              report "WRITE: Write is not chained.";
+              background_chained_write <= '0';
             end if;
           end if;
           
+          hr_clk_phaseshift <= write_phase_shift;
+          if countdown_timeout = '1' then
+            report "Advancing to HyperRAMFinishWriting";
+            state <= HyperRAMFinishWriting;                    
+          end if;
+                      
           report "latency countdown = " & integer'image(countdown);
-
+          
           -- Begin write mask pre-amble
           if ram_reading_held = '0' and countdown = 2 then
             hr_rwds <= '0';
@@ -2526,20 +2641,19 @@ begin
           if countdown = 1 then
             countdown_is_zero <= '1';
           end if;
-          if countdown_is_zero='1' then
+          if countdown_is_zero = '1' then
             if extra_latency='1' then
               report "Waiting 6 more cycles for extra latency";
               -- If we were asked to wait for extra latency,
               -- then wait another 6 cycles.
               extra_latency <= '0';
-
               if hyperram0_select='1' then
                 countdown <= to_integer(extra_write_latency);
               else
                 countdown <= to_integer(extra_write_latency2);
               end if;
-              -- Assumes extra latency is not zero
-              countdown_is_zero <= '0';              
+              -- XXX Assumes extra_write_latency is not zero
+              countdown_is_zero <= '0';
             else
               -- Latency countdown for writing is over, we can now
               -- begin writing bytes.                  
@@ -2558,6 +2672,7 @@ begin
                   & ", background words left = " & integer'image(background_write_count);
                 hr_d <= background_write_data(0);
                 hr2_d <= background_write_data(0);
+                
                 background_write_data(0) <= background_write_data(1);
                 background_write_data(1) <= background_write_data(2);
                 background_write_data(2) <= background_write_data(3);
@@ -2571,11 +2686,6 @@ begin
                 hr2_rwds <= not background_write_valids(0);
                 background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                 background_write_valids(7) <= '0';
-
-                if background_write_count = 0 and background_chained_write = '1' then
-                  background_write_fetch <= '1';
-                end if;
-                
               else
                 -- XXX Doesn't handle 16-bit writes properly. But that's
                 -- okay, as they are only supported with the cache and
@@ -2586,15 +2696,27 @@ begin
                 hr2_rwds <= hyperram_access_address(0) xor write_byte_phase;
               end if;
               
+              -- Finish resetting write collectors when chaining
+              if write_collect0_dispatchable='0' and write_collect0_flushed='1' and write_collect0_toolate='1' then
+                report "WRITECONTINUE: Resetting collect0";
+                write_collect0_flushed <= '0';
+                write_collect0_toolate <= '0';
+                show_collect0 := true;
+              end if;
+              if write_collect1_dispatchable='0' and write_collect1_flushed='1' and write_collect1_toolate='1' then
+                report "WRITECONTINUE: Resetting collect1";
+                write_collect1_flushed <= '0';
+                write_collect1_toolate <= '0';
+                show_collect1 := true;
+              end if;
+              
               -- Write byte
               write_byte_phase <= '1';
               if background_write='0' then
                 if write_byte_phase = '0' and hyperram_access_address(0)='1' then
-                  report "Masking even byte";
                   hr_d <= x"ee"; -- even "masked" data byte
                   hr2_d <= x"ee"; -- even "masked" data byte
                 elsif write_byte_phase = '1' and hyperram_access_address(0)='0' then
-                  report "Masking odd byte";
                   hr_d <= x"0d"; -- odd "masked" data byte                      
                   hr2_d <= x"0d"; -- odd "masked" data byte                      
                 end if;
@@ -2603,14 +2725,37 @@ begin
                 else
                   state <= HyperRAMFinishWriting;
                 end if;
-              elsif write_byte_phase='1' then
-                report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
+              else
+                report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count)
+                  & ", write_continues = " & integer'image(write_continues);
                 if background_write_count /= 0 then
                   background_write_count <= background_write_count - 1;
-                else
-                  report "Advancing to HyperRAMFinishWriting";
-                  hr_clk_phaseshift <= write_phase_shift;
+                  if background_write_count = 3 and write_continues /= 0 then
+                    report "WRITECONTINUE: Checking for chained writes (" & integer'image(write_continues) & " more continues allowed)";
+                    report "WRITECONTINUE: Am looking for $" & to_hstring(background_write_next_address&"000") &
+                      ", options are 0:$" & to_hstring(write_collect0_address&"000") &
+                      " and 1:$" & to_hstring(write_collect1_address&"000");
+                    show_collect0 := true;
+                    show_collect1 := true;
+                    -- Get ready to commit next write block, if one is there
+                    if write_continues /= 0 and write_collect0_toolate='0' and write_collect0_flushed = '0'
+                      and background_write_next_address_matches_collect0='1' then
+                      report "WRITECONTINUE: Marking collect0 @ $" & to_hstring(write_collect0_address&"000") & " for chained write.";
+                      write_collect0_toolate <= '1';
+                      background_write_source <= '0';
+                      report "background_write_source = 0";
+                      show_collect0 := true;                          
+                    elsif write_continues /= 0 and write_collect1_toolate='0' and write_collect1_flushed = '0'
+                      and background_write_next_address_matches_collect1='1' then
+                      report "WRITECONTINUE: Marking collect1 @ $" & to_hstring(write_collect1_address&"000") & " for chained write.";
+                      write_collect1_toolate <= '1';
+                      background_write_source <= '1';
+                      report "background_write_source = 1";
+                      show_collect1 := true;
+                    end if;
+                  end if;
                 end if;
+                
               end if;
             end if;
           end if;
