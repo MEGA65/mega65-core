@@ -92,6 +92,7 @@ int string_to_c64float(char *s,c64float *f)
   unsigned char exp=0;
   unsigned char exp_mode=0;
   unsigned char exp_sign=0;
+  unsigned char extra_exp=0;
   
   bzero(f,sizeof(c64float));
 
@@ -124,9 +125,19 @@ int string_to_c64float(char *s,c64float *f)
 	exp*=10;
 	exp+=(*s)-'0';
       } else {
-	mantissa*=10;
-	mantissa+=(*s)-'0';
-	if (decimal_places_plus_one) decimal_places_plus_one++;
+
+	// We need to check for mantissa overflow here, since
+	// it is legal to enter numbers like 1000000000000000
+	// This means that if the mantissa is greater than
+	// a certain threshold, then we need to stop accumulating
+	// in it, and instead add one to the "extra exponent"
+
+	if (mantissa<(0xFFFFFFFF/10)) {
+	  mantissa*=10;
+	  
+	  mantissa+=(*s)-'0';
+	  if (decimal_places_plus_one) decimal_places_plus_one++;
+	} else extra_exp++;
       }
     }
     else if ((*s=='E')||(*s=='e')) {
@@ -137,8 +148,64 @@ int string_to_c64float(char *s,c64float *f)
     s++;
   }
 
-  printf("sign=%d, exp_sign=%d, exp=%d, man=%ld,decimal_places=%d\n",
-	 sign,exp_sign,exp,mantissa,decimal_places_plus_one);
+  printf("sign=%d, exp_sign=%d, exp=%d, extra_exp=%d, man=%ld,decimal_places=%d\n",
+	 sign,exp_sign,exp,extra_exp,mantissa,decimal_places_plus_one);
+
+  // Normalise the mantissa
+  unsigned char exp_minus2=0;
+  if (!mantissa) {
+    // Result is zero.
+    f->f.exp=0x00;
+    f->f.man0=0; f->f.man1=0; f->f.man2=0; f->f.man3=0;
+    return 0;
+  }
+  
+  while(mantissa<0x80000000) {
+    printf("  shifting mantissa of 0x%08llx = %lld\n",mantissa,mantissa);
+    mantissa<<=1;
+    exp_minus2++;
+  }
+  printf("  mantissa after shifting = 0x%08llx = %llu\n",mantissa,mantissa);
+
+  int exp_total=exp;
+  
+  if (exp_sign&0x80) {
+    exp_total=-exp_total;
+  }
+  exp_total+=extra_exp;
+  if (decimal_places_plus_one) exp_total-=decimal_places_plus_one-1;
+  while(exp_total>0) {
+
+    printf("  exponent to apply to mantissa is 10^%d (exp_minus2=%d)\n",exp_total,exp_minus2);
+    printf("    manitssa=%ld, exp=2^%d, interim=%.9g\n",mantissa,exp_minus2,pow(2,exp_minus2)*mantissa);
+    
+    // Multiply by 10
+
+    // multiply by 8 by adding 3 to exp_minus2
+    exp_minus2+=3;
+
+    // Then multiply by 5/4 by adding mantissa >>2  to mantissa
+    mantissa=mantissa+(mantissa>>2);
+
+    while(mantissa>0xFFFFFFFF) {
+      mantissa>>=1;
+      exp_minus2++;
+    }
+
+    exp_total--;
+  }
+  
+  // Start with this value, then apply x10 or /10 repeatedly and set the sign to
+  // complete the process.
+  f->f.exp=0x81+(32-1)-exp_minus2;
+  if (f->f.exp<0x81) f->f.exp--; // skip exponent = 0x80 for zero
+ 
+  f->f.man0=(mantissa>>24);
+  f->f.man0&=0x7f;
+  if (sign<0) f->f.man0|=0x80;
+  f->f.man1=(mantissa>>16);
+  f->f.man2=(mantissa>>8);
+  f->f.man3=(mantissa>>0);
   
   return 0;
   
@@ -171,7 +238,8 @@ int main(int argc,char **argv)
     
     // Allow 3 parts per billion error
     if (memcmp(&f,&test_cases[i].f,sizeof(c64float))) {
-      printf("ERROR parsing string to C64 floating point format: Result was %s\n",c64float_to_string(&f));
+      printf("ERROR parsing string to C64 floating point format: Result was %s (= %.9g)\n",
+	     c64float_to_string(&f),c64float_to_double(&f));
       errors++;
     }
 
