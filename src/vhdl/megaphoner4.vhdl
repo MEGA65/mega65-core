@@ -226,6 +226,8 @@ architecture Behavioral of container is
 
   signal dvi_select : std_logic := '1';
 
+  signal TMDS_clk_q : std_logic := '0';
+  
 begin
 
   -- New clocking setup, using more optimised selection of multipliers
@@ -322,30 +324,28 @@ begin
       tmds => tmds
       );
 
-   -- serialiser: in this design we use TMDS SelectIO outputs
-  GEN_HDMI_DATA: for i in 0 to 2 generate
-  begin
-      HDMI_DATA: entity work.serialiser_10to1_selectio
-          port map (
-              rst     => reset_high,
-              clk     => clock27,
-              clk_x5  => clock135p,
-              d       => tmds(i),
-              out_p   => TMDS_data_p(i),
-              out_n   => TMDS_data_n(i)
-          );
-  end generate GEN_HDMI_DATA;
-  HDMI_CLK: entity work.serialiser_10to1_selectio
-      port map (
-          rst     => reset_high,
-          clk     => clock27,
-          clk_x5  => clock135p,
-          d       => "0000011111",
-          out_p   => TMDS_clk_p,
-          out_n   => TMDS_clk_n
-      );
-
-  process (clock27,cpuclock)
+  ddr1: ODDR2
+    generic map(DDR_ALIGNMENT=>"NONE",  --Setsoutputalignmentto"NONE","C0","C1"
+                INIT=>'0',--SetsinitialstateoftheQoutputto'0'or'1'
+                SRTYPE=>"SYNC")--Specifies"SYNC"or"ASYNC"set/reset
+    port map(Q=>TMDS_clk_q, --1-bitoutputdata
+             C0=>clock135p, --1-bitclockinput
+             C1=>clock135n, --1-bitclockinput
+             CE=>'1', --1-bitclockenableinput
+             D0=>'0', --1-bitdatainput(associatedwithC0)
+             D1=>'1', --1-bitdatainput(associatedwithC1)
+             R=>'0', --1-bitresetinput
+             S=>'0' --1-bitsetinput
+             );
+  
+  U_OBUF_CLK: obufds
+    port map (
+      i => TMDS_clk_q,
+      o => TMDS_clk_p,
+      ob => TMDS_clk_n
+      );    
+  
+  process (clock27,cpuclock,clock135p,clock135n)
   begin
 
     -- VGA direct output
