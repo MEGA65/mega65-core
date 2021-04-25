@@ -7307,7 +7307,11 @@ begin
                 -- 32-bit store begins here, and the other 3 bytes get written
                 -- in common with the 32-bit RMW instructions
                 axyz_phase <= 1;
-                reg_val32(23 downto 0) <= reg_val32(31 downto 8);
+                -- But we do have to provide the upper bytes here from the
+                -- other registers, since reg_val32 will not have been initialised
+                reg_val32(23 downto 16) <= reg_z;
+                reg_val32(15 downto 8) <= reg_y;
+                reg_val32(7 downto 0) <= reg_x;
                 state <= StoreTarget32;
               else
                 if fast_fetch_state = InstructionDecode then
@@ -8838,8 +8842,8 @@ begin
             memory_access_read := '0';
             memory_access_write := '1';
             memory_access_wdata := reg_val32(7 downto 0);
-            report "MEMORY Setting memory_access_address for LoadTarget32 ($"
-              & to_hstring(reg_addr + axyz_phase) & ").";
+            report "MEMORY Setting memory_access_address for StoreTarget32 ($"
+              & to_hstring(reg_addr + axyz_phase) & "). Data value will be $" & to_hstring(reg_val32(7 downto 0));
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
