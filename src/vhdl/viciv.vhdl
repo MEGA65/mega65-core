@@ -2644,10 +2644,10 @@ begin
           -- @IO:GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
           sprite_extended_width_enables <= fastio_wdata;
         elsif register_number=88 then
-          -- @IO:GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
+          -- @IO:GS $D058 VIC-IV:LINESTEP number of bytes to advance between each text row (LSB)
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=89 then
-          -- @IO:GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
+          -- @IO:GS $D059 VIC-IV:LINESTEP number of bytes to advance between each text row (MSB)
           virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=90 then
           -- @IO:GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
