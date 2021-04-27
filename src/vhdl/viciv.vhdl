@@ -987,10 +987,12 @@ architecture Behavioral of viciv is
   signal chargen_y_scale_200 : unsigned(7 downto 0) := (others => '0');
   signal chargen_y_scale_400 : unsigned(7 downto 0) := (others => '0');
   signal chargen_y_pixels : integer := 0;
-  signal top_borders_height_200 : unsigned(11 downto 0) := (others => '0');
-  signal top_borders_height_400 : unsigned(11 downto 0) := (others => '0');
-  signal single_top_border_200 : unsigned(11 downto 0) := (others => '0');
-  signal single_top_border_400 : unsigned(11 downto 0) := (others => '0');
+  -- Initialise the top border height to be > 6 to avoid boundary violations
+  -- during start up in simulation
+  signal top_borders_height_200 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal top_borders_height_400 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal single_top_border_200 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal single_top_border_400 : unsigned(11 downto 0) := to_unsigned(16,12);
 
   signal viciv_flyback : std_logic := '0';
 
@@ -1439,6 +1441,10 @@ begin
                                          -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
+        report "XXX vicii_y_smoothscroll = " & to_string(std_logic_vector(vicii_y_smoothscroll));
+        report "XXX raster_correction = " & integer'image(raster_correction);
+        report "XXX single_top_border_200 = " & integer'image(safe_to_integer(single_top_border_200));
+        report "XXX vicii_first_raster = " & integer'image(safe_to_integer(vicii_first_raster));
         y_chargen_start <= to_unsigned(raster_correction
                                        +safe_to_integer(single_top_border_200)
                                        -safe_to_integer(vicii_first_raster)*2
@@ -2076,6 +2082,7 @@ begin
         -- And raster re-write buffer delay also
         no_raster_buffer_delay <= '1';
         raster_buffer_double_line <= '0';
+
       end if;
       
       -- Drive stage for data from hyper RAM and signals out to it
@@ -2168,6 +2175,9 @@ begin
       debug_raster_buffer_read_address_drive2 <= debug_raster_buffer_read_address_drive;
       debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
 
+      -- Try to fix simulation failures
+      top_borders_height_200 <= to_unsigned(16,12);
+      
       inborder_drive <= inborder;
       chargen_active_soon_drive <= chargen_active_soon;
       cycles_to_next_card_drive <= cycles_to_next_card;

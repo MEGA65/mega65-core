@@ -283,6 +283,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VHDLSRCDIR)/hyppo.vhdl \
 			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
 			$(VHDLSRCDIR)/mega65r3_i2c.vhdl \
+			$(VHDLSRCDIR)/edid_i2c.vhdl \
 			$(VHDLSRCDIR)/version.vhdl \
 			$(C65VHDL) \
 			$(VICIVVHDL) \
