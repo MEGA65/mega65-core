@@ -2175,9 +2175,6 @@ begin
       debug_raster_buffer_read_address_drive2 <= debug_raster_buffer_read_address_drive;
       debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
 
-      -- Try to fix simulation failures
-      top_borders_height_200 <= to_unsigned(16,12);
-      
       inborder_drive <= inborder;
       chargen_active_soon_drive <= chargen_active_soon;
       cycles_to_next_card_drive <= cycles_to_next_card;
