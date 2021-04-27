@@ -714,6 +714,7 @@ architecture Behavioural of gs4510 is
   signal reg_t_high : unsigned(7 downto 0)  := (others => '0');
 
   signal reg_val32 : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal reg_val33 : unsigned(32 downto 0) := to_unsigned(0,33);
   signal next_is_axyz32_instruction : std_logic := '0';
   signal value32_enabled : std_logic := '0';
   signal axyz_phase : integer range 0 to 4 := 0;
@@ -896,6 +897,7 @@ architecture Behavioural of gs4510 is
     MicrocodeInterpret,
     LoadTarget32,
     Execute32,
+    Commit32,
     StoreTarget32,
     
     -- VDC simulation block operations
@@ -7046,6 +7048,24 @@ begin
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               next_is_axyz32_instruction <= '0';
+              if is_rmw = '0' then
+                -- Go to next instruction by default
+                if fast_fetch_state = InstructionDecode then
+                  pc_inc := reg_microcode.mcIncPC;
+                else
+                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
+                  pc_inc := '0';
+                end if;
+                pc_dec := reg_microcode.mcDecPC;
+                report "monitor_instruction_strobe assert (Execute32 non-RMW)";
+                monitor_instruction_strobe <= '1';
+                if reg_microcode.mcInstructionFetch='1' then
+                  report "Fast dispatch for next instruction by order of microcode";
+                  state <= fast_fetch_state;
+                else
+                  state <= normal_fetch_state;
+                end if;
+              end if;
               case reg_instruction is
                 when I_LDA =>
                   reg_a <= reg_val32(7 downto 0);
@@ -7089,22 +7109,9 @@ begin
                 when I_ADC =>
                   -- Note: No decimal mode for 32-bit add!
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  if flag_c='0' then
-                    vreg33 := vreg33 + reg_val32;
-                  else
-                    vreg33 := vreg33 + reg_val32 + 1;
-                  end if;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
+                  reg_val33 <= vreg33 + reg_val32 + to_integer(unsigned'("" & flag_c));
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_ORA =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
                   vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
@@ -7250,6 +7257,7 @@ begin
                   monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
               end case;
+            when Commit32 =>
               if is_rmw = '0' then
                 -- Go to next instruction by default
                 if fast_fetch_state = InstructionDecode then
@@ -7268,6 +7276,22 @@ begin
                   state <= normal_fetch_state;
                 end if;
               end if;
+              case reg_instruction is
+                when I_ADC =>
+                  if reg_val33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_c <= not reg_val33(32);
+                  flag_n <= reg_val33(31);
+                  reg_a <= reg_val33(7 downto 0);
+                  reg_x <= reg_val33(15 downto 8);
+                  reg_y <= reg_val33(23 downto 16);
+                  reg_z <= reg_val33(31 downto 24);
+                when others =>
+                  null;
+              end case;
             when StoreTarget32 =>
               next_is_axyz32_instruction <= '0';
               if axyz_phase /= 4 then
