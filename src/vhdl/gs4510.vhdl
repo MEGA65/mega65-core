@@ -7080,32 +7080,18 @@ begin
                   flag_n <= reg_val32(31);
                 when I_CMP =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 - reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
+                  reg_val33 <= vreg33 - reg_val32;
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_SBC =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
                   if flag_c='0' then
-                    vreg33 := vreg33 - reg_val32 - 1;
+                    reg_val33 <= vreg33 - reg_val32 - 1;
                   else
-                    vreg33 := vreg33 - reg_val32;
+                    reg_val33 <= vreg33 - reg_val32;
                   end if;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not vreg33(32);
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_ADC =>
                   -- Note: No decimal mode for 32-bit add!
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
@@ -7114,53 +7100,26 @@ begin
                   pc_inc := '0';
                 when I_ORA =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
+                  reg_val33(31 downto 0) <= vreg33(31 downto 0) or reg_val32;
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_EOR =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) xor reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
+                  reg_val33(31 downto 0) <= vreg33(31 downto 0) xor reg_val32;
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_BIT =>
                   flag_n <= reg_val32(31);
                   flag_v <= reg_val32(30);
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
+                  reg_val33(31 downto 0) <= vreg33(31 downto 0) and reg_val32;
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_AND =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  reg_a <= vreg33(7 downto 0);
-                  reg_x <= vreg33(15 downto 8);
-                  reg_y <= vreg33(23 downto 16);
-                  reg_z <= vreg33(31 downto 24);
+                  reg_val33(31 downto 0) <= vreg33(31 downto 0) and reg_val32;
+                  state <= Commit32;
+                  pc_inc := '0';
                 when I_INC =>
                   vreg33 := '0' & reg_val32;
                   vreg33 := vreg33 + 1;
@@ -7277,21 +7236,30 @@ begin
                 end if;
               end if;
               case reg_instruction is
-                when I_ADC =>
-                  if reg_val33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_c <= not reg_val33(32);
-                  flag_n <= reg_val33(31);
-                  reg_a <= reg_val33(7 downto 0);
-                  reg_x <= reg_val33(15 downto 8);
-                  reg_y <= reg_val33(23 downto 16);
-                  reg_z <= reg_val33(31 downto 24);
+                when I_ADC => flag_c <= not reg_val33(32);
+                when I_CMP => flag_c <= not reg_val33(32);
+                when I_SBC => flag_c <= not reg_val33(32);
                 when others =>
                   null;
               end case;
+              -- Do we need to write back to registers or not?
+              -- Also need to select if we need to exit via StoreTarget32 if
+              -- the target is memory
+              case reg_instruction is
+                when I_ADC | I_SBC | I_EOR | I_AND | I_ORA =>
+                  reg_a <= reg_val33(7 downto 0);   
+                  reg_x <= reg_val33(15 downto 8);
+                  reg_y <= reg_val33(23 downto 16);
+                  reg_z <= reg_val33(31 downto 24);
+              end case;
+              
+              if reg_val33(31 downto 0) = to_unsigned(0,32) then
+                flag_z <= '1';
+              else
+                flag_z <= '0';
+              end if;
+              flag_n <= reg_val33(31);
+              
             when StoreTarget32 =>
               next_is_axyz32_instruction <= '0';
               if axyz_phase /= 4 then
