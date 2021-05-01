@@ -679,8 +679,10 @@ architecture Behavioural of gs4510 is
   
   -- Information about instruction currently being executed
   signal reg_opcode : unsigned(7 downto 0)  := (others => '0');
-  signal reg_arg1 : unsigned(7 downto 0)  := (others => '0');
+  signal reg_arg1 : unsigned(7 downto 0)  := (others => '0');  
   signal reg_arg2 : unsigned(7 downto 0)  := (others => '0');
+
+  signal reg_q33 : unsigned(32 downto 0) := (others => '0');
 
   signal bbs_or_bbc : std_logic := '0';
   signal bbs_bit : unsigned(2 downto 0)  := (others => '0');
@@ -3835,6 +3837,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      reg_q33 <= '0' & reg_z & reg_y & reg_x & reg_a;
+      
       -- Fiddling with IEC lines (either by us, or by a connected device)
       -- cancels POKe0,65 / holding CAPS LOCK to force full CPU speed.
       -- If you set the 40MHz select register, then the slowdown doesn't
@@ -7079,137 +7083,73 @@ begin
                   end if;
                   flag_n <= reg_val32(31);
                 when I_CMP =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33 <= vreg33 - reg_val32;
+                  reg_val33 <= reg_q33 - reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
                 when I_SBC =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  if flag_c='0' then
-                    reg_val33 <= vreg33 - reg_val32 - 1;
-                  else
-                    reg_val33 <= vreg33 - reg_val32;
-                  end if;
+                  reg_val33 <= reg_q33 - reg_val32 - 1 + to_integer(unsigned'("" & flag_c));
                   state <= Commit32;
                   pc_inc := '0';
                 when I_ADC =>
                   -- Note: No decimal mode for 32-bit add!
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33 <= vreg33 + reg_val32 + to_integer(unsigned'("" & flag_c));
+                  reg_val33 <= reg_q33 + reg_val32 + to_integer(unsigned'("" & flag_c));
                   state <= Commit32;
                   pc_inc := '0';
                 when I_ORA =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33(31 downto 0) <= vreg33(31 downto 0) or reg_val32;
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) or reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
                 when I_EOR =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33(31 downto 0) <= vreg33(31 downto 0) xor reg_val32;
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) xor reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
                 when I_BIT =>
                   flag_n <= reg_val32(31);
                   flag_v <= reg_val32(30);
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33(31 downto 0) <= vreg33(31 downto 0) and reg_val32;
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) and reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
                 when I_AND =>
-                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  reg_val33(31 downto 0) <= vreg33(31 downto 0) and reg_val32;
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) and reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
                 when I_INC =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33 := vreg33 + 1;
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31 downto 0) <= reg_val32(31 downto 0) + 1;
+                  state <= Commit32;
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
                 when I_DEC =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33 := vreg33 - 1;
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31 downto 0) <= reg_val32(31 downto 0) - 1;
+                  state <= Commit32;
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
                 when I_ASL =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(32 downto 1) := vreg33(31 downto 0);
-                  vreg33(0) := vreg33(32);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31 downto 1) <= reg_val32(30 downto 0);
+                  reg_val33(0) <= '0';
+                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
+                  state <= Commit32;
                 when I_ASR =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(30 downto 0) := vreg33(31 downto 1);
-                  vreg33(31) := reg_val32(31);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
-                  flag_c <= vreg33(0);
+                  reg_val33(30 downto 0) <= reg_val32(31 downto 1);
+                  -- Preserve and extend sign
+                  reg_val33(31) <= reg_val32(31);
+                  flag_c <= reg_val32(0);
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
+                  state <= Commit32;
                 when I_ROL =>
-                  vreg33 := flag_c & reg_val32;
-                  vreg33(32 downto 1) := vreg33(31 downto 0);
-                  vreg33(0) := vreg33(32);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31 downto 1) <= reg_val32(30 downto 0);
+                  reg_val33(0) <= flag_c;
+                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
+                  state <= Commit32;
                 when I_LSR =>
-                  vreg33 := '0' & reg_val32;
-                  vreg33(31 downto 0) := vreg33(32 downto 1);
-                  vreg33(32) := vreg33(0);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31) <= '0';
+                  reg_val33(30 downto 0) <= reg_val32(31 downto 1);
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
+                  state <= Commit32;
                 when I_ROR =>
-                  vreg33 := flag_c & reg_val32;
-                  vreg33(31 downto 0) := vreg33(32 downto 1);
-                  vreg33(32) := vreg33(0);
-                  reg_val32 <= vreg33(31 downto 0);
-                  if vreg33(31 downto 0) = to_unsigned(0,32) then
-                    flag_z <= '1';
-                  else
-                    flag_z <= '0';
-                  end if;
-                  flag_n <= vreg33(31);
+                  reg_val33(31) <= flag_c;
+                  reg_val33(30 downto 0) <= reg_val32(31 downto 1);
                   axyz_phase <= 0;
-                  state <= StoreTarget32;
+                  state <= Commit32;
                 when others =>
                   -- XXX: Don't lock CPU up if we get something odd here
                   report "monitor_instruction_strobe assert (unknown instruction in Execute32)";
@@ -7251,6 +7191,13 @@ begin
                   reg_x <= reg_val33(15 downto 8);
                   reg_y <= reg_val33(23 downto 16);
                   reg_z <= reg_val33(31 downto 24);
+                when I_INC | I_DEC | I_ASL | I_ASR |
+                  I_ROL | I_ROR =>
+                  reg_val32 <= reg_val33(31 downto 0);
+                  pc_inc := '0';
+                  state <= StoreTarget32;
+                when others =>
+                  null;
               end case;
               
               if reg_val33(31 downto 0) = to_unsigned(0,32) then
