@@ -683,6 +683,7 @@ architecture Behavioural of gs4510 is
   signal reg_arg2 : unsigned(7 downto 0)  := (others => '0');
 
   signal reg_q33 : unsigned(32 downto 0) := (others => '0');
+  signal reg_cycle_counter : unsigned(7 downto 0) := (others => '0');
 
   signal bbs_or_bbc : std_logic := '0';
   signal bbs_bit : unsigned(2 downto 0)  := (others => '0');
@@ -2639,6 +2640,9 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
+            when x"f0" =>
+              return reg_cycle_counter;
+                          
             when x"f1" =>
             --@IO:GS $D7F1.0 CPU:IECBUSACT IEC bus is active
               return "000000" & iec_bus_slow_enable & iec_bus_active;
@@ -3138,6 +3142,8 @@ begin
         reg_math_cycle_compare(23 downto 16) <= value;
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
+      elsif (long_address = x"FFD37F0") or (long_address = x"FFD17F0") then
+        reg_cycle_counter <= x"00";
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
         cartridge_enable <= value(1);
@@ -3838,6 +3844,7 @@ begin
     if rising_edge(clock) and all_pause='0' then
 
       reg_q33 <= '0' & reg_z & reg_y & reg_x & reg_a;
+      reg_cycle_counter <= reg_cycle_counter + 1;      
       
       -- Fiddling with IEC lines (either by us, or by a connected device)
       -- cancels POKe0,65 / holding CAPS LOCK to force full CPU speed.
