@@ -181,7 +181,7 @@ architecture gothic of hyperram is
   -- Issue #379 triggers one of those edge cases, so leaving disabled by default.
   -- brave programmers can enable if they dare (its mostly safe for slab DMA
   -- transfers) PGS20210504 #379
-  signal cache_enabled : boolean := false
+  signal cache_enabled : boolean := false;
   -- XXX There is a problem with block reads, where it causes the wrong byte to
   -- be returned at the start of the cached block. It instead returns the most
   -- recently WRITTEN byte.  I have no idea why as yet, so for now, we are just
