@@ -121,7 +121,6 @@ Currently, the following O/S are supported for building this project:
 Generally, when a ubuntu O/S is initially setup, the following is recommended:
 ```
 sudo apt update
-sudo apt update
 sudo apt upgrade
 reboot
 ```
