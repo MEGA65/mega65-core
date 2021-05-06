@@ -570,7 +570,7 @@ void reflash_slot(unsigned char slot)
 
     // Step ahead to the next 4KB boundary, as flash sectors can't be smaller than
     // that.
-    progress_acc+=0xe00-(addr&0xfff);
+    //    progress_acc+=0xe00-(addr&0xfff);
     addr+=0x1000; addr&=0xfffff000;
     addr-=512; // since we add this much in the for() loop
     
@@ -639,10 +639,17 @@ void reflash_slot(unsigned char slot)
     
     for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
       progress_acc+=512;
+#ifdef A100T      
       if (progress_acc>26214) {
 	progress_acc-=26214;
 	progress++;
       }
+#else
+      if (progress_acc>52428) {
+	progress_acc-=52428;
+	progress++;
+      }
+#endif           
       progress_bar(progress);
       
       bytes_returned=hy_read512(buffer);
