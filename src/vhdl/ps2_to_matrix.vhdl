@@ -243,21 +243,17 @@ begin  -- behavioural
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
-                           when x"074" =>  -- JOY2 DOWN
-                             joy2(3) <= break;
---                           when x"072" =>  -- JOY2 RIGHT
---                             joy2(3) <= break;
                            when x"073" =>  -- JOY2 FIRE
                              joy2(4) <= break;
                              
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => km_index := 0;
                            when x"05A" => km_index := 1;
-                           when x"174" =>
+                           when x"074" | x"174" =>
                              if joylock='0' then
                                cursor_right <= break; ps2 <= '1';
                              else
-                               joy2(3) <= break;
+                               joy2(3) <= break;  -- JOY2 DOWN
                              end if;
                            when x"083" => km_index := 3;
                            when x"005" => km_index := 4;
@@ -279,7 +275,7 @@ begin  -- behavioural
                              else
                                cursor_up <= break; ps2 <= '1';
                              end if;
-                           when x"06B" | x"0CB" => -- JOY2 LEFT
+                           when x"06B" | x"0CB" | x"16B" => -- JOY2 LEFT
                              if joylock='1' then
                                joy2(2) <= break;
                              else
