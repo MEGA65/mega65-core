@@ -373,7 +373,7 @@ architecture Behavioral of container is
 
   signal cart_access_count : unsigned(7 downto 0);
 
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col_idx : integer range 0 to 8 := 5;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
@@ -404,6 +404,10 @@ architecture Behavioral of container is
 
   signal zero : std_logic := '0';
   signal one : std_logic := '1';  
+
+  signal pixel_strobe : std_logic := '0';
+  signal x_zero : std_logic := '0';
+  signal y_zero : std_logic := '0';
   
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
@@ -463,6 +467,20 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
+
+  signal ascii_key : unsigned(7 downto 0);
+  signal ascii_key_valid : std_logic := '0';
+  signal bucky_key : std_logic_vector(6 downto 0);
+  signal capslock_combined : std_logic;
+  signal key_caps : std_logic := '0';
+  signal key_restore : std_logic := '0';
+  signal key_up : std_logic := '0';
+  signal key_left : std_logic := '0';
+
+  signal matrix_segment_num : std_logic_vector(7 downto 0);
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
+
+  signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
   
 begin
 
@@ -777,7 +795,7 @@ begin
   uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => ascii_key_valid,
-      BIT_TMR_MAX => to_unsigned((40500000/2000000) - 1,16),
+      BIT_TMR_MAX => to_unsigned((40500000/2000000) - 1,24),
       clk     => cpuclock,
       data    => ascii_key,
 --      ready   => tx0_ready,
@@ -787,10 +805,9 @@ begin
   pixel0: entity work.pixel_driver
     port map (
       clock81 => pixelclock, -- 80MHz
-      clock162 => clock162,
       clock27 => clock27,
 
-      cpuclock => cpuclock,
+      cpuclock => clock41,
 
       pixel_strobe_out => pixel_strobe,
       
