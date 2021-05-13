@@ -360,7 +360,7 @@ begin  -- behavioural
                            when x"05B" => km_index := 49;
                            when x"052" => km_index := 50;
                            when x"16C" => km_index := 51;
-                           when x"059" => right_shift <= break; ps2 <= '1';
+                           when x"059" | x"159" => right_shift <= break; ps2 <= '1';
                            when x"05D" => km_index := 53;
                            when x"171" => km_index := 54;
                            when x"04A" => km_index := 55;
