@@ -845,7 +845,7 @@ begin
       -- And the variations on those signals for the LCD display
 --      lcd_hsync => lcd_hsync,               
 --      lcd_vsync => lcd_vsync,
-      fullwidth_dataenable => pattern_de
+      narrow_dataenable => pattern_de
 --      lcd_inletterbox => lcd_inletterbox,
 --      vga_inletterbox => vga_inletterbox
 
