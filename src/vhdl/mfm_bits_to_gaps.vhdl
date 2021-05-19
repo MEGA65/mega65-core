@@ -81,6 +81,19 @@ begin
       else
         ready_for_next <= '0';
       end if;
+
+      -- XXX C65 DOS source indicates that clock byte should be
+      -- written AFTER data byte has been written.
+      -- C65 Specifications guide is, however, silent on this, and
+      -- the Track Writes section shows a procedure where it would
+      -- seem that either can come first.
+      -- This is all a problem for us, as we currently latch the clock
+      -- when a data byte is written in the logic below.  Probably we
+      -- should instead latch only the data byte, and combine the clock
+      -- bits only when we are about to get ready to send it.
+
+      -- XXX Another problem is that we should wait for the next index
+      -- pulse before starting to write. Currently we just start writing.
       
       
       last_byte_valid <= byte_valid;
