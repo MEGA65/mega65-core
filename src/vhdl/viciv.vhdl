@@ -501,6 +501,10 @@ architecture Behavioral of viciv is
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
+  signal debug_pixel_red : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_pixel_green : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_pixel_blue : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_channel_select : std_logic_vector(1 downto 0) := "00";
   signal debug_screen_ram_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
   signal debug_raster_buffer_read_address : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -2025,7 +2029,13 @@ begin
           -- fastio_rdata <= x"FF";
           -- XXX debug: $D07D shows current single top border height
 --          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
-          fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
+          case debug_channel_select is
+            when "00" => fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
+            when "01" => fastio_rdata <= std_logic_vector(debug_pixel_red);
+            when "10" => fastio_rdata <= std_logic_vector(debug_pixel_green);
+            when "11" => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+            when others => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+          end case;     
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
@@ -2874,9 +2884,11 @@ begin
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
           vsync_polarity_internal <= fastio_wdata(5);
-        -- @IO:GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
+          -- @IO:GS $D07C.6-7 VIC-IV:DEBUGC VIC-IV debug pixel select red(01), green(10) or blue(11) channel visible in $D07D
+          debug_channel_select <= fastio_wdata(7 downto 6);
         elsif register_number=125 then
-          -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
+          -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB) (write only)
+          -- @IO:GS $D07D DEBUG:DEBUGOUT VIC-IV debug value read-back (read only)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=126 then
           -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
@@ -2885,6 +2897,7 @@ begin
           -- @IO:GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
           -- @IO:GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
           debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          debug_x(13 downto 12) <= "00";
           -- @IO:GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
           debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number<255 then
@@ -2926,6 +2939,20 @@ begin
       vgagreen <= vgagreen_driver;
       vgablue <= vgablue_driver;
 
+      -- Capture pixel at prescribed position to support automated testing
+      -- and display red cross-hairs
+      if xcounter=debug_x or ycounter=debug_y then
+        -- Draw cross-hairs at debug coordinates
+        vgared <= x"FF";
+        vgagreen <= x"FF";
+        vgablue <= x"FF";
+      end if;
+      if (xcounter=debug_x) xor (ycounter=debug_y) then
+        debug_pixel_red <= vgared_driver;
+        debug_pixel_green <= vgagreen_driver;
+        debug_pixel_blue <= vgablue_driver;
+      end if;
+      
       sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;      
       -- Ask for the next one (8 sprites + 8 C65 bitplanes)
       if sprite_number_counter = 15 then
@@ -3680,12 +3707,6 @@ begin
         debug_screen_ram_buffer_address <= screen_ram_buffer_read_address;
         debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
         debug_raster_buffer_write_address <= raster_buffer_write_address(7 downto 0);
-      end if;
-      if xcounter=debug_x or ycounter=debug_y then
-        -- Draw cross-hairs at debug coordinates
-        pixel_colour <= x"02";
-        pixel_is_background <= '0';
-        pixel_is_foreground <= '0';
       end if;
 
       -- Pixels have a two cycle pipeline to help keep timing contraints:
