@@ -2941,13 +2941,13 @@ begin
 
       -- Capture pixel at prescribed position to support automated testing
       -- and display red cross-hairs
-      if xcounter=debug_x or ycounter=debug_y then
+      if xcounter=debug_x xor ycounter=debug_y then
         -- Draw cross-hairs at debug coordinates
         vgared <= x"FF";
-        vgagreen <= x"FF";
-        vgablue <= x"FF";
+        vgagreen <= x"00";
+        vgablue <= x"00";
       end if;
-      if (xcounter=debug_x) xor (ycounter=debug_y) then
+      if (xcounter=debug_x) and (ycounter=debug_y) then
         debug_pixel_red <= vgared_driver;
         debug_pixel_green <= vgagreen_driver;
         debug_pixel_blue <= vgablue_driver;
