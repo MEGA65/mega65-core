@@ -1356,6 +1356,8 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      last_f_index <= f_index;
+      
       if write_sector_gate_timeout /= 0 then
         write_sector_gate_timeout <= write_sector_gate_timeout - 1;
       else
@@ -2932,7 +2934,6 @@ begin  -- behavioural
 
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
-          last_f_index <= f_index;
           if (f_index='0' and last_f_index='1') then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
@@ -2953,7 +2954,6 @@ begin  -- behavioural
         when FDCFormatTrack =>
           -- Close write gate and finish formatting when we hit the next
           -- negative edge on the INDEX hole sensor of the floppy.
-          last_f_index <= f_index;
           if (f_index='0' and last_f_index='1') then
             f_wgate <= '1';
             sd_state <= Idle;
