@@ -123,6 +123,8 @@ architecture behavioural of c65uart is
   -- Work out 7.09375ishMHz clock ticks;
   signal tick709375 : std_logic := '0';
 
+  signal real_hardware : std_logic := '1';
+  
   -- Then merge this with 193.5MHz clock to have a single clock source used for
   -- generating half-ticks at the requested baud rate
   signal fine_tick : std_logic := '0';
@@ -303,6 +305,12 @@ begin  -- behavioural
         
     if rising_edge(cpuclock) then
 
+      if target = simulation then
+        real_hardware <= '0';
+      else
+        real_hardware <= '1';
+      end if;
+      
       if accessible_key_enable = '1' then
         if accessible_key_event = x"FE" then
           -- Turn OSK off
@@ -649,8 +657,10 @@ begin  -- behavioural
           -- @IO:GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
           -- @IO:GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
           -- @IO:GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
+          -- @IO:GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
+          fastio_rdata(5) <= real_hardware;
           fastio_rdata(6) <= accessible_key_extradim;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
