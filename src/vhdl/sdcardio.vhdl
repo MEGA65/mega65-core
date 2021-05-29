@@ -518,6 +518,9 @@ architecture behavioural of sdcardio is
   signal write_sector0_gate_open : std_logic := '0';
   signal write_sector_gate_timeout : integer range 0 to 65535 := 0;
 
+  signal debug_track_format_sync_wait_counter : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_track_format_counter : unsigned(7 downto 0) := to_unsigned(0,8);
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1245,6 +1248,10 @@ begin  -- behavioural
             elsif i2c_bus_id = x"01" then
               fastio_rdata <= i2c1_rdata;
             end if;
+          when x"D5" =>
+            fastio_rdata <= debug_track_format_counter;
+          when x"D6" =>
+            fastio_rdata <= debug_track_format_sync_wait_counter;
           when x"da" =>
             -- @IO:GS $D6DA MISC:SDDEBUGERRLSB DEBUG SD card last error code LSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(7 downto 0));
@@ -2934,6 +2941,9 @@ begin  -- behavioural
 
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
+
+          debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
+          
           if (f_index='0' and last_f_index='1') then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
@@ -2954,6 +2964,9 @@ begin  -- behavioural
         when FDCFormatTrack =>
           -- Close write gate and finish formatting when we hit the next
           -- negative edge on the INDEX hole sensor of the floppy.
+
+          debug_track_format_counter <= debug_track_format_counter + 1;
+          
           if (f_index='0' and last_f_index='1') then
             f_wgate <= '1';
             sd_state <= Idle;
