@@ -35,15 +35,9 @@ datetime=`date +%Y%m%d.%H`
 
 
 # ###############################
-# get incrememting number (number of commits since branching from branch "ghdl-crash-20200604")
-num_commits="$(git log ghdl-crash-20200604..138-hdmi-audio-27mhz --oneline | wc -l)"
-#echo ${num_commits}
-
-
-# ###############################
 # and put it all together
 #
-stringout="${branch},${num_commits},${datetime},${commit_id}"
+stringout="${branch},${datetime},${commit_id}"
 echo $stringout
 
 
