@@ -1449,15 +1449,15 @@ begin
         report "XXX raster_correction = " & integer'image(raster_correction);
         report "XXX single_top_border_200 = " & integer'image(safe_to_integer(single_top_border_200));
         report "XXX vicii_first_raster = " & integer'image(safe_to_integer(vicii_first_raster));
-        y_chargen_start <= to_unsigned(raster_correction
-                                       +safe_to_integer(single_top_border_200)
-                                       -safe_to_integer(vicii_first_raster)*2
-                                       -(3*2)
-                                       -- Display is always V400/600, so pixels
-                                       -- are double height
-                                       +safe_to_integer(vicii_y_smoothscroll)
-                                       +safe_to_integer(vicii_y_smoothscroll)
-                                       ,12);
+        y_chargen_start <= unsigned(to_signed(raster_correction
+                                              +safe_to_integer(single_top_border_200)
+                                              -safe_to_integer(vicii_first_raster)*2
+                                              -(3*2)
+                                              -- Display is always V400/600, so pixels
+                                              -- are double height
+                                              +safe_to_integer(vicii_y_smoothscroll)
+                                              +safe_to_integer(vicii_y_smoothscroll)
+                                              ,12));
 
       else
         -- V400 mode : as above, but with the different constants
