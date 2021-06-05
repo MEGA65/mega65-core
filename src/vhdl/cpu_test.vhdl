@@ -179,6 +179,8 @@ architecture behavior of cpu_test is
 
   signal audio_left : std_logic_vector(19 downto 0) := (others => '0');
   signal audio_right : std_logic_vector(19 downto 0) := (others => '0');
+
+  signal f_index : std_logic := '1';
   
 begin
 
@@ -453,7 +455,7 @@ begin
       fb_potx => '0',
       fb_poty => '0',
 
-      f_index => '1',
+      f_index => f_index,
       f_track0 => '1',
       f_writeprotect => '1',
       f_rdata => f_rdata,
@@ -582,6 +584,20 @@ begin
       & ".";
   end process;
 
+  process
+  begin
+    wait for 1000 ns;
+    for i in 1 to 2000000 loop
+      report "FLOPPY: START of index hole";
+      f_index <= '0';
+      wait for 10 us;
+      report "FLOPPY: END of index hole";
+      f_index <= '1';
+      wait for 156 us;
+    end loop;
+  end process;
+    
+  
   process
   begin  -- process tb
 
