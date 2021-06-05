@@ -2984,7 +2984,6 @@ begin  -- behavioural
             fw_byte_in <= sb_cpu_wdata;
             fw_byte_valid <= '1';
 
-            last_fw_ready_for_next <= '1';
           end if;
 
         when F011WriteSectorRealDriveWait =>
