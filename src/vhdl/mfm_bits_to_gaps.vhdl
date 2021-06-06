@@ -66,6 +66,7 @@ begin
         f_write <= not bit_queue(15);
         bit_queue(15 downto 1) <= bit_queue(14 downto 0);
         if bits_queued /= 0 then
+          report "MFMFLOPPY: Decrement bits_queued to " & integer'image(bits_queued - 1);
           bits_queued <= bits_queued - 1;
         end if;
 
@@ -76,6 +77,7 @@ begin
         f_write <= '1';
       end if;
 
+      report "MFMFLOPPY: bits_queued=" & integer'image(bits_queued);
       if bits_queued = 0 then
         ready_for_next <= '1';
       else
@@ -98,7 +100,7 @@ begin
       
       last_byte_valid <= byte_valid;
       if byte_valid='1' and last_byte_valid='0' then
---        report "latched byte $" & to_hstring(byte_in) & " (clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
+        report "MFMFLOPPY: latched byte $" & to_hstring(byte_in) & " (clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
