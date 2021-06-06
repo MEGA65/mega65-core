@@ -2238,7 +2238,7 @@ keyboardread:
         cmp #$30
         bcc kr2
         cmp #$39
-        bcs kr2
+        bcc kr1
 kr2:        lda #$20 ;; default to space
 kr1:
         ;; put character into 6th byte position of ROM file name.
