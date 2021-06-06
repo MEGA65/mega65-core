@@ -588,12 +588,13 @@ begin
   begin
     wait for 1000 ns;
     for i in 1 to 2000000 loop
+      wait for 2 us;
       report "FLOPPY: START of index hole";
       f_index <= '0';
       wait for 10 us;
       report "FLOPPY: END of index hole";
       f_index <= '1';
-      wait for 156 us;
+      wait for 154 us;
     end loop;
   end process;
     

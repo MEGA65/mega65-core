@@ -1820,12 +1820,16 @@ begin  -- behavioural
                   -- again at the next sync pulse.
                   f_wgate <= '1';
 
+                  report "FLOPPY: Asked for track format";
+                  
                   -- Only allow formatting when real drive is used
                   if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
-                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
+                    (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
+                    report "FLOPPY: Real drive selected, so starting track format";
                     sd_state <= FDCFormatTrackSyncWait;
+                  else
+                    report "FLOPPY: Ignoring track format, due to using D81 image";
                   end if;
-                   
                   
                 when x"40" | x"44" =>         -- read sector
                   -- calculate sector number.
@@ -2776,6 +2780,8 @@ begin  -- behavioural
         sdio_busy <= '0';
         sd_state <= Idle;
       end if;
+
+      report "FLOP: sd_state=" & sd_state_t'image(sd_state);
       
       case sd_state is
         
@@ -2942,6 +2948,9 @@ begin  -- behavioural
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
 
+          report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
+            & ", last_f_index=" & std_logic'image(last_f_index);
+          
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
           if (f_index='0' and last_f_index='1') then
@@ -2965,9 +2974,13 @@ begin  -- behavioural
           -- Close write gate and finish formatting when we hit the next
           -- negative edge on the INDEX hole sensor of the floppy.
 
+          report "FLOPPY: Format Track Active: fw_ready_for_next = " & std_logic'image(fw_ready_for_next)
+            & ", last_fw_ready_for_next=" & std_logic'image(last_fw_ready_for_next);
+          
           debug_track_format_counter <= debug_track_format_counter + 1;
           
           if (f_index='0' and last_f_index='1') then
+            report "FLOPPY: end of track due to index hole";
             f_wgate <= '1';
             sd_state <= Idle;
           end if;
@@ -2976,9 +2989,11 @@ begin  -- behavioural
           if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
             -- Grab the next byte
             if f011_drq='1' then
+              report "FLOPPY: Format asserting byte lost";
               f011_lost <= '1';
             end if;
             -- Indicate we need another byte now
+            report "FLOPPY: Format requesting next byte";
             f011_drq <= '1';
 
             fw_byte_in <= sb_cpu_wdata;
