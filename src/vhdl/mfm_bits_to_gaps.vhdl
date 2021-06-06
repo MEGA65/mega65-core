@@ -77,7 +77,6 @@ begin
         f_write <= '1';
       end if;
 
-      report "MFMFLOPPY: bits_queued=" & integer'image(bits_queued);
       if bits_queued = 0 then
         ready_for_next <= '1';
       else

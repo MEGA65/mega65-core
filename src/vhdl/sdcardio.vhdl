@@ -279,6 +279,8 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDrive        -- 0x11
                       );
   signal sd_state : sd_state_t := Idle;
+  signal last_sd_state_t : sd_state_t := HyperTrapRead;
+  signal last_f011_drq : std_logic := '0';
 
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -1363,6 +1365,8 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      fw_byte_valid <= '0';
+      
       last_f_index <= f_index;
       
       if write_sector_gate_timeout /= 0 then
@@ -2086,7 +2090,7 @@ begin  -- behavioural
             when "00111" =>
               -- @IO:C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
               if last_was_d087='0' then
-                report "$D087 write : trigger sector buffer write of $" & to_hstring(fastio_wdata);
+                report "FLOP: $D087 write : trigger sector buffer write of $" & to_hstring(fastio_wdata);
                 sb_cpu_write_request <= '1';
                 sb_cpu_wdata <= fastio_wdata;
                 f011_drq <= '0';                         
@@ -2781,7 +2785,11 @@ begin  -- behavioural
         sd_state <= Idle;
       end if;
 
-      report "FLOP: sd_state=" & sd_state_t'image(sd_state);
+      last_sd_state_t <= sd_state;
+      last_f011_drq <= f011_drq;
+      if sd_state /= last_sd_state_t or f011_drq /= last_f011_drq then
+        report "FLOP: sd_state=" & sd_state_t'image(sd_state) & ", f011_drq=" & std_logic'image(f011_drq);
+      end if;
       
       case sd_state is
         
@@ -2948,8 +2956,10 @@ begin  -- behavioural
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
 
-          report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
-            & ", last_f_index=" & std_logic'image(last_f_index);
+          if f_index /= last_f_index then
+            report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
+              & ", last_f_index=" & std_logic'image(last_f_index);
+          end if;
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
@@ -2962,8 +2972,9 @@ begin  -- behavioural
               f011_lost <= '1';
             end if;
             -- Indicate we need another byte now
-            f011_drq <= '1';
+            f011_drq <='1';
 
+            report "FLOP: Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
             fw_byte_in <= sb_cpu_wdata;
             fw_byte_valid <= '1';
 
@@ -2974,8 +2985,10 @@ begin  -- behavioural
           -- Close write gate and finish formatting when we hit the next
           -- negative edge on the INDEX hole sensor of the floppy.
 
-          report "FLOPPY: Format Track Active: fw_ready_for_next = " & std_logic'image(fw_ready_for_next)
-            & ", last_fw_ready_for_next=" & std_logic'image(last_fw_ready_for_next);
+          if fw_ready_for_next /= last_fw_ready_for_next then
+            report "FLOPPY: Format Track Active: fw_ready_for_next = " & std_logic'image(fw_ready_for_next)
+              & ", last_fw_ready_for_next=" & std_logic'image(last_fw_ready_for_next);
+          end if;
           
           debug_track_format_counter <= debug_track_format_counter + 1;
           
@@ -2996,6 +3009,7 @@ begin  -- behavioural
             report "FLOPPY: Format requesting next byte";
             f011_drq <= '1';
 
+            report "FLOP: Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
             fw_byte_in <= sb_cpu_wdata;
             fw_byte_valid <= '1';
 
