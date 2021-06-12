@@ -542,6 +542,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
   signal reg_dmagic_use_transparent_value : std_logic := '0';
   signal reg_dmagic_transparent_value : unsigned(7 downto 0) := x"00";
+
   signal reg_dmagic_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_y8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_slope : unsigned(15 downto 0) := x"0000";
@@ -550,6 +551,16 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_mode : std_logic := '0';
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
+
+  signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
+  signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
+  signal reg_dmagic_s_slope : unsigned(15 downto 0) := x"0000";
+  signal reg_dmagic_s_slope_fraction_start : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal dmagic_s_slope_overflow_toggle : std_logic := '0';
+  signal reg_dmagic_s_line_mode : std_logic := '0';
+  signal reg_dmagic_s_line_x_or_y : std_logic := '0';
+  signal reg_dmagic_s_line_slope_negative : std_logic := '0';
+  
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
   signal reg_dmagic_spiral_len : integer range 0 to 41 := 0;
@@ -3388,6 +3399,7 @@ begin
       reg_dmagic_transparent_value <= x"00";
       reg_dmagic_src_skip <= x"0100";
       reg_dmagic_dst_skip <= x"0100";
+
       reg_dmagic_x8_offset <= x"0000";
       reg_dmagic_y8_offset <= x"0000";
       reg_dmagic_slope <= x"0000";
@@ -3396,6 +3408,15 @@ begin
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
       reg_dmagic_line_x_or_y <= '0';
+
+      reg_dmagic_s_x8_offset <= x"0000";
+      reg_dmagic_s_y8_offset <= x"0000";
+      reg_dmagic_s_slope <= x"0000";
+      reg_dmagic_s_slope_fraction_start <= to_unsigned(0,17);
+      reg_dmagic_s_line_slope_negative <= '0';
+      dmagic_s_slope_overflow_toggle <= '0';
+      reg_dmagic_s_line_mode <= '0';
+      reg_dmagic_s_line_x_or_y <= '0';
     end procedure;
     
     procedure alu_op_cmp (
@@ -5266,6 +5287,19 @@ begin
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
+                  -- Similar for reading from sources at funny angles, to more
+                  -- readily support rotating textures
+                  when x"97" => reg_dmagic_s_x8_offset(7 downto 0) <= memory_read_value;
+                  when x"98" => reg_dmagic_s_x8_offset(15 downto 8) <= memory_read_value;
+                  when x"99" => reg_dmagic_s_y8_offset(7 downto 0) <= memory_read_value;
+                  when x"9a" => reg_dmagic_s_y8_offset(15 downto 8) <= memory_read_value;
+                  when x"9b" => reg_dmagic_s_slope(7 downto 0) <= memory_read_value;
+                  when x"9c" => reg_dmagic_s_slope(15 downto 8) <= memory_read_value;
+                  when x"9d" => reg_dmagic_s_slope_fraction_start(7 downto 0) <= memory_read_value;
+                  when x"9e" => reg_dmagic_s_slope_fraction_start(15 downto 8) <= memory_read_value;
+                  when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
+                                reg_dmagic_s_line_x_or_y <= memory_read_value(6);
+                                reg_dmagic_s_line_slope_negative <= memory_read_value(5);
                     
                   when others => null;
                 end case;
@@ -5662,7 +5696,148 @@ begin
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
-              if dmagic_src_hold='0' then
+              if reg_dmagic_s_line_mode='1' then
+                -- We are in line mode.
+
+                -- Add fractional position
+                reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
+                -- Check if we have accumulated a whole pixel of movement?
+                line_x_move := '0';
+                line_x_move_negative := '0';
+                line_y_move := '0';
+                line_y_move_negative := '0';
+                if dmagic_s_slope_overflow_toggle /= reg_dmagic_s_slope_fraction_start(16) then
+                  dmagic_s_slope_overflow_toggle <= reg_dmagic_s_slope_fraction_start(16);
+                  -- Yes: Advance in minor axis
+                  if reg_dmagic_s_line_x_or_y='0' then
+                    line_y_move := '1';
+                    line_y_move_negative := reg_dmagic_s_line_slope_negative;
+                  else
+                    line_x_move := '1';
+                    line_x_move_negative := reg_dmagic_s_line_slope_negative;
+                  end if;
+                end if;
+                -- Also move major axis (which is always in the forward direction)
+                if reg_dmagic_s_line_x_or_y='0' then
+                  line_x_move := '1';
+                else
+                  line_y_move := '1';
+                end if;
+                if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
+                  -- Y = Y + 1
+                  if dmagic_src_addr(14 downto 11)="111" then
+                    -- Will overflow between Y cards
+                    dmagic_src_addr <= dmagic_src_addr + (256*8)
+                                        + (reg_dmagic_s_y8_offset&"00000000");
+                  else
+                    -- No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+                    dmagic_src_addr <= dmagic_src_addr + (256*8);
+                  end if;
+                elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
+                  -- Y = Y - 1
+                  if dmagic_src_addr(14 downto 11)="000" then
+                    -- Will overflow between X cards
+                    dmagic_src_addr <= dmagic_src_addr - (256*8)
+                                        - (reg_dmagic_s_y8_offset&"00000000");
+                  else
+                    -- No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+                    dmagic_src_addr <= dmagic_src_addr - (256*8);
+                  end if;                    
+                elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='0' then
+                  -- X = X + 1
+                  if dmagic_src_addr(10 downto 8)="111" then
+                    -- Will overflow between X cards
+                    dmagic_src_addr <= dmagic_src_addr + 256
+                                        + (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    -- No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+                    dmagic_src_addr <= dmagic_src_addr + 256;
+                  end if;
+                elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='0' then
+                  -- X = X - 1 
+                  if dmagic_src_addr(10 downto 8)="000" then
+                    -- Will overflow between X cards
+                    dmagic_src_addr <= dmagic_src_addr - 256
+                                        - (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    -- No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+                    dmagic_src_addr <= dmagic_src_addr - 256;
+                  end if;                    
+                elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
+                  -- X = X + 1, Y = Y + 1
+                  if dmagic_src_addr(14 downto 8)="111111" then
+                    -- positive overflow on both
+                    dmagic_src_addr <= dmagic_src_addr + (256*9)
+                                        + (reg_dmagic_s_x8_offset&"00000000")
+                                        + (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(14 downto 11)="111" then
+                    -- positive card overflow on Y only
+                    dmagic_src_addr <= dmagic_src_addr + (256*9)
+                                        + (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(10 downto 8)="111" then
+                    -- positive card overflow on X only
+                    dmagic_src_addr <= dmagic_src_addr + (256*9)
+                                        + (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    -- no card overflow
+                    dmagic_src_addr <= dmagic_src_addr + (256*9);
+                  end if;                  
+                elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
+                  -- X = X + 1, Y = Y - 1
+                  if dmagic_src_addr(14 downto 8)="000111" then
+                    -- positive card overflow on X, negative on Y 
+                    dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
+                                        + (reg_dmagic_s_x8_offset&"00000000")
+                                        - (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(14 downto 11)="000" then
+                    -- negative card overflow on Y only
+                    dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
+                                        - (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(10 downto 8)="111" then
+                    -- positive overflow on X only
+                    dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8)
+                                        + (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    dmagic_src_addr <= dmagic_src_addr + (256*1) - (256*8);
+                  end if;                  
+                elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
+                  -- X = X - 1, Y = Y + 1
+                  if dmagic_src_addr(14 downto 8)="111000" then
+                    -- negative card overflow on X, positive on Y 
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
+                                        - (reg_dmagic_s_x8_offset&"00000000")
+                                        + (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(14 downto 11)="111" then
+                    -- positive card overflow on Y only
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
+                                        + (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(10 downto 8)="000" then
+                    -- negative overflow on X only
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8)
+                                        - (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) + (256*8);
+                  end if;                  
+                elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
+                  -- X = X - 1, Y = Y - 1
+                  if dmagic_src_addr(14 downto 8)="000000" then
+                    -- negative card overflow on X, negative on Y 
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
+                                        - (reg_dmagic_s_x8_offset&"00000000")
+                                        - (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(14 downto 11)="000" then
+                    -- positive card overflow on Y only
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
+                                        - (reg_dmagic_s_y8_offset&"00000000");
+                  elsif dmagic_src_addr(10 downto 8)="000" then
+                    -- negative overflow on X only
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8)
+                                        - (reg_dmagic_s_x8_offset&"00000000");
+                  else
+                    dmagic_src_addr <= dmagic_src_addr - (256*1) - (256*8);
+                  end if;                  
+                end if;
+              elsif dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
                   dmagic_src_addr(27 downto 0)
                     <= dmagic_src_addr(27 downto 0) + reg_dmagic_src_skip;
@@ -5696,7 +5871,150 @@ begin
                                         -- Update address and check for end of job.
                                         -- XXX Ignores modulus, whose behaviour is insufficiently defined
                                         -- in the C65 specifications document
-                if dmagic_dest_hold='0' then
+                if reg_dmagic_line_mode='1' then
+                  -- Line mode with copy, so that textured lines can be drawn
+                  -- We are in line mode.
+
+                  -- Add fractional position
+                  reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
+                  -- Check if we have accumulated a whole pixel of movement?
+                  line_x_move := '0';
+                  line_x_move_negative := '0';
+                  line_y_move := '0';
+                  line_y_move_negative := '0';
+                  if dmagic_slope_overflow_toggle /= reg_dmagic_slope_fraction_start(16) then
+                    dmagic_slope_overflow_toggle <= reg_dmagic_slope_fraction_start(16);
+                    -- Yes: Advance in minor axis
+                    if reg_dmagic_line_x_or_y='0' then
+                      line_y_move := '1';
+                      line_y_move_negative := reg_dmagic_line_slope_negative;
+                    else
+                      line_x_move := '1';
+                      line_x_move_negative := reg_dmagic_line_slope_negative;
+                    end if;
+                  end if;
+                  -- Also move major axis (which is always in the forward direction)
+                  if reg_dmagic_line_x_or_y='0' then
+                    line_x_move := '1';
+                  else
+                    line_y_move := '1';
+                  end if;
+                  if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
+                    -- Y = Y + 1
+                    if dmagic_dest_addr(14 downto 11)="111" then
+                      -- Will overflow between Y cards
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*8)
+                                          + (reg_dmagic_y8_offset&"00000000");
+                    else
+                      -- No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*8);
+                    end if;
+                  elsif line_x_move='0' and line_y_move='1' and line_y_move_negative='1' then
+                    -- Y = Y - 1
+                    if dmagic_dest_addr(14 downto 11)="000" then
+                      -- Will overflow between X cards
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*8)
+                                          - (reg_dmagic_y8_offset&"00000000");
+                    else
+                      -- No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*8);
+                    end if;                    
+                  elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='0' then
+                    -- X = X + 1
+                    if dmagic_dest_addr(10 downto 8)="111" then
+                      -- Will overflow between X cards
+                      dmagic_dest_addr <= dmagic_dest_addr + 256
+                                          + (reg_dmagic_x8_offset&"00000000");
+                    else
+                      -- No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+                      dmagic_dest_addr <= dmagic_dest_addr + 256;
+                    end if;
+                  elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='0' then
+                    -- X = X - 1 
+                    if dmagic_dest_addr(10 downto 8)="000" then
+                      -- Will overflow between X cards
+                      dmagic_dest_addr <= dmagic_dest_addr - 256
+                                          - (reg_dmagic_x8_offset&"00000000");
+                    else
+                      -- No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+                      dmagic_dest_addr <= dmagic_dest_addr - 256;
+                    end if;                    
+                  elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='0' then
+                    -- X = X + 1, Y = Y + 1
+                    if dmagic_dest_addr(14 downto 8)="111111" then
+                      -- positive overflow on both
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*9)
+                                          + (reg_dmagic_x8_offset&"00000000")
+                                          + (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                      -- positive card overflow on Y only
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*9)
+                                          + (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(10 downto 8)="111" then
+                      -- positive card overflow on X only
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*9)
+                                          + (reg_dmagic_x8_offset&"00000000");
+                    else
+                      -- no card overflow
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*9);
+                    end if;                  
+                  elsif line_x_move='1' and line_x_move_negative='0' and line_y_move='1' and line_y_move_negative='1' then
+                    -- X = X + 1, Y = Y - 1
+                    if dmagic_dest_addr(14 downto 8)="000111" then
+                      -- positive card overflow on X, negative on Y 
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
+                                          + (reg_dmagic_x8_offset&"00000000")
+                                          - (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                      -- negative card overflow on Y only
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
+                                          - (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(10 downto 8)="111" then
+                      -- positive overflow on X only
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
+                                          + (reg_dmagic_x8_offset&"00000000");
+                    else
+                      dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8);
+                    end if;                  
+                  elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='0' then
+                    -- X = X - 1, Y = Y + 1
+                    if dmagic_dest_addr(14 downto 8)="111000" then
+                      -- negative card overflow on X, positive on Y 
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
+                                          - (reg_dmagic_x8_offset&"00000000")
+                                          + (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(14 downto 11)="111" then
+                      -- positive card overflow on Y only
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
+                                          + (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(10 downto 8)="000" then
+                      -- negative overflow on X only
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
+                                          - (reg_dmagic_x8_offset&"00000000");
+                    else
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8);
+                    end if;                  
+                  elsif line_x_move='1' and line_x_move_negative='1' and line_y_move='1' and line_y_move_negative='1' then
+                    -- X = X - 1, Y = Y - 1
+                    if dmagic_dest_addr(14 downto 8)="000000" then
+                      -- negative card overflow on X, negative on Y 
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
+                                          - (reg_dmagic_x8_offset&"00000000")
+                                          - (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(14 downto 11)="000" then
+                      -- positive card overflow on Y only
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
+                                          - (reg_dmagic_y8_offset&"00000000");
+                    elsif dmagic_dest_addr(10 downto 8)="000" then
+                      -- negative overflow on X only
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
+                                          - (reg_dmagic_x8_offset&"00000000");
+                    else
+                      dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8);
+                    end if;                  
+                  end if;
+                  -- end of line mode case
+                elsif dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
                     dmagic_dest_addr(27 downto 0)
                       <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
