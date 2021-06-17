@@ -3010,7 +3010,7 @@ msg_romok:              !text "ROM CHECKSUM OK - BOOTING"
 ;;                      !8 0
 msg_charromloaded:      !text "LOADED CHARROM.M65 ($$$$ PAGES)"
                         !8 0
-msg_megaromloaded:      !text "LOADED MEGA65ROM.M65 ($$$$ PAGES)"
+msg_megaromloaded:      !text "LOADED MEGA65.ROM ($$$$ PAGES)"
                         !8 0
 msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
                         !8 0

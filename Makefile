@@ -691,7 +691,9 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
+		--add-source --listing $*.list --mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
@@ -709,7 +711,9 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(CC65_DEPEND)
 $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg --mapfile $*.map $< $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
+		--add-source --listing $*.list --mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
@@ -760,7 +764,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 
 # ============================ done moved, print-warn, clean-target
 $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
-	$(ACME) --cpu m65 --setpc 0x8000 -l bin/HICKUP.sym -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
+	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
