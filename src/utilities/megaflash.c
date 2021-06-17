@@ -317,7 +317,7 @@ unsigned long fat32_nextclusterinchain(unsigned long cluster)
   
 }
 
-void hy_close(unsigned char fd)
+void hy_close(void)
 {
 }
 
@@ -326,7 +326,7 @@ unsigned long hy_opendir_sector=0;
 unsigned char hy_opendir_sector_in_cluster=0;
 unsigned int hy_opendir_offset_in_sector=0;
 
-unsigned char hy_opendir(void)
+void hy_opendir(void)
 {
   if (!sdcard_setup) setup_sdcard();
 
@@ -338,7 +338,7 @@ unsigned char hy_opendir(void)
 
 struct m65_dirent hy_dirent;
 
-struct m65_dirent *hy_readdir(unsigned char)
+struct m65_dirent *hy_readdir(void)
 {
   unsigned char *dirent;
   unsigned char j;
@@ -383,7 +383,7 @@ struct m65_dirent *hy_readdir(unsigned char)
     return NULL;
 }
 
-void hy_closedir(unsigned char)
+void hy_closedir(void)
 {
 }
 
@@ -396,7 +396,7 @@ unsigned char hy_open(char *filename)
   struct m65_dirent *de;
   if (!sdcard_setup) setup_sdcard();
   hy_opendir();
-  while(de=hy_readdir(0)) {
+  while(de=hy_readdir()) {
     if (!strcmp(de->d_name,filename)) {
       //      printf("Found file '%s' at cluster $%08lx\n",
       //	     filename,de->d_ino);
@@ -409,7 +409,7 @@ unsigned char hy_open(char *filename)
   return 0xff;
 }
 
-unsigned short hy_read512(unsigned char *return_buffer)
+unsigned short hy_read512(void)
 {
   unsigned long the_sector=file_sector;
   if (!sdcard_setup) setup_sdcard();
@@ -538,8 +538,8 @@ void reflash_slot(unsigned char slot)
       progress_bar(progress);
     }
 #else
-    if (progress_acc>52428) {
-      progress_acc-=52428;
+    if (progress_acc>52428UL) {
+      progress_acc-=52428UL;
       progress++;
       progress_bar(progress);
     }
@@ -592,14 +592,14 @@ void reflash_slot(unsigned char slot)
 	progress++;
       }
 #else
-      if (progress_acc>52428) {
-	progress_acc-=52428;
+      if (progress_acc>52428UL) {
+	progress_acc-=52428UL;
 	progress++;
       }
 #endif     
       progress_bar(progress);
       
-      bytes_returned=hy_read512(buffer);
+      bytes_returned=hy_read512();
       
       if (!bytes_returned) break;
       
@@ -645,14 +645,14 @@ void reflash_slot(unsigned char slot)
 	progress++;
       }
 #else
-      if (progress_acc>52428) {
-	progress_acc-=52428;
+      if (progress_acc>52428UL) {
+	progress_acc-=52428UL;
 	progress++;
       }
 #endif           
       progress_bar(progress);
       
-      bytes_returned=hy_read512(buffer);
+      bytes_returned=hy_read512();
       
       if (!bytes_returned) break;
       
@@ -750,7 +750,7 @@ void reflash_slot(unsigned char slot)
   while(!PEEK(0xD610)) continue;
   POKE(0xD610,0);
   
-  hy_close(fd);
+  hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
   return;
 }
@@ -1874,7 +1874,7 @@ void draw_file_list(void)
 
 char *select_bitstream_file(void)
 {
-  unsigned char x,dir;
+  unsigned char x;
   signed char j;
   struct m65_dirent *dirent;
   int idle_time=0;
@@ -1896,9 +1896,9 @@ char *select_bitstream_file(void)
   // ARGH!!! We are running from in hypervisor mode, so we can't use hypervisor
   // traps to get the directory listing!
   hy_closeall();
-  dir=hy_opendir();
+  hy_opendir();
   printf("%cScanning directory...\n",0x93);
-  dirent=hy_readdir(dir);
+  dirent=hy_readdir();
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
@@ -1911,10 +1911,10 @@ char *select_bitstream_file(void)
       }
     }
     
-    dirent=hy_readdir(dir);
+    dirent=hy_readdir();
   }
 
-  hy_closedir(dir);
+  hy_closedir();
 
   // Okay, we have some disk images, now get the user to pick one!
   draw_file_list();
