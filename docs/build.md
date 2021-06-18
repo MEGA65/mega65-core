@@ -58,12 +58,12 @@ $GIT_ROOT$> cd mega65-core
 $GIT_ROOT$/mega65-core>
 ```
 
-Currently, the ```stable_base``` branch is what you should compile from.
+Currently, the ```development``` branch is what you should compile from.
 So, checkout that branch:
 ```
-$GIT_ROOT$/mega65-core> git checkout stable_base
-Branch stable_base set up to track remote branch stable_base from origin.
-Switched to a new branch 'stable_base'
+$GIT_ROOT$/mega65-core> git checkout development
+Branch development set up to track remote branch development from origin.
+Switched to a new branch 'development'
 $GIT_ROOT$/mega65-core>
 ```
 
