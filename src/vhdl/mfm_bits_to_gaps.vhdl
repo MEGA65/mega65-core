@@ -56,11 +56,15 @@ begin
       
       if interval_countdown = 0 then
         interval_countdown <= to_integer(cycles_per_interval);
+        f_write <= '1';
       else
         interval_countdown <= interval_countdown - 1;
       end if;
 
-      -- Request flux reversal
+      -- Request flux reversal half way through the bit,
+      -- and it stays asserted until the end of the bit, i.e., 0.5 x WCLK
+      -- to match description on page 79 in Figure 7 of
+      -- https://www.mouser.com/datasheet/2/268/37c78-468028.pdf
       if interval_countdown = transition_point then
 --        report "MFM bit " & std_logic'image(bit_queue(15));
         f_write <= not bit_queue(15);
@@ -73,8 +77,6 @@ begin
         if bits_queued = 16 then
 --          report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
         end if;
-      else
-        f_write <= '1';
       end if;
 
       if bits_queued = 0 then
