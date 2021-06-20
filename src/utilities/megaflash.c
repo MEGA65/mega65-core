@@ -19,6 +19,7 @@
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
+unsigned char check_input(char *m, uint8_t case_sensitive);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -47,6 +48,9 @@ unsigned char buffer[512];
 short i,x,y,z;
 short a1,a2,a3;
 unsigned char n=0;
+
+#define CASE_INSENSITIVE  0
+#define CASE_SENSITIVE    1
 
 void progress_bar(unsigned char onesixtieths);
 void read_data(unsigned long start_address);
@@ -488,17 +492,101 @@ unsigned char progress=0;
 unsigned long progress_acc=0;
 unsigned char tries = 0;
 
+void press_any_key(void)
+{
+  printf("\nPress any key to continue.\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+}
+
+typedef struct
+{
+  int model_id;
+  char* name;
+} models_type;
+
+models_type models[] = {
+  { 0x01, "MEGA65 R1"},
+  { 0x02, "MEGA65 R2"},
+  { 0x03, "MEGA65 R3"},
+  { 0x21, "MEGAphone R1"},
+  { 0x40, "Nexys4 PSRAM"},
+  { 0x41, "Nexys4DDR"},
+  { 0x42, "Nexys4DDR with widget board"},
+  { 0xFD, "QMTECH Wukong A100T board"},
+  { 0xFE, "Simulation"}
+};
+
+char* get_model_name(uint8_t model_id)
+{
+  static char* model_unknown = "?unknown?";
+  uint8_t k;
+  uint8_t l = sizeof(models) / sizeof(models_type);
+
+  for (k = 0; k < l; k++)
+  {
+    if (model_id == models[k].model_id) {
+      return models[k].name;
+    }
+  }
+
+  return model_unknown;
+}
+
+int check_model_id_field(void)
+{
+  unsigned short bytes_returned;
+  uint8_t hardware_model_id = PEEK(0xD629);
+  uint8_t core_model_id;
+
+  bytes_returned=hy_read512();
+
+  if (!bytes_returned)
+  {
+    printf("Failed to read .cor file.\n");
+    press_any_key();
+    return 0;
+  }
+
+  core_model_id = buffer[0x70];
+
+  printf(".COR file model id: $%02X - %s\n", core_model_id, get_model_name(core_model_id));
+  printf(" Hardware model id: $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
+
+  if (hardware_model_id == core_model_id)
+  {
+    printf("%cVerified .COR file matches hardware.\n"
+           "Safe to flash.%c\n", 0x1e, 0x05);
+    press_any_key();
+    return 1;
+  }
+
+  if (core_model_id == 0x00) {
+    printf("\x1c.COR file is missing model-id field.\n"
+           "Cannot confirm if .COR matches hardware.\n"
+           "%cAre you sure you want to flash? (y/n)\n\n", 0x05);
+    if (!check_input("y", CASE_INSENSITIVE)) return 0;
+
+    printf("Ok, will proceed to flash\n");
+    press_any_key();
+  }
+
+  printf("%cVerification error!\n"
+        "This .COR file is not intended for this hardware.%c\n",0x1c, 0x05);
+  press_any_key();
+  return 0;
+}
 
 void reflash_slot(unsigned char slot)
 {
-  
   unsigned short bytes_returned;
   unsigned char fd;
   unsigned char *file=select_bitstream_file();
   if (!file) return;
   if ((unsigned short)file==0xffff) return;
 
-  printf("%cPreparing to reflash using...\n",0x93);
+  printf("%cPreparing to reflash slot %d...\n\n",0x93, slot);
 
   hy_closeall();
 
@@ -509,15 +597,21 @@ void reflash_slot(unsigned char slot)
     if (fd==0xff) {
       // Couldn't open the file.
       printf("ERROR: Could not open flash file '%s'\n",file);
-      printf("\nPress any key to continue.\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while (!PEEK(0xD610)) continue;
+
+      press_any_key();
       
       while(1) continue;
       
       return;
     }
   }
+
+  if (!check_model_id_field())
+    return;
+
+  // start reading file from beginning again
+  // (as the model_id checking read the first 512 bytes already)
+  fd=hy_open(file);
 
   printf("%cErasing flash slot...\n",0x93);
   lfill((unsigned long)buffer,0,512);
@@ -628,9 +722,7 @@ void reflash_slot(unsigned char slot)
     if (fd==0xff) {
       // Couldn't open the file.
       printf("ERROR: Could not open flash file '%s'\n",file);
-      printf("\nPress any key to continue.\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while (!PEEK(0xD610)) continue;
+      press_any_key();
       
       while(1) continue;
       
@@ -664,10 +756,7 @@ void reflash_slot(unsigned char slot)
 	       addr+256+i);
 	printf("Read back $%x instead of $%x\n",
 	       data_buffer[i+256],buffer[i]);
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
+  press_any_key();
 	printf("Data read from flash is:\n");
 	for(i=0;i<256;i+=64) {
 	  for(x=0;x<64;x++) {
@@ -692,10 +781,7 @@ void reflash_slot(unsigned char slot)
 	    if ((x&7)==7) printf("\n");
 	  }
 	  
-	  printf("Press any key to continue...\n");
-	  while(PEEK(0xD610)) POKE(0xD610,0);
-	  while(!PEEK(0xD610)) continue;
-	  while(PEEK(0xD610)) POKE(0xD610,0);
+    press_any_key();
 	}
 	fetch_rdid();
 	i=0; 
@@ -708,10 +794,7 @@ void reflash_slot(unsigned char slot)
 	       addr+256+i);
 	printf("Read back $%x instead of $%x\n",
 	       data_buffer[i+256],buffer[i]+256);
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
+  press_any_key();
 	printf("Data read from flash is:\n");
 	for(i=0;i<256;i+=64) {
 	  for(x=0;x<64;x++) {
@@ -720,10 +803,7 @@ void reflash_slot(unsigned char slot)
 	    if ((x&7)==7) printf("\n");
 	  }
 	  
-	  printf("Press any key to continue...\n");
-	  while(PEEK(0xD610)) POKE(0xD610,0);
-	  while(!PEEK(0xD610)) continue;
-	  while(PEEK(0xD610)) POKE(0xD610,0);
+    press_any_key();
 	}
 	
 	printf("Correct data is:\n");
@@ -734,10 +814,7 @@ void reflash_slot(unsigned char slot)
 	    if ((x&7)==7) printf("\n");
 	  }
 	  
-	  printf("Press any key to continue...\n");
-	  while(PEEK(0xD610)) POKE(0xD610,0);
-	  while(!PEEK(0xD610)) continue;
-	  while(PEEK(0xD610)) POKE(0xD610,0);
+    press_any_key();
 	}
 	fetch_rdid();
 	i=0; 
@@ -1258,7 +1335,7 @@ void flash_inspector(void)
 #endif
 }
 
-unsigned char check_input(char *m)
+unsigned char check_input(char *m, uint8_t case_sensitive)
 {
   while(PEEK(0xD610)) POKE(0xD610,0);
 
@@ -1268,7 +1345,10 @@ unsigned char check_input(char *m)
     
     if (!PEEK(0xD610)) continue;
     if (PEEK(0xD610)!=((*m)&0x7f)) {
-      return 0;
+      if (case_sensitive)
+        return 0;
+      if (PEEK(0xD610) != ((*m ^ 0x20)&0x7f))
+        return 0;
     }
     POKE(0xD610,0);
     m++;
@@ -1284,15 +1364,15 @@ unsigned char user_has_been_warned(void)
 	 "SURE that you want to do this, type:\n"
 	 "I ACCEPT THIS VOIDS MY WARRANTY\n",
 	 0x93);
-  if (!check_input("I ACCEPT THIS VOIDS MY WARRANTY\r")) return 0;
+  if (!check_input("I ACCEPT THIS VOIDS MY WARRANTY\r", CASE_SENSITIVE)) return 0;
   printf("\nAnd now:\n"
 	 "ITS MY FAULT ALONE WHEN IT GOES WRONG\n");
-  if (!check_input("ITS MY FAULT ALONE WHEN IT GOES WRONG\r")) return 0;
+  if (!check_input("ITS MY FAULT ALONE WHEN IT GOES WRONG\r", CASE_SENSITIVE)) return 0;
   printf("\nAlso, type in the 32768th prime:\n");
-  if (!check_input("386093\r")) return 0;
+  if (!check_input("386093\r", CASE_SENSITIVE)) return 0;
   printf("\nFinally, what is the average airspeed of"
 	 " a laden (european) swallow?\n");
-  if (!check_input("11 METRES PER SECOND\r")) return 0;
+  if (!check_input("11 METRES PER SECOND\r", CASE_SENSITIVE)) return 0;
   return 1;
 }
 
@@ -1383,10 +1463,7 @@ void main(void)
   data_buffer[3]=0xef;
   program_page(4*1048576L+256);
 
-  printf("Press any key to continue...\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  while(PEEK(0xD610)) POKE(0xD610,0);
+  press_any_key();
   
 
   flash_inspector();
@@ -1407,10 +1484,7 @@ void main(void)
 	if ((x&7)==7) printf("\n");
       }
     
-      printf("Press any key to continue...\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while(!PEEK(0xD610)) continue;
-      while(PEEK(0xD610)) POKE(0xD610,0);
+      press_any_key();
     }
   }
 
@@ -1466,10 +1540,7 @@ void main(void)
 	printf("Continuing booting with this bitstream...\n");
 	printf("Trying to return control to hypervisor...\n");
 	
-	printf("\nPress any key to continue.\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while (!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
+  press_any_key();
 #endif
 
 	// Switch back to normal speed control before exiting

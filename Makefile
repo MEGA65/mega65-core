@@ -244,6 +244,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/spdif_encoder.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
+			$(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
@@ -299,7 +300,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
 			$(SUPPORTVHDL) \
-#			$(VFPGAVHDL) \
+			$(VFPGAVHDL) \
 
 SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 			$(VHDLSRCDIR)/crc.vhdl \
@@ -856,6 +857,12 @@ $(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl
 	# Force consistent ordering of items according to natural byte values
 	LC_ALL=C egrep "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
+
+# Using special .DELETE_ON_ERROR target, so that it will force COLOURRAM.BIN to be deleted if its recipe fails
+# (e.g., if exomizer isn't installed yet)
+# Without .DELETE_ON_ERROR, the 1st failure of the recipe will create a 0-byte COLOURRAM.BIN
+# (and future 'make' calls would then consider this 0-byte file as 'up-to-date')
+.DELETE_ON_ERROR:
 
 CRAMUTILS=	$(UTILDIR)/mega65_config.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg $(UTILDIR)/mega65_keyboardtest.prg
 $(BINDIR)/COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
