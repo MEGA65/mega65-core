@@ -1383,6 +1383,7 @@ void main(void)
   unsigned char valid;
   unsigned char selected=0;
   unsigned char selected_reflash_slot;
+  unsigned char slot_count=0;
 
   mega65_io_enable();
 
@@ -1435,6 +1436,7 @@ void main(void)
     n-=20;
     while(n) { mb=mb<<1; n--; }
   }
+  slot_count = mb/SLOT_MB;
 #if 0
   printf("flash size is %dmb.\n",mb);
 #endif
@@ -1642,7 +1644,7 @@ void main(void)
 
     // Draw footer line with instructions
     for(y=0;y<24;y++) printf("%c",0x11);
-    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, (mb/SLOT_MB)-1, (mb/SLOT_MB)-1, 0x92);
+    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count-1, slot_count-1, 0x92);
     POKE(1024+999,0x14+0x80);
 
     // Scan for existing bitstreams
@@ -1721,7 +1723,7 @@ void main(void)
 
     if (x) {
       POKE(0xd610,0);
-      if (x>='0'&&x<(mb/SLOT_MB)+'0') {
+      if (x>='0'&&x<slot_count+'0') {
         if (x=='0') {
           reconfig_fpga(0);
         }
@@ -1761,7 +1763,7 @@ void main(void)
         printf("%c",0x93);
         break;
 #endif
-      case 0x60: // TILDE
+      case 0x7e: // TILDE
         if (user_has_been_warned())
           reflash_slot(0);
         printf("%c",0x93);
@@ -1789,7 +1791,7 @@ void main(void)
         break;
       }
 
-      if (selected_reflash_slot>0 && selected_reflash_slot<(mb/SLOT_MB)) {
+      if (selected_reflash_slot>0 && selected_reflash_slot<slot_count) {
         reflash_slot(selected_reflash_slot);
         printf("%c",0x93);
       }
