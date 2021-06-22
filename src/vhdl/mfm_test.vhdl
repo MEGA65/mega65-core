@@ -172,6 +172,8 @@ architecture behavior of mfm_test is
   signal crc_reset : std_logic := '1';
   signal crc_ready : std_logic;
   signal crc_value : unsigned(15 downto 0) := to_unsigned(42,16);  
+
+  signal clock_byte_next : unsigned(7 downto 0) := x"FF";
   
 begin
 
@@ -251,7 +253,7 @@ begin
       if ready_for_next = '1' and last_ready_for_next = '0' then
         byte_valid <= '1';
         byte_in <= mfm_data(byte_counter)(15 downto 8);
-        clock_byte_in <= mfm_data(byte_counter)(7 downto 0);
+        clock_byte_next <= mfm_data(byte_counter)(7 downto 0);
         report "Feeding byte #" & integer'image(byte_counter) & " into MFM encoder: $" & to_hstring(mfm_data(byte_counter));
         if byte_counter < 1024 then
           byte_counter <= byte_counter + 1;
@@ -260,6 +262,10 @@ begin
         end if;
       else
         byte_valid <= '0';
+        clock_byte_in <= clock_byte_next;
+        if clock_byte_next /= clock_byte_in then
+          report "presenting clock byte $"& to_hstring(clock_byte_next);
+        end if;
       end if;
 
       -- Decoder
