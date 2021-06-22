@@ -55,6 +55,7 @@ begin
       elsif crc_reset = '1' then
         value <= crc_init;
         ready <= '1';
+--        report "CRC reset";
       elsif bits_left /= 0 then
         ready <= '0';
         

@@ -49,7 +49,7 @@ architecture foo of test_mfm is
   signal byte_valid_in : std_logic := '0';
   signal byte_in : unsigned(7 downto 0) := x"00";
   signal clock_byte_in : unsigned(7 downto 0) := x"FF";
-  
+
 begin
 
   encoder0: entity work.mfm_bits_to_gaps port map (

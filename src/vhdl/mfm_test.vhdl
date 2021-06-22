@@ -166,6 +166,12 @@ architecture behavior of mfm_test is
   signal byte_counter : integer := 0;
 
   signal last_ready_for_next : std_logic := '0';
+
+  signal crc_byte : unsigned(7 downto 0);
+  signal crc_feed : std_logic := '0';
+  signal crc_reset : std_logic := '1';
+  signal crc_ready : std_logic;
+  signal crc_value : unsigned(15 downto 0) := to_unsigned(42,16);  
   
 begin
 
@@ -185,6 +191,17 @@ begin
     end loop;
   end process;
 
+  crc0: entity work.crc1581 port map (
+    clock40mhz => cpuclock,
+    crc_byte => crc_byte,
+    crc_feed => crc_feed,
+    crc_reset => crc_reset,
+    
+    crc_ready => crc_ready,
+    crc_value => crc_value
+    );
+    
+  
   mfmenc0:
     entity work.mfm_bits_to_gaps port map (
       clock40mhz => cpuclock,
@@ -348,6 +365,42 @@ begin
     end loop;  -- i
     assert false report "End of simulation" severity failure;
   end process;
-    
+
+  process is
+  begin
+    wait for 100 ns;
+    crc_reset <= '1';
+    wait for 100 ns;
+    crc_reset <= '0';
+    wait for 1000 ns;
+    crc_feed <= '1';
+    crc_byte <= x"a1";
+    wait for 20 ns;
+    crc_feed <= '0';
+    wait for 1000 ns;
+--    report "CRC = $" & to_hstring(crc_value);
+    wait for 1000 ns;
+    crc_feed <= '1';
+    crc_byte <= x"a1";
+    wait for 20 ns;
+    crc_feed <= '0';
+    wait for 1000 ns;
+--    report "CRC = $" & to_hstring(crc_value);
+    wait for 1000 ns;
+    crc_feed <= '1';
+    crc_byte <= x"a1";
+    wait for 20 ns;
+    crc_feed <= '0';
+    wait for 1000 ns;
+--    report "CRC = $" & to_hstring(crc_value);
+    wait for 1000 ns;
+    crc_feed <= '1';
+    crc_byte <= x"FE";
+    wait for 20 ns;
+    crc_feed <= '0';
+    wait for 1000 ns;
+--    report "CRC = $" & to_hstring(crc_value);
+  end process;  
+  
 end behavior;
 
