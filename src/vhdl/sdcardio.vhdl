@@ -1391,10 +1391,10 @@ begin  -- behavioural
       -- If MFM decoder thinks we are on the wrong track, and the
       -- auto-tuner is enabled, then step in the right direction.
       -- The timing of the steps is based on how often a sector goes past the head.
-      -- 10 sectors per track x 360 rpm = 60 sectors per second = ~16msec per
+      -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
       -- sector. This is more than slow enough for safe stepping, we don't need
       -- to do any other timing interlock
-      if autotune_enable = '1' then
+      if autotune_enable = '1' and sd_state /= FDCFormatTrack and sd_state /= FDCFormatTrackSyncWait then
         if autotune_step='1' and last_autotune_step='0' then
           f_step <= '0';
           f_stepdir <= autotune_stepdir;
