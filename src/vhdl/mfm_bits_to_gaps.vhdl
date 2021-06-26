@@ -49,6 +49,7 @@ architecture behavioural of mfm_bits_to_gaps is
   signal byte_in_buffer : std_logic := '0';
   signal next_byte : unsigned(7 downto 0) := x"00";
   signal latched_clock_byte : unsigned(7 downto 0) := x"FF";
+  signal clock_latch_timer : integer range 0 to 63 := 0;
   
 begin
 
@@ -105,7 +106,35 @@ begin
       else
         no_data <= '0';
       end if;
-      
+
+      if clock_latch_timer = 1 then
+        latched_clock_byte <= clock_byte_in;
+        if latched_clock_byte /= clock_byte_in then
+          report "latching clock byte $" & to_hstring(clock_byte_in);
+        end if;
+      end if;
+      if clock_latch_timer /= 0 then
+        clock_latch_timer <= clock_latch_timer - 1;
+      end if;
+        
+      if byte_valid='1' then
+        next_byte <= byte_in;
+        byte_in_buffer <= '1';
+        ready_for_next <= '0';
+        if byte_in_buffer='1' then
+          report "WARNING: Overwritting floppy write buffered byte $" & to_hstring(next_byte);
+        end if;
+        report "latching data byte $" & to_hstring(byte_in);
+        -- Then set timer to latch the clock.
+        -- For bug-compatibility with C65 DOS code, this should be done
+        -- at least 4x 3.5MHz clock cycles after the data byte has been
+        -- written, to allow the STA <data> / STX <clock> sequenc to work
+        -- 40.5MHz / 3.54MHz x (4+1 cycles) = 57.2 cycles
+        -- We can in fact allow a bit of margin on this, so lets go with 63
+        -- cycles
+        clock_latch_timer <= 63;
+      end if;
+        
       if bits_queued = 0 and byte_in_buffer='1' then
         report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ") for encoding.";
         byte_in_buffer <= '0';
@@ -130,15 +159,6 @@ begin
         bit_queue( 1) <= (byte_in(1) nor next_byte(0)) xor not latched_clock_byte(0);
         bit_queue( 0) <= byte_in(0);
         last_bit0 <= byte_in(0);        
-      elsif byte_valid='1' then
-        next_byte <= byte_in;
-        byte_in_buffer <= '1';
-        ready_for_next <= '0';
-      else
-        latched_clock_byte <= clock_byte_in;
-        if latched_clock_byte /= clock_byte_in then
-          report "latching clock byte $" & to_hstring(clock_byte_in);
-        end if;
       end if;      
     end if;    
   end process;

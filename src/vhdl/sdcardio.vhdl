@@ -2102,6 +2102,10 @@ begin  -- behavioural
               last_was_d087<='1';
               f011_eq_inhibit <= '0';
 
+              report "FLOP: (format track) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
+              fw_byte_in <= fastio_wdata;
+              fw_byte_valid <= '1';
+              
             when "01000" =>
               -- @IO:C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
               f011_reg_clock <= fastio_wdata;
@@ -2978,10 +2982,6 @@ begin  -- behavioural
             -- Indicate we need another byte now
             f011_drq <='1';
 
-            report "FLOP: (format track wait) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
-            fw_byte_in <= sb_cpu_wdata;
-            fw_byte_valid <= '1';
-
             last_fw_ready_for_next <= '1';
             
           end if;
@@ -3014,10 +3014,6 @@ begin  -- behavioural
             -- Indicate we need another byte now
             report "FLOPPY: Format requesting next byte";
             f011_drq <= '1';
-
-            report "FLOP: (format track) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
-            fw_byte_in <= sb_cpu_wdata;
-            fw_byte_valid <= '1';
 
           end if;
 
