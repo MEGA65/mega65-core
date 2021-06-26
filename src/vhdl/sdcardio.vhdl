@@ -530,6 +530,7 @@ architecture behavioural of sdcardio is
   signal fw_no_data : std_logic := '0';
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
+  signal step_countdown : integer range 0 to 511 := 0;
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1399,22 +1400,6 @@ begin  -- behavioural
         write_sector_gate_open <= '0';
       end if;
       
-      -- If MFM decoder thinks we are on the wrong track, and the
-      -- auto-tuner is enabled, then step in the right direction.
-      -- The timing of the steps is based on how often a sector goes past the head.
-      -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
-      -- sector. This is more than slow enough for safe stepping, we don't need
-      -- to do any other timing interlock
-      if autotune_enable = '1' and fdc_writing='0' then
-        if autotune_step='1' and last_autotune_step='0' then
-          f_step <= '0';
-          f_stepdir <= autotune_stepdir;
-        elsif autotune_step='0' and last_autotune_step='1' then
-          f_step <= '1';
-        end if;
-      end if;
-      last_autotune_step <= autotune_step;
-      
       -- XXX DEBUG toggle QSPI clock madly
       if qspi_clock_run = '1' and hypervisor_mode='1' then
         qspi_clock <= not qspi_clock_int;
@@ -1585,11 +1570,36 @@ begin  -- behavioural
           f011_busy <= '0'; 
         else
           busy_countdown <= busy_countdown - 1;
-          -- Stepping pulses should be short, so we clear it here
-          f_step <= '1';
         end if;
       end if;
 
+      if step_countdown /= 0 then
+        step_countdown <= step_countdown - 1;
+      end if;
+      if step_countdown = 1 then
+        -- Stepping pulses should be short, so we clear it here
+        f_step <= '1';
+      end if;
+
+      -- If MFM decoder thinks we are on the wrong track, and the
+      -- auto-tuner is enabled, then step in the right direction.
+      -- The timing of the steps is based on how often a sector goes past the head.
+      -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
+      -- sector. This is more than slow enough for safe stepping, we don't need
+      -- to do any other timing interlock
+      if autotune_enable = '1' and fdc_writing='0' then
+        if autotune_step='1' and last_autotune_step='0' then
+          f_step <= '0';
+          step_countdown <= 500;
+          f_stepdir <= autotune_stepdir;
+        elsif autotune_step='0' and last_autotune_step='1' then
+          f_step <= '1';
+        end if;
+      end if;
+      last_autotune_step <= autotune_step;
+      
+
+      
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
@@ -2037,6 +2047,7 @@ begin  -- behavioural
                   f011_head_track <= f011_head_track - 1;
                   f_step <= '0';
                   f_stepdir <= '1';
+                  step_countdown <= 500;
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
@@ -2071,6 +2082,7 @@ begin  -- behavioural
                 when x"18" =>         -- head step in
                   f_step <= '0';
                   f_stepdir <= '0';
+                  step_countdown <= 500;
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
@@ -2517,6 +2529,7 @@ begin  -- behavioural
                                
               f_stepdir <= fastio_wdata(4);
               f_step <= fastio_wdata(3);
+              step_countdown <= 500;              
 --              f_wdata <= fastio_wdata(2);
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
