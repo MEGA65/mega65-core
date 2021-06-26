@@ -4822,9 +4822,10 @@ begin
         ((monitor_mem_attention_request_drive='0')
          and (monitor_mem_trace_mode='0')) then
         if watchdog_countdown = 0 then
-                                        -- Watchdog reset triggered
+          -- Watchdog reset triggered
           watchdog_reset <= '1';
           watchdog_countdown <= 65535;
+          report "WATCHDOG reset";
         else
           watchdog_countdown <= watchdog_countdown - 1;
         end if;

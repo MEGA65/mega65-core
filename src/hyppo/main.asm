@@ -550,7 +550,7 @@ reset_entry:
 	ldz #$3f
 	map
 	eom
-	
+
 !src "debugtests.asm"
 
         jsr reset_machine_state

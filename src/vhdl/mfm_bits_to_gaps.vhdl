@@ -16,6 +16,9 @@ entity mfm_bits_to_gaps is
     
     -- Are we ready to accept something?
     ready_for_next : out std_logic := '1';
+
+    -- Do we have no data to write?
+    no_data : out std_logic := '1';
     
     -- Magnetic inversions as output
     f_write : out std_logic := '0';
@@ -96,6 +99,12 @@ begin
 
       -- XXX Another problem is that we should wait for the next index
       -- pulse before starting to write. Currently we just start writing.
+
+      if bits_queued = 0 and byte_in_buffer='0' then
+        no_data <= '1';
+      else
+        no_data <= '0';
+      end if;
       
       if bits_queued = 0 and byte_in_buffer='1' then
         report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ") for encoding.";

@@ -522,7 +522,10 @@ architecture behavioural of sdcardio is
 
   signal debug_track_format_sync_wait_counter : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_track_format_counter : unsigned(7 downto 0) := to_unsigned(0,8);
-  
+
+  signal last_fw_no_data : std_logic := '1';
+  signal fw_no_data : std_logic := '0';
+
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -698,6 +701,7 @@ begin  -- behavioural
       cycles_per_interval => cycles_per_interval,
       write_precomp_enable => f011_write_precomp,
       ready_for_next => fw_ready_for_next,
+      no_data => fw_no_data,
       f_write => f_wdata,
       byte_valid => fw_byte_valid,
       byte_in => fw_byte_in,
@@ -2974,7 +2978,7 @@ begin  -- behavioural
             -- Indicate we need another byte now
             f011_drq <='1';
 
-            report "FLOP: Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
+            report "FLOP: (format track wait) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
             fw_byte_in <= sb_cpu_wdata;
             fw_byte_valid <= '1';
 
@@ -2998,18 +3002,20 @@ begin  -- behavioural
             sd_state <= Idle;
           end if;
 
+          last_fw_no_data <= fw_no_data;
+          if fw_no_data='1' and last_fw_no_data = '0' then
+            report "FLOPPY: Format asserting byte lost";
+            f011_lost <= '1';
+          end if;
+
           last_fw_ready_for_next <= fw_ready_for_next;
           if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
             -- Grab the next byte
-            if f011_drq='1' then
-              report "FLOPPY: Format asserting byte lost";
-              f011_lost <= '1';
-            end if;
             -- Indicate we need another byte now
             report "FLOPPY: Format requesting next byte";
             f011_drq <= '1';
 
-            report "FLOP: Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
+            report "FLOP: (format track) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
             fw_byte_in <= sb_cpu_wdata;
             fw_byte_valid <= '1';
 
