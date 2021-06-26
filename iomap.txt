@@ -227,8 +227,8 @@ GS $D054 SUMMARY:VIC-IV Control register C
 GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
 GS $D056 VIC-IV:SPRHGHT Sprite extended height size (sprite pixels high)
 GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
-GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
-GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
+GS $D058 VIC-IV:LINESTEP number of bytes to advance between each text row (LSB)
+GS $D059 VIC-IV:LINESTEP number of bytes to advance between each text row (MSB)
 GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
 GS $D05B VIC-IV:CHRYSCL Vertical scaling of text mode (number of physical rasters per char text row)
 GS $D05C VIC-IV:SIDBDRWD Width of single side border
@@ -285,8 +285,9 @@ GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
 GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
 GS $D07C.5 VIC-IV:VSYNCP vsync polarity
-GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
-GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
+GS $D07C.6-7 VIC-IV:DEBUGC VIC-IV debug pixel select red(01), green(10) or blue(11) channel visible in $D07D
+GS $D07D DEBUG:DEBUGOUT VIC-IV debug value read-back (read only)
+GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB) (write only)
 GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
 GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
 GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
@@ -421,6 +422,7 @@ GS $D60D Bit bashing port
 GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
 GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
 GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
+GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
 GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
 GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
 GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
