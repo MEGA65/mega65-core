@@ -2029,13 +2029,19 @@ begin
           -- fastio_rdata <= x"FF";
           -- XXX debug: $D07D shows current single top border height
 --          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
-          case debug_channel_select is
-            when "00" => fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
-            when "01" => fastio_rdata <= std_logic_vector(debug_pixel_red);
-            when "10" => fastio_rdata <= std_logic_vector(debug_pixel_green);
-            when "11" => fastio_rdata <= std_logic_vector(debug_pixel_blue);
-            when others => fastio_rdata <= std_logic_vector(debug_pixel_blue);
-          end case;     
+          if hypervisor_mode='0' then
+            case debug_channel_select is
+              when "00" => fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
+              when "01" => fastio_rdata <= std_logic_vector(debug_pixel_red);
+              when "10" => fastio_rdata <= std_logic_vector(debug_pixel_green);
+              when "11" => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+              when others => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+            end case;
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place
+            fastio_rdata <= std_logic_vector(debug_x(7 downto 0));
+          end if;
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
@@ -2044,10 +2050,22 @@ begin
 --          fastio_rdata(1) <= external_pixel_strobe_log(0);
 --          fastio_rdata(2) <= vga_in_frame;
 --          fastio_rdata(3) <= indisplay_t3;
-          fastio_rdata <= std_logic_vector(hyper_data_counter(15 downto 8));
+          if hypervisor_mode='0' then
+            fastio_rdata <= std_logic_vector(hyper_data_counter(15 downto 8));
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place            
+            fastio_rdata <= std_logic_vector(debug_y(7 downto 0));
+          end if;
         elsif register_number=127 then
-          fastio_rdata <= std_logic_vector(hyper_data_counter(23 downto 16));
---          fastio_rdata <= x"FF";
+          if hypervisor_mode='0' then
+            fastio_rdata <= std_logic_vector(hyper_data_counter(23 downto 16));
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place            
+            fastio_rdata(3 downto 0) <= std_logic_vector(debug_x(11 downto 8));
+            fastio_rdata(7 downto 4) <= std_logic_vector(debug_y(11 downto 8));
+          end if;
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
