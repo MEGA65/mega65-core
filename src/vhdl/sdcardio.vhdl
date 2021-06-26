@@ -1373,10 +1373,10 @@ begin  -- behavioural
       -- Maintain de-bounced index hole sensor reading
       f_index_history(6 downto 0) <= f_index_history(7 downto 1);
       f_index_history(7) <= f_index;
-      if f_index_history = x"ff" then
-        last_f_index <= '1';
-      else
+      if f_index_history = x"00" then
         last_f_index <= '0';
+      else
+        last_f_index <= '1';
       end if;
       
       fw_byte_valid <= '0';
