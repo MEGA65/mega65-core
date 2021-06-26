@@ -416,7 +416,7 @@ architecture behavioural of sdcardio is
   signal fdc_writing : std_logic := '0';
   signal fdc_writing_cooldown : integer range 0 to 20250000 := 0;
   
-  signal autotune_enable : std_logic := '1';
+  signal autotune_enable : std_logic := '0';
   signal autotune_step : std_logic := '1';
   signal last_autotune_step : std_logic := '1';
   signal autotune_stepdir : std_logic := '1';
