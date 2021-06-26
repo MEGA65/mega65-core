@@ -408,7 +408,6 @@ architecture behavioural of sdcardio is
   signal rotation_count : integer range 0 to 15 := 0;
   signal index_wait_timeout : integer := 0;
   signal fdc_rotation_timeout_reserve_counter : integer range 0 to 100000000 := 0;
-  signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
   signal sd_wrote_byte : std_logic := '0';
@@ -525,7 +524,9 @@ architecture behavioural of sdcardio is
 
   signal last_fw_no_data : std_logic := '1';
   signal fw_no_data : std_logic := '0';
-
+  signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
+  signal last_f_index : std_logic := '0';
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1369,9 +1370,16 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
-      fw_byte_valid <= '0';
+      -- Maintain de-bounced index hole sensor reading
+      f_index_history(6 downto 0) <= f_index_history(7 downto 1);
+      f_index_history(7) <= f_index;
+      if f_index_history = x"ff" then
+        last_f_index <= '1';
+      else
+        last_f_index <= '0';
+      end if;
       
-      last_f_index <= f_index;
+      fw_byte_valid <= '0';
       
       if write_sector_gate_timeout /= 0 then
         write_sector_gate_timeout <= write_sector_gate_timeout - 1;
@@ -2968,14 +2976,14 @@ begin  -- behavioural
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
 
-          if f_index /= last_f_index then
+          if f_index_history(7) /= f_index_history(0) then
             report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
-              & ", last_f_index=" & std_logic'image(last_f_index);
+              & ", f_index_history=" & to_string(f_index_history);
           end if;
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
-          if (f_index='0' and last_f_index='1') then
+          if f_index_history = x"00" and last_f_index='1' then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
 
@@ -3000,7 +3008,7 @@ begin  -- behavioural
           
           debug_track_format_counter <= debug_track_format_counter + 1;
           
-          if (f_index='0' and last_f_index='1') then
+          if (f_index_history=x"00" and last_f_index='1') then
             report "FLOPPY: end of track due to index hole";
             f_wgate <= '1';
             f011_busy <= '0';
@@ -3058,16 +3066,15 @@ begin  -- behavioural
 
             
 --        report "fdc_read_request asserted, checking for activity";
-            last_f_index <= f_index;
             if index_wait_timeout /= 0 then
               index_wait_timeout <= index_wait_timeout -1;
             end if;
-            if (f_index='0' and last_f_index='1') or index_wait_timeout=0 then
+            if (f_index_history=x"00" and last_f_index='1') or index_wait_timeout=0 then
               rotation_count <= rotation_count + 1;
               -- Allow 250ms per rotation (they should be ~200ms)
               index_wait_timeout <= cpu_frequency / 4;
             end if;
-            if ((f_index='0' and last_f_index='1') and (fdc_sector_found='0')) or index_wait_timeout=0 then
+            if ((f_index_history=x"00" and last_f_index='1') and (fdc_sector_found='0')) or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
