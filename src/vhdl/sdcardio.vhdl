@@ -1828,6 +1828,10 @@ begin  -- behavioural
                   -- again at the next sync pulse.
                   f_wgate <= '1';
 
+                  -- Mark drive busy, as we should
+                  -- C65 DOS also relies on this.
+                  f011_busy <= '1';
+
                   report "FLOPPY: Asked for track format";
                   
                   -- Only allow formatting when real drive is used
@@ -2999,6 +3003,7 @@ begin  -- behavioural
           if (f_index='0' and last_f_index='1') then
             report "FLOPPY: end of track due to index hole";
             f_wgate <= '1';
+            f011_busy <= '0';
             sd_state <= Idle;
           end if;
 
@@ -3023,6 +3028,7 @@ begin  -- behavioural
 
           -- XXX Not implemented yet
           
+          f011_busy <= '0';
           sd_state <= Idle;
           
         when F011WriteSectorRealDrive =>
@@ -3031,6 +3037,7 @@ begin  -- behavioural
 
           -- XXX Not implemented yet
           
+          f011_busy <= '0';
           sd_state <= Idle;
           
         when FDCReadingSector =>
