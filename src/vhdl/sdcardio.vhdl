@@ -412,6 +412,10 @@ architecture behavioural of sdcardio is
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
   signal sd_wrote_byte : std_logic := '0';
 
+  -- Disable track auto-tuner for ~0.5 seconds after any write action
+  signal fdc_writing : std_logic := '0';
+  signal fdc_writing_cooldown : integer range 0 to 20250000 := 0;
+  
   signal autotune_enable : std_logic := '1';
   signal autotune_step : std_logic := '1';
   signal last_autotune_step : std_logic := '1';
@@ -1370,6 +1374,13 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      if fdc_writing_cooldown /= 0 then
+        fdc_writing <= '1';
+        fdc_writing_cooldown <= fdc_writing_cooldown - 1;
+      else
+        fdc_writing <= '0';
+      end if;
+      
       -- Maintain de-bounced index hole sensor reading
       f_index_history(6 downto 0) <= f_index_history(7 downto 1);
       f_index_history(7) <= f_index;
@@ -1394,7 +1405,7 @@ begin  -- behavioural
       -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
       -- sector. This is more than slow enough for safe stepping, we don't need
       -- to do any other timing interlock
-      if autotune_enable = '1' and sd_state /= FDCFormatTrack and sd_state /= FDCFormatTrackSyncWait then
+      if autotune_enable = '1' and fdc_writing='0' then
         if autotune_step='1' and last_autotune_step='0' then
           f_step <= '0';
           f_stepdir <= autotune_stepdir;
@@ -2976,6 +2987,8 @@ begin  -- behavioural
         when FDCFormatTrackSyncWait =>
           -- Wait for negative edge on f_sync line
 
+          fdc_writing_cooldown <= 20250000;
+        
           if f_index_history(7) /= f_index_history(0) then
             report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
               & ", f_index_history=" & to_string(f_index_history);
@@ -3001,6 +3014,8 @@ begin  -- behavioural
           -- Close write gate and finish formatting when we hit the next
           -- negative edge on the INDEX hole sensor of the floppy.
 
+          fdc_writing_cooldown <= 20250000;
+          
           if fw_ready_for_next /= last_fw_ready_for_next then
             report "FLOPPY: Format Track Active: fw_ready_for_next = " & std_logic'image(fw_ready_for_next)
               & ", last_fw_ready_for_next=" & std_logic'image(last_fw_ready_for_next);
