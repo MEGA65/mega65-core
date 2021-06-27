@@ -395,6 +395,7 @@ architecture behavioural of sdcardio is
   signal fdc_sector_end : std_logic := '0';
   signal fdc_sector_data_gap : std_logic := '0';
   signal fdc_sector_found : std_logic := '0';
+  signal last_fdc_sector_found : std_logic := '0';
 
   signal fdc_mfm_state : unsigned(7 downto 0);
   signal fdc_last_gap : unsigned(15 downto 0);
@@ -413,8 +414,13 @@ architecture behavioural of sdcardio is
   signal sd_wrote_byte : std_logic := '0';
 
   -- Disable track auto-tuner for ~0.5 seconds after any write action
+  -- (Actually the auto-tuner is now effectively defunct, as the bug that caused
+  -- us to implement it has now been fixed).
   signal fdc_writing : std_logic := '0';
   signal fdc_writing_cooldown : integer range 0 to 20250000 := 0;
+
+  -- Used to keep track of where we are upto in a sector write
+  signal fdc_write_byte_number : integer range 0 to 1023 := 0;
   
   signal autotune_enable : std_logic := '0';
   signal autotune_step : std_logic := '1';
@@ -1369,12 +1375,16 @@ begin  -- behavioural
         else
           f011_buffer_read_address <= "111"&sd_buffer_offset;
         end if;
+      when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
+        f011_buffer_read_address <= "110"&f011_buffer_disk_address;
       when others =>
         f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
     end case;
     
     if rising_edge(clock) then    
 
+      last_fdc_sector_found <= fdc_sector_found;
+      
       if fdc_writing_cooldown /= 0 then
         fdc_writing <= '1';
         fdc_writing_cooldown <= fdc_writing_cooldown - 1;
@@ -1989,9 +1999,21 @@ begin  -- behavioural
                   elsif virtualise_f011_drive0='0' and f011_ds="000" and use_real_floppy0='1' then
                     -- Access to real first floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    -- Setup timeouts etc
+                    fdc_rotation_timeout <= 10;
+                    fdc_rotation_timeout_reserve_counter <= 100000000;
+                    f011_busy <= '1';
+                    f011_rnf <= '0';
+                    index_wait_timeout <= cpu_frequency / 4;
                   elsif virtualise_f011_drive1='0' and f011_ds="001" and use_real_floppy2='1' then
                     -- Access to real second floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    -- Setup timeouts etc
+                    fdc_rotation_timeout <= 10;
+                    fdc_rotation_timeout_reserve_counter <= 100000000;
+                    f011_busy <= '1';
+                    f011_rnf <= '0';
+                    index_wait_timeout <= cpu_frequency / 4;
                   elsif f011_ds(2 downto 1) /= x"00" then
                     -- only 2 drives supported for now
                     f011_rnf <= '1';
@@ -3062,19 +3084,96 @@ begin  -- behavioural
           -- Wait until the target sector header is found, or
           -- six index pulses have passed
 
-          -- XXX Not implemented yet
-          
-          f011_busy <= '0';
-          sd_state <= Idle;
-          
+          -- Wait until we get a fresh event of hitting the sector we
+          -- are looking for.
+          if fdc_sector_found='1' and last_fdc_sector_found='0' then
+            -- Indicate that we still have the gap and sync mark bytes etc to write
+            fdc_write_byte_number <= 0;
+            -- And immediately open the write gate
+            f_wgate <= '0';
+
+            -- Ask for sector buffer to get ready to feed us bytes, beginning
+            -- at the start of the sector buffer
+            f011_buffer_disk_address <= (others => '0');
+            f011_buffer_disk_pointer_advance <= '0';
+            sb_cpu_read_request <= '0';
+            sb_cpu_reading <= '0';
+            
+            -- And now start feeding bytes
+            sd_state <= F011WriteSectorRealDrive;
+          end if;
+
+          if fdc_rotation_timeout_reserve_counter /= 0 then
+            fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
+          else
+            -- Out of time: fail job
+            report "Cancelling real sector write due to timeout";
+            f011_rnf <= '1';
+            fdc_read_request <= '0';
+            fdc_bytes_read(4) <= '1';
+            f011_busy <= '0';
+            sd_state <= Idle;
+          end if;
+
         when F011WriteSectorRealDrive =>
 
           -- Write the various bytes of the sector, including the sync marks etc
 
-          -- XXX Not implemented yet
+          -- Note that it is not possible to read from the sector buffer while
+          -- doing a write, as the FDC requires the memory bandwidth of the
+          -- sector buffer.
+          -- (We could work around this by buffering the bytes from the buffer
+          -- as we go, but let's keep things simple for now.)
+          sb_cpu_read_request <= '0';
           
-          f011_busy <= '0';
-          sd_state <= Idle;
+          if fw_ready_for_next='1' then
+            fdc_write_byte_number <= fdc_write_byte_number + 1;
+            case fdc_write_byte_number is
+              when 0 to 22 =>
+                -- Write gap $4E bytes
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= x"4E";
+                fw_byte_valid <= '1';
+              when 23 to 23 + 11 =>
+                -- Write gap $00 bytes
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= x"00";
+                fw_byte_valid <= '1';
+              when 23 + 12 to 23 + 14 =>
+                -- Write $A1/$FB sync bytes
+                f011_reg_clock <= x"FB";
+                fw_byte_in <= x"A1";
+                fw_byte_valid <= '1';
+              when 23 + 15 =>
+                -- Write $FB/$FF sector start byte
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= x"FB";
+                fw_byte_valid <= '1';
+              when 23 + 16 to 23 + 16 + 511 =>
+                -- Write data bytes
+                f011_reg_clock <= x"FB";
+                fw_byte_in <= f011_buffer_rdata;
+                fw_byte_valid <= '1';
+                f011_buffer_disk_pointer_advance <= '1';
+              when 23 + 16 + 512 =>
+                -- First CRC byte
+              when 23 + 16 + 512 + 1 =>
+                -- Second CRC byte
+              when 23 + 16 + 512 + 2 to 23 + 16 + 512 + 2 + 5 =>
+                -- Gap 3 $4E bytes
+                -- (Really only to make sure MFM writer has flushed last
+                -- CRC byte before we disable f_wgate, as that takes effect
+                -- immediately)
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= x"4E";
+                fw_byte_valid <= '1';                
+              when 23 + 16 + 512 + 2 + 6 =>
+                -- Finished writing sector
+                f_wgate <= '1';
+                f011_busy <= '0';
+                sd_state <= Idle;
+            end case;
+          end if;
           
         when FDCReadingSector =>
           if fdc_read_request='1' then
