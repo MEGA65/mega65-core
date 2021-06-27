@@ -3163,11 +3163,11 @@ begin  -- behavioural
                 -- Gap 3 $4E bytes
                 -- (Really only to make sure MFM writer has flushed last
                 -- CRC byte before we disable f_wgate, as that takes effect
-                -- immediately)
+                -- immediately, so we only write a few, rather than the full 24)
                 f011_reg_clock <= x"FF";
                 fw_byte_in <= x"4E";
                 fw_byte_valid <= '1';                
-              when 23 + 16 + 512 + 2 + 6 =>
+              when others =>
                 -- Finished writing sector
                 f_wgate <= '1';
                 f011_busy <= '0';
