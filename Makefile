@@ -147,9 +147,16 @@ src/tools/acme/src/acme:
 	( cd src/tools/acme/src && make -j 8 )
 
 
+ghdl/ghdl_mcode: ghdl/build/bin/ghdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	# GHDL submodule is compiled by ghdl/build/bin/ghdl
+
+
 ghdl/build/bin/ghdl:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
 	git submodule init
 	git submodule update
 	( cd ghdl && ./configure --prefix=./build && make -j 8 && make install )
