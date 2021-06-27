@@ -259,10 +259,7 @@ begin
               or (
                 (to_integer(target_track) = to_integer(seen_track))
                 and (to_integer(target_sector) = to_integer(seen_sector))) then
-                  -- It seems that some drives/tools format 1581 disks with
-                  -- sectors on both sides marked as side 0. So we should ignore
-                  -- this field.
---                and (to_integer(target_side) = to_integer(seen_side))) then
+                and (to_integer(target_side) = to_integer(seen_side))) then
               if (last_crc = x"0000") then
 --                report "Seen sector matches target";
                 found_track <= seen_track;
