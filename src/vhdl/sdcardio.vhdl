@@ -537,6 +537,12 @@ architecture behavioural of sdcardio is
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
+
+  signal crc_reset : std_logic := '1';
+  signal crc_feed : std_logic := '0';
+  signal crc_byte : unsigned(7 downto 0);  
+  signal crc_ready : std_logic;
+  signal crc_value : unsigned(15 downto 0);
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -718,6 +724,16 @@ begin  -- behavioural
       byte_valid => fw_byte_valid,
       byte_in => fw_byte_in,
       clock_byte_in => f011_reg_clock
+    );
+
+  crc0: entity work.crc1581 port map (
+    clock40mhz => clock,
+    crc_byte => crc_byte,
+    crc_feed => crc_feed,
+    crc_reset => crc_reset,
+    
+    crc_ready => crc_ready,
+    crc_value => crc_value
     );
   
   -- Reader for real floppy drive
@@ -3125,6 +3141,8 @@ begin  -- behavioural
           -- (We could work around this by buffering the bytes from the buffer
           -- as we go, but let's keep things simple for now.)
           sb_cpu_read_request <= '0';
+
+          crc_feed <= '0';
           
           if fw_ready_for_next='1' then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
@@ -3144,21 +3162,31 @@ begin  -- behavioural
                 f011_reg_clock <= x"FB";
                 fw_byte_in <= x"A1";
                 fw_byte_valid <= '1';
-              when 23 + 15 =>
+                crc_reset <= '1';
+              when 23 + 15 =>                
                 -- Write $FB/$FF sector start byte
                 f011_reg_clock <= x"FF";
                 fw_byte_in <= x"FB";
                 fw_byte_valid <= '1';
+                crc_reset <= '0';
               when 23 + 16 to 23 + 16 + 511 =>
                 -- Write data bytes
-                f011_reg_clock <= x"FB";
+                f011_reg_clock <= x"FF";
                 fw_byte_in <= f011_buffer_rdata;
+                crc_byte <= f011_buffer_rdata;
+                crc_feed <= '1';
                 fw_byte_valid <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
               when 23 + 16 + 512 =>
                 -- First CRC byte
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= crc_value(7 downto 0);
+                fw_byte_valid <= '1';
               when 23 + 16 + 512 + 1 =>
                 -- Second CRC byte
+                f011_reg_clock <= x"FF";
+                fw_byte_in <= crc_value(15 downto 8);
+                fw_byte_valid <= '1';
               when 23 + 16 + 512 + 2 to 23 + 16 + 512 + 2 + 5 =>
                 -- Gap 3 $4E bytes
                 -- (Really only to make sure MFM writer has flushed last
