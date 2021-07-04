@@ -4779,10 +4779,15 @@ begin
                     paint_mc2 <= x"00";
                     paint_foreground <= x"00";
                   else
-                    -- multi-colour text mode masks bit 3 of the foreground
-                    -- colour to select whether the character is multi-colour or
-                    -- not.
-                    paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                    if viciii_extended_attributes='1' then
+                      -- multi-colour text mode with full-colour VIC III/IV mode
+                      paint_foreground <= glyph_colour;
+                    else
+                      -- multi-colour text mode masks bit 3 of the foreground
+                      -- colour to select whether the character is multi-colour or
+                      -- not.
+                      paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                    end if;
                     paint_mc1 <= multi2_colour;
                     paint_mc2 <= multi1_colour;
                   end if;
