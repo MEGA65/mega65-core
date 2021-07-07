@@ -2228,9 +2228,22 @@ keyboardread:
 ;; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
         jsr utility_menu_check
+        
+        ldx #$01
+        lda $d629
+        and #$40
+        beq @startscan
+        ldx #$ff    ;; for nexys-range of boards, repeat check for keyboard input in a short loop
 
+@startscan:
         jsr scankeyboard
-        bcs kr2  ;; if an error occured
+        bcc @checkkey
+        
+        dex     ;; no key pressed yet
+        bne @startscan
+        jmp kr2  ;; no key was pressed, despite looping for a while to wait for it
+        
+@checkkey:
         cmp #$20
         bne @notUtilMenu
         jmp utility_menu
@@ -3010,7 +3023,7 @@ msg_romok:              !text "ROM CHECKSUM OK - BOOTING"
 ;;                      !8 0
 msg_charromloaded:      !text "LOADED CHARROM.M65 ($$$$ PAGES)"
                         !8 0
-msg_megaromloaded:      !text "LOADED MEGA65ROM.M65 ($$$$ PAGES)"
+msg_megaromloaded:      !text "LOADED MEGA65.ROM ($$$$ PAGES)"
                         !8 0
 msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
                         !8 0
