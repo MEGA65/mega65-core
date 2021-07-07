@@ -991,7 +991,7 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILO
 	./vivado_timing $(subst bin/,,$*)
 	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.timing.txt
 
-$(BINDIR)/%.mcs:	$(BINDIR)/%.bit
+$(BINDIR)/%.mcs:	$(BINDIR)/%.bit freezer_files
 	mkdir -p $(SDCARD_DIR)
 	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
 
