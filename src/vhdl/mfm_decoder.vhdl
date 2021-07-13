@@ -335,10 +335,12 @@ begin
         if sync_count = 3 then
           -- First byte after a sync
           if byte_in = x"FE" then
+            -- Sector header marker
             crc_feed <= '1'; crc_byte <= byte_in;
             seen_valid <= '0';
             state <= TrackNumber;
           elsif byte_in = x"FB" then
+            -- Sector data marker
             state <= SectorData;
             crc_feed <= '1'; crc_byte <= byte_in;
             byte_count <= 0;
