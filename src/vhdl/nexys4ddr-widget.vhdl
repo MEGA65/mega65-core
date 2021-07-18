@@ -528,7 +528,7 @@ begin
       sclk2_o => sdClock,
       mosi2_o => sdMOSI,
       miso2_i => sdMISO,
-      miso2_i => '1',
+      miso_i => '1',
 
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,
