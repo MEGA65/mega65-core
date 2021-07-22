@@ -936,9 +936,8 @@ trap_dos_d81write_en:
 
 trap_dos_get_proc_desc:
 
-        ;+Checkpoint "trap_dos_get_prod_desc"
-	ldx hypervisor_x
-	ldy hypervisor_y
+        ldx hypervisor_x
+        ldy hypervisor_y
         jsr dos_get_proc_desc
         jmp return_from_trap_with_carry_flag
 
@@ -959,17 +958,16 @@ dos_d81write_en:
 
 dos_get_proc_desc:
 
-	stx <dos_scratch_vector
-	sty <(dos_scratch_vector+1)
-	ldy #$00
-
-loop:   
-	lda currenttask_block, y
-	sta (<dos_scratch_vector),y
-	iny
-	bne loop
-	sec
-	rts
+        stx <dos_scratch_vector
+        sty <(dos_scratch_vector+1)
+        ldy #$00
+loop:
+        lda currenttask_block, y
+        sta (<dos_scratch_vector),y
+        iny
+        bne loop
+        sec
+        rts
 
 td81we1:
         ;; No disk image mounted
