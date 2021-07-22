@@ -80,7 +80,7 @@ dos_and_process_trap_table:
         !16 trap_dos_d81detach
         !16 trap_dos_d81write_en
         !16 trap_dos_d81attach1
-        !16 invalid_subfunction
+        !16 trap_dos_get_proc_desc
         !16 invalid_subfunction
         !16 invalid_subfunction
         !16 invalid_subfunction
@@ -932,6 +932,16 @@ trap_dos_d81write_en:
         jsr dos_d81write_en
         jmp return_from_trap_with_carry_flag
 
+;;         ========================
+
+trap_dos_get_proc_desc:
+
+        ;+Checkpoint "trap_dos_get_prod_desc"
+	ldx hypervisor_x
+	ldy hypervisor_y
+        jsr dos_get_proc_desc
+        jmp return_from_trap_with_carry_flag
+
 dos_d81write_en:
         lda $d68b
         and #$03
@@ -946,6 +956,20 @@ dos_d81write_en:
 
         sec
         rts
+
+dos_get_proc_desc:
+
+	stx <dos_scratch_vector
+	sty <(dos_scratch_vector+1)
+	ldy #$00
+
+loop:   
+	lda currenttask_block, y
+	sta (<dos_scratch_vector),y
+	iny
+	bne loop
+	sec
+	rts
 
 td81we1:
         ;; No disk image mounted
@@ -2967,7 +2991,7 @@ drd_deleted_or_invalid_entry:
 
         jsr checkpoint
         !8 0
-ddie:   !text "xx drd_deleted_or_invalid_entry"
+ddie:   !text "xx drd_del_or_inval_entry"
         !8 0
 	
         jsr dos_readdir_advance_to_next_entry
