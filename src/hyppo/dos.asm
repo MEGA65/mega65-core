@@ -935,10 +935,16 @@ trap_dos_d81write_en:
 ;;         ========================
 
 trap_dos_get_proc_desc:
-
-        ldx hypervisor_x
-        ldy hypervisor_y
-        jsr dos_get_proc_desc
+        jsr hypervisor_setup_copy_region
+        bcc @bad
+        ldy #0
+@copyloop:
+        lda currenttask_block,y
+        sta (<hypervisor_userspace_copy_vector),y
+        iny
+        bne @copyloop
+        sec
+@bad:
         jmp return_from_trap_with_carry_flag
 
 dos_d81write_en:
@@ -953,19 +959,6 @@ dos_d81write_en:
         lda currenttask_d81_image0_flags
         ora #d81_image_flag_write_en
 
-        sec
-        rts
-
-dos_get_proc_desc:
-
-        stx <dos_scratch_vector
-        sty <(dos_scratch_vector+1)
-        ldy #$00
-loop:
-        lda currenttask_block, y
-        sta (<dos_scratch_vector),y
-        iny
-        bne loop
         sec
         rts
 
@@ -2989,7 +2982,7 @@ drd_deleted_or_invalid_entry:
 
         jsr checkpoint
         !8 0
-ddie:   !text "xx drd_del_or_inval_entry"
+ddie:   !text "xx drd_deleted_or_invalid_entry"
         !8 0
 	
         jsr dos_readdir_advance_to_next_entry
