@@ -80,7 +80,7 @@ dos_and_process_trap_table:
         !16 trap_dos_d81detach
         !16 trap_dos_d81write_en
         !16 trap_dos_d81attach1
-        !16 invalid_subfunction
+        !16 trap_dos_get_proc_desc
         !16 invalid_subfunction
         !16 invalid_subfunction
         !16 invalid_subfunction
@@ -930,6 +930,21 @@ trap_dos_d81detach:
 trap_dos_d81write_en:
 
         jsr dos_d81write_en
+        jmp return_from_trap_with_carry_flag
+
+;;         ========================
+
+trap_dos_get_proc_desc:
+        jsr hypervisor_setup_copy_region
+        bcc @bad
+        ldy #0
+@copyloop:
+        lda currenttask_block,y
+        sta (<hypervisor_userspace_copy_vector),y
+        iny
+        bne @copyloop
+        sec
+@bad:
         jmp return_from_trap_with_carry_flag
 
 dos_d81write_en:
