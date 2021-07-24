@@ -119,38 +119,39 @@ all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BIND
 
 freezer_files: $(FREEZER_FILES)
 
+SMU= \
+	@if [ -z "$(DO_SMU)" ] || [ "$(DO_SMU)" -eq "1" ] ; then \
+	echo "Updating Submodules... (set env-var DO_SMU=0 to turn this behaviour off)" ; \
+	git submodule update --init ; \
+	fi
+
 $(FREEZER_FILES): %.M65:
-	git submodule init
-	git submodule update
+	$(SMU)
 	make -C src/mega65-freezemenu $(notdir $@) USE_LOCAL_CC65=$(USE_LOCAL_CC65)
 	cp src/mega65-freezemenu/$(notdir $@) $(SDCARD_DIR)/
 
 $(CBMCONVERT):
-	git submodule init
-	git submodule update
+	$(SMU)
 	( cd cbmconvert && make -f Makefile.unix )
 
 cc65/bin/cc65:
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	git submodule init
-	git submodule update
+	$(SMU)
 	( cd cc65 && make -j 8 )
 
 
 Ophis/bin/ophis:
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	git submodule init Ophis
-	git submodule update Ophis
+	$(SMU)
 	# Ophis submodule has the executable pre-built at Ophis/bin/ophis
 
 
 src/tools/acme/src/acme:
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	git submodule init
-	git submodule update
+	$(SMU)
 	( cd src/tools/acme/src && make -j 8 )
 
 
@@ -164,8 +165,7 @@ ghdl/build/bin/ghdl:
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
-	git submodule init
-	git submodule update
+	$(SMU)
 	( cd ghdl && ./configure --prefix=./build && make -j 8 && make install )
 
 # Not quite yet with Vivado...
@@ -659,7 +659,7 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CA65) $< -l $*.list
+	$(CA65) $< -g -l $*.list
 
 $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65_DEPEND)
 	$(info =============================================================)
@@ -694,7 +694,7 @@ $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(LD65) $< --mapfile $*.map -o $*.prg
+	$(LD65) $< -Ln $*.lbl -vm --mapfile $*.map -o $*.prg
 
 $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(info =============================================================)
@@ -814,8 +814,7 @@ $(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
 	( cd $(SRCDIR)/open-roms ; make bin/mega65.rom )
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
-	git submodule init
-	git submodule update
+	$(SMU)
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
 $(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg $(SDCARD_DIR)/ONBOARD.M65
@@ -895,8 +894,7 @@ $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.p
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
 iverilog/driver/iverilog:
-	git submodule init
-	git submodule update
+	$(SMU)
 	cd iverilog ; autoconf ; ./configure ; make
 	mkdir -p iverilog/lib/ivl
 	ln -s ../../ivlpp/ivlpp iverilog/lib/ivl/ivlpp
