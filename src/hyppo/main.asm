@@ -721,7 +721,7 @@ normalboot:
         lda #$01
         sta $d680
 
-        ldx #$03
+        ldx #$04
 morewaiting:
         jsr sdwaitawhile
 
