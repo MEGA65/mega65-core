@@ -654,6 +654,19 @@ copySessionOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
+		; check if this is a nexys4 board
+		LDA $D629
+		AND #$40  
+		BEQ @notnexys
+
+		; for nexys4 boards, use sd card bus 0
+		LDA #$80
+		STA $D680
+		LDY #$00
+		JMP @copyLoop
+
+@notnexys
+		; for all other boards, use sd card bus 1
 		LDA	#$81
 		STA	$D680
 		LDY	#$00
