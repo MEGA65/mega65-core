@@ -524,10 +524,10 @@ begin
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
-      cs2_bo => sdReset,
-      sclk2_o => sdClock,
-      mosi2_o => sdMOSI,
-      miso2_i => sdMISO,
+      cs_bo => sdReset,
+      sclk_o => sdClock,
+      mosi_o => sdMOSI,
+      miso_i => sdMISO,
       miso2_i => '1',
 
       aclMISO => aclMISO,
