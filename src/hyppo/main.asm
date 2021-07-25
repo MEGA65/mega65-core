@@ -693,6 +693,9 @@ fpga_has_been_reconfigured:
 	;; (This also means if you choose "safe mode" factory bitstream, and then reset, it
 	;; won't try to run upgraded bitstream again.)
 	
+        ;; wait 0.1 msec for things to settle after power-up
+        jsr sdwaitawhile
+
         ;; check keyboard for 0-9 down to select alternate rom
         ;;
         jsr keyboardread
@@ -731,8 +734,8 @@ morewaiting:
 
         phx
 
-        ldx #<msg_usingcard0
-        ldy #>msg_usingcard0
+        ldx #<msg_usingcard1
+        ldy #>msg_usingcard1
         jsr printmessage
 
         plx
@@ -745,11 +748,11 @@ trybus0:
         lda #$c0
         sta $d680
 
-        ldx #<msg_tryingcard1
-        ldy #>msg_tryingcard1
+        ldx #<msg_tryingcard0
+        ldy #>msg_tryingcard0
         jsr printmessage
 
-        ;; Try resetting card 1
+        ;; Try resetting card 0
         lda #$00
         sta $d680
         lda #$01
@@ -3088,9 +3091,9 @@ msg_nologo:             !text "COULD NOT LOAD BANNER.M65 (ERRNO:$$)"
                         !8 0
 msg_cdrootfailed:       !text "COULD NOT CHDIR TO / (ERRNO:$$)"
                         !8 0
-msg_tryingcard1:        !text "TRYING SDCARD BUS 1"
+msg_tryingcard0:        !text "TRYING SDCARD BUS 0"
                         !8 0
-msg_usingcard0:         !text "USING SDCARD BUS 0"
+msg_usingcard1:         !text "USING SDCARD BUS 1"
                         !8 0
 msg_dmagica:            !text "DMAGIC REV A MODE"
                         !8 0
