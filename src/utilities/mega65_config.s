@@ -665,7 +665,7 @@ copySessionOptionsToSectorBuffer:
 		LDY #$00
 		JMP @copyLoop
 
-@notnexys
+@notnexys:
 		; for all other boards, use sd card bus 1
 		LDA	#$81
 		STA	$D680
