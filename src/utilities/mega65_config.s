@@ -651,17 +651,17 @@ themeNext:
 ;-------------------------------------------------------------------------------
 littleDelay:
 ;-------------------------------------------------------------------------------
-    ; add a slight delay
-    LDX #$00
+		; add a slight delay
+		LDX #$00
 @inner1:
-    LDY #$00
+		LDY #$00
 @inner2:
-    DEY
-    BNE @inner2
+		DEY
+		BNE @inner2
 
-    DEX
-    BNE @inner1
-    RTS
+		DEX
+		BNE @inner1
+		RTS
 
 ;-------------------------------------------------------------------------------
 copySessionOptionsToSectorBuffer:	
@@ -669,9 +669,9 @@ copySessionOptionsToSectorBuffer:
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
     ; disable interrupts, just in-case they are interfering
-    SEI
+		SEI
 
-    JMP littleDelay
+		JMP littleDelay
 
 		; check if this is a nexys4 board
 		LDA $D629
