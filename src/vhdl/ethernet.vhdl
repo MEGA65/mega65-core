@@ -1286,6 +1286,9 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- Correctly compute the number of free RX buffers
+      eth_rx_buffers_free <= to_integer(to_unsigned(4 + rxbuff_id_cpuside - rxbuff_id_ethside,2));
+        
       -- De-glitch eth_tx_trigger before we push it to the 50MHz side
       eth_tx_trigger_drive <= eth_tx_trigger;
       
@@ -1330,12 +1333,6 @@ begin  -- behavioural
         eth_rx_write_count <= eth_rx_write_count + 1;
         -- Mark buffer in use once it starts being written to
         eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
-        if eth_rx_buffer_inuse(rxbuff_id_ethside) = '0' then
-          -- Buffer just got occupied, so reduce free buffer count
-          if eth_rx_buffers_free /= 0 then
-            eth_rx_buffers_free <= eth_rx_buffers_free - 1;
-          end if;
-        end if;
       else
         rxbuffer_write <= "0000";
       end if;
@@ -1536,7 +1533,6 @@ begin  -- behavioural
               if fastio_wdata(0) = '0' or fastio_wdata(1) = '0' then
                 -- Reset RX buffer state: CPU viewing buffer 0,
                 -- other three buffers free
-                eth_rx_buffers_free <= 3;
                 rxbuff_id_ethside <= 1;
                 rxbuff_id_cpuside <= 0;
                 eth_rx_blocked <= '0';
@@ -1580,15 +1576,10 @@ begin  -- behavioural
                 -- cycles instead of one.
 
                 -- Free up the RX buffer we were looking at
-                if eth_rx_buffer_inuse(rxbuff_id_cpuside)='1' and (eth_rx_buffers_free < 3) then
-                  eth_rx_buffers_free <= eth_rx_buffers_free + 1;                  
-                end if;
                 eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
                 -- Advance to next buffer, if there are any
                 if ((rxbuff_id_cpuside + 0) = rxbuff_id_ethside) then
---                if ((rxbuff_id_cpuside + 1) = rxbuff_id_ethside) 
---                  or ((rxbuff_id_cpuside = 3) and (rxbuff_id_ethside = 0 )) then
                   -- No more waiting packets
                   null;
                 else
