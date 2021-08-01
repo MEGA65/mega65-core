@@ -3864,6 +3864,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      monitor_watch_match <= '0';       -- set if writing to watched address
+      
       reg_q33 <= '0' & reg_z & reg_y & reg_x & reg_a;
       reg_cycle_counter <= reg_cycle_counter + 1;      
       
@@ -8122,6 +8124,12 @@ begin
                                         -- reg_pc <= reg_pc;
           end if;
           write_long_byte(memory_access_address,memory_access_wdata);
+          -- Check if memory address being written to is being watched
+          if memory_access_address = monitor_watch then
+            monitor_watch_match <= '1';
+          else
+            monitor_watch_match <= '0';
+          end if;
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           read_long_address(memory_access_address);
@@ -8143,7 +8151,6 @@ begin
   
   -- output all monitor values based on current state, not one clock delayed.
   monitor_memory_access_address <= x"0"&memory_access_address_next;
-  monitor_watch_match <= '0';       -- set if writing to watched address
   monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
   monitor_hypervisor_mode <= hypervisor_mode;
   monitor_pc <= reg_pc;
