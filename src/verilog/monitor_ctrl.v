@@ -336,13 +336,13 @@ begin
     if(address == `MON_TRACE_CTRL)
     begin
       mem_trace_reg <= di;
-      if(di[6] == 0)
-        monitor_watch_matched <= 0;
-      if(di[7] == 0)
-        monitor_break_matched <= 0;
     end
     if(address == `MON_TRACE_STEP)
+      // Set trace toggle
         monitor_mem_trace_toggle <= di[0];
+     // Also clear flag for watch/break match
+        monitor_watch_matched <= 0;
+        monitor_break_matched <= 0;
     if(address == `MON_FLAG_MASK0)
         flag_break_mask[7:0] <= di;
     if(address == `MON_FLAG_MASK1)
@@ -594,8 +594,8 @@ begin
 //  `MON_READ_IDX_HI:      do <= { 6'b000000, history_read_index[9:8] };
 //  `MON_WRITE_IDX_LO:     do <= history_write_index[7:0];
 //  `MON_WRITE_IDX_HI:     do <= { 6'b000000, history_write_index[9:8] };
-  `MON_TRACE_CTRL:       do <= { monitor_break_matched, monitor_watch_matched, mem_trace_reg[5:0] };
-  `MON_TRACE_STEP:       do <= { 7'b0000000, monitor_mem_trace_toggle };
+  `MON_TRACE_CTRL:       do <= { mem_trace_reg[7:0] };
+  `MON_TRACE_STEP:       do <= { monitor_break_matched, monitor_watch_matched, 5'b00000, monitor_mem_trace_toggle };
   
 //  `MON_FLAG_MASK0:       do <= flag_break_mask[7:0];
 //  `MON_FLAG_MASK1:       do <= flag_break_mask[15:8];

@@ -80,34 +80,42 @@
       .alias      bitrate_lo          $900C
       .alias      bitrate_hi          $900D
       
-      .alias      break_addr          $900E
+      .alias      break_addr          $900E  ; 16-bit address takes 2 bytes
 
-      .alias      mem_addr            $9010
+      .alias      mem_addr            $9010  ; 28-bit address takes 4 bytes
       .alias      mem_read            $9014
       .alias      mem_write           $9015
       .alias      mem_status          $9016
       .alias      mem_inc             $9017
 
-      .alias      watch_addr          $9018
+      .alias      watch_addr          $9018  ; 28-bit address takes 4 bytes
       .alias      state_cnt           $901C
       .alias      protected_hw        $901D
       .alias      monitor_char        $901E
       .alias      monitor_char_status $901F
       
       ; Trace control bits
+      ; Bit 0 - Trace mode: CPU single-steps, waiting for permission to execute the next instruction
       .alias      trace_en            $1
       .alias      trace_dis           $ff^$1
+      ; Bit 1 - If enabled, then enable breaking on PC matching a provided value
       .alias      trace_flag_en       $2
       .alias      trace_flag_match    $2
+      ; Bit 2 - If set, record recent CPU history
       .alias      trace_hist_en       $4
       .alias      trace_hist_dis      $ff^$4
+      ; Bit 3 - Continuous CPU history tracing
       .alias      trace_hist_cont_en  $8
       .alias      trace_hist_cont_dis $ff^$8
+      ; Bit 4 - Disable IRQs if set
       .alias      trace_irq_dis       $10
       .alias      trace_irq_en        $ff^$10
+      ; Bit 5 - Disable hypervisor traps (or halt on hypervisor traps?)
       .alias      trace_hyper_trap    $20
+      ; Bit 6 - Enable watching a memory location for modification
       .alias      trace_watch_en      $40
       .alias      trace_watch_match   $40
+      ; Bit 7 - Enable to halt CPU when PC matches provided value
       .alias      trace_break_en      $80
       .alias      trace_break_match   $80
 
@@ -213,11 +221,11 @@ accepting_input:
       bit         monitor_char_status ; Anything from the monitor?
       bmi         get_monitor_char
       
-*     bit         mon_trace         ; See if we got a watch or break match
+*     bit         mon_trace_step         ; See if we got a watch or break match
       bvc         +
-      jmp         watch_match
+      jmp         break_or_watch_match
 *     bpl         +
-      jmp         break_match
+      jmp         break_or_watch_match
       
       ; Nothing else to do, see if we're doing continuous tracing
 *     lda         trace_continuous
@@ -997,7 +1005,7 @@ trace_table:
       .byte       $ff, trace_hyper_trap                                               ; $10 - Hypervisor trap enable
       .byte       $ff - trace_flag_en, $00                                            ; $12 - Flag break disable
       .byte       $ff, trace_flag_en                                                  ; $14 - Flag break enable
-      
+
 trace_step:
       lda         mon_trace_step
       eor         #1                   ; Toggle trace flag
@@ -1333,12 +1341,10 @@ watch_disable:
 ; should have been auto-enabled by the controller hardware.
 ; ----------------------------------------
 
-watch_match:
-      lda         mon_trace
-      and         #[$ff - trace_watch_en] ; disable watch mode to clear status bit
-      sta         mon_trace
-      ora         #trace_watch_en         ; re-enable it for watch mode?
-      sta         mon_trace
+break_or_watch_match:
+      ; Clear watch/break match status
+      lda         mon_trace_step
+      sta         mon_trace_step
       jmp         show_registers_cmd
 
 ; ----------------------------------------
@@ -1368,21 +1374,6 @@ break_disable:
       and         #[$ff - trace_break_en] ; disable break mode
       sta         mon_trace
       jmp         next_command
-
-; ----------------------------------------
-; Break Matched "Command"
-;
-; For now this just displays register state and leaves the CPU in trace mode, which
-; should have been auto-enabled by the controller hardware.
-; Note: We currently arrive here for both flag and PC based breakpoints because the 
-; monitor controller ORs in both bits to the break status bit.
-; ----------------------------------------
-
-break_match:
-      lda         mon_trace
-      and         #[$ff - trace_break_en - trace_flag_en] ; disable break mode to clear status and disable tracing
-      sta         mon_trace
-      jmp         show_registers_cmd
 
 disassemble_done:
       jmp         next_command
