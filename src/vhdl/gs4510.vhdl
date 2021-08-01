@@ -2672,7 +2672,7 @@ begin
             when x"f9" => return last_proceeds_per_frame(31 downto 24);
             -- @IO:GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
             when x"fa" => return frame_counter(7 downto 0);
-            when x"fb" => return "000000" & cartridge_enable & "0";
+            when x"fb" => return monitor_irq_inhibit & "00000" & cartridge_enable & "0";
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
