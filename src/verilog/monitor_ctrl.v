@@ -290,6 +290,7 @@ wire monitor_flag_en;
 reg [7:0] mem_trace_reg;
 reg monitor_watch_matched;
 reg monitor_break_matched;
+reg monitor_flag_matched;
 reg [15:0] monitor_break_addr;
 reg [15:0] flag_break_mask;
 
@@ -310,6 +311,7 @@ begin
     mem_trace_reg  <= 0;
     monitor_watch_matched <= 0;
     monitor_break_matched <= 0;
+    monitor_flag_matched <= 0;
   end
   else if(write)
   begin
@@ -343,6 +345,7 @@ begin
      // Also clear flag for watch/break match
         monitor_watch_matched <= 0;
         monitor_break_matched <= 0;
+        monitor_flag_matched <= 0;     
     if(address == `MON_FLAG_MASK0)
         flag_break_mask[7:0] <= di;
     if(address == `MON_FLAG_MASK1)
@@ -361,7 +364,7 @@ begin
   else if(((monitor_p & flag_break_mask[15:8]) || (~monitor_p & flag_break_mask[7:0])) && monitor_flag_en)
   begin
       mem_trace_reg[0] <= 1;
-      monitor_break_matched <= 1;    // Also set break matched bit
+      monitor_flag_matched <= 1;    // Also set flag matched bit
   end
   else if(history_write == 1)
   begin
@@ -595,7 +598,7 @@ begin
 //  `MON_WRITE_IDX_LO:     do <= history_write_index[7:0];
 //  `MON_WRITE_IDX_HI:     do <= { 6'b000000, history_write_index[9:8] };
   `MON_TRACE_CTRL:       do <= { mem_trace_reg[7:0] };
-  `MON_TRACE_STEP:       do <= { monitor_break_matched, monitor_watch_matched, 5'b00000, monitor_mem_trace_toggle };
+    `MON_TRACE_STEP:       do <= { monitor_break_matched, monitor_watch_matched, monitor_flag_matched, monitor_watch_en, monitor_break_en, monitor_watch_match, 1'b0, monitor_mem_trace_toggle };
   
 //  `MON_FLAG_MASK0:       do <= flag_break_mask[7:0];
 //  `MON_FLAG_MASK1:       do <= flag_break_mask[15:8];
