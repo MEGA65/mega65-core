@@ -594,7 +594,7 @@ not_first_boot_message:
         jsr printmessage
 	
 	;; Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
-	
+
 first_boot_flag_instruction:
 try_flash_menu:	
 	
@@ -1510,9 +1510,8 @@ resetpalette:
         lda #$04
         tsb $D030        ;; enable PAL bit in $D030
 
-        lda #$ff
-        sta $D070        ;; select palette bank 3 for display and edit
-
+	jsr setbannerpalette
+	
         ;; C64 colours designed to look like C65 colours on an
         ;; RGBI screen.
         ;;
@@ -1727,7 +1726,10 @@ logo2:
 
         ;; finally set palette for banner using contents of memory at $57D00-$57FFF
 setbannerpalette:
-        ;; Set DMA list address
+        lda #$ff
+        sta $D070        ;; select palette bank 3 for display and edit
+
+	;; Set DMA list address
         ;;
         lda #>bannerpalettedmalist
         sta $d701
@@ -3012,7 +3014,7 @@ msg_noflashmenu:
 	
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.15"
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.16"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
