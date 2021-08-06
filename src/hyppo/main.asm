@@ -2711,6 +2711,9 @@ run_util_in_hypervisor_context:
 	!8 $2B ;; tys
 		
 	jsr setup_for_openrom
+	;; XXX Work around bug in OpenROMs that erases our banner palette when we do this
+	;; by putting the palette back immediately.
+        jsr setbannerpalette
 
 	;; Actually launch freeze menu
 	jmp $080d
