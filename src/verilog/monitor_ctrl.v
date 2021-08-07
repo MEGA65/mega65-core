@@ -359,7 +359,11 @@ begin
   else if(monitor_break_addr == monitor_pc && monitor_break_en)
   begin
       mem_trace_reg[0] <= 1;    // Auto set trace mode on break address match
-      monitor_break_matched <= 1;    // Also set break matched bit
+     // And alert of breakpoint match if we were not already tracing
+     if (mem_trace_reg[0] == 0)
+       begin
+          monitor_break_matched <= 1;    // Also set break matched bit
+       end
   end
   else if(((monitor_p & flag_break_mask[15:8]) || (~monitor_p & flag_break_mask[7:0])) && monitor_flag_en)
   begin
