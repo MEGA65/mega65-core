@@ -3147,7 +3147,10 @@ begin  -- behavioural
 
           crc_feed <= '0';
 
-          if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
+          -- Check for edge on fw_ready_for_next, except for first byte, which
+          -- we write immediately, because fw_ready_for_next will have been stuck
+          -- asserted since the last write or format command
+          if fw_ready_for_next = '1' and (last_fw_ready_for_next='0' or fdc_write_byte_number=0) then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
             case fdc_write_byte_number is
               when 0 to 22 =>
