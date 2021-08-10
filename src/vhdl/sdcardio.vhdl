@@ -263,20 +263,21 @@ architecture behavioural of sdcardio is
                       ReadingSector,                  -- 0x02
                       ReadingSectorAckByte,           -- 0x03
                       DoneReadingSector,              -- 0x04
-                      FDCReadingSector,               -- 0x05
-                      WriteSector,                    -- 0x06
-                      WritingSector,                  -- 0x07
-                      WritingSectorAckByte,           -- 0x08
-                      HyperTrapRead,                  -- 0x09
-                      HyperTrapRead2,                 -- 0x0A
-                      HyperTrapWrite,                 -- 0x0B
-                      F011WriteSector,                -- 0x0C
-                      DoneWritingSector,              -- 0x0D
+                      FDCReadingSectorWait,           -- 0x05
+                      FDCReadingSector,               -- 0x06
+                      WriteSector,                    -- 0x07
+                      WritingSector,                  -- 0x08
+                      WritingSectorAckByte,           -- 0x09
+                      HyperTrapRead,                  -- 0x0A
+                      HyperTrapRead2,                 -- 0x0B
+                      HyperTrapWrite,                 -- 0x0C
+                      F011WriteSector,                -- 0x0D
+                      DoneWritingSector,              -- 0x0E
 
-                      FDCFormatTrackSyncWait,         -- 0x0E
-                      FDCFormatTrack,                 -- 0x0F
-                      F011WriteSectorRealDriveWait,   -- 0x10
-                      F011WriteSectorRealDrive        -- 0x11
+                      FDCFormatTrackSyncWait,         -- 0x0F
+                      FDCFormatTrack,                 -- 0x10
+                      F011WriteSectorRealDriveWait,   -- 0x11
+                      F011WriteSectorRealDrive        -- 0x12
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -1931,7 +1932,7 @@ begin  -- behavioural
                     -- Allow 250ms per rotation (they should be ~200ms)
                     index_wait_timeout <= cpu_frequency / 4;
 
-                    sd_state <= FDCReadingSector;
+                    sd_state <= FDCReadingSectorWait;
                   else
                     if f011_ds="000" and (f011_disk1_present='0' or diskimage1_enable='0') then
                       f011_rnf <= '1';
@@ -3203,6 +3204,13 @@ begin  -- behavioural
             end case;
           end if;
           
+        when FDCReadingSectorWait =>
+          -- Wait until we are NOT over the requested sector,
+          -- so that we don't accidentally read only the tail
+          -- end of the sector.
+          if fdc_sector_found = '0' then
+            sd_state <= FDCReadingSector;
+          end if;
         when FDCReadingSector =>
           if fdc_read_request='1' then
             -- We have an FDC request in progress.
