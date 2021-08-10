@@ -1045,17 +1045,21 @@ begin  -- behavioural
             fastio_rdata <= diskimage_sector(31 downto 24);
 
           when x"90" =>
-            -- @IO:GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+            -- @IO:GS $D690 F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
             fastio_rdata <= diskimage2_sector(7 downto 0);
           when x"91" =>
-            -- @IO:GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+            -- @IO:GS $D691 F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
             fastio_rdata <= diskimage2_sector(15 downto 8);
           when x"92" =>
-            -- @IO:GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+            -- @IO:GS $D692 F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
             fastio_rdata <= diskimage2_sector(23 downto 16);
           when x"93" =>
-            -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+            -- @IO:GS $D693 F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
+          when x"94" =>
+            fastio_rdata <= to_unsigned(fdc_write_byte_number,10)(7 downto 0);
+          when x"95" =>
+            fastio_rdata <= "000000"&(to_unsigned(fdc_write_byte_number,10)(9 downto 8));
           when x"9b" =>
             -- @IO:GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
             fastio_rdata(7 downto 0) <= unsigned(j21in(7 downto 0));
@@ -3143,7 +3147,7 @@ begin  -- behavioural
 
           crc_feed <= '0';
 
-          if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
+          if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
             case fdc_write_byte_number is
               when 0 to 22 =>
