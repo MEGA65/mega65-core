@@ -1400,6 +1400,7 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      last_fw_ready_for_next <= fw_ready_for_next;      
       last_fdc_sector_found <= fdc_sector_found;
       
       if fdc_writing_cooldown /= 0 then
@@ -3059,8 +3060,6 @@ begin  -- behavioural
             -- Indicate we need another byte now
             f011_drq <='1';
 
-            last_fw_ready_for_next <= '1';
-            
           end if;
         when FDCFormatTrack =>
           -- Close write gate and finish formatting when we hit the next
@@ -3088,7 +3087,6 @@ begin  -- behavioural
             f011_lost <= '1';
           end if;
 
-          last_fw_ready_for_next <= fw_ready_for_next;
           if fw_ready_for_next = '1' and last_fw_ready_for_next='0' then
             -- Grab the next byte
             -- Indicate we need another byte now
@@ -3144,8 +3142,8 @@ begin  -- behavioural
           sb_cpu_read_request <= '0';
 
           crc_feed <= '0';
-          
-          if fw_ready_for_next='1' then
+
+          if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
             case fdc_write_byte_number is
               when 0 to 22 =>
@@ -3158,12 +3156,13 @@ begin  -- behavioural
                 f011_reg_clock <= x"FF";
                 fw_byte_in <= x"00";
                 fw_byte_valid <= '1';
+                crc_reset <= '1';
               when 23 + 12 to 23 + 14 =>
                 -- Write $A1/$FB sync bytes
                 f011_reg_clock <= x"FB";
                 fw_byte_in <= x"A1";
                 fw_byte_valid <= '1';
-                crc_reset <= '1';
+                crc_reset <= '0';
               when 23 + 15 =>                
                 -- Write $FB/$FF sector start byte
                 f011_reg_clock <= x"FF";
