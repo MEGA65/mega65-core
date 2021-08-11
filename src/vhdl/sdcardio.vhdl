@@ -3169,6 +3169,7 @@ begin  -- behavioural
                 f011_reg_clock <= x"FB";
                 fw_byte_in <= x"A1";
                 fw_byte_valid <= '1';
+                crc_byte <= x"a1";
                 crc_feed <= '1';
                 crc_reset <= '0';
               when 23 + 15 =>                
@@ -3176,6 +3177,7 @@ begin  -- behavioural
                 f011_reg_clock <= x"FF";
                 fw_byte_in <= x"FB";
                 fw_byte_valid <= '1';
+                crc_byte <= x"fb";
                 crc_feed <= '1';
                 crc_reset <= '0';
               when 23 + 16 to 23 + 16 + 511 =>
