@@ -3169,12 +3169,14 @@ begin  -- behavioural
                 f011_reg_clock <= x"FB";
                 fw_byte_in <= x"A1";
                 fw_byte_valid <= '1';
+                crc_feed <= '1';
                 crc_reset <= '0';
               when 23 + 15 =>                
                 -- Write $FB/$FF sector start byte
                 f011_reg_clock <= x"FF";
                 fw_byte_in <= x"FB";
                 fw_byte_valid <= '1';
+                crc_feed <= '1';
                 crc_reset <= '0';
               when 23 + 16 to 23 + 16 + 511 =>
                 -- Write data bytes
@@ -3187,12 +3189,12 @@ begin  -- behavioural
               when 23 + 16 + 512 =>
                 -- First CRC byte
                 f011_reg_clock <= x"FF";
-                fw_byte_in <= crc_value(7 downto 0);
+                fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
               when 23 + 16 + 512 + 1 =>
                 -- Second CRC byte
                 f011_reg_clock <= x"FF";
-                fw_byte_in <= crc_value(15 downto 8);
+                fw_byte_in <= crc_value(7 downto 0);
                 fw_byte_valid <= '1';
               when 23 + 16 + 512 + 2 to 23 + 16 + 512 + 2 + 5 =>
                 -- Gap 3 $4E bytes
