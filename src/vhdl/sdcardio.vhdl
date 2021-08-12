@@ -2056,12 +2056,12 @@ begin  -- behavioural
                       else
                         sd_sector(16 downto 0) <= (others => '0');
                       end if;
-                      sd_sector(31 downto 17) <= (others => '0');
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                      report "Commencing FDC buffered write.";
                     end if;
-
+                    sd_sector(31 downto 17) <= (others => '0');
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    report "Commencing FDC buffered write.";
+                  end if;
                 when x"10" =>         -- head step out, or no step
                   f011_head_track <= f011_head_track - 1;
                   f_step <= '0';
