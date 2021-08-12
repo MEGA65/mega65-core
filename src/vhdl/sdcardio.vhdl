@@ -1997,6 +1997,7 @@ begin  -- behavioural
                     fdc_rotation_timeout_reserve_counter <= 100000000;
                     f011_busy <= '1';
                     f011_rnf <= '0';
+                    f011_crc <= '0';
                     index_wait_timeout <= cpu_frequency / 4;
                   elsif virtualise_f011_drive1='0' and f011_ds="001" and use_real_floppy2='1' then
                     -- Access to real second floppy drive
@@ -2006,6 +2007,7 @@ begin  -- behavioural
                     fdc_rotation_timeout_reserve_counter <= 100000000;
                     f011_busy <= '1';
                     f011_rnf <= '0';
+                    f011_crc <= '0';
                     index_wait_timeout <= cpu_frequency / 4;
                   elsif f011_ds(2 downto 1) /= x"00" then
                     -- only 2 drives supported for now
@@ -2036,13 +2038,16 @@ begin  -- behavioural
                     else
                       sd_sector <= (others => '1');
                     end if;
-                    -- XXX Writing with real floppy causes a hypervisor trap
-                    -- instead of writing to disk.
+
+                    -- Check for writing to disk image vs virtualisation
                     if ((virtualise_f011_drive0='0' and f011_ds="000") or (virtualise_f011_drive1='0' and f011_ds="001"))
                         and
                       ((use_real_floppy0='0' and f011_ds="000") or (use_real_floppy2='0' and f011_ds="001")) then
+                      f011_busy <= '1';
+                      f011_crc <= '0';
+                      f011_rnf <= '0';
                       sd_state <= F011WriteSector;
-                    else
+                    elsif (use_real_floppy0='0' or f011_ds/="000") and (use_real_floppy2='0' or f011_ds/="001") then
                       sd_state <= HyperTrapWrite;
                       if f011_ds="000" then
                         sd_sector(16 downto 0) <= diskimage1_offset;
@@ -2052,11 +2057,10 @@ begin  -- behavioural
                         sd_sector(16 downto 0) <= (others => '0');
                       end if;
                       sd_sector(31 downto 17) <= (others => '0');
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                      report "Commencing FDC buffered write.";
                     end if;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    report "Commencing FDC buffered write.";
-                  end if;
 
                 when x"10" =>         -- head step out, or no step
                   f011_head_track <= f011_head_track - 1;
