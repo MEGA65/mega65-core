@@ -423,12 +423,6 @@ architecture behavioural of sdcardio is
   -- Used to keep track of where we are upto in a sector write
   signal fdc_write_byte_number : integer range 0 to 1023 := 0;
   
-  signal autotune_enable : std_logic := '0';
-  signal autotune_step : std_logic := '1';
-  signal last_autotune_step : std_logic := '1';
-  signal autotune_stepdir : std_logic := '1';
-  
-  
   signal packed_rdata : std_logic_vector(7 downto 0);
 
   signal i2c_bus_id : unsigned(7 downto 0) := x"00";
@@ -750,9 +744,6 @@ begin  -- behavioural
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
 
-    autotune_step => autotune_step,
-    autotune_stepdir => autotune_stepdir,
-    
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
@@ -995,7 +986,6 @@ begin  -- behavioural
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
-          -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
           -- @IO:GS $D689.5 - F011 swap drive 0 / 1 
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
@@ -1003,7 +993,7 @@ begin  -- behavioural
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
-            fastio_rdata(4) <= not autotune_enable;
+            fastio_rdata(4) <= '0';
             fastio_rdata(5) <= f011_swap_drives;
             fastio_rdata(6) <= '0';
             fastio_rdata(7) <= f011sd_buffer_select;
@@ -1085,8 +1075,8 @@ begin  -- behavioural
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
             fastio_rdata(2) <= latched_disk_change_event;
-            fastio_rdata(1) <= autotune_step;
-            fastio_rdata(0) <= autotune_stepdir;
+            fastio_rdata(1) <= '0';
+            fastio_rdata(0) <= '0';
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
@@ -1613,25 +1603,6 @@ begin  -- behavioural
         f_step <= '1';
       end if;
 
-      -- If MFM decoder thinks we are on the wrong track, and the
-      -- auto-tuner is enabled, then step in the right direction.
-      -- The timing of the steps is based on how often a sector goes past the head.
-      -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
-      -- sector. This is more than slow enough for safe stepping, we don't need
-      -- to do any other timing interlock
-      if autotune_enable = '1' and fdc_writing='0' then
-        if autotune_step='1' and last_autotune_step='0' then
-          f_step <= '0';
-          step_countdown <= 500;
-          f_stepdir <= autotune_stepdir;
-        elsif autotune_step='0' and last_autotune_step='1' then
-          f_step <= '1';
-        end if;
-      end if;
-      last_autotune_step <= autotune_step;
-      
-
-      
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
@@ -2465,7 +2436,6 @@ begin  -- behavioural
               -- @ IO:GS $D689.7 SD:BUFFSEL Set to switch sector buffer to view SD card direct access, clear for access to the F011 FDC sector buffer.
               sd_handshake <= fastio_wdata(2);
               sd_handshake_internal <= fastio_wdata(2);
-              autotune_enable <= not fastio_wdata(4);
               f011_swap_drives <= fastio_wdata(5);
               f011sd_buffer_select <= fastio_wdata(7);
 
