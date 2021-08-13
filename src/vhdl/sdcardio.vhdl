@@ -420,6 +420,15 @@ architecture behavioural of sdcardio is
   signal fdc_writing : std_logic := '0';
   signal fdc_writing_cooldown : integer range 0 to 20250000 := 0;
 
+  -- fdc_sector_operation flag is set whenever we are doing an action
+  -- where auto-stepping to the correct track is safe and helpful.
+  -- This is not the case for track format, for example.
+  signal fdc_sector_operation : std_logic := '0';
+  signal autotune_enable : std_logic := '1';
+  signal autotune_step : std_logic := '1';
+  signal last_autotune_step : std_logic := '1';
+  signal autotune_stepdir : std_logic := '1';
+  
   -- Used to keep track of where we are upto in a sector write
   signal fdc_write_byte_number : integer range 0 to 1023 := 0;
   
@@ -744,6 +753,9 @@ begin  -- behavioural
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
 
+    autotune_step => autotune_step,
+    autotune_stepdir => autotune_stepdir,
+    
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
@@ -986,6 +998,7 @@ begin  -- behavioural
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
+          -- @IO:GS $D689.4 - RESERVED              
           -- @IO:GS $D689.5 - F011 swap drive 0 / 1 
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
@@ -1050,6 +1063,10 @@ begin  -- behavioural
             fastio_rdata <= to_unsigned(fdc_write_byte_number,10)(7 downto 0);
           when x"95" =>
             fastio_rdata <= "000000"&(to_unsigned(fdc_write_byte_number,10)(9 downto 8));
+          when x"96" =>
+            -- @IO:GS $D696 F011:AUTOTUNE Enable automatic track seeking for sector reads and writes
+            fastio_rdata(6 downto 0) <= "0000000";
+            fastio_rdata(7) <= autotune_enable;
           when x"9b" =>
             -- @IO:GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
             fastio_rdata(7 downto 0) <= unsigned(j21in(7 downto 0));
@@ -1603,6 +1620,24 @@ begin  -- behavioural
         f_step <= '1';
       end if;
 
+      -- If MFM decoder thinks we are on the wrong track, and the
+      -- auto-tuner is enabled, then step in the right direction.
+      -- The timing of the steps is based on how often a sector goes past the head.
+      -- 10 sectors per track x 300 rpm = 60 sectors per second = ~18msec per
+      -- sector. This is more than slow enough for safe stepping, we don't need
+      -- to do any other timing interlock
+      if autotune_enable = '1' and fdc_sector_operation='1' then
+        if autotune_step='1' and last_autotune_step='0' then
+          f_step <= '0';
+          step_countdown <= 500;
+          f_stepdir <= autotune_stepdir;
+        elsif autotune_step='0' and last_autotune_step='1' then
+          f_step <= '1';
+        end if;
+      end if;
+      last_autotune_step <= autotune_step;
+
+      
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
@@ -1891,6 +1926,8 @@ begin  -- behavioural
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
+                    -- Allow use of auto-stepping to correct track
+                    fdc_sector_operation <= '1';
                     -- Read must complete within 10 rotations
                     -- (Was 6, but if we need to auto-seek from one end of the
                     -- disk to the other, it can take a little longer than 1.2
@@ -1992,6 +2029,8 @@ begin  -- behavioural
                   elsif virtualise_f011_drive0='0' and f011_ds="000" and use_real_floppy0='1' then
                     -- Access to real first floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    -- Allow use of auto-stepping to correct track
+                    fdc_sector_operation <= '1';
                     -- Setup timeouts etc
                     fdc_rotation_timeout <= 10;
                     fdc_rotation_timeout_reserve_counter <= 100000000;
@@ -2002,6 +2041,8 @@ begin  -- behavioural
                   elsif virtualise_f011_drive1='0' and f011_ds="001" and use_real_floppy2='1' then
                     -- Access to real second floppy drive
                     sd_state <= F011WriteSectorRealDriveWait;
+                    -- Allow use of auto-stepping to correct track
+                    fdc_sector_operation <= '1';
                     -- Setup timeouts etc
                     fdc_rotation_timeout <= 10;
                     fdc_rotation_timeout_reserve_counter <= 100000000;
@@ -2520,6 +2561,8 @@ begin  -- behavioural
               if hypervisor_mode='1' then
                 diskimage2_sector(31 downto 24) <= fastio_wdata;
               end if;
+            when x"96" =>
+              autotune_enable <= fastio_wdata(7);
 
             when x"a0" =>
               -- @IO:GS $D6A0 - 3.5" FDC control line debug access
@@ -3106,6 +3149,7 @@ begin  -- behavioural
             fdc_bytes_read(4) <= '1';
             f011_busy <= '0';
             sd_state <= Idle;
+            fdc_sector_operation <= '0';
           end if;
 
         when F011WriteSectorRealDrive =>
@@ -3185,6 +3229,7 @@ begin  -- behavioural
                 f_wgate <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                fdc_sector_operation <= '0';
             end case;
           end if;
           
@@ -3209,6 +3254,7 @@ begin  -- behavioural
               fdc_bytes_read(4) <= '1';
               f011_busy <= '0';
               sd_state <= Idle;
+              fdc_sector_operation <= '0';
             end if;
 
             
@@ -3234,6 +3280,7 @@ begin  -- behavioural
                 fdc_bytes_read(4) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                fdc_sector_operation <= '0';
               end if;
             end if;
             if (fdc_sector_found='1') or (fdc_sector_end='1') then
@@ -3279,6 +3326,7 @@ begin  -- behavioural
                 fdc_bytes_read(0) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                fdc_sector_operation <= '0';
               end if;
               -- Clear read request only at the end of the sector we are looking for
               if fdc_sector_end='1' and f011_rsector_found='1' then
@@ -3287,6 +3335,7 @@ begin  -- behavioural
                 fdc_bytes_read(1) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                fdc_sector_operation <= '0';
               end if;
             end if;
           end if;          
