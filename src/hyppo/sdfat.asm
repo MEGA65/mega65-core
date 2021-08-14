@@ -13,9 +13,6 @@ toupper:
         ;;
         ;; INPUT:  .A is the ASCII char to convert up uppercase
         ;; OUTPUT: .A will hold the resulting uppersace
-        ;;
-        ;; BG has not verified this yet
-        ;;
         cmp #$61  ; #$60 = ` char (just before lower-case 'a')
         bcc tu1   ; branch if < #$60
         cmp #$7b  ; #$7a = 'z' char
