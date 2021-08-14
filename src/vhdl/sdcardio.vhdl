@@ -2017,13 +2017,13 @@ begin  -- behavioural
                   f011_buffer_disk_address <= (others => '0');
                   
                   if f011_ds="000" and ((diskimage1_enable or use_real_floppy0)='0'
-                                        or (f011_disk1_present and use_real_floppy0) ='0'
+                                        or (f011_disk1_present or use_real_floppy0) ='0'
                                         or (f011_disk1_present ='1' and use_real_floppy0 = '0' and f011_disk1_write_protected='1'))
                                         then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
                   elsif f011_ds="001" and ((diskimage2_enable or use_real_floppy2)='0'
-                                        or (f011_disk2_present and use_real_floppy2) ='0'
+                                        or (f011_disk2_present or use_real_floppy2) ='0'
                                         or (f011_disk2_present ='1' and use_real_floppy2 = '0' and f011_disk2_write_protected='1'))
                                         then
                     f011_rnf <= '1';
