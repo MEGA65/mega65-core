@@ -13,14 +13,11 @@ toupper:
         ;;
         ;; INPUT:  .A is the ASCII char to convert up uppercase
         ;; OUTPUT: .A will hold the resulting uppersace
-        ;;
-        ;; BG has not verified this yet
-        ;;
-        cmp #$60
-        bcc tu1
-        cmp #$7a
-        bcs tu1
-        and #$5f
+        cmp #$61  ; #$60 = ` char (just before lower-case 'a')
+        bcc tu1   ; branch if < #$60
+        cmp #$7b  ; #$7a = 'z' char
+        bcs tu1   ; branch if > #$7a
+        and #$5f  ; 's' = %01110011 & %01011111 = 'S' = %01010011
 tu1:    rts
 
 ;; /*  -------------------------------------------------------------------
