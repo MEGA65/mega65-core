@@ -3321,18 +3321,17 @@ begin  -- behavioural
                 sb_cpu_write_request <= sb_cpu_write_request;
               end if;
               if fdc_crc_error='1' then
-                -- Failed to read sector
+                -- Failed to read sector due to CRC error
+                -- So set CRC flag:
                 f011_crc <= '1';
-                report "Clearing fdc_read_request due to crc error";
-                fdc_read_request <= '0';
-                fdc_bytes_read(0) <= '1';
-                f011_busy <= '0';
-                sd_state <= Idle;
-                fdc_sector_operation <= '0';
-              end if;
-              -- Clear read request only at the end of the sector we are looking for
-              if fdc_sector_end='1' and f011_rsector_found='1' then
+
+                -- But don't abort reading, just retry
+                -- (The existing timeout mechanism will catch us eventually)
+                sd_state <= FDCReadingSectorWait;
+              elsif fdc_sector_end='1' and f011_rsector_found='1' then
+                -- Clear read request only at the end of the sector we are looking for
                 report "Clearing fdc_read_request due end of target sector";
+                f011_crc <= '0';
                 fdc_read_request <= '0';
                 fdc_bytes_read(1) <= '1';
                 f011_busy <= '0';
