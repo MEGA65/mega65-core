@@ -2501,7 +2501,7 @@ begin  -- behavioural
                 f011_mega_disk2 <= fastio_wdata(7);
                 f011_disk2_write_protected <= not fastio_wdata(5);
                 -- @IO:GS $D68B.2 - F011 disk 1 write protect
-                f011_write_protected <= not fastio_wdata(2);                
+                f011_disk1_write_protected <= not fastio_wdata(2);                
                 -- @IO:GS $D68B.1 - F011 disk 1 present
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
