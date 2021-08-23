@@ -3970,8 +3970,6 @@ not_mega_floppy2:
 
 dos_d81attach1:
 
-	;;  Always works on drive 0
-	
         ;; Assumes only that D81 file name has been set with dos_setname.
         ;;
         jsr dos_findfile
@@ -3991,7 +3989,7 @@ d81a1b:        ;; XXX - Why do we call closefile here?
         rts
 d81a1ab:	
 
-        ;; copy sector number from $D681 to $D68c
+        ;; copy sector number from $D681 to $D690
         ;;
         ldx #$03
 l94db:   lda $d681,x		;; resolved sector number
@@ -4005,10 +4003,10 @@ l94db:   lda $d681,x		;; resolved sector number
         sta $d6a1
 
         // Set flags to indicate it is mounted (and read-write)
-        // But don't mess up the flags for the 2nd drive
+        // But don't mess up the flags for the 1st drive
 	lda $d68b
 	and #%01000111
-        ora #$18
+        ora #$38
         sta $d68b
 
 	;; And set the MEGAfloppy flag if the file is 64MiB long
