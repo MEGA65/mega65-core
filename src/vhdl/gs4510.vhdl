@@ -483,6 +483,7 @@ architecture Behavioural of gs4510 is
   signal phi_backlog : integer range 0 to 127 := 0;
   signal phi_add_backlog : std_logic := '0';
   signal charge_for_branches_taken : std_logic := '1';
+  signal really_charge_for_branches_taken : std_logic := '1';
   signal phi_new_backlog : integer range 0 to 127 := 0;
   signal last_phi16 : std_logic := '0';
   signal last_phi_in : std_logic := '0';
@@ -4252,10 +4253,11 @@ begin
       phi_add_backlog <= '0';
       phi_new_backlog <= 0;
       case cpuspeed_internal is
-        when x"01" => phi_internal <= phi_1mhz;
-        when x"02" => phi_internal <= phi_2mhz;
-        when x"04" => phi_internal <= phi_3mhz;
+        when x"01" => phi_internal <= phi_1mhz; really_charge_for_branches_taken <= charge_for_branches_taken;
+        when x"02" => phi_internal <= phi_2mhz; really_charge_for_branches_taken <= charge_for_branches_taken;
+        when x"04" => phi_internal <= phi_3mhz; really_charge_for_branches_taken <= '0';
         when others => phi_internal <= '1'; -- Full speed = 1 clock tick per cycle
+                       really_charge_for_branches_taken <= '0';
       end case;
       if phi_internal = '1' then
         cycles_per_frame <= cycles_per_frame + 1;
@@ -6956,7 +6958,9 @@ begin
                       else
                         phi_new_backlog <= 1;
                       end if;
-                      phi_add_backlog <= charge_for_branches_taken;
+                      -- But only charge for them when at 1or 2MHz mode, as
+                      -- 65CE02 doesn't ever charge for them.
+                      phi_add_backlog <= really_charge_for_branches_taken;
 
                       pc_inc := '0';
                       reg_pc <= temp_addr;
@@ -7160,7 +7164,7 @@ begin
               reg_pc <= reg_pc + to_integer(reg_addr) - 1;
                                         -- Charge one cycle for branches that are taken
               phi_new_backlog <= 1;
-              phi_add_backlog <= charge_for_branches_taken;
+              phi_add_backlog <= really_charge_for_branches_taken;
               report "monitor_instruction_strobe assert (take 16-bit branch)";
               monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
