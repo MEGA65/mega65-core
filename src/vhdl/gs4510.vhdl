@@ -1066,8 +1066,11 @@ architecture Behavioural of gs4510 is
     -- from http://archive.6502.org/datasheets/mos_65ce02_mpu.pdf
     7,5,2,2,4,3,4,4, 3,2,1,1,5,4,5,4,
     2,5,5,3,4,3,4,4, 1,4,1,1,5,4,5,4,
-    2,5,7,7,4,3,4,4, 3,2,1,1,5,4,4,4,
-    2,5,5,3,4,3,4,4, 1,4,1,1,5,4,5,4,
+    -- BIT instructions all take one cycle less than indicated on the above
+    -- datasheet.
+    -- See: https://pastraiser.com/cpu/65CE02/65CE02_opcodes.html
+    5,5,7,7,3,3,4,4, 3,2,1,1,4,4,5,4,
+    2,5,5,3,3,3,4,4, 1,4,1,1,4,4,5,4,
     
     5,5,2,2,4,3,4,4, 3,2,1,1,3,4,5,4,
     2,5,5,3,4,3,4,4, 1,4,3,3,4,4,5,4,
