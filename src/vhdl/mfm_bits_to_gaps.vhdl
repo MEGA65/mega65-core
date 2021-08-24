@@ -46,10 +46,16 @@ architecture behavioural of mfm_bits_to_gaps is
   signal interval_countdown : integer range 0 to 255 := 0;
   signal transition_point : integer range 0 to 256 := 256;
 
+  signal ingest_byte_toggle : std_logic := '0';
+  signal last_ingest_byte_toggle : std_logic := '0';
   signal byte_in_buffer : std_logic := '0';
+  signal byte_in_buffer_2 : std_logic := '0';
   signal next_byte : unsigned(7 downto 0) := x"00";
+  signal next_byte_2 : unsigned(7 downto 0) := x"00";
   signal latched_clock_byte : unsigned(7 downto 0) := x"FF";
+  signal latched_clock_byte_2 : unsigned(7 downto 0) := x"FF";
   signal clock_latch_timer : integer range 0 to 63 := 0;
+  signal clock_byte_target : std_logic := '0';
   
 begin
 
@@ -108,7 +114,11 @@ begin
       end if;
 
       if clock_latch_timer = 1 then
-        latched_clock_byte <= clock_byte_in;
+        if clock_byte_target='0' then
+          latched_clock_byte <= clock_byte_in;
+        else
+          latched_clock_byte_2 <= clock_byte_in;
+        end if;
         if latched_clock_byte /= clock_byte_in then
           report "latching clock byte $" & to_hstring(clock_byte_in);
         end if;
@@ -116,25 +126,12 @@ begin
       if clock_latch_timer /= 0 then
         clock_latch_timer <= clock_latch_timer - 1;
       end if;
-        
+
+      -- Make sure we don't miss the byte_valid flag
       if byte_valid='1' then
-        next_byte <= byte_in;
-        byte_in_buffer <= '1';
-        ready_for_next <= '0';
-        if byte_in_buffer='1' then
-          report "WARNING: Overwritting floppy write buffered byte $" & to_hstring(next_byte);
-        end if;
-        report "latching data byte $" & to_hstring(byte_in);
-        -- Then set timer to latch the clock.
-        -- For bug-compatibility with C65 DOS code, this should be done
-        -- at least 4x 3.5MHz clock cycles after the data byte has been
-        -- written, to allow the STA <data> / STX <clock> sequenc to work
-        -- 40.5MHz / 3.54MHz x (4+1 cycles) = 57.2 cycles
-        -- We can in fact allow a bit of margin on this, so lets go with 63
-        -- cycles
-        clock_latch_timer <= 63;
+        ingest_byte_toggle <= not ingest_byte_toggle;
       end if;
-        
+
       if bits_queued = 0 and byte_in_buffer='1' then
         report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ") for encoding.";
         byte_in_buffer <= '0';
@@ -158,8 +155,42 @@ begin
         bit_queue( 2) <= byte_in(1);
         bit_queue( 1) <= (byte_in(1) nor next_byte(0)) xor not latched_clock_byte(0);
         bit_queue( 0) <= byte_in(0);
-        last_bit0 <= byte_in(0);        
-      end if;      
+        last_bit0 <= byte_in(0);
+
+        -- Shuffle down byte buffer, if required
+        if byte_in_buffer_2 = '1' then
+          next_byte <= next_byte_2;
+          latched_clock_byte <= latched_clock_byte_2;
+          byte_in_buffer <= '1';
+          byte_in_buffer_2 <= '0';
+        end if;
+      elsif ingest_byte_toggle /= last_ingest_byte_toggle then
+        -- We have another byte to ingest, so do it now.
+        last_ingest_byte_toggle <= ingest_byte_toggle;
+      
+        if byte_in_buffer='1' and byte_in_buffer_2 = '0' then
+          -- No byte in immediate buffer, so store it
+          next_byte_2 <= byte_in;
+          byte_in_buffer_2 <= '1';
+          ready_for_next <= '0';
+          clock_byte_target <= '0';
+        elsif byte_in_buffer = '0' then
+          -- No byte in the 2nd byte buffer
+          byte_in_buffer <= '1';
+          next_byte <= byte_in;
+          ready_for_next <= '1';
+          clock_byte_target <= '1';
+        end if;
+        report "latching data byte $" & to_hstring(byte_in);
+        -- Then set timer to latch the clock.
+        -- For bug-compatibility with C65 DOS code, this should be done
+        -- at least 4x 3.5MHz clock cycles after the data byte has been
+        -- written, to allow the STA <data> / STX <clock> sequenc to work
+        -- 40.5MHz / 3.54MHz x (4+1 cycles) = 57.2 cycles
+        -- We can in fact allow a bit of margin on this, so lets go with 63
+        -- cycles
+        clock_latch_timer <= 63;
+      end if;
     end if;    
   end process;
 end behavioural;
