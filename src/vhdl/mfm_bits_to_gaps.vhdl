@@ -57,6 +57,7 @@ architecture behavioural of mfm_bits_to_gaps is
   signal clock_latch_timer : integer range 0 to 63 := 0;
   signal clock_byte_target : std_logic := '0';
   signal ready_for_next_delayed : std_logic := '0';
+  signal show_bit_sequence : std_logic := '0';
   
 begin
 
@@ -87,11 +88,14 @@ begin
           bits_queued <= bits_queued - 1;
         end if;
 
-        if bits_queued = 16 then
---          report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
-        end if;
       end if;
 
+      if show_bit_sequence='1' then
+--        report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
+        show_bit_sequence <= '0';
+      end if;
+
+      
       -- XXX C65 DOS source indicates that clock byte should be
       -- written AFTER data byte has been written.
       -- C65 Specifications guide is, however, silent on this, and
@@ -136,27 +140,29 @@ begin
       end if;
 
       if bits_queued = 0 and byte_in_buffer='1' then
-        report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ", latched clock byte 2 $" & to_hstring(latched_clock_byte_2) &") for encoding.";
+        report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) &") for encoding.";
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
         bit_queue(15) <= (last_bit0 nor next_byte(7)) xor not latched_clock_byte(7);
-        bit_queue(14) <= byte_in(7);
-        bit_queue(13) <= (byte_in(7) nor next_byte(6)) xor not latched_clock_byte(6);
-        bit_queue(12) <= byte_in(6);
-        bit_queue(11) <= (byte_in(6) nor next_byte(5)) xor not latched_clock_byte(5);
-        bit_queue(10) <= byte_in(5);
-        bit_queue( 9) <= (byte_in(5) nor next_byte(4)) xor not latched_clock_byte(4);
-        bit_queue( 8) <= byte_in(4);
-        bit_queue( 7) <= (byte_in(4) nor next_byte(3)) xor not latched_clock_byte(3);
-        bit_queue( 6) <= byte_in(3);
-        bit_queue( 5) <= (byte_in(3) nor next_byte(2)) xor not latched_clock_byte(2);
-        bit_queue( 4) <= byte_in(2);
-        bit_queue( 3) <= (byte_in(2) nor next_byte(1)) xor not latched_clock_byte(1);
-        bit_queue( 2) <= byte_in(1);
-        bit_queue( 1) <= (byte_in(1) nor next_byte(0)) xor not latched_clock_byte(0);
-        bit_queue( 0) <= byte_in(0);
-        last_bit0 <= byte_in(0);
+        bit_queue(14) <= next_byte(7);
+        bit_queue(13) <= (next_byte(7) nor next_byte(6)) xor not latched_clock_byte(6);
+        bit_queue(12) <= next_byte(6);
+        bit_queue(11) <= (next_byte(6) nor next_byte(5)) xor not latched_clock_byte(5);
+        bit_queue(10) <= next_byte(5);
+        bit_queue( 9) <= (next_byte(5) nor next_byte(4)) xor not latched_clock_byte(4);
+        bit_queue( 8) <= next_byte(4);
+        bit_queue( 7) <= (next_byte(4) nor next_byte(3)) xor not latched_clock_byte(3);
+        bit_queue( 6) <= next_byte(3);
+        bit_queue( 5) <= (next_byte(3) nor next_byte(2)) xor not latched_clock_byte(2);
+        bit_queue( 4) <= next_byte(2);
+        bit_queue( 3) <= (next_byte(2) nor next_byte(1)) xor not latched_clock_byte(1);
+        bit_queue( 2) <= next_byte(1);
+        bit_queue( 1) <= (next_byte(1) nor next_byte(0)) xor not latched_clock_byte(0);
+        bit_queue( 0) <= next_byte(0);
+        last_bit0 <= next_byte(0);
+
+        show_bit_sequence <= '1';
 
         -- Shuffle down byte buffer, if required
         if byte_in_buffer_2 = '1' then
@@ -177,21 +183,21 @@ begin
         last_ingest_byte_toggle <= ingest_byte_toggle;
       
         if byte_in_buffer='1' and byte_in_buffer_2 = '0' then
-          -- No byte in immediate buffer, so store it
+          -- No byte in 2nd byte buffer, so store it
           next_byte_2 <= byte_in;
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
           clock_byte_target <= '1';
-          report "clearing ready_for_next";
+          report "clearing ready_for_next after store in next_byte_2";
         elsif byte_in_buffer = '0' then
-          -- No byte in the 2nd byte buffer
+          -- No byte in the byte buffer, so store it
           byte_in_buffer <= '1';
           next_byte <= byte_in;
           -- Make sure we produce an edge for ready_for_next
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
           clock_byte_target <= '0';
-          report "asserting ready_for_next";
+          report "asserting ready_for_next after store in next_byte (delayed)";
         end if;
         report "latching data byte $" & to_hstring(byte_in);
         -- Then set timer to latch the clock.
