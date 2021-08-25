@@ -56,6 +56,7 @@ architecture behavioural of mfm_bits_to_gaps is
   signal latched_clock_byte_2 : unsigned(7 downto 0) := x"FF";
   signal clock_latch_timer : integer range 0 to 63 := 0;
   signal clock_byte_target : std_logic := '0';
+  signal ready_for_next_delayed : std_logic := '0';
   
 begin
 
@@ -134,8 +135,6 @@ begin
 
       if bits_queued = 0 and byte_in_buffer='1' then
         report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ") for encoding.";
-        byte_in_buffer <= '0';
-        ready_for_next <= '1';
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
@@ -163,7 +162,13 @@ begin
           latched_clock_byte <= latched_clock_byte_2;
           byte_in_buffer <= '1';
           byte_in_buffer_2 <= '0';
+        else
+          byte_in_buffer <= '0';          
         end if;
+        -- Make sure ready_for_next produces an edge each time it triggers
+        ready_for_next <= '0';
+        ready_for_next_delayed <= '1';
+        report "asserting ready_for_next";
       elsif ingest_byte_toggle /= last_ingest_byte_toggle then
         -- We have another byte to ingest, so do it now.
         last_ingest_byte_toggle <= ingest_byte_toggle;
@@ -174,12 +179,16 @@ begin
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
           clock_byte_target <= '0';
+          report "clearing ready_for_next";
         elsif byte_in_buffer = '0' then
           -- No byte in the 2nd byte buffer
           byte_in_buffer <= '1';
           next_byte <= byte_in;
-          ready_for_next <= '1';
+          -- Make sure we produce an edge for ready_for_next
+          ready_for_next <= '0';
+          ready_for_next_delayed <= '1';
           clock_byte_target <= '1';
+          report "asserting ready_for_next";
         end if;
         report "latching data byte $" & to_hstring(byte_in);
         -- Then set timer to latch the clock.
@@ -190,6 +199,9 @@ begin
         -- We can in fact allow a bit of margin on this, so lets go with 63
         -- cycles
         clock_latch_timer <= 63;
+      elsif ready_for_next_delayed = '1' then
+        ready_for_next <= '1';
+        ready_for_next_delayed <= '0';
       end if;
     end if;    
   end process;
