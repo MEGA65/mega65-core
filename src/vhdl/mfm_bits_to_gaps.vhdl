@@ -117,12 +117,14 @@ begin
       if clock_latch_timer = 1 then
         if clock_byte_target='0' then
           latched_clock_byte <= clock_byte_in;
+          report "latching clock byte $" & to_hstring(clock_byte_in);
         else
           latched_clock_byte_2 <= clock_byte_in;
+          report "latching clock byte 2 $" & to_hstring(clock_byte_in);
         end if;
-        if latched_clock_byte /= clock_byte_in then
-          report "latching clock byte $" & to_hstring(clock_byte_in);
-        end if;
+--        if latched_clock_byte /= clock_byte_in then
+--          report "latching clock byte $" & to_hstring(clock_byte_in);
+--        end if;
       end if;
       if clock_latch_timer /= 0 then
         clock_latch_timer <= clock_latch_timer - 1;
@@ -134,7 +136,7 @@ begin
       end if;
 
       if bits_queued = 0 and byte_in_buffer='1' then
-        report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ") for encoding.";
+        report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) & ", latched clock byte 2 $" & to_hstring(latched_clock_byte_2) &") for encoding.";
         bits_queued <= 16;
         -- Get the bits to send
         -- Combined data and clock byte to produce the full vector.        
@@ -162,6 +164,7 @@ begin
           latched_clock_byte <= latched_clock_byte_2;
           byte_in_buffer <= '1';
           byte_in_buffer_2 <= '0';
+          report "shuffling down next byte = $" & to_hstring(next_byte_2) & to_hstring(latched_clock_byte_2);
         else
           byte_in_buffer <= '0';          
         end if;
@@ -178,7 +181,7 @@ begin
           next_byte_2 <= byte_in;
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
-          clock_byte_target <= '0';
+          clock_byte_target <= '1';
           report "clearing ready_for_next";
         elsif byte_in_buffer = '0' then
           -- No byte in the 2nd byte buffer
@@ -187,7 +190,7 @@ begin
           -- Make sure we produce an edge for ready_for_next
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
-          clock_byte_target <= '1';
+          clock_byte_target <= '0';
           report "asserting ready_for_next";
         end if;
         report "latching data byte $" & to_hstring(byte_in);
