@@ -430,7 +430,7 @@ begin  -- behavioural
         report "Hit right border. Flushing buffered bytes in all bitplanes";
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0;
-          if y_in <= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
+          if y_in < (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
             bitplane_data_offsets_next(i) <= 0;
           else
 
