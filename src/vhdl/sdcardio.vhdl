@@ -386,6 +386,8 @@ architecture behavioural of sdcardio is
   signal target_sector : unsigned(7 downto 0) := x"00";
   signal target_side : unsigned(7 downto 0) := x"00";
   signal target_any : std_logic := '0';
+
+  -- Signals back from single rate FDC reader
   signal found_track : unsigned(7 downto 0) := x"00";
   signal found_sector : unsigned(7 downto 0) := x"00";
   signal found_side : unsigned(7 downto 0) := x"00";
@@ -398,10 +400,25 @@ architecture behavioural of sdcardio is
   signal fdc_sector_found : std_logic := '0';
   signal last_fdc_sector_found : std_logic := '0';
 
+  -- Debug info from single rate MFM reader
   signal fdc_mfm_state : unsigned(7 downto 0);
   signal fdc_last_gap : unsigned(15 downto 0);
   signal fdc_mfm_byte : unsigned(7 downto 0);
   signal fdc_quantised_gap : unsigned(7 downto 0);
+
+  -- Signals back from double-rate MFM reader
+  -- i.e., the reader normally used for reading HD data
+  signal found_track_2x : unsigned(7 downto 0) := x"00";
+  signal found_sector_2x : unsigned(7 downto 0) := x"00";
+  signal found_side_2x : unsigned(7 downto 0) := x"00";
+  signal fdc_first_byte_2x : std_logic := '0';
+  signal fdc_byte_valid_2x : std_logic := '0';
+  signal fdc_byte_out_2x : unsigned(7 downto 0);
+  signal fdc_crc_error_2x : std_logic := '0';
+  signal fdc_sector_end_2x : std_logic := '0';
+  signal fdc_sector_data_gap_2x : std_logic := '0';
+  signal fdc_sector_found_2x : std_logic := '0';
+  signal last_fdc_sector_found_2x : std_logic := '0';
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
@@ -428,6 +445,11 @@ architecture behavioural of sdcardio is
   signal autotune_step : std_logic := '1';
   signal last_autotune_step : std_logic := '1';
   signal autotune_stepdir : std_logic := '1';
+
+  signal autotune2x_step : std_logic := '1';
+  signal last_autotune2x_step : std_logic := '1';
+  signal autotune2x_stepdir : std_logic := '1';
+
   
   -- Used to keep track of where we are upto in a sector write
   signal fdc_write_byte_number : integer range 0 to 1023 := 0;
@@ -547,6 +569,8 @@ architecture behavioural of sdcardio is
   signal crc_byte : unsigned(7 downto 0);  
   signal crc_ready : std_logic;
   signal crc_value : unsigned(15 downto 0);
+
+  signal unsigned_zero : unsigned(0 downto 0) := (others => '0');
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -717,7 +741,7 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
-  
+   
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
       clock40mhz => clock,
       cycles_per_interval => cycles_per_interval,
@@ -730,7 +754,7 @@ begin  -- behavioural
       clock_byte_in => f011_reg_clock
     );
 
-  crc0: entity work.crc1581 port map (
+ crc0: entity work.crc1581 port map (
     clock40mhz => clock,
     crc_byte => crc_byte,
     crc_feed => crc_feed,
@@ -740,13 +764,13 @@ begin  -- behavioural
     crc_value => crc_value
     );
   
-  -- Reader for real floppy drive
+  -- Reader for real floppy drive: single rate
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    packed_rdata => packed_rdata,
     cycles_per_interval => cycles_per_interval,
     invalidate => fdc_read_invalidate,
+    packed_rdata => packed_rdata,
 
     mfm_state => fdc_mfm_state,
     mfm_last_gap => fdc_last_gap,
@@ -773,6 +797,45 @@ begin  -- behavioural
     crc_error => fdc_crc_error,
     sector_end => fdc_sector_end    
     );
+
+  -- Double-rate MFM decoder, used so that we can easily
+  -- detect and use HD formatted disks, without having to
+  -- have a program figure it out.
+  mfm2x: entity work.mfm_decoder port map (
+    clock40mhz => clock,
+    f_rdata => f_rdata,
+    cycles_per_interval(7 downto 7) => unsigned_zero,
+    cycles_per_interval(6 downto 0) => cycles_per_interval(7 downto 1),
+    invalidate => fdc_read_invalidate,
+
+    -- No MFM debug data from the 2x decoder
+--    packed_rdata => packed_rdata,
+--    mfm_state => fdc_mfm_state,
+--    mfm_last_gap => fdc_last_gap,
+--    mfm_last_byte => fdc_mfm_byte,
+--    mfm_quantised_gap => fdc_quantised_gap,
+
+    autotune_step => autotune2x_step,
+    autotune_stepdir => autotune2x_stepdir,
+    
+    target_track => target_track,
+    target_sector => target_sector,
+    target_side => target_side,
+    target_any => target_any,
+
+    sector_data_gap => fdc_sector_data_gap_2x,
+    sector_found => fdc_sector_found_2x,
+    found_track => found_track_2x,
+    found_sector => found_sector_2x,
+    found_side => found_side_2x,
+
+    first_byte => fdc_first_byte_2x,
+    byte_valid => fdc_byte_valid_2x,
+    byte_out => fdc_byte_out_2x,
+    crc_error => fdc_crc_error_2x,
+    sector_end => fdc_sector_end_2x    
+    );
+
   
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -1413,6 +1476,7 @@ begin  -- behavioural
 
       last_fw_ready_for_next <= fw_ready_for_next;      
       last_fdc_sector_found <= fdc_sector_found;
+      last_fdc_sector_found_2x <= fdc_sector_found_2x;
       
       if fdc_writing_cooldown /= 0 then
         fdc_writing <= '1';
@@ -1634,8 +1698,16 @@ begin  -- behavioural
         elsif autotune_step='0' and last_autotune_step='1' then
           f_step <= '1';
         end if;
+        if autotune2x_step='1' and last_autotune2x_step='0' then
+          f_step <= '0';
+          step_countdown <= 500;
+          f_stepdir <= autotune2x_stepdir;
+        elsif autotune2x_step='0' and last_autotune2x_step='1' then
+          f_step <= '1';
+        end if;
       end if;
       last_autotune_step <= autotune_step;
+      last_autotune2x_step <= autotune2x_step;
 
       
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
@@ -3239,7 +3311,7 @@ begin  -- behavioural
           -- Wait until we are NOT over the requested sector,
           -- so that we don't accidentally read only the tail
           -- end of the sector.
-          if fdc_sector_found = '0' then
+          if fdc_sector_found = '0' and fdc_sector_found_2x='0' then
             sd_state <= FDCReadingSector;
           end if;
         when FDCReadingSector =>
@@ -3258,7 +3330,6 @@ begin  -- behavioural
               sd_state <= Idle;
               fdc_sector_operation <= '0';
             end if;
-
             
 --        report "fdc_read_request asserted, checking for activity";
             if index_wait_timeout /= 0 then
@@ -3269,7 +3340,7 @@ begin  -- behavioural
               -- Allow 250ms per rotation (they should be ~200ms)
               index_wait_timeout <= cpu_frequency / 4;
             end if;
-            if ((f_index_history=x"00" and last_f_index='1') and (fdc_sector_found='0')) or index_wait_timeout=0 then
+            if ((f_index_history=x"00" and last_f_index='1') and (fdc_sector_found='0') and (fdc_sector_found_2x='0')) or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
@@ -3340,6 +3411,62 @@ begin  -- behavioural
               end if;
             end if;
           end if;          
+
+          if (fdc_sector_found_2x='1') or (fdc_sector_end_2x='1') then
+              report "2x fdc_sector_found or fdc_sector_end = 1";
+              if fdc_sector_found_2x='1' then
+                if f011_rsector_found = '0' then
+                  report "asserting f011_rsector_found";
+                end if;
+                f011_rsector_found <= '1';
+              end if;
+              if fdc_sector_end_2x='1' then
+                report "fdc_sector_end=1";
+                if f011_rsector_found = '0' then
+                  report "reseting f011_rsector_found";
+                end if;
+                f011_rsector_found <= '0';
+              end if;
+              if fdc_byte_valid_2x = '1' and (fdc_sector_found_2x or f011_rsector_found)='1' then
+                -- DEBUG: Note how many bytes we have received from the floppy
+                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_disk_address);
+                if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
+                  fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
+                else
+                  fdc_bytes_read(12 downto 0) <= (others => '0');
+                end if;
+                
+                -- Record byte into sector bufferr
+                if f011_drq='1' then f011_lost <= '1'; end if;
+                f011_drq <= '1';
+                f011_buffer_disk_pointer_advance <= '1';
+                -- Write to F011 sector buffer
+                f011_buffer_write_address <= "110"&f011_buffer_disk_address;
+                f011_buffer_wdata <= unsigned(fdc_byte_out_2x);
+                f011_buffer_write <= '1';
+                -- Defer any CPU write request, since we are writing
+                sb_cpu_write_request <= sb_cpu_write_request;
+              end if;
+              if fdc_crc_error_2x='1' then
+                -- Failed to read sector due to CRC error
+                -- So set CRC flag:
+                f011_crc <= '1';
+
+                -- But don't abort reading, just retry
+                -- (The existing timeout mechanism will catch us eventually)
+                sd_state <= FDCReadingSectorWait;
+              elsif fdc_sector_end_2x='1' and f011_rsector_found='1' then
+                -- Clear read request only at the end of the sector we are looking for
+                report "Clearing fdc_read_request due end of target sector";
+                f011_crc <= '0';
+                fdc_read_request <= '0';
+                fdc_bytes_read(1) <= '1';
+                f011_busy <= '0';
+                sd_state <= Idle;
+                fdc_sector_operation <= '0';
+              end if;
+            end if;
+
           
         when F011WriteSector =>
           -- Sit out the wait state for reading the next sector buffer byte
