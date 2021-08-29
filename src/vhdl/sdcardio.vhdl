@@ -1489,6 +1489,11 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Return to DD data rate on reset
+      if reset='0' then
+        cycles_per_interval <= x"51";
+      end if;
+      
       last_fw_ready_for_next <= fw_ready_for_next;      
       last_fdc_sector_found <= fdc_sector_found;
       last_fdc_sector_found_2x <= fdc_sector_found_2x;
