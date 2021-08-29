@@ -419,6 +419,7 @@ architecture behavioural of sdcardio is
   signal fdc_sector_data_gap_2x : std_logic := '0';
   signal fdc_sector_found_2x : std_logic := '0';
   signal last_fdc_sector_found_2x : std_logic := '0';
+  signal fdc_2x_select : std_logic := '0';
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
@@ -453,6 +454,7 @@ architecture behavioural of sdcardio is
   
   -- Used to keep track of where we are upto in a sector write
   signal fdc_write_byte_number : integer range 0 to 1023 := 0;
+  
   
   signal packed_rdata : std_logic_vector(7 downto 0);
 
@@ -1155,8 +1157,8 @@ begin  -- behavioural
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
             fastio_rdata(2) <= latched_disk_change_event;
-            fastio_rdata(1) <= '0';
-            fastio_rdata(0) <= '0';
+            fastio_rdata(1) <= fdc_sector_found_2x;
+            fastio_rdata(0) <= fdc_sector_end_2x;
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
@@ -1175,13 +1177,25 @@ begin  -- behavioural
             fastio_rdata <= cycles_per_interval;
           when x"a3" =>
             -- @IO:GS $D6A3 - FDC track number of last matching sector header
-            fastio_rdata <= found_track;
+            if fdc_2x_select='1' then
+              fastio_rdata <= found_track_2x;
+            else
+              fastio_rdata <= found_track;
+            end if;
           when x"a4" =>
             -- @IO:GS $D6A4 - FDC sector number of last matching sector header
-            fastio_rdata <= found_sector;
+            if fdc_2x_select='1' then
+              fastio_rdata <= found_sector_2x;
+            else
+              fastio_rdata <= found_sector;
+            end if;
           when x"a5" =>
             -- @IO:GS $D6A5 - FDC side number of last matching sector header
-            fastio_rdata <= found_side;
+            if fdc_2x_select='1' then
+              fastio_rdata <= found_side_2x;
+            else
+              fastio_rdata <= found_side;
+            end if;
           when x"a6" =>
             -- @IO:GS $D6A6 - DEBUG FDC decoded MFM byte
             fastio_rdata <= fdc_byte_out;
@@ -1212,7 +1226,8 @@ begin  -- behavioural
             -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
             -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
             fastio_rdata(3 downto 0) <= volume_knob3_target;
-            fastio_rdata(6 downto 4) <= "000";
+            fastio_rdata(5 downto 4) <= "00";
+            fastio_rdata(6) <= fdc_2x_select;
             fastio_rdata(7) <= pwm_knob_en;
           when x"af" =>
             -- @IO:GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
@@ -2697,6 +2712,7 @@ begin  -- behavioural
               -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
               -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
               volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              fdc_2x_select <= fastio_wdata(6);
               pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
