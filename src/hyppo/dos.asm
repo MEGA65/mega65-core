@@ -72,7 +72,7 @@ dos_and_process_trap_table:
         !16 trap_dos_geterrorcode
         !16 trap_dos_setup_transfer_area
         !16 trap_dos_cdrootdir
-        !16 invalid_subfunction
+        !16 trap_dos_loadfile_attic
 
         ;; $40 - $4E
         ;;
@@ -207,19 +207,25 @@ trap_dos_closeall:
 
 ;;         ========================
 
+trap_dos_loadfile_attic:
+	lda #$80
+	!8 $2c 		; BIT $xxxx to skip lda #$00 below
+	;; FALL THROUGH
+	
 trap_dos_loadfile:
 
         ;; Only allow loading into lower 16MB to avoid possibility of writing
         ;; over hypervisor
         ;;
+        lda #$00
+        sta <(dos_file_loadaddress+3)
+
         lda hypervisor_x
         sta <dos_file_loadaddress
         lda hypervisor_y
         sta <(dos_file_loadaddress+1)
         lda hypervisor_z
         sta <(dos_file_loadaddress+2)
-        lda #$00
-        sta <(dos_file_loadaddress+3)
 
         jsr dos_readfileintomemory
         jmp return_from_trap_with_carry_flag
