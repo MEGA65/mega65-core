@@ -3027,7 +3027,7 @@ dff4:   lda dos_dirent_longfilename,x
         cmp dos_requested_filename,x
         bne dff3
         dex
-        bne dff4
+        bpl dff4
 
         ;; File names match, so return success
 
