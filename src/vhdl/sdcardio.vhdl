@@ -383,6 +383,8 @@ architecture behavioural of sdcardio is
   
   signal cycles_per_interval : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
+  signal cycles_per_interval_variable : unsigned(7 downto 0)
+    := to_unsigned(cpu_frequency/500000,8);
   -- When using variable recording rates (like 1541 recording zones)
   -- we modify the user-supplied datarate based on track number.
   signal cycles_per_interval_actual : unsigned(7 downto 0)
@@ -814,11 +816,14 @@ begin  -- behavioural
   -- Double-rate MFM decoder, used so that we can easily
   -- detect and use HD formatted disks, without having to
   -- have a program figure it out.
+  -- Also, we ALWAYS enable variable recording rate for the
+  -- HD decoder, as we are only going to make HD disks with
+  -- it enabled.
   mfm2x: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
     cycles_per_interval(7 downto 7) => unsigned_zero,
-    cycles_per_interval(6 downto 0) => cycles_per_interval_actual(7 downto 1),
+    cycles_per_interval(6 downto 0) => cycles_per_interval_variable(7 downto 1),
     invalidate => fdc_read_invalidate,
 
     -- No MFM debug data from the 2x decoder
@@ -1506,23 +1511,24 @@ begin  -- behavioural
       if fdc_variable_data_rate='0' then
         cycles_per_interval_actual <= cycles_per_interval;
       else
-        -- PGS XXX This table needs to be updated based on testing results
-        if f011_track < 10 then
-          cycles_per_interval_actual <= cycles_per_interval - 10;
-        elsif f011_track < 40 then
-          cycles_per_interval_actual <= cycles_per_interval - 9;
-        elsif f011_track < 50 then
-          cycles_per_interval_actual <= cycles_per_interval - 8;
-        elsif f011_track < 60 then
-          cycles_per_interval_actual <= cycles_per_interval - 7;
-        elsif f011_track < 70 then
-          cycles_per_interval_actual <= cycles_per_interval - 6;
-        elsif f011_track < 80 then
-          cycles_per_interval_actual <= cycles_per_interval - 5;
-        else
-          cycles_per_interval_actual <= cycles_per_interval;
-        end if;
-          
+        cycles_per_interval_actual <= cycles_per_interval_variable;
+      end if;
+
+      -- PGS XXX This table needs to be updated based on testing results
+      if f011_track < 10 then
+        cycles_per_interval_variable <= cycles_per_interval - 10;
+      elsif f011_track < 40 then
+        cycles_per_interval_variable <= cycles_per_interval - 9;
+      elsif f011_track < 50 then
+        cycles_per_interval_variable <= cycles_per_interval - 8;
+      elsif f011_track < 60 then
+        cycles_per_interval_variable <= cycles_per_interval - 7;
+      elsif f011_track < 70 then
+        cycles_per_interval_variable <= cycles_per_interval - 6;
+      elsif f011_track < 80 then
+        cycles_per_interval_variable <= cycles_per_interval - 5;
+      else
+        cycles_per_interval_variable <= cycles_per_interval;
       end if;
       
       -- Return to DD data rate on reset
