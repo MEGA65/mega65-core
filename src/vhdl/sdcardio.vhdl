@@ -277,7 +277,9 @@ architecture behavioural of sdcardio is
                       FDCFormatTrackSyncWait,         -- 0x0F
                       FDCFormatTrack,                 -- 0x10
                       F011WriteSectorRealDriveWait,   -- 0x11
-                      F011WriteSectorRealDrive        -- 0x12
+                      F011WriteSectorRealDrive,       -- 0x12
+                      FDCAutoFormatTrackSyncWait,     -- 0x13
+                      FDCAutoFormatTrack              -- 0x14
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -573,6 +575,10 @@ architecture behavioural of sdcardio is
   signal crc_value : unsigned(15 downto 0);
 
   signal unsigned_zero : unsigned(0 downto 0) := (others => '0');
+
+  signal format_state : integer range 0 to 1023 := 0;
+  signal format_no_gaps : std_logic := '0';
+  signal format_sector_number : integer range 0 to 255 := 0;
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1969,8 +1975,32 @@ begin  -- behavioural
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
-                when x"A0" | x"A1" | x"A4" | x"A5" =>
-                  -- Track write
+                when x"A0" | x"A4" =>
+                  -- Format a track (completely automatically)
+                  -- At high data rates, it is problematic to feed the data
+                  -- fast enough to avoid failures, especially when using
+                  -- code written using CC65, as I am using to test things.
+                  -- So this command just attempts to format the whole track
+                  -- with all empty sectors, and everything nicely built.
+
+                  f_wgate <= '1';
+                  f011_busy <= '1';
+                  -- $A4 = no gaps, i.e., Amiga-style track-at-once
+                  -- $A0 = with inter-sector gaps, i.e., 1581 / PC 1.44MB style
+                  -- that can be written to using DOS
+                  format_no_gaps <= temp_cmd(2);
+
+                  -- Only allow formatting when real drive is used
+                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
+                    (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
+                    report "FLOPPY: Real drive selected, so starting track format";
+                    sd_state <= FDCAutoFormatTrackSyncWait;
+                  else
+                    report "FLOPPY: Ignoring track format, due to using D81 image";
+                  end if;
+                  
+                when x"A1" | x"A5" =>
+                  -- Track write: Unbuffered
                   -- It doesn't matter if you enable buffering or not, for
                   -- track write, as we just enforce unbuffered operation,
                   -- since it is the only way that it is used on the C65, and
@@ -3211,6 +3241,162 @@ begin  -- behavioural
 
           end if;
 
+        when FDCAutoFormatTrackSyncWait =>
+          -- Wait for negative edge on f_sync line
+
+          fdc_writing_cooldown <= 20250000;
+        
+          if f_index_history(7) /= f_index_history(0) then
+            report "FLOPPY: Format Track Sync wait: f_index=" & std_logic'image(f_index)
+              & ", f_index_history=" & to_string(f_index_history);
+          end if;
+          
+          debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
+          
+          if f_index_history = x"00" and last_f_index='1' then
+            sd_state <= FDCAutoFormatTrack;
+
+            -- Start writing
+            f_wgate <= '0';
+
+            -- feed first gap byte
+            fw_byte_in <= x"00";
+            f011_reg_clock <= x"00";
+            fw_byte_valid <= '1';
+
+            -- Set auto-format FSM state
+            format_state <= 0;
+            format_sector_number <= 0;
+            
+          end if;
+
+        when FDCAutoFormatTrack =>
+
+          if f_index_history = x"00" and last_f_index='1' then
+            -- Abort format as soon as we reach the end of the track.
+            -- i.e., write as many sectors as will fit, but no more.
+            f_wgate <= '1';
+            f011_busy <= '0';
+            sd_state <= Idle;
+            fdc_sector_operation <= '0';
+          end if;
+          
+          if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
+            format_state <= format_state + 1;
+            case format_state is
+              when 0 to 12 =>
+                -- Start of track gaps
+                fw_byte_in <= x"00";
+                f011_reg_clock <= x"00";
+                fw_byte_valid <= '1';
+                crc_reset <= '1';
+                crc_feed <= '0';
+              when 13 to 15 =>
+                -- Write sector header sync bytes
+                fw_byte_in <= x"A1";
+                f011_reg_clock <= x"FB";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+                if format_state = 13 then
+                  -- Advance sector number
+                  format_sector_number <= format_sector_number + 1;
+                end if;
+              when 16 =>
+                -- Sector header: Start mark
+                fw_byte_in <= x"FE";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 17 =>
+                -- Sector header: Track number
+                fw_byte_in <= f011_track;
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 18 =>
+                -- Sector header: Side
+                fw_byte_in <= f011_side;
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 19 =>
+                -- Sector header: Sector number
+                fw_byte_in <= to_unsigned(format_sector_number,8);
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 20 =>
+                -- Sector header: Sector size (2^(7+n), so 2=512)
+                fw_byte_in <= x"02";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 21 =>
+                -- Sector header: First CRC byte
+                fw_byte_in <= crc_value(15 downto 8);
+                fw_byte_valid <= '1';
+              when 22 =>
+                -- Sector header: Second CRC byte
+                fw_byte_in <= crc_value(7 downto 0);
+                fw_byte_valid <= '1';
+                if format_no_gaps='1' then
+                  format_state <= 58;
+                end if;
+              when 23 to 45 =>
+                -- Write $4E gap bytes
+                fw_byte_in <= x"4E";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+              when 46 to 46 + 11 =>
+                -- Write $00 gap bytes
+                fw_byte_in <= x"00";
+                f011_reg_clock <= x"00";
+                fw_byte_valid <= '1';
+                crc_reset <= '1';
+                crc_feed <= '0';
+              when 58 to 58 + 2 =>
+                -- $A1 sync bytes
+                fw_byte_in <= x"A1";
+                f011_reg_clock <= x"FB";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 61 =>
+                -- Start of data block mark
+                fw_byte_in <= x"FB";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 62 to 62 + 511 =>
+                -- 512 data bytes
+                fw_byte_in <= x"00";
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 574 =>
+                -- First CRC byte
+                fw_byte_in <= crc_value(15 downto 8);
+                fw_byte_valid <= '1';
+              when 575 =>
+                -- Second CRC byte
+                fw_byte_in <= crc_value(7 downto 0);
+                fw_byte_valid <= '1';
+                if format_no_gaps='1' then
+                  format_state <= 599;
+                end if;                
+              when 576 to 576 + 22 =>
+                -- $4E gap bytes following sector
+                fw_byte_in <= x"4E";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+              when 599 =>
+                -- Final $4E gap byte, and start next sector
+                fw_byte_in <= x"4E";
+                f011_reg_clock <= x"FF";
+                fw_byte_valid <= '1';
+                -- Move to next sector
+                format_state <= 13;
+              when others =>
+                null;
+            end case;
+                
+          end if;
+          
         when F011WriteSectorRealDriveWait =>
           -- Wait until the target sector header is found, or
           -- six index pulses have passed
