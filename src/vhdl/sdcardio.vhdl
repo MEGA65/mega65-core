@@ -383,6 +383,10 @@ architecture behavioural of sdcardio is
   
   signal cycles_per_interval : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
+  -- When using variable recording rates (like 1541 recording zones)
+  -- we modify the user-supplied datarate based on track number.
+  signal cycles_per_interval_actual : unsigned(7 downto 0)
+    := to_unsigned(cpu_frequency/500000,8);
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"00";
@@ -422,6 +426,7 @@ architecture behavioural of sdcardio is
   signal fdc_sector_found_2x : std_logic := '0';
   signal last_fdc_sector_found_2x : std_logic := '0';
   signal fdc_2x_select : std_logic := '0';
+  signal fdc_variable_data_rate : std_logic := '0';
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
@@ -752,7 +757,7 @@ begin  -- behavioural
    
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
       clock40mhz => clock,
-      cycles_per_interval => cycles_per_interval,
+      cycles_per_interval => cycles_per_interval_actual,
       write_precomp_enable => f011_write_precomp,
       ready_for_next => fw_ready_for_next,
       no_data => fw_no_data,
@@ -776,7 +781,7 @@ begin  -- behavioural
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    cycles_per_interval => cycles_per_interval,
+    cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
 
@@ -813,7 +818,7 @@ begin  -- behavioural
     clock40mhz => clock,
     f_rdata => f_rdata,
     cycles_per_interval(7 downto 7) => unsigned_zero,
-    cycles_per_interval(6 downto 0) => cycles_per_interval(7 downto 1),
+    cycles_per_interval(6 downto 0) => cycles_per_interval_actual(7 downto 1),
     invalidate => fdc_read_invalidate,
 
     -- No MFM debug data from the 2x decoder
@@ -1232,7 +1237,8 @@ begin  -- behavioural
             -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
             -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
             fastio_rdata(3 downto 0) <= volume_knob3_target;
-            fastio_rdata(5 downto 4) <= "00";
+            fastio_rdata(4) <= '0';
+            fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
             fastio_rdata(7) <= pwm_knob_en;
           when x"af" =>
@@ -1495,6 +1501,30 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- If using variable data rate, then set rate based on
+      -- current selected rate, modified for track number
+      if fdc_variable_data_rate='0' then
+        cycles_per_interval_actual <= cycles_per_interval;
+      else
+        -- PGS XXX This table needs to be updated based on testing results
+        if f011_track < 10 then
+          cycles_per_interval_actual <= cycles_per_interval - 10;
+        elsif f011_track < 40 then
+          cycles_per_interval_actual <= cycles_per_interval - 9;
+        elsif f011_track < 50 then
+          cycles_per_interval_actual <= cycles_per_interval - 8;
+        elsif f011_track < 60 then
+          cycles_per_interval_actual <= cycles_per_interval - 7;
+        elsif f011_track < 70 then
+          cycles_per_interval_actual <= cycles_per_interval - 6;
+        elsif f011_track < 80 then
+          cycles_per_interval_actual <= cycles_per_interval - 5;
+        else
+          cycles_per_interval_actual <= cycles_per_interval;
+        end if;
+          
+      end if;
+      
       -- Return to DD data rate on reset
       if reset='0' then
         cycles_per_interval <= x"51";
@@ -2747,6 +2777,7 @@ begin  -- behavioural
               -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
               -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
               volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
               pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
