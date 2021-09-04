@@ -217,8 +217,8 @@ architecture behavioural of ethernet is
   signal rxbuffer_writeaddress : integer range 0 to 2047;
   signal rxbuffer_writeaddress_l : integer range 0 to 2047;
   signal rxbuffer_readaddress : integer range 0 to 2047;
-  signal rxbuffer_wdata_l : unsigned(7 downto 0);
-  signal rxbuffer_wdata : unsigned(7 downto 0);
+  signal rxbuffer_wdata_l : unsigned(7 downto 0) := x"00";
+  signal rxbuffer_wdata : unsigned(7 downto 0) := x"00";
   signal eth_rx_buffer_inuse : unsigned(3 downto 0) := "0000";
   signal rxbuff_id_cpuside : integer range 0 to 3 := 0;
   signal rxbuff_id_ethside : integer range 0 to 3 := 0;
@@ -229,18 +229,18 @@ architecture behavioural of ethernet is
   signal eth_tx_toggle_int2 : std_logic := '1';
   signal eth_tx_toggle_int1 : std_logic := '1';
   signal eth_tx_toggle_50mhz : std_logic := '1';
-  signal tx_preamble_count : integer range 63 downto 0;
+  signal tx_preamble_count : integer range 63 downto 0 := 0;
   signal tx_preamble_length : integer range 63 downto 0 := 29;
   signal eth_tx_state : ethernet_state := Idle;
-  signal eth_tx_bit_count : integer range 0 to 6;
+  signal eth_tx_bit_count : integer range 0 to 6 := 0;
   signal eth_tx_viciv : std_logic := '0';
   signal eth_tx_dump : std_logic := '0';
   signal txbuffer_writeaddress : integer range 0 to 2047;
   signal txbuffer_readaddress : integer range 0 to 2047;
   signal txbuffer_write : std_logic := '0';
-  signal txbuffer_wdata : unsigned(7 downto 0);
-  signal txbuffer_rdata : unsigned(7 downto 0);
-  signal eth_tx_bits : unsigned(7 downto 0);
+  signal txbuffer_wdata : unsigned(7 downto 0) := x"00";
+  signal txbuffer_rdata : unsigned(7 downto 0) := x"00";
+  signal eth_tx_bits : unsigned(7 downto 0) := x"00";
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_size_padded : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_padding : std_logic := '0';
@@ -252,9 +252,9 @@ architecture behavioural of ethernet is
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic := '0';
   signal eth_txd_int : unsigned(1 downto 0) := "00";
-  signal eth_tx_wait : integer range 0 to 50;
+  signal eth_tx_wait : integer range 0 to 50 := 0;
  
-  signal eth_tx_crc_count : integer range 0 to 16;
+  signal eth_tx_crc_count : integer range 0 to 16 := 0;
   signal eth_tx_crc_bits : std_logic_vector(31 downto 0) := (others => '0');
  
  -- CRC
