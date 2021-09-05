@@ -208,7 +208,7 @@ trap_dos_closeall:
 ;;         ========================
 
 trap_dos_loadfile_attic:
-	lda #$80
+	lda #$08  		; Set address to $8xxxxxx to access attic RAM
 	!8 $2c 		; BIT $xxxx to skip lda #$00 below
 	;; FALL THROUGH
 	
