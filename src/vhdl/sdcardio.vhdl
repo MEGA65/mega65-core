@@ -3309,6 +3309,8 @@ begin  -- behavioural
 
         when FDCAutoFormatTrack =>
 
+          crc_feed <= '0';
+          
           if f_index_history = x"00" and last_f_index='1' then
             -- Abort format as soon as we reach the end of the track.
             -- i.e., write as many sectors as will fit, but no more.
@@ -3333,6 +3335,7 @@ begin  -- behavioural
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
+                crc_reset <= '0';
                 crc_feed <= '1';
                 if format_state = 13 then
                   -- Advance sector number
@@ -3393,6 +3396,7 @@ begin  -- behavioural
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
+                crc_reset <= '0';
                 crc_feed <= '1';
               when 61 =>
                 -- Start of data block mark
