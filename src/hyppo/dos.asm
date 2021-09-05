@@ -3616,32 +3616,6 @@ drfim_sector_loop:
         ;; Work out how many bytes of this page we need to read
         jsr dos_load_y_based_on_dos_bytes_remaining
 
-;;         phy
-;;
-;;         ldx <dos_file_loadaddress+3
-;;         jsr checkpoint_bytetohex
-;;         sty loadingaddr+0
-;;         stx loadingaddr+1
-;;         ldx <dos_file_loadaddress+2
-;;         jsr checkpoint_bytetohex
-;;         sty loadingaddr+2
-;;         stx loadingaddr+3
-;;         ldx <dos_file_loadaddress+1
-;;         jsr checkpoint_bytetohex
-;;         sty loadingaddr+4
-;;         stx loadingaddr+5
-;;         ldx <dos_file_loadaddress+0
-;;         jsr checkpoint_bytetohex
-;;         sty loadingaddr+6
-;;         stx loadingaddr+7
-;;
-;;         jsr checkpoint
-;;         !8 0,"Loading @ "
-;; loadingaddr:
-;;         !8 "$$$$$$$$",13,10,0
-;;
-;;         ply
-
         ldx #$00
         ldz #$00
 
