@@ -3384,6 +3384,8 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 if format_no_gaps='1' then
                   format_state <= 58;
+                  crc_reset <= '1';
+                  crc_feed <= '0';
                 end if;
               when 23 to 45 =>
                 -- Write $4E gap bytes
