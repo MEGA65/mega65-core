@@ -3441,6 +3441,8 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 -- Move to next sector
                 format_state <= 13;
+                crc_reset <= '1';
+                crc_feed <= '0';
               when others =>
                 null;
             end case;
