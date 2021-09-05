@@ -3336,6 +3336,7 @@ begin  -- behavioural
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
                 crc_reset <= '0';
+                crc_byte <= x"a1";
                 crc_feed <= '1';
                 if format_state = 13 then
                   -- Advance sector number
@@ -3346,27 +3347,32 @@ begin  -- behavioural
                 fw_byte_in <= x"FE";
                 f011_reg_clock <= x"FF";
                 fw_byte_valid <= '1';
+                crc_byte <= x"fe";
                 crc_feed <= '1';
               when 17 =>
                 -- Sector header: Track number
                 fw_byte_in <= f011_track;
                 fw_byte_valid <= '1';
+                crc_byte <= f011_track;
                 crc_feed <= '1';
               when 18 =>
                 -- Sector header: Side
                 fw_byte_in <= f011_side;
                 fw_byte_valid <= '1';
+                crc_byte <= f011_side;
                 crc_feed <= '1';
               when 19 =>
                 -- Sector header: Sector number
                 fw_byte_in <= to_unsigned(format_sector_number,8);
                 fw_byte_valid <= '1';
+                crc_byte <= to_unsigned(format_sector_number,8);
                 crc_feed <= '1';
               when 20 =>
                 -- Sector header: Sector size (2^(7+n), so 2=512)
                 fw_byte_in <= x"02";
                 f011_reg_clock <= x"FF";
                 fw_byte_valid <= '1';
+                crc_byte <= x"02";
                 crc_feed <= '1';
               when 21 =>
                 -- Sector header: First CRC byte
@@ -3397,17 +3403,20 @@ begin  -- behavioural
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
                 crc_reset <= '0';
+                crc_byte <= x"A1";
                 crc_feed <= '1';
               when 61 =>
                 -- Start of data block mark
                 fw_byte_in <= x"FB";
                 f011_reg_clock <= x"FF";
                 fw_byte_valid <= '1';
+                crc_byte <= x"FB";
                 crc_feed <= '1';
               when 62 to 62 + 511 =>
                 -- 512 data bytes
                 fw_byte_in <= x"00";
                 fw_byte_valid <= '1';
+                crc_byte <= x"00";
                 crc_feed <= '1';
               when 574 =>
                 -- First CRC byte
