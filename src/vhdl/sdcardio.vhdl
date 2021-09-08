@@ -373,6 +373,7 @@ architecture behavioural of sdcardio is
   signal fw_byte_valid : std_logic := '0';
   signal fw_byte_in : unsigned(7 downto 0);  
   signal f011_write_precomp : std_logic := '0';
+  
   signal f011_reg_clock : unsigned(7 downto 0) := x"FF";
   
   signal f011_reg_step : unsigned(7 downto 0) := x"80"; -- 8ms steps
@@ -389,6 +390,11 @@ architecture behavioural of sdcardio is
   -- we modify the user-supplied datarate based on track number.
   signal cycles_per_interval_actual : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
+  signal write_precomp_magnitude : unsigned(7 downto 0)
+    := to_unsigned(cpu_frequency/500000/16,8);
+  signal write_precomp_magnitude_b : unsigned(7 downto 0)
+    := to_unsigned(cpu_frequency/500000/8,8);
+  
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"00";
@@ -761,6 +767,8 @@ begin  -- behavioural
       clock40mhz => clock,
       cycles_per_interval => cycles_per_interval_actual,
       write_precomp_enable => f011_write_precomp,
+      write_precomp_magnitude => write_precomp_magnitude,
+      write_precomp_magnitude_b => write_precomp_magnitude_b,
       ready_for_next => fw_ready_for_next,
       no_data => fw_no_data,
       f_write => f_wdata,
@@ -1213,11 +1221,11 @@ begin  -- behavioural
               fastio_rdata <= found_side;
             end if;
           when x"a6" =>
-            -- @IO:GS $D6A6 - DEBUG FDC decoded MFM byte
-            fastio_rdata <= fdc_byte_out;
+            -- @IO:GS $D6A6 - SD:WPRECOMPA Write precompensation magnitude A (for small asymetry)
+            fastio_rdata <= write_precomp_magnitude;
           when x"a7" =>
-            -- @IO:GS $D6A7 - DEBUG FDC decoded MFM state
-            fastio_rdata <= fdc_mfm_state;
+            -- @IO:GS $D6A7 - SD:WPRECOMPB Write precompensation magnitude B (for large asymetry)
+            fastio_rdata <= write_precomp_magnitude_b;
           when x"a8" =>
             -- @IO:GS $D6A8 - DEBUG FDC last decoded MFM byte
             fastio_rdata <= fdc_mfm_byte;
@@ -1993,6 +2001,7 @@ begin  -- behavioural
               --           4. Add 4 for DPLL recovery instead of FC recovery
               --           5. Add 6 for Alternate DPLL recovery
               f011_cmd <= fastio_wdata;
+              f011_write_precomp <= fastio_wdata(2);
               f011_busy <= '0';
               f011_lost <= '0';
               f011_irq  <= '0';
@@ -2011,7 +2020,7 @@ begin  -- behavioural
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
-                when x"A0" | x"A4" =>
+                when x"A0" | x"A4" | x"A8" | x"AC" =>
                   -- Format a track (completely automatically)
                   -- At high data rates, it is problematic to feed the data
                   -- fast enough to avoid failures, especially when using
@@ -2021,7 +2030,9 @@ begin  -- behavioural
 
                   f_wgate <= '1';
                   f011_busy <= '1';
-                  -- $A4 = no gaps, i.e., Amiga-style track-at-once
+
+                  -- $A4 = enable write precomp
+                  -- $A8 = no gaps, i.e., Amiga-style track-at-once
                   -- $A0 = with inter-sector gaps, i.e., 1581 / PC 1.44MB style
                   -- that can be written to using DOS
                   format_no_gaps <= temp_cmd(2);
@@ -2636,7 +2647,7 @@ begin  -- behavioural
               -- @ IO:GS $D689.1 SD:BUFFFULL (read only) if set, indicates that the sector buffer is full and has not yet been read
               -- @ IO:GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
               -- @ IO:GS $D689.3 SD:DRDY SD Card Data Ready indication
-              -- @ IO:GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
+              -- @ IO:GS $D689.4 SD:RESERVED Reserved
               -- @ IO:GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
               -- @ IO:GS $D689.7 SD:BUFFSEL Set to switch sector buffer to view SD card direct access, clear for access to the F011 FDC sector buffer.
               sd_handshake <= fastio_wdata(2);
@@ -2774,6 +2785,16 @@ begin  -- behavioural
               -- @IO:GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic
               -- interval (decrease to increase data rate)
               cycles_per_interval <= fastio_wdata;
+              -- Auto setup write precomp magnitudes as 1/16 and 1/8th of a MFM
+              -- timing pulse when setting data rate
+              write_precomp_magnitude(7 downto 4) <= (others => '0');
+              write_precomp_magnitude_b(7 downto 5) <= (others => '0');
+              write_precomp_magnitude(3 downto 0) <= fastio_wdata(7 downto 4);
+              write_precomp_magnitude_b(4 downto 0) <= fastio_wdata(7 downto 3);
+            when x"a6" =>
+              write_precomp_magnitude <= fastio_wdata;
+            when x"a7" =>
+              write_precomp_magnitude_b <= fastio_wdata;
             when x"ad" => 
               -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
               -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2

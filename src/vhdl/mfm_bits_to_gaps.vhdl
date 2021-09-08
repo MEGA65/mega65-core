@@ -13,6 +13,8 @@ entity mfm_bits_to_gaps is
 
     cycles_per_interval : in unsigned(7 downto 0);
     write_precomp_enable : in std_logic := '0';
+    write_precomp_magnitude : in unsigned(7 downto 0) := x"00";
+    write_precomp_magnitude_b : in unsigned(7 downto 0) := x"00";
     
     -- Are we ready to accept something?
     ready_for_next : out std_logic := '1';
@@ -30,6 +32,7 @@ entity mfm_bits_to_gaps is
     -- Clock bits
     -- This gets inverted before being XORd with the intended clock bits
     clock_byte_in : in unsigned(7 downto 0) := x"FF"
+
     
     );
 end mfm_bits_to_gaps;
@@ -43,8 +46,14 @@ architecture behavioural of mfm_bits_to_gaps is
   signal bit_queue : unsigned(15 downto 0);
   signal bits_queued : integer range 0 to 16 := 0;
 
+  -- Work out when to write a bit
   signal interval_countdown : integer range 0 to 255 := 0;
   signal transition_point : integer range 0 to 256 := 256;
+
+  -- And then any adjustments for write precompensation
+  signal f_write_time_adj : integer range -128 to 127 := 0;
+  signal f_write_buf : std_logic_vector(6 downto 0) := "0000000";
+  signal f_write_next : std_logic := '0';
 
   signal ingest_byte_toggle : std_logic := '0';
   signal last_ingest_byte_toggle : std_logic := '0';
@@ -79,9 +88,66 @@ begin
       -- and it stays asserted until the end of the bit, i.e., 0.5 x WCLK
       -- to match description on page 79 in Figure 7 of
       -- https://www.mouser.com/datasheet/2/268/37c78-468028.pdf
-      if interval_countdown = transition_point then
+
+      -- Emit pulse with write precompensation
+      if interval_countdown = transition_point + f_write_time_adj then
+        f_write <= f_write_next;
+      end if;
+        
+      if interval_countdown = 0 then
 --        report "MFM bit " & std_logic'image(bit_queue(15));
-        f_write <= not bit_queue(15);
+        f_write_buf(6) <= not bit_queue(15);
+        f_write_buf(5 downto 0) <= f_write_buf(6 downto 1);
+
+        -- Get next bit ready for writing 
+        f_write_next <= f_write_buf(3);
+
+        if write_precomp_enable='0' then
+          -- No write precompensation, so emit bit at the right time.
+          f_write_time_adj <= 0;
+        else
+          case f_write_buf is
+            when "0101000" =>
+              -- short pulse before, long one after : pulse will be pushed
+              -- early, so write it a bit late              
+              f_write_time_adj <= to_integer(write_precomp_magnitude_b);
+            when "1001000" =>
+              -- medium pulse before, long one after : pulse will be pushed
+              -- early, so write it a bit late
+              f_write_time_adj <= to_integer(write_precomp_magnitude);              
+            when "0001000" =>
+              -- equal length pulses either side
+              f_write_time_adj <= 0;
+              
+            when "0101010" =>
+              -- equal length pulses either side
+              f_write_time_adj <= 0;
+            when "1001010" =>
+              -- Medium pulse before, short one after : pulse will be pushed late,
+              -- so write it a bit early
+              f_write_time_adj <= - to_integer(write_precomp_magnitude);              
+            when "0001010" =>
+              -- Long pulse before, short one after
+              -- 
+              f_write_time_adj <= - to_integer(write_precomp_magnitude_b);
+
+            when "0101001" =>
+              -- Short pulse before, medium after
+              f_write_time_adj <= to_integer(write_precomp_magnitude);
+            when "1001001" =>
+              -- equal length pulses either side
+              f_write_time_adj <= 0;
+            when "0001001" =>
+              -- Long pulse before, medium after
+              f_write_time_adj <= - to_integer(write_precomp_magnitude);
+
+            when others =>
+              -- All other combinations are invalid for MFM encoding, so do no
+              -- write precompensation
+              f_write_time_adj <= 0;                
+          end case;
+        end if;
+        
         bit_queue(15 downto 1) <= bit_queue(14 downto 0);
         if bits_queued /= 0 then
 --          report "MFMFLOPPY: Decrement bits_queued to " & integer'image(bits_queued - 1);
