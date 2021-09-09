@@ -3319,7 +3319,7 @@ begin  -- behavioural
 
             -- feed first gap byte
             fw_byte_in <= x"00";
-            f011_reg_clock <= x"00";
+            f011_reg_clock <= x"ff";
             fw_byte_valid <= '1';
 
             -- Set auto-format FSM state
@@ -3347,7 +3347,7 @@ begin  -- behavioural
               when 0 to 12 =>
                 -- Start of track gaps
                 fw_byte_in <= x"00";
-                f011_reg_clock <= x"00";
+                f011_reg_clock <= x"ff";
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
@@ -3416,7 +3416,7 @@ begin  -- behavioural
               when 46 to 46 + 11 =>
                 -- Write $00 gap bytes
                 fw_byte_in <= x"00";
-                f011_reg_clock <= x"00";
+                f011_reg_clock <= x"ff";
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
@@ -3437,9 +3437,17 @@ begin  -- behavioural
                 crc_feed <= '1';
               when 62 to 62 + 511 =>
                 -- 512 data bytes
-                fw_byte_in <= x"00";
+                if f011_track /= x"27" then
+                  -- sequenced data on other tracks to make more even
+                  -- histograms for debugging write precomp
+                  fw_byte_in <= to_unsigned(format_state,8);                
+                  crc_byte <= to_unsigned(format_state,8);
+                else
+                  -- Empty sectors on track 39 for directory
+                  fw_byte_in <= to_unsigned(0,8);                
+                  crc_byte <= to_unsigned(0,8);
+                end if;
                 fw_byte_valid <= '1';
-                crc_byte <= x"00";
                 crc_feed <= '1';
               when 574 =>
                 -- First CRC byte
