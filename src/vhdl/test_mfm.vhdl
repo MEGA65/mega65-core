@@ -55,7 +55,7 @@ begin
   encoder0: entity work.mfm_bits_to_gaps port map (
     clock40mhz => clock40mhz,
     cycles_per_interval => cycles_per_interval,
-    write_precomp_enable => '0',
+    write_precomp_enable => '1',
 
     ready_for_next => ready_for_next,
     f_write => f_rdata,

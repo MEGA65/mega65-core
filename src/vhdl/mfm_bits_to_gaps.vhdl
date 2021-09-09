@@ -13,8 +13,8 @@ entity mfm_bits_to_gaps is
 
     cycles_per_interval : in unsigned(7 downto 0);
     write_precomp_enable : in std_logic := '0';
-    write_precomp_magnitude : in unsigned(7 downto 0) := x"00";
-    write_precomp_magnitude_b : in unsigned(7 downto 0) := x"00";
+    write_precomp_magnitude : in unsigned(7 downto 0) := x"01";
+    write_precomp_magnitude_b : in unsigned(7 downto 0) := x"02";
     
     -- Are we ready to accept something?
     ready_for_next : out std_logic := '1';
@@ -91,13 +91,15 @@ begin
 
       -- Emit pulse with write precompensation
       if interval_countdown = transition_point + f_write_time_adj then
-        f_write <= f_write_next;
+        report "Writing bit " & std_logic'image(f_write_next) &
+          " at " & integer'image(transition_point) & " + " & integer'image(f_write_time_adj);
+        f_write <= not f_write_next;
       end if;
         
       if interval_countdown = 0 then
 --        report "MFM bit " & std_logic'image(bit_queue(15));
-        f_write_buf(6) <= not bit_queue(15);
-        f_write_buf(5 downto 0) <= f_write_buf(6 downto 1);
+        f_write_buf(0) <= bit_queue(15);
+        f_write_buf(6 downto 1) <= f_write_buf(5 downto 0);
 
         -- Get next bit ready for writing 
         f_write_next <= f_write_buf(3);
@@ -105,46 +107,56 @@ begin
         if write_precomp_enable='0' then
           -- No write precompensation, so emit bit at the right time.
           f_write_time_adj <= 0;
+          report "WPRECOMP: Disabled";
         else
+          report "f_write_buf = " & to_string(f_write_buf);
           case f_write_buf is
             when "0101000" =>
               -- short pulse before, long one after : pulse will be pushed
-              -- early, so write it a bit late              
+              -- early, so write it a bit late
+              report "WPRECOMP: Late(b)";
               f_write_time_adj <= to_integer(write_precomp_magnitude_b);
             when "1001000" =>
               -- medium pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
+              report "WPRECOMP: Late";
               f_write_time_adj <= to_integer(write_precomp_magnitude);              
             when "0001000" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
-              
+              report "WPRECOMP: Equal";              
             when "0101010" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
+              report "WPRECOMP: Equal";
             when "1001010" =>
               -- Medium pulse before, short one after : pulse will be pushed late,
               -- so write it a bit early
+              report "WPRECOMP: Early";
               f_write_time_adj <= - to_integer(write_precomp_magnitude);              
             when "0001010" =>
               -- Long pulse before, short one after
               -- 
               f_write_time_adj <= - to_integer(write_precomp_magnitude_b);
-
+              report "WPRECOMP: Early(b)";
             when "0101001" =>
               -- Short pulse before, medium after
               f_write_time_adj <= to_integer(write_precomp_magnitude);
+              report "WPRECOMP: Late";
             when "1001001" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
+              report "WPRECOMP: Equal";
             when "0001001" =>
               -- Long pulse before, medium after
               f_write_time_adj <= - to_integer(write_precomp_magnitude);
+              report "WPRECOMP: Early";
 
             when others =>
               -- All other combinations are invalid for MFM encoding, so do no
               -- write precompensation
               f_write_time_adj <= 0;                
+              report "WPRECOMP: OTHERS";
           end case;
         end if;
         
@@ -157,7 +169,7 @@ begin
       end if;
 
       if show_bit_sequence='1' then
---        report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
+        report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
         show_bit_sequence <= '0';
       end if;
 
