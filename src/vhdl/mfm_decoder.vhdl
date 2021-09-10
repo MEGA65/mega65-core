@@ -43,6 +43,12 @@ entity mfm_decoder is
     target_side : in unsigned(7 downto 0);
     -- .. or if target_any is asserted, then find the first sector we hit
     target_any : in std_logic := '0';
+
+    -- Report track info blocks, so that sdcardio can switch data rates automatically
+    track_info_valid : out std_logic := '0';
+    track_info_track : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_rate : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_encoding : out unsigned(7 downto 0) := to_unsigned(0,8);
     
     -- Indicate when we have hit the start of the gap leading
     -- to the data area (this is so that sector writing can
@@ -110,7 +116,13 @@ architecture behavioural of mfm_decoder is
     CheckCRC,
     SectorData,
     DataCRC1,
-    DataCRC2
+    DataCRC2,
+    TrackInfo,
+    TrackInfoRate,
+    TrackInfoEncoding,
+    TrackInfoCRC1,
+    TrackInfoCRC2,
+    TrackInfoCheckCRC
     );
 
   signal state : MFMSTate := WaitingForSync;
@@ -183,6 +195,8 @@ begin
   begin
     if rising_edge(clock40mhz) then
 
+      track_info_valid <= '0';
+      
       -- We clear this every cycle, so it will only pulse for a very short time
       -- (25ns).  Is this too short for a floppy drive to notice?
       autotune_step <= '0';
@@ -228,33 +242,6 @@ begin
             sector_end <= '1';
             sector_found <= '0';
           else
--- DEBUG: sector_found is write-only when synthesised, so this
---        block has to be commented out for synthesis.
---            if last_crc = x"0000" and true then
---              report "Valid sector header for"
---                & " T:$" & to_hstring(seen_track)
---                & ", S:$" & to_hstring(seen_sector)
---                & ", D:$" & to_hstring(seen_side)
---                & ", Z:$" & to_hstring(seen_size)
---                & " (seen_valid=" & std_logic'image(seen_valid)
---                & ", sector_found="
---                & std_logic'image(sector_found)
---                & ", crc=$" & to_hstring(last_crc)
---                & ")";
---            end if;
---            if last_crc /= x"0000" and true then
---              report "CORRUPT sector header for"
---                & " T:$" & to_hstring(seen_track)
---                & ", S:$" & to_hstring(seen_sector)
---                & ", D:$" & to_hstring(seen_side)
---                & ", Z:$" & to_hstring(seen_size)
---                & " (seen_valid=" & std_logic'image(seen_valid)
---                & ", sector_found="
---                & std_logic'image(sector_found)
---                & ", crc=$" & to_hstring(last_crc)
---                & ")";
---            end if;
-            
             if (target_any='1')
               or (
                 (to_integer(target_track) = to_integer(seen_track))
@@ -344,6 +331,11 @@ begin
             state <= SectorData;
             crc_feed <= '1'; crc_byte <= byte_in;
             byte_count <= 0;
+          elsif byte_in = x"65" then
+            -- Track Format Info Marker (MEGA65 specific)
+            state <= TrackInfo;
+            crc_feed <= '1'; crc_byte <= byte_in;
+            byte_count <= 0;
           else
             state <= WaitingForSync;
           end if;
@@ -352,6 +344,32 @@ begin
           case state is
             when WaitingForSync =>
               null;
+            when TrackInfo =>
+              -- Track info block has:
+              -- Byte 0: Track number
+              -- Byte 1: Track data rate
+              -- Byte 2: Track encoding ($80 = RLL, $00 = MFM, lower bits reserved)
+              track_info_track <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoRate;
+            when TrackInfoRate =>
+              track_info_rate <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoEncoding;
+            when TrackInfoEncoding =>
+              track_info_encoding <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoCRC1;
+            when TrackInfoCRC1 =>
+              state <= TrackInfoCRC2;
+              crc_feed <= '1'; crc_byte <= byte_in;
+            when TrackInfoCRC2 =>
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoCheckCRC;
+            when TrackInfoCheckCRC =>
+              -- XXX Ignore track info CRC for now
+              track_info_valid <= '1';
+              state <= WaitingForSync;
             when TrackNumber =>
               seen_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;

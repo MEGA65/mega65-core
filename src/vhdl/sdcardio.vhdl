@@ -384,7 +384,7 @@ architecture behavioural of sdcardio is
   
   signal cycles_per_interval : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
-  signal cycles_per_interval_variable : unsigned(7 downto 0)
+  signal cycles_per_interval_from_track_info : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
   -- When using variable recording rates (like 1541 recording zones)
   -- we modify the user-supplied datarate based on track number.
@@ -392,6 +392,9 @@ architecture behavioural of sdcardio is
     := to_unsigned(cpu_frequency/500000,8);
   signal write_precomp_magnitude : unsigned(7 downto 0) := to_unsigned(4,8);
   signal write_precomp_magnitude_b : unsigned(7 downto 0) := to_unsigned(8,8);
+
+  signal saved_cycles_per_interval : unsigned(7 downto 0)
+    := to_unsigned(cpu_frequency/500000,8);
   
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -590,6 +593,15 @@ architecture behavioural of sdcardio is
   signal format_state : integer range 0 to 1023 := 0;
   signal format_no_gaps : std_logic := '0';
   signal format_sector_number : integer range 0 to 255 := 0;
+
+  -- Track info data from track info block
+  signal track_info_valid : std_logic := '0';
+  signal fdc_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal fdc_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal fdc_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal track_info_encoding : unsigned(7 downto 0) := x"00";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -786,10 +798,12 @@ begin  -- behavioural
     );
   
   -- Reader for real floppy drive: single rate
+  -- Track info blocks are always witten for this speed, so we have a fixed decoder
+  -- for them, which also serves as the 1581 DD decoder
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    cycles_per_interval => cycles_per_interval_actual,
+    cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
 
@@ -805,6 +819,10 @@ begin  -- behavioural
     target_sector => target_sector,
     target_side => target_side,
     target_any => target_any,
+
+    track_info_rate => fdc_track_info_rate,
+    track_info_encoding => fdc_track_info_encoding,
+    track_info_valid => track_info_valid,
 
     sector_data_gap => fdc_sector_data_gap,
     sector_found => fdc_sector_found,
@@ -824,12 +842,12 @@ begin  -- behavioural
   -- have a program figure it out.
   -- Also, we ALWAYS enable variable recording rate for the
   -- HD decoder, as we are only going to make HD disks with
-  -- it enabled.
+  -- it enabled.  We set the variable encoding rate based
+  -- on what we read from the track info block.
   mfm2x: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    cycles_per_interval(7 downto 7) => unsigned_zero,
-    cycles_per_interval(6 downto 0) => cycles_per_interval_variable(7 downto 1),
+    cycles_per_interval => cycles_per_interval_from_track_info,
     invalidate => fdc_read_invalidate,
 
     -- No MFM debug data from the 2x decoder
@@ -1219,14 +1237,15 @@ begin  -- behavioural
               fastio_rdata <= found_side;
             end if;
           when x"a6" =>
-            -- @IO:GS $D6A6 - SD:WPRECOMPA Write precompensation magnitude A (for small asymetry)
-            fastio_rdata <= write_precomp_magnitude;
+            -- @IO:GS $D6A6 - SD:TITRACK Track number from track info block (or $FF if not yet received)
+            fastio_rdata <= track_info_track;
           when x"a7" =>
-            -- @IO:GS $D6A7 - SD:WPRECOMPB Write precompensation magnitude B (for large asymetry)
-            fastio_rdata <= write_precomp_magnitude_b;
+            -- @IO:GS $D6A7 - SD:TIRATE Track data rate from track info block
+            fastio_rdata <= track_info_rate;
           when x"a8" =>
-            -- @IO:GS $D6A8 - DEBUG FDC last decoded MFM byte
-            fastio_rdata <= fdc_mfm_byte;
+            -- @IO:GS $D6A8 - SD:TIENCODING Track encoding from track info block ($80 = RLL2,7, $00 =
+            -- MFM, $40 = track-at-once, $00 = individually writable sectors)
+            fastio_rdata <= track_info_encoding;
           when x"a9" =>
             -- @IO:GS $D6A9 - DEBUG FDC last gap interval (LSB)
             fastio_rdata <= fdc_last_gap(7 downto 0);
@@ -1512,30 +1531,21 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      if track_info_valid='1' then
+        track_info_track <= fdc_track_info_track;
+        track_info_rate <= fdc_track_info_rate;
+        track_info_encoding <= fdc_track_info_encoding;
+        cycles_per_interval_from_track_info <= fdc_track_info_rate; 
+      end if; 
+            
       -- If using variable data rate, then set rate based on
       -- current selected rate, modified for track number
       if fdc_variable_data_rate='0' then
         cycles_per_interval_actual <= cycles_per_interval;
       else
-        cycles_per_interval_actual <= cycles_per_interval_variable;
+        cycles_per_interval_actual <= cycles_per_interval_from_track_info;
       end if;
 
-      -- PGS XXX This table needs to be updated based on testing results
-      if f011_track < 10 then
-        cycles_per_interval_variable <= cycles_per_interval - 10;
-      elsif f011_track < 40 then
-        cycles_per_interval_variable <= cycles_per_interval - 9;
-      elsif f011_track < 50 then
-        cycles_per_interval_variable <= cycles_per_interval - 8;
-      elsif f011_track < 60 then
-        cycles_per_interval_variable <= cycles_per_interval - 7;
-      elsif f011_track < 70 then
-        cycles_per_interval_variable <= cycles_per_interval - 6;
-      elsif f011_track < 80 then
-        cycles_per_interval_variable <= cycles_per_interval - 5;
-      else
-        cycles_per_interval_variable <= cycles_per_interval;
-      end if;
       
       -- Return to DD data rate on reset
       if reset='0' then
@@ -1762,12 +1772,20 @@ begin  -- behavioural
         if autotune_step='1' and last_autotune_step='0' then
           f_step <= '0';
           step_countdown <= 500;
+          -- reset track info when stepping
+          track_info_track <= x"FF";
+          track_info_rate <= x"28";
+          track_info_encoding <= x"00";
           f_stepdir <= autotune_stepdir;
         elsif autotune_step='0' and last_autotune_step='1' then
           f_step <= '1';
         end if;
         if autotune2x_step='1' and last_autotune2x_step='0' then
           f_step <= '0';
+          -- reset track info when stepping
+          track_info_track <= x"FF";
+          track_info_rate <= x"28";
+          track_info_encoding <= x"00";
           step_countdown <= 500;
           f_stepdir <= autotune2x_stepdir;
         elsif autotune2x_step='0' and last_autotune2x_step='1' then
@@ -2278,6 +2296,11 @@ begin  -- behavioural
                   f_stepdir <= '1';
                   step_countdown <= 500;
 
+                  -- reset track info when stepping
+                  track_info_track <= x"FF";
+                  track_info_rate <= x"28";
+                  track_info_encoding <= x"00";
+                  
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
                     if (f011_ds(0) xor f011_swap_drives) = '0' then              
@@ -2313,6 +2336,11 @@ begin  -- behavioural
                   f_stepdir <= '0';
                   step_countdown <= 500;
 
+                  -- reset track info when stepping
+                  track_info_track <= x"FF";
+                  track_info_rate <= x"28";
+                  track_info_encoding <= x"00";
+                  
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
                     if (f011_ds(0) xor f011_swap_drives) = '0' then              
@@ -2785,10 +2813,6 @@ begin  -- behavioural
               cycles_per_interval <= fastio_wdata;
               -- Auto setup write precomp magnitudes as 1/16 and 1/8th of a MFM
               -- timing pulse when setting data rate
-            when x"a6" =>
-              write_precomp_magnitude <= fastio_wdata;
-            when x"a7" =>
-              write_precomp_magnitude_b <= fastio_wdata;
             when x"ad" => 
               -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
               -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
@@ -3319,6 +3343,13 @@ begin  -- behavioural
             -- Set auto-format FSM state
             format_state <= 0;
             format_sector_number <= 0;
+
+            -- Write track lead-in gaps at DD speed to give
+            -- head enough time to switch to write.
+            -- We then also write the track info block at
+            -- DD speed, before switching to the higher speed
+            saved_cycles_per_interval <= cycles_per_interval;
+            cycles_per_interval <= to_unsigned(81,8);
             
           end if;
 
@@ -3345,6 +3376,8 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
+                -- Jump to state for writing track header block
+                format_state <= 1000;
               when 13 to 15 =>
                 -- Write sector header sync bytes
                 fw_byte_in <= x"A1";
@@ -3468,6 +3501,64 @@ begin  -- behavioural
                 format_state <= 13;
                 crc_reset <= '1';
                 crc_feed <= '0';
+                
+              when 1000 to 1002 =>
+                -- Write track info header sync bytes
+                fw_byte_in <= x"A1";
+                f011_reg_clock <= x"FB";
+                fw_byte_valid <= '1';
+                crc_reset <= '0';
+                crc_byte <= x"a1";
+                crc_feed <= '1';
+              when 1003 =>
+                -- Track info: Track number
+                fw_byte_in <= x"65";
+                fw_byte_valid <= '1';
+                crc_byte <= x"65";
+                crc_feed <= '1';
+              when 1004 =>
+                -- Track info: Track number
+                fw_byte_in <= f011_track;
+                fw_byte_valid <= '1';
+                crc_byte <= f011_track;
+                crc_feed <= '1';
+              when 1005 =>
+                -- Track Info: Data rate
+                fw_byte_in <= saved_cycles_per_interval;
+                fw_byte_valid <= '1';
+                crc_byte <= saved_cycles_per_interval;
+                crc_feed <= '1';
+              when 1006 =>
+                -- Track Info: Encoding: bit7 = MFM(0)/RLL(1).
+                -- bit6 = track-at-once(1)/normal sectors with gaps that can be
+                -- written to individually(0)
+                -- Other bits reserved
+                if format_no_gaps = '1' then
+                  fw_byte_in <= x"00";
+                  crc_byte <= x"00";
+                else
+                  fw_byte_in <= x"40";
+                  crc_byte <= x"40";
+                end if;
+                fw_byte_valid <= '1';
+                crc_feed <= '1';
+              when 1007 =>
+                -- Track Info: First CRC byte
+                fw_byte_in <= crc_value(15 downto 8);
+                fw_byte_valid <= '1';
+              when 1008 =>
+                -- Track Info: Second CRC byte
+                fw_byte_in <= crc_value(7 downto 0);
+                fw_byte_valid <= '1';
+                crc_reset <= '1';
+                crc_feed <= '0';
+
+                -- Now switch to actual speed, and put a short inter-sector
+                -- gap (even on gap-less tracks) to allow for the MFM/RLL
+                -- encoder to flush out any bits at the old rate.
+                format_state <= 595;
+                cycles_per_interval <= saved_cycles_per_interval;
+                
               when others =>
                 null;
             end case;
