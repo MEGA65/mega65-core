@@ -390,10 +390,8 @@ architecture behavioural of sdcardio is
   -- we modify the user-supplied datarate based on track number.
   signal cycles_per_interval_actual : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
-  signal write_precomp_magnitude : unsigned(7 downto 0)
-    := to_unsigned(cpu_frequency/500000/16,8);
-  signal write_precomp_magnitude_b : unsigned(7 downto 0)
-    := to_unsigned(cpu_frequency/500000/8,8);
+  signal write_precomp_magnitude : unsigned(7 downto 0) := to_unsigned(4,8);
+  signal write_precomp_magnitude_b : unsigned(7 downto 0) := to_unsigned(8,8);
   
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -2035,7 +2033,7 @@ begin  -- behavioural
                   -- $A8 = no gaps, i.e., Amiga-style track-at-once
                   -- $A0 = with inter-sector gaps, i.e., 1581 / PC 1.44MB style
                   -- that can be written to using DOS
-                  format_no_gaps <= temp_cmd(2);
+                  format_no_gaps <= temp_cmd(3);
 
                   -- Only allow formatting when real drive is used
                   if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
@@ -2787,10 +2785,6 @@ begin  -- behavioural
               cycles_per_interval <= fastio_wdata;
               -- Auto setup write precomp magnitudes as 1/16 and 1/8th of a MFM
               -- timing pulse when setting data rate
-              write_precomp_magnitude(7 downto 4) <= (others => '0');
-              write_precomp_magnitude_b(7 downto 5) <= (others => '0');
-              write_precomp_magnitude(3 downto 0) <= fastio_wdata(7 downto 4);
-              write_precomp_magnitude_b(4 downto 0) <= fastio_wdata(7 downto 3);
             when x"a6" =>
               write_precomp_magnitude <= fastio_wdata;
             when x"a7" =>
