@@ -1063,7 +1063,7 @@ begin  -- behavioural
       elsif (sdcardio_cs='1' and f011_cs='0')
         and (secure_mode='0' or fastio_addr(7 downto 4) = x"B" or fastio_addr(7 downto 4) = x"F") then
         -- microSD controller registers
-        report "reading SDCARD registers" severity note;
+--        report "reading SDCARD register $" & to_hstring(fastio_addr(7 downto 0)) severity note;
         case fastio_addr(7 downto 0) is
           -- @IO:GS $D680.0 - SD controller BUSY flag
           -- @IO:GS $D680.1 - SD controller BUSY flag
@@ -1532,6 +1532,7 @@ begin  -- behavioural
     if rising_edge(clock) then    
 
       if track_info_valid='1' then
+        report "TRACKINFO: Saw track_info_valid";
         track_info_track <= fdc_track_info_track;
         track_info_rate <= fdc_track_info_rate;
         track_info_encoding <= fdc_track_info_encoding;

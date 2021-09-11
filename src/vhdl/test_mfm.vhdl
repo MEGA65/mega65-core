@@ -94,6 +94,7 @@ begin
     fastio_write => fastio_write,
     fastio_read => fastio_read,
     fastio_wdata => fastio_wdata,
+    fastio_rdata_sel => fastio_rdata,
 
     virtualise_f011_drive0 => '0',
     virtualise_f011_drive1 => '0',
@@ -200,9 +201,13 @@ begin
           f011_cs <= '1';
         when others =>
           fastio_write <= '0';
-          fastio_read <= '0';
+          fastio_read <= '1';
+          fastio_addr <= x"D36A7";
+          if cycle_count > 4 and fastio_rdata /= x"28" then
+            report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
+          end if;
           f011_cs <= '0';
-          sdcardio_cs <= '0';
+          sdcardio_cs <= '1';
       end case;
       -- Simulate floppy index line
       case cycle_count is

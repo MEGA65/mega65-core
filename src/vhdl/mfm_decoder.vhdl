@@ -333,6 +333,7 @@ begin
             byte_count <= 0;
           elsif byte_in = x"65" then
             -- Track Format Info Marker (MEGA65 specific)
+            report "TRACKINFO: Saw block marker";
             state <= TrackInfo;
             crc_feed <= '1'; crc_byte <= byte_in;
             byte_count <= 0;
@@ -349,26 +350,35 @@ begin
               -- Byte 0: Track number
               -- Byte 1: Track data rate
               -- Byte 2: Track encoding ($80 = RLL, $00 = MFM, lower bits reserved)
+              report "TRACKINFO: Saw Track = $" & to_hstring(byte_in);
               track_info_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoRate;
             when TrackInfoRate =>
+              report "TRACKINFO: Saw Rate = $" & to_hstring(byte_in);
               track_info_rate <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoEncoding;
             when TrackInfoEncoding =>
+              report "TRACKINFO: Saw Encoding = $" & to_hstring(byte_in);
               track_info_encoding <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoCRC1;
             when TrackInfoCRC1 =>
+              report "TRACKINFO: Saw CRC1 = $" & to_hstring(byte_in);
               state <= TrackInfoCRC2;
               crc_feed <= '1'; crc_byte <= byte_in;
             when TrackInfoCRC2 =>
+              report "TRACKINFO: Saw CRC2 = $" & to_hstring(byte_in);
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoCheckCRC;
             when TrackInfoCheckCRC =>
-              -- XXX Ignore track info CRC for now
-              track_info_valid <= '1';
+              
+              report "TRACKINFO: CRC=$" & to_hstring(crc_value);
+              crc_feed <= '0';
+              if crc_value = x"0000" then
+                track_info_valid <= '1';
+              end if;
               state <= WaitingForSync;
             when TrackNumber =>
               seen_track <= byte_in;
