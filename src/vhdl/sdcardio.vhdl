@@ -829,6 +829,7 @@ begin  -- behavioural
     target_side => target_side,
     target_any => target_any,
 
+    track_info_track => fdc_track_info_track,
     track_info_rate => fdc_track_info_rate,
     track_info_encoding => fdc_track_info_encoding,
     track_info_valid => track_info_valid,
