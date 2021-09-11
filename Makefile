@@ -108,8 +108,8 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/i2cstatemapper
 
 FREEZER_FILES= \
-  $(SDCARD_DIR)/FREEZER.M65 \
- 	$(SDCARD_DIR)/AUDIOMIX.M65 \
+	$(SDCARD_DIR)/FREEZER.M65 \
+	$(SDCARD_DIR)/AUDIOMIX.M65 \
 	$(SDCARD_DIR)/C64THUMB.M65 \
 	$(SDCARD_DIR)/C65THUMB.M65 \
 	$(SDCARD_DIR)/SPRITED.M65 \
@@ -475,6 +475,8 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
 	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
+	 $(VHDLSRCDIR)/sdcardio.vhdl \
+	 $(VHDLSRCDIR)/cputypes.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
 mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat

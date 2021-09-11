@@ -3,6 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use STD.textio.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity test_mfm is
 end entity;
@@ -11,8 +12,8 @@ architecture foo of test_mfm is
 
   type CharFile is file of character;
 
-  signal clock50mhz : std_logic := '1';
-  signal f_rdata : std_logic := '1';
+  signal clock40mhz : std_logic := '1';
+  signal clock80mhz : std_logic := '1';
   -- 2 usec bit rate for 720K disks
   signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(100,8);
   
@@ -50,23 +51,83 @@ architecture foo of test_mfm is
   signal byte_in : unsigned(7 downto 0) := x"00";
   signal clock_byte_in : unsigned(7 downto 0) := x"FF";
 
+  signal sdcardio_cs : std_logic := '0';
+  signal f011_cs : std_logic := '0';
+  signal fastio_addr : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal fastio_addr_fast : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal fastio_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal fastio_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal fastio_write : std_logic := '0';
+  signal fastio_read : std_logic := '0';
+
+  signal f_rdata : std_logic := '1';
+  signal f_wdata : std_logic := '1';
+  signal f_track0 : std_logic := '1';
+  signal f_writeprotect : std_logic := '1';
+  signal f_diskchanged : std_logic := '1';
+  signal f_index : std_logic := '1';
+  
 begin
 
-  encoder0: entity work.mfm_bits_to_gaps port map (
-    clock40mhz => clock40mhz,
-    cycles_per_interval => cycles_per_interval,
-    write_precomp_enable => '1',
+  fdc0: entity work.sdcardio
+    generic map (
+      cpu_frequency => 40500000,
+      target => mega65r3 )
+    port map (
+    clock => clock40mhz,
+    pixelclk => clock80mhz,
+    reset => '1',
+    sdcardio_cs => sdcardio_cs,
+    f011_cs => f011_cs,
+    audio_mix_rdata => x"ffff",
+    audio_loopback => x"ffff",
+    
+    hypervisor_mode => '0',
+    secure_mode => '0',
+    fpga_temperature => (others => '0'),
+    pwm_knob => x"ffff",
 
-    ready_for_next => ready_for_next,
-    f_write => f_rdata,
+    fastio_addr_fast => fastio_addr_fast,
+    fastio_addr => fastio_addr,
+    fastio_write => fastio_write,
+    fastio_read => fastio_read,
+    fastio_wdata => fastio_wdata,
 
-    byte_valid => byte_valid_in,
-    byte_in => byte_in,
-    clock_byte_in => clock_byte_in
+    virtualise_f011_drive0 => '0',
+    virtualise_f011_drive1 => '0',
+    colourram_at_dc00 => '0',
+    viciii_iomode => "11",
+    sectorbuffercs => '0',
+    sectorbuffercs_fast => '0',
+    last_scan_Code => (others => '1'),
+
+    dipsw => (others => '1'),
+    j21in => (others => '1'),
+    sw => (others => '1'),
+    btn => (others => '1'),
+    miso_i => '1',
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_wdata => f_wdata,
+    f_diskchanged => f_diskchanged,
+
+    sd1541_request_toggle => '0',
+    sd1541_enable => '0',
+    sd1541_track => to_unsigned(0,6),
+
+    aclMISO => '0',
+    aclInt1 => '0',
+    aclInt2 => '0',
+    tmpInt => '0',
+    tmpCT => '0'
+
+    
     );
   
   decoder0: entity work.mfm_decoder port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
     f_rdata => f_rdata,
     cycles_per_interval => cycles_per_interval,
     invalidate => '0',
@@ -90,32 +151,24 @@ begin
     );
   
   process is
-    file trace : CharFile;
-    variable c : character;
   begin
-    file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
-    while not endfile(trace) loop
-      Read(trace,c);
---      report "Read char $" & to_hstring(to_unsigned(character'pos(c),8));      
-      f_rdata <= to_unsigned(character'pos(c),8)(4);
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
+    while true loop
+      clock40mhz <= '0';
+      clock80mhz <= '0';
+      wait for 5 ns;
+      clock80mhz <= '1';
+      wait for 5 ns;
+      clock40mhz <= '1';
+      clock80mhz <= '0';
+      wait for 5 ns;
+      clock80mhz <= '1';
+      wait for 5 ns;
     end loop;
   end process;
 
-  process (clock50mhz,byte_out) is
+  process (clock40mhz,byte_out) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
       last_sector_found <= sector_found;
       last_sector_end <= sector_end;
       last_crc_error <= crc_error;
