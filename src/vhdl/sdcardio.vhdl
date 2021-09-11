@@ -1904,6 +1904,7 @@ begin  -- behavioural
           -- ==================================================================
 
           -- F011 FDC emulation registers
+          report "SDCARDIO: Writing to F011 regs";
           case fastio_addr(4 downto 0) is
 
             when "00000" =>
@@ -2423,6 +2424,8 @@ begin  -- behavioural
           -- the section below is for the SDcard
           -- ==================================================================
 
+          report "SDCARDIO: Writing to SDCARDIO regs";
+          
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
 
@@ -3512,6 +3515,7 @@ begin  -- behavioural
                 crc_feed <= '1';
               when 1003 =>
                 -- Track info: Header marker
+                f011_reg_clock <= x"FF";
                 fw_byte_in <= x"65";
                 fw_byte_valid <= '1';
                 crc_byte <= x"65";
