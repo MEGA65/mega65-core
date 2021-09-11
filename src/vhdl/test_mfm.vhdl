@@ -174,6 +174,8 @@ begin
     if rising_edge(clock40mhz) then
       cycle_count <= cycle_count + 1;
 
+      f_rdata <= f_wdata;
+      
       case cycle_count is
         when 1 =>
           -- Select real drive 0

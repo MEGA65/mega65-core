@@ -3556,11 +3556,11 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
-
-                -- Now switch to actual speed, and put a short inter-sector
-                -- gap (even on gap-less tracks) to allow for the MFM/RLL
-                -- encoder to flush out any bits at the old rate.
-                format_state <= 595;
+              when 1009 | 1010 | 1011 | 1012 =>
+                -- Alow the CRC bytes to flush out before we change speed
+              when 1013 =>
+                -- Now switch to actual speed and lead into first sector
+                format_state <= 598;
                 cycles_per_interval <= saved_cycles_per_interval;
                 
               when others =>
