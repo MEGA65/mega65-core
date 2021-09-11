@@ -94,6 +94,7 @@ architecture behavioural of mfm_decoder is
 
   signal seen_track : unsigned(7 downto 0) := x"FF";
   signal seen_sector : unsigned(7 downto 0) := x"FF";
+  signal last_seen_sector : unsigned(7 downto 0) := x"FF";
   signal seen_side : unsigned(7 downto 0) := x"FF";
   signal seen_size : unsigned(7 downto 0) := x"FF";
   signal seen_valid : std_logic := '0';
@@ -262,6 +263,10 @@ begin
               seen_valid <= '0';
             end if;
             -- XXX Debug T/S/S mismatches
+            if seen_sector /= last_seen_sector then
+              report "HEADER: Updating found track,sector,side";
+              last_seen_sector <= seen_sector;
+            end if;
             found_track <= seen_track;
             found_sector <= seen_sector;
             found_side <= seen_side;
@@ -404,6 +409,10 @@ begin
               crc_feed <= '1'; crc_byte <= byte_in;
               crc_wait <= "1111";
               state <= CheckCRC;
+              report "HEADER: Saw Track $" & to_hstring(seen_track)
+                & ", Sector $" & to_hstring(seen_sector)
+                & ", Side $" & to_hstring(seen_side)
+                & ", Size $" & to_hstring(seen_size);
             when SectorData =>
               if (byte_count = 0) and (seen_valid='1') then
                 first_byte <= '1';

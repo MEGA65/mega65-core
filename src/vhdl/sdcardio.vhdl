@@ -847,7 +847,7 @@ begin  -- behavioural
   mfm2x: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    cycles_per_interval => cycles_per_interval_from_track_info,
+    cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
 
     -- No MFM debug data from the 2x decoder
