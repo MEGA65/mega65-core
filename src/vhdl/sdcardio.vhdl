@@ -1,6 +1,6 @@
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2013-2018
+--    Paul Gardner-Stephen <hld@c64.org>  2013-2021
 --
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
@@ -3511,7 +3511,7 @@ begin  -- behavioural
                 crc_byte <= x"a1";
                 crc_feed <= '1';
               when 1003 =>
-                -- Track info: Track number
+                -- Track info: Header marker
                 fw_byte_in <= x"65";
                 fw_byte_valid <= '1';
                 crc_byte <= x"65";
