@@ -3559,6 +3559,8 @@ begin  -- behavioural
                 crc_feed <= '0';
               when 1009 | 1010 | 1011 | 1012 =>
                 -- Alow the CRC bytes to flush out before we change speed
+                fw_byte_in <= x"00";
+                fw_byte_valid <= '1';
               when 1013 =>
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
