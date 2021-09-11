@@ -435,6 +435,7 @@ architecture behavioural of sdcardio is
   signal fdc_sector_found_2x : std_logic := '0';
   signal last_fdc_sector_found_2x : std_logic := '0';
   signal fdc_2x_select : std_logic := '0';
+  signal auto_fdc_2x_select : std_logic := '1';
   signal fdc_variable_data_rate : std_logic := '1';
 
   signal last_found_track : unsigned(7 downto 0) := x"00";
