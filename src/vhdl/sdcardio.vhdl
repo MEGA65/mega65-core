@@ -1806,7 +1806,7 @@ begin  -- behavioural
           step_countdown <= 500;
           -- reset track info when stepping
           track_info_track <= x"FF";
-          track_info_rate <= x"28";
+          track_info_rate <= x"51";
           track_info_encoding <= x"00";
           track_info_sectors <= x"00";
           f_stepdir <= autotune_stepdir;
@@ -1817,7 +1817,7 @@ begin  -- behavioural
           f_step <= '0';
           -- reset track info when stepping
           track_info_track <= x"FF";
-          track_info_rate <= x"28";
+          track_info_rate <= x"51";
           track_info_encoding <= x"00";
           track_info_sectors <= x"00";
           step_countdown <= 500;
@@ -2347,7 +2347,7 @@ begin  -- behavioural
 
                   -- reset track info when stepping
                   track_info_track <= x"FF";
-                  track_info_rate <= x"28";
+                  track_info_rate <= x"51";
                   track_info_encoding <= x"00";
                   track_info_sectors <= x"00";
                   
@@ -2388,7 +2388,7 @@ begin  -- behavioural
 
                   -- reset track info when stepping
                   track_info_track <= x"FF";
-                  track_info_rate <= x"28";
+                  track_info_rate <= x"51";
                   track_info_encoding <= x"00";
                   track_info_sectors <= x"00";
                   
