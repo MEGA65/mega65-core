@@ -15,6 +15,7 @@ entity mfm_bits_to_gaps is
     write_precomp_enable : in std_logic := '0';
     write_precomp_magnitude : in unsigned(7 downto 0) := x"01";
     write_precomp_magnitude_b : in unsigned(7 downto 0) := x"02";
+    write_precomp_delay15 : in unsigned(7 downto 0) := x"00";
     
     -- Are we ready to accept something?
     ready_for_next : out std_logic := '1';
@@ -120,7 +121,7 @@ begin
               -- medium pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
               report "WPRECOMP: Late";
-              f_write_time_adj <= to_integer(write_precomp_magnitude);              
+              f_write_time_adj <= to_integer(write_precomp_magnitude) + to_integer(write_precomp_delay15);
             when "0001000" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
@@ -133,7 +134,7 @@ begin
               -- Medium pulse before, short one after : pulse will be pushed late,
               -- so write it a bit early
               report "WPRECOMP: Early";
-              f_write_time_adj <= - to_integer(write_precomp_magnitude);              
+              f_write_time_adj <= to_integer(write_precomp_delay15) - to_integer(write_precomp_magnitude);
             when "0001010" =>
               -- Long pulse before, short one after
               -- 
@@ -145,7 +146,7 @@ begin
               report "WPRECOMP: Late";
             when "1001001" =>
               -- equal length pulses either side
-              f_write_time_adj <= 0;
+              f_write_time_adj <=  to_integer(write_precomp_delay15);
               report "WPRECOMP: Equal";
             when "0001001" =>
               -- Long pulse before, medium after
