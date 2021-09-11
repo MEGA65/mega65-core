@@ -435,7 +435,15 @@ architecture behavioural of sdcardio is
   signal fdc_sector_found_2x : std_logic := '0';
   signal last_fdc_sector_found_2x : std_logic := '0';
   signal fdc_2x_select : std_logic := '0';
-  signal fdc_variable_data_rate : std_logic := '0';
+  signal fdc_variable_data_rate : std_logic := '1';
+
+  signal last_found_track : unsigned(7 downto 0) := x"00";
+  signal last_found_sector : unsigned(7 downto 0) := x"00";
+  signal last_found_side : unsigned(7 downto 0) := x"00";
+
+  signal last_found_track_2x : unsigned(7 downto 0) := x"00";
+  signal last_found_sector_2x : unsigned(7 downto 0) := x"00";
+  signal last_found_side_2x : unsigned(7 downto 0) := x"00";  
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
@@ -1531,6 +1539,22 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Automatically select whether to show last DD or HD sector
+      if auto_fdc_2x_select='1' then
+        if found_track /= last_found_track or found_sector /= last_found_sector or found_side /= last_found_side then
+          fdc_2x_select <= '0';
+          last_found_track <= found_track;
+          last_found_sector <= found_sector;
+          last_found_side <= found_side;
+        end if;
+        if found_track_2x /= last_found_track_2x or found_sector_2x /= last_found_sector_2x or found_side_2x /= last_found_side_2x then
+          fdc_2x_select <= '1';
+          last_found_track_2x <= found_track_2x;
+          last_found_sector_2x <= found_sector_2x;
+          last_found_side_2x <= found_side_2x;
+        end if;
+      end if;
+      
       if track_info_valid='1' then
         report "TRACKINFO: Saw track_info_valid";
         track_info_track <= fdc_track_info_track;
@@ -1860,12 +1884,19 @@ begin  -- behavioural
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
-          diskimage1_offset <= to_unsigned(1599,17);
+          diskimage1_offset <= to_unsigned(0,17);
         end if;
       else
-        diskimage1_offset(16) <= f011_side(0);
-        diskimage1_offset(15 downto 8) <= f011_track;
-        diskimage1_offset(7 downto 0) <= f011_sector;
+        -- MEGA65 HD disks support 85 tracks and 64 sectors per track
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000000")        -- track x (64x2)
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 84) or (physical_sector > 63) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;
       end if;   
 
       if f011_mega_disk2='0' then
@@ -1877,12 +1908,19 @@ begin  -- behavioural
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
-          diskimage2_offset <= to_unsigned(1599,17);
+          diskimage2_offset <= to_unsigned(0,17);
         end if;
       else
-        diskimage2_offset(16) <= f011_side(0);
-        diskimage2_offset(15 downto 8) <= f011_track;
-        diskimage2_offset(7 downto 0) <= f011_sector;
+        -- MEGA65 HD disks support 85 tracks and 64 sectors per track
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000000")        -- track x (64x2)
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 84) or (physical_sector > 63) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
       end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
@@ -2824,8 +2862,12 @@ begin  -- behavioural
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
               -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+              -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
+              -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
+              -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
               -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
               volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
               pwm_knob_en <= fastio_wdata(7);
