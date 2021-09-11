@@ -237,12 +237,12 @@ begin
             i2c0_rw <= '1';
             i2c0_command_en <= '1';
             if busy_count > 2 and busy_count < 18 then
-              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+--              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
             end if;
           when others =>
             if busy_count > 2 and busy_count < 18 then
-              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+--              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
             end if;
             i2c0_command_en <= '0';

@@ -14,8 +14,8 @@ architecture foo of test_mfm is
 
   signal clock40mhz : std_logic := '1';
   signal clock80mhz : std_logic := '1';
-  -- 2 usec bit rate for 720K disks
-  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(100,8);
+  -- Rate for 720K DD disks
+  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(81,8);
   
     -- The track/sector/side we are being asked to find
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -66,6 +66,8 @@ architecture foo of test_mfm is
   signal f_writeprotect : std_logic := '1';
   signal f_diskchanged : std_logic := '1';
   signal f_index : std_logic := '1';
+
+  signal cycle_count : integer := 0;
   
 begin
 
@@ -166,9 +168,50 @@ begin
     end loop;
   end process;
 
+  
   process (clock40mhz,byte_out) is
   begin
     if rising_edge(clock40mhz) then
+      cycle_count <= cycle_count + 1;
+
+      case cycle_count is
+        when 1 =>
+          -- Select real drive 0
+          report "TEST: $D6A1 <- $01";
+          fastio_addr <= x"D36A1";
+          fastio_wdata <= x"01";
+          fastio_write <= '1';
+          sdcardio_cs <= '1';
+        when 2 =>
+          report "TEST: $D6A2 <- 29";
+          -- Set data rate to 29
+          fastio_addr <= x"D36A2";
+          fastio_wdata <= to_unsigned(29,8);
+          fastio_write <= '1';
+          sdcardio_cs <= '1';
+        when 3 =>
+          -- Format track with write precomp, sector gaps
+          report "TEST: $D081 <- $A4";
+          fastio_addr <= x"D3081";
+          fastio_wdata <= x"A4";
+          fastio_write <= '1';
+          f011_cs <= '1';
+        when others =>
+          fastio_write <= '0';
+          fastio_read <= '0';
+          f011_cs <= '0';
+          sdcardio_cs <= '0';
+      end case;
+      -- Simulate floppy index line
+      case cycle_count is
+        when 10 =>
+          f_index <= '0';
+        when 20 =>
+          f_index <= '1';
+        when others =>
+          null;
+      end case;      
+      
       last_sector_found <= sector_found;
       last_sector_end <= sector_end;
       last_crc_error <= crc_error;
