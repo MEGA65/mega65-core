@@ -49,6 +49,7 @@ entity mfm_decoder is
     track_info_track : out unsigned(7 downto 0) := to_unsigned(0,8);
     track_info_rate : out unsigned(7 downto 0) := to_unsigned(0,8);
     track_info_encoding : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_sectors : out unsigned(7 downto 0) := to_unsigned(0,8);
     
     -- Indicate when we have hit the start of the gap leading
     -- to the data area (this is so that sector writing can
@@ -121,6 +122,7 @@ architecture behavioural of mfm_decoder is
     TrackInfo,
     TrackInfoRate,
     TrackInfoEncoding,
+    TrackInfoSectorCount,
     TrackInfoCRC1,
     TrackInfoCRC2,
     TrackInfoCheckCRC
@@ -368,6 +370,11 @@ begin
               report "TRACKINFO: Saw Encoding = $" & to_hstring(byte_in);
               track_info_encoding <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoSectorCount;
+            when TrackInfoSectorcount =>
+              report "TRACKINFO: Saw Sector Count = $" & to_hstring(byte_in);
+              track_info_sectors <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;              
               state <= TrackInfoCRC1;
             when TrackInfoCRC1 =>
               report "TRACKINFO: Saw CRC1 = $" & to_hstring(byte_in);

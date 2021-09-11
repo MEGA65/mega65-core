@@ -392,6 +392,7 @@ architecture behavioural of sdcardio is
     := to_unsigned(cpu_frequency/500000,8);
   signal write_precomp_magnitude : unsigned(7 downto 0) := to_unsigned(4,8);
   signal write_precomp_magnitude_b : unsigned(7 downto 0) := to_unsigned(8,8);
+  signal write_precomp_delay15 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal saved_cycles_per_interval : unsigned(7 downto 0)
     := to_unsigned(cpu_frequency/500000,8);
@@ -608,9 +609,11 @@ architecture behavioural of sdcardio is
   signal fdc_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
   signal fdc_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal fdc_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal fdc_track_info_sectors : unsigned(7 downto 0) := x"00";
   signal track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
   signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal track_info_sectors : unsigned(7 downto 0) := x"00";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -788,6 +791,7 @@ begin  -- behavioural
       write_precomp_enable => f011_write_precomp,
       write_precomp_magnitude => write_precomp_magnitude,
       write_precomp_magnitude_b => write_precomp_magnitude_b,
+      write_precomp_delay15 => write_precomp_delay15,
       ready_for_next => fw_ready_for_next,
       no_data => fw_no_data,
       f_write => f_wdata,
@@ -1257,14 +1261,14 @@ begin  -- behavioural
             -- MFM, $40 = track-at-once, $00 = individually writable sectors)
             fastio_rdata <= track_info_encoding;
           when x"a9" =>
-            -- @IO:GS $D6A9 - DEBUG FDC last gap interval (LSB)
-            fastio_rdata <= fdc_last_gap(7 downto 0);
+            -- @IO:GS $D6A9 - SD:TISECTORS Number of sectors from track info block
+            fastio_rdata <= unsigned(track_info_sectors);
           when x"aa" =>
-            -- @IO:GS $D6AA - DEBUG FDC last gap interval (MSB)
-            fastio_rdata <= fdc_last_gap(15 downto 8);
+            -- @IO:GS $D6AA - DEBUG FDC last gap interval (LSB)
+            fastio_rdata <= fdc_last_gap(7 downto 0);
           when x"ab" =>
-            -- @IO:GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
-            fastio_rdata <= unsigned(packed_rdata);
+            -- @IO:GS $D6AB - DEBUG FDC last gap interval (MSB)
+            fastio_rdata <= fdc_last_gap(15 downto 8);
           when x"ac" =>
             -- @IO:GS $D6AC - DEBUG FDC last quantised gap
             fastio_rdata <= unsigned(fdc_quantised_gap);
@@ -1277,7 +1281,7 @@ begin  -- behavioural
             -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
             -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
             fastio_rdata(3 downto 0) <= volume_knob3_target;
-            fastio_rdata(4) <= '0';
+            fastio_rdata(4) <= auto_fdc_2x_select;
             fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
             fastio_rdata(7) <= pwm_knob_en;
@@ -1562,6 +1566,7 @@ begin  -- behavioural
         track_info_track <= fdc_track_info_track;
         track_info_rate <= fdc_track_info_rate;
         track_info_encoding <= fdc_track_info_encoding;
+        track_info_sectors <= fdc_track_info_sectors;
         cycles_per_interval_from_track_info <= fdc_track_info_rate; 
       end if; 
             
@@ -1803,6 +1808,7 @@ begin  -- behavioural
           track_info_track <= x"FF";
           track_info_rate <= x"28";
           track_info_encoding <= x"00";
+          track_info_sectors <= x"00";
           f_stepdir <= autotune_stepdir;
         elsif autotune_step='0' and last_autotune_step='1' then
           f_step <= '1';
@@ -1813,6 +1819,7 @@ begin  -- behavioural
           track_info_track <= x"FF";
           track_info_rate <= x"28";
           track_info_encoding <= x"00";
+          track_info_sectors <= x"00";
           step_countdown <= 500;
           f_stepdir <= autotune2x_stepdir;
         elsif autotune2x_step='0' and last_autotune2x_step='1' then
@@ -2342,6 +2349,7 @@ begin  -- behavioural
                   track_info_track <= x"FF";
                   track_info_rate <= x"28";
                   track_info_encoding <= x"00";
+                  track_info_sectors <= x"00";
                   
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
@@ -2382,6 +2390,7 @@ begin  -- behavioural
                   track_info_track <= x"FF";
                   track_info_rate <= x"28";
                   track_info_encoding <= x"00";
+                  track_info_sectors <= x"00";
                   
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
@@ -2852,11 +2861,20 @@ begin  -- behavioural
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
             when x"a2" =>
-              -- @IO:GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic
-              -- interval (decrease to increase data rate)
+              -- @IO:GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic interval (decrease to increase data rate)
               cycles_per_interval <= fastio_wdata;
-              -- Auto setup write precomp magnitudes as 1/16 and 1/8th of a MFM
-              -- timing pulse when setting data rate
+            when x"a3" =>
+              if hypervisor_mode='0' then
+                write_precomp_magnitude <= fastio_wdata;
+              end if;
+            when x"a4" =>
+              if hypervisor_mode='0' then
+                write_precomp_magnitude_b <= fastio_wdata;
+              end if;
+            when x"a5" =>
+              if hypervisor_mode='0' then
+                write_precomp_delay15 <= fastio_wdata;
+              end if;
             when x"ad" => 
               -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
               -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
@@ -3592,20 +3610,26 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_feed <= '1';
               when 1007 =>
+                -- Track Info: Sector count (read from $D084)
+                fw_byte_in <= f011_sector;
+                fw_byte_valid <= '1';
+                crc_byte <= f011_sector;
+                crc_feed <= '1';
+              when 1008 =>
                 -- Track Info: First CRC byte
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
-              when 1008 =>
+              when 1009 =>
                 -- Track Info: Second CRC byte
                 fw_byte_in <= crc_value(7 downto 0);
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
-              when 1009 | 1010 | 1011 | 1012 =>
+              when 1010 | 1011 | 1012 | 1013 =>
                 -- Alow the CRC bytes to flush out before we change speed
                 fw_byte_in <= x"00";
                 fw_byte_valid <= '1';
-              when 1013 =>
+              when 1014 =>
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
                 cycles_per_interval <= saved_cycles_per_interval;
