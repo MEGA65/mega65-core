@@ -604,10 +604,10 @@ void reflash_slot(unsigned char slot)
 
       return;
     }
-  }
 
-  if (!check_model_id_field())
-    return;
+    if (!check_model_id_field())
+      return;
+  }
 
   // start reading file from beginning again
   // (as the model_id checking read the first 512 bytes already)
