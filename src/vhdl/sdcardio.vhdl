@@ -840,6 +840,7 @@ begin  -- behavioural
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
+    rll_encoding => '0', -- Always MFM for single-rate decoder
     cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
@@ -885,6 +886,7 @@ begin  -- behavioural
   mfm2x: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
+    rll_encoding => rll_encoding,
     cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
 
