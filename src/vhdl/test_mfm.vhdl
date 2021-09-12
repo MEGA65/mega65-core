@@ -193,6 +193,13 @@ begin
           fastio_write <= '1';
           sdcardio_cs <= '1';
         when 3 =>
+          report "TEST: $D6AE <- $F0";
+          -- Select RLL encoding etc
+          fastio_addr <= x"D36AE";
+          fastio_wdata <= x"f0";
+          fastio_write <= '1';
+          sdcardio_cs <= '1';
+        when 4 =>
           -- Format track with write precomp, sector gaps
           report "TEST: $D081 <- $A4";
           fastio_addr <= x"D3081";
@@ -203,7 +210,7 @@ begin
           fastio_write <= '0';
           fastio_read <= '1';
           fastio_addr <= x"D36A7";
-          if cycle_count > 4 and fastio_rdata /= x"28" then
+          if cycle_count > 10 and fastio_rdata /= x"28" then
             report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
           end if;
           f011_cs <= '0';

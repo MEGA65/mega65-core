@@ -814,7 +814,6 @@ begin  -- behavioural
       write_precomp_enable => f011_write_precomp,
       write_precomp_magnitude => write_precomp_magnitude,
       write_precomp_magnitude_b => write_precomp_magnitude_b,
-      write_precomp_delay15 => write_precomp_delay15,
       ready_for_next => fw_ready_for_next_rll,
       no_data => fw_no_data_rll,
       f_write => f_wdata_rll,
@@ -950,7 +949,7 @@ begin  -- behavioural
     -- ==================================================================
 
     -- Select RLL or MFM writer for floppy drive
-    if rll_encoding='1' then
+    if rll_encoding='1' then      
       f_wdata <= f_wdata_rll;
       fw_no_data <= fw_no_data_rll;
       fw_ready_for_next_rll <= fw_ready_for_next_rll;
@@ -2922,9 +2921,11 @@ begin  -- behavioural
               -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
               -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
               -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
+              -- @IO:GS $D6AE.7 SD:FDCRLLEN Select RLL(1) or MFM(0) encoding for floppy
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
+              rll_encoding <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
