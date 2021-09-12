@@ -201,6 +201,14 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal rll_encoding : std_logic := '0';
+  signal f_wdata_mfm : std_logic := '0';
+  signal fw_no_data_mfm : std_logic := '0';
+  signal fw_ready_for_next_mfm : std_logic := '0';
+  signal f_wdata_rll : std_logic := '0';
+  signal fw_no_data_rll : std_logic := '0';
+  signal fw_ready_for_next_rll : std_logic := '0';
+  
   signal sd_interface_select_internal : std_logic := '0';
   
   signal read_on_idle : std_logic := '0';
@@ -792,14 +800,29 @@ begin  -- behavioural
       write_precomp_magnitude => write_precomp_magnitude,
       write_precomp_magnitude_b => write_precomp_magnitude_b,
       write_precomp_delay15 => write_precomp_delay15,
-      ready_for_next => fw_ready_for_next,
-      no_data => fw_no_data,
-      f_write => f_wdata,
+      ready_for_next => fw_ready_for_next_mfm,
+      no_data => fw_no_data_mfm,
+      f_write => f_wdata_mfm,
       byte_valid => fw_byte_valid,
       byte_in => fw_byte_in,
       clock_byte_in => f011_reg_clock
     );
 
+  rllencoder0: entity work.rll27_bits_to_gaps port map (
+      clock40mhz => clock,
+      cycles_per_interval => cycles_per_interval_actual,
+      write_precomp_enable => f011_write_precomp,
+      write_precomp_magnitude => write_precomp_magnitude,
+      write_precomp_magnitude_b => write_precomp_magnitude_b,
+      write_precomp_delay15 => write_precomp_delay15,
+      ready_for_next => fw_ready_for_next_rll,
+      no_data => fw_no_data_rll,
+      f_write => f_wdata_rll,
+      byte_valid => fw_byte_valid,
+      byte_in => fw_byte_in,
+      clock_byte_in => f011_reg_clock
+    );
+  
  crc0: entity work.crc1581 port map (
     clock40mhz => clock,
     crc_byte => crc_byte,
@@ -926,6 +949,17 @@ begin  -- behavioural
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
 
+    -- Select RLL or MFM writer for floppy drive
+    if rll_encoding='1' then
+      f_wdata <= f_wdata_rll;
+      fw_no_data <= fw_no_data_rll;
+      fw_ready_for_next_rll <= fw_ready_for_next_rll;
+    else
+      f_wdata <= f_wdata_mfm;
+      fw_no_data <= fw_no_data_mfm;
+      fw_ready_for_next_rll <= fw_ready_for_next_mfm;
+    end if;
+    
     if hypervisor_mode='0' then
       sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr_fast(8 downto 0));
     else
@@ -1270,26 +1304,25 @@ begin  -- behavioural
             -- @IO:GS $D6AB - DEBUG FDC last gap interval (MSB)
             fastio_rdata <= fdc_last_gap(15 downto 8);
           when x"ac" =>
-            -- @IO:GS $D6AC - DEBUG FDC last quantised gap
-            fastio_rdata <= unsigned(fdc_quantised_gap);
+            -- @IO:GS $D6AC.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+            -- @IO:GS $D6AC.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
+            -- @IO:GS $D6AC.4-6 - PHONE:RESERVED
+            fastio_rdata(3 downto 0) <= volume_knob3_target;
+            fastio_rdata(6 downto 4) <= "000";
+            fastio_rdata(7) <= pwm_knob_en;
           when x"ad" =>
             -- @IO:GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
             -- @IO:GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
             fastio_rdata(3 downto 0) <= volume_knob1_target;
             fastio_rdata(7 downto 4) <= volume_knob2_target;
           when x"ae" =>
-            -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
-            -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
-            fastio_rdata(3 downto 0) <= volume_knob3_target;
             fastio_rdata(4) <= auto_fdc_2x_select;
             fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
-            fastio_rdata(7) <= pwm_knob_en;
+            fastio_rdata(7) <= rll_encoding;
           when x"af" =>
-            -- @IO:GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
-            -- @IO:GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
-            fastio_rdata(3 downto 0) <= to_unsigned(fdc_rotation_timeout,4);
-            fastio_rdata(7 downto 4) <= to_unsigned(rotation_count,4);
+            -- @IO:GS $D6AF - DEBUG FDC last quantised gap READ ONLY
+            fastio_rdata <= unsigned(fdc_quantised_gap);
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
             -- @IO:GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
@@ -2877,22 +2910,21 @@ begin  -- behavioural
               if hypervisor_mode='0' then
                 write_precomp_delay15 <= fastio_wdata;
               end if;
+            when x"ac" =>
+              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              pwm_knob_en <= fastio_wdata(7);
             when x"ad" => 
               -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
               -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
-              -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
               -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
               -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
               -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
-              -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
-              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
-              pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
