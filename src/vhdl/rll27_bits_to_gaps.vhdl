@@ -62,8 +62,6 @@ end rll27_bits_to_gaps;
 
 architecture behavioural of rll27_bits_to_gaps is
 
-  signal last_bit0 : std_logic := '0';
-
   signal clock_bits : unsigned(7 downto 0) := x"FF";
 
   signal bit_queue : unsigned(15 downto 0);
@@ -160,8 +158,7 @@ begin
         report "RLL bit sequence: " & to_string(std_logic_vector(bit_queue));
         show_bit_sequence <= '0';
       end if;
-
-      
+                  
       -- XXX C65 DOS source indicates that clock byte should be
       -- written AFTER data byte has been written.
       -- C65 Specifications guide is, however, silent on this, and
@@ -205,41 +202,92 @@ begin
         ingest_byte_toggle <= not ingest_byte_toggle;
       end if;
 
-      if bits_queued = 0 and byte_in_buffer='1' then
+      if bits_queued = 0 and bits_in_buffer >= 8 then
         report "RLLFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) &") for encoding.";
-        bits_queued <= 16;
-        -- Get the bits to send
-        -- Combined data and clock byte to produce the full vector.        
-        bit_queue(15) <= (last_bit0 nor next_byte(7)) xor not latched_clock_byte(7);
-        bit_queue(14) <= next_byte(7);
-        bit_queue(13) <= (next_byte(7) nor next_byte(6)) xor not latched_clock_byte(6);
-        bit_queue(12) <= next_byte(6);
-        bit_queue(11) <= (next_byte(6) nor next_byte(5)) xor not latched_clock_byte(5);
-        bit_queue(10) <= next_byte(5);
-        bit_queue( 9) <= (next_byte(5) nor next_byte(4)) xor not latched_clock_byte(4);
-        bit_queue( 8) <= next_byte(4);
-        bit_queue( 7) <= (next_byte(4) nor next_byte(3)) xor not latched_clock_byte(3);
-        bit_queue( 6) <= next_byte(3);
-        bit_queue( 5) <= (next_byte(3) nor next_byte(2)) xor not latched_clock_byte(2);
-        bit_queue( 4) <= next_byte(2);
-        bit_queue( 3) <= (next_byte(2) nor next_byte(1)) xor not latched_clock_byte(1);
-        bit_queue( 2) <= next_byte(1);
-        bit_queue( 1) <= (next_byte(1) nor next_byte(0)) xor not latched_clock_byte(0);
-        bit_queue( 0) <= next_byte(0);
-        last_bit0 <= next_byte(0);
 
-        show_bit_sequence <= '1';
-
-        -- Shuffle down byte buffer, if required
-        if byte_in_buffer_2 = '1' then
-          next_byte <= next_byte_2;
-          latched_clock_byte <= latched_clock_byte_2;
-          byte_in_buffer <= '1';
-          byte_in_buffer_2 <= '0';
-          report "shuffling down next byte = $" & to_hstring(next_byte_2) & to_hstring(latched_clock_byte_2);
-        else
-          byte_in_buffer <= '0';          
+        if bit_buffer(15 downto 7) = x"a1"
+          and clock_buffer(15 downto 7) = x"fb" then
+          -- Write sync mark
+          bit_queue(15 downto 1) <= "100000001001000";
+          bits_queued <= 15;
+          bit_buffer(15 downto 8) <= bit_buffer(7 downto 0);
+          clock_buffer(15 downto 8) <= clock_buffer(7 downto 0);
+          bits_in_buffer <= bits_in_buffer - 8;
+        elsif bit_buffer(15 downto 14) = "11" then
+          bit_queue(15 downto 12) <= "1000";
+          bits_queued <= 4;
+          bit_buffer(15 downto 2) <= bit_buffer(13 downto 0);
+          clock_buffer(15 downto 2) <= clock_buffer(13 downto 0);
+          bits_in_buffer <= bits_in_buffer - 2;
+        elsif bit_buffer(15 downto 14) = "11" then
+          bit_queue(15 downto 12) <= "0100";
+          bits_queued <= 4;
+          bit_buffer(15 downto 2) <= bit_buffer(13 downto 0);
+          clock_buffer(15 downto 2) <= clock_buffer(13 downto 0);
+          bits_in_buffer <= bits_in_buffer - 2;
+        elsif bit_buffer(15 downto 13) = "000" then
+          bit_queue(15 downto 10) <= "100100";
+          bits_queued <= 6;
+          bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
+          clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
+          bits_in_buffer <= bits_in_buffer - 3;
+        elsif bit_buffer(15 downto 13) = "010" then
+          bit_queue(15 downto 10) <= "000100";
+          bits_queued <= 6;
+          bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
+          clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
+          bits_in_buffer <= bits_in_buffer - 3;
+        elsif bit_buffer(15 downto 13) = "011" then
+          bit_queue(15 downto 10) <= "001000";
+          bits_queued <= 6;
+          bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
+          clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
+          bits_in_buffer <= bits_in_buffer - 3;
+        elsif bit_buffer(15 downto 12) = "0011" then
+          bit_queue(15 downto 10) <= "00001000";
+          bits_queued <= 8;
+          bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
+          clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
+          bits_in_buffer <= bits_in_buffer - 4;
+        elsif bit_buffer(15 downto 12) = "0010" then
+          bit_queue(15 downto 10) <= "00100100";
+          bits_queued <= 8;
+          bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
+          clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
+          bits_in_buffer <= bits_in_buffer - 4;
         end if;
+        
+        show_bit_sequence <= '1';
+      elsif byte_in_buffer = '1' then
+        if bits_in_buffer = 0 then
+          bit_buffer(15 downto 8) <= next_byte;
+          clock_buffer(15 downto 8) <= latched_clock_byte;
+          bits_in_buffer <= 8;
+
+          byte_in_buffer <= byte_in_buffer2;
+          byte_in_buffer2 <= '0';
+          next_byte <= next_byte_2;
+          latched_clock_byte <= latched_clock_byte_2;          
+        elsif bits_in_buffer = 2 then
+          bit_buffer(13 downto 6) <= next_byte;
+          clock_buffer(13 downto 6) <= latched_clock_byte;
+          bits_in_buffer <= 10;
+
+          byte_in_buffer <= byte_in_buffer2;
+          byte_in_buffer2 <= '0';
+          next_byte <= next_byte_2;
+          latched_clock_byte <= latched_clock_byte_2;          
+        elsif bits_in_buffer = 4 then
+          bit_buffer(11 downto 4) <= next_byte;
+          clock_buffer(11 downto 4) <= latched_clock_byte;
+          bits_in_buffer <= 12;
+
+          byte_in_buffer <= byte_in_buffer2;
+          byte_in_buffer2 <= '0';
+          next_byte <= next_byte_2;
+          latched_clock_byte <= latched_clock_byte_2;          
+        end if;
+        
         -- Make sure ready_for_next produces an edge each time it triggers
         ready_for_next <= '0';
         ready_for_next_delayed <= '1';
