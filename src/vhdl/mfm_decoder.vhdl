@@ -145,6 +145,8 @@ architecture behavioural of mfm_decoder is
   signal rll_bit_valid : std_logic := '0';
   signal rll_bit_in : std_logic := '0';
   signal rll_sync_in : std_logic := '0';
+  signal rll_gap_size_valid : std_logic := '0';
+  signal rll_gap_size : unsigned(2 downto 0) := "000";
   
   
 begin
@@ -183,7 +185,7 @@ begin
     sync_out => mfm_sync_in
     );
 
-  rllquantise0: entity work.rll_quantise_gaps port map (
+  rllquantise0: entity work.rll27_quantise_gaps port map (
     clock40mhz => clock40mhz,
 
     cycles_per_interval => cycles_per_interval,
@@ -195,7 +197,7 @@ begin
     gap_size_out => rll_gap_size
     );
 
-  rllbits0: entity work.rll_gaps_to_bits port map (
+  rllbits0: entity work.rll27_gaps_to_bits port map (
     clock40mhz => clock40mhz,
 
     gap_valid => rll_gap_size_valid,
@@ -233,12 +235,12 @@ begin
 
     if rll_encoding='1' then
       bit_valid <= mfm_bit_valid;
-      bit_out <= mfm_bit_in;
-      sync_out <= mfm_sync_in;
+      bit_in <= mfm_bit_in;
+      sync_in <= mfm_sync_in;
     else
       bit_valid <= mfm_bit_valid;
-      bit_out <= mfm_bit_in;
-      sync_out <= mfm_sync_in;
+      bit_in <= mfm_bit_in;
+      sync_in <= mfm_sync_in;
     end if;
     
     if rising_edge(clock40mhz) then

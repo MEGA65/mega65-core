@@ -7,7 +7,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
   
-entity rll_quantise_gaps is
+entity rll27_quantise_gaps is
   port (
     clock40mhz : in std_logic;
 
@@ -19,9 +19,9 @@ entity rll_quantise_gaps is
     gap_valid_out : out std_logic := '0';
     gap_size_out : out unsigned(2 downto 0)
     );
-end rll_quantise_gaps;
+end rll27_quantise_gaps;
 
-architecture behavioural of rll_quantise_gaps is
+architecture behavioural of rll27_quantise_gaps is
 
   signal threshold_2_high : unsigned(15 downto 0) := to_unsigned(0,16);
   signal threshold_3_high : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -51,12 +51,12 @@ begin
           & " (thresholds = "
           & integer'image(to_integer(threshold_2_high)) & ", "
           & integer'image(to_integer(threshold_3_high)) & ", "
-          & integer'image(to_integer(threshold_4_high)) & ").";
-          & integer'image(to_integer(threshold_5_high)) & ").";
-          & integer'image(to_integer(threshold_6_high)) & ").";
+          & integer'image(to_integer(threshold_4_high)) & ")."
+          & integer'image(to_integer(threshold_5_high)) & ")."
+          & integer'image(to_integer(threshold_6_high)) & ")."
           & integer'image(to_integer(threshold_7_high)) & ").";
       end if;
-      elsif gap_length_in <= threshold_2_high then
+      if gap_length_in <= threshold_2_high then
         gap_size_out <= "010"; -- 2 intervals
       elsif gap_length_in <= threshold_3_high then
         gap_size_out <= "011"; -- 3 intervals
