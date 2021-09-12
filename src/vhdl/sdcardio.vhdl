@@ -794,32 +794,34 @@ begin  -- behavioural
 
    
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
-      clock40mhz => clock,
-      cycles_per_interval => cycles_per_interval_actual,
-      write_precomp_enable => f011_write_precomp,
-      write_precomp_magnitude => write_precomp_magnitude,
-      write_precomp_magnitude_b => write_precomp_magnitude_b,
-      write_precomp_delay15 => write_precomp_delay15,
-      ready_for_next => fw_ready_for_next_mfm,
-      no_data => fw_no_data_mfm,
-      f_write => f_wdata_mfm,
-      byte_valid => fw_byte_valid,
-      byte_in => fw_byte_in,
-      clock_byte_in => f011_reg_clock
+    clock40mhz => clock,
+    disabled => rll_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
+    ready_for_next => fw_ready_for_next_mfm,
+    no_data => fw_no_data_mfm,
+    f_write => f_wdata_mfm,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
     );
 
   rllencoder0: entity work.rll27_bits_to_gaps port map (
-      clock40mhz => clock,
-      cycles_per_interval => cycles_per_interval_actual,
-      write_precomp_enable => f011_write_precomp,
-      write_precomp_magnitude => write_precomp_magnitude,
-      write_precomp_magnitude_b => write_precomp_magnitude_b,
-      ready_for_next => fw_ready_for_next_rll,
-      no_data => fw_no_data_rll,
-      f_write => f_wdata_rll,
-      byte_valid => fw_byte_valid,
-      byte_in => fw_byte_in,
-      clock_byte_in => f011_reg_clock
+    clock40mhz => clock,
+    enabled => rll_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    ready_for_next => fw_ready_for_next_rll,
+    no_data => fw_no_data_rll,
+    f_write => f_wdata_rll,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
     );
   
  crc0: entity work.crc1581 port map (
