@@ -954,11 +954,11 @@ begin  -- behavioural
     if rll_encoding='1' then      
       f_wdata <= f_wdata_rll;
       fw_no_data <= fw_no_data_rll;
-      fw_ready_for_next_rll <= fw_ready_for_next_rll;
+      fw_ready_for_next <= fw_ready_for_next_rll;
     else
       f_wdata <= f_wdata_mfm;
       fw_no_data <= fw_no_data_mfm;
-      fw_ready_for_next_rll <= fw_ready_for_next_mfm;
+      fw_ready_for_next <= fw_ready_for_next_mfm;
     end if;
     
     if hypervisor_mode='0' then
