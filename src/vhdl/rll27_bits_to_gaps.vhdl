@@ -94,6 +94,7 @@ architecture behavioural of rll27_bits_to_gaps is
   signal clock_byte_target : std_logic := '0';
   signal ready_for_next_delayed : std_logic := '0';
   signal show_bit_sequence : std_logic := '0';
+  signal next_is_sync : std_logic := '0';
   
 begin
 
@@ -209,67 +210,104 @@ begin
       if byte_valid='1' then
         ingest_byte_toggle <= not ingest_byte_toggle;
       end if;
-
+      
+      if next_byte = x"a1" and latched_clock_byte = x"fb" then
+        next_is_sync <= '1';
+      else
+        next_is_sync <= '0';
+      end if;
+      
 --     report "LOOPrll: Here";
-      if bits_queued = 0 and bits_in_buffer >= 8 then
-        report "RLLFLOPPY: emitting bits from buffere: " & to_string(std_logic_vector(bit_buffer)) & "/" & to_string(std_logic_vector(clock_buffer))
-          & ", " & integer'image(bits_in_buffer) & " bits in buffer";
+      if bits_queued = 0 and (bits_in_buffer >= 8 or next_is_sync='1') then
+        report "RLLFLOPPY: emitting bits from buffer: " & to_string(std_logic_vector(bit_buffer)) & "/" & to_string(std_logic_vector(clock_buffer))
+          & ", " & integer'image(bits_in_buffer) & " bits in buffer, next_sync=" & std_logic'image(next_is_sync); 
 
-        if bit_buffer(15 downto 8) = x"a1"
-          and clock_buffer(15 downto 8) = x"fb" then
+        if bit_buffer(15 downto 8) = x"a1" and clock_buffer(15 downto 8) = x"fb" and (bits_in_buffer=8 or bits_in_buffer = 16) then
           report "RLL: Emitting sync mark";
           -- Write sync mark
           bit_queue(15 downto 1) <= "100000001001000";
           bits_queued <= 15;
           bit_buffer(15 downto 8) <= bit_buffer(7 downto 0);
           clock_buffer(15 downto 8) <= clock_buffer(7 downto 0);
-          bits_in_buffer <= bits_in_buffer - 8;
+          if bits_in_buffer > 8 then
+            bits_in_buffer <= bits_in_buffer - 8;
+          else
+            bits_in_buffer <= 0;
+          end if;
         elsif bit_buffer(15 downto 14) = "11" then
           bit_queue(15 downto 12) <= "1000";
           bits_queued <= 4;
           bit_buffer(15 downto 2) <= bit_buffer(13 downto 0);
           clock_buffer(15 downto 2) <= clock_buffer(13 downto 0);
-          bits_in_buffer <= bits_in_buffer - 2;
-        elsif bit_buffer(15 downto 14) = "11" then
+          if bits_in_buffer > 2 then
+            bits_in_buffer <= bits_in_buffer - 2;
+          else
+            bits_in_buffer <= 0;
+          end if;
+        elsif bit_buffer(15 downto 14) = "10" then
           bit_queue(15 downto 12) <= "0100";
           bits_queued <= 4;
           bit_buffer(15 downto 2) <= bit_buffer(13 downto 0);
           clock_buffer(15 downto 2) <= clock_buffer(13 downto 0);
-          bits_in_buffer <= bits_in_buffer - 2;
+          if bits_in_buffer > 2 then
+            bits_in_buffer <= bits_in_buffer - 2;
+          else
+            bits_in_buffer <= 0;
+          end if;
         elsif bit_buffer(15 downto 13) = "000" then
           bit_queue(15 downto 10) <= "100100";
           bits_queued <= 6;
           bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
           clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
-          bits_in_buffer <= bits_in_buffer - 3;
+          if bits_in_buffer > 3 then
+            bits_in_buffer <= bits_in_buffer - 3;
+          else
+            bits_in_buffer <= 0;
+          end if;
         elsif bit_buffer(15 downto 13) = "010" then
           bit_queue(15 downto 10) <= "000100";
           bits_queued <= 6;
           bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
           clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
-          bits_in_buffer <= bits_in_buffer - 3;
+          if bits_in_buffer > 3 then
+            bits_in_buffer <= bits_in_buffer - 3;
+          else
+            bits_in_buffer <= 0;
+          end if;
         elsif bit_buffer(15 downto 13) = "011" then
           bit_queue(15 downto 10) <= "001000";
           bits_queued <= 6;
           bit_buffer(15 downto 3) <= bit_buffer(12 downto 0);
           clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
-          bits_in_buffer <= bits_in_buffer - 3;
+          if bits_in_buffer > 3 then
+            bits_in_buffer <= bits_in_buffer - 3;
+          else
+            bits_in_buffer <= 0;
+          end if;            
         elsif bit_buffer(15 downto 12) = "0011" then
           bit_queue(15 downto 8) <= "00001000";
           bits_queued <= 8;
           bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
           clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
-          bits_in_buffer <= bits_in_buffer - 4;
+          if bits_in_buffer > 4 then
+            bits_in_buffer <= bits_in_buffer - 4;
+          else
+            bits_in_buffer <= 0;
+          end if;          
         elsif bit_buffer(15 downto 12) = "0010" then
           bit_queue(15 downto 8) <= "00100100";
           bits_queued <= 8;
           bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
           clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
-          bits_in_buffer <= bits_in_buffer - 4;
+          if bits_in_buffer > 4 then
+            bits_in_buffer <= bits_in_buffer - 4;
+          else
+            bits_in_buffer <= 0;
+          end if;            
         end if;
         
         show_bit_sequence <= '1';
-      elsif byte_in_buffer = '1' then
+      elsif byte_in_buffer = '1' and (next_is_sync='0' or bits_in_buffer=0) then
 --        report "SHUFFLErll: Byte in buffer: " & integer'image(bits_in_buffer) & " bits in buffer";
         if bits_in_buffer < 9 then
           bit_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= next_byte;
@@ -280,6 +318,9 @@ begin
           byte_in_buffer_2 <= '0';
           next_byte <= next_byte_2;
           latched_clock_byte <= latched_clock_byte_2;
+          -- make sure we don't get stuck sync byte
+          -- indication                                    
+          next_byte_2 <= x"00"; next_is_sync <= '0';
 
           -- Make sure ready_for_next produces an edge each time it triggers
           ready_for_next <= '0';
