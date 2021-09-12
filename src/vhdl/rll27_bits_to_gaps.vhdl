@@ -210,12 +210,14 @@ begin
         ingest_byte_toggle <= not ingest_byte_toggle;
       end if;
 
---      report "RLL: Here";
+--     report "LOOPrll: Here";
       if bits_queued = 0 and bits_in_buffer >= 8 then
-        report "RLLFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) &") for encoding.";
+        report "RLLFLOPPY: emitting bits from buffere: " & to_string(std_logic_vector(bit_buffer)) & "/" & to_string(std_logic_vector(clock_buffer))
+          & ", " & integer'image(bits_in_buffer) & " bits in buffer";
 
-        if bit_buffer(15 downto 7) = x"a1"
-          and clock_buffer(15 downto 7) = x"fb" then
+        if bit_buffer(15 downto 8) = x"a1"
+          and clock_buffer(15 downto 8) = x"fb" then
+          report "RLL: Emitting sync mark";
           -- Write sync mark
           bit_queue(15 downto 1) <= "100000001001000";
           bits_queued <= 15;
@@ -268,11 +270,11 @@ begin
         
         show_bit_sequence <= '1';
       elsif byte_in_buffer = '1' then
---        report "RLL: Byte in buffer";
-        if bits_in_buffer = 0 then
-          bit_buffer(15 downto 8) <= next_byte;
-          clock_buffer(15 downto 8) <= latched_clock_byte;
-          bits_in_buffer <= 8;
+--        report "SHUFFLErll: Byte in buffer: " & integer'image(bits_in_buffer) & " bits in buffer";
+        if bits_in_buffer < 9 then
+          bit_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= next_byte;
+          clock_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= latched_clock_byte;
+          bits_in_buffer <= bits_in_buffer + 8;
 
           byte_in_buffer <= byte_in_buffer_2;
           byte_in_buffer_2 <= '0';
@@ -283,37 +285,6 @@ begin
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
           report "asserting ready_for_next";
-          
-        elsif bits_in_buffer = 2 then
-          bit_buffer(13 downto 6) <= next_byte;
-          clock_buffer(13 downto 6) <= latched_clock_byte;
-          bits_in_buffer <= 10;
-
-          byte_in_buffer <= byte_in_buffer_2;
-          byte_in_buffer_2 <= '0';
-          next_byte <= next_byte_2;
-          latched_clock_byte <= latched_clock_byte_2;
-
-          -- Make sure ready_for_next produces an edge each time it triggers
-          ready_for_next <= '0';
-          ready_for_next_delayed <= '1';
-          report "asserting ready_for_next";
-          
-        elsif bits_in_buffer = 4 then
-          bit_buffer(11 downto 4) <= next_byte;
-          clock_buffer(11 downto 4) <= latched_clock_byte;
-          bits_in_buffer <= 12;
-
-          byte_in_buffer <= byte_in_buffer_2;
-          byte_in_buffer_2 <= '0';
-          next_byte <= next_byte_2;
-          latched_clock_byte <= latched_clock_byte_2;
-
-          -- Make sure ready_for_next produces an edge each time it triggers
-          ready_for_next <= '0';
-          ready_for_next_delayed <= '1';
-          report "asserting ready_for_next";
-          
         end if;
         
       elsif ingest_byte_toggle /= last_ingest_byte_toggle then
@@ -336,7 +307,7 @@ begin
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
           clock_byte_target <= '0';
-          report "asserting ready_for_next after store in next_byte (delayed)";
+--          report "asserting ready_for_next after store in next_byte (delayed)";
         end if;
         report "latching data byte $" & to_hstring(byte_in);
         -- Then set timer to latch the clock.
@@ -348,16 +319,22 @@ begin
         -- cycles
         clock_latch_timer <= 63;
       elsif ready_for_next_delayed = '1' then
-        report "RLL: ready_for_next delayed strobe";
+--        report "RLL: ready_for_next delayed strobe";
         ready_for_next <= '1';
         ready_for_next_delayed <= '0';
       else
-        report "IDLErll: Nothing to do: "
-          & "byte_in_buffer=" & std_logic'image(byte_in_buffer)
-          & ", byte_in_buffer_2=" & std_logic'image(byte_in_buffer_2)
-          & ", bits_queued=" & integer'image(bits_queued)
-          & ", bits_in_buffer=" & integer'image(bits_in_buffer)
-          ;
+--        report "IDLErll: Nothing to do: "
+--          & "byte_in_buffer=" & std_logic'image(byte_in_buffer)
+--          & ", byte_in_buffer_2=" & std_logic'image(byte_in_buffer_2)
+--          & ", bits_queued=" & integer'image(bits_queued)
+--          & ", bits_in_buffer=" & integer'image(bits_in_buffer)
+--          ;
+
+        if byte_in_buffer_2='0' then
+          ready_for_next <= '0';
+          ready_for_next_delayed <= '1';
+--          report "asserting ready_for_next";
+        end if;
       end if;
     end if;    
   end process;
