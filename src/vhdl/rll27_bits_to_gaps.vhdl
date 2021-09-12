@@ -67,6 +67,10 @@ architecture behavioural of rll27_bits_to_gaps is
   signal bit_queue : unsigned(15 downto 0);
   signal bits_queued : integer range 0 to 16 := 0;
 
+  signal bit_buffer : unsigned(15 downto 0) := (others => '0');
+  signal clock_buffer : unsigned(15 downto 0) := (others => '0');
+  signal bits_in_buffer : integer range 0 to 16 := 0;
+  
   -- Work out when to write a bit
   signal interval_countdown : integer range 0 to 255 := 0;
   signal transition_point : integer range 0 to 256 := 256;
@@ -244,13 +248,13 @@ begin
           clock_buffer(15 downto 3) <= clock_buffer(12 downto 0);
           bits_in_buffer <= bits_in_buffer - 3;
         elsif bit_buffer(15 downto 12) = "0011" then
-          bit_queue(15 downto 10) <= "00001000";
+          bit_queue(15 downto 8) <= "00001000";
           bits_queued <= 8;
           bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
           clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
           bits_in_buffer <= bits_in_buffer - 4;
         elsif bit_buffer(15 downto 12) = "0010" then
-          bit_queue(15 downto 10) <= "00100100";
+          bit_queue(15 downto 8) <= "00100100";
           bits_queued <= 8;
           bit_buffer(15 downto 4) <= bit_buffer(11 downto 0);
           clock_buffer(15 downto 4) <= clock_buffer(11 downto 0);
@@ -264,8 +268,8 @@ begin
           clock_buffer(15 downto 8) <= latched_clock_byte;
           bits_in_buffer <= 8;
 
-          byte_in_buffer <= byte_in_buffer2;
-          byte_in_buffer2 <= '0';
+          byte_in_buffer <= byte_in_buffer_2;
+          byte_in_buffer_2 <= '0';
           next_byte <= next_byte_2;
           latched_clock_byte <= latched_clock_byte_2;          
         elsif bits_in_buffer = 2 then
@@ -273,8 +277,8 @@ begin
           clock_buffer(13 downto 6) <= latched_clock_byte;
           bits_in_buffer <= 10;
 
-          byte_in_buffer <= byte_in_buffer2;
-          byte_in_buffer2 <= '0';
+          byte_in_buffer <= byte_in_buffer_2;
+          byte_in_buffer_2 <= '0';
           next_byte <= next_byte_2;
           latched_clock_byte <= latched_clock_byte_2;          
         elsif bits_in_buffer = 4 then
@@ -282,8 +286,8 @@ begin
           clock_buffer(11 downto 4) <= latched_clock_byte;
           bits_in_buffer <= 12;
 
-          byte_in_buffer <= byte_in_buffer2;
-          byte_in_buffer2 <= '0';
+          byte_in_buffer <= byte_in_buffer_2;
+          byte_in_buffer_2 <= '0';
           next_byte <= next_byte_2;
           latched_clock_byte <= latched_clock_byte_2;          
         end if;
