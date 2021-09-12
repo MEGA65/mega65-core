@@ -34,6 +34,8 @@ entity rll27_bits_to_gaps is
   port (
     clock40mhz : in std_logic;
 
+    enabled : in std_logic;
+    
     cycles_per_interval : in unsigned(7 downto 0);
     write_precomp_enable : in std_logic := '0';
     write_precomp_magnitude : in unsigned(7 downto 0) := x"01";
@@ -159,7 +161,8 @@ begin
       end if;
 
       if show_bit_sequence='1' then
-        report "RLL bit sequence: " & to_string(std_logic_vector(bit_queue));
+        report "RLL bit sequence: " & to_string(std_logic_vector(bit_queue))
+          & "  (" & integer'image(bits_queued) & " bits queued)";
         show_bit_sequence <= '0';
       end if;
                   
