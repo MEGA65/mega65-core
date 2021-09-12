@@ -131,6 +131,7 @@ begin
   
   decoder0: entity work.mfm_decoder port map (
     clock40mhz => clock40mhz,
+    rll_encoding => '0',
     f_rdata => f_rdata,
     cycles_per_interval => cycles_per_interval,
     invalidate => '0',
