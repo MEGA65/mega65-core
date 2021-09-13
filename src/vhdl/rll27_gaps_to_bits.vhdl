@@ -48,7 +48,7 @@ begin
     if rising_edge(clock40mhz) then
       last_gap_valid <= gap_valid;
       if gap_valid = '1' and last_gap_valid='0' then
---        report "Interval of %" & to_string(std_logic_vector(gap_size));
+        report "RLLDECODE: Interval of %" & to_string(std_logic_vector(gap_size));
         
         -- Detect sync byte
         recent_gaps(8 downto 3) <= recent_gaps(5 downto 0);
