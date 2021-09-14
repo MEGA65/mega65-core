@@ -149,7 +149,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps_to_bits.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_quantise_gaps.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/rll27_bits_to_bytes.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/rll27_bits_to_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rll27_gaps_to_bits.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rll27_quantise_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/crc1581.vhdl"]"\
@@ -326,7 +326,7 @@ set file "vhdl/rll27_quantise_gaps.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/rll27_bits_to_bytes.vhdl"
+set file "vhdl/rll27_bits_to_gaps.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
