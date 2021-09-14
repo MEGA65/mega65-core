@@ -16,7 +16,7 @@
 -- 100000001001
 --
 -- but to preserve RLL2,7 rules, we have to write:
--- 100000001001000
+-- 10000000100100
 --
 -- so that we can't end up with a 1 too soon after the sync mark,
 -- and make sure that we know exactly where we are upto in decoding.
@@ -225,8 +225,8 @@ begin
         if bit_buffer(15 downto 8) = x"a1" and clock_buffer(15 downto 8) = x"fb" and (bits_in_buffer=8 or bits_in_buffer = 16) then
           report "RLL: Emitting sync mark";
           -- Write sync mark
-          bit_queue(15 downto 1) <= "100000001001000";
-          bits_queued <= 15;
+          bit_queue(15 downto 2) <= "10000000100100";
+          bits_queued <= 14;
           bit_buffer(15 downto 8) <= bit_buffer(7 downto 0);
           clock_buffer(15 downto 8) <= clock_buffer(7 downto 0);
           if bits_in_buffer > 8 then
