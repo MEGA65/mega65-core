@@ -128,32 +128,7 @@ begin
 
     
     );
-  
-  decoder0: entity work.mfm_decoder port map (
-    clock40mhz => clock40mhz,
-    rll_encoding => '0',
-    f_rdata => f_rdata,
-    cycles_per_interval => cycles_per_interval,
-    invalidate => '0',
-
-    target_track => target_track,
-    target_sector => target_sector,
-    target_side => target_side,
-    target_any => target_any,
-
-    sector_found => sector_found,
-    sector_data_gap => sector_data_gap,
-    found_track => found_track,
-    found_sector => found_sector,
-    found_side => found_side,
-
-    first_byte => first_byte,
-    byte_valid => byte_valid,
-    byte_out => byte_out,
-    crc_error => crc_error,
-    sector_end => sector_end
-    );
-  
+    
   process is
   begin
     while true loop
