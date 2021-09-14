@@ -38,11 +38,11 @@ begin
       -- Calculate thresholds for 2 through 7 gap intervals
       -- NOTE: The cycles per interval is effectively double the supplied value,
       -- so $D6A2 needs to be set to 1/2 the expected value
-      threshold_2_high <= to_unsigned(to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
-      threshold_3_high <= to_unsigned(to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 1)),16);
-      threshold_4_high <= to_unsigned(to_integer(cycles_per_interval&"00") +  to_integer(cycles_per_interval(7 downto 1)),16);
-      threshold_5_high <= to_unsigned(to_integer(cycles_per_interval&"00") + to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 1)),16);
-      threshold_6_high <= to_unsigned(to_integer(cycles_per_interval&"00") + to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
+      threshold_2_high <= to_unsigned(to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 1)),16);
+      threshold_3_high <= to_unsigned(to_integer(cycles_per_interval&"00") +  to_integer(cycles_per_interval(7 downto 1)),16);
+      threshold_4_high <= to_unsigned(to_integer(cycles_per_interval&"00") + to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 1)),16);
+      threshold_5_high <= to_unsigned(to_integer(cycles_per_interval&"00") + to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
+      threshold_6_high <= to_unsigned(to_integer(cycles_per_interval&"00") + to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 1)),16);
       threshold_7_high <= to_unsigned(to_integer(cycles_per_interval&"000") + to_integer(cycles_per_interval(7 downto 1)),16);
 
       -- See which category the incoming gap fits
