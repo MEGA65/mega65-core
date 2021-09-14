@@ -350,7 +350,7 @@ begin
           clock_byte_target <= '0';
 --          report "asserting ready_for_next after store in next_byte (delayed)";
         end if;
-        report "latching data byte $" & to_hstring(byte_in);
+        report "RLL: latching data byte $" & to_hstring(byte_in);
         -- Then set timer to latch the clock.
         -- For bug-compatibility with C65 DOS code, this should be done
         -- at least 4x 3.5MHz clock cycles after the data byte has been
