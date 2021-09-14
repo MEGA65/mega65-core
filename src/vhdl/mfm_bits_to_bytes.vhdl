@@ -32,7 +32,7 @@ begin
   begin
     if rising_edge(clock40mhz) then
       if sync_in='1' then
-        report "Sync $A1 detected";
+        report "B2B: Sync $A1 detected";
         sync_out <= '1';
         byte_out <= x"A1";
         bit_count <= 0;
@@ -41,11 +41,12 @@ begin
           -- We now have a complete byte, so output it
           byte_out(7 downto 1) <= partial_byte;
           byte_out(0) <= bit_in;
-          report "MFM byte $" & to_hstring(partial_byte&bit_in);
+          report "B2B: MFM byte $" & to_hstring(partial_byte&bit_in);
           byte_valid <= '1';
           bit_count <= 0;
         else
           -- We have the next bit
+          report "B2B: Latching bit " & std_logic'image(bit_in);
           byte_valid <= '0';
           bit_count <= bit_count + 1;
           partial_byte(6 downto 1) <= partial_byte(5 downto 0);
