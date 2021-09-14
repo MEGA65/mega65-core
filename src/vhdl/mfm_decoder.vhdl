@@ -234,9 +234,9 @@ begin
   begin
 
     if rll_encoding='1' then
-      bit_valid <= mfm_bit_valid;
-      bit_in <= mfm_bit_in;
-      sync_in <= mfm_sync_in;
+      bit_valid <= rll_bit_valid;
+      bit_in <= rll_bit_in;
+      sync_in <= rll_sync_in;
     else
       bit_valid <= mfm_bit_valid;
       bit_in <= mfm_bit_in;
