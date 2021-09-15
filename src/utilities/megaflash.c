@@ -570,6 +570,7 @@ int check_model_id_field(void)
 
     printf("Ok, will proceed to flash\n");
     press_any_key();
+    return 1;
   }
 
   printf("%cVerification error!\n"
