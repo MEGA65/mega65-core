@@ -310,6 +310,7 @@ begin
       elsif byte_in_buffer = '1' and (next_is_sync='0' or bits_in_buffer=0) then
 --        report "SHUFFLErll: Byte in buffer: " & integer'image(bits_in_buffer) & " bits in buffer";
         if bits_in_buffer < 9 then
+          report "RLLENCODE: Importing byte $" & to_hstring(next_byte) &" with " & integer'image(bits_in_buffer) & " bits already in the buffer.";
           bit_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= next_byte;
           clock_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= latched_clock_byte;
           bits_in_buffer <= bits_in_buffer + 8;
@@ -331,7 +332,6 @@ begin
       elsif ingest_byte_toggle /= last_ingest_byte_toggle then
         -- We have another byte to ingest, so do it now.
         report "RLL: Ingesting a byte";
-        last_ingest_byte_toggle <= ingest_byte_toggle;
       
         if byte_in_buffer='1' and byte_in_buffer_2 = '0' then
           -- No byte in 2nd byte buffer, so store it
@@ -339,7 +339,10 @@ begin
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
           clock_byte_target <= '1';
-          report "clearing ready_for_next after store in next_byte_2";
+          report "NEXTBYTE2: clearing ready_for_next after store in next_byte_2";
+          last_ingest_byte_toggle <= ingest_byte_toggle;
+          report "RLL: latching data byte $" & to_hstring(byte_in);
+          clock_latch_timer <= 63;          
         elsif byte_in_buffer = '0' then
           -- No byte in the byte buffer, so store it
           byte_in_buffer <= '1';
@@ -348,9 +351,11 @@ begin
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
           clock_byte_target <= '0';
---          report "asserting ready_for_next after store in next_byte (delayed)";
+--          report "NEXTBYTE1: asserting ready_for_next after store in next_byte (delayed)";
+          last_ingest_byte_toggle <= ingest_byte_toggle;
+          report "RLL: latching data byte $" & to_hstring(byte_in);
+          clock_latch_timer <= 63;          
         end if;
-        report "RLL: latching data byte $" & to_hstring(byte_in);
         -- Then set timer to latch the clock.
         -- For bug-compatibility with C65 DOS code, this should be done
         -- at least 4x 3.5MHz clock cycles after the data byte has been
@@ -358,7 +363,6 @@ begin
         -- 40.5MHz / 3.54MHz x (4+1 cycles) = 57.2 cycles
         -- We can in fact allow a bit of margin on this, so lets go with 63
         -- cycles
-        clock_latch_timer <= 63;
       elsif ready_for_next_delayed = '1' then
 --        report "RLL: ready_for_next delayed strobe";
         ready_for_next <= '1';
