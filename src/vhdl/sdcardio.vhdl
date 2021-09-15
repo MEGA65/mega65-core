@@ -3473,6 +3473,7 @@ begin  -- behavioural
           
           if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
             format_state <= format_state + 1;
+            report "format_state = " & integer'image(format_state);
             case format_state is
               when 0 to 12 =>
                 -- Start of track gaps
@@ -3481,8 +3482,10 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
-                -- Jump to state for writing track header block
-                format_state <= 1000;
+                if format_state = 12 then
+                  -- Jump to state for writing track header block
+                  format_state <= 1000;
+                end if;
               when 13 to 15 =>
                 -- Write sector header sync bytes
                 fw_byte_in <= x"A1";
