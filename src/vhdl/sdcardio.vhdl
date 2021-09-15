@@ -201,6 +201,7 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal saved_rll_encoding : std_logic := '0';
   signal rll_encoding : std_logic := '0';
   signal f_wdata_mfm : std_logic := '0';
   signal fw_no_data_mfm : std_logic := '0';
@@ -403,7 +404,7 @@ architecture behavioural of sdcardio is
   signal write_precomp_delay15 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal saved_cycles_per_interval : unsigned(7 downto 0)
-    := to_unsigned(cpu_frequency/500000,8);
+    := to_unsigned(cpu_frequency/500000,8);  
   
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -3449,11 +3450,13 @@ begin  -- behavioural
             format_state <= 0;
             format_sector_number <= 0;
 
-            -- Write track lead-in gaps at DD speed to give
+            -- Write track lead-in gaps at DD speed and using MFM to give
             -- head enough time to switch to write.
             -- We then also write the track info block at
             -- DD speed, before switching to the higher speed
             saved_cycles_per_interval <= cycles_per_interval;
+            saved_rll_encoding <= rll_encoding;
+            rll_encoding <= '0';
             cycles_per_interval <= to_unsigned(81,8);
             
           end if;
@@ -3675,6 +3678,7 @@ begin  -- behavioural
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
                 cycles_per_interval <= saved_cycles_per_interval;
+                rll_encoding <= saved_rll_encoding;
                 
               when others =>
                 null;
