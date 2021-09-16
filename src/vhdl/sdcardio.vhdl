@@ -201,8 +201,8 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
-  signal saved_rll_encoding : std_logic := '0';
-  signal rll_encoding : std_logic := '0';
+  signal saved_fdc_encoding_mode : unsigned(3 downto 0) := x"0";
+  signal fdc_encoding_mode : unsigned(3 downto 0) := x"0";
   signal f_wdata_mfm : std_logic := '0';
   signal fw_no_data_mfm : std_logic := '0';
   signal fw_ready_for_next_mfm : std_logic := '0';
@@ -796,7 +796,7 @@ begin  -- behavioural
    
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
     clock40mhz => clock,
-    disabled => rll_encoding,
+    enabled => mfm_encoding,
     cycles_per_interval => cycles_per_interval_actual,
     write_precomp_enable => f011_write_precomp,
     write_precomp_magnitude => write_precomp_magnitude,
@@ -812,7 +812,7 @@ begin  -- behavioural
 
   rllencoder0: entity work.rll27_bits_to_gaps port map (
     clock40mhz => clock,
-    enabled => rll_encoding,
+    enabled => rll27_encoding,
     cycles_per_interval => cycles_per_interval_actual,
     write_precomp_enable => f011_write_precomp,
     write_precomp_magnitude => write_precomp_magnitude,
@@ -887,7 +887,7 @@ begin  -- behavioural
   mfm2x: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    rll_encoding => rll_encoding,
+    encoding_mode => fdc_encoding_mode,
     cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
 
@@ -954,14 +954,28 @@ begin  -- behavioural
     -- ==================================================================
 
     -- Select RLL or MFM writer for floppy drive
-    if rll_encoding='1' then      
+    if fdc_encoding_mode= x"1" then
+      -- RLL27
       f_wdata <= f_wdata_rll;
       fw_no_data <= fw_no_data_rll;
       fw_ready_for_next <= fw_ready_for_next_rll;
-    else
+      rll_encoding <= '1';
+      mfm_encoding <= '0';
+    elsif fdc_encoding_mode=x"0" then
       f_wdata <= f_wdata_mfm;
       fw_no_data <= fw_no_data_mfm;
       fw_ready_for_next <= fw_ready_for_next_mfm;
+      mfm_encoding <= '1';
+      rll_encoding <= '0';
+    elsif fdc_encoding_mode=x"F" then
+      f_wdata <= f_wdata_raw;
+      fw_no_data <= fw_no_data_raw;
+      fw_ready_for_next <= fw_ready_for_next_raw;
+      mfm_encoding <= '0';
+      rll_encoding <= '0';
+    else
+      mfm_encoding <= '0';
+      rll_encoding <= '0';
     end if;
     
     if hypervisor_mode='0' then
@@ -1320,10 +1334,10 @@ begin  -- behavioural
             fastio_rdata(3 downto 0) <= volume_knob1_target;
             fastio_rdata(7 downto 4) <= volume_knob2_target;
           when x"ae" =>
+            fastio_rdata(3 downto 0) <= unsigned(fdc_encoding_mode);
             fastio_rdata(4) <= auto_fdc_2x_select;
             fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
-            fastio_rdata(7) <= rll_encoding;
           when x"af" =>
             -- @IO:GS $D6AF - DEBUG FDC last quantised gap READ ONLY
             fastio_rdata <= unsigned(fdc_quantised_gap);
@@ -2921,14 +2935,13 @@ begin  -- behavioural
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
+              -- @IO:GS $D6AE.0-3 SD:FDCENC Select floppy encoding (0=MFM, 1=RLL2,7, F=Raw encoding)
               -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
               -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
               -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
-              -- @IO:GS $D6AE.7 SD:FDCRLLEN Select RLL(1) or MFM(0) encoding for floppy
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
-              rll_encoding <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
@@ -3453,8 +3466,8 @@ begin  -- behavioural
             -- We then also write the track info block at
             -- DD speed, before switching to the higher speed
             saved_cycles_per_interval <= cycles_per_interval;
-            saved_rll_encoding <= rll_encoding;
-            rll_encoding <= '0';
+            saved_fdc_encoding_mode <= fdc_encoding_mode;
+            fdc_encoding_mode <= x"0"; -- MFM for Track Info Blocks
             cycles_per_interval <= to_unsigned(81,8);
             
           end if;
@@ -3676,7 +3689,7 @@ begin  -- behavioural
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
                 cycles_per_interval <= saved_cycles_per_interval;
-                rll_encoding <= saved_rll_encoding;
+                fdc_encoding_mode <= saved_fdc_encoding_mode;
                 
               when others =>
                 null;

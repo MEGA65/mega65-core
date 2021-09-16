@@ -11,7 +11,7 @@ entity mfm_bits_to_gaps is
   port (
     clock40mhz : in std_logic;
 
-    disabled : in std_logic := '0';
+    enabled : in std_logic := '0';
     
     cycles_per_interval : in unsigned(7 downto 0);
     write_precomp_enable : in std_logic := '0';
@@ -94,7 +94,7 @@ begin
 
       -- Emit pulse with write precompensation
       if interval_countdown = transition_point + f_write_time_adj then
-        if disabled='0' then
+        if enabled='1' then
           report "Writing bit " & std_logic'image(f_write_next) &
             " at " & integer'image(transition_point) & " + " & integer'image(f_write_time_adj);
         end if;
@@ -112,44 +112,44 @@ begin
         if write_precomp_enable='0' then
           -- No write precompensation, so emit bit at the right time.
           f_write_time_adj <= 0;
-          if disabled='0' then
+          if enabled='1' then
             report "WPRECOMP: Disabled";
           end if;
         else
-          if disabled='0' then
+          if enabled='1' then
             report "f_write_buf = " & to_string(f_write_buf);
           end if;
           case f_write_buf is
             when "0101000" =>
               -- short pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Late(b)";
               end if;
               f_write_time_adj <= to_integer(write_precomp_magnitude_b);
             when "1001000" =>
               -- medium pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Late";
               end if;
               f_write_time_adj <= to_integer(write_precomp_magnitude) + to_integer(write_precomp_delay15);
             when "0001000" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Equal";
               end if;
             when "0101010" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Equal";
               end if;
             when "1001010" =>
               -- Medium pulse before, short one after : pulse will be pushed late,
               -- so write it a bit early
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Early";
               end if;
               f_write_time_adj <= to_integer(write_precomp_delay15) - to_integer(write_precomp_magnitude);
@@ -157,32 +157,32 @@ begin
               -- Long pulse before, short one after
               -- 
               f_write_time_adj <= - to_integer(write_precomp_magnitude_b);
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Early(b)";
               end if;
             when "0101001" =>
               -- Short pulse before, medium after
               f_write_time_adj <= to_integer(write_precomp_magnitude);
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Late";
               end if;
             when "1001001" =>
               -- equal length pulses either side
               f_write_time_adj <=  to_integer(write_precomp_delay15);
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Equal";
               end if;
             when "0001001" =>
               -- Long pulse before, medium after
               f_write_time_adj <= - to_integer(write_precomp_magnitude);
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: Early";
               end if;
             when others =>
               -- All other combinations are invalid for MFM encoding, so do no
               -- write precompensation
               f_write_time_adj <= 0;                
-              if disabled='0' then
+              if enabled='1' then
                 report "WPRECOMP: OTHERS";
               end if;
           end case;
@@ -196,7 +196,7 @@ begin
 
       end if;
 
-      if show_bit_sequence='1' and disabled='0' then
+      if show_bit_sequence='1' and enabled='1' then
         report "MFM bit sequence: " & to_string(std_logic_vector(bit_queue));
         show_bit_sequence <= '0';
       end if;
@@ -227,12 +227,12 @@ begin
       if clock_latch_timer = 1 then
         if clock_byte_target='0' then
           latched_clock_byte <= clock_byte_in;
-          if disabled='0' then
+          if enabled='1' then
             report "latching clock byte $" & to_hstring(clock_byte_in);
           end if;
         else
           latched_clock_byte_2 <= clock_byte_in;
-          if disabled='0' then
+          if enabled='1' then
             report "latching clock byte 2 $" & to_hstring(clock_byte_in);
           end if;
         end if;
@@ -250,7 +250,7 @@ begin
       end if;
 
       if bits_queued = 0 and byte_in_buffer='1' then
-        if disabled='0' then
+        if enabled='1' then
           report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) &") for encoding.";
         end if;
         bits_queued <= 16;
@@ -282,7 +282,7 @@ begin
           latched_clock_byte <= latched_clock_byte_2;
           byte_in_buffer <= '1';
           byte_in_buffer_2 <= '0';
-          if disabled='0' then
+          if enabled='1' then
             report "shuffling down next byte = $" & to_hstring(next_byte_2) & to_hstring(latched_clock_byte_2);
           end if;
         else
@@ -291,7 +291,7 @@ begin
         -- Make sure ready_for_next produces an edge each time it triggers
         ready_for_next <= '0';
         ready_for_next_delayed <= '1';
-        if disabled='0' then
+        if enabled='1' then
           report "asserting ready_for_next";
         end if;
       elsif ingest_byte_toggle /= last_ingest_byte_toggle then
@@ -304,7 +304,7 @@ begin
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
           clock_byte_target <= '1';
-          if disabled='0' then
+          if enabled='1' then
             report "clearing ready_for_next after store in next_byte_2";
           end if;
         elsif byte_in_buffer = '0' then
@@ -315,11 +315,11 @@ begin
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
           clock_byte_target <= '0';
-          if disabled='0' then
+          if enabled='1' then
             report "asserting ready_for_next after store in next_byte (delayed)";
           end if;
         end if;
-        if disabled='0' then
+        if enabled='1' then
           report "latching data byte $" & to_hstring(byte_in);
         end if;
         -- Then set timer to latch the clock.
