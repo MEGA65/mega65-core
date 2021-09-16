@@ -281,7 +281,7 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		": version 00.99d beta     :"
+	.byte		": version 00.99e beta     :"
 infoText1:
 	.if	C64_MODE
 	.byte		": press f8 for help       :"
@@ -664,58 +664,90 @@ littleDelay:
 		RTS
 
 ;-------------------------------------------------------------------------------
-copySessionOptionsToSectorBuffer:	
+copySessionOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
-    ; disable interrupts, just in-case they are interfering
+		; disable interrupts, just in-case they are interfering
 		SEI
 
-		JMP littleDelay
+		JSR 	littleDelay
+
+        ; enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+        LDA #$81
+        STA $D680
 
 		; check if this is a nexys4 board
 		LDA $D629
-		AND #$40  
+		AND #$40
 		BEQ @notnexys
 
-		; for nexys4 boards, use sd card bus 0
-		LDA #$80
+		; for nexys4 boards, select sd card bus 0
+		LDA #$C0
 		STA $D680
+
 		LDY #$00
 		JMP @copyLoop
-
 @notnexys:
 		; for all other boards, use sd card bus 1
-		LDA	#$81
+		LDA	#$C1
 		STA	$D680
+
 		LDY	#$00
-@copyLoop:	LDA	optSessBase, Y
+@copyLoop:
+		LDA	optSessBase, Y
 		STA	$DE00, Y
 		LDA	optSessBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop
-		;; Set magic bytes
+
+		; set magic bytes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
 		RTS
+
 ;-------------------------------------------------------------------------------
-copyDefaultOptionsToSectorBuffer:	
+copyDefaultOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
-		LDA	#$81
+		; disable interrupts, just in-case they are interfering
+		SEI
+
+		JSR	littleDelay
+
+		; enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+		LDA #$81
+		STA $D680
+
+		; check if this is a nexys4 board
+		LDA $D629
+		AND #$40
+		BEQ @notnexys2
+
+		; for nexys4 boards, select sd card bus 0
+		LDA #$C0
+		STA $D680
+
+		LDY #$00
+		JMP @copyLoop2
+@notnexys2:
+		; for all other boards, use sd card bus 1
+		LDA	#$C1
 		STA	$D680
+
 		LDY	#$00
-@copyLoop2:	
+@copyLoop2:
 		LDA	optDfltBase, Y
 		STA	$DE00, Y
 		LDA	optDfltBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop2
-		;; Set magic bytes
+
+		; set magic bytes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
@@ -725,12 +757,12 @@ copyDefaultOptionsToSectorBuffer:
 hypervisorApplyConfig:
 ;-------------------------------------------------------------------------------
 ;; Apply options in optSessBase
-			JSR	copySessionOptionsToSectorBuffer
-			LDA	#$04
-			STA	$D642
-			NOP
-			RTS
-	
+		JSR	copySessionOptionsToSectorBuffer
+		LDA	#$04
+		STA	$D642
+		NOP
+		RTS
+
 ;-------------------------------------------------------------------------------
 hypervisorSaveConfig:
 ;-------------------------------------------------------------------------------
@@ -743,7 +775,7 @@ hypervisorSaveConfig:
 
 	.if	.not C64_MODE
 ;-------------------------------------------------------------------------------
-hypervisorLoadOrResetConfig:	
+hypervisorLoadOrResetConfig:
 ;-------------------------------------------------------------------------------
 ;;	 Load current options sector from SD card using Hypervisor trap		
 		
