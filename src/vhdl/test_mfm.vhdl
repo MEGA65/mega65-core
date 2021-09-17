@@ -161,21 +161,39 @@ begin
           fastio_wdata <= x"01";
           fastio_write <= '1';
           sdcardio_cs <= '1';
+          f011_cs <= '0';
         when 2 =>
-          report "TEST: $D6A2 <- 29";
-          -- Set data rate to 29
+          report "TEST: $D6A2 <- 23";
+          -- Set data rate to 23
           fastio_addr <= x"D36A2";
-          fastio_wdata <= to_unsigned(29,8);
+          fastio_wdata <= to_unsigned(23,8);
           fastio_write <= '1';
           sdcardio_cs <= '1';
+          f011_cs <= '0';
         when 3 =>
-          report "TEST: $D6AE <- $F0";
-          -- Select RLL encoding etc
+          report "TEST: $D084 <- 0 (track 0)";
+          -- Track number is 0
+          fastio_addr <= x"D3084";
+          fastio_wdata <= to_unsigned(0,8);
+          fastio_write <= '1';
+          sdcardio_cs <= '0';
+          f011_cs <= '1';
+        when 4 =>
+          report "TEST: $D085 <- 42 (42 sectors per track)";
+          -- Track number is 0
+          fastio_addr <= x"D3085";
+          fastio_wdata <= to_unsigned(42,8);
+          fastio_write <= '1';
+          f011_cs <= '1';
+        when 5 =>
+          report "TEST: $D6AE <- $F1";
+          -- Select RLL encoding, enable TIB to set data rate and encoding
           fastio_addr <= x"D36AE";
-          fastio_wdata <= x"f0";
+          fastio_wdata <= x"F1";
           fastio_write <= '1';
           sdcardio_cs <= '1';
-        when 4 =>
+          f011_cs <= '0';
+        when 6 =>
           -- Format track with write precomp, sector gaps
           report "TEST: $D081 <- $A4";
           fastio_addr <= x"D3081";

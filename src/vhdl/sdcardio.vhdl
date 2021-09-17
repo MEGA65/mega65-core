@@ -630,6 +630,7 @@ architecture behavioural of sdcardio is
   signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
   signal track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal use_tib_info : std_logic := '1';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1364,6 +1365,7 @@ begin  -- behavioural
             fastio_rdata(4) <= auto_fdc_2x_select;
             fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
+            fastio_rdata(7) <= use_tib_info;
           when x"af" =>
             -- @IO:GS $D6AF - DEBUG FDC last quantised gap READ ONLY
             fastio_rdata <= unsigned(fdc_quantised_gap);
@@ -1644,7 +1646,11 @@ begin  -- behavioural
         track_info_rate <= fdc_track_info_rate;
         track_info_encoding <= fdc_track_info_encoding;
         track_info_sectors <= fdc_track_info_sectors;
-        cycles_per_interval_from_track_info <= fdc_track_info_rate; 
+        if use_tib_info='1' then
+          cycles_per_interval_from_track_info <= fdc_track_info_rate;
+          fdc_encoding_mode <= fdc_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(fdc_track_info_encoding(3 downto 0)) & " from track info block.";
+        end if;
       end if; 
             
       -- If using variable data rate, then set rate based on
@@ -2502,7 +2508,7 @@ begin  -- behavioural
             when "00100" =>
               -- @IO:C65 $D084 FDC:TRACK F011 FDC track selection register
               f011_track <= fastio_wdata;
-
+              report "D084: Setting f011_track to $" & to_hstring(f011_track);
             when "00101" =>
               -- @IO:C65 $D085 FDC:SECTOR F011 FDC sector selection register
               f011_sector <= fastio_wdata;
@@ -2967,9 +2973,12 @@ begin  -- behavioural
               -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
               -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
               -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
+              -- @IO:GS $D6AE.7 SD:FDCTIBEN Enable use of Track Info Block settings
+              fdc_encoding_mode <= fastio_wdata(3 downto 0);
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
+              use_tib_info <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
@@ -3685,16 +3694,18 @@ begin  -- behavioural
                 -- written to individually(0)
                 -- Other bits reserved
                 if format_no_gaps = '1' then
-                  fw_byte_in <= x"00";
-                  crc_byte <= x"00";
+                  fw_byte_in(7 downto 4) <= x"0";
+                  crc_byte(7 downto 4) <= x"0";
                 else
-                  fw_byte_in <= x"40";
-                  crc_byte <= x"40";
+                  fw_byte_in(7 downto 4) <= x"4";
+                  crc_byte(7 downto 4) <= x"4";
                 end if;
+                fw_byte_in(3 downto 0) <= saved_fdc_encoding_mode;
+                crc_byte(3 downto 0) <= saved_fdc_encoding_mode;
                 fw_byte_valid <= '1';
                 crc_feed <= '1';
               when 1007 =>
-                -- Track Info: Sector count (read from $D084)
+                -- Track Info: Sector count (read from $D085)
                 fw_byte_in <= f011_sector;
                 fw_byte_valid <= '1';
                 crc_byte <= f011_sector;
