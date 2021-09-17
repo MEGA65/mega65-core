@@ -29,7 +29,7 @@ entity mfm_decoder is
     f_rdata : in std_logic;
     invalidate : in std_logic;
 
-    rll_encoding : in std_logic;
+    encoding_mode : in unsigned(3 downto 0);
     
     mfm_state : out unsigned(7 downto 0) := x"00";
     mfm_last_gap : out unsigned(15 downto 0) := x"0000";
@@ -141,7 +141,9 @@ architecture behavioural of mfm_decoder is
   signal mfm_bit_valid : std_logic := '0';
   signal mfm_bit_in : std_logic := '0';
   signal mfm_sync_in : std_logic := '0';
-  
+  signal mfm_byte_out : unsigned(7 downto 0) := x"00";
+
+  signal rll_byte_out : unsigned(7 downto 0) := x"00";
   signal rll_bit_valid : std_logic := '0';
   signal rll_bit_in : std_logic := '0';
   signal rll_sync_in : std_logic := '0';
@@ -233,14 +235,16 @@ begin
   process (clock40mhz,f_rdata) is
   begin
 
-    if rll_encoding='1' then
+    if encoding_mode=x"1" then
       bit_valid <= rll_bit_valid;
       bit_in <= rll_bit_in;
       sync_in <= rll_sync_in;
+      byte_out <= rll_byte_out;
     else
       bit_valid <= mfm_bit_valid;
       bit_in <= mfm_bit_in;
       sync_in <= mfm_sync_in;
+      byte_out <= mfm_byte_out;
     end if;
     
     if rising_edge(clock40mhz) then
