@@ -848,7 +848,9 @@ begin  -- behavioural
     clock_byte_in => f011_reg_clock
     );
   
- crc0: entity work.crc1581 port map (
+  crc0: entity work.crc1581
+    generic map ( id => 1 )
+    port map (
     clock40mhz => clock,
     crc_byte => crc_byte,
     crc_feed => crc_feed,

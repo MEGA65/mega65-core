@@ -204,9 +204,9 @@ begin
           fastio_write <= '0';
           fastio_read <= '1';
           fastio_addr <= x"D36A7";
-          if cycle_count > 10 and fastio_rdata /= x"28" then
-            report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
-          end if;
+--          if cycle_count > 10 and fastio_rdata /= x"28" then
+--            report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
+--          end if;
           f011_cs <= '0';
           sdcardio_cs <= '1';
       end case;
