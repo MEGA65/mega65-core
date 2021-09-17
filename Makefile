@@ -257,6 +257,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl \
+			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x2048.vhdl \
@@ -415,7 +416,7 @@ ghdl_bug:	$(GHDL_DEPEND) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g ghdl_bug
 
-MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 simulatemfm:	$(GHDL_DEPEND) $(MFMTESTSRCS)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
@@ -477,6 +478,7 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
 	 $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
 	 $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/sdcardio.vhdl \
 	 $(VHDLSRCDIR)/cputypes.vhdl \

@@ -203,12 +203,19 @@ architecture behavioural of sdcardio is
 
   signal saved_fdc_encoding_mode : unsigned(3 downto 0) := x"0";
   signal fdc_encoding_mode : unsigned(3 downto 0) := x"0";
+  signal f_wdata_raw : std_logic := '0';
+  signal fw_no_data_raw : std_logic := '0';
+  signal fw_ready_for_next_raw : std_logic := '0';
   signal f_wdata_mfm : std_logic := '0';
   signal fw_no_data_mfm : std_logic := '0';
   signal fw_ready_for_next_mfm : std_logic := '0';
   signal f_wdata_rll : std_logic := '0';
   signal fw_no_data_rll : std_logic := '0';
   signal fw_ready_for_next_rll : std_logic := '0';
+
+  signal mfm_encoding : std_logic := '0';
+  signal rll27_encoding : std_logic := '0';  
+  signal raw_encoding : std_logic := '0';  
   
   signal sd_interface_select_internal : std_logic := '0';
   
@@ -793,6 +800,21 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  rawencoder0: entity work.raw_bits_to_gaps port map (
+    clock40mhz => clock,
+    enabled => raw_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
+    ready_for_next => fw_ready_for_next_raw,
+    no_data => fw_no_data_raw,
+    f_write => f_wdata_raw,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
+    );  
    
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
     clock40mhz => clock,
@@ -841,7 +863,7 @@ begin  -- behavioural
   mfm0: entity work.mfm_decoder port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
-    rll_encoding => '0', -- Always MFM for single-rate decoder
+    encoding_mode => x"0", -- Always MFM for single-rate decoder
     cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
@@ -959,23 +981,27 @@ begin  -- behavioural
       f_wdata <= f_wdata_rll;
       fw_no_data <= fw_no_data_rll;
       fw_ready_for_next <= fw_ready_for_next_rll;
-      rll_encoding <= '1';
+      rll27_encoding <= '1';
       mfm_encoding <= '0';
+      raw_encoding <= '0';
     elsif fdc_encoding_mode=x"0" then
       f_wdata <= f_wdata_mfm;
       fw_no_data <= fw_no_data_mfm;
       fw_ready_for_next <= fw_ready_for_next_mfm;
       mfm_encoding <= '1';
-      rll_encoding <= '0';
+      rll27_encoding <= '0';
+      raw_encoding <= '0';
     elsif fdc_encoding_mode=x"F" then
       f_wdata <= f_wdata_raw;
       fw_no_data <= fw_no_data_raw;
       fw_ready_for_next <= fw_ready_for_next_raw;
       mfm_encoding <= '0';
-      rll_encoding <= '0';
+      rll27_encoding <= '0';
+      raw_encoding <= '1';
     else
       mfm_encoding <= '0';
-      rll_encoding <= '0';
+      rll27_encoding <= '0';
+      raw_encoding <= '0';
     end if;
     
     if hypervisor_mode='0' then
