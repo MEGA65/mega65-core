@@ -171,18 +171,18 @@ begin
           sdcardio_cs <= '1';
           f011_cs <= '0';
         when 3 =>
-          report "TEST: $D084 <- 0 (track 0)";
+          report "TEST: $D084 <- 40 (track 40)";
           -- Track number is 0
           fastio_addr <= x"D3084";
-          fastio_wdata <= to_unsigned(0,8);
+          fastio_wdata <= to_unsigned(40,8);
           fastio_write <= '1';
           sdcardio_cs <= '0';
           f011_cs <= '1';
         when 4 =>
-          report "TEST: $D085 <- 42 (42 sectors per track)";
+          report "TEST: $D085 <- 2 (2 sectors per track)";
           -- Track number is 0
           fastio_addr <= x"D3085";
-          fastio_wdata <= to_unsigned(42,8);
+          fastio_wdata <= to_unsigned(2,8);
           fastio_write <= '1';
           f011_cs <= '1';
         when 5 =>
