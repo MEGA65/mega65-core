@@ -2859,10 +2859,10 @@ begin  -- behavioural
               end if;
               -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
               -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
+              -- @IO:GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
               -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
-              -- @IO:GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
+              -- @IO:GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
               -- @IO:GS $D68B.1 SDFDC:D0P F011 drive 0 media present
               -- @IO:GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive. 
               diskimage2_enable <= fastio_wdata(3);
