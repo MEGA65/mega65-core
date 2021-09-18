@@ -22,7 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
-
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -34,23 +34,42 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;
+  Port ( CLK_IN : in STD_LOGIC;
 --         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         wifirx : out std_logic;
-         wifitx : out std_logic;
+         flopled : out std_logic := '1';
+         irled : out std_logic := '1';
+
+         wifi_uart_rx : inout std_logic := '1';
+         wifi_uart_tx : out std_logic := '1';
+
+         lora1_uart_rx : inout std_logic := '1';
+         lora1_uart_tx : out std_logic := '1';
+         lora2_uart_rx : inout std_logic := '1';
+         lora2_uart_tx : out std_logic := '1';
+
+         bluetooth_uart_rx : inout std_logic := '1';
+         bluetooth_uart_tx : out std_logic := '1';
+         bluetooth_pcm_clk_in : in std_logic;
+         bluetooth_pcm_sync_in : in std_logic;
+         bluetooth_pcm_data_in : in std_logic;
+         bluetooth_pcm_data_out : out std_logic;
 
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
+
+         smartcard_clk : inout std_logic;
+         smartcard_io : inout std_logic;
 
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
          modem1_pcm_data_out : out std_logic;
---         modem1_uart2_rx : inout std_logic;
---         modem1_uart2_tx : out std_logic;
+
+--         modem1_debug_uart_rx : inout std_logic;
+--         modem1_debug_uart_tx : out std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
 
@@ -58,8 +77,9 @@ entity container is
          modem2_pcm_sync_in : in std_logic;
          modem2_pcm_data_in : in std_logic;
          modem2_pcm_data_out : out std_logic;
---         modem2_uart2_rx : inout std_logic;
---         modem2_uart2_tx : out std_logic;
+
+--         modem2_debug_uart_rx : inout std_logic;
+--         modem2_debug_uart_tx : out std_logic;
          modem2_uart_rx : inout std_logic;
          modem2_uart_tx : out std_logic;
 
@@ -131,7 +151,8 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0) := (others => '0');
+--         QspiSCK : out std_logic;
+         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
          QspiCSn : out std_logic;
 
          ----------------------------------------------------------------------
@@ -140,6 +161,7 @@ entity container is
          ----------------------------------------------------------------------
          headphone_left : out std_logic;
          headphone_right : out std_logic;
+         headphone_mic : in std_logic;
 
          ----------------------------------------------------------------------
          -- I2S speaker audio output
@@ -186,16 +208,18 @@ architecture Behavioral of container is
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
 
-  signal pixelclock : std_logic;
-  signal cpuclock : std_logic;
   signal ethclock : std_logic;
+  signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
-  signal clock120 : std_logic;
+  signal pixelclock : std_logic; -- i.e., clock81p
+  signal clock81n : std_logic;
   signal clock100 : std_logic;
+  signal clock135p : std_logic;
+  signal clock135n : std_logic;
   signal clock162 : std_logic;
-  signal clock163 : std_logic;
+  signal clock200 : std_logic;
+  signal clock325 : std_logic;
 
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -206,8 +230,14 @@ architecture Behavioral of container is
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
 
+  signal slow_prefetched_address : unsigned(26 downto 0);
+  signal slow_prefetched_data : unsigned(7 downto 0);
+  signal slow_prefetched_request_toggle : std_logic;
+
   signal sector_buffer_mapped : std_logic;
 
+  signal kbd_datestamp : unsigned(13 downto 0)  := to_unsigned(0,14);
+  signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
 
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
@@ -252,7 +282,8 @@ architecture Behavioral of container is
   signal iec_data_i : std_logic := '1';
   signal iec_clk_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';
-
+  signal smartcard_io_read : std_logic := '1';
+  signal smartcard_clk_read : std_logic := '1';
 
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -279,6 +310,11 @@ architecture Behavioral of container is
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
+  signal current_cache_line : cache_row_t := (others => (others => '0'));
+  signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal current_cache_line_valid : std_logic := '0';
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
 
   signal i2c_joya_fire : std_logic;
@@ -302,7 +338,14 @@ architecture Behavioral of container is
   signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
 
   signal qspi_clock : std_logic;
-  
+
+  signal hyper_addr : unsigned(18 downto 3) := (others => '0');
+  signal hyper_request_toggle : std_logic := '0';
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_data_strobe : std_logic := '0';
+  signal COUNT : std_logic_vector (30 downto 0);
+  signal portp : unsigned(7 downto 0);
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -339,18 +382,27 @@ begin
              );
 -- End of STARTUPE2_inst instantiation
 
-  
-  dotclock1: entity work.dotclock100
-    port map ( clk_in1 => CLK_IN,
-               clock100 => clock100,
-               clock81 => pixelclock, -- 80MHz
-               clock41 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock162 => clock162,
-               clock27 => clock27
---               clock54 => clock54
-               );
 
+    -- New clocking setup, using more optimised selection of multipliers
+  -- and dividers, as well as the ability of some clock outputs to provide an
+  -- inverted clock for free.
+  -- Also, the 50 and 100MHz ethernet clocks are now independent of the other
+  -- clocks, so that Vivado shouldn't try to meet timing closure in the (already
+  -- protected) domain crossings used for those.
+  clocks1: entity work.clocking
+    port map ( clk_in    => CLK_IN,
+               clock27   => clock27,    --   27     MHz
+               clock41   => cpuclock,   --   40.5   MHz
+               clock50   => ethclock,   --   50     MHz
+               clock81p  => pixelclock, --   81     MHz
+               clock81n  => clock81n,   --   81     MHz
+               clock100  => clock100,   --  100     MHz
+               clock135p => clock135p,  --  135     MHz
+               clock135n => clock135n,  --  135     MHz
+               clock163  => clock162,   --  162.5   MHz
+               clock200  => clock200,   --  200     MHz
+               clock325  => clock325    --  325     MHz
+               );
 
   fpgatemp0: fpgatemp
     generic map (DELAY_CYCLES => 480)
@@ -359,28 +411,49 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
---  hyperram0: entity work.hyperram
---    port map (
---      latency_1x => to_unsigned(4,8),
---      latency_2x => to_unsigned(8,8),
---      reset => reset_out,
---      cpuclock => cpuclock,
---      clock240 => clock163,
---      address => expansionram_address,
---      wdata => expansionram_wdata,
---      read_request => expansionram_read,
---      write_request => expansionram_write,
---      rdata => expansionram_rdata,
---      data_ready_strobe => expansionram_data_ready_strobe,
---      busy => expansionram_busy,
---      hr_d => hr_d,
---      hr_rwds => hr_rwds,
---      hr_reset => hr_reset,
---      hr_clk_n => hr_clk_n,
---      hr_clk_p => hr_clk_p,
---      hr_cs0 => hr_cs0
---      hr_cs1 => hr_cs1
---      );
+  hyperram0: entity work.hyperram
+    port map (
+      pixelclock => pixelclock,
+      clock163 => clock162,
+      clock325 => clock325,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+--      request_counter => led,
+
+      viciv_addr => hyper_addr,
+      viciv_request_toggle => hyper_request_toggle,
+      viciv_data_out => hyper_data,
+      viciv_data_strobe => hyper_data_strobe,
+
+      -- reset => reset_out,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+
+      current_cache_line => current_cache_line,
+      current_cache_line_address => current_cache_line_address,
+      current_cache_line_valid => current_cache_line_valid,
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
+
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_p => hr_clk_p,
+      hr_clk_n => hr_clk_n,
+
+      hr_cs0 => hr_cs0,
+      hr_cs1 => hr_cs1,
+
+      hr2_d => open,
+      hr2_rwds => open,
+      hr2_reset => open,
+      hr2_clk_p => open,
+      hr2_clk_n => open
+      );
 
   slow_devices0: entity work.slow_devices
     port map (
@@ -415,6 +488,9 @@ begin
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
 
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
 
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -446,17 +522,31 @@ begin
       );
 
   machine0: entity work.machine
-    generic map (cpufrequency => 40,
-                 target => megaphoner1)
+    generic map (cpu_frequency => 40500000,
+                 target => megaphoner1,
+                 hyper_installed => true -- For VIC-IV to know it can use
+                                         -- hyperram for full-colour glyphs
+                 )
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
-      ioclock         => cpuclock, -- Match CPU clock
       clock162 => clock162,
       clock100 => clock100,
+      clock200 => clock200,
       clock27 => clock27,
       clock50mhz      => ethclock,
+
+      flopled => flopled,
+      portp_out => portp,
+
+      -- No IEC bus on this hardware, so no need to slow CPU down for it.
+      iec_bus_active => '0',
+      iec_srq_external => '1',
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+
       btncpureset => '1',
       reset_out => reset_out,
       irq => irq,
@@ -465,6 +555,11 @@ begin
       joyswap_key => joyswap_key,
       osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
+
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
 
       -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
@@ -526,8 +621,8 @@ begin
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_atn_o => iec_atn,
-      iec_data_external => '1',
-      iec_clk_external => '1',
+      iec_data_external => smartcard_io_read,
+      iec_clk_external => smartcard_clk_read,
 
       no_hyppo => '0',
 
@@ -547,12 +642,13 @@ begin
 
 
       ---------------------------------------------------------------------------
-      -- IO lines to the ethernet controller (stub)
+      -- IO lines to the mems and headphone microphone
       ---------------------------------------------------------------------------
       micData0 => micData0,
       micData1 => micData1,
       micClk => micClk,
 --      micLRSel => micLRSel,
+      headphone_mic => headphone_mic,
 
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller (stub)
@@ -607,6 +703,12 @@ begin
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
 
+      -- RN52SRC as Bluetooth source, I2S slave
+      pcm_bluetooth_clk_in => bluetooth_pcm_clk_in,
+      pcm_bluetooth_sync_in => bluetooth_pcm_sync_in,
+      pcm_bluetooth_data_in => bluetooth_pcm_data_in,
+      pcm_bluetooth_data_out => bluetooth_pcm_data_out,
+
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem1_pcm_clk_in,
       pcm_modem_sync_in => modem1_pcm_sync_in,
@@ -628,11 +730,35 @@ begin
 --      uart_tx => jclo(2),
 
       -- Buffered UARTs for cellular modems etc
-      buffereduart_rx => modem1_uart_rx,
-      buffereduart_tx => modem1_uart_tx,
-      buffereduart2_rx => modem2_uart_rx,
-      buffereduart2_tx => modem2_uart_tx,
-      buffereduart_ringindicate => '0',
+      buffereduart_rx(0) => modem1_uart_rx,
+--      buffereduart_rx(1) => modem1_debug_uart_rx,
+      buffereduart_rx(1) => '1',
+      buffereduart_rx(2) => modem2_uart_rx,
+--      buffereduart_rx(3) => modem2_debug_uart_rx,
+      buffereduart_rx(3) => '1',
+      buffereduart_rx(4) => wifi_uart_rx,
+      buffereduart_rx(5) => bluetooth_uart_rx,
+      buffereduart_rx(6) => lora1_uart_rx,
+      buffereduart_rx(7) => lora2_uart_rx,
+
+      buffereduart_tx(0) => modem1_uart_tx,
+--      buffereduart_tx(1) => modem1_debug_uart_tx,
+      buffereduart_tx(1) => open,
+      buffereduart_tx(2) => modem2_uart_tx,
+--      buffereduart_tx(3) => modem2_debug_uart_tx,
+      buffereduart_tx(3) => open,
+      buffereduart_tx(4) => wifi_uart_tx,
+      buffereduart_tx(5) => bluetooth_uart_tx,
+      buffereduart_tx(6) => lora1_uart_tx,
+      buffereduart_tx(7) => lora2_uart_tx,
+
+      -- Ring indicate on MEGAphone PCB is not directly readable.
+      -- Rather it will cause FPGA to power on, if it was off.
+      -- FPGA programme needs to probe M.2 modules for clues as to why
+      -- it has been woken up. In a future version we will have it directly
+      -- readable, and a little CPLD buffer the serial message from the modem
+      -- that will hopefully explain why the RI line was asserted.
+      buffereduart_ringindicate => (others => '0'),
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -660,11 +786,42 @@ begin
 
   lcd_dclk <= clock27;
 
-  process (clock27)
+  process (cpuclock)
+  begin
+
+    -- LED on TE0725
+    -- led <= portp(4);
+    -- High power IR LED for TV remote control
+    irled <= portp(5);
+
+    if rising_edge(cpuclock) then
+      -- Connect Smartcard CLK and IO lines to IEC bus lines for easy control
+      -- and debugging
+      if iec_data_en='1' then
+        smartcard_io <= not iec_data_o;
+        smartcard_io_read <= not iec_data_o;
+      else
+        smartcard_io <= 'Z';
+        smartcard_io_read <= smartcard_io;
+      end if;
+      if iec_clk_en='1' then
+        smartcard_clk <= not iec_clk_o;
+        smartcard_clk_read <= not iec_clk_o;
+      else
+        smartcard_clk <= 'Z';
+        smartcard_clk_read <= smartcard_clk;
+      end if;
+    end if;
+  end process;
+
+
+
+  process (clock27,cpuclock)
   begin
 
     if rising_edge(clock27) then
       -- VGA direct output
+      COUNT <= COUNT + '1';
       vga_red <= buffer_vgared(7 downto 4);
       vga_green <= buffer_vgagreen(7 downto 4);
       vga_blue <= buffer_vgablue(7 downto 4);
@@ -684,7 +841,7 @@ begin
     end if;
   end process;
 
-
+led <= COUNT(20);
 
   -- XXX Ethernet should be 250Mbit fibre port on this board
   -- eth_clock <= cpuclock;

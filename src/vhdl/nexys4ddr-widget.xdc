@@ -12,6 +12,19 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 set_false_path -from [get_cells led*]
 set_false_path -to [get_cells vga*]
 
+## Accept sub-optimal clock placement
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/CLKOUT0]
+
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+
 
 ## Switches
 set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33} [get_ports {sw[0]}]
@@ -111,7 +124,7 @@ set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports {jclo[2]}]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {jclo[3]}]
 set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports {jclo[4]}]
 set_property -dict { PACKAGE_PIN E7 IOSTANDARD LVCMOS33 } [get_ports {jchi[7]}]
-#set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
+set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
 set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33} [get_ports {jchi[9]}]
 set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports {jchi[10]}]
 
@@ -251,7 +264,7 @@ set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_mob
 set_false_path -from [get_pins machine0/iomapper0/ethernet0/eth_tx_viciv_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_trigger_reg/D]
 set_false_path -from [get_pins machine0/iomapper0/ethernet0/eth_rx_buffer_last_used_50mhz_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_rx_buffer_last_used_int1_reg/D]
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
-set_property BITSTREAM.CONFIG.CONFIGRATE 33 [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 26 [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_MODE SPIx4 [current_design]

@@ -447,6 +447,7 @@ begin
       iec_atn_o => iec_atn,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
+      iec_bus_active => '0', -- No IEC port on this target
       
       no_hyppo => '0',
       
@@ -534,11 +535,11 @@ begin
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 
-      buffereduart_rx => jclo(3),
-      buffereduart_tx => jclo(4),
-      buffereduart2_rx => jchi(9),
-      buffereduart2_tx => jchi(10),
-      buffereduart_ringindicate => jchi(8),
+--      buffereduart_rx => jclo(3),
+--      buffereduart_tx => jclo(4),
+--      buffereduart2_rx => jchi(9),
+--      buffereduart2_tx => jchi(10),
+      buffereduart_ringindicate => (others => '0'),
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,

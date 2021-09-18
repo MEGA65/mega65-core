@@ -6,11 +6,18 @@ use work.debugtools.all;
 
 entity mega65kbd_to_matrix is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
 
     flopmotor : in std_logic;
     flopled : in std_logic;
     powerled : in std_logic;    
+
+    kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
+    kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
+    
+    disco_led_id : in unsigned(7 downto 0) := x"00";
+    disco_led_val : in unsigned(7 downto 0) := x"00";
+    disco_led_en : in std_logic := '0';
     
     kio8 : out std_logic; -- clock to keyboard
     kio9 : out std_logic; -- data output to keyboard
@@ -52,6 +59,7 @@ architecture behavioural of mega65kbd_to_matrix is
   signal counter : unsigned(26 downto 0) := to_unsigned(0,27);
   
   signal output_vector : std_logic_vector(127 downto 0);
+  signal disco_vector : std_logic_vector(95 downto 0);
 
   signal deletekey : std_logic := '1';
   signal returnkey : std_logic := '1';
@@ -61,7 +69,7 @@ begin  -- behavioural
 
   widget_kmm: entity work.kb_matrix_ram
     port map (
-      clkA => ioclock,
+      clkA => cpuclock,
       addressa => matrix_ram_offset,
       dia => matrix_dia,
       wea => keyram_wea,
@@ -69,13 +77,13 @@ begin  -- behavioural
       dob => matrix_col
       );
 
-  process (ioclock)
+  process (cpuclock)
     variable keyram_write_enable : std_logic_vector(7 downto 0);
     variable keyram_offset : integer range 0 to 15 := 0;
     variable keyram_offset_tmp : std_logic_vector(2 downto 0);
     
   begin
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       ------------------------------------------------------------------------
       -- Read from MEGA65R2 keyboard
       ------------------------------------------------------------------------
@@ -127,6 +135,13 @@ begin  -- behavioural
           if phase = 78 then
             fastkey <= kio10;
           end if;
+          -- Also extract keyboard CPLD firmware information
+          if phase >= 82 and phase <= (82+13) then
+            kbd_datestamp(phase - 82) <= kio10;
+          end if;
+          if phase >= 96 and phase <= (96+31) then
+            kbd_commit(phase - 96) <= kio10;
+          end if;
           
           -- Work around the data arriving 2 cycles late from the keyboard controller
           if phase = 0 then
@@ -166,14 +181,26 @@ begin  -- behavioural
           if phase = 127 then
             -- Reset to start
             sync_pulse <= '1';
-            output_vector <= (others => '0');
-            if flopmotor='1' or (flopled='1' and counter(24)='1') then
-              output_vector(23 downto 0) <= x"00FF00";
-              output_vector(47 downto 24) <= x"00FF00";
-            end if;
-            if powerled='1' then
-              output_vector(71 downto 48) <= x"00FF00";
-              output_vector(95 downto 72) <= x"00FF00";
+            if disco_led_en = '1' then
+              -- Allow simple RGB control of the LEDs
+              if disco_led_id < 12 then
+                disco_vector(7+to_integer(disco_led_id)*8 downto to_integer(disco_led_id)*8) <= std_logic_vector(disco_led_val);
+              end if;
+              output_vector(127 downto 96) <= (others => '0');
+              output_vector(95 downto 0) <= disco_vector;
+            else
+              output_vector <= (others => '0');
+              if flopmotor='1' then
+                output_vector(23 downto 0) <= x"00FF00";
+                output_vector(47 downto 24) <= x"00FF00";
+              elsif (flopled='1' and counter(24)='1') then
+                output_vector(23 downto 0) <= x"0000FF";
+                output_vector(47 downto 24) <= x"0000FF";
+              end if;
+              if powerled='1' then
+                output_vector(71 downto 48) <= x"00FF00";
+                output_vector(95 downto 72) <= x"00FF00";
+              end if;
             end if;
           elsif phase = 140 then
             sync_pulse <= '0';

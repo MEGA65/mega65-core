@@ -12,11 +12,16 @@ entity cia6526 is
     );
   port (
     cpuclock : in std_logic;
-    phi0 : in std_logic;
+    phi0_1mhz : in std_logic;
     todclock : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'H';
 
+    -- If 1, then delay writes to PORTA (ie., IEC serial bus)
+    -- by 4 1MHz clock cycles, so that it is as though it were
+    -- written at the end of an STA $nnnn instruction
+    cpu_slow : in std_logic;
+    
     hypervisor_mode : in std_logic;
     
     seg_led : out unsigned(31 downto 0);
@@ -47,6 +52,7 @@ entity cia6526 is
 
     spout : out std_logic;
     spin : in std_logic;
+    sp_ddr : out std_logic := '0';
 
     countout : out std_logic;
     countin : in std_logic);
@@ -54,6 +60,16 @@ end cia6526;
 
 architecture behavioural of cia6526 is
 
+  -- Keep track if we have a pending write to port A waiting
+  signal reg_porta_pending : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porta_pending_timer : integer range 0 to 4 := 0;
+  signal last_phi0_1mhz : std_logic := '0';
+  signal dd00_delay : std_logic := '0';
+  signal portain_delay0 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delay1 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delay2 : unsigned(7 downto 0) := (others => '0');
+  signal portain_delayed : unsigned(7 downto 0) := (others => '0');
+  
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '0');
@@ -129,7 +145,6 @@ architecture behavioural of cia6526 is
   signal sdr_bits_remaining : integer := 0;
   signal sdr_bit_alternate : std_logic := '0';
 
-  signal prev_phi0 : std_logic := '0';
   signal prev_countin : std_logic := '0';
 
   signal prev_todclock : std_logic := '0';
@@ -362,6 +377,30 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
+      -- Check for time-delayed writes to IEC port
+      last_phi0_1mhz <= phi0_1mhz;
+      if phi0_1mhz='0' and last_phi0_1mhz='1' then
+        if reg_porta_pending_timer /= 0 then
+          reg_porta_pending_timer <= reg_porta_pending_timer - 1;
+        end if;
+        if reg_porta_pending_timer = 1 then
+          reg_porta_out <= reg_porta_pending;
+        end if;
+        -- Three cycle delay on read, also
+        portain_delay0 <= unsigned(portain);
+        portain_delay1 <= portain_delay0;
+        portain_delay2 <= portain_delay1;
+      end if;
+      if dd00_delay = '0' then
+        portain_delayed <= unsigned(portain);
+      else
+        portain_delayed(2 downto 0) <= unsigned(portain(2 downto 0));
+        portain_delayed(5 downto 3) <= portain_delay2(5 downto 3);
+        portain_delayed(7 downto 6) <= unsigned(portain(7 downto 6));
+      end if;
+      
+      sp_ddr <= reg_serialport_direction;
+      
       if reset='0' then
         -- Clear interrupt flags on reset
         imask_flag <= '0';
@@ -478,10 +517,9 @@ begin  -- behavioural
       end if;
 
       -- Look for timera and timerb tick events
-      prev_phi0 <= phi0;
       prev_countin <= countin;
       reg_timera_underflow <= '0';
---      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0);
+--      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0_1mhz);
       if reg_timera_start='1' and hypervisor_mode='0' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           -- underflow
@@ -526,8 +564,7 @@ begin  -- behavioural
         case reg_timera_tick_source is
           when '0' =>
             -- phi2 pulses
-            -- NOTE: MEGA65 clocks phi transitions, not pulses
-            if phi0 /= prev_phi0 then
+            if phi0_1mhz ='1' then
               report "CIA" & to_hstring(unit) &  " timera ticked down to $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
@@ -558,7 +595,7 @@ begin  -- behavioural
         end if;
         case reg_timerb_tick_source is
           when "00" => -- phi2 pulses
-            if phi0 /= prev_phi0 then
+            if phi0_1mhz ='1' then
               if reg_timerb /= x"0000" then
                 report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
                   & " from $" & to_hstring(reg_timerb);
@@ -596,7 +633,8 @@ begin  -- behavioural
       end if;
       
       -- Calculate read value for porta and portb
-      reg_porta_read <= ddr_pick(reg_porta_ddr,portain,reg_porta_out);        
+      
+      reg_porta_read <= ddr_pick(reg_porta_ddr,std_logic_vector(portain_delayed),reg_porta_out);        
       reg_portb_read <= ddr_pick(reg_portb_ddr,portbin,reg_portb_out);        
 
       -- Check for negative edge on FLAG
@@ -658,8 +696,21 @@ begin  -- behavioural
         end if;
         register_number(3 downto 0) := fastio_address(3 downto 0);
         case register_number is
-          when x"00" => 
-                       reg_porta_out<=std_logic_vector(fastio_wdata);
+          when x"00" =>
+            -- $DD00 writes are for IEC serial port.
+            -- We delay the writes to the correct cycle of the instruction
+            -- But only for the IEC output lines
+            reg_porta_out(2 downto 0) <= std_logic_vector(fastio_wdata(2 downto 0));
+            reg_porta_out(7 downto 6) <= std_logic_vector(fastio_wdata(7 downto 6));
+            if cpu_slow='0' or unit=x"1" or dd00_delay='0' then
+              reg_porta_out<=std_logic_vector(fastio_wdata);
+            else
+              if reg_porta_pending_timer /= 0 then
+                reg_porta_out <= reg_porta_pending;
+              end if;
+              reg_porta_pending <= std_logic_vector(fastio_wdata);
+              reg_porta_pending_timer <= 4;
+            end if;           
           when x"01" =>  
             
             reg_portb_out<=std_logic_vector(fastio_wdata);
@@ -806,6 +857,7 @@ begin  -- behavioural
             -- @IO:GS $DD1B.0-6 CIA2:TODHOUR TOD hours value
             -- @IO:GS $DD1B.7 CIA2:TODAMPM TOD AM/PM flag
             -- @IO:GS $DD1C CIA2:ALRMJIF TOD Alarm 10ths of seconds value
+            -- @IO:GS $DD1C.7 CIA2:DD00DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
             -- @IO:GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
             -- @IO:GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
             -- @IO:GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
@@ -830,6 +882,7 @@ begin  -- behavioural
           when x"1b" => reg_tod_hours <= fastio_wdata(6 downto 0);
                         reg_tod_ampm <= fastio_wdata(7);
           when x"1c" => reg_alarm_dsecs <= fastio_wdata;
+                        dd00_delay <= fastio_wdata(7);
           when x"1d" => reg_alarm_secs <= fastio_wdata;
           when x"1e" => reg_alarm_mins <= fastio_wdata;
           when x"1f" => reg_alarm_hours <= fastio_wdata(6 downto 0);

@@ -30,10 +30,10 @@ begin  -- behavioural
   begin
     if(rising_edge(Clkl)) then 
       if wel(0)='1' then
-        ram(to_integer(unsigned(addrl))) <= dinl;
+        ram(safe_to_integer(unsigned(addrl))) <= dinl;
       end if;        
 
-      doutr <= ram(to_integer(unsigned(addrr)));
+      doutr <= ram(safe_to_integer(unsigned(addrr)));
     end if;
   end process;
 

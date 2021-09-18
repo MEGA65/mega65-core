@@ -20,7 +20,12 @@ entity visual_keyboard is
     vgared_out : out  unsigned (7 downto 0);
     vgagreen_out : out  unsigned (7 downto 0);
     vgablue_out : out  unsigned (7 downto 0);
-    
+
+    -- Accessibility key press display
+    selected_row : in integer range 0 to 255 := 255; 
+    accessible_key : in unsigned(6 downto 0) := to_unsigned(127,7);
+    dim_shift : in std_logic := '0'; -- allow background to be shifted much
+                                     -- dimmer for accessible keyboard
     
     -- Configuration of display
     osk_debug_display : in std_logic := '0';
@@ -90,7 +95,7 @@ architecture behavioural of visual_keyboard is
   signal box_inverse_delay : std_logic := '0';
   
   signal address : integer range 0 to 4095 := 0;
-  signal rdata : unsigned(7 downto 0);
+  signal rdata : unsigned(7 downto 0) := x"00";
 
   signal current_address : integer range 0 to 4095 := 0;
   signal last_row_address : integer range 0 to 4095 := 0;
@@ -204,6 +209,11 @@ architecture behavioural of visual_keyboard is
     );
   signal fetch_state : fetch_state_t := FetchInitial;
 
+  -- Which row or key to show for accessible keyboard input
+  signal row_selected : std_logic := '0';
+  signal col_selected : std_logic := '0';
+  signal dim_shift_drive : std_logic := '0';
+  
 begin
 
   km0: entity work.oskmem
@@ -233,6 +243,8 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      dim_shift_drive <= dim_shift;
+      
       last_y_start_current <= y_start_current;
       if y_start_current /= last_y_start_current then
         report "y_start_current = " & integer'image(to_integer(y_start_current));
@@ -396,7 +408,13 @@ begin
         zoom_playback_pixel <= '0';
         zoom_border_pixel <= '0';
       end if;
-      
+
+      -- Highlighting of rows for accessibility mode
+      if active = '1' and y_row = selected_row then
+        row_selected <= '1';
+      else
+        row_selected <= '0';
+      end if;
       
       -- Check if current touch events correspond to any key
       if visual_keyboard_enable='1' then
@@ -564,6 +582,12 @@ begin
           key_real <= '1';
         else
           key_real <= '0';
+        end if;
+
+        if accessible_key = current_matrix_id(6 downto 0) then
+          col_selected <= '1';
+        else
+          col_selected <= '0';
         end if;
         
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
@@ -803,11 +827,6 @@ begin
         vk_pixel <= "00";
       end if;
 
---      if xcounter = 64 then
---        vgared_out <= x"FF";
---        vgagreen_out <= x"FF";
---        vgablue_out <= x"FF";        
---        els
       if touch1_y = ycounter_in and touch1_x = xcounter then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
@@ -833,13 +852,52 @@ begin
         end if;
       elsif visual_keyboard_enable='1' and active='1' then
 --        report "Painting OSK pixel " & std_logic'image(vk_pixel(1)) & ", char_pixel = " & std_logic'image(char_pixel);
-        vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
-        if key_real='0' then
-          vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
-          vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
+        if dim_shift_drive='0' then
+          -- Background dimmed 2x
+          if row_selected='1' or col_selected='1' then
+            -- Key is also selected for accessible input
+            vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
+            if key_real='0' then
+              vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
+              vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
+            else
+              vgared_out <= '0'&vgared_in(7 downto 1);
+              vgagreen_out <= '0'&vgared_in(7 downto 1);
+            end if;
+          else
+            -- Key is NOT selected for accessible input
+            vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
+            if key_real='0' then
+              vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
+              vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
+            else
+              vgared_out <= '0'&vgared_in(7 downto 1);
+              vgablue_out <= '0'&vgablue_in(7 downto 1);
+            end if;
+          end if;            
         else
-          vgared_out <= '0'&vgared_in(7 downto 1);
-          vgablue_out <= '0'&vgablue_in(7 downto 1);
+          -- Background dimmed 4x
+          if row_selected='1' or col_selected='1' then
+            -- Key is also selected for accessible input
+            vgablue_out <= vk_pixel&vgagreen_in(7 downto 2);
+            if key_real='0' then
+              vgared_out <= vk_pixel&vgared_in(7 downto 2);
+              vgagreen_out <= vk_pixel&vgablue_in(7 downto 2);
+            else
+              vgared_out <= "00"&vgared_in(7 downto 2);
+              vgagreen_out <= "00"&vgablue_in(7 downto 2);
+            end if;
+          else
+            -- Key is NOT selected for accessible input
+            vgagreen_out <= vk_pixel&vgagreen_in(7 downto 2);
+            if key_real='0' then
+              vgared_out <= vk_pixel&vgared_in(7 downto 2);
+              vgablue_out <= vk_pixel&vgablue_in(7 downto 2);
+            else
+              vgared_out <= "00"&vgared_in(7 downto 2);
+              vgablue_out <= "00"&vgablue_in(7 downto 2);
+            end if;
+          end if;
         end if;
       elsif osk_debug_display='0' then
         vgared_out <= vgared_in;

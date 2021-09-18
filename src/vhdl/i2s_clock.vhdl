@@ -29,10 +29,11 @@ use work.debugtools.all;
 
 entity i2s_clock is
   generic (
+    clock_frequency : integer;
     sample_rate : integer := 8000
     );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- I2S PCM audio interface
     i2s_clk : out std_logic := '0';
@@ -50,23 +51,48 @@ architecture brutalist of i2s_clock is
   -- MCLK must be between ~2 and 6MHz for this mode, so we need to divide the 50MHz
   -- clock by 10.  The loop divides by 2 implicitly, so we need 5 cycles per
   -- clock phase.
-  constant clock_divider : integer := 5;
-  signal clock_counter : integer range 0 to (clock_divider - 1) := 0;
+  -- This is not accurate enough. We need to instead accumulate so that we can
+  -- get to the 6.144MHz ideal I2S master clock to a high level of precision.
+  -- 32-bit counter using overflow to be 6.144MHz clock, we need to add:
+  -- 2^32 / (clock_frequency / 6.144MHz )
+  -- each cycle.  i.e.:
+  -- 2^32 x 6,144,000 / clock_frequency
+  -- VHDL arithmetic is 32-bit only, which is a pain, for this.
+  -- We can divide both sides by 100KHz to get:
+  -- 2^32 x 61.44 / (clock_frequency / 100KHz)
+  -- But we still have the problem of overflow on the left side, so lets reduce
+  -- precision to 24 bits:
+  -- 2^24 x 61.44 / (clock_frequency / 100KHz)
+  -- = 1,030,792,151.04 / (clock_frequency / 100KHz)
+  -- This results in a jittery clock, though, which is sub-optimal.
+  -- Thus we should stick to a constant interval.
+  -- For now we will achieve this 
+  
+  constant clock_frequency_100khz : integer := clock_frequency / 100000;
+--  constant big_num : integer := 1030792151;
+--  constant accumulator_value : integer := big_num / clock_frequency_100khz;
+  -- Yields 4.86MHz, but with zero jitter
+  constant accumulator_value : integer := 32768;
+  
+  signal accumulator : unsigned(24 downto 0) := to_unsigned(0,25);
+  signal last_accumulate_bit : std_logic := '0';
+  
   constant sampleratedivider : integer := 64;
   signal sample_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
   signal i2s_clk_int : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
+
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
-      if clock_counter /= 0 then
-        clock_counter <= clock_counter - 1;
-      else
-        clock_counter <= clock_divider - 1;
+    if rising_edge(cpuclock) then
+      accumulator <= accumulator + accumulator_value;
+      if accumulator(23) /= last_accumulate_bit then
+        last_accumulate_bit <= accumulator(23);
+
         i2s_clk <= not i2s_clk_int;
         i2s_clk_int <= not i2s_clk_int;
         

@@ -31,7 +31,7 @@ entity bitplanes is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
 
     signal fastio_address :in unsigned(19 downto 0);
     signal fastio_write : in std_logic;
@@ -44,18 +44,18 @@ entity bitplanes is
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Pass sprite data out along the chain to the next sprite
-    signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out spritebytenumber;
-    signal sprite_spritenumber_out : out spritenumber;
-    signal sprite_data_out : out unsigned(7 downto 0);
+    signal sprite_datavalid_out : out std_logic := '0';
+    signal sprite_bytenumber_out : out spritebytenumber := 0;
+    signal sprite_spritenumber_out : out spritenumber := 0;
+    signal sprite_data_out : out unsigned(7 downto 0) := (others => '0');
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
     signal sprite_number_for_data_in : in spritenumber;
     signal sprite_data_offset_in : in spritedatabytenumber;
-    signal sprite_data_offset_out : out spritedatabytenumber;
-    signal sprite_number_for_data_out : out spritenumber;
+    signal sprite_data_offset_out : out spritedatabytenumber := 0;
+    signal sprite_number_for_data_out : out spritenumber := 0;
 
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
@@ -75,6 +75,7 @@ entity bitplanes is
     signal x1280_in : in xposition;
     signal y_in : in yposition;
     signal border_in : in std_logic;
+    signal alt_palette_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
@@ -85,18 +86,19 @@ entity bitplanes is
     signal sprite_fg_map_in : in std_logic_vector(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
-    signal is_foreground_out : out std_logic;
-    signal is_background_out : out std_logic;
-    signal x_out : out xposition;
-    signal y_out : out yposition;
-    signal border_out : out std_logic;
-    signal pixel_out : out unsigned(7 downto 0);
-    signal alpha_out : out unsigned(7 downto 0);
-    signal sprite_colour_out : out unsigned(7 downto 0);
-    signal is_sprite_out : out std_logic;
-    signal sprite_number_out : out integer range 0 to 7;
-    signal sprite_map_out : out std_logic_vector(7 downto 0);
-    signal sprite_fg_map_out : out std_logic_vector(7 downto 0)
+    signal is_foreground_out : out std_logic := '0';
+    signal is_background_out : out std_logic := '0';
+    signal x_out : out xposition := 0;
+    signal y_out : out yposition := 0;
+    signal border_out : out std_logic := '0';
+    signal alt_palette_out : out std_logic;
+    signal pixel_out : out unsigned(7 downto 0) := (others => '0');
+    signal alpha_out : out unsigned(7 downto 0) := (others => '0');
+    signal sprite_colour_out : out unsigned(7 downto 0) := (others => '0');
+    signal is_sprite_out : out std_logic := '0';
+    signal sprite_number_out : out integer range 0 to 7 := 0;
+    signal sprite_map_out : out std_logic_vector(7 downto 0) := (others => '0');
+    signal sprite_fg_map_out : out std_logic_vector(7 downto 0) := (others => '0')
 
 
 );
@@ -334,6 +336,7 @@ begin  -- behavioural
       x_out <= x_in;
       y_out <= y_in;
       border_out <= border_in;
+      alt_palette_out <= alt_palette_in;
       is_foreground_out <= is_foreground_in;
       is_background_out <= is_background_in;
 
@@ -427,7 +430,7 @@ begin  -- behavioural
         report "Hit right border. Flushing buffered bytes in all bitplanes";
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0;
-          if y_in <= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
+          if y_in < (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
             bitplane_data_offsets_next(i) <= 0;
           else
 

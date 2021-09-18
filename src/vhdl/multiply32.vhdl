@@ -66,13 +66,13 @@ begin
           integer'image(input_a) & " or " & integer'image(input_b);
       end if;
       if input_value_number = input_a then
-        report "MATH: Unit #" & integer'image(unit)
-          & ": Setting a=$" & to_hstring(input_value);
+--        report "MATH: Unit #" & integer'image(unit)
+--          & ": Setting a=$" & to_hstring(input_value);
         a <= signed(input_value);
       end if;
       if input_value_number = input_b then
-        report "MATH: Unit #" & integer'image(unit)
-          & ": Setting b=$" & to_hstring(input_value);
+--        report "MATH: Unit #" & integer'image(unit)
+--          & ": Setting b=$" & to_hstring(input_value);
         b <= signed(input_value);
       end if;
 
@@ -99,8 +99,8 @@ begin
             & " outputting addition sum $" & to_hstring(s);
         else
           output_value <= unsigned(p);
-          report "MATH: Unit #" & integer'image(unit)
-            & " outputting multiplication product $" & to_hstring(unsigned(p));
+--          report "MATH: Unit #" & integer'image(unit)
+--            & " outputting multiplication product $" & to_hstring(unsigned(p));
         end if;
       else
         output_value <= (others => 'Z');

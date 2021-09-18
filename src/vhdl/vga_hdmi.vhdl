@@ -33,7 +33,8 @@ entity vga_hdmi is
            hdmi_vsync    : out  STD_LOGIC;
            hdmi_d        : out  STD_LOGIC_VECTOR (23 downto 0);
            hdmi_de       : out  STD_LOGIC;
-           hdmi_scl      : out  STD_LOGIC;
+           hdmi_int      : in  STD_LOGIC;
+           hdmi_scl      : inout  STD_LOGIC;
            hdmi_sda      : inout  STD_LOGIC);
 end vga_hdmi;
 
@@ -69,11 +70,19 @@ begin
 -----------------------------------------------------------------------   
 -- This sends the configuration register values to the HDMI transmitter
 -----------------------------------------------------------------------   
-i_i2c_sender: i2c_sender PORT MAP(
-      clk => clock27,
-      resend => resend,
-      sioc => hdmi_scl,
-      siod => hdmi_sda
+     i_hdmi_i2c: entity work.hdmi_i2c
+       generic map ( clock_frequency => 40500000 )
+       PORT MAP(
+      clock => clock27,
+                              hdmi_int => hdmi_int,
+                              sda => hdmi_sda,
+                              scl => hdmi_scl,
+                              cs => '0',
+                              fastio_read => '0',
+                              fastio_write => '0',
+                              fastio_addr => (others => '0'),
+                              fastio_wdata => x"00"
+                              
    );
 
    hdmi_clk <= clock27;

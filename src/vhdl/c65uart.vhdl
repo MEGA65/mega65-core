@@ -5,19 +5,27 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
+use work.version.all;
 
 entity c65uart is
+  generic ( target : mega65_target_t );
   port (
     pixelclock : in std_logic;
     cpuclock : in std_logic;
-    phi0 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
     c65uart_cs : in std_logic;
 
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
+
+    max10_fpga_date : in unsigned(15 downto 0);
+    max10_fpga_commit : in unsigned(31 downto 0);
     
+    kbd_datestamp : in unsigned(13 downto 0);
+    kbd_commit : in unsigned(31 downto 0);        
+
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -27,6 +35,10 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
+    disco_led_en : out std_logic := '0';
+    disco_led_id : out unsigned(7 downto 0) := x"00";
+    disco_led_val : out unsigned(7 downto 0) := x"00";
+    
     uart_rx : inout std_logic := 'H';
     uart_tx : out std_logic;
 
@@ -63,22 +75,29 @@ entity c65uart is
     amiga_mouse_assume_a : out std_logic;
     amiga_mouse_assume_b : out std_logic;
     
-    porte : inout std_logic_vector(7 downto 0);
-    portf : inout std_logic_vector(7 downto 0);
-    portg : inout std_logic_vector(7 downto 0);    
+    porte : inout std_logic_vector(7 downto 0) := (others => '0');
+    portf : inout std_logic_vector(7 downto 0) := (others => '0');
+    portg : inout std_logic_vector(7 downto 0) := (others => '0');
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
-    portj_out : out std_logic_vector(7 downto 0);
-    portk_out : out  std_logic_vector(7 downto 0);
-    portl_out : out  std_logic_vector(7 downto 0);
-    portm_out : out  std_logic_vector(7 downto 0);
-    portn_out : out unsigned(7 downto 0);
-    porto_out : out unsigned(7 downto 0);
-    portp_out : out unsigned(7 downto 0);
+    portj_out : out std_logic_vector(7 downto 0) := (others => '0');
+    portk_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portl_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portm_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portn_out : out unsigned(7 downto 0) := (others => '0');
+    porto_out : out unsigned(7 downto 0) := (others => '0');
+    portp_out : out unsigned(7 downto 0) := (others => '0');
     portq_in : in unsigned(7 downto 0);
+    j21in : in std_logic_vector(11 downto 0) := (others => '1');
+    j21out : inout std_logic_vector(11 downto 0) := (others => '1');
+    j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
 
+    accessible_key_event : in unsigned(7 downto 0);
+    accessible_key_enable : inout std_logic := '0';
+    accessible_key_extradim : inout std_logic := '0';
+    
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
     ascii_key_event_count : in unsigned(15 downto 0)
@@ -104,6 +123,8 @@ architecture behavioural of c65uart is
   -- Work out 7.09375ishMHz clock ticks;
   signal tick709375 : std_logic := '0';
 
+  signal real_hardware : std_logic := '1';
+  
   -- Then merge this with 193.5MHz clock to have a single clock source used for
   -- generating half-ticks at the requested baud rate
   signal fine_tick : std_logic := '0';
@@ -117,6 +138,8 @@ architecture behavioural of c65uart is
   -- Filtered UART RX line
   signal filtered_rx : std_logic := '1';
   signal rx_samples : std_logic_vector(15 downto 0);
+
+  signal target_id : unsigned(7 downto 0) := x"FF";
 
   -- Transmit buffer for current byte
   -- (Note the UART can also have a byte buffered in reg_data_tx, to allow
@@ -202,9 +225,15 @@ architecture behavioural of c65uart is
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
 
-  -- Visual keyboard X and Y start positions (x4).
   signal porto_internal : std_logic_vector(7 downto 0) := x"14";
-  signal portp_internal : std_logic_vector(7 downto 0) := x"34";
+
+  -- Bit 1 = disable DVI audio
+  -- Bit 7 = invert samples
+  -- Bit 4 = LED on mainboard
+  -- Bit 2 = visualise audio samples
+  -- Bit 3 = select 48KHz instead of 44.1KHz audio sample rate
+  signal portp_internal : std_logic_vector(7 downto 0) := x"01"; -- 48KHz, with
+                                                                 -- digital audio
 
   signal joyswap_internal : std_logic := '0';
   signal joya_rotate_internal : std_logic := '0';
@@ -218,6 +247,11 @@ architecture behavioural of c65uart is
   signal osk_toggle_counter : integer range 0 to 20000000 := 0;
   signal last_joyswap_key : std_logic := '1';
   signal joyswap_countdown : integer range 0 to 1023 := 0;
+
+  signal disco_led_en_int : std_logic := '0';
+  signal disco_led_id_int : unsigned(7 downto 0) := x"00";
+  signal disco_led_val_int : unsigned(7 downto 0) := x"00";
+
   
 begin  -- behavioural
   
@@ -249,9 +283,73 @@ begin  -- behavioural
 
     register_number(7 downto 6) := "00";
     register_number(5 downto 0) := fastio_address(5 downto 0);
-    
+
+    -- Determine model number
+    case target is
+      -- $00-$1F = MEGA65 desktop versions
+      when mega65r1 => target_id <= x"01";
+      when mega65r2 => target_id <= x"02";
+      when mega65r3 => target_id <= x"03";
+      -- $20-$3F = MEGAphone/handheld versions
+      when megaphoner1 => target_id <= x"21";
+      -- $40-$5F = Nexys4 / Nexys4 DDR
+      when nexys4 => target_id <= x"40";
+      when nexys4ddr => target_id <= x"41";
+      when nexys4ddr_widget => target_id <= x"42";
+      -- Misc other targets, that don't have common properties
+      when wukong => target_id <= x"FD";                               
+      when simulation => target_id <= x"FE";
+                         
+      when others => target_id <= x"FF";
+    end case;    
+        
     if rising_edge(cpuclock) then
 
+      if target = simulation then
+        real_hardware <= '0';
+      else
+        real_hardware <= '1';
+      end if;
+      
+      if accessible_key_enable = '1' then
+        if accessible_key_event = x"FE" then
+          -- Turn OSK off
+          portk_internal(7) <= '0';
+        elsif accessible_key_event = x"FD" then
+          -- Turn OSK on
+          portk_internal(7) <= '1';
+          portl_internal(7) <= '1'; -- And put at top of screen for now
+        elsif accessible_key_event(6 downto 0) < to_unsigned(100,7) then
+          -- Key up or down event from accessibile keyboard system
+          if accessible_key_event(7)='1' then
+            -- Key down
+            if portk_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
+              and portl_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
+              and portm_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0)) then
+              -- This key is not currently pressed
+              if portk_internal(6 downto 0) = "1111111" then
+                portk_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              elsif portl_internal(6 downto 0) = "1111111" then
+                portl_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              elsif portm_internal(6 downto 0) = "1111111" then
+                portm_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              end if;
+            end if;
+          else
+            -- Key released
+            if portk_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portk_internal(6 downto 0) <= "1111111";
+            end if;
+            if portl_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portl_internal(6 downto 0) <= "1111111";
+            end if;
+            if portm_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portm_internal(6 downto 0) <= "1111111";
+            end if;
+          end if;
+        end if;
+      end if;
+      
       -- Monitor OSK toggle key input for MEGAphone, and cycle through the
       -- various OSK states (off, bottom and top position).
       last_osk_toggle_key <= osk_toggle_key;
@@ -387,6 +485,9 @@ begin  -- behavioural
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
+          when x"0f" =>
+            accessible_key_enable <= fastio_wdata(7);
+            accessible_key_extradim <= fastio_wdata(6);
           when x"10" => porth_write_strobe <= '1';
           when x"11" =>
             -- bucky keys readonly
@@ -395,10 +496,10 @@ begin  -- behavioural
             -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
             joyreal_enable_internal <= fastio_wdata(1);
           when x"12" =>
---            widget_enable_internal <= std_logic(fastio_wdata(0));
---            ps2_enable_internal <= std_logic(fastio_wdata(1));
---            physkey_enable_internal <= std_logic(fastio_wdata(2));
---            virtual_enable_internal <= std_logic(fastio_wdata(3));
+            widget_enable_internal <= std_logic(fastio_wdata(0));
+            ps2_enable_internal <= std_logic(fastio_wdata(1));
+            physkey_enable_internal <= std_logic(fastio_wdata(2));
+            virtual_enable_internal <= std_logic(fastio_wdata(3));
 --            joykey_enable_internal <= std_logic(fastio_wdata(4));
             osk_debug_display <= fastio_wdata(4);
             joyswap <= fastio_wdata(5);
@@ -438,6 +539,20 @@ begin  -- behavioural
             suppress_key_retrigger <= not fastio_wdata(6);
             -- @IO:GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
             suppress_key_glitches <= not fastio_wdata(7);
+          when x"1d" =>
+            disco_led_en_int <= fastio_wdata(7);
+            disco_led_en <= fastio_wdata(7);
+            disco_led_id_int(6 downto 0) <= fastio_wdata(6 downto 0);
+            disco_led_id(6 downto 0) <= fastio_wdata(6 downto 0);
+            disco_led_id(7) <= '0';
+            -- Latch intensity level only when setting the register to write to.
+            disco_led_val <= disco_led_val_int;            
+          when x"1e" =>
+            disco_led_val_int <= fastio_wdata;
+          when x"25" => j21out(7 downto 0) <= std_logic_vector(fastio_wdata);
+          when x"26" => j21out(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
+          when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
+          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));                       
           when others => null;
         end case;
       end if;
@@ -540,14 +655,21 @@ begin  -- behavioural
         when x"0f" =>
           -- @IO:GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
           -- @IO:GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
+          -- @IO:GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
+          -- @IO:GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
+          -- @IO:GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
+          fastio_rdata(5) <= real_hardware;
+          fastio_rdata(6) <= accessible_key_extradim;
+          fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
           -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
@@ -566,7 +688,7 @@ begin  -- behavioural
           -- @   IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
           fastio_rdata(4) <= joykey_enable_internal;
           -- @IO:GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
-          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
           fastio_rdata(5) <= joyswap_internal;
           -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
           fastio_rdata(6) <= joya_rotate_internal;
@@ -597,7 +719,8 @@ begin  -- behavioural
           -- @IO:GS $D619 UARTMISC:UNUSED port o output value
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
-          -- @IO:GS $D61A UARTMISC:UNUSED port p output value
+          -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
+          
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
@@ -610,11 +733,13 @@ begin  -- behavioural
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
-          -- @IO:GS $D61D DEBUG:ASCKEYCNT ASCII key event counter LSB
-          -- @IO:GS $D61E DEBUG:ASCKEYCNT ASCII key event counter MSB
-          fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
+          -- @IO:GS $D61D.7 UARTMISC:Keyboard LED control enable
+          -- @IO:GS $D61D.0-6 UARTMISC:Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
+          -- @IO:GS $D61E UARTMISC:Keyboard register value (write only)
+          fastio_rdata(7) <= disco_led_en_int;
+          fastio_rdata(6 downto 0) <= disco_led_id_int(6 downto 0);
         when x"1e" =>
-          fastio_rdata(7 downto 0) <= ascii_key_event_count(15 downto 8);
+          fastio_rdata(7 downto 0) <= disco_led_val_int;
         when x"1F" =>
           -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
@@ -637,7 +762,59 @@ begin  -- behavioural
           fastio_rdata(4) <= fa_potx;
           fastio_rdata(5) <= fa_poty;
           fastio_rdata(6) <= fb_potx;
-          fastio_rdata(7) <= fb_poty;                        
+          fastio_rdata(7) <= fb_poty;
+        -- @IO:GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
+        -- @IO:GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
+        -- @IO:GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
+        -- @IO:GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        when x"25" => fastio_rdata <= unsigned(j21in(7 downto 0));
+        when x"26" => fastio_rdata(3 downto 0) <= (unsigned(j21in(11 downto 8)));
+                      fastio_rdata(7 downto 4) <= "0000";
+        when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
+        when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
+                      fastio_rdata(7 downto 4) <= "0000";
+        when x"29" =>
+        -- @IO:GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
+          fastio_rdata <= target_id;
+        -- @IO:GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
+        when x"2a" => fastio_rdata <= kbd_datestamp(7 downto 0);
+        when x"2b" => fastio_rdata(5 downto 0) <= kbd_datestamp(13 downto 8);
+                      fastio_rdata(7 downto 6) <= "00";
+        -- @IO:GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
+        -- @IO:GS $D62D KBD:FWGIT0 2nd byte of keyboard firmware git commit
+        -- @IO:GS $D62E KBD:FWGIT0 3rd byte of keyboard firmware git commit
+        -- @IO:GS $D62F KBD:FWGIT0 MSB of keyboard firmware git commit
+        when x"2c" => fastio_rdata <= kbd_commit(7 downto 0);
+        when x"2d" => fastio_rdata <= kbd_commit(15 downto 8);
+        when x"2e" => fastio_rdata <= kbd_commit(23 downto 16);
+        when x"2f" => fastio_rdata <= kbd_commit(31 downto 24);
+        -- @IO:GS $D630 FPGA:FWDATEL LSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D631 FPGA:FWDATEH MSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+        when x"30" => fastio_rdata <= fpga_datestamp(7 downto 0);
+        when x"31" => fastio_rdata <= fpga_datestamp(15 downto 8);
+        -- @IO:GS $D632 FPGA:FWGIT0 LSB of MEGA65 FPGA design git commit
+        -- @IO:GS $D633 FPGA:FWGIT0 2nd byte of MEGA65 FPGA design git commit
+        -- @IO:GS $D634 FPGA:FWGIT0 3rd byte of MEGA65 FPGA design git commit
+        -- @IO:GS $D635 FPGA:FWGIT0 MSB of MEGA65 FPGA design git commit
+        when x"32" => fastio_rdata <= fpga_commit(7 downto 0);
+        when x"33" => fastio_rdata <= fpga_commit(15 downto 8);
+        when x"34" => fastio_rdata <= fpga_commit(23 downto 16);
+        when x"35" => fastio_rdata <= fpga_commit(31 downto 24);
+        -- @IO:GS $D636 AUXFPGA:FWDATEL LSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D637 AUXFPGA:MFWDATEH MSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+        when x"36" => fastio_rdata <= max10_fpga_date(7 downto 0);
+        when x"37" => fastio_rdata <= max10_fpga_date(15 downto 8);
+        -- @IO:GS $D638 AUXFPGA:FWGIT0 LSB of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
+        -- @IO:GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
+        when x"38" => fastio_rdata <= max10_fpga_commit(7 downto 0);
+        when x"39" => fastio_rdata <= max10_fpga_commit(15 downto 8);
+        when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
+        when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
+
+                      
         when others =>
           report "Reading untied register, result = Z";
           fastio_rdata <= (others => 'Z');

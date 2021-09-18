@@ -36,7 +36,7 @@ use work.debugtools.all;
 
 ENTITY i2c_master IS
   generic (
-    input_clk : INTEGER := 50_000_000; --input clock speed from user logic in Hz
+    input_clk : INTEGER := 40_500_000; --input clock speed from user logic in Hz
     bus_clk   : INTEGER := 400_000   --speed the i2c bus (scl) will run at in Hz
     );
   PORT(
@@ -61,6 +61,11 @@ END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
   CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
+  constant divider_minus_1 : integer := divider - 1;
+  constant divider2_minus_1 : integer := divider*2-1;
+  constant divider2 : integer := divider*2;
+  constant divider3_minus_1 : integer := divider*3-1;
+  constant divider3 : integer := divider*3;
   
   TYPE machine IS(ready, start, command, slv_ack1, wr, rd, slv_ack2, mstr_ack, stop); --needed states
   SIGNAL state         : machine;                        --state machine
@@ -91,25 +96,24 @@ BEGIN
       ELSIF(stretch = '0') THEN           --clock stretching from slave not detected
         count := count + 1;               --continue clock generation timing
       END IF;
-      CASE count IS
-        WHEN 0 TO divider-1 =>            --first 1/4 cycle of clocking
-          scl_clk <= '0';
-          data_clk <= '0';
-        WHEN divider TO divider*2-1 =>    --second 1/4 cycle of clocking
-          scl_clk <= '0';
-          data_clk <= '1';
-        WHEN divider*2 TO divider*3-1 =>  --third 1/4 cycle of clocking
-          scl_clk <= '1';                 --release scl
-          IF(scl = '0') THEN              --detect if slave is stretching clock
-            stretch <= '1';
-          ELSE
-            stretch <= '0';
-          END IF;
-          data_clk <= '1';
-        WHEN OTHERS =>                    --last 1/4 cycle of clocking
-          scl_clk <= '1';
-          data_clk <= '0';
-      END CASE;
+      if count >= 0 and count <= divider_minus_1 then           --first 1/4 cycle of clocking
+        scl_clk <= '0';
+        data_clk <= '0';
+      elsif count>=divider and count<=divider2_minus_1 then    --second 1/4 cycle of clocking
+        scl_clk <= '0';
+        data_clk <= '1';
+      elsif  count>=divider2 and count<=divider3_minus_1 then  --third 1/4 cycle of clocking
+        scl_clk <= '1';                 --release scl
+        IF(scl = '0') THEN              --detect if slave is stretching clock
+          stretch <= '1';
+        ELSE
+          stretch <= '0';
+        END IF;
+        data_clk <= '1';
+      else                    --last 1/4 cycle of clocking
+        scl_clk <= '1';
+        data_clk <= '0';
+      END if;
     END IF;
   END PROCESS;
 
@@ -126,7 +130,7 @@ BEGIN
       data_rd <= "00000000";               --clear data read port
     ELSIF(clk'EVENT AND clk = '1') THEN
       IF(data_clk = '1' AND data_clk_prev = '0') THEN  --data clock rising edge
-        report "state = " & machine'image(state);
+--        report "state = " & machine'image(state);
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
@@ -142,7 +146,7 @@ BEGIN
           WHEN start =>                      --start bit of transaction
             report "sending start for transaction";
             busy <= '1';                     --resume busy if continuous mode
-              report "sending command bit " & integer'image(bit_cnt) & " = " & std_logic'image(addr_rw(bit_cnt));
+--            report "sending command bit " & integer'image(bit_cnt) & " = " & std_logic'image(addr_rw(bit_cnt));
             sda_int <= addr_rw(bit_cnt);     --set first address bit to bus
             state <= command;                --go to command
           WHEN command =>                    --address and command byte of transaction
@@ -151,7 +155,7 @@ BEGIN
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               state <= slv_ack1;             --go to slave acknowledge (command)
             ELSE                             --next clock cycle of command state
-              report "sending command bit " & integer'image(bit_cnt-1) & " = " & std_logic'image(addr_rw(bit_cnt-1));
+--              report "sending command bit " & integer'image(bit_cnt-1) & " = " & std_logic'image(addr_rw(bit_cnt-1));
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits
               sda_int <= addr_rw(bit_cnt-1); --write address/command bit to bus
               state <= command;              --continue with command
@@ -189,6 +193,7 @@ BEGIN
               END IF;
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               data_rd <= data_rx;            --output received data
+              report "Read byte $" & to_hstring(data_rx);
               state <= mstr_ack;             --go to master acknowledge
             ELSE                             --next clock cycle of read state
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits

@@ -54,7 +54,8 @@ use work.all;
 
 entity viciv is
   generic (
-    chipram_size : integer := 393216
+    chipram_size : integer := 393216;
+    hyper_installed : boolean := false
     );
   Port (
     all_pause : in std_logic;
@@ -71,13 +72,14 @@ entity viciv is
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
     cpuclock : in std_logic;
-    ioclock : in std_logic;
 
     -- CPU IRQ
     irq : out std_logic;
 
     reset : in std_logic;
 
+    dd00_bits : in unsigned(1 downto 0);
+    
     -- Touch event to simulate light pen
     touch_x : in unsigned(13 downto 0);
     touch_y : in unsigned(11 downto 0);
@@ -95,6 +97,8 @@ entity viciv is
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;
 
+    viciv_frame_indicate : out std_logic := '0';
+    
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
     vicii_raster_out : out unsigned(11 downto 0) := to_unsigned(0,12);
@@ -105,6 +109,7 @@ entity viciv is
 
     dat_even : out std_logic;
     dat_offset : out unsigned(15 downto 0);
+    dat_bitplane_bank : out unsigned(2 downto 0) := "000";
     dat_bitplane_addresses : out sprite_vector_eight;
 
     -- Used to synchronise our frame with an external frame generator
@@ -139,6 +144,7 @@ entity viciv is
     pixel_x_out : out integer := 0;
     pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
+    pixel_frame_toggle : inout std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;
@@ -162,6 +168,14 @@ entity viciv is
     chipram_address : OUT unsigned(19 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
 
+    ---------------------------------------------------------------------------
+    -- Direct interface to HyperRAM for fetching 256 colour glyph data etc
+    ---------------------------------------------------------------------------
+    hyper_addr : out unsigned(18 downto 3) := (others => '0');
+    hyper_request_toggle : out std_logic := '0';
+    hyper_data_in : in unsigned(7 downto 0) := x"00";
+    hyper_data_strobe_in : in std_logic := '0';
+    
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
     -----------------------------------------------------------------------------
@@ -191,6 +205,8 @@ architecture Behavioral of viciv is
 
   signal reset_drive : std_logic := '0';
 
+  signal bitplane_bank_select : unsigned(2 downto 0) := "000";
+  
   signal iomode_set_toggle_last : std_logic := '0';
 
   signal before_y_chargen_start : std_logic := '1';
@@ -212,10 +228,12 @@ architecture Behavioral of viciv is
   signal reg_h1280_delayed : std_logic := '0';
   signal external_frame_x_zero_latched : std_logic := '0';
   signal last_external_frame_x_zero_latched : std_logic := '0';
+  signal last_external_frame_y_zero : std_logic := '0';
 
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
 
+  signal last_dd00_bits : unsigned(1 downto 0) := "11";
   signal vicii_hot_regs_enable : std_logic := '1';
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
   signal viciv_single_side_border_width_touched : std_logic := '0';
@@ -281,34 +299,28 @@ architecture Behavioral of viciv is
   constant display_height_ntsc : unsigned(11 downto 0) := to_unsigned(526-20,12);
   signal display_height : unsigned(11 downto 0);
   signal raster_buffer_half_toggle : std_logic := '0';
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
+  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(0,8);  
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
   -- Set in the same way as the border
-  signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
+  signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(safe_to_integer(frame_h_front),14);
 
   -- PAL/NTSC raster layout
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
-  -- We use full number of PAL rasters in NTSC mode, so that PAL programs will
-  -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
-  -- can imagine with doing this, is that PAL/NTSC detection routines will
-  -- always think the system is PAL.
-  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(311,9); -- to_unsigned(262,9);
-  constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(311,9);
+  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
+  constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
   -- screen relative to the VIC-II raster counter.
-  constant raster_correction : integer := 4;
+  constant raster_correction : integer := 3;
 
   -- Calculated dynamically
-  signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
   signal x_end_of_raster : unsigned(13 downto 0) := to_unsigned(0,14);
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
 
@@ -354,6 +366,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
+  
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
@@ -377,7 +390,7 @@ architecture Behavioral of viciv is
   signal displayline0 : std_logic := '1';
   signal displaycolumn0 : std_logic := '1';
 
-  -- Asserted if in the 1200 vetical lines of the frame
+  -- Asserted if in the displayed part of vertical frame
   -- DEBUG: Power up with in frame to make simulation in ghdl much quicker.
   signal vert_in_frame : std_logic := '1';
 
@@ -399,9 +412,10 @@ architecture Behavioral of viciv is
   signal full_colour_fetch_count : integer range 0 to 8 := 0;
   signal full_colour_data : unsigned(63 downto 0) := (others => '0');
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
+  signal paint_alternate_palette : std_logic := '0';
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(19 downto 0);
+  signal next_ramaddress : unsigned(19 downto 0) := to_unsigned(0,20);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -424,15 +438,15 @@ architecture Behavioral of viciv is
   signal final_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal final_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal vgared_driver : unsigned(7 downto 0);
-  signal vgablue_driver : unsigned(7 downto 0);
-  signal vgagreen_driver  : unsigned(7 downto 0);
+  signal vgared_driver : unsigned(7 downto 0) := x"00";
+  signal vgablue_driver : unsigned(7 downto 0) := x"00";
+  signal vgagreen_driver  : unsigned(7 downto 0) := x"00";
 
   signal ycounter_driver : unsigned(11 downto 0) := to_unsigned(625,12);
 
   -- Internal registers for drawing a single raster of character data to the
   -- raster buffer.
-  signal character_number : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal character_number : unsigned(10 downto 0) := to_unsigned(0,11);
   type vic_chargen_fsm is (Idle,
                            FetchScreenRamLine,
                            FetchScreenRamLine2,
@@ -445,6 +459,7 @@ architecture Behavioral of viciv is
                            FetchBitmapCell,
                            FetchBitmapData,
                            PaintFullColourFetch,
+                           PaintFullColourHyperRAMFetch,
                            PaintMemWait,
                            PaintMemWait2,
                            PaintMemWait3,
@@ -486,6 +501,10 @@ architecture Behavioral of viciv is
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
+  signal debug_pixel_red : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_pixel_green : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_pixel_blue : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal debug_channel_select : std_logic_vector(1 downto 0) := "00";
   signal debug_screen_ram_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
   signal debug_raster_buffer_read_address : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -533,8 +552,8 @@ architecture Behavioral of viciv is
   -- should we skip as we advance each row.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- And display_row_width is how many characters to display on each row
-  signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal display_row_width : unsigned(9 downto 0) := to_unsigned(40,10);
+  signal display_row_width_minus1 : unsigned(9 downto 0) := to_unsigned(40,10);
   signal display_row_count : unsigned(7 downto 0) := to_unsigned(25-1,8);
   signal display_row_number : unsigned(7 downto 0) := to_unsigned(25,8);
 
@@ -554,6 +573,8 @@ architecture Behavioral of viciv is
   signal fullcolour_extendedchars : std_logic := '1';
   -- Characters <256 are full-colour blocks when enabled
   signal fullcolour_8bitchars : std_logic := '1';
+  -- Optionally fetch full-colour chars from HyperRAM
+  signal glyphs_from_hyperram : std_logic := '0';
 
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
@@ -639,32 +660,34 @@ architecture Behavioral of viciv is
   signal sprite_datavalid : std_logic;
   signal sprite_bytenumber : spritebytenumber := 0;
   signal sprite_spritenumber : spritenumber := 0;
-  signal sprite_data_byte : unsigned(7 downto 0);
+  signal sprite_data_byte : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- The sprite chain also has the opportunity to modify the pixel colour being
   -- drawn so that the sprites can be overlayed on the display.
   signal pixel_is_foreground : std_logic;
   signal pixel_is_background : std_logic;
   signal pixel_is_foreground_in : std_logic;
   signal pixel_is_background_in : std_logic;
-  signal composite_bg_red : unsigned(7 downto 0);
-  signal composite_bg_green : unsigned(7 downto 0);
-  signal composite_bg_blue : unsigned(7 downto 0);
-  signal composite_red : unsigned(7 downto 0);
-  signal composite_green : unsigned(7 downto 0);
-  signal composite_blue : unsigned(7 downto 0);
-  signal composited_red : std_logic_vector(9 downto 0);
-  signal composited_green : std_logic_vector(9 downto 0);
-  signal composited_blue : std_logic_vector(9 downto 0);
+  signal composite_bg_red : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_bg_green : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_bg_blue : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_red : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_green : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_blue : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composited_red : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal composited_green : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal composited_blue : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
   signal compositer_enable : std_logic := '1';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal pixel_is_foreground_out : std_logic;
-  signal chargen_pixel_colour : unsigned(7 downto 0);
-  signal chargen_alpha_value : unsigned(7 downto 0);
-  signal postsprite_pixel_colour : unsigned(7 downto 0);
-  signal postsprite_alpha_value : unsigned(7 downto 0);
+  signal chargen_pixel_colour : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal chargen_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal postsprite_pixel_colour : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal postsprite_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal postsprite_sprite_number : integer range 0 to 7;
-  signal alpha_blend_alpha : unsigned(7 downto 0);
+  signal postsprite_alternate_palette : std_logic := '0';
+  signal postsprite_alternate_palette_delayed : std_logic := '0';
+  signal alpha_blend_alpha : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
@@ -674,54 +697,60 @@ architecture Behavioral of viciv is
   signal sprite_fetch_byte_number_drive : integer range 0 to 319 := 0;
   signal sprite_pointer_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal sprite_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal sprite_data_addresses : spritebaseaddresses := (others => to_unsigned(0,20));
   signal sprite_h640_msbs : std_logic_vector(7 downto 0) := x"00";
 
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0) := to_unsigned(256,11);
+  signal viciv_rasterx_compare : unsigned(13 downto 0) := to_unsigned(8191,14);
   signal vicii_raster_compare_plus_one : unsigned(10 downto 0) := to_unsigned(256,11);
-  signal vicii_x_smoothscroll : unsigned(2 downto 0);
-  signal vicii_y_smoothscroll : unsigned(2 downto 0);
+  signal vicii_x_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
+  signal vicii_y_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
   -- NOTE: these are here for reading. the actual used VIC-II sprite
   -- registers are defined in vicii_sprites.vhdl
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := x"FF";
-  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
-  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
-  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- Here are the signals received from the sprites, which get ored onto
   -- the following signals.
-  signal vicii_sprite_sprite_collision_map : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_collision_map : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collision_map : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_bitmap_collision_map : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- HEre is what gets read from the VIC-II register (and then zeroed in the process)
   -- and which also get checked for interrupt generation
-  signal vicii_sprite_sprite_collisions : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collisions : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   signal viciii_extended_attributes : std_logic := '1';
   signal irq_lightpen : std_logic := '0';
   signal irq_collisionspritesprite : std_logic := '0';
   signal irq_collisionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';
+  signal irq_rasterx : std_logic := '0';
+  signal irq_extras_enable : std_logic := '0';
   signal ack_lightpen : std_logic := '0';
   signal ack_collisionspritesprite : std_logic := '0';
   signal ack_collisionspritebitmap : std_logic := '0';
   signal ack_raster : std_logic := '0';
+  signal ack_rasterx : std_logic := '0';
   signal mask_lightpen : std_logic := '0';
   signal mask_collisionspritesprite : std_logic := '0';
   signal mask_collisionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
+  signal mask_rasterx : std_logic := '0';
   signal clear_collisionspritebitmap : std_logic := '0';
   signal clear_collisionspritebitmap_1 : std_logic := '0';
   signal clear_collisionspritesprite : std_logic := '0';
   signal clear_collisionspritesprite_1 : std_logic := '0';
 
-  signal lightpen_x_latch : unsigned(7 downto 0);
-  signal lightpen_y_latch : unsigned(7 downto 0);
+  signal lightpen_x_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal lightpen_y_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
   
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
@@ -757,7 +786,7 @@ architecture Behavioral of viciv is
   signal card_number : unsigned(15 downto 0) := x"0000";
   signal card_number_drive : unsigned(15 downto 0) := x"0000";
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
-  signal first_card_of_row : unsigned(15 downto 0);
+  signal first_card_of_row : unsigned(15 downto 0) := to_unsigned(0,15+1);
   -- DEBUG: Set previous first card of row to all high so that a badline gets
   -- triggered on the first raster being drawn.
   -- Also used so that last pixel row in bitmap char cards doesn't show data
@@ -769,51 +798,57 @@ architecture Behavioral of viciv is
   signal chargen_y_next : unsigned(2 downto 0) := (others => '0');
   signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
-  signal chargen_y_sub : unsigned(4 downto 0);
+  signal chargen_y_sub : unsigned(4 downto 0) := to_unsigned(0,4+1);
 
   -- Common bitmap and character drawing info
-  signal glyph_data_address : unsigned(19 downto 0);
+  signal glyph_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
   -- For holding pre-calculated expressions to flatten logic
-  signal bitmap_glyph_data_address : unsigned(19 downto 0);
+  signal bitmap_glyph_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
 
   -- Bitmap drawing info
-  signal bitmap_colour_foreground : unsigned(7 downto 0);
-  signal bitmap_colour_background : unsigned(7 downto 0);
+  signal bitmap_colour_foreground : unsigned(7 downto 0) := x"00";
+  signal bitmap_colour_background : unsigned(7 downto 0) := x"00";
 
   -- Character drawing info
-  signal background_colour_select : unsigned(1 downto 0);
+  signal background_colour_select : unsigned(1 downto 0) := "00";
   signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
-  signal glyph_colour_drive : unsigned(7 downto 0);
-  signal glyph_colour_drive2 : unsigned(7 downto 0);
-  signal glyph_colour : unsigned(7 downto 0);
-  signal glyph_attributes : unsigned(3 downto 0);
-  signal glyph_visible_drive : std_logic;
-  signal glyph_visible : std_logic;
-  signal glyph_bold : std_logic;
-  signal glyph_bold_drive : std_logic;
-  signal glyph_underline_drive : std_logic;
-  signal glyph_underline : std_logic;
-  signal glyph_reverse : std_logic;
-  signal glyph_reverse_drive : std_logic;
-  signal glyph_full_colour : std_logic;
-  signal glyph_4bit : std_logic;
-  signal glyph_flip_horizontal : std_logic;
-  signal glyph_flip_vertical : std_logic;
-  signal glyph_goto : std_logic;
-  signal glyph_width_deduct : unsigned(3 downto 0);
+  signal glyph_y_offset : integer range 0 to 7 := 0;
+  signal glyph_colour_drive : unsigned(7 downto 0) := x"00";
+  signal glyph_colour_drive2 : unsigned(7 downto 0) := x"00";
+  signal glyph_colour : unsigned(7 downto 0) := x"00";
+  signal glyph_attributes : unsigned(3 downto 0) := "0000";
+  signal glyph_visible_drive : std_logic := '0';
+  signal glyph_visible : std_logic := '0';
+  signal glyph_bold : std_logic := '0';
+  signal glyph_bold_drive : std_logic := '0';
+  signal glyph_underline_drive : std_logic := '0';
+  signal glyph_underline : std_logic := '0';
+  signal glyph_reverse : std_logic := '0';
+  signal glyph_reverse_drive : std_logic := '0';
+  signal glyph_full_colour : std_logic := '0';
+  signal glyph_4bit : std_logic := '0';
+  signal glyph_flip_horizontal : std_logic := '0';
+  signal glyph_flip_vertical : std_logic := '0';
+  signal glyph_goto : std_logic := '0';
+  signal glyph_width_deduct : unsigned(3 downto 0) := to_unsigned(0,3+1);
   signal glyph_width : integer range 0 to 16;
   signal paint_glyph_width : integer range 0 to 16;
-  signal paint_glyph_4bit : std_logic;
-  signal glyph_blink : std_logic;
-  signal glyph_blink_drive : std_logic;
-  signal paint_blink : std_logic;
-  signal glyph_with_alpha : std_logic;
-  signal paint_with_alpha : std_logic;
+  signal paint_glyph_4bit : std_logic := '0';
+  signal glyph_blink : std_logic := '0';
+  signal glyph_blink_drive : std_logic := '0';
+  signal paint_blink : std_logic := '0';
+  signal glyph_with_alpha : std_logic := '0';
+  signal paint_with_alpha : std_logic := '0';
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
+  signal glyph_alternate_palette_invert : std_logic := '0';
+  signal glyph_bold_and_reverse : std_logic := '0';
+  signal force_chars_foreground : std_logic := '1';
+  signal force_chars_background : std_logic := '0';
+  signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
   signal short_line_length : integer range 0 to 512;
@@ -821,7 +856,7 @@ architecture Behavioral of viciv is
   signal screen_ram_high_is_ff : std_logic := '0';
   signal row_advance : integer range 0 to 512;
 
-  signal card_of_row : unsigned(7 downto 0);
+  signal card_of_row : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal chargen_active : std_logic := '0';
   signal chargen_active_drive : std_logic := '0';
   signal chargen_active_soon : std_logic := '0';
@@ -834,21 +869,21 @@ architecture Behavioral of viciv is
   signal card_number_t1 : unsigned(7 downto 0) := (others => '0');
   signal card_number_t2 : unsigned(7 downto 0) := (others => '0');
   signal card_number_t3 : unsigned(7 downto 0) := (others => '0');
-  signal cards_differ : std_logic;
+  signal cards_differ : std_logic := '0';
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
-  signal cycles_to_next_card : unsigned(7 downto 0);
-  signal cycles_to_next_card_drive : unsigned(7 downto 0);
+  signal cycles_to_next_card : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal cycles_to_next_card_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
 
   -- Interface to character generator rom
   signal charaddress : integer range 0 to 4095;
-  signal chardata : std_logic_vector(7 downto 0);
-  signal chardata_drive : unsigned(7 downto 0);
+  signal chardata : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal chardata_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- buffer of read data to improve timing
-  signal charrow : std_logic_vector(7 downto 0);
-  signal charrow_t1 : std_logic_vector(7 downto 0);
-  signal charrow_t2 : std_logic_vector(7 downto 0);
+  signal charrow : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal charrow_t1 : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal charrow_t2 : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic := '0';
@@ -878,20 +913,21 @@ architecture Behavioral of viciv is
 
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
-  signal inborder : std_logic;
-  signal postsprite_inborder : std_logic;
-  signal inborder_drive : std_logic;
-  signal inborder_t1 : std_logic;
-  signal inborder_t2 : std_logic;
-  signal xfrontporch : std_logic;
-  signal xfrontporch_drive : std_logic;
-  signal xbackporch : std_logic;
-  signal xbackporch_edge : std_logic;
+  signal inborder : std_logic := '0';
+  signal pixel_alt_palette : std_logic := '0';
+  signal postsprite_inborder : std_logic := '0';
+  signal inborder_drive : std_logic := '0';
+  signal inborder_t1 : std_logic := '0';
+  signal inborder_t2 : std_logic := '0';
+  signal xfrontporch : std_logic := '0';
+  signal xfrontporch_drive : std_logic := '0';
+  signal xbackporch : std_logic := '0';
+  signal xbackporch_edge : std_logic := '0';
 
-  signal last_ramaddress : unsigned(19 downto 0);
-  signal ramaddress : unsigned(19 downto 0);
-  signal ramdata : unsigned(7 downto 0);
-  signal ramdata_drive : unsigned(7 downto 0);
+  signal last_ramaddress : unsigned(19 downto 0) := to_unsigned(0,19+1);
+  signal ramaddress : unsigned(19 downto 0) := to_unsigned(0,19+1);
+  signal ramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal ramdata_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
 
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
@@ -899,41 +935,44 @@ architecture Behavioral of viciv is
 
   -- Raster buffer
   -- Read address is in 128th of pixels
-  signal raster_buffer_read_address : unsigned(10 downto 0);
-  signal raster_buffer_read_address_sub : unsigned(9 downto 0);
-  signal raster_buffer_read_address_next : unsigned(10 downto 0);
-  signal raster_buffer_read_address_sub_next : unsigned(9 downto 0);
-  signal raster_buffer_read_data : unsigned(17 downto 0);
-  signal raster_buffer_write_address : unsigned(10 downto 0);
-  signal raster_buffer_write_data : unsigned(17 downto 0);
-  signal raster_buffer_write : std_logic;
+  signal raster_buffer_read_address : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_read_address_sub : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_read_address_next : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_read_address_sub_next : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_read_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
+  signal raster_buffer_write_address : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_write_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
+  signal raster_buffer_write : std_logic := '0';
 
-  signal raster_buffer_max_write_address : unsigned(9 downto 0);
-  signal raster_buffer_max_write_address_hold : unsigned(9 downto 0);
-  signal raster_buffer_max_write_address_prev : unsigned(9 downto 0);
+  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_max_write_address_hold : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
+  signal no_raster_buffer_delay : std_logic := '1';
+  signal raster_buffer_double_line : std_logic := '0';
+  
   -- Colour RAM access for video controller
-  signal colourramaddress : unsigned(15 downto 0);
-  signal colourramdata : unsigned(7 downto 0);
+  signal colourramaddress : unsigned(15 downto 0) := to_unsigned(0,15+1);
+  signal colourramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- ... and for CPU
-  signal colour_ram_fastio_address : unsigned(15 downto 0);
+  signal colour_ram_fastio_address : unsigned(15 downto 0) := to_unsigned(0,15+1);
 
   -- Palette RAM access via fastio port
   signal palette_we : std_logic_vector(3 downto 0) := (others => '0');
-  signal palette_fastio_address : std_logic_vector(9 downto 0);
-  signal palette_fastio_rdata : std_logic_vector(31 downto 0);
+  signal palette_fastio_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal palette_fastio_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
 
   -- Palette RAM access for video controller
   -- -- colour lookup for primary pixel pipeline
-  signal palette_address : std_logic_vector(9 downto 0);
-  signal palette_rdata : std_logic_vector(31 downto 0);
+  signal palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
   -- -- colour lookup for anti-aliased font foreground colour
-  signal alias_palette_address : std_logic_vector(9 downto 0);
-  signal alias_palette_rdata : std_logic_vector(31 downto 0);
+  signal alias_palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal alias_palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
   -- -- colour lookup for alpha blending of visible sprite over
   --    character generator
-  signal sprite_alias_palette_address : std_logic_vector(9 downto 0);
-  signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0);
+  signal sprite_alias_palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
 
   -- Palette bank selection registers
   signal palette_bank_fastio : std_logic_vector(1 downto 0) := "11";
@@ -952,10 +991,12 @@ architecture Behavioral of viciv is
   signal chargen_y_scale_200 : unsigned(7 downto 0) := (others => '0');
   signal chargen_y_scale_400 : unsigned(7 downto 0) := (others => '0');
   signal chargen_y_pixels : integer := 0;
-  signal top_borders_height_200 : unsigned(11 downto 0) := (others => '0');
-  signal top_borders_height_400 : unsigned(11 downto 0) := (others => '0');
-  signal single_top_border_200 : unsigned(11 downto 0) := (others => '0');
-  signal single_top_border_400 : unsigned(11 downto 0) := (others => '0');
+  -- Initialise the top border height to be > 6 to avoid boundary violations
+  -- during start up in simulation
+  signal top_borders_height_200 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal top_borders_height_400 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal single_top_border_200 : unsigned(11 downto 0) := to_unsigned(16,12);
+  signal single_top_border_400 : unsigned(11 downto 0) := to_unsigned(16,12);
 
   signal viciv_flyback : std_logic := '0';
 
@@ -968,26 +1009,16 @@ architecture Behavioral of viciv is
   type screenline_return_stack_t is  array (0 to 3) of unsigned(19 downto 0);
   signal screenline_return_stack : screenline_return_stack_t;
   signal screenline_return_stack_count : integer range 0 to 3 := 0;
-  -- Some tokens can also set other interesting parameters, such as whether
-  -- drawing should happen with the background being painted, or not, to
-  -- allow transparency.  This can be useful for using characters to draw
-  -- bullets etc, or even large animated sprite-like objects, consisting of
-  -- sets of characters.
-  signal screenline_transparent_background : std_logic := '0';
   -- We also allow shoving characters up or down, so that by displaying
   -- a set of screen characters (possibly via a GOSUB token), they can be
   -- displayed at any vertical offset, as well as horizontal offset via the
   -- GOTOX tokens.
-  -- _empty_rows indicates the number of blank rasters at the top of the char,
-  -- before showing the characterr, i.e., how many pixels to shove a character
-  -- down.
-  -- _skip_rows indicates how many of the pixels of the character to skip at
-  -- top of a character, so that the bottom half of a shoved row can be displayed
-  -- on the subsequent line, by drawing it one each in both lines, once with
-  -- _empty_rows and and once with _skip_rows set to the same number, which is
-  -- the number of pixels vertical shift down the screen compared with normal.
-  signal screenline_y_empty_rows : integer := 0;
-  signal screenline_y_skip_rows : integer := 0;
+  -- The draw_mask combined with the Y fine address offset mechanism allows
+  -- shifting a character up or down, and then masking off the parts that would
+  -- come from the previous or next character
+  signal screenline_draw_mask : unsigned(7 downto 0) := (others => '1');
+  signal screenline_draw_mask_drive : unsigned(7 downto 0) := (others => '1');
+  signal draw_mask_blank : std_logic := '0';
 
   -- For accumulating the last token
   signal screen_line_last_token : unsigned(15 downto 0) := x"0000";
@@ -1016,6 +1047,16 @@ architecture Behavioral of viciv is
   signal render_activity : std_logic_vector(2 downto 0) := "000";
   signal show_render_activity : std_logic := '0';
 
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_addr_drive : unsigned(18 downto 3) := x"0000";
+  signal hyper_data_strobe : std_logic := '0';
+  signal hyper_request_toggle_drive : std_logic := '0';
+  signal hyper_request_toggle_drive2 : std_logic := '0';
+  signal hyper_request_toggle_drive3 : std_logic := '0';
+  signal hyper_data_counter : unsigned(31 downto 0) := to_unsigned(0,32);
+
+  signal sprite_continuous_pointer_monitoring : std_logic := '1';
+  
 begin
 
   rasterbuffer1: entity work.ram18x2k
@@ -1164,7 +1205,7 @@ begin
 
   vicii_sprites0: entity work.vicii_sprites
     port map (pixelclock => pixelclock,
-              ioclock => ioclock,
+              cpuclock => cpuclock,
 
               sprite_h640 => sprite_h640_delayed,
               sprite_v400s => sprite_v400s_delayed,
@@ -1209,11 +1250,13 @@ begin
               y_in => to_yposition(vicii_sprite_ycounter),
               yfine_in => to_yposition(vicii_ycounter_v400),
               border_in => inborder_drive,
+              alt_palette_in => pixel_alt_palette,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
               pixel_out => postsprite_pixel_colour,
               alpha_out => postsprite_alpha_value,
               border_out => postsprite_inborder,
+              alt_palette_out => postsprite_alternate_palette,
               is_sprite_out => pixel_is_sprite,
               sprite_number_out => postsprite_sprite_number,
               is_background_out => pixel_is_background_out,
@@ -1229,10 +1272,10 @@ begin
               );
 
 
-  chipram_address <= next_ramaddress when to_integer(next_ramaddress) < chipram_size else to_unsigned(0,20);
+  chipram_address <= next_ramaddress when safe_to_integer(next_ramaddress) < chipram_size else to_unsigned(0,20);
   ramdata <= chipram_datain;
 
-  process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
+  process(cpuclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
@@ -1270,7 +1313,7 @@ begin
           sprite_first_x,sprite_sixteen_colour_enables,
           vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
-          vsync_delay,vicii_ycounter_scale_minus_zero,
+          vicii_ycounter_scale_minus_zero,
           hsync_polarity_internal,vsync_polarity_internal
           ) is
     variable bitplane_number : integer;
@@ -1286,11 +1329,11 @@ begin
       text_height_400 <= 400;
 
       -- Calculate height of top borders
-      top_borders_height_200 <= to_unsigned(to_integer(display_height)
+      top_borders_height_200 <= to_unsigned(safe_to_integer(display_height)
                                             - text_height_200,12);
       single_top_border_200(10 downto 0) <= top_borders_height_200(11 downto 1);
       single_top_border_200(11) <= '0';
-      top_borders_height_400 <= to_unsigned(to_integer(display_height)
+      top_borders_height_400 <= to_unsigned(safe_to_integer(display_height)
                                             - text_height_400,12);
       single_top_border_400(10 downto 0) <= top_borders_height_400(11 downto 1);
       single_top_border_400(11) <= '0';
@@ -1301,30 +1344,29 @@ begin
       report "LEGACY register update";
       if thirtyeightcolumns='0' then
         if reg_h640='0' then
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)-1,14);
           x_chargen_start
-            <= to_unsigned(to_integer(frame_h_front)
-                           +to_integer(single_side_border)
+            <= to_unsigned(safe_to_integer(frame_h_front)
+                           +safe_to_integer(single_side_border)
                            -- VIC-II smooth scrolling is based on H320/400 and real
                            -- pixels are H640/800, so add double
-                           +to_integer(vicii_x_smoothscroll)
-                           +to_integer(vicii_x_smoothscroll)
-                           +1
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           +safe_to_integer(vicii_x_smoothscroll)
                            ,14);
         else
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)-1,14);
           x_chargen_start
-            <= to_unsigned(to_integer(frame_h_front)
-                           +to_integer(single_side_border)
+            <= to_unsigned(safe_to_integer(frame_h_front)
+                           +safe_to_integer(single_side_border)
                            -- VIC-II smooth scrolling is based on H320/400 and real
                            -- pixels are H640/800, so add double
-                           +to_integer(vicii_x_smoothscroll)
-                           +to_integer(vicii_x_smoothscroll)
-                           -1
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           -2
                            ,14);
         end if;
       else
@@ -1338,33 +1380,33 @@ begin
         -- Thus +2 on both the border_x_right calculations has been reduced by
         -- 1 or 2 for H640 and H320 modes
         if reg_h640='0' then
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
                                        +(7*2),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)
                                         -(9*2),14);
           x_chargen_start
-            <= to_unsigned(to_integer(frame_h_front)
-                           +to_integer(single_side_border)
+            <= to_unsigned(safe_to_integer(frame_h_front)
+                           +safe_to_integer(single_side_border)
                            -- VIC-II smooth scrolling is based on H320/400 and real
                            -- pixels are H640/800, so add double
-                           +to_integer(vicii_x_smoothscroll)
-                           +to_integer(vicii_x_smoothscroll)
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           +safe_to_integer(vicii_x_smoothscroll)
                            ,14);
         else
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
-                                       +(7*2)+1,14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
+                                       +(7*2),14);
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)
                                         -(9*2),14);
           x_chargen_start
-            <= to_unsigned(to_integer(frame_h_front)
-                           +to_integer(single_side_border)
+            <= to_unsigned(safe_to_integer(frame_h_front)
+                           +safe_to_integer(single_side_border)
                            -- VIC-II smooth scrolling is based on H320/400 and real
                            -- pixels are H640/800, so add double
-                           +to_integer(vicii_x_smoothscroll)
-                           +to_integer(vicii_x_smoothscroll)
-                           -1
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           +safe_to_integer(vicii_x_smoothscroll)
+                           -2
                            ,14);
         end if;
       end if;
@@ -1372,83 +1414,89 @@ begin
       if reg_h640='0' then
         -- 40 column mode
         virtual_row_width <= to_unsigned(40,16);
-        display_row_width <= to_unsigned(40,8);
+        display_row_width <= to_unsigned(40,10);
       elsif reg_h640='1' then
         -- 80 column mode
         virtual_row_width <= to_unsigned(80,16);
-        display_row_width <= to_unsigned(80,8);
+        display_row_width <= to_unsigned(80,10);
       end if;
 
       if reg_v400='0' then
         display_row_count <= to_unsigned(25-1,8);
-        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
+        chargen_y_scale <= to_unsigned(safe_to_integer(chargen_y_scale_200)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            to_integer(display_height)
-            -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            safe_to_integer(display_height)
+            -safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
-                                      +to_integer(single_top_border_200)
-                                      +to_integer(vsync_delay_drive)
+                                      +safe_to_integer(single_top_border_200)
+                                      -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
-                                         -to_integer(single_top_border_200)
-                                         -(4*2),12);
+                                         +safe_to_integer(display_height)
+                                         -safe_to_integer(vicii_first_raster)*2
+                                         -safe_to_integer(single_top_border_200)
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
-        y_chargen_start <= to_unsigned(raster_correction
-                                       +to_integer(single_top_border_200)
-                                       +to_integer(vsync_delay_drive)
-                                       -(3*2)
-                                       -- Display is always V400/600, so pixels
-                                       -- are double height
-                                       +to_integer(vicii_y_smoothscroll)
-                                       +to_integer(vicii_y_smoothscroll)
-                                       ,12);
+        report "XXX vicii_y_smoothscroll = " & to_string(std_logic_vector(vicii_y_smoothscroll));
+        report "XXX raster_correction = " & integer'image(raster_correction);
+        report "XXX single_top_border_200 = " & integer'image(safe_to_integer(single_top_border_200));
+        report "XXX vicii_first_raster = " & integer'image(safe_to_integer(vicii_first_raster));
+        y_chargen_start <= unsigned(to_signed(raster_correction
+                                              +safe_to_integer(single_top_border_200)
+                                              -safe_to_integer(vicii_first_raster)*2
+                                              -(3*2)
+                                              -- Display is always V400/600, so pixels
+                                              -- are double height
+                                              +safe_to_integer(vicii_y_smoothscroll)
+                                              +safe_to_integer(vicii_y_smoothscroll)
+                                              ,12));
 
       else
         -- V400 mode : as above, but with the different constants
         display_row_count <= to_unsigned(50-1,8);        
-        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
+        chargen_y_scale <= to_unsigned(safe_to_integer(chargen_y_scale_400)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            safe_to_integer(single_top_border_400)
+            -safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            to_integer(display_height)
-            -to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            safe_to_integer(display_height)
+            -safe_to_integer(single_top_border_400)-safe_to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
-                                      +to_integer(single_top_border_400)
-                                      +to_integer(vsync_delay_drive)
+                                      +safe_to_integer(single_top_border_400)
+                                      -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
-                                         -to_integer(single_top_border_400)
-                                         -(4*2),12);
+                                         +safe_to_integer(display_height)
+                                         -safe_to_integer(vicii_first_raster)*2
+                                         -safe_to_integer(single_top_border_400)
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
-                                       +to_integer(single_top_border_400)
-                                       +to_integer(vsync_delay_drive)
+                                       +safe_to_integer(single_top_border_400)
+                                       -safe_to_integer(vicii_first_raster)*2                                       
                                        -(3*2)
                                        -- Screen is always V400/600, so pixels
                                        -- are 2 physical pixels high
-                                       +to_integer(vicii_y_smoothscroll)
-                                       +to_integer(vicii_y_smoothscroll)
+                                       +safe_to_integer(vicii_y_smoothscroll)
+                                       +safe_to_integer(vicii_y_smoothscroll)
                                        ,12);
       end if;
 
+      screen_ram_base(27 downto 16) <= (others => '0');
       if reg_h640='1' then
         screen_ram_base(13 downto 11) <= reg_d018_screen_addr(3 downto 1);
         screen_ram_base(10 downto 0) <= (others => '0');
@@ -1456,14 +1504,16 @@ begin
         screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
         screen_ram_base(9 downto 0) <= (others => '0');
       end if;
-
+      
       -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
       -- column mode).
       -- In 80 column mode the screen base must be on a 2K boundary on the
       -- C65, which changes the interpretation of the screen_ram_base.
-      -- Behaviour for 160 and 240 column modes is undefined.
       -- Note that our interpretation of V400 to double the number of text
       -- rows breaks strict C65 compatibility.
+      vicii_sprite_pointer_address(27 downto 16) <= (others => '0');
+      -- NOTE: Bits 14 and 15 are still set only by writing to $DD00
+      -- or the VIC-IV registers that modify this.
       vicii_sprite_pointer_address(13 downto 10)
         <= reg_d018_screen_addr;
       if reg_h640='1' or reg_v400='1' then
@@ -1471,10 +1521,19 @@ begin
       end if;
       vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
 
+      -- Apply VIC-II banks
+      screen_ram_base(15 downto 14) <= not last_dd00_bits;
+      vicii_sprite_pointer_address(15 downto 14) <= not last_dd00_bits;
+      character_set_address(15 downto 14) <= not last_dd00_bits;
+      
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
       colour_ram_base <= (others => '0');
 
+      -- NOTE: We DONT reset the character set address with a legacy write.
+      -- This makes it easier to use alternate character sets, and full-colour
+      -- text mode upgrading of old programmes.
+      
     end procedure viciv_interpret_legacy_mode_registers;
     procedure viciv_update_side_border_dimensions is
     begin
@@ -1482,13 +1541,13 @@ begin
       report "LEGACY register update";
       if thirtyeightcolumns='0' then
         if reg_h640='0' then
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border),14);
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)-1,14);
         else
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border),14);
         end if;
       else
         -- 38/40 col mode has one phyical pixel too few on the left (only one
@@ -1501,26 +1560,26 @@ begin
         -- Thus +2 on both the border_x_right calculations has been reduced by
         -- 1 or 2 for H640 and H320 modes
         if reg_h640='0' then
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
                                        +(7*2),14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)
                                         -(9*2),14);
         else
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
                                        +(7*2)+1,14);
-          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)
+          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
+                                        -safe_to_integer(single_side_border)
                                         -(9*2),14);
         end if;
       end if;
     end procedure viciv_update_side_border_dimensions;
 
 
-    variable register_bank : unsigned(7 downto 0);
-    variable register_page : unsigned(3 downto 0);
-    variable register_num : unsigned(7 downto 0);
-    variable register_number : unsigned(11 downto 0);
+    variable register_bank : unsigned(7 downto 0) := to_unsigned(0,7+1);
+    variable register_page : unsigned(3 downto 0) := to_unsigned(0,3+1);
+    variable register_num : unsigned(7 downto 0) := to_unsigned(0,7+1);
+    variable register_number : unsigned(11 downto 0) := to_unsigned(0,11+1);
   begin
     fastio_rdata <= (others => 'Z');
 
@@ -1602,13 +1661,13 @@ begin
           register_number := x"0FE";
         end if;
         report "IO access resolves to video register number "
-          & integer'image(to_integer(register_number)) severity note;
+          & integer'image(safe_to_integer(register_number)) severity note;
       elsif (register_bank = x"D1" or register_bank = x"D3") and register_page<4 then
         register_number(11 downto 10) := "00";
         register_number(9 downto 8) := register_page(1 downto 0);
         register_number(7 downto 0) := register_num;
         report "IO access resolves to video register number "
-          & integer'image(to_integer(register_number)) severity note;
+          & integer'image(safe_to_integer(register_number)) severity note;
       end if;
 
       -- $D800 - $DBFF colour RAM access.
@@ -1640,17 +1699,17 @@ begin
         fastio_rdata <= (others => 'Z');
       else
                                         -- report "read from fastio detect in video controller. " &
-                                        --  "register number = " & integer'image(to_integer(register_number)) &
+                                        --  "register number = " & integer'image(safe_to_integer(register_number)) &
                                         --  ", fastio_addr = " & to_hstring(fastio_addr) &
                                         --  ", register_bank = " & to_hstring(register_bank) &
                                         --  ", register_page = " & to_hstring(register_page)
                                         --   severity note;
         if register_number>=0 and register_number<8 then
                                         -- compatibility sprite coordinates
-          fastio_rdata <= std_logic_vector(sprite_x(to_integer(register_num(2 downto 0))));
+          fastio_rdata <= std_logic_vector(sprite_x(safe_to_integer(register_num(2 downto 0))));
         elsif register_number<16 then
                                         -- compatibility sprite coordinates
-          fastio_rdata <= std_logic_vector(sprite_y(to_integer(register_num(2 downto 0))));
+          fastio_rdata <= std_logic_vector(sprite_y(safe_to_integer(register_num(2 downto 0))));
         elsif register_number=16 then
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
@@ -1687,7 +1746,7 @@ begin
           fastio_rdata(7) <= not irq_drive;
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= '1';       -- NC
+          fastio_rdata(4) <= irq_rasterx; 
           fastio_rdata(3) <= irq_lightpen;
           fastio_rdata(2) <= irq_collisionspritesprite;
           fastio_rdata(1) <= irq_collisionspritebitmap;
@@ -1696,7 +1755,7 @@ begin
           fastio_rdata(7) <= '1';       -- NC
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= '1';       -- NC
+          fastio_rdata(4) <= mask_rasterx;       
           fastio_rdata(3) <= mask_lightpen;
           fastio_rdata(2) <= mask_collisionspritesprite;
           fastio_rdata(1) <= mask_collisionspritebitmap;
@@ -1726,7 +1785,7 @@ begin
         elsif register_number=38 then
           fastio_rdata <= std_logic_vector(sprite_multi1_colour);
         elsif register_number>=39 and register_number<=46 then
-          fastio_rdata <= std_logic_vector(sprite_colours(to_integer(register_number)-39));
+          fastio_rdata <= std_logic_vector(sprite_colours(safe_to_integer(register_number)-39));
         elsif register_number=255 then
           -- C128 $D030 emulation (2MHz mode only)
           fastio_rdata(7 downto 1) <= (others => '0');
@@ -1759,10 +1818,6 @@ begin
 
                                         -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
                                         -- fiddle with registers in this range.
-                                        -- NEW VIDEO REGISTERS
-                                        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-                                        --  This is tolerable, since the registers most likely used to detect a
-                                        --  C65 are made non-functional.
                                         --  For more C65 register info, see:
                                         -- http://www.zimmers.net/cbmpics/cbm/c65/c65manual.txt
         -- @IO:C65 $D032 - Bitplane enable bits
@@ -1778,7 +1833,7 @@ begin
         -- @IO:C65 $D03A - Bitplane 7 address
         elsif register_number >= 51 and register_number <= 58 then
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
-          bitplane_number := to_integer(register_number(3 downto 0)) - 3;
+          bitplane_number := safe_to_integer(register_number(3 downto 0)) - 3;
           fastio_rdata <= std_logic_vector(bitplane_addresses(bitplane_number));
         -- @IO:C65 $D03B - Set bits to NOT bitplane contents
         elsif register_number=59 then
@@ -1847,7 +1902,8 @@ begin
         elsif register_number=80 then
           fastio_rdata <= std_logic_vector(xcounter_drive(7 downto 0));
         elsif register_number=81 then
-          fastio_rdata(7 downto 6) <= "00";
+          fastio_rdata(7) <= no_raster_buffer_delay;
+          fastio_rdata(6) <= raster_buffer_double_line;
           fastio_rdata(5 downto 0) <= std_logic_vector(xcounter_drive(13 downto 8));
         elsif register_number=82 then
           -- Read physical raster LSB
@@ -1855,7 +1911,8 @@ begin
         elsif register_number=83 then
           -- Read physical raster MSB and raster compare source flag
 	  fastio_rdata(7) <= vicii_is_raster_source;
-          fastio_rdata(6 downto 4) <= "000";
+          fastio_rdata(6) <= shadow_mask_enable;
+          fastio_rdata(5 downto 4) <= "00";
           fastio_rdata(3 downto 0) <= std_logic_vector(ycounter_drive(11 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
@@ -1888,7 +1945,7 @@ begin
           fastio_rdata(6) <= enable_raster_delay;
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width);
+          fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width(7 downto 0));
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);
         elsif register_number=96 then
@@ -1898,7 +1955,9 @@ begin
         elsif register_number=98 then
           fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
         elsif register_number=99 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7) <= glyphs_from_hyperram;
+          fastio_rdata(6) <= '0';
+          fastio_rdata(5 downto 4) <= std_logic_vector(display_row_width(9 downto 8));
           fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 24));
         elsif register_number=100 then
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
@@ -1932,8 +1991,8 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number=114 then -- $D3072
-          fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
+        elsif register_number=114 then -- $D3072 UNUSED
+          fastio_rdata(7 downto 0) <= std_logic_vector(sprite_y_adjust);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
@@ -1951,12 +2010,15 @@ begin
           fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
-          fastio_rdata(6 downto 3) <= (others => '0');
+          fastio_rdata(3) <= sprite_continuous_pointer_monitoring;
+          fastio_rdata(6 downto 4) <= (others => '0');
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
-          fastio_rdata <= std_logic_vector(display_row_count);
+          fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
         elsif register_number=124 then  -- $D307C
-          fastio_rdata(3 downto 0) <= x"F";
+          -- fastio_rdata(3 downto 0) <= x"F";
+          fastio_rdata(2 downto 0) <= std_logic_vector(bitplane_bank_select);
+          fastio_rdata(3) <= '0';
           fastio_rdata(4) <= hsync_polarity_internal;
           fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= "11";
@@ -1966,17 +2028,44 @@ begin
           -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
           -- fastio_rdata <= x"FF";
           -- XXX debug: $D07D shows current single top border height
-          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
+--          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
+          if hypervisor_mode='0' then
+            case debug_channel_select is
+              when "00" => fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
+              when "01" => fastio_rdata <= std_logic_vector(debug_pixel_red);
+              when "10" => fastio_rdata <= std_logic_vector(debug_pixel_green);
+              when "11" => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+              when others => fastio_rdata <= std_logic_vector(debug_pixel_blue);
+            end case;
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place
+            fastio_rdata <= std_logic_vector(debug_x(7 downto 0));
+          end if;
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
-          fastio_rdata <= x"00";
-          fastio_rdata(0) <= external_frame_x_zero_latched;
-          fastio_rdata(1) <= external_pixel_strobe_log(0);
-          fastio_rdata(2) <= vga_in_frame;
-          fastio_rdata(3) <= indisplay_t3;
+--          fastio_rdata <= x"00";
+--          fastio_rdata(0) <= external_frame_x_zero_latched;
+--          fastio_rdata(1) <= external_pixel_strobe_log(0);
+--          fastio_rdata(2) <= vga_in_frame;
+--          fastio_rdata(3) <= indisplay_t3;
+          if hypervisor_mode='0' then
+            fastio_rdata <= std_logic_vector(hyper_data_counter(15 downto 8));
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place            
+            fastio_rdata <= std_logic_vector(debug_y(7 downto 0));
+          end if;
         elsif register_number=127 then
-          fastio_rdata <= x"FF";
+          if hypervisor_mode='0' then
+            fastio_rdata <= std_logic_vector(hyper_data_counter(23 downto 16));
+          else
+            -- In hypervisor mode, allow read-back of the debug crosshair positions
+            -- so that when we freeze and resume, it isn't put into the wrong place            
+            fastio_rdata(3 downto 0) <= std_logic_vector(debug_x(11 downto 8));
+            fastio_rdata(7 downto 4) <= std_logic_vector(debug_y(11 downto 8));
+          end if;
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
@@ -2002,8 +2091,40 @@ begin
       end if;
     end if;
 
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
 
+      last_dd00_bits <= dd00_bits;
+      if last_dd00_bits /= dd00_bits then
+        viciv_legacy_mode_registers_touched <= '1';
+      end if;
+      
+      if reset='0' then
+        -- Reset sprites to normal behaviour on reset
+        sprite_horizontal_tile_enables <= (others => '0');
+        sprite_v400_super_msbs <= (others => '0');
+        sprite_alpha_blend_enables <= (others => '0');
+        sprite_bitplane_enables <= (others => '0');
+        sprite_extended_width_enables <= (others => '0');
+        sprite_extended_height_enables <= (others => '0');
+        sprite_sixteen_colour_enables <= (others => '0');
+        -- And raster re-write buffer delay also
+        no_raster_buffer_delay <= '1';
+        raster_buffer_double_line <= '0';
+
+      end if;
+      
+      -- Drive stage for data from hyper RAM and signals out to it
+      hyper_data <= hyper_data_in;
+      hyper_data_strobe <= hyper_data_strobe_in;
+      hyper_addr <= hyper_addr_drive;
+      hyper_request_toggle_drive2 <= hyper_request_toggle_drive;
+      hyper_request_toggle_drive3 <= hyper_request_toggle_drive2;
+      hyper_request_toggle <= hyper_request_toggle_drive3;
+
+      if hyper_data_strobe = '1' then
+        hyper_data_counter <= hyper_data_counter + 1;
+      end if;
+      
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
       else
@@ -2024,7 +2145,11 @@ begin
       -- That is, we trigger the interrupt when the raster is actually being DISPLAYED,
       -- and make the contents of $D012/$D011 match this.
       if enable_raster_delay='1' then
-        vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        if vicii_ycounter_driver /= 0 then
+          vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        else
+          vicii_ycounter_minus_one <= vicii_max_raster;
+        end if;
       else
         vicii_ycounter_minus_one <= vicii_ycounter_driver;
       end if;
@@ -2104,7 +2229,7 @@ begin
       palette_we <= (others => '0');
 
       -- Get VIC-II sprite data offsets
-      -- (this can happen on ioclock, since it should still allow ample time
+      -- (this can happen on cpuclock, since it should still allow ample time
       --  to synchronise with the sprites before we fetch the data for them).
       -- Save offset delivered by chain
 --      report "SPRITE: VIC-II sprite "
@@ -2120,23 +2245,6 @@ begin
 --        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
 --      end if;
 
-      -- $DD00 video bank bits
-      if fastio_write='1'
-        and vicii_hot_regs_enable='1'
-        and (fastio_addr(19 downto 16)=x"D")
-        and (fastio_addr(15 downto 14) = "00")
-        and (fastio_addr(11 downto 8)=x"D")
-        and (fastio_addr(3 downto 0) = x"0")
-        and (colourram_at_dc00_internal = '0')
-      then
-        report "Caught write to $DD00" severity note;
-        screen_ram_base(15) <= not fastio_wdata(1);
-        screen_ram_base(14) <= not fastio_wdata(0);
-        character_set_address(15) <= not fastio_wdata(1);
-        character_set_address(14) <= not fastio_wdata(0);
-        vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
-        vicii_sprite_pointer_address(14) <= not fastio_wdata(0);
-      end if;
       
       -- Reading some registers clears IRQ flags
       clear_collisionspritebitmap_1 <= '0';
@@ -2169,7 +2277,7 @@ begin
           -- @IO:C64 $D005 VIC-II:S2Y sprite 2 vertical position
           -- @IO:C64 $D006 VIC-II:S3X sprite 3 horizontal position
           -- @IO:C64 $D007 VIC-II:S3Y sprite 3 vertical position
-          sprite_x(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
+          sprite_x(safe_to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
         elsif register_number<16 then
           -- @IO:C64 $D008 VIC-II:S4X sprite 4 horizontal position
           -- @IO:C64 $D009 VIC-II:S4Y sprite 4 vertical position
@@ -2179,7 +2287,7 @@ begin
           -- @IO:C64 $D00D VIC-II:S6Y sprite 6 vertical position
           -- @IO:C64 $D00E VIC-II:S7X sprite 7 horizontal position
           -- @IO:C64 $D00F VIC-II:S7Y sprite 7 vertical position
-          sprite_y(to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
+          sprite_y(safe_to_integer(register_num(2 downto 0))) <= unsigned(fastio_wdata);
         elsif register_number=16 then
           -- @IO:C64 $D010 VIC-II:SXMSB sprite horizontal position MSBs
           vicii_sprite_xmsbs <= fastio_wdata;
@@ -2353,9 +2461,9 @@ begin
           -- @IO:C64 $D02D VIC-II:SPR6COL sprite 6 colour / 16-colour sprite transparency colour (lower nybl)
           -- @IO:C64 $D02E VIC-II:SPR7COL sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
           if (register_bank=x"D0" or register_bank=x"D2") then
-            sprite_colours(to_integer(register_number)-39)(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
+            sprite_colours(safe_to_integer(register_number)-39)(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
-            sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
+            sprite_colours(safe_to_integer(register_number)-39) <= unsigned(fastio_wdata);
           end if;
         -- Skip $D02F - $D047 to avoid real C65/C128 programs trying to
         -- fiddle with registers in this range.
@@ -2376,10 +2484,10 @@ begin
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
             end if;
-          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
+          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
-              -- C65GS VIC-IV mode
+              -- C65GS Map ethernet frame buffer mode
               viciii_iomode <= "10";
             end if;
           end if;
@@ -2390,24 +2498,24 @@ begin
           vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- @IO:C65 $D030 SUMMARY:VIC-III Control Register A
-          -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM \@ \$E000
+          -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
           rom_at_e000 <= fastio_wdata(7);
           reg_rom_e000 <= fastio_wdata(7);
           -- @IO:C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
           reg_c65_charset <= fastio_wdata(6);
-          -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM \@ \$C000
+          -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
           rom_at_c000 <= fastio_wdata(5);
           reg_rom_c000 <= fastio_wdata(5);
-          -- @IO:C65 $D030.4 VIC-III:ROMA Map C65 ROM \@ \$A000
+          -- @IO:C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
           rom_at_a000 <= fastio_wdata(4);
           reg_rom_a000 <= fastio_wdata(4);
-          -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM \@ \$8000
+          -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
           rom_at_8000 <= fastio_wdata(3);
           reg_rom_8000 <= fastio_wdata(3);
           -- @IO:C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
           reg_palrom <= fastio_wdata(2);
           -- @IO:C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
-          -- @IO:C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM \@ \$DC00-\$DFFF
+          -- @IO:C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
         elsif register_number=49 then
@@ -2420,7 +2528,7 @@ begin
           -- @IO:C65 $D031 SUMMARY:VIC-III Control Register B
           -- @IO:C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
           reg_h640 <= fastio_wdata(7);
-          -- @IO:C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
+          -- @IO:C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
           viciii_fast_internal <= fastio_wdata(6);
           -- @IO:C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
           viciii_extended_attributes <= fastio_wdata(5);
@@ -2454,8 +2562,8 @@ begin
          -- @IO:C65 $D03A.1-3 VIC-III:B7ADEVN - Bitplane 7 address, even lines
         elsif register_number >= 51 and register_number <= 58 then
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
-          --bitplane_number := to_integer(register_number(3 downto 0)) - 3;
-          bitplane_addresses(to_integer(register_number)-51) <= unsigned(fastio_wdata);
+          --bitplane_number := safe_to_integer(register_number(3 downto 0)) - 3;
+          bitplane_addresses(safe_to_integer(register_number)-51) <= unsigned(fastio_wdata);
         -- @IO:C65 $D03B VIC-III:BPCOMP Complement bitplane flags
         elsif register_number=59 then
           bitplane_complements <= fastio_wdata;
@@ -2522,11 +2630,15 @@ begin
           -- @IO:GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
           sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=80 then
-          -- @IO:GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
-          null;
+          -- @IO:GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
+          viciv_rasterx_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=81 then
-          -- @IO:GS $D051 VIC-IV:XPOS Read horizontal raster scan position
-          null;
+          -- @IO:GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
+          viciv_rasterx_compare(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D051.6 VIC-IV:DBLRR When set, the Raster Rewrite Buffer is only updated every 2nd raster line, limiting resolution to V200, but allowing more cycles for Raster-Rewrite actions.
+          raster_buffer_double_line <= fastio_wdata(6);
+          -- @IO:GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
+          no_raster_buffer_delay <= fastio_wdata(7);
         elsif register_number=82 then
         -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
         -- Allow setting of fine raster for IRQ (low bits)
@@ -2534,24 +2646,26 @@ begin
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
         -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
+        -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-        -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          shadow_mask_enable <= fastio_wdata(6);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
           compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
-          -- @IO:GS $D054.5 VIC-IV:PALEMU video output pal simulation
+          -- @IO:GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
           pal_simulate <= fastio_wdata(5);
           -- @IO:GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
           sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
-          -- @IO:GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
+          -- @IO:GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
           fullcolour_extendedchars <= fastio_wdata(2);
-          -- @IO:GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
+          -- @IO:GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
           fullcolour_8bitchars <= fastio_wdata(1);
           -- @IO:GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
@@ -2565,10 +2679,10 @@ begin
           -- @IO:GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
           sprite_extended_width_enables <= fastio_wdata;
         elsif register_number=88 then
-          -- @IO:GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
+          -- @IO:GS $D058 VIC-IV:LINESTEP number of bytes to advance between each text row (LSB)
           virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=89 then
-          -- @IO:GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
+          -- @IO:GS $D059 VIC-IV:LINESTEP number of bytes to advance between each text row (MSB)
           virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=90 then
           -- @IO:GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
@@ -2589,8 +2703,8 @@ begin
           -- @IO:GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
           vicii_hot_regs_enable <= fastio_wdata(7);
         elsif register_number=94 then
-          -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
-          display_row_width <= unsigned(fastio_wdata);
+          -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
+          display_row_width(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=95 then
           -- @IO:GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
           sprite_h640_msbs <= fastio_wdata;
@@ -2604,8 +2718,13 @@ begin
           -- @IO:GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
           screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=99 then
-          -- @IO:GS $D063 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
+          -- row (MSBs)
+          display_row_width(9 downto 8) <= unsigned(fastio_wdata(5 downto 4));
+          -- @IO:GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
+          glyphs_from_hyperram <= fastio_wdata(7);
         elsif register_number=100 then
           -- @IO:GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
           colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
@@ -2616,7 +2735,7 @@ begin
           -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
           -- @IO:GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
           -- @IO:GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
-          reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
+          reg_xcounter_delay <= safe_to_integer(unsigned(fastio_wdata(4 downto 0)));
           show_render_activity <= fastio_wdata(6);
           test_pattern_enable <= fastio_wdata(7);
         elsif register_number=103 then  -- $D3067
@@ -2670,66 +2789,60 @@ begin
             viciv_single_side_border_width_touched <= '1';
           end if;
 
-          case fastio_wdata(7 downto 6) is
-            when "00" => -- PAL, 720x576 @ 50Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= pal_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              -- VSYNC is negative for 50Hz (required for some monitors)
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(0,9);
-
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "01" => -- PAL, 720x576 50Hz, NTSC max raster
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(0,9);
-              
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-              
-            when "10" => -- NTSC, 720x480 @ 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-              -- Set 40MHz pixel clock for NTSC
-
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "11" => -- NTSC 720x480 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              -- NTSC but with PAL max raster
-              vicii_max_raster <= pal_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-              
-              -- Set 40MHz pixel clock for NTSC
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when others => -- Default to NTSC 800x600 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-
-              -- Set 40MHz pixel clock for NTSC
-
-          end case;
+          if vicii_ntsc /= fastio_wdata(7) or vga60_select_internal /= fastio_wdata(6) then
+            case fastio_wdata(7 downto 6) is
+              when "00" => -- PAL, 720x576 @ 50Hz
+                sprite_y_adjust <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= pal_max_raster;
+                -- VSYNC is negative for 50Hz (required for some monitors)
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
+              when "01" => -- PAL, 720x576 50Hz, NTSC max raster
+                sprite_y_adjust <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
+              when "10" => -- NTSC, 720x480 @ 60Hz
+                sprite_y_adjust <= to_unsigned(24,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+                
+              when "11" => -- NTSC 720x480 60Hz
+                sprite_y_adjust <= to_unsigned(24,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                -- NTSC but with PAL max raster
+                vicii_max_raster <= pal_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+              when others => -- Default to NTSC 800x600 60Hz
+                sprite_y_adjust <= to_unsigned(24,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+            end case;
+          end if;
         elsif register_number=112 then
           -- @IO:GS $D070 NONE:VIC-IV palette bank selection
-          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
+          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
           palette_bank_fastio <= fastio_wdata(7 downto 6);
           -- @IO:GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
           palette_bank_chargen <= fastio_wdata(5 downto 4);
@@ -2741,8 +2854,8 @@ begin
           -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
-          vsync_delay <= unsigned(fastio_wdata);
+          -- @IO:GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
+          sprite_y_adjust <= unsigned(fastio_wdata);
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
           reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
@@ -2768,31 +2881,41 @@ begin
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-          -- @IO:GS $D07A.3-6 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.3 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
+          -- @IO:GS $D07A.4-5 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          irq_extras_enable <= fastio_wdata(6);
+          sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV:Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
-          -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
-          null;
+          -- @IO:GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
+          -- are fetched from.
+          bitplane_bank_select <= unsigned(fastio_wdata(2 downto 0));
+          dat_bitplane_bank <= unsigned(fastio_wdata(2 downto 0));
+          -- @IO:GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
           vsync_polarity_internal <= fastio_wdata(5);
-        -- @IO:GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
+          -- @IO:GS $D07C.6-7 VIC-IV:DEBUGC VIC-IV debug pixel select red(01), green(10) or blue(11) channel visible in $D07D
+          debug_channel_select <= fastio_wdata(7 downto 6);
         elsif register_number=125 then
-          -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
+          -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB) (write only)
+          -- @IO:GS $D07D DEBUG:DEBUGOUT VIC-IV debug value read-back (read only)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=126 then
           -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=127 then
-          -- @IO:GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
+          -- @IO:GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
           -- @IO:GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
-          debug_x(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          debug_x(13 downto 12) <= "00";
           -- @IO:GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
           debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number<255 then
@@ -2834,7 +2957,21 @@ begin
       vgagreen <= vgagreen_driver;
       vgablue <= vgablue_driver;
 
-      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+      -- Capture pixel at prescribed position to support automated testing
+      -- and display red cross-hairs
+      if xcounter=debug_x xor ycounter=debug_y then
+        -- Draw cross-hairs at debug coordinates
+        vgared <= x"FF";
+        vgagreen <= x"00";
+        vgablue <= x"00";
+      end if;
+      if (xcounter=debug_x) and (ycounter=debug_y) then
+        debug_pixel_red <= vgared_driver;
+        debug_pixel_green <= vgagreen_driver;
+        debug_pixel_blue <= vgablue_driver;
+      end if;
+      
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;      
       -- Ask for the next one (8 sprites + 8 C65 bitplanes)
       if sprite_number_counter = 15 then
         sprite_number_counter <= 0;
@@ -2844,8 +2981,8 @@ begin
         sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
       end if;
 
-      pixel_x_640 <= to_integer(xcounter);
-      pixel_x_800 <= to_integer(xcounter);
+      pixel_x_640 <= safe_to_integer(xcounter);
+      pixel_x_800 <= safe_to_integer(xcounter);
       pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
       pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
 
@@ -2854,10 +2991,10 @@ begin
 
       -- XXX Why do we need these fudge factors to make everything line up?
       -- Subtract 10 for video pipeline depth?
-      native_x_640 <= to_integer(vicii_xcounter_640 - 10);
+      native_x_640 <= safe_to_integer(vicii_xcounter_640 - 10);
       -- Subtract 34 for some reason?
-      native_y_200 <= to_integer(vicii_ycounter - 34);
-      native_y_400 <= to_integer(displayy);
+      native_y_200 <= safe_to_integer(vicii_ycounter - 34);
+      native_y_400 <= safe_to_integer(displayy);
 
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
@@ -2921,11 +3058,13 @@ begin
 
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
+      irq_rasterx <= irq_rasterx and (not ack_rasterx);
       irq_lightpen <= irq_lightpen and (not ack_lightpen);
       irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
       irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
       -- Set IRQ line status to CPU
       irq_drive <= not ((irq_raster and mask_raster)
+                        or (irq_rasterx and mask_rasterx and irq_extras_enable)
                         or (irq_lightpen and mask_lightpen)
                         or (irq_collisionspritebitmap and mask_collisionspritebitmap)
                         or (irq_collisionspritesprite and mask_collisionspritesprite));
@@ -2975,6 +3114,7 @@ begin
       external_pixel_strobe_log(0) <= external_pixel_strobe_in;
       external_pixel_strobe_log(31 downto 1) <= external_pixel_strobe_log(30 downto 0);
       if external_frame_x_zero_latched='0' and external_pixel_strobe_log(reg_xcounter_delay)='1' then
+        report "PIXEL xcounter_pipeline_delayed increased";
         xcounter_pipeline_delayed <= xcounter_pipeline_delayed + 1;
       elsif external_frame_x_zero_latched='1' then
         xcounter_pipeline_delayed <= 0;
@@ -2983,6 +3123,7 @@ begin
       if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and vga_in_frame='1' then
         raster_buffer_read_address(9 downto 0) <= raster_buffer_read_address_next(9 downto 0);
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
+        report "PIXEL pixel strobe edge";
         xcounter <= xcounter + 1;
         -- Allow H640 sprites to begin from far-left
         if (xcounter = sprite_first_x) or (sprite_h640='1') then
@@ -3001,7 +3142,7 @@ begin
       if external_frame_x_zero_latched = '1' then
         -- End of raster reached.
         -- Bump raster number and start next raster.
-        report "XZERO: ycounter=" & integer'image(to_integer(ycounter));
+        report "XZERO: ycounter=" & integer'image(safe_to_integer(ycounter));
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
         sprite_x_scale_toggle <= '0';
@@ -3019,15 +3160,15 @@ begin
         end if;
                                  
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
-        report "LEGACY vicii_ycounter_scale = " & integer'image(to_integer(vicii_ycounter_scale))
-          & ", vicii_ycounter_max_phase = " & integer'image(to_integer(vicii_ycounter_max_phase))
+        report "LEGACY vicii_ycounter_scale = " & integer'image(safe_to_integer(vicii_ycounter_scale))
+          & ", vicii_ycounter_max_phase = " & integer'image(safe_to_integer(vicii_ycounter_max_phase))
           & ", text_mode=" & std_logic'image(text_mode)
           & ", screen_ram_base=$" & to_hstring(screen_ram_base)
           & ", character_set_base=$" & to_hstring(character_set_address)
-          & ", screen_ram_buffer_read_address=" & integer'image(to_integer(screen_ram_buffer_read_address))
-          & ", first_card_of_row=" & integer'image(to_integer(first_card_of_row))
-          & ", chargen_y=" & integer'image(to_integer(chargen_y))
-          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub))
+          & ", screen_ram_buffer_read_address=" & integer'image(safe_to_integer(screen_ram_buffer_read_address))
+          & ", first_card_of_row=" & integer'image(safe_to_integer(first_card_of_row))
+          & ", chargen_y=" & integer'image(safe_to_integer(chargen_y))
+          & ", chargen_y_sub = " & integer'image(safe_to_integer(chargen_y_sub))
           ;
         vicii_xcounter_320 <= to_unsigned(0,9);
         vicii_xcounter_640 <= to_unsigned(0,10);
@@ -3051,6 +3192,9 @@ begin
         else
           vicii_raster_compare_plus_one <= vicii_raster_compare;
         end if;
+        if (xcounter_drive = viciv_rasterx_compare) then
+          irq_rasterx <= '1';
+        end if;
         if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
         end if;
@@ -3061,9 +3205,10 @@ begin
           irq_raster <= '1';
         end if;
 
-        if xcounter > 255 then
-          -- ... it isn't VSYNC time, then update Y position
-          report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
+        if last_external_frame_x_zero_latched='0' then
+          -- ... update Y position, even during VSYNC, since frame timing is
+          -- now exact.
+          report "XZERO: incrementing ycounter from " & integer'image(safe_to_integer(ycounter));
           ycounter_driver <= ycounter_driver + 1;
           
           displaycolumn0 <= '1';
@@ -3073,24 +3218,28 @@ begin
           end if;
           
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
+            if safe_to_integer(vicii_ycounter) /= vicii_max_raster then
               vicii_ycounter <= vicii_ycounter + 1;
+              -- Indicate fixed point on the frame
+              -- (used by CPU to time entry into freeze routine for proper synchronisation.
+              --  Also helps thumbnails to not have tears in them).
+              if vicii_ycounter = to_unsigned(255,9) then
+                viciv_frame_indicate <= '1';
+              else
+                viciv_frame_indicate <= '0';
+              end if;
               -- We update V400 position in this case, bug also in the
               -- alternate case below
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
-            if ycounter >= vsync_delay_drive then
-              vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
-            end if;
+            vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
 
             if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
-              -- The -2 is an adjustment factor to make the sprites line up correctly
-              -- on the screen.
-              if vicii_ycounter < 2 then
+              if vicii_ycounter = (safe_to_integer(vicii_max_raster) + 2 - safe_to_integer(sprite_y_adjust)) then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
-                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2  + safe_to_integer(sprite_y_adjust);
               end if;
             end if;
             
@@ -3103,7 +3252,7 @@ begin
             -- In the middle of a VIC-II logical raster, so just increase phase.
             vicii_ycounter_phase <= vicii_ycounter_phase + 1;
             -- But also bump V400 raster if required
-            if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
+            if safe_to_integer(vicii_ycounter_phase) =  safe_to_integer(vicii_ycounter_max_phase(3 downto 1)) then
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
             
@@ -3111,10 +3260,10 @@ begin
             -- The -2 is an adjustment factor to make the sprites line up correctly
             -- on the screen.
             -- This is done on an "off" line, so that the sprites line up properly
-            if vicii_ycounter < 2 then
+            if vicii_ycounter = (safe_to_integer(vicii_max_raster) + 2 - safe_to_integer(sprite_y_adjust)) then
               vicii_sprite_ycounter <= to_unsigned(0,9);
             else
-              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2 + safe_to_integer(sprite_y_adjust);
             end if;
             
           end if;
@@ -3122,7 +3271,8 @@ begin
       end if;
       
       -- If we got far along the last line to make it look real, and ...
-      if external_frame_y_zero = '1' then
+      last_external_frame_y_zero <= external_frame_y_zero;
+      if external_frame_y_zero = '0' and last_external_frame_y_zero='1' then
         -- Start of next frame
         report "Starting new frame. ycounter_driver <= 0";
         
@@ -3190,24 +3340,31 @@ begin
         if y_chargen_start > displayy then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3) + 1;
+          pixels_since_last_char <= to_unsigned(safe_to_integer(displayy) - safe_to_integer(y_chargen_start),3) + 1;
         end if;
       else
-        if to_integer(y_chargen_start) > to_integer(displayy(11 downto 1)) then
+        if y_chargen_start > displayy(11 downto 1) then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3)
+          pixels_since_last_char <= to_unsigned(safe_to_integer(displayy(11 downto 1)) - safe_to_integer(y_chargen_start),3)
                                     -- Magic fudge factor to get everything
                                     -- lining up correctly
-                                    + to_unsigned(to_integer(y_chargen_start(3 downto 1)) + 1,3);
+                                    + to_unsigned(safe_to_integer(y_chargen_start(3 downto 1)) + 1,3);
         end if;
       end if;
 
       last_was_fetch_start <= is_fetch_start;
-      if xcounter=(to_integer(frame_h_front)+display_fetch_start) then
-        is_fetch_start <= '1';
-      else
-        is_fetch_start <= '0';
+      is_fetch_start <= '0';
+      if raster_buffer_double_line='0' or ycounter(0)='0' then
+        if no_raster_buffer_delay='0' then
+          if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start) then
+            is_fetch_start <= '1';
+          end if;
+        else
+          if xcounter=(safe_to_integer(frame_h_front)+display_fetch_start) then
+            is_fetch_start <= '1';
+          end if;
+        end if;
       end if;
       if is_fetch_start='1' and last_was_fetch_start='0' then
         -- Start of filling raster buffer.
@@ -3223,11 +3380,15 @@ begin
         -- Reset write address in raster buffer
         -- Set write address to all 1's, so that it wraps to zero at the start
         raster_buffer_write_address(9 downto 0) <= (others => '1');
-        raster_buffer_write_address(10) <= not raster_buffer_half_toggle;
+        -- Make sure we read and write to opposite halves of the raster buffer
+        raster_buffer_write_address(10) <= raster_buffer_half_toggle xor no_raster_buffer_delay;
         raster_buffer_half_toggle <= not raster_buffer_half_toggle;
         raster_buffer_max_write_address_hold <= raster_buffer_max_write_address;
         report "setting raster_buffer_max_write_address_hold to $" & to_hstring(raster_buffer_max_write_address);
 
+        -- Reset glyph Y offset each raster line
+        glyph_y_offset <= 0;
+        
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
@@ -3250,28 +3411,30 @@ begin
           -- bitmap mode in sixteen bit char mode uses 2 screen RAM bytes per
           -- card, but not two bitmap bytes, so we have to increment double
           screen_row_current_address
-            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
-                           + to_integer(first_card_of_row) + to_integer(first_card_of_row),20);
+            <= to_unsigned(safe_to_integer(screen_ram_base(19 downto 0))
+                           + safe_to_integer(first_card_of_row) + safe_to_integer(first_card_of_row),20);
         else
           screen_row_current_address
-            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
-                           + to_integer(first_card_of_row),20);
+            <= to_unsigned(safe_to_integer(screen_ram_base(19 downto 0))
+                           + safe_to_integer(first_card_of_row),20);
         end if;
         card_of_row <= (others =>'0');
         screen_ram_buffer_write_address <= to_unsigned(0,9);
         short_line <= '0';
         report "ZEROing screen_ram_buffer_write_address" severity note;
         -- Finally decide which way we should go
-        if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then
+        if safe_to_integer(first_card_of_row) /= safe_to_integer(prev_first_card_of_row) then
           raster_fetch_state <= FetchScreenRamLine;
-          if vertical_border='0' or justbefore_y_chargen_start='1' then
+          -- From Section 3.5 of http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
+          -- (but has problems for some reason)
+          if (blank = '0') and ((vertical_border='0') or justbefore_y_chargen_start='1') and (vicii_ycounter<248) and (vicii_ycounter>=40) then
             badline_toggle_internal <= not badline_toggle_internal;
             badline_toggle <= not badline_toggle_internal;
-            report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
+            report "BADLINE @ y = " & integer'image(safe_to_integer(displayy)) severity note;
             report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
             report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
           else
-            report "BADLINE in vertical border suppressed @ y = " & integer'image(to_integer(displayy)) severity note;
+            report "BADLINE in vertical border suppressed @ y = " & integer'image(safe_to_integer(displayy)) severity note;
           end if;
         else
           report "noBADLINE" severity note;
@@ -3284,7 +3447,7 @@ begin
           chargen_y_next <= chargen_y_next + 1;
           if chargen_y_scale /= 0 then
             if chargen_y_next = "111" then
-              report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+              report "bumping chargen_y to " & integer'image(safe_to_integer(chargen_y)) severity note;
               bump_screen_row_address<='1';
             end if;
             if pixels_since_last_char = "111" then
@@ -3326,7 +3489,7 @@ begin
           if before_y_chargen_start='0' then
             -- Increment card number every "bad line"
             report "LEGACY: Advancing first_card_of_row due to end of character";
-            first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
+            first_card_of_row <= to_unsigned(safe_to_integer(first_card_of_row) + row_advance,16);
             display_row_number <= display_row_number + 1;
             if display_row_number = display_row_count then
               -- Stop chargen on next raster
@@ -3339,7 +3502,7 @@ begin
 
       end if;
 
-      if xcounter<(to_integer(frame_h_front)+display_width) then
+      if xcounter<(safe_to_integer(frame_h_front)+display_width) then
         xbackporch <= '0';
         xbackporch_edge <= '0';
       else
@@ -3376,11 +3539,7 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      vsync_delay_drive <= vsync_delay;
-      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay_drive);
-      if ycounter=0 then
-        null;
-      elsif ycounter=frame_v_front then
+      if ycounter=frame_v_front then
         vert_in_frame <= '1';
       elsif ycounter=0 then
         -- Start of vertical flyback
@@ -3391,6 +3550,7 @@ begin
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
         if vert_in_frame = '1' then
+          pixel_frame_toggle <= not pixel_frame_toggle;
           pixel_newframe <= '1';
           pixel_newframe_internal <= '1';
         else
@@ -3443,6 +3603,11 @@ begin
       elsif displayy = y_chargen_start then
         before_y_chargen_start <= '0';
       end if;
+      -- Allow y_chargen_start to be shifted down mid-frame to allow
+      -- multiple character displays per screen, e.g., for fixed vs scrolling.
+      if displayy < y_chargen_start_minus_one then
+        before_y_chargen_start <= '1';
+      end if;
       if before_y_chargen_start = '1' and justbefore_y_chargen_start='0' then
         -- We have to reset the chargen Y value pipeline.
         -- So chargen_y goes to zero, but we then need to make sure we don't
@@ -3472,10 +3637,10 @@ begin
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
-        report "ycounter = " & integer'image(to_integer(ycounter))
+        report "ycounter = " & integer'image(safe_to_integer(ycounter))
           & ", before_y_chargen_start = " & std_logic'image(before_y_chargen_start)
-          & ", chargen_y = " & integer'image(to_integer(chargen_y))
-          & ", chargen_y_sub = " & integer'image(to_integer(chargen_y_sub))
+          & ", chargen_y = " & integer'image(safe_to_integer(chargen_y))
+          & ", chargen_y_sub = " & integer'image(safe_to_integer(chargen_y_sub))
           & ", chargen_active = " & std_logic'image(chargen_active)
           ;
 
@@ -3484,7 +3649,7 @@ begin
       if short_line='1' then
         row_advance <= short_line_length;
       else
-        row_advance <= to_integer(virtual_row_width);
+        row_advance <= safe_to_integer(virtual_row_width);
       end if;
 
       viciv_outofframe <= (not indisplay_t3);
@@ -3510,6 +3675,8 @@ begin
           severity note;
         pixel_colour <= raster_buffer_read_data(7 downto 0);
         pixel_alpha <= raster_buffer_read_data(16 downto 9);
+        -- 18th bit indicates to use primary or alternate palette
+        pixel_alt_palette <= raster_buffer_read_data(17);
         -- 9th bit indicates foreground for sprite collission handling
         pixel_is_background <= not raster_buffer_read_data(8);
         pixel_is_foreground <= raster_buffer_read_data(8);
@@ -3543,7 +3710,7 @@ begin
       debug_raster_buffer_write_address_drive <= debug_raster_buffer_write_address;
 
       -- Actually, we use two drive stages since the video timing is so pernickety.
-      -- The 2nd drive stage is driven by the ioclock. Search for _drive2 to
+      -- The 2nd drive stage is driven by the cpuclock. Search for _drive2 to
       -- find it.
 
       if xcounter=debug_x and ycounter=debug_y then
@@ -3559,16 +3726,10 @@ begin
         debug_raster_buffer_read_address <= raster_buffer_read_address(7 downto 0);
         debug_raster_buffer_write_address <= raster_buffer_write_address(7 downto 0);
       end if;
-      if xcounter=debug_x or ycounter=debug_y then
-        -- Draw cross-hairs at debug coordinates
-        pixel_colour <= x"02";
-        pixel_is_background <= '0';
-        pixel_is_foreground <= '0';
-      end if;
 
       -- Pixels have a two cycle pipeline to help keep timing contraints:
 
-      report "PIXEL (" & integer'image(to_integer(xcounter)) & "," & integer'image(to_integer(displayy)) & ") : colour =\ $"
+      report "PIXEL (" & integer'image(safe_to_integer(xcounter)) & "," & integer'image(safe_to_integer(displayy)) & ") : colour =\ $"
         & to_hstring(postsprite_pixel_colour)
         & ", RGBA = $" &to_hstring(palette_rdata)
         & ", alpha = $" & to_hstring(postsprite_alpha_value)
@@ -3589,6 +3750,9 @@ begin
       --report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
       --  & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
 
+      -- One pixel delay required for alternate palette selection
+      postsprite_alternate_palette_delayed <= postsprite_alternate_palette;
+      
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
@@ -3605,8 +3769,7 @@ begin
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
         alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
         if pixel_is_sprite='0' then
-          -- Bold + reverse = use alternate palette
-          if (glyph_bold and glyph_reverse)='1' then
+          if postsprite_alternate_palette_delayed='1' then
             palette_address(9 downto 8) <= palette_bank_chargen_alt;
             alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           else
@@ -3643,7 +3806,7 @@ begin
         -- text = $E (foreground and background, and not alpha sprite pixel)
         -- sprite white fg (=+$20) on blue bg (= no +$10) = $21, as expected
         if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
-          palette_address(3) <= '1';
+          palette_address(3) <= '1';          
         else
           palette_address(3) <= postsprite_inborder;
         end if;
@@ -3724,18 +3887,18 @@ begin
       vga_buffer5_green <= vga_buffer4_green;
       vga_buffer5_blue <= vga_buffer4_blue;
 
-      vga_filtered_red <= to_unsigned(to_integer(vga_buffer5_red)
-                                      +to_integer(vga_buffer4_red)
-                                      +to_integer(vga_buffer3_red)
-                                      +to_integer(vga_buffer2_red),10);
-      vga_filtered_green <= to_unsigned(to_integer(vga_buffer5_green)
-                                        +to_integer(vga_buffer4_green)
-                                        +to_integer(vga_buffer3_green)
-                                        +to_integer(vga_buffer2_green),10);
-      vga_filtered_blue <= to_unsigned(to_integer(vga_buffer5_blue)
-                                       +to_integer(vga_buffer4_blue)
-                                       +to_integer(vga_buffer3_blue)
-                                       +to_integer(vga_buffer2_blue),10);
+      vga_filtered_red <= to_unsigned(safe_to_integer(vga_buffer5_red)
+                                      +safe_to_integer(vga_buffer4_red)
+                                      +safe_to_integer(vga_buffer3_red)
+                                      +safe_to_integer(vga_buffer2_red),10);
+      vga_filtered_green <= to_unsigned(safe_to_integer(vga_buffer5_green)
+                                        +safe_to_integer(vga_buffer4_green)
+                                        +safe_to_integer(vga_buffer3_green)
+                                        +safe_to_integer(vga_buffer2_green),10);
+      vga_filtered_blue <= to_unsigned(safe_to_integer(vga_buffer5_blue)
+                                       +safe_to_integer(vga_buffer4_blue)
+                                       +safe_to_integer(vga_buffer3_blue)
+                                       +safe_to_integer(vga_buffer2_blue),10);
 
       if horizontal_filter='0' or reg_h1280='1' then
         vga_palin_red <= vga_buffer3_red;
@@ -3764,7 +3927,7 @@ begin
       -- the pixel stream.
 
       -- Announce each raster line.  Can also be used to identify start of frame.
-      if xcounter=to_integer(display_width) then
+      if xcounter=safe_to_integer(display_width) then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
         pixel_strobe_out <= '0';
@@ -3785,9 +3948,9 @@ begin
           -- XXX pixel_strobe_in should be fed through the pipeline and delayed
           -- to match, so that the correct pixels get latched.
           report "pixel = " & std_logic'image(indisplay)
-            & ", xcounter = " & integer'image(to_integer(xcounter));
+            & ", xcounter = " & integer'image(safe_to_integer(xcounter));
           pixel_strobe_out <= indisplay;
-          pixel_x_out <= to_integer(xcounter);
+          pixel_x_out <= safe_to_integer(xcounter);
         else
           pixel_strobe_out <= '0';
         end if;
@@ -3846,7 +4009,7 @@ begin
       final_screen_row_fetch_address <= last_screen_row_fetch_address;
 
       if final_ramaccess_is_screen_row_fetch='1' then
-        report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
+        report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(safe_to_integer(final_ramaccess_screen_row_buffer_address),16));
       end if;
       screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
       screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
@@ -3867,19 +4030,19 @@ begin
       if reg_h640='1' then
         bitmap_glyph_data_address
           <= (character_set_address(19 downto 14)&"00000000000000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
+          + (safe_to_integer(screen_ram_buffer_read_address)+safe_to_integer(prev_first_card_of_row))*8+safe_to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
           <= (character_set_address(19 downto 13)&"0000000000000")
-          + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
+          + (safe_to_integer(screen_ram_buffer_read_address)+safe_to_integer(prev_first_card_of_row))*8+safe_to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
         report "LEGACY: bitmap_glyph_data_address = $"
           & to_hstring(
-            to_unsigned(to_integer(character_set_address(19 downto 13))*8192
-                        + to_integer(screen_ram_buffer_read_address)
-                        +to_integer(first_card_of_row)*8
-                        +to_integer(chargen_y_hold)
+            to_unsigned(safe_to_integer(character_set_address(19 downto 13))*8192
+                        + safe_to_integer(screen_ram_buffer_read_address)
+                        +safe_to_integer(first_card_of_row)*8
+                        +safe_to_integer(chargen_y_hold)
                         ,17)
             );
       end if;
@@ -3906,12 +4069,12 @@ begin
             render_activity <= "001";
 
             -- Reset screen row (bad line) state
-            character_number <= to_unsigned(1,9);
+            character_number <= to_unsigned(1,11);
             end_of_row_16 <= '0'; end_of_row <= '0';
             report "COLOURRAM: Setting colourramaddress via first_card_of_row."
               & " text_mode=" & std_logic'image(text_mode)
               & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
-            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
+            colourramaddress <= to_unsigned(safe_to_integer(colour_ram_base) + safe_to_integer(first_card_of_row),16);
 
             -- Now ask for the first byte.  We indicate all details of this
             -- read so that it can be committed by the receiving side of the logic.
@@ -4032,6 +4195,20 @@ begin
           -- token).
           glyph_paint_background <= '1';
 
+          -- And don't invert palettes by default
+          glyph_alternate_palette_invert <= '0';
+
+          -- By default, characters are drawn in the foreground.
+          -- If force_chars_background is set, then chars are forced into the background.
+          -- If force_chars_foreground is set, then chars are forced into the foreground
+          -- (ignoreing if a particular colour bit would normally be required
+          -- to achieve this).
+          force_chars_foreground <= '1';
+          force_chars_background <= '0';
+
+          -- By default, draw all pixel rows of each character
+          screenline_draw_mask <= (others => '1');
+          
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
 
@@ -4096,12 +4273,12 @@ begin
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
           glyph_data_address <= bitmap_glyph_data_address;
-          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_read_address))
-            & ", fcor="& integer'image(to_integer(first_card_of_row))
+          report "bitmap srba="& integer'image(safe_to_integer(screen_ram_buffer_read_address))
+            & ", fcor="& integer'image(safe_to_integer(first_card_of_row))
             severity note;
 
           screen_ram_buffer_read_address <= screen_ram_buffer_read_address + 1;
-          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(to_integer(screen_ram_buffer_read_address)+1) severity note;
+          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(safe_to_integer(screen_ram_buffer_read_address)+1) severity note;
 
           -- Clear 16-bit character attributes in case we are reading 8-bits only.
           glyph_flip_horizontal <= '0';
@@ -4187,12 +4364,12 @@ begin
           -- calculate data address for bitmap mode in case we need it
           -- bitmap area is always on an 8KB boundary
           glyph_data_address <= bitmap_glyph_data_address;
-          report "bitmap srba="& integer'image(to_integer(screen_ram_buffer_read_address))
-            & ", fcor="& integer'image(to_integer(first_card_of_row))
+          report "bitmap srba="& integer'image(safe_to_integer(screen_ram_buffer_read_address))
+            & ", fcor="& integer'image(safe_to_integer(first_card_of_row))
             severity note;
 
           screen_ram_buffer_read_address <= screen_ram_buffer_read_address + 1;
-          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(to_integer(screen_ram_buffer_read_address)+1) severity note;
+          report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(safe_to_integer(screen_ram_buffer_read_address)+1) severity note;
         when FetchBitmapCell =>
           report "LEGACY: from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
@@ -4202,27 +4379,33 @@ begin
             -- So remember that this line is short, and don't add the virtual
             -- row width, and abort drawing this line.
             short_line <= '1';
-            short_line_length <= to_integer(screen_ram_buffer_read_address);
+            short_line_length <= safe_to_integer(screen_ram_buffer_read_address);
           end if;
 
-          report "LEGACY: from screen_ram we get glyph_number = $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+          report "LEGACY: from screen_ram we get glyph_number = $" & to_hstring(to_unsigned(safe_to_integer(glyph_number),16)) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
           if glyph_with_alpha='1' then
             report "glyph is alpha blended";
           end if;
+
+          -- Work out if we are drawing this line of this char
+          draw_mask_blank <= not screenline_draw_mask(to_integer(chargen_y_hold));
+          
           if glyph_full_colour='1' then
             report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
             -- from character ROM.  As we only have 2^16 positions, the glyphs
             -- must be in only the first 512KB of chipram.
             glyph_data_address(19) <= '0';
-            glyph_data_address(18 downto 6) <= glyph_number(12 downto 0);
             if glyph_flip_vertical='1' then
+              glyph_data_address(18 downto 6) <= glyph_number(12 downto 0);
               glyph_data_address(5 downto 3) <= not chargen_y_hold;
             else
-              glyph_data_address(5 downto 3) <= chargen_y_hold;
+              -- Allow setting an offset in the glyph address for easier
+              -- free vertical positioning of RRB soft-sprites
+              glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & chargen_y_hold) + glyph_y_offset;
             end if;
             if glyph_flip_horizontal='1' then
               glyph_data_address(2 downto 0) <= "111";
@@ -4236,11 +4419,11 @@ begin
             if glyph_flip_vertical='0' then
               glyph_data_address
                 <= character_set_address(19 downto 0)
-                + to_integer(glyph_number)*8+to_integer(chargen_y_hold);
+                + safe_to_integer(glyph_number)*8+safe_to_integer(chargen_y_hold);
             else
               glyph_data_address
                 <= character_set_address(19 downto 0)
-                + to_integer(glyph_number)*8+7-to_integer(chargen_y_hold);
+                + safe_to_integer(glyph_number)*8+7-safe_to_integer(chargen_y_hold);
             end if;
             -- Mark as possibly coming from ROM
             character_data_from_rom <= '1';
@@ -4265,8 +4448,13 @@ begin
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
-          if viciii_extended_attributes='1' then
-            -- 8-bit colour RAM in VIC-III/IV mode
+          -- Also hold the 2nd colour RAM byte for use as the draw mask,
+          -- if its a GOTOX token with the appropriate bit set
+          screenline_draw_mask_drive <= colourramdata;
+          
+          if viciii_extended_attributes='1' or glyph_full_colour='1' then
+            -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
+            -- full-colour text mode            
             glyph_colour_drive <= colourramdata;
           else
             -- 16 colours only in VIC-II mode
@@ -4294,13 +4482,22 @@ begin
           end if;
           -- Record colour and attribute information from colour RAM
           -- XXX We do this even in bitmap mode!
-          glyph_colour_drive(7 downto 4) <= "0000";
-          glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
+          if glyph_full_colour='1' and viciii_extended_attributes='0' then
+            glyph_colour_drive <= colourramdata;
+          else
+            glyph_colour_drive(7 downto 4) <= "0000";
+            glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
+          end if;
           glyph_bold_drive <= '0';
           glyph_underline_drive <= '0';
           glyph_reverse_drive <= '0';
           glyph_visible_drive <= '1';
           glyph_blink_drive <= '0';
+
+          -- Get bold + reverse combination, even if not in VIC-III extended attribute
+          -- mode, so that we can check for it in GOTOX tokens.
+          glyph_bold_and_reverse <= colourramdata(5) and colourramdata(6);
+          
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if multicolour_mode='1' then
             -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
@@ -4359,21 +4556,73 @@ begin
         when PaintMemWait2 =>
           glyph_colour <= glyph_colour_drive2;
           if glyph_4bit='0' then
-            glyph_width <= 8 - to_integer(glyph_width_deduct(2 downto 0));
+            glyph_width <= 8 - safe_to_integer(glyph_width_deduct(2 downto 0));
           else
-            glyph_width <= 16 - to_integer(glyph_width_deduct(3 downto 0));
+            glyph_width <= 16 - safe_to_integer(glyph_width_deduct(3 downto 0));
           end if;
 
           if glyph_full_colour = '1' then
-            if glyph_flip_horizontal = '0' then
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+            if glyphs_from_hyperram='0' or (not hyper_installed) then
+              -- Fetch full-colour glyph data from chip ram
+              if glyph_flip_horizontal = '0' then
+                glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+              else
+                glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+              end if;
+              full_colour_fetch_count <= 0;
+              raster_fetch_state <= PaintFullColourFetch;
             else
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+              -- Fetch glyph data from ATTIC/CELLAR ram (hyperram)
+              report "HYPERRAM: Request for $" & to_hstring(glyph_data_address(18 downto 3)&"000")
+                & " dispatched.";
+              full_colour_fetch_count <= 0;
+              hyper_addr_drive(18 downto 3) <= glyph_data_address(18 downto 3);
+              hyper_request_toggle_drive <= not last_hyper_request_toggle;
+              last_hyper_request_toggle <= not last_hyper_request_toggle;
+              raster_fetch_state <= PaintFullColourHyperRAMFetch;
             end if;
-            full_colour_fetch_count <= 0;
-            raster_fetch_state <= PaintFullColourFetch;
           else
             raster_fetch_state <= PaintMemWait3;
+          end if;
+        when PaintFullColourHyperRAMFetch =>
+          -- Read data from dedicated hyperram interface (a bit like the VRAM
+          -- that was originally planned for the Amiga Ranger chipset that was
+          -- never released.
+          if hyper_data_strobe='1' then
+            report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data)
+              & ", full_colour_fetch_count = " & integer'image(full_colour_fetch_count);
+            if glyph_flip_horizontal='0' then
+              if glyph_visible='0' or draw_mask_blank='1' then
+                full_colour_data(63 downto 56) <= "00000000";
+              elsif glyph_underline='1' then
+                full_colour_data(63 downto 56) <= "11111111";
+              elsif glyph_reverse='1' and glyph_bold='0' then
+                full_colour_data(63 downto 56) <= hyper_data xor "11111111";
+              else
+                full_colour_data(63 downto 56) <= hyper_data;                  
+              end if;
+              full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
+            else
+              if glyph_visible='0' or draw_mask_blank='1' then
+                full_colour_data(7 downto 0) <= "00000000";
+              elsif glyph_underline='1' then
+                full_colour_data(7 downto 0) <= "11111111";
+              elsif glyph_reverse='1' and glyph_bold='0' then
+                full_colour_data(7 downto 0) <= hyper_data xor "11111111";
+              else
+                full_colour_data(7 downto 0) <= hyper_data;                  
+              end if;
+              full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);                
+            end if;
+
+            if full_colour_fetch_count < 7 then              
+              raster_fetch_state <= PaintFullColourHyperRAMFetch;
+              full_colour_fetch_count <= full_colour_fetch_count + 1;
+            else
+              report "VIC: Received all bytes from HyperRAM. Resuming";
+              raster_fetch_state <= PaintMemWait3;
+            end if;
+            
           end if;
         when PaintFullColourFetch =>
           -- Show what we are doing in debug display mode
@@ -4381,18 +4630,32 @@ begin
 
           -- Read and store the 8 bytes of data we need for a full-colour character
           report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata);
-          full_colour_data(63 downto 56) <= ramdata;
+          if glyph_4bit='0' or glyph_flip_horizontal='0' then
+            -- Don't fly byte nybl order
+            full_colour_data(63 downto 56) <= ramdata;
+          else
+            -- Do flip byte nybl order
+            full_colour_data(63 downto 60) <= ramdata(3 downto 0);
+            full_colour_data(59 downto 56) <= ramdata(7 downto 4);
+          end if;
           full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
           if glyph_flip_horizontal = '0' then
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
           else
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             full_colour_data(63 downto 56) <= "00000000";
           end if;
-          if glyph_reverse='1' then
-            full_colour_data(63 downto 56) <= ramdata xor "11111111";
+          if glyph_reverse='1' and glyph_bold='0' then
+            if glyph_4bit='0' or glyph_flip_horizontal='0' then
+              -- Don't flip byte nybl order
+              full_colour_data(63 downto 56) <= ramdata xor "11111111";
+            else
+              -- Do flip byte nybl order
+              full_colour_data(63 downto 60) <= ramdata(3 downto 0) xor "1111";
+              full_colour_data(59 downto 56) <= ramdata(7 downto 4) xor "1111";
+            end if;
           end if;
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";
@@ -4411,7 +4674,7 @@ begin
           -- We are counting the number characters, not the number of bytes, so
           -- no need multiply row width by two for 16-bit character mode
           -- if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
-          if character_number = display_row_width_minus1 then
+          if character_number(10 downto 0) = display_row_width_minus1 then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
@@ -4439,6 +4702,7 @@ begin
             paint_blink <= glyph_blink;
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
+            paint_alternate_palette <= glyph_reverse and glyph_bold;
             
             if glyph_goto='1' then
               -- Glyph is tab-stop glyph
@@ -4446,9 +4710,27 @@ begin
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
 
+              if glyph_4bit='1' then
+                screenline_draw_mask <= screenline_draw_mask;
+              else
+                screenline_draw_mask <= (others => '1');
+              end if; 
+              
+              -- Allow setting of the glyph y offset in GOTO tokens
+              glyph_y_offset <= to_integer(glyph_width_deduct(2 downto 0));
+              
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
+
+              -- Allow bold + reverse on a GOTOX token to switch
+              -- primary/alternate palette selection for all chars that follow
+              glyph_alternate_palette_invert <= glyph_bold_and_reverse;
+
+              -- Also allow forcing of the following characters to be
+              -- background or foreground
+              force_chars_foreground <= glyph_width_deduct(3);
+              force_chars_background <= glyph_flip_horizontal;
               
             -- ... and don't paint anything, because it is just
             -- a tab stop.
@@ -4497,10 +4779,15 @@ begin
                     paint_mc2 <= x"00";
                     paint_foreground <= x"00";
                   else
-                    -- multi-colour text mode masks bit 3 of the foreground
-                    -- colour to select whether the character is multi-colour or
-                    -- not.
-                    paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                    if viciii_extended_attributes='1' then
+                      -- multi-colour text mode with full-colour VIC III/IV mode
+                      paint_foreground <= glyph_colour;
+                    else
+                      -- multi-colour text mode masks bit 3 of the foreground
+                      -- colour to select whether the character is multi-colour or
+                      -- not.
+                      paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                    end if;
                     paint_mc1 <= multi2_colour;
                     paint_mc2 <= multi1_colour;
                   end if;
@@ -4563,8 +4850,10 @@ begin
           -- Show what we are doing in debug display mode
           render_activity <= "101";
 
+          sprite_pointer_address(19 downto 17) <= "000";
+          
           sprite_datavalid <= '0';
-          if sprite_fetch_sprite_number = 16 then
+          if sprite_fetch_sprite_number = 16 or (sprite_fetch_sprite_number = 8 and bitplane_mode = '0') then
             -- Done fetching sprites
             raster_fetch_state <= Idle;
           elsif sprite_fetch_sprite_number < 8 then
@@ -4618,6 +4907,8 @@ begin
             end if;
 
             -- Odd bitplanes come from 2nd 64KB RAM, even bitplanes from first.
+            -- But also allow shifting bitplanes higher in memory
+            sprite_pointer_address(19 downto 17) <= bitplane_bank_select;
             if (sprite_fetch_sprite_number mod 2) = 0 then
               sprite_pointer_address(16) <= '0';
             else
@@ -4657,7 +4948,7 @@ begin
           if vicii_sprite_pointer_address(23)='1' then
             -- 16-bit sprite pointers, allowing sprites to be sourced from
             -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
-            -- currently have only 128KB :)
+            -- currently have only 384KB :)
             sprite_pointer_address(19 downto 4) <= vicii_sprite_pointer_address(19 downto 4);
             sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
             sprite_pointer_address(0) <= '1';
@@ -4674,16 +4965,45 @@ begin
           -- we need to allow the address computation to add the sprite number
           -- from the ram data to be added to the upper bits of the
           -- sprite_data_offsets() value for the sprite
+          sprite_data_address(19 downto 16) <= "0000";
           if sprite_fetch_sprite_number < 8 then
-            sprite_data_address(16) <= '0';
-            sprite_data_address(15) <= sprite_pointer_address(15);
-            sprite_data_address(14) <= sprite_pointer_address(14);
-            sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            -- But only accept the new sprite data address at the start of
+            -- display of a sprite
+            if sprite_continuous_pointer_monitoring='1' then
+              sprite_data_address(16) <= '0';
+              sprite_data_address(15) <= sprite_pointer_address(15);
+              sprite_data_address(14) <= sprite_pointer_address(14);
+              sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+
+              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 17) <= "000";
+              sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
+              sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
+              sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+            else 
+              if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+                sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+              else
+                sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
+                sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
+                sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
+                sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
+                sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+
+                sprite_data_address(19 downto 16) <= "0000";
+                sprite_data_address(16) <= '0';
+                sprite_data_address(15) <= sprite_pointer_address(15);
+                sprite_data_address(14) <= sprite_pointer_address(14);
+                sprite_data_address(13 downto 0) <= (ramdata_drive&"000000");
+              end if;
+            end if;
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
             report "SPRITE: sprite #"
               & integer'image(sprite_fetch_sprite_number)
               & " pointer value = $" & to_hstring(ramdata_drive);
           else
+            -- Bitplane fetches happen here
+            
             --sprite_data_address <= sprite_pointer_address;
             --sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             --  sprite_data_address(16) <= '0';
@@ -4692,12 +5012,13 @@ begin
             --  sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             if (reg_h640='1' or reg_h1280='1') then
               sprite_data_address(19 downto 14) <= sprite_pointer_address(19 downto 14);
-              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);              
             else
               sprite_data_address(19 downto 13) <= sprite_pointer_address(19 downto 13);
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             end if;
           end if;
+          -- Get MSB if we are using 16-bit sprite pointers
           if vicii_sprite_pointer_address(23)='1' then
             raster_fetch_state <= SpritePointerComputeMSB;
           else
@@ -4708,7 +5029,20 @@ begin
           -- XXX It would be nice to use bit 7 to indicate to source from
           -- colour RAM, but for now we just clip to the 1MB chip RAM range
           report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
-          sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
+          if sprite_continuous_pointer_monitoring='1' then
+            sprite_data_address <= (ramdata_drive(5 downto 0)&sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0))
+                                   + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);            
+          else
+            if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            else
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);            
+              sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
+              sprite_data_address(13 downto 0) <= sprite_data_address(13 downto 0);
+              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= sprite_data_address(13 downto 0);
+            end if;
+          end if;
           raster_fetch_state <= SpriteDataFetch;
         when SpriteDataFetch =>
           -- Show what we are doing in debug display mode
@@ -4771,6 +5105,10 @@ begin
       end if;
 
       raster_buffer_write <= '0';
+
+      -- Always write if we are using the primary or alternate palette
+      raster_buffer_write_data(17) <= paint_alternate_palette xor glyph_alternate_palette_invert;
+      
       case paint_fsm_state is
         when Idle =>
           if paint_ready /= '1' then
@@ -4792,7 +5130,7 @@ begin
           if paint_full_colour_data(3 downto 0) = x"0" then
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(8) <= force_chars_foreground;
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- foreground pixel
@@ -4800,10 +5138,15 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';
+              -- 
+              raster_buffer_write_data(8) <= not force_chars_background;
+                
               if paint_full_colour_data(3 downto 0) /= x"F" then
+                -- Lower four bits of colour come from the nybl
                 raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
-                raster_buffer_write_data(7 downto 4) <= x"0";
+                -- Upper four from the foreground colour from screen RAM.
+                -- This makes it much more useful for paralax layers etc
+                raster_buffer_write_data(7 downto 4) <= paint_foreground(7 downto 4);
               else
                 raster_buffer_write_data(7 downto 0) <= paint_foreground;
               end if;
@@ -4819,7 +5162,7 @@ begin
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 13) <= paint_full_colour_data(3 downto 0);
               raster_buffer_write_data(12 downto 9) <= (others => paint_full_colour_data(0));
-              raster_buffer_write_data(8) <= paint_full_colour_data(3);
+              raster_buffer_write_data(8) <= (paint_full_colour_data(3) or force_chars_foreground) and (not force_chars_background);
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -4846,7 +5189,7 @@ begin
           if paint_full_colour_data(7 downto 0) = x"00" then
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(8) <= force_chars_foreground;
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
             -- foreground pixel
@@ -4854,7 +5197,7 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';
+              raster_buffer_write_data(8) <= not force_chars_background;
               if paint_full_colour_data(7 downto 0) /= x"FF" then
                 raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
               else
@@ -4871,7 +5214,7 @@ begin
                 & " ( + 1 ?)";
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
-              raster_buffer_write_data(8) <= paint_full_colour_data(7);
+              raster_buffer_write_data(8) <= (paint_full_colour_data(7) or force_chars_foreground) and (not force_chars_background);
               -- colour RAM colour provides the foreground
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
@@ -4879,7 +5222,7 @@ begin
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
           raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-          if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) = x"00" then
+          if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) /= x"00" then
             raster_buffer_write <= '1';
           else
             raster_buffer_write <= '0';
@@ -4900,7 +5243,9 @@ begin
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
           report "LEGACY: Painting mono card";
-          if glyph_reverse='1' then
+          -- Delay of paint_alternate_palette for mono is correct
+          paint_alternate_palette <= glyph_reverse and glyph_bold;
+          if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
@@ -4927,7 +5272,7 @@ begin
               &paint_ramdata(4)&paint_ramdata(5)
               &paint_ramdata(6)&paint_ramdata(7);
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             paint_buffer_noflip_ramdata <= "00000000";
             paint_buffer_hflip_ramdata <= "00000000";
             paint_buffer_noflip_chardata <= "00000000";
@@ -4956,10 +5301,12 @@ begin
             paint_buffer <= paint_buffer_hflip_ramdata;
             if paint_ramdata(0)='1' then
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             else
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;
+              raster_buffer_write_data(7 downto 0) <= paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -4979,10 +5326,12 @@ begin
             paint_buffer<= '0'&paint_buffer(7 downto 1);
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_buffer(0)='1' then
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
               report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
             else
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;              
+              raster_buffer_write_data(7 downto 0) <= paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
@@ -5001,7 +5350,9 @@ begin
         when PaintMultiColour =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
-          if glyph_reverse='1' then
+          -- Paint_alternate_palette seems to not work in multi-colour mode
+          paint_alternate_palette <= glyph_reverse and glyph_bold;
+          if glyph_reverse='1' and glyph_bold='0' then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
@@ -5028,7 +5379,7 @@ begin
               &paint_ramdata(4)&paint_ramdata(5)
               &paint_ramdata(6)&paint_ramdata(7);
           end if;
-          if glyph_visible='0' then
+          if glyph_visible='0' or draw_mask_blank='1' then
             paint_buffer_noflip_ramdata <= "00000000";
             paint_buffer_hflip_ramdata <= "00000000";
             paint_buffer_noflip_chardata <= "00000000";
@@ -5060,9 +5411,11 @@ begin
             paint_buffer <= paint_buffer_hflip_ramdata;
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_ramdata(0)='1' then
-              raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+              raster_buffer_write_data(8) <= not force_chars_background;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             else
-              raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+              raster_buffer_write_data(8) <= not force_chars_foreground;
+              raster_buffer_write_data(7 downto 0) <= paint_background;
             end if;
           elsif paint_flip_horizontal='0' and paint_from_charrom='0' then
             paint_buffer <= paint_buffer_noflip_ramdata;
@@ -5080,16 +5433,20 @@ begin
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             case paint_buffer(1 downto 0) is
               when "00" =>
-                raster_buffer_write_data(8 downto 0) <= '0'&paint_background;
+                raster_buffer_write_data(8) <= not force_chars_foreground;
+                raster_buffer_write_data(7 downto 0) <= paint_background;
                 report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
               when "01" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc1;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_mc1;
                 report "Painting multi-colour 2 pixel in colour $" & to_hstring(paint_mc1) severity note;
               when "10" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_mc2;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_mc2;
                 report "Painting multi-colour 3 pixel in colour $" & to_hstring(paint_mc2) severity note;
               when "11" =>
-                raster_buffer_write_data(8 downto 0) <= '1'&paint_foreground;
+                raster_buffer_write_data(8) <= not force_chars_background;
+                raster_buffer_write_data(7 downto 0) <= paint_foreground;
                 report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
               when others =>
                 null;
@@ -5136,19 +5493,19 @@ begin
   -- charaddress generation
   process(raster_fetch_state,glyph_data_address)
   begin
-    charaddress <= to_integer(glyph_data_address(11 downto 0));
+    charaddress <= safe_to_integer(glyph_data_address(11 downto 0));
   --charaddress <= to_unsigned(0,12);
   --case raster_fetch_state is
   --  when FetchBitmapData =>
-  --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-  --      & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-  --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+  --    report "setting charaddress to " & integer'image(safe_to_integer(glyph_data_address(10 downto 0)))
+  --      & " for painting glyph $" & to_hstring(to_unsigned(safe_to_integer(glyph_number),16)) severity note;
+  --    charaddress <= safe_to_integer(glyph_data_address(11 downto 0));
   --  when FetchTextCellColourAndSource =>
   --    -- upper bit of charrom address is set by $D018, only 258*8 = 2K
   --    -- range of address is controlled here by character number.
-  --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-  --        & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-  --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+  --    report "setting charaddress to " & integer'image(safe_to_integer(glyph_data_address(10 downto 0)))
+  --        & " for painting glyph $" & to_hstring(to_unsigned(safe_to_integer(glyph_number),16)) severity note;
+  --    charaddress <= safe_to_integer(glyph_data_address(11 downto 0));
   --  when others => null;
   -- end case;
   end process;
@@ -5200,7 +5557,7 @@ begin
     next_ramaddress <= ramaddress;
 
     if this_ramaccess_is_screen_row_fetch='1' then
-      report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
+      report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(safe_to_integer(this_screen_row_fetch_address),16));
       next_ramaddress <= this_screen_row_fetch_address;
     end if;
 
@@ -5264,14 +5621,14 @@ begin
 --      else
 --        if ycounter_export_countdown /= 0 then
 --          ycounter_export_countdown <= ycounter_export_countdown - 1;
---          ycounter_out <= to_integer(ycounter_last);
---          ycounter_out <= to_integer(ycounter);
+--          ycounter_out <= safe_to_integer(ycounter_last);
+--          ycounter_out <= safe_to_integer(ycounter);
 --        else
 --        end if;
 --      end if;
     end if;
   end process;
 
-  ycounter_out <= to_integer(ycounter);
+  ycounter_out <= safe_to_integer(ycounter);
 
 end Behavioral;

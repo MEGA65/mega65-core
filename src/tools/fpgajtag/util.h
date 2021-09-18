@@ -21,6 +21,23 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// #define USE_LOGGING
+#ifdef USE_LOGGING
+extern int log_depth;
+#define LOGDEPTHSPACE() { for(int i=0;i<log_depth;i++) fprintf(stderr," "); }
+#define LOGDEPTHADD() { log_depth++; LOGDEPTHSPACE(); }
+#define LOGDEPTHSUB() { LOGDEPTHSPACE(); log_depth--; }
+
+#define ENTER() { fflush(stdout); LOGDEPTHADD(); fprintf(stderr,"Entering %s()\n",__FUNCTION__); fflush(stderr); }
+#define EXIT() { fflush(stdout); LOGDEPTHSUB(); fprintf(stderr,"Exiting %s()\n",__FUNCTION__); fflush(stderr); }
+#define LOGNOTE(M) {fflush(stdout); LOGDEPTHSPACE(); fprintf(stderr,"%s:%d:%s():%s\n",__FILE__,__LINE__,__FUNCTION__,M); fflush(stderr); }
+#else
+#define ENTER()
+#define EXIT()
+#endif
+
+
+
 #ifdef USE_LIBFTDI
 #include "ftdi.h"
 #else

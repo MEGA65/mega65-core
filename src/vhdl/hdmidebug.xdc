@@ -292,7 +292,12 @@ set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
 ##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
-set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2Reset]
+## For some reason we require extra drive strength to drive the CS lines, perhaps because
+## the MAX10 is trying to use it at the same time for a debug UART
+## We really should fix this in the MAX10 bitstream, but for some reason I can't get
+## the MAX10 to programme anymore, even though I can see it on JTAG.
+## quartus complains "Error (213013): Programming hardware cable not detected"
+set_property -dict {PACKAGE_PIN K2 DRIVE 24 SLEW FAST IOSTANDARD LVCMOS33} [get_ports sd2Reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
 #set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[0]}]

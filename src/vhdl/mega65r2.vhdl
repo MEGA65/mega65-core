@@ -34,7 +34,7 @@ use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
-         btnCpuReset : in  STD_LOGIC;
+         reset_from_max10 : inout  STD_LOGIC := '1';
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
@@ -96,21 +96,28 @@ entity container is
          hr_reset : out std_logic;
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
+
+         -- Optional 2nd hyperram in trap-door slot
+         hr2_d : inout unsigned(7 downto 0);
+         hr2_rwds : inout std_logic;
+         hr2_reset : out std_logic;
+         hr2_clk_p : out std_logic;
+         hr2_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
+         iec_reset : out std_logic;
+         iec_atn : out std_logic;
          iec_clk_en : out std_logic;
          iec_data_en : out std_logic;
-         iec_data_o : out std_logic;
-         iec_reset : out std_logic;
-         iec_clk_o : out std_logic;
-         iec_data_i : in std_logic;
-         iec_clk_i : in std_logic;
-         iec_srq_o : out std_logic;
          iec_srq_en : out std_logic;
-         iec_src_i : in std_logic;
-         iec_atn : out std_logic;
+         iec_clk_o : out std_logic;
+         iec_data_o : out std_logic;
+         iec_srq_o : out std_logic;
+         iec_clk_i : in std_logic;
+         iec_data_i : in std_logic;
+         iec_srq_i : in std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -129,8 +136,8 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
-         hdmi_spdif : in std_logic;
-         hdmi_spdif_out : out std_logic;
+         hdmi_int : in std_logic;
+         hdmi_spdif : out std_logic := '0';
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
@@ -174,16 +181,28 @@ entity container is
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
 
-         -- Left and right audio
+         -- Left and right headphone port audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;
+         
+         -- PMOD connectors on the MEGA65 R2 main board
+         p1lo : inout std_logic_vector(3 downto 0);
+         p1hi : inout std_logic_vector(3 downto 0);
+         p2lo : inout std_logic_vector(3 downto 0);
+         p2hi : inout std_logic_vector(3 downto 0);
          
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
          f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
+         f_motora : out std_logic := '1';
+         f_selecta : out std_logic := '1';
+         f_motorb : out std_logic := '1';
+         f_selectb : out std_logic := '1';
          f_stepdir : out std_logic := '1';
          f_step : out std_logic := '1';
          f_wdata : out std_logic := '1';
@@ -203,6 +222,12 @@ entity container is
          fpga_sda : inout std_logic;
          fpga_scl : inout std_logic;         
          
+         ----------------------------------------------------------------------
+         -- Comms link to MAX10 FPGA
+         ----------------------------------------------------------------------
+         max10_rx : out std_logic := '1';
+         max10_tx : in std_logic;
+
          ----------------------------------------------------------------------
          -- Serial monitor interface
          ----------------------------------------------------------------------
@@ -224,16 +249,30 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
 
-  signal pixelclock : std_logic;
+  -- Communications with the MAX10 FPGA
+  signal btncpureset : std_logic := '1';
+  signal j21ddr : std_logic_vector(11 downto 0) := (others => '0');
+  signal j21out : std_logic_vector(11 downto 0) := (others => '0');
+  signal j21in : std_logic_vector(11 downto 0) := (others => '0');
+  signal max10_out_vector : std_logic_vector(31 downto 0) := (others => '0');
+  signal max10_in_vector : std_logic_vector(31 downto 0) := (others => '0');
+  signal max10_counter : integer range 0 to 31 := 0;
+  signal fpga_done : std_logic := '1';
+  signal sw : std_logic_vector(15 downto 0) := (others => '0');
+  
+  
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
-  signal clock120 : std_logic;
+  signal pixelclock : std_logic; -- i.e., clock81p
+  signal clock81n : std_logic;
   signal clock100 : std_logic;
+  signal clock135p : std_logic;
+  signal clock135n : std_logic;
   signal clock162 : std_logic;
-  signal clock163 : std_logic;
+  signal clock200 : std_logic;
+  signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -255,6 +294,11 @@ architecture Behavioral of container is
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
+
+  signal slow_prefetched_address : unsigned(26 downto 0);
+  signal slow_prefetched_data : unsigned(7 downto 0);
+  signal slow_prefetched_request_toggle : std_logic;
+  
   signal sector_buffer_mapped : std_logic;  
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
@@ -265,6 +309,8 @@ architecture Behavioral of container is
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
+  signal hdmi_dataenable : std_logic;
+  signal hdmi_hsync_drive : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -301,9 +347,12 @@ architecture Behavioral of container is
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
   signal iec_atn_drive : std_logic;
+  signal last_iec_atn_drive : std_logic;
+  signal iec_bus_active : std_logic := '0';
 
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
+  signal pcspeaker_left_drive : std_logic;
 
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
@@ -329,11 +378,43 @@ architecture Behavioral of container is
   signal expansionram_address : unsigned(26 downto 0);
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
+
+  signal current_cache_line : cache_row_t := (others => (others => '0'));
+  signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal current_cache_line_valid : std_logic := '0';
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+
+  
+  signal audio_left : std_logic_vector(19 downto 0);
+  signal audio_right : std_logic_vector(19 downto 0);
+  signal h_audio_left : std_logic_vector(19 downto 0);
+  signal h_audio_right : std_logic_vector(19 downto 0);
+  signal spdif_48000 : std_logic;
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
+
+  signal disco_led_en : std_logic := '0';
+  signal disco_led_val : unsigned(7 downto 0);
+  signal disco_led_id : unsigned(7 downto 0);
+
+  signal hyper_addr : unsigned(18 downto 3) := (others => '0');
+  signal hyper_request_toggle : std_logic := '0';
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_data_strobe : std_logic := '0';
+
+  signal fm_left : signed(15 downto 0);
+  signal fm_right : signed(15 downto 0);
+
+  signal kbd_datestamp : unsigned(13 downto 0);
+  signal kbd_commit : unsigned(31 downto 0);
+
+  signal max10_fpga_commit : unsigned(31 downto 0) := (others => '0');
+  signal max10_fpga_date : unsigned(15 downto 0) := (others => '0');
+  signal max10_reset_out : std_logic := '1';
+  signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
   
 begin
 
@@ -366,21 +447,31 @@ begin
              USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
 
              -- Assert DONE pin
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+             USRDONEO=>fpga_done,--1-bit input: User DONE pin output control
+             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output DISABLED
              );
 -- End of STARTUPE2_inst instantiation
 
-  
-  dotclock1: entity work.dotclock100
-    port map ( clk_in1 => CLK_IN,
-               clock100 => clock100,
-               clock81 => pixelclock, -- 80MHz
-               clock41 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock162 => clock162,
-               clock27 => clock27
---               clock54 => clock54
+
+  -- New clocking setup, using more optimised selection of multipliers
+  -- and dividers, as well as the ability of some clock outputs to provide an
+  -- inverted clock for free.
+  -- Also, the 50 and 100MHz ethernet clocks are now independent of the other
+  -- clocks, so that Vivado shouldn't try to meet timing closure in the (already
+  -- protected) domain crossings used for those.
+  clocks1: entity work.clocking
+    port map ( clk_in    => CLK_IN,
+               clock27   => clock27,    --   27     MHz
+               clock41   => cpuclock,   --   40.5   MHz
+               clock50   => ethclock,   --   50     MHz
+               clock81p  => pixelclock, --   81     MHz
+               clock81n  => clock81n,   --   81     MHz
+               clock100  => clock100,   --  100     MHz
+               clock135p => clock135p,  --  135     MHz
+               clock135n => clock135n,  --  135     MHz
+               clock163  => clock162,   --  162.5   MHz
+               clock200  => clock200,   --  200     MHz
+               clock325  => clock325    --  325     MHz
                );
 
   fpgatemp0: entity work.fpgatemp
@@ -390,31 +481,30 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-  hdmi0: entity work.vga_hdmi
+  hdmi_de <= hdmi_dataenable;
+  -- We seem to need to invert HDMI HSYNC based on N5998A tests
+  hdmi_vsync <= not v_vsync;
+
+  hdmi_hsync <= hdmi_hsync_drive;
+  
+  hdmiaudio: entity work.hdmi_spdif
+    generic map ( samplerate => 48000 )
     port map (
       clock27 => clock27,
+      spdif_out => spdif_48000,
+      left_in => h_audio_left,
+      right_in => h_audio_right
+      ); 
 
-      -- outputs from machine.vhdl that feed us
-      pattern_r => std_logic_vector(v_red),
-      pattern_g => std_logic_vector(v_green),
-      pattern_b => std_logic_vector(v_blue),
-      pattern_hsync => v_vga_hsync,
-      pattern_vsync => v_vsync,
-      pattern_de => lcd_dataenable,
-
-      -- and our outputs to control the HDMI port
-      hdmi_clk => hdmi_clk,
-      hdmi_hsync => hdmi_hsync,
-      hdmi_vsync => hdmi_vsync,
-      hdmi_de => hdmi_de,
-      hdmi_scl => hdmi_scl,
-      hdmi_sda => hdmi_sda
-      );
   
   kbd0: entity work.mega65kbd_to_matrix
     port map (
-      ioclock => cpuclock,
+      cpuclock => cpuclock,
 
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,
+      
       powerled => '1',
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
@@ -422,7 +512,10 @@ begin
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
-
+      
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
@@ -435,9 +528,19 @@ begin
 
   hyperram0: entity work.hyperram
     port map (
-      cpuclock => cpuclock,
-      clock240 => clock163,
-      reset => reset_out,
+      pixelclock => pixelclock,
+      clock163 => clock162,
+      clock325 => clock325,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+--      request_counter => led,
+
+      viciv_addr => hyper_addr,
+      viciv_request_toggle => hyper_request_toggle,
+      viciv_data_out => hyper_data,
+      viciv_data_strobe => hyper_data_strobe,
+      
+      -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -445,15 +548,39 @@ begin
       rdata => expansionram_rdata,
       data_ready_strobe => expansionram_data_ready_strobe,
       busy => expansionram_busy,
-      latency_1x => to_unsigned(4,8),
-      latency_2x => to_unsigned(8,8),
+
+      current_cache_line => current_cache_line,
+      current_cache_line_address => current_cache_line_address,
+      current_cache_line_valid => current_cache_line_valid,     
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
       hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0
+--      hr_clk_n => hr_clk_n,
+
+      hr_cs0 => hr_cs0,
+      hr_cs1 => hr2_cs0,
+
+      hr2_d => hr2_d,
+      hr2_rwds => hr2_rwds,
+      hr2_reset => hr2_reset,
+      hr2_clk_p => hr2_clk_p
+--      hr_clk_n => hr_clk_n,
       );
+
+--  fakehyper0: entity work.fakehyperram
+--    port map (
+--      clock163 => clock163,
+--      hr_d => hr_d,
+--      hr_rwds => hr_rwds,
+--      hr_reset => hr_reset,
+--      hr_clk_n => hr_clk_n,
+--      hr_clk_p => hr_clk_p,
+--      hr_cs0 => hr_cs0
+--      );
+    
   
   slow_devices0: entity work.slow_devices
     generic map (
@@ -472,6 +599,9 @@ begin
       
       joya => joy3,
       joyb => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
       
 --      cart_busy => led,
       cart_access_count => cart_access_count,
@@ -483,16 +613,25 @@ begin
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
 
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
-      expansionram_read => expansionram_read,
-      expansionram_write => expansionram_write,
-      expansionram_rdata => expansionram_rdata,
-      expansionram_wdata => expansionram_wdata,
-      expansionram_address => expansionram_address,
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
+      expansionram_read => expansionram_read,
+      expansionram_write => expansionram_write,
+      expansionram_address => expansionram_address,
+      expansionram_rdata => expansionram_rdata,
+      expansionram_wdata => expansionram_wdata,
+
+      expansionram_current_cache_line => current_cache_line,
+      expansionram_current_cache_line_address => current_cache_line_address,
+      expansionram_current_cache_line_valid => current_cache_line_valid,
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -526,20 +665,37 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40,
-                 target => mega65r2
+    generic map (cpu_frequency => 40500000,
+                 target => mega65r2,
+                 hyper_installed => true -- For VIC-IV to know it can use
+                                         -- hyperram for full-colour glyphs
                  )                 
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
-      ioclock         => cpuclock, -- Match CPU clock
       clock162 => clock162,
       clock100 => clock100,
+      clock200 => clock200,
       clock27 => clock27,
       clock50mhz      => ethclock,
 
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
+      
       fast_key => fastkey,
+
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr,
+      
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+
+      max10_fpga_commit => max10_fpga_commit,
+      max10_fpga_date => max10_fpga_date,
       
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -554,6 +710,9 @@ begin
       
       joy3 => joy3,
       joy4 => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
       
       no_hyppo => '0',
       
@@ -562,25 +721,30 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
---      hdmi_sda        => hdmi_sda,
---      hdmi_scl        => hdmi_scl,
+      hdmi_sda        => hdmi_sda,
+      hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
+      hdmi_dataenable =>  hdmi_dataenable,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en_drive,
       iec_data_en => iec_data_en_drive,
+      iec_srq_en => iec_srq_en_drive,
       iec_data_o => iec_data_o_drive,
       iec_reset => iec_reset_drive,
       iec_clk_o => iec_clk_o_drive,
+      iec_srq_o => iec_srq_o_drive,
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
+      iec_srq_external => iec_srq_i_drive,
       iec_atn_o => iec_atn_drive,
-
+      iec_bus_active => iec_bus_active,
+      
 --      buffereduart_rx => '1',
-      buffereduart_ringindicate => '1',
+      buffereduart_ringindicate => (others => '0'),
 
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
@@ -609,8 +773,10 @@ begin
       pot_via_iec => pot_via_iec,
 
     f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_motorb => f_motorb,
+    f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
     f_wdata => f_wdata,
@@ -656,6 +822,11 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
+
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      
       cpu_exrom => cpu_exrom,      
       cpu_game => cpu_game,
       cart_access_count => cart_access_count,
@@ -675,10 +846,18 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,      
+      
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
+      ampSD => pcspeaker_muten,
+      pcspeaker_left => pcspeaker_left_drive,
+      audio_left => audio_left,
+      audio_right => audio_right,
 
       -- Normal connection of I2C peripherals to dedicated address space
       i2c1sda => fpga_sda,
@@ -687,6 +866,7 @@ begin
 --      tmpsda => fpga_sda,
 --      tmpscl => fpga_scl,
 
+      portp_out => portp,
       
       -- No PS/2 keyboard for now
       ps2data =>      '1',
@@ -709,12 +889,51 @@ begin
       widget_joya => (others => '1'),
       widget_joyb => (others => '1'),      
       
-      sw => (others => '0'),
+      sw => sw,
+      dipsw => dipsw,
 --      uart_rx => '1',
       btn => (others => '1')
          
       );
 
+  -- BUFG on ethernet clock to keep the clock nice and strong
+  ethbufg0:
+  bufg port map ( I => ethclock,
+                  O => eth_clock);
+
+  max10: entity work.max10
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+
+--      led => led,
+      
+      max10_clkandsync => reset_from_max10,
+      max10_rx => max10_rx,
+      max10_tx => max10_tx,
+
+      max10_fpga_commit => max10_fpga_commit,
+      max10_fpga_date => max10_fpga_date,
+
+      reset_button => max10_reset_out,
+      dipsw => dipsw,
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr
+      );
+  
+
+  process(clock27) is
+  begin
+    if rising_edge(clock27) then
+      -- HSYNC is arriving one cycle too early on this board according to the N5998A
+      -- protocol analyser. So we will simply add a delay stage to it.
+      -- (That way we don't mess up the perfectly correct frame timings as used for
+      -- other targets, e.g., the MEGA65 R3 board with different HDMI circuitry).
+      hdmi_hsync_drive <= v_vga_hsync;
+    end if;
+  end process;
+  
   process (pixelclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
@@ -726,9 +945,9 @@ begin
     -- HDMI output at 27MHz
     hdmi_clk <= clock27;
 
-    -- Ethernet clock at 50MHz
-    eth_clock <= ethclock;
-
+    -- 41MHz clock to MAX10 for reading/writing ports
+    fpga_done <= clock41;
+    
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
@@ -736,7 +955,10 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
-      led <= cart_exrom;
+--      led <= cart_exrom;
+--      led <= flopled_drive;
+
+      btncpureset <= max10_reset_out;
       
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;
@@ -749,71 +971,72 @@ begin
       fb_down_drive <= fb_down;
       fb_fire_drive <= fb_fire;  
 
-      -- The CIAs drive these lines naively, so we need to apply the inverters
-      -- on the outputs here, and also deal with the particulars of how the
-      -- MEGA65 PCB drives these lines.
-      -- Note that the MEGA65 PCB lacks pull-ups on these lines, and relies on
-      -- the connected disk drive(s) having pull-ups of their own.
-      -- Here is the truth table for behaviour with a pull-up on the pin:
-      -- +----+-----++----+
-      -- | _o | _en || _i |
-      -- +----+-----++----+
-      -- |  0 |   X || 0  |
-      -- |  1 |   0 || 1* |
-      -- |  1 |   1 || 1  |
-      -- +----+-----++----+
-      -- * Value provided by pin up, or equivalently device on the bus
-      --
-      -- End result is simple: Invert output bit, and copy output enable
-      -- Except, that the CIA always thinks it is driving the line, so
-      -- we need to ignore the _en lines, and instead use the _o lines
-      -- (before inversion) to indicate when we should be driving the pin
-      -- to ground.
-
+      -- The simple output-only IEC lines we just drive
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
+      
+      -- The active-high EN lines enable the IEC output drivers.
+      -- We need to invert the signal, so that if a signal from CIA
+      -- is high, we drive the IEC pin low. Else we let the line
+      -- float high.  We have external pull-ups, so shouldn't use them
+      -- in the FPGA.  This also means we can leave the input line to
+      -- the output drivers set a 0, as we never "send" a 1 -- only relax
+      -- and let it float to 1.
+      iec_srq_o <= '0';
+      iec_clk_o <= '0';
+      iec_data_o <= '0';
 
-      if pot_via_iec = '0' then
-        -- Normal IEC port operation
-        iec_clk_en <= iec_clk_o_drive;
-        iec_clk_o <= not iec_clk_o_drive;
-        iec_clk_i_drive <= iec_clk_i;
-        iec_data_en <= iec_data_o_drive;
-        iec_data_o <= not iec_data_o_drive;
-        iec_data_i_drive <= iec_data_i;
-        -- So pots act like infinite resistance
-        fa_potx <= '0';
-        fa_poty <= '0';
-        fb_potx <= '0';
-        fb_poty <= '0';
+      -- Reading pins is simple
+      iec_srq_i_drive <= iec_srq_i;
+      iec_clk_i_drive <= iec_clk_i;
+      iec_data_i_drive <= iec_data_i;
+
+      last_iec_atn_drive <= iec_atn_drive;
+      if (iec_srq_i_drive /= iec_srq_i)
+        or (iec_clk_i_drive /= iec_clk_i)
+        or (iec_data_i_drive /= iec_data_i)
+        or (iec_atn_drive /= last_iec_atn_drive) then
+        iec_bus_active <= '1';
       else
-        -- IEC lines being used as POT inputs
-        iec_clk_i_drive <= '1';
-        iec_data_i_drive <= '1';
-        if pot_drain = '1' then
-          -- IEC lines being used to drain pots
-          iec_clk_en <= '1';
-          iec_clk_o <= '0';
-          iec_data_en <= '1';
-          iec_data_o <= '0';
-        else
-          -- Stop draining
-          iec_clk_en <= '0';
-          iec_clk_o <= '0';
-          iec_data_en <= '0';
-          iec_data_o <= '0';
-        end if;
-        -- Copy IEC input values to POT inputs
-        fa_potx <= iec_data_i;
-        fa_poty <= iec_clk_i;
-        fb_potx <= iec_data_i;
-        fb_poty <= iec_clk_i;
+        iec_bus_active <= '0';
       end if;
+      
+      -- Finally, because we have the output value of 0 hard-wired
+      -- on the output drivers, we need only gate the EN line.
+      -- But we only do this if the DDR is set to output
+      iec_srq_en <= iec_srq_o_drive and iec_srq_en_drive;
+      iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
+      iec_data_en <= iec_data_o_drive and iec_data_en_drive;
+
+      -- Pots act like infinite resistance, as we have no real pots on R2 PCB
+      fa_potx <= '0';
+      fa_poty <= '0';
+      fb_potx <= '0';
+      fb_poty <= '0';
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
-
+      pcspeaker_left <= pcspeaker_left_drive;
+      
     end if;
+
+    h_audio_right <= audio_right;
+    h_audio_right <= audio_left;
+    -- toggle signed/unsigned audio flipping
+    if portp(7)='1' then
+      h_audio_right(19) <= not audio_right(19);
+      h_audio_left(19) <= not audio_left(19);
+    end if;
+    -- LED on main board 
+    led <= portp(4);
+
+    -- Make SPDIF audio switchable for debugging HDMI output
+    if portp(0) = '1' then
+      hdmi_spdif <= spdif_48000;
+    else
+      hdmi_spdif <= '0';
+    end if;      
+
     
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -825,13 +1048,16 @@ begin
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
     end if;
-    
-    if rising_edge(pixelclock) then
 
-      -- no hdmi audio yet
-      hdmi_spdif_out <= 'Z';
-
+    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
+    -- getting through
+    if portp(2)='1' then
+      vgagreen <= unsigned(audio_left(15 downto 8));
+      vgared <= unsigned(audio_right(15 downto 8));
+      hdmigreen <= unsigned(audio_left(15 downto 8));
+      hdmired <= unsigned(audio_right(15 downto 8));
     end if;
+    
   end process;    
   
 end Behavioral;

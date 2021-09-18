@@ -31,8 +31,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity pcm_transceiver is
+  generic ( clock_frequency : integer );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- PCM clock and sync signals
     pcm_clk : in std_logic;
@@ -43,10 +44,10 @@ entity pcm_transceiver is
     pcm_in : in std_logic;
 
     -- sample to send
-    tx_sample : in unsigned(15 downto 0);
+    tx_sample : in signed(15 downto 0);
 
     -- last sample received
-    rx_sample : out unsigned(15 downto 0)
+    rx_sample : out signed(15 downto 0)
 
     );
 
@@ -67,9 +68,9 @@ architecture brutalist of pcm_transceiver is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       last_sync <= pcm_sync;
       last_clk <= pcm_clk;
@@ -106,8 +107,7 @@ begin
           -- Copy received sample out
           -- Note that the PCM audio is signed, so we need to convert it to unsigned
           if rxdone='0' then
-            rx_sample(14 downto 0) <= unsigned(rxbuffer(14 downto 0));
-            rx_sample(15) <= not rxbuffer(15);
+            rx_sample <= signed(rxbuffer);
             rxbuffer <= "0000000000000000";
             rxdone <= '1';
           end if;
@@ -128,8 +128,7 @@ begin
       if (last_sync='1' and pcm_sync='0') then
         -- Time for a new sample
         -- Invert bit 15 to convert from unsigned to signed
-        txbuffer(15) <= not tx_sample(15);
-        txbuffer(14 downto 0) <= std_logic_vector(tx_sample(14 downto 0));
+        txbuffer <= std_logic_vector(tx_sample);
         report "Starting to send new sample with value $" & to_hstring(tx_sample);
         bit_number <= 16;
         rxdone <= '0';                  

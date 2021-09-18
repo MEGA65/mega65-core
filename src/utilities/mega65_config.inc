@@ -25,6 +25,8 @@
 ;The Save tab options must not be changed as the code relies on them being 
 ;defined in a particular way (although the text of the buttons can be changed).
 ;
+;The number of screen lines used to display a page's options must not exceed 20.
+;
 ;The pages are listed in an index for each tab such that the code can traverse
 ;the lists as defined here.  The number of pages in a tab must also be defined.
 ;
@@ -66,28 +68,32 @@ inputOptions0:
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$02			;bits for testing/setting
+;	.byte		$02			;bits for testing/setting
+	.byte		$01			;bits for testing/setting
 	.defPStr	"joystick 1 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$08			;bits for testing/setting
+;	.byte		$08			;bits for testing/setting
+	.byte		$04			;bits for testing/setting
 	.defPStr	"joystick 1 amiga mouse detection:"	;label
 	.defPStr	'conservative'		;option unset
 	.defPStr	"aggressive"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$01			;bits for testing/setting
+;	.byte		$01			;bits for testing/setting
+	.byte		$02			;bits for testing/setting
 	.defPStr	"joystick 2 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$04			;bits for testing/setting
+;	.byte		$04			;bits for testing/setting
+	.byte		$08			;bits for testing/setting
 	.defPStr	"joystick 2 amiga mouse detection:"	;label
 	.defPStr	'conservative'		;option unset
 	.defPStr	"aggressive"	;option set
@@ -121,7 +127,7 @@ rtc_values:
 	.byte		$01			;bits for testing/setting
 	.defPStr	"dmagic revision:"	;label
 	.defPStr	'f018 (c65 roms < 910523)'		;option unset
-	.defPStr	"f018b (c65 roms >= 910523)"	;option set
+	.defPStr	"f018b"	;option set
 
 	.byte		$20			;option input type
 	.word		$0004			;offset into config table
@@ -139,6 +145,14 @@ rtc_values:
 	.byte		$00, $00, $00, $00
 	.byte		$00, $00, $00, $00
 	.byte		$00, $00, $00, $00
+
+	.byte		$20			;option input type
+	.word		$000F			;offset into config table
+	.byte		$80			;bits for testing/setting
+	.defPStr	"long fn support (experimental):"	;label
+	.defPStr	"disable";option unset
+	.defPStr	'enable';option set
+
 
 	.byte		$00			;end of list type
 chipsetOptions0_end:
@@ -160,6 +174,21 @@ videoOptions0:
 	.defPStr	"video mode:"
 	.defPStr	"pal  50hz (720*576)"
 	.defPStr	"ntsc 60hz (720*480)"
+
+	.byte		$20
+	.word		$000D
+	.byte		$02
+	.defPStr	"digital video:"
+	.defPStr	"enhanced (with audio)"
+	.defPStr	"dvi only (no audio)"
+
+	.byte		$20
+	.word		$0021
+	.byte		$20
+	.defPStr	"crt emulation:"
+	.defPStr	"off"
+	.defPStr	"on"
+
 	.byte		$00
 videoOptions0_end:
 	.assert		(videoOptions0_end - videoOptions0) < 256, error, "Video Options 0 too large!"
@@ -206,9 +235,15 @@ audioOptions0:
 	.byte		$00
 audioOptions0_end:
 	.assert		(audioOptions0_end - audioOptions0) < 256, error, "Audio Options 0 too large!"
+
+audioOptions1:
+audioOptions1_end:
+	.assert		(audioOptions1_end - audioOptions1) < 256, error, "Audio Options 1 too large!"
 	
+
 audioPageIndex:
 	.word		audioOptions0
+;	.word		audioOptions1
 
 
 ;-------------------------------------------------------------------------------
@@ -235,19 +270,19 @@ networkPageIndex:
 savePageCnt	=	1
 
 ;*******************************************************************************
-;Do not change the order or number of options in these lists!
+;Do not change the order or number of options in these lists without code change!
 ;*******************************************************************************
 saveOptions0:
-	.byte           $10
-	.defPStr        "exit without saving"
-       	.byte           $10
-        .defPStr        "apply and test settings now"
-        .byte           $10
-        .defPStr        "restore factory defaults"  
- 	.byte		$10
+	.byte		$10
+	.defPStr	"exit without saving"
+	.byte		$10
+	.defPStr	"restore factory defaults"
+	.byte		$10
+	.defPStr	"exit and reboot to onboarding"
+	.byte		$10
 	.defPStr	"save as defaults and exit"
 	.byte		$00
-	
+
 saveOptions1:
 	.byte		$40
 	.byte		$40
@@ -263,3 +298,30 @@ saveOptions2:
 	
 savePageIndex:
 	.word		saveOptions0, saveOptions1, saveOptions2
+
+
+;-------------------------------------------------------------------------------
+;Help tab
+;-------------------------------------------------------------------------------
+helpPageCnt	=	1
+
+;*******************************************************************************
+;Do not change the order or number of options in these lists!
+;*******************************************************************************
+helpOptions0:
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$10
+	.defPStr	"ok"
+
+	.byte		$00
+	
+helpPageIndex:
+	.word		helpOptions0

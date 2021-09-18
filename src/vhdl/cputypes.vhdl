@@ -6,12 +6,14 @@ use ieee.numeric_std.all;
 package cputypes is
 
   type mega65_target_t is (
-    mega65r1, mega65r2,
+    simulation,
+    mega65r1, mega65r2, mega65r3,
     megaphoner1,
-    nexys4, nexys4ddr, nexys4ddr_widget
+    nexys4, nexys4ddr, nexys4ddr_widget,
+    wukong
     );
   
-  type sample_vector_t is array(0 to 15) of unsigned(15 downto 0);
+  type sample_vector_t is array(0 to 15) of signed(15 downto 0);
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
   
   type addressingmode is (
@@ -44,7 +46,8 @@ package cputypes is
     );
 
   type ilut9bit is array(0 to 511) of instruction;
-
+    
+  
   type microcodeops is record
     -- Do we increment PC?
     mcIncPC : std_logic;
@@ -123,5 +126,8 @@ package cputypes is
   end record;
 
   type microcoderom_t is array (instruction) of microcodeops;
+
+  -- Used for HyperRAM cache
+  type cache_row_t is array (0 to 7) of unsigned(7 downto 0);
   
 end cputypes;

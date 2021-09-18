@@ -38,14 +38,6 @@
 #include <libusb.h>
 #endif
 
-#ifdef USE_LOGGING
-#define ENTER() fprintf(stderr,"Entering %s()\n",__FUNCTION__)
-#define EXIT() fprintf(stderr,"Exiting %s()\n",__FUNCTION__)
-#else
-#define ENTER()
-#define EXIT()
-#endif
-
 // for using libftdi.so
 //#define USE_LIBFTDI
 
@@ -86,8 +78,9 @@ int trace;
 
 #if defined(USE_LOGGING)
 static int logging = 1;
+int log_depth=0;
 #else
-static int logging;
+static int logging = 0;
 #endif
 #ifndef NO_LIBUSB
 static libusb_device_handle *usbhandle = NULL;
@@ -137,6 +130,9 @@ static int ftdi_write_data(struct ftdi_context *ftdi, const unsigned char *buf, 
       formatwrite(1, buf, size, "WRITE");
 #ifndef NO_LIBUSB
     ret = libusb_bulk_transfer(usbhandle, ENDPOINT_IN, (unsigned char *)buf, size, &actual_length, USB_TIMEOUT);
+#ifdef USE_LOGGING
+    dump_bytes(log_depth+2,__FUNCTION__, buf,size);
+#endif
 #endif
     if (ret < 0) {
         fprintf(stderr, "fpgajtag: usb bulk write failed: ret %d req size %d act %d\n", ret, size, actual_length);
@@ -156,6 +152,9 @@ static int ftdi_read_data(struct ftdi_context *ftdi, unsigned char *buf, int siz
         count++;
 #ifndef NO_LIBUSB
         ret = libusb_bulk_transfer (usbhandle, ENDPOINT_OUT, usbreadbuffer, USB_CHUNKSIZE, &actual_length, USB_TIMEOUT);
+#ifdef USE_LOGGING
+	dump_bytes(log_depth+2,__FUNCTION__, usbreadbuffer,actual_length);
+#endif
 #endif
         if (ret < 0) {
             fprintf(stderr, "fpgajtag: usb bulk read failed: rc %d\n", ret);
@@ -190,7 +189,7 @@ void write_data(uint8_t *buf, int size)
 {
   ENTER();
 #ifdef USE_LOGGING
-  dump_bytes(0,"write_data()", buf, size);
+  dump_bytes(log_depth+2,"write_data()", buf, size);
 #endif
   
   memcpy(usbreadbuffer_ptr, buf, size);

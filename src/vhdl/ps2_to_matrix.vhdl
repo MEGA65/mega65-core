@@ -6,7 +6,7 @@ use work.debugtools.all;
 
 entity ps2_to_matrix is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
     reset_in : in std_logic;
 
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
@@ -90,7 +90,7 @@ begin  -- behavioural
 
   ps2kmm: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => keyram_address,
     dia => keyram_di,
     wea => keyram_wea,
@@ -99,7 +99,7 @@ begin  -- behavioural
     );
   
 -- purpose: read from ps2 keyboard interface
-  keyread: process (ioclock, ps2data,ps2clock)
+  keyread: process (cpuclock, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
     variable km_index : integer range 0 to 127;
     variable km_update : std_logic;
@@ -107,7 +107,7 @@ begin  -- behavioural
     variable km_index_col : unsigned(2 downto 0);
 
   begin  -- process keyread
-    if rising_edge(ioclock) then      
+    if rising_edge(cpuclock) then      
 
       joya <= joy1(4 downto 0);
       joyb <= joy2(4 downto 0);
@@ -243,27 +243,24 @@ begin  -- behavioural
                              joy1(3) <= break;
                            when x"070" =>  -- JOY1 FIRE
                              joy1(4) <= break;
-                           when x"074" =>  -- JOY2 DOWN
-                             joy2(3) <= break;
---                           when x"072" =>  -- JOY2 RIGHT
---                             joy2(3) <= break;
                            when x"073" =>  -- JOY2 FIRE
                              joy2(4) <= break;
                              
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
                            when x"066" => km_index := 0;
                            when x"05A" => km_index := 1;
-                           when x"174" =>
+                           when x"074" | x"174" =>
                              if joylock='0' then
                                cursor_right <= break; ps2 <= '1';
                              else
-                               joy2(3) <= break;
+                               joy2(3) <= break;  -- JOY2 DOWN
                              end if;
                            when x"083" => km_index := 3;
                            when x"005" => km_index := 4;
                            when x"004" => km_index := 5;
                            when x"003" => km_index := 6;
-                           when x"072" =>
+                           -- Some keyboards use code 205 = $CD for cursor down
+                           when x"072" | x"0CD" | x"172" =>
                              if joylock='0' then
                                cursor_down <= break; ps2 <= '1';
                              else
@@ -272,13 +269,13 @@ begin  -- behavioural
                                                   -- code for down
                                                   -- key and joy2 right?
                              end if;
-                           when x"075" => -- JOY2 LEFT
+                           when x"075" | x"0C8" | x"175" => -- JOY2 UP
                              if joylock='1' then
                                joy2(0) <= break;
                              else
                                cursor_up <= break; ps2 <= '1';
                              end if;
-                           when x"06B" => -- JOY2 UP
+                           when x"06B" | x"0CB" | x"16B" => -- JOY2 LEFT
                              if joylock='1' then
                                joy2(2) <= break;
                              else
@@ -363,7 +360,7 @@ begin  -- behavioural
                            when x"05B" => km_index := 49;
                            when x"052" => km_index := 50;
                            when x"16C" => km_index := 51;
-                           when x"059" => right_shift <= break; ps2 <= '1';
+                           when x"059" | x"159" => right_shift <= break; ps2 <= '1';
                            when x"05D" => km_index := 53;
                            when x"171" => km_index := 54;
                            when x"04A" => km_index := 55;
