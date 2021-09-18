@@ -232,20 +232,21 @@ begin
     crc_value => crc_value
     );
   
-  process (clock40mhz,f_rdata) is
+  process (clock40mhz,f_rdata,encoding_mode,rll_bit_valid,rll_bit_in,rll_sync_in,rll_byte_out,mfm_bit_valid,mfm_bit_in,mfm_sync_in,mfm_byte_out) is
   begin
 
-    if encoding_mode=x"1" then
-      bit_valid <= rll_bit_valid;
-      bit_in <= rll_bit_in;
-      sync_in <= rll_sync_in;
-      byte_out <= rll_byte_out;
-    else
-      bit_valid <= mfm_bit_valid;
-      bit_in <= mfm_bit_in;
-      sync_in <= mfm_sync_in;
-      byte_out <= mfm_byte_out;
-    end if;
+    case encoding_mode is
+      when x"1" =>
+        bit_valid <= rll_bit_valid;
+        bit_in <= rll_bit_in;
+        sync_in <= rll_sync_in;
+        byte_out <= rll_byte_out;
+      when others =>
+        bit_valid <= mfm_bit_valid;
+        bit_in <= mfm_bit_in;
+        sync_in <= mfm_sync_in;
+        byte_out <= mfm_byte_out;
+    end case;
     
     if rising_edge(clock40mhz) then
 
