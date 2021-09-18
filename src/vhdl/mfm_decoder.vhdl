@@ -261,7 +261,9 @@ begin
       mfm_last_gap(15 downto 12) <= gap_count;
       if gap_size_valid='1' then
         mfm_quantised_gap(7) <= sync_in;
-        mfm_quantised_gap(6 downto 2) <= qgap_count(4 downto 0);
+        mfm_quantised_gap(6) <= mfm_sync_in;
+        mfm_quantised_gap(5) <= rll_sync_in;
+        mfm_quantised_gap(4 downto 2) <= qgap_count(3 downto 0);
         mfm_quantised_gap(1 downto 0) <= gap_size;
         if qgap_count /= "111111" then
           qgap_count <= qgap_count + 1;
