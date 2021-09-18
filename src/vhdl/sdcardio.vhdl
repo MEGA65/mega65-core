@@ -631,6 +631,9 @@ architecture behavioural of sdcardio is
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
   signal track_info_sectors : unsigned(7 downto 0) := x"00";
   signal use_tib_info : std_logic := '1';
+
+  signal crc_force_delay_counter : integer range 0 to 12 := 0;
+  signal crc_force_delay : std_logic := '0';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1626,6 +1629,16 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Allow blocking readiness of CRC result to allow CRC internal
+      -- pipeline to take effect (because crc_ready flag doesn't clear
+      -- until a couple of cycles after a new byte has been fed into it).
+      if crc_force_delay_counter /= 0 then
+        crc_force_delay_counter <= 0;
+      end if;
+      if crc_force_delay_counter < 2 then
+        crc_force_delay <= '0';
+      end if;
+      
       -- Automatically select whether to show last DD or HD sector
       if auto_fdc_2x_select='1' then
         if found_track /= last_found_track or found_sector /= last_found_sector or found_side /= last_found_side then
@@ -3522,7 +3535,11 @@ begin  -- behavioural
             fdc_sector_operation <= '0';
           end if;
           
-          if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
+          if crc_ready='0' or crc_force_delay = '1' then
+            last_fw_ready_for_next <= last_fw_ready_for_next;
+            report "CRC1WAIT: crc_force_delay=" & std_logic'image(crc_force_delay)
+              & ", counter=" & integer'image(crc_force_delay_counter) & ", ready=" & std_logic'image(crc_ready);
+          elsif fw_ready_for_next='1' and last_fw_ready_for_next='0' then
             format_state <= format_state + 1;
             report "format_state = " & integer'image(format_state);
             case format_state is
@@ -3581,12 +3598,20 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_byte <= x"02";
                 crc_feed <= '1';
+                -- Force wait so that CRC has time to start updating, and thus
+                -- crc_ready to go low, so that we don't try to read it immediately
+                -- before it has started.
+                crc_force_delay_counter <= 8 + 4;
+                crc_force_delay <= '1';
               when 21 =>
                 -- Sector header: First CRC byte
+                report "SECTORHEADER: Writing CRC byte 1 $" & to_hstring(crc_value(15 downto 8));
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
+                crc_feed <= '0';
               when 22 =>
                 -- Sector header: Second CRC byte
+                report "SECTORHEADER: Writing CRC byte 2 $" & to_hstring(crc_value(7 downto 0));
                 fw_byte_in <= crc_value(7 downto 0);
                 fw_byte_valid <= '1';
                 if format_no_gaps='1' then
@@ -3693,6 +3718,8 @@ begin  -- behavioural
                 -- bit6 = track-at-once(1)/normal sectors with gaps that can be
                 -- written to individually(0)
                 -- Other bits reserved
+                report "TRACKINFO: setting encoding byte to $x" & to_hstring(saved_fdc_encoding_mode);
+                
                 if format_no_gaps = '1' then
                   fw_byte_in(7 downto 4) <= x"0";
                   crc_byte(7 downto 4) <= x"0";
@@ -3788,7 +3815,10 @@ begin  -- behavioural
           -- Check for edge on fw_ready_for_next, except for first byte, which
           -- we write immediately, because fw_ready_for_next will have been stuck
           -- asserted since the last write or format command
-          if fw_ready_for_next = '1' and (last_fw_ready_for_next='0' or fdc_write_byte_number=0) then
+          if crc_ready='0' or crc_force_delay='1' then
+            last_fw_ready_for_next <= last_fw_ready_for_next;
+            report "CRC1WAIT";
+          elsif fw_ready_for_next = '1' and (last_fw_ready_for_next='0' or fdc_write_byte_number=0) then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
             case fdc_write_byte_number is
               when 0 to 22 =>
@@ -3826,6 +3856,11 @@ begin  -- behavioural
                 crc_feed <= '1';
                 fw_byte_valid <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
+                -- Force wait so that CRC has time to start updating, and thus
+                -- crc_ready to go low, so that we don't try to read it immediately
+                -- before it has started.
+                crc_force_delay_counter <= 8 + 4;
+                crc_force_delay <= '1';                
               when 23 + 16 + 512 =>
                 -- First CRC byte
                 f011_reg_clock <= x"FF";
