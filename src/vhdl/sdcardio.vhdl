@@ -972,7 +972,10 @@ begin  -- behavioural
            fdc_read_request,cycles_per_interval,found_track,
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
            fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
-           fdc_bytes_read,fpga_temperature                      
+           fdc_bytes_read,fpga_temperature,
+           fdc_encoding_mode,f_wdata_rll,fw_no_data_rll,fw_ready_for_next_rll,
+           f_wdata_mfm,fw_no_data_mfm,fw_ready_for_next_mfm,
+           f_wdata_raw,fw_no_data_raw,fw_ready_for_next_raw
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
