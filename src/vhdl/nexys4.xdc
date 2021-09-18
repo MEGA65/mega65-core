@@ -6,7 +6,21 @@
 ## Clock signal
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
- 
+
+## Work around MMCM placement problem
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/CLKOUT0]
+
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+
 ## Switches
 set_property -dict { PACKAGE_PIN U9 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
 set_property -dict { PACKAGE_PIN U8 IOSTANDARD LVCMOS33 } [get_ports {sw[1]}]
@@ -264,7 +278,7 @@ set_property  -dict { PACKAGE_PIN L13 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
 #set_property -dict { PACKAGE_PIN U13 IOSTANDARD LVCMOS33 } [get_ports {MemAdr[22]}]
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
-set_property BITSTREAM.CONFIG.CONFIGRATE 66 [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 26 [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_MODE SPIx4 [current_design]

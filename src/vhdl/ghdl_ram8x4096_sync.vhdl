@@ -35,7 +35,7 @@ begin  -- behavioural
     if(rising_edge(Clkr)) then
 
       if cs='1' then
-       report "Unit " & to_hstring(unit) & ": Reading $" & to_hstring(ram(address)) & " from address $" & to_hstring(to_unsigned(address,12));
+--       report "Unit " & to_hstring(unit) & ": Reading $" & to_hstring(ram(address)) & " from address $" & to_hstring(to_unsigned(address,12));
        rdata <= ram(address);
       end if;
     end if;
@@ -47,8 +47,8 @@ begin  -- behavioural
       if cs='1' then
         if w='1' then
           ram(write_address) <= wdata;
-          report "Unit " & to_hstring(unit) & ": writing $" & to_hstring(wdata) & " to sector buffer offset $"
-            & to_hstring(to_unsigned(write_address,12)) severity note;
+--          report "Unit " & to_hstring(unit) & ": writing $" & to_hstring(wdata) & " to sector buffer offset $"
+--            & to_hstring(to_unsigned(write_address,12)) severity note;
         end if;
       end if;
     end if;    

@@ -31,24 +31,25 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity i2s_transceiver is
+  generic ( clock_frequency : integer );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- I2S clock and sync signals
     i2s_clk : in std_logic;
     i2s_sync : in std_logic;
 
     -- PCM audio interface
-    pcm_out : out std_logic;
+    pcm_out : out std_logic := '0';
     pcm_in : in std_logic;
 
     -- sample to send
-    tx_sample_left : in unsigned(15 downto 0);
-    tx_sample_right : in unsigned(15 downto 0);
+    tx_sample_left : in signed(15 downto 0);
+    tx_sample_right : in signed(15 downto 0);
 
     -- last sample received
-    rx_sample_left : out unsigned(15 downto 0);
-    rx_sample_right : out unsigned(15 downto 0)
+    rx_sample_left : out signed(15 downto 0) := (others => '0');
+    rx_sample_right : out signed(15 downto 0) := (others => '0')
 
     );
 
@@ -67,9 +68,9 @@ architecture brutalist of i2s_transceiver is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       last_clk <= i2s_clk;
 

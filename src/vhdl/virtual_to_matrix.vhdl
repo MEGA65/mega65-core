@@ -13,6 +13,7 @@ entity virtual_to_matrix is
         key3 : in unsigned(7 downto 0);
         touch_key1 : in unsigned(7 downto 0);
         touch_key2 : in unsigned(7 downto 0);
+        restore_out : out std_logic := '1';
         
         -- Virtualised keyboard matrix
         matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
@@ -26,16 +27,19 @@ architecture behavioral of virtual_to_matrix is
 
   signal scan_phase : integer range 0 to 71 := 0;
 
-  signal key1_drive : unsigned(7 downto 0);
-  signal key2_drive : unsigned(7 downto 0);
-  signal key3_drive : unsigned(7 downto 0);
-  signal touch_key1_drive : unsigned(7 downto 0);
-  signal touch_key2_drive : unsigned(7 downto 0);
+  signal key1_drive : unsigned(7 downto 0) := (others => '0');
+  signal key2_drive : unsigned(7 downto 0) := (others => '0');
+  signal key3_drive : unsigned(7 downto 0) := (others => '0');
+  signal touch_key1_drive : unsigned(7 downto 0) := (others => '0');
+  signal touch_key2_drive : unsigned(7 downto 0) := (others => '0');
   
   -- keyboard matrix ram inputs
-  signal keyram_address : integer range 0 to 8;
-  signal keyram_di : std_logic_vector(7 downto 0);
-  signal keyram_wea : std_logic_vector(7 downto 0);
+  signal keyram_address : integer range 0 to 8 := 0;
+  signal keyram_di : std_logic_vector(7 downto 0) := (others => '0');
+  signal keyram_wea : std_logic_vector(7 downto 0) := (others => '0');
+
+  signal restore_countdown : integer := 0;
+  signal restore_latch : std_logic := '0';
   
 begin
 
@@ -65,12 +69,33 @@ begin
       key3_drive <= key3;
       touch_key1_drive <= touch_key1;
       touch_key2_drive <= touch_key2;
+
+      -- x"52" = capital R = hold restore key down
+      -- x"72" = small R = tap restore, with a timeout of 100 cycles
+      if key1 = x"52" or key2 = x"52" or key3 = x"52" then
+        restore_out <= '0';
+      else
+        if restore_countdown = 0 then
+          restore_out <= '1';
+        else
+          restore_countdown <= restore_countdown - 1;
+        end if;
+      end if;
+      if key1 = x"72" or key2 = x"72" or key3 = x"72" then
+        if restore_latch = '0' then
+          restore_latch <= '1';
+          restore_out <= '0';
+          restore_countdown <= 100;
+        end if;
+      else
+        restore_latch <= '0';
+      end if;
       
-      if (key1_drive = to_unsigned(scan_phase,8))
-        or (key2_drive = to_unsigned(scan_phase,8))
-        or (key3_drive = to_unsigned(scan_phase,8))
-        or (touch_key1_drive = to_unsigned(scan_phase,8))
-        or (touch_key2_drive = to_unsigned(scan_phase,8))
+      if (safe_to_integer(key1_drive) = scan_phase)
+        or (safe_to_integer(key2_drive) = scan_phase)
+        or (safe_to_integer(key3_drive) = scan_phase)
+        or (safe_to_integer(touch_key1_drive) = scan_phase)
+        or (safe_to_integer(touch_key2_drive) = scan_phase)
       then
         km_value := '0';
       else
@@ -98,7 +123,7 @@ begin
         when others => keyram_wea <= x"00";
       end case;
     
-      keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+      keyram_address <= safe_to_integer(to_unsigned(km_index,7)(6 downto 3));
       keyram_di <= (7 downto 0 => km_value); -- replicate value bit across byte
       
     end if;

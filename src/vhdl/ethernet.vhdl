@@ -45,6 +45,7 @@ entity ethernet is
     clock : in std_logic;
     clock50mhz : in std_logic;
     clock100 : in std_logic;
+    clock200 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := '1';
     ethernet_cs : in std_logic;
@@ -149,18 +150,22 @@ architecture behavioural of ethernet is
                           ReceivingPreamble,
                           ReceivingFrame,
                           ReceivedFrame,
+                          ReceivedFrameWait,
                           ReceivedFrame2,
+                          ReceivedFrame2Wait,
+                          PostRxDelay,
                           BadFrame,
 
                           IdleWait,
-                          Interpacketgap,
-                          WaitBeforeTX,
+                          Interpacketgap,  -- $0E
+                          WaitBeforeTX,    -- $0F
                           SendingPreamble,
-                          SendingFrame,
+                          SendingFrame,    -- $11
                           SendFCS,
-                          SentFrame
+                          SentFrame        -- $13
                           );
-  signal eth_state : ethernet_state := Idle;
+ signal eth_state : ethernet_state := Idle;
+ signal eth_wait : integer range 0 to 20 := 0;
 
   -- MAC address and filtering functions
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
@@ -180,58 +185,76 @@ architecture behavioural of ethernet is
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
   signal debug_rx : std_logic := '0';
  
-  -- control reset line on ethernet controller
+ -- control reset line on ethernet controller
+  signal reset_50mhz : std_logic := '1';
+  signal reset_50mhz_drive : std_logic := '1';
   signal eth_reset_int : std_logic := '1';
+  signal eth_reset_int_50mhz : std_logic := '1';
+  signal eth_reset_int_50mhz_drive : std_logic := '1';
+  signal eth_soft_reset : std_logic := '1';
+  signal eth_soft_reset_50mhz : std_logic := '1';
+  signal eth_soft_reset_50mhz_drive : std_logic := '1';
   -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
   signal eth_rx_buffer_moby_int1 : std_logic := '0';
   signal eth_rx_buffer_moby_int2 : std_logic := '0';
   signal eth_rx_buffer_moby_50mhz : std_logic := '0';
-  -- which half of frame buffer had the most recent frame delivery
-  signal eth_rx_buffer_last_used_48mhz : std_logic := '1';
-  signal eth_rx_buffer_last_used_int2 : std_logic := '1';
-  signal eth_rx_buffer_last_used_int1 : std_logic := '1';
-  signal eth_rx_buffer_last_used_50mhz : std_logic := '1';
   signal eth_rx_crc : unsigned(31 downto 0);
   -- ethernet receiver signals
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
-  signal eth_frame_len : integer range 0 to 4095;
+  signal eth_frame_len : integer range 0 to 2047;
   signal eth_mac_counter : integer range 0 to 7;
-  
-  signal rxbuffer_cs : std_logic;
-  signal rxbuffer_write : std_logic;
-  signal rxbuffer_writeaddress : integer range 0 to 4095;
-  signal rxbuffer_readaddress : integer range 0 to 4095;
-  signal rxbuffer_wdata : unsigned(7 downto 0);
 
+  signal rxbuffer_cs : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_write : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_end_of_packet_toggle : std_logic := '0';
+  signal rxbuffer_end_of_packet_toggle_drive : std_logic := '0';
+  signal last_rxbuffer_end_of_packet_toggle : std_logic := '0';
+  signal rxbuffer_write_toggle : std_logic := '0';
+  signal rxbuffer_write_toggle_drive : std_logic := '0';
+  signal last_rxbuffer_write_toggle : std_logic := '0';
+  signal rxbuffer_writeaddress : integer range 0 to 2047;
+  signal rxbuffer_writeaddress_l : integer range 0 to 2047;
+  signal rxbuffer_readaddress : integer range 0 to 2047;
+  signal rxbuffer_wdata_l : unsigned(7 downto 0) := x"00";
+  signal rxbuffer_wdata : unsigned(7 downto 0) := x"00";
+  signal eth_rx_buffer_inuse : unsigned(3 downto 0) := "0000";
+  signal rxbuff_id_cpuside : integer range 0 to 3 := 0;
+  signal rxbuff_id_ethside : integer range 0 to 3 := 0;
+  signal eth_rx_buffers_free : integer range 0 to 3 := 3;
+ 
   signal eth_tx_toggle_48mhz : std_logic := '1';
   signal eth_tx_toggle : std_logic := '1';
   signal eth_tx_toggle_int2 : std_logic := '1';
   signal eth_tx_toggle_int1 : std_logic := '1';
   signal eth_tx_toggle_50mhz : std_logic := '1';
-  signal tx_preamble_count : integer range 31 downto 0;
+  signal tx_preamble_count : integer range 63 downto 0 := 0;
+  signal tx_preamble_length : integer range 63 downto 0 := 29;
   signal eth_tx_state : ethernet_state := Idle;
-  signal eth_tx_bit_count : integer range 0 to 6;
+  signal eth_tx_bit_count : integer range 0 to 6 := 0;
   signal eth_tx_viciv : std_logic := '0';
   signal eth_tx_dump : std_logic := '0';
-  signal txbuffer_writeaddress : integer range 0 to 4095;
-  signal txbuffer_readaddress : integer range 0 to 4095;
+  signal txbuffer_writeaddress : integer range 0 to 2047;
+  signal txbuffer_readaddress : integer range 0 to 2047;
   signal txbuffer_write : std_logic := '0';
-  signal txbuffer_wdata : unsigned(7 downto 0);
-  signal txbuffer_rdata : unsigned(7 downto 0);
-  signal eth_tx_bits : unsigned(7 downto 0);
+  signal txbuffer_wdata : unsigned(7 downto 0) := x"00";
+  signal txbuffer_rdata : unsigned(7 downto 0) := x"00";
+  signal eth_tx_bits : unsigned(7 downto 0) := x"00";
   signal eth_tx_size : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_size_padded : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_padding : std_logic := '0';
   signal eth_tx_trigger : std_logic := '0';
+  signal eth_tx_trigger_drive : std_logic := '0';
+  signal eth_tx_trigger_50mhz : std_logic := '0';
+  signal eth_tx_trigger_50mhz_drive : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic := '0';
   signal eth_txd_int : unsigned(1 downto 0) := "00";
-  signal eth_tx_wait : integer range 0 to 50;
+  signal eth_tx_wait : integer range 0 to 50 := 0;
  
-  signal eth_tx_crc_count : integer range 0 to 16;
+  signal eth_tx_crc_count : integer range 0 to 16 := 0;
   signal eth_tx_crc_bits : std_logic_vector(31 downto 0) := (others => '0');
  
  -- CRC
@@ -261,8 +284,15 @@ architecture behavioural of ethernet is
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
 
  signal eth_rxdv : std_logic := '0';
+ signal eth_rxdv_last : std_logic := '0';
+ signal eth_rxdv_last2 : std_logic := '0';
+ signal eth_rxdv_latched : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
+ signal eth_rxd_latched : unsigned(1 downto 0) := "00";
  signal eth_disable_crc_check : std_logic := '0';
+ signal rx_phase_counter : integer range 0 to 3 := 0;
+ signal eth_rx_latch_phase_drive : unsigned(1 downto 0) := to_unsigned(0,2);
+ signal eth_rx_latch_phase : unsigned(1 downto 0) := to_unsigned(0,2);
 
  signal eth_txd : unsigned(1 downto 0) := "11";
  signal eth_txen : std_logic := '0';
@@ -270,6 +300,8 @@ architecture behavioural of ethernet is
  signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
  signal eth_txd_phase : unsigned(1 downto 0) := "00";
  signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
+ signal eth_txd_out_stage : unsigned(1 downto 0) := "00";
+ signal eth_txen_out_stage : std_logic := '0';
 
  signal eth_tx_packet_count : unsigned(5 downto 0) := "000000";
  
@@ -316,8 +348,18 @@ architecture behavioural of ethernet is
  signal raster_toggle : std_logic := '0';
  signal last_raster_number : unsigned(11 downto 0) := (others => '0');
 
- signal eth_buffer_blocked_50mhz : std_logic := '0';
- signal eth_buffer_blocked : std_logic := '0';
+ signal eth_rx_write_count : unsigned(7 downto 0) := x"00";
+
+ signal eth_rx_blocked_50mhz : std_logic := '0';
+ signal eth_rx_blocked : std_logic := '0';
+
+ signal last_rx_rotate_bit : std_logic := '0';
+ signal rx_rotate_count : unsigned(3 downto 0) := to_unsigned(0,4);
+
+ signal post_rx_countdown : integer range 0 to 15 := 0;
+
+ signal eth_debug_select : unsigned(7 downto 0) := x"00";
+ signal tx_frame_count : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -350,19 +392,21 @@ begin  -- behavioural
   -- and so we still get cross-clock timing violations with this.
   -- We could use _sync, in which case we just need to make sure that we
   -- have the right number of waitstates in the CPU.
-  rxbuffer0: entity work.ram8x4096 port map (
-    clkw => clock50mhz,
-    clkr => clock,
-    cs => rxbuffer_cs,
-    w => rxbuffer_write,
-    write_address => rxbuffer_writeaddress,
-    wdata => rxbuffer_wdata,
-    address => rxbuffer_readaddress,
-    rdata => fastio_rdata);  
+  rxbuffers: for i in 0 to 3 generate
+    rxbuffer0: entity work.ram8x2048 port map (
+      clkw => clock,
+      clkr => clock,
+      cs => rxbuffer_cs(i),
+      w => rxbuffer_write(i),
+      write_address => rxbuffer_writeaddress_l,
+      wdata => rxbuffer_wdata_l,
+      address => rxbuffer_readaddress,
+      rdata => fastio_rdata);
+    end generate;
 
-  txbuffer0: entity work.ram8x4096 port map (
+  txbuffer0: entity work.ram8x2048 port map (
     clkr => clock50mhz,
-    clkw => clock50mhz,
+    clkw => clock,
     cs => '1',
     w => txbuffer_write,
     write_address => txbuffer_writeaddress,
@@ -431,28 +475,51 @@ begin  -- behavioural
     );
 
   -- Look after CPU side of mapping of RX buffer
-  process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
+  process(fastio_addr,fastio_read) is
   begin    
-    rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
+    rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
     if fastio_read='1' and (
       (fastio_addr(19 downto 12) = x"DE" and fastio_addr(11)='1')
-      or (fastio_addr(19 downto 12) = x"D2")
+      or (fastio_addr(19 downto 12) = x"D2" and fastio_addr(11)='1')
       )
     then
-      rxbuffer_cs <= '1';
+      for i in 0 to 3 loop
+        if rxbuff_id_cpuside = i then
+          rxbuffer_cs(i) <= '1';
+        else
+          rxbuffer_cs(i) <= '0';
+        end if;
+      end loop;
     else
-      rxbuffer_cs <= '0';
+      rxbuffer_cs <= "0000";
     end if;
   end process;
 
   -- Present TX data bits and TX en lines at variable phase to
   -- 50MHz clock
-  process(clock100) is
+  process(clock200) is
   begin
-    if rising_edge(clock100) then
-      eth_txd_out <= eth_txd_delayed(7 downto 6);
-      eth_txen_out <= eth_txen_delayed(3);
+    if rising_edge(clock200) then
 
+      -- Extra drive stage to de-glitch TX lines
+      eth_txd_out <= eth_txd_out_stage;
+      eth_txen_out <= eth_txen_out_stage;
+      
+      eth_txd_out_stage <= eth_txd_delayed(7 downto 6);
+      eth_txen_out_stage <= eth_txen_delayed(3);
+
+      if rx_phase_counter /= 3 then
+        rx_phase_counter <= rx_phase_counter + 1;
+      else
+        rx_phase_counter <= 0;
+      end if;
+
+      if rx_phase_counter = to_integer(eth_rx_latch_phase) then
+        eth_rxd_latched <= eth_rxd_in;
+        eth_rxdv_latched <= eth_rxdv_in;
+      end if;
+
+      
       eth_txd_delayed(7 downto 2) <= eth_txd_delayed(5 downto 0);
       eth_txen_delayed(3 downto 1) <= eth_txen_delayed(2 downto 0);
       case eth_txd_phase_drive is
@@ -465,6 +532,9 @@ begin  -- behavioural
         when "10" =>
           eth_txd_delayed(3 downto 2) <= eth_txd;
           eth_txen_delayed(1) <= eth_txen;
+        when "11" =>
+          eth_txd_delayed(1 downto 0) <= eth_txd;
+          eth_txen_delayed(0) <= eth_txen;
         when others =>
           eth_txd_delayed(1 downto 0) <= eth_txd;
           eth_txen_delayed(0) <= eth_txen;
@@ -473,13 +543,31 @@ begin  -- behavioural
   end process;
   
   process(clock50mhz) is
-    variable frame_length : unsigned(11 downto 0);
+    variable frame_length : unsigned(10 downto 0);
   begin
     if rising_edge(clock50mhz) then
-      eth_txd_phase_drive <= eth_txd_phase;
+
+      -- Cross-domain latch the reset signals
+      reset_50mhz <= reset_50mhz_drive;
+      reset_50mhz_drive <= reset;
+      eth_soft_reset_50mhz_drive <= eth_soft_reset;
+      eth_soft_reset_50mhz <= eth_soft_reset_50mhz_drive;
+      eth_reset_int_50mhz_drive <= eth_reset_int;
+      eth_reset_int_50mhz <= eth_reset_int_50mhz_drive;
       
-      eth_rxd <= eth_rxd_in;
-      eth_rxdv <= eth_rxdv_in;
+      -- Double flip-flop latch the eth_tx_trigger
+      eth_tx_trigger_50mhz_drive <= eth_tx_trigger_drive;
+      eth_tx_trigger_50mhz <= eth_tx_trigger_50mhz_drive;
+      
+      eth_rx_blocked_50mhz <= eth_rx_blocked;
+      
+      eth_txd_phase_drive <= eth_txd_phase;
+      eth_rx_latch_phase_drive <= eth_rx_latch_phase;
+      
+      eth_rxd <= eth_rxd_latched;
+      eth_rxdv <= eth_rxdv_latched;
+      eth_rxdv_last <= eth_rxdv;
+      eth_rxdv_last2 <= eth_rxdv_last;
       
       -- Register ethernet data lines and data valid signal
       eth_txd <= eth_txd_int;
@@ -488,11 +576,6 @@ begin  -- behavioural
       -- We separate the RX/TX FSMs to allow true full-duplex operation.
       -- For now it is upto the user to ensure the 0.96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
-
-      -- Let 50MHz side know which buffer the CPU is looking at.
-      eth_rx_buffer_moby_int1 <= eth_rx_buffer_moby;
-      eth_rx_buffer_moby_int2 <= eth_rx_buffer_moby_int1;
-      eth_rx_buffer_moby_50mhz <= eth_rx_buffer_moby_int2;
       
       -- Ethernet TX FSM
       if eth_tx_state = Idle then
@@ -521,7 +604,15 @@ begin  -- behavioural
             eth_tx_wait <= eth_tx_wait - 1;
           end if;
         when Idle =>
-          if eth_tx_trigger = '1' then
+          if eth_tx_trigger_50mhz = '0' then
+            eth_tx_complete <= '0';
+          end if;
+
+          -- XXX Try having TXD be ready for preamble, to see if that
+          -- fixes the weird problem with packet loss due to wrong preamble length.
+          eth_txd_int <= "01";
+          
+          if eth_tx_trigger_50mhz = '1' then
 
             -- reset frame padding state
             eth_tx_padding <= '0';
@@ -531,15 +622,18 @@ begin  -- behavioural
               eth_tx_size_padded <= eth_tx_size;
             end if;
             -- begin transmission
+            tx_frame_count <= tx_frame_count + 1;
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            -- 56 bits of preamble = 28 dibits.
+            -- We add a few extra just to make sure.
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
             eth_tx_dump <= '0';
-          elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
+          elsif false and (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
             -- start sending an IPv6 multicast packet containing the compressed
             -- video or CPU instruction trace.
             report "ETHERDUMP: Sending next packet ("
@@ -550,13 +644,13 @@ begin  -- behavioural
             dumpram_raddr <= (not activity_dump_ready_toggle) & "00000000000";
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
             eth_tx_dump <= '1';
-          elsif (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
+          elsif false and (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
             report "FRAMEPACKER: Sending next packet ("
@@ -567,7 +661,7 @@ begin  -- behavioural
             buffer_address <= (not buffer_moby_toggle) & "00000000000";
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
@@ -753,15 +847,17 @@ begin  -- behavioural
         when others =>
           eth_tx_state <= IdleWait;
       end case;
-    
-      -- Ethernet RX FSM
-      if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
-        eth_buffer_blocked_50mhz <= '1';
-      else
-        eth_buffer_blocked_50mhz <= '0';
+
+      -- Allow resetting of the ethernet TX state machine
+      if eth_reset_int_50mhz='0' or reset_50mhz='0' or eth_soft_reset_50mhz='0' then
+        eth_tx_state <= Idle;
+        eth_txen_int <= '0';
+        eth_txd_int <= "11";        
+        eth_tx_viciv <= '0';
+        eth_tx_dump <= '0';
       end if;
-      
-      frame_length := to_unsigned(eth_frame_len,12);
+            
+      frame_length := to_unsigned(eth_frame_len,11);
       case eth_state is
         when Idle =>
           if debug_rx = '1' then
@@ -769,27 +865,18 @@ begin  -- behavioural
             eth_state <= DebugRxFrameWait;
           end if;
           rx_keyinput <= '1';
-          rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
             report "CRC: Frame carrier detected";
             eth_state <= WaitingForPreamble;
             rx_fcs_crc_load_init <= '1';
             rx_fcs_crc_d_valid <= '0';
-            -- Work out where to put received frame.
-            -- In all cases, leave 2 bytes to put the frame length first.
-            if eth_rx_buffer_last_used_50mhz='0' then
-              -- last frame was in bottom half, so write to top half ...
-              eth_frame_len <= 2050;
-            else
-              -- ... and vice-versa
-              eth_frame_len <= 2;
-            end if;
+            -- Start at +2, so we have somewhere to put frame length after
+            eth_frame_len <= 2;
             eth_mac_counter <= 0;
             eth_bit_count <= 0;
-            -- Veto packet reception if the CPU is watching the buffer we were
-            -- going to write to.
-            if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
+            -- Veto packet reception if no free RX buffers
+            if eth_rx_blocked_50mhz = '1' then
               report "ETHRX: Skipping frame";
               eth_state <= SkippingFrame;
             end if;
@@ -808,7 +895,7 @@ begin  -- behavioural
           end if;
         when DebugRxFrame =>
           rxbuffer_writeaddress <= eth_frame_len;
-          rxbuffer_write <= '1';
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= x"00";
           rxbuffer_wdata(7) <= eth_rxdv;
           rxbuffer_wdata(6) <= eth_rxer;
@@ -819,6 +906,7 @@ begin  -- behavioural
             eth_state <= DebugRxFrameDone;
           end if;
         when DebugRxFrameDone =>
+          rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
           if debug_rx = '0' then
             eth_state <= Idle;
           end if;
@@ -850,17 +938,18 @@ begin  -- behavioural
           -- RXDV is multiplexed with carrier sense on some PHYs, so we
           -- need two consecutive low readings to be sure. Otherwise we
           -- lose the last CRC, and sometimes the last byte.
-          if (eth_rxdv='0') and (eth_rxdv_in='0') then
+          if (eth_rxdv='0') and (eth_rxdv_last='0') and (eth_rxdv_last2='0') then
             report "ETHRX: Ethernet carrier has stopped.";
             -- finished receiving frame
             -- subtract two length field bytes to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 2;
-            eth_state <= ReceivedFrame;
+            eth_wait <= 20;
+            eth_state <= ReceivedFrameWait;
             -- put a marker at the end of the frame so we can see where it stops in
             -- the RX buffer.
-            rxbuffer_write <= '1';
-            rxbuffer_wdata <= x"BD";
+            rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+            rxbuffer_wdata <= x"EA";
             rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
@@ -934,7 +1023,7 @@ begin  -- behavioural
                     & ", multicast=" & std_logic'image(frame_is_multicast);
                 end if;
                 eth_frame_len <= eth_frame_len + 1;
-                rxbuffer_write <= '1';
+                rxbuffer_write_toggle <= not rxbuffer_write_toggle;
                 report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_frame_len;
@@ -989,25 +1078,35 @@ begin  -- behavioural
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
             end if;
           end if;
+        when ReceivedFrameWait =>
+          if eth_wait /= 0 then
+            eth_wait <= eth_wait - 1;
+          else
+            eth_state <= ReceivedFrame;
+          end if;
         when ReceivedFrame =>
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
           -- write low byte of frame length
-          if eth_rx_buffer_last_used_50mhz='0' then
-            rxbuffer_writeaddress <= 2048;
-          else
-            rxbuffer_writeaddress <= 0;
-          end if;
-          rxbuffer_write <= '1';
+          rxbuffer_writeaddress <= 0;
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
           report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
-          eth_state <= ReceivedFrame2;
+          eth_wait <= 20;
+          eth_state <= ReceivedFrame2Wait;
+        when ReceivedFrame2Wait =>
+          if eth_wait /= 0 then
+            eth_wait <= eth_wait - 1;
+          else
+            eth_state <= ReceivedFrame2;
+          end if;
         when ReceivedFrame2 =>
           -- write high byte of frame length + crc failure status
           -- bit 7 is high if CRC fails, else is low.
           report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+          rxbuffer_writeaddress <= 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6) <= frame_is_for_me;
           rxbuffer_wdata(5) <= frame_is_broadcast;
@@ -1022,20 +1121,33 @@ begin  -- behavioural
               or ((frame_is_broadcast and eth_accept_broadcast)='1') 
               or (frame_is_for_me='1') or (eth_mac_filter='0') then
               report "ETHRX: Frame accepted: Toggling eth_rx_buffer_last_used_50mhz";
-              eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+              eth_state <= PostRxDelay;
+              post_rx_countdown <= 15;
             else
               report "ETHRX: Frame does not match filter.";
+              eth_state <= Idle;
             end if;
+          else
+            eth_state <= Idle;            
           end if;
-          -- ready to receive another frame
-          eth_state <= Idle;
+        when PostRxDelay =>
+          -- This state makes sure we commit the packet length to the correct buffer
+          -- before marking the buffer as received.
+          if post_rx_countdown /= 0 then
+            post_rx_countdown <= post_rx_countdown - 1;
+          else
+            -- Mark frame as finished, i.e., accepted
+            rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+            eth_state <= Idle;
+          end if;
         when others =>
           null;
       end case;
     end if;
   end process;
   
-  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
+  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,rxbuffer_write_toggle,
+           rxbuffer_wdata,rxbuffer_writeaddress
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
@@ -1051,14 +1163,17 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS ETH:$D6E0 Ethernet control
           when x"0" =>
-            -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
-            fastio_rdata(6) <= eth_buffer_blocked;
+            -- @IO:GS $D6E0.7 ETH:TXIDLE Ethernet transmit side is idle, i.e., a packet can be sent.
+            fastio_rdata(7) <= eth_tx_idle_cpuside;
+            -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers freed
+            fastio_rdata(6) <= eth_rx_blocked;
           -- @IO:GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
           -- @IO:GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
             fastio_rdata(3) <= eth_rxdv;
-          -- @IO:GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.2 ETH:DRXD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.1 ETH:TXRST Write 0 to hold ethernet controller transmit sub-system under reset
             fastio_rdata(2 downto 1) <= eth_rxd;
           -- @IO:GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
             fastio_rdata(0) <= eth_reset_int;
@@ -1076,18 +1191,20 @@ begin  -- behavioural
             fastio_rdata(4) <= eth_irq_tx;
             -- @IO:GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
             fastio_rdata(3) <= eth_videostream;
-            -- @IO:GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
-            fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
-            -- @IO:GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
-            fastio_rdata(1) <= eth_rx_buffer_moby;
-            -- $D6E1.0 - Clear to hold ethernet adapter in reset.
-            fastio_rdata(0) <= eth_reset_int;
+            -- @IO:GS $D6E1.1-2 ETH:RXBF Number of free receive buffers
+            if eth_rx_buffers_free < 3 then
+              fastio_rdata(2 downto 1) <= to_unsigned(eth_rx_buffers_free,2);
+            else
+              fastio_rdata(2 downto 1) <= "11"; -- At least 3 RX buffers free
+            end if;
+            -- $D6E1.0 - RESERVED
           -- @IO:GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
             -- @IO:GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
+          -- $D6E3.4-7 ETH:DBGRXBFLGS occupancy state of RX buffers (read only) (DEBUG ONLY. May be deprecated)
           when x"3" =>
-            fastio_rdata(7 downto 4) <= "0000";
+            fastio_rdata(7 downto 4) <= eth_rx_buffer_inuse;
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
           -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (read only) (DEBUG ONLY. May be deprecated)
           when x"4"  =>
@@ -1109,7 +1226,8 @@ begin  -- behavioural
             fastio_rdata(4) <= eth_accept_broadcast;
             -- @IO:GS $D6E5.5 ETH:MCST Accept multicast frames
             fastio_rdata(5) <= eth_accept_multicast;
-            fastio_rdata(7 downto 6) <= (others => '0');
+            -- @IO:GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
+            fastio_rdata(7 downto 6) <= eth_rx_latch_phase;
           when x"6" =>
             -- @IO:GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
             -- @IO:GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
@@ -1134,8 +1252,23 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            -- @ IO:GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_state),8);
+            case eth_debug_select is
+              when x"00" =>
+                -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
+                fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
+                fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
+                fastio_rdata(5 downto 4) <= rx_rotate_count(1 downto 0);
+                fastio_rdata(7) <= rxbuffer_end_of_packet_toggle_drive;
+                fastio_rdata(6) <= last_rxbuffer_end_of_packet_toggle;
+              when x"01" =>
+                -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+                fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+              when x"02" =>
+                -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+                fastio_rdata <= tx_frame_count;
+              when others =>
+                fastio_rdata <= x"FF";
+            end case;                
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -1153,7 +1286,56 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
-      eth_buffer_blocked <= eth_buffer_blocked_50mhz;
+      -- Correctly compute the number of free RX buffers
+      eth_rx_buffers_free <= to_integer(to_unsigned(4 + rxbuff_id_cpuside - rxbuff_id_ethside,2));
+        
+      -- De-glitch eth_tx_trigger before we push it to the 50MHz side
+      eth_tx_trigger_drive <= eth_tx_trigger;
+      
+      -- Capture writes to the RX buffer from 50MHz side of clock.
+      -- We process them here to avoid contention on the dual-ported
+      -- memory used for the buffer, to try to fix the corruption we have been
+      -- seeing.
+      
+      rxbuffer_end_of_packet_toggle_drive <= rxbuffer_end_of_packet_toggle;
+      if (rxbuffer_end_of_packet_toggle = rxbuffer_end_of_packet_toggle_drive)
+        and (last_rxbuffer_end_of_packet_toggle /= rxbuffer_end_of_packet_toggle) then
+        -- End of packet RX signalled
+        last_rxbuffer_end_of_packet_toggle <= rxbuffer_end_of_packet_toggle;
+
+        -- Assert RX IRQ because a frame has been received
+        report "ETHRX: Asserting IRQ";
+        eth_irq_rx <= '1';
+        
+        -- Now work out the next RX buffer to use.
+        -- If the next buffer would be the one the CPU is looking at,
+        -- then we have run out of buffers and are blocked.
+        if ((rxbuff_id_ethside + 1) = rxbuff_id_cpuside)
+          or ((rxbuff_id_ethside = 3) and (rxbuff_id_cpuside = 0)) then
+          eth_rx_blocked <= '1';
+        else
+          if rxbuff_id_ethside /= 3 then
+            rxbuff_id_ethside <= rxbuff_id_ethside + 1;
+          else
+            rxbuff_id_ethside <= 0;
+          end if;
+        end if;
+        
+      end if;
+
+      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
+      if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
+        last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
+        rxbuffer_write <= "0000";
+        rxbuffer_write(rxbuff_id_ethside) <= '1';
+        rxbuffer_wdata_l <= rxbuffer_wdata;
+        rxbuffer_writeaddress_l <= rxbuffer_writeaddress;
+        eth_rx_write_count <= eth_rx_write_count + 1;
+        -- Mark buffer in use once it starts being written to
+        eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
+      else
+        rxbuffer_write <= "0000";
+      end if;
       
       -- Notice when we change raster lines
       if last_raster_number /= raster_number then
@@ -1294,8 +1476,6 @@ begin  -- behavioural
       
       -- Bring signals accross from 50MHz side as required
       -- (pass through some flip-flops to manage meta-stability)
-      eth_rx_buffer_last_used_int2 <= eth_rx_buffer_last_used_int1;
-      eth_rx_buffer_last_used_int1 <= eth_rx_buffer_last_used_50mhz;      
       eth_tx_toggle_int2 <= eth_tx_toggle_int1;
       eth_tx_toggle_int1 <= eth_tx_toggle_50mhz;
 
@@ -1306,15 +1486,6 @@ begin  -- behavioural
         end if;
       end if;
 
-      -- Assert IRQ if a frame has been received
-      if eth_rx_buffer_last_used_int2 /= eth_rx_buffer_last_used_48mhz then
-        report "ETHRX: Asserting IRQ";
-        eth_irq_rx <= '1';
-        eth_rx_buffer_last_used_48mhz <= eth_rx_buffer_last_used_int2;
-      else
---        report "ETHRX: int2="&std_logic'image(eth_rx_buffer_last_used_int2)
---          & ", 48mhz=" &std_logic'image(eth_rx_buffer_last_used_48mhz);
-      end if;
       -- Assert IRQ if a frame has been transmitted
       if eth_tx_toggle_48mhz /= eth_tx_toggle_int2 then
         report "ETHTX: Asserting IRQ";
@@ -1330,26 +1501,42 @@ begin  -- behavioural
         irq <= '1';
       end if;
 
-      if fastio_write='1' then
-        if (fastio_addr(19 downto 10)&"00" = x"DE8")
-          or (fastio_addr(19 downto 10)&"00" = x"D20")
+      if fastio_write='0' then
+        txbuffer_write <= '0';          
+      else
+        if (fastio_addr(19 downto 11)&"000" = x"DE8")
+          or (fastio_addr(19 downto 11)&"000" = x"D20")
         then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
           -- the buffer.  The TX buffer cannot be read, as reading the same
           -- addresses reads from the RX buffer.)
+          -- But we do it anyway, since we are seeing funny problems with
+          -- packet corruption on TX side, where wrong data arrives, but the
+          -- ethernet CRC is still fine.
           -- @IO:GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
           -- @IO:GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
           txbuffer_writeaddress <= to_integer(fastio_addr(10 downto 0));
           txbuffer_write <= '1';
           txbuffer_wdata <= fastio_wdata;
+        else
+          txbuffer_write <= '0';          
         end if;
         if ethernet_cs='1' then
           case fastio_addr(3 downto 0) is
             when x"0" =>
-              -- @IO:GS $D6E0.0 Clear to reset ethernet PHY
+              -- @IO:GS $D6E0.0 Clear to reset ethernet PHY and state machine
+              -- @IO:GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
+              eth_soft_reset <= fastio_wdata(1);
+              if fastio_wdata(0) = '0' or fastio_wdata(1) = '0' then
+                -- Reset RX buffer state: CPU viewing buffer 0,
+                -- other three buffers free
+                rxbuff_id_ethside <= 1;
+                rxbuff_id_cpuside <= 0;
+                eth_rx_blocked <= '0';
+              end if;
               
             when x"1" =>
               -- $D6E1 100mbit ethernet irq mask
@@ -1359,7 +1546,16 @@ begin  -- behavioural
               eth_irqenable_tx <= fastio_wdata(6);
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
-              eth_irq_rx <= '0';
+
+              -- When we get blocked due to filling all RX buffers, the RX IRQ status
+              -- can end up cleared, while there are still packet(s) left in the RX
+              -- queue.  So we look for this situation and re-assert irq_rx so long as
+              -- we don't have all our RX buffers free.
+              if eth_rx_buffers_free < 3 then
+                eth_irq_rx <= '1';
+              else
+                eth_irq_rx <= eth_rx_blocked;
+              end if;
               eth_irq_tx <= '0';
 
               -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
@@ -1367,12 +1563,46 @@ begin  -- behavioural
               -- @IO:GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
               activity_dump <= fastio_wdata(2);
               
-              -- @IO:GS $D6E1.1 - Set which RX buffer is memory mapped
-              eth_rx_buffer_moby <= fastio_wdata(1);
+              -- @IO:GS $D6E1.1 WRITE ONLY Access next received ethernet frame
+              last_rx_rotate_bit <= fastio_wdata(1);
+              if fastio_wdata(1) = '1' and last_rx_rotate_bit = '0' then
+                -- Request next RX'd packet (if any)
 
-              -- @IO:GS $D6E1.0 reset ethernet PHY
-              eth_reset <= fastio_wdata(0);
-              eth_reset_int <= fastio_wdata(0);
+                rx_rotate_count <= rx_rotate_count + 1;
+                
+                -- Give time for signals to propagate between attempts.
+                -- This also helps to make sure we don't get successive write
+                -- glitching, when M65 CPU sometimes writes to an address for 2
+                -- cycles instead of one.
+
+                -- Free up the RX buffer we were looking at
+                eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
+
+                -- Advance to next buffer, if there are any
+                if ((rxbuff_id_cpuside + 0) = rxbuff_id_ethside) then
+                  -- No more waiting packets
+                  null;
+                else
+                  if rxbuff_id_cpuside /= 3 then
+                    rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
+                  else
+                    rxbuff_id_cpuside <= 0;
+                  end if;
+                end if;
+                
+                -- By definition, popping a packet from the rx queue has to enable
+                -- another packet to be received.
+                eth_rx_blocked <= '0';
+                -- If we were blocked, then the next buffer to use for eth RX
+                -- side is the one we have just freed up. If it wasn't blocked,
+                -- then there is nothing more to be done.
+                if eth_rx_blocked = '1' then
+                  rxbuff_id_ethside <= rxbuff_id_cpuside;
+                end if;
+
+              end if;
+
+              -- @IO:GS $D6E1.0 RESERVED
             -- @IO:GS $D6E2 Set low-order size of frame to TX
             when x"2" =>
               eth_tx_size(7 downto 0) <= fastio_wdata;
@@ -1414,6 +1644,8 @@ begin  -- behavioural
               eth_disable_crc_check <= fastio_wdata(1);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
               eth_txd_phase <= fastio_wdata(3 downto 2);
+              -- @IO:GS $D6E5.6-7 Ethernet RX clock phase adjust
+              eth_rx_latch_phase <= fastio_wdata(7 downto 6);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets
               eth_accept_broadcast <= fastio_wdata(4);
               eth_accept_multicast <= fastio_wdata(5);
@@ -1427,7 +1659,12 @@ begin  -- behavioural
             when x"C" => eth_mac(23 downto 16) <= fastio_wdata;
             when x"D" => eth_mac(15 downto 8) <= fastio_wdata;
             when x"E" => eth_mac(7 downto 0) <= fastio_wdata;
-              
+            when x"f" =>
+              if fastio_wdata(7 downto 6) = "11" then
+                tx_preamble_length <= to_integer(fastio_wdata(5 downto 0));
+              else
+                eth_debug_select <= fastio_wdata;
+              end if;
             when others =>
               -- Other registers do nothing
               null;

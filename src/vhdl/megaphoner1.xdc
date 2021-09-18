@@ -6,9 +6,27 @@
 ## Clock signal
 set_property -dict { PACKAGE_PIN P17 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
- 
+
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+
+# Allow sub-optimal placement of MMCMs
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
+
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
+
+## Flop/secure mode LED
+set_property -dict { PACKAGE_PIN K1 IOSTANDARD LVCMOS33 } [get_ports flopled]
+## IR LED
+set_property -dict { PACKAGE_PIN K2 IOSTANDARD LVCMOS33 } [get_ports irled]
 
 ## QSPI Flash on TE0725 has the same pinout as the Nexys4 boards
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports {QspiDB[0]}]
@@ -21,8 +39,24 @@ set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS33} [get_ports power_down]
 
 # WiFi header UART
-set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifitx]
-set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifirx]
+set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifi_uart_tx]
+set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifi_uart_rx]
+
+# LoRa A and B header UARTs
+set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
+set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
+set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
+set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
+
+
+# Bluetooth UART
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_rx]
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_tx]
+# Bluetooth PCM audio interface
+set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk_in]
+set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync_in]
+set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_out]
+set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_data_in]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
@@ -34,21 +68,36 @@ set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 set_property -dict {PACKAGE_PIN U4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
+# Smart card interface
+set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS33} [get_ports smartcard_clk]
+set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports smartcard_io]
+# Smartcard RST connects to P17 of U12, the 2nd IO expander
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_rst]
+# Smartcard SenseA connects to GPIO12 of the bluetooth module
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_sense]
+
+
 # MiniPCIe modem port 1
 set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
 set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
-set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
-set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
-set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
-set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
+set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
+set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
+# No debug UARTs on this revision of board, as we ran out of pins
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_tx]
+set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
+set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 
 # MiniPCIe modem port 2
 set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
 set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
-set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
-set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
-set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
+set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
+# No debug UARTs on this revision of board, as we ran out of pins
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_tx]
+set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
+set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
@@ -117,26 +166,29 @@ set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdClock]
 
 ##PWM Audio Amplifier
-set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports headphone_right]
+# Headphone jack microphone input
+set_property -dict {PACKAGE_PIN C6 IOSTANDARD LVCMOS33} [get_ports headphone_mic]
+
 
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
-set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS18} [get_ports {hr_d[0]}]
-set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18} [get_ports {hr_d[1]}]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS18} [get_ports {hr_d[2]}]
-set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS18} [get_ports {hr_d[3]}]
-set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS18} [get_ports {hr_d[4]}]
-set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS18} [get_ports {hr_d[5]}]
-set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS18} [get_ports {hr_d[6]}]
-set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS18} [get_ports {hr_d[7]}]
+set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[7]}]
 set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18} [get_ports hr_rwds]
-set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18} [get_ports hr_rsto]
-set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS18} [get_ports hr_reset]
-#set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18} [get_ports hr_int]
-set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18} [get_ports hr_clk_p]
-set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18} [get_ports hr_clk_n]
-set_property -dict {PACKAGE_PIN A18 IOSTANDARD LVCMOS18} [get_ports hr_cs0]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
+set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_rsto]
+set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_reset]
+#set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_int]
+set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_clk_n]
+set_property -dict {PACKAGE_PIN A18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_cs0]
+set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_cs1]
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.CONFIGRATE 66 [current_design]

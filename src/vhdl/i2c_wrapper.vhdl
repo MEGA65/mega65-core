@@ -36,6 +36,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity i2c_wrapper is
+  generic ( clock_frequency : integer );
   port (
     clock : in std_logic;
     
@@ -120,11 +121,13 @@ architecture behavioural of i2c_wrapper is
   signal adc2_smooth : unsigned(15 downto 0) := x"8000";
   signal adc3_smooth : unsigned(15 downto 0) := x"8000";
   
+  signal read_loops : unsigned(7 downto 0) := x"00";
+    
 begin
 
   i2c1: entity work.i2c_master
     generic map (
-      input_clk => 40_000_000,
+      input_clk => clock_frequency,
       bus_clk => 400_000
       )
     port map (
@@ -169,7 +172,10 @@ begin
       elsif fastio_addr(7 downto 0) = x"f5" then
         -- @IO:GS $FFD70F5 - ADC3 smoothed value (MSB)
         fastio_rdata <= adc3_smooth(15 downto 8);
-      elsif fastio_addr(7 downto 0) = "11111111" then
+      elsif fastio_addr(7 downto 0) = x"fe" then
+        -- Show count of read loops, so we can know if data is fresh enough.
+        fastio_rdata <= read_loops;
+      elsif fastio_addr(7 downto 0) = x"ff" then
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
       else
@@ -255,6 +261,7 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
+          read_loops <= read_loops + 1;
           i2c1_command_en <= '1';
           i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
           i2c1_wdata <= x"00";
@@ -268,7 +275,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 1 and i2c1_error='0' then
-            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+            end if;
           end if;
           -- If power is off to various peripherals, then the joypad etc can end
           -- up being read as all zeroes.  In that case, we want to ignore it.
@@ -377,7 +386,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 5 and i2c1_error='0' then
-            bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #0 regs 4-5";
         when 8 =>
@@ -393,7 +404,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 9 and i2c1_error='0' then
-            bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #0 regs 6-7";
         when 12 =>
@@ -409,7 +422,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 13 and i2c1_error='0' then
-            bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #1 regs 0-1";
         when 16 =>
@@ -425,7 +440,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 17 and i2c1_error='0' then
-            bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #1 regs 2-3";
         when 20 =>
@@ -441,7 +458,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 21 and i2c1_error='0' then
-            bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #1 regs 4-5";
         when 24 =>
@@ -457,7 +476,9 @@ begin
             delayed_en <= 250;
           end if;
           if busy_count > 25 and i2c1_error='0' then
-            bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #1 regs 6-7";
         when 28 =>
@@ -473,7 +494,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 29 and i2c1_error='0' then
-            bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #2 regs 0-1";
         when 32 =>
@@ -489,7 +512,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 33 and i2c1_error='0' then
-            bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #2 regs 2-3";
         when 36 =>
@@ -505,7 +530,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 37 and i2c1_error='0' then
-            bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #2 regs 4-5";
         when 40 =>
@@ -521,7 +548,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 41 and i2c1_error='0' then
-            bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
+            end if;
           end if;
           report "IO Expander #2 regs 6-7";
         when 44 =>
@@ -537,9 +566,11 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 45 and i2c1_error='0' then
-            bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
+            end if;
           end if;
-          report "Real Time clock regs 0 -- 18";
+          report "Real Time clock regs 0 -- 19";
         when 48 =>
           i2c1_command_en <= '1';
           i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of device;
@@ -550,9 +581,11 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 49 and i2c1_error='0' then
-            bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
+            end if;
           end if;
-          report "Audio amplifier regs 0 - 15";
+          report "Audio amplifier regs 0 - 18";
         when 69 =>
           i2c1_command_en <= '1';
           i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
@@ -563,7 +596,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 70 and i2c1_error='0' then
-            bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
+            end if;
           end if;
           report "Acclerometer regs 0 - 63";
         when 87 =>
@@ -576,7 +611,9 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 88 and i2c1_error='0' then
-            bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
+            if fastio_read='0' then
+              bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
+            end if;
             if busy_count = 97 then
               adc1_new(7 downto 0) <= i2c1_rdata;
             end if;

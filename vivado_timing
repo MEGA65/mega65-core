@@ -1,0 +1,10 @@
+#!/bin/bash -x
+design=$1
+./vivado_wrapper -mode tcl << EOF > ${design}.timing.txt 
+
+open_project vivado/${design}.xpr
+open_run impl_1
+report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose -max_paths 20 -nworst 10 -input_pins -routable_nets
+EOF
+
+

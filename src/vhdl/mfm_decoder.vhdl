@@ -43,6 +43,13 @@ entity mfm_decoder is
     target_side : in unsigned(7 downto 0);
     -- .. or if target_any is asserted, then find the first sector we hit
     target_any : in std_logic := '0';
+
+    -- Report track info blocks, so that sdcardio can switch data rates automatically
+    track_info_valid : out std_logic := '0';
+    track_info_track : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_rate : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_encoding : out unsigned(7 downto 0) := to_unsigned(0,8);
+    track_info_sectors : out unsigned(7 downto 0) := to_unsigned(0,8);
     
     -- Indicate when we have hit the start of the gap leading
     -- to the data area (this is so that sector writing can
@@ -54,6 +61,9 @@ entity mfm_decoder is
     found_sector : out unsigned(7 downto 0) := x"00";
     found_side : out unsigned(7 downto 0) := x"00";
 
+    autotune_step : out std_logic := '0';
+    autotune_stepdir : out std_logic := '0';
+    
     -- Bytes of the sector when reading
     first_byte : out std_logic := '0';
     byte_valid : out std_logic := '0';
@@ -85,6 +95,7 @@ architecture behavioural of mfm_decoder is
 
   signal seen_track : unsigned(7 downto 0) := x"FF";
   signal seen_sector : unsigned(7 downto 0) := x"FF";
+  signal last_seen_sector : unsigned(7 downto 0) := x"FF";
   signal seen_side : unsigned(7 downto 0) := x"FF";
   signal seen_size : unsigned(7 downto 0) := x"FF";
   signal seen_valid : std_logic := '0';
@@ -107,7 +118,14 @@ architecture behavioural of mfm_decoder is
     CheckCRC,
     SectorData,
     DataCRC1,
-    DataCRC2
+    DataCRC2,
+    TrackInfo,
+    TrackInfoRate,
+    TrackInfoEncoding,
+    TrackInfoSectorCount,
+    TrackInfoCRC1,
+    TrackInfoCRC2,
+    TrackInfoCheckCRC
     );
 
   signal state : MFMSTate := WaitingForSync;
@@ -180,14 +198,20 @@ begin
   begin
     if rising_edge(clock40mhz) then
 
+      track_info_valid <= '0';
+      
+      -- We clear this every cycle, so it will only pulse for a very short time
+      -- (25ns).  Is this too short for a floppy drive to notice?
+      autotune_step <= '0';
+      
       mfm_last_byte <= byte_in;
       mfm_state <= to_unsigned(MFMState'pos(state),8);
       mfm_last_gap(11 downto 0) <= gap_length(11 downto 0);
       mfm_last_gap(15 downto 12) <= gap_count;
-      mfm_quantised_gap(7) <= sync_in;
-      mfm_quantised_gap(7 downto 2) <= qgap_count;
-      mfm_quantised_gap(1 downto 0) <= gap_size;
       if gap_size_valid='1' then
+        mfm_quantised_gap(7) <= sync_in;
+        mfm_quantised_gap(6 downto 2) <= qgap_count(4 downto 0);
+        mfm_quantised_gap(1 downto 0) <= gap_size;
         if qgap_count /= "111111" then
           qgap_count <= qgap_count + 1;
         else
@@ -221,18 +245,6 @@ begin
             sector_end <= '1';
             sector_found <= '0';
           else
---            if last_crc = x"0000" and false then
---              report "Valid sector header for"
---                & " T:$" & to_hstring(seen_track)
---                & ", S:$" & to_hstring(seen_sector)
---                & ", D:$" & to_hstring(seen_side)
---                & ", Z:$" & to_hstring(seen_size)
---                & " (seen_valid=" & std_logic'image(seen_valid)
---                & ", sector_found="
---                & std_logic'image(sector_found)
---                & ", crc=$" & to_hstring(last_crc)
---                & ")";
---            end if;
             if (target_any='1')
               or (
                 (to_integer(target_track) = to_integer(seen_track))
@@ -253,11 +265,23 @@ begin
               seen_valid <= '0';
             end if;
             -- XXX Debug T/S/S mismatches
+            if seen_sector /= last_seen_sector then
+              report "HEADER: Updating found track,sector,side";
+              last_seen_sector <= seen_sector;
+            end if;
             found_track <= seen_track;
             found_sector <= seen_sector;
             found_side <= seen_side;
             if to_integer(target_track) = to_integer(seen_track) then
               found_track(7) <= '1';
+              autotune_step <= '0';
+            else
+              autotune_step <= '1';
+              if to_integer(target_track) > to_integer(seen_track) then
+                autotune_stepdir <= '0';
+              else
+                autotune_stepdir <= '1';
+              end if;
             end if;
             if to_integer(target_sector) = to_integer(seen_sector) then
               found_sector(7) <= '1';
@@ -305,11 +329,19 @@ begin
         if sync_count = 3 then
           -- First byte after a sync
           if byte_in = x"FE" then
+            -- Sector header marker
             crc_feed <= '1'; crc_byte <= byte_in;
             seen_valid <= '0';
             state <= TrackNumber;
           elsif byte_in = x"FB" then
+            -- Sector data marker
             state <= SectorData;
+            crc_feed <= '1'; crc_byte <= byte_in;
+            byte_count <= 0;
+          elsif byte_in = x"65" then
+            -- Track Format Info Marker (MEGA65 specific)
+            report "TRACKINFO: Saw block marker";
+            state <= TrackInfo;
             crc_feed <= '1'; crc_byte <= byte_in;
             byte_count <= 0;
           else
@@ -320,6 +352,46 @@ begin
           case state is
             when WaitingForSync =>
               null;
+            when TrackInfo =>
+              -- Track info block has:
+              -- Byte 0: Track number
+              -- Byte 1: Track data rate
+              -- Byte 2: Track encoding ($80 = RLL, $00 = MFM, lower bits reserved)
+              report "TRACKINFO: Saw Track = $" & to_hstring(byte_in);
+              track_info_track <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoRate;
+            when TrackInfoRate =>
+              report "TRACKINFO: Saw Rate = $" & to_hstring(byte_in);
+              track_info_rate <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoEncoding;
+            when TrackInfoEncoding =>
+              report "TRACKINFO: Saw Encoding = $" & to_hstring(byte_in);
+              track_info_encoding <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoSectorCount;
+            when TrackInfoSectorcount =>
+              report "TRACKINFO: Saw Sector Count = $" & to_hstring(byte_in);
+              track_info_sectors <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;              
+              state <= TrackInfoCRC1;
+            when TrackInfoCRC1 =>
+              report "TRACKINFO: Saw CRC1 = $" & to_hstring(byte_in);
+              state <= TrackInfoCRC2;
+              crc_feed <= '1'; crc_byte <= byte_in;
+            when TrackInfoCRC2 =>
+              report "TRACKINFO: Saw CRC2 = $" & to_hstring(byte_in);
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= TrackInfoCheckCRC;
+            when TrackInfoCheckCRC =>
+              
+              report "TRACKINFO: CRC=$" & to_hstring(crc_value);
+              crc_feed <= '0';
+              if crc_value = x"0000" then
+                track_info_valid <= '1';
+              end if;
+              state <= WaitingForSync;
             when TrackNumber =>
               seen_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
@@ -344,6 +416,10 @@ begin
               crc_feed <= '1'; crc_byte <= byte_in;
               crc_wait <= "1111";
               state <= CheckCRC;
+              report "HEADER: Saw Track $" & to_hstring(seen_track)
+                & ", Sector $" & to_hstring(seen_sector)
+                & ", Side $" & to_hstring(seen_side)
+                & ", Size $" & to_hstring(seen_size);
             when SectorData =>
               if (byte_count = 0) and (seen_valid='1') then
                 first_byte <= '1';

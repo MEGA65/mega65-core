@@ -45,9 +45,9 @@
 #include "fpga.h"
 
 #ifdef USE_LOGGING
-#define ENTER() fprintf(stderr,"Entering %s()\n",__FUNCTION__)
-#define EXIT() fprintf(stderr,"Exiting %s()\n",__FUNCTION__)
-#define LOGNOTE(M) fprintf(stderr,"%s:%d:%s():%s\n",__FILE__,__LINE__,__FUNCTION__,M);
+#define ENTER() { fflush(stdout); fprintf(stderr,"Entering %s()\n",__FUNCTION__); fflush(stderr); }
+#define EXIT() { fflush(stdout); fprintf(stderr,"Exiting %s()\n",__FUNCTION__); fflush(stderr); }
+#define LOGNOTE(M) {fflush(stdout); fprintf(stderr,"%s:%d:%s():%s\n",__FILE__,__LINE__,__FUNCTION__,M); fflush(stderr); }
 #else
 #define ENTER()
 #define EXIT()
@@ -76,7 +76,9 @@ static int befbits, afterbits;
 #ifndef USE_MDM
 void access_mdm(int version, int pre, int amatch)
 {
+  ENTER();
     flush_write(DITEM(TMSW, 2, 0xe7)); /* strange pattern, so we can find in trace log */
+    EXIT();
 }
 #endif
 
@@ -96,6 +98,7 @@ static void pulse_gpio(int adelay)
 #define GPIO_01              0x01
 #define SET_LSB_DIRECTION(A) SET_BITS_LOW, 0xe0, (0xea | (A))
 
+    ENTER();
     ENTER_TMS_STATE('I');
     switch (adelay) {
     case 1250:  delay = CLOCK_FREQUENCY/800; break;
@@ -113,10 +116,13 @@ static void pulse_gpio(int adelay)
     write_item(DITEM(CLK_BYTES, INT16(delay-1)));
     flush_write(DITEM(SET_LSB_DIRECTION(GPIO_DONE | GPIO_01),
                      SET_LSB_DIRECTION(GPIO_01)));
+    EXIT();
 }
 static void set_clock_divisor(void)
 {
+  ENTER();
     flush_write(DITEM(TCK_DIVISOR, INT16(30000000/CLOCK_FREQUENCY - 1)));
+    EXIT();
 }
 
 static char current_state, *lasttail;
@@ -148,6 +154,7 @@ void write_tms_transition(char *tail)
 }
 void ENTER_TMS_STATE(char required)
 {
+  ENTER();
     char temp = current_state == 'D' ? 'S' : current_state;
     static char *tail[] = {"PS10", /* Pause-DR -> Shift-DR */
         "EI10",  /* Exit1/Exit2 -> Update -> Idle */"RI0", /* Reset -> Idle */
@@ -166,9 +173,11 @@ void ENTER_TMS_STATE(char required)
     }
     if (!match_state(required))
         printf("[%s:%d] %c should be %c\n", __FUNCTION__, __LINE__, current_state, required);
+    EXIT();
 }
 void tmsw_delay(int delay_time, int extra)
 {
+  ENTER();
 #define SEND_IDLE(A) write_item(DITEM(TMSW, (A), 0))
     int i;
     ENTER_TMS_STATE('I');
@@ -178,14 +187,18 @@ void tmsw_delay(int delay_time, int extra)
         SEND_IDLE(6);
     if (extra)
         SEND_IDLE(extra);
+    EXIT();
 }
 static void marker_for_reset(int stay_reset)
 {
+  ENTER();
     ENTER_TMS_STATE('R');
     flush_write(DITEM(TMSW, stay_reset, 0x7f));
+    EXIT();
 }
 static void reset_mark_clock(int clock)
 {
+  ENTER();
     if (clock)
         access_mdm(2, 0, 1);
     else
@@ -196,9 +209,11 @@ DPRINT("[%s:%d]\n", __FUNCTION__, __LINE__);
         set_clock_divisor();
     write_tms_transition("RR1");
     flush_write(NULL);
+    EXIT();
 }
 void write_bit(int read, int bits, int data, char target_state)
 {
+  ENTER();
     int extrabit = 0;
     ENTER_TMS_STATE('S');
     if (bits >= 0) {
@@ -212,13 +227,17 @@ void write_bit(int read, int bits, int data, char target_state)
         cptr[0] |= read; // this is a TMS instruction to shift state
         cptr[2] |= extrabit; // insert 1 bit of data here
     }
+    EXIT();
 }
 static void write_req(int read, uint8_t *req, int opttail)
 {
+  ENTER();
     write_bytes(read, 0, req+1, req[0], SEND_SINGLE_FRAME, opttail, 0, 0);
+    EXIT();
 }
 static void write_fill(int read, int width, int tail)
 {
+  ENTER();
     static uint8_t ones[] = DITEM(0xff, 0xff, 0xff, 0xff);
     if (width > 7) {
         ones[0] = width/8;
@@ -226,11 +245,13 @@ static void write_fill(int read, int width, int tail)
         write_req(read, ones, 0);
     }
     write_bit(read, width, 0xff, tail);
+    EXIT();
 }
 
 void write_bytes(uint8_t read,
     char target_state, uint8_t *ptrin, int size, int max_frame_size, int opttail, int swapbits, int exchar)
 {
+  ENTER();
     ENTER_TMS_STATE('S');
     while (size > 0) {
         int i, rlen = size;
@@ -261,25 +282,31 @@ void write_bytes(uint8_t read,
         if (size > 0)
             flush_write(NULL);
     }
+    EXIT();
 }
 
 void idle_to_shift_dr(int idindex)
 {
+  ENTER();
     ENTER_TMS_STATE('D');
     write_bit(0, idindex, 0xff, 0);
+    EXIT();
 }
 static uint8_t *write_pattern(int idindex, uint8_t *req, int target_state)
 {
+  ENTER();
    LOGNOTE("Calling idle_to_shift_dr()");
    idle_to_shift_dr(idindex);
    LOGNOTE("Switched to shift_dr");
     write_bytes(DREAD, target_state, req+1, req[0], SEND_SINGLE_FRAME, 1, 0, 0);
     LOGNOTE("Wrote bytes. Now reading...");
     return read_data();
+    EXIT();
 }
 
 static void write_int32(uint8_t *data)
 {
+  ENTER();
     if (!data)
         return;
     int size = *data++ / sizeof(uint32_t);
@@ -287,15 +314,18 @@ static void write_int32(uint8_t *data)
         write_bytes(0, 0, data, sizeof(uint32_t), SEND_SINGLE_FRAME, 0, 0, 0);
         data += sizeof(uint32_t);
     }
+    EXIT();
 }
 
 static uint64_t read_data_int(uint8_t *bufp)
 {
+  ENTER();
     uint64_t ret = 0;
     uint8_t *backp = bufp + last_read_data_length;
     while (backp > bufp)
         ret = (ret << 8) | bitswap[*--backp];  //each byte is bitswapped
     return ret;
+    EXIT();
 }
 
 /*
@@ -396,6 +426,7 @@ static void init_device(int extra)
 }
 static void get_deviceid(int device_index, int interface)
 {
+  ENTER();
     init_ftdi(device_index, interface);
     /*
      * Set JTAG clock speed and GPIO pins for our i/f
@@ -405,12 +436,14 @@ static void get_deviceid(int device_index, int interface)
     first_time_idcode_read = 1;
     ENTER_TMS_STATE('R');
     read_idcode(1);
+    EXIT();
 }
 /*
  * Functions for setting Instruction Register(IR)
  */
 void write_irreg(int read, int command, int idindex, char tail)
 {
+  ENTER();
     int i;
     befbits = 0;
     afterbits = 0;
@@ -420,8 +453,8 @@ void write_irreg(int read, int command, int idindex, char tail)
         else if (i > idindex)
             befbits += idcode_len[i];
     }
-if(tracep)
-printf("[%s:%d] read %d command %x idindex %d bef %d aft %d\n", __FUNCTION__, __LINE__, read, command, idindex, befbits, afterbits);
+    if(tracep)
+      printf("[%s:%d] read %d command %x idindex %d bef %d aft %d\n", __FUNCTION__, __LINE__, read, command, idindex, befbits, afterbits);
     flush_write(NULL);
     ENTER_TMS_STATE('I');
     ENTER_TMS_STATE('S');
@@ -434,9 +467,11 @@ printf("[%s:%d] read %d command %x idindex %d bef %d aft %d\n", __FUNCTION__, __
     }
     else
         write_bit(read, idcode_len[idindex] - 1, command, tail);
+    EXIT();
 }
 static int write_cirreg(int read, int command)
 {
+  ENTER();
     int ret = 0, target_state = (jtag_index && read ? 'P' : 'E');
     write_irreg(read, command, jtag_index, target_state);
     if (read) {
@@ -445,31 +480,39 @@ static int write_cirreg(int read, int command)
             write_fill(0, afterbits - 1, 'E');
     }
     ENTER_TMS_STATE('I');
+    EXIT();
     return ret;
 }
 int write_cbypass(int read, int idindex)
 {
+  ENTER();
     int ret = 0;
     write_irreg(read, IRREG_BYPASS_EXTEND, idindex, 'I');
     if (read)
         ret = read_data_int(read_data());
     ENTER_TMS_STATE('I');
+    EXIT();
     return ret;
 }
 void write_dirreg(int command, int idindex)
 {
+  ENTER();
     write_irreg(0, EXTEND_EXTRA | command, idindex, 'I');
     idle_to_shift_dr(0);
     write_bit(0, idcode_count - 1 - idindex, 0, 0);
+    EXIT();
 }
 void write_creg(int regname)
 {
+  ENTER();
     write_irreg(0, regname, found_cortex, 'U');
+    EXIT();
 }
 
 static void send_data_file(int read, int extra_shift, uint8_t *pdata,
     int psize, uint8_t *pre, uint8_t *post, int opttail, int swapbits)
 {
+  ENTER();
     static uint8_t zerod[] = DITEM(0, 0, 0, 0, 0, 0, 0);
     int tremain;
     int mid = jtag_index && jtag_index != idcode_count -1;
@@ -504,14 +547,18 @@ static void send_data_file(int read, int extra_shift, uint8_t *pdata,
     if (extra_shift)
         write_fill(0, 0, 'E');
     ENTER_TMS_STATE('I');
+    EXIT();
 }
 
 static void write_above2(int read, int idindex)
 {
+  ENTER();
     write_bit(read, (0 == idcode_count - 1 - idindex) * (idindex - 1), 0, 'I');
+    EXIT();
 }
 uint32_t fetch_result(int idindex, int command, int resp_len, int fd)
 {
+  ENTER();
     int j;
     uint32_t ret = 0;
 
@@ -552,6 +599,7 @@ DPRINT("[%s:%d]\n", __FUNCTION__, __LINE__);
                 write(fd, rdata, size);
         }
     }
+    EXIT();
     return ret;
 }
 
@@ -562,15 +610,19 @@ DPRINT("[%s:%d]\n", __FUNCTION__, __LINE__);
  */
 static uint32_t readout_seq(int idindex, uint8_t *req, int resp_len, int fd)
 {
+  ENTER();
     write_dirreg(IRREG_CFG_IN, idindex);
     write_req(0, req, !idindex);
 DPRINT("[%s:%d] idindex %d\n", __FUNCTION__, __LINE__, idindex);
-    write_above2(0, idindex);
-    return fetch_result(idindex, IRREG_CFG_OUT, resp_len, fd);
+    write_above2(0, idindex);    
+    uint32_t r= fetch_result(idindex, IRREG_CFG_OUT, resp_len, fd);
+    EXIT();
+    return r;
 }
 
 static void readout_status0(void)
 {
+  ENTER();
     int ret, idindex;
 
     for (idindex = 0; idindex < idcode_count; idindex++) {
@@ -593,6 +645,7 @@ DPRINT("[%s:%d] idindex %d/%d\n", __FUNCTION__, __LINE__, idindex, idcode_count)
             ENTER_TMS_STATE('R');
         }
     }
+    EXIT();
 }
 
 /*
@@ -601,6 +654,7 @@ DPRINT("[%s:%d] idindex %d/%d\n", __FUNCTION__, __LINE__, idindex, idcode_count)
  */
 static uint32_t read_config_reg(uint32_t data)
 {
+  ENTER();
     uint8_t *req = DITEM(CONFIG_SYNC,
         CONFIG_TYPE1(CONFIG_OP_NOP, 0,0),
         CONFIG_TYPE1(CONFIG_OP_READ, data, 1),
@@ -618,11 +672,13 @@ static uint32_t read_config_reg(uint32_t data)
     if (jtag_index)
         write_fill(0, dc2trail, 'E');
     write_cirreg(0, IRREG_BYPASS);
+    EXIT();
     return ret;
 }
 
 static void read_config_memory(int fd, uint32_t size)
 {
+  ENTER();
 #if 0
     readout_seq(0, DITEM(CONFIG_DUMMY, CONFIG_SYNC,
         CONFIG_TYPE1(CONFIG_OP_NOP, 0, 0),
@@ -645,10 +701,12 @@ static void read_config_memory(int fd, uint32_t size)
         CONFIG_TYPE2(size),
         CONFIG_TYPE1(CONFIG_OP_NOP, 0, 0),
         CONFIG_TYPE1(CONFIG_OP_NOP, 0, 0)), size, fd);
+    EXIT();
 }
 
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode)
 {
+  ENTER();
     int i, j;
 
     /*
@@ -750,6 +808,7 @@ void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idc
         printf("[%s] id %x from file does not match actual id %x\n", __FUNCTION__, file_idcode, idcode_array[0]);
         exit(-1);
     }
+    EXIT();
 }
 
 int min(int a, int b)
@@ -762,6 +821,7 @@ int min(int a, int b)
 
 int fpgajtag_main(char *bitstream,char *serialport)
 {
+  ENTER();
     uint32_t ret;
     int i, rflag = 0, lflag = 0, mflag = 0, cflag = 0, xflag = 0, rescan = 0;
     const char *serialno = serialport;
@@ -945,6 +1005,7 @@ exit_label:
 	fprintf(stderr, "fpgajtag: ERROR failed to run pciescanportal: %s\n", strerror(errno));
 	return rc;
     }
+    EXIT();
     return 0;
 }
 

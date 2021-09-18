@@ -80,34 +80,42 @@
       .alias      bitrate_lo          $900C
       .alias      bitrate_hi          $900D
       
-      .alias      break_addr          $900E
+      .alias      break_addr          $900E  ; 16-bit address takes 2 bytes
 
-      .alias      mem_addr            $9010
+      .alias      mem_addr            $9010  ; 28-bit address takes 4 bytes
       .alias      mem_read            $9014
       .alias      mem_write           $9015
       .alias      mem_status          $9016
       .alias      mem_inc             $9017
 
-      .alias      watch_addr          $9018
+      .alias      watch_addr          $9018  ; 28-bit address takes 4 bytes
       .alias      state_cnt           $901C
       .alias      protected_hw        $901D
       .alias      monitor_char        $901E
       .alias      monitor_char_status $901F
       
       ; Trace control bits
+      ; Bit 0 - Trace mode: CPU single-steps, waiting for permission to execute the next instruction
       .alias      trace_en            $1
       .alias      trace_dis           $ff^$1
+      ; Bit 1 - If enabled, then enable breaking on PC matching a provided value
       .alias      trace_flag_en       $2
       .alias      trace_flag_match    $2
+      ; Bit 2 - If set, record recent CPU history
       .alias      trace_hist_en       $4
       .alias      trace_hist_dis      $ff^$4
+      ; Bit 3 - Continuous CPU history tracing
       .alias      trace_hist_cont_en  $8
       .alias      trace_hist_cont_dis $ff^$8
+      ; Bit 4 - Disable IRQs if set
       .alias      trace_irq_dis       $10
       .alias      trace_irq_en        $ff^$10
+      ; Bit 5 - Disable hypervisor traps (or halt on hypervisor traps?)
       .alias      trace_hyper_trap    $20
+      ; Bit 6 - Enable watching a memory location for modification
       .alias      trace_watch_en      $40
       .alias      trace_watch_match   $40
+      ; Bit 7 - Enable to halt CPU when PC matches provided value
       .alias      trace_break_en      $80
       .alias      trace_break_match   $80
 
@@ -213,11 +221,11 @@ accepting_input:
       bit         monitor_char_status ; Anything from the monitor?
       bmi         get_monitor_char
       
-*     bit         mon_trace         ; See if we got a watch or break match
+*     bit         mon_trace_step         ; See if we got a watch or break match
       bvc         +
-      jmp         watch_match
+      jmp         break_or_watch_match
 *     bpl         +
-      jmp         break_match
+      jmp         break_or_watch_match
       
       ; Nothing else to do, see if we're doing continuous tracing
 *     lda         trace_continuous
@@ -997,7 +1005,7 @@ trace_table:
       .byte       $ff, trace_hyper_trap                                               ; $10 - Hypervisor trap enable
       .byte       $ff - trace_flag_en, $00                                            ; $12 - Flag break disable
       .byte       $ff, trace_flag_en                                                  ; $14 - Flag break enable
-      
+
 trace_step:
       lda         mon_trace_step
       eor         #1                   ; Toggle trace flag
@@ -1020,6 +1028,33 @@ hyper_trap_dis:
       ldx         #$0E
       bra         do_trace
 
+; -------------------------------------
+; Debug command
+; -------------------------------------
+; Allow setting and display of various flags and things
+debug_cmd:
+      plx                               ; pop x
+      cpx         cmdlen
+      bcs         debug_cmd_simple      ; nothing to parse, treat like disable
+
+      ; Parse hex value and set monitor trace flags with the value
+      lda     	  hex_value+0
+      sta     	  mon_trace
+      
+      ; FALL THROUGH
+debug_cmd_simple:
+	; Display mon_trace_step value
+	lda	mon_trace_step
+	jsr 	print_hex_byte
+	lda	#$20
+	jsr	output_char_monitor
+	; Display current mon_trace value
+	lda	mon_trace
+	jsr 	print_hex_byte
+	
+	jsr	print_crlf
+	jmp 	next_command
+	
 ; -------------------------------------
 ; Flag break command
 ; -------------------------------------
@@ -1126,9 +1161,6 @@ show_registers_cmd:
       ldx         #128
 _lp:  dex
       bne         _lp
-      ;lda         mon_trace
-      ;and         #trace_hist_dis
-      ;sta         mon_trace
       
       ; Set history read and write indices to max hardware index.  Controller will drop unimplemented bits.
       lda         #$ff
@@ -1333,12 +1365,14 @@ watch_disable:
 ; should have been auto-enabled by the controller hardware.
 ; ----------------------------------------
 
-watch_match:
-      lda         mon_trace
-      and         #[$ff - trace_watch_en] ; disable watch mode to clear status bit
-      sta         mon_trace
-      ora         #trace_watch_en         ; re-enable it for watch mode?
-      sta         mon_trace
+break_or_watch_match:
+      ; Clear watch/break match status
+      lda         mon_trace_step
+      sta         mon_trace_step
+      ; Print a ! to indicate that a watch or breakpoint has been hit
+      lda	  #'!
+      jsr	  output_char
+      ; Then dump the current register status
       jmp         show_registers_cmd
 
 ; ----------------------------------------
@@ -1368,21 +1402,6 @@ break_disable:
       and         #[$ff - trace_break_en] ; disable break mode
       sta         mon_trace
       jmp         next_command
-
-; ----------------------------------------
-; Break Matched "Command"
-;
-; For now this just displays register state and leaves the CPU in trace mode, which
-; should have been auto-enabled by the controller hardware.
-; Note: We currently arrive here for both flag and PC based breakpoints because the 
-; monitor controller ORs in both bits to the break status bit.
-; ----------------------------------------
-
-break_match:
-      lda         mon_trace
-      and         #[$ff - trace_break_en - trace_flag_en] ; disable break mode to clear status and disable tracing
-      sta         mon_trace
-      jmp         show_registers_cmd
 
 disassemble_done:
       jmp         next_command
@@ -1756,11 +1775,28 @@ flag_bits:
 cmd_jmp_cmds:
 	; @ = dump memory from CPU perspective (was D)
 	; D = disassemble instructions (was $)
-      .byte       "!@M?HRTZWBG+I#EFSLD"
+      .byte       "!@M?HRTZWBG+I#EFSLDJ"
 cmd_jmp_table:
-      .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
-      .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
-      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd,disassemble_mem_cmd
+      .word       reset_cmd   ; !
+      .word 	  dump_cpu_memory_cmd   ; @ (show memory from CPU context)
+      .word 	  dump_memory_cmd 	; M
+      .word 	  print_banner		; ? = help
+      .word	  print_banner		; H = help
+      .word	  show_registers_cmd	; R = show registers
+      .word       trace_cmd		; T = set CPU trace/run mode
+      .word	  history_cmd		; Z = CPU history
+      .word	  watch_cmd		; W = Set/clear memory write watch point
+      .word	  break_cmd		; B = Set/clear CPU execution break point
+      .word	  set_pc_cmd		; G = Set CPU program counter
+      .word	  set_bitrate_cmd	; + = Set UART bitrate divisor
+      .word	  irq_cmd		; I = Enable/disable CPU interrupts
+      .word	  hyper_trap_cmd	; # = Enable/disable CPU hypervisor traps
+      .word       flag_break_cmd	; E = Set/clear CPU flags watch point
+      .word	  fill_mem_cmd		; F = Fill memory with a value
+      .word	  set_mem_cmd		; S = Set memory contents
+      .word 	  load_mem_cmd		; L = Load data into memory
+      .word	  disassemble_mem_cmd	; D = Disassemble memory
+      .word 	  debug_cmd		; J = Various debug functions for the monitor itself
 
 ;securemode_entry_msg:
 ;	.byte   "All storage and communications devices have been disconnected.",13,10

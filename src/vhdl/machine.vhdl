@@ -53,18 +53,19 @@ use work.cputypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50;
+  generic (cpu_frequency : integer;
+           hyper_installed : boolean := false;
            target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
          clock100 : in std_logic;    -- Must be 2x ethernet clock
+         clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
-         ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
-         reset_out : out std_logic;
+         reset_out : out std_logic := '1';
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
@@ -74,63 +75,91 @@ entity machine is
          cpu_game : in std_logic;
 
          fast_key : in std_logic := '1';
+         iec_bus_active : in std_logic;      
          
          power_down : out std_logic := '1';
          
          no_hyppo : in std_logic;
 
-         flopled : out std_logic;
-         flopmotor : out std_logic;
+         disco_led_id : out unsigned(7 downto 0) := x"00";
+         disco_led_val : out unsigned(7 downto 0) := x"00";
+         disco_led_en : out std_logic := '0';
 
-         buffereduart_rx : inout std_logic;
-         buffereduart_tx : out std_logic := '1';
-         buffereduart_ringindicate : in std_logic;
-         buffereduart2_rx : inout std_logic;
-         buffereduart2_tx : out std_logic := '1';
+         flopled : out std_logic := '0';
+         flopmotor : out std_logic := '0';
+
+         j21in : in std_logic_vector(11 downto 0) := (others => '1');
+         j21out : inout std_logic_vector(11 downto 0) := (others => '1');
+         j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
          
-         slow_access_request_toggle : out std_logic;
+         buffereduart_rx : inout std_logic_vector(7 downto 0);
+         buffereduart_tx : out std_logic_vector(7 downto 0);
+         buffereduart_ringindicate : in std_logic_vector(7 downto 0);
+         
+         slow_access_request_toggle : out std_logic := '0';
          slow_access_ready_toggle : in std_logic := '0';
          slow_access_write : out std_logic := '0';
-         slow_access_address : out unsigned(27 downto 0);
-         slow_access_wdata : out unsigned(7 downto 0);
+         slow_access_address : out unsigned(27 downto 0) := to_unsigned(0,28);
+         slow_access_wdata : out unsigned(7 downto 0) := to_unsigned(0,8);
          slow_access_rdata : in unsigned(7 downto 0);
          cart_access_count : in unsigned(7 downto 0) := x"00";
 
+         -- Fast read interface for slow devices linear reading
+         -- (only hyperram)
+         slow_prefetched_request_toggle : inout std_logic := '0';
+         slow_prefetched_data : in unsigned(7 downto 0) := x"00";
+         slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+         
          sector_buffer_mapped : inout std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";
 
+         fm_left : in signed(15 downto 0) := to_signed(0,16);
+         fm_right : in signed(15 downto 0) := to_signed(0,16);
+         
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0);
-         QspiCSn : out std_logic;
-         qspi_clock : out std_logic;
+         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
+         QspiCSn : out std_logic := '0';
+         qspi_clock : out std_logic := '0';
          
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
-         vga_hsync : out  STD_LOGIC;
-         lcd_hsync : out std_logic;
-         lcd_vsync : out std_logic;
-         pal50_select_out : out std_logic;
+         vsync : out  STD_LOGIC := '0';
+         vga_hsync : out STD_LOGIC := '0';
+         lcd_hsync : out std_logic := '0';
+         lcd_vsync : out std_logic := '0';
+         pal50_select_out : out std_logic := '0';
+         vga_blank : out std_logic := '0';
          
-         vgared : out  UNSIGNED (7 downto 0);
-         vgagreen : out  UNSIGNED (7 downto 0);
-         vgablue : out  UNSIGNED (7 downto 0);
+         vgared : out  UNSIGNED (7 downto 0) := x"00";
+         vgagreen : out  UNSIGNED (7 downto 0) := x"00";
+         vgablue : out  UNSIGNED (7 downto 0) := x"00";
 
-         panelred : out  UNSIGNED (7 downto 0);
-         panelgreen : out  UNSIGNED (7 downto 0);
-         panelblue : out  UNSIGNED (7 downto 0);
-         lcd_dataenable : out std_logic;
+         panelred : out  UNSIGNED (7 downto 0) := x"00";
+         panelgreen : out  UNSIGNED (7 downto 0) := x"00";
+         panelblue : out  UNSIGNED (7 downto 0) := x"00";
+         lcd_dataenable : out std_logic := '0';
+         hdmi_dataenable : out std_logic := '0';
 
-         hdmi_hsync : out  STD_LOGIC;
-         hdmi_scl : inout std_logic;
-         hdmi_sda : inout std_logic;
-         hpd_a : inout std_logic;
+         hdmi_int : in std_logic := '1';
+         hdmi_hsync : out  STD_LOGIC := '1';
+         hdmi_scl : inout std_logic := '1';
+         hdmi_sda : inout std_logic := '1';
+         hpd_a : inout std_logic := '1';
 
+         porto_out : out unsigned(7 downto 0) := x"00";
+         portp_out : out unsigned(7 downto 0) := x"00";
+
+         kbd_datestamp : in unsigned(13 downto 0);
+         kbd_commit : in unsigned(31 downto 0);
+
+         max10_fpga_date : in unsigned(15 downto 0) := to_unsigned(0,16);
+         max10_fpga_commit : in unsigned(31 downto 0) := to_unsigned(0,32);
+         
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
          -------------------------------------------------------------------------
@@ -138,7 +167,7 @@ entity machine is
          portb_pins : in  std_logic_vector(7 downto 0);
          keyleft : in std_logic;
          keyup : in std_logic;
-         keyboard_column8 : out std_logic;
+         keyboard_column8 : out std_logic := '1';
          caps_lock_key : in std_logic;
          fa_left : in std_logic;
          fa_right : in std_logic;
@@ -154,56 +183,61 @@ entity machine is
          fa_poty : in std_logic;
          fb_potx : in std_logic;
          fb_poty : in std_logic;
-         pot_drain : buffer std_logic;
-         pot_via_iec : buffer std_logic;
+         pot_drain : buffer std_logic := '1';
+         pot_via_iec : buffer std_logic := '1';
 
-        i2c_joya_fire : out std_logic;
-        i2c_joya_up : out std_logic;
-        i2c_joya_down : out std_logic;
-        i2c_joya_left : out std_logic;
-        i2c_joya_right : out std_logic;
-        i2c_joyb_fire : out std_logic;
-        i2c_joyb_up : out std_logic;
-        i2c_joyb_down : out std_logic;
-        i2c_joyb_left : out std_logic;
-        i2c_joyb_right : out std_logic;
-        i2c_button2 : out std_logic;
-        i2c_button3 : out std_logic;
-        i2c_button4 : out std_logic;
-        i2c_black2 : out std_logic;
-        i2c_black3 : out std_logic;
-        i2c_black4 : out std_logic;
+        i2c_joya_fire : out std_logic := '1';
+        i2c_joya_up : out std_logic := '1';
+        i2c_joya_down : out std_logic := '1';
+        i2c_joya_left : out std_logic := '1';
+        i2c_joya_right : out std_logic := '1';
+        i2c_joyb_fire : out std_logic := '1';
+        i2c_joyb_up : out std_logic := '1';
+        i2c_joyb_down : out std_logic := '1';
+        i2c_joyb_left : out std_logic := '1';
+        i2c_joyb_right : out std_logic := '1';
+        i2c_button2 : out std_logic := '1';
+        i2c_button3 : out std_logic := '1';
+        i2c_button4 : out std_logic := '1';
+        i2c_black2 : out std_logic := '1';
+        i2c_black3 : out std_logic := '1';
+        i2c_black4 : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_clk_en : out std_logic;
-         iec_data_en : out std_logic;
-         iec_data_o : out std_logic;
-         iec_reset : out std_logic;
-         iec_clk_o : out std_logic;
-         iec_atn_o : out std_logic;
+         iec_clk_en : out std_logic := '1';
+         iec_data_en : out std_logic := '1';
+         iec_srq_en : out std_logic := '1';
+         iec_data_o : out std_logic := '1';
+         iec_reset : out std_logic := '1';
+         iec_clk_o : out std_logic := '1';
+         iec_atn_o : out std_logic := '1';
+         iec_srq_o : out std_logic := '1';
+         iec_srq_external : in std_logic;
          iec_data_external : in std_logic;
          iec_clk_external : in std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interfaces (internal and external (2))
          -------------------------------------------------------------------------
-         cs_bo : out std_logic;
-         sclk_o : out std_logic;
-         mosi_o : out std_logic;
+         cs_bo : out std_logic := '1';
+         sclk_o : out std_logic := '1';
+         mosi_o : out std_logic := '1';
          miso_i : in  std_logic;
-         cs2_bo : out std_logic;
-         sclk2_o : out std_logic;
-         mosi2_o : out std_logic;
+         cs2_bo : out std_logic := '1';
+         sclk2_o : out std_logic := '1';
+         mosi2_o : out std_logic := '1';
          miso2_i : in  std_logic;
 
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
          f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
+         f_motora : out std_logic := '1';
+         f_selecta : out std_logic := '1';
+         f_motorb : out std_logic := '1';
+         f_selectb : out std_logic := '1';
          f_stepdir : out std_logic := '1';
          f_step : out std_logic := '1';
          f_wdata : out std_logic := '1';
@@ -220,20 +254,24 @@ entity machine is
          -- Lines for other devices that we handle here
          ---------------------------------------------------------------------------
          aclMISO : in std_logic;
-         aclMOSI : out std_logic;
-         aclSS : out std_logic;
-         aclSCK : out std_logic;
+         aclMOSI : out std_logic := '1';
+         aclSS : out std_logic := '1';
+         aclSCK : out std_logic := '1';
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
 
-         ampPWM_l : out std_logic;
-         ampPWM_r : out std_logic;
-         ampSD : out std_logic;
+         ampPWM_l : out std_logic := '1';
+         ampPWM_r : out std_logic := '1';
+         pcspeaker_left : out std_logic := '1';
+         ampSD : out std_logic := '0';
+         audio_left : out std_logic_vector(19 downto 0) := (others => '1');
+         audio_right : out std_logic_vector(19 downto 0) := (others => '1');
 
          micData0 : in std_logic;
          micData1 : in std_logic;
-         micClk : out std_logic;
-         micLRSel : out std_logic;
+         micClk : out std_logic := '1';
+         micLRSel : out std_logic := '1';
+         headphone_mic : in std_logic := '1';
 
          -- I2S audio channels
          i2s_master_clk : out std_logic := '0';
@@ -249,30 +287,32 @@ entity machine is
          pcm_modem2_data_in : in std_logic := '0';
          pcm_modem1_data_out : out std_logic := '0';
          pcm_modem2_data_out : out std_logic := '0';
-         i2s_bt_data_in : in std_logic := '0';
-         i2s_bt_data_out : out std_logic := '0';    
+         pcm_bluetooth_data_in : in std_logic := '0';
+         pcm_bluetooth_data_out : out std_logic := '0';    
+         pcm_bluetooth_clk_in : in std_logic := '0';
+         pcm_bluetooth_sync_in : in std_logic := '0';
          
-         tmpSDA : inout std_logic;
-         tmpSCL : inout std_logic;
+         tmpSDA : inout std_logic := '1';
+         tmpSCL : inout std_logic := '1';
          tmpInt : in std_logic;
          tmpCT : in std_logic;
 
-         i2c1SDA : inout std_logic;
-         i2c1SCL : inout std_logic;
+         i2c1SDA : inout std_logic := '1';
+         i2c1SCL : inout std_logic := '1';
 
          lcdpwm : out std_logic := '1';
-         touchSDA : inout std_logic := '1';
+         touchSDA : inout std_logic := 'H';
          touchSCL : inout std_logic := '1';
          
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
          eth_mdio : inout std_logic;
-         eth_mdc : out std_logic;
-         eth_reset : out std_logic;
+         eth_mdc : out std_logic := '1';
+         eth_reset : out std_logic := '1';
          eth_rxd : in unsigned(1 downto 0);
-         eth_txd : out unsigned(1 downto 0);
-         eth_txen : out std_logic;
+         eth_txd : out unsigned(1 downto 0) := "00"; 
+         eth_txen : out std_logic := '0';
          eth_rxdv : in std_logic;
          eth_rxer : in std_logic;
          eth_interrupt : in std_logic;
@@ -299,7 +339,7 @@ entity machine is
         widget_joyb : in std_logic_vector(4 downto 0);
 
          uart_rx : inout std_logic;
-         uart_tx : out std_logic;
+         uart_tx : out std_logic := '1';
          
          -- CPU block ram debug
          -- Debugging
@@ -318,19 +358,28 @@ entity machine is
          debug8_state_out : out std_logic_vector(7 downto 0);
          debug4_state_out : out std_logic_vector(3 downto 0);
          proceed_dbg_out : out std_logic;
+
+         ---------------------------------------------------------------------------
+         -- Direct interface to HyperRAM for fetching 256 colour glyph data etc
+         ---------------------------------------------------------------------------
+         hyper_addr : out unsigned(18 downto 3) := (others => '0');
+         hyper_request_toggle : out std_logic := '0';
+         hyper_data : in unsigned(7 downto 0) := x"00";
+         hyper_data_strobe : in std_logic := '0';
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
-         led : out std_logic_vector(15 downto 0);
+         led : out std_logic_vector(15 downto 0) := (others => '0');
+         dipsw : in std_logic_vector(4 downto 0) := (others => '0');
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
-         UART_TXD : out std_logic;
+         UART_TXD : out std_logic := '1';
          RsRx : in std_logic;
          
-         sseg_ca : out std_logic_vector(7 downto 0);
-         sseg_an : out std_logic_vector(7 downto 0)
+         sseg_ca : out std_logic_vector(7 downto 0) := (others => '0');
+         sseg_an : out std_logic_vector(7 downto 0) := (others => '0')
          );
 end machine;
 
@@ -468,7 +517,7 @@ architecture Behavioral of machine is
   --  i.e., for much longer than this here provides).
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
   signal reset_combined : std_logic := '1';
-  
+
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
   signal vic_irq : std_logic;
@@ -482,7 +531,7 @@ architecture Behavioral of machine is
   signal hyper_trap_f011_write : std_logic := '0';
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
 
-  signal fastio_addr : std_logic_vector(19 downto 0);
+  signal fastio_addr : std_logic_vector(19 downto 0) := (others => '0');
   signal fastio_addr_fast : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;
@@ -560,7 +609,9 @@ architecture Behavioral of machine is
 
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
-  signal phi0 : std_logic := '0';
+  signal phi_1mhz : std_logic := '0';
+  signal phi_2mhz : std_logic := '0';
+  signal phi_3mhz : std_logic := '0';
 
   -- Video pipeline plumbing
   signal pixel_x_viciv : integer;
@@ -584,6 +635,7 @@ architecture Behavioral of machine is
   signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
   signal vicii_raster : unsigned (11 downto 0);
+  signal pixel_frame_toggle : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
 
@@ -604,6 +656,7 @@ architecture Behavioral of machine is
   signal lcd_inletterbox : std_logic := '0';
   signal vga_inletterbox : std_logic := '0';
   signal lcd_dataenable_internal : std_logic := '0';
+  signal hdmi_dataenable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
   signal vga60_select : std_logic := '0';
@@ -669,6 +722,7 @@ architecture Behavioral of machine is
 
   signal dat_even : std_logic;
   signal dat_offset : unsigned(15 downto 0);
+  signal dat_bitplane_bank : unsigned(2 downto 0);
   signal dat_bitplane_addresses : sprite_vector_eight;  
 
   signal pota_x : unsigned(7 downto 0);
@@ -690,10 +744,27 @@ architecture Behavioral of machine is
   signal ethernet_cpu_arrest : std_logic := '0';
 
   signal d031_write_toggle : std_logic;
+
+  signal viciv_frame_indicate : std_logic;
+
+  signal cpu_pcm_left : signed(15 downto 0) := x"FFFF";
+  signal cpu_pcm_right : signed(15 downto 0) := x"FFFF";
+  signal cpu_pcm_enable : std_logic := '0';
+  signal cpu_pcm_bypass : std_logic := '0';
+  signal pwm_mode_select : std_logic := '0';
+
+  signal accessible_row : integer range 0 to 255;
+  signal accessible_key : unsigned(6 downto 0);
+  signal dim_shift : std_logic;
+
+  signal dd00_bits : unsigned(1 downto 0);
+
+  signal cpu_slow : std_logic;
   
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
+  hdmi_dataenable <= hdmi_dataenable_internal;
   
   xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
   ycounter_viciv_u <= to_unsigned(ycounter_viciv,12);
@@ -713,8 +784,9 @@ begin
   process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
           power_on_reset,reset_monitor,hyper_trap)
   begin
-    -- XXX Allow switch 0 to mask IRQs
-    combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
+    -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
+    -- IRQs and NMIs
+    combinedirq <= (irq and io_irq and vic_irq) or sw(15);
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
@@ -735,17 +807,16 @@ begin
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
-  -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
     report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
-  process(pixelclock,ioclock)
+  process(pixelclock,cpuclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
       report "external_pixel_strobe = " & std_logic'image(external_pixel_strobe);
     end if;
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       -- Hold reset low for a while when we first turn on
 --      report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
       power_on_reset(7) <= '1';
@@ -770,7 +841,8 @@ begin
       led(14) <= speed_gate_enable;
       led(15) <= motor;
 
-      xray_mode <= sw(1);
+      -- Xray mode allows debugging raster time on VIC-IV
+      xray_mode <= sw(12);
       
       segled_counter <= segled_counter + 1;
 
@@ -879,11 +951,12 @@ begin
   end process;
 
   cpu0: entity work.gs4510
-    generic map(
-      cpufrequency => cpufrequency,
-      target => target)
+    generic map(target => target)
     port map(
-      phi0 => phi0,
+      phi_1mhz => phi_1mhz,
+      phi_2mhz => phi_2mhz,
+      phi_3mhz => phi_3mhz,
+      cpu_slow => cpu_slow,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
@@ -891,7 +964,6 @@ begin
       chipselect_enables => chipselect_enables,
       mathclock => cpuclock,
       clock => cpuclock,
-      ioclock => ioclock,
       reset =>reset_combined,
       reset_out => reset_out,
       irq => combinedirq,
@@ -902,6 +974,7 @@ begin
       hyper_trap => hyper_trap_combined,
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,    
+      iec_bus_active => iec_bus_active,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       cpuis6502 => cpuis6502,
@@ -913,8 +986,16 @@ begin
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
       dat_even => dat_even,
+      dat_bitplane_bank => dat_bitplane_bank,
       dat_bitplane_addresses => dat_bitplane_addresses,
+      pixel_frame_toggle => pixel_frame_toggle,
 
+      cpu_pcm_left => cpu_pcm_left,
+      cpu_pcm_right => cpu_pcm_right,
+      cpu_pcm_enable => cpu_pcm_enable,
+      cpu_pcm_bypass => cpu_pcm_bypass,
+      pwm_mode_select => pwm_mode_select,
+      
       fast_key => fast_key,
       
       debug_address_w_dbg_out => debug_address_w_dbg_out,
@@ -932,7 +1013,7 @@ begin
       -- Hypervisor signals: we need to tell hyppo memory whether
       -- to map or not, and we also need to be able to set the VIC-III
       -- IO mode.
-      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      privileged_access => cpu_hypervisor_mode,
       iomode_set => iomode_set,
       iomode_set_toggle => iomode_set_toggle,
       
@@ -997,6 +1078,9 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
       
       chipram_clk => pixelclock,
       chipram_address => chipram_address,
@@ -1031,12 +1115,13 @@ begin
   pixel0: entity work.pixel_driver
     port map (
                clock81 => pixelclock, -- 80MHz
-               clock162 => clock162,
                clock27 => clock27,
 
                cpuclock => cpuclock,
 
-
+               phi_1mhz_out => phi_1mhz,
+               phi_2mhz_out => phi_2mhz,
+               phi_3mhz_out => phi_3mhz,
 
       pixel_strobe_out => external_pixel_strobe,
       
@@ -1052,7 +1137,7 @@ begin
       y_zero => external_frame_y_zero,     
 
       -- Pixel data from the video pipeline
-      -- (clocked at 100MHz pixel clock)
+      -- (clocked at 81MHz pixel clock)
       red_i => vgared_osk,
       green_i => vgagreen_osk,
       blue_i => vgablue_osk,
@@ -1069,12 +1154,14 @@ begin
                
       hsync => hdmi_hsync,
       vsync => vsync,  -- for HDMI
-      vga_hsync => vga_hsync,      -- for VGA          
+      vga_hsync => vga_hsync,      -- for VGA
+      vga_blank => vga_blank,
 
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,               
       lcd_vsync => lcd_vsync,
       fullwidth_dataenable => lcd_dataenable_internal,
+      narrow_dataenable => hdmi_dataenable_internal,
       lcd_inletterbox => lcd_inletterbox,
       vga_inletterbox => vga_inletterbox
 
@@ -1082,12 +1169,16 @@ begin
       
       
   viciv0: entity work.viciv
+    generic map ( hyper_installed => hyper_installed )
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      ioclock        => ioclock,
       all_pause => all_pause,
 
+      dd00_bits => dd00_bits,
+      
+      viciv_frame_indicate => viciv_frame_indicate,
+      
       hypervisor_mode => cpu_hypervisor_mode,
       
       irq             => vic_irq,
@@ -1103,6 +1194,11 @@ begin
       vsync_polarity => vsync_polarity,
       hsync_polarity => hsync_polarity,
 
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data_in => hyper_data,
+      hyper_data_strobe_in => hyper_data_strobe,
+      
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
@@ -1130,6 +1226,7 @@ begin
 
       dat_even => dat_even,
       dat_offset => dat_offset,
+      dat_bitplane_bank => dat_bitplane_bank,
       dat_bitplane_addresses => dat_bitplane_addresses,
      
       -- Pixel stream to ethernet video packer
@@ -1139,6 +1236,7 @@ begin
       pixel_blue_out => pixel_blue,
       pixel_y => pixel_y,
       pixel_newframe => pixel_newframe,
+      pixel_frame_toggle => pixel_frame_toggle,
       pixel_newraster => pixel_newraster,
       vicii_raster_out => vicii_raster,
 
@@ -1197,7 +1295,7 @@ begin
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
 
-    matrix_mode_enable => protected_hardware_sig(6),--sw(5),
+    matrix_mode_enable => protected_hardware_sig(6),
     secure_mode_flag =>  secure_mode_triage_required,
 
     vgared_in => vgared_viciv,
@@ -1220,6 +1318,11 @@ begin
       -- (visual keyboard is only for LCD display, so this makes sense
       -- here).
       lcd_display_enable => lcd_dataenable_internal,
+
+      -- Accessibility inputs for showing on visual keyboard
+      selected_row => accessible_row,
+      accessible_key => accessible_key,
+      dim_shift => dim_shift,
       
       -- Pixels from video pipeline
       pixel_strobe_in => pixel_strobe_viciv,
@@ -1269,7 +1372,7 @@ begin
   
   mouse0: entity work.mouse_input
     port map (
-      clk => ioclock,
+      clk => cpuclock,
 
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
@@ -1315,12 +1418,18 @@ begin
       );
   
   iomapper0: entity work.iomapper
-    generic map ( target => target )
+    generic map ( target => target,
+                  cpu_frequency => cpu_frequency)
     port map (
-      clk => ioclock,
+      cpuclock => cpuclock,
       clock100mhz => clock100,
+      clock200mhz => clock200,
       clock2mhz => clock2mhz,
-      cpuspeed => cpuspeed,      
+      cpuspeed => cpuspeed,
+      pixelclk => pixelclock,
+      clock50mhz => clock50mhz,
+      pal_mode => pal50_select,
+      cpu_slow => cpu_slow,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
@@ -1329,26 +1438,54 @@ begin
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,
       hyper_trap_count => hyper_trap_count,
-      cpuclock => cpuclock,
-      pixelclk => pixelclock,
-      clock50mhz => clock50mhz,
+      viciv_frame_indicate => viciv_frame_indicate,
       cpu_hypervisor_mode => cpu_hypervisor_mode,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      dd00_bits => dd00_bits,
+      
+      max10_fpga_date => max10_fpga_date,
+      max10_fpga_commit => max10_fpga_commit,
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb,
+
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr,
       
       joy3 => joy3,
       joy4 => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
+
+      porto_out => porto_out,
+      portp_out => portp_out,
+
+      -- Accessibility inputs for showing on visual keyboard
+      accessible_row => accessible_row,
+      accessible_key => accessible_key,
+      dim_shift => dim_shift,
+      
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,      
       
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
       buffereduart_ringindicate => buffereduart_ringindicate,
-      buffereduart2_rx => buffereduart2_rx,
-      buffereduart2_tx => buffereduart2_tx,
+
+      cpu_pcm_left => cpu_pcm_left,
+      cpu_pcm_right => cpu_pcm_right,
+      cpu_pcm_enable => cpu_pcm_enable,
+      cpu_pcm_bypass => cpu_pcm_bypass,
+      pwm_mode_select => pwm_mode_select,
       
       visual_keyboard_enable => visual_keyboard_enable,
       osk_debug_display => osk_debug_display,
@@ -1386,7 +1523,7 @@ begin
       cart_access_count => cart_access_count,
       
       uartclock => uartclock,
-      phi0 => phi0,
+      phi0_1mhz => phi_1mhz,
       reset => reset_combined,
       reset_out => reset_io,
       irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
@@ -1401,6 +1538,7 @@ begin
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
+      dipsw => dipsw,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
@@ -1424,8 +1562,10 @@ begin
     monitor_p => monitor_p,
       
     f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_motorb => f_motorb,
+    f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
     f_wdata => f_wdata,
@@ -1441,11 +1581,13 @@ begin
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en,
+      iec_srq_en => iec_srq_en,
       iec_data_en => iec_data_en,
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_atn_o => iec_atn_o,
+      iec_srq_o => iec_srq_o,
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
       
@@ -1521,7 +1663,8 @@ begin
       widget_capslock => widget_capslock,
       widget_joya => widget_joya,
       widget_joyb => widget_joyb,     
-      
+
+      hdmi_int => hdmi_int,
       hdmi_sda => hdmi_sda,
       hdmi_scl => hdmi_scl,
       hpd_a => hpd_a,
@@ -1549,12 +1692,17 @@ begin
       ampPWM_l => ampPWM_l,
       ampPWM_r => ampPWM_r,
       ampSD => ampSD,
+      pcspeaker_left => pcspeaker_left,
+      audio_left => audio_left,
+      audio_right => audio_right,
+      
 
       -- MEMS microphones
       micData0 => micData0,
       micData1 => micData1,
       micClk => micClk,
       micLRSel => micLRSel,
+      headphone_mic => headphone_mic,
 
       -- I2S interfaces for various boards
       i2s_master_clk => i2s_master_clk,
@@ -1570,8 +1718,11 @@ begin
       pcm_modem2_data_in => pcm_modem2_data_in,
       pcm_modem1_data_out => pcm_modem1_data_out,
       pcm_modem2_data_out => pcm_modem2_data_out,
-      i2s_bt_data_in => i2s_bt_data_in,
-      i2s_bt_data_out => i2s_bt_data_out,
+
+      pcm_bluetooth_sync_in => pcm_bluetooth_sync_in,
+      pcm_bluetooth_clk_in => pcm_bluetooth_clk_in,
+      pcm_bluetooth_data_in => pcm_bluetooth_data_in,
+      pcm_bluetooth_data_out => pcm_bluetooth_data_out,
       
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,
@@ -1635,7 +1786,7 @@ begin
     terminal_emulator_ready => terminal_emulator_ready,
     terminal_emulator_ack => terminal_emulator_ack,
 
-    force_single_step => sw(11),
+    force_single_step => sw(13),
 
     secure_mode_from_cpu => secure_mode_flag,
     secure_mode_from_monitor => secure_mode_from_monitor,
@@ -1697,6 +1848,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      report "tick";
+      
       secure_mode_triage_required <= protected_hardware_sig(7) or secure_mode_from_monitor;
       
       osk_touch1_key <= osk_touch1_key_driver;

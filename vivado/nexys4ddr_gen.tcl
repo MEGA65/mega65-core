@@ -108,6 +108,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sdcard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_videobuffer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x512.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x2048.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096_sync.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram32x1024_sync.vhdl"]"\
@@ -116,6 +117,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/bitplanes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vicii_sprites.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/uart_rx_buffered.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_rx.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
@@ -133,6 +135,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/i2c_master.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_wrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_bytes.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_decoder.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps_to_bits.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps.vhdl"]"\
@@ -176,6 +179,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/nexys4ddr.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rain.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/visual_keyboard.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/accessible_keyboard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/oskmem.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_uart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_charrom.vhdl"]"\
@@ -266,7 +270,15 @@ set file "vhdl/mfm_bits_to_bytes.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/mfm_bits_to_gaps.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/ghdl_ram8x4096.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/ghdl_ram8x2048.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -355,6 +367,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/UART_TX_CTRL.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/uart_rx_buffered.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -447,6 +463,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/visual_keyboard.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/accessible_keyboard.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

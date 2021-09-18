@@ -1,0 +1,697 @@
+; HDMI I2C setup / test program
+
+; Include C65 BASIC program load header
+
+	 .word $2001
+	 .org $2001
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $FE,$02,"0:", $9e, " 8151", $AA, "65",0      ; BANK 0: SYS 8151+65 (=8216)
+_next:	 .word 0
+
+	 .checkpc 8216
+	 .advance 8216
+
+programentrypoint:
+
+	sei
+
+	; C65 BASIC defaults to BANK 0, which is RAM bank 0, with no ROM or IO
+	; banked in. So we have to fix that ourselves.
+
+	lda #0
+	tax
+	tay
+	taz
+	map
+	eom
+
+	; Bank IO back in
+	lda #$37
+	sta $01
+	; Bank ROM in at $E000-$FFFF
+	lda #$80
+	tsb $d030
+
+	lda #0
+	sta $d020
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; 50MHz CPU
+	lda #65
+	sta 0
+
+	; clear screen, lower case
+	lda #$93
+	jsr $ffd2
+	lda #$0e
+	jsr $ffd2
+
+	; Setup pointer to memory mapped HDMI I2C registers
+	lda #<$7200
+	sta $fc
+	lda #>$7200
+	sta $fd
+	lda #<$0FFD
+	sta $fe
+	lda #>$0FFD
+	sta $ff
+
+
+	; Re-read register $fe to get constant rotation of register phase
+	; (this is because of a bug in hdmi_i2c.vhdl where the I2C read
+	; operation isnt being forced to register $00 each time.)
+	lda #$00
+	ldz #$ff
+	jsr write_i2c_reg
+
+
+@main_loop:
+	lda $d610
+	beq @nokey
+	sta $d610
+	
+	cmp #$61
+	bne @notkeya
+	lda $d61a
+	eor #$01
+	sta $d61a
+	jmp @main_loop
+@notkeya:
+	cmp #$76
+	bne @notkeyv
+	lda $d06f
+	eor #$80
+	sta $d06f
+	lda #$1b
+	sta $d011
+	jmp @main_loop
+@notkeyv:
+	cmp #$63
+	bne @notkeys
+
+	inc $d020
+
+	lda #$00
+	ldx #$1f
+@sl1:
+	sta $d400,x
+	dex
+	bpl @sl1
+
+	dec $d020
+
+	lda #$0f
+	sta $d418
+
+	lda #$0f
+	sta $d405
+	lda #$0f
+	sta $d401
+	lda #$00
+	sta $d406
+	sta $d400
+	lda #$00
+	sta $d404
+	lda #$11
+	sta $d404
+
+@notkeys:
+
+@nokey:
+	ldz #0
+@reg_read_loop:
+	; Re-read I2C register values
+	tza
+	tax   
+;	dex  ; shift around by 1, to make up for register rotation problem described above 
+	nop
+	lda ($fc),z
+	sta $1400,x
+	inz
+	bne @reg_read_loop
+
+	; Home cursor
+	lda #$13
+	jsr $ffd2
+
+	jsr print_inline
+	.byte "cHIP IS adv",0
+	lda $14f5
+	jsr print_hexbyte
+	lda $14f6
+	jsr print_hexbyte
+	jsr print_inline
+	.byte ", REV ",0
+	lda $1400
+	jsr print_hexbyte
+	jsr print_inline
+	.byte 13,"aUDIO n=",0
+	ldx $1403
+	ldy $1402
+	jsr print_dec
+	jsr print_inline
+	.byte ", cts=",0
+	ldx $1409
+	ldy $1408
+	jsr print_dec
+	jsr print_inline
+	.byte " (dETECTED cts=",0
+	ldx $1406
+	ldy $1405
+	jsr print_dec
+	jsr print_inline
+	.byte ", cts MODE IS ",0
+	lda $140a
+	bpl @ctsisauto
+	jsr print_inline
+	.byte "manual)",13,0
+	jmp @ctsnotauto
+@ctsisauto:
+	jsr print_inline
+	.byte "auto)",0
+@ctsnotauto:
+	jsr print_inline
+	.byte ", sOURCE=",0
+	
+	lda $140a
+	and #$70
+	lsr
+	tax
+	ldy #$0
+@audiosourceloop:
+	lda audio_sources,x
+	phx
+	phy
+	jsr $ffd2
+	ply
+	plx
+	inx
+	iny
+	cpy #8
+	bne @audiosourceloop
+
+	jsr print_inline
+	.byte 13,"avd7511 spdif tx = ",0
+	lda $140b
+	bpl @spdifoff
+	jsr print_inline
+	.byte "on ",0
+	jmp @spdifonoffdone
+@spdifoff:
+	jsr print_inline
+	.byte "off",0
+@spdifonoffdone:
+	jsr print_inline
+	.byte ", mega65 spdif out = ",0
+	lda $d61a
+	and #$01
+	beq @mspdifoff
+	jsr print_inline
+	.byte "on ",0
+	jmp @mspdifonoffdone
+@mspdifoff:
+	jsr print_inline
+	.byte "off",0
+@mspdifonoffdone:
+	jsr print_inline
+	.byte ", vic-iv MODE = ",0
+	lda $d06f	
+	bpl @mpal
+	jsr print_inline
+	.byte "ntsc ",0
+	jmp @mnotntsc
+@mpal:
+	jsr print_inline
+	.byte "pal  ",0
+@mnotntsc:
+
+	jsr print_inline
+	.byte 13,"aUDIO STREAM IS: ",0
+	lda $1412
+	bpl @mpcm
+	jsr print_inline
+	.byte "NON-pcm, ",0
+	jmp @mnotpcm
+@mpcm:
+	jsr print_inline
+	.byte "pcm,     ",0
+@mnotpcm:
+
+	lda $1412
+	and #$20
+	beq @mcopyright
+	jsr print_inline
+	.byte "not-cOPYRIGHT, ",0
+	jmp @mnotcopyright
+@mcopyright:
+	jsr print_inline
+	.byte "cOPYRIGHT,     ",0
+@mnotcopyright:
+
+	lda $1414
+	and #$0f
+	asl
+	asl
+	asl
+	tay
+	ldx #0
+@samplesizeloop:
+	phx
+	phy
+	lda sample_size_list,y
+	jsr $ffd2
+	ply
+	plx
+	iny
+	inx
+	cpx #8
+	bne @samplesizeloop
+	jsr print_inline
+	.byte "BITS/SAMPLE, ",0
+
+
+	lda $1415
+	and #$f0
+	lsr
+	tay
+	ldx #0
+@samplerateloop:
+	phx
+	phy
+	lda sample_rate_list,y
+	jsr $ffd2
+	ply
+	plx
+	iny
+	inx
+	cpx #8
+	bne @samplerateloop
+
+	jsr print_inline
+	.byte 13,"    mANUAL MODE: ",0
+	lda $143c
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"aNNOUNCING MODE: ",0
+	lda $143d
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"  dETECTED MODE: ",0
+	lda $143e
+	lsr
+	lsr
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"aux dETECTED: ",0
+	lda $143f
+	and #$e0
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda #<aux_vic_detect
+	sta $50
+	lda #>aux_vic_detect
+	sta $51
+	jsr print_xth_message
+
+	jsr print_inline
+	.byte 13,"rASTERS ",0
+	lda $143f
+	and #$18
+	lsr
+	lsr
+	lsr
+	tax
+	lda #<raster_counts
+	sta $50
+	lda #>raster_counts
+	sta $51
+	jsr print_xth_message
+
+	jmp @main_loop
+
+raster_counts:
+	.byte "??? LINES",0
+	.byte "262/312 LINES",0
+	.byte "263/313 LINES",0
+	.byte "???/314 LINES",0
+
+aux_vic_detect:
+	.byte "sET BY rEGISTER 0X3e",0
+	.byte "240P nOT ACTIVE",0
+	.byte "576I nOT ACTIVE",0
+	.byte "288P nOT ACTIVE",0
+	.byte "480I aCTIVE",0
+	.byte "240P aCTIVE",0
+	.byte "576I aCTIVE",0
+	.byte "288P aCTIVE",0
+
+print_video_mode:
+	; X has video mode
+	lda #<hdmi_mode_names
+	sta $50
+	lda #>hdmi_mode_names
+	sta $51
+	jmp print_xth_message
+
+print_xth_message:
+
+@skipnamesloop:
+	cpx #$00
+	beq @foundvideoname
+	ldy #$00
+@skipnamel2:
+	lda ($50),y
+	beq @foundvideonamenull
+	iny
+	bne @skipnamel2
+@foundvideonamenull:
+	tya
+	sec        ; skip NULL char also
+	adc $50
+	sta $50
+	lda $51
+	adc #0
+	sta $51
+	dex
+	jmp @skipnamesloop
+
+@foundvideoname:
+	; Found name, so now print it
+	ldy #0
+@printvideonameloop:	
+	lda ($50),y
+	beq @endofvideonamefound
+	phy
+	jsr $ffd2
+	ply
+	iny
+	bne @printvideonameloop
+@endofvideonamefound:
+	phy
+	lda #$20
+	jsr $ffd2
+	ply
+	iny
+	cpy #27                   ; max video name length + 2
+	bne @endofvideonamefound
+	
+	rts
+
+sample_rate_list:
+	.byte "44.1khZ "
+	.byte "iNVALID "
+	.byte "48khZ   "
+	.byte "32khZ   "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "88.2khZ "
+	.byte "hbr     "
+	.byte "96khZ   "
+	.byte "iNVALID "
+	.byte "176.4khZ"
+	.byte "iNVALID "
+	.byte "192khZ  "
+	.byte "iNVALID "
+
+sample_size_list:
+	.byte "nOTsPEC "
+	.byte "nOTsPEC "
+	.byte "16 ",0,0,0,0,0
+	.byte "20 ",0,0,0,0,0
+	.byte "18 ",0,0,0,0,0
+	.byte "22 ",0,0,0,0,0
+	.byte "nOdESC ",0,0
+	.byte "nOdESC ",0,0
+	.byte "19 ",0,0,0,0,0
+	.byte "23 ",0,0,0,0,0
+	.byte "20 ",0,0,0,0,0
+	.byte "24 ",0,0,0,0,0
+	.byte "17 ",0,0,0,0,0
+	.byte "21 ",0,0,0,0,0
+	.byte "nOdESC ",0,0
+	.byte "nOdESC ",0,0
+
+
+print_inline:
+	; Get return address from stack to get string address
+	pla
+	sta $50
+	pla
+	sta $51
+	inw $50
+@print_inline_char:
+	ldy #$00
+	lda ($50),y
+	beq @done_print_inline
+	jsr $ffd2
+	inw $50
+	jmp @print_inline_char
+
+
+@done_print_inline:
+	; skip $00 at end of string
+	inw $50
+	jmp ($0050)
+
+print_hexbyte:
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr print_hexdigit
+	pla
+	and #$f
+	jsr print_hexdigit
+	rts
+
+print_hexdigit:
+	phy
+	tay
+	lda hexdigits,y
+	jsr $ffd2
+	ply
+	rts
+
+hexdigits:
+	.byte "0123456789ABCDEF"
+
+print_dec:
+	; print the number in YYXX as a decimal number
+	phy
+
+	lda #0
+	sta dec_buffer+0
+	sta dec_buffer+1
+	sta dec_buffer+2
+	sta dec_buffer+3
+	sta dec_buffer+4
+	ldz #0
+@pdl0:
+	ldy #8
+	txa
+@pdl1:
+	pha
+	tya
+	tax
+	pla
+	ror
+	bcc @pdc1
+	pha
+	tza
+	tax
+	lda values+0,x
+	and #$f
+	clc
+	adc dec_buffer+0
+	sta dec_buffer+0
+	lda values+1,x
+	and #$f
+	clc
+	adc dec_buffer+1
+	sta dec_buffer+1
+	lda values+2,x
+	and #$f
+	clc
+	adc dec_buffer+2
+	sta dec_buffer+2
+	lda values+3,x
+	and #$f
+	clc
+	adc dec_buffer+3
+	sta dec_buffer+3
+	lda values+4,x
+	and #$f
+	clc
+	adc dec_buffer+4
+	sta dec_buffer+4
+	pla
+@pdc1:
+	inz
+	inz
+	inz
+	inz
+	inz
+	dey
+	bne @pdl1
+	
+	cpz #80
+	beq @pdnormalise
+	plx
+	jmp @pdl0
+
+@pdnormalise:
+	ldx #4
+@pdn0:
+	lda dec_buffer+0,x
+	cmp #9
+	bcc @pdn1
+	inc dec_buffer-1,x
+	sec
+	sbc #10
+	sta dec_buffer+0,x
+	jmp @pdn0
+@pdn1:	dex
+	bpl @pdn0
+
+	lda dec_buffer+0
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+1
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+2
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+3
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+4
+	ora #$30
+	jsr $ffd2
+	rts
+
+write_i2c_reg:
+	nop
+	sta ($fc),z
+
+	; Wait a while to let register writing complete
+	lda #$40
+@l1:	cmp $d012
+	bne @l1
+	lda #$30
+@l2:	cmp $d012
+	bne @l2
+	rts
+
+dec_buffer:
+	.byte 0,0,0,0,0
+
+values:
+	.byte "00001","00002","00004","00008","00016","00032"
+	.byte "00064","00128","00256","00512","01024","02048"
+	.byte "04096","08192","16384","32768"
+
+audio_sources:
+	.byte "i2s",0,0,0,0,0
+	.byte "spdif",0,0,0
+	.byte "dsd",0,0,0,0,0
+	.byte "hbr",0,0,0,0,0
+	.byte "dst",0,0,0,0,0
+	.byte "???",0,0,0,0,0
+	.byte "???",0,0,0,0,0
+	.byte "???",0,0,0,0,0
+
+hdmi_mode_names:
+	.byte "vic uNAVAILABLE",0
+	.byte "vga (640X480) 4:3",0
+	.byte "480P-60, 4:3",0
+	.byte "480P-60, 16:9",0
+	.byte "720P-60, 16:9",0
+	.byte "1080I-60, 16:9",0
+	.byte "480I-60, 2x cLK, 4:3",0
+	.byte "480I-60, 2x cLK, 16:9",0
+	.byte "240P-60, 2x cLK, 4:3",0
+	.byte "240P-60, 2x cLK, 16:9",0
+	.byte "480I-60, 4x cLK, 4:3",0
+	.byte "480I-60, 4x cLK, 16:9",0
+	.byte "240P-60, 8x cLK, 4:3",0
+	.byte "240P-60, 8x cLK, 16:9",0
+	.byte "480P-60, 2x cLK, 4:3",0
+	.byte "480P-60, 2x cLK, 16:9",0
+	.byte "1080P-60, 16:9",0
+	.byte "576P-50, 4:3",0
+	.byte "576P-50, 16:9",0
+	.byte "720P-50, 16:9",0
+	.byte "1080I-50, 16:9",0
+	.byte "576I-50, 2x cLK, 4:3",0
+	.byte "576I-50, 2x cLK, 16:9",0
+	.byte "288P-50, 2x cLK, 4:3",0
+	.byte "288P-50, 2x cLK, 16:9",0
+	.byte "576I-50, 4x cLK, 4:3",0
+	.byte "576I-50, 4x cLK, 16:9",0
+	.byte "288P-50, 8x cLK, 4:3",0
+	.byte "288P-50, 8x cLK, 16:9",0
+	.byte "576P-50, 2x cLK, 4:3",0
+	.byte "576P-50, 2x cLK, 16:9",0
+	.byte "1080P-50, 16:9",0
+	.byte "1080P-24, 16:9",0
+	.byte "1080P-25, 16:9",0
+	.byte "1080P-30, 16:9",0
+	.byte "480P-60, 4x cLK, 4:3",0
+	.byte "480P-60, 4x cLK, 16:9",0
+	.byte "576P-50, 4x cLK, 4:3",0
+	.byte "576P-50, 4x cLK, 16:9",0
+	.byte "1080I-50, aLT bLANKING",0
+	.byte "1080I-100, 16:9",0
+	.byte "720P-100, 16:9",0
+	.byte "576P-100, 4:3",0
+	.byte "576P-100, 16:9",0
+	.byte "576I-100, 4:3",0
+	.byte "576I-100, 16:9",0
+	.byte "1080I-120, 16:9",0
+	.byte "720P-120, 16:9",0
+	.byte "480P-120, 4:3",0
+	.byte "480P-120, 16:9",0
+	.byte "480P-120, 4:3",0
+	.byte "480I-120, 16:9",0
+	.byte "576P-200, 4:3",0
+	.byte "576P-200, 16:9",0
+	.byte "576I-200, 4:3",0
+	.byte "576I-200, 16:9",0
+	.byte "480P-240, 4:3",0
+	.byte "480P-240, 16:9",0
+	.byte "480I-240, 4:3",0
+	.byte "480I-240, 16:9",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+
+
+
+	.scend
+
+	.outfile "hdmistatus.prg"

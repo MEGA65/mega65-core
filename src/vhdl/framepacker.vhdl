@@ -55,10 +55,11 @@ use work.debugtools.all;
 entity framepacker is
   port (
     pixelclock : in std_logic;
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
     ethclock : in std_logic;
     hypervisor_mode : in std_logic;
     thumbnail_cs : in std_logic;
+    pal_mode : in std_logic;
 
     video_or_cpu : in std_logic;
     
@@ -113,6 +114,8 @@ architecture behavioural of framepacker is
   signal output_write : std_logic := '0';
 
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
+  signal thumbnail_row_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
@@ -125,8 +128,8 @@ architecture behavioural of framepacker is
   signal pixel_drive : unsigned(7 downto 0) := x"00";
   signal last_hypervisor_mode : std_logic := '0'; 
   signal last_access_is_thumbnail : std_logic := '0';
-  signal thumbnail_x_counter : integer range 0 to 24 := 0;
-  signal thumbnail_y_counter : integer range 0 to 24 := 0;
+  signal thumbnail_x_counter : integer range 0 to 8 := 0;
+  signal thumbnail_y_counter : integer range 0 to 511 := 0;
   signal thumbnail_pixels_remaining : integer range 0 to 80 := 0;
 
   signal x_counter : integer range 0 to 4095 := 0;
@@ -146,6 +149,8 @@ architecture behavioural of framepacker is
   signal pixel_valid_tap : integer := 0; -- 0 = 1 cycle delay, 15 = 16 cycle delay
   signal pixel_valid_history : std_logic_vector(15 downto 0) := (others => '0');
   signal pixel_valid_out : std_logic := '0';
+
+  signal pixel_y_drive : unsigned(11 downto 0) := (others => '0');
   
 begin  -- behavioural
 
@@ -166,13 +171,13 @@ begin  -- behavioural
     wea(0) => '1',
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
-    clkb => ioclock,
+    clkb => cpuclock,
     addrb => std_logic_vector(thumbnail_read_address),
     unsigned(doutb) => thumbnail_rdata
     );
 
   -- Look after CPU side of mapping of compressed data
-  process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
+  process (cpuclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
            thumbnail_cs,thumbnail_read_address,thumbnail_rdata,
            thumbnail_valid,thumbnail_started
            ) is
@@ -203,6 +208,26 @@ begin  -- behavioural
         fastio_rdata(7) <= thumbnail_valid;
         fastio_rdata(6) <= thumbnail_started;
         fastio_rdata(5 downto 0) <= (others => '0');
+--      elsif fastio_addr(3 downto 0) = x"3" then
+--        -- @IO:GS $D643 - Thumbnail X position DEBUG
+--        fastio_rdata <= to_unsigned(thumbnail_x_counter,8);
+--      elsif fastio_addr(3 downto 0) = x"4" then
+--        -- @IO:GS $D644 - Thumbnail Y position DEBUG
+--        fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
+--      elsif fastio_addr(3 downto 0) = x"5" then
+--        -- @IO:GS $D645 - Thumbnail write address LSB DEBUG
+--        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+--      elsif fastio_addr(3 downto 0) = x"6" then
+--        -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
+--        fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
+--        fastio_rdata(7 downto 4) <= "0000";
+--      elsif fastio_addr(3 downto 0) = x"7" then
+--        -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
+--        fastio_rdata <= pixel_y_drive(7 downto 0);
+--      elsif fastio_addr(3 downto 0) = x"8" then
+--        -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
+--        fastio_rdata(3 downto 0) <= pixel_y_drive(11 downto 8);
+--        fastio_rdata(7 downto 4) <= "0000";
       else
         fastio_rdata <= (others => 'Z');
       end if;
@@ -210,7 +235,7 @@ begin  -- behavioural
       fastio_rdata <= (others => 'Z');
     end if;
     
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       
       -- Logic to control port address for thumbnail buffer
       if (fastio_read='1') and (thumbnail_cs='1') then
@@ -238,6 +263,12 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      pixel_y_drive <= pixel_y;
+      
+      report "pixel_y=" & integer'image(to_integer(pixel_y))
+        & ", pixel_valid=" & std_logic'image(pixel_valid)
+        & ", pal_mode=" & std_logic'image(pal_mode);
+      
       -- Get pixel valid signal delayed by correct number of clock ticks
       pixel_valid_history(0) <= pixel_valid;
       pixel_valid_history(15 downto 1) <= pixel_valid_history(14 downto 0);
@@ -251,41 +282,71 @@ begin  -- behavioural
       
       -- Work out address to write pixel to in thumbnail buffer.
       -- 80x50 pixels = 4,000 bytes.
-      -- 600 / 50 = every 12th row 
+      -- 480 / 50 = every 12th row  (NTSC)
+      -- 576 / 50 = every 9th row  (PAL)
       -- 800 / 80 = every 10th column
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
-        if to_integer(pixel_y) = 0 then
+        -- Very robustly determine when a new frame starts
+        if to_integer(pixel_y) < to_integer(last_pixel_y) then
           thumbnail_write_address <= (others => '0');
+          thumbnail_write_address_int <= (others => '0');
+          thumbnail_row_address <= (others => '0');
           report "THUMB: Reset write address";
           thumbnail_y_counter <= 0;
           thumbnail_x_counter <= 0;
           thumbnail_active_row <= '0';
         end if;
-        if thumbnail_y_counter < 11 then
-          thumbnail_y_counter <= thumbnail_y_counter + 1;
+        -- PAL has more raster lines than NTSC, so we have a different vertical
+        -- sampling rate.
+        if thumbnail_y_counter < 256 then
+          if pal_mode='1' then
+            -- 576 rows / 50 = add 23 each physical raster
+            thumbnail_y_counter <= thumbnail_y_counter + 23;
+          else
+            -- 480 rows / 50 = add 27
+            thumbnail_y_counter <= thumbnail_y_counter + 27;
+          end if;
           thumbnail_active_row <= '0';
+          thumbnail_write_address <= thumbnail_row_address;
+          thumbnail_write_address_int <= thumbnail_row_address;
+            
           report "THUMB: active_row cleared on row "
             & to_string(std_logic_vector(pixel_y));
         else
           thumbnail_valid <= thumbnail_started;
           thumbnail_started <= '1';
-          thumbnail_y_counter <= 0;
+          thumbnail_y_counter <= thumbnail_y_counter - 256;
           -- Thumbnail generation does not happen when in hypervisor mode
           thumbnail_active_row <= not last_hypervisor_mode;
+          if to_integer(thumbnail_row_address) < ( 4095 - 80 ) then
+            thumbnail_write_address
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+            thumbnail_write_address_int
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+            thumbnail_row_address
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+          else
+            -- Make sure we don't overflow and wrap at the bottom of the frame.
+            thumbnail_write_address <= to_unsigned(4095 - 80,12);
+            thumbnail_write_address_int <= to_unsigned(4095 - 80,12);
+            thumbnail_row_address <= to_unsigned(4095 - 80,12);
+          end if;            
+
+          -- Make sure we collect no more than 80 pixels per raster
+          thumbnail_pixels_remaining <= 80 - 1;
+          
           report "THUMB: active_row asserted on row "
             & to_string(std_logic_vector(pixel_y));
         end if;
       end if;
       if pixel_newraster='1' then
-        -- Make sure we collect no more than 80 pixels per raster
-        thumbnail_pixels_remaining <= 80;
         x_counter <= 0;
         -- Sample first pixel, so we get all 80 pixels across the screen
-        thumbnail_x_counter <= 9;
+        thumbnail_x_counter <= 8;
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
-        if thumbnail_x_counter /= 9 then
+        if thumbnail_x_counter /= 8 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
           thumbnail_x_counter <= thumbnail_x_counter + 1;
           thumbnail_active_pixel <= '0';
@@ -300,8 +361,12 @@ begin  -- behavioural
         thumbnail_active_pixel <= '0';
       end if;
       if thumbnail_active_pixel='1' then
-        thumbnail_write_address
-          <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+        if to_integer(thumbnail_write_address) /= 4095 then
+          thumbnail_write_address
+            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+          thumbnail_write_address_int
+            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+        end if;
         thumbnail_wdata <= pixel_drive;
         report "THUMB: Writing pixel $" & to_hstring(pixel_drive)
           & " @ $" & to_hstring(thumbnail_write_address);

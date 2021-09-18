@@ -5,6 +5,7 @@ use STD.textio.all;
 use work.debugtools.all;
 
 entity touch is
+  generic ( clock_frequency : integer );
   port (
     clock50mhz : in std_logic;
     sda : inout std_logic;
@@ -23,12 +24,12 @@ entity touch is
 
 
     scan_count : inout unsigned(7 downto 0) := x"00";
-    b0 : out unsigned(7 downto 0);
-    b1 : out unsigned(7 downto 0);
-    b2 : out unsigned(7 downto 0);
-    b3 : out unsigned(7 downto 0);
-    b4 : out unsigned(7 downto 0);
-    b5 : out unsigned(7 downto 0);
+    b0 : out unsigned(7 downto 0) := x"00";
+    b1 : out unsigned(7 downto 0) := x"00";
+    b2 : out unsigned(7 downto 0) := x"00";
+    b3 : out unsigned(7 downto 0) := x"00";
+    b4 : out unsigned(7 downto 0) := x"00";
+    b5 : out unsigned(7 downto 0) := x"00";
     touch_byte : out unsigned(7 downto 0) := x"BD";
     touch_byte_num : in unsigned(7 downto 0);
 
@@ -106,6 +107,7 @@ begin
 
 
   i2c0: entity work.i2c_master
+    generic map ( input_clk => clock_frequency )
     port map (
       clk => clock50mhz,
       reset_n => i2c0_reset,
@@ -215,11 +217,11 @@ begin
         busy_count <= 0;
       end if;
       if i2c0_busy='0' and last_busy='1' then
-        report "busy de-asserted: dispatching next command";
+--        report "busy de-asserted: dispatching next command";
          case busy_count is
           when 0 =>
             if touch_enabled='1' then
-              report "Beginning touch panel scan";
+--              report "Beginning touch panel scan";
               -- send initial command
               i2c0_command_en <= '1';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
@@ -234,13 +236,15 @@ begin
             busy_count <= busy_count + 1;
             i2c0_rw <= '1';
             i2c0_command_en <= '1';
-            if busy_count>1 then
-              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+            if busy_count > 2 and busy_count < 18 then
+--              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
             end if;
           when others =>
-            report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
-            bytes(busy_count - 2) <= i2c0_rdata;
+            if busy_count > 2 and busy_count < 18 then
+--              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+              bytes(busy_count - 2) <= i2c0_rdata;
+            end if;
             i2c0_command_en <= '0';
             busy_count <= 0;
             parse_touch <= 1;
@@ -253,7 +257,7 @@ begin
           null;
         when 1 =>
           -- Begin parsing
-          report "There are " & integer'image(to_integer(bytes(2))) & " touch events: $"
+          report "There are " & integer'image(safe_to_integer(bytes(2))) & " touch events: $"
             & to_hstring(bytes(3+2)(7 downto 4)) & " & $"
             & to_hstring(bytes(9+2)(7 downto 4));
 
@@ -266,35 +270,35 @@ begin
           touch1_active_internal <= '0';
           touch2_active_internal <= '0';
           
-          if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
+          if safe_to_integer(bytes(2)) /= 0 and safe_to_integer(bytes(3+2)(7 downto 4)) /= 15 then
             if bytes(3+2)(7 downto 4) = "0000" then
               touch1_active_internal <= not std_logic(bytes(3+0)(6));
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x1_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
-              x1_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
-              y1_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
+              x1_int <= safe_to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
+              y1_int <= safe_to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             elsif bytes(3+2)(7 downto 4) = "0001" then
               touch2_active_internal <= not std_logic(bytes(3+0)(6));
               touch2_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x2_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
-              x2_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
-              y2_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
+              x2_int <= safe_to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
+              y2_int <= safe_to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             end if;
           end if;
 
-          if bytes(2) > x"01" and bytes(9+2)(7 downto 4) /= x"f" then
+          if safe_to_integer(bytes(2)) > 1 and safe_to_integer(bytes(9+2)(7 downto 4)) /= 15 then
             if bytes(9+2)(7 downto 4) = "0000" then
               report "Setting x1_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch1_active_internal <= not std_logic(bytes(9+0)(6));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
-              x1_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
-              y1_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
+              x1_int <= safe_to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
+              y1_int <= safe_to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             elsif bytes(9+2)(7 downto 4) = "0001" then
               report "Setting x2_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch2_active_internal <= not std_logic(bytes(9+0)(6));
               touch2_status <= std_logic_vector(bytes(9+0)(7 downto 6));
-              x2_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
-              y2_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
+              x2_int <= safe_to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
+              y2_int <= safe_to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             end if;
           end if;
           parse_touch <= 2;
@@ -335,8 +339,8 @@ begin
         y2_inv <= y2_int;
       end if;
 
-      if to_integer(touch_byte_num) < 15 then
-        touch_byte <= bytes(to_integer(touch_byte_num));
+      if safe_to_integer(touch_byte_num) < 15 then
+        touch_byte <= bytes(safe_to_integer(touch_byte_num));
       else
         touch_byte <= x"EE";
       end if;
@@ -347,38 +351,38 @@ begin
       b4 <= bytes(4);
       b5 <= bytes(5);
       
-      x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(19 downto 4);
-      x2_mult <= to_unsigned(x2_inv * to_integer(x_mult),12+16)(19 downto 4);
-      y1_mult <= to_unsigned(y1_inv * to_integer(y_mult),12+16)(19 downto 4);
-      y2_mult <= to_unsigned(y2_inv * to_integer(y_mult),12+16)(19 downto 4);
+      x1_mult <= to_unsigned(x1_inv * safe_to_integer(x_mult),12+16)(19 downto 4);
+      x2_mult <= to_unsigned(x2_inv * safe_to_integer(x_mult),12+16)(19 downto 4);
+      y1_mult <= to_unsigned(y1_inv * safe_to_integer(y_mult),12+16)(19 downto 4);
+      y2_mult <= to_unsigned(y2_inv * safe_to_integer(y_mult),12+16)(19 downto 4);
       
       r := x1_mult + x_delta; x1 <= r(15 downto 6);
       if parse_touch = 3 then
         report "scaled x1 = ( (" & integer'image(x1_int)
-          & " * " & integer'image(to_integer(x_mult))
-          & ") >> 11) + " & integer'image(to_integer(x_delta))
-          & " = " & integer'image(to_integer(r));
+          & " * " & integer'image(safe_to_integer(x_mult))
+          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
+          & " = " & integer'image(safe_to_integer(r));
       end if;
       r := y1_mult + y_delta; y1 <= r(15 downto 6);
       if parse_touch = 3 then
         report "scaled y1 = ( (" & integer'image(y1_int)
-          & " * " & integer'image(to_integer(y_mult))
-          & ") >> 11) + " & integer'image(to_integer(y_delta))
-          & " = " & integer'image(to_integer(r));
+          & " * " & integer'image(safe_to_integer(y_mult))
+          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
+          & " = " & integer'image(safe_to_integer(r));
       end if;
       r := x2_mult + x_delta; x2 <= r(15 downto 6);
       if parse_touch = 3 then
         report "scaled x2 = ( (" & integer'image(x2_int)
-          & " * " & integer'image(to_integer(x_mult))
-          & ") >> 11) + " & integer'image(to_integer(x_delta))
-          & " = " & integer'image(to_integer(r));
+          & " * " & integer'image(safe_to_integer(x_mult))
+          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
+          & " = " & integer'image(safe_to_integer(r));
       end if;
       r := y2_mult + y_delta; y2 <= r(15 downto 6);
       if parse_touch = 3 then
         report "scaled y2 = ( (" & integer'image(y2_int)
-          & " * " & integer'image(to_integer(y_mult))
-          & ") >> 11) + " & integer'image(to_integer(y_delta))
-          & " = " & integer'image(to_integer(r));
+          & " * " & integer'image(safe_to_integer(y_mult))
+          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
+          & " = " & integer'image(safe_to_integer(r));
       end if;
 
 

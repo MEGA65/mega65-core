@@ -2,7 +2,7 @@
 ;M65 Configuration Utility
 ;-------------------------
 ;
-;Version 00.99 beta
+;Version 00.99D beta
 ;
 ;Written by Daniel England for the MEGA65 project.
 ;
@@ -26,8 +26,8 @@
 
 	.feature	leading_dot_in_identifiers, loose_string_term
 
-	.macro  	.defPStr Arg
-	.byte   	.strlen(Arg), Arg
+	.macro 	.defPStr Arg
+	.byte  	.strlen(Arg), Arg
 	.endmacro
 	
 ;	Set this define to 1 to run in "C64 mode" (uses the Kernal and will run
@@ -40,10 +40,26 @@
 	.define		DEBUG_MODE	0
 	
 	.if		C64_MODE
-	.setcpu 	"6502"
+	.setcpu	"6502"
 	.else
 	.setcpu		"4510"
 	.endif
+	
+	.macro	LDA_HYPERIO
+	.if	.not C64_MODE
+		LDA	(ptrTempData), Y
+	.else
+		LDA	#$00
+	.endif
+	.endmacro
+	
+	.macro	STA_HYPERIO
+	.if	.not C64_MODE
+		STA	(ptrTempData), Y
+	.endif
+	.endmacro
+	
+		
 ;-------------------------------------------------------------------------------
 
 
@@ -51,8 +67,12 @@
 ;Constants
 ;-------------------------------------------------------------------------------
 optLineOffs	=	$04
-optLineMaxC	=	(25 - optLineOffs - 2)
-tabMaxCount	=	$05			;Don't include "Save".
+;optLineMaxC	=	(25 - optLineOffs - 2)
+optLineMaxC	=	(25 - 5)
+tabMaxCount	=	$06			;count - 1
+
+tabSaveIdx  =	$05
+tabHelpIdx	=	$06
 
 
 optDfltBase	=	$C000
@@ -60,20 +80,20 @@ optSessBase	=	$C200
 
 
 	.if	C64_MODE
-IIRQ    	= 	$0314
+IIRQ   	=	$0314
 	.else
-IIRQ    	= 	$FFFE
+IIRQ   	=	$FFFE
 	.endif
 
-VIC     	= 	$D000         		; VIC REGISTERS
-SID     	= 	$D400         		; SID REGISTERS
-SID_ADConv1    	= 	SID + $19
-SID_ADConv2    	= 	SID + $1A
+VIC		=	$D000	   		; VIC REGISTERS
+SID		=	$D400	   		; SID REGISTERS
+SID_ADConv1   	=	SID + $19
+SID_ADConv2   	=	SID + $1A
 
 spriteMemD	=	$0340
 spritePtr0	=	$07F8
-vicSprClr0	= 	$D027
-vicSprEnab	= 	$D015
+vicSprClr0	=	$D027
+vicSprEnab	=	$D015
 
 
 CIA1_DDRA	=	$DC02
@@ -87,13 +107,13 @@ buttonRight	=	$01
 
 
 ;
-VICXPOS    	= 	VIC + $00      		; LOW ORDER X POSITION
-VICYPOS    	= 	VIC + $01      		; Y POSITION
-VICXPOSMSB 	=	VIC + $10      		; BIT 0 IS HIGH ORDER X POSITION
+VICXPOS   	=	VIC + $00			; LOW ORDER X POSITION
+VICYPOS   	=	VIC + $01			; Y POSITION
+VICXPOSMSB	=	VIC + $10			; BIT 0 IS HIGH ORDER X POSITION
 
 
 	.if	C64_MODE
-keyF1		= 	$85
+keyF1		=	$85
 keyF2		=	$89
 keyF3		=	$86
 keyF4		=	$8A
@@ -102,7 +122,7 @@ keyF6		=	$8B
 keyF7		=	$88
 keyF8		=	$8C
 	.else
-keyF1		= 	$F1
+keyF1		=	$F1
 keyF2		=	$F2
 keyF3		=	$F3
 keyF4		=	$F4
@@ -112,7 +132,41 @@ keyF7		=	$F7
 keyF8		=	$F8
 keyF9		=	$F9
 ;keyF10		=	$FA			;Doesn't work?
+keyHELP		= $1F
 	.endif
+
+;Corporate
+;CLR_CTLTXT =	$00
+;CLR_BCKGND	=	$06
+;CLR_HIGHLT	=	$01
+;CLR_CTRLFC	=	$0F
+;CLR_INACTV	=	$0E
+;HDR_COLORS	=	$01
+
+;Familiar
+;CLR_CTLTXT =	$00
+;CLR_BCKGND	=	$0E
+;CLR_HIGHLT	=	$01
+;CLR_CTRLFC	=	$0F
+;CLR_INACTV	=	$04
+;HDR_COLORS	=	$00
+
+;Traditional
+;CLR_CTLTXT =	$06
+;CLR_BCKGND	=	$0E
+;CLR_HIGHLT	=	$01
+;CLR_CTRLFC	=	$0F
+;CLR_INACTV	=	$03
+;HDR_COLORS	=	$00
+
+;Slate
+;CLR_CTLTXT =	$00
+;CLR_BCKGND	=	$0B
+;CLR_HIGHLT	=	$01
+;CLR_CTRLFC	=	$0F
+;CLR_INACTV	=	$0C
+;HDR_COLORS	=	$00
+
 
 ;-------------------------------------------------------------------------------
 
@@ -143,7 +197,7 @@ currMACNybb	=	$B3			;Might be able to be non-ZP
 
 zp32		=	$F7	; 32-bit pointer for far memory access
 	
-ptrOptsTemp	= 	$FB
+ptrOptsTemp	=	$FB
 ptrCurrHeap	=	$FD
 ;-------------------------------------------------------------------------------
 
@@ -162,7 +216,7 @@ ptrCurrHeap	=	$FD
 	.asciiz		"2061"			;2061 and line end
 _basNext:
 	.word		$0000			;BASIC prog terminator
-	.assert         * = $080D, error, "BASIC Loader incorrect!"
+	.assert	    * = $080D, error, "BASIC Loader incorrect!"
 bootstrap:
 		JMP	init
 ;-------------------------------------------------------------------------------
@@ -172,111 +226,203 @@ bootstrap:
 ;Global data
 ;-------------------------------------------------------------------------------
 ;signature for utility menu
-	.asciiz 	"PROP.M65U.NAME=CONFIGURE MEGA65"
+	.asciiz	"PROP.M65U.NAME=CONFIGURE MEGA65"
 	
-	
+
+themeColours:
+;CorpNeuvue
+	.byte	$01, $06, $0E, $0C, $04, $01, $00, $00
+;Familiar
+	.byte	$00, $0E, $01, $0F, $04, $00, $00, $00
+;Traditional
+	.byte	$06, $0E, $01, $0F, $03, $00, $00, $00
+;Slate
+	.byte	$00, $0B, $01, $0F, $0C, $00, $00, $00
+;Termnal
+	.byte	$01, $05, $00, $0F, $03, $01, $00, $00
+
+CNT_THEMES = 5
+
+themeIndex:
+	.byte	$FF
+
+clr_ctltxt:
+	.byte	$00
+clr_bckgnd:
+	.byte	$0E
+clr_highlt:
+	.byte	$01
+clr_ctrlfc:
+	.byte	$0F
+clr_inactv:
+	.byte	$04
+hdr_colors:
+	.byte	$00
+
 headerLine:
 	.byte		"          mega65 configuration          "
 
-headerColours:
+headerColours0:
 	.byte		$06, $06, $05, $05, $07, $07, $02, $02
 	.byte		$0F, $0F, $0F, $0F, $0F, $0F, $0F, $0F
 	.byte		$0F, $0F, $0F, $0F, $0F, $0F, $0F, $0F
 	.byte		$0F, $0F, $0F, $0F, $0F, $0F, $0F, $0F
 	.byte		$02, $02, $07, $07, $05, $05, $06, $06
-	
+headerColours1:
+	.byte		$0E, $0E, $0D, $0D, $07, $07, $0A, $0A
+	.byte		$0C, $0C, $0C, $0C, $0C, $0C, $0C, $0C
+	.byte		$0C, $0C, $0C, $0C, $0C, $0C, $0C, $0C
+	.byte		$0C, $0C, $0C, $0C, $0C, $0C, $0C, $0C
+	.byte		$0A, $0A, $07, $07, $0D, $0D, $0E, $0E
+
 menuLine:
-	.byte		"inputBchipsetBvideoBaudioBnetwork   save"
+	.byte		"inputBchipsetBvideoBaudioBnetwork  Bdone"
 footerLine:
 	.byte		"                                page  / "
 
-helpText0:
-	.byte		"version 00.99c             "
-helpText1:
-	.byte		"cursor up/down to navigate "
-helpText2:
-	.byte		"f1/f2 to change tabs       "
-helpText3:
-	;;  For now none of the tabs have multiple pages, so just repeat f1/f2 instruction
-	;; 	.byte		"f3/f4 to change pages      " 
-	.byte		"f1/f2 to change tabs       "
-helpText4:
-	.byte		"f7 for save and exit       "
-helpText5:
-	.byte		"space or return for toggle "
-helpText6:
-	.byte		"any key for data entry     "
+infoText0:
+	.byte		": version 00.99e beta     :"
+infoText1:
+	.if	C64_MODE
+	.byte		": press f8 for help       :"
+	.else
+	.byte		": press help for help     :"
+	.endif
+infoText2:
+	.byte		": f7 - save and exit opts :"
 
-helpTexts:
-	.word		helpText0, helpText1, helpText2, helpText3
-	.word		helpText4, helpText5, helpText6
+count_infoTexts = 3
 
-currHelpTxt:
+infoTexts:
+	.word		infoText0, infoText1, infoText2
+
+currInfoTxt:
 	.byte		$00
 
 saveConfExit0:
-       .defPStr        "are you sure you wish to exit"
+	  .defPStr	   "are you sure you wish to exit"
 saveConfExit1:
-       .defPStr        "without saving?"
-saveConfAppl0:
-       .defPStr        "are you sure you wish to apply"
-saveConfAppl1:
-       .defPStr        "the current settings?"
+	  .defPStr	   "without saving?"
+
+;saveConfAppl0:
+;	  .defPStr	   "are you sure you wish to apply"
+;saveConfAppl1:
+;	  .defPStr	   "the current settings?"
+
+saveConfOnBoard0:
+	.defPStr		"without saving and reboot to"
+saveConfOnBoard1:
+	.defPStr		"the onboarding utility?"
+
+
 saveConfSave0:
 	.defPStr	"are you sure you wish to save"
 saveConfFactory0:
-       .defPStr        "the factory defaults and continue?"
+	  .defPStr	   "the factory defaults and continue?"
 saveConfDflt0:
 	.defPStr	"as the defaults and exit?"
 	
 saveConfRest0:
-	.defPStr        "reset your machine now"
+	.defPStr	   "reset your machine now"
 
 errorLine:
-	.byte 		"config data corrupt. press f14 to reset."
+	.byte		"config data corrupt. press f14 to reset."
+
+
+helpText0:
+	.defPStr	"mega65 configuration help page!"
+	
+helpText1:
+	.defPStr	"to navigate the tabbed categories, use"
+helpText2:
+	.defPStr	"f1/f3 or crsr left/right."
+helpText4:
+	.defPStr	"each tab has pages that have options."
+
+helpText5:
+	.defPStr	"using the crsr up/down keys, toggle or"
+helpText6:
+	.defPStr	"select options using the space or"
+helpText7:
+	.defPStr	"return keys."
+	
+helpText8:
+	.defPStr	"you may also use the mouse to click"
+helpText9:
+	.defPStr	"tabs, options or pages."
+	
+helpTextA:
+	.defPStr	"some options require data entry. use"
+helpTextB:
+	.defPStr	"the appropriate keys to complete."
+	
+helpTextC:
+	.defPStr	"when done, save or exit with f7"
+	
+helpTextD:
+	.defPStr	""
+	
+
+helpTexts:
+	.word	helpText0, helpTextD, helpText1, helpText2
+	.word	helpText4, helpTextD, helpText5, helpText6, helpText7
+	.word	helpTextD, helpText8, helpText9, helpTextD, helpTextA
+	.word	helpTextB, helpTextD, helpTextC
+	.byte	$00
+
 
 ;	This will tell us whats happening on each line so we can use quick 
 ;	look-ups for the mouse etc.  Only optLineMaxC of the lines on the 
 ;	screen can be used (see above).  This will need to be adhered to by
 ;	the options lists!
 pageOptions:
-	.repeat		optLineMaxC
+	.repeat		optLineMaxC + 1; +1 for a guard byte
 	.byte		$FF
 	.endrep
 	
+	
+helpLastTab:
+	.byte	$00
+helpLastPage:
+	.byte	$00
+	
 
-	.include 	"mega65_config.inc"
+	.include	"mega65_config.inc"
 
 
 ;-------------------------------------------------------------------------------
 init:
 ;-------------------------------------------------------------------------------
-; 	Init screen
-		LDA 	#$0B			;Border colour
-		STA 	$D020
-		LDA 	#$00			;Screen colour
-		STA 	$D021
+;	Init screen
+		LDA	clr_bckgnd			;Border colour
+		STA	$D020
+		
+		LDA	clr_ctltxt			;Screen colour
+		STA	$D021
 
-		LDA 	#$14			; Set screen address to $0400, upper-case font
-		STA	$D018  
+		LDA	#$14				;Set screen address to $0400, upper-case font
+		STA	$D018
 	
 	.if	C64_MODE
 ;	Upper-case
-		LDA 	#$8E			;Print to-upper-case character
-		JSR 	$FFD2
-		LDA	#$08			;Disable change of case
+		LDA	#$8E				;Print to-upper-case character
+		JSR	$FFD2
+		LDA	#$08				;Disable change of case
 		JSR	$FFD2
 	.endif
 	
-		SEI             		;disable the interrupts
+		SEI						;disable the interrupts
 	
 		JSR	initState
 		
+		JSR	themeNext
+		
 	.if	.not DEBUG_MODE
-	.if     .not C64_MODE
+	.if	.not C64_MODE
+;		JSR	checkSanity
 		JSR	hypervisorLoadOrResetConfig
-	.endif
 		JSR	checkMagicBytes
+	.endif
 	.endif
 		
 		JSR	initMouse
@@ -289,8 +435,8 @@ init:
 		
 		LDA	#$00
 		STA	mouseLastY
-		STA     mouseLastY + 1
-		STA     mouseYRow
+		STA	mouseLastY + 1
+		STA	mouseYRow
 		
 		JSR	readDefaultOpts
 
@@ -302,40 +448,24 @@ main:
 		JSR	displayOptionsPage
 
 @inputLoop:
-;	.if     DEBUG_MODE
-;		LDA     #$0B
-;		STA     $D020
-;	.endif
-
-
 		LDA	progTermint
 		BEQ	@cont
 		
 @halt:
-		JMP     @halt
+		JMP	@halt
 
 @cont:
-;	.if     DEBUG_MODE
-;		LDA     #$01
-;		STA     $D020
-;	.endif
-
 		JSR	hotTrackMouse
 
-;	.if     DEBUG_MODE
-;		LDA     #$0D
-;		STA     $D020
-;	.endif
-	
 		LDA	ButtonLClick
 		BEQ	@tstKeys
 		
 		JSR	processMouseClick
-		JMP     @inputLoop
+		JMP	@inputLoop
 
 @tstKeys:
 	.if	C64_MODE
-		JSR 	$FFE4			;call get character from input
+		JSR	$FFE4			;call get character from input
 		BEQ	@inputLoop
 	.else
 		LDA	$D610
@@ -345,47 +475,60 @@ main:
 		STX	$D610
 	.endif
 		
+@tstthemekey:
+	.if	C64_MODE
+		CMP	#$54
+	.else
+		CMP	#keyF8
+	.endif
+		BNE	@tstDownKey
+		
+		JSR	themeNext
+		JSR	displayOptionsPage
+		
+		JMP	@inputLoop
+		
 @tstDownKey:
 		CMP	#$11
 		BNE	@tstUpKey
 		
-		JSR	moveSelectDown	
+		JSR	moveSelectDown
 		JMP	@inputLoop
 		
 @tstUpKey:
 		CMP	#$91
-		BNE	@tstF1Key
+		BNE	@tstF3Key
 		
 		JSR	moveSelectUp
 		JMP	@inputLoop
 				
-@tstF1Key:
-		CMP 	#$1d
+@tstF3Key:
+		CMP	#$1D
 		BEQ	@doMoveTabLeft
-		CMP	#keyF1
-		BNE	@tstF2Key
+		CMP	#keyF3
+		BNE	@tstF1Key
 @doMoveTabLeft:	
 		JSR	moveTabLeft
 		JMP	main
 				
-@tstF2Key:
-		CMP     #$9d
+@tstF1Key:
+		CMP	#$9D
 		BEQ	@doMoveTabRight
-		CMP	#keyF2
-		BNE	@tstF3Key
+		CMP	#keyF1
+		BNE	@tstF2Key
 @doMoveTabRight:
 		JSR	moveTabRight
 		JMP	main
 		
-@tstF3Key:
-		CMP	#keyF3
-		BNE	@tstF4Key
+@tstF4Key:
+		CMP	#keyF4
+		BNE	@tstF2Key
 		
 		JSR	moveNextPage
 		JMP	main
 		
-@tstF4Key:
-		CMP	#keyF4
+@tstF2Key:
+		CMP	#keyF2
 		BNE	@tstF7Key
 		
 		JSR	movePriorPage
@@ -393,9 +536,36 @@ main:
 		
 @tstF7Key:
 		CMP	#keyF7
-		BNE	@otherKey
+		BNE	@tstHelpKey
 		
-		LDA	#tabMaxCount
+		LDA	#tabSaveIdx
+		STA	tabSelected
+		JSR	setupSelectedTab
+		
+		JMP	main
+		
+@tstHelpKey:
+	.if .not C64_MODE
+		CMP	#keyHELP
+	.else
+		CMP	#keyF8
+	.endif
+		BNE	@otherKey
+
+		LDA	tabSelected
+		CMP	#tabHelpIdx
+		BNE	@doHelp
+		
+		JMP	@inputLoop
+
+@doHelp:
+		LDA	tabSelected
+		STA	helpLastTab
+		
+		LDA	pgeSelected
+		STA	helpLastPage
+
+		LDA	#tabHelpIdx
 		STA	tabSelected
 		JSR	setupSelectedTab
 		
@@ -414,50 +584,170 @@ main:
 		
 @tstSaveTab:
 		LDX	tabSelected
-		CPX	#tabMaxCount
-		BNE	@toggleInput
+		CPX	#tabSaveIdx
+		BNE	@tstHelpTab
 		
 		JSR	doTestSaveKeys
+		JMP	@inputLoop
+		
+@tstHelpTab:
+		CPX	#tabHelpIdx
+		BNE	@toggleInput
+		
+		JSR	doTestHelpKeys
 		JMP	@inputLoop
 		
 @toggleInput:
 		JSR	doTestToggleKeys
 		JMP	@inputLoop
 
+
 ;-------------------------------------------------------------------------------
-copySessionOptionsToSectorBuffer:	
+themeNext:
+;-------------------------------------------------------------------------------
+		LDX	themeIndex
+		INX
+		CPX	#CNT_THEMES
+		BNE	@cont
+		
+		LDX #$00
+		
+@cont:
+		STX themeIndex
+		TXA
+		
+		ASL
+		ASL
+		ASL
+		
+		TAX
+		
+		LDA	themeColours, X
+		STA	clr_ctltxt
+		
+		LDA	themeColours + 1, X
+		STA	clr_bckgnd
+		
+		LDA	themeColours + 2, X
+		STA	clr_highlt
+
+		LDA	themeColours + 3, X
+		STA	clr_ctrlfc
+
+		LDA	themeColours + 4, X
+		STA	clr_inactv
+
+		LDA	themeColours + 5, X
+		STA	hdr_colors
+		
+		LDA	clr_bckgnd			;Border colour
+		STA	$D020
+		
+		LDA	clr_ctltxt			;Screen colour
+		STA	$D021
+		
+		RTS
+
+;-------------------------------------------------------------------------------
+littleDelay:
+;-------------------------------------------------------------------------------
+		; add a slight delay
+		LDX #$00
+@inner1:
+		LDY #$00
+@inner2:
+		DEY
+		BNE @inner2
+
+		DEX
+		BNE @inner1
+		RTS
+
+;-------------------------------------------------------------------------------
+copySessionOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
-		LDA	#$81
+		; disable interrupts, just in-case they are interfering
+		SEI
+
+		JSR 	littleDelay
+
+        ; enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+        LDA #$81
+        STA $D680
+
+		; check if this is a nexys4 board
+		LDA $D629
+		AND #$40
+		BEQ @notnexys
+
+		; for nexys4 boards, select sd card bus 0
+		LDA #$C0
+		STA $D680
+
+		LDY #$00
+		JMP @copyLoop
+@notnexys:
+		; for all other boards, use sd card bus 1
+		LDA	#$C1
 		STA	$D680
+
 		LDY	#$00
-@copyLoop:	LDA	optSessBase, Y
+@copyLoop:
+		LDA	optSessBase, Y
 		STA	$DE00, Y
 		LDA	optSessBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop
-		;; Set magic bytes
+
+		; set magic bytes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
 		RTS
+
 ;-------------------------------------------------------------------------------
-copyDefaultOptionsToSectorBuffer:	
+copyDefaultOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
-		LDA	#$81
+		; disable interrupts, just in-case they are interfering
+		SEI
+
+		JSR	littleDelay
+
+		; enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+		LDA #$81
+		STA $D680
+
+		; check if this is a nexys4 board
+		LDA $D629
+		AND #$40
+		BEQ @notnexys2
+
+		; for nexys4 boards, select sd card bus 0
+		LDA #$C0
+		STA $D680
+
+		LDY #$00
+		JMP @copyLoop2
+@notnexys2:
+		; for all other boards, use sd card bus 1
+		LDA	#$C1
 		STA	$D680
+
 		LDY	#$00
-@copyLoop2:	LDA	optDfltBase, Y
+@copyLoop2:
+		LDA	optDfltBase, Y
 		STA	$DE00, Y
 		LDA	optDfltBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop2
-		;; Set magic bytes
+
+		; set magic bytes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
@@ -467,12 +757,12 @@ copyDefaultOptionsToSectorBuffer:
 hypervisorApplyConfig:
 ;-------------------------------------------------------------------------------
 ;; Apply options in optSessBase
-               JSR     copySessionOptionsToSectorBuffer
-               LDA     #$04
-               STA     $D642
-               NOP
-               RTS
-	
+		JSR	copySessionOptionsToSectorBuffer
+		LDA	#$04
+		STA	$D642
+		NOP
+		RTS
+
 ;-------------------------------------------------------------------------------
 hypervisorSaveConfig:
 ;-------------------------------------------------------------------------------
@@ -483,68 +773,70 @@ hypervisorSaveConfig:
 		NOP
 		RTS
 
+	.if	.not C64_MODE
 ;-------------------------------------------------------------------------------
-hypervisorLoadOrResetConfig:	
+hypervisorLoadOrResetConfig:
 ;-------------------------------------------------------------------------------
-;;      Load current options sector from SD card using Hypervisor trap		
+;;	 Load current options sector from SD card using Hypervisor trap		
 		
-;;      Hypervisor trap to read config
+;;	 Hypervisor trap to read config
 		LDA	#$00
-		STA 	$D642
-		NOP	     ; Required after hypervisor traps, as PC skips one
+		STA	$D642
+		NOP		; Required after hypervisor traps, as PC skips one
 		
-;;      Copy from sector buffer to optDfltBase
+;;	 Copy from sector buffer to optDfltBase
 		LDA	#$81
 		STA	$D680
 		LDX	#$00
-@rl:		LDA 	$DE00, X
+@rl:		LDA	$DE00, X
 		STA	optDfltBase, X
 		LDA	$DF00, X
 		STA	optDfltBase+$100, X
 		INX
 		BNE	@rl
-;;      Demap sector buffer when done
+;;	 Demap sector buffer when done
 		LDA	#$82
 		STA	$D680
 
 ;;; Work-around for retrieving Real-Time Clock values for editing
 	jsr readRealTimeClock
 
-;;      Check for empty config
+;;	 Check for empty config
 		LDA	optDfltBase+0
 		ORA	optDfltBase+1
 		BEQ	getDefaultSettings
 		RTS
 
 getDefaultSettings:
-;;      Empty config, so zero out and reset		
+;;	 Empty config, so zero out and reset		
 		LDA	#$00
 		TAX
 @rl2:		STA	optDfltBase, X
 		STA	optDfltBase+$100,X
 		DEX
-		BNE     @rl2
+		BNE	@rl2
 
-;;      Provide sensible initial values
-		LDA	#$01   	                ; major and minor version
+;;	 Provide sensible initial values
+		LDA	#$01  				 ; major and minor version
 		STA	optDfltBase
 		STA	optDfltBase+1
 
 	;; MAC address
 	;; Generate a random one
 		LDX	#$05
-@macrandom:	PHX
+@macrandom:	
+		PHX
 		JSR	getRandomByte
 		PLX
 		STA	optDfltBase+6, X
 		STA	$D6E9, X
 		DEX
 		bpl @macrandom
-		LDA 	$DE06
-		ORA 	#$02	; Make "locally administered"
-		AND 	#$FE  	; Make unicast
-		STA 	$DE06
-		STA     $D6E9
+		LDA	$DE06
+		ORA	#$02	; Make "locally administered"
+		AND	#$FE 	; Make unicast
+		STA	$DE06
+		STA	$D6E9
 
 	jsr readRealTimeClock
 	
@@ -579,8 +871,8 @@ readRealTimeClock:
 	LDA (zp32),Z
 	;; Hide bit7 which indicates 24 hour time
 	and #$7f
-	STA optDfltBase+$1f0     	; hours
-	STA optSessBase+$1f0     	; hours
+	STA optDfltBase+$1f0		; hours
+	STA optSessBase+$1f0		; hours
 	sta rtc_values+$0
 	INZ
 	;; YY-MM-DD date, so neither the Americans nor Europeans can claim we are favouring the other
@@ -632,9 +924,35 @@ getRandomByte:
 		CLC
 		ADC $D012
 
-	        RTS
+		RTS
 	
-	
+
+;-------------------------------------------------------------------------------
+checkSanity:
+;-------------------------------------------------------------------------------
+		RTS
+
+		LDA	$D68C
+		STA	ptrOptsTemp
+
+		EOR	#$AA
+		STA	$D68C
+
+		LDA	$D68C
+		CMP	ptrOptsTemp
+		BNE	@exit
+
+@loop:
+		INC	$D020
+		JMP	@loop
+
+@exit:
+		LDA	ptrOptsTemp
+		STA	$D68C
+
+		RTS
+
+
 ;-------------------------------------------------------------------------------
 checkMagicBytes:
 ;-------------------------------------------------------------------------------
@@ -668,6 +986,7 @@ checkMagicBytes:
 	cmp #$fe
 	beq @repairSettings
 	sta $d610
+	
 	JMP	@halt
 
 	;; User pressed F14, so reset to default settings and continue
@@ -676,8 +995,10 @@ checkMagicBytes:
 	sta $d610
 	jsr getDefaultSettings
 	
+	
 @exit:
 		RTS
+	.endif
 
 
 ;-------------------------------------------------------------------------------
@@ -714,7 +1035,7 @@ readDefaultOpts:
 
 		JSR	doReadOptList
 		BCC	@cont
-		JMP     @error
+		JMP	@error
 		
 @cont:
 		LDX	readTemp3
@@ -864,7 +1185,10 @@ doReadOpt:
 		TYA
 		PHA
 		LDY	#$00
-		LDA	(ptrTempData), Y
+;		LDA	(ptrTempData), Y
+		
+		LDA_HYPERIO
+		
 		STA	readTemp1
 		PLA
 		TAY
@@ -916,7 +1240,10 @@ doReadOpt:
 		LDX	#$00
 @loopStr:
 		LDY	readTemp0
-		LDA	(ptrTempData), Y
+
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+
 		INC	readTemp0
 		
 		LDY	readTemp2
@@ -960,7 +1287,10 @@ doReadOpt:
 		LDX	#$00
 @loopMAC:
 		LDY	readTemp0
-		LDA	(ptrTempData), Y
+
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+		
 		INC	readTemp0
 		
 		LDY	readTemp2
@@ -1018,7 +1348,7 @@ saveSessionOpts:
 
 		JSR	doSaveOptions
 		
-	.if 	.not C64_MODE
+	.if	.not C64_MODE
 		JSR	hypervisorApplyConfig
 	.endif
 		
@@ -1035,13 +1365,53 @@ saveDefaultOpts:
 
 		JSR	doSaveOptions
 
-	.if 	.not C64_MODE
+	.if	.not C64_MODE
 		JSR	hypervisorSaveConfig
 		JSR	hypervisorApplyConfig
 	.endif
 		
 		RTS
 
+
+;-------------------------------------------------------------------------------
+saveExitToOnboard:
+;-------------------------------------------------------------------------------
+		CLC
+		LDA	#<optDfltBase
+		ADC	#$0E
+		STA	ptrTempData
+		LDA	#>optDfltBase
+		ADC	#$00
+		STA	ptrTempData + 1
+
+		LDY	#$00
+		LDA	(ptrTempData), Y
+		AND	#$7F
+		STA	(ptrTempData), Y
+
+
+		CLC								;Why cant I just save the default ones?
+		LDA	#<optSessBase
+		ADC	#$0E
+		STA	ptrTempData
+		LDA	#>optSessBase
+		ADC	#$00
+		STA	ptrTempData + 1
+
+		LDY	#$00
+		LDA	(ptrTempData), Y
+		AND	#$7F
+		STA	(ptrTempData), Y
+
+		JSR	hypervisorSaveConfig
+;		JSR	hypervisorApplyConfig
+
+;		LDA	#$7E
+;		STA	$D640
+;		NOP
+
+
+		RTS
 
 ;-------------------------------------------------------------------------------
 doSaveOptions:
@@ -1059,7 +1429,7 @@ doSaveOptions:
 
 		JSR	doSaveOptList
 		BCC	@cont
-		JMP     @error
+		JMP	@error
 		
 @cont:
 		LDX	readTemp3
@@ -1207,7 +1577,10 @@ doSaveOpt:
 		TYA
 		PHA
 		LDY	#$00
-		LDA	(ptrTempData), Y
+		
+;		LDA	(ptrTempData), Y
+		LDA_HYPERIO
+
 		STA	readTemp1		;current data in readTemp1
 		
 		PLA
@@ -1235,8 +1608,10 @@ doSaveOpt:
 
 @contTogg:
 		LDY	#$00			;store in current data
-		STA	(ptrTempData), Y
-		
+
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+
 		LDY	readTemp0		;skip past type, offset and flags
 		INY
 		INY
@@ -1274,7 +1649,10 @@ doSaveOpt:
 		INC	readTemp2
 		
 		LDY	readTemp0
-		STA	(ptrTempData), Y
+		
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+		
 		INC	readTemp0
 		
 		INX
@@ -1318,7 +1696,10 @@ doSaveOpt:
 		INC	readTemp2
 		
 		LDY	readTemp0
-		STA	(ptrTempData), Y
+
+;		STA	(ptrTempData), Y
+		STA_HYPERIO
+		
 		INC	readTemp0
 		
 		INX
@@ -1338,22 +1719,22 @@ doSaveOpt:
 ;-------------------------------------------------------------------------------
 doJumpApplyNow:
 ;-------------------------------------------------------------------------------
-               LDA     #tabMaxCount
-               STA     tabSelected
-               LDA     #$02
-               STA     saveSlctOpt
-               LDA     #$01
-               STA     pgeSelected
+		LDA	#tabSaveIdx
+		STA	tabSelected
+		LDA	#$02
+		STA	saveSlctOpt
+		LDA	#$01
+		STA	pgeSelected
 
-               LDA     #savePageCnt
-               STA     currPageCnt
-               
-               LDA     #<savePageIndex
-               STA     ptrPageIndx
-               LDA     #>savePageIndex 
-               STA     ptrPageIndx + 1
-               
-               RTS
+		LDA	#savePageCnt
+		STA	currPageCnt
+
+		LDA	#<savePageIndex
+		STA	ptrPageIndx
+		LDA	#>savePageIndex 
+		STA	ptrPageIndx + 1
+
+		RTS
 
 	
 ;-------------------------------------------------------------------------------
@@ -1368,9 +1749,11 @@ doTestDataInput:
 		BEQ	@inputStr
 
 		CMP	#$50
-		BEQ 	@doMacKeys
+		BEQ	@doMacKeys
+		
 		CMP	#$60
 		BNE	@exit
+		
 @doMacKeys:
 		PLA
 		JSR	doTestMACKeys
@@ -1541,7 +1924,7 @@ doAppMACChar:
 		BEQ	@isHigh
 		
 		JSR	doAppMACCharLow
-		jmp 	@exit
+		jmp	@exit
 		
 @isHigh:
 		JSR	doAppMACCharHigh
@@ -1552,6 +1935,8 @@ doAppMACChar:
 	cmp #1
 	bne notRTCTab
 
+	.if	.not C64_MODE
+	
 	;;  Write-enable the clock
 	ldz #8
 	NOP
@@ -1600,6 +1985,8 @@ doAppMACChar:
 	NOP
 	STA (zp32),z
 	LDZ #0	
+	
+	.endif
 	
 notRTCTab:		
 		RTS
@@ -1867,6 +2254,25 @@ doTestToggleKeys:
 	
 
 ;-------------------------------------------------------------------------------
+doTestHelpKeys:
+;-------------------------------------------------------------------------------
+		CMP	#$0D
+		BNE	@exit
+		
+		LDA	helpLastTab
+		STA	tabSelected
+		
+		JSR	setupSelectedTab
+		
+		LDA	helpLastPage
+		STA	pgeSelected
+		
+		JSR	displayOptionsPage
+		
+@exit:
+		RTS
+
+;-------------------------------------------------------------------------------
 doTestSaveKeys:
 ;-------------------------------------------------------------------------------
 		CMP	#$0D
@@ -1884,13 +2290,12 @@ doHandleSaveButton:
 		LDX	pgeSelected
 		CPX	#$00
 		BEQ	@switchConfirm
-		
+
 		LDX	selectedOpt
 		CPX	#$06
 		BNE	@performSave
 
 		JMP	@clear
-
 
 @performSave:
 		JSR	doPerformSaveAction
@@ -1899,18 +2304,22 @@ doHandleSaveButton:
 		LDX	$FF
 		STX	saveSlctOpt
 		
-		LDA     progTermint
-		BNE     @switchReset
+		LDA	progTermint
+		BNE	@switchReset
 		
 		LDX	#$00
 		JMP	@update
 		
 @switchReset:
-		;; Hypervisor trap to reset machine
-		LDA	#$7E
-		STA	$D640
-		NOP
-		
+;; Hypervisor trap to reset machine
+;		LDA	#$7E
+;		STA	$D640
+;		NOP
+
+	.if	.not	C64_MODE
+		JSR	reconfigReset
+	.endif
+
 		LDX	#$02
 		JMP	@update
 		
@@ -1929,27 +2338,95 @@ doHandleSaveButton:
 
 
 ;-------------------------------------------------------------------------------
+usleep:
+;***FIXME:  Should include .Y for 16 bit resolution.
+;-------------------------------------------------------------------------------
+@loop0:
+		CMP	#$40
+		BCC @exit
+
+		LDX	$D012
+@loop1:
+		CPX	$D012
+		BEQ	@loop1
+
+		SEC
+		SBC	#$40
+		JMP	@loop0
+
+@exit:
+		RTS
+
+
+;-------------------------------------------------------------------------------
+reconfigReset:
+;-------------------------------------------------------------------------------
+		LDA	#$00				;Blank, black screen
+		STA	$D020
+		STA	$D011
+
+		LDA	#$47				;M65 knock knock
+		STA	$D02F
+		LDA	#$53
+		STA	$D02F
+		LDA	#65
+		STA	$00
+
+		LDA	#$00				;Adress of reconfigure
+		STA	$D6C8
+		STA	$D6C9
+		STA	$D6CA
+		STA	$D6CB
+
+@loop:
+		LDA	#$FF				;Wait for ready
+		JSR	usleep
+
+		LDA	#$42				;Reconfigure (reset)
+		STA	$D6CF
+
+		JMP	@loop
+
+
+;-------------------------------------------------------------------------------
 doPerformSaveAction:
 ;-------------------------------------------------------------------------------
-		LDX	saveSlctOpt
-		BNE	@tstSaveApply
+		LDX	saveSlctOpt			
+		BNE	@tstFactorySys
 		
-		LDA	#$01
+		LDA	#$01					;Exit without saving
 		STA	progTermint
 		RTS
 
-@tstSaveApply:
-		CPX	#$02
-		BNE	@tstFactorySys
-		
-		JSR	saveSessionOpts
-		RTS
+;@tstSaveApply:
+;		CPX	#$02
+;		BNE	@tstFactorySys
+;		
+;		JSR	saveSessionOpts			;Apply now
+;		RTS
 		
 @tstFactorySys:
+;		CPX	#$04
+		CPX	#$02
+;		BNE	@tstSaveSys
+		BNE	@tstBootOnboard
+		
+	.if .not C64_MODE
+		JSR	getDefaultSettings		;Restore defaults
+		JSR	readDefaultOpts
+	.endif
+		
+		RTS
+
+@tstBootOnboard:
 		CPX	#$04
 		BNE	@tstSaveSys
-		JSR	getDefaultSettings
-		JSR	readDefaultOpts
+
+	.if	.not	C64_MODE
+		JSR	saveExitToOnboard
+		LDA	#$01
+		STA	progTermint
+	.endif
 		RTS
 	
 @tstSaveSys:		
@@ -1967,7 +2444,6 @@ doPerformSaveAction:
 ;-------------------------------------------------------------------------------
 setupSelectedTab:
 ;-------------------------------------------------------------------------------
-	
 		LDA	#$FF
 		STA	saveSlctOpt
 		
@@ -2001,13 +2477,20 @@ setupSelectedTab:
 		
 @tstNetwork:
 		CMP	#$04
-		BNE	@save
+		BNE	@tstSave
 		
 		JSR	setupNetworkPage0
 		RTS
 		
-@save:
+@tstSave:
+		CMP	#$05
+		BNE	@help
+		
 		JSR	setupSavePage0
+		RTS
+		
+@help:
+		JSR	setupHelpPage0
 		RTS
 
 
@@ -2044,13 +2527,19 @@ highlightSelectedTab:
 		
 @tstNetwork:
 		CMP	#$04
-		BNE	@save
+		BNE	@tstSave
 		
 		JSR	highlightNetworkTab
 		RTS
 		
-@save:
+@tstSave:
+		CMP	#$05
+		BNE	@help
+		
 		JSR	highlightSaveTab
+		RTS
+		
+@help:
 		RTS
 
 
@@ -2079,7 +2568,7 @@ highlightInputTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$00
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2092,8 +2581,10 @@ highlightInputTab:
 ;-------------------------------------------------------------------------------
 setupChipsetPage0:
 ;-------------------------------------------------------------------------------
-	;; Re-read RTC everytime we display a tab, so to give fresh time
+	.if .not C64_MODE
+;;	Re-read RTC everytime we display a tab, so to give fresh time
 		JSR readRealTimeClock
+	.endif
 
 		LDA	#$00
 		STA	pgeSelected
@@ -2118,7 +2609,7 @@ highlightChipsetTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$06
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2154,7 +2645,7 @@ highlightVideoTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$0E
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2190,7 +2681,7 @@ highlightAudioTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$14
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2226,7 +2717,7 @@ highlightNetworkTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$1A
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2262,7 +2753,7 @@ highlightSaveTab:
 		STA	ptrTempData + 1		
 		
 		LDY	#$24
-		LDA	#$01
+		LDA	clr_highlt
 @loop:
 		STA	(ptrTempData), Y
 		INY
@@ -2271,7 +2762,24 @@ highlightSaveTab:
 		
 		RTS
 		
+
+;-------------------------------------------------------------------------------
+setupHelpPage0:
+;-------------------------------------------------------------------------------
+		LDA	#$00
+		STA	pgeSelected
+		LDA	#helpPageCnt
+		STA	currPageCnt
 		
+		LDA	#<helpPageIndex
+		STA	ptrPageIndx
+		LDA	#>helpPageIndex 
+		STA	ptrPageIndx + 1
+		
+		RTS
+
+
+
 ;-------------------------------------------------------------------------------
 mouseTemp0:
 	.word		$0000
@@ -2280,7 +2788,7 @@ mouseXCol:
 mouseYRow:
 	.byte		$00
 mouseLastY:
-	.word           $0000
+	.word		 $0000
 
 
 ;-------------------------------------------------------------------------------
@@ -2288,26 +2796,26 @@ hotTrackMouse:
 ;-------------------------------------------------------------------------------
 		SEI
 		
-		LDA     mouseLastY
-		CMP     YPos
-		BNE     @update
+		LDA	mouseLastY
+		CMP	YPos
+		BNE	@update
 		
-		LDA     mouseLastY + 1
-		CMP     YPos + 1
-		BNE     @update
+		LDA	mouseLastY + 1
+		CMP	YPos + 1
+		BNE	@update
 			
 		CLI
-		JMP     @exit
+		JMP	@exit
 
 @update:
-		LDA	YPos
-		STA	mouseTemp0
-		STA     mouseLastY
-		LDA	YPos + 1
-		STA	mouseTemp0 + 1
-		STA     mouseLastY + 1
+		LDA		YPos
+		STA		mouseTemp0
+		STA	mouseLastY
+		LDA		YPos + 1
+		STA		mouseTemp0 + 1
+		STA	mouseLastY + 1
 
-		LDX	#$02
+		LDX		#$02
 @yDiv8Loop:
 		LSR
 		STA	mouseTemp0 + 1
@@ -2335,14 +2843,14 @@ hotTrackMouse:
 		BNE	@exit
 
 ;***fixme Could do a nice little hot track on the menu, too.
-		JMP     @exit
+		JMP	@exit
 		
 @tstInOptions:
 		CMP	#(optLineMaxC + optLineOffs + 1)
 		BCC	@isInOptions
 		
 ;***fixme And the footer?
-		JMP     @exit
+		JMP	@exit
 
 @isInOptions:
 		SEC
@@ -2366,14 +2874,14 @@ hotTrackMouse:
 		TXA
 		PHA
 
-		LDA	#$0B
+		LDA	clr_bckgnd
 		JSR	doHighlightSelected
 
 		PLA
 		TAX
 
 		STX	selectedOpt
-		LDA	#$01
+		LDA	clr_highlt
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
@@ -2495,20 +3003,20 @@ doMouseClick:
 		TXA
 		PHA
 
-		LDA	#$0B
+		LDA	clr_bckgnd
 		JSR	doHighlightSelected
 
 		PLA
 		TAX
 
 		STX	selectedOpt
-		LDA	#$01
+		LDA	clr_highlt
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
 		
 		LDA	tabSelected
-		CMP	#tabMaxCount
+		CMP	#tabSaveIdx
 		BNE	@checkToggle
 		
 		JSR	doHandleSaveButton
@@ -2597,7 +3105,7 @@ doClickMenu:
 		JMP	@tstUpdate
 		
 @tstSaveTab:
-		CMP	#$27
+		CMP	#$24
 		BCC	@exit
 		
 		LDA	#$05
@@ -2622,7 +3130,7 @@ doClickFooter:
 ;-------------------------------------------------------------------------------
 		LDA	mouseXCol
 		CMP	#$25
-		BNE 	@tstPrior
+		BNE @tstPrior
 		
 		JSR	moveNextPage
 		JSR	displayOptionsPage
@@ -2664,7 +3172,7 @@ moveTabRight:
 		DEX
 		BPL	@done
 		
-		LDX	#tabMaxCount - 1
+		LDX	#(tabMaxCount - 1)
 		
 @done:
 		STX	tabSelected
@@ -2677,7 +3185,7 @@ moveTabRight:
 moveNextPage:
 ;-------------------------------------------------------------------------------
 		LDX	tabSelected
-		CPX	#tabMaxCount
+		CPX	#tabSaveIdx
 		BNE	@cont
 		
 		RTS
@@ -2700,7 +3208,7 @@ moveNextPage:
 movePriorPage:
 ;-------------------------------------------------------------------------------
 		LDX	tabSelected
-		CPX	#tabMaxCount
+		CPX	#tabSaveIdx
 		BNE	@cont
 		
 		RTS
@@ -2726,7 +3234,7 @@ moveSelectDown:
 		CPX	#$FF
 		BEQ	@exit
 
-		LDA	#$0B
+		LDA	clr_bckgnd
 		JSR	doHighlightSelected
 		
 		LDX	selectedOpt
@@ -2748,7 +3256,7 @@ moveSelectDown:
 @found:
 		STX	selectedOpt
 		
-		LDA	#$01
+		LDA	clr_highlt
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
@@ -2764,7 +3272,7 @@ moveSelectUp:
 		CPX	#$FF
 		BEQ	@exit
 		
-		LDA	#$0B
+		LDA	clr_bckgnd
 		JSR	doHighlightSelected
 		
 		LDX	selectedOpt
@@ -2785,7 +3293,7 @@ moveSelectUp:
 @found:
 		STX	selectedOpt
 		
-		LDA	#$01
+		LDA	clr_highlt
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
@@ -2797,17 +3305,17 @@ moveSelectUp:
 ;-------------------------------------------------------------------------------
 doUpdateSelected:
 ;-------------------------------------------------------------------------------
-		LDA	crsrIsDispl
-		CMP	#$01
-		BNE	@begin
+		LDA		crsrIsDispl
+		CMP		#$01
+		BNE		@begin
 
-		LDA	#$00
-		STA	crsrIsDispl
+		LDA		#$00
+		STA		crsrIsDispl
 		
-		LDY	#$00
-		LDA	(ptrCrsrSPos), Y
-		ORA	#$80
-		STA   	(ptrCrsrSPos), Y
+		LDY		#$00
+		LDA		(ptrCrsrSPos), Y
+		ORA		#$80
+		STA	(ptrCrsrSPos), Y
 
 @begin:
 		LDX	selectedOpt
@@ -3054,10 +3562,14 @@ displayOptionsPage:
 		LDY	#$00
 		STY	crsrIsDispl
 		
-		JSR 	clearScreen
+		JSR clearScreen
 		
 		JSR	highlightSelectedTab
 		JSR	updateFooter
+		
+		LDA	#$00
+		STA	infoCntr
+		STA	infoCntr + 1
 		
 		LDA	pgeSelected
 		ASL
@@ -3090,6 +3602,16 @@ displayOptionsPage:
 		JSR	doDisplayOpt
 		BCS	@error
 		
+;		TYA
+;		TAX
+;		
+;		LDY	#$00
+;		LDA	(ptrOptsTemp), Y
+;		PHA
+;		
+;		TXA
+;		TAY
+		
 		CLC
 		TYA
 		ADC	ptrOptsTemp
@@ -3100,13 +3622,15 @@ displayOptionsPage:
 		
 		INC	optTempIndx
 
+;		PLA
+
 		LDX	optTempLine		;Blank line between options
 		LDA	#$FF
 		STA	pageOptions, X
 		INC	optTempLine		;and next line
 
 		LDY	#$00
-		
+
 		JMP	@loop0
 
 @finish:
@@ -3123,15 +3647,15 @@ displayOptionsPage:
 		
 @done:
 		LDA	tabSelected
-		CMP	#tabMaxCount
-		BNE	@updateStd
+		CMP	#tabSaveIdx
+		BNE	@tstHelp
 	
 		LDA	pgeSelected
 		CMP	#$02
 		BNE	@tstConfirm
 		
-		JSR     updateSaveReset
-		JMP     @updateStd
+		JSR	updateSaveReset
+		JMP	@updateStd
 		
 @tstConfirm:
 	
@@ -3140,7 +3664,16 @@ displayOptionsPage:
 		
 		JSR	updateSaveConfirm
 		JMP	@cont		
+
+@tstHelp:
+		CMP	#tabHelpIdx
+		BNE	@updateStd
 		
+		JSR	updateHelpPage
+		
+		LDX	#$12
+		JMP	@cont
+
 @updateStd:
 		LDX	#$00
 		LDA	pageOptions, X
@@ -3151,7 +3684,7 @@ displayOptionsPage:
 @cont:
 		STX	selectedOpt
 
-		LDA	#$01
+		LDA	clr_highlt
 		JSR	doHighlightSelected
 		
 		JSR	doUpdateSelected
@@ -3166,6 +3699,46 @@ displayOptionsPage:
 		LDA	#$0A			
 		STA	$D020
 ;***
+		RTS
+
+
+;-------------------------------------------------------------------------------
+updateHelpPage:
+;-------------------------------------------------------------------------------
+		LDA	#<helpTexts
+		STA	ptrCurrOpts
+		LDA #>helpTexts
+		STA	ptrCurrOpts + 1
+		
+		LDX	#$00
+		LDY	#optLineOffs - 1
+		
+@loop:
+		STY	optTempLine
+
+		TXA
+		TAY
+		
+		LDA	(ptrCurrOpts), Y
+		BEQ	@exit
+
+		STA	ptrOptsTemp
+		INY
+		LDA	(ptrCurrOpts), Y
+		STA	ptrOptsTemp + 1
+		INY
+		
+		TYA
+		TAX
+		
+		LDY	optTempLine
+		JSR	dispCentreText
+		
+		INY
+		
+		JMP	@loop
+			
+@exit:
 		RTS
 
 
@@ -3187,94 +3760,129 @@ updateSaveReset:
 ;-------------------------------------------------------------------------------
 updateSaveConfirm:
 ;-------------------------------------------------------------------------------
-               LDX     saveSlctOpt
-               BNE     @tstSaveApply
-               
-               LDA     #<saveConfExit0
-               STA     ptrOptsTemp
-               LDA     #>saveConfExit0
-               STA     ptrOptsTemp + 1
-               
-               LDY     #optLineOffs
-               
-               JSR     dispCentreText
-               
-               LDA     #<saveConfExit1
-               STA     ptrOptsTemp
-               LDA     #>saveConfExit1
-               STA     ptrOptsTemp + 1
-               
-               LDY     #(optLineOffs + 2)
-               
-               JSR     dispCentreText
-               JMP     @exit
+		LDX	saveSlctOpt
+;		BNE	@tstSaveApply
+		BNE	@tstSaveRestore
 
-@tstSaveApply:
-               CPX     #$02
-               BNE     @tstSaveThis
-               
-               LDA     #<saveConfAppl0
-               STA     ptrOptsTemp
-               LDA     #>saveConfAppl0
-               STA     ptrOptsTemp + 1
-               
-               LDY     #optLineOffs
-               
-               JSR     dispCentreText
-               
-               LDA     #<saveConfAppl1
-               STA     ptrOptsTemp
-               LDA     #>saveConfAppl1
-               STA     ptrOptsTemp + 1
-               
-               LDY     #(optLineOffs + 2)
-               
-               JSR     dispCentreText
-               JMP     @exit
-               
-@tstSaveThis:
-               CPX     #$04
-               BNE     @tstSaveSys
-               
-               LDA     #<saveConfSave0
-               STA     ptrOptsTemp
-               LDA     #>saveConfSave0
-               STA     ptrOptsTemp + 1
-               
-               LDY     #optLineOffs
-               
-               JSR     dispCentreText
-               
-               LDA     #<saveConfFactory0
-               STA     ptrOptsTemp
-               LDA     #>saveConfFactory0
-               STA     ptrOptsTemp + 1
-               
-               LDY     #(optLineOffs + 2)
-               
-               JSR     dispCentreText
-               JMP     @exit
-       
-@tstSaveSys:           
-               CPX     #$06
-               BNE     @invalid
+		LDA	#<saveConfExit0				;Exit without saving
+		STA	ptrOptsTemp
+		LDA	#>saveConfExit0
+		STA	ptrOptsTemp + 1
+
+		LDY	#optLineOffs
+
+		JSR	dispCentreText
+
+		LDA	#<saveConfExit1
+		STA	ptrOptsTemp
+		LDA	#>saveConfExit1
+		STA	ptrOptsTemp + 1
+
+		LDY	#(optLineOffs + 2)
+
+		JSR	dispCentreText
+		JMP	@exit
+
+;@tstSaveApply:
+;		CPX	#$02
+;		BNE	@tstSaveThis
+;
+;		LDA	#<saveConfAppl0
+;		STA	ptrOptsTemp
+;		LDA	#>saveConfAppl0
+;		STA	ptrOptsTemp + 1
+;
+;		LDY	#optLineOffs
+;
+;		JSR	dispCentreText
+;
+;		LDA	#<saveConfAppl1
+;		STA	ptrOptsTemp
+;		LDA	#>saveConfAppl1
+;		STA	ptrOptsTemp + 1
+;
+;		LDY	#(optLineOffs + 2)
+;
+;		JSR	dispCentreText
+;		JMP	@exit
+
+@tstSaveRestore:
+		CPX	#$02
+		BNE	@tstSaveOnboard
+
+		LDA	#<saveConfSave0				;Restore factory settings
+		STA	ptrOptsTemp
+		LDA	#>saveConfSave0
+		STA	ptrOptsTemp + 1
+
+		LDY	#optLineOffs
+
+		JSR	dispCentreText
+
+		LDA	#<saveConfFactory0
+		STA	ptrOptsTemp
+		LDA	#>saveConfFactory0
+		STA	ptrOptsTemp + 1
+
+		LDY	#(optLineOffs + 2)
+
+		JSR	dispCentreText
+		JMP	@exit
+
+@tstSaveOnboard:
+		CPX	#$04
+		BNE	@tstSaveSys
+
+		LDA	#<saveConfExit0				;Exit to onboarding
+		STA	ptrOptsTemp
+		LDA	#>saveConfExit0
+		STA	ptrOptsTemp + 1
+
+		LDY	#optLineOffs
+
+		JSR	dispCentreText
+
+
+		LDA	#<saveConfOnBoard0
+		STA	ptrOptsTemp
+		LDA	#>saveConfOnBoard0
+		STA	ptrOptsTemp + 1
+
+		LDY	#(optLineOffs + 2)
+
+		JSR	dispCentreText
+
+		LDA	#<saveConfOnBoard1
+		STA	ptrOptsTemp
+		LDA	#>saveConfOnBoard1
+		STA	ptrOptsTemp + 1
+
+		LDY	#(optLineOffs + 4)
+
+		JSR	dispCentreText
+
+		JMP	@exit
+
+@tstSaveSys:
+		CPX	#$06
+		BNE	@invalid
 		
 		LDA	#<saveConfSave0
 		STA	ptrOptsTemp
 		LDA	#>saveConfSave0
 		STA	ptrOptsTemp + 1
-		
+
 		LDY	#optLineOffs
-		
+
 		JSR	dispCentreText
-		
+
 		LDA	#<saveConfDflt0
 		STA	ptrOptsTemp
 		LDA	#>saveConfDflt0
 		STA	ptrOptsTemp + 1
-		
+
 		LDY	#(optLineOffs + 2)
-		
+
 		JSR	dispCentreText
 
 @exit:
@@ -3331,7 +3939,7 @@ doDisplayOpt:
 
 		LDY	#$00			;Update the heap to point to
 		LDA	ptrOptsTemp		;this option (for fast access)
-		STA 	(ptrCurrHeap), Y
+		STA	(ptrCurrHeap), Y
 		LDA	ptrOptsTemp + 1
 		INY
 		STA	(ptrCurrHeap), Y
@@ -3349,7 +3957,7 @@ doDisplayOpt:
 		TAY
 		PLA
 ;***
-		TAX 				;Keep whole byte in .X
+		TAX				;Keep whole byte in .X
 		
 		AND	#$F0			;Concerned now with hi nybble
 		
@@ -3512,7 +4120,7 @@ doDispStringOpt:
 		PHA
 		
 		LDY	#$00			;Set colour for input field
-		LDA	#$0C
+		LDA	clr_ctrlfc
 @loop0:
 		STA	(ptrTempData), Y
 		INY
@@ -3548,7 +4156,7 @@ doDispStringOpt:
 	
 @loop1:						;Display string value
 		LDA	(ptrOptsTemp), Y
-		BEQ 	@cont
+		BEQ	@cont
 		
 	.if	C64_MODE
 		JSR	inputToCharROM
@@ -3608,8 +4216,8 @@ doDispMACOpt:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
-		LDA     #$16
-		LDX     #$12
+		LDA	#$16
+		LDX	#$12
 		
 		CLC				;Add this position to colour
 		ADC	ptrTempData		;RAM pointer
@@ -3622,7 +4230,7 @@ doDispMACOpt:
 		PHA
 		
 		LDY	#$00			;Set colour for input field
-		LDA	#$0C
+		LDA	clr_ctrlfc
 @loop0:
 		STA	(ptrTempData), Y
 		INY
@@ -3660,8 +4268,8 @@ doDispMACOpt:
 	
 @loop1:						;Display MAC value
 		LDA	(ptrOptsTemp), Y
-		STA     dispOptTemp0
-		JSR     convertValueToHex
+		STA	dispOptTemp0
+		JSR	convertValueToHex
 		INY
 		TYA
 		PHA
@@ -3678,18 +4286,18 @@ doDispMACOpt:
 		INY
 		
 		CPY	#$11
-		BEQ     @skip
+		BEQ	@skip
 
-		lda 	isRTCField
-		bne 	@macColon
-		lda 	rtcSeparators,y
-		jmp 	@dispSeparator
+		lda	isRTCField
+		bne	@macColon
+		lda	rtcSeparators,y
+		jmp	@dispSeparator
 
 @macColon:
 		LDA	#':'
 @dispSeparator:
-		JSR     asciiToCharROM
-		ORA     #$80
+		JSR	asciiToCharROM
+		ORA	#$80
 		STA	(ptrTempData), Y
 		
 @skip:
@@ -3731,15 +4339,15 @@ convertValueToHex:
 		LSR
 		LSR
 		JSR	convertNybbleToHex
-		JSR     asciiToCharROM
-		ORA     #$80
+		JSR	asciiToCharROM
+		ORA	#$80
 		STA	dispOptTemp2
 
 		LDA	dispOptTemp0
 		AND	#$0F
 		JSR	convertNybbleToHex
-		JSR     asciiToCharROM
-		ORA     #$80
+		JSR	asciiToCharROM
+		ORA	#$80
 		STA	dispOptTemp3
 		
 		RTS
@@ -3787,7 +4395,7 @@ doDispOptHdrLbl:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1
 		
-		LDA	#$0C			;Set colour for opt indicator
+		LDA	clr_ctrlfc		;Set colour for opt indicator
 		LDY	#$00
 		STA	(ptrTempData), Y
 		
@@ -3870,7 +4478,7 @@ doDispOptTogLbl:
 		ADC	#$00
 		STA	ptrTempData + 1
 		
-		LDA	#$0C			;Set colour for opt indicator
+		LDA	clr_ctrlfc			;Set colour for opt indicator
 		LDY	#$00
 		STA	(ptrTempData), Y
 		
@@ -3947,6 +4555,9 @@ doDispOptTogLbl:
 ;-------------------------------------------------------------------------------
 dispCentreText:
 ;-------------------------------------------------------------------------------
+		TYA
+		PHA
+
 		LDA	screenRowsLo, Y		;Get screen RAM ptr for line #
 		STA	ptrTempData
 		LDA	screenRowsHi, Y
@@ -3954,6 +4565,14 @@ dispCentreText:
 		
 		LDY	#$00
 		LDA	(ptrOptsTemp), Y
+		BNE	@cont
+		
+		PLA
+		TAY
+		
+		RTS
+
+@cont:		
 		STA	optTempIndx
 		
 		CLC
@@ -3986,104 +4605,133 @@ dispCentreText:
 		DEY
 		BPL	@loop
 		
+		PLA
+		TAY
+		
 		RTS
 		
 
 ;-------------------------------------------------------------------------------
 	.if	.not	C64_MODE
 clrScreenDAT:
-	.byte		$0A			;F018A
+	.byte		$0A				;F018A
 	.byte		$00
-	.byte 		$03 			; fill non-chained job 
-	.word 		$03E8 			; number of bytes to copy
-	.word 		$00A0 			; source address
-	.byte 		$00 			; source bank number / direction
-	.word 		$0400 			; destination address
-	.byte 		$00 			; destination bank number / direction
-	.word 		$0000 			; modulo	
+	.byte		$03			; fill non-chained job 
+	.word		$03E8			; number of bytes to copy
+	.word		$00A0			; source address
+	.byte		$00			; source bank number / direction
+	.word		$0400			; destination address
+	.byte		$00			; destination bank number / direction
+	.word		$0000			; modulo	
 
 clrColourDAT:
-	.byte		$0A			;F018A
+	.byte		$0A				;F018A
 	.byte		$00
-	.byte 		$03 			; fill non-chained job 
-	.word 		$03E8 			; number of bytes to copy
-	.word 		$000B 			; source address
-	.byte 		$00 			; source bank number / direction
-	.word 		$F800 			; destination address
-	.byte 		$01 			; destination bank number / direction
-	.word 		$0000 			; modulo	
+	.byte		$03			; fill non-chained job 
+	.word		$03E8			; number of bytes to copy
+;	.word		$000B			; source address - dengland errr?  No its not!
+clrColourDAT7:
+	.word		$0000	
+	.byte		$00			; source bank number / direction
+	.word		$F800			; destination address
+	.byte		$01			; destination bank number / direction
+	.word		$0000			; modulo	
 	.endif
 
 ;-------------------------------------------------------------------------------
 clearScreen:
 ;-------------------------------------------------------------------------------
-	.if 	C64_MODE
-		LDX 	#$00
+	.if	C64_MODE
+		LDX	#$00
 @loop0:	 
-		LDA 	#$A0			;Screen memory
-		STA 	$0400, X
-		STA 	$0500, X
-		STA 	$0600, X
-		STA 	$0700, X
-		LDA 	#$0B			;Colour memory
-		STA 	$D800, X
-		STA 	$D900, X
-		STA 	$DA00, X
-		STA 	$DB00, X
+		LDA	#$A0			;Screen memory
+		STA	$0400, X
+		STA	$0500, X
+		STA	$0600, X
+		STA	$0700, X
+		
+		LDA	clr_bckgnd			;Colour memory
+		STA	$D800, X
+		STA	$D900, X
+		STA	$DA00, X
+		STA	$DB00, X
 		INX
-		BNE 	@loop0
+		BNE	@loop0
 		
 ;	The above goes overboard and clears out the sprite pointers, too.  So, 
 ;	we need to restore it.
-		LDA	#$0D
-		STA	spritePtr0
+		LDA		#$0D
+		STA		spritePtr0
+		
 	.else
-		LDA 	#$00
-		STA 	$D702
-		STA 	$D704
-		LDA 	#>clrScreenDAT
-		STA 	$D701
-		LDA 	#<clrScreenDAT
-		STA 	$D705		
+		LDA		clr_bckgnd
+		STA		clrColourDAT7
 
-		LDA 	#$00
-		STA 	$D702
-		STA 	$D704
-		LDA 	#>clrColourDAT
-		STA 	$D701
-		LDA 	#<clrColourDAT
-		STA 	$D705		
+		LDA	#$00
+		STA	$D702
+		STA	$D704
+		LDA	#>clrScreenDAT
+		STA	$D701
+		LDA	#<clrScreenDAT
+		STA	$D705		
+
+		LDA	#$00
+		STA	$D702
+		STA	$D704
+		LDA	#>clrColourDAT
+		STA	$D701
+		LDA	#<clrColourDAT
+		STA	$D705		
 	.endif
 
-; 	Header and footer
-		LDY 	#39
+
+	LDA	hdr_colors
+	BNE	@sel1
+	
+	LDA	#<headerColours0
+	STA	@selfmod0 + 1
+	LDA	#>headerColours0
+	STA	@selfmod0 + 2
+	
+	JMP	@cont
+
+@sel1:
+	LDA	#<headerColours1
+	STA	@selfmod0 + 1
+	LDA	#>headerColours1
+	STA	@selfmod0 + 2
+	
+@cont:
+;	Header and footer
+		LDY	#39
 @loop1:	 
-		LDA 	headerLine, Y		
-		JSR 	asciiToCharROM		;Convert header for screen 
-		ORA 	#$80			;Output in reverse
-		STA 	$0400, Y
+		LDA	headerLine, Y		
+		JSR	asciiToCharROM		;Convert header for screen 
+		ORA	#$80			;Output in reverse
+		STA	$0400, Y
 		
-		LDA	headerColours, Y
+@selfmod0:
+		LDA	headerColours0, Y
 		STA	$D800, Y
 		
-		LDA 	menuLine, Y		
-		JSR 	asciiToCharROM		;Convert menu for screen 
-		ORA 	#$80			;Output in reverse
-		STA 	$0428, Y
+		LDA	menuLine, Y		
+		JSR	asciiToCharROM		;Convert menu for screen 
+		ORA	#$80			;Output in reverse
+		STA	$0428, Y
 		
-		LDA	#$0C
+		LDA	clr_inactv
 		STA	$D828, Y
 		
-		LDA 	footerLine, Y		
-		JSR 	asciiToCharROM		;Convert footer for screen 
-		ORA 	#$80			;Output in reverse
-		STA 	$07C0, Y
+		LDA	footerLine, Y		
+		JSR	asciiToCharROM		;Convert footer for screen 
+		ORA	#$80			;Output in reverse
+		STA	$07C0, Y
 		
-		LDA	#$0C
+		LDA	clr_inactv
 		STA	$DBC0, Y
 		
 		DEY
-		BPL 	@loop1
+		BPL	@loop1
 
 		RTS
 		
@@ -4093,36 +4741,36 @@ asciiToCharROM:
 ;	Must be re-entrant in the case the IRQ handler calls while the main 
 ;	code also does.
 ;-------------------------------------------------------------------------------
-; 	NUL ($00) becomes a space
-		CMP 	#0
-		BNE 	atc0
-		LDA 	#$20
+;	NUL ($00) becomes a space
+		CMP	#0
+		BNE	atc0
+		LDA	#$20
 atc0:
 ;	@ becomes $00
-		CMP 	#$40
-		BNE 	atc1
-		LDA 	#0
+		CMP	#$40
+		BNE	atc1
+		LDA	#0
 		RTS
 atc1:
-		CMP 	#$5B
-		BCS 	atc2
+		CMP	#$5B
+		BCS	atc2
 ;	A to Z -> leave unchanged
 		RTS
 atc2:
-		CMP 	#$5B
-		BCC 	atc3
-		CMP 	#$60
-		BCS 	atc3
+		CMP	#$5B
+		BCC	atc3
+		CMP	#$60
+		BCS	atc3
 ;	[ \ ] ^ _ -> subtract $40
 		SEC
 		SBC	#$40
 
 		RTS
 atc3:
-		CMP 	#$61
-		BCC 	atc4
-		CMP 	#$7B
-		BCS 	atc4
+		CMP	#$61
+		BCC	atc4
+		CMP	#$7B
+		BCS	atc4
 ;	a - z -> subtract $60
 		SEC
 		SBC	#$60
@@ -4133,19 +4781,19 @@ atc4:
 ;-------------------------------------------------------------------------------
 inputToCharROM:
 ;-------------------------------------------------------------------------------
-; 	NUL ($00) becomes a space
-		CMP 	#0
-		BNE 	@atc0
-		LDA 	#$20
+;	NUL ($00) becomes a space
+		CMP	#0
+		BNE	@atc0
+		LDA	#$20
 @atc0:
 ;	@ becomes $00
-		CMP 	#$40
-		BNE 	@atc1
-		LDA 	#0
+		CMP	#$40
+		BNE	@atc1
+		LDA	#0
 		RTS
 @atc1:
-		CMP 	#$5B
-		BCS 	@atc2
+		CMP	#$5B
+		BCS	@atc2
 		
 		CMP	#$41
 		BCC	@atc4
@@ -4156,20 +4804,20 @@ inputToCharROM:
 		
 		RTS
 @atc2:
-		CMP 	#$5B
-		BCC 	@atc3
-		CMP 	#$60
-		BCS 	@atc3
+		CMP	#$5B
+		BCC	@atc3
+		CMP	#$60
+		BCS	@atc3
 ;	[ \ ] ^ _ -> subtract $40
 		SEC
 		SBC	#$40
 
 		RTS
 @atc3:
-		CMP 	#$61
-		BCC 	@atc4
-		CMP 	#$7B
-		BCS 	@atc4
+		CMP	#$61
+		BCC	@atc4
+		CMP	#$7B
+		BCS	@atc4
 ;	a - z -> subtract $20
 		SEC
 		SBC	#$20
@@ -4212,7 +4860,7 @@ doHighlightSelected:
 		
 		INY				;Skip past type, offset and 
 						;data
-@cont0:                
+@cont0:			 
 		INY
 		INY
 		
@@ -4265,79 +4913,83 @@ initState:
 ;-------------------------------------------------------------------------------
 
 	.if	.not	C64_MODE
+;	Try to fix oddities
+		LDA	$D011
+		STA	$D011
+
 ;	Enable enhanced registers
-		LDA 	#$47			;M65 knock knock
-		STA 	$D02F
-		LDA 	#$53
-		STA 	$D02F
+		LDA	#$47			;M65 knock knock
+		STA	$D02F
+		LDA	#$53
+		STA	$D02F
 		LDA	#65
 		STA	$00
 		
-;;      Make sure no colour RAM @ $DC00, no sector buffer overlaying $DCxx/$DDxx
+;;	 Make sure no colour RAM @ $DC00, no sector buffer overlaying $DCxx/$DDxx
 		LDA	#$00
 		STA	$D030
 		LDA	#$82
 		STA	$D680
-		.endif
+	.endif
 				
-;		SEI             		;disable the interrupts
-		CLD             		;clear decimal mode
+;		SEI		  		;disable the interrupts
+		CLD		  		;clear decimal mode
 
-		LDA 	#$7F        		;disable all interrupts
-		STA 	$DC0D       		;save VIA 1 ICR
-		STA 	$DD0D       		;save VIA 2 ICR
-		STA 	$DC00       		;save VIA 1 DRA, keyboard column drive
-		LDA 	#$08        		;set timer single shot
-		STA 	$DC0E       		;save VIA 1 CRA
-		STA 	$DD0E       		;save VIA 2 CRA
-		STA 	$DC0F       		;save VIA 1 CRB
-		STA 	$DD0F       		;save VIA 2 CRB
-		LDX 	#$00        		;set all inputs
-		STX 	$DC03       		;save VIA 1 DDRB, keyboard row
-		STX 	$DD03       		;save VIA 2 DDRB, RS232 port
-		STX 	$D418       		;clear the volume and filter select register
-		DEX             		;set X = $FF
-		STX 	$DC02       		;save VIA 1 DDRA, keyboard column
-		LDA 	#$07        		;DATA out high, CLK out high, ATN out high, RE232 Tx DATA
+		LDA	#$7F	  		;disable all interrupts
+		STA	$DC0D	 		;save VIA 1 ICR
+		STA	$DD0D	 		;save VIA 2 ICR
+		STA	$DC00	 		;save VIA 1 DRA, keyboard column drive
+		LDA	#$08	  		;set timer single shot
+		STA	$DC0E	 		;save VIA 1 CRA
+		STA	$DD0E	 		;save VIA 2 CRA
+		STA	$DC0F	 		;save VIA 1 CRB
+		STA	$DD0F	 		;save VIA 2 CRB
+		LDX	#$00	  		;set all inputs
+		STX	$DC03	 		;save VIA 1 DDRB, keyboard row
+		STX	$DD03	 		;save VIA 2 DDRB, RS232 port
+		STX	$D418	 		;clear the volume and filter select register
+		DEX		  		;set X = $FF
+		STX	$DC02	 		;save VIA 1 DDRA, keyboard column
+		LDA	#$07	  		;DATA out high, CLK out high, ATN out high, RE232 Tx DATA
 						;high, video address 15 = 1, video address 14 = 1
-		STA 	$DD00       		;save VIA 2 DRA, serial port and video address
-		LDA 	#$3F        		;set serial DATA input, serial CLK input
-		STA 	$DD02       		;save VIA 2 DDRA, serial port and video address
+		STA	$DD00	 		;save VIA 2 DRA, serial port and video address
+		LDA	#$3F	  		;set serial DATA input, serial CLK input
+		STA	$DD02	 		;save VIA 2 DDRA, serial port and video address
 
 	.if	C64_MODE
-		LDA 	#$E6        		;set 1110 0110, motor off, enable I/O, enable KERNAL,
+		LDA	#$E6	  		;set 1110 0110, motor off, enable I/O, enable KERNAL,
 						;disable BASIC
 	.else
 		LDA	#$E5			;set 1110 0101 - motor off, enable IO
 						;disable Kernal and BASIC
 	.endif
 						
-		STA 	$01         		;save the 6510 I/O port
-		LDA 	#$2F        		;set 0010 1111, 0 = input, 1 = output
-		STA 	$00         		;save the 6510 I/O port direction register
-;		LDA 	$02A6       		;get the PAL/NTSC flag
-;		BEQ 	$FDEC       		;if NTSC go set NTSC timing
+		STA	$01	   		;save the 6510 I/O port
+		LDA	#$2F	  		;set 0010 1111, 0 = input, 1 = output
+		STA	$00	   		;save the 6510 I/O port direction register
+;		LDA	$02A6	 		;get the PAL/NTSC flag
+;		BEQ	$FDEC	 		;if NTSC go set NTSC timing
 						;else set PAL timing
-		LDA 	#$25
-		STA 	$DC04       		;save VIA 1 timer A low byte
-		LDA 	#$40
-;		JMP 	$FDF3
-; FDEC:		LDA 	#$95
-;		STA 	$DC04       		;save VIA 1 timer A low byte
-;		LDA 	#$42
+		LDA	#$25
+		STA	$DC04	 		;save VIA 1 timer A low byte
+		LDA	#$40
+;		JMP	$FDF3
+; FDEC:		LDA	#$95
+;		STA	$DC04	 		;save VIA 1 timer A low byte
+;		LDA	#$42
 ; FDF3:
-		STA 	$DC05       		;save VIA 1 timer A high byte
+		STA	$DC05	 		;save VIA 1 timer A high byte
 
-		LDA 	#$81        		;enable timer A interrupt
-		STA 	$DC0D       		;save VIA 1 ICR
-		LDA 	$DC0E       		;read VIA 1 CRA
-		AND 	#$80        		;mask x000 0000, TOD clock
-		ORA 	#$11        		;mask xxx1 xxx1, load timer A, start timer A
-		STA 	$DC0E       		;save VIA 1 CRA
+		LDA	#$81	  		;enable timer A interrupt
+		STA	$DC0D	 		;save VIA 1 ICR
+		LDA	$DC0E	 		;read VIA 1 CRA
+		AND	#$80	  		;mask x000 0000, TOD clock
+		ORA	#$11	  		;mask xxx1 xxx1, load timer A, start timer A
+		STA	$DC0E	 		;save VIA 1 CRA
 
-		LDA 	$DD00       		;read VIA 2 DRA, serial port and video address
-		ORA 	#$10        		;mask xxx1 xxxx, set serial clock out low
-		STA 	$DD00       		;save VIA 2 DRA, serial port and video address
+		LDA	$DD00	 		;read VIA 2 DRA, serial port and video address
+		ORA	#$10	  		;mask xxx1 xxxx, set serial clock out low
+		STA	$DD00	 		;save VIA 2 DRA, serial port and video address
 
 ;		CLI				;enable the interrupts
 
@@ -4347,25 +4999,37 @@ initState:
 ;-------------------------------------------------------------------------------
 ;Mouse driver variables
 ;-------------------------------------------------------------------------------
-OldPotX:        
-	.byte    	0               	; Old hw counter values
-OldPotY:        
-	.byte    	0
+OldPotX:	   
+	.byte   	0				; Old hw counter values
+OldPotY:	   
+	.byte   	0
 
-XPos:           
-	.word    	0               	; Current mouse position, X
-YPos:           
-	.word    	0               	; Current mouse position, Y
-XMin:           
-	.word    	0               	; X1 value of bounding box
-YMin:           
-	.word    	0               	; Y1 value of bounding box
-XMax:           
-	.word    	319               	; X2 value of bounding box
-YMax:           
-	.word    	199           		; Y2 value of bounding box
-Buttons:        
-	.byte    	0               	; button status bits
+DirectionTemp:	.byte 0
+XDirection:	.byte 0
+YDirection:	.byte 0
+XPosNew:		 
+	.word   	0			
+YPosNew:		 
+	.word   	0			
+XPosPending:		 
+	.word   	0			
+YPosPending:		 
+	.word   	0
+
+XPos:		 
+	.word   	0				; Current mouse position, X
+YPos:		 
+	.word   	0				; Current mouse position, Y
+XMin:		 
+	.word   	0				; X1 value of bounding box
+YMin:		 
+	.word   	0				; Y1 value of bounding box
+XMax:		 
+	.word   	319				; X2 value of bounding box
+YMax:		 
+	.word   	199				; Y2 value of bounding box
+Buttons:	   
+	.byte   	0				; button status bits
 ButtonsOld:
 	.byte		0
 ButtonLClick:
@@ -4373,19 +5037,25 @@ ButtonLClick:
 ButtonRClick:
 	.byte		0
 
-OldValue:       
-	.byte    	0               	; Temp for MoveCheck routine
-NewValue:       
-	.byte    	0               	; Temp for MoveCheck routine
+OldValue:	  
+	.byte   	0				; Temp for MoveCheck routine
+NewValue:	  
+	.byte   	0				; Temp for MoveCheck routine
 
 tempValue:	
 	.word		0
-	
+mouseCheck:
+	.byte		$00
+
+
 blinkCntr:
 	.byte		$10
 	
-helpCntr:
+infoCntr:
 	.word		$0000
+
+flgMse1351:
+	.byte		$00
 
 	.if	C64_MODE
 spritePtr:
@@ -4413,27 +5083,27 @@ spritePtr:
 	
 	.else
 spritePtr:
-	.byte		$11, $00, $00, $00, $00, $00, $00, $00
-	.byte           $1F, $10, $00, $00, $00, $00, $00, $00
-	.byte           $1F, $F1, $00, $00, $00, $00, $00, $00
-	.byte           $1F, $AF, $10, $00, $00, $00, $00, $00
-	.byte           $1F, $AA, $F1, $00, $00, $00, $00, $00
-	.byte           $1F, $A2, $AF, $10, $00, $00, $00, $00
-	.byte           $1F, $A2, $2A, $F1, $00, $00, $00, $00
-	.byte           $1F, $A2, $32, $10, $00, $00, $00, $00
-	.byte           $1F, $A2, $31, $00, $00, $00, $00, $00
-	.byte           $1F, $A2, $10, $00, $00, $00, $00, $00
-	.byte           $1F, $A1, $00, $00, $00, $00, $00, $00
-	.byte           $1F, $10, $00, $00, $00, $00, $00, $00
-	.byte           $11, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
-	.byte           $00, $00, $00, $00, $00, $00, $00, $00
+	.byte			$11, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $1F, $10, $00, $00, $00, $00, $00, $00
+	.byte		 $1F, $F1, $00, $00, $00, $00, $00, $00
+	.byte		 $1F, $AF, $10, $00, $00, $00, $00, $00
+	.byte		 $1F, $AA, $F1, $00, $00, $00, $00, $00
+	.byte		 $1F, $A2, $AF, $10, $00, $00, $00, $00
+	.byte		 $1F, $A2, $2A, $F1, $00, $00, $00, $00
+	.byte		 $1F, $A2, $32, $10, $00, $00, $00, $00
+	.byte		 $1F, $A2, $31, $00, $00, $00, $00, $00
+	.byte		 $1F, $A2, $10, $00, $00, $00, $00, $00
+	.byte		 $1F, $A1, $00, $00, $00, $00, $00, $00
+	.byte		 $1F, $10, $00, $00, $00, $00, $00, $00
+	.byte		 $11, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
+	.byte		 $00, $00, $00, $00, $00, $00, $00, $00
 	
 	
 coloursRed:
@@ -4455,7 +5125,7 @@ coloursBlue:
 ;-------------------------------------------------------------------------------
 initMouse:
 ;-------------------------------------------------------------------------------
-	.if     C64_MODE
+	.if	C64_MODE
 		LDX	#$3E
 @loop:
 		LDA	spritePtr, X
@@ -4471,7 +5141,7 @@ initMouse:
 		LDA	spritePtr, X
 		STA	spriteMemD, X
 		INX
-		CPX     #$B0
+		CPX	#$B0
 		BNE	@loop
 
 		LDA	#$00
@@ -4485,38 +5155,38 @@ initMouse:
 		ORA	#$01
 		STA	vicSprEnab
 		
-	.if     .not C64_MODE
+	.if	.not C64_MODE
 		LDX	#$0F
 @l:
-		LDA 	coloursRed, X
-		STA 	$D180, X
-		STA 	$D190, X
-		STA 	$D1A0, X
-		STA 	$D1B0, X
-		STA 	$D1C0, X
-		STA 	$D1D0, X
-		STA 	$D1E0, X
-		STA 	$D1F0, X
+		LDA	coloursRed, X
+		STA	$D180, X
+		STA	$D190, X
+		STA	$D1A0, X
+		STA	$D1B0, X
+		STA	$D1C0, X
+		STA	$D1D0, X
+		STA	$D1E0, X
+		STA	$D1F0, X
 		
-		LDA 	coloursGreen, X
-		STA 	$D280, X
-		STA 	$D290, X
-		STA 	$D2A0, X
-		STA 	$D2B0, X
-		STA 	$D2C0, X
-		STA 	$D2D0, X
-		STA 	$D2E0, X
-		STA 	$D2F0, X
+		LDA	coloursGreen, X
+		STA	$D280, X
+		STA	$D290, X
+		STA	$D2A0, X
+		STA	$D2B0, X
+		STA	$D2C0, X
+		STA	$D2D0, X
+		STA	$D2E0, X
+		STA	$D2F0, X
 		
-		LDA 	coloursBlue, X
-		STA 	$D380, X
-		STA 	$D390, X
-		STA 	$D3A0, X
-		STA 	$D3B0, X
-		STA 	$D3C0, X
-		STA 	$D3D0, X
-		STA 	$D3E0, X
-		STA 	$D3F0, X
+		LDA	coloursBlue, X
+		STA	$D380, X
+		STA	$D390, X
+		STA	$D3A0, X
+		STA	$D3B0, X
+		STA	$D3C0, X
+		STA	$D3D0, X
+		STA	$D3E0, X
+		STA	$D3F0, X
 		
 		DEX
 		BPL @l
@@ -4528,43 +5198,56 @@ initMouse:
 		STA	$D049
 		LDA	$D04B
 		ORA	#$F0
-		STA 	$D04B
+		STA	$D04B
 
-		LDA     #$01                    ;Enable 16colour sprite 0
-		STA     $D06B
+		LDA	#$01				;Enable 16colour sprite 0
+		STA	$D06B
 
 	.endif
 		
 		
 	.if	C64_MODE
-		LDA 	IIRQ + 1
-		CMP 	#>MIRQ
-		BEQ 	L90
+		LDA	IIRQ + 1
+		CMP	#>MIRQ
+		BEQ	L90
 	.endif
 		
 ;		PHP
 ;		SEI
 		
 	.if	C64_MODE
-		LDA 	IIRQ
-		STA 	IIRQ2
-		LDA 	IIRQ + 1
-		STA 	IIRQ2 + 1
+		LDA	IIRQ
+		STA	IIRQ2
+		LDA	IIRQ + 1
+		STA	IIRQ2 + 1
 	.endif
 
-		LDA 	#<MIRQ
-		STA 	IIRQ
-		LDA 	#>MIRQ
-		STA 	IIRQ + 1
+		LDA	#<MIRQ
+		STA	IIRQ
+		LDA	#>MIRQ
+		STA	IIRQ + 1
 ;
 ;		PLP
 L90:    
 		JSR	CMOVEX
 		JSR	CMOVEY
 
-		LDA 	#$01			; Enable Amiga -> 1351 mouse translation
+	.if  C64_MODE
+		LDA	#$00
+		STA	flgMse1351
+	.else
+;	Detect Amiga type mouse connected
+;	NB:  This may not work in the future
+		LDA	$D61B			
+		ORA	#$01
 		STA	$D61B
-	
+
+		LDA	$D61B			
+		AND	#$01
+		EOR	#$01
+		STA	flgMse1351
+	.endif
+
 		RTS
 
 ;-------------------------------------------------------------------------------
@@ -4576,8 +5259,8 @@ IIRQ2:
 ;-------------------------------------------------------------------------------
 MIRQ:    
 ;-------------------------------------------------------------------------------
-		CLD             		; JUST IN CASE.....
-     
+		CLD		  		; JUST IN CASE.....
+	
 	.if	.not	C64_MODE
 		PHP
 		PHA
@@ -4587,34 +5270,34 @@ MIRQ:
 	.endif
 
 
-;       .if     DEBUG_MODE
-;               LDA     #$0E
-;               STA     $D020
-;       .endif
+;	  .if	DEBUG_MODE
+;			LDA	#$0E
+;			STA	$D020
+;	  .endif
 
 
 ;Do help text switching
-		LDA     progTermint
-		BNE     @cont
+		LDA	progTermint
+		BNE	@cont
 
 		LDA	#$00
-		CMP	helpCntr + 1
+		CMP	infoCntr + 1
 		BNE	@cont0
-		CMP	helpCntr
+		CMP	infoCntr
 		BNE	@cont0
 
-	;; Update help message approximately every 2 seconds
-		LDA	#<120
-		STA	helpCntr
-		LDA	#>120
-		STA	helpCntr + 1
+	;; Update help message approximately every 5 seconds
+		LDA	#<350
+		STA	infoCntr
+		LDA	#>350
+		STA	infoCntr + 1
 		
-		LDA	currHelpTxt
+		LDA	currInfoTxt
 		ASL
 		TAX
-		LDA	helpTexts, X
+		LDA	infoTexts, X
 		STA	ptrIRQTemp0
-		LDA	helpTexts + 1, X
+		LDA	infoTexts + 1, X
 		STA	ptrIRQTemp0 + 1
 		
 		LDY	#$1A
@@ -4626,22 +5309,22 @@ MIRQ:
 		DEY
 		BPL	@loop
 		
-		INC	currHelpTxt
-		LDA	currHelpTxt
-		CMP	#$07
+		INC	currInfoTxt
+		LDA	currInfoTxt
+		CMP	#count_infoTexts
 		BNE	@cont0
 		
 		LDA	#$00
-		STA	currHelpTxt
+		STA	currInfoTxt
 	
 @cont0:
 		SEC
-		LDA	helpCntr
+		LDA	infoCntr
 		SBC	#$01
-		STA	helpCntr
-		LDA	helpCntr + 1
+		STA	infoCntr
+		LDA	infoCntr + 1
 		SBC	#$00
-		STA	helpCntr + 1
+		STA	infoCntr + 1
 
 ;Do cursor blinking
 		LDA	crsrIsDispl
@@ -4663,129 +5346,164 @@ MIRQ:
 ; Record the state of the buttons.
 ; Avoid crosstalk between the keyboard and the mouse.
 
-		LDY     #%00000000              ; Set ports A and B to input
-		STY     CIA1_DDRB
-		STY     CIA1_DDRA               ; Keyboard won't look like mouse
-		LDA     CIA1_PRB                ; Read Control-Port 1
-		DEC     CIA1_DDRA               ; Set port A back to output
-		EOR     #%11111111              ; Bit goes up when button goes down
-		STA     Buttons
-		BEQ     @L0                     ;(bze)
-		DEC     CIA1_DDRB               ; Mouse won't look like keyboard
-		STY     CIA1_PRB                ; Set "all keys pushed"
+		LDY	#%00000000		    ;Set ports A and B to input
+		STY	CIA1_DDRB
+		STY	CIA1_DDRA			;Keyboard won't look like mouse
+		LDA	CIA1_PRB			 ;Read Control-Port 1
+		DEC	CIA1_DDRA			;Set port A back to output
+		EOR	#%11111111		    ;Bit goes up when button goes down
+		STA	Buttons
+		BEQ	@L0				 ;(bze)
+		DEC	CIA1_DDRB			;Mouse won't look like keyboard
+		STY	CIA1_PRB			 ;Set "all keys pushed"
 
 @L0:    
 		JSR	ButtonCheck
-
-		LDA     SID_ADConv1             ; Get mouse X movement
-		LDY     OldPotX
-		JSR     MoveCheck               ; Calculate movement vector
+		
+		LDA	SID_ADConv1		   ;Get mouse X movement
+		LDY	flgMse1351
+		BEQ	@full_x
+		
+		AND	#$7E
+			
+@full_x:	
+		LDY	OldPotX
+		JSR	MoveCheck			;Calculate movement vector
+		STY	OldPotX
 
 ; Skip processing if nothing has changed
 
-		BCC     @SkipX
-		STY     OldPotX
+		BCC	@SkipX
 
 ; Calculate the new X coordinate (--> a/y)
+		ASL
+		PHA
+		TXA
+		ROL
+		TAX
+		PLA
 
 		CLC
-		ADC	XPos
+		ADC	XPosNew
 
-		TAY                             ; Remember low byte
+		TAY					    ;Remember low byte
 		TXA
-		ADC     XPos+1
+		ADC	XPosNew+1
 		TAX
 
 ; Limit the X coordinate to the bounding box
 
-		CPY     XMin
-		SBC     XMin+1
-		BPL     @L1
-		LDY     XMin
-		LDX     XMin+1
-		JMP     @L2
-@L1:    	
+		CPY	XMin
+		SBC	XMin+1
+		BPL	@L1
+		LDY	XMin
+		LDX	XMin+1
+		JMP	@L2
+@L1:   	
 		TXA
 
-		CPY     XMax
-		SBC     XMax+1
-		BMI     @L2
-		LDY     XMax
-		LDX     XMax+1
+		CPY	XMax
+		SBC	XMax+1
+		BMI	@L2
+		LDY	XMax
+		LDX	XMax+1
 @L2:    
-		STY     XPos
-		STX     XPos+1
+		STY	XPosNew
+	    STX	XPosNew+1
+		jsr historesisCheck
 
 ; Move the mouse pointer to the new X pos
 
 		TYA
-		JSR     CMOVEX
+		JSR	CMOVEX
+		
+		LDA	mouseCheck
+		BNE	@SkipX
+
+		LDA	#$01
+		STA	mouseCheck
 
 ; Calculate the Y movement vector
 
 @SkipX: 
-		LDA     SID_ADConv2             ; Get mouse Y movement
-		LDY     OldPotY
-		JSR     MoveCheck               ; Calculate movement
+		LDA	SID_ADConv2		   ;Get mouse Y movement
+		LDY	flgMse1351
+		BEQ	@full_y
+		
+		AND	#$7E
+			
+@full_y:	
+		LDY	OldPotY
+		JSR	MoveCheck			;Calculate movement
+		STY	OldPotY
 
 ; Skip processing if nothing has changed
 
-		BCC     @SkipY
-		STY     OldPotY
+		BCC	@SkipY
 
 ; Calculate the new Y coordinate (--> a/y)
 
-		STA     OldValue
-		LDA     YPos
+		ASL
+		PHA
+		TXA
+		ROL
+		TAX
+		PLA
+
+		STA	OldValue
+		LDA	YPosNew
 		SEC
 		SBC	OldValue
 
 		TAY
-		STX     OldValue
-		LDA     YPos+1
-		SBC     OldValue
+		STX	OldValue
+		LDA	YPosNew+1
+		SBC	OldValue
 		TAX
 
 ; Limit the Y coordinate to the bounding box
 
-		CPY     YMin
-		SBC     YMin+1
-		BPL     @L3
-		LDY     YMin
-		LDX     YMin+1
-		JMP     @L4
+		CPY	YMin
+		SBC	YMin+1
+		BPL	@L3
+		LDY	YMin
+		LDX	YMin+1
+		JMP	@L4
 @L3:    
 		TXA
 
-		CPY     YMax
-		SBC     YMax+1
-		BMI     @L4
-		LDY     YMax
-		LDX     YMax+1
-@L4:    	
-		STY     YPos
-		STX     YPos+1
+		CPY	YMax
+		SBC	YMax+1
+		BMI	@L4
+		LDY	YMax
+		LDX	YMax+1
+@L4:   	
+		STY	YPosNew
+		STX	YPosNew+1
+
+		jsr historesisCheck
 
 ; Move the mouse pointer to the new Y pos
 
 		TYA
-		JSR     CMOVEY
+		JSR	CMOVEY
+
+		LDA	mouseCheck
+		BNE	@SkipY
+		
+		LDA	#$01
+		STA	mouseCheck
 
 ; Done
 
 @SkipY: 
-;		JSR     CDRAW
-		CLC                             ; Interrupt not "handled"
-	
-	
-;       .if     DEBUG_MODE
-;               LDA     #$0B
-;               STA     $D020
-;       .endif
+;		JSR	CDRAW
 
+;dengland	What is this for???
+		CLC
 
 	.if	.not C64_MODE
-		LDA 	$DC0D
+		LDA	$DC0D
 		
 		PLZ
 		PLY
@@ -4799,44 +5517,122 @@ MIRQ:
 	
 
 
+historesisCheck:
+	;; Dont actually update mouse unless it has moved more than 1 px in the same direction
+	
+	lda XPosNew
+	cmp XPosPending
+	bne @XChanged
+	lda XPosNew+1
+	cmp XPosPending+1
+	beq @updatedXDirection
+@XChanged:
+	;;  Get sign of difference between XPos and XPosNew
+	lda XPosNew
+	sec
+	sbc XPosPending
+	lda XPosNew+1
+	sbc XPosPending+1
+
+	pha
+	lda XPosNew
+	sta XPosPending
+	lda XPosNew+1
+	sta XPosPending+1
+	pla	
+	
+	;; Is the direction different to last time?
+	and #$80
+	sta DirectionTemp
+	eor XDirection
+	bne @UpdateXDirection
+	;; Direction same, so update X position
+	lda XPosNew+1
+	sta XPos+1
+	lda XPosNew
+	sta XPos
+	jmp @updatedXDirection
+@UpdateXDirection:
+	;;  Don't update X, but do update the direction of last movement
+	lda DirectionTemp
+	sta XDirection
+@updatedXDirection:
+
+	lda YPosNew
+	cmp YPosPending
+	bne @YChanged
+	lda YPosNew+1
+	cmp YPosPending+1
+	beq @updatedYDirection
+@YChanged:
+
+	;;  Get sign of difference between YPos and YPosNew
+	lda YPosNew
+	sec
+	sbc YPosPending
+	lda YPosNew+1
+	sbc YPosPending+1
+
+	pha
+	lda YPosNew
+	sta YPosPending
+	lda YPosNew+1
+	sta YPosPending+1
+	pla	
+	
+	;; Is the direction different to last time?
+	and #$80
+	sta DirectionTemp
+	eor YDirection
+	bne @UpdateYDirection
+	;; Direction same, so update Y position
+	lda YPosNew+1
+	sta YPos+1
+	lda YPosNew
+	sta YPos
+	jmp @updatedYDirection
+@UpdateYDirection:
+	;;  Don't update Y, but do update the direction of last movement
+	lda DirectionTemp
+	sta YDirection
+@updatedYDirection:
+
+	rts
+
+
 ;-------------------------------------------------------------------------------
 MoveCheck:
 ; Move check routine, called for both coordinates.
 ;
-; Entry:        y = old value of pot register
-;               a = current value of pot register
-; Exit:         y = value to use for old value
-;               x/a = delta value for position
+; Entry:	   y = old value of pot register
+;			a = current value of pot register
+; Exit:	    y = value to use for old value
+;			x/a = delta value for position
 ;-------------------------------------------------------------------------------
-		STY     OldValue
-		STA     NewValue
-		LDX     #$00
+		STY	OldValue
+		STA	NewValue
+		LDX	#$00
 
 		SEC				; a = mod64 (new - old)
 		SBC	OldValue
 
-		AND     #%01111111
-		CMP     #%01000000              ; if (a > 0)
-		BCS     @L1                     ;
-		LSR                             ;   a /= 2;
-		BEQ     @L2                     ;   if (a != 0)
-		LDY     NewValue                ;     y = NewValue
+	cmp #$3f
+	bcs @notPositiveMovement
+	LDY NewValue
+	LDX #0
 		SEC
-		RTS                             ;   return
-
-@L1:    
-		ORA     #%11000000              ; else, "or" in high-order bits
-		CMP     #$FF                    ; if (a != -1)
-		BEQ     @L2
-		SEC
-		ROR                             ;   a /= 2
-		DEX                             ;   high byte = -1 (X = $FF)
-		LDY     NewValue
+	RTS
+@notPositiveMovement:
+	cmp #$c0
+	bcc @notNegativeMovement
+		LDY	NewValue
+	ldx #$ff
 		SEC
 		RTS
 
-@L2:    
-		TXA                             ; A = $00
+@notNegativeMovement:
+	ldy NewValue
+		TXA					    ; A = $00
 		CLC
 		RTS
 
@@ -4926,28 +5722,28 @@ CMOVEY:
 screenRowsLo:
 			.byte	<$0400, <$0428, <$0450, <$0478, <$04A0
 			.byte	<$04C8, <$04F0, <$0518, <$0540, <$0568
-			.byte 	<$0590, <$05B8, <$05E0, <$0608, <$0630
+			.byte	<$0590, <$05B8, <$05E0, <$0608, <$0630
 			.byte	<$0658, <$0680, <$06A8, <$06D0, <$06F8
 			.byte	<$0720, <$0748, <$0770, <$0798, <$07C0
 
 screenRowsHi:
 			.byte	>$0400, >$0428, >$0450, >$0478, >$04A0
 			.byte	>$04C8, >$04F0, >$0518, >$0540, >$0568
-			.byte 	>$0590, >$05B8, >$05E0, >$0608, >$0630
+			.byte	>$0590, >$05B8, >$05E0, >$0608, >$0630
 			.byte	>$0658, >$0680, >$06A8, >$06D0, >$06F8
 			.byte	>$0720, >$0748, >$0770, >$0798, >$07C0
 
 colourRowsLo:
 			.byte	<$D800, <$D828, <$D850, <$D878, <$D8A0
 			.byte	<$D8C8, <$D8F0, <$D918, <$D940, <$D968
-			.byte 	<$D990, <$D9B8, <$D9E0, <$DA08, <$DA30
+			.byte	<$D990, <$D9B8, <$D9E0, <$DA08, <$DA30
 			.byte	<$DA58, <$DA80, <$DAA8, <$DAD0, <$DAF8
 			.byte	<$DB20, <$DB48, <$DB70, <$DB98, <$DBC0
 
 colourRowsHi:
 			.byte	>$D800, >$D828, >$D850, >$D878, >$D8A0
 			.byte	>$D8C8, >$D8F0, >$D918, >$D940, >$D968
-			.byte 	>$D990, >$D9B8, >$D9E0, >$DA08, >$DA30
+			.byte	>$D990, >$D9B8, >$D9E0, >$DA08, >$DA30
 			.byte	>$DA58, >$DA80, >$DAA8, >$DAD0, >$DAF8
 			.byte	>$DB20, >$DB48, >$DB70, >$DB98, >$DBC0
 

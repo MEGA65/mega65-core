@@ -75,6 +75,7 @@ entity sprite is
     signal y_in : in yposition;
     signal yfine_in : in yposition;
     signal border_in : in std_logic;
+    signal alt_palette_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
@@ -92,8 +93,9 @@ entity sprite is
     signal y_out : out yposition;
     signal yfine_out : out yposition;
     signal border_out : out std_logic;
-    signal pixel_out : out unsigned(7 downto 0);
-    signal alpha_out : out unsigned(7 downto 0);
+    signal alt_palette_out : out std_logic;
+    signal pixel_out : out unsigned(7 downto 0) := x"00";
+    signal alpha_out : out unsigned(7 downto 0) := x"00";
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal sprite_number_out : out integer range 0 to 7;
     signal is_sprite_out : out std_logic;
@@ -155,10 +157,10 @@ begin  -- behavioural
   begin  -- process main
     if sprite_h640='1' then
       x_in <= x640_in;
-      report "x_in <= x640_in";
+--      report "x_in <= x640_in";
     else
       x_in <= x320_in;
-      report "x_in <= x320_in";
+--      report "x_in <= x320_in";
     end if;
     
     x_offset_bits := std_logic_vector(to_unsigned(x_offset,6));
@@ -240,6 +242,7 @@ begin  -- behavioural
       y_out <= y_in;
       yfine_out <= yfine_in;
       border_out <= border_in;
+      alt_palette_out <= alt_palette_in;
       is_foreground_out <= is_foreground_in;
       is_background_out <= is_background_in;
 
@@ -286,15 +289,15 @@ begin  -- behavioural
         end if;
         y_top <= '0';
       end if;
-      report "SPRITE: #" & integer'image(sprite_number) & ": "
-        & "x_in=" & integer'image(x_in)
-        & ", y_in=" & integer'image(y_in)
---        & ", y_top=" & std_logic'image(y_top)
-        & ", enable=" & std_logic'image(sprite_enable)
-        & ", drawing=" & std_logic'image(sprite_drawing)
-        & ", in_sprite=" & std_logic'image(x_in_sprite)
-        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
-        to_hstring(sprite_y);
+--      report "SPRITE: #" & integer'image(sprite_number) & ": "
+--        & "x_in=" & integer'image(x_in)
+--        & ", y_in=" & integer'image(y_in)
+----        & ", y_top=" & std_logic'image(y_top)
+--        & ", enable=" & std_logic'image(sprite_enable)
+--        & ", drawing=" & std_logic'image(sprite_drawing)
+--        & ", in_sprite=" & std_logic'image(x_in_sprite)
+--        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
+--        to_hstring(sprite_y);
 --      if (x_in = to_integer(sprite_x)) then
 --        report "x_in = sprite_x";
 --      else
@@ -535,6 +538,9 @@ begin  -- behavioural
             else
               -- Transparent pixel, don't draw.
               sprite_number_out <= sprite_number_in;
+              sprite_colour_out <= sprite_colour_in;
+              sprite_map_out <= sprite_map_in;
+              sprite_fg_map_out <= sprite_fg_map_in;
               is_sprite_out <= is_sprite_in;
               null;
             end if;

@@ -6,7 +6,7 @@ use work.debugtools.all;
 
 entity widget_to_matrix is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
 
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;
@@ -44,7 +44,7 @@ begin  -- behavioural
 
   widget_kmm: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => matrix_ram_offset,
     dia => matrix_dia,
     wea => keyram_wea,
@@ -54,13 +54,13 @@ begin  -- behavioural
 
   matrix_dia <= pmod_data_in & pmod_data_in;  -- replicate input to high and low nibbles
     
-  process (ioclock)
+  process (cpuclock)
   variable keyram_write_enable : std_logic_vector(7 downto 0);
   variable keyram_offset : integer range 0 to 15 := 0;
   variable keyram_offset_tmp : std_logic_vector(2 downto 0);
   
   begin
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       ------------------------------------------------------------------------
       -- Read from MEGA keyboard/joystick/expansion port PMOD interface
       ------------------------------------------------------------------------

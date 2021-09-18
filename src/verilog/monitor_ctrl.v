@@ -105,7 +105,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 				input 		   uart_char_valid,
 		    
 		    
-				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
+				output wire [23:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
    initial  secure_mode_from_monitor = 0;
    
@@ -179,7 +179,7 @@ begin
 end
 
 // Shared UART control
-reg [15:0] bit_rate_divisor_reg;
+reg [23:0] bit_rate_divisor_reg;
 assign bit_rate_divisor = bit_rate_divisor_reg;
 
 // TX UART control signals
@@ -200,7 +200,7 @@ reg uart_char_waiting;
 UART_TX_CTRL tx_ctrl(.SEND(tx_send),.BIT_TMR_MAX(bit_rate_divisor_reg),
                      .DATA(tx_data),.CLK(clk),.READY(tx_ready),.UART_TX(tx));
                      
-uart_rx rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART_RX(rx),
+uart_rx_buffered rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART_RX(rx),
                 .data(rx_data), .data_ready(rx_data_ready), .data_acknowledge(rx_data_ack));
                 
 // MON_UART_BITRATE_LO, MON_UART_BITRATE_HI
@@ -290,6 +290,7 @@ wire monitor_flag_en;
 reg [7:0] mem_trace_reg;
 reg monitor_watch_matched;
 reg monitor_break_matched;
+reg monitor_flag_matched;
 reg [15:0] monitor_break_addr;
 reg [15:0] flag_break_mask;
 
@@ -310,6 +311,7 @@ begin
     mem_trace_reg  <= 0;
     monitor_watch_matched <= 0;
     monitor_break_matched <= 0;
+    monitor_flag_matched <= 0;
   end
   else if(write)
   begin
@@ -336,13 +338,14 @@ begin
     if(address == `MON_TRACE_CTRL)
     begin
       mem_trace_reg <= di;
-      if(di[6] == 0)
-        monitor_watch_matched <= 0;
-      if(di[7] == 0)
-        monitor_break_matched <= 0;
     end
     if(address == `MON_TRACE_STEP)
+      // Set trace toggle
         monitor_mem_trace_toggle <= di[0];
+     // Also clear flag for watch/break match
+        monitor_watch_matched <= 0;
+        monitor_break_matched <= 0;
+        monitor_flag_matched <= 0;     
     if(address == `MON_FLAG_MASK0)
         flag_break_mask[7:0] <= di;
     if(address == `MON_FLAG_MASK1)
@@ -356,12 +359,16 @@ begin
   else if(monitor_break_addr == monitor_pc && monitor_break_en)
   begin
       mem_trace_reg[0] <= 1;    // Auto set trace mode on break address match
-      monitor_break_matched <= 1;    // Also set break matched bit
+     // And alert of breakpoint match if we were not already tracing
+     if (mem_trace_reg[0] == 0)
+       begin
+          monitor_break_matched <= 1;    // Also set break matched bit
+       end
   end
   else if(((monitor_p & flag_break_mask[15:8]) || (~monitor_p & flag_break_mask[7:0])) && monitor_flag_en)
   begin
       mem_trace_reg[0] <= 1;
-      monitor_break_matched <= 1;    // Also set break matched bit
+      monitor_flag_matched <= 1;    // Also set flag matched bit
   end
   else if(history_write == 1)
   begin
@@ -410,7 +417,7 @@ wire mem_done;
 reg mem_error;
 reg [7:0] mem_read_byte;
 reg [1:0] mem_state;
-reg [15:0] mem_timeout;
+reg [24:0] mem_timeout;
 
 `define MEM_STATE_IDLE    0         // Nothing in progress (also where we go after ACK)
 `define MEM_STATE_WAIT    1         // Waiting for monitor_mem_attention_granted to be 0
@@ -426,7 +433,7 @@ assign mem_done = mem_state == `MEM_STATE_IDLE;
 always @(posedge clk)
 begin
   if(mem_timer_reset)
-    mem_timeout <= 65535;
+    mem_timeout <= 33554431;
   else if(mem_timer_expired == 0)
     mem_timeout = mem_timeout - 1;
 end
@@ -594,8 +601,8 @@ begin
 //  `MON_READ_IDX_HI:      do <= { 6'b000000, history_read_index[9:8] };
 //  `MON_WRITE_IDX_LO:     do <= history_write_index[7:0];
 //  `MON_WRITE_IDX_HI:     do <= { 6'b000000, history_write_index[9:8] };
-  `MON_TRACE_CTRL:       do <= { monitor_break_matched, monitor_watch_matched, mem_trace_reg[5:0] };
-  `MON_TRACE_STEP:       do <= { 7'b0000000, monitor_mem_trace_toggle };
+  `MON_TRACE_CTRL:       do <= { mem_trace_reg[7:0] };
+    `MON_TRACE_STEP:       do <= { monitor_break_matched, monitor_watch_matched, monitor_flag_matched, monitor_watch_en, monitor_break_en, monitor_watch_match, 1'b0, monitor_mem_trace_toggle };
   
 //  `MON_FLAG_MASK0:       do <= flag_break_mask[7:0];
 //  `MON_FLAG_MASK1:       do <= flag_break_mask[15:8];

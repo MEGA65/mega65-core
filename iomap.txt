@@ -20,9 +20,10 @@ GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
 GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
 GS $7010000.5 - Force assertion of /RESET on cartridge port
 GS $7010000.5 - Read cartridge force reset (1=reset)
-GS $7010000.6 - Read cartridge /EXROM flag
+GS $7010000.6 - Read cartridge /GAME flag
 GS $7010000.7 - Read cartridge /EXROM flag
-GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+GS $7010001.0 - Invert joystick line polarity for joystick expander cartridge
+GS $7010001.4 - Force disabling of joystick expander cartridge
 GS $7010001.5 - Joystick read toggle flag DEBUG
 GS $7010001.6 - 1=force joystick expansion mode.
 GS $7010001.6 - Force enabling of joystick expander cartridge
@@ -32,6 +33,10 @@ GS $7010003 - Counter of /NMI triggers from cartridge
 GS $7010004 - Counter of /DMA triggers from cartridge
 GS $7010005 - Counter of /GAME triggers from cartridge
 GS $7010006 - Counter of /EXROM triggers from cartridge
+GS $7010007 - Directly read cartridge port data lines.
+GS $7010008 - Directly read lower 8 cartridge address data lines.
+GS $7010009 - Directly read upper 8 cartridge address data lines.
+GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
 C64 $D000 VIC-II:S0X sprite 0 horizontal position
@@ -123,18 +128,18 @@ C64 $D02D VIC-II:SPR6COL sprite 6 colour / 16-colour sprite transparency colour 
 C64 $D02E VIC-II:SPR7COL sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
 C65 $D02F VIC-III KEY register for unlocking extended registers.
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
-GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
+GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
 GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
 C64 $D030.0 VIC-II:C128FAST 2MHz select (for C128 2MHz emulation)
-C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM \@ \$DC00-\$DFFF
+C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
 C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
-C65 $D030.3 VIC-III:ROM8 Map C65 ROM \@ \$8000
-C65 $D030.4 VIC-III:ROMA Map C65 ROM \@ \$A000
-C65 $D030.5 VIC-III:ROMC Map C65 ROM \@ \$C000
+C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
+C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
+C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
 C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
-C65 $D030.7 VIC-III:ROME Map C65 ROM \@ \$E000
+C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
 C64 $D030 SUMMARY: C128 2MHz emulation
 C65 $D030 SUMMARY:VIC-III Control Register A
 C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
@@ -143,14 +148,14 @@ C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
 C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels
 C65 $D031.4 VIC-III:BPM Bit-Plane Mode
 C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
-C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
+C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
 C65 $D031 SUMMARY:VIC-III Control Register B
 C65 $D032 - Bitplane enable bits
+C65 $D033-$D03A - VIC-III Bitplane addresses
 C65 $D033.1-3 VIC-III:B0ADEVN - Bitplane 0 address, even lines
 C65 $D033.5-7 VIC-III:B0ADODD - Bitplane 0 address, odd lines
 C65 $D033 - Bitplane 0 address
-C65 $D033-$D03A - VIC-III Bitplane addresses
 C65 $D034.1-3 VIC-III:B1ADEVN - Bitplane 1 address, even lines
 C65 $D034.5-7 VIC-III:B1ADODD - Bitplane 1 address, odd lines
 C65 $D034 - Bitplane 1 address
@@ -202,14 +207,17 @@ GS $D04D.7-4 VIC-IV:SPRTILEN Sprite horizontal tile enables.
 GS $D04E VIC-IV:TEXTYPOS Character generator vertical position
 GS $D04F.3-0 VIC-IV:TEXTYPOS Character generator vertical position
 GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
-GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
-GS $D051 VIC-IV:XPOS Read horizontal raster scan position
+GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
+GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
+GS $D051.6 VIC-IV:DBLRR When set, the Raster Rewrite Buffer is only updated every 2nd raster line, limiting resolution to V200, but allowing more cycles for Raster-Rewrite actions.
+GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
 GS $D052 VIC-IV:FNRASTER Read physical raster position
 GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
-GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
+GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
-GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
-GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
+GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
+GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
 GS $D054.5 VIC-IV:PALEMU video output pal simulation
@@ -219,20 +227,22 @@ GS $D054 SUMMARY:VIC-IV Control register C
 GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
 GS $D056 VIC-IV:SPRHGHT Sprite extended height size (sprite pixels high)
 GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
-GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
-GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
+GS $D058 VIC-IV:LINESTEP number of bytes to advance between each text row (LSB)
+GS $D059 VIC-IV:LINESTEP number of bytes to advance between each text row (MSB)
 GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
 GS $D05B VIC-IV:CHRYSCL Vertical scaling of text mode (number of physical rasters per char text row)
 GS $D05C VIC-IV:SIDBDRWD Width of single side border
 GS $D05D.0-5 VIC-IV:SIDBDRWD side border width (MSB)
 GS $D05D.6 VIC-IV:RSTDELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
 GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
-GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
+GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
 GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
 GS $D060 VIC-IV:SCRNPTR screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV:SCRNPTR screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
-GS $D063 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+GS $D063.0-3 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
+GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
 GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV:COLPTR colour RAM base address (bits 15 - 8)
 GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
@@ -248,14 +258,15 @@ GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
 GS $D06E.0-6 VIC-IV:SPRPTRBNK sprite pointer address (bits 22 - 16)
 GS $D06E.7 VIC-IV:SPRPTR16 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
 GS $D06F.5-0 VIC-IV:RASLINE0 first VIC-II raster line
+GS $D06F.6 VIC-IV:VGAHDTV Select more VGA-compatible mode if set, instead of HDMI/HDTV VIC-II cycle-exact frame timing. May help to produce a functional display on older VGA monitors.
 GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
 GS $D070.1-0 VIC-IV:ABTPALSEL VIC-IV bitmap/text palette bank (alternate palette)
 GS $D070.3-2 VIC-IV:SPRPALSEL sprite palette bank
 GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
-GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
+GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
 GS $D070 NONE:VIC-IV palette bank selection
 GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
-GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
+GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
 GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
 GS $D073.4-7 VIC-IV:RASTERHEIGHT physical rasters per VIC-II raster (1 to 16)
 GS $D074 VIC-IV:SPRENALPHA Sprite alpha-blend enable
@@ -265,26 +276,63 @@ GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
 GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
 GS $D079 VIC-IV:RSTCOMP Raster compare value
 GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-GS $D07A.3-6 VIC-IV:RESERVED 
+GS $D07A.3 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
+GS $D07A.4-5 VIC-IV:RESERVED 
+GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
 GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
 GS $D07B VIC-IV:Number of text rows to display
-GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
+GS $D07C.0-2 VIC-IV:BITPBANK Set which 128KB bank bitplanes
+GS $D07C.3 VIC-IV:RESERVED Unused bit. Leave zero.
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
 GS $D07C.5 VIC-IV:VSYNCP vsync polarity
-GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
-GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
+GS $D07C.6-7 VIC-IV:DEBUGC VIC-IV debug pixel select red(01), green(10) or blue(11) channel visible in $D07D
+GS $D07D DEBUG:DEBUGOUT VIC-IV debug value read-back (read only)
+GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB) (write only)
 GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
-GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
+GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
 GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
 GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
+C65 $D080.0-2 FDC:DS Drive select (0 to 7). Internal drive is 0. Second floppy drive on internal cable is 1. Other values reserved for C1565 external drive interface.
+C65 $D080.3 FDC:SIDE Directly controls the SIDE signal to the floppy drive, i.e., selecting which side of the media is active.
+C65 $D080.4 FDC:SWAP Swap upper and lower halves of data buffer (i.e. invert bit 8 of the sector buffer)
+C65 $D080.5 FDC:MOTOR Activates drive motor and LED (unless LED signal is also set, causing the drive LED to blink)
+C65 $D080.6 FDC:LED Drive LED blinks when set
+C65 $D080.7 FDC:IRQ When set, enables interrupts to occur. Clearing clears any pending interrupt and disables interrupts until set again.
 C65 $D080 - F011 FDC control
-C65 $D081 - F011 FDC command
+C65 $D081.0 FDC:NOBUF Reset the sector buffer read/write pointers
+C65 $D081.1 FDC:ALT Selects alternate DPLL read recovery method (not implemented)
+C65 $D081.2 FDC:ALGO Selects reading and writing algorithm (currently ignored).
+C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs
+C65 $D081.4 FDC:STEP Writing 1 causes the head to step in the indicated direction
+C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
+C65 $D081.6 FDC:RDCMD Command is a read operation if set
+C65 $D081.7 FDC:WRCMD Command is a write operation if set
+C65 $D081 FDC:COMMAND F011 FDC command register
+C65 $D082.0 FDC:TK0 F011 Head is over track 0 flag (read only)
+C65 $D082.1 FDC:PROT F011 Disk write protect flag (read only)
+C65 $D082.2 FDC:LOST F011 LOST flag (data was lost during transfer, i.e., CPU did not read data fast enough) (read only)
+C65 $D082.3 FDC:CRC F011 FDC CRC check failure flag (read only)
+C65 $D082.4 FDC:RNF F011 FDC Request Not Found (RNF), i.e., a sector read or write operation did not find the requested sector (read only)
+C65 $D082.5 FDC:EQ F011 FDC CPU and disk pointers to sector buffer are equal, indicating that the sector buffer is either full or empty. (read only)
+C65 $D082.6 FDC:DRQ F011 FDC DRQ flag (one or more bytes of data are ready) (read only)
+C65 $D082.7 FDC:BUSY F011 FDC busy flag (command is being executed) (read only)
 C65 $D082 - F011 FDC Status A port (read only)
+C65 $D083.0 FDC:DSKCHG F011 disk change sense (read only)
+C65 $D083.1 FDC:IRQ The floppy controller has generated an interrupt (read only). Note that interrupts are not currently implemented on the 45GS27.
+C65 $D083.2 FDC:INDEX F011 Index hole sense (read only)
+C65 $D083.3 FDC:DISKIN F011 Disk sense (read only)
+C65 $D083.4 FDC:WGATE F011 write gate flag. Indicates that the drive is currently writing to media.  Bad things may happen if a write transaction is aborted (read only)
+C65 $D083.5 FDC:RUN F011 Successive match.  A synonym of RDREQ on the 45IO47 (read only)
+C65 $D083.6 FDC:WTREQ F011 Write Request flag, i.e., the requested sector was found during a write operation (read only)
+C65 $D083.7 FDC:RDREQ F011 Read Request flag, i.e., the requested sector was found during a read operation (read only)
 C65 $D083 - F011 FDC Status B port (read only)
-C65 $D084 - F011 FDC track
-C65 $D085 - F011 FDC sector
-C65 $D086 - F011 FDC side
-C65 $D087 - F011 FDC data register (read/write)
+C65 $D084 FDC:TRACK F011 FDC track selection register
+C65 $D085 FDC:SECTOR F011 FDC sector selection register
+C65 $D086 FDC:SIDE F011 FDC side selection register
+C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
+C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
+C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
+C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
 GS $D09B - FSM state of low-level SD controller (DEBUG)
 GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
@@ -292,44 +340,38 @@ GS $D09E - CPU-side buffer pointer low bits (DEBUG)
 GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
 GS $D09F.1 - EQ flag (DEBUG)
 GS $D09F.2 - EQ flag inhibit state (DEBUG)
-C65 $D0A0 - C65 RAM Expansion controller
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
 C65 $D0A0-$D0FF SUMMARY:REC Reserved for C65 RAM Expansion Controller.
-GS $D0E0 Buffered UART1 Data register (read to accept a byte, write to transmit a byte)
-GS $D0E1.0 Buffered UART1 enable interrupt on TX buffer low-water mark
-GS $D0E1.1 Buffered UART1 enable interrupt on RX high-water mark
-GS $D0E1.2 Buffered UART1 enable interrupt on RX byte
-GS $D0E1.3 Buffered UART1 TX buffer full
-GS $D0E1.4 Buffered UART1 RX buffer full
-GS $D0E1.5 Buffered UART1 TX buffer empty
-GS $D0E1.6 Buffered UART1 RX buffer empty
-GS $D0E1.7 Buffered UART1 interrupt status
-GS $D0E1 Buffered UART1 Status register
-GS $D0E6 Buffered UART2 frequency divisor (LSB)
-GS $D0E7 Buffered UART2 frequency divisor (MSB)
-GS $D0E8 Buffered UART2 Data register (read to accept a byte, write to transmit a byte)
-GS $D0E9.0 Buffered UART2 enable interrupt on TX buffer low-water mark
-GS $D0E9.1 Buffered UART2 enable interrupt on RX high-water mark
-GS $D0E9.2 Buffered UART2 enable interrupt on RX byte
-GS $D0E9.3 Buffered UART2 TX buffer full
-GS $D0E9.4 Buffered UART2 RX buffer full
-GS $D0E9.5 Buffered UART2 TX buffer empty
-GS $D0E9.6 Buffered UART2 RX buffer empty
-GS $D0E9.7 Buffered UART2 interrupt status
-GS $D0E9 Buffered UART2 Status register
-GS $D0EE Buffered UART2 frequency divisor (LSB)
-GS $D0EF Buffered UART2 frequency divisor (MSB)
+C65 $D0A0 - C65 RAM Expansion controller
+GS $D0E0.0-3 Select active UART for other registers
+GS $D0E0.4 Enable loopback mode
+GS $D0E0.5 Buffered UART master RX buffer high-water IRQ enable
+GS $D0E0.6 Buffered UART master TX queue low-water IRQ enable
+GS $D0E0.7 Buffered UART master IRQ enable
+GS $D0E1.0 Buffered UART enable interrupt on TX buffer low-water mark
+GS $D0E1.1 Buffered UART enable interrupt on RX high-water mark
+GS $D0E1.2 Buffered UART enable interrupt on RX byte
+GS $D0E1.3 Buffered UART TX buffer full
+GS $D0E1.4 Buffered UART RX buffer full
+GS $D0E1.5 Buffered UART TX buffer empty
+GS $D0E1.6 Buffered UART RX buffer empty
+GS $D0E1.7 Buffered UART interrupt status
+GS $D0E1 Buffered UART Status register / interrupt select register
+GS $D0E2 Buffered UART Read register (write to ACK receipt of byte)
+GS $D0E3 Buffered UART Write register (write to send byte)
+GS $D0E4 Buffered UART bit rate divisor LSB
+GS $D0E5 Buffered UART bit rate divisor middle byte
+GS $D0E5 Buffered UART bit rate divisor MSB
 GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
 C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
-C64 $D400-$D40F = right SID #1
-C64 $D420-$D43F = right SID #2
-C64 $D440-$D45F = left SID #1
-C64 $D460-$D47F = left SID #2
+C64 $D400-$D40F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
+C64 $D420-$D43F = SID#2 (internally known as 'right SID #2' or as 'backsid')
+C64 $D440-$D45F = SID#3 (internally known as 'left SID #1' or as 'leftsid')
+C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'backsid')
 C64 $D480-$D4FF = repeated images of SIDs
 GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
-C64 $D500-$D5FF = repeated images of SIDs, with left/right swapped
 C65 $D600 UART:DATA UART data register (read or write)
 C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
 C65 $D601.1 UART:RXOVRRUN UART RX overrun flag (clear by reading \$D600)
@@ -380,6 +422,9 @@ GS $D60D Bit bashing port
 GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
 GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
 GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
+GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
+GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
+GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
 GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
@@ -389,6 +434,7 @@ GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner)
 GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
 GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
 GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
+GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
 GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
@@ -396,7 +442,7 @@ GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
 GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
 GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
 GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
-GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
 GS $D613 DEBUG:CRTACSCNT Count of cartridge port memory accesses (read only)
@@ -409,7 +455,13 @@ GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd vir
 GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
 GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
 GS $D619 UARTMISC:UNUSED port o output value
-GS $D61A UARTMISC:UNUSED port p output value
+GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
+GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
+GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
+GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
+GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
+GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
+GS $D61A UARTMISC:SYSCTL System control flags (target specific)
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
 GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
 GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
@@ -418,8 +470,9 @@ GS $D61B.6 WRITEONLY DEBUG disable ASCII key retrigger suppression
 GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
 GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
 GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
-GS $D61D DEBUG:ASCKEYCNT ASCII key event counter LSB
-GS $D61E DEBUG:ASCKEYCNT ASCII key event counter MSB
+GS $D61D.0-6 UARTMISC:Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
+GS $D61D.7 UARTMISC:Keyboard LED control enable
+GS $D61E UARTMISC:Keyboard register value (write only)
 GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
 GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
 GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
@@ -433,10 +486,33 @@ GS $D624.5 fa_poty line
 GS $D624.6 fb_potx line
 GS $D624.7 fb_poty line          
 GS $D624 DEBUG:POTDEBUG READ ONLY flags for paddles. See c65uart.vhdl for more information.
+GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
+GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
+GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
+GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+GS $D629 MISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
+GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
+GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
+GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
+GS $D62D KBD:FWGIT0 2nd byte of keyboard firmware git commit
+GS $D62E KBD:FWGIT0 3rd byte of keyboard firmware git commit
+GS $D62F KBD:FWGIT0 MSB of keyboard firmware git commit
+GS $D630 FPGA:FWDATEL LSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+GS $D631 FPGA:FWDATEH MSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+GS $D632 FPGA:FWGIT0 LSB of MEGA65 FPGA design git commit
+GS $D633 FPGA:FWGIT0 2nd byte of MEGA65 FPGA design git commit
+GS $D634 FPGA:FWGIT0 3rd byte of MEGA65 FPGA design git commit
+GS $D635 FPGA:FWGIT0 MSB of MEGA65 FPGA design git commit
+GS $D636 AUXFPGA:FWDATEL LSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+GS $D637 AUXFPGA:MFWDATEH MSB of Auxilliary (MAX10) FPGA design date stamp (days since 1 Jan 2020)
+GS $D638 AUXFPGA:FWGIT0 LSB of Auxilliary (MAX10) FPGA design git commit
+GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
+GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
+GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
+GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
-GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D640 HCPU:REGA Hypervisor A register storage
 GS $D640 - Read to obtain status of thumbnail generator.
 GS $D640 - Read to reset port address for thumbnail generator
@@ -448,16 +524,22 @@ GS $D642 HCPU_REGY Hypervisor Y register storage
 GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D643 CPU:HTRAP03 Writing triggers hypervisor trap \$03
 GS $D643 HCPU:REGZ Hypervisor Z register storage
+GS $D643 - Thumbnail X position DEBUG
 GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
 GS $D644 HCPU:REGB Hypervisor B register storage
+GS $D644 - Thumbnail Y position DEBUG
 GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
 GS $D645 HCPU:SPL Hypervisor SPL register storage
+GS $D645 - Thumbnail write address LSB DEBUG
 GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
 GS $D646 HCPU:SPH Hypervisor SPH register storage
+GS $D646 - Thumbnail write address MSB DEBUG
 GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
 GS $D647 HCPU:PFLAGS Hypervisor P register storage
+GS $D647 - Thumbnail pixel_y LSB DEBUG
 GS $D648 CPU:HTRAP08 Writing triggers hypervisor trap \$08
 GS $D648 HCPU:PCL Hypervisor PC-low register storage
+GS $D648 - Thumbnail pixel_y MSB DEBUG
 GS $D649 CPU:HTRAP09 Writing triggers hypervisor trap \$09
 GS $D649 HCPU:PCH Hypervisor PC-high register storage
 GS $D64A CPU:HTRAP0A Writing triggers hypervisor trap \$0A
@@ -492,7 +574,8 @@ GS $D657 CPU:HTRAP17 Writing triggers hypervisor trap \$17
 GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
 GS $D658 CPU:HTRAP18 Writing triggers hypervisor trap \$18
 GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
-GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy access (usually for access via serial debugger interface)
+GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
 GS $D659 CPU:HTRAP19 Writing triggers hypervisor trap \$19
 GS $D659 - Hypervisor virtualise hardware flags
 GS $D65A CPU:HTRAP1A Writing triggers hypervisor trap \$1A
@@ -556,7 +639,7 @@ GS $D67C.0-7 HCPU:UARTDATA (write) Hypervisor write serial output to UART monito
 GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
 GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
 GS $D67C CPU:HTRAP3C Writing triggers hypervisor trap \$3C
-GS $D67D.0 HCPU:CARTEN Hypervisor enable /EXROM and /GAME from cartridge
+GS $D67D.0 HCPU:RSVD RESERVED
 GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
 GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -581,45 +664,93 @@ GS $D680.4 - SD controller SDHC mode flag
 GS $D680.5 - SD controller SDIO FSM ERROR flag
 GS $D680.6 - SD controller SDIO error flag
 GS $D680.7 - SD controller primary / secondary SD card 
-GS $D680 - SD controller status/command
+GS $D680 SD:CMDANDSTAT SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
+GS $D681 SD:SECTOR0 SD controller SD sector address (LSB)
+GS $D682 SD:SECTOR1 SD controller SD sector address (2nd byte)
+GS $D683 SD:SECTOR2 SD controller SD sector address (3rd byte)
+GS $D684 SD:SECTOR3 SD controller SD sector address (MSB)
 GS $D685 - DEBUG Show current state ID of SD card interface
 GS $D686 - DEBUG SD card data token
-GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
+GS $D686 SD:FILLVAL WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
 GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
+GS $D689.0 SD:BUFBIT8 (read only) reads bit 8 of the sector buffer pointer
+GS $D689.1 SD:BUFFFULL (read only) if set, indicates that the sector buffer is full and has not yet been read
 GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
-GS $D689.2 Set/read SD card sd_handshake signal
-GS $D689.3 - (read only) sd_data_ready signal.
+GS $D689.2 - (read only, debug) sd_handshake signal.
+GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
+GS $D689.3 - (read only, debug) sd_data_ready signal.
+GS $D689.3 SD:DRDY SD Card Data Ready indication
+GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
+GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
+GS $D689.5 - F011 swap drive 0 / 1 
+GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
+GS $D689.7 SD:BUFFSEL Set to switch sector buffer to view SD card direct access, clear for access to the F011 FDC sector buffer.
+GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
+GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
+GS $D68A.2 SD:VFDC0 (read only) Set if drive 0 is virtualised (sectors delivered via serial monitor interface)
+GS $D68A.3 SD:VFDC1 (read only) Set if drive 1 is virtualised (sectors delivered via serial monitor interface)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
+GS $D68B.0 SDFDC:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
 GS $D68B.1 - F011 disk 1 present
+GS $D68B.1 SDFDC:D0P F011 drive 0 media present
 GS $D68B.2 - F011 disk 1 write protect
-GS $D68B.3 - F011 disk 2 disk image enable
-GS $D68B.4 - F011 disk 2 present
-GS $D68B.5 - F011 disk 2 write protect
-GS $D68B.6 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 0
-GS $D68B.7 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 1
+GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
+GS $D68B.3 SDFDC:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.4 SDFDC:D1P F011 drive 1 media present
+GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
+GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
+GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
+GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
 GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
 GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
+GS $D68C SDFDC:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
 GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
 GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
+GS $D68D SDFDC:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
 GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
 GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
+GS $D68E SDFDC:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
 GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
+GS $D68F SDFDC:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
+GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
+GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
+GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
+GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
+GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
+GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
+GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
+GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
+GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
+GS $D6A0.0 FDC:DBGWGATE Control floppy drive SIDE1 line
+GS $D6A0.1 FDC:DBGWGATE Control floppy drive WGATE line
+GS $D6A0.2 FDC:DBGWDATA Control floppy drive WDATA line
 GS $D6A0 - 3.5" FDC control line debug access
+GS $D6A0.3 FDC:DBGDIR Control floppy drive STEP line
+GS $D6A0.4 FDC:DBGDIR Control floppy drive STEPDIR line
+GS $D6A0.5 FDC:DBGMOTORA Control floppy drive SELECT line
+GS $D6A0.6 FDC:DBGMOTORA Control floppy drive MOTOR line
+GS $D6A0.7 FDC:DENSITY Control floppy drive density select line
 GS $D6A0 - DEBUG FDC read status lines
-GS $D6A1.0 - Use real floppy drive instead of SD card
+GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
+GS $D6A1.0 SDFDC:USEREAL0 Use real floppy drive for drive 0 if set (read-only, except for from hypervisor)
 GS $D6A1.1 - Match any sector on a real floppy read/write
-GS $D6A1.2-6 - FDC debug status flags
+GS $D6A1.1 SDFDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
+GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
+GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
+GS $D6A1.3-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
+GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic
 GS $D6A3 - FDC track number of last matching sector header
 GS $D6A4 - FDC sector number of last matching sector header
 GS $D6A5 - FDC side number of last matching sector header
@@ -630,71 +761,107 @@ GS $D6A9 - DEBUG FDC last gap interval (LSB)
 GS $D6AA - DEBUG FDC last gap interval (MSB)
 GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6AC - DEBUG FDC last quantised gap
+GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
 GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
+GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
 GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
+GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
 GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
+GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
 GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
-GS $D6AF.0 - f011_rsector_found
-GS $D6AF.1 - f011_wsector_found
-GS $D6AF.2 - f011_eq_inhibit
-GS $D6AF.3 - f011_rnf
-GS $D6AF.4 - f011_drq
-GS $D6AF.5 - f011_lost
+GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
+GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
+GS $D6AF.1 SD:VWFOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
+GS $D6AF.2 SD:VEQINH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
+GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (indented for virtual F011 mode only)
+GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
+GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (indented for virtual F011 mode only)
+GS $D6AF.5 SD:VLOST Manually set f011_lost signal (indented for virtual F011 mode only)
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-GS $D6B0.0 - Touch event 1 is valid
-GS $D6B0.1 - Touch event 2 is valid
-GS $D6B0.2-3 - Touch event 1 up/down state
-GS $D6B0.5-4 - Touch event 2 up/down state
-GS $D6B0.6 - Invert horizontal axis
-GS $D6B0.7 - Invert vertical axis
+GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
+GS $D6B0.1 TOUCH:EV2 Touch event 2 is valid
+GS $D6B0.2-3 TOUCH:UPDN1 Touch event 1 up/down state
+GS $D6B0.5-4 TOUCH:UPDN2 Touch event 2 up/down state
+GS $D6B0.6 MISCIO:TCHFLX Flip X axis of touch interface if set
+GS $D6B0.6 TOUCH:XINV Invert horizontal axis
+GS $D6B0.7 MISCIO:TCHFLX Flip Y axis of touch interface if set
+GS $D6B0.7 TOUCH:YINV Invert vertical axis
 GS $D6B0 - Touch pad control / status
-GS $D6B1 - Touch pad X scaling LSB
-GS $D6B2 - Touch pad X scaling MSB
-GS $D6B3 - Touch pad Y scaling LSB
-GS $D6B4 - Touch pad Y scaling MSB
-GS $D6B5 - Touch pad X delta LSB
-GS $D6B6 - Touch pad X delta MSB
-GS $D6B7 - Touch pad Y delta LSB
-GS $D6B8 - Touch pad Y delta MSB
-GS $D6B9 - Touch pad touch #1 X LSB
-GS $D6BA - Touch pad touch #1 Y LSB
-GS $D6BB.0-1 - Touch pad touch #1 X MSBs
-GS $D6BB.5-4 - Touch pad touch #1 Y MSBs
-GS $D6BC - Touch pad touch #2 X LSB
-GS $D6BD - Touch pad touch #2 Y LSB
-GS $D6BE.0-1 - Touch pad touch #2 X MSBs
-GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
-GS $D6BF.7 - Enable/disable touch panel I2C communications
-GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
-GS $D6C0.7-4 - Touch pad gesture ID
-GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
-GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
-GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
-GS $D6D1.0 - I2C reset
-GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
-GS $D6D1.2 - I2C Select read (1) or write (0)
-GS $D6D1.5 - I2C bus 1 swap SDA/SCL pins
-GS $D6D1.6 - I2C busy flag
-GS $D6D1.7 - I2C ack error
+GS $D6B1 MISCIO:TCHXSCALE Set X scale value for touch interface (LSB)
+GS $D6B1 TOUCH:CALXSCALELSB Touch pad X scaling LSB
+GS $D6B2 MISCIO:TCHXSCALE Set X scale value for touch interface (MSB)
+GS $D6B2 TOUCH:CALXSCALEMSB Touch pad X scaling MSB
+GS $D6B3 MISCIO:TCHYSCALE Set Y scale value for touch interface (LSB)
+GS $D6B3 TOUCH:CALYSCALELSB Touch pad Y scaling LSB
+GS $D6B4 MISCIO:TCHYSCALE Set Y scale value for touch interface (MSB)
+GS $D6B4 TOUCH:CALYSCALEMSB Touch pad Y scaling MSB
+GS $D6B5 MISCIO:TCHXDELTA Set X delta value for touch interface (LSB)
+GS $D6B5 TOUCH:CALXDELTALSB Touch pad X delta LSB
+GS $D6B6 TOUGH:CALXDELTAMSB Touch pad X delta MSB
+GS $D6B7 MISCIO:TCHYDELTA Set Y delta value for touch interface (LSB)
+GS $D6B7 TOUCH:CALYDELTALSB Touch pad Y delta LSB
+GS $D6B8 MISCIO:TCHYDELTA Set Y delta value for touch interface (MSB)
+GS $D6B8 TOUCH:CALYDELTAMSB Touch pad Y delta MSB
+GS $D6B9 TOUCH:TOUCH1XLSB Touch pad touch #1 X LSB
+GS $D6BA TOUCH:TOUCH1YLSB Touch pad touch #1 Y LSB
+GS $D6BB.0-1 TOUCH:TOUCH1XMSB Touch pad touch \#1 X MSBs
+GS $D6BB.5-4 TOUCH:TOUCH1YMSB Touch pad touch \#1 Y MSBs
+GS $D6BB MISCIO:TCHXDELTA Set X delta value for touch interface (MSB)
+GS $D6BC TOUCH:TOUCH2XLSB Touch pad touch \#2 X LSB
+GS $D6BD TOUCH:TOUCH2YLSB Touch pad touch \#2 Y LSB
+GS $D6BE.0-1 TOUCH:TOUCH2XMSB Touch pad touch \#2 X MSBs
+GS $D6BE.5-4 TOUCH:TOUCH2YMSB Touch pad touch \#2 Y MSBs
+GS $D6BF.0-6 MISCIO:TCHBYTENUM Select byte number for touch panel communications instrumentation
+GS $D6BF.7 MISCIO:TCHI2CEN Enable/disable touch panel I2C communications
+GS $D6C0.0-3 TOUCH:GESTUREDIR Touch pad gesture directions (left,right,up,down)
+GS $D6C0.7-4 TOUCH:GESTUREID Touch pad gesture ID
+GS $D6C4 FPGA:REGNUM Select ICAPE2 FPGA configuration register for reading WRITE ONLY
+GS $D6C4 FPGA:REGVAL Value of selected ICAPE2 register (least significant byte)
+GS $D6C5 FPGA:REGVAL Value of selected ICAPE2 register
+GS $D6C6 FPGA:REGVAL Value of selected ICAPE2 register
+GS $D6C7 FPGA:REGVAL Value of selected ICAPE2 register (most significant byte)
+GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
+GS $D6C8 FPGA:BOOTADDR0 Address of bitstream in boot flash for reconfiguration (least significant byte)
+GS $D6C9 FPGA:BOOTADDR1 Address of bitstream in boot flash for reconfiguration
+GS $D6CA FPGA:BOOTADDR2 Address of bitstream in boot flash for reconfiguration
+GS $D6CB FPGA:BOOTADDR3 Address of bitstream in boot flash for reconfiguration (most significant byte)
+GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
+GS $D6CC.4 QSPI:DB0 DDR (1=output)
+GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
+GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
+GS $D6CC.7 QSPI:DB1 DDR (1=output)
+GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
+GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
+GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
+GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
+GS $D6D0 MISCIO:I2CBUSSEL Select I2C bus number (I2C busses vary between MEGA65 and MEGAphone variants)
+GS $D6D1.0 MISCIO:I2CRST I2C reset
+GS $D6D1.1 MISCIO:I2CL I2C command latch write strobe (write 1 to trigger command)
+GS $D6D1.2 MISCIO:I2CRW I2C Select read (1) or write (0)
+GS $D6D1.5 MISCIO:I2CSW I2C bus 1 swap SDA/SCL pins
+GS $D6D1.6 MISCIO:I2CBSY I2C busy flag
+GS $D6D1.7 MISCIO:I2CERR I2C ack error
 GS $D6D1 - I2C control/status
-GS $D6D2.7-1 - I2C address
-GS $D6D3 - I2C data write register
-GS $D6D4 - I2C data read register
-GS $D6DA - DEBUG SD card last error code LSB
-GS $D6DB - DEBUG SD card last error code MSB
-GS $D6DE - FPGA die temperature sensor (lower nybl)
-GS $D6DF - FPGA die temperature sensor (upper byte)
-GS $D6E0.0 Clear to reset ethernet PHY
+GS $D6D2.7-1 MISCIO:I2CADDR I2C address
+GS $D6D3 MISCIO:I2CWDATA I2C data write register
+GS $D6D4 MISCIO:I2CRDATA I2C data read register
+GS $D6DA MISC:SDDEBUGERRLSB DEBUG SD card last error code LSB
+GS $D6DB MISC:SDDEBUGERRMSB DEBUG SD card last error code MSB
+GS $D6DE FPGA:FPGATEMPLSB FPGA die temperature sensor (lower nybl)
+GS $D6DF FPGA:FPGATEMPMSB FPGA die temperature sensor (upper byte)
+GS $D6E0.0 Clear to reset ethernet PHY and state machine
 GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
-GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
+GS $D6E0.1 ETH:TXRST Write 0 to hold ethernet controller transmit sub-system under reset
+GS $D6E0.2 ETH:DRXD Read ethernet RX bits currently on the wire
 GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
-GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
-GS $D6E1.0 reset ethernet PHY
-GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
-GS $D6E1.1 - Set which RX buffer is memory mapped
-GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
+GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers freed
+GS $D6E0.7 ETH:TXIDLE Ethernet transmit side is idle, i.e., a packet can be sent.
+GS $D6E1.0 RESERVED
+GS $D6E1.1-2 ETH:RXBF Number of free receive buffers
+GS $D6E1.1 WRITE ONLY Access next received ethernet frame
 GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
 GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
 GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
@@ -707,16 +874,16 @@ GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
 GS $D6E2 Set low-order size of frame to TX
 GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
 GS $D6E3 Set high-order size of frame to TX
-GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
-GS $D6E4 = $01 = Transmit packet
-GS $D6E4 ETH:COMMAND Ethernet command register
+GS $D6E4 ETH:COMMAND Ethernet command register (write only)
 GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
+GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
 GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
 GS $D6E5.4 ETH:BCST Accept broadcast frames
 GS $D6E5.5 ETH:MCST Accept multicast frames
+GS $D6E5.6-7 Ethernet RX clock phase adjust
 GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
 GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
@@ -727,24 +894,29 @@ GS $D6EB ETH:MACADDR3 Ethernet MAC address
 GS $D6EC ETH:MACADDR4 Ethernet MAC address
 GS $D6ED ETH:MACADDR5 Ethernet MAC address
 GS $D6EE ETH:MACADDR6 Ethernet MAC address
-GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet RX state
-GS $D6F0 - LCD panel brightness control
-GS $D6F2 - Read FPGA five-way buttons
-GS $D6F3 - Accelerometer bit-bashing port
-GS $D6F3 Accelerometer inputs
-GS $D6F4 - Audio Mixer register select
-GS $D6F5 - Audio Mixer register read port
-GS $D6F5 - Audio Mixer register write port
-GS $D6F6 - Keyboard scan code reader (lower byte)
-GS $D6F7 - Keyboard scan code reader (upper nybl)
-GS $D6F8 - 8-bit digital audio out (left)
-GS $D6F8 - Digital audio, left channel, LSB
-GS $D6F9 - Digital audio, left channel, MSB
-GS $D6FA - Digital audio, left channel, LSB
-GS $D6FB - Digital audio, left channel, MSB
-GS $D6FC - audio LSB (source selected by $D6F4)
-GS $D6FD - audio MSB (source selected by $D6F4)
-GS $D6FF - Flash bit-bashing port
+GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
+GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+GS $D6F0 MISCIO:LCDBRIGHT LCD panel brightness control
+GS $D6F0 MISC:LCDBRIGHTNESS LCD panel brightness control
+GS $D6F2 MISC:FPGABUTTONS Read FPGA five-way buttons
+GS $D6F3 MISC:ACCELBITBASH Accelerometer bit-bash interface
+GS $D6F3 MISCIO:ACCELBASH Accelerometer bit-bashing port (debug only)
+GS $D6F4 AUDIO:MIXREGSEL Audio Mixer register select
+GS $D6F4 AUDIOMIX:REGSEL Audio Mixer register select
+GS $D6F5 AUDIO:MIXREGDATA Audio Mixer register read port
+GS $D6F5 AUDIOMIX:REGWDATA Audio Mixer register write port
+GS $D6F6 MISC:PS2KEYSCANLSB Keyboard scan code reader (lower byte)
+GS $D6F7 MISC:PS2KEYSCANMSB Keyboard scan code reader (upper nybl)
+GS $D6F8 AUDIO:DIGILEFTLSB Digital audio, left channel, LSB
+GS $D6F8 AUDIO:DIGILLSB 16-bit digital audio out (left LSB)
+GS $D6F9 AUDIO:DIGILEFTMSB Digital audio, left channel, MSB
+GS $D6F9 AUDIO:DIGILMSB 16-bit digital audio out (left MSB)
+GS $D6FA AUDIO:DIGIRIGHTLSB Digital audio, left channel, LSB
+GS $D6FA AUDIO:DIGIRLSB 16-bit digital audio out (right LSB)
+GS $D6FB AUDIO:DIGIRIGHTMSB Digital audio, left channel, MSB
+GS $D6FB AUDIO:DIGIRMSB 16-bit digital audio out (right MSB)
+GS $D6FC AUDIO:READBACKLSB audio read-back LSB (source selected by $D6F4)
+GS $D6FD AUDIO:READBACKMSB audio read-back MSB (source selected by $D6F4)
 C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
 C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
 C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
@@ -764,24 +936,133 @@ GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256t
 GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
 GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
 GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
-GS $D710.0 - MISC:BADLEN Enable badline emulation
-GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
-GS $D770-3 25-bit multiplier input A
-GS $D770 MATH:MULTINA Multiplier input A (25 bit)
-GS $D771 MATH:MULTINA Multiplier input A (25 bit)
-GS $D772 MATH:MULTINA Multiplier input A (25 bit)
-GS $D773.0 MATH:MULTINA Multiplier input A (25 bit)
-GS $D774-7 18-bit multiplier input B
-GS $D774 MATH:MULTINB Multiplier input A (18 bit)
-GS $D775 MATH:MULTINB Multiplier input A (18 bit)
-GS $D776.0-1 MATH:MULTINB Multiplier input A (18 bit)
-GS $D778 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D779 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77A MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77B MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77C MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77D MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77E MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+GS $D70F.6 MATH:MULBUSY Set if hardware multiplier is busy
+GS $D70F.7 MATH:DIVBUSY Set if hardware divider is busy
+GS $D710.0 - CPU:BADLEN Enable badline emulation
+GS $D710.1 - CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
+GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
+GS $D710.3 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+GS $D710.4-5 CPU:BADEXTRA Cost of badlines minus 40. ie. 00=40 cycles, 11 = 43 cycles.
+GS $D711.0-2 DMA:AUDBLKTO Audio DMA block timeout (read only) DEBUG
+GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
+GS $D711.4 DMA:NOMIX Audio DMA bypasses audio mixer
+GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
+GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
+GS $D711.7 DMA:AUDEN Enable Audio DMA
+GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
+GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
+GS $D71E DMA:CH2LVOL Audio DMA channel 2 left channel volume
+GS $D71F DMA:CH3LVOL Audio DMA channel 3 left channel volume
+GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D720.3 DMA:CH0STP Audio DMA channel 0 stop flag
+GS $D720.4 DMA:CH0SINE Audio DMA channel 0 play 32-sample sine wave instead of DMA data
+GS $D720.5 DMA:CH0SGN Enable Audio DMA channel 0 signed samples
+GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
+GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
+GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
+GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
+GS $D723 DMA:CH0BADDR Audio DMA channel 0 base address MSB
+GS $D724 DMA:CH0FREQ Audio DMA channel 0 frequency LSB
+GS $D725 DMA:CH0FREQ Audio DMA channel 0 frequency middle byte
+GS $D726 DMA:CH0FREQ Audio DMA channel 0 frequency MSB
+GS $D727 DMA:CH0TADDR Audio DMA channel 0 top address LSB
+GS $D728 DMA:CH0TADDR Audio DMA channel 0 top address middle byte
+GS $D729 DMA:CH0VOLUME Audio DMA channel 0 playback volume
+GS $D72A DMA:CH0CURADDR Audio DMA channel 0 current address LSB
+GS $D72B DMA:CH0CURADDR Audio DMA channel 0 current address middle byte
+GS $D72C DMA:CH0CURADDR Audio DMA channel 0 current address MSB
+GS $D72D DMA:CH0TMRADDR Audio DMA channel 0 timing counter LSB
+GS $D72E DMA:CH0TMRADDR Audio DMA channel 0 timing counter middle byte
+GS $D72F DMA:CH0TMRADDR Audio DMA channel 0 timing counter address MSB
+GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D730.3 DMA:CH1STP Audio DMA channel 1 stop flag
+GS $D730.4 DMA:CH1SINE Audio DMA channel 1 play 32-sample sine wave instead of DMA data
+GS $D730.5 DMA:CH1SGN Enable Audio DMA channel 1 signed samples
+GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
+GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
+GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
+GS $D732 DMA:CH1BADDR Audio DMA channel 1 base address middle byte
+GS $D733 DMA:CH1BADDR Audio DMA channel 1 base address MSB
+GS $D734 DMA:CH1FREQ Audio DMA channel 1 frequency LSB
+GS $D735 DMA:CH1FREQ Audio DMA channel 1 frequency middle byte
+GS $D736 DMA:CH1FREQ Audio DMA channel 1 frequency MSB
+GS $D737 DMA:CH1TADDR Audio DMA channel 1 top address LSB
+GS $D738 DMA:CH1TADDR Audio DMA channel 1 top address middle byte
+GS $D739 DMA:CH1VOLUME Audio DMA channel 1 playback volume
+GS $D73A DMA:CH1CURADDR Audio DMA channel 1 current address LSB
+GS $D73B DMA:CH1CURADDR Audio DMA channel 1 current address middle byte
+GS $D73C DMA:CH1CURADDR Audio DMA channel 1 current address MSB
+GS $D73D DMA:CH1TMRADDR Audio DMA channel 1 timing counter LSB
+GS $D73E DMA:CH1TMRADDR Audio DMA channel 1 timing counter middle byte
+GS $D73F DMA:CH1TMRADDR Audio DMA channel 1 timing counter address MSB
+GS $D740.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D740.3 DMA:CH2STP Audio DMA channel 2 stop flag
+GS $D740.4 DMA:CH2SINE Audio DMA channel 2 play 32-sample sine wave instead of DMA data
+GS $D740.5 DMA:CH2SGN Enable Audio DMA channel 2 signed samples
+GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
+GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
+GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
+GS $D742 DMA:CH2BADDR Audio DMA channel 2 base address middle byte
+GS $D743 DMA:CH2BADDR Audio DMA channel 2 base address MSB
+GS $D744 DMA:CH2FREQ Audio DMA channel 2 frequency LSB
+GS $D745 DMA:CH2FREQ Audio DMA channel 2 frequency middle byte
+GS $D746 DMA:CH2FREQ Audio DMA channel 2 frequency MSB
+GS $D747 DMA:CH2TADDR Audio DMA channel 2 top address LSB
+GS $D748 DMA:CH2TADDR Audio DMA channel 2 top address middle byte
+GS $D749 DMA:CH2VOLUME Audio DMA channel 2 playback volume
+GS $D74A DMA:CH2CURADDR Audio DMA channel 2 current address LSB
+GS $D74B DMA:CH2CURADDR Audio DMA channel 2 current address middle byte
+GS $D74C DMA:CH2CURADDR Audio DMA channel 2 current address MSB
+GS $D74D DMA:CH2TMRADDR Audio DMA channel 2 timing counter LSB
+GS $D74E DMA:CH2TMRADDR Audio DMA channel 2 timing counter middle byte
+GS $D74F DMA:CH2TMRADDR Audio DMA channel 2 timing counter address MSB
+GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D750.3 DMA:CH3STP Audio DMA channel 3 stop flag
+GS $D750.4 DMA:CH3SINE Audio DMA channel 3 play 32-sample sine wave instead of DMA data
+GS $D750.5 DMA:CH3SGN Enable Audio DMA channel 3 signed samples
+GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
+GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
+GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
+GS $D752 DMA:CH3BADDR Audio DMA channel 3 base address middle byte
+GS $D753 DMA:CH3BADDR Audio DMA channel 3 base address MSB
+GS $D754 DMA:CH3FREQ Audio DMA channel 3 frequency LSB
+GS $D755 DMA:CH3FREQ Audio DMA channel 3 frequency middle byte
+GS $D756 DMA:CH3FREQ Audio DMA channel 3 frequency MSB
+GS $D757 DMA:CH3TADDR Audio DMA channel 3 top address LSB
+GS $D758 DMA:CH3TADDR Audio DMA channel 3 top address middle byte
+GS $D759 DMA:CH3VOLUME Audio DMA channel 3 playback volume
+GS $D75A DMA:CH3CURADDR Audio DMA channel 3 current address LSB
+GS $D75B DMA:CH3CURADDR Audio DMA channel 3 current address middle byte
+GS $D75C DMA:CH3CURADDR Audio DMA channel 3 current address MSB
+GS $D75D DMA:CH3TMRADDR Audio DMA channel 3 timing counter LSB
+GS $D75E DMA:CH3TMRADDR Audio DMA channel 3 timing counter middle byte
+GS $D75F DMA:CH3TMRADDR Audio DMA channel 3 timing counter address MSB
+GS $D768 MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D769 MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76A MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76B MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76C MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76D MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76E MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76F MATH:DIVOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D770-3 32-bit multiplier input A
+GS $D770 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D771 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D772 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D773 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D774-7 32-bit multiplier input B
+GS $D774 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D775 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D776 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D777 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D778 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D779 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77A MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77B MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77C MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77D MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77E MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77F MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
 GS $D780-$D7BF - 16 x 32 bit Math Unit values
 GS $D780 MATH:MATHIN0 Math unit 32-bit input 0
 GS $D781 MATH:MATHIN0 Math unit 32-bit input 0
@@ -847,9 +1128,9 @@ GS $D7BC MATH:MATHIN15 Math unit 32-bit input 15
 GS $D7BD MATH:MATHIN15 Math unit 32-bit input 15
 GS $D7BE MATH:MATHIN15 Math unit 32-bit input 15
 GS $D7BF MATH:MATHIN15 Math unit 32-bit input 15
+GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
 GS $D7C0.0-3 MATH:UNIT0INA Select which of the 16 32-bit math registers is input A for Math Function Unit 0.
 GS $D7C0.4-7 MATH:UNIT0INB Select which of the 16 32-bit math registers is input B for Math Function Unit 0.
-GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
 GS $D7C1.0-3 MATH:UNIT1INA Select which of the 16 32-bit math registers is input A for Math Function Unit 1.
 GS $D7C1.4-7 MATH:UNIT1INB Select which of the 16 32-bit math registers is input B for Math Function Unit 1.
 GS $D7C2.0-3 MATH:UNIT2INA Select which of the 16 32-bit math registers is input A for Math Function Unit 2.
@@ -975,13 +1256,19 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
-GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
-GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+GS $D7F1.0 CPU:IECBUSACT IEC bus is active
+GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
+GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
+GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
+GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
 GS $D7FB.1 CPU:CARTEN 1= enable cartridges
 GS $D7FC DEBUG chip-select enables for various devices
+GS $D7FD.0 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
-GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
+GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
 C64 $DC02 CIA1:DDRA Port A DDR
@@ -1091,24 +1378,23 @@ GS $DD19 CIA2:TODSEC TOD Alarm seconds value
 GS $DD1A CIA2:TODMIN TOD Alarm minutes value
 GS $DD1B.0-6 CIA2:TODHOUR TOD hours value
 GS $DD1B.7 CIA2:TODAMPM TOD AM/PM flag
+GS $DD1C.7 CIA2:DD00DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
 GS $DD1C CIA2:ALRMJIF TOD Alarm 10ths of seconds value
 GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
 GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
 GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
 GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
 GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
-GS ETH:$D6E0 Ethernet control
 GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
 GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
 GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
-GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
+GS $FFcB000-$FFcBFFF - Internal 1541 RAM access
 GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
-GS $FFD7000-FF - I2C Peripherals     
 GS $FFD70F0 - ADC1 smoothed value (LSB)
 GS $FFD70F1 - ADC1 smoothed value (MSB)
 GS $FFD70F2 - ADC2 smoothed value (LSB)
@@ -1116,6 +1402,7 @@ GS $FFD70F3 - ADC2 smoothed value (MSB)
 GS $FFD70F4 - ADC3 smoothed value (LSB)
 GS $FFD70F5 - ADC3 smoothed value (MSB)
 GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+GS $FFD7100-FF EDID:EDID E-EDID block (MEGA65 R3 and newer, only)
 GS $FFD7110-3F RTC:RTC Real-time Clock
 GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
 GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
@@ -1124,6 +1411,7 @@ GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
 GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+GS $FFD7x00-xFF - I2C Peripherals for various targets
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFDF000 - VFPGA width of CLB array (READ ONLY)
@@ -1168,3 +1456,4 @@ GS $FFF8108 Hypervisor entry point on RESTORE long-press (trap $42)
 GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
 GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
 GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
+GS ETH:$D6E0 Ethernet control

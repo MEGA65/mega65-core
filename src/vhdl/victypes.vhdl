@@ -14,6 +14,8 @@ package victypes is
   subtype xposition is integer range 0 to 4095;
   subtype yposition is integer range 0 to 4095;
 
+  type spritebaseaddresses is array (0 to 7) of unsigned(19 downto 0);
+  
   function to_xposition(x : unsigned) return xposition;
   function to_yposition(x : unsigned) return yposition;
   function to_spritebytenumber(x : unsigned) return spritebytenumber;

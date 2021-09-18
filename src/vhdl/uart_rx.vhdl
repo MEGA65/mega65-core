@@ -6,7 +6,7 @@ use work.debugtools.all;
 entity uart_rx is
   generic ( name : in string := "?");
   Port ( clk : in  STD_LOGIC;
-         bit_rate_divisor : in unsigned(15 downto 0);
+         bit_rate_divisor : in unsigned(23 downto 0);
            UART_RX : in STD_LOGIC;
            data : out  unsigned(7 downto 0);
            data_ready : out std_logic;
@@ -18,7 +18,7 @@ end uart_rx;
 architecture behavioural of uart_rx is
 
 -- Timer for the above
-signal bit_timer : unsigned(15 downto 0) := (others => '0');
+signal bit_timer : unsigned(23 downto 0) := (others => '0');
 
 signal bit_position : natural range 0 to 15 := 0;
 
@@ -30,6 +30,8 @@ signal uart_rx_debounced : std_logic_vector(3 downto 0) := (others =>'1');
 signal uart_rx_bit : std_logic := '1';
 
 signal data_ready_internal : std_logic := '0';
+
+signal rx_gone_high : std_logic := '0';
 
 type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
 
@@ -57,6 +59,10 @@ begin  -- behavioural
       if uart_rx_debounced = x"F" and uart_rx_bit = '0' then
         uart_rx_bit <= '1';
       end if;
+
+      if uart_rx_debounced = x"F" then
+        rx_gone_high <= '1';
+      end if;
       
       -- Update bit clock
       if to_integer(bit_timer)<to_integer(bit_rate_divisor) then
@@ -66,7 +72,7 @@ begin  -- behavioural
       end if;
       -- Look for start of first bit
       -- XXX Should debounce this!
-      if rx_state = Idle and uart_rx_bit='0' then
+      if rx_state = Idle and uart_rx_bit='0' and rx_gone_high = '1' then
         report "UART"&name&": start receiving byte (divider = $"
           & to_hstring(bit_rate_divisor) & ")" severity note;
         -- Start receiving next byte
@@ -86,7 +92,7 @@ begin  -- behavioural
 
       -- Sample bit in the middle of the frame
       if rx_state = WaitingForMidBit
-        and bit_timer = '0' & bit_rate_divisor(15 downto 1) then
+        and bit_timer = '0' & bit_rate_divisor(23 downto 1) then
 --        report "UART"&name&": reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
         rx_data(bit_position) <= uart_rx_bit;
@@ -100,7 +106,7 @@ begin  -- behavioural
           data <= unsigned(rx_data(8 downto 1));
           data_ready <= '1';
           data_ready_internal <= '1';
-          bit_timer <= to_unsigned(1,16);
+          bit_timer <= to_unsigned(1,24);
           rx_state <= WaitForRise;
         end if;        
       end if;
@@ -112,6 +118,8 @@ begin  -- behavioural
       if (bit_timer = 0 or uart_rx_bit = '1') and rx_state = WaitForRise then
 --        report "UART"&name&": Cancelling reception in WaitForRise";
         rx_state <= Idle;
+        -- Don't keep receiving $00 if UART_RX stays low.
+        rx_gone_high <= '0';
       end if;
     end if;
   end process;

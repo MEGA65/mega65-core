@@ -128,7 +128,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"00", -- */NO KEY
+    49 => x"2a", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"13", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -146,7 +146,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"09", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"f9", -- F10/F9
     69 => x"fb", -- F12/F11
     70 => x"fd", -- F14/F13
@@ -205,7 +205,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"00", -- NO KEY/@
     47 => x"3c", -- </,
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"2a", -- */NO KEY
+    49 => x"00", -- */NO KEY
     50 => x"5d", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -223,7 +223,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"0f", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -300,7 +300,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"0f", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -359,7 +359,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"40", -- NO KEY/@
     47 => x"7e", -- </,/~
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"00", -- */NO KEY     
+    49 => x"2A", -- */NO KEY     
     50 => x"7d", -- ]/;/}
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -377,7 +377,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"ef", -- TAB/NO KEY               C= + TAB = matrix mode toggle
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -417,7 +417,7 @@ architecture behavioral of matrix_to_ascii is
     27 => x"00", -- (/8
     28 => x"FA", -- U with accute accent (was B/b)
     29 => x"FD", -- Y with accute accent (was H/h)
-    30 => x"FC", -- Ü/ü
+    30 => x"FC", -- u with umlaut
     31 => x"00", -- V/v
     32 => x"00", -- )/9
     33 => x"ED", -- I with accute accent (Icelandic)
@@ -432,12 +432,12 @@ architecture behavioral of matrix_to_ascii is
     42 => x"F3", -- O with accute accent (was L/l)
     43 => x"AC", -- Not sign
     44 => x"BB", -- >>
-    45 => x"E4", -- Ä/ä
+    45 => x"E4", -- a with umlaut
     46 => x"A8", -- Diaresis (umlaut without letter under) (was NO KEY/@)
     47 => x"AB", -- <</,
     48 => x"A3", -- British pound?
     49 => x"B7", -- Middle dot
-    50 => x"E4", -- Also Ä/ä (for convenience for German typists)
+    50 => x"E4", -- Also a with umlaut (for convenience for German typists)
     51 => x"00", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"AF", -- Macron ("overscore")
@@ -454,7 +454,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"00", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"BC", -- 1/4 fraction
     69 => x"BD", -- 1/2 fraction
     70 => x"BE", -- 3/4 fraction
