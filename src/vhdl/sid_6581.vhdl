@@ -242,8 +242,8 @@ begin
 		Control				=> Voice_1_Control,
 		Att_dec				=> Voice_1_Att_dec,
 		Sus_Rel				=> Voice_1_Sus_Rel,
-		PA_MSB_in			=> voice_3_PA_MSB_8580,
-		PA_MSB_out			=> voice_1_PA_MSB_8580,
+		osc_MSB_in			=> voice_3_PA_MSB_8580,
+		osc_MSB_out			=> voice_1_PA_MSB_8580,
 --		Osc					=> open,
 --		Env					=> open,
 		voice					=> voice_1_8580
@@ -260,8 +260,8 @@ begin
 		Control				=> Voice_2_Control,
 		Att_dec				=> Voice_2_Att_dec,
 		Sus_Rel				=> Voice_2_Sus_Rel,
-		PA_MSB_in			=> voice_1_PA_MSB_8580,
-		PA_MSB_out			=> voice_2_PA_MSB_8580,
+		osc_MSB_in			=> voice_1_PA_MSB_8580,
+		osc_MSB_out			=> voice_2_PA_MSB_8580,
 --		Osc					=> open,
 --		Env					=> open,
 		voice					=> voice_2_8580
@@ -278,8 +278,8 @@ begin
 		Control				=> Voice_3_Control,
 		Att_dec				=> Voice_3_Att_dec,
 		Sus_Rel				=> Voice_3_Sus_Rel,
-		PA_MSB_in			=> voice_2_PA_MSB_8580,
-		PA_MSB_out			=> voice_3_PA_MSB_8580,
+		osc_MSB_in			=> voice_2_PA_MSB_8580,
+		osc_MSB_out			=> voice_3_PA_MSB_8580,
 		Osc					=> Misc_Osc3_Random,
 		Env					=> Misc_Env3,
 		voice					=> voice_3_8580
