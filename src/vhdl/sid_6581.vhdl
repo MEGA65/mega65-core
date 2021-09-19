@@ -335,9 +335,9 @@ begin
 	input_valid <= '1' when tick_q1 /=tick_q2 else '0';
 
         
-	voice1_signed <= signed("0" & voice_1) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
-	voice2_signed <= signed("0" & voice_2) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
-	voice3_signed <= signed("0" & voice_3) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
+	voice1_signed <= signed("0" & voice_1) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
+	voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
+	voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
 
 	filters: entity work.sid_filters 
 	port map (
