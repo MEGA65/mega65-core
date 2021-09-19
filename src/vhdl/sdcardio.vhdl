@@ -866,7 +866,8 @@ begin  -- behavioural
   -- Reader for real floppy drive: single rate
   -- Track info blocks are always witten for this speed, so we have a fixed decoder
   -- for them, which also serves as the 1581 DD decoder
-  mfm0: entity work.mfm_decoder port map (
+  mfm0: entity work.mfm_decoder generic map ( unit_id => 2 )
+    port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
     encoding_mode => x"0", -- Always MFM for single-rate decoder
@@ -912,7 +913,8 @@ begin  -- behavioural
   -- HD decoder, as we are only going to make HD disks with
   -- it enabled.  We set the variable encoding rate based
   -- on what we read from the track info block.
-  mfm2x: entity work.mfm_decoder port map (
+  mfm2x: entity work.mfm_decoder generic map ( unit_id => 3)
+    port map (
     clock40mhz => clock,
     f_rdata => f_rdata,
     encoding_mode => fdc_encoding_mode,
@@ -973,7 +975,8 @@ begin  -- behavioural
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
            fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
            fdc_bytes_read,fpga_temperature,
-           fdc_encoding_mode,f_wdata_rll,fw_no_data_rll,fw_ready_for_next_rll,
+           fdc_encoding_mode,
+           f_wdata_rll,fw_no_data_rll,fw_ready_for_next_rll,
            f_wdata_mfm,fw_no_data_mfm,fw_ready_for_next_mfm,
            f_wdata_raw,fw_no_data_raw,fw_ready_for_next_raw
            ) is
