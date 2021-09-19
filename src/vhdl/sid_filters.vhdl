@@ -46,12 +46,11 @@ port (
 	--
 	input_valid : in  std_logic;
 	ext_in      : in  signed(12 downto 0);
-        
-	sound       : out signed(18 downto 0) := (others => '0');
-	valid       : out std_logic := '0';
-
-        filter_table_addr : out integer range 0 to 2047 := 0;
-        filter_table_val : in unsigned(15 downto 0)
+	--
+	mode        : in std_logic;
+   --
+	sound       : out signed(18 downto 0);
+	valid       : out std_logic
 );
 end entity;
 
@@ -81,11 +80,22 @@ architecture beh of sid_filters is
 		done  : std_logic;
 	end record;
 
+	--signal addr    : unsigned(10 downto 0);
+	signal addr      : integer range 0 to 2047;
+   signal val       : unsigned(15 downto 0);
+
+
+   ----------------------------------------------------------------------------------------
 	type divmul_t is array(0 to 15) of integer;
-	constant divmul: divmul_t := (
+
+	constant divmul_6581: divmul_t := (
 		1448, 1323, 1218, 1128, 1051, 984, 925, 872, 825, 783, 745, 710, 679, 650, 624, 599
 	);
 
+	constant divmul_8580: divmul_t := (
+		1448, 1328, 1228, 1117, 1024, 939, 861, 790, 724, 664, 609, 558, 512, 470, 431, 395
+	);
+   ----------------------------------------------------------------------------------------
 	signal r : regs_type;
 
 	signal mula  : signed(17 downto 0);
@@ -93,12 +103,13 @@ architecture beh of sid_filters is
 	signal mulr  : signed(35 downto 0);
 	signal mulen : std_logic;
 
+
 	function s13_to_18(a: in signed(12 downto 0)) return signed is
 	begin
 		return a(12)&a(12)&a(12)&a(12)&a(12)&a;
 	end function;
 
-	signal fc : unsigned(10 downto 0) := (others => '0');
+	signal fc : unsigned (10 downto 0);
 
 begin
 
@@ -113,16 +124,27 @@ begin
 
 	fc <= Fc_hi & Fc_lo(2 downto 0);
 
---	c: entity work.sid_coeffs
+	c: entity work.sid_coeffs
+	port map (
+		clk   => clk,
+		addr  => addr,
+		val   => val
+	);
+
+--   calc_1 : filter_calc
 --	port map (
 --		clk   => clk,
 --		addr  => addr,
---		val   => val
+--		fc    => fc,
+--		val_6581 => val_6581,
+--		val_8580 => val_8580
 --	);
 
-	filter_table_addr <= to_integer(unsigned(fc));
+	--addr <= fc;
+	
+	addr <= to_integer(unsigned(fc));
 
-	process(clk, rst, r, input_valid, filter_table_val, filt, voice1, voice2, voice3, voice3off, mulr, ext_in, hp_bp_lp, Mode_Vol)
+	process(clk, rst, r, input_valid, val, filt, voice1, voice2, voice3, voice3off, mulr, ext_in, hp_bp_lp, Mode_Vol,mode)
 		variable w: regs_type;
 	begin
 		w:=r;
@@ -136,14 +158,18 @@ begin
 				if input_valid = '1' then
 					w.state := 1;
 					-- Reset Vin, Vnf
-					w.vi := (others => '0');
+					w.vi  := (others => '0');
 					w.vnf := (others => '0');
 				end if;
 
 			when 1 =>
 				w.state := 2;
 				-- already have W0 ready. Always positive
-				w.w0 := "00" & signed(filter_table_val);
+				if mode = '0' then
+				   w.w0 := "00" & signed(val);
+				else
+					w.w0 := "00" & signed(val);
+				end if;
 				-- 1st accumulation
 				if filt(0)='1' then
 					w.vi := r.vi + s13_to_18(voice1);
@@ -191,7 +217,11 @@ begin
 				w.dVlp := mulr(35) & mulr(35 downto 19);
 				w.Vbp := r.Vbp - r.dVbp;
 				-- Get Q, synchronous.
-				w.q := to_signed(divmul(to_integer(unsigned(res))), 18);
+				if mode = '1' then
+				   w.q := to_signed(divmul_8580(to_integer(unsigned(res))), 18);
+				else
+				   w.q := to_signed(divmul_6581(to_integer(unsigned(res))), 18);
+				end if;
 
 			when 5 =>
 				w.state := 6;

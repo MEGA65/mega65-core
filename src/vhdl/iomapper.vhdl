@@ -374,6 +374,8 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
+  signal sid_mode : std_logic := '0'; -- 1=8580, 0=6581
+  
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
 
@@ -781,6 +783,7 @@ begin
       pixelclock => pixelclk,
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,
+      sid_mode => sid_mode,
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
       reset => reset,
@@ -1013,6 +1016,7 @@ begin
     clk32 => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
+    mode => sid_mode,
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1034,6 +1038,7 @@ begin
     clk32 => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
+    mode => sid_mode,
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1055,6 +1060,7 @@ begin
     clk32 => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
+    mode => sid_mode,
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1076,6 +1082,7 @@ begin
     clk32 => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
+    mode => sid_mode,
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
