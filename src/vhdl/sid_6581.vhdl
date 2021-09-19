@@ -246,7 +246,7 @@ begin
 		osc_MSB_out			=> voice_1_PA_MSB_8580,
 --		Osc					=> open,
 --		Env					=> open,
-		voice					=> voice_1_8580
+		signal_out					=> voice_1_8580
 	);
 
 	sid_voice_8580_2: entity work.sid_voice_8580
@@ -264,7 +264,7 @@ begin
 		osc_MSB_out			=> voice_2_PA_MSB_8580,
 --		Osc					=> open,
 --		Env					=> open,
-		voice					=> voice_2_8580
+		signal_out					=> voice_2_8580
 	);
 
 	sid_voice_8580_3: entity work.sid_voice_8580
@@ -282,7 +282,7 @@ begin
 		osc_MSB_out			=> voice_3_PA_MSB_8580,
 		Osc					=> Misc_Osc3_Random,
 		Env					=> Misc_Env3,
-		voice					=> voice_3_8580
+		signal_out					=> voice_3_8580
 	);
 
 
