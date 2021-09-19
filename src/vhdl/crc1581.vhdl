@@ -50,6 +50,7 @@ begin
       end if;
 
       if crc_feed='1' then
+        report "CRC" & integer'image(id) & " buffering byte $" & to_hstring(crc_byte);
         byte_buffered <= '1';
         buffered_byte <= crc_byte;
       end if;
@@ -62,7 +63,8 @@ begin
       if crc_reset = '1' then
         value <= crc_init;
         ready <= '1';
-        byte_buffered <= '0';
+        -- Clear buffered byte, unless one is being fed to us simultaneously
+        byte_buffered <= crc_feed;
 --        report "CRC" & integer'image(id) & " reset";
       elsif bits_left /= 0 then
         ready <= '0';
