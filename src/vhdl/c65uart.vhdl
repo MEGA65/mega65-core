@@ -17,6 +17,8 @@ entity c65uart is
     irq : out std_logic := 'Z';
     c65uart_cs : in std_logic;
 
+    sid_mode : out std_logic := '0';
+    
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
@@ -252,6 +254,7 @@ architecture behavioural of c65uart is
   signal disco_led_id_int : unsigned(7 downto 0) := x"00";
   signal disco_led_val_int : unsigned(7 downto 0) := x"00";
 
+  signal sid_mode_int : std_logic := '0';
   
 begin  -- behavioural
   
@@ -305,6 +308,8 @@ begin  -- behavioural
         
     if rising_edge(cpuclock) then
 
+      sid_mode <= sid_mode_int;
+      
       if target = simulation then
         real_hardware <= '0';
       else
@@ -552,7 +557,8 @@ begin  -- behavioural
           when x"25" => j21out(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"26" => j21out(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
-          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));                       
+          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
+          when x"3C" => sid_mode_int <= fastio_wdata(0);
           when others => null;
         end case;
       end if;
@@ -813,7 +819,9 @@ begin  -- behavioural
         when x"39" => fastio_rdata <= max10_fpga_commit(15 downto 8);
         when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
         when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
-
+        -- @IO:GS $D63C.0 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+        when x"3c" => fastio_rdata(0) <= sid_mode_int;
+                      fastio_rdata(7 downto 1) <= (others => '0');
                       
         when others =>
           report "Reading untied register, result = Z";

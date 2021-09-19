@@ -89,6 +89,8 @@ entity sid6581 is
 		cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
 		we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
 
+                mode : in std_logic; -- 0=6581, 1=8580
+                
 		addr				: in  unsigned(4 downto 0);	-- address lines
 		di					: in  unsigned(7 downto 0);	-- data in (to chip)
 		do					: out unsigned(7 downto 0);	-- data out	(from chip)
@@ -144,11 +146,19 @@ architecture Behavioral of sid6581 is
 	signal voice_2				: unsigned(11 downto 0)	:= (others => '0');
 	signal voice_3				: unsigned(11 downto 0)	:= (others => '0');
 
+  	signal voice_1_8580			: unsigned(11 downto 0)	:= (others => '0');
+	signal voice_2_8580			: unsigned(11 downto 0)	:= (others => '0');
+	signal voice_3_8580			: unsigned(11 downto 0)	:= (others => '0');
+
 	signal divide_0			: unsigned(31 downto 0)	:= (others => '0');
 	signal voice_1_PA_MSB	: std_logic := '0';
 	signal voice_2_PA_MSB	: std_logic := '0';
 	signal voice_3_PA_MSB	: std_logic := '0';
 
+	signal voice_1_PA_MSB_8580	: std_logic := '0';
+	signal voice_2_PA_MSB_8580	: std_logic := '0';
+	signal voice_3_PA_MSB_8580	: std_logic := '0';
+  
 	signal voice1_signed		: signed(12 downto 0) := to_signed(0,13);
 	signal voice2_signed		: signed(12 downto 0) := to_signed(0,13);
 	signal voice3_signed		: signed(12 downto 0) := to_signed(0,13);
@@ -221,6 +231,62 @@ begin
 		voice					=> voice_3
 	);
 
+	sid_voice_8580_1: entity work.sid_voice_8580
+	port map(
+		clk_1MHz				=> clk_1MHz,
+		reset					=> reset_drive,
+		Freq_lo				=> Voice_1_Freq_lo,
+		Freq_hi				=> Voice_1_Freq_hi,
+		Pw_lo					=> Voice_1_Pw_lo,
+		Pw_hi					=> Voice_1_Pw_hi,
+		Control				=> Voice_1_Control,
+		Att_dec				=> Voice_1_Att_dec,
+		Sus_Rel				=> Voice_1_Sus_Rel,
+		PA_MSB_in			=> voice_3_PA_MSB_8580,
+		PA_MSB_out			=> voice_1_PA_MSB_8580,
+--		Osc					=> open,
+--		Env					=> open,
+		voice					=> voice_1_8580
+	);
+
+	sid_voice_8580_2: entity work.sid_voice_8580
+	port map(
+		clk_1MHz				=> clk_1MHz,
+		reset					=> reset_drive,
+		Freq_lo				=> Voice_2_Freq_lo,
+		Freq_hi				=> Voice_2_Freq_hi,
+		Pw_lo					=> Voice_2_Pw_lo,
+		Pw_hi					=> Voice_2_Pw_hi,
+		Control				=> Voice_2_Control,
+		Att_dec				=> Voice_2_Att_dec,
+		Sus_Rel				=> Voice_2_Sus_Rel,
+		PA_MSB_in			=> voice_1_PA_MSB_8580,
+		PA_MSB_out			=> voice_2_PA_MSB_8580,
+--		Osc					=> open,
+--		Env					=> open,
+		voice					=> voice_2_8580
+	);
+
+	sid_voice_8580_3: entity work.sid_voice_8580
+	port map(
+		clk_1MHz				=> clk_1MHz,
+		reset					=> reset_drive,
+		Freq_lo				=> Voice_3_Freq_lo,
+		Freq_hi				=> Voice_3_Freq_hi,
+		Pw_lo					=> Voice_3_Pw_lo,
+		Pw_hi					=> Voice_3_Pw_hi,
+		Control				=> Voice_3_Control,
+		Att_dec				=> Voice_3_Att_dec,
+		Sus_Rel				=> Voice_3_Sus_Rel,
+		PA_MSB_in			=> voice_2_PA_MSB_8580,
+		PA_MSB_out			=> voice_3_PA_MSB_8580,
+		Osc					=> Misc_Osc3_Random,
+		Env					=> Misc_Env3,
+		voice					=> voice_3_8580
+	);
+
+
+        
 -------------------------------------------------------------------------------------
 
 -- SID filters
@@ -268,14 +334,16 @@ begin
 
 	input_valid <= '1' when tick_q1 /=tick_q2 else '0';
 
-	voice1_signed <= signed("0" & voice_1) - 2048;
-	voice2_signed <= signed("0" & voice_2) - 2048;
-	voice3_signed <= signed("0" & voice_3) - 2048;
+        
+	voice1_signed <= signed("0" & voice_1) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
+	voice2_signed <= signed("0" & voice_2) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
+	voice3_signed <= signed("0" & voice_3) - 2048; when mode='0' else signed("0" & voice_1_8580) - 2048;
 
 	filters: entity work.sid_filters 
 	port map (
 		clk			=> clk32,
 		rst			=> reset_drive,
+                mode                    => mode,
 		-- SID registers.
 		Fc_lo			=> Filter_Fc_lo,
 		Fc_hi			=> Filter_Fc_hi,
