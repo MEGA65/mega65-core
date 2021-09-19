@@ -141,6 +141,8 @@ architecture Behavioral of sid6581 is
 	signal Misc_Osc3_Random_6581	: unsigned(7 downto 0)	:= (others => '0');
 	signal Misc_Osc3_Random_8580	: unsigned(7 downto 0)	:= (others => '0');
 	signal Misc_Env3			: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Env3_6581			: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Env3_8580			: unsigned(7 downto 0)	:= (others => '0');
 
 	signal do_buf				: unsigned(7 downto 0)	:= (others => '0');
 
@@ -283,7 +285,7 @@ begin
 		osc_MSB_in			=> voice_2_PA_MSB_8580,
 		osc_MSB_out			=> voice_3_PA_MSB_8580,
 		Osc_out					=> Misc_Osc3_Random_8580,
-		Env					=> Misc_Env3,
+		Env_out					=> Misc_Env3_8580,
 		signal_out					=> voice_3_8580
 	);
 
@@ -341,6 +343,7 @@ begin
 	voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
 	voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
         misc_osc3_random <= misc_osc3_random_6581 when mode='0' else misc_osc3_random_8580;
+        misc_env3 <= misc_env3_6581 when mode='0' else misc_env3_8580;
 
 	filters: entity work.sid_filters 
 	port map (
