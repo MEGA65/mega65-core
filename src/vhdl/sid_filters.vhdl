@@ -50,7 +50,11 @@ port (
 	mode        : in std_logic;
    --
 	sound       : out signed(18 downto 0);
-	valid       : out std_logic
+	valid       : out std_logic;
+
+        filter_table_addr : out integer range 0 to 2047 := 0;
+        filter_table_val : in unsigned(15 downto 0)
+        
 );
 end entity;
 
@@ -79,11 +83,6 @@ architecture beh of sid_filters is
 		state : integer;
 		done  : std_logic;
 	end record;
-
-	--signal addr    : unsigned(10 downto 0);
-	signal addr      : integer range 0 to 2047;
-   signal val       : unsigned(15 downto 0);
-
 
    ----------------------------------------------------------------------------------------
 	type divmul_t is array(0 to 15) of integer;
@@ -124,27 +123,12 @@ begin
 
 	fc <= Fc_hi & Fc_lo(2 downto 0);
 
-	c: entity work.sid_coeffs
-	port map (
-		clk   => clk,
-		addr  => addr,
-		val   => val
-	);
+--	c: entity work.sid_coeffs
 
---   calc_1 : filter_calc
---	port map (
---		clk   => clk,
---		addr  => addr,
---		fc    => fc,
---		val_6581 => val_6581,
---		val_8580 => val_8580
---	);
 
-	--addr <= fc;
-	
-	addr <= to_integer(unsigned(fc));
+        filter_table_addr <= to_integer(unsigned(fc));
 
-	process(clk, rst, r, input_valid, val, filt, voice1, voice2, voice3, voice3off, mulr, ext_in, hp_bp_lp, Mode_Vol,mode)
+	process(clk, rst, r, filter_table_val, input_valid, filt, voice1, voice2, voice3, voice3off, mulr, ext_in, hp_bp_lp, Mode_Vol,mode)
 		variable w: regs_type;
 	begin
 		w:=r;
@@ -165,11 +149,8 @@ begin
 			when 1 =>
 				w.state := 2;
 				-- already have W0 ready. Always positive
-				if mode = '0' then
-				   w.w0 := "00" & signed(val);
-				else
-					w.w0 := "00" & signed(val);
-				end if;
+                                w.w0 := "00" & signed(filter_table_val);
+
 				-- 1st accumulation
 				if filt(0)='1' then
 					w.vi := r.vi + s13_to_18(voice1);
