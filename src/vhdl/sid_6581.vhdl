@@ -138,6 +138,8 @@ architecture Behavioral of sid6581 is
 	signal Filter_Mode_Vol	: unsigned(7 downto 0)	:= (others => '0');
 
 	signal Misc_Osc3_Random	: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Osc3_Random_6581	: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Osc3_Random_8580	: unsigned(7 downto 0)	:= (others => '0');
 	signal Misc_Env3			: unsigned(7 downto 0)	:= (others => '0');
 
 	signal do_buf				: unsigned(7 downto 0)	:= (others => '0');
@@ -226,7 +228,7 @@ begin
 		Sus_Rel				=> Voice_3_Sus_Rel,
 		PA_MSB_in			=> voice_2_PA_MSB,
 		PA_MSB_out			=> voice_3_PA_MSB,
-		Osc					=> Misc_Osc3_Random,
+		Osc					=> Misc_Osc3_Random_6581,
 		Env					=> Misc_Env3,
 		voice					=> voice_3
 	);
@@ -280,7 +282,7 @@ begin
 		Sus_Rel				=> Voice_3_Sus_Rel,
 		osc_MSB_in			=> voice_2_PA_MSB_8580,
 		osc_MSB_out			=> voice_3_PA_MSB_8580,
-		Osc					=> Misc_Osc3_Random,
+		Osc_out					=> Misc_Osc3_Random_8580,
 		Env					=> Misc_Env3,
 		signal_out					=> voice_3_8580
 	);
@@ -338,6 +340,7 @@ begin
 	voice1_signed <= signed("0" & voice_1) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
 	voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
 	voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
+        misc_osc3_random <= misc_osc3_random_6581 when mode='0' else misc_osc3_random_8580;
 
 	filters: entity work.sid_filters 
 	port map (
