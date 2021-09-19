@@ -295,10 +295,11 @@ begin
 
         -- set crc_error and clear seen_valid if CRC /= 0
         if crc_value /= x"0000" then
-          report "crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
+--          report "HEADER: crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
           seen_valid <= '0';
           crc_error <= '1';
         else
+--          report "HEADER: CRC good.";
           crc_error <= '0';
           if byte_count /= 0 then
             sector_end <= '1';
@@ -310,7 +311,7 @@ begin
                 and (to_integer(target_sector) = to_integer(seen_sector))
                 and (to_integer(target_side) = to_integer(seen_side))) then
               if (last_crc = x"0000") then
---                report "Seen sector matches target";
+--                report "HEADER: Seen sector matches target, CRC good";
                 found_track <= seen_track;
                 found_sector <= seen_sector;
                 found_side <= seen_side;
