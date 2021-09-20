@@ -891,6 +891,7 @@ begin  -- behavioural
     track_info_track => fdc_track_info_track,
     track_info_rate => fdc_track_info_rate,
     track_info_encoding => fdc_track_info_encoding,
+    track_info_sectors => fdc_track_info_sectors,
     track_info_valid => track_info_valid,
 
     sector_data_gap => fdc_sector_data_gap,
