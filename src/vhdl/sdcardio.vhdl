@@ -3668,10 +3668,18 @@ begin  -- behavioural
                 end if;
                 fw_byte_valid <= '1';
                 crc_feed <= '1';
+                if format_state = 62 + 511 then
+                  -- Force wait so that CRC has time to start updating, and thus
+                  -- crc_ready to go low, so that we don't try to read it immediately
+                  -- before it has started.
+                  crc_force_delay_counter <= 8 + 4;
+                  crc_force_delay <= '1';
+                end if;
               when 574 =>
                 -- First CRC byte
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
+                crc_feed <= '0';
               when 575 =>
                 -- Second CRC byte
                 fw_byte_in <= crc_value(7 downto 0);
