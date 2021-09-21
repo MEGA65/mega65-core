@@ -106,7 +106,8 @@ begin
       transition_point <= to_integer(cycles_per_interval(7 downto 1));        
       
       if interval_countdown = 0 then
-        interval_countdown <= to_integer(cycles_per_interval);
+        -- Count from n-1 downto 0, so that each interval is n cycles long
+        interval_countdown <= to_integer(cycles_per_interval - 1);
         f_write <= '1';
       else
         interval_countdown <= interval_countdown - 1;
