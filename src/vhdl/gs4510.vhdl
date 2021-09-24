@@ -186,6 +186,9 @@ entity gs4510 is
     debug4_state_out : out std_logic_vector(3 downto 0);
     
     proceed_dbg_out : out std_logic;
+
+    floppy_last_gap : in unsigned(7 downto 0) := x"00";
+    floopy_gap_strobe : in std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -567,7 +570,8 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_spiral_len : integer range 0 to 41 := 0;
   signal reg_dmagic_spiral_len_remaining : integer range 0 to 41 := 0;
   signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
-
+  signal reg_dmagic_floppy_mode : std_logic := '0';
+  
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
   signal dmagic_src_modulo : std_logic := '0';
@@ -3422,6 +3426,9 @@ begin
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
       reg_dmagic_s_line_x_or_y <= '0';
+
+      reg_dmagic_floppy_mode <= '0';      
+      reg_dmagic_draw_spiral <= '0';
     end procedure;
     
     procedure alu_op_cmp (
@@ -5181,7 +5188,7 @@ begin
               if reg_mb_low = x"ff" then
                 reg_mb_low <= x"00";
               end if;
-                                        -- IO, but no C64 ROMS
+              -- IO, but no C64 ROMS
               cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
                                         -- enable hypervisor mode flag
@@ -5338,10 +5345,11 @@ begin
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
                     when x"0A" => job_is_f018b <= '0';
                     when x"0B" => job_is_f018b <= '1';
+                    when x"0F" => reg_dmagic_floppy_mode <= '1';
                     when x"53" => reg_dmagic_draw_spiral <= '1';
                                   reg_dmagic_spiral_phase <= "00";
                                   reg_dmagic_spiral_len <= 39;
-                                  reg_dmagic_spiral_len_remaining <= 38;
+                                  reg_dmagic_spiral_len_remaining <= 38;                                  
                     when others => null;
                   end case;
                 end if;
@@ -5677,6 +5685,10 @@ begin
 
                 if pending_dma_busy='1' then
                   state <= DMAgicFillPauseForAudioDMA;
+                end if;
+
+                if reg_dmagic_floppy_mode='1' and floppy_gap_strobe='0' then
+                  state <= DMAgicFillPauseForFloppyWait;
                 end if;
                 
               end if;
@@ -6064,6 +6076,13 @@ begin
             when DMAgicFillPauseForAudioDMA =>
               if pending_dma_busy = '0' then
                 state <= DMAgicFill;
+              end if;
+            when DMAgicFillPauseForFloppyWait =>
+              if floppy_gap_strobe = '1' then
+                state <= DMAgicFill;
+                -- Get updated floppy gap value into the spot that DMAgic will
+                -- use as the fill value.
+                dmagic_src_addr(15 downto 8) <= floppy_last_gap;
               end if;
             when InstructionWait =>
               state <= InstructionFetch;

@@ -65,6 +65,10 @@ entity sdcardio is
     sdcardio_cs : in std_logic;
     f011_cs : in std_logic;
 
+    -- Direct export of floppy gap timing info
+    floppy_last_gap : out unsigned(7 downto 0) := x"00";
+    floopy_gap_strobe : out std_logic := '0';
+    
     -- Interface for accessing mix table via CPU
     audio_mix_reg : out unsigned(7 downto 0) := x"FF";
     audio_mix_write : out std_logic := '0';
@@ -435,6 +439,7 @@ architecture behavioural of sdcardio is
   -- Debug info from single rate MFM reader
   signal fdc_mfm_state : unsigned(7 downto 0);
   signal fdc_last_gap : unsigned(15 downto 0);
+  signal fdc_last_gap_strobe : std_logic := '0';
   signal fdc_mfm_byte : unsigned(7 downto 0);
   signal fdc_quantised_gap : unsigned(7 downto 0);
 
@@ -877,6 +882,7 @@ begin  -- behavioural
 
     mfm_state => fdc_mfm_state,
     mfm_last_gap => fdc_last_gap,
+    mfm_last_gap_strobe => fdc_last_gap_strobe,
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
 
@@ -1636,6 +1642,11 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Export last floppy gap info so that we can have a magic DMA mode to
+      -- read raw flux from the floppy at 25ns resolution
+      floppy_last_gap <= fdc_last_gap;
+      floppy_gap_strobe <= fdc_last_gap_strobe;
+      
       -- Allow blocking readiness of CRC result to allow CRC internal
       -- pipeline to take effect (because crc_ready flag doesn't clear
       -- until a couple of cycles after a new byte has been fed into it).

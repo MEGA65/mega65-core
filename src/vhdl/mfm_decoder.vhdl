@@ -34,6 +34,7 @@ entity mfm_decoder is
     
     mfm_state : out unsigned(7 downto 0) := x"00";
     mfm_last_gap : out unsigned(15 downto 0) := x"0000";
+    mfm_last_gap_strobe : out std_logic := '0';
     mfm_last_byte : out unsigned(7 downto 0) := x"00";
     mfm_quantised_gap : out unsigned(7 downto 0) := x"00";
     packed_rdata : out std_logic_vector(7 downto 0);
@@ -265,6 +266,7 @@ begin
       mfm_state <= to_unsigned(MFMState'pos(state),8);
       mfm_last_gap(11 downto 0) <= gap_length(11 downto 0);
       mfm_last_gap(15 downto 12) <= gap_count;
+      mfm_last_gap_strobe <= gap_valid;
       if gap_size_valid='1' then
         mfm_quantised_gap(7) <= sync_in;
         mfm_quantised_gap(6) <= mfm_sync_in;

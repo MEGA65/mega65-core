@@ -18,6 +18,9 @@ entity iomapper is
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
+
+        floppy_last_gap : out unsigned(7 downto 0) := x"00";
+        floppy_gap_strobe : out std_logic := '0';        
         
         dd00_bits : out unsigned(1 downto 0) := "11";
         cpu_slow : in std_logic;
@@ -1383,6 +1386,9 @@ begin
     virtualise_f011_drive0 => virtualised_hardware_in(0),
     virtualise_f011_drive1 => virtualised_hardware_in(1),
     secure_mode => protected_hardware_in(7),
+
+    floppy_last_gap => floppy_last_gap,
+    floppy_gap_strobe => floppy_gap_strobe,
     
     fpga_temperature => fpga_temperature,
 

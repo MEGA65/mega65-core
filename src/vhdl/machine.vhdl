@@ -760,6 +760,9 @@ architecture Behavioral of machine is
   signal dd00_bits : unsigned(1 downto 0);
 
   signal cpu_slow : std_logic;
+
+  signal floppy_last_gap : unsigned(7 downto 0);
+  signal floppy_gap_strobe : std_logic := '0';
   
 begin
 
@@ -990,6 +993,9 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      floppy_last_gap => floppy_last_gap,
+      floppy_gap_strobe => floppy_gap_strobe,
+      
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
       cpu_pcm_enable => cpu_pcm_enable,
@@ -1444,6 +1450,9 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      floppy_last_gap => floppy_last_gap,
+      floppy_gap_strobe => floppy_gap_strobe,      
+      
       dd00_bits => dd00_bits,
       
       max10_fpga_date => max10_fpga_date,
