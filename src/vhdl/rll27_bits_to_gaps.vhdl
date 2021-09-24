@@ -38,8 +38,9 @@ entity rll27_bits_to_gaps is
     
     cycles_per_interval : in unsigned(7 downto 0);
     write_precomp_enable : in std_logic := '0';
-    write_precomp_magnitude : in unsigned(7 downto 0) := x"01";
-    write_precomp_magnitude_b : in unsigned(7 downto 0) := x"02";
+    write_precomp_magnitude : in unsigned(7 downto 0) := x"00";
+    write_precomp_magnitude_b : in unsigned(7 downto 0) := x"00";
+    write_precomp_delay15 : in unsigned(7 downto 0) := x"00";
     
     -- Are we ready to accept something?
     ready_for_next : out std_logic := '1';
@@ -79,7 +80,7 @@ architecture behavioural of rll27_bits_to_gaps is
 
   -- And then any adjustments for write precompensation
   signal f_write_time_adj : integer range -128 to 127 := 0;
-  signal f_write_buf : std_logic_vector(6 downto 0) := "0000000";
+  signal f_write_buf : std_logic_vector(8 downto 0) := "000000000";
   signal f_write_next : std_logic := '0';
 
   signal ingest_byte_toggle : std_logic := '0';
@@ -128,10 +129,10 @@ begin
       if interval_countdown = 0 then
 --        report "RLL bit " & std_logic'image(bit_queue(15));
         f_write_buf(0) <= bit_queue(15);
-        f_write_buf(6 downto 1) <= f_write_buf(5 downto 0);
+        f_write_buf(8 downto 1) <= f_write_buf(7 downto 0);
 
         -- Get next bit ready for writing 
-        f_write_next <= f_write_buf(3);
+        f_write_next <= f_write_buf(4);
 
         if write_precomp_enable='0' then
           -- No write precompensation, so emit bit at the right time.
@@ -146,6 +147,64 @@ begin
             -- data rate, which means those gaps are only 2/3 of those
             -- nominal widths, and we thus have to be able to discriminate
             -- between deltas of 2/3 of an MFM time-step.
+            when "010010000" =>
+              -- short pulse before, long one after : pulse will be pushed
+              -- early, so write it a bit late
+              if enabled='1' then
+                report "WPRECOMP: Late(b)";
+              end if;
+              f_write_time_adj <= to_integer(write_precomp_magnitude_b);
+            when "100010000" =>
+              -- medium pulse before, long one after : pulse will be pushed
+              -- early, so write it a bit late
+              if enabled='1' then
+                report "WPRECOMP: Late";
+              end if;
+              f_write_time_adj <= to_integer(write_precomp_magnitude) + to_integer(write_precomp_delay15);
+            when "000010000" =>
+              -- equal length pulses either side
+              f_write_time_adj <= 0;
+              if enabled='1' then
+                report "WPRECOMP: Equal";
+              end if;
+            when "010010010" =>
+              -- equal length pulses either side
+              f_write_time_adj <= 0;
+              if enabled='1' then
+                report "WPRECOMP: Equal";
+              end if;
+            when "100010010" =>
+              -- Medium pulse before, short one after : pulse will be pushed late,
+              -- so write it a bit early
+              if enabled='1' then
+                report "WPRECOMP: Early";
+              end if;
+              f_write_time_adj <= to_integer(write_precomp_delay15) - to_integer(write_precomp_magnitude);
+            when "000010010" =>
+              -- Long pulse before, short one after
+              -- 
+              f_write_time_adj <= - to_integer(write_precomp_magnitude_b);
+              if enabled='1' then
+                report "WPRECOMP: Early(b)";
+              end if;
+            when "010010001" =>
+              -- Short pulse before, medium after
+              f_write_time_adj <= to_integer(write_precomp_magnitude);
+              if enabled='1' then
+                report "WPRECOMP: Late";
+              end if;
+            when "100010001" =>
+              -- equal length pulses either side
+              f_write_time_adj <=  to_integer(write_precomp_delay15);
+              if enabled='1' then
+                report "WPRECOMP: Equal";
+              end if;
+            when "000010001" =>
+              -- Long pulse before, medium after
+              f_write_time_adj <= - to_integer(write_precomp_magnitude);
+              if enabled='1' then
+                report "WPRECOMP: Early";
+              end if;
             when others =>
               -- All other combinations are invalid for RLL encoding, so do no
               -- write precompensation
