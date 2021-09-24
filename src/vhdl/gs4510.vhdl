@@ -865,6 +865,7 @@ architecture Behavioural of gs4510 is
     DMAgicCopyRead,DMAgicCopyWrite,               -- 0x0d, 0x0e
     DMAgicCopyPauseForAudioDMA,
     DMAgicFillPauseForAudioDMA,
+    DMAgicFillPauseForFloppyWait,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
