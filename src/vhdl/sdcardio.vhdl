@@ -848,6 +848,7 @@ begin  -- behavioural
     write_precomp_enable => f011_write_precomp,
     write_precomp_magnitude => write_precomp_magnitude,
     write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
     ready_for_next => fw_ready_for_next_rll,
     no_data => fw_no_data_rll,
     f_write => f_wdata_rll,
