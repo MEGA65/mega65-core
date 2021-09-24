@@ -491,6 +491,15 @@ mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -m test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
 
+READCOMPFILES=	$(VHDLSRCDIR)/test_readcomp.vhdl $(VHDLSRCDIR)/floppy_read_compensator.vhdl
+readcompsimulate: $(GHDL_DEPEND) $(READCOMPFILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(READCOMPFILES)
+	$(GHDL) -m test_readcomp
+	( ./test_readcomp || $(GHDL) -r test_readcomp )
+
+
 pdmsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
