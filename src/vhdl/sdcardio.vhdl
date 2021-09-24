@@ -67,7 +67,7 @@ entity sdcardio is
 
     -- Direct export of floppy gap timing info
     floppy_last_gap : out unsigned(7 downto 0) := x"00";
-    floopy_gap_strobe : out std_logic := '0';
+    floppy_gap_strobe : out std_logic := '0';
     
     -- Interface for accessing mix table via CPU
     audio_mix_reg : out unsigned(7 downto 0) := x"FF";
