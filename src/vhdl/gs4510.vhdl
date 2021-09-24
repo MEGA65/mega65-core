@@ -188,7 +188,7 @@ entity gs4510 is
     proceed_dbg_out : out std_logic;
 
     floppy_last_gap : in unsigned(7 downto 0) := x"00";
-    floopy_gap_strobe : in std_logic := '0';
+    floppy_gap_strobe : in std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
