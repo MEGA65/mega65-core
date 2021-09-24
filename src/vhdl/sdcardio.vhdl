@@ -1644,7 +1644,11 @@ begin  -- behavioural
 
       -- Export last floppy gap info so that we can have a magic DMA mode to
       -- read raw flux from the floppy at 25ns resolution
-      floppy_last_gap <= fdc_last_gap;
+      if fdc_last_gap(15 downto 8) /= x"00" then
+        floppy_last_gap <= x"ff";
+      else
+        floppy_last_gap <= fdc_last_gap(7 downto 0);
+      end if;
       floppy_gap_strobe <= fdc_last_gap_strobe;
       
       -- Allow blocking readiness of CRC result to allow CRC internal
