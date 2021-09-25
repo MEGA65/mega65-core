@@ -111,7 +111,7 @@ architecture Behavioral of sid6581 is
 	signal Voice_1_Freq_lo	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Freq_hi	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Pw_lo		: unsigned(7 downto 0)	:= (others => '0');
-	signal Voice_1_Pw_hi		: unsigned(3 downto 0)	:= (others => '0');
+	signal Voice_1_Pw_hi		: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Control	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Att_dec	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_1_Sus_Rel	: unsigned(7 downto 0)	:= (others => '0');
@@ -119,7 +119,7 @@ architecture Behavioral of sid6581 is
 	signal Voice_2_Freq_lo	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_2_Freq_hi	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_2_Pw_lo		: unsigned(7 downto 0)	:= (others => '0');
-	signal Voice_2_Pw_hi		: unsigned(3 downto 0)	:= (others => '0');
+	signal Voice_2_Pw_hi		: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_2_Control	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_2_Att_dec	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_2_Sus_Rel	: unsigned(7 downto 0)	:= (others => '0');
@@ -127,7 +127,7 @@ architecture Behavioral of sid6581 is
 	signal Voice_3_Freq_lo	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_3_Freq_hi	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_3_Pw_lo		: unsigned(7 downto 0)	:= (others => '0');
-	signal Voice_3_Pw_hi		: unsigned(3 downto 0)	:= (others => '0');
+	signal Voice_3_Pw_hi		: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_3_Control	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_3_Att_dec	: unsigned(7 downto 0)	:= (others => '0');
 	signal Voice_3_Sus_Rel	: unsigned(7 downto 0)	:= (others => '0');
@@ -446,7 +446,7 @@ begin
                                                         when "00000" =>	Voice_1_Freq_lo	<= di;
 							when "00001" =>	Voice_1_Freq_hi	<= di;
 							when "00010" =>	Voice_1_Pw_lo		<= di;
-							when "00011" =>	Voice_1_Pw_hi		<= di(3 downto 0);
+							when "00011" =>	Voice_1_Pw_hi		<= di;
 							when "00100" =>	Voice_1_Control	<= di;
 							when "00101" =>	Voice_1_Att_dec	<= di;
 							when "00110" =>	Voice_1_Sus_Rel	<= di;
@@ -454,7 +454,7 @@ begin
 							when "00111" =>	Voice_2_Freq_lo	<= di;
 							when "01000" =>	Voice_2_Freq_hi	<= di;
 							when "01001" =>	Voice_2_Pw_lo		<= di;
-							when "01010" =>	Voice_2_Pw_hi		<= di(3 downto 0);
+							when "01010" =>	Voice_2_Pw_hi		<= di;
 							when "01011" =>	Voice_2_Control	<= di;
 							when "01100" =>	Voice_2_Att_dec	<= di;
 							when "01101" =>	Voice_2_Sus_Rel	<= di;
@@ -462,7 +462,7 @@ begin
 							when "01110" =>	Voice_3_Freq_lo	<= di;
 							when "01111" =>	Voice_3_Freq_hi	<= di;
 							when "10000" =>	Voice_3_Pw_lo		<= di;
-							when "10001" =>	Voice_3_Pw_hi		<= di(3 downto 0);
+							when "10001" =>	Voice_3_Pw_hi		<= di;
 							when "10010" =>	Voice_3_Control	<= di;
 							when "10011" =>	Voice_3_Att_dec	<= di;
 							when "10100" =>	Voice_3_Sus_Rel	<= di;
