@@ -65,6 +65,8 @@ begin
 
       if gap_valid_in='1' then
 
+        report "ingesting gap of length " & integer'image(to_integer(gap_length_in));
+        
         -- How long ago were the last 8 gaps?
         gap_time_0 <= gap_length_in;
         gap_time_1 <= gap_time_0 + gap_length_in;
@@ -103,7 +105,11 @@ begin
             bucket <= bucket - cycles_per_interval;
           else
             -- Now its just a remainder
-            report "The remainder is " & integer'image(to_integer(bucket));
+            report "Gap is " & integer'image(to_integer(gap_quanta_0)) & ", remainder " & integer'image(to_integer(bucket));
+            if bucket > cycles_per_interval(7 downto 1) then
+              report "Round gap up to next";
+              gap_quanta_0 <= gap_quanta_0 + 1;              
+            end if;
             state <= Idle;
           end if;
           null;
