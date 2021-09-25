@@ -24,7 +24,7 @@ entity sid_voice is
 		Freq_lo			: in	unsigned(7 downto 0);	-- low-byte of frequency register 
 		Freq_hi			: in	unsigned(7 downto 0);	-- high-byte of frequency register 
 		Pw_lo				: in	unsigned(7 downto 0);	-- low-byte of PuleWidth register
-		Pw_hi				: in	unsigned(3 downto 0);	-- high-nibble of PuleWidth register
+		Pw_hi				: in	unsigned(7 downto 0);	-- high-nibble of PuleWidth register
 		Control			: in	unsigned(7 downto 0);	-- control register
 		Att_dec			: in	unsigned(7 downto 0);	-- attack-deccay register
 		Sus_Rel			: in	unsigned(7 downto 0);	-- sustain-release register
@@ -130,7 +130,7 @@ begin
 	-- use the register value to fill the variable
 	frequency	<= Freq_hi & Freq_lo;
 	-- use the register value to fill the variable
-	pulsewidth 	<= Pw_hi & Pw_lo;
+	pulsewidth 	<= Pw_hi(3 downto 0) & Pw_lo;
 	--
 	voice							<= signal_vol(19 downto 8);
 
