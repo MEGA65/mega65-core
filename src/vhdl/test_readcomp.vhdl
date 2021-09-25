@@ -169,11 +169,10 @@ begin
   
   process (clock40mhz) is
   begin
-    if rising_edge(clock40mhz) then
-      cycle_count <= cycle_count + 1;
+    if rising_edge(clock40mhz) then      
  
-      if cycle_count = 15 then
-        cycle_count <= 0;
+      if cycle_count = 0 then
+        cycle_count <= gap_lengths(gap_num)*3 - 1;
         gap_valid_in <= '1';
         gap_length_in <= to_unsigned(gap_lengths(gap_num)*3,16);
         gap_num <= gap_num + 1;
@@ -182,7 +181,7 @@ begin
           gap_num <= 99999;
         end if;
       else
-        cycle_count <= cycle_count + 1;
+        cycle_count <= cycle_count - 1;
         gap_valid_in <= '0';
       end if;
       
