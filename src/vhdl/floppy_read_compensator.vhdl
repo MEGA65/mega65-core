@@ -26,62 +26,22 @@ end floppy_read_compensate;
 
 architecture behavioural of floppy_read_compensate is  
 
-  signal gap_time_0 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_1 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_2 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_3 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_4 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_5 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_6 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_7 : unsigned(15 downto 0) := to_unsigned(0,16);
+  type vector_t is array(0 to 15) of unsigned(15 downto 0);
+  type svector_t is array(0 to 15) of signed(15 downto 0);
 
-  signal gap_quanta_0 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_1 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_2 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_3 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_4 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_5 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_6 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_quanta_7 : unsigned(15 downto 0) := to_unsigned(0,16);  
+  -- The raw gap arrival times in T-minus domain
+  signal gap_times : vector_t;
 
-  signal gap_time_ticks0 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks1 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks2 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks3 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks4 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks5 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks6 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_time_ticks7 : unsigned(15 downto 0) := to_unsigned(0,16);
+  -- The (possibly corrected) quantised gaps, so that we can
+  -- work out how to apply the previous gap times as baselines
+  signal recent_gaps : vector_t := (others => to_unsigned(0,16));
 
-  signal gap_time_remainders0 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders1 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders2 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders3 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders4 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders5 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders6 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_time_remainders7 : signed(7 downto 0) := to_signed(0,8);
+  -- Then we need the raw quantised gaps and remainders for each
+  signal baseline_gaps : vector_t := (others => to_unsigned(0,16));
+  signal baseline_remainders : svector_t := (others => to_signed(0,16));
 
-  signal gap_accum_remainders0 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders1 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders2 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders3 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders4 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders5 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders6 : signed(7 downto 0) := to_signed(0,8);
-  signal gap_accum_remainders7 : signed(7 downto 0) := to_signed(0,8);
-
-  signal gap_hypo0 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo1 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo2 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo3 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo4 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo5 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo6 : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal gap_hypo7 : unsigned(15 downto 0) := to_unsigned(0,16);
-
-  signal average : unsigned(15 downto 0);
-  signal average_remain : signed(7 downto 0);
+  signal average : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal average_remain : signed(15 downto 0) := to_signed(0,16);
   
   type state_t is (idle,
                    dividing_bucket_into_gap_quant0,
@@ -112,48 +72,23 @@ begin
         report "ingesting gap of length " & integer'image(to_integer(gap_length_in));
         
         -- How long ago were the last 8 gaps?
-        gap_time_0 <= gap_length_in;
-        gap_time_1 <= gap_time_0 + gap_length_in;
-        gap_time_2 <= gap_time_1 + gap_length_in;
-        gap_time_3 <= gap_time_2 + gap_length_in;
-        gap_time_4 <= gap_time_3 + gap_length_in;
-        gap_time_5 <= gap_time_4 + gap_length_in;
-        gap_time_6 <= gap_time_5 + gap_length_in;
-        gap_time_7 <= gap_time_6 + gap_length_in;
+        gap_times(0) <= gap_length_in;
+        for i in 1 to 7 loop
+          gap_times(i) <= gap_times(i-1) + gap_length_in;
+        end loop;
         
         -- What did we quantise each of the last 8 gaps to be?
-        gap_quanta_7 <= gap_quanta_6;
-        gap_quanta_6 <= gap_quanta_5;
-        gap_quanta_5 <= gap_quanta_4;
-        gap_quanta_4 <= gap_quanta_3;
-        gap_quanta_3 <= gap_quanta_2;
-        gap_quanta_2 <= gap_quanta_1;
-        gap_quanta_1 <= gap_quanta_0;
-
-        gap_time_ticks0 <= x"0000";
-        gap_time_ticks1 <= gap_time_ticks0;
-        gap_time_ticks2 <= gap_time_ticks1;
-        gap_time_ticks3 <= gap_time_ticks2;
-        gap_time_ticks4 <= gap_time_ticks3;
-        gap_time_ticks5 <= gap_time_ticks4;
-        gap_time_ticks6 <= gap_time_ticks5;
-        gap_time_ticks7 <= gap_time_ticks6;
-
-        gap_time_remainders0 <= x"00";
-        gap_time_remainders1 <= gap_time_remainders0;
-        gap_time_remainders2 <= gap_time_remainders1;
-        gap_time_remainders3 <= gap_time_remainders2;
-        gap_time_remainders4 <= gap_time_remainders3;
-        gap_time_remainders5 <= gap_time_remainders4;
-        gap_time_remainders6 <= gap_time_remainders5;
-        gap_time_remainders7 <= gap_time_remainders6;
+        for i in 1 to 7 loop
+          recent_gaps(i) <= recent_gaps(i-1);
+        end loop;
+        
         -- Now we need to work out what the quantisation for the current gap is.
         -- This would be the easy way, if we had hardware immediate division
         -- and floating point:
         -- gap_quanta0 = gap_length_in / cycles_per_interval
         -- Instead we can work out the integer part using repeated subtraction,
         -- and then take a look at the remainder.
-        gap_quanta_0 <= to_unsigned(0,16);
+        recent_gaps(0) <= to_unsigned(0,16);
         bucket <= gap_length_in;
         state <= dividing_bucket_into_gap_quant0;
 
@@ -162,59 +97,25 @@ begin
       if report_recent='1' then
         report_recent <= '0';
         report "Recent gaps (uncorr): "
-          & integer'image(to_integer(gap_quanta_7)) & ", "
-          & integer'image(to_integer(gap_quanta_6)) & ", "
-          & integer'image(to_integer(gap_quanta_5)) & ", "
-          & integer'image(to_integer(gap_quanta_4)) & ", "
-          & integer'image(to_integer(gap_quanta_3)) & ", "
-          & integer'image(to_integer(gap_quanta_2)) & ", "
-          & integer'image(to_integer(gap_quanta_1)) & ", "
-          & integer'image(to_integer(gap_quanta_0));
+          & integer'image(to_integer(recent_gaps(7))) & ", "
+          & integer'image(to_integer(recent_gaps(6))) & ", "
+          & integer'image(to_integer(recent_gaps(5))) & ", "
+          & integer'image(to_integer(recent_gaps(4))) & ", "
+          & integer'image(to_integer(recent_gaps(3))) & ", "
+          & integer'image(to_integer(recent_gaps(2))) & ", "
+          & integer'image(to_integer(recent_gaps(1))) & ", "
+          & integer'image(to_integer(recent_gaps(0)));
+
         report " Recent Gap Times T-: "
-          & integer'image(to_integer(gap_time_7)) & ", "
-          & integer'image(to_integer(gap_time_6)) & ", "
-          & integer'image(to_integer(gap_time_5)) & ", "
-          & integer'image(to_integer(gap_time_4)) & ", "
-          & integer'image(to_integer(gap_time_3)) & ", "
-          & integer'image(to_integer(gap_time_2)) & ", "
-          & integer'image(to_integer(gap_time_1)) & ", "
-          & integer'image(to_integer(gap_time_0));
-        report " Divided (corrected): "
-          & integer'image(to_integer(gap_time_ticks7)) & ", "
-          & integer'image(to_integer(gap_time_ticks6)) & ", "
-          & integer'image(to_integer(gap_time_ticks5)) & ", "
-          & integer'image(to_integer(gap_time_ticks4)) & ", "
-          & integer'image(to_integer(gap_time_ticks3)) & ", "
-          & integer'image(to_integer(gap_time_ticks2)) & ", "
-          & integer'image(to_integer(gap_time_ticks1)) & ", "
-          & integer'image(to_integer(gap_time_ticks0));
-        report "          Remainders: "
-          & integer'image(to_integer(gap_time_remainders7)) & ", "
-          & integer'image(to_integer(gap_time_remainders6)) & ", "
-          & integer'image(to_integer(gap_time_remainders5)) & ", "
-          & integer'image(to_integer(gap_time_remainders4)) & ", "
-          & integer'image(to_integer(gap_time_remainders3)) & ", "
-          & integer'image(to_integer(gap_time_remainders2)) & ", "
-          & integer'image(to_integer(gap_time_remainders1)) & ", "
-          & integer'image(to_integer(gap_time_remainders0));
-        report "    Accum Hypothesis: "
-          & integer'image(to_integer(gap_hypo7)) & ", "
-          & integer'image(to_integer(gap_hypo6)) & ", "
-          & integer'image(to_integer(gap_hypo5)) & ", "
-          & integer'image(to_integer(gap_hypo4)) & ", "
-          & integer'image(to_integer(gap_hypo3)) & ", "
-          & integer'image(to_integer(gap_hypo2)) & ", "
-          & integer'image(to_integer(gap_hypo1)) & ", "
-          & integer'image(to_integer(gap_hypo0));
-        report "    Accum Remainders: "
-          & integer'image(to_integer(gap_accum_remainders7)) & ", "
-          & integer'image(to_integer(gap_accum_remainders6)) & ", "
-          & integer'image(to_integer(gap_accum_remainders5)) & ", "
-          & integer'image(to_integer(gap_accum_remainders4)) & ", "
-          & integer'image(to_integer(gap_accum_remainders3)) & ", "
-          & integer'image(to_integer(gap_accum_remainders2)) & ", "
-          & integer'image(to_integer(gap_accum_remainders1)) & ", "
-          & integer'image(to_integer(gap_accum_remainders0));
+          & integer'image(to_integer(gap_times(7))) & ", "
+          & integer'image(to_integer(gap_times(6))) & ", "
+          & integer'image(to_integer(gap_times(5))) & ", "
+          & integer'image(to_integer(gap_times(4))) & ", "
+          & integer'image(to_integer(gap_times(3))) & ", "
+          & integer'image(to_integer(gap_times(2))) & ", "
+          & integer'image(to_integer(gap_times(1))) & ", "
+          & integer'image(to_integer(gap_times(0)));
+
         report "             Average: "
           & integer'image(to_integer(average(15 downto 3))) & ", remainder " & integer'image(to_integer(average_remain(7 downto 3)));
       end if;
@@ -222,19 +123,19 @@ begin
       case state is
         when dividing_bucket_into_gap_quant0 =>
           if bucket >= cycles_per_interval then
-            gap_quanta_0 <= gap_quanta_0 + 1;
+            recent_gaps(0) <= recent_gaps(0) + 1;
             bucket <= bucket - cycles_per_interval;
           else
             -- Now its just a remainder
-            report "Gap is " & integer'image(to_integer(gap_quanta_0)) & ", remainder " & integer'image(to_integer(bucket));
+            report "Gap is " & integer'image(to_integer(recent_gaps(0))) & ", remainder " & integer'image(to_integer(bucket));
             if bucket > cycles_per_interval(7 downto 1) then
               report "Round gap up to next";
-              gap_quanta_0 <= gap_quanta_0 + 1;              
-              gap_time_ticks0 <= gap_quanta_0 + 1;
-              gap_time_remainders0 <= signed(bucket(7 downto 0)) - signed(cycles_per_interval);
+              recent_gaps(0) <= recent_gaps(0) + 1;              
+--              gap_time_ticks0 <= recent_gaps(0) + 1;
+--              gap_time_remainders0 <= signed(bucket(7 downto 0)) - signed(cycles_per_interval);
             else
-              gap_time_ticks0 <= gap_quanta_0;
-              gap_time_remainders0 <= signed(bucket(7 downto 0));
+--              gap_time_ticks0 <= recent_gaps(0);
+--              gap_time_remainders0 <= signed(bucket(7 downto 0));
             end if;
             -- Now wait for the sums of recent gaps to propagate through
             state <= WaitForSums;
@@ -246,26 +147,7 @@ begin
           -- gap_time_ticks0 and gap_time_remainders0 has been updated when
           -- this is required.
           -- First accumulated is just the actual value:
-          gap_accum_remainders0 <= gap_time_remainders0;
---      report "gap_time_remainders0 = " & integer'image(to_integeR(gap_time_remainders0));
-          -- Then we need to add the time of the relevant gap to the accumulated
-          -- from the previous
-          gap_accum_remainders1 <= gap_accum_remainders0 + gap_time_remainders1;
-          gap_accum_remainders2 <= gap_accum_remainders1 + gap_time_remainders2;
-          gap_accum_remainders3 <= gap_accum_remainders2 + gap_time_remainders3;
-          gap_accum_remainders4 <= gap_accum_remainders3 + gap_time_remainders4;
-          gap_accum_remainders5 <= gap_accum_remainders4 + gap_time_remainders5;
-          gap_accum_remainders6 <= gap_accum_remainders5 + gap_time_remainders6;
-          gap_accum_remainders7 <= gap_accum_remainders6 + gap_time_remainders7;
-
-          gap_hypo0 <= gap_time_ticks0;
-          gap_hypo1 <= gap_time_ticks0;
-          gap_hypo2 <= gap_time_ticks0;
-          gap_hypo3 <= gap_time_ticks0;
-          gap_hypo4 <= gap_time_ticks0;
-          gap_hypo5 <= gap_time_ticks0;
-          gap_hypo6 <= gap_time_ticks0;
-          gap_hypo7 <= gap_time_ticks0;
+--          gap_accum_remainders0 <= gap_time_remainders0;
           
           if wait_counter=0 then
             state <= CorrectRemainders;
@@ -273,62 +155,6 @@ begin
             wait_counter <= wait_counter - 1;
           end if;
         when CorrectRemainders =>
-          if gap_accum_remainders1 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders1 <= gap_accum_remainders1 - to_integer(cycles_per_interval);
-            gap_hypo1 <= gap_hypo1 + 1;
-          end if;
-          if gap_accum_remainders1 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders1 <= gap_accum_remainders1 + to_integer(cycles_per_interval);
-            gap_hypo1 <= gap_hypo1 - 1;
-          end if;
-          if gap_accum_remainders2 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders2 <= gap_accum_remainders2 - to_integer(cycles_per_interval);
-            gap_hypo2 <= gap_hypo2 + 1;
-          end if;
-          if gap_accum_remainders2 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders2 <= gap_accum_remainders2 + to_integer(cycles_per_interval);
-            gap_hypo2 <= gap_hypo2 - 1;
-          end if;
-          if gap_accum_remainders3 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders3 <= gap_accum_remainders3 - to_integer(cycles_per_interval);
-            gap_hypo3 <= gap_hypo3 + 1;
-          end if;
-          if gap_accum_remainders3 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders3 <= gap_accum_remainders3 + to_integer(cycles_per_interval);
-            gap_hypo3 <= gap_hypo3 - 1;
-          end if;
-          if gap_accum_remainders4 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders4 <= gap_accum_remainders4 - to_integer(cycles_per_interval);
-            gap_hypo4 <= gap_hypo4 + 1;
-          end if;
-          if gap_accum_remainders4 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders4 <= gap_accum_remainders4 + to_integer(cycles_per_interval);
-            gap_hypo4 <= gap_hypo4 - 1;
-          end if;
-          if gap_accum_remainders5 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders5 <= gap_accum_remainders5 - to_integer(cycles_per_interval);
-            gap_hypo5 <= gap_hypo5 + 1;
-          end if;
-          if gap_accum_remainders5 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders5 <= gap_accum_remainders5 + to_integer(cycles_per_interval);
-            gap_hypo5 <= gap_hypo5 - 1;
-          end if;
-          if gap_accum_remainders6 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders6 <= gap_accum_remainders6 - to_integer(cycles_per_interval);
-            gap_hypo6 <= gap_hypo6 + 1;
-          end if;
-          if gap_accum_remainders6 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders6 <= gap_accum_remainders6 + to_integer(cycles_per_interval);
-            gap_hypo6 <= gap_hypo6 - 1;
-          end if;
-          if gap_accum_remainders7 > to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders7 <= gap_accum_remainders7 - to_integer(cycles_per_interval);
-            gap_hypo7 <= gap_hypo7 + 1;
-          end if;
-          if gap_accum_remainders7 <=  -to_integer(cycles_per_interval(7 downto 1)) then
-            gap_accum_remainders7 <= gap_accum_remainders7 + to_integer(cycles_per_interval);
-            gap_hypo7 <= gap_hypo7 - 1;
-          end if;
           
 
           state <= CalculateMeanAndCountVotes;
@@ -337,10 +163,10 @@ begin
           -- Calculating the mean needs to handle the fractional part as well
           -- This will be in 8th of cycles_per_interval, so we can correct the
           -- remainder for this.
-          average <= gap_hypo0 + gap_hypo1 + gap_hypo2 + gap_hypo3
-                     + gap_hypo4 + gap_hypo5 + gap_hypo6 + gap_hypo7;
-          average_remain <= gap_accum_remainders0 + gap_accum_remainders1 + gap_accum_remainders2 + gap_accum_remainders3
-                            + gap_accum_remainders4 + gap_accum_remainders5 + gap_accum_remainders6 + gap_accum_remainders7;
+--          average <= gap_hypo0 + gap_hypo1 + gap_hypo2 + gap_hypo3
+--                     + gap_hypo4 + gap_hypo5 + gap_hypo6 + gap_hypo7;
+--          average_remain <= gap_accum_remainders0 + gap_accum_remainders1 + gap_accum_remainders2 + gap_accum_remainders3
+--                            + gap_accum_remainders4 + gap_accum_remainders5 + gap_accum_remainders6 + gap_accum_remainders7;
           
           state <= AdjustMean;
         when AdjustMean =>
