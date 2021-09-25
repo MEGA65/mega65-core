@@ -146,22 +146,22 @@ architecture Behavioral of sid6581 is
 
 	signal do_buf				: unsigned(7 downto 0)	:= (others => '0');
 
-	signal voice_1				: unsigned(11 downto 0)	:= (others => '0');
-	signal voice_2				: unsigned(11 downto 0)	:= (others => '0');
-	signal voice_3				: unsigned(11 downto 0)	:= (others => '0');
+	signal voice_1				: unsigned(11 downto 0);
+	signal voice_2				: unsigned(11 downto 0);
+	signal voice_3				: unsigned(11 downto 0);
 
-  	signal voice_1_8580			: unsigned(11 downto 0)	:= (others => '0');
-	signal voice_2_8580			: unsigned(11 downto 0)	:= (others => '0');
-	signal voice_3_8580			: unsigned(11 downto 0)	:= (others => '0');
+  	signal voice_1_8580			: unsigned(11 downto 0);
+	signal voice_2_8580			: unsigned(11 downto 0);
+	signal voice_3_8580			: unsigned(11 downto 0);
 
 	signal divide_0			: unsigned(31 downto 0)	:= (others => '0');
-	signal voice_1_PA_MSB	: std_logic := '0';
-	signal voice_2_PA_MSB	: std_logic := '0';
-	signal voice_3_PA_MSB	: std_logic := '0';
+	signal voice_1_PA_MSB	: std_logic;
+	signal voice_2_PA_MSB	: std_logic;
+	signal voice_3_PA_MSB	: std_logic;
 
-	signal voice_1_PA_MSB_8580	: std_logic := '0';
-	signal voice_2_PA_MSB_8580	: std_logic := '0';
-	signal voice_3_PA_MSB_8580	: std_logic := '0';
+	signal voice_1_PA_MSB_8580	: std_logic;
+	signal voice_2_PA_MSB_8580	: std_logic;
+	signal voice_3_PA_MSB_8580	: std_logic;
   
 	signal voice1_signed		: signed(12 downto 0) := to_signed(0,13);
 	signal voice2_signed		: signed(12 downto 0) := to_signed(0,13);
