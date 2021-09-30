@@ -249,7 +249,7 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		": version 00.99d beta     :"
+	.byte		": version 00.99e beta     :"
 infoText1:
 	.if	C64_MODE
 	.byte		": press f8 for help       :"
@@ -800,47 +800,6 @@ themeNext:
 		RTS
 
 ;-------------------------------------------------------------------------------
-<<<<<<< Updated upstream
-littleDelay:
-;-------------------------------------------------------------------------------
-		; add a slight delay
-		LDX #$00
-@inner1:
-		LDY #$00
-@inner2:
-		DEY
-		BNE @inner2
-
-		DEX
-		BNE @inner1
-		RTS
-
-;-------------------------------------------------------------------------------
-copySessionOptionsToSectorBuffer:	
-;-------------------------------------------------------------------------------
-;; As the name suggests, simply copy the specified 512 bytes to the SD card
-;; sector buffer, which is where the hypervisor expects options to be placed
-    ; disable interrupts, just in-case they are interfering
-		SEI
-
-		JMP littleDelay
-
-		; check if this is a nexys4 board
-		LDA $D629
-		AND #$40  
-		BEQ @notnexys
-
-		; for nexys4 boards, use sd card bus 0
-		LDA #$80
-		STA $D680
-		LDY #$00
-		JMP @copyLoop
-
-@notnexys:
-		; for all other boards, use sd card bus 1
-		LDA	#$81
-		STA	$D680
-=======
 copySessionOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
@@ -859,35 +818,28 @@ copySessionOptionsToSectorBuffer:
 
 		JSR	sdwaitawhile
 
->>>>>>> Stashed changes
 		LDY	#$00
-@copyLoop:	LDA	optSessBase, Y
+@copyLoop:
+		LDA	optSessBase, Y
 		STA	$DE00, Y
 		LDA	optSessBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop
-<<<<<<< Updated upstream
-		;; Set magic bytes
-=======
 
 ;	set magic bytes
->>>>>>> Stashed changes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
 
 		CLI
 		RTS
+
 ;-------------------------------------------------------------------------------
-copyDefaultOptionsToSectorBuffer:	
+copyDefaultOptionsToSectorBuffer:
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
-<<<<<<< Updated upstream
-		LDA	#$81
-		STA	$D680
-=======
 ;	disable interrupts, just in-case they are interfering
 		SEI
 
@@ -902,21 +854,16 @@ copyDefaultOptionsToSectorBuffer:
 
 		JSR	sdwaitawhile
 
->>>>>>> Stashed changes
 		LDY	#$00
-@copyLoop2:	
+@copyLoop2:
 		LDA	optDfltBase, Y
 		STA	$DE00, Y
 		LDA	optDfltBase+$100, Y
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop2
-<<<<<<< Updated upstream
-		;; Set magic bytes
-=======
 
 ;	set magic bytes
->>>>>>> Stashed changes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
@@ -929,12 +876,12 @@ copyDefaultOptionsToSectorBuffer:
 hypervisorApplyConfig:
 ;-------------------------------------------------------------------------------
 ;; Apply options in optSessBase
-			JSR	copySessionOptionsToSectorBuffer
-			LDA	#$04
-			STA	$D642
-			NOP
-			RTS
-	
+		JSR	copySessionOptionsToSectorBuffer
+		LDA	#$04
+		STA	$D642
+		NOP
+		RTS
+
 ;-------------------------------------------------------------------------------
 hypervisorSaveConfig:
 ;-------------------------------------------------------------------------------
@@ -947,7 +894,7 @@ hypervisorSaveConfig:
 
 	.if	.not C64_MODE
 ;-------------------------------------------------------------------------------
-hypervisorLoadOrResetConfig:	
+hypervisorLoadOrResetConfig:
 ;-------------------------------------------------------------------------------
 ;;	 Load current options sector from SD card using Hypervisor trap		
 		
