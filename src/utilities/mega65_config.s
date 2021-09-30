@@ -1,13 +1,15 @@
 ;===============================================================================
 ;M65 Configuration Utility
-;-------------------------
+;===============================================================================
 ;
 ;Version 00.99D beta
 ;
 ;Written by Daniel England for the MEGA65 project.
+;-------------------------------------------------------------------------------
 ;
-;The mouse driver was cobbled together from the example in the 1351 Programmer's
-;Reference Guide and the ca65/cc65 example driver, modified for our purposes.
+;The mouse driver was initially cobbled together from the example in the 1351 
+;Programmer's Reference Guide and the ca65/cc65 example driver.  It was further
+;modified by Paul Gardner-Stephen to enhance precision.
 ;
 ;A small portion of the C64 Kernal's reset routines have been copied and 
 ;utilised.
@@ -15,7 +17,7 @@
 ;===============================================================================
 
 
-;-------------------------------------------------------------------------------
+;===============================================================================
 ;Defines
 ;-------------------------------------------------------------------------------
 ;	I'm enabling "leading_dot_in_identifiers" because I prefer to use a 
@@ -26,10 +28,6 @@
 
 	.feature	leading_dot_in_identifiers, loose_string_term
 
-	.macro 	.defPStr Arg
-	.byte  	.strlen(Arg), Arg
-	.endmacro
-	
 ;	Set this define to 1 to run in "C64 mode" (uses the Kernal and will run
 ;	on a C64, using only C64 features).  Set to 0 to run in "M65 mode" 
 ;	(doesn't use Kernal, uses M65 features).  This is for the sake of 
@@ -45,25 +43,41 @@
 	.setcpu		"4510"
 	.endif
 	
-	.macro	LDA_HYPERIO
-	.if	.not C64_MODE
-		LDA	(ptrTempData), Y
-	.else
-		LDA	#$00
-	.endif
-	.endmacro
-	
-	.macro	STA_HYPERIO
-	.if	.not C64_MODE
-		STA	(ptrTempData), Y
-	.endif
-	.endmacro
-	
-		
-;-------------------------------------------------------------------------------
+;===============================================================================
 
 
+;===============================================================================
+;ZPage storage
 ;-------------------------------------------------------------------------------
+ptrCurrOpts	=	$40			;Might be able to be non-ZP
+selectedOpt	=	$42			;Might be able to be non-ZP
+optTempLine	=	$43			;Might be able to be non-ZP
+optTempIndx	=	$44			;Might be able to be non-ZP
+tabSelected	=	$45			;Might be able to be non-ZP
+saveSlctOpt	=	$46			;Might be able to be non-ZP
+progTermint	=	$47			;Might be able to be non-ZP
+pgeSelected	=	$48			;Might be able to be non-ZP
+currPageCnt	=	$49			;Might be able to be non-ZP
+
+ptrTempData	=	$A5
+crsrIsDispl	=	$A7			;Might be able to be non-ZP
+ptrCrsrSPos	=	$A8			
+ptrNextInsP	=	$AA
+currTextLen	=	$AC			;Might be able to be non-ZP
+currTextMax	=	$AD			;Might be able to be non-ZP
+ptrIRQTemp0	=	$AE
+ptrPageIndx	=	$B0
+currMACByte	=	$B2			;Might be able to be non-ZP
+currMACNybb	=	$B3			;Might be able to be non-ZP
+
+zp32		=	$F7	; 32-bit pointer for far memory access
+	
+ptrOptsTemp	=	$FB
+ptrCurrHeap	=	$FD
+;===============================================================================
+
+
+;===============================================================================
 ;Constants
 ;-------------------------------------------------------------------------------
 optLineOffs	=	$04
@@ -131,78 +145,32 @@ keyF6		=	$F6
 keyF7		=	$F7
 keyF8		=	$F8
 keyF9		=	$F9
-;keyF10		=	$FA			;Doesn't work?
 keyHELP		= $1F
 	.endif
 
-;Corporate
-;CLR_CTLTXT =	$00
-;CLR_BCKGND	=	$06
-;CLR_HIGHLT	=	$01
-;CLR_CTRLFC	=	$0F
-;CLR_INACTV	=	$0E
-;HDR_COLORS	=	$01
-
-;Familiar
-;CLR_CTLTXT =	$00
-;CLR_BCKGND	=	$0E
-;CLR_HIGHLT	=	$01
-;CLR_CTRLFC	=	$0F
-;CLR_INACTV	=	$04
-;HDR_COLORS	=	$00
-
-;Traditional
-;CLR_CTLTXT =	$06
-;CLR_BCKGND	=	$0E
-;CLR_HIGHLT	=	$01
-;CLR_CTRLFC	=	$0F
-;CLR_INACTV	=	$03
-;HDR_COLORS	=	$00
-
-;Slate
-;CLR_CTLTXT =	$00
-;CLR_BCKGND	=	$0B
-;CLR_HIGHLT	=	$01
-;CLR_CTRLFC	=	$0F
-;CLR_INACTV	=	$0C
-;HDR_COLORS	=	$00
-
-
-;-------------------------------------------------------------------------------
-
-
-;-------------------------------------------------------------------------------
-;ZPage storage
-;-------------------------------------------------------------------------------
-ptrCurrOpts	=	$40			;Might be able to be non-ZP
-selectedOpt	=	$42			;Might be able to be non-ZP
-optTempLine	=	$43			;Might be able to be non-ZP
-optTempIndx	=	$44			;Might be able to be non-ZP
-tabSelected	=	$45			;Might be able to be non-ZP
-saveSlctOpt	=	$46			;Might be able to be non-ZP
-progTermint	=	$47			;Might be able to be non-ZP
-pgeSelected	=	$48			;Might be able to be non-ZP
-currPageCnt	=	$49			;Might be able to be non-ZP
-
-ptrTempData	=	$A5
-crsrIsDispl	=	$A7			;Might be able to be non-ZP
-ptrCrsrSPos	=	$A8			
-ptrNextInsP	=	$AA
-currTextLen	=	$AC			;Might be able to be non-ZP
-currTextMax	=	$AD			;Might be able to be non-ZP
-ptrIRQTemp0	=	$AE
-ptrPageIndx	=	$B0
-currMACByte	=	$B2			;Might be able to be non-ZP
-currMACNybb	=	$B3			;Might be able to be non-ZP
-
-zp32		=	$F7	; 32-bit pointer for far memory access
+	.macro 	.defPStr Arg
+	.byte  	.strlen(Arg), Arg
+	.endmacro
 	
-ptrOptsTemp	=	$FB
-ptrCurrHeap	=	$FD
-;-------------------------------------------------------------------------------
+	.macro	LDA_HYPERIO
+	.if	.not C64_MODE
+		LDA	(ptrTempData), Y
+	.else
+		LDA	#$00
+	.endif
+	.endmacro
+	
+	.macro	STA_HYPERIO
+	.if	.not C64_MODE
+		STA	(ptrTempData), Y
+	.endif
+	.endmacro
+	
+		
+;===============================================================================
 
 
-;-------------------------------------------------------------------------------
+;===============================================================================
 ;BASIC interface 
 ;-------------------------------------------------------------------------------
 	.code
@@ -219,10 +187,10 @@ _basNext:
 	.assert	    * = $080D, error, "BASIC Loader incorrect!"
 bootstrap:
 		JMP	init
-;-------------------------------------------------------------------------------
+;===============================================================================
 
 
-;-------------------------------------------------------------------------------
+;===============================================================================
 ;Global data
 ;-------------------------------------------------------------------------------
 ;signature for utility menu
@@ -318,12 +286,12 @@ saveConfOnBoard1:
 saveConfSave0:
 	.defPStr	"are you sure you wish to save"
 saveConfFactory0:
-	  .defPStr	   "the factory defaults and continue?"
+	  .defPStr	"the factory defaults and continue?"
 saveConfDflt0:
 	.defPStr	"as the defaults and exit?"
 	
 saveConfRest0:
-	.defPStr	   "reset your machine now"
+	.defPStr	"reset your machine now"
 
 errorLine:
 	.byte		"config data corrupt. press f14 to reset."
@@ -371,6 +339,30 @@ helpTexts:
 	.byte	$00
 
 
+sdErrorTxt0:
+	.defPStr	"mega65 configuration cannot start!"
+sdErrorTxt1:
+	.defPStr	"there was a problem in the detection"
+sdErrorTxt2:
+	.defPStr	"of your sd card."
+sdErrorTxt3:
+	.defPStr	"a properly formatted sd card is"
+sdErrorTxt4:
+	.defPStr	"required for operation."
+sdErrorTxt5:
+	.defPStr	"please turn off your mega65 and"
+sdErrorTxt6:
+	.defPStr	"insert an sd card to continue."
+
+
+sdErrorTexts:
+	.word	helpTextD, sdErrorTxt0, helpTextD, helpTextD
+	.word	sdErrorTxt1, sdErrorTxt2, helpTextD, helpTextD
+	.word	sdErrorTxt3, sdErrorTxt4, helpTextD
+	.word	sdErrorTxt5, sdErrorTxt6
+	.byte	$00
+
+
 ;	This will tell us whats happening on each line so we can use quick 
 ;	look-ups for the mouse etc.  Only optLineMaxC of the lines on the 
 ;	screen can be used (see above).  This will need to be adhered to by
@@ -385,19 +377,41 @@ helpLastTab:
 	.byte	$00
 helpLastPage:
 	.byte	$00
-	
+
+sdcSlot:
+	.byte	$00
+
+sdcounter:
+	.dword	$00000000
+;===============================================================================
+
+
+
+;===============================================================================
+;Page definitions
+;-------------------------------------------------------------------------------
 
 	.include	"mega65_config.inc"
 
+;===============================================================================
 
+
+;===============================================================================
+;===============================================================================
+;===============================================================================
+
+
+;===============================================================================
+;Code
 ;-------------------------------------------------------------------------------
 init:
 ;-------------------------------------------------------------------------------
 ;	Init screen
-		LDA	clr_bckgnd			;Border colour
+;		LDA	clr_bckgnd			;Border colour
+		LDA	#$00
 		STA	$D020
 		
-		LDA	clr_ctltxt			;Screen colour
+;		LDA	clr_ctltxt			;Screen colour
 		STA	$D021
 
 		LDA	#$14				;Set screen address to $0400, upper-case font
@@ -414,31 +428,51 @@ init:
 		SEI						;disable the interrupts
 	
 		JSR	initState
-		
-		JSR	themeNext
-		
+
 	.if	.not DEBUG_MODE
 	.if	.not C64_MODE
+		JSR	selectSDC
+
+		LDA	sdcSlot
+		CMP	#$FF
+		BEQ	@cont0
+
 ;		JSR	checkSanity
 		JSR	hypervisorLoadOrResetConfig
 		JSR	checkMagicBytes
 	.endif
 	.endif
-		
+
+@cont0:
 		JSR	initMouse
 		
 		CLI				;enable the interrupts
 		
 		LDA	#$00
-		STA	tabSelected
 		STA	progTermint
-		
+		STA	tabSelected
+
+		LDA	sdcSlot
+		CMP	#$FF
+		BNE	@cont1
+
+		LDA	#tabHelpIdx
+		STA	tabSelected
+@cont1:
+
 		LDA	#$00
 		STA	mouseLastY
 		STA	mouseLastY + 1
 		STA	mouseYRow
 		
+		LDA	sdcSlot
+		CMP	#$FF
+		BEQ	@cont2
+
 		JSR	readDefaultOpts
+
+@cont2:
+		JSR	themeNext
 
 		JSR	setupSelectedTab
 		
@@ -603,6 +637,123 @@ main:
 
 
 ;-------------------------------------------------------------------------------
+sdwaitawhile:
+;-------------------------------------------------------------------------------
+		JSR	sdtimeoutreset
+
+@sw1:
+		INC	sdcounter + 0
+		BNE	@sw1
+		INC	sdcounter + 1
+		BNE	@sw1
+		INC	sdcounter + 2
+		BNE @sw1
+
+		RTS
+
+
+;-------------------------------------------------------------------------------
+sdtimeoutreset:
+;-------------------------------------------------------------------------------
+;	count to timeout value when trying to read from SD card
+;	(if it is too short, the SD card won't reset)
+
+		LDA	#$00
+		STA	sdcounter + 0
+		STA	sdcounter + 1
+		LDA	#$F3
+		STA	sdcounter + 2
+
+		RTS
+
+
+;-------------------------------------------------------------------------------
+selectSDC:
+;-------------------------------------------------------------------------------
+;@wait0:
+;		INC	$D020
+;		LDA	$D610
+;		BEQ	@wait0
+;		LDA	#$00
+;		STA	$D610
+;		STA	$D020
+
+		LDA	#$81
+		STA	$D680
+
+		JSR	sdwaitawhile
+
+;	Work out if we are using primary or secondard SD card
+
+;	First try resetting card 1 (external)
+;	so that if you have an external card, it will be used in preference
+		LDA	#$C1
+		STA	$D680
+		LDA	#$00
+		STA	$D680
+		LDA	#$01
+		STA	$D680
+
+		LDX	#$03
+@morewaiting:
+		JSR sdwaitawhile
+
+		LDA	$D680
+		AND	#$03
+		BNE	@trybus0
+
+		LDA	#$C1
+		STA	sdcSlot
+
+		JMP @tryreadmbr
+
+@trybus0:
+		DEX
+		BNE	@morewaiting
+
+		LDA	#$C0
+		STA	$D680
+
+;	Try resetting card 0
+		LDA	#$00
+		STA	$D680
+		LDA	#$01
+		STA	$D680
+
+		JSR	sdwaitawhile
+
+		LDA	$D680
+		AND	#$03
+		BEQ	@select0
+
+;	No working SD card 
+		LDA	#$FF
+		STA	sdcSlot
+
+		JMP	@exit
+
+@select0:
+		LDA	#$C0
+		STA	sdcSlot
+
+@tryreadmbr:
+;		JSR	readmbr
+;		BCS	gotmbr
+
+@exit:
+
+;@wait1:
+;		INC	$D020
+;		LDA	$D610
+;		BEQ	@wait1
+;		LDA	#$00
+;		STA	$D610
+;		STA	$D020
+
+		RTS
+
+
+;-------------------------------------------------------------------------------
 themeNext:
 ;-------------------------------------------------------------------------------
 		LDX	themeIndex
@@ -649,6 +800,7 @@ themeNext:
 		RTS
 
 ;-------------------------------------------------------------------------------
+<<<<<<< Updated upstream
 littleDelay:
 ;-------------------------------------------------------------------------------
 		; add a slight delay
@@ -688,6 +840,26 @@ copySessionOptionsToSectorBuffer:
 		; for all other boards, use sd card bus 1
 		LDA	#$81
 		STA	$D680
+=======
+copySessionOptionsToSectorBuffer:
+;-------------------------------------------------------------------------------
+;; As the name suggests, simply copy the specified 512 bytes to the SD card
+;; sector buffer, which is where the hypervisor expects options to be placed
+;	disable interrupts, just in-case they are interfering
+		SEI
+
+;	enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+		LDA	#$81
+		STA	$D680
+
+		JSR	sdwaitawhile
+
+		LDA sdcSlot
+		STA $D680
+
+		JSR	sdwaitawhile
+
+>>>>>>> Stashed changes
 		LDY	#$00
 @copyLoop:	LDA	optSessBase, Y
 		STA	$DE00, Y
@@ -695,18 +867,42 @@ copySessionOptionsToSectorBuffer:
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop
+<<<<<<< Updated upstream
 		;; Set magic bytes
+=======
+
+;	set magic bytes
+>>>>>>> Stashed changes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
+
+		CLI
 		RTS
 ;-------------------------------------------------------------------------------
 copyDefaultOptionsToSectorBuffer:	
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
+<<<<<<< Updated upstream
 		LDA	#$81
 		STA	$D680
+=======
+;	disable interrupts, just in-case they are interfering
+		SEI
+
+;	enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
+		LDA	#$81
+		STA	$D680
+
+		JSR	sdwaitawhile
+
+		LDA sdcSlot
+		STA $D680
+
+		JSR	sdwaitawhile
+
+>>>>>>> Stashed changes
 		LDY	#$00
 @copyLoop2:	
 		LDA	optDfltBase, Y
@@ -715,10 +911,18 @@ copyDefaultOptionsToSectorBuffer:
 		STA	$DF00, Y
 		DEY
 		BNE	@copyLoop2
+<<<<<<< Updated upstream
 		;; Set magic bytes
+=======
+
+;	set magic bytes
+>>>>>>> Stashed changes
 		LDA	#$01
 		STA	$DE00
 		STA	$DE01
+
+		CLI
+
 		RTS
 
 ;-------------------------------------------------------------------------------
@@ -755,8 +959,17 @@ hypervisorLoadOrResetConfig:
 ;;	 Copy from sector buffer to optDfltBase
 		LDA	#$81
 		STA	$D680
+
+		JSR	sdwaitawhile
+
+		LDA sdcSlot
+		STA $D680
+
+		JSR	sdwaitawhile
+
 		LDX	#$00
-@rl:		LDA	$DE00, X
+@rl:		
+		LDA	$DE00, X
 		STA	optDfltBase, X
 		LDA	$DF00, X
 		STA	optDfltBase+$100, X
@@ -767,7 +980,7 @@ hypervisorLoadOrResetConfig:
 		STA	$D680
 
 ;;; Work-around for retrieving Real-Time Clock values for editing
-	jsr readRealTimeClock
+		jsr readRealTimeClock
 
 ;;	 Check for empty config
 		LDA	optDfltBase+0
@@ -779,7 +992,8 @@ getDefaultSettings:
 ;;	 Empty config, so zero out and reset		
 		LDA	#$00
 		TAX
-@rl2:		STA	optDfltBase, X
+@rl2:	
+		STA	optDfltBase, X
 		STA	optDfltBase+$100,X
 		DEX
 		BNE	@rl2
@@ -806,7 +1020,7 @@ getDefaultSettings:
 		STA	$DE06
 		STA	$D6E9
 
-	jsr readRealTimeClock
+		jsr readRealTimeClock
 	
 		RTS
 
@@ -1381,6 +1595,19 @@ saveExitToOnboard:
 
 		RTS
 
+
+;-------------------------------------------------------------------------------
+doWaitForUser:
+;-------------------------------------------------------------------------------
+@wait0:
+		INC	$D020
+		LDA	$D610
+		BEQ	@wait0
+		LDA	#$00
+		STA	$D610
+		STA	$D020
+		RTS
+
 ;-------------------------------------------------------------------------------
 doSaveOptions:
 ;-------------------------------------------------------------------------------
@@ -1394,6 +1621,8 @@ doSaveOptions:
 		STA	ptrOptsTemp
 		LDA	inputPageIndex + 1, X
 		STA	ptrOptsTemp + 1
+
+;		JSR	doWaitForUser
 
 		JSR	doSaveOptList
 		BCC	@cont
@@ -1417,6 +1646,8 @@ doSaveOptions:
 		LDA	chipsetPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
+;		JSR	doWaitForUser
+
 		JSR	doSaveOptList
 		BCS	@error
 		
@@ -1435,6 +1666,8 @@ doSaveOptions:
 		STA	ptrOptsTemp
 		LDA	videoPageIndex + 1, X
 		STA	ptrOptsTemp + 1
+
+;		JSR	doWaitForUser
 
 		JSR	doSaveOptList
 		BCS	@error
@@ -1455,6 +1688,8 @@ doSaveOptions:
 		LDA	audioPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
+;		JSR	doWaitForUser
+
 		JSR	doSaveOptList
 		BCS	@error
 		
@@ -1474,6 +1709,8 @@ doSaveOptions:
 		LDA	networkPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
+;		JSR	doWaitForUser
+
 		JSR	doSaveOptList
 		BCS	@error
 		
@@ -1484,9 +1721,17 @@ doSaveOptions:
 
 @exit:
 		RTS
+		
 @error:
 		LDA	#$02
 		STA	$D020
+
+;@wait5:
+;		LDA	$D610
+;		BEQ	@wait5
+;		LDA	#$00
+;		STA	$D610
+
 		RTS
 
 
@@ -3566,10 +3811,14 @@ displayOptionsPage:
 		LDA	(ptrOptsTemp), Y
 		CMP	#$00
 		BEQ	@finish
-	
+
 		JSR	doDisplayOpt
-		BCS	@error
-		
+		BCC	@begin
+
+		JMP	@error
+
+
+@begin:
 ;		TYA
 ;		TAX
 ;		
@@ -3637,6 +3886,21 @@ displayOptionsPage:
 		CMP	#tabHelpIdx
 		BNE	@updateStd
 		
+		LDA	sdcSlot
+		CMP	#$FF
+		BNE	@doHelp
+
+		LDA	#$02
+		STA	$D020
+
+		JSR	updateSDErrorPage
+
+		LDA	#$01
+		STA	progTermint
+
+		JMP	@exit
+
+@doHelp:
 		JSR	updateHelpPage
 		
 		LDX	#$12
@@ -3658,7 +3922,6 @@ displayOptionsPage:
 		JSR	doUpdateSelected
 	
 @exit:
-
 		RTS
 
 @error:
@@ -3671,13 +3934,25 @@ displayOptionsPage:
 
 
 ;-------------------------------------------------------------------------------
+updateSDErrorPage:
+;-------------------------------------------------------------------------------
+		LDA	#<sdErrorTexts
+		STA	ptrCurrOpts
+		LDA #>sdErrorTexts
+		STA	ptrCurrOpts + 1
+
+		JMP	_outputLines
+
+
+;-------------------------------------------------------------------------------
 updateHelpPage:
 ;-------------------------------------------------------------------------------
 		LDA	#<helpTexts
 		STA	ptrCurrOpts
 		LDA #>helpTexts
 		STA	ptrCurrOpts + 1
-		
+
+_outputLines:
 		LDX	#$00
 		LDY	#optLineOffs - 1
 		
@@ -5204,6 +5479,14 @@ L90:
 		LDA	#$00
 		STA	flgMse1351
 	.else
+;	Very strangely, when coming from the boot menu,
+;	this  y offset is required.  What's more strange is 
+;	that this is a positive value but it causes the
+;	sprite pointer to appear higher on the screen.
+;	Value found by experimentation.
+		LDA	#$18
+		STA	$D072
+
 ;	Detect Amiga type mouse connected
 ;	NB:  This may not work in the future
 		LDA	$D61B			
