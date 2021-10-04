@@ -591,6 +591,10 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_src_skip : unsigned(15 downto 0) := x"0100";
   signal reg_dmagic_dst_skip : unsigned(15 downto 0) := x"0100";
 
+  -- If set, DMAgic list will be read from CPU's memory context, instead of from
+  -- a flat 28-bit address
+  signal dmagic_job_mapped_list : std_logic := '0';
+  
   -- Temporary registers used while loading DMA list
   signal dmagic_dest_bank_temp : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_bank_temp : unsigned(7 downto 0)  := (others => '0');
@@ -3022,7 +3026,10 @@ begin
         -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
-        -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+        -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
+        reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
+        -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
@@ -8049,6 +8056,7 @@ begin
             report "DMAgic: Enhanced DMA pending";
             dma_pending <= '1';
             state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '0';
 
                                         -- Normal DMA, use pre-set F018A/B mode
             job_is_f018b <= support_f018b;
@@ -8061,7 +8069,25 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3706"
+            or memory_access_address = x"FFD1706" then
+            report "DMAgic: Enhanced DMA pending, with MAP-honouring list reading";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '1';
 
+                                        -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+                                        -- Don't increment PC if we were otherwise going to shortcut to
+                                        -- InstructionDecode next cycle
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;
+          
           -- @IO:GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
           -- @IO:GS $D641 CPU:HTRAP01 Writing triggers hypervisor trap \$01
           -- @IO:GS $D642 CPU:HTRAP02 Writing triggers hypervisor trap \$02
@@ -8700,19 +8726,19 @@ begin
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicReadOptions =>
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicReadList =>
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicFill =>
           report "MEMORY Setting memory_access_address to dmagic_dest_addr ($"
