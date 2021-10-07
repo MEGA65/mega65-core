@@ -36,10 +36,13 @@ architecture behavioural of floppy_read_compensate is
   -- work out how to apply the previous gap times as baselines
   signal recent_gaps : vector_t := (others => to_unsigned(0,16));
 
+  signal cumulative_quant_gaps : vector_t := (others => to_unsigned(0,16));
+  
   -- Then we need the raw quantised gaps and remainders for each
   signal baseline_gaps : vector_t := (others => to_unsigned(0,16));
   signal baseline_remainders : svector_t := (others => to_signed(0,16));
 
+  
   signal average : unsigned(15 downto 0) := to_unsigned(0,16);
   signal average_remain : signed(15 downto 0) := to_signed(0,16);
   
@@ -93,7 +96,11 @@ begin
         state <= dividing_bucket_into_gap_quant0;
 
       end if;
-            
+
+      for i in 1 to 7 loop
+        cumulative_quant_gaps(i) <= cumulative_quant_gaps(i-1) + recent_gaps(i);
+      end loop;
+      
       if report_recent='1' then
         report_recent <= '0';
         report "Recent gaps (uncorr): "
@@ -116,6 +123,40 @@ begin
           & integer'image(to_integer(gap_times(1))) & ", "
           & integer'image(to_integer(gap_times(0)));
 
+        report "     Cumulative gaps: "
+          & integer'image(to_integer(cumulative_quant_gaps(7))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(6))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(5))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(4))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(3))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(2))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(1))) & ", "
+          & integer'image(to_integer(cumulative_quant_gaps(0)));
+
+        report "       Baseline gaps: "
+          & integer'image(to_integer(baseline_gaps(7)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(7))) & ", "
+          & integer'image(to_integer(baseline_gaps(6)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(6))) & ", "
+          & integer'image(to_integer(baseline_gaps(5)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(5))) & ", "
+          & integer'image(to_integer(baseline_gaps(4)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(4))) & ", " 
+          & integer'image(to_integer(baseline_gaps(3)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(3))) & ", "
+          & integer'image(to_integer(baseline_gaps(2)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(2))) & ", "
+          & integer'image(to_integer(baseline_gaps(1)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(1))) & ", "
+          & integer'image(to_integer(baseline_gaps(0)) + to_integer(recent_gaps(0)) - to_integer(cumulative_quant_gaps(0)));
+        
+        report " Baseline remainders: "
+          & integer'image(to_integer(baseline_remainders(7))) & ", "
+          & integer'image(to_integer(baseline_remainders(6))) & ", "
+          & integer'image(to_integer(baseline_remainders(5))) & ", "
+          & integer'image(to_integer(baseline_remainders(4))) & ", "
+          & integer'image(to_integer(baseline_remainders(3))) & ", "
+          & integer'image(to_integer(baseline_remainders(2))) & ", "
+          & integer'image(to_integer(baseline_remainders(1))) & ", "
+          & integer'image(to_integer(baseline_remainders(0)));
+        
+
+
+
+        
         report "             Average: "
           & integer'image(to_integer(average(15 downto 3))) & ", remainder " & integer'image(to_integer(average_remain(7 downto 3)));
       end if;
@@ -143,11 +184,13 @@ begin
           end if;
         when WaitForSums =>
 
-          -- Work out the summed whole and remainder parts
-          -- gap_time_ticks0 and gap_time_remainders0 has been updated when
-          -- this is required.
-          -- First accumulated is just the actual value:
---          gap_accum_remainders0 <= gap_time_remainders0;
+          cumulative_quant_gaps(0) <= recent_gaps(0);
+          
+          for i in 0 to 7 loop
+            baseline_gaps(i) <= gap_times(i) / to_integer(cycles_per_interval);
+            baseline_remainders(i) <= to_signed(to_integer(gap_times(i))
+                                      - ( to_integer(gap_times(i)) / to_integer(cycles_per_interval) ) * to_integer(cycles_per_interval),16);
+          end loop;
           
           if wait_counter=0 then
             state <= CorrectRemainders;
@@ -155,7 +198,16 @@ begin
             wait_counter <= wait_counter - 1;
           end if;
         when CorrectRemainders =>
-          
+
+          -- Adjust baselines for large remainders,
+          -- and calculate the mean values _before_ adjusting, so that the
+          -- maths is much easier
+          for i in 0 to 7 loop
+            if baseline_remainders(i) >= to_integer(cycles_per_interval(7 downto 1)) then
+              baseline_remainders(i) <= baseline_remainders(i) - to_integer(cycles_per_interval);
+              baseline_gaps(i) <= baseline_gaps(i) + 1;
+            end if;
+          end loop;
 
           state <= CalculateMeanAndCountVotes;
         when CalculateMeanAndCountVotes =>
