@@ -571,6 +571,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_spiral_len_remaining : integer range 0 to 41 := 0;
   signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
   signal reg_dmagic_floppy_mode : std_logic := '0';
+  signal reg_dmagic_floppy_ignore_ff : std_logic := '0';
   
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
@@ -1444,6 +1445,9 @@ architecture Behavioural of gs4510 is
   signal div_q : unsigned(63 downto 0);
   signal div_start_over : std_logic := '0';  
   signal div_busy : std_logic := '0';  
+
+  signal floppy_gap_strobe_sharp : std_logic := '0';
+  signal last_floppy_gap_strobe : std_logic := '0';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -3670,6 +3674,12 @@ begin
 
     if rising_edge(clock) then
 
+      if floppy_gap_strobe='1' and last_floppy_gap_strobe='0' then
+        floppy_gap_strobe_sharp <= '1';
+      else
+        floppy_gap_strobe_sharp <= '0';
+      end if;
+      
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
       pwm_mode_select <= pwm_mode_select_int;
       
@@ -5353,7 +5363,10 @@ begin
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
                     when x"0A" => job_is_f018b <= '0';
                     when x"0B" => job_is_f018b <= '1';
+                    when x"0E" => reg_dmagic_floppy_mode <= '1';
+                                  reg_dmagic_floppy_ignore_ff <= '1';
                     when x"0F" => reg_dmagic_floppy_mode <= '1';
+                                  reg_dmagic_floppy_ignore_ff <= '0';
                     when x"53" => reg_dmagic_draw_spiral <= '1';
                                   reg_dmagic_spiral_phase <= "00";
                                   reg_dmagic_spiral_len <= 39;
@@ -5695,7 +5708,7 @@ begin
                   state <= DMAgicFillPauseForAudioDMA;
                 end if;
 
-                if reg_dmagic_floppy_mode='1' and floppy_gap_strobe='0' then
+                if reg_dmagic_floppy_mode='1' and (floppy_gap_strobe='0' or (reg_dmagic_floppy_ignore_ff='1' and floppy_last_gap=x"ff")) then
                   state <= DMAgicFillPauseForFloppyWait;
                 end if;
                 
@@ -6086,7 +6099,7 @@ begin
                 state <= DMAgicFill;
               end if;
             when DMAgicFillPauseForFloppyWait =>
-              if floppy_gap_strobe = '1' then
+              if floppy_gap_strobe_sharp = '1' and (reg_dmagic_floppy_ignore_ff='0' or floppy_last_gap/=x"ff") then
                 state <= DMAgicFill;
                 -- Get updated floppy gap value into the spot that DMAgic will
                 -- use as the fill value.
