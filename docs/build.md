@@ -121,9 +121,24 @@ The following is assumed:
 1. you have ```gnat``` installed (for compiling the GHDL submodule)
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence (recommended that you install to directory /opt/Xilinx to prevent issue with makefile)
 
-Overview of the compile process:
+Overview of the compile process. Choose the specific make target to suit the device that you are targetting:
 
-1. ```make```,
+__MEGA65 Rev3 boards__:
+Aka dev kits and final release model:
+1. Bitstream: `make bin/mega65r3.bit`
+2. MCS file for Vivado: `make bin/mega65r3.mcs`
+
+__MEGA65 Rev2 boards__:
+1. Bitstream: `make bin/mega65r2.bit`
+2. MCS file for Vivado: `make bin/mega65r2.mcs`
+
+__Nexys4DDR (A7) boards__:
+1. Bitstream: `make bin/nexys4ddr-widget.bit`
+2. MCS file for Vivado: `make bin/nexys4ddr-widget.mcs`
+
+__Nexys4 boards__:
+1. Bitstream: `make bin/nexys4.bit`
+2. MCS file for Vivado: `make bin/nexys4.mcs`
 
 The following instructions are for running in the fpga.
 
