@@ -575,6 +575,14 @@ fpacksimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/
 	$(GHDL) -m test_framepacker
 	( ./test_framepacker || $(GHDL) -r test_framepacker )
 
+HWSC_FILES=	$(VHDLSRCDIR)/test_sc.vhdl $(VHDLSRCDIR)/sc_cell_calc.vhdl 
+scsimulate: $(GHDL_DEPEND) $(HWSC_FILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(HWSC_FILES)
+	$(GHDL) -m test_sc
+	( ./test_i2c || $(GHDL) -r test_sc )
+
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
