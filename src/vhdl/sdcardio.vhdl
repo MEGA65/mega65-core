@@ -3747,7 +3747,7 @@ begin  -- behavioural
                 crc_byte <= saved_cycles_per_interval;
                 crc_feed <= '1';
               when 1006 =>
-                -- Track Info: Encoding: bit7 = MFM(0)/RLL(1).
+                -- Track Info: Encoding: bits0-3: 0=MFM, 1=RLL2,7. Others reserved
                 -- bit6 = track-at-once(1)/normal sectors with gaps that can be
                 -- written to individually(0)
                 -- Other bits reserved
@@ -3772,6 +3772,7 @@ begin  -- behavioural
                 crc_feed <= '1';
               when 1008 =>
                 -- Track Info: First CRC byte
+                crc_feed <= '0';
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
               when 1009 =>
