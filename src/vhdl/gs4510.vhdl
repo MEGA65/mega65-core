@@ -1447,8 +1447,8 @@ architecture Behavioural of gs4510 is
   signal div_start_over : std_logic := '0';  
   signal div_busy : std_logic := '0';  
 
-  signal floppy_last_gap : unsigned(7 downto 0) := x"00";
-  signal floppy_gap : unsigned(7 downto 0) := x"00";
+  signal floppy_last_gap : unsigned(11 downto 0) := x"000";
+  signal floppy_gap : unsigned(11 downto 0) := x"000";
   signal floppy_gap_strobe : std_logic := '0';        
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
@@ -3680,10 +3680,10 @@ begin
       if f_read='0' and f_read_last='1' then
         floppy_gap_strobe <= '1';
         floppy_last_gap <= floppy_gap;
-        floppy_gap <= x"00";
+        floppy_gap <= x"000";
       else
         floppy_gap_strobe <= '0';
-        if floppy_gap /= x"ff" then
+        if floppy_gap /= x"fff" then
           floppy_gap <= floppy_gap + 1;
         end if;
       end if;
@@ -6122,7 +6122,7 @@ begin
                 state <= DMAgicFill;
                 -- Get updated floppy gap value into the spot that DMAgic will
                 -- use as the fill value.
-                dmagic_src_addr(15 downto 8) <= floppy_last_gap;
+                dmagic_src_addr(15 downto 8) <= floppy_last_gap(8 downto 1);
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
