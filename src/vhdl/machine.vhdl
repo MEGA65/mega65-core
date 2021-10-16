@@ -993,8 +993,7 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
-      floppy_last_gap => floppy_last_gap,
-      floppy_gap_strobe => floppy_gap_strobe,
+      f_read => f_rdata,
       
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
