@@ -540,7 +540,7 @@ architecture Behavioural of gs4510 is
   signal dma_checksum : unsigned(23 downto 0) := x"000000";
   signal dmagic_cmd : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_subcmd : unsigned(7 downto 0)  := (others => '0');	-- F018A/B extention
-  signal dmagic_count : unsigned(15 downto 0)  := (others => '0');
+  signal dmagic_count : unsigned(23 downto 0)  := (others => '0');
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
@@ -5296,7 +5296,7 @@ begin
                   when x"84" => reg_dmagic_dst_skip(7 downto 0) <= memory_read_value;
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
                   when x"85" => reg_dmagic_dst_skip(15 downto 8) <= memory_read_value;
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
                   when x"86" => reg_dmagic_transparent_value <= memory_read_value;
                   -- For hardware line drawing, we need to know about the
                   -- screen layout.  Note that this only works for
@@ -5323,6 +5323,8 @@ begin
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
+                  when x"90" => dmagic_count(23 downto 16) <= memory_read_value;
                   -- Similar for reading from sources at funny angles, to more
                   -- readily support rotating textures
                   when x"97" => reg_dmagic_s_x8_offset(7 downto 0) <= memory_read_value;
@@ -5395,7 +5397,7 @@ begin
               dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
               dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
-              dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
+              dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);              
               dmagic_cmd <= dmagic_count(7 downto 0);
               if (job_is_f018b = '0') and (dmagic_list_counter = 10) then
                 state <= DMAgicGetReady;
@@ -5413,6 +5415,12 @@ begin
                 & to_hstring(dmagic_src_addr(23 downto 8))
                 & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
                 & ", count=$" & to_hstring(dmagic_count);
+              -- If count=0, then it means 64KB
+              -- UNLESS we have set the MSB of the count to allow
+              -- jobs >64KB
+              if dmagic_count = x"000000" then
+                dmagic_count <= x"010000";
+              end if;
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               if (job_is_f018b = '1') then
                 dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
