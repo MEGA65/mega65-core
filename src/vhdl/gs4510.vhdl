@@ -272,7 +272,8 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
-  signal f_read_last : std_logic := '1';
+  signal f_rdata : std_logic := '1';
+  signal f_rdata_last : std_logic := '1';
   
   signal iec_bus_slow_enable : std_logic := '0';
   signal iec_bus_slowdown : std_logic := '0';
@@ -3676,8 +3677,9 @@ begin
 
     if rising_edge(clock) then
 
-      f_read_last <= f_read;
-      if f_read='0' and f_read_last='1' then
+      f_rdata <= f_read;
+      f_rdata_last <= f_rdata;
+      if f_rdata='0' and f_rdata_last='1' then
         floppy_gap_strobe <= '1';
         floppy_last_gap <= floppy_gap;
         floppy_gap <= x"000";
