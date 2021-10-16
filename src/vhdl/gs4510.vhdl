@@ -187,8 +187,7 @@ entity gs4510 is
     
     proceed_dbg_out : out std_logic;
 
-    floppy_last_gap : in unsigned(7 downto 0) := x"00";
-    floppy_gap_strobe : in std_logic := '0';
+    f_read : in std_logic;
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -273,6 +272,8 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal f_read_last : std_logic := '1';
+  
   signal iec_bus_slow_enable : std_logic := '0';
   signal iec_bus_slowdown : std_logic := '0';
   signal iec_bus_cooldown : integer range 0 to 65535 := 0;
@@ -1445,8 +1446,9 @@ architecture Behavioural of gs4510 is
   signal div_start_over : std_logic := '0';  
   signal div_busy : std_logic := '0';  
 
-  signal floppy_gap_strobe_sharp : std_logic := '0';
-  signal last_floppy_gap_strobe : std_logic := '0';
+  signal floppy_last_gap : unsigned(7 downto 0) := x"00";
+  signal floppy_gap : unsigned(7 downto 0) := x"00";
+  signal floppy_gap_strobe : std_logic := '0';        
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -3671,11 +3673,20 @@ begin
 
     if rising_edge(clock) then
 
-      if floppy_gap_strobe='1' and last_floppy_gap_strobe='0' then
-        floppy_gap_strobe_sharp <= '1';
+      f_read_last <= f_read;
+      if f_read='0' and f_read_last='1' then
+        floppy_gap_strobe <= '1';
+        floppy_last_gap <= floppy_gap;
+        floppy_gap <= x"00";
       else
-        floppy_gap_strobe_sharp <= '0';
+        floppy_gap_strobe <= '0';
+        if floppy_gap /= x"ff" then
+          floppy_gap <= floppy_gap + 1;
+        end if;
       end if;
+        
+        
+      
       
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
       pwm_mode_select <= pwm_mode_select_int;
@@ -6104,7 +6115,7 @@ begin
                 state <= DMAgicFill;
               end if;
             when DMAgicFillPauseForFloppyWait =>
-              if floppy_gap_strobe_sharp = '1' and (reg_dmagic_floppy_ignore_ff='0' or floppy_last_gap/=x"ff") then
+              if floppy_gap_strobe = '1' and (reg_dmagic_floppy_ignore_ff='0' or floppy_last_gap/=x"ff") then
                 state <= DMAgicFill;
                 -- Get updated floppy gap value into the spot that DMAgic will
                 -- use as the fill value.
