@@ -219,6 +219,7 @@ entity iomapper is
          f_writeprotect : in std_logic;
          f_rdata : in std_logic;
          f_diskchanged : in std_logic;
+         f_rdata_loopback : out std_logic;
 
 
         
@@ -1432,6 +1433,7 @@ begin
     f_writeprotect => f_writeprotect,
     f_rdata => f_rdata,
     f_diskchanged => f_diskchanged,
+    f_rdata_loopback => f_rdata_loopback,
 
     dipsw => dipsw,
     sw => sw,
