@@ -765,6 +765,8 @@ architecture Behavioral of machine is
   signal floppy_gap_strobe : std_logic := '0';
   signal f_wdata_sd : std_logic := '1';
   signal f_wdata_cpu : std_logic := '1';
+  signal f_rdata_switched : std_logic := '0';
+  signal f_rdata_loopback : std_logic;
   
 begin
 
@@ -829,7 +831,14 @@ begin
 
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
---      f_wdata <= f_wdata_sd and f_wdata_cpu;
+      f_wdata <= f_wdata_sd and f_wdata_cpu;
+      -- Similarly allow looping back of floppy write to read for debugging
+      -- and also investigating write precomp requirements/effects etc
+      if f_rdata_loopback='1' then
+        f_rdata_switched <= f_wdata_sd and f_wdata_cpu;
+      else
+        f_rdata_switched <= f_rdata;
+      end if;
       
       pal50_select_out <= pal50_select;
       
@@ -999,7 +1008,7 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
-      f_read => f_rdata,
+      f_read => f_rdata_switched,
       f_write => f_wdata_cpu,
       
       cpu_pcm_left => cpu_pcm_left,
@@ -1583,14 +1592,15 @@ begin
     f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
-    f_wdata => f_wdata, -- _sd,
+    f_wdata => f_wdata_sd,
     f_wgate => f_wgate,
     f_side1 => f_side1,
     f_index => f_index,
     f_track0 => f_track0,
     f_writeprotect => f_writeprotect,
-    f_rdata => f_rdata,
-    f_diskchanged => f_diskchanged,
+    f_rdata => f_rdata_switched,
+      f_diskchanged => f_diskchanged,
+      f_rdata_loopback => f_rdata_loopback,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port

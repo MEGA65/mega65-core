@@ -149,6 +149,7 @@ entity sdcardio is
     f_writeprotect : in std_logic;
     f_rdata : in std_logic;
     f_diskchanged : in std_logic;
+    f_rdata_loopback : out std_logic := '0';
 
     sd1541_data : out unsigned(7 downto 0) := x"FF";
     sd1541_ready_toggle : out std_logic := '0';
@@ -205,6 +206,8 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal f_rdata_loopback_int : std_logic := '0';
+  
   signal saved_fdc_encoding_mode : unsigned(3 downto 0) := x"0";
   signal fdc_encoding_mode : unsigned(3 downto 0) := x"0";
   signal f_wdata_raw : std_logic := '0';
@@ -2530,7 +2533,13 @@ begin  -- behavioural
                 when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
-                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
+                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
+                when x"D0" =>
+                  f_rdata_loopback <= '0';
+                  f_rdata_loopback_int <= '0';
+                when x"D1" =>
+                  f_rdata_loopback <= '1';
+                  f_rdata_loopback_int <= '1';
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
