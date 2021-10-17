@@ -829,7 +829,7 @@ begin
 
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
-      f_wdata <= f_wdata_sd and f_wdata_cpu;
+--      f_wdata <= f_wdata_sd and f_wdata_cpu;
       
       pal50_select_out <= pal50_select;
       
@@ -1583,7 +1583,7 @@ begin
     f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
-    f_wdata => f_wdata_sd,
+    f_wdata => f_wdata, -- _sd,
     f_wgate => f_wgate,
     f_side1 => f_side1,
     f_index => f_index,
