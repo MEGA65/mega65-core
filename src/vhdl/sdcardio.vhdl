@@ -1355,8 +1355,7 @@ begin  -- behavioural
             -- @IO:GS $D6A7 - SD:TIRATE Track data rate from track info block
             fastio_rdata <= track_info_rate;
           when x"a8" =>
-            -- @IO:GS $D6A8 - SD:TIENCODING Track encoding from track info block ($80 = RLL2,7, $00 =
-            -- MFM, $40 = track-at-once, $00 = individually writable sectors)
+            -- @IO:GS $D6A8 - SD:TIENCODING Track encoding from track info block ($x1 = RLL2,7, $x0 = MFM, $4x = track-at-once, $0x = individually writable sectors)
             fastio_rdata <= track_info_encoding;
           when x"a9" =>
             -- @IO:GS $D6A9 - SD:TISECTORS Number of sectors from track info block
