@@ -188,6 +188,7 @@ entity gs4510 is
     proceed_dbg_out : out std_logic;
 
     f_read : in std_logic;
+    f_write : out std_logic := '1';
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -873,6 +874,7 @@ architecture Behavioural of gs4510 is
     DMAgicCopyPauseForAudioDMA,
     DMAgicFillPauseForAudioDMA,
     DMAgicFillPauseForFloppyWait,
+    DMAgicCopyFloppyWrite,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
@@ -1449,7 +1451,9 @@ architecture Behavioural of gs4510 is
 
   signal floppy_last_gap : unsigned(11 downto 0) := x"000";
   signal floppy_gap : unsigned(11 downto 0) := x"000";
-  signal floppy_gap_strobe : std_logic := '0';        
+  signal floppy_gap_strobe : std_logic := '0';
+  signal floppy_write_release_counter : integer range 0 to 8 := 0;
+  signal floppy_write_counter : unsigned(8 downto 0) := to_unsigned(0,9);
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -5366,15 +5370,19 @@ begin
                     when x"00" =>
                       report "End of Enhanced DMA option list.";
                       state <= DMAgicReadList;
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
+                      -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+                      -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
                       
                     when x"06" => reg_dmagic_use_transparent_value <= '0';               
                     when x"07" => reg_dmagic_use_transparent_value <= '1';               
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
                     when x"0A" => job_is_f018b <= '0';
                     when x"0B" => job_is_f018b <= '1';
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0D = Write floppy raw flux (use with COPY)
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0E = Read floppy raw flux, ignoring long gaps
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0F = Read floppy raw flux (use with FILL)
+                    when x"0D" => reg_dmagic_floppy_mode <= '1';
                     when x"0E" => reg_dmagic_floppy_mode <= '1';
                                   reg_dmagic_floppy_ignore_ff <= '1';
                     when x"0F" => reg_dmagic_floppy_mode <= '1';
@@ -5912,17 +5920,26 @@ begin
               cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
-                                        -- Remember value just read
+              -- Remember value just read
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
-                                        -- Set IO visibility for source
+              -- Set IO visibility for source
               cpuport_value(0) <= dmagic_src_io;
               if pending_dma_busy='1' then
                 state <= DMAgicCopyPauseForAudioDMA;
+              elsif reg_dmagic_floppy_mode='1' then
+                state <= DMAgicCopyFloppyWrite;
+                f_write <= '0';
+                -- Max floppy write gap 2x memory value, so that we can have intervals
+                -- of upto 512 clock ticks = ~12,800ns, as DD data rates require
+                -- up to ~320 ticks 
+                floppy_write_counter(8 downto 1) <= memory_read_value;
+                floppy_write_counter(0) <= '0';
+                floppy_write_release_counter <= 8;
               else
                 state <= DMAgicCopyRead;
               end if;
@@ -6111,6 +6128,17 @@ begin
             when DMAgicCopyPauseForAudioDMA =>
               if pending_dma_busy = '0' then
                 state <= DMAgicCopyRead;
+              end if;
+            when DMAgicCopyFloppyWrite =>
+              if floppy_write_release_counter = 0 then
+                f_write <= '1';
+              else
+                floppy_write_release_counter <= floppy_write_release_counter - 1;
+              end if;
+              if floppy_write_counter = 0 then
+                state <= DMAgicCopyRead;
+              else
+                floppy_write_counter <= floppy_write_counter - 1;
               end if;
             when DMAgicFillPauseForAudioDMA =>
               if pending_dma_busy = '0' then
@@ -8822,7 +8850,7 @@ begin
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 0) := x"FFFFFFF";
           
-        when DMAgicCopyRead =>
+        when DMAgicCopyRead | DMAgicCopyFloppyWrite =>
           -- Do memory read
           memory_access_read := '1';
           memory_access_resolve_address := '0';

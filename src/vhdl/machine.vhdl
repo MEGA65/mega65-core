@@ -763,6 +763,8 @@ architecture Behavioral of machine is
 
   signal floppy_last_gap : unsigned(7 downto 0);
   signal floppy_gap_strobe : std_logic := '0';
+  signal f_wdata_sd : std_logic := '1';
+  signal f_wdata_cpu : std_logic := '1';
   
 begin
 
@@ -825,6 +827,10 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
+      -- Allow CPU direct floppy writing, as well as from the SD controller
+      -- (CPU direct writing is used for DMA-based raw flux writing)
+      f_wdata <= f_wdata_sd and f_wdata_cpu;
+      
       pal50_select_out <= pal50_select;
       
       led(0) <= irq;
@@ -994,6 +1000,7 @@ begin
       pixel_frame_toggle => pixel_frame_toggle,
 
       f_read => f_rdata,
+      f_write => f_wdata_cpu,
       
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
@@ -1576,7 +1583,7 @@ begin
     f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
-    f_wdata => f_wdata,
+    f_wdata => f_wdata_sd,
     f_wgate => f_wgate,
     f_side1 => f_side1,
     f_index => f_index,
