@@ -3681,6 +3681,7 @@ begin
 
     if rising_edge(clock) then
 
+      -- DMA-based floppy reading and writing support
       f_rdata <= f_read;
       f_rdata_last <= f_rdata;
       if f_rdata='0' and f_rdata_last='1' then
@@ -3688,9 +3689,14 @@ begin
         floppy_last_gap <= floppy_gap;
         floppy_gap <= x"000";
       else
-        floppy_gap_strobe <= '0';
         if floppy_gap /= x"fff" then
+          -- Count cycles between gaps
           floppy_gap <= floppy_gap + 1;
+          floppy_gap_strobe <= '0';
+        else
+          -- Time out if no gaps for 4K cycles
+          floppy_gap <= x"000";
+          floppy_gap_strobe <= '1';
         end if;
       end if;
         
