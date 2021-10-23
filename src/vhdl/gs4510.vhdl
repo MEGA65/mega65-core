@@ -7392,7 +7392,7 @@ begin
               else
                 report "VAL32/ABS16: adding value of Z"
                   & integer'image(to_integer(reg_z))
-                  & " to " & integer'image(to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0));
+                  & " to " & integer'image(to_integer(memory_read_value&reg_addr(7 downto 0)));
 
                 reg_addr <=
                   to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
