@@ -7299,11 +7299,10 @@ begin
               else
                 report "VAL32/ABS16: adding value of Z"
                   & integer'image(to_integer(reg_z))
-                  & " to " & integer'image(to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0));
+                  & " to " & integer'image(to_integer(memory_read_value&reg_addr(7 downto 0)));
 
                 reg_addr <=
-                  to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
-                              + to_integer(reg_z),16);
+                  to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)) + to_integer(reg_z),16);
               end if;
               if is_load='1' or is_rmw='1' then
                 -- Idle memory bus while latching address
@@ -7525,9 +7524,15 @@ begin
                 end if;
               end if;
               case reg_instruction is
-                when I_ADC => flag_c <= reg_val33(32);
-                when I_CMP => flag_c <= not reg_val33(32);
-                when I_SBC => flag_c <= not reg_val33(32);
+                when I_ADC =>
+                  flag_c <= reg_val33(32);
+                  flag_v <= (reg_q33(31) xor reg_val33(31)) and (not (reg_q33(31) xor reg_val32(31))); -- reg_val33 <= reg_q33 + reg_val32;
+                when I_CMP =>
+                  flag_c <= not reg_val33(32);
+                  flag_v <= (reg_q33(31) xor reg_val33(31)) and (reg_q33(31) xor reg_val32(31)); -- reg_val33 <= reg_q33 - reg_val32
+                when I_SBC =>
+                  flag_c <= not reg_val33(32);
+                  flag_v <= (reg_q33(31) xor reg_val33(31)) and (reg_q33(31) xor reg_val32(31)); -- reg_val33 <= reg_q33 - reg_val32
                 when others =>
                   null;
               end case;
