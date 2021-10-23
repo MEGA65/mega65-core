@@ -7234,7 +7234,8 @@ begin
                                         -- Do addition of Z register as we go along, so that we don't have
                                         -- a 32-bit carry.
               reg_addr <= reg_addr + 1;
-              if (next_is_axyz32_instruction='1') and (reg_instruction!=I_LDA) then
+              if (next_is_axyz32_instruction='1') and (reg_instruction/=I_LDA) then
+                -- only bp-ind-z-idx ops are ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
                 report "VAL32/ABS32: not adding value of Z for 32-bit opcode XXXQ [$nn] because it is using 32-bit AXYZ register";
 
                 temp17 :=
@@ -7288,7 +7289,8 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when InnZReadVectorHigh =>
-              if (next_is_axyz32_instruction='1') and (reg_instruction!=I_LDA) then
+              if (next_is_axyz32_instruction='1') and (reg_instruction/=I_LDA) then
+                -- only bp-ind-z-idx ops are ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
                 report "VAL32/ABS16: not adding value of Z for 32-bit opcode XXXQ ($nn) because it is using 32-bit AXYZ register";
 
                 reg_addr <=
