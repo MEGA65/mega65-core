@@ -1773,7 +1773,14 @@ begin
         elsif register_number=32 then
           fastio_rdata <= std_logic_vector(border_colour);
         elsif register_number=33 then
-          fastio_rdata <= std_logic_vector(screen_colour);
+          -- Match C64's VIC-II behaviour of showing only the lower 4 bits of
+          -- screen colour, with the upper four bits = $F when in VIC-II IO context
+          fastio_rdata(3 downto 0) <= std_logic_vector(screen_colour(3 downto 0));
+          if register_bank /= x"D0" then
+            fastio_rdata(7 downto 4) <= std_logic_vector(screen_colour(7 downto 4));
+          else
+            fastio_rdata(7 downto 4) <= x"f";
+          end if;
         elsif register_number=34 then
           fastio_rdata <= std_logic_vector(multi1_colour);
         elsif register_number=35 then
