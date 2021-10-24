@@ -7531,7 +7531,7 @@ begin
                   flag_c <= not reg_val33(32);
                   flag_v <= (reg_q33(31) xor reg_val33(31)) and (reg_q33(31) xor reg_val32(31)); -- reg_val33 <= reg_q33 - reg_val32
                 when I_CMP => flag_c <= not reg_val33(32); -- no overflow for cmpq!
-                  when others =>
+                when others =>
                   null;
               end case;
               -- Do we need to write back to registers or not?
