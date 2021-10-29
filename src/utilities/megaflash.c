@@ -1379,6 +1379,8 @@ unsigned char user_has_been_warned(void)
 
 unsigned int base_addr;
 
+unsigned long autoboot_address=0;
+
 void main(void)
 {
   unsigned char valid;
@@ -1559,14 +1561,19 @@ void main(void)
       // XXX - For now, we just always show the menu
 
       // Check valid flag and empty state of the slot before launching it.
-      read_data(SLOT_SIZE+0*256);
+
+
+      // Allow booting from slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
+      autoboot_address=SLOT_SIZE*(1+((PEEK(0xD69D)>>3)^1));
+      
+      read_data(autoboot_address+0*256);
       y=0xff;
       valid=1;
       for(x=0;x<256;x++) y&=data_buffer[x];
       for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
       // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
       if (y==0xff) {
-        read_data(SLOT_SIZE+1*256);
+        read_data(autoboot_address+1*256);
         for(x=0;x<256;x++) y&=data_buffer[x];
       } else {
         //      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
@@ -1576,7 +1583,7 @@ void main(void)
 
       if (valid) {
         // Valid bitstream -- so start it
-        reconfig_fpga(1*(SLOT_SIZE)+4096);
+        reconfig_fpga(autoboot_address+4096);
       } else if (y==0xff) {
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
@@ -1584,8 +1591,10 @@ void main(void)
         POKE(0xCF7f,0x4C);
         asm (" jmp $cf7f ");
       } else {
-        printf("WARNING: Flash slot 1 seems to be\n"
-            "messed up (code $%02X).\n",y);
+        printf("WARNING: Flash slot %d seems to be\n"
+            "messed up (code $%02X).\n",
+	       1+((PEEK(0xD69D)>>3)&1),
+	       y);
         printf("To avoid seeing this message every time,either "
             "erase or re-flash the slot.\n");
         printf("\nPress almost any key to continue...\n");
