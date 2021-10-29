@@ -751,6 +751,14 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
 	test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
+$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(CC65_DEPEND)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagflash.prg \
+		--add-source --listing $*.list --mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+
+
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s) $(wildcard $(SRCDIR)/mega65-libc/cc65/include/*.h) $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
