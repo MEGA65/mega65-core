@@ -2877,9 +2877,11 @@ begin  -- behavioural
                 f011_mega_disk <= fastio_wdata(6);
                 f011_mega_disk2 <= fastio_wdata(7);
                 f011_disk2_write_protected <= not fastio_wdata(5);
-                -- @IO:GS $D68B.2 - F011 disk 1 write protect
+                -- GI: I note that the vhdl refers to them as disk1 and disk2, whereas our documentation prefers to call them
+                --     drive0 and drive1. So I will adjust the comments here to suit our documentation.
+                -- @IO:GS $D68B.2 - F011 drive 0 write protect
                 f011_disk1_write_protected <= not fastio_wdata(2);                
-                -- @IO:GS $D68B.1 - F011 disk 1 present
+                -- @IO:GS $D68B.1 - F011 drive 0 present
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
               end if;
@@ -2890,18 +2892,18 @@ begin  -- behavioural
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
               -- @IO:GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
               -- @IO:GS $D68B.1 SDFDC:D0P F011 drive 0 media present
-              -- @IO:GS $D68B.0 SDFDC:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
+              -- @IO:GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive. 
               diskimage2_enable <= fastio_wdata(3);
               
-              -- @IO:GS $D68B.0 - F011 disk 1 disk image enable
+              -- @IO:GS $D68B.0 - F011 drive 0 disk image enable
               diskimage1_enable <= fastio_wdata(0);
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
-            -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-            -- @IO:GS $D68C SDFDC:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
-            -- @IO:GS $D68D SDFDC:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
-            -- @IO:GS $D68E SDFDC:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
-            -- @IO:GS $D68F SDFDC:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
+            -- @IO:GS $D68C-$D68F - F011 drive 0 disk image address on SD card
+            -- @IO:GS $D68C SDFDC:D0STARTSEC0 F011 drive 0 disk image address on SD card (LSB)
+            -- @IO:GS $D68D SDFDC:D0STARTSEC1 F011 drive 0 disk image address on SD card (2nd byte)
+            -- @IO:GS $D68E SDFDC:D0STARTSEC2 F011 drive 0 disk image address on SD card (3rd byte)
+            -- @IO:GS $D68F SDFDC:D0STARTSEC3 F011 drive 0 disk image address on SD card (MSB)
             when x"8c" =>
               if hypervisor_mode='1' then
                 diskimage_sector(7 downto 0) <= fastio_wdata;
@@ -2919,11 +2921,11 @@ begin  -- behavioural
                 diskimage_sector(31 downto 24) <= fastio_wdata;
               end if;
 
-            -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
-            -- @IO:GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
-            -- @IO:GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
-            -- @IO:GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
-            -- @IO:GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
+            -- @IO:GS $D690-$D693 - F011 drive 1 disk image address on SD card
+            -- @IO:GS $D690 SDFDC:D1STARTSEC0 F011 drive 1 disk image address on SD card (LSB)
+            -- @IO:GS $D691 SDFDC:D1STARTSEC1 F011 drive 1 disk image address on SD card (2nd byte)
+            -- @IO:GS $D692 SDFDC:D1STARTSEC2 F011 drive 1 disk image address on SD card (3rd byte)
+            -- @IO:GS $D693 SDFDC:D1STARTSEC3 F011 drive 1 disk image address on SD card (MSB)
             when x"90" =>
               if hypervisor_mode='1' then
                 diskimage2_sector(7 downto 0) <= fastio_wdata;

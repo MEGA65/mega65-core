@@ -570,6 +570,7 @@ int check_model_id_field(void)
 
     printf("Ok, will proceed to flash\n");
     press_any_key();
+    return 1;
   }
 
   printf("%cVerification error!\n"
@@ -604,10 +605,10 @@ void reflash_slot(unsigned char slot)
 
       return;
     }
-  }
 
-  if (!check_model_id_field())
-    return;
+    if (!check_model_id_field())
+      return;
+  }
 
   // start reading file from beginning again
   // (as the model_id checking read the first 512 bytes already)
