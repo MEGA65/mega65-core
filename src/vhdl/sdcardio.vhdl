@@ -1737,7 +1737,7 @@ begin  -- behavioural
       end if;
       
       -- XXX DEBUG toggle QSPI clock madly
-      if qspi_clock_run = '1' and hypervisor_mode='1' then
+      if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
         qspi_clock <= not qspi_clock_int;
         qspi_clock_int <= not qspi_clock_int;
       end if;
@@ -3110,7 +3110,7 @@ begin  -- behavioural
               -- @IO:GS $D6CC.4 QSPI:DB0 DDR (1=output)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
-              if hypervisor_mode='1' then
+              if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
                 qspi_clock <= fastio_wdata(5);
