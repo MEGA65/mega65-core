@@ -2821,15 +2821,25 @@ begin  -- behavioural
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
                 when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
-                  sd_state <= qspi_write_512;
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sd_state <= qspi_write_512;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
                 when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
-                  sdio_error <= '0';
-                  sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
-                  sd_state <= qspi_read_512;                  
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_read_512;
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
