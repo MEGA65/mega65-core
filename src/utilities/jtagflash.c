@@ -660,10 +660,15 @@ void reflash_slot(unsigned char slot)
     // dummy read to flush buffer in flash
     read_data(addr);
 
+#ifdef HARDWARE_SPI
+    // Use hardware accelerated byte comparison when reading QSPI flash
+    // to speed up detecting which sectors need erasing
+    if (PEEK(0xD689)&0x40) i=0; else i=512;
+#else
     i=0;
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
     tries++;
-
+#endif
     if (!(addr&0xffff)) {
       getrtc(&tm_now);
       d=seconds_between(&tm_start,&tm_now);
@@ -1441,7 +1446,7 @@ void flash_inspector(void)
         printf("%02x",data_buffer[i]);
         if ((i&15)==15) printf("\n");
       }
-
+      printf("Bytes differ? %s\n",PEEK(0xD689)&0x40?"Yes":"No");
     }
   }
 #endif
@@ -1557,6 +1562,7 @@ void main(void)
 #endif
 
   reflash_slot(0);
+  //flash_inspector();
   
 }
 
