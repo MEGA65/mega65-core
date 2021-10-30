@@ -4,9 +4,13 @@
 #include <hal.h>
 #include <memory.h>
 #include <dirent.h>
+#include <time.h>
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
+
+struct m65_tm tm_start;
+struct m65_tm tm_now;
 
 #ifdef A100T
 #define SLOT_SIZE (4L*1048576L)
@@ -54,8 +58,25 @@ unsigned char n=0;
 
 void progress_bar(unsigned char onesixtieths);
 void read_data(unsigned long start_address);
-void program_page(unsigned long start_address);
+void program_page(unsigned long start_address,unsigned int page_size);
 void erase_sector(unsigned long address_in_sector);
+
+void press_any_key(void)
+{
+  printf("\nPress any key to continue.\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+}
+
+unsigned long seconds_between(struct m65_tm *a,struct m65_tm *b)
+{
+  unsigned long d=0;
+  if (b->tm_hour>a->tm_hour) d+=3600L*(b->tm_hour-a->tm_hour);
+  d+=60L*((signed char)b->tm_min-(signed char)a->tm_min);
+  d+=((signed char)b->tm_sec-(signed char)a->tm_sec);
+  return d;
+}
 
 void wait_10ms(void)
 {
@@ -451,10 +472,7 @@ void reconfig_fpga(unsigned long addr)
         "I really did mean it, when I said that\n"
         "it would stop you being able to launch\n"
         "another core.\n",0x93);
-    printf("\nPress any key to return to the menu...\n");
-    while(PEEK(0xD610)) POKE(0xD610,0);
-    while(!PEEK(0xD610)) continue;
-    while(PEEK(0xD610)) POKE(0xD610,0);
+    press_any_key();
     printf("%c",0x93);
     return;
   }
@@ -491,14 +509,6 @@ unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
 unsigned char tries = 0;
-
-void press_any_key(void)
-{
-  printf("\nPress any key to continue.\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  while(PEEK(0xD610)) POKE(0xD610,0);
-}
 
 typedef struct
 {
@@ -581,6 +591,7 @@ int check_model_id_field(void)
 
 void reflash_slot(unsigned char slot)
 {
+  unsigned long d,d_last;
   unsigned short bytes_returned;
   unsigned char fd;
   unsigned char *file=select_bitstream_file();
@@ -591,6 +602,8 @@ void reflash_slot(unsigned char slot)
 
   hy_closeall();
 
+  getrtc(&tm_start);
+  
   // magic filename for erasing a slot begins with "-" 
   if (file[0]!='-') {
 
@@ -617,6 +630,8 @@ void reflash_slot(unsigned char slot)
   printf("%cErasing flash slot...\n",0x93);
   lfill((unsigned long)buffer,0,512);
 
+  getrtc(&tm_start);
+  
   // Do a smart erase: read blocks, and only erase pages if they are
   // not all $FF.  Later we can make it even smarter, and only clear
   // pages where bits need clearing.
@@ -642,17 +657,40 @@ void reflash_slot(unsigned char slot)
 
     // dummy read to flush buffer in flash
     read_data(addr);
-    for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
-    i=0; tries++;
 
+    i=0;
+    for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
+    tries++;
+
+    if (!(addr&0xffff)) {
+      getrtc(&tm_now);
+      d=seconds_between(&tm_start,&tm_now);
+      if (d!=d_last) {
+	unsigned int speed=(unsigned int)((addr/d)>>10);
+	// This division is _really_ slow, which is why we do it only
+	// once per second.
+	unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	d_last=d;
+	printf("%c%c%c%c%c%c%c%c%c%cErasing %dKB/sec, done in %ld sec.          \n",
+	       0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
+	       eta
+	       );
+      }
+    }
+    
     if (i==512) continue;
 
     while (i<512) {
+      POKE(0xD020,2);
       erase_sector(addr);
+      POKE(0xD020,0);
       // Then verify that the sector has been erased
       read_data(addr);
+      // XXX Show the read sector on the screen
+      lcopy(addr,0x0400+10*40,512);
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
       if (i<512) {
+
         tries++;
         if (tries==128) {
           printf("\n! Failed to erase flash page at $%llx\n",addr);
@@ -698,13 +736,16 @@ void reflash_slot(unsigned char slot)
 
       if (!bytes_returned) break;
 
+      // XXX For 64MB flash chips, it is possible to write 512 bytes at once,
+      // but 256 at a time will work fine, too.
+      
       // Programming works on 256 byte pages, so we have to write two of them.
       lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-      program_page(addr);
+      program_page(addr,256);
 
       // Programming works on 256 byte pages, so we have to write two of them.
       lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-      program_page(addr+256);       
+      program_page(addr+256,256);       
     }
 
     /*
@@ -766,10 +807,7 @@ void reflash_slot(unsigned char slot)
             if ((x&7)==7) printf("\n");
           }
 
-          printf("Press any key to continue...\n");
-          while(PEEK(0xD610)) POKE(0xD610,0);
-          while(!PEEK(0xD610)) continue;
-          while(PEEK(0xD610)) POKE(0xD610,0);
+	  press_any_key();
         }
 
         printf("(b) Correct data is:\n");
@@ -824,9 +862,7 @@ void reflash_slot(unsigned char slot)
   }
 
   printf("%cFlash slot successfully written.\nPress any key to return to menu.\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  POKE(0xD610,0);
+  press_any_key();
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
@@ -972,21 +1008,19 @@ void qspi_tx_byte(unsigned char b)
 
 unsigned char qspi_rx_byte()
 {
-  unsigned char b=0;
-  unsigned char i;
-
-  b=0;
+  unsigned char b;
 
   spi_tristate_si_and_so();
-  for(i=0;i<2;i++) {
-    spi_clock_low();
-    b=b<<4;
-    delay();
-    b|=PEEK(BITBASH_PORT)&0x0f;
-    spi_clock_high();
-    delay();
-  }
 
+  spi_clock_low();
+  b=PEEK(BITBASH_PORT)&0x0f;
+  spi_clock_high();
+
+  spi_clock_low();
+  b=b<<4;
+  b|=PEEK(BITBASH_PORT)&0x0f;
+  spi_clock_high();
+  
   return b;
 }
 
@@ -1068,6 +1102,8 @@ void spi_write_enable(void)
   }
 }
 
+unsigned int num_4k_sectors=0;
+
 void erase_sector(unsigned long address_in_sector)
 {
 
@@ -1097,7 +1133,12 @@ void erase_sector(unsigned long address_in_sector)
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0xdc);
+  if ((addr>>12)>=num_4k_sectors)
+    // Do 64KB/256KB sector erase
+    spi_tx_byte(0xdc);
+  else
+    // Do fast 4KB sector erase
+    spi_tx_byte(0x21);
   spi_tx_byte(address_in_sector>>24);
   spi_tx_byte(address_in_sector>>16);
   spi_tx_byte(address_in_sector>>8);
@@ -1117,7 +1158,7 @@ void erase_sector(unsigned long address_in_sector)
 
 unsigned char first,last;
 
-void program_page(unsigned long start_address)
+void program_page(unsigned long start_address,unsigned int page_size)
 {
   // XXX Send Write Enable command (0x06 ?)
 
@@ -1170,7 +1211,7 @@ void program_page(unsigned long start_address)
   }
 
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  //  printf("writing 256 bytes of data...\n");
+  //  printf("writing %d bytes of data...\n",page_size);
 
   spi_cs_high();
   spi_clock_high();
@@ -1184,8 +1225,8 @@ void program_page(unsigned long start_address)
   spi_tx_byte(start_address>>0);
 
   // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
-  // Flashing actually takes longer normally, anyway.
-  for(i=0;i<256;i++) spi_tx_byte(data_buffer[i]);
+  // Flashing actually takes longer normally than the sending of the data, anyway.
+  for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
 
   spi_cs_high();
 
@@ -1206,6 +1247,8 @@ void program_page(unsigned long start_address)
   }
 
 }
+
+unsigned char b;
 
 void read_data(unsigned long start_address)
 {
@@ -1233,8 +1276,24 @@ void read_data(unsigned long start_address)
   }
 
   // Actually read the data.
-  for(z=0;z<512;z++)
+  for(z=0;z<512;z++) {
+    POKE(0xD020,1);
+
+#if 1
+    spi_tristate_si_and_so();
+
+    spi_clock_low();
+    b=(PEEK(BITBASH_PORT)&0x0f)<<4;
+    spi_clock_high();
+    
+    spi_clock_low();
+    data_buffer[z]=(PEEK(BITBASH_PORT)&0x0f)|b;
+    spi_clock_high();
+#else 
     data_buffer[z]=qspi_rx_byte();
+#endif
+    POKE(0xD020,0);
+  }
 
   spi_cs_high();
   delay();
@@ -1399,19 +1458,27 @@ void main(void)
     return;
   }
 #if 1
-  printf("qspi flash manufacturer = $%02x\n",manufacturer);
-  printf("qspi device id = $%04x\n",device_id);
-  printf("rdid byte count = %d\n",cfi_length);
-  printf("sector architecture is ");
-  if (cfi_data[4-4]==0x00) printf("uniform 256kb sectors.\n");
-  else if (cfi_data[4-4]==0x01) printf("4kb parameter sectors with 64kb sectors.\n");
-  else printf("unknown ($%02x).\n",cfi_data[4-4]);
-  printf("part family is %02x-%c%c\n",
+  printf("QSPI Flash manufacturer = $%02x\n",manufacturer);
+  printf("QSPI Device ID = $%04x\n",device_id);
+  printf("RDID byte count = %d\n",cfi_length);
+  printf("Sector architecture is ");
+  if (cfi_data[4-4]==0x00) {
+    printf("uniform 256kb sectors.\n");
+    num_4k_sectors=0;
+  }
+  else if (cfi_data[4-4]==0x01) {
+    printf("\n  4kb parameter sectors\n  64kb data sectors.\n");
+    printf("  %d x 4KB sectors.\n",1+cfi_data[0x2d-4]);
+    num_4k_sectors=1+cfi_data[0x2d-4];
+  } else printf("unknown ($%02x).\n",cfi_data[4-4]);
+  printf("Part Family is %02x-%c%c\n",
       cfi_data[5-4],cfi_data[6-4],cfi_data[7-4]);
-  printf("2^%d byte page, program typical time is 2^%d microseconds.\n",
+  printf("2^%d byte page, program time is 2^%d usec.\n",
       cfi_data[0x2a-4],
       cfi_data[0x20-4]);
-  printf("erase typical time is 2^%d milliseconds.\n",
+  printf("Expected programing time = %d usec/byte.\n",
+	 cfi_data[0x20-4]/cfi_data[0x2a-4]);
+  printf("Erase time is 2^%d millisec/sector.\n",
       cfi_data[0x21-4]);
 #endif
 
@@ -1424,24 +1491,21 @@ void main(void)
   }
   slot_count = mb/SLOT_MB;
 #if 1
-  printf("flash size is %dmb.\n",mb);
+  printf("Flash size is %dmb.\n",mb);
 #endif
 
   latency_code=reg_cr1>>6;
 #if 1
-  printf("latency code = %d\n",latency_code);
-  if (reg_sr1&0x80) printf("flash is write protected.\n");
-  if (reg_sr1&0x40) printf("programming error occurred.\n");
-  if (reg_sr1&0x20) printf("erase error occurred.\n");
-  if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
-  if (reg_sr1&0x01) printf("device busy.\n");
+  printf("  latency code = %d\n",latency_code);
+  if (reg_sr1&0x80) printf("  flash is write protected.\n");
+  if (reg_sr1&0x40) printf("  programming error occurred.\n");
+  if (reg_sr1&0x20) printf("  erase error occurred.\n");
+  if (reg_sr1&0x02) printf("  write latch enabled.\n"); else printf("  write latch not (yet) enabled.\n");
+  if (reg_sr1&0x01) printf("  device busy.\n");
 #endif
 
-  while(PEEK(0xD610)) POKE(0xD610,0);
-
   reflash_slot(0);
-
-
+  
 }
 
 unsigned char progress_chars[4]={32,101,97,231};
