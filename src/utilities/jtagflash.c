@@ -6,6 +6,8 @@
 #include <dirent.h>
 #include <time.h>
 
+ #define HARDWARE_SPI
+
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
@@ -1151,7 +1153,7 @@ void erase_sector(unsigned long address_in_sector)
 
   if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
   else {
-    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
+    printf("%c%csector at $%08llx erased.\n%c",0x13,0x11,address_in_sector,0x91);
   }
 
 }
@@ -1276,15 +1278,16 @@ void read_data(unsigned long start_address)
   }
 
   // Actually read the data.
+#ifdef HARDWARE_SPI
+  // Use hardware-accelerated QSPI RX
+  POKE(0xD020,1);
+  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash
+  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
+  lcopy(0xFFD6E00L,data_buffer,512);
+  POKE(0xD020,0);
+#else
   for(z=0;z<512;z++) {
     POKE(0xD020,1);
-
-#if 1
-    // Use hardware-accelerated QSPI RX
-    POKE(0xD680,0x51);
-    while(PEEK(0xD680&3)) POKE(0xD020,PEEK(0xD020)+1);
-    lcopy(0xFFD6E00L,data_buffer,512);
-#else
 #if 1
     // Inlined RX for a bit extra speed
     spi_tristate_si_and_so();
@@ -1299,9 +1302,9 @@ void read_data(unsigned long start_address)
 #else 
     data_buffer[z]=qspi_rx_byte();
 #endif
-#endif
     POKE(0xD020,0);
   }
+#endif
 
   spi_cs_high();
   delay();
@@ -1512,7 +1515,8 @@ void main(void)
   if (reg_sr1&0x01) printf("  device busy.\n");
 #endif
 
-  reflash_slot(0);
+  //  reflash_slot(0);
+  flash_inspector();
   
 }
 

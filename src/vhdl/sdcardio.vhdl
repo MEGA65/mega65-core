@@ -2832,6 +2832,7 @@ begin  -- behavioural
                     sdio_error <= '1';
                   end if;
                 when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
+                  report "QSPI: Read request";
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -4226,10 +4227,10 @@ begin  -- behavioural
           qspi_clock_int <= '0';
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
-          -- qspi_bits(7 downto 4) <= qspidb;
+          report "QSPI read into f011 buffer @ $" & to_hstring(sd_buffer_offset);
           f011_buffer_write_address <= "111"&sd_buffer_offset;
-          f011_buffer_wdata(7 downto 4) <= qspidb;
-          f011_buffer_wdata(3 downto 0) <= qspi_bits;
+          f011_buffer_wdata(3 downto 0) <= qspidb;
+          f011_buffer_wdata(7 downto 4) <= qspi_bits;
           f011_buffer_write <= '1';
           if sd_buffer_offset /= 511 then
             sd_buffer_offset <= sd_buffer_offset + 1;
