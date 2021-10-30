@@ -6,7 +6,8 @@
 #include <dirent.h>
 #include <time.h>
 
- #define HARDWARE_SPI
+#define HARDWARE_SPI
+#define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
@@ -30,6 +31,7 @@ unsigned char check_input(char *m, uint8_t case_sensitive);
 unsigned char joy_x=100;
 unsigned char joy_y=100;
 
+unsigned int page_size=0;
 unsigned char latency_code=0xff;
 unsigned char reg_cr1=0x00;
 unsigned char reg_sr1=0x00;
@@ -591,6 +593,7 @@ int check_model_id_field(void)
   return 0;
 }
 
+unsigned short erase_time=0, flash_time=0,verify_time=0;
 void reflash_slot(unsigned char slot)
 {
   unsigned long d,d_last;
@@ -695,7 +698,11 @@ void reflash_slot(unsigned char slot)
       read_data(addr);
       // XXX Show the read sector on the screen
       lcopy(addr,0x0400+10*40,512);
+#ifdef HARDWARE_SPI
+      if (PEEK(0xD689)&0x40) i=0; else i=512;
+#else
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
+#endif
       if (i<512) {
 
         tries++;
@@ -716,6 +723,9 @@ void reflash_slot(unsigned char slot)
 
   }
 
+  erase_time=seconds_between(&tm_start,&tm_now);
+
+  
   flash_reset();
 
   // magic filename for erasing a slot begins with "-" 
@@ -764,20 +774,31 @@ void reflash_slot(unsigned char slot)
 
       // XXX For 64MB flash chips, it is possible to write 512 bytes at once,
       // but 256 at a time will work fine, too.
-      
-      // Programming works on 256 byte pages, so we have to write two of them.
-      lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-      POKE(0xD020,1);
-      program_page(addr,256);
-      POKE(0xD020,0);
 
-      // Programming works on 256 byte pages, so we have to write two of them.
-      lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-      POKE(0xD020,1);
-      program_page(addr+256,256);       
-      POKE(0xD020,0);
+      if (page_size==256) {
+	// Programming works on 256 byte pages, so we have to write two of them.
+	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+	POKE(0xD020,1);
+	program_page(addr,256);
+	POKE(0xD020,0);
+	
+	// Programming works on 256 byte pages, so we have to write two of them.
+	lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+	POKE(0xD020,1);
+	program_page(addr+256,256);       
+	POKE(0xD020,0);
+      } else if (page_size==512) {
+	// Programming works on 512 byte pages
+	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,512);
+	POKE(0xD020,1);
+	program_page(addr,512);
+	POKE(0xD020,0);
+      }
     }
 
+    flash_time=seconds_between(&tm_start,&tm_now);
+    getrtc(&tm_start);
+    
     /*
       Now read through the file again to verify that we wrote the correct data.
       But before we start, we reset the flash, so that it doesn't read incorrect
@@ -888,10 +909,20 @@ void reflash_slot(unsigned char slot)
         fetch_rdid();
         i=0;
       }
-    }        
+    }
+    verify_time=seconds_between(&tm_start,&tm_now);
+
   }
 
-  printf("%cFlash slot successfully written.\nPress any key to return to menu.\n");
+  printf("%c%c%c%c%c"
+	 "Flash slot successfully written.\n"
+	 "   Erase: %d sec\n"
+	 "   Flash: %d sec\n"
+	 "  Verify: %d sec\n"
+	 "\n"
+	 "Press any key to return to menu.\n",
+	 0x11,0x11,0x11,0x11,0x11,
+	 erase_time,flash_time,verify_time);
   press_any_key();
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
@@ -1210,24 +1241,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
   first=0;
   last=0xff;
 
-#if 0
-  // Skip any leading 0xff bytes
-  while(data_buffer[first]==0xff) {
-    first++;
-    // Check if entire sector is made of 0xff
-    if (first==0) return;
-  }
-  // Skip any trailing 0xff bytes
-  while(data_buffer[last]==0xff) last--;
-
-  if (first||(last<0xff)) {
-    printf("writing partial page $%08lx: $%02x -- $%02x\n",
-        start_address,first,last);
-  }
-
-  start_address+=first;
-#endif
-
   while(reg_sr1&0x03) {
     //    printf("flash busy. ");
     read_registers();
@@ -1272,7 +1285,25 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
   // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
-  for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
+#ifdef HARDWARE_SPI_WRITE
+  if (page_size==256) {
+    // Write 256 bytes
+    // XXX For now we use 512 byte write. According to the
+    // erata for the flash that uses 256 byte pages, we can
+    // do this, provided the last 256 bytes of data sent is
+    // the real data.
+    lcopy(data_buffer,0xffd6f00L,256);
+    POKE(0xD680,0x50);  
+    while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+  } else if (page_size==512) {
+    // Write 512 bytes
+    lcopy(data_buffer,0xffd6e00L,512);
+    POKE(0xD680,0x51);
+    while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+  } else 
+#else
+    for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
+#endif
   POKE(0xD020,1);
 
   spi_cs_high();
@@ -1436,6 +1467,17 @@ void flash_inspector(void)
       case 0x1d: addr+=0x400000; break;
       case 0x9d: addr-=0x400000; break;
       case 0x03: return;
+      case 0x54: case 0x74:
+	// T = Test
+	// Erase page, write page, read it back
+	erase_sector(addr);
+	// Some known data
+	lfill(0xFFD6E00,0x42,0x200);
+	printf("%02x %02x %02x\n",
+	       lpeek(0xffd6f00),lpeek(0xffd6f01),lpeek(0xffd6f02));
+	// Now program it
+	program_page(addr,256);
+	press_any_key();
       }
 
       read_data(addr);
@@ -1533,10 +1575,15 @@ void main(void)
   printf("2^%d byte page, program time is 2^%d usec.\n",
       cfi_data[0x2a-4],
       cfi_data[0x20-4]);
+  if (cfi_data[0x2a-4]==8) page_size=256;
+  if (cfi_data[0x2a-4]==9) page_size=512;
+  if (!page_size) printf("WARNING: Unsupported page size\n");
+  
   printf("Expected programing time = %d usec/byte.\n",
 	 cfi_data[0x20-4]/cfi_data[0x2a-4]);
   printf("Erase time is 2^%d millisec/sector.\n",
       cfi_data[0x21-4]);
+  press_any_key();
 #endif
 
   // Work out size of flash in MB
@@ -1561,8 +1608,8 @@ void main(void)
   if (reg_sr1&0x01) printf("  device busy.\n");
 #endif
 
-  reflash_slot(0);
-  //flash_inspector();
+  //reflash_slot(0);
+    flash_inspector();
   
 }
 
