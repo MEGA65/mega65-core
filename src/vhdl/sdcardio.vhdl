@@ -232,7 +232,8 @@ architecture behavioural of sdcardio is
   
   signal qspi_clock_int : std_logic := '1';
   signal qspi_clock_run : std_logic := '1';
-  signal qspi_csn_int : std_logic := '1'; 
+  signal qspi_csn_int : std_logic := '1';
+  signal qspi_bits : unsigned(3 downto 0) := "0000";
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -309,7 +310,7 @@ architecture behavioural of sdcardio is
                       QSPI_read_phase1,
                       QSPI_read_phase2,
                       QSPI_read_phase3,
-                      QSPI_read_phase4,
+                      QSPI_read_phase4
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -4210,20 +4211,20 @@ begin  -- behavioural
           -- Tristate SI and SO
           qspidb <= "ZZZZ";
           sd_buffer_offset <= to_unsigned(0,9);
-          state <= QSPI_read_phase1;
+          sd_state <= QSPI_read_phase1;
         when QSPI_read_phase1 =>
           qspi_clock <= '0';
           qspi_clock_int <= '0';
-          state <= QSPI_read_phase2;
+          sd_state <= QSPI_read_phase2;
         when QSPI_read_phase2 =>
           qspi_bits <= qspidb;
           qspi_clock <= '1';
           qspi_clock_int <= '1';
-          state <= QSPI_read_phase3;
+          sd_state <= QSPI_read_phase3;
         when QSPI_read_phase3 =>          
           qspi_clock <= '0';
           qspi_clock_int <= '0';
-          state <= QSPI_read_phase4;
+          sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
           -- qspi_bits(7 downto 4) <= qspidb;
           f011_buffer_write_address <= "111"&sd_buffer_offset;
@@ -4232,14 +4233,17 @@ begin  -- behavioural
           f011_buffer_write <= '1';
           if sd_buffer_offset /= 511 then
             sd_buffer_offset <= sd_buffer_offset + 1;
-            state <= QSPI_read_phase1;
+            sd_state <= QSPI_read_phase1;
           else
-            state <= Idle;
+            sd_state <= Idle;
             sdio_busy <= '0';
           end if;
           qspi_clock <= '1';
           qspi_clock_int <= '1';
-          
+        when QSPI_write_512 =>
+          sd_state <= Idle;
+          sdio_busy <= '0';
+          sdio_error <= '1';
       end case;    
 
     end if;
