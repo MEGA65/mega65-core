@@ -1649,10 +1649,12 @@ begin  -- behavioural
     
     case sd_state is    
       when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1 =>
+        report "QSPI: Possible f011 buffer fetch";
         if f011_sector_fetch='1' then
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
         else
           f011_buffer_read_address <= "111"&sd_buffer_offset;
+          report "QSPI: reading from 111&sd_buffer_offset = $" & to_hstring("111"&sd_buffer_offset);
         end if;
       when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
         f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -4290,12 +4292,16 @@ begin  -- behavioural
           qspi_bit_counter <= 0;
           sd_state <= QSPI_write_phase2;
         when QSPI_write_phase2 =>
-          qspi_byte_value <= f011_buffer_rdata;
+          if qspi_bit_counter = 0 then
+            report "QSPI: Sending byte $" & to_hstring(f011_buffer_rdata);
+            qspi_byte_value <= f011_buffer_rdata;
+          end if;
           qspi_clock <= '0';
           qspi_clock_int <= '0';
           sd_state <= QSPI_write_phase3;
         when QSPI_write_phase3 =>
           qspidb(0) <= qspi_byte_value(7);
+          report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
           qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
           sd_state <= QSPI_write_phase4;
         when QSPI_write_phase4 =>
