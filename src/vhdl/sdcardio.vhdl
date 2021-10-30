@@ -308,6 +308,7 @@ architecture behavioural of sdcardio is
                       FDCAutoFormatTrackSyncWait,     -- 0x13
                       FDCAutoFormatTrack,              -- 0x14
 
+                      QSPI_write_256,
                       QSPI_write_512,
                       QSPI_write_phase1,
                       QSPI_write_phase2,
@@ -2829,6 +2830,16 @@ begin  -- behavioural
                 when x"57" => 
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
+                when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sd_state <= qspi_write_256;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
                 when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sd_state <= qspi_write_512;
@@ -4267,6 +4278,13 @@ begin  -- behavioural
           sdio_error <= '0';
           qspidb <= "ZZZZ";
           sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI_write_phase1;
+        when QSPI_write_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb <= "ZZZZ";
+          -- Write 2nd half of SD card buffer to QSPI
+          sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_write_phase1;
         when QSPI_write_phase1 =>
           qspi_bit_counter <= 0;
