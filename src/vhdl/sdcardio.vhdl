@@ -302,7 +302,14 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDriveWait,   -- 0x11
                       F011WriteSectorRealDrive,       -- 0x12
                       FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack              -- 0x14
+                      FDCAutoFormatTrack,              -- 0x14
+
+                      QSPI_write_512,
+                      QSPI_read_512,
+                      QSPI_read_phase1,
+                      QSPI_read_phase2,
+                      QSPI_read_phase3,
+                      QSPI_read_phase4,
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -2812,7 +2819,17 @@ begin  -- behavioural
                   write_sector_gate_timeout <= 40000; -- about 1ms               
                 when x"57" => 
                   write_sector_gate_open <= '1';
-                  write_sector_gate_timeout <= 40000; -- about 1ms               
+                  write_sector_gate_timeout <= 40000; -- about 1ms
+                when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
+                  sd_state <= qspi_write_512;
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_read_512;                  
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
@@ -4178,6 +4195,41 @@ begin  -- behavioural
             f011_busy <= '0';
             f011_wsector_found <= '1';
           end if;
+
+        when QSPI_read_512 =>
+          -- Tristate SI and SO
+          qspidb <= "ZZZZ";
+          sd_buffer_offset <= to_unsigned(0,9);
+          state <= QSPI_read_phase1;
+        when QSPI_read_phase1 =>
+          qspi_clock <= '0';
+          qspi_clock_int <= '0';
+          state <= QSPI_read_phase2;
+        when QSPI_read_phase2 =>
+          qspi_bits <= qspidb;
+          qspi_clock <= '1';
+          qspi_clock_int <= '1';
+          state <= QSPI_read_phase3;
+        when QSPI_read_phase3 =>          
+          qspi_clock <= '0';
+          qspi_clock_int <= '0';
+          state <= QSPI_read_phase4;
+        when QSPI_read_phase4 =>
+          -- qspi_bits(7 downto 4) <= qspidb;
+          f011_buffer_write_address <= "111"&sd_buffer_offset;
+          f011_buffer_wdata(7 downto 4) <= qspidb;
+          f011_buffer_wdata(3 downto 0) <= qspi_bits;
+          f011_buffer_write <= '1';
+          if sd_buffer_offset /= 511 then
+            sd_buffer_offset <= sd_buffer_offset + 1;
+            state <= QSPI_read_phase1;
+          else
+            state <= Idle;
+            sdio_busy <= '0';
+          end if;
+          qspi_clock <= '1';
+          qspi_clock_int <= '1';
+          
       end case;    
 
     end if;
