@@ -1280,6 +1280,13 @@ void read_data(unsigned long start_address)
     POKE(0xD020,1);
 
 #if 1
+    // Use hardware-accelerated QSPI RX
+    POKE(0xD680,0x51);
+    while(PEEK(0xD680&3)) POKE(0xD020,PEEK(0xD020)+1);
+    lcopy(0xFFD6E00L,data_buffer,512);
+#else
+#if 1
+    // Inlined RX for a bit extra speed
     spi_tristate_si_and_so();
 
     spi_clock_low();
@@ -1291,6 +1298,7 @@ void read_data(unsigned long start_address)
     spi_clock_high();
 #else 
     data_buffer[z]=qspi_rx_byte();
+#endif
 #endif
     POKE(0xD020,0);
   }
