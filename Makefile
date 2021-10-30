@@ -197,6 +197,7 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhdl \
 			$(VHDLSRCDIR)/sid_components.vhdl \
 			$(VHDLSRCDIR)/sid_filters.vhdl \
 			$(VHDLSRCDIR)/sid_voice.vhdl \
+			$(VHDLSRCDIR)/ghdl_8580_voice_stub.vhdl \
 
 CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
