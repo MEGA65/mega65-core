@@ -716,6 +716,8 @@ void reflash_slot(unsigned char slot)
   // magic filename for erasing a slot begins with "-" 
   if (file[0]!='-') {
 
+    getrtc(&tm_start);
+    
     // Read the flash file and write it to the flash
     printf("%cWriting bitstream to flash...\n\n",0x93);
     progress=0; progress_acc=0;
@@ -734,6 +736,23 @@ void reflash_slot(unsigned char slot)
 #endif     
       progress_bar(progress);
 
+      if (!(addr&0xffff)) {
+	getrtc(&tm_now);
+	d=seconds_between(&tm_start,&tm_now);
+	if (d!=d_last) {
+	  unsigned int speed=(unsigned int)((addr/d)>>10);
+	  // This division is _really_ slow, which is why we do it only
+	  // once per second.
+	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	  d_last=d;
+	  printf("%c%c%c%c%c%c%c%c%c%cWriting %dKB/sec, done in %ld sec.          \n",
+		 0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
+		 eta
+		 );
+	}
+      }
+      
+      
       bytes_returned=hy_read512();
 
       if (!bytes_returned) break;
@@ -743,11 +762,15 @@ void reflash_slot(unsigned char slot)
       
       // Programming works on 256 byte pages, so we have to write two of them.
       lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+      POKE(0xD020,1);
       program_page(addr,256);
+      POKE(0xD020,0);
 
       // Programming works on 256 byte pages, so we have to write two of them.
       lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+      POKE(0xD020,1);
       program_page(addr+256,256);       
+      POKE(0xD020,0);
     }
 
     /*
@@ -978,9 +1001,7 @@ void spi_tx_bit(unsigned char bit)
 {
   spi_clock_low();
   spi_so_set(bit);
-  delay();
   spi_clock_high();
-  delay();
 }
 
 void qspi_tx_nybl(unsigned char nybl)
@@ -996,8 +1017,25 @@ void spi_tx_byte(unsigned char b)
 {
   unsigned char i;
 
+  bash_bits|=(0x1F-0x01);
+  
   for(i=0;i<8;i++) {
-    spi_tx_bit(b&0x80);
+
+    //    spi_tx_bit(b&0x80);
+    
+    // spi_clock_low();
+    bash_bits&=(0xff-0x20);
+    POKE(BITBASH_PORT,bash_bits);
+    
+    // spi_so_set(b&80);
+    bash_bits&=(0xff-0x01);
+    if (b&0x80) bash_bits|=0x01;
+    POKE(BITBASH_PORT,bash_bits);
+    
+    // spi_clock_high();
+    bash_bits|=0x20;
+    POKE(BITBASH_PORT,bash_bits);
+
     b=b<<1;
   }
 }
@@ -1228,7 +1266,9 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
   // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
   // Flashing actually takes longer normally than the sending of the data, anyway.
+  POKE(0xD020,2);
   for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
+  POKE(0xD020,1);
 
   spi_cs_high();
 
@@ -1250,7 +1290,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
 }
 
-unsigned char b;
+unsigned char b,*c,d;
 
 void read_data(unsigned long start_address)
 {
@@ -1284,6 +1324,7 @@ void read_data(unsigned long start_address)
   POKE(0xD680,0x52); // Read 512 bytes from QSPI flash
   while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
   lcopy(0xFFD6E00L,data_buffer,512);
+
   POKE(0xD020,0);
 #else
   for(z=0;z<512;z++) {
@@ -1515,8 +1556,7 @@ void main(void)
   if (reg_sr1&0x01) printf("  device busy.\n");
 #endif
 
-  //  reflash_slot(0);
-  flash_inspector();
+  reflash_slot(0);
   
 }
 
