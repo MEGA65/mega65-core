@@ -728,7 +728,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
 		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
@@ -748,7 +748,7 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
 		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
