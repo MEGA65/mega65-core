@@ -6,11 +6,17 @@
 #include <dirent.h>
 #include <time.h>
 
+#include <6502.h>
+
+//#define QPP_WRITE
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
+
+struct m65_tm tm_start;
+struct m65_tm tm_now;
 
 #ifdef A100T
 #define SLOT_SIZE (4L*1048576L)
@@ -19,9 +25,6 @@
 #define SLOT_MB 8
 #define SLOT_SIZE (8L*1048576L)
 #endif
-
-struct m65_tm tm_start;
-struct m65_tm tm_now;
 
 char *select_bitstream_file(void);
 void fetch_rdid(void);
@@ -85,6 +88,14 @@ void progress_bar(unsigned char onesixtieths);
 void read_data(unsigned long start_address);
 void program_page(unsigned long start_address,unsigned int page_size);
 void erase_sector(unsigned long address_in_sector);
+
+void press_any_key(void)
+{
+  printf("\nPress any key to continue.\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+}
 
 unsigned long seconds_between(struct m65_tm *a,struct m65_tm *b)
 {
@@ -489,10 +500,7 @@ void reconfig_fpga(unsigned long addr)
         "I really did mean it, when I said that\n"
         "it would stop you being able to launch\n"
         "another core.\n",0x93);
-    printf("\nPress any key to return to the menu...\n");
-    while(PEEK(0xD610)) POKE(0xD610,0);
-    while(!PEEK(0xD610)) continue;
-    while(PEEK(0xD610)) POKE(0xD610,0);
+    press_any_key();
     printf("%c",0x93);
     return;
   }
@@ -528,16 +536,7 @@ void reconfig_fpga(unsigned long addr)
 unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
-unsigned long offset=0;
 unsigned char tries = 0;
-
-void press_any_key(void)
-{
-  printf("\nPress any key to continue.\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  while(PEEK(0xD610)) POKE(0xD610,0);
-}
 
 typedef struct
 {
@@ -620,6 +619,7 @@ int check_model_id_field(void)
 
 unsigned char j,k;
 unsigned short erase_time=0, flash_time=0,verify_time=0;
+unsigned long offset;
 void reflash_slot(unsigned char slot)
 {
   unsigned long d,d_last;
@@ -669,11 +669,11 @@ void reflash_slot(unsigned char slot)
   // Also, we will assume the BIT files contain the 4KB header we want
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
-  offset=0;
-  
-  for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
+
+  addr=SLOT_SIZE*slot;
+  for(offset=0;offset<SLOT_SIZE;offset+=512,addr+=512) {
+    
     progress_acc+=512;
-    offset+=512;
 #ifdef A100T
     if (progress_acc>26214) {
       progress_acc-=26214;
@@ -710,7 +710,7 @@ void reflash_slot(unsigned char slot)
 	unsigned int speed=(unsigned int)((offset/d)>>10);
 	// This division is _really_ slow, which is why we do it only
 	// once per second.
-        unsigned long eta=((SLOT_SIZE-offset)/speed)>>10;
+	unsigned long eta=((SLOT_SIZE-offset)/speed)>>10;
 	d_last=d;
 	printf("%c%c%c%c%c%c%c%c%c%cErasing %dKB/sec, done in %ld sec.          \n",
 	       0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
@@ -767,9 +767,8 @@ void reflash_slot(unsigned char slot)
     // Read the flash file and write it to the flash
     printf("%cWriting bitstream to flash...\n\n",0x93);
     progress=0; progress_acc=0;
-    offset=0;
-    for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
-      offset+=512;
+    addr=SLOT_SIZE*slot;
+    for(offset=0;offset<SLOT_SIZE;offset+=512,addr+=512) {
       progress_acc+=512;
 #ifdef A100T      
       if (progress_acc>26214) {
@@ -867,11 +866,9 @@ void reflash_slot(unsigned char slot)
       return;
     }
 
-    offset=0;
-    
-    for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
+    addr=SLOT_SIZE*slot;
+    for(offset=0;offset<SLOT_SIZE;offset+=512,addr+=512) {
       progress_acc+=512;
-      offset+=512;
 #ifdef A100T      
       if (progress_acc>26214) {
         progress_acc-=26214;
@@ -1000,13 +997,14 @@ void reflash_slot(unsigned char slot)
 	 "Press any key to return to menu.\n",
 	 0x11,0x11,0x11,0x11,0x11,
 	 erase_time,flash_time,verify_time);
+
   press_any_key();
+
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
   return;
 }
-
 
 int bash_bits=0xFF;
 
@@ -1062,13 +1060,10 @@ void spi_so_set(unsigned char b)
 void qspi_nybl_set(unsigned char nybl)
 {
   // De-tri-state SO data line, and set value
-  bash_bits&=(0xff-0x0f);
-  bash_bits&=(0xff-0x10);
+  bash_bits&=0x60;
   bash_bits|=nybl & 0xf;
-  bash_bits|=0x80;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
-  printf("$%02x ",bash_bits);
 }
 
 
@@ -1115,9 +1110,7 @@ void spi_tx_bit(unsigned char bit)
 {
   spi_clock_low();
   spi_so_set(bit);
-  delay();
   spi_clock_high();
-  delay();
 }
 
 void qspi_tx_nybl(unsigned char nybl)
@@ -1164,21 +1157,19 @@ void qspi_tx_byte(unsigned char b)
 
 unsigned char qspi_rx_byte()
 {
-  unsigned char b=0;
-  unsigned char i;
-
-  b=0;
+  unsigned char b;
 
   spi_tristate_si_and_so();
-  for(i=0;i<2;i++) {
-    spi_clock_low();
-    b=b<<4;
-    delay();
-    b|=PEEK(BITBASH_PORT)&0x0f;
-    spi_clock_high();
-    delay();
-  }
 
+  spi_clock_low();
+  b=PEEK(BITBASH_PORT)&0x0f;
+  spi_clock_high();
+
+  spi_clock_low();
+  b=b<<4;
+  b|=PEEK(BITBASH_PORT)&0x0f;
+  spi_clock_high();
+  
   return b;
 }
 
@@ -1260,6 +1251,8 @@ void spi_write_enable(void)
   }
 }
 
+unsigned int num_4k_sectors=0;
+
 void erase_sector(unsigned long address_in_sector)
 {
 
@@ -1289,7 +1282,12 @@ void erase_sector(unsigned long address_in_sector)
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0xdc);
+  if ((addr>>12)>=num_4k_sectors)
+    // Do 64KB/256KB sector erase
+    spi_tx_byte(0xdc);
+  else
+    // Do fast 4KB sector erase
+    spi_tx_byte(0x21);
   spi_tx_byte(address_in_sector>>24);
   spi_tx_byte(address_in_sector>>16);
   spi_tx_byte(address_in_sector>>8);
@@ -1302,7 +1300,7 @@ void erase_sector(unsigned long address_in_sector)
 
   if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
   else {
-    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
+    printf("%c%csector at $%08llx erased.\n%c",0x13,0x11,address_in_sector,0x91);
   }
 
 }
@@ -1375,7 +1373,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
     // erata for the flash that uses 256 byte pages, we can
     // do this, provided the last 256 bytes of data sent is
     // the real data.
-    //    printf("256 byte program\n");
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD680,0x50);  
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
@@ -1384,7 +1381,10 @@ void program_page(unsigned long start_address,unsigned int page_size)
     lcopy(data_buffer,0xffd6e00L,512);
     POKE(0xD680,0x51);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-  } else 
+  } else {
+    printf("Unknown page size = %d\n",page_size);
+    while(1) POKE(0xD020,PEEK(0xD012));
+  }
 #else
     for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
 #endif
@@ -1410,6 +1410,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
   }
 
 }
+
+unsigned char b,*c,d;
 
 void read_data(unsigned long start_address)
 {
@@ -1550,6 +1552,20 @@ void flash_inspector(void)
       case 0x1d: addr+=0x400000; break;
       case 0x9d: addr-=0x400000; break;
       case 0x03: return;
+      case 0x54: case 0x74:
+	// T = Test
+	// Erase page, write page, read it back
+	erase_sector(addr);
+	// Some known data
+	for(i=0;i<256;i++) data_buffer[i]=i;
+	//	lfill(0xFFD6E00,0xFF,0x200);
+	printf("E: %02x %02x %02x\n",
+	       lpeek(0xffd6e00),lpeek(0xffd6e01),lpeek(0xffd6e02));
+	printf("F: %02x %02x %02x\n",
+	       lpeek(0xffd6f00),lpeek(0xffd6f01),lpeek(0xffd6f02));
+	// Now program it
+	program_page(addr,256);
+	press_any_key();
       }
 
       read_data(addr);
@@ -1560,7 +1576,7 @@ void flash_inspector(void)
         printf("%02x",data_buffer[i]);
         if ((i&15)==15) printf("\n");
       }
-
+      printf("Bytes differ? %s\n",PEEK(0xD689)&0x40?"Yes":"No");
     }
   }
 #endif
@@ -1620,6 +1636,18 @@ void main(void)
 
   mega65_io_enable();
 
+  // White text
+  POKE(0x286,1);
+
+  SEI();
+
+#if 0
+  printf("%cProbing flash...\n",0x93);
+#endif
+  
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,0x00);  
+  
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
 
@@ -1630,36 +1658,43 @@ void main(void)
   bash_bits=0xff;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
-  delay();
-  delay();
-  delay();
-  delay();
-  delay();
 
-  // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);  
+  usleep(10000);
 
   fetch_rdid();
   read_registers();
   if ((manufacturer==0xff) && (device_id==0xffff)) {
     printf("ERROR: Cannot communicate with QSPI            flash device.\n");
-    return;
+    while(1) POKE(0xD020,PEEK(0xD020)+1);
   }
+  if (cfi_data[0x2a-4]==8) page_size=256;
+  if (cfi_data[0x2a-4]==9) page_size=512;
 #if 0
-  printf("qspi flash manufacturer = $%02x\n",manufacturer);
-  printf("qspi device id = $%04x\n",device_id);
-  printf("rdid byte count = %d\n",cfi_length);
-  printf("sector architecture is ");
-  if (cfi_data[4-4]==0x00) printf("uniform 256kb sectors.\n");
-  else if (cfi_data[4-4]==0x01) printf("4kb parameter sectors with 64kb sectors.\n");
-  else printf("unknown ($%02x).\n",cfi_data[4-4]);
-  printf("part family is %02x-%c%c\n",
+  printf("QSPI Flash manufacturer = $%02x\n",manufacturer);
+  printf("QSPI Device ID = $%04x\n",device_id);
+  printf("RDID byte count = %d\n",cfi_length);
+  printf("Sector architecture is ");
+  if (cfi_data[4-4]==0x00) {
+    printf("uniform 256kb sectors.\n");
+    num_4k_sectors=0;
+  }
+  else if (cfi_data[4-4]==0x01) {
+    printf("\n  4kb parameter sectors\n  64kb data sectors.\n");
+    printf("  %d x 4KB sectors.\n",1+cfi_data[0x2d-4]);
+    num_4k_sectors=1+cfi_data[0x2d-4];
+  } else printf("unknown ($%02x).\n",cfi_data[4-4]);
+  printf("Part Family is %02x-%c%c\n",
       cfi_data[5-4],cfi_data[6-4],cfi_data[7-4]);
-  printf("2^%d byte page, program typical time is 2^%d microseconds.\n",
+  printf("2^%d byte page, program time is 2^%d usec.\n",
       cfi_data[0x2a-4],
       cfi_data[0x20-4]);
-  printf("erase typical time is 2^%d milliseconds.\n",
+  if (!page_size) printf("WARNING: Unsupported page size\n");
+  
+  printf("Expected programing time = %d usec/byte.\n",
+	 cfi_data[0x20-4]/cfi_data[0x2a-4]);
+  printf("Erase time is 2^%d millisec/sector.\n",
       cfi_data[0x21-4]);
+  press_any_key();
 #endif
 
   // Work out size of flash in MB
@@ -1670,14 +1705,13 @@ void main(void)
     while(n) { mb=mb<<1; n--; }
   }
   slot_count = mb/SLOT_MB;
-#if 0
-  printf("flash size is %dmb.\n",mb);
+#if 1
+  printf("Flash size is %dmb.\n",mb);
 #endif
 
   latency_code=reg_cr1>>6;
 
-
-  printf("%c",0x93);
+    printf("%c",0x93);
 
 
   // We care about whether the IPROG bit is set.
@@ -1954,7 +1988,7 @@ void main(void)
         break;
 #endif
       case 0x7e: // TILDE
-        if (user_has_been_warned())
+	//        if (user_has_been_warned())
           reflash_slot(0);
         printf("%c",0x93);
         break;
@@ -1988,6 +2022,7 @@ void main(void)
     }
   }
 
+  
 }
 
 unsigned char progress_chars[4]={32,101,97,231};
