@@ -1970,7 +1970,7 @@ void main(void)
         break;
 #endif
       case 0x7e: // TILDE
-	//        if (user_has_been_warned())
+	if (user_has_been_warned())
           reflash_slot(0);
         printf("%c",0x93);
         break;
