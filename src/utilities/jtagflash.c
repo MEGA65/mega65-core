@@ -6,6 +6,9 @@
 #include <dirent.h>
 #include <time.h>
 
+#include <6502.h>
+
+//#define QPP_WRITE
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
@@ -27,6 +30,27 @@ char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
+
+unsigned char compare_routine[36]=
+  {
+   0xa2,0, // LDX #$00
+   0xbd,0,0, // loop1: LDA $nnnn,x
+   0xdd,0,0, // CMP $nnnn,x
+   0xd0,0x14, // BNE fail
+   0xe8,      // INX
+   0xd0,0xf5, // BNE loop1
+   0xbd,0,0, // loop2: LDA $nnnn,x
+   0xdd,0,0, // CMP $nnnn,x
+   0xd0,0x09, // BNE fail
+   0xe8,      // INX
+   0xd0,0xf5, // BNE loop2
+   0xa9,0x00, // lda #$00
+   0x8d,0x7f,0x03, // sta $037f
+   0x60,          // rts
+   0xa9,0xff, // fail: lda #$ff
+   0x8d,0x7f,0x03, // sta $037f
+   0x60          // rts
+};
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -593,6 +617,7 @@ int check_model_id_field(void)
   return 0;
 }
 
+unsigned char j,k;
 unsigned short erase_time=0, flash_time=0,verify_time=0;
 void reflash_slot(unsigned char slot)
 {
@@ -663,6 +688,9 @@ void reflash_slot(unsigned char slot)
     // dummy read to flush buffer in flash
     read_data(addr);
 
+    // Show on screen
+    lcopy(data_buffer,0x0400+10*40,512);
+    
 #ifdef HARDWARE_SPI
     // Use hardware accelerated byte comparison when reading QSPI flash
     // to speed up detecting which sectors need erasing
@@ -697,7 +725,7 @@ void reflash_slot(unsigned char slot)
       // Then verify that the sector has been erased
       read_data(addr);
       // XXX Show the read sector on the screen
-      lcopy(addr,0x0400+10*40,512);
+      lcopy(data_buffer,0x0400+10*40,512);
 #ifdef HARDWARE_SPI
       if (PEEK(0xD689)&0x40) i=0; else i=512;
 #else
@@ -749,7 +777,9 @@ void reflash_slot(unsigned char slot)
         progress++;
       }
 #endif     
-      progress_bar(progress);
+      // Don't do progress bar too often, as it slows things down
+      if (!(k&0xf)) progress_bar(progress);
+      k++;
 
       if (!(addr&0xffff)) {
 	getrtc(&tm_now);
@@ -775,6 +805,8 @@ void reflash_slot(unsigned char slot)
       // XXX For 64MB flash chips, it is possible to write 512 bytes at once,
       // but 256 at a time will work fine, too.
 
+      lcopy(buffer,0x0400+10*40,512);
+      
       if (page_size==256) {
 	// Programming works on 256 byte pages, so we have to write two of them.
 	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
@@ -796,6 +828,7 @@ void reflash_slot(unsigned char slot)
       }
     }
 
+    getrtc(&tm_now);
     flash_time=seconds_between(&tm_start,&tm_now);
     getrtc(&tm_start);
     
@@ -808,6 +841,13 @@ void reflash_slot(unsigned char slot)
     printf("%cVerifying that bitstream was correctly written to flash...\n",0x93);
     progress=0; progress_acc=0;
 
+    // Setup fast comparison routine
+    lcopy(compare_routine,0x380,64);    
+    *(unsigned short *)0x383 = data_buffer;
+    *(unsigned short *)0x386 = buffer;
+    *(unsigned short *)0x38e = data_buffer;
+    *(unsigned short *)0x391 = buffer;
+    
     flash_reset();
 
     hy_closeall();
@@ -834,16 +874,42 @@ void reflash_slot(unsigned char slot)
         progress_acc-=52428UL;
         progress++;
       }
-#endif           
-      progress_bar(progress);
+#endif
 
+      // Don't do progress bar too often, as it slows things down
+      if (!(k&0xff)) progress_bar(progress);
+      k++;
+
+      if (!(addr&0xffff)) {
+	getrtc(&tm_now);
+	d=seconds_between(&tm_start,&tm_now);
+	if (d!=d_last) {
+	  unsigned int speed=(unsigned int)((addr/d)>>10);
+	  // This division is _really_ slow, which is why we do it only
+	  // once per second.
+	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	  d_last=d;
+	  printf("%c%c%c%c%c%c%c%c%c%cVerifying %dKB/sec, done in %ld sec.          \n",
+		 0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
+		 eta
+		 );
+	}
+      }
+      
+      // Clear buffers for fast compare
+      lfill(data_buffer,0,512);
+      lfill(buffer,0,512);
+      
       bytes_returned=hy_read512();
 
       if (!bytes_returned) break;
 
       read_data(addr);
-      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
-      if ((i<256)&&(i<bytes_returned)) {
+      lcopy(data_buffer,0x0400+10*40,512);
+
+      // Do fast comparison of data_buffer and buffer
+      __asm__ ("jsr $0380");
+      if (PEEK(0x037f)) {
 
         printf("Verification error at address $%llx:\n",
             addr+256+i);
@@ -910,10 +976,13 @@ void reflash_slot(unsigned char slot)
         i=0;
       }
     }
-    verify_time=seconds_between(&tm_start,&tm_now);
-
   }
+  getrtc(&tm_now);
+  verify_time=seconds_between(&tm_start,&tm_now);
 
+  // Undraw the sector display before showing results
+  lfill(0x0400+10*40,0x20,512);
+  
   printf("%c%c%c%c%c"
 	 "Flash slot successfully written.\n"
 	 "   Erase: %d sec\n"
@@ -923,7 +992,8 @@ void reflash_slot(unsigned char slot)
 	 "Press any key to return to menu.\n",
 	 0x11,0x11,0x11,0x11,0x11,
 	 erase_time,flash_time,verify_time);
-  press_any_key();
+  // Coloured border to draw attention
+  while(1) POKE(0xD020,PEEK(0xD020)+1);
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
@@ -984,13 +1054,10 @@ void spi_so_set(unsigned char b)
 void qspi_nybl_set(unsigned char nybl)
 {
   // De-tri-state SO data line, and set value
-  bash_bits&=(0xff-0x0f);
-  bash_bits&=(0xff-0x10);
+  bash_bits&=0x60;
   bash_bits|=nybl & 0xf;
-  bash_bits|=0x80;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
-  printf("$%02x ",bash_bits);
 }
 
 
@@ -1276,12 +1343,20 @@ void program_page(unsigned long start_address,unsigned int page_size)
   delay();
   spi_cs_low();
   delay();
+#ifdef QPP_WRITE
+  spi_tx_byte(0x34);
+#else
   spi_tx_byte(0x12);
+#endif
   spi_tx_byte(start_address>>24);
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
 
+#ifdef QPP_WRITE
+  for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
+#else
+  
   // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
   // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
@@ -1292,6 +1367,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
     // erata for the flash that uses 256 byte pages, we can
     // do this, provided the last 256 bytes of data sent is
     // the real data.
+    //    printf("256 byte program\n");
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD680,0x50);  
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
@@ -1305,7 +1381,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
     for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
 #endif
   POKE(0xD020,1);
-
+#endif
+  
   spi_cs_high();
 
   // Revert lines to input after QSPI operation
@@ -1472,8 +1549,11 @@ void flash_inspector(void)
 	// Erase page, write page, read it back
 	erase_sector(addr);
 	// Some known data
-	lfill(0xFFD6E00,0x42,0x200);
-	printf("%02x %02x %02x\n",
+	for(i=0;i<256;i++) data_buffer[i]=i;
+	//	lfill(0xFFD6E00,0xFF,0x200);
+	printf("E: %02x %02x %02x\n",
+	       lpeek(0xffd6e00),lpeek(0xffd6e01),lpeek(0xffd6e02));
+	printf("F: %02x %02x %02x\n",
 	       lpeek(0xffd6f00),lpeek(0xffd6f01),lpeek(0xffd6f02));
 	// Now program it
 	program_page(addr,256);
@@ -1527,7 +1607,10 @@ void main(void)
 
   mega65_io_enable();
 
+  // White text
   POKE(0x286,1);
+
+  SEI();
   
   printf("%cProbing flash...\n",0x93);
 
@@ -1544,17 +1627,14 @@ void main(void)
   bash_bits=0xff;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
-  delay();
-  delay();
-  delay();
-  delay();
-  delay();
+
+  usleep(10000);
 
   fetch_rdid();
   read_registers();
   if ((manufacturer==0xff) && (device_id==0xffff)) {
     printf("ERROR: Cannot communicate with QSPI            flash device.\n");
-    return;
+    while(1) POKE(0xD020,PEEK(0xD020)+1);
   }
 #if 1
   printf("QSPI Flash manufacturer = $%02x\n",manufacturer);
@@ -1608,8 +1688,8 @@ void main(void)
   if (reg_sr1&0x01) printf("  device busy.\n");
 #endif
 
-  //reflash_slot(0);
-    flash_inspector();
+  reflash_slot(0);
+  // flash_inspector();
   
 }
 
