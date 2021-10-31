@@ -1445,6 +1445,7 @@ void read_data(unsigned long start_address)
 #ifdef HARDWARE_SPI
   // Use hardware-accelerated QSPI RX
   POKE(0xD020,1);
+  POKE(0xD680,0x01); // Make sure SD card is not under reset
   POKE(0xD680,0x52); // Read 512 bytes from QSPI flash
   while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
   lcopy(0xFFD6E00L,data_buffer,512);
