@@ -703,7 +703,10 @@ void reflash_slot(unsigned char slot)
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
     tries++;
 #endif
-    if (!(addr&0xffff)) {
+    // Show erase state for all sectors in first 128KB, as this has small
+    // pages on some types of flash, which are slow to erase, so some user
+    // feedback is nice.
+    if ((!(addr&0xffff))||(addr<0x20000)) {
       getrtc(&tm_now);
       d=seconds_between(&tm_start,&tm_now);
       if (d!=d_last) {
