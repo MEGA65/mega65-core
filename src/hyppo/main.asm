@@ -1968,6 +1968,21 @@ go64:
 	;; Prevent flash menu from being launched
 	lda #$4c
 	sta first_boot_flag_instruction
+
+	;; Warn user if dipswitch 3 is on
+	lda $d69d
+	and #$40
+	beq l41
+        ldx #<msg_dipswitch3on
+        ldy #>msg_dipswitch3on
+        jsr printmessage
+l40a:
+	;; Wait for user to press RUN/STOP to continue booting
+	lda $d610
+	cmp #$03
+	beq l41
+	inc $d020
+	bne l40a
 	
         ;; Check if hold boot switch is set (control-key)
         ;;
@@ -3076,6 +3091,8 @@ msg_nod81:              !text "CANNOT MOUNT D81 - (ERRNO: $$)"
 msg_d81mounted:         !text "D81 SUCCESSFULLY MOUNTED"
                         !8 0
 msg_releasectrl:        !text "RELEASE CONTROL TO CONTINUE BOOTING."
+                        !8 0
+msg_dipswitch3on:       !text "SW3 OFF OR PRESS RUN/STOP TO CONTINUE."
                         !8 0
 msg_romnotfound:        !text "COULD NOT FIND ROM MEGA65XXROM"
                         !8 0
