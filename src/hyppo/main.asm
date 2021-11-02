@@ -1971,7 +1971,7 @@ go64:
 
 	;; Warn user if dipswitch 3 is on
 	lda $d69d
-	and #$40
+	and #$04
 	beq l41
         ldx #<msg_dipswitch3on
         ldy #>msg_dipswitch3on
@@ -1983,10 +1983,13 @@ l40a:
 	beq l41
 	inc $d020
 	bne l40a
+l41:
+	;; remove RUN/STOP from key queue
+	sta $d610
 	
         ;; Check if hold boot switch is set (control-key)
         ;;
-l41:    lda buckykey_status
+	lda buckykey_status
         and #$14
         beq l42      ;; no, so continue
 
