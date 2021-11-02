@@ -1706,6 +1706,7 @@ begin
             end if;
           else
             ascii_key_buffered <= ascii_key;
+            ascii_key_presenting <= '1';
           end if;
         end if;
       end if;
