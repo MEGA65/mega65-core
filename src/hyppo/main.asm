@@ -1982,7 +1982,7 @@ l40a:
 	cmp #$03
 	beq l41
 	inc $d020
-	bne l40a
+	jmp l40a
 l41:
 	;; remove RUN/STOP from key queue
 	sta $d610
