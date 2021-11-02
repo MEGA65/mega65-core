@@ -480,7 +480,7 @@ architecture behavioral of iomapper is
   signal ascii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   signal ascii_key_buffer : key_buffer_t;
-  signal ascii_key_buffer_count : integer range 0 to 3 := 0;
+  signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic := '0';
@@ -1696,9 +1696,11 @@ begin
       uart_char_valid <= '0';
       if ascii_key_valid='1' and last_ascii_key_valid='0' then
         if protected_hardware_in(6)='0' then
-          -- Not in matrix mode, so push character out normal path
+          -- Push char to matrix mode monitor (it will know if it is active or
+          -- not)
           uart_char <= ascii_key;
           uart_char_valid <= '1';
+          -- Push char to $D610 accelerated keyboard reader as well
           if ascii_key_presenting = '1' then
             if ascii_key_buffer_count < 4 then
               ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
