@@ -7470,20 +7470,17 @@ begin
                 when I_ASL =>
                   reg_val33(31 downto 1) <= reg_val32(30 downto 0);
                   reg_val33(0) <= '0';
-                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_ASR =>
                   reg_val33(30 downto 0) <= reg_val32(31 downto 1);
                   -- Preserve and extend sign
                   reg_val33(31) <= reg_val32(31);
-                  flag_c <= reg_val32(0);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_ROL =>
                   reg_val33(31 downto 1) <= reg_val32(30 downto 0);
                   reg_val33(0) <= flag_c;
-                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_LSR =>
@@ -7532,6 +7529,10 @@ begin
                 when I_BIT =>
                   flag_v <= reg_val32(30);
                   flag_n <= reg_val32(31);
+                when I_LSR | I_ASR | I_ROR =>
+                  flag_c <= reg_val32(0);
+                when I_ASL | I_ROL =>
+                  flag_c <= reg_val32(31);
                 when others =>
                   null;
               end case;
@@ -7544,8 +7545,7 @@ begin
                   reg_x <= reg_val33(15 downto 8);
                   reg_y <= reg_val33(23 downto 16);
                   reg_z <= reg_val33(31 downto 24);
-                when I_INC | I_DEC | I_ASL | I_ASR |
-                  I_ROL | I_ROR =>
+                when I_INC | I_DEC | I_LSR | I_ASL | I_ASR | I_ROL | I_ROR =>
                   reg_val32 <= reg_val33(31 downto 0);
                   pc_inc := '0';
                   state <= StoreTarget32;
