@@ -7452,8 +7452,6 @@ begin
                   state <= Commit32;
                   pc_inc := '0';
                 when I_BIT =>
-                  flag_n <= reg_val32(31);
-                  flag_v <= reg_val32(30);
                   reg_val33(31 downto 0) <= reg_q33(31 downto 0) and reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
@@ -7531,6 +7529,9 @@ begin
                   flag_c <= not reg_val33(32);
                   flag_v <= (reg_q33(31) xor reg_val33(31)) and (reg_q33(31) xor reg_val32(31)); -- reg_val33 <= reg_q33 - reg_val32
                 when I_CMP => flag_c <= not reg_val33(32); -- no overflow for cmpq!
+                when I_BIT =>
+                  flag_v <= reg_val32(30);
+                  flag_n <= reg_val32(31);
                 when others =>
                   null;
               end case;
@@ -7557,7 +7558,9 @@ begin
               else
                 flag_z <= '0';
               end if;
-              flag_n <= reg_val33(31);
+              if reg_instruction /= I_BIT then
+                flag_n <= reg_val33(31);
+              end if;
               
             when StoreTarget32 =>
               next_is_axyz32_instruction <= '0';
