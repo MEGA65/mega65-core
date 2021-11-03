@@ -378,41 +378,11 @@ void main(void)
   printf("%cWelcome to the MEGA65!\n",0x93);
   printf("\nBefore you go further, there are couple of things you need to do.\n");
   printf("\nPress F3 - F13 to set the time and date.");
-  printf("\nPress RETURN when done.\n");
  
   while(1) {
     POKE(0x286,1);
-    printf("%c\n\n\n\n\n\n\n\n",0x13);    
-    printf("Video: %c",0x12);
-    POKE(0x286,7);
-    switch(video_mode) {
-    case 0: printf("DVI (no sound), NTSC 60Hz       "); break;
-    case 1: printf("DVI (no sound), PAL 50Hz        "); break;
-    case 2: printf("Enhanced (with sound), NTSC 60Hz"); break;
-    case 3: printf("Enhanced (with sound), PAL 50Hz "); break;
-    }
-    printf("%c\n",0x92);
-    POKE(0x286,14);
-    printf("       TAB = cycle through modes\n");
-    printf("       SPACE = apply and test mode.");
+    printf("%c\n\n\n\n\n",0x13);    
 
-    POKE(0x286,1);
-    printf("\n\nTest Audio (set video mode first): ");
-    POKE(0x286,14);
-    printf("\n       A = play a tune\n");
-    
-    POKE(0x286,1);
-    printf("\nCRT Emulation: %c",0x12);
-    POKE(0x286,7);
-    switch(crt_mode) {
-    case 0: printf("Disabled"); break;
-    case 1: printf("Enabled "); break;
-    }
-    printf("%c\n",0x92);
-    POKE(0x286,14);
-    printf("               C = toggle\n");
-      
-    
     tm.tm_sec=0;
     tm.tm_min=0;
     tm.tm_hour=0;
@@ -434,13 +404,44 @@ void main(void)
     POKE(0x286,14);
     printf("\n       F3 F5 F7 F9 F11 F13\n");
     POKE(0x286,1);
-    printf("\n");
+    printf("\n\n");
 
-    printf("Press ");
+    printf("Video: %c",0x12);
     POKE(0x286,7);
+    switch(video_mode) {
+    case 0: printf("DVI (no sound), NTSC 60Hz       "); break;
+    case 1: printf("DVI (no sound), PAL 50Hz        "); break;
+    case 2: printf("Enhanced (with sound), NTSC 60Hz"); break;
+    case 3: printf("Enhanced (with sound), PAL 50Hz "); break;
+    }
+    printf("%c\n",0x92);
+    POKE(0x286,14);
+    printf("       TAB = cycle through modes\n");
+    printf("       SPACE = apply and test mode.\n");
+
+    POKE(0x286,1);
+    printf("\n\nTest Audio (set video mode first): ");
+    POKE(0x286,14);
+    printf("\n       A = play a tune\n");
+    
+    POKE(0x286,1);
+    printf("\n\nCRT Emulation: %c",0x12);
+    POKE(0x286,7);
+    switch(crt_mode) {
+    case 0: printf("Disabled"); break;
+    case 1: printf("Enabled "); break;
+    }
+    printf("%c\n",0x92);
+    POKE(0x286,14);
+    printf("               C = toggle\n");
+      
+    
+    POKE(0x286,1);
+    printf("\nPress ");
+    POKE(0x286,3);
     printf("%cRETURN%c",0x12,0x92);
     POKE(0x286,1);
-    printf(" when done to continue.\n");
+    printf(" to save and exit.");
     
     c=PEEK(0xD610);
     if (c) POKE(0xD610,0);
