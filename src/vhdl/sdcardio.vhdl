@@ -272,7 +272,7 @@ architecture behavioural of sdcardio is
   signal sd_wdata        : unsigned(7 downto 0) := (others => '0');
   signal sd_error        : std_logic;
   signal sd_reset        : std_logic := '1';
-  signal sdhc_mode : std_logic := '0';
+  signal sdhc_mode : std_logic := '1';
 
   signal sd_fill_mode    : std_logic := '0';
   signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
@@ -2340,19 +2340,9 @@ begin  -- behavioural
                       -- We use the SD-card buffer offset to count the bytes read
                       sd_buffer_offset <= (others => '0');
                       if f011_ds="000" then
-                        if sdhc_mode='1' then
-                          sd_sector <= diskimage_sector + diskimage1_offset;
-                        else
-                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                    diskimage1_offset;     
-                        end if;
+                        sd_sector <= diskimage_sector + diskimage1_offset;
                       else
-                        if sdhc_mode='1' then
-                          sd_sector <= diskimage2_sector + diskimage2_offset;
-                        else
-                          sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
-                                                    diskimage2_offset;
-                        end if;
+                        sd_sector <= diskimage2_sector + diskimage2_offset;
                       end if;                        
                     end if;
                     if (virtualise_f011_drive0='1' and f011_ds="000")
@@ -2441,19 +2431,9 @@ begin  -- behavioural
                     -- XXX Doesn't trigger an error for bad track/sector:
                     -- just writes to sector 1599 of the disk image!
                     if f011_ds="000" then
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage1_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage1_offset;     
-                      end if;
+                      sd_sector <= diskimage_sector + diskimage1_offset;
                     elsif f011_ds="001" then
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage2_sector + diskimage2_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
-                                                  diskimage2_offset;     
-                      end if;
+                      sd_sector <= diskimage2_sector + diskimage2_offset;
                     else
                       sd_sector <= (others => '1');
                     end if;
@@ -2468,15 +2448,15 @@ begin  -- behavioural
                       sd_state <= F011WriteSector;
                     elsif (use_real_floppy0='0' or f011_ds/="000") and (use_real_floppy2='0' or f011_ds/="001") then
                       sd_state <= HyperTrapWrite;
+                      if f011_ds="000" then
+                        sd_sector(16 downto 0) <= diskimage1_offset;
+                      elsif f011_ds="001" then
+                        sd_sector(16 downto 0) <= diskimage2_offset;
+                      else
+                        sd_sector(16 downto 0) <= (others => '0');
+                      end if;
+                      sd_sector(31 downto 17) <= (others => '0');                      
                     end if;
-                    if f011_ds="000" then
-                      sd_sector(16 downto 0) <= diskimage1_offset;
-                    elsif f011_ds="001" then
-                      sd_sector(16 downto 0) <= diskimage2_offset;
-                    else
-                      sd_sector(16 downto 0) <= (others => '0');
-                    end if;
-                    sd_sector(31 downto 17) <= (others => '0');
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     report "Commencing FDC buffered write.";
