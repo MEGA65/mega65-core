@@ -24,7 +24,7 @@ echo ${branch}
 # get git-commit and the dirty-flag
 #
 commit_id=`git describe --always --abbrev=7 --dirty=~`
-version32=`git describe --always --abbrev=8`
+version32=`git describe --always | cut -c1-8`
 datestamp=$(expr $(expr $(date +%Y) - 2020) \* 366 + `date +%j`)
 
 
