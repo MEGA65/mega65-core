@@ -1637,6 +1637,14 @@ void main(void)
     while(1) POKE(0xD020,PEEK(0xD020)+1);
   }
 #if 1
+  for(i=0;i<(77-4);i++)
+  {
+    if (!(i&15)) printf("+%03x : ",i);
+    printf("%02x",cfi_data[i]);
+    if ((i&15)==15) printf("\n");
+  }
+  printf("\n");
+
   printf("QSPI Flash manufacturer = $%02x\n",manufacturer);
   printf("QSPI Device ID = $%04x\n",device_id);
   printf("RDID byte count = %d\n",cfi_length);
@@ -1657,7 +1665,10 @@ void main(void)
       cfi_data[0x20-4]);
   if (cfi_data[0x2a-4]==8) page_size=256;
   if (cfi_data[0x2a-4]==9) page_size=512;
-  if (!page_size) printf("WARNING: Unsupported page size\n");
+  if (!page_size) {
+    printf("WARNING: Unsupported page size\n");
+    page_size=512;
+  }
   
   printf("Expected programing time = %d usec/byte.\n",
 	 cfi_data[0x20-4]/cfi_data[0x2a-4]);
