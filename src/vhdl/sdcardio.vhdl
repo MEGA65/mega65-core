@@ -2468,13 +2468,13 @@ begin  -- behavioural
                       sd_state <= F011WriteSector;
                     elsif (use_real_floppy0='0' or f011_ds/="000") and (use_real_floppy2='0' or f011_ds/="001") then
                       sd_state <= HyperTrapWrite;
-                      if f011_ds="000" then
-                        sd_sector(16 downto 0) <= diskimage1_offset;
-                      elsif f011_ds="001" then
-                        sd_sector(16 downto 0) <= diskimage2_offset;
-                      else
-                        sd_sector(16 downto 0) <= (others => '0');
-                      end if;
+                    end if;
+                    if f011_ds="000" then
+                      sd_sector(16 downto 0) <= diskimage1_offset;
+                    elsif f011_ds="001" then
+                      sd_sector(16 downto 0) <= diskimage2_offset;
+                    else
+                      sd_sector(16 downto 0) <= (others => '0');
                     end if;
                     sd_sector(31 downto 17) <= (others => '0');
                     sdio_error <= '0';
