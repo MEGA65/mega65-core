@@ -3991,12 +3991,11 @@ l94db:   lda $d681,x		;; resolved sector number
 
 	;; And set the MEGAfloppy flag if the file is 5500KB long
 	lda d81_clustercount+1
-	cmp #$80
+	cmp #$05
 	bne not_mega_floppy2b
 
 	lda $d68b
-	and #%01000111
-        ora #$98
+        ora #$80
 	sta $d68b
 
 not_mega_floppy2b:	
