@@ -3909,7 +3909,7 @@ l94d:   lda $d681,x		;; resolved sector number
 
 	lda $d68b
 	and #%10111000
-        ora #$43
+        ora #$47
 	sta $d68b
 
 not_mega_floppy2:	
@@ -3989,7 +3989,7 @@ l94db:   lda $d681,x		;; resolved sector number
         ora #$38
         sta $d68b
 
-	;; And set the MEGAfloppy flag if the file is 64MiB long
+	;; And set the MEGAfloppy flag if the file is 5500KB long
 	lda d81_clustercount+1
 	cmp #$80
 	bne not_mega_floppy2b
