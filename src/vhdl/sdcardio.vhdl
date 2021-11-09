@@ -3151,11 +3151,12 @@ begin  -- behavioural
                 if fastio_wdata(3) = '0' then
                   qspidb(3) <= '0';
                 else
-                  qspidb(3) <= 'Z';
+                  -- ... except the pullups don't seem to work on this line
+                  qspidb(3) <= '1';
                 end if;
                 if fastio_wdata(2) = '0' then
                   qspidb(2) <= '0';
-                else
+                else                  
                   qspidb(2) <= 'Z';
                 end if;
                 -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
