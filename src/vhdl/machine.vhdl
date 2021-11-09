@@ -121,7 +121,7 @@ entity machine is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
+         QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
          
