@@ -8,7 +8,7 @@
 
 #include <6502.h>
 
-//#define QPP_WRITE
+#define QPP_WRITE
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
@@ -1109,8 +1109,8 @@ void spi_tx_bit(unsigned char bit)
 
 void qspi_tx_nybl(unsigned char nybl)
 {
-  spi_clock_low();
   qspi_nybl_set(nybl);
+  spi_clock_low();
   delay();
   spi_clock_high();
   delay();
@@ -1484,17 +1484,17 @@ void fetch_rdid(void)
   // Data format according to section 11.2
 
   // Start with 3 byte manufacturer + device ID
-  manufacturer=spi_rx_byte();
-  device_id=spi_rx_byte()<<8;
-  device_id|=spi_rx_byte();
-
   // Now get the CFI data block
   for(i=0;i<512;i++) cfi_data[i]=0x00;  
-  cfi_length=spi_rx_byte();
-  if (cfi_length==0) cfi_length = 512;
-  for(i=0;i<cfi_length;i++)
+  for(i=0;i<512;i++)
     cfi_data[i]=spi_rx_byte();
+  manufacturer=cfi_data[0];
+  device_id=cfi_data[1]<<8;
+  device_id|=cfi_data[2];
+  cfi_length=cfi_data[3];
+  if (cfi_length==0) cfi_length = 512;
 
+  
   spi_cs_high();
   delay();
   spi_clock_high();
@@ -1597,6 +1597,7 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
 
 
 unsigned int base_addr;
+unsigned char part[256];
 
 void main(void)
 {
@@ -1637,7 +1638,7 @@ void main(void)
     while(1) POKE(0xD020,PEEK(0xD020)+1);
   }
 #if 1
-  for(i=0;i<(77-4);i++)
+  for(i=0;i<0x80;i++)
   {
     if (!(i&15)) printf("+%03x : ",i);
     printf("%02x",cfi_data[i]);
@@ -1645,41 +1646,48 @@ void main(void)
   }
   printf("\n");
 
+  if ((cfi_data[0x51]==0x41)&&(cfi_data[0x52]==0x4C)&&(cfi_data[0x53]==0x54)) {
+    if (cfi_data[0x56]==0x00) {
+      for(i=0;i<cfi_data[0x57];i++) part[i]=cfi_data[0x57+i];
+      part[cfi_data[0x57]]=0;
+      printf("Part is %s\n",part);
+    }
+  }
   printf("QSPI Flash manufacturer = $%02x\n",manufacturer);
   printf("QSPI Device ID = $%04x\n",device_id);
   printf("RDID byte count = %d\n",cfi_length);
   printf("Sector architecture is ");
-  if (cfi_data[4-4]==0x00) {
+  if (cfi_data[4]==0x00) {
     printf("uniform 256kb sectors.\n");
     num_4k_sectors=0;
   }
-  else if (cfi_data[4-4]==0x01) {
+  else if (cfi_data[4]==0x01) {
     printf("\n  4kb parameter sectors\n  64kb data sectors.\n");
-    printf("  %d x 4KB sectors.\n",1+cfi_data[0x2d-4]);
-    num_4k_sectors=1+cfi_data[0x2d-4];
-  } else printf("unknown ($%02x).\n",cfi_data[4-4]);
+    printf("  %d x 4KB sectors.\n",1+cfi_data[0x2d]);
+    num_4k_sectors=1+cfi_data[0x2d];
+  } else printf("unknown ($%02x).\n",cfi_data[4]);
   printf("Part Family is %02x-%c%c\n",
-      cfi_data[5-4],cfi_data[6-4],cfi_data[7-4]);
+      cfi_data[5],cfi_data[6],cfi_data[7]);
   printf("2^%d byte page, program time is 2^%d usec.\n",
-      cfi_data[0x2a-4],
-      cfi_data[0x20-4]);
-  if (cfi_data[0x2a-4]==8) page_size=256;
-  if (cfi_data[0x2a-4]==9) page_size=512;
+      cfi_data[0x2a],
+      cfi_data[0x20]);
+  if (cfi_data[0x2a]==8) page_size=256;
+  if (cfi_data[0x2a]==9) page_size=512;
   if (!page_size) {
     printf("WARNING: Unsupported page size\n");
     page_size=512;
   }
   
   printf("Expected programing time = %d usec/byte.\n",
-	 cfi_data[0x20-4]/cfi_data[0x2a-4]);
+	 cfi_data[0x20]/cfi_data[0x2a]);
   printf("Erase time is 2^%d millisec/sector.\n",
-      cfi_data[0x21-4]);
+      cfi_data[0x21]);
   press_any_key();
 #endif
 
   // Work out size of flash in MB
   {
-    unsigned char n=cfi_data[0x27-4];
+    unsigned char n=cfi_data[0x27];
     mb=1;
     n-=20;
     while(n) { mb=mb<<1; n--; }
@@ -1697,6 +1705,8 @@ void main(void)
   if (reg_sr1&0x20) printf("  erase error occurred.\n");
   if (reg_sr1&0x02) printf("  write latch enabled.\n"); else printf("  write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("  device busy.\n");
+  printf("reg_sr1=$%02x\n",reg_sr1);
+  press_any_key();
 #endif
 
   reflash_slot(0);
