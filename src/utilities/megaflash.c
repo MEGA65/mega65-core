@@ -1651,7 +1651,11 @@ void main(void)
   read_registers();
   if ((manufacturer==0xff) && (device_id==0xffff)) {
     printf("ERROR: Cannot communicate with QSPI            flash device.\n");
-    while(1) POKE(0xD020,PEEK(0xD020)+1);
+    press_any_key();
+    // Switch back to normal speed control before exiting
+    POKE(0,64);
+    POKE(0xCF7f,0x4C);
+    asm (" jmp $cf7f ");    
   }
   if (cfi_data[0x2a-4]==8) page_size=256;
   if (cfi_data[0x2a-4]==9) page_size=512;
