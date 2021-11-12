@@ -291,7 +291,7 @@ void scan_partition_entry(const char i)
   for(j=0;j<4;j++) ((char *)&lba_start)[j]=buffer[offset+8+j];
   for(j=0;j<4;j++) ((char *)&lba_end)[j]=buffer[offset+12+j];
 
-  if (id==0x0c) {
+  if (id==0x0c||id==0x0b) {
     // Found FAT partition
     fat32_partition_start=lba_start;
     fat32_partition_end=lba_end;
@@ -1251,11 +1251,11 @@ void erase_sector(unsigned long address_in_sector)
 {
 
   // XXX Send Write Enable command (0x06 ?)
-  //  printf("activating write enable...\n");
+  printf("activating write enable...\n");
   spi_write_enable();
 
   // XXX Clear status register (0x30)
-  //  printf("clearing status register...\n");
+  printf("clearing status register...\n");
   while(reg_sr1&0x61) {
     spi_cs_high();
     spi_clock_high();
@@ -1270,22 +1270,32 @@ void erase_sector(unsigned long address_in_sector)
 
   // XXX Erase 64/256kb (0xdc ?)
   // XXX Erase 4kb sector (0x21 ?)
-  //  printf("erasing sector...\n");
+  printf("erasing sector...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
   spi_cs_low();
   delay();
-  if ((addr>>12)>=num_4k_sectors)
+  if ((addr>>12)>=num_4k_sectors) {
     // Do 64KB/256KB sector erase
+    printf("erasing large sector.\n");
     spi_tx_byte(0xdc);
-  else
+  } else {
     // Do fast 4KB sector erase
+    printf("erasing small sector.\n");
     spi_tx_byte(0x21);
+  }
   spi_tx_byte(address_in_sector>>24);
   spi_tx_byte(address_in_sector>>16);
   spi_tx_byte(address_in_sector>>8);
   spi_tx_byte(address_in_sector>>0);
+
+  // CLK must be set low before releasing CS according
+  // to the S25F512 datasheet.
+  // spi_clock_low();
+  bash_bits&=(0xff-0x20);
+  POKE(BITBASH_PORT,bash_bits);
+
   spi_cs_high();
 
   while(reg_sr1&0x03) {
@@ -1294,7 +1304,7 @@ void erase_sector(unsigned long address_in_sector)
 
   if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
   else {
-    printf("%c%csector at $%08llx erased.\n%c",0x13,0x11,address_in_sector,0x91);
+    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
   }
 
 }
@@ -1391,7 +1401,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
-  while(reg_sr1&0x03) {
+  reg_sr1=0x61;
+  while(reg_sr1&0x61) {
     //    printf("flash busy. ");
     read_registers();
   }
@@ -1539,10 +1550,10 @@ void flash_inspector(void)
     if (x) {
       POKE(0xd610,0);
       switch(x) {
-      case 0x11: addr+=256; break;
-      case 0x91: addr-=256; break;
-      case 0x1d: addr+=0x400000; break;
-      case 0x9d: addr-=0x400000; break;
+      case 0x11: case 0x44: case 0x64: addr+=256; break;
+      case 0x91: case 0x55: case 0x75: addr-=256; break;
+      case 0x1d: case 0x52: case 0x72: addr+=0x400000; break;
+      case 0x9d: case 0x4c: case 0x6c: addr-=0x400000; break;
       case 0x03: return;
       case 0x54: case 0x74:
 	// T = Test
@@ -1595,6 +1606,59 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
   return 1;
 }
 
+void enable_quad_mode(void)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x06); // WREN
+  spi_cs_high();
+  delay();
+
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x01);
+  spi_tx_byte(0x00);
+  spi_tx_byte(0x02);
+  spi_cs_high();
+  delay();
+}
+
+
+void unprotect_flash(void)
+{
+  unsigned long address_in_sector=0;
+  unsigned char c;
+
+  for(i=0;i<256;i++) {
+    
+    address_in_sector=i*256*1024;
+
+    spi_write_enable();
+    
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0xe1);
+    spi_tx_byte(address_in_sector>>24);
+    spi_tx_byte(address_in_sector>>16);
+    spi_tx_byte(address_in_sector>>8);
+    spi_tx_byte(address_in_sector>>0);
+    spi_tx_byte(0xff);
+    
+    spi_cs_high();
+    delay();
+  }
+
+}
+
 
 unsigned int base_addr;
 unsigned char part[256];
@@ -1612,6 +1676,9 @@ void main(void)
   POKE(0x286,1);
 
   SEI();
+
+  spi_cs_high();
+  usleep(50000);
   
   printf("%cProbing flash...\n",0x93);
 
@@ -1706,11 +1773,14 @@ void main(void)
   if (reg_sr1&0x02) printf("  write latch enabled.\n"); else printf("  write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("  device busy.\n");
   printf("reg_sr1=$%02x\n",reg_sr1);
+  printf("reg_cr1=$%02x\n",reg_cr1);
   press_any_key();
 #endif
 
-  reflash_slot(0);
-  // flash_inspector();
+  enable_quad_mode();
+  unprotect_flash();
+  //  reflash_slot(0);
+   flash_inspector();
   
 }
 
