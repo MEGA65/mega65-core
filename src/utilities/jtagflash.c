@@ -788,6 +788,7 @@ void reflash_slot(unsigned char slot)
       if (!(k&0xf)) progress_bar(progress);
       k++;
 
+
       if (!(addr&0xffff)) {
 	getrtc(&tm_now);
 	d=seconds_between(&tm_start,&tm_now);
@@ -1327,6 +1328,9 @@ void erase_sector(unsigned long address_in_sector)
 
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
+    printf("flash busy = $%02x\n",reg_sr1);
+    query_flash_protection();
+    press_any_key();
     read_registers();
   }
 
@@ -1346,6 +1350,16 @@ void program_page(unsigned long start_address,unsigned int page_size)
 {
   // XXX Send Write Enable command (0x06 ?)
   printf("About to program page @ $%08lx\n",start_address);
+
+  // Try to avoid write errors at start of 2nd sector
+  if (page_size==512) {
+    if (!(start_address&0x3ffffL)) {
+      printf("Checking protection @ $%08lx\n",start_address);
+      query_flash_protection();
+      // Address is start of sector
+      erase_sector(start_address);
+    }
+  }
   
  top:
   // Enabling quad mode also clears SR1 errors, eg, program write errors
@@ -1449,8 +1463,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
   while(reg_sr1&0x03) {
     if (reg_sr1&0x40) {
       printf("Flash write error occurred @ $%08lx.\n",start_address);
-      query_flash_protection();
-      unprotect_flash();
       query_flash_protection();
       read_registers();
       printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
@@ -1607,6 +1619,8 @@ void flash_inspector(void)
     if (x) {
       POKE(0xd610,0);
       switch(x) {
+      case 0x51: case 0x71: addr-=0x10000; break;
+      case 0x41: case 0x61: addr+=0x10000; break;
       case 0x11: case 0x44: case 0x64: addr+=256; break;
       case 0x91: case 0x55: case 0x75: addr-=256; break;
       case 0x1d: case 0x52: case 0x72: addr+=0x400000; break;
@@ -1630,6 +1644,8 @@ void flash_inspector(void)
 	printf("P: %02x %02x %02x\n",
 	       data_buffer[0],data_buffer[1],data_buffer[2]);
 	// Now program it
+	unprotect_flash();
+	query_flash_protection();
 	program_page(addr,512);
 	press_any_key();
       }
@@ -1696,13 +1712,17 @@ void enable_quad_mode(void)
 
 void unprotect_flash(void)
 {
-  unsigned long address_in_sector=0;
   unsigned char c;
 
   for(i=0;i<256;i++) {
-    
-    address_in_sector=i*256*1024;
 
+    // Wait for busy flag to clear
+    reg_sr1=0x03;
+    while(reg_sr1&0x03) {
+      printf("flash busy = $%02x\n",reg_sr1);
+      read_sr1();
+    }
+    
     spi_write_enable();
     
     spi_cs_high();
@@ -1710,12 +1730,14 @@ void unprotect_flash(void)
     delay();
     spi_cs_low();
     delay();
-    spi_tx_byte(0xe1);
-    spi_tx_byte(address_in_sector>>24);
-    spi_tx_byte(address_in_sector>>16);
-    spi_tx_byte(address_in_sector>>8);
-    spi_tx_byte(address_in_sector>>0);
+    spi_tx_byte(0xe1);    
+    spi_tx_byte(i>>6);
+    spi_tx_byte(i<<2);
+    spi_tx_byte(0);
+    spi_tx_byte(0);
+    
     spi_tx_byte(0xff);
+    spi_clock_low();
     
     spi_cs_high();
     delay();
@@ -1729,20 +1751,18 @@ void query_flash_protection(void)
   unsigned char c;
 
   printf("DYB Protection flags: ");
-  for(i=0;i<16;i++) {
+  for(i=0;i<64;i++) {
     
-    address_in_sector=i*256*1024;
-
     spi_cs_high();
     spi_clock_high();
     delay();
     spi_cs_low();
     delay();
     spi_tx_byte(0xe0);
-    spi_tx_byte(address_in_sector>>24);
-    spi_tx_byte(address_in_sector>>16);
-    spi_tx_byte(address_in_sector>>8);
-    spi_tx_byte(address_in_sector>>0);
+    spi_tx_byte(i>>6);
+    spi_tx_byte(i<<2);
+    spi_tx_byte(0);
+    spi_tx_byte(0);
     c=spi_rx_byte();
     printf("$%02x ",c);
     
@@ -1752,20 +1772,18 @@ void query_flash_protection(void)
   printf("\n");
 
   printf("PPB Protection flags: ");
-  for(i=0;i<16;i++) {
+  for(i=0;i<64;i++) {
     
-    address_in_sector=i*256*1024;
-
     spi_cs_high();
     spi_clock_high();
     delay();
     spi_cs_low();
     delay();
     spi_tx_byte(0xe2);
-    spi_tx_byte(address_in_sector>>24);
-    spi_tx_byte(address_in_sector>>16);
-    spi_tx_byte(address_in_sector>>8);
-    spi_tx_byte(address_in_sector>>0);
+    spi_tx_byte(i>>6);
+    spi_tx_byte(i<<2);
+    spi_tx_byte(0);
+    spi_tx_byte(0);
     c=spi_rx_byte();
     printf("$%02x ",c);
     
@@ -1803,7 +1821,6 @@ void main(void)
   POKE(CLOCKCTL_PORT,0x00);  
 
   flash_reset();
-  unprotect_flash();
   
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
@@ -1830,7 +1847,6 @@ void main(void)
       }
       
       flash_reset();
-      unprotect_flash();
       fetch_rdid();
       read_registers();
       printf(".");
@@ -1914,10 +1930,15 @@ void main(void)
      quad-SPI mode disabled. So we have to fix both of those (which then persists),
      and then flash the bitstream.
   */
+  printf("Try unprotecting sectors:\n");
   enable_quad_mode();
+  query_flash_protection();
+  press_any_key();
   unprotect_flash();
-  reflash_slot(0);
-  // flash_inspector();
+  query_flash_protection();
+  press_any_key();
+  // reflash_slot(0);
+  flash_inspector();
   
 }
 
