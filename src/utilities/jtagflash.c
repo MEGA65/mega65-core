@@ -8,7 +8,7 @@
 
 #include <6502.h>
 
-#define QPP_WRITE
+// #define QPP_WRITE
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
@@ -26,6 +26,7 @@ struct m65_tm tm_now;
 #define SLOT_SIZE (8L*1048576L)
 #endif
 
+void query_flash_protection(void);
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
@@ -1189,13 +1190,48 @@ unsigned char spi_rx_byte()
 
 void flash_reset(void)
 {
+  unsigned char i;
+  
   spi_cs_high();
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+
+  // Allow lots of clock ticks to get attention of SPI
+  for(i=0;i<255;i++) {
+    spi_clock_high();
+    delay();
+    spi_clock_low();
+    delay();
+  }
+  
   spi_clock_high();
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0x60);
+  spi_tx_byte(0xf0);
   spi_cs_high();
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
   usleep(32000);
   usleep(32000);
   usleep(32000);
@@ -1298,6 +1334,7 @@ void erase_sector(unsigned long address_in_sector)
 
   spi_cs_high();
 
+  reg_sr1=0x03;
   while(reg_sr1&0x03) {
     read_registers();
   }
@@ -1311,10 +1348,17 @@ void erase_sector(unsigned long address_in_sector)
 
 unsigned char first,last;
 
+void enable_quad_mode(void);
+
+
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   // XXX Send Write Enable command (0x06 ?)
 
+ top:
+  // Enabling quad mode also clears SR1 errors, eg, program write errors
+  enable_quad_mode();
+  
   first=0;
   last=0xff;
 
@@ -1340,8 +1384,9 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
     read_registers();
   }
+  spi_write_enable();
 
-  if (!reg_sr1&0x02) {
+  if (!(reg_sr1&0x02)) {
     printf("error: write latch cleared.\n");
   }
 
@@ -1364,6 +1409,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   spi_tx_byte(start_address>>0);
 
 #ifdef QPP_WRITE
+  printf("QPP write...\n");
   for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
 #else
   
@@ -1371,6 +1417,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
 #ifdef HARDWARE_SPI_WRITE
+  printf("page_size=%d\n",page_size);
   if (page_size==256) {
     // Write 256 bytes
     // XXX For now we use 512 byte write. According to the
@@ -1381,13 +1428,16 @@ void program_page(unsigned long start_address,unsigned int page_size)
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD680,0x50);  
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+    printf("Hardware SPI write 256\n");
   } else if (page_size==512) {
     // Write 512 bytes
     lcopy(data_buffer,0xffd6e00L,512);
     POKE(0xD680,0x51);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+    printf("Hardware SPI write 512\n");
   } else 
 #else
+    printf("Software SPI write\n");
     for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
 #endif
   POKE(0xD020,1);
@@ -1401,13 +1451,18 @@ void program_page(unsigned long start_address,unsigned int page_size)
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
-  reg_sr1=0x61;
-  while(reg_sr1&0x61) {
-    //    printf("flash busy. ");
+  reg_sr1=0x03;
+  while(reg_sr1&0x03) {
+    if (reg_sr1&0x40) {
+      printf("Flash write error occurred.\n");
+      press_any_key();
+      goto top;
+    }
+    printf("flash busy=$%02x (%02x)%c%c",reg_sr1,PEEK(0xD012),0x0d,0x91);
     read_registers();
   }
 
-  if (reg_sr1&0x60) printf("error writing data @ $%08llx\n",start_address);
+  if (reg_sr1&0x03) printf("error writing data @ $%08llx\n",start_address);
   else {
     //    printf("data at $%08llx written.\n",start_address);
   }
@@ -1540,6 +1595,9 @@ void flash_inspector(void)
     printf("%02x",data_buffer[i]);
     if ((i&15)==15) printf("\n");
   }
+
+  printf("page_size=%d\n",page_size);
+  
   while(1)
   {
     x=0;
@@ -1555,19 +1613,25 @@ void flash_inspector(void)
       case 0x1d: case 0x52: case 0x72: addr+=0x400000; break;
       case 0x9d: case 0x4c: case 0x6c: addr-=0x400000; break;
       case 0x03: return;
+      case 0x50: case 0x70:
+	query_flash_protection();
+	press_any_key();
+	break;
       case 0x54: case 0x74:
 	// T = Test
 	// Erase page, write page, read it back
 	erase_sector(addr);
 	// Some known data
-	for(i=0;i<256;i++) data_buffer[i]=i;
+	for(i=0;i<512;i++) data_buffer[i]=i;
 	//	lfill(0xFFD6E00,0xFF,0x200);
 	printf("E: %02x %02x %02x\n",
 	       lpeek(0xffd6e00),lpeek(0xffd6e01),lpeek(0xffd6e02));
 	printf("F: %02x %02x %02x\n",
 	       lpeek(0xffd6f00),lpeek(0xffd6f01),lpeek(0xffd6f02));
+	printf("P: %02x %02x %02x\n",
+	       data_buffer[0],data_buffer[1],data_buffer[2]);
 	// Now program it
-	program_page(addr,256);
+	program_page(addr,512);
 	press_any_key();
       }
 
@@ -1580,6 +1644,7 @@ void flash_inspector(void)
         if ((i&15)==15) printf("\n");
       }
       printf("Bytes differ? %s\n",PEEK(0xD689)&0x40?"Yes":"No");
+      printf("page_size=%d\n",page_size);
     }
   }
 #endif
@@ -1659,6 +1724,59 @@ void unprotect_flash(void)
 
 }
 
+void query_flash_protection(void)
+{
+  unsigned long address_in_sector=0;
+  unsigned char c;
+
+  printf("DYB Protection flags: ");
+  for(i=0;i<16;i++) {
+    
+    address_in_sector=i*256*1024;
+
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0xe0);
+    spi_tx_byte(address_in_sector>>24);
+    spi_tx_byte(address_in_sector>>16);
+    spi_tx_byte(address_in_sector>>8);
+    spi_tx_byte(address_in_sector>>0);
+    c=spi_rx_byte();
+    printf("$%02x ",c);
+    
+    spi_cs_high();
+    delay();
+  }
+  printf("\n");
+
+  printf("PPB Protection flags: ");
+  for(i=0;i<16;i++) {
+    
+    address_in_sector=i*256*1024;
+
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0xe2);
+    spi_tx_byte(address_in_sector>>24);
+    spi_tx_byte(address_in_sector>>16);
+    spi_tx_byte(address_in_sector>>8);
+    spi_tx_byte(address_in_sector>>0);
+    c=spi_rx_byte();
+    printf("$%02x ",c);
+    
+    spi_cs_high();
+    delay();
+  }
+  printf("\n");
+  
+}
+
 
 unsigned int base_addr;
 unsigned char part[256];
@@ -1684,6 +1802,8 @@ void main(void)
 
   // Put QSPI clock under bitbash control
   POKE(CLOCKCTL_PORT,0x00);  
+
+  flash_reset();
   
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
@@ -1702,7 +1822,18 @@ void main(void)
   read_registers();
   if ((manufacturer==0xff) && (device_id==0xffff)) {
     printf("ERROR: Cannot communicate with QSPI            flash device.\n");
-    while(1) POKE(0xD020,PEEK(0xD020)+1);
+    while (1) {
+      spi_cs_high();
+      for(i=0;i<255;i++) {
+	spi_clock_low();
+	spi_clock_high();
+      }
+      
+      flash_reset();
+      fetch_rdid();
+      read_registers();
+      printf(".");
+    }
   }
 #if 1
   for(i=0;i<0x80;i++)
@@ -1742,8 +1873,9 @@ void main(void)
   if (cfi_data[0x2a]==9) page_size=512;
   if (!page_size) {
     printf("WARNING: Unsupported page size\n");
-    page_size=512;
+    page_size=512;    
   }
+  printf("Page size = %d\n",page_size);
   
   printf("Expected programing time = %d usec/byte.\n",
 	 cfi_data[0x20]/cfi_data[0x2a]);
@@ -1777,10 +1909,14 @@ void main(void)
   press_any_key();
 #endif
 
+  /* The 64MB = 512Mbit flash in the MEGA65 R3A comes write-protected, and with
+     quad-SPI mode disabled. So we have to fix both of those (which then persists),
+     and then flash the bitstream.
+  */
   enable_quad_mode();
   unprotect_flash();
-  //  reflash_slot(0);
-   flash_inspector();
+  // reflash_slot(0);
+  flash_inspector();
   
 }
 
