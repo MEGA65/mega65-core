@@ -631,9 +631,6 @@ void reflash_slot(unsigned char slot)
   if ((unsigned short)file==0xffff) return;
 
   printf("%cPreparing to reflash slot %d...\n\n",0x93, slot);
-
-  query_flash_protection();
-  press_any_key();
   
   hy_closeall();
 
@@ -757,10 +754,6 @@ void reflash_slot(unsigned char slot)
   }
 
   erase_time=seconds_between(&tm_start,&tm_now);
-
-  printf("After erase:\n");
-  query_flash_protection();
-  press_any_key();
 
   
   // magic filename for erasing a slot begins with "-" 
@@ -1279,11 +1272,11 @@ void erase_sector(unsigned long address_in_sector)
 {
 
   // XXX Send Write Enable command (0x06 ?)
-  printf("activating write enable...\n");
+  //  printf("activating write enable...\n");
   spi_write_enable();
 
   // XXX Clear status register (0x30)
-  printf("clearing status register...\n");
+  //  printf("clearing status register...\n");
   while(reg_sr1&0x61) {
     spi_cs_high();
     spi_clock_high();
@@ -1298,7 +1291,7 @@ void erase_sector(unsigned long address_in_sector)
 
   // XXX Erase 64/256kb (0xdc ?)
   // XXX Erase 4kb sector (0x21 ?)
-  printf("erasing sector...\n");
+  //  printf("erasing sector...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -1306,11 +1299,11 @@ void erase_sector(unsigned long address_in_sector)
   delay();
   if ((addr>>12)>=num_4k_sectors) {
     // Do 64KB/256KB sector erase
-    printf("erasing large sector.\n");
+    //    printf("erasing large sector.\n");
     spi_tx_byte(0xdc);
   } else {
     // Do fast 4KB sector erase
-    printf("erasing small sector.\n");
+    //    printf("erasing small sector.\n");
     spi_tx_byte(0x21);
   }
   spi_tx_byte(address_in_sector>>24);
@@ -1328,9 +1321,6 @@ void erase_sector(unsigned long address_in_sector)
 
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
-    printf("flash busy = $%02x\n",reg_sr1);
-    query_flash_protection();
-    press_any_key();
     read_registers();
   }
 
@@ -1349,17 +1339,6 @@ void enable_quad_mode(void);
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   // XXX Send Write Enable command (0x06 ?)
-  printf("About to program page @ $%08lx\n",start_address);
-
-  // Try to avoid write errors at start of 2nd sector
-  if (page_size==512) {
-    if (!(start_address&0x3ffffL)) {
-      printf("Checking protection @ $%08lx\n",start_address);
-      query_flash_protection();
-      // Address is start of sector
-      erase_sector(start_address);
-    }
-  }
   
  top:
   // Enabling quad mode also clears SR1 errors, eg, program write errors
@@ -1425,7 +1404,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
 #ifdef HARDWARE_SPI_WRITE
-  printf("page_size=%d\n",page_size);
+  //  printf("page_size=%d\n",page_size);
   if (page_size==256) {
     // Write 256 bytes
     // XXX For now we use 512 byte write. According to the
@@ -1436,16 +1415,16 @@ void program_page(unsigned long start_address,unsigned int page_size)
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD680,0x50);  
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-    printf("Hardware SPI write 256\n");
+    //    printf("Hardware SPI write 256\n");
   } else if (page_size==512) {
     // Write 512 bytes
     lcopy(data_buffer,0xffd6e00L,512);
     POKE(0xD680,0x51);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-    printf("Hardware SPI write 512\n");
+    //    printf("Hardware SPI write 512\n");
   } else 
 #else
-    printf("Software SPI write\n");
+    //    printf("Software SPI write\n");
     for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
 #endif
   POKE(0xD020,1);
@@ -1469,7 +1448,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
       press_any_key();
       goto top;
     }
-    printf("flash busy=$%02x (%02x)%c%c",reg_sr1,PEEK(0xD012),0x0d,0x91);
     read_registers();
   }
 
@@ -1714,12 +1692,12 @@ void unprotect_flash(void)
 {
   unsigned char c;
 
+  printf("Unprotecting flash...");
   for(i=0;i<256;i++) {
 
     // Wait for busy flag to clear
     reg_sr1=0x03;
     while(reg_sr1&0x03) {
-      printf("flash busy = $%02x\n",reg_sr1);
       read_sr1();
     }
     
@@ -1742,6 +1720,7 @@ void unprotect_flash(void)
     spi_cs_high();
     delay();
   }
+  printf("done.\n");
 
 }
 
@@ -1930,15 +1909,10 @@ void main(void)
      quad-SPI mode disabled. So we have to fix both of those (which then persists),
      and then flash the bitstream.
   */
-  printf("Try unprotecting sectors:\n");
   enable_quad_mode();
-  query_flash_protection();
-  press_any_key();
   unprotect_flash();
-  query_flash_protection();
-  press_any_key();
-  // reflash_slot(0);
-  flash_inspector();
+  reflash_slot(0);
+  // flash_inspector();
   
 }
 
