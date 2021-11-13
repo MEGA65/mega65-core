@@ -31,6 +31,7 @@ char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
+void unprotect_flash(void);
 
 unsigned char compare_routine[36]=
   {
@@ -631,6 +632,9 @@ void reflash_slot(unsigned char slot)
 
   printf("%cPreparing to reflash slot %d...\n\n",0x93, slot);
 
+  query_flash_protection();
+  press_any_key();
+  
   hy_closeall();
 
   getrtc(&tm_start);
@@ -754,9 +758,11 @@ void reflash_slot(unsigned char slot)
 
   erase_time=seconds_between(&tm_start,&tm_now);
 
-  
-  flash_reset();
+  printf("After erase:\n");
+  query_flash_protection();
+  press_any_key();
 
+  
   // magic filename for erasing a slot begins with "-" 
   if (file[0]!='-') {
 
@@ -849,8 +855,6 @@ void reflash_slot(unsigned char slot)
     *(unsigned short *)0x38e = data_buffer;
     *(unsigned short *)0x391 = buffer;
     
-    flash_reset();
-
     hy_closeall();
     fd=hy_open(file);
     if (fd==0xff) {
@@ -1193,21 +1197,7 @@ void flash_reset(void)
   unsigned char i;
   
   spi_cs_high();
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
+  usleep(10000);
 
   // Allow lots of clock ticks to get attention of SPI
   for(i=0;i<255;i++) {
@@ -1223,21 +1213,7 @@ void flash_reset(void)
   delay();
   spi_tx_byte(0xf0);
   spi_cs_high();
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
-  usleep(32000);
+  usleep(10000);
 }
 
 void read_registers(void)
@@ -1266,6 +1242,21 @@ void read_registers(void)
   delay();  
 }
 
+
+void read_sr1(void)
+{
+  // Status Register 1 (SR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x05);
+  reg_sr1=spi_rx_byte();
+  spi_cs_high();
+  delay();
+}
+
 void spi_write_enable(void)
 {
   while(!(reg_sr1&0x02)) {
@@ -1277,7 +1268,7 @@ void spi_write_enable(void)
     spi_tx_byte(0x06);
     spi_cs_high();
 
-    read_registers();
+    read_sr1();
   }
 }
 
@@ -1301,7 +1292,7 @@ void erase_sector(unsigned long address_in_sector)
     spi_tx_byte(0x30);
     spi_cs_high();
 
-    read_registers();
+    read_sr1();
   }
 
   // XXX Erase 64/256kb (0xdc ?)
@@ -1354,7 +1345,8 @@ void enable_quad_mode(void);
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   // XXX Send Write Enable command (0x06 ?)
-
+  printf("About to program page @ $%08lx\n",start_address);
+  
  top:
   // Enabling quad mode also clears SR1 errors, eg, program write errors
   enable_quad_mode();
@@ -1364,7 +1356,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
   while(reg_sr1&0x03) {
     //    printf("flash busy. ");
-    read_registers();
+    read_sr1();
   }
 
   // XXX Send Write Enable command (0x06 ?)
@@ -1382,6 +1374,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
     spi_tx_byte(0x30);
     spi_cs_high();
 
+    // We have to read registers here to clear error flags?
+    // i.e. not just read SR1?
     read_registers();
   }
   spi_write_enable();
@@ -1454,7 +1448,12 @@ void program_page(unsigned long start_address,unsigned int page_size)
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
     if (reg_sr1&0x40) {
-      printf("Flash write error occurred.\n");
+      printf("Flash write error occurred @ $%08lx.\n",start_address);
+      query_flash_protection();
+      unprotect_flash();
+      query_flash_protection();
+      read_registers();
+      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
       press_any_key();
       goto top;
     }
@@ -1804,6 +1803,7 @@ void main(void)
   POKE(CLOCKCTL_PORT,0x00);  
 
   flash_reset();
+  unprotect_flash();
   
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
@@ -1830,6 +1830,7 @@ void main(void)
       }
       
       flash_reset();
+      unprotect_flash();
       fetch_rdid();
       read_registers();
       printf(".");
@@ -1915,8 +1916,8 @@ void main(void)
   */
   enable_quad_mode();
   unprotect_flash();
-  // reflash_slot(0);
-  flash_inspector();
+  reflash_slot(0);
+  // flash_inspector();
   
 }
 
