@@ -733,6 +733,7 @@ architecture Behavioural of gs4510 is
   signal next_is_axyz32_instruction : std_logic := '0';
   signal value32_enabled : std_logic := '0';
   signal axyz_phase : integer range 0 to 4 := 0;
+  signal qreg_operation : std_logic := '0';
   
   signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
 
@@ -911,6 +912,8 @@ architecture Behavioural of gs4510 is
     Pop,
     MicrocodeInterpret,
     LoadTarget32,
+    ExecuteQreg32,
+    StoreQreg32,
     Execute32,
     Commit32,
     StoreTarget32,
@@ -6155,6 +6158,7 @@ begin
                 flat32_address_prime <= '0';
                 value32_enabled <= '0';
                 next_is_axyz32_instruction <= '0';
+                qreg_operation <= '0';
                 
                 report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
                   & ", value32_enabled = " & std_logic'image(value32_enabled);
@@ -6165,42 +6169,77 @@ begin
                     report "ZPCACHE: Flushing cache due to setting E flag";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');
-                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                  when x"0A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- ASLQ Q
+                    else
+                      reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                    end if;
                   when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                   when x"18" => flag_c <= '0';  -- CLC
-                  when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  when x"1A" =>
+                  if next_is_axyz32_instruction = '1' then
+                    qreg_operation <= '1'; -- INQ Q
+                  else
+                    reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  end if;
                   when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
-                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                  when x"2A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- ROLQ Q
+                    else
+                      reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                    end if;
                   when x"2B" =>
                     reg_sph <= reg_y; -- TYS
                     report "ZPCACHE: Flushing cache due to setting SPH";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');                    
                   when x"38" => flag_c <= '1';  -- SEC
-                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                  when x"3A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- DEQ Q
+                    else
+                      reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                    end if;
                   when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
                   when x"42" =>
                     reg_a <= a_negated; set_nz(a_negated); -- NEG A
                     -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
                     -- regs as single 32-bit pseudo register.
-                    -- This prefix can be used together with the NOP / NOP prefix
+                    -- This prefix can be used together with the NOP prefix
                     -- for the 32-bit ZP-indirect instructions. In that case,
-                    -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
+                    -- this prefix must come first, i.e., NEG / NEG / NOP
                     -- / LDA or STA ($xx), Z
                     if value32_enabled = '0' then
                       value32_enabled <= '1';
                     else
                       next_is_axyz32_instruction <= '1';
                     end if;
-                  when x"43" => reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
-                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                  when x"43" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- ASRQ Q
+                    else
+                      reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
+                    end if;
+                  when x"4A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- LSRQ Q
+                    else
+                      reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                    end if;
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
                   when x"5B" =>
                     reg_b <= reg_a; -- TAB
                     report "ZPCACHE: Flushing cache due to moving ZP";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');
-                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                  when x"6A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation <= '1'; -- RORQ Q
+                    else
+                      reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                    end if;
                   when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
                   when x"78" => flag_i <= '1';  -- SEI
                   when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
@@ -6252,7 +6291,11 @@ begin
                   when others => null;
                 end case;
                 
-                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                if qreg_operation = '1' then
+                  report "Qreg Opcode, skipping to ExecuteQreg32";
+                  next_is_axyz32_instruction <= next_is_axyz32_instruction;
+                  state <= ExecuteQreg32;
+                elsif op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
                   if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
                     or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
                     or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
@@ -7397,6 +7440,80 @@ begin
                 -- Already got the four bytes, so now trigger the execution
                 state <= Execute32;                    
               end if;
+            when ExecuteQreg32 =>
+              -- reg_q33 holds the q reg, no need to load anything
+              next_is_axyz32_instruction <= '0';
+              qreg_operation <= '0';
+              report "ExecuteQreg32: reg_q33 = $" & to_hstring(reg_q33) & ", reg_instruction = " & instruction'image(reg_instruction);
+
+              pc_inc := '0';
+              pc_dec := '0';
+              monitor_instruction_strobe <= '1';
+              state <= normal_fetch_state;
+
+              case reg_instruction is
+                when I_INC =>
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) + 1;
+                  state <= StoreQreg32;
+                when I_DEC =>
+                  reg_val33(31 downto 0) <= reg_q33(31 downto 0) - 1;
+                  state <= StoreQreg32;
+                when I_ASL =>
+                  reg_val33(31 downto 1) <= reg_q33(30 downto 0);
+                  reg_val33(0) <= '0';
+                  state <= StoreQreg32;
+                when I_ASR =>
+                  reg_val33(30 downto 0) <= reg_q33(31 downto 1); -- sign preserved automatically
+                  state <= StoreQreg32;
+                when I_ROL =>
+                  reg_val33(31 downto 1) <= reg_q33(30 downto 0);
+                  reg_val33(0) <= flag_c;
+                  state <= StoreQreg32;
+                when I_LSR =>
+                  reg_val33(31) <= '0';
+                  reg_val33(30 downto 0) <= reg_q33(31 downto 1);
+                  state <= StoreQreg32;
+                when I_ROR =>
+                  reg_val33(31) <= flag_c;
+                  reg_val33(30 downto 0) <= reg_q33(31 downto 1);
+                  state <= StoreQreg32;
+                when others =>
+                  -- can't get here...
+                  -- XXX: Don't lock CPU up if we get something odd here
+                  report "monitor_instruction_strobe assert (unknown instruction in ExecuteQreg32)";
+                  monitor_instruction_strobe <= '1';
+                  state <= normal_fetch_state;
+              end case;
+
+            when StoreQreg32 =>
+              next_is_axyz32_instruction <= '0';
+              qreg_operation <= '0';
+              report "StoreQreg32: reg_val33 = $" & to_hstring(reg_val33) & ", reg_instruction = " & instruction'image(reg_instruction);
+
+              -- Store Result
+              reg_a <= reg_val33(7 downto 0);
+              reg_x <= reg_val33(15 downto 8);
+              reg_y <= reg_val33(23 downto 16);
+              reg_z <= reg_val33(31 downto 24);
+
+              -- Set Flags
+              if reg_val33(31 downto 0) = to_unsigned(0,32) then
+                flag_z <= '1';
+              else
+                flag_z <= '0';
+              end if;
+              flag_n <= reg_val33(31);
+              if reg_instruction = I_ASL or reg_instruction = I_ROL then
+                flag_c <= reg_q33(31);
+              else
+                flag_c <= reg_q33(0);
+              end if;
+
+              pc_inc := '0';
+              pc_dec := '0';
+              monitor_instruction_strobe <= '1';
+              state <= normal_fetch_state;
+
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               next_is_axyz32_instruction <= '0';
@@ -7509,7 +7626,7 @@ begin
                   pc_inc := '0';
                 end if;
                 pc_dec := reg_microcode.mcDecPC;
-                report "monitor_instruction_strobe assert (Execute32 non-RMW)";
+                report "monitor_instruction_strobe assert (Commit32 non-RMW)";
                 monitor_instruction_strobe <= '1';
                 if reg_microcode.mcInstructionFetch='1' then
                   report "Fast dispatch for next instruction by order of microcode";
