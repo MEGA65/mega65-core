@@ -7234,16 +7234,17 @@ begin
                                         -- Do addition of Z register as we go along, so that we don't have
                                         -- a 32-bit carry.
               reg_addr <= reg_addr + 1;
-              if (reg_instruction = I_STA) and (next_is_axyz32_instruction='1') then
-                report "VAL32/ABS32: not adding value of Z for 32-bit STA ($nn),Z because it is using 32-bit AXYZ register";
-                
+              if (next_is_axyz32_instruction='1') and (reg_instruction/=I_LDA) then
+                -- only bp-ind-z-idx ops are ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
+                report "VAL32/ABS32: not adding value of Z for 32-bit opcode XXXQ [$nn] because it is using 32-bit AXYZ register";
+
                 temp17 :=
                   to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
                               + 0,17);
               else
                 report "VAL32/ABS32: Adding "
-                  & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )
-                  & " to " & integer'image(to_integer(reg_z));
+                  & integer'image(to_integer(reg_z))
+                  & " to " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)));
 
                 temp17 :=
                   to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
@@ -7278,7 +7279,7 @@ begin
                 & to_hstring(reg_addr_msbs(7 downto 0))
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
-                report "VAL32: (ZP),Z LoadTarget";
+                report "VAL32: [ZP],Z LoadTarget";
                 -- Idle memory bus while latching address
                 memory_access_read := '0';
                 memory_access_write := '0';
@@ -7288,9 +7289,21 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when InnZReadVectorHigh =>
-              reg_addr <=
-                to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
-                            + to_integer(reg_z),16);
+              if (next_is_axyz32_instruction='1') and (reg_instruction/=I_LDA) then
+                -- only bp-ind-z-idx ops are ORA, AND, EOR, ADC, STA, LDA, CMP, SBC
+                report "VAL32/ABS16: not adding value of Z for 32-bit opcode XXXQ ($nn) because it is using 32-bit AXYZ register";
+
+                reg_addr <=
+                  to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
+                              + 0,16);
+              else
+                report "VAL32/ABS16: adding value of Z"
+                  & integer'image(to_integer(reg_z))
+                  & " to " & integer'image(to_integer(memory_read_value&reg_addr(7 downto 0)));
+
+                reg_addr <=
+                  to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)) + to_integer(reg_z),16);
+              end if;
               if is_load='1' or is_rmw='1' then
                 -- Idle memory bus while latching address
                 memory_access_read := '0';
@@ -7439,8 +7452,6 @@ begin
                   state <= Commit32;
                   pc_inc := '0';
                 when I_BIT =>
-                  flag_n <= reg_val32(31);
-                  flag_v <= reg_val32(30);
                   reg_val33(31 downto 0) <= reg_q33(31 downto 0) and reg_val32;
                   state <= Commit32;
                   pc_inc := '0';
@@ -7459,20 +7470,17 @@ begin
                 when I_ASL =>
                   reg_val33(31 downto 1) <= reg_val32(30 downto 0);
                   reg_val33(0) <= '0';
-                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_ASR =>
                   reg_val33(30 downto 0) <= reg_val32(31 downto 1);
                   -- Preserve and extend sign
                   reg_val33(31) <= reg_val32(31);
-                  flag_c <= reg_val32(0);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_ROL =>
                   reg_val33(31 downto 1) <= reg_val32(30 downto 0);
                   reg_val33(0) <= flag_c;
-                  flag_c <= reg_val32(31);
                   axyz_phase <= 0;
                   state <= Commit32;
                 when I_LSR =>
@@ -7511,9 +7519,20 @@ begin
                 end if;
               end if;
               case reg_instruction is
-                when I_ADC => flag_c <= not reg_val33(32);
-                when I_CMP => flag_c <= not reg_val33(32);
-                when I_SBC => flag_c <= not reg_val33(32);
+                when I_ADC =>
+                  flag_c <= reg_val33(32);
+                  flag_v <= (reg_q33(31) xor reg_val33(31)) and (not (reg_q33(31) xor reg_val32(31))); -- reg_val33 <= reg_q33 + reg_val32;
+                when I_SBC =>
+                  flag_c <= not reg_val33(32);
+                  flag_v <= (reg_q33(31) xor reg_val33(31)) and (reg_q33(31) xor reg_val32(31)); -- reg_val33 <= reg_q33 - reg_val32
+                when I_CMP => flag_c <= not reg_val33(32); -- no overflow for cmpq!
+                when I_BIT =>
+                  flag_v <= reg_val32(30);
+                  flag_n <= reg_val32(31);
+                when I_LSR | I_ASR | I_ROR =>
+                  flag_c <= reg_val32(0);
+                when I_ASL | I_ROL =>
+                  flag_c <= reg_val32(31);
                 when others =>
                   null;
               end case;
@@ -7526,8 +7545,7 @@ begin
                   reg_x <= reg_val33(15 downto 8);
                   reg_y <= reg_val33(23 downto 16);
                   reg_z <= reg_val33(31 downto 24);
-                when I_INC | I_DEC | I_ASL | I_ASR |
-                  I_ROL | I_ROR =>
+                when I_INC | I_DEC | I_LSR | I_ASL | I_ASR | I_ROL | I_ROR =>
                   reg_val32 <= reg_val33(31 downto 0);
                   pc_inc := '0';
                   state <= StoreTarget32;
@@ -7540,7 +7558,9 @@ begin
               else
                 flag_z <= '0';
               end if;
-              flag_n <= reg_val33(31);
+              if reg_instruction /= I_BIT then
+                flag_n <= reg_val33(31);
+              end if;
               
             when StoreTarget32 =>
               next_is_axyz32_instruction <= '0';
