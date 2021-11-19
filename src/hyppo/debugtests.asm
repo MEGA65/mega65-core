@@ -308,4 +308,22 @@
 ;; }
 ;; // f011test()
 
-
+!macro QOPTEST {
+-
+        lda #$00
+        ldx #$56
+        ldy #$34
+        ldz #$12
+        neg
+        neg
+        dec
+        php
+        sta $2200
+        stx $2201
+        sty $2202
+        stz $2203
+        pla
+        sta $2204
+        bra -
+}
+;; +QOPTEST

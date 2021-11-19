@@ -551,21 +551,6 @@ reset_entry:
 	map
 	eom
 
-        lda #$00
-        ldx #$56
-        ldy #$34
-        ldz #$12
-        neg
-        neg
-        dec
-        php
-        sta $2200
-        stx $2201
-        sty $2202
-        stz $2203
-        pla
-        sta $2204
-
 !src "debugtests.asm"
 
         jsr reset_machine_state
