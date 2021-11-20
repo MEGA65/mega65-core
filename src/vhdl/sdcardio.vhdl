@@ -4331,30 +4331,8 @@ begin  -- behavioural
             report "QSPI4: Sending byte $" & to_hstring(f011_buffer_rdata);
             qspi_byte_value <= f011_buffer_rdata;
           end if;
-          sd_state <= QSPI_write_phase3;
-        when QSPI_write_phase3 =>
-          qspidb(0) <= qspi_byte_value(7);
-          report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
-          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
-          sd_state <= QSPI_write_phase4;
-        when QSPI_write_phase4 =>
-          qspi_clock <= '1';
-          qspi_clock_int <= '1';
-          if qspi_bit_counter = 7 then
-            if sd_buffer_offset /= 511 then
-              sd_buffer_offset <= sd_buffer_offset + 1;
-              sd_state <= QSPI_write_phase1;
-            else
-              sd_state <= Idle;
-              sdio_busy <= '0';
-            end if;            
-          else
-            qspi_bit_counter <= qspi_bit_counter + 1;
-            sd_state <= QSPI_write_phase2;
-          end if;
-
-            
-          
+          -- XXX INCOMPLETE!
+          sd_state <= Idle;
       end case;    
 
     end if;
