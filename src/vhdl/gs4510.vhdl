@@ -3592,12 +3592,10 @@ begin
     variable push_value : unsigned(7 downto 0) := (others => '0');
     variable qreg_operation : std_logic := '0';
 
-    -- this uses the same 33 bits for temp33 and temp_addr + temp17
-    -- so don't use temp33 in conjunction with the other two!
-    variable temp33 : unsigned(32 downto 0) := (others => '0');
-    alias temp_addr : unsigned(15 downto 0) is temp33(15 downto 0);
-    alias temp17 : unsigned(16 downto 0) is temp33(32 downto 16);
+    variable temp_addr : unsigned(15 downto 0) := (others => '0');
 
+    variable temp33 : unsigned(32 downto 0) := (others => '0');
+    variable temp17 : unsigned(16 downto 0) := (others => '0');
     variable temp9 : unsigned(8 downto 0) := (others => '0');
 
     variable cpu_speed : std_logic_vector(2 downto 0) := (others => '0');
@@ -7446,31 +7444,35 @@ begin
               -- reg_q33 holds the q reg, no need to load anything
               next_is_axyz32_instruction <= '0';
               report "ExecuteQreg32: reg_q33 = $" & to_hstring(reg_q33) & ", reg_instruction = " & instruction'image(reg_instruction);
-
               pc_inc := '1';
               pc_dec := '0';
-
               case reg_instruction is
                 when I_INC =>
                   temp33(31 downto 0) := reg_q33(31 downto 0) + 1;
                 when I_DEC =>
                   temp33(31 downto 0) := reg_q33(31 downto 0) - 1;
-                when I_ASL =>
+                when I_ASL | I_ROL =>
                   temp33(31 downto 1) := reg_q33(30 downto 0);
-                  temp33(0) := '0';
-                when I_ASR =>
+                  case reg_instruction is
+                    when I_ASL =>
+                      temp33(0) := '0';
+                    when I_ROL =>
+                      temp33(0) := flag_c;
+                    when others => null;
+                  end case;
+                  flag_c <= reg_q33(31);
+                when I_LSR | I_ASR | I_ROR =>
                   temp33(30 downto 0) := reg_q33(31 downto 1);
-                  -- Preserve and extend sign
-                  temp33(31) := reg_q33(31);
-                when I_ROL =>
-                  temp33(31 downto 1) := reg_q33(30 downto 0);
-                  temp33(0) := flag_c;
-                when I_LSR =>
-                  temp33(31) := '0';
-                  temp33(30 downto 0) := reg_q33(31 downto 1);
-                when I_ROR =>
-                  temp33(31) := flag_c;
-                  temp33(30 downto 0) := reg_q33(31 downto 1);
+                  case reg_instruction is
+                    when I_LSR =>
+                      temp33(31) := '0';
+                    when I_ASR =>
+                      temp33(31) := reg_q33(31);
+                    when I_ROR =>
+                      temp33(31) := flag_c;
+                    when others => null;
+                  end case;
+                  flag_c <= reg_q33(0);
                 when others =>
                   -- Can't get here, in theory
                   report "monitor_instruction_strobe assert (unknown instruction in ExecuteQreg32)";
@@ -7478,15 +7480,12 @@ begin
                   pc_inc := '0';
                   state <= normal_fetch_state;
               end case;
-
               report "ExecuteQreg32: temp33 = $" & to_hstring(temp33);
-
               -- Store Result
               reg_a <= temp33(7 downto 0);
               reg_x <= temp33(15 downto 8);
               reg_y <= temp33(23 downto 16);
               reg_z <= temp33(31 downto 24);
-
               -- Set Flags
               if temp33(31 downto 0) = to_unsigned(0,32) then
                 flag_z <= '1';
@@ -7494,15 +7493,8 @@ begin
                 flag_z <= '0';
               end if;
               flag_n <= temp33(31);
-              if reg_instruction = I_ASL or reg_instruction = I_ROL then
-                flag_c <= reg_q33(31);
-              else
-                flag_c <= reg_q33(0);
-              end if;
-
               monitor_instruction_strobe <= '1';
               state <= fast_fetch_state;
-
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               next_is_axyz32_instruction <= '0';
