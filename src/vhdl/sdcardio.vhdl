@@ -318,7 +318,8 @@ architecture behavioural of sdcardio is
                       QSPI_read_phase1,
                       QSPI_read_phase2,
                       QSPI_read_phase3,
-                      QSPI_read_phase4
+                      QSPI_read_phase4,
+                      QSPI_read_phase5
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -4224,15 +4225,18 @@ begin  -- behavioural
           qspi_clock_int <= '0';
           sd_state <= QSPI_read_phase2;
         when QSPI_read_phase2 =>
-          qspi_bits <= qspidb;
           qspi_clock <= '1';
           qspi_clock_int <= '1';
           sd_state <= QSPI_read_phase3;
         when QSPI_read_phase3 =>          
+          qspi_bits <= qspidb;
           qspi_clock <= '0';
           qspi_clock_int <= '0';
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
+          -- Allow time for data lines to settle back from the flash
+          sd_state <= QSPI_read_phase5;
+        when QSPI_read_phase5 =>
           report "QSPI read into f011 buffer @ $" & to_hstring(sd_buffer_offset);
           f011_buffer_write_address <= "111"&sd_buffer_offset;
           f011_buffer_wdata(3 downto 0) <= qspidb;
@@ -4302,6 +4306,48 @@ begin  -- behavioural
             sd_state <= QSPI_write_phase2;
           end if;
 
+        when QSPI4_write_512 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb <= "ZZZZ";
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI4_write_phase1;
+        when QSPI4_write_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb <= "ZZZZ";
+          -- Write 2nd half of SD card buffer to QSPI
+          sd_buffer_offset <= to_unsigned(256,9);
+          sd_state <= QSPI4_write_phase1;
+        when QSPI4_write_phase1 =>
+          qspi_bit_counter <= 0;
+          sd_state <= QSPI4_write_phase2;
+        when QSPI4_write_phase2 =>
+          if qspi_bit_counter = 0 then
+            report "QSPI4: Sending byte $" & to_hstring(f011_buffer_rdata);
+            qspi_byte_value <= f011_buffer_rdata;
+          end if;
+          sd_state <= QSPI_write_phase3;
+        when QSPI_write_phase3 =>
+          qspidb(0) <= qspi_byte_value(7);
+          report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
+          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
+          sd_state <= QSPI_write_phase4;
+        when QSPI_write_phase4 =>
+          qspi_clock <= '1';
+          qspi_clock_int <= '1';
+          if qspi_bit_counter = 7 then
+            if sd_buffer_offset /= 511 then
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              sd_state <= QSPI_write_phase1;
+            else
+              sd_state <= Idle;
+              sdio_busy <= '0';
+            end if;            
+          else
+            qspi_bit_counter <= qspi_bit_counter + 1;
+            sd_state <= QSPI_write_phase2;
+          end if;
 
             
           
