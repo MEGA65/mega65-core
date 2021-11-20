@@ -9,6 +9,7 @@
 #include <6502.h>
 
 // #define QPP_WRITE
+
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
@@ -26,12 +27,12 @@ struct m65_tm tm_now;
 #define SLOT_SIZE (8L*1048576L)
 #endif
 
-void query_flash_protection(void);
+void query_flash_protection(unsigned long addr_in_sector);
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
-void unprotect_flash(void);
+void unprotect_flash(unsigned long addr_in_sector);
 
 unsigned char compare_routine[36]=
   {
@@ -66,6 +67,9 @@ unsigned char manufacturer;
 unsigned short device_id;
 unsigned short cfi_data[512];
 unsigned short cfi_length=0;
+unsigned char flash_sector_bits=0;
+unsigned char last_sector_num=0xff;
+unsigned char sector_num=0xff;
 
 unsigned char reconfig_disabled=0;
 
@@ -683,7 +687,7 @@ void reflash_slot(unsigned char slot)
     if (progress_acc>52428UL) {
       progress_acc-=52428UL;
       progress++;
-      progress_bar(progress);
+      //      progress_bar(progress);
     }
 #endif     
 
@@ -691,7 +695,7 @@ void reflash_slot(unsigned char slot)
     read_data(addr);
 
     // Show on screen
-    lcopy(data_buffer,0x0400+10*40,512);
+    //    lcopy(data_buffer,0x0400+10*40,512);
     
 #ifdef HARDWARE_SPI
     // Use hardware accelerated byte comparison when reading QSPI flash
@@ -718,18 +722,21 @@ void reflash_slot(unsigned char slot)
       }
     }
     
-    if (i==512) continue;
+    if (i==512) continue; else printf("Sector at $%lx not erased.\n",addr);
 
     while (i<512) {
+      printf("CMD erase @ $%08lx\n",addr);
       POKE(0xD020,2);
       erase_sector(addr);
       POKE(0xD020,0);
       // Then verify that the sector has been erased
+      read_data(0xffffffff); // force flushing of sector buffer in flash
       read_data(addr);
       // XXX Show the read sector on the screen
-      lcopy(data_buffer,0x0400+10*40,512);
+      //      lcopy(data_buffer,0x0400+10*40,512);
 #ifdef HARDWARE_SPI
       if (PEEK(0xD689)&0x40) i=0; else i=512;
+      if (data_buffer[0]!=0xff) { i=0; printf("Read $%02x @ offset 0\n",data_buffer[0]); }
 #else
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
 #endif
@@ -764,7 +771,20 @@ void reflash_slot(unsigned char slot)
     // Read the flash file and write it to the flash
     printf("%cWriting bitstream to flash...\n\n",0x93);
     progress=0; progress_acc=0;
+
+    last_sector_num=0xff;
+    
     for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
+      printf("addr=$%08lx\n",addr);
+      
+      // Unprotect flash sectors as required
+      sector_num=addr>>flash_sector_bits;
+      if (sector_num!=last_sector_num) {
+	unprotect_flash(addr);
+	query_flash_protection(addr);
+	last_sector_num=sector_num;
+      }
+      
       progress_acc+=512;
 #ifdef A100T      
       if (progress_acc>26214) {
@@ -1271,6 +1291,9 @@ unsigned int num_4k_sectors=0;
 void erase_sector(unsigned long address_in_sector)
 {
 
+  unprotect_flash(address_in_sector);
+  query_flash_protection(address_in_sector);
+  
   // XXX Send Write Enable command (0x06 ?)
   //  printf("activating write enable...\n");
   spi_write_enable();
@@ -1338,7 +1361,6 @@ void enable_quad_mode(void);
 
 void program_page(unsigned long start_address,unsigned int page_size)
 {
-  // XXX Send Write Enable command (0x06 ?)
   
  top:
   // Enabling quad mode also clears SR1 errors, eg, program write errors
@@ -1442,7 +1464,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   while(reg_sr1&0x03) {
     if (reg_sr1&0x40) {
       printf("Flash write error occurred @ $%08lx.\n",start_address);
-      query_flash_protection();
+      //      query_flash_protection();
       read_registers();
       printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
       press_any_key();
@@ -1463,7 +1485,7 @@ unsigned char b,*c,d;
 void read_data(unsigned long start_address)
 {
 
-  // Status Register 1 (SR1)
+  // Send read sector command
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -1480,7 +1502,7 @@ void read_data(unsigned long start_address)
   case 3:
     break;
   default:
-    // 8 cycles = equivalent of 4 bytes
+    // 8 cycles = 4 bytes with quad
     for (z=0;z<4;z++) qspi_rx_byte();
     break;
   }
@@ -1489,7 +1511,7 @@ void read_data(unsigned long start_address)
 #ifdef HARDWARE_SPI
   // Use hardware-accelerated QSPI RX
   POKE(0xD020,1);
-  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash
+  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash in 4-bit mode
   while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
   lcopy(0xFFD6E00L,data_buffer,512);
 
@@ -1605,7 +1627,7 @@ void flash_inspector(void)
       case 0x9d: case 0x4c: case 0x6c: addr-=0x400000; break;
       case 0x03: return;
       case 0x50: case 0x70:
-	query_flash_protection();
+	query_flash_protection(addr);
 	press_any_key();
 	break;
       case 0x54: case 0x74:
@@ -1622,8 +1644,8 @@ void flash_inspector(void)
 	printf("P: %02x %02x %02x\n",
 	       data_buffer[0],data_buffer[1],data_buffer[2]);
 	// Now program it
-	unprotect_flash();
-	query_flash_protection();
+	unprotect_flash(addr);
+	query_flash_protection(addr);
 	program_page(addr,512);
 	press_any_key();
       }
@@ -1682,19 +1704,36 @@ void enable_quad_mode(void)
   delay();
   spi_tx_byte(0x01);
   spi_tx_byte(0x00);
-  spi_tx_byte(0x02);
+  // Latency code = 3, quad mode=1
+  spi_tx_byte(0xc2);
   spi_cs_high();
   delay();
+
+#if 0
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x35); // RDCR
+  c=spi_rx_byte();
+  spi_cs_high();
+  delay();
+  printf("CR1=$%02x\n",c);
+  press_any_key();
+#endif
 }
 
 
-void unprotect_flash(void)
+void unprotect_flash(unsigned long addr)
 {
   unsigned char c;
 
-  printf("Unprotecting flash...");
-  for(i=0;i<256;i++) {
+  i=addr>>flash_sector_bits;
 
+  c=0;
+  while(c!=0xff) {
+    
     // Wait for busy flag to clear
     reg_sr1=0x03;
     while(reg_sr1&0x03) {
@@ -1719,18 +1758,12 @@ void unprotect_flash(void)
     
     spi_cs_high();
     delay();
-  }
-  printf("done.\n");
-
-}
-
-void query_flash_protection(void)
-{
-  unsigned long address_in_sector=0;
-  unsigned char c;
-
-  printf("DYB Protection flags: ");
-  for(i=0;i<64;i++) {
+    
+    // Wait for busy flag to clear
+    reg_sr1=0x03;
+    while(reg_sr1&0x03) {
+      read_sr1();
+    }
     
     spi_cs_high();
     spi_clock_high();
@@ -1743,32 +1776,57 @@ void query_flash_protection(void)
     spi_tx_byte(0);
     spi_tx_byte(0);
     c=spi_rx_byte();
-    printf("$%02x ",c);
     
     spi_cs_high();
     delay();
+    
   }
+  //  printf("done.\n");
+
+}
+
+void query_flash_protection(unsigned long addr)
+{
+  unsigned long address_in_sector=0;
+  unsigned char c;
+  
+  i=addr>>flash_sector_bits;
+  
+  printf("DYB Protection flag: ");
+  
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xe0);
+  spi_tx_byte(i>>6);
+  spi_tx_byte(i<<2);
+  spi_tx_byte(0);
+  spi_tx_byte(0);
+  c=spi_rx_byte();
+  printf("$%02x ",c);
+  
+  spi_cs_high();
+  delay();
   printf("\n");
 
   printf("PPB Protection flags: ");
-  for(i=0;i<64;i++) {
-    
-    spi_cs_high();
-    spi_clock_high();
-    delay();
-    spi_cs_low();
-    delay();
-    spi_tx_byte(0xe2);
-    spi_tx_byte(i>>6);
-    spi_tx_byte(i<<2);
-    spi_tx_byte(0);
-    spi_tx_byte(0);
-    c=spi_rx_byte();
-    printf("$%02x ",c);
-    
-    spi_cs_high();
-    delay();
-  }
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xe2);
+  spi_tx_byte(i>>6);
+  spi_tx_byte(i<<2);
+  spi_tx_byte(0);
+  spi_tx_byte(0);
+  c=spi_rx_byte();
+  printf("$%02x ",c);
+  
+  spi_cs_high();
+  delay();
   printf("\n");
   
 }
@@ -1828,7 +1886,9 @@ void main(void)
       flash_reset();
       fetch_rdid();
       read_registers();
+#if 0
       printf(".");
+#endif
     }
   }
 #if 1
@@ -1854,11 +1914,13 @@ void main(void)
   if (cfi_data[4]==0x00) {
     printf("uniform 256kb sectors.\n");
     num_4k_sectors=0;
+    flash_sector_bits=18;
   }
   else if (cfi_data[4]==0x01) {
     printf("\n  4kb parameter sectors\n  64kb data sectors.\n");
     printf("  %d x 4KB sectors.\n",1+cfi_data[0x2d]);
     num_4k_sectors=1+cfi_data[0x2d];
+    flash_sector_bits=16;
   } else printf("unknown ($%02x).\n",cfi_data[4]);
   printf("Part Family is %02x-%c%c\n",
       cfi_data[5],cfi_data[6],cfi_data[7]);
@@ -1893,6 +1955,7 @@ void main(void)
 #endif
 
   latency_code=reg_cr1>>6;
+  // latency_code=3;
 #if 1
   printf("  latency code = %d\n",latency_code);
   if (reg_sr1&0x80) printf("  flash is write protected.\n");
@@ -1910,9 +1973,8 @@ void main(void)
      and then flash the bitstream.
   */
   enable_quad_mode();
-  unprotect_flash();
-  reflash_slot(0);
-  // flash_inspector();
+  // reflash_slot(0);
+  flash_inspector();
   
 }
 
