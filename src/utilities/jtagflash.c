@@ -1491,11 +1491,11 @@ void read_data(unsigned long start_address)
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0x6c);
-  spi_tx_byte(start_address>>24);
-  spi_tx_byte(start_address>>16);
-  spi_tx_byte(start_address>>8);
-  spi_tx_byte(start_address>>0);
+  spi_tx_byte(0xec);
+  qspi_tx_byte(start_address>>24);
+  qspi_tx_byte(start_address>>16);
+  qspi_tx_byte(start_address>>8);
+  qspi_tx_byte(start_address>>0);
 
   // Table 25 latency codes
   switch(latency_code) {
