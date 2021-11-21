@@ -237,6 +237,8 @@ architecture behavioural of sdcardio is
   signal qspi_bytes_differ : std_logic := '0';
   signal qspi_byte_value : unsigned(7 downto 0) := x"00";
   signal qspi_bit_counter : integer range 0 to 7 := 0;
+  signal qspidb_int : unsigneD(3 downto 0) := "1111";
+  signal qspidb_tristate : std_logic := '1';
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -320,7 +322,9 @@ architecture behavioural of sdcardio is
                       QSPI4_write_phase2,
                       QSPI_read_512,
                       QSPI_read_phase1,
+                      QSPI_read_phase1a,
                       QSPI_read_phase2,
+                      QSPI_read_phase2a,
                       QSPI_read_phase3,
                       QSPI_read_phase4,
                       QSPI_read_phase5
@@ -1669,6 +1673,13 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      if qspidb_tristate='1' then
+        qspidb <= "ZZZZ";
+      else
+        qspidb <= qspidb_int;
+      end if;
+      qspi_clock <= qspi_clock_int;
+    
       -- Export last floppy gap info so that we can have a magic DMA mode to
       -- read raw flux from the floppy at 25ns resolution
       if fdc_last_gap(15 downto 8) /= x"00" then
@@ -1762,7 +1773,6 @@ begin  -- behavioural
       
       -- XXX DEBUG toggle QSPI clock madly
       if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
-        qspi_clock <= not qspi_clock_int;
         qspi_clock_int <= not qspi_clock_int;
       end if;
       
@@ -3139,51 +3149,18 @@ begin  -- behavioural
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
             when x"CC" =>
-              -- @IO:GS $D6CC.7 QSPI:DB1 DDR (1=output)
+              -- @IO:GS $D6CC.7 QSPI:TRI Tristate DB0-3
               -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
               -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:DB0 DDR (1=output)
+              -- @IO:GS $D6CC.4 QSPI:RESERVED (set to 0)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
               if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
-                qspi_clock <= fastio_wdata(5);
                 qspi_clock_int <= fastio_wdata(5);
-
-                -- DB2 and DB3 have 1.8K external pull-up resistors, so can be driven
-                -- open-collector.
-                if fastio_wdata(3) = '0' then
-                  qspidb(3) <= '0';
-                else
-                  -- ... except the pullups don't seem to work on this line
-                  qspidb(3) <= '1';
-                end if;
-                if fastio_wdata(2) = '0' then
-                  qspidb(2) <= '0';
-                else                  
-                  -- ... or this line
-                  qspidb(2) <= '1';
-                end if;
-                -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
-                if fastio_wdata(1) = '0' then
-                  qspidb(1) <= '0';
-                else
-                  if fastio_wdata(7)='1' then
-                    qspidb(1) <= '1';
-                  else
-                    qspidb(1) <= 'Z';
-                  end if;
-                end if;
-                if fastio_wdata(0) = '0' then
-                  qspidb(0) <= '0';
-                else
-                  if fastio_wdata(4)='1' then
-                    qspidb(0) <= '1';
-                  else
-                    qspidb(0) <= 'Z';
-                  end if;
-                end if;
+                qspidb_int <= fastio_wdata(3 downto 0);
+                qspidb_tristate <= fastio_wdata(7);                
               end if;
             when x"CD" =>
               -- XXX This register was added, because without it the QSPI clock
@@ -3192,7 +3169,6 @@ begin  -- behavioural
               -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
               -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
               qspi_clock_run <= fastio_wdata(0);
-              qspi_clock <= fastio_wdata(1);
               qspi_clock_int <= fastio_wdata(1);
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
@@ -4218,27 +4194,30 @@ begin  -- behavioural
 
         when QSPI_read_512 =>
           -- Tristate SI and SO
-          qspidb <= "ZZZZ";
+          qspidb_tristate <= '1';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_read_phase1;
           -- Keep track if read bytes are identical or not
           -- (used for speeding up erasure checking of flash)
           qspi_bytes_differ <= '0';
         when QSPI_read_phase1 =>
-          qspi_clock <= '0';
           qspi_clock_int <= '0';
+          sd_state <= QSPI_read_phase1a;
+        when QSPI_read_phase1a =>
+          -- Allow time for clock to propagate
           sd_state <= QSPI_read_phase2;
         when QSPI_read_phase2 =>
-          qspi_clock <= '1';
-          qspi_clock_int <= '1';
+          qspi_clock_int <= '1';          
+          sd_state <= QSPI_read_phase2a;
+        when QSPI_read_phase2a =>
+          -- Allow time for clock to propagate
           sd_state <= QSPI_read_phase3;
         when QSPI_read_phase3 =>          
           qspi_bits <= qspidb;
-          qspi_clock <= '0';
           qspi_clock_int <= '0';
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
-          -- Allow time for data lines to settle back from the flash
+          -- Allow time for clock to propagate
           sd_state <= QSPI_read_phase5;
         when QSPI_read_phase5 =>
           report "QSPI read into f011 buffer @ $" & to_hstring(sd_buffer_offset);
@@ -4263,18 +4242,17 @@ begin  -- behavioural
             sd_state <= Idle;
             sdio_busy <= '0';
           end if;
-          qspi_clock <= '1';
           qspi_clock_int <= '1';
         when QSPI_write_512 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb <= "ZZZZ";
+          qspidb_tristate <= '1';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_write_phase1;
         when QSPI_write_256 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb <= "ZZZZ";
+          qspidb_tristate <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_write_phase1;
@@ -4286,16 +4264,16 @@ begin  -- behavioural
             report "QSPI: Sending byte $" & to_hstring(f011_buffer_rdata);
             qspi_byte_value <= f011_buffer_rdata;
           end if;
-          qspi_clock <= '0';
           qspi_clock_int <= '0';
           sd_state <= QSPI_write_phase3;
         when QSPI_write_phase3 =>
-          qspidb(0) <= qspi_byte_value(7);
+          qspidb_tristate <= '0';
+          qspidb_int(3 downto 1) <= "111";
+          qspidb_int(0) <= qspi_byte_value(7);
           report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
           qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
           sd_state <= QSPI_write_phase4;
         when QSPI_write_phase4 =>
-          qspi_clock <= '1';
           qspi_clock_int <= '1';
           if qspi_bit_counter = 7 then
             if sd_buffer_offset /= 511 then
@@ -4313,13 +4291,13 @@ begin  -- behavioural
         when QSPI4_write_512 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb <= "ZZZZ";
+          qspidb_tristate <= '1';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI4_write_phase1;
         when QSPI4_write_256 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb <= "ZZZZ";
+          qspidb_tristate <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI4_write_phase1;
