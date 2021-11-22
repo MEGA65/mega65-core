@@ -1674,7 +1674,7 @@ begin  -- behavioural
     if rising_edge(clock) then    
 
       if qspidb_tristate='1' then
-        qspidb <= "ZZZZ";
+        qspidb <= "HHHH";
       else
         qspidb <= qspidb_int;
       end if;
