@@ -1046,7 +1046,7 @@ begin
 --  led <= pcm_acr;  
 
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
-  qspidb_in <= qspidb_in;
+  qspidb_in <= qspidb;
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
