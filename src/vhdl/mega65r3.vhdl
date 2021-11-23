@@ -408,6 +408,9 @@ architecture Behavioral of container is
   signal portp : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal disco_led_en : std_logic := '0';
   signal disco_led_val : unsigned(7 downto 0);
@@ -836,7 +839,9 @@ begin
           
           qspi_clock => qspi_clock,
           qspicsn => qspicsn,
-          qspidb => qspidb,
+          qspidb => qspidb_out,
+          qspidb_in => qspidb_in,
+          qspidb_oe => qspidb_oe,
           
           joy3 => joy3,
           joy4 => joy4,
@@ -1039,6 +1044,9 @@ begin
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
+
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb_in;
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin

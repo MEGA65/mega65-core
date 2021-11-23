@@ -121,7 +121,9 @@ entity machine is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0);
+         QspiDB : out unsigned(3 downto 0);
+         QspiDB_in : in unsigned(3 downto 0);
+         qspidb_oe : out std_logic;
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
          
@@ -1477,6 +1479,8 @@ begin
       
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
       qspidb => qspidb,
 
       j21in => j21in,
