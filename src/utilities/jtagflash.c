@@ -8,6 +8,8 @@
 
 #include <6502.h>
 
+// #define QPP_READ
+
 // #define QPP_WRITE
 
 #define HARDWARE_SPI
@@ -1039,8 +1041,8 @@ void spi_tristate_si(void)
 
 void spi_tristate_si_and_so(void)
 {
-  bash_bits|=0x03;
   bash_bits&=0x6f;
+  bash_bits|=0x83;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
@@ -1048,8 +1050,8 @@ void spi_tristate_si_and_so(void)
 unsigned char spi_sample_si(void)
 {
   // Make SI pin input
+  bash_bits|=0x80;
   bash_bits&=0x7F;
-  bash_bits|=0x02;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
@@ -1063,7 +1065,7 @@ unsigned char spi_sample_si(void)
 void spi_so_set(unsigned char b)
 {
   // De-tri-state SO data line, and set value
-  bash_bits&=(0xff-0x01);
+  bash_bits&=(0x7f-0x01);
   bash_bits|=(0x1F-0x01);
   if (b) bash_bits|=0x01;
   POKE(BITBASH_PORT,bash_bits);
@@ -1074,7 +1076,7 @@ void qspi_nybl_set(unsigned char nybl)
 {
   // De-tri-state SO data line, and set value
   bash_bits&=0x60;
-  bash_bits|=nybl & 0xf;
+  bash_bits|=(nybl & 0xf);
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
@@ -1139,18 +1141,20 @@ void spi_tx_byte(unsigned char b)
 {
   unsigned char i;
 
+  // Disable tri-state of QSPIDB lines
   bash_bits|=(0x1F-0x01);
+  bash_bits&=0x7f;
   
   for(i=0;i<8;i++) {
 
     //    spi_tx_bit(b&0x80);
     
     // spi_clock_low();
-    bash_bits&=(0xff-0x20);
+    bash_bits&=(0x7f-0x20);
     POKE(BITBASH_PORT,bash_bits);
     
     // spi_so_set(b&80);
-    bash_bits&=(0xff-0x01);
+    bash_bits&=(0x7f-0x01);
     if (b&0x80) bash_bits|=0x01;
     POKE(BITBASH_PORT,bash_bits);
     
@@ -1168,7 +1172,7 @@ void qspi_tx_byte(unsigned char b)
   qspi_tx_nybl(b&0xf);
 }
 
-unsigned char qspi_rx_byte()
+unsigned char qspi_rx_byte(void)
 {
   unsigned char b;
 
@@ -1186,7 +1190,7 @@ unsigned char qspi_rx_byte()
   return b;
 }
 
-unsigned char spi_rx_byte()
+unsigned char spi_rx_byte(void)
 {
   unsigned char b=0;
   unsigned char i;
@@ -1426,7 +1430,10 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
 #ifdef HARDWARE_SPI_WRITE
-  //  printf("page_size=%d\n",page_size);
+  printf("Writing with page_size=%d\n",page_size);
+  printf("Data = $%02x, $%02x, $%02x, $%02x ... $%02x, $%02x, $%02x, $%02x ...\n",
+	 data_buffer[0],data_buffer[1],data_buffer[2],data_buffer[3],
+	 data_buffer[0x100],data_buffer[0x101],data_buffer[0x102],data_buffer[0x103]);
   if (page_size==256) {
     // Write 256 bytes
     // XXX For now we use 512 byte write. According to the
@@ -1443,7 +1450,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
     lcopy(data_buffer,0xffd6e00L,512);
     POKE(0xD680,0x51);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-    //    printf("Hardware SPI write 512\n");
+    printf("Hardware SPI write 512\n");
   } else 
 #else
     //    printf("Software SPI write\n");
@@ -1453,6 +1460,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 #endif
   
   spi_cs_high();
+  press_any_key();
 
   // Revert lines to input after QSPI operation
   bash_bits|=0x10;
@@ -1482,6 +1490,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
 unsigned char b,*c,d;
 
+#if QPP_READ
 void read_data(unsigned long start_address)
 {
 
@@ -1499,15 +1508,26 @@ void read_data(unsigned long start_address)
 
   // Table 25 latency codes
   switch(latency_code) {
-  case 3:
+  case 0:
+    // 4 cycles = 2 bytes with quad
+    for (z=0;z<2;z++) qspi_rx_byte();
     break;
-  default:
-    // 8 cycles = 4 bytes with quad
-    for (z=0;z<4;z++) qspi_rx_byte();
+  case 1:
+    // 4 cycles = 2 bytes with quad
+    for (z=0;z<3;z++) qspi_rx_byte();
+    break;
+  case 2:
+    // 5 cycles = 2.5 (!!) bytes with quad
+    for (z=0;z<2;z++) qspi_rx_byte();
+    break;
+  case 3:
+    // 1 cycle = 0.5 (!!) bytes with quad
+    for (z=0;z<1;z++) qspi_rx_byte();
     break;
   }
-
+  
   // Actually read the data.
+  // XXX - QSPI works _only_ with hardware acceleration for reading.
 #ifdef HARDWARE_SPI
   // Use hardware-accelerated QSPI RX
   POKE(0xD020,1);
@@ -1521,15 +1541,20 @@ void read_data(unsigned long start_address)
     POKE(0xD020,1);
 #if 1
     // Inlined RX for a bit extra speed
-    spi_tristate_si_and_so();
-
-    spi_clock_low();
-    b=(PEEK(BITBASH_PORT)&0x0f)<<4;
-    spi_clock_high();
+    // spi_tristate_si_and_so();    
+    // spi_clock_low();
+    POKE(BITBASH_PORT,0x8f);
     
-    spi_clock_low();
+    b=(PEEK(BITBASH_PORT)&0x0f)<<4;
+
+    // spi_clock_high();
+    // spi_clock_low();
+    POKE(BITBASH_PORT,0xaf);
+    POKE(BITBASH_PORT,0x8f);
+
     data_buffer[z]=(PEEK(BITBASH_PORT)&0x0f)|b;
-    spi_clock_high();
+    // spi_clock_high();
+    POKE(BITBASH_PORT,0xaf);
 #else 
     data_buffer[z]=qspi_rx_byte();
 #endif
@@ -1541,6 +1566,38 @@ void read_data(unsigned long start_address)
   delay();
 
 }
+#else
+
+// 1-bit read
+void read_data(unsigned long start_address)
+{
+
+  // Send read sector command
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x13);
+  spi_tx_byte(start_address>>24);
+  spi_tx_byte(start_address>>16);
+  spi_tx_byte(start_address>>8);
+  spi_tx_byte(start_address>>0);
+  
+  
+  spi_cs_low();
+
+  for(z=0;z<512;z++) {
+    POKE(0xD020,1);
+    data_buffer[z]=spi_rx_byte();
+    POKE(0xD020,0);
+  }
+
+  spi_cs_high();
+  
+}
+#endif
+
 
 void fetch_rdid(void)
 {
@@ -1635,7 +1692,20 @@ void flash_inspector(void)
 	// Erase page, write page, read it back
 	erase_sector(addr);
 	// Some known data
-	for(i=0;i<512;i++) data_buffer[i]=i;
+	for(i=0;i<256;i++) {
+	  data_buffer[i]=i;
+	  data_buffer[0x1ff-i]=i;
+	}
+	data_buffer[0]=addr>>24L;
+	data_buffer[1]=addr>>16L;
+	data_buffer[2]=addr>>8L;
+	data_buffer[3]=addr>>0L;
+	addr+=256;
+	data_buffer[0x100]=addr>>24L;
+	data_buffer[0x101]=addr>>16L;
+	data_buffer[0x102]=addr>>8L;
+	data_buffer[0x103]=addr>>0L;
+	addr-=256;
 	//	lfill(0xFFD6E00,0xFF,0x200);
 	printf("E: %02x %02x %02x\n",
 	       lpeek(0xffd6e00),lpeek(0xffd6e01),lpeek(0xffd6e02));
@@ -1704,8 +1774,8 @@ void enable_quad_mode(void)
   delay();
   spi_tx_byte(0x01);
   spi_tx_byte(0x00);
-  // Latency code = 3, quad mode=1
-  spi_tx_byte(0xc2);
+  // Latency code = 01, quad mode=1
+  spi_tx_byte(0x42);
   spi_cs_high();
   delay();
 
