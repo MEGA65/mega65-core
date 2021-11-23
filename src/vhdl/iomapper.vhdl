@@ -182,7 +182,9 @@ entity iomapper is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0);
+         QspiDB : out unsigned(3 downto 0);
+         QspiDB_in : in unsigned(3 downto 0);
+         qspidb_oe : out std_logic;
          QspiCSn : out std_logic;
          qspi_clock : out std_logic;
 
@@ -1408,6 +1410,8 @@ begin
 
     qspicsn => qspicsn,
     qspidb => qspidb,
+    qspidb_in => qspidb_in,
+    qspidb_oe => qspidb_oe,
     qspi_clock => qspi_clock,
     
     drive_led => drive_led,
