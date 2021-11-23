@@ -1508,7 +1508,7 @@ begin  -- behavioural
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
           when x"CC" =>
-            fastio_rdata(7) <= '1';
+            fastio_rdata(7) <= qspidb_tristate;
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
             fastio_rdata(4) <= '0';
