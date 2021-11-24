@@ -12,8 +12,8 @@
 
 // #define QPP_WRITE
 
-#define HARDWARE_SPI
-#define HARDWARE_SPI_WRITE
+// #define HARDWARE_SPI
+// #define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
@@ -1034,24 +1034,21 @@ void delay(void)
 
 void spi_tristate_si(void)
 {
-  bash_bits|=0x02;
+  bash_bits|=0x80;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
 
 void spi_tristate_si_and_so(void)
 {
-  bash_bits&=0x6f;
-  bash_bits|=0x83;
+  bash_bits|=0x80;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
 
 unsigned char spi_sample_si(void)
 {
-  // Make SI pin input
-  bash_bits|=0x80;
-  bash_bits&=0x7F;
+  bash_bits|=0x80; // Make SI pin input
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
@@ -1066,7 +1063,7 @@ void spi_so_set(unsigned char b)
 {
   // De-tri-state SO data line, and set value
   bash_bits&=(0x7f-0x01);
-  bash_bits|=(0x1F-0x01);
+  bash_bits|=(0x0F-0x01);
   if (b) bash_bits|=0x01;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
@@ -1084,16 +1081,18 @@ void qspi_nybl_set(unsigned char nybl)
 
 void spi_clock_low(void)
 {
-  bash_bits&=(0xff-0x20);
-  POKE(BITBASH_PORT,bash_bits);
-  DEBUG_BITBASH(bash_bits);
+  POKE(CLOCKCTL_PORT,0x00);
+  //  bash_bits&=(0xff-0x20);
+  //  POKE(BITBASH_PORT,bash_bits);
+  //  DEBUG_BITBASH(bash_bits);
 }
 
 void spi_clock_high(void)
 {
-  bash_bits|=0x20;
-  POKE(BITBASH_PORT,bash_bits);
-  DEBUG_BITBASH(bash_bits);
+  POKE(CLOCKCTL_PORT,0x02);
+  //  bash_bits|=0x20;
+  //  POKE(BITBASH_PORT,bash_bits);
+  //  DEBUG_BITBASH(bash_bits);
 }
 
 void spi_idle_clocks(unsigned int count)
@@ -1197,13 +1196,18 @@ unsigned char spi_rx_byte(void)
 
   b=0;
 
-  spi_tristate_si();
+  //  spi_tristate_si();
+    POKE(BITBASH_PORT,0x80);
   for(i=0;i<8;i++) {
-    spi_clock_low();
+    // spi_clock_low();
+    POKE(CLOCKCTL_PORT,0x00);
     b=b<<1;
     delay();
-    if (spi_sample_si()) b|=0x01;
-    spi_clock_high();
+    if (PEEK(BITBASH_PORT)&0x02) b|=0x01;
+    // if (spi_sample_si()) b|=0x01;
+    //    spi_clock_high();
+    //    POKE(BITBASH_PORT,0xa0);    
+    POKE(CLOCKCTL_PORT,0x02);
     delay();
   }
 
@@ -1914,6 +1918,9 @@ void main(void)
 
   mega65_io_enable();
 
+  // Black screen for middle-of-the-night development
+  POKE(0xD020,0); POKE(0xD021,0);
+  
   // White text
   POKE(0x286,1);
 
@@ -1969,7 +1976,18 @@ void main(void)
     if ((i&15)==15) printf("\n");
   }
   printf("\n");
-
+  while(1) {
+    fetch_rdid();
+    for(i=0;i<0x80;i++)
+      {
+	if (!(i&15)) printf("+%03x : ",i);
+	printf("%02x",cfi_data[i]);
+	if ((i&15)==15) printf("\n");
+      }
+    printf("\n");
+    press_any_key();
+  }
+  
   if ((cfi_data[0x51]==0x41)&&(cfi_data[0x52]==0x4C)&&(cfi_data[0x53]==0x54)) {
     if (cfi_data[0x56]==0x00) {
       for(i=0;i<cfi_data[0x57];i++) part[i]=cfi_data[0x57+i];

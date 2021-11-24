@@ -3154,7 +3154,7 @@ begin  -- behavioural
               if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
-                qspi_clock_int <= fastio_wdata(5);
+--                qspi_clock_int <= fastio_wdata(5);
                 qspidb <= fastio_wdata(3 downto 0);
                 qspidb_tristate <= fastio_wdata(7);                
                 qspidb_oe <= not fastio_wdata(7);                
