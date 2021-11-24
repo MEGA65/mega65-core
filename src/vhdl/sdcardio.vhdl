@@ -1673,7 +1673,9 @@ begin  -- behavioural
     end case;
     
     if rising_edge(clock) then    
-    
+
+      qspi_clock <= qspi_clock_int;
+      
       -- Export last floppy gap info so that we can have a magic DMA mode to
       -- read raw flux from the floppy at 25ns resolution
       if fdc_last_gap(15 downto 8) /= x"00" then
@@ -3152,7 +3154,6 @@ begin  -- behavioural
               if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
-                qspi_clock <= fastio_wdata(5);
                 qspi_clock_int <= fastio_wdata(5);
                 qspidb <= fastio_wdata(3 downto 0);
                 qspidb_tristate <= fastio_wdata(7);                
@@ -4199,14 +4200,12 @@ begin  -- behavioural
           qspi_bytes_differ <= '0';
         when QSPI_read_phase1 =>
           qspi_clock_int <= '0';
-          qspi_clock <= '0';
           sd_state <= QSPI_read_phase1a;
         when QSPI_read_phase1a =>
           -- Allow time for clock to propagate
           sd_state <= QSPI_read_phase2;
         when QSPI_read_phase2 =>
           qspi_clock_int <= '1';          
-          qspi_clock <= '1';          
           sd_state <= QSPI_read_phase2a;
         when QSPI_read_phase2a =>
           -- Allow time for clock to propagate
@@ -4214,7 +4213,6 @@ begin  -- behavioural
         when QSPI_read_phase3 =>          
           qspi_bits <= qspidb_in;         
           qspi_clock_int <= '0';
-          qspi_clock <= '0';
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
           -- Allow time for clock to propagate
@@ -4243,7 +4241,6 @@ begin  -- behavioural
             sdio_busy <= '0';
           end if;
           qspi_clock_int <= '1';
-          qspi_clock <= '1';
         when QSPI_write_512 =>
           sdio_busy <= '1';
           sdio_error <= '0';
@@ -4268,7 +4265,6 @@ begin  -- behavioural
             qspi_byte_value <= f011_buffer_rdata;
           end if;
           qspi_clock_int <= '0';
-          qspi_clock <= '0';
           sd_state <= QSPI_write_phase3;
         when QSPI_write_phase3 =>
           qspidb_tristate <= '0';
@@ -4280,7 +4276,6 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase4;
         when QSPI_write_phase4 =>
           qspi_clock_int <= '1';
-          qspi_clock <= '1';
           if qspi_bit_counter = 7 then
             if sd_buffer_offset /= 511 then
               sd_buffer_offset <= sd_buffer_offset + 1;
