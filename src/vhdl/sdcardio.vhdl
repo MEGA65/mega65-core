@@ -1515,7 +1515,8 @@ begin  -- behavioural
             fastio_rdata(3 downto 0) <= qspidb_in;
           when x"CD" =>
             fastio_rdata(0) <= qspi_clock_run;
-            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(1) <= qspi_clock_int;
+            fastio_rdata(7 downto 2) <= (others => '0');
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -3165,8 +3166,10 @@ begin  -- behavioural
               -- possible to control it via $D6CC :/
               -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
               -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
-              qspi_clock_run <= fastio_wdata(0);
-              qspi_clock_int <= fastio_wdata(1);
+              if hypervisor_mode='1' or dipsw(2)='1' then
+                qspi_clock_run <= fastio_wdata(0);
+                qspi_clock_int <= fastio_wdata(1);
+              end if;
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then

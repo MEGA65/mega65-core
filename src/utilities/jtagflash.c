@@ -1149,17 +1149,15 @@ void spi_tx_byte(unsigned char b)
     //    spi_tx_bit(b&0x80);
     
     // spi_clock_low();
-    bash_bits&=(0x7f-0x20);
-    POKE(BITBASH_PORT,bash_bits);
+    POKE(CLOCKCTL_PORT,0x00);
+    //    bash_bits&=(0x7f-0x20);
+    //    POKE(BITBASH_PORT,bash_bits);
     
     // spi_so_set(b&80);
-    bash_bits&=(0x7f-0x01);
-    if (b&0x80) bash_bits|=0x01;
-    POKE(BITBASH_PORT,bash_bits);
+    if (b&0x80) POKE(BITBASH_PORT,0x01); else POKE(BITBASH_PORT,0x00);
     
     // spi_clock_high();
-    bash_bits|=0x20;
-    POKE(BITBASH_PORT,bash_bits);
+    POKE(CLOCKCTL_PORT,0x02);
 
     b=b<<1;
   }
@@ -1345,9 +1343,8 @@ void erase_sector(unsigned long address_in_sector)
   // CLK must be set low before releasing CS according
   // to the S25F512 datasheet.
   // spi_clock_low();
-  bash_bits&=(0xff-0x20);
-  POKE(BITBASH_PORT,bash_bits);
-
+  POKE(CLOCKCTL_PORT,0x00);
+  
   spi_cs_high();
 
   reg_sr1=0x03;
@@ -1467,8 +1464,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   press_any_key();
 
   // Revert lines to input after QSPI operation
-  bash_bits|=0x10;
-  bash_bits&=0xff-0x80;
+  bash_bits|=0x80;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
@@ -1548,17 +1544,18 @@ void read_data(unsigned long start_address)
     // spi_tristate_si_and_so();    
     // spi_clock_low();
     POKE(BITBASH_PORT,0x8f);
+    POKE(CLOCKCTL_PORT,0x00);    
     
     b=(PEEK(BITBASH_PORT)&0x0f)<<4;
 
     // spi_clock_high();
     // spi_clock_low();
-    POKE(BITBASH_PORT,0xaf);
-    POKE(BITBASH_PORT,0x8f);
+    POKE(CLOCKCTL_PORT,0x02);
+    POKE(CLOCKCTL_PORT,0x00);
 
     data_buffer[z]=(PEEK(BITBASH_PORT)&0x0f)|b;
     // spi_clock_high();
-    POKE(BITBASH_PORT,0xaf);
+    POKE(CLOCKCTL_PORT,0x02);
 #else 
     data_buffer[z]=qspi_rx_byte();
 #endif
@@ -1945,6 +1942,7 @@ void main(void)
   // Start by resetting to CS high etc
   bash_bits=0xff;
   POKE(BITBASH_PORT,bash_bits);
+  POKE(CLOCKCTL_PORT,0x02);
   DEBUG_BITBASH(bash_bits);
 
   usleep(10000);
