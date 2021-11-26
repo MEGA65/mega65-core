@@ -8,11 +8,11 @@
 
 #include <6502.h>
 
-// #define QPP_READ
+#define QPP_READ
 
 // #define QPP_WRITE
 
-// #define HARDWARE_SPI
+#define HARDWARE_SPI
 // #define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
@@ -29,6 +29,7 @@ struct m65_tm tm_now;
 #define SLOT_SIZE (8L*1048576L)
 #endif
 
+void read_registers(void);
 void query_flash_protection(unsigned long addr_in_sector);
 char *select_bitstream_file(void);
 void fetch_rdid(void);
@@ -724,7 +725,11 @@ void reflash_slot(unsigned char slot)
       }
     }
     
-    if (i==512) continue; else printf("Sector at $%lx not erased.\n",addr);
+    if (i==512) continue;
+    else {
+      printf("%cSector at $%lx not erased.\n",0x13,addr);
+      lcopy((unsigned long)data_buffer,0x400 + 10*40,512);
+    }
 
     while (i<512) {
       printf("CMD erase @ $%08lx\n",addr);
@@ -733,6 +738,8 @@ void reflash_slot(unsigned char slot)
       POKE(0xD020,0);
       // Then verify that the sector has been erased
       read_data(0xffffffff); // force flushing of sector buffer in flash
+      // Sometimes it gets all confused and reads rubbish after erase,
+      // so we try multiple times immediately following an erase.
       read_data(addr);
       // XXX Show the read sector on the screen
       //      lcopy(data_buffer,0x0400+10*40,512);
@@ -744,6 +751,9 @@ void reflash_slot(unsigned char slot)
 #endif
       if (i<512) {
 
+	printf("%cSector at $%lx not erased.\n",0x13,addr);
+	lcopy((unsigned long)data_buffer,0x400 + 10*40,512);
+	
         tries++;
         if (tries==128) {
           printf("\n! Failed to erase flash page at $%llx\n",addr);
@@ -1034,28 +1044,20 @@ void delay(void)
 
 void spi_tristate_si(void)
 {
-  bash_bits|=0x80;
-  POKE(BITBASH_PORT,bash_bits);
-  DEBUG_BITBASH(bash_bits);
+  POKE(BITBASH_PORT,0x8f);
+  bash_bits|=0x8f;
 }
 
 void spi_tristate_si_and_so(void)
 {
-  bash_bits|=0x80;
-  POKE(BITBASH_PORT,bash_bits);
-  DEBUG_BITBASH(bash_bits);
+  POKE(BITBASH_PORT,0x8f);
+  bash_bits|=0x8f;
 }
 
 unsigned char spi_sample_si(void)
 {
-  bash_bits|=0x80; // Make SI pin input
-  POKE(BITBASH_PORT,bash_bits);
-  DEBUG_BITBASH(bash_bits);
-
-  // Not sure why we need this here, but we do, else it only ever returns 1.
-  // (but the delay can be made quite short)
-  delay();
-
+  bash_bits|=0x80;
+  POKE(BITBASH_PORT,0x80);
   if (PEEK(BITBASH_PORT)&0x02) return 1; else return 0;
 }
 
@@ -1108,13 +1110,14 @@ void spi_idle_clocks(unsigned int count)
 void spi_cs_low(void)
 {
   bash_bits&=0xff-0x40;
+  bash_bits|=0xe;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
 
 void spi_cs_high(void)
 {
-  bash_bits|=0x40;
+  bash_bits|=0x4f;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 }
@@ -1143,6 +1146,7 @@ void spi_tx_byte(unsigned char b)
   // Disable tri-state of QSPIDB lines
   bash_bits|=(0x1F-0x01);
   bash_bits&=0x7f;
+  POKE(BITBASH_PORT,bash_bits);
   
   for(i=0;i<8;i++) {
 
@@ -1154,7 +1158,8 @@ void spi_tx_byte(unsigned char b)
     //    POKE(BITBASH_PORT,bash_bits);
     
     // spi_so_set(b&80);
-    if (b&0x80) POKE(BITBASH_PORT,0x01); else POKE(BITBASH_PORT,0x00);
+    if (b&0x80) POKE(BITBASH_PORT,0x0f);
+    else POKE(BITBASH_PORT,0x0e);
     
     // spi_clock_high();
     POKE(CLOCKCTL_PORT,0x02);
@@ -1187,6 +1192,29 @@ unsigned char qspi_rx_byte(void)
   return b;
 }
 
+#if 0
+#define SEQ_LEN 16*2
+unsigned char seq[SEQ_LEN]=
+  {
+   0xff,0x02, // release CS, tristate etc
+   0x3f,0x02, // pull CS low, keep clock high, de-tristate
+   // TX $9F
+   0x3f,0x00, 0x3f,0x02, // TX bit 1
+   
+   
+  };
+
+void spi_test(void)
+{
+  
+  
+  POKE(BITBASH_PORT,0xff);
+  POKE(CLOCKCTL_PORT,0x02);
+  
+  
+}
+#endif
+
 unsigned char spi_rx_byte(void)
 {
   unsigned char b=0;
@@ -1195,7 +1223,7 @@ unsigned char spi_rx_byte(void)
   b=0;
 
   //  spi_tristate_si();
-    POKE(BITBASH_PORT,0x80);
+  POKE(BITBASH_PORT,0x8f);
   for(i=0;i<8;i++) {
     // spi_clock_low();
     POKE(CLOCKCTL_PORT,0x00);
@@ -1464,7 +1492,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   press_any_key();
 
   // Revert lines to input after QSPI operation
-  bash_bits|=0x80;
+  bash_bits|=0x8f;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
 
@@ -1490,7 +1518,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
 unsigned char b,*c,d;
 
-#if QPP_READ
+#ifdef QPP_READ
 void read_data(unsigned long start_address)
 {
 
@@ -1931,7 +1959,7 @@ void main(void)
   // Put QSPI clock under bitbash control
   POKE(CLOCKCTL_PORT,0x00);  
 
-  flash_reset();
+  //  flash_reset();
   
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
@@ -1974,17 +2002,6 @@ void main(void)
     if ((i&15)==15) printf("\n");
   }
   printf("\n");
-  while(1) {
-    fetch_rdid();
-    for(i=0;i<0x80;i++)
-      {
-	if (!(i&15)) printf("+%03x : ",i);
-	printf("%02x",cfi_data[i]);
-	if ((i&15)==15) printf("\n");
-      }
-    printf("\n");
-    press_any_key();
-  }
   
   if ((cfi_data[0x51]==0x41)&&(cfi_data[0x52]==0x4C)&&(cfi_data[0x53]==0x54)) {
     if (cfi_data[0x56]==0x00) {
