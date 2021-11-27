@@ -232,18 +232,6 @@ architecture behavioural of sdcardio is
   
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
-  signal qspi_clock_int : std_logic := '1';
-  signal qspi_clock_run : std_logic := '1';
-  signal qspi_csn_int : std_logic := '1';
-  signal qspi_bits : unsigned(3 downto 0) := "0000";
-  signal qspi_bytes_differ : std_logic := '0';
-  signal qspi_byte_value : unsigned(7 downto 0) := x"00";
-  signal qspi_bit_counter : integer range 0 to 7 := 0;
-  signal qspidb_tristate : std_logic := '1';
-  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
-  signal qspi_read_sector_phase : integer range 0 to 80 := 0;
-  signal qspi_action_state : sd_state_t := Idle;
-  
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
   signal aclSCKinternal : std_logic := '0';
@@ -338,6 +326,18 @@ architecture behavioural of sdcardio is
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
   signal last_f011_drq : std_logic := '0';
 
+  signal qspi_clock_int : std_logic := '1';
+  signal qspi_clock_run : std_logic := '1';
+  signal qspi_csn_int : std_logic := '1';
+  signal qspi_bits : unsigned(3 downto 0) := "0000";
+  signal qspi_bytes_differ : std_logic := '0';
+  signal qspi_byte_value : unsigned(7 downto 0) := x"00";
+  signal qspi_bit_counter : integer range 0 to 7 := 0;
+  signal qspidb_tristate : std_logic := '1';
+  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
+  signal qspi_read_sector_phase : integer range 0 to 80 := 0;
+  signal qspi_action_state : sd_state_t := Idle;  
+  
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
   signal last_sd_rxbyte : unsigned(7 downto 0);
