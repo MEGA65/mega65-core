@@ -4325,13 +4325,17 @@ begin  -- behavioural
               50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
               66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
               spi_address(31 downto 1) <= spi_address(30 downto 0);
+            when 81 =>
+              if qspi_action_state = qspi_qwrite_512 or qspi_action_state = qspi_qwrite_256 then
+                sd_state <= qspi_action_state;
+              end if;                
             when 84 =>
               -- No dummy cycles for sector erase operations,
               -- and CS must be released while clock low IMMEDIATELY
               -- after writing the 32nd address bit
               if qspi_action_state = QSPI_Release_CS then
                 qspi_clock_int <= '0';
-                sd_state <= QSPI_Release_CS;
+                sd_state <= qspi_action_state;
               end if;
             when others =>
               null;
