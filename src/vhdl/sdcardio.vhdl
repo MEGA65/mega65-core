@@ -1669,7 +1669,7 @@ begin  -- behavioural
     
     
     case sd_state is    
-      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1 =>
+      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4 =>
         report "QSPI: Possible f011 buffer fetch";
         if f011_sector_fetch='1' then
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -2889,6 +2889,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_512;
                     spi_flash_cmd_byte <= x"34";
+                    f011_sector_fetch <= '0';
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -2906,6 +2907,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_256;
                     spi_flash_cmd_byte <= x"34";
+                    f011_sector_fetch <= '0';
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3394,6 +3396,9 @@ begin  -- behavioural
             end if;
             f011_buffer_wdata <= fastio_wdata;
             f011_buffer_write <= '1';
+
+            report "QSPI: Writing $" & to_hstring(fastio_wdata) & " into sector buffer @ $"
+              & to_hstring(fastio_addr(11 downto 0));
             
           end if;
 
@@ -4283,7 +4288,6 @@ begin  -- behavioural
               34 | 36 | 38 | 40 | 42 | 44 | 46 | 48 |
               50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
               66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
-              report "QSPI: Shifting spi addr $" & to_hstring(spi_address);
               spi_address(31 downto 1) <= spi_address(30 downto 0);
             when others =>
               null;
@@ -4375,20 +4379,26 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase1;
 
         when QSPI_qwrite_phase1 =>
-          sd_state <= QSPI_write_phase2;
+          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata);
+          sd_state <= QSPI_qwrite_phase2;
           qspidb <= f011_buffer_rdata(7 downto 4);
+          qspi_bits <= f011_buffer_rdata(3 downto 0);
           qspi_clock_int <= '0';
         when QSPI_qwrite_phase2 =>
-          sd_state <= QSPI_write_phase3;
+          sd_state <= QSPI_qwrite_phase3;
           qspi_clock_int <= '1';
         when QSPI_qwrite_phase3 =>
-          sd_state <= QSPI_write_phase4;
-          qspidb <= f011_buffer_rdata(3 downto 0);
+          sd_state <= QSPI_qwrite_phase4;
+          qspidb <= qspi_bits;
           qspi_clock_int <= '0';
-        when QSPI_qwrite_phase4 =>
-          qspi_clock_int <= '1';
           if sd_buffer_offset /= 511 then
             sd_buffer_offset <= sd_buffer_offset + 1;
+          else
+            sd_buffer_offset <= to_unsigned(0,9);
+          end if;
+        when QSPI_qwrite_phase4 =>
+          qspi_clock_int <= '1';
+          if sd_buffer_offset /= 0 then
             sd_state <= QSPI_qwrite_phase1;
           else
             sd_state <= Idle;

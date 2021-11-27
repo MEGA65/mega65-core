@@ -69,6 +69,8 @@ architecture foo of test_qspi is
 
   signal cycle_count : integer := 0;
 
+  signal sectorbuffercs : std_logic := '0';
+  
   signal QspiDB : unsigned(3 downto 0);
   signal QspiDB_in : unsigned(3 downto 0) := "1111";
   signal qspidb_oe : std_logic;
@@ -97,7 +99,7 @@ begin
     audio_mix_rdata => x"ffff",
     audio_loopback => x"ffff",
     
-    hypervisor_mode => '0',
+    hypervisor_mode => '1',
     secure_mode => '0',
     fpga_temperature => (others => '0'),
     pwm_knob => x"ffff",
@@ -113,8 +115,8 @@ begin
     virtualise_f011_drive1 => '0',
     colourram_at_dc00 => '0',
     viciii_iomode => "11",
-    sectorbuffercs => '0',
-    sectorbuffercs_fast => '0',
+    sectorbuffercs => sectorbuffercs,
+    sectorbuffercs_fast => sectorbuffercs,
     last_scan_Code => (others => '1'),
 
     dipsw => (others => '1'),
@@ -165,8 +167,22 @@ begin
       fastio_addr <= addr;
       fastio_wdata <= val;
       fastio_write <= '1';
-      sdcardio_cs <= '1';
-      f011_cs <= '0';
+      if addr(19 downto 8) = x"d36" then
+        sdcardio_cs <= '1';
+      else
+        sdcardio_cs <= '0';
+      end if;
+      if addr(19 downto 8) = x"d08" then
+        f011_cs <= '1';
+      else
+        f011_cs <= '0';
+      end if;
+      if addr(19 downto 12) = x"d6" then
+        sectorbuffercs <= '1';
+      else
+        sectorbuffercs <= '0';
+      end if;
+        
     end POKE;      
   begin
     if rising_edge(clock40mhz) then
@@ -176,10 +192,10 @@ begin
       
       case cycle_count is
         when 1 => POKE(x"d6e00",x"12");
-        when 2 => POKE(x"d6e00",x"34");
-        when 3 => POKE(x"d6e00",x"56");
-        when 4 => POKE(x"d6e00",x"78");
-        when 5 => POKE(x"d6e00",x"9a");
+        when 2 => POKE(x"d6e01",x"34");
+        when 3 => POKE(x"d6e02",x"56");
+        when 4 => POKE(x"d6e03",x"78");
+        when 5 => POKE(x"d6e04",x"9a");
                   
         when 6 => POKE(x"d3681",x"03");
         when 7 => POKE(x"d3682",x"00");
