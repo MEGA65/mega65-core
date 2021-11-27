@@ -336,7 +336,8 @@ architecture behavioural of sdcardio is
   signal qspidb_tristate : std_logic := '1';
   signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal qspi_read_sector_phase : integer range 0 to 80 := 0;
-  signal qspi_action_state : sd_state_t := Idle;  
+  signal qspi_action_state : sd_state_t := Idle;
+  signal qspi_command_len : integer range 80 to 92 := 92;
   
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -2893,6 +2894,11 @@ begin  -- behavioural
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
+                  -- Allow setting the number of dummy cycles
+                when x"5c" => qspi_command_len <= 80;
+                when x"5d" => qspi_command_len <= 84;
+                when x"5e" => qspi_command_len <= 88;
+                when x"5f" => qspi_command_len <= 92;
                   
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
@@ -4235,7 +4241,7 @@ begin  -- behavioural
           -- Go through QSPI command setup and address TX.
           -- Allow extra cycles after changing clock, because
           -- there is 1 cycle latency on clock output
-          if qspi_read_sector_phase < 80 then
+          if qspi_read_sector_phase < qspi_command_len then
             qspi_read_sector_phase <= qspi_read_sector_phase + 1;
           else
             sd_state <= qspi_action_state;
@@ -4288,6 +4294,12 @@ begin  -- behavioural
             when 75 | 76 => qspi_clock_int <= '0'; 
             when 77 | 78 => qspi_clock_int <= '1';
             when 79 | 80 => qspi_clock_int <= '0'; 
+            when 81 | 82 => qspi_clock_int <= '1';
+            when 83 | 84 => qspi_clock_int <= '0'; 
+            when 85 | 86 => qspi_clock_int <= '1';
+            when 87 | 88 => qspi_clock_int <= '0'; 
+            when 89 | 90 => qspi_clock_int <= '1';
+            when 91 | 92 => qspi_clock_int <= '0'; 
             when others => null;
           end case;
              
