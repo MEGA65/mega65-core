@@ -2888,7 +2888,7 @@ begin  -- behavioural
                     qspi_action_state <= qspi_write_512;
                     -- XXX This command requires 1-bit address TX, not 4-bit
                     -- address TX
-                    spi_flash_cmd_byte <= x"12";
+                    spi_flash_cmd_byte <= x"34";
                   else
                     -- Permission denied
                     sdio_error <= '1';
