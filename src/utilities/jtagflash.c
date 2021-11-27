@@ -1523,6 +1523,7 @@ void read_data(unsigned long start_address)
   POKE(0xD682,start_address>>8);
   POKE(0xD683,start_address>>16);
   POKE(0xD684,start_address>>24);
+  POKE(0xD680,0x5e); // Set number of dummy cycles
   POKE(0xD680,0x53); // QSPI Flash Sector read command
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
@@ -1985,8 +1986,8 @@ void main(void)
      and then flash the bitstream.
   */
   enable_quad_mode();
-  reflash_slot(0);
-  // flash_inspector();
+  // reflash_slot(0);
+  flash_inspector();
   
 }
 
