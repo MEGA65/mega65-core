@@ -2913,6 +2913,24 @@ begin  -- behavioural
                     sdio_error <= '1';
                   end if;
                   -- Allow setting the number of dummy cycles
+                when x"58" =>
+                  -- X - Erase page: Send command and address, then return
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= Idle;
+                    spi_flash_cmd_byte <= x"dc";
+                    f011_sector_fetch <= '0';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                  
                 when x"59" => qspi_command_len <= 88;
                 when x"5a" => qspi_command_len <= 90;
                 when x"5b" => qspi_command_len <= 92;
@@ -4364,16 +4382,16 @@ begin  -- behavioural
         when QSPI_qwrite_256 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_256 =>
           sdio_busy <= '1';
           sdio_error <= '0';
-          qspidb_tristate <= '1';
-          qspidb_oe <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_write_phase1;
