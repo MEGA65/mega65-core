@@ -242,6 +242,7 @@ architecture behavioural of sdcardio is
   signal qspidb_tristate : std_logic := '1';
   signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal qspi_read_sector_phase : integer range 0 to 80 := 0;
+  signal qspi_action_state : sd_state_t := Idle;
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -2866,8 +2867,28 @@ begin  -- behavioural
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
-                    sd_state <= qspi_read_sector;
+                    sd_state <= qspi_send_command;
                     qspi_read_sector_phase <= 0;
+                    qspi_action_state <= qspi_read_512;
+                    spi_flash_cmd_byte <= x"ec";
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"54" =>
+                  -- T - Write a 512 byte region to QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= qspi_write_512;
+                    -- XXX This command requires 1-bit address TX, not 4-bit
+                    -- address TX
+                    spi_flash_cmd_byte <= x"12";
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -4217,7 +4238,7 @@ begin  -- behavioural
           if qspi_read_sector_phase < 80 then
             qspi_read_sector_phase <= qspi_read_sector_phase + 1;
           else
-            sd_state <= qspi_read_512;
+            sd_state <= qspi_action_state;
           end if;
           case qspi_read_sector_phase is
                             -- Release CS to ensure new transaction
