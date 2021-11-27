@@ -240,6 +240,8 @@ architecture behavioural of sdcardio is
   signal qspi_byte_value : unsigned(7 downto 0) := x"00";
   signal qspi_bit_counter : integer range 0 to 7 := 0;
   signal qspidb_tristate : std_logic := '1';
+  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
+  signal qspi_read_sector_phase : integer range 0 to 80 := 0;
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -321,6 +323,7 @@ architecture behavioural of sdcardio is
                       QSPI4_write_512,
                       QSPI4_write_phase1,
                       QSPI4_write_phase2,
+                      QSPI_read_sector,
                       QSPI_read_512,
                       QSPI_read_phase1,
                       QSPI_read_phase1a,
@@ -2855,6 +2858,21 @@ begin  -- behavioural
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
+                when x"53" =>
+                  -- S - Read a 512 byte region from QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_read_sector;
+                    qspi_read_sector_phase <= 0;
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                  
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
@@ -4192,6 +4210,66 @@ begin  -- behavioural
             f011_wsector_found <= '1';
           end if;
 
+        when QSPI_read_sector =>
+          -- Go through QSPI command setup and address TX.
+          -- Allow extra cycles after changing clock, because
+          -- there is 1 cycle latency on clock output
+          if qspi_read_sector_phase < 80 then
+            qspi_read_sector_phase <= qspi_read_sector_phase + 1;
+          else
+            sd_state <= qspi_read_512;
+          end if;
+          case qspi_read_sector_phase is
+                            -- Release CS to ensure new transaction
+            when 0 | 1   => qspi_clock_int <= '1'; qspicsn <= '1';
+                            -- Bring chip to attention
+            when 2       => qspicsn <= '0';
+                            -- Send QSPI command
+            when 3 | 4   => qspi_clock_int <= '0'; qspidb_oe <= '1'; qspidb_tristate <= '0';
+                            qspidb(3 downto 1) <= "111"; qspidb(0) <= spi_flash_cmd_byte(7); -- data bit
+            when 5  |  6 => qspi_clock_int <= '1';
+            when 7  |  8 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(6); -- data bit
+            when 9  | 10 => qspi_clock_int <= '1';
+            when 11 | 12 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(5); -- data bit
+            when 13 | 14 => qspi_clock_int <= '1';
+            when 15 | 16 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(4); -- data bit
+            when 17 | 18 => qspi_clock_int <= '1';
+            when 19 | 20 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(3); -- data bit
+            when 21 | 22 => qspi_clock_int <= '1';
+            when 23 | 24 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(2); -- data bit
+            when 25 | 26 => qspi_clock_int <= '1';
+            when 27 | 28 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(1); -- data bit
+            when 29 | 30 => qspi_clock_int <= '1';
+            when 31 | 32 => qspi_clock_int <= '0'; qspidb(0) <= spi_flash_cmd_byte(0); -- data bit
+            when 33 | 34 => qspi_clock_int <= '1';
+                            -- Address of data to read
+            when 35 | 36 => qspi_clock_int <= '0'; qspidb <= sd_sector(31 downto 28);
+            when 37 | 38 => qspi_clock_int <= '1';
+            when 39 | 40 => qspi_clock_int <= '0'; qspidb <= sd_sector(27 downto 24);
+            when 41 | 42 => qspi_clock_int <= '1';
+            when 43 | 44 => qspi_clock_int <= '0'; qspidb <= sd_sector(23 downto 20);
+            when 45 | 46 => qspi_clock_int <= '1';
+            when 47 | 48 => qspi_clock_int <= '0'; qspidb <= sd_sector(19 downto 16);
+            when 49 | 50 => qspi_clock_int <= '1';
+            when 51 | 52 => qspi_clock_int <= '0'; qspidb <= sd_sector(15 downto 12);
+            when 53 | 54 => qspi_clock_int <= '1';
+            when 55 | 56 => qspi_clock_int <= '0'; qspidb <= sd_sector(11 downto  8);
+            when 57 | 58 => qspi_clock_int <= '1';
+            when 59 | 60 => qspi_clock_int <= '0'; qspidb <= sd_sector( 7 downto  4);
+            when 61 | 62 => qspi_clock_int <= '1';
+            when 63 | 64 => qspi_clock_int <= '0'; qspidb <= sd_sector( 3 downto  0);
+                            -- Dummy clocks
+            when 65 | 66 => qspi_clock_int <= '1';
+            when 67 | 68 => qspi_clock_int <= '0'; 
+            when 69 | 70 => qspi_clock_int <= '1';
+            when 71 | 72 => qspi_clock_int <= '0'; 
+            when 73 | 74 => qspi_clock_int <= '1';
+            when 75 | 76 => qspi_clock_int <= '0'; 
+            when 77 | 78 => qspi_clock_int <= '1';
+            when 79 | 80 => qspi_clock_int <= '0'; 
+            when others => null;
+          end case;
+             
         when QSPI_read_512 =>
           -- Tristate SI and SO
           qspidb_tristate <= '1';
