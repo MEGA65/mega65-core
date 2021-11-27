@@ -2864,18 +2864,14 @@ begin  -- behavioural
                   -- S - Read a 512 byte region from QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
                   -- from $D681-$D684 address.
-                  if hypervisor_mode='1' or dipsw(2)='1' then
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
-                    sd_state <= qspi_send_command;
-                    qspi_read_sector_phase <= 0;
-                    qspi_action_state <= qspi_read_512;
-                    spi_flash_cmd_byte <= x"ec";
-                  else
-                    -- Permission denied
-                    sdio_error <= '1';
-                  end if;
+                  -- This command is non-dangerous, so allow it even from userland
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= qspi_read_512;
+                  spi_flash_cmd_byte <= x"ec";
                 when x"54" =>
                   -- T - Write a 512 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
