@@ -302,6 +302,7 @@ architecture behavioural of sdcardio is
                       FDCAutoFormatTrackSyncWait,     -- 0x13
                       FDCAutoFormatTrack,              -- 0x14
 
+                      QSPI_send_command,
                       QSPI_write_256,
                       QSPI_write_512,
                       QSPI_write_phase1,
@@ -312,7 +313,6 @@ architecture behavioural of sdcardio is
                       QSPI4_write_512,
                       QSPI4_write_phase1,
                       QSPI4_write_phase2,
-                      QSPI_read_sector,
                       QSPI_read_512,
                       QSPI_read_phase1,
                       QSPI_read_phase1a,
@@ -4231,7 +4231,7 @@ begin  -- behavioural
             f011_wsector_found <= '1';
           end if;
 
-        when QSPI_read_sector =>
+        when QSPI_send_command =>
           -- Go through QSPI command setup and address TX.
           -- Allow extra cycles after changing clock, because
           -- there is 1 cycle latency on clock output
