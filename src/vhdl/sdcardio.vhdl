@@ -342,7 +342,9 @@ architecture behavioural of sdcardio is
   signal qspi_read_sector_phase : integer range 0 to 128 := 0;
   signal qspi_action_state : sd_state_t := Idle;
   signal qspi_command_len : integer range 84 to 100 := 98;
-  signal spi_address : unsigned(31 downto 0) := (others => '0');
+  signal spi_address : unsigned(31 downto 0) := (others => '0');  
+  signal qspi_release_cs_on_completion : std_logic := '0';
+  signal spi_flash_cmd_only : std_logic := '0';
   
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -2890,6 +2892,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_512;
                     spi_flash_cmd_byte <= x"34";
+                    qspi_release_cs_on_completion <= '1';
                     f011_sector_fetch <= '0';
                   else
                     -- Permission denied
@@ -2908,6 +2911,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_256;
                     spi_flash_cmd_byte <= x"34";
+                    qspi_release_cs_on_completion <= '1';
                     f011_sector_fetch <= '0';
                   else
                     -- Permission denied
@@ -2944,6 +2948,24 @@ begin  -- behavioural
                     qspi_action_state <= QSPI_Release_CS;
                     spi_flash_cmd_byte <= x"21";
                     f011_sector_fetch <= '0';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"66" =>
+                  -- SPI Flash write enable
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"06";
+                    spi_flash_cmd_only <= '1';
+                    f011_sector_fetch <= '0';
+                    report "QSPI: Starting bare command";
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3419,6 +3441,10 @@ begin  -- behavioural
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
           f_wgate <= '1';
+          if qspi_release_cs_on_completion='1' then
+            qspi_release_cs_on_completion <= '0';
+            qspicsn <= '1';
+          end if;
 
           if sectorbuffercs='1' and fastio_write='1' then
             -- Writing via memory mapped sector buffer
@@ -4298,6 +4324,8 @@ begin  -- behavioural
           end if;
 
         when QSPI_send_command =>
+          report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
+            & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
           -- Go through QSPI command setup and address TX.
           -- Allow extra cycles after changing clock, because
           -- there is 1 cycle latency on clock output
@@ -4316,6 +4344,14 @@ begin  -- behavioural
           end if;
           if qspi_read_sector_phase > 18 and qspi_read_sector_phase < (18 + 32*2) then
             qspidb(0) <= spi_address(31);
+          end if;
+          if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
+            report "QSPI: Exiting early due to cmd_only flag";
+            if qspi_action_state = QSPI_Release_CS then
+              qspi_clock_int <= '0';
+              spi_flash_cmd_only <= '0';
+            end if;
+            sd_state <= qspi_action_state;
           end if;
           case qspi_read_sector_phase is
             when 4 | 6 | 8 | 10 | 12 | 14 | 16 =>
