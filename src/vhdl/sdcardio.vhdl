@@ -302,7 +302,8 @@ architecture behavioural of sdcardio is
                       FDCAutoFormatTrackSyncWait,     -- 0x13
                       FDCAutoFormatTrack,              -- 0x14
 
-                      QSPI_send_command,
+                      QSPI_Send_Command,
+                      QSPI_Release_CS,
                       QSPI_write_256,
                       QSPI_write_512,
                       QSPI_qwrite_256,
@@ -2923,15 +2924,32 @@ begin  -- behavioural
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
-                    qspi_action_state <= Idle;
+                    qspi_action_state <= QSPI_Release_CS;
                     spi_flash_cmd_byte <= x"dc";
                     f011_sector_fetch <= '0';
                   else
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
+                when x"59" =>
+                  -- Y - Erase small page: Send command and address, then return
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"21";
+                    f011_sector_fetch <= '0';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
                   
-                when x"59" => qspi_command_len <= 88;
+
                 when x"5a" => qspi_command_len <= 90;
                 when x"5b" => qspi_command_len <= 92;
                 when x"5c" => qspi_command_len <= 94;
@@ -4307,6 +4325,14 @@ begin  -- behavioural
               50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
               66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
               spi_address(31 downto 1) <= spi_address(30 downto 0);
+            when 84 =>
+              -- No dummy cycles for sector erase operations,
+              -- and CS must be released while clock low IMMEDIATELY
+              -- after writing the 32nd address bit
+              if qspi_action_state = QSPI_Release_CS then
+                qspi_clock_int <= '0';
+                sd_state <= QSPI_Release_CS;
+              end if;
             when others =>
               null;
           end case;
@@ -4321,7 +4347,11 @@ begin  -- behavioural
                             -- Address of data to read              
             when others => null;
           end case;
-             
+
+        when QSPI_Release_CS =>
+          qspi_clock_int <= '0';
+          qspicsn <= '1';
+          sd_state <= Idle;
         when QSPI_read_512 =>
           -- Tristate SI and SO
           qspidb_tristate <= '1';
