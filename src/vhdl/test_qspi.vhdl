@@ -175,13 +175,20 @@ begin
       f_rdata <= f_wdata;
       
       case cycle_count is
-        when 1 => POKE(x"d3681",x"78");
-        when 2 => POKE(x"d3682",x"56");
-        when 3 => POKE(x"d3683",x"34");
-        when 4 => POKE(x"d3684",x"12");
-        when 5 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
-        when 6 => POKE(x"d3680",x"53");
-        when 7 => POKE(x"d3020",x"00");
+        when 1 => POKE(x"d6e00",x"12");
+        when 2 => POKE(x"d6e00",x"34");
+        when 3 => POKE(x"d6e00",x"56");
+        when 4 => POKE(x"d6e00",x"78");
+        when 5 => POKE(x"d6e00",x"9a");
+                  
+        when 6 => POKE(x"d3681",x"03");
+        when 7 => POKE(x"d3682",x"00");
+        when 8 => POKE(x"d3683",x"00");
+        when 9 => POKE(x"d3684",x"80");
+        when 10 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
+        when 11 => POKE(x"d3680",x"54"); -- $53 = sector read, $54 = program 512
+                                        -- bytes
+        when 12 => POKE(x"d3020",x"00");
         when others => null;
       end case;
 

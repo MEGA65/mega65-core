@@ -305,10 +305,16 @@ architecture behavioural of sdcardio is
                       QSPI_send_command,
                       QSPI_write_256,
                       QSPI_write_512,
+                      QSPI_qwrite_256,
+                      QSPI_qwrite_512,
                       QSPI_write_phase1,
                       QSPI_write_phase2,
                       QSPI_write_phase3,
                       QSPI_write_phase4,
+                      QSPI_qwrite_phase1,
+                      QSPI_qwrite_phase2,
+                      QSPI_qwrite_phase3,
+                      QSPI_qwrite_phase4,
                       QSPI4_write_256,
                       QSPI4_write_512,
                       QSPI4_write_phase1,
@@ -334,7 +340,7 @@ architecture behavioural of sdcardio is
   signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal qspi_read_sector_phase : integer range 0 to 128 := 0;
   signal qspi_action_state : sd_state_t := Idle;
-  signal qspi_command_len : integer range 84 to 100 := 100;
+  signal qspi_command_len : integer range 84 to 100 := 98;
   signal spi_address : unsigned(31 downto 0) := (others => '0');
   
   -- Diagnostic register for determining SD/SDHC card state.
@@ -2879,10 +2885,26 @@ begin  -- behavioural
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
                     sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
-                    qspi_action_state <= qspi_write_512;
-                    -- XXX This command requires 1-bit address TX, not 4-bit
-                    -- address TX
+                    qspi_action_state <= qspi_qwrite_512;
+                    spi_flash_cmd_byte <= x"34";
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"55" =>
+                  -- U - Write a 256 byte region to QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= qspi_qwrite_256;
                     spi_flash_cmd_byte <= x"34";
                   else
                     -- Permission denied
@@ -4257,7 +4279,7 @@ begin  -- behavioural
           case qspi_read_sector_phase is
             when 4 | 6 | 8 | 10 | 12 | 14 | 16 =>
               spi_flash_cmd_byte(7 downto 1) <= spi_flash_cmd_byte(6 downto 0);
-            when 20 | 22 | 24 | 28 | 30 | 32 |
+            when 20 | 22 | 24 | 26 | 28 | 30 | 32 |
               34 | 36 | 38 | 40 | 42 | 44 | 46 | 48 |
               50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
               66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
@@ -4321,6 +4343,13 @@ begin  -- behavioural
             sdio_busy <= '0';
           end if;
           qspi_clock_int <= '1';
+        when QSPI_qwrite_512 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_512 =>
           sdio_busy <= '1';
           sdio_error <= '0';
@@ -4328,6 +4357,14 @@ begin  -- behavioural
           qspidb_oe <= '0';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_write_phase1;
+        when QSPI_qwrite_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          -- Write 2nd half of SD card buffer to QSPI
+          sd_buffer_offset <= to_unsigned(256,9);
+          sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_256 =>
           sdio_busy <= '1';
           sdio_error <= '0';
@@ -4336,6 +4373,28 @@ begin  -- behavioural
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_write_phase1;
+
+        when QSPI_qwrite_phase1 =>
+          sd_state <= QSPI_write_phase2;
+          qspidb <= f011_buffer_rdata(7 downto 4);
+          qspi_clock_int <= '0';
+        when QSPI_qwrite_phase2 =>
+          sd_state <= QSPI_write_phase3;
+          qspi_clock_int <= '1';
+        when QSPI_qwrite_phase3 =>
+          sd_state <= QSPI_write_phase4;
+          qspidb <= f011_buffer_rdata(3 downto 0);
+          qspi_clock_int <= '0';
+        when QSPI_qwrite_phase4 =>
+          qspi_clock_int <= '1';
+          if sd_buffer_offset /= 511 then
+            sd_buffer_offset <= sd_buffer_offset + 1;
+            sd_state <= QSPI_qwrite_phase1;
+          else
+            sd_state <= Idle;
+            sdio_busy <= '0';
+          end if;            
+
         when QSPI_write_phase1 =>
           qspi_bit_counter <= 0;
           sd_state <= QSPI_write_phase2;
