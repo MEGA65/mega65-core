@@ -8,12 +8,11 @@
 
 #include <6502.h>
 
-#define QPP_READ
-
+// #define QPP_READ
 // #define QPP_WRITE
 
 #define HARDWARE_SPI
-// #define HARDWARE_SPI_WRITE
+#define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
@@ -1518,115 +1517,25 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
 unsigned char b,*c,d;
 
-#ifdef QPP_READ
 void read_data(unsigned long start_address)
 {
+  POKE(0xD681,start_address>>0);
+  POKE(0xD682,start_address>>8);
+  POKE(0xD683,start_address>>16);
+  POKE(0xD684,start_address>>24);
+  POKE(0xD680,0x53); // QSPI Flash Sector read command
+  // XXX For some reason the busy flag is broken here.
+  // So just wait a little while, but only a little while
+  for(b=0;b<90;b++) continue;
+  //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
 
-  // Send read sector command
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0xec);
-  qspi_tx_byte(start_address>>24);
-  qspi_tx_byte(start_address>>16);
-  qspi_tx_byte(start_address>>8);
-  qspi_tx_byte(start_address>>0);
+  // Tristate and release CS at the end
+  POKE(BITBASH_PORT,0xff);
 
-  // Table 25 latency codes
-  switch(latency_code) {
-  case 0:
-    // 4 cycles = 2 bytes with quad
-    for (z=0;z<2;z++) qspi_rx_byte();
-    break;
-  case 1:
-    // 4 cycles = 2 bytes with quad
-    for (z=0;z<3;z++) qspi_rx_byte();
-    break;
-  case 2:
-    // 5 cycles = 2.5 (!!) bytes with quad
-    for (z=0;z<2;z++) qspi_rx_byte();
-    break;
-  case 3:
-    // 1 cycle = 0.5 (!!) bytes with quad
-    for (z=0;z<1;z++) qspi_rx_byte();
-    break;
-  }
-  
-  // Actually read the data.
-  // XXX - QSPI works _only_ with hardware acceleration for reading.
-#ifdef HARDWARE_SPI
-  // Use hardware-accelerated QSPI RX
-  POKE(0xD020,1);
-  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash in 4-bit mode
-  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
   lcopy(0xFFD6E00L,data_buffer,512);
 
   POKE(0xD020,0);
-#else
-  for(z=0;z<512;z++) {
-    POKE(0xD020,1);
-#if 1
-    // Inlined RX for a bit extra speed
-    // spi_tristate_si_and_so();    
-    // spi_clock_low();
-    POKE(BITBASH_PORT,0x8f);
-    POKE(CLOCKCTL_PORT,0x00);    
-    
-    b=(PEEK(BITBASH_PORT)&0x0f)<<4;
-
-    // spi_clock_high();
-    // spi_clock_low();
-    POKE(CLOCKCTL_PORT,0x02);
-    POKE(CLOCKCTL_PORT,0x00);
-
-    data_buffer[z]=(PEEK(BITBASH_PORT)&0x0f)|b;
-    // spi_clock_high();
-    POKE(CLOCKCTL_PORT,0x02);
-#else 
-    data_buffer[z]=qspi_rx_byte();
-#endif
-    POKE(0xD020,0);
-  }
-#endif
-
-  spi_cs_high();
-  delay();
-
 }
-#else
-
-// 1-bit read
-void read_data(unsigned long start_address)
-{
-
-  // Send read sector command
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0x13);
-  spi_tx_byte(start_address>>24);
-  spi_tx_byte(start_address>>16);
-  spi_tx_byte(start_address>>8);
-  spi_tx_byte(start_address>>0);
-  
-  
-  spi_cs_low();
-
-  for(z=0;z<512;z++) {
-    POKE(0xD020,1);
-    data_buffer[z]=spi_rx_byte();
-    POKE(0xD020,0);
-  }
-
-  spi_cs_high();
-  
-}
-#endif
-
 
 void fetch_rdid(void)
 {
