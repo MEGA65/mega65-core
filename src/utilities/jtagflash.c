@@ -786,13 +786,13 @@ void reflash_slot(unsigned char slot)
     last_sector_num=0xff;
     
     for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
-      printf("addr=$%08lx\n",addr);
+      printf("%c%caddr=$%08lx\n",0x13,0x11,addr);
       
       // Unprotect flash sectors as required
       sector_num=addr>>flash_sector_bits;
       if (sector_num!=last_sector_num) {
 	unprotect_flash(addr);
-	query_flash_protection(addr);
+	//	query_flash_protection(addr);
 	last_sector_num=sector_num;
       }
       
@@ -1450,7 +1450,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   spi_tx_byte(start_address>>0);
 
 #ifdef QPP_WRITE
-  printf("QPP write...\n");
+  //  printf("QPP write...\n");
   for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
 #else
   
@@ -1488,7 +1488,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 #endif
   
   spi_cs_high();
-  press_any_key();
+  //  press_any_key();
 
   // Revert lines to input after QSPI operation
   bash_bits|=0x8f;
@@ -1498,11 +1498,11 @@ void program_page(unsigned long start_address,unsigned int page_size)
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
     if (reg_sr1&0x40) {
-      printf("Flash write error occurred @ $%08lx.\n",start_address);
+      //      printf("Flash write error occurred @ $%08lx.\n",start_address);
       //      query_flash_protection();
       read_registers();
-      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
-      press_any_key();
+      //      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
+      //      press_any_key();
       goto top;
     }
     read_registers();
@@ -1985,8 +1985,8 @@ void main(void)
      and then flash the bitstream.
   */
   enable_quad_mode();
-  // reflash_slot(0);
-  flash_inspector();
+  reflash_slot(0);
+  // flash_inspector();
   
 }
 

@@ -496,6 +496,26 @@ mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -m test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
 
+QSPIFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
+	 $(VHDLSRCDIR)/mfm_decoder.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
+	 $(VHDLSRCDIR)/crc1581.vhdl \
+	 $(VHDLSRCDIR)/sdcardio.vhdl \
+	 $(VHDLSRCDIR)/cputypes.vhdl \
+	 $(VHDLSRCDIR)/test_qspi.vhdl
+
+qspisimulate: $(GHDL_DEPEND) $(QSPIFILES) $(ASSETS)/synthesised-60ns.dat
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(QSPIFILES)
+	$(GHDL) -m test_qspi
+	( ./test_qspi --vcd=qspi.vcd || $(GHDL) -r test_qspi --vcd=qspi.vcd )
+
 READCOMPFILES=	$(VHDLSRCDIR)/test_readcomp.vhdl $(VHDLSRCDIR)/floppy_read_compensator.vhdl
 readcompsimulate: $(GHDL_DEPEND) $(READCOMPFILES)
 	$(info =============================================================)
