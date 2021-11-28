@@ -2958,6 +2958,12 @@ begin  -- behavioural
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
+                when x"5a" => qspi_command_len <= 90;
+                when x"5b" => qspi_command_len <= 92;
+                when x"5c" => qspi_command_len <= 94;
+                when x"5d" => qspi_command_len <= 96;
+                when x"5e" => qspi_command_len <= 98;
+                when x"5f" => qspi_command_len <= 100;
                 when x"66" =>
                   -- SPI Flash write enable
                   -- to idle immediately.
@@ -3011,12 +3017,18 @@ begin  -- behavioural
                   spi_flash_cmd_only <= '1';
                   f011_sector_fetch <= '0';
                   report "QSPI: Starting bare command";
-                when x"5a" => qspi_command_len <= 90;
-                when x"5b" => qspi_command_len <= 92;
-                when x"5c" => qspi_command_len <= 94;
-                when x"5d" => qspi_command_len <= 96;
-                when x"5e" => qspi_command_len <= 98;
-                when x"5f" => qspi_command_len <= 100;
+                when x"6b" =>
+                  -- Read CFI data block
+                  -- This command is non-dangerous, so allow it even from userland
+                  report "QSPI: Dispatching command";
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  spi_address <= x"00000000";
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= qspi_read_512;
+                  spi_flash_cmd_byte <= x"9f";
                   
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
