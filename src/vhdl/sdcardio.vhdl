@@ -338,14 +338,15 @@ architecture behavioural of sdcardio is
   signal qspi_byte_value : unsigned(7 downto 0) := x"00";
   signal qspi_bit_counter : integer range 0 to 7 := 0;
   signal qspidb_tristate : std_logic := '1';
-  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal qspi_read_sector_phase : integer range 0 to 128 := 0;
   signal qspi_action_state : sd_state_t := Idle;
   signal qspi_command_len : integer range 84 to 100 := 98;
   signal spi_address : unsigned(31 downto 0) := (others => '0');  
   signal qspi_release_cs_on_completion : std_logic := '0';
   signal qspi_release_cs_on_completion_enable : std_logic := '1';
+  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal spi_flash_cmd_only : std_logic := '0';
+  signal spi_flash_16bits : std_logic := '0';
   
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -999,7 +1000,11 @@ begin  -- behavioural
     sector_end => fdc_sector_end_2x    
     );
 
-  qspi_clock <= qspi_clock_int; 
+  qspi_clock <= qspi_clock_int;
+  process (qspi_clock_int) is
+  begin
+    report "qspi_clock <= " & std_logic'image(qspi_clock_int);
+  end process;
   
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -2975,8 +2980,37 @@ begin  -- behavioural
                   qspi_release_cs_on_completion_enable <= '0';
                 when x"68" =>
                   qspi_release_cs_on_completion_enable <= '1';
-
-
+                when x"69" =>
+                  -- Set CR1
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"01";
+                    spi_flash_16bits <= '1';
+                    f011_sector_fetch <= '0';
+                    report "QSPI: Starting bare command";
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"6a" =>
+                  -- SPI Clear status register. Allowed from user land
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= QSPI_Release_CS;
+                  spi_flash_cmd_byte <= x"30";
+                  spi_flash_cmd_only <= '1';
+                  f011_sector_fetch <= '0';
+                  report "QSPI: Starting bare command";
                 when x"5a" => qspi_command_len <= 90;
                 when x"5b" => qspi_command_len <= 92;
                 when x"5c" => qspi_command_len <= 94;
@@ -4352,6 +4386,14 @@ begin  -- behavioural
           end if;
           if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
             report "QSPI: Exiting early due to cmd_only flag";
+            if qspi_action_state = QSPI_Release_CS then
+              qspi_clock_int <= '0';
+              spi_flash_cmd_only <= '0';
+            end if;
+            sd_state <= qspi_action_state;
+          end if;
+          if qspi_read_sector_phase = (20+16*2) and spi_flash_16bits='1' then
+            report "QSPI: Exiting early due to flash_16bits flag";
             if qspi_action_state = QSPI_Release_CS then
               qspi_clock_int <= '0';
               spi_flash_cmd_only <= '0';
