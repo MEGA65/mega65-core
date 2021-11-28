@@ -1320,13 +1320,16 @@ void read_sr1(void)
 void spi_write_enable(void)
 {
   while(!(reg_sr1&0x02)) {
-    spi_cs_high();
-    spi_clock_high();
-    delay();
-    spi_cs_low();
-    delay();
-    spi_tx_byte(0x06);
-    spi_cs_high();
+    POKE(0xD680,0x66);
+
+    read_sr1();
+  }
+}
+
+void spi_clear_sr1(void)
+{
+  while(!(reg_sr1&0x02)) {
+    POKE(0xD680,0x6a);
 
     read_sr1();
   }
@@ -1420,8 +1423,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   unsigned char b;
   
  top:
-  // Enabling quad mode also clears SR1 errors, eg, program write errors
-  enable_quad_mode();
+  spi_clear_sr1();
   
   first=0;
   last=0xff;
@@ -1505,7 +1507,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
       //      printf("Flash write error occurred @ $%08lx.\n",start_address);
       //      query_flash_protection(start_address);
       read_registers();
-      //      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
+      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
       //      press_any_key();
       goto top;
     }
@@ -1723,6 +1725,13 @@ void enable_quad_mode(void)
   spi_cs_high();
   delay();
 
+  // Wait for busy flag to clear
+  // This can take ~200ms according to the data sheet!
+  reg_sr1=0x01;
+  while(reg_sr1&0x01) {
+    read_sr1();
+  }
+  
 #if 0
   spi_cs_high();
   spi_clock_high();
