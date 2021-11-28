@@ -202,8 +202,9 @@ begin
         when 8 => POKE(x"d3683",x"00");
         when 9 => POKE(x"d3684",x"80");
         when 10 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
-        when 11 => POKE(x"d3680",x"54"); -- $53 = sector read, $54 = program 512
-                                        -- bytes
+        when 11 => POKE(x"d3680",x"66"); -- $53 = sector read, $54 = program 512
+                                        -- bytes, $58 = erase page, $59 = erase
+                                        -- 4KB page, $66 = write enable
         when 12 => POKE(x"d3020",x"00");
         when others => null;
       end case;

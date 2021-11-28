@@ -344,6 +344,7 @@ architecture behavioural of sdcardio is
   signal qspi_command_len : integer range 84 to 100 := 98;
   signal spi_address : unsigned(31 downto 0) := (others => '0');  
   signal qspi_release_cs_on_completion : std_logic := '0';
+  signal qspi_release_cs_on_completion_enable : std_logic := '1';
   signal spi_flash_cmd_only : std_logic := '0';
   
   -- Diagnostic register for determining SD/SDHC card state.
@@ -2892,7 +2893,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_512;
                     spi_flash_cmd_byte <= x"34";
-                    qspi_release_cs_on_completion <= '1';
+                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
                   else
                     -- Permission denied
@@ -2911,7 +2912,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_256;
                     spi_flash_cmd_byte <= x"34";
-                    qspi_release_cs_on_completion <= '1';
+                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
                   else
                     -- Permission denied
@@ -2970,7 +2971,11 @@ begin  -- behavioural
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
-                  
+                when x"67" =>
+                  qspi_release_cs_on_completion_enable <= '0';
+                when x"68" =>
+                  qspi_release_cs_on_completion_enable <= '1';
+
 
                 when x"5a" => qspi_command_len <= 90;
                 when x"5b" => qspi_command_len <= 92;
