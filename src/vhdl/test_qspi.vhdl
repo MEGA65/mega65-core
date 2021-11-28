@@ -205,7 +205,7 @@ begin
       else
         sectorbuffercs <= '0';
       end if;
-        
+      report "POKE $" & to_hstring(addr) & ",$" & to_hstring(val);
     end POKE;      
   begin
 
@@ -257,6 +257,11 @@ begin
                                         -- bytes, $58 = erase page, $59 = erase
                                         -- 4KB page, $66 = write enable
         when 1301 => POKE(x"d0000",x"00"); -- stop writing to reg
+
+        when 5001 => POKE(x"d3680",x"53"); -- Read page back
+        when 5002 => POKE(x"d0000",x"00"); -- stop writing to reg
+
+                     
         when others => null;
       end case;
 
