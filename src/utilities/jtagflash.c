@@ -36,7 +36,7 @@ void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
 void unprotect_flash(unsigned long addr_in_sector);
 
-unsigned char compare_routine[36]=
+unsigned char compare_routine[40]=
   {
    0xa2,0, // LDX #$00
    0xbd,0,0, // loop1: LDA $nnnn,x
@@ -54,6 +54,8 @@ unsigned char compare_routine[36]=
    0x60,          // rts
    0xa9,0xff, // fail: lda #$ff
    0x8d,0x7f,0x03, // sta $037f
+   0x8a, // TXA
+   0x8d,0x7E,0x03, // sta $037e
    0x60          // rts
 };
 
@@ -665,6 +667,11 @@ void reflash_slot(unsigned char slot)
   // (as the model_id checking read the first 512 bytes already)
   fd=hy_open(file);
 
+  // Read a few times to make sure transient initial read problems disappear
+  read_data(0);
+  read_data(0);
+  read_data(0);
+  
   printf("%cErasing flash slot...\n",0x93);
   lfill((unsigned long)buffer,0,512);
 
@@ -689,7 +696,7 @@ void reflash_slot(unsigned char slot)
     if (progress_acc>52428UL) {
       progress_acc-=52428UL;
       progress++;
-      //      progress_bar(progress);
+      progress_bar(progress);
     }
 #endif     
 
@@ -786,7 +793,7 @@ void reflash_slot(unsigned char slot)
     last_sector_num=0xff;
     
     for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
-      printf("%c%caddr=$%08lx\n",0x13,0x11,addr);
+      //      printf("%c%caddr=$%08lx\n",0x13,0x11,addr);
       
       // Unprotect flash sectors as required
       sector_num=addr>>flash_sector_bits;
@@ -877,8 +884,8 @@ void reflash_slot(unsigned char slot)
     lcopy(compare_routine,0x380,64);    
     *(unsigned short *)0x383 = data_buffer;
     *(unsigned short *)0x386 = buffer;
-    *(unsigned short *)0x38e = data_buffer;
-    *(unsigned short *)0x391 = buffer;
+    *(unsigned short *)0x38e = data_buffer+0x100;
+    *(unsigned short *)0x391 = buffer+0x100;
     
     hy_closeall();
     fd=hy_open(file);
@@ -892,6 +899,11 @@ void reflash_slot(unsigned char slot)
       return;
     }
 
+    // Read a few times to make sure transient initial read problems disappear
+    read_data(0);
+    read_data(0);
+    read_data(0);
+    
     for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
       progress_acc+=512;
 #ifdef A100T      
@@ -940,10 +952,11 @@ void reflash_slot(unsigned char slot)
       // Do fast comparison of data_buffer and buffer
       __asm__ ("jsr $0380");
       if (PEEK(0x037f)) {
-
-        printf("Verification error at address $%llx:\n",
-            addr+256+i);
-        printf("Read back $%x instead of $%x\n",
+	i=PEEK(0x37e);
+	
+        printf("%cVerification error at address $%llx(or +$100) (F):\n",0x13,
+            addr+i);
+        printf("Read back $%02x instead of $%02x:\n",
             data_buffer[i+256],buffer[i]);
         press_any_key();
         printf("Data read from flash is:\n");
@@ -976,10 +989,10 @@ void reflash_slot(unsigned char slot)
 
       for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
       if (i<256&&(i<(bytes_returned-256))) {
-        printf("Verification error at address $%llx:\n",
+        printf("%cVerification error at address $%llx: (B2)\n",0x13,
             addr+256+i);
-        printf("Read back $%x instead of $%x\n",
-            data_buffer[i+256],buffer[i]+256);
+        printf("Read back $%02x instead of $%02x:\n",
+            data_buffer[i+256],buffer[i+256]);
         press_any_key();
         printf("Data read from flash is:\n");
         for(i=0;i<256;i+=64) {
@@ -1325,7 +1338,7 @@ void erase_sector(unsigned long address_in_sector)
 {
 
   unprotect_flash(address_in_sector);
-  query_flash_protection(address_in_sector);
+  //  query_flash_protection(address_in_sector);
   
   // XXX Send Write Enable command (0x06 ?)
   //  printf("activating write enable...\n");
@@ -1356,24 +1369,35 @@ void erase_sector(unsigned long address_in_sector)
   if ((addr>>12)>=num_4k_sectors) {
     // Do 64KB/256KB sector erase
     //    printf("erasing large sector.\n");
-    spi_tx_byte(0xdc);
+    POKE(0xD681,address_in_sector>>0);
+    POKE(0xD682,address_in_sector>>8);
+    POKE(0xD683,address_in_sector>>16);
+    POKE(0xD684,address_in_sector>>24);
+    // Erase large page
+    POKE(0xd680,0x58);
   } else {
     // Do fast 4KB sector erase
     //    printf("erasing small sector.\n");
     spi_tx_byte(0x21);
+    spi_tx_byte(address_in_sector>>24);
+    spi_tx_byte(address_in_sector>>16);
+    spi_tx_byte(address_in_sector>>8);
+    spi_tx_byte(address_in_sector>>0);
   }
-  spi_tx_byte(address_in_sector>>24);
-  spi_tx_byte(address_in_sector>>16);
-  spi_tx_byte(address_in_sector>>8);
-  spi_tx_byte(address_in_sector>>0);
-
+  
   // CLK must be set low before releasing CS according
   // to the S25F512 datasheet.
   // spi_clock_low();
-  POKE(CLOCKCTL_PORT,0x00);
+  //  POKE(CLOCKCTL_PORT,0x00);
   
-  spi_cs_high();
+  // spi_cs_high();
 
+  {
+    // Give command time to be sent before we do anything else
+    unsigned char b;
+    for(b=0;b<200;b++) continue;
+  }
+  
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
     read_registers();
@@ -1393,6 +1417,7 @@ void enable_quad_mode(void);
 
 void program_page(unsigned long start_address,unsigned int page_size)
 {
+  unsigned char b;
   
  top:
   // Enabling quad mode also clears SR1 errors, eg, program write errors
@@ -1431,37 +1456,16 @@ void program_page(unsigned long start_address,unsigned int page_size)
     printf("error: write latch cleared.\n");
   }
 
-  // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  //  printf("writing %d bytes of data...\n",page_size);
-
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-#ifdef QPP_WRITE
-  spi_tx_byte(0x34);
-#else
-  spi_tx_byte(0x12);
-#endif
-  spi_tx_byte(start_address>>24);
-  spi_tx_byte(start_address>>16);
-  spi_tx_byte(start_address>>8);
-  spi_tx_byte(start_address>>0);
-
-#ifdef QPP_WRITE
-  //  printf("QPP write...\n");
-  for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
-#else
+  POKE(0xD681,start_address>>0);
+  POKE(0xD682,start_address>>8);
+  POKE(0xD683,start_address>>16);
+  POKE(0xD684,start_address>>24);
   
-  // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
-  // Flashing actually takes longer normally than the sending of the data, anyway.
   POKE(0xD020,2);
-#ifdef HARDWARE_SPI_WRITE
-  printf("Writing with page_size=%d\n",page_size);
-  printf("Data = $%02x, $%02x, $%02x, $%02x ... $%02x, $%02x, $%02x, $%02x ...\n",
-	 data_buffer[0],data_buffer[1],data_buffer[2],data_buffer[3],
-	 data_buffer[0x100],data_buffer[0x101],data_buffer[0x102],data_buffer[0x103]);
+  //  printf("Writing with page_size=%d\n",page_size);
+  //printf("Data = $%02x, $%02x, $%02x, $%02x ... $%02x, $%02x, $%02x, $%02x ...\n",
+  //	 data_buffer[0],data_buffer[1],data_buffer[2],data_buffer[3],
+  //	 data_buffer[0x100],data_buffer[0x101],data_buffer[0x102],data_buffer[0x103]);
   if (page_size==256) {
     // Write 256 bytes
     // XXX For now we use 512 byte write. According to the
@@ -1470,23 +1474,22 @@ void program_page(unsigned long start_address,unsigned int page_size)
     // the real data.
     //    printf("256 byte program\n");
     lcopy(data_buffer,0xffd6f00L,256);
-    POKE(0xD680,0x50);  
+    POKE(0xD680,0x55);  
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
     //    printf("Hardware SPI write 256\n");
   } else if (page_size==512) {
     // Write 512 bytes
     lcopy(data_buffer,0xffd6e00L,512);
-    POKE(0xD680,0x51);
+    POKE(0xD680,0x54);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
     printf("Hardware SPI write 512\n");
-  } else 
-#else
-    //    printf("Software SPI write\n");
-    for(i=0;i<page_size;i++) spi_tx_byte(data_buffer[i]);
-#endif
-  POKE(0xD020,1);
-#endif
+  } 
   
+  // XXX For some reason the busy flag is broken here.
+  // So just wait a little while, but only a little while
+  for(b=0;b<180;b++) continue;
+  
+  // Programming does not happen until CS goes high again
   spi_cs_high();
   //  press_any_key();
 
@@ -1494,12 +1497,13 @@ void program_page(unsigned long start_address,unsigned int page_size)
   bash_bits|=0x8f;
   POKE(BITBASH_PORT,bash_bits);
   DEBUG_BITBASH(bash_bits);
+  POKE(0xD020,1);
 
   reg_sr1=0x03;
   while(reg_sr1&0x03) {
     if (reg_sr1&0x40) {
       //      printf("Flash write error occurred @ $%08lx.\n",start_address);
-      //      query_flash_protection();
+      //      query_flash_protection(start_address);
       read_registers();
       //      printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
       //      press_any_key();
@@ -1507,6 +1511,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
     }
     read_registers();
   }
+  POKE(0xD020,0);
 
   if (reg_sr1&0x03) printf("error writing data @ $%08llx\n",start_address);
   else {
@@ -1527,7 +1532,7 @@ void read_data(unsigned long start_address)
   POKE(0xD680,0x53); // QSPI Flash Sector read command
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
-  for(b=0;b<90;b++) continue;
+  for(b=0;b<180;b++) continue;
   //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
 
   // Tristate and release CS at the end
