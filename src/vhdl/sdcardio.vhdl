@@ -4408,7 +4408,7 @@ begin  -- behavioural
             report "QSPI: Exiting early due to flash_16bits flag";
             if qspi_action_state = QSPI_Release_CS then
               qspi_clock_int <= '0';
-              spi_flash_cmd_only <= '0';
+              spi_flash_16bits <= '0';
             end if;
             sd_state <= qspi_action_state;
           end if;
