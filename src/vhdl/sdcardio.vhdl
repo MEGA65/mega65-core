@@ -4471,7 +4471,9 @@ begin  -- behavioural
           qspi_clock_int <= '0';
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
-          report "QSPI read into f011 buffer @ $" & to_hstring(sd_buffer_offset);
+          report "QSPI read $"
+            & to_hstring(qspi_bits) & to_hstring(qspidb_in) &
+            " into f011 buffer @ $" & to_hstring(sd_buffer_offset);
           f011_buffer_write_address <= "111"&sd_buffer_offset;
           f011_buffer_wdata(3 downto 0) <= qspidb_in;
           f011_buffer_wdata(7 downto 4) <= qspi_bits;

@@ -1485,6 +1485,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
     POKE(0xD680,0x54);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
     printf("Hardware SPI write 512\n");
+    press_any_key();
   } 
   
   // XXX For some reason the busy flag is broken here.
