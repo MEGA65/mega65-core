@@ -70,6 +70,8 @@ architecture foo of test_qspi is
   signal cycle_count : integer := 0;
 
   signal sectorbuffercs : std_logic := '0';
+
+  signal QspiDB_comb : unsigned(3 downto 0) := "1010";
   
   signal QspiDB : unsigned(3 downto 0);
   signal QspiDB_in : unsigned(3 downto 0) := "1111";
@@ -79,6 +81,23 @@ architecture foo of test_qspi is
 
 begin
 
+  flash0: entity work.s25fl512s
+    generic map (
+      TimingModel => "..............S"
+      )
+    port map (
+        -- Data Inputs/Outputs
+        SI => qspidb_comb(0),
+        SO => qspidb_comb(1),
+        -- Controls
+        SCK => qspi_clock,
+        CSNeg => qspiCSn,
+        RSTNeg => '1',
+        WPNeg => qspidb_comb(2),
+        HOLDNeg => qspidb_comb(3)
+    );
+
+  
   fdc0: entity work.sdcardio
     generic map (
       cpu_frequency => 40500000,
@@ -160,6 +179,10 @@ begin
     end loop;
   end process;
 
+  process (qspi_clock) is
+  begin
+    report "qspi_clock = " & std_logic'image(qspi_clock);
+  end process;  
   
   process (clock40mhz,byte_out) is
     procedure POKE(addr : in unsigned(19 downto 0); val : in unsigned(7 downto 0)) is
@@ -185,27 +208,55 @@ begin
         
     end POKE;      
   begin
+
+    if qspidb_oe='0' then
+      qspidb_comb <= "ZZZZ";
+      report "TRI: Tristating. Reading " & to_string(std_logic_vector(qspidb_comb));
+    else
+      qspidb_comb <= qspidb;
+      report "TRI: Exporting " & to_string(std_logic_vector(qspidb));
+    end if;
+    qspidb_in <= qspidb_comb;
+    
     if rising_edge(clock40mhz) then
       cycle_count <= cycle_count + 1;
 
       f_rdata <= f_wdata;
       
       case cycle_count is
-        when 1 => POKE(x"d6e00",x"12");
-        when 2 => POKE(x"d6e01",x"34");
-        when 3 => POKE(x"d6e02",x"56");
-        when 4 => POKE(x"d6e03",x"78");
-        when 5 => POKE(x"d6e04",x"9a");
-                  
-        when 6 => POKE(x"d3681",x"03");
-        when 7 => POKE(x"d3682",x"00");
-        when 8 => POKE(x"d3683",x"00");
-        when 9 => POKE(x"d3684",x"80");
-        when 10 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
-        when 11 => POKE(x"d3680",x"66"); -- $53 = sector read, $54 = program 512
+
+        -- Enable Quad mode
+        when  801 => POKE(x"d3680",x"66"); -- Write enable
+        when  802 => POKE(x"d0000",x"00"); -- stop writing to reg
+        when  901 => POKE(x"d3683",x"02"); -- Write to SR1/CR1
+        when  902 => POKE(x"d3684",x"00");
+        when  903 => POKE(x"d3680",x"69");
+        when  904 => POKE(x"d0000",x"00");
+
+        -- Put some data in the write buffer
+        when 1001 => POKE(x"d6e00",x"12");
+        when 1002 => POKE(x"d6e01",x"34");
+        when 1003 => POKE(x"d6e02",x"56");
+        when 1004 => POKE(x"d6e03",x"78");
+        when 1005 => POKE(x"d6e04",x"9a");
+
+        when 1100 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
+                     
+        -- Write to address $80000003
+        when 1206 => POKE(x"d3681",x"03");
+        when 1207 => POKE(x"d3682",x"00");
+        when 1208 => POKE(x"d3683",x"00");
+        when 1209 => POKE(x"d3684",x"80");
+
+                     -- Enable writing
+        when 1211 => POKE(x"d3680",x"66"); -- Write enable
+        when 1212 => POKE(x"d0000",x"00"); -- stop writing to reg
+
+                     -- Do page write
+        when 1300 => POKE(x"d3680",x"54"); -- $53 = sector read, $54 = program 512
                                         -- bytes, $58 = erase page, $59 = erase
                                         -- 4KB page, $66 = write enable
-        when 12 => POKE(x"d3020",x"00");
+        when 1301 => POKE(x"d0000",x"00"); -- stop writing to reg
         when others => null;
       end case;
 

@@ -505,6 +505,8 @@ QSPIFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/sdcardio.vhdl \
 	 $(VHDLSRCDIR)/cputypes.vhdl \
+	 $(VHDLSRCDIR)/s25fl512s.vhd \
+	 $(VHDLSRCDIR)/gen_utils.vhd \
 	 $(VHDLSRCDIR)/test_qspi.vhdl
 
 qspisimulate: $(GHDL_DEPEND) $(QSPIFILES) $(ASSETS)/synthesised-60ns.dat
