@@ -155,7 +155,7 @@ begin
   end else begin
     cpu_state_write <= 0;
     cpu_state_write_index_next <= cpu_state_write_index_reg;
-    if(cpu_state != 8'h10) begin
+    if(cpu_state != 8'h12) begin  // NOTE: In "gs4510.vhdl", 0x12 'presently' equates to 'processor hold'
       cpu_state_was_hold_next <= 0;
       if(cpu_state_was_hold) begin
         cpu_state_write <= 1;

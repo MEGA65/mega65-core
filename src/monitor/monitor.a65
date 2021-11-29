@@ -1038,6 +1038,7 @@ debug_cmd:
       bcs         debug_cmd_simple      ; nothing to parse, treat like disable
 
       ; Parse hex value and set monitor trace flags with the value
+      jsr           parse_hex_value     ; GI. I kinda feel like this needs to be added (it's probably why 'j xx' does nothing)
       lda     	  hex_value+0
       sta     	  mon_trace
       
