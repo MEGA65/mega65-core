@@ -347,6 +347,7 @@ architecture behavioural of sdcardio is
   signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal spi_flash_cmd_only : std_logic := '0';
   signal spi_flash_16bits : std_logic := '0';
+  signal spi_no_dummy_cycles : std_logic := '0';
   
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
@@ -2896,6 +2897,7 @@ begin  -- behavioural
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
+                    spi_no_dummy_cycles <= '1';
                     qspi_action_state <= qspi_qwrite_512;
                     spi_flash_cmd_byte <= x"34";
                     qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
@@ -4428,8 +4430,9 @@ begin  -- behavioural
               -- No dummy cycles for sector erase operations,
               -- and CS must be released while clock low IMMEDIATELY
               -- after writing the 32nd address bit
-              if qspi_action_state = QSPI_Release_CS then
+              if qspi_action_state = QSPI_Release_CS or spi_no_dummy_cycles='1' then
                 qspi_clock_int <= '0';
+                spi_no_dummy_cycles <= '0';
                 sd_state <= qspi_action_state;
               end if;
             when others =>
