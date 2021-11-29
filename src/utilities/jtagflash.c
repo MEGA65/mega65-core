@@ -8,8 +8,8 @@
 
 #include <6502.h>
 
-// #define QPP_READ
-// #define QPP_WRITE
+//#define QPP_READ
+#define QPP_WRITE
 
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
@@ -1458,6 +1458,25 @@ void program_page(unsigned long start_address,unsigned int page_size)
     printf("error: write latch cleared.\n");
   }
 
+#ifdef QPP_WRITE
+  // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
+  //  printf("writing %d bytes of data...\n",page_size);
+
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x34);
+  spi_tx_byte(start_address>>24);
+  spi_tx_byte(start_address>>16);
+  spi_tx_byte(start_address>>8);
+  spi_tx_byte(start_address>>0);
+
+  //  printf("QPP write...\n");
+  for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
+#else
+  
   POKE(0xD681,start_address>>0);
   POKE(0xD682,start_address>>8);
   POKE(0xD683,start_address>>16);
@@ -1491,7 +1510,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
-  
+#endif  
   // Programming does not happen until CS goes high again
   spi_cs_high();
   //  press_any_key();
@@ -1527,6 +1546,49 @@ unsigned char b,*c,d;
 
 void read_data(unsigned long start_address)
 {
+
+#ifdef QPP_READ
+  // Send read sector command
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xec);
+  qspi_tx_byte(start_address>>24);
+  qspi_tx_byte(start_address>>16);
+  qspi_tx_byte(start_address>>8);
+  qspi_tx_byte(start_address>>0);
+
+  // Table 25 latency codes
+  switch(latency_code) {
+  case 0:
+    // 4 cycles = 2 bytes with quad
+    for (z=0;z<2;z++) qspi_rx_byte();
+    break;
+  case 1:
+    // 4 cycles = 2 bytes with quad
+    for (z=0;z<3;z++) qspi_rx_byte();
+    break;
+  case 2:
+    // 5 cycles = 2.5 (!!) bytes with quad
+    for (z=0;z<2;z++) qspi_rx_byte();
+    break;
+  case 3:
+    // 1 cycle = 0.5 (!!) bytes with quad
+    for (z=0;z<1;z++) qspi_rx_byte();
+    break;
+  }
+  // Actually read the data.
+  // XXX - QSPI works _only_ with hardware acceleration for reading.
+  // Use hardware-accelerated QSPI RX
+  POKE(0xD020,1);
+  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash in 4-bit mode
+  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
+  lcopy(0xFFD6E00L,data_buffer,512);
+
+
+#else
   POKE(0xD681,start_address>>0);
   POKE(0xD682,start_address>>8);
   POKE(0xD683,start_address>>16);
@@ -1537,7 +1599,8 @@ void read_data(unsigned long start_address)
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
   //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
-
+#endif
+  
   // Tristate and release CS at the end
   POKE(BITBASH_PORT,0xff);
 
