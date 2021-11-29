@@ -1119,7 +1119,7 @@ state_loop:
       ldx         cpustateram_idx
       dex
       txa
-      and         #0F     ; assure range always within 0-15
+      and         #$0F    ; assure range always within 0-15
       sta         cpustateram_idx
 
       dey
