@@ -162,6 +162,7 @@
       .space      rel_base            2       ; base addr for relative branches
       .space      rel_offset          2       ; offset for relative branches
       .space      eff_addr            2       ; final effective address
+      .space      cpustateram_idx     1       ; which index within cpustateram to read from
       
       .checkpc  $100      ; Make sure we don't hit stack
       
@@ -1088,10 +1089,11 @@ flag_break_dis:
 ; -------------------------------------
 state_cmd:
       `printstr   state_msg
-      ldy         #0                    ; init Y at zero
+      lda         state_cnt   ; start printing from here and then backwards
+      sta         cpustateram_idx
+      ldy         #16                    ; Always print 16 entries
 state_loop:
-      cpy         state_cnt
-      bcs         state_done
+      ldy         cpustateram_idx
       tya                               ; get current index
       asl                               ; multiply by 8
       asl
@@ -1113,8 +1115,15 @@ state_loop:
       lda         cpu_rdata,x
       jsr         print_hex_byte
       jsr         print_crlf
-      iny
-      bra         state_loop
+
+      ldx         cpustateram_idx
+      dex
+      txa
+      and         #0F     ; assure range always within 0-15
+      sta         cpustateram_idx
+
+      dey
+      bne         state_loop
       
 state_done:
       jmp         next_command

@@ -138,9 +138,9 @@ end
 
 // CPU State Record control
 reg cpu_state_was_hold;
-reg [5:0] cpu_state_write_index_reg;
+reg [3:0] cpu_state_write_index_reg;
 reg cpu_state_was_hold_next;
-reg [5:0] cpu_state_write_index_next;
+reg [3:0] cpu_state_write_index_next;
 assign cpu_state_write_index = cpu_state_write_index_next;
 
 // This is done as a separate combinatorial chunk because I need to be able to
@@ -161,10 +161,8 @@ begin
         cpu_state_write <= 1;
         cpu_state_write_index_next <= 0;
       end else begin
-        if(cpu_state_write_index_reg < 16) begin
-          cpu_state_write <= 1;
-          cpu_state_write_index_next <= cpu_state_write_index_reg+1;
-        end
+        cpu_state_write <= 1;
+        cpu_state_write_index_next <= cpu_state_write_index_reg+1;
       end
     end else begin
       cpu_state_was_hold_next <= 1;
