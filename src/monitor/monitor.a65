@@ -1093,8 +1093,7 @@ state_cmd:
       sta         cpustateram_idx
       ldy         #16                    ; Always print 16 entries
 state_loop:
-      ldy         cpustateram_idx
-      tya                               ; get current index
+      lda         cpustateram_idx       ; get current index
       asl                               ; multiply by 8
       asl
       asl
