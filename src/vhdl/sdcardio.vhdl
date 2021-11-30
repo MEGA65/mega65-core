@@ -4441,7 +4441,7 @@ begin  -- behavioural
           end case;
           case qspi_read_sector_phase is
                             -- Release CS to ensure new transaction
-            when 0 | 1   => qspicsn <= '1';
+--            when 0 | 1   => qspicsn <= '1';
                             -- Bring chip to attention
             when 2       => qspicsn <= '0';
                             -- Send QSPI command
