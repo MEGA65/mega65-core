@@ -137,9 +137,7 @@ always @(posedge clk)
 end
 
 // CPU State Record control
-reg cpu_state_was_hold;
 reg [3:0] cpu_state_write_index_reg;
-reg cpu_state_was_hold_next;
 reg [3:0] cpu_state_write_index_next;
 assign cpu_state_write_index = cpu_state_write_index_next;
 
@@ -150,22 +148,13 @@ always @(*)
 begin
   if(reset) begin
     cpu_state_write <= 0;
-    cpu_state_was_hold_next <= 0;
     cpu_state_write_index_next <= 0;
   end else begin
     cpu_state_write <= 0;
     cpu_state_write_index_next <= cpu_state_write_index_reg;
     if(cpu_state != 8'h12) begin  // NOTE: In "gs4510.vhdl", 0x12 'presently' equates to 'processor hold'
-      cpu_state_was_hold_next <= 0;
-      if(cpu_state_was_hold) begin
-        cpu_state_write <= 1;
-        cpu_state_write_index_next <= 0;
-      end else begin
-        cpu_state_write <= 1;
-        cpu_state_write_index_next <= cpu_state_write_index_reg+1;
-      end
-    end else begin
-      cpu_state_was_hold_next <= 1;
+      cpu_state_write <= 1;
+      cpu_state_write_index_next <= cpu_state_write_index_reg+1;
     end
   end
 end
@@ -173,7 +162,6 @@ end
 always @(posedge clk)
 begin
   cpu_state_write_index_reg <= cpu_state_write_index_next;
-  cpu_state_was_hold <= cpu_state_was_hold_next;
 end
 
 // Shared UART control
