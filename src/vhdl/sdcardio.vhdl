@@ -4441,7 +4441,7 @@ begin  -- behavioural
           end case;
           case qspi_read_sector_phase is
                             -- Release CS to ensure new transaction
---            when 0 | 1   => qspicsn <= '1';
+            when 0 | 1   => qspicsn <= '1';
                             -- Bring chip to attention
             when 2       => qspicsn <= '0';
                             -- Send QSPI command
@@ -4505,6 +4505,7 @@ begin  -- behavioural
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
+          qspi_clock_int <= '1';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_512 =>
@@ -4512,6 +4513,7 @@ begin  -- behavioural
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
+          qspi_clock_int <= '1';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_write_phase1;
         when QSPI_qwrite_256 =>
@@ -4519,6 +4521,7 @@ begin  -- behavioural
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
+          qspi_clock_int <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_qwrite_phase1;
@@ -4527,6 +4530,7 @@ begin  -- behavioural
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
+          qspi_clock_int <= '1';
           -- Write 2nd half of SD card buffer to QSPI
           sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_write_phase1;

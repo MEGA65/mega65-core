@@ -225,6 +225,9 @@ begin
       
       case cycle_count is
 
+        -- Disable free-running clock
+        when 1 => POKE(x"d36cd",x"00");
+        
         -- Enable Quad mode
         when  801 => POKE(x"d3680",x"66"); -- Write enable
         when  802 => POKE(x"d0000",x"00"); -- stop writing to reg
