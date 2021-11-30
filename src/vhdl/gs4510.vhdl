@@ -8177,7 +8177,7 @@ begin
   end process;
   
   -- output all monitor values based on current state, not one clock delayed.
-  monitor_memory_access_address <= x"0"&memory_access_address_next;
+  monitor_memory_access_address <= x"0"&memory_access_address;
   monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
   monitor_hypervisor_mode <= hypervisor_mode;
   monitor_pc <= reg_pc;
