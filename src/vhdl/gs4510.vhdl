@@ -1176,6 +1176,7 @@ architecture Behavioural of gs4510 is
   signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
 
   signal memory_access_address_next : unsigned(27 downto 0);
+  signal memory_access_address_current : unsigned(27 downto 0);
   signal memory_access_read_next : std_logic;
   signal memory_access_write_next : std_logic;
   signal memory_access_resolve_address_next : std_logic;
@@ -7927,6 +7928,7 @@ begin
           report "memory_access_address_next=$" & to_hstring(memory_access_address_next)
             & ", memory_access_address=$" & to_hstring(memory_access_address);
           memory_access_address :=  memory_access_address_next;
+          memory_access_address_current <= memory_access_address_next;
           memory_access_read := memory_access_read_next;
           memory_access_write := memory_access_write_next;
           memory_access_resolve_address := memory_access_resolve_address_next;
@@ -8177,7 +8179,7 @@ begin
   end process;
   
   -- output all monitor values based on current state, not one clock delayed.
-  monitor_memory_access_address <= x"0"&memory_access_address;
+  monitor_memory_access_address <= x"0"&memory_access_address_current;
   monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
   monitor_hypervisor_mode <= hypervisor_mode;
   monitor_pc <= reg_pc;
