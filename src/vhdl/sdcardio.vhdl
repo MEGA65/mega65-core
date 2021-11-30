@@ -2919,6 +2919,7 @@ begin  -- behavioural
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= qspi_qwrite_256;
                     spi_flash_cmd_byte <= x"34";
+                    spi_no_dummy_cycles <= '1';
                     qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
                   else
