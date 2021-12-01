@@ -243,6 +243,25 @@ begin
         when 1004 => POKE(x"d6e03",x"78");
         when 1005 => POKE(x"d6e04",x"9a");
 
+        when 1006 => POKE(x"d6ff0",x"f0");
+        when 1007 => POKE(x"d6ff1",x"f1");
+        when 1008 => POKE(x"d6ff2",x"f2");
+        when 1009 => POKE(x"d6ff3",x"f3");
+        when 1010 => POKE(x"d6ff4",x"f4");
+        when 1011 => POKE(x"d6ff5",x"f5");
+        when 1012 => POKE(x"d6ff6",x"f6");
+        when 1013 => POKE(x"d6ff7",x"f7");
+        when 1014 => POKE(x"d6ff8",x"48");
+        when 1015 => POKE(x"d6ff9",x"49");
+        when 1016 => POKE(x"d6ffa",x"4a");
+        when 1017 => POKE(x"d6ffb",x"4b");
+        when 1018 => POKE(x"d6ffc",x"4c");
+        when 1019 => POKE(x"d6ffd",x"4d");
+        when 1020 => POKE(x"d6ffe",x"4e");
+        when 1021 => POKE(x"d6fff",x"4f");
+        when 1022 => POKE(x"d3020",x"00");
+
+                     
         when 1100 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
                      
         -- Write to address $80000003
@@ -256,9 +275,10 @@ begin
         when 1212 => POKE(x"d0000",x"00"); -- stop writing to reg
 
                      -- Do page write
-        when 1300 => POKE(x"d3680",x"54"); -- $53 = sector read, $54 = program 512
+        when 1300 => POKE(x"d3680",x"6c"); -- $53 = sector read, $54 = program 512
                                         -- bytes, $58 = erase page, $59 = erase
-                                        -- 4KB page, $66 = write enable
+                                        -- 4KB page, $66 = write enable, $55 =
+                                        -- program 256 bytes, $6c = program 16 bytes
         when 1301 => POKE(x"d0000",x"00"); -- stop writing to reg
 
         when 5001 => POKE(x"d3680",x"53"); -- Read page back
