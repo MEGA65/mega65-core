@@ -1680,7 +1680,7 @@ begin  -- behavioural
     
     
     case sd_state is    
-      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4 =>
+      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_16|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4 =>
         report "QSPI: Possible f011 buffer fetch";
         if f011_sector_fetch='1' then
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -2903,6 +2903,8 @@ begin  -- behavioural
                     spi_flash_cmd_byte <= x"34";
                     qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
+                    -- Write whole SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(0,9);
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -2923,6 +2925,8 @@ begin  -- behavioural
                     spi_no_dummy_cycles <= '1';
                     qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
+                    -- Write last 256 bytes of SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(256,9);
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3049,6 +3053,8 @@ begin  -- behavioural
                     spi_no_dummy_cycles <= '1';
                     qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
                     f011_sector_fetch <= '0';
+                    -- Write last 16 bytes of SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(256+240,9);
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -4528,7 +4534,6 @@ begin  -- behavioural
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
-          sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_512 =>
           sdio_busy <= '1';
@@ -4544,8 +4549,6 @@ begin  -- behavioural
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
-          -- Write 2nd half of SD card buffer to QSPI
-          sd_buffer_offset <= to_unsigned(256,9);
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_qwrite_16 =>
           sdio_busy <= '1';
@@ -4553,8 +4556,6 @@ begin  -- behavioural
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
-          -- Write last 16 bytes of SD card buffer to QSPI
-          sd_buffer_offset <= to_unsigned(256+240,9);
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_256 =>
           sdio_busy <= '1';
@@ -4567,7 +4568,7 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase1;
 
         when QSPI_qwrite_phase1 =>
-          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata);
+          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata) & " @ $" & to_hstring(sd_buffer_offset);
           sd_state <= QSPI_qwrite_phase2;
           qspidb <= f011_buffer_rdata(7 downto 4);
           qspi_bits <= f011_buffer_rdata(3 downto 0);
@@ -4579,6 +4580,7 @@ begin  -- behavioural
           sd_state <= QSPI_qwrite_phase4;
           qspidb <= qspi_bits;
           qspi_clock_int <= '0';
+          report "QSPI: Bump sd_buffer_offset from $" & to_hstring(sd_buffer_offset);
           if sd_buffer_offset /= 511 then
             sd_buffer_offset <= sd_buffer_offset + 1;
           else
