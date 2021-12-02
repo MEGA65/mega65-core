@@ -3376,6 +3376,15 @@ begin  -- behavioural
                 qspi_clock_run <= fastio_wdata(0);
                 qspi_clock_int <= fastio_wdata(1);
               end if;
+            when x"CE" =>
+              if hypervisor_mode='1' or dipsw(2)='1' then
+                qspicsn <= fastio_wdata(6);
+                qspi_csn_int <= fastio_wdata(6);
+                qspi_clock_int <= fastio_wdata(5);
+                qspidb <= fastio_wdata(3 downto 0);
+                qspidb_tristate <= fastio_wdata(7);                
+                qspidb_oe <= not fastio_wdata(7);                
+              end if;              
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
