@@ -325,7 +325,12 @@ architecture behavioural of sdcardio is
                       QSPI_read_phase1,
                       QSPI_read_phase2,
                       QSPI_read_phase3,
-                      QSPI_read_phase4
+                      QSPI_read_phase4,
+                      SPI_read_512,
+                      SPI_read_phase1,
+                      SPI_read_phase2,
+                      SPI_read_phase3,
+                      SPI_read_phase4                      
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
@@ -3035,8 +3040,9 @@ begin  -- behavioural
                   sd_state <= qspi_send_command;
                   spi_address <= x"00000000";
                   qspi_read_sector_phase <= 0;
-                  qspi_action_state <= qspi_read_512;
+                  qspi_action_state <= spi_read_512;
                   spi_flash_cmd_byte <= x"9f";
+                  spi_flash_cmd_only <= '1';
                 when x"6c" =>
                   -- Write a 16 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
@@ -4492,6 +4498,15 @@ begin  -- behavioural
           qspi_clock_int <= '0';
           qspicsn <= '1';
           sd_state <= Idle;
+        when SPI_read_512 =>
+          -- Tristate SI and SO
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= SPI_read_phase1;
+          -- Keep track if read bytes are identical or not
+          -- (used for speeding up erasure checking of flash)
+          qspi_bytes_differ <= '0';          
         when QSPI_read_512 =>
           -- Tristate SI and SO
           qspidb_tristate <= '1';
@@ -4637,6 +4652,41 @@ begin  -- behavioural
             sd_state <= QSPI_write_phase2;
           end if;
 
+        when SPI_read_phase1 =>
+          qspi_bit_counter <= 0;
+          sd_state <= SPI_read_phase2;
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+        when SPI_read_phase2 =>
+          qspi_byte_value(0) <= qspidb_in(1);
+          report "QSPI: Reading bit " & std_logic'image(std_logic(qspidb_in(1)));
+          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
+          qspi_clock_int <= '0';
+          sd_state <= SPI_read_phase3;
+        when SPI_read_phase3 =>
+          sd_state <= SPI_read_phase4;
+        when SPI_read_phase4 =>
+          qspi_clock_int <= '1';
+          if qspi_bit_counter = 7 then
+            report "QSPI: SPI read byte $" & to_hstring(qspi_byte_value);
+            f011_buffer_write_address <= "111"&sd_buffer_offset;
+            f011_buffer_wdata <= qspi_byte_value;
+            f011_buffer_write <= '1';
+
+            if sd_buffer_offset /= 511 then
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              sd_state <= SPI_read_phase1;
+            else
+              sd_state <= Idle;
+              sdio_busy <= '0';
+              qspicsn <= '1';
+            end if;            
+          else
+            qspi_bit_counter <= qspi_bit_counter + 1;
+            sd_state <= SPI_read_phase2;
+          end if;
+
+          
         when QSPI4_write_512 =>
           sdio_busy <= '1';
           sdio_error <= '0';
