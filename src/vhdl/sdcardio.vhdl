@@ -3043,6 +3043,7 @@ begin  -- behavioural
                   qspi_action_state <= spi_read_512;
                   spi_flash_cmd_byte <= x"9f";
                   spi_flash_cmd_only <= '1';
+                  spi_no_dummy_cycles <= '1';
                 when x"6c" =>
                   -- Write a 16 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
