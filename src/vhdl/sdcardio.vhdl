@@ -4659,12 +4659,12 @@ begin  -- behavioural
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
         when SPI_read_phase2 =>
-          qspi_byte_value(0) <= qspidb_in(1);
-          report "QSPI: Reading bit " & std_logic'image(std_logic(qspidb_in(1)));
-          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
           qspi_clock_int <= '0';
           sd_state <= SPI_read_phase3;
         when SPI_read_phase3 =>
+          qspi_byte_value(0) <= qspidb_in(1);
+          report "QSPI: Reading bit " & std_logic'image(std_logic(qspidb_in(1)));
+          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
           sd_state <= SPI_read_phase4;
         when SPI_read_phase4 =>
           qspi_clock_int <= '1';
