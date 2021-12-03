@@ -96,6 +96,8 @@ entity c65uart is
     j21out : inout std_logic_vector(11 downto 0) := (others => '1');
     j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
 
+    last_reset_source : in unsigned(2 downto 0);
+    
     accessible_key_event : in unsigned(7 downto 0);
     accessible_key_enable : inout std_logic := '0';
     accessible_key_extradim : inout std_logic := '0';
