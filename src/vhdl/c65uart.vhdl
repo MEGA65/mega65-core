@@ -819,9 +819,11 @@ begin  -- behavioural
         when x"39" => fastio_rdata <= max10_fpga_commit(15 downto 8);
         when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
         when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
-        -- @IO:GS $D63C.0 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+        -- @IO:GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+        -- @IO:GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
         when x"3c" => fastio_rdata(3 downto 0) <= sid_mode_int;
-                      fastio_rdata(7 downto 4) <= (others => '0');
+                      fastio_rdata(4) <= '0';
+                      fastio_rdata(7 downto 5) <= last_reset_source;
                       
         when others =>
           report "Reading untied register, result = Z";

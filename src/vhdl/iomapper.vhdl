@@ -127,6 +127,8 @@ entity iomapper is
         porto_out : out unsigned(7 downto 0);
         portp_out : out unsigned(7 downto 0);
 
+        last_reset_source : in unsigned(2 downto 0);
+        
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
@@ -816,6 +818,8 @@ begin
       -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
       portg(1) => drive_reset,
       portg(0) => drive_connect,
+
+      last_reset_source => last_reset_source,
 
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable,

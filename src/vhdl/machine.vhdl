@@ -769,6 +769,8 @@ architecture Behavioral of machine is
   signal f_wdata_cpu : std_logic := '1';
   signal f_rdata_switched : std_logic := '0';
   signal f_rdata_loopback : std_logic;
+
+  signal last_reset_source : unsigned(2 downto 0) := "000";
   
 begin
 
@@ -799,15 +801,19 @@ begin
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
+      last_reset_source <= to_unsigned(1,3);
       reset_combined <= '0';
     elsif reset_io='0' then
       report "reset asserted via reset_io";
+      last_reset_source <= to_unsigned(2,3);
       reset_combined <= '0';
     elsif power_on_reset(0)='0' then
       report "reset asserted via power_on_reset(0)";
+      last_reset_source <= to_unsigned(3,3);
       reset_combined <= '0';
     elsif reset_monitor='0' then
       report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
+      last_reset_source <= to_unsigned(4,3);
       reset_combined <= '0';
     else
       report "reset_combined not asserted";
@@ -1471,6 +1477,8 @@ begin
       floppy_gap_strobe => floppy_gap_strobe,      
       
       dd00_bits => dd00_bits,
+
+      last_reset_source => last_reset_source,
       
       max10_fpga_date => max10_fpga_date,
       max10_fpga_commit => max10_fpga_commit,
