@@ -514,6 +514,8 @@ architecture Behavioral of machine is
   signal reset_io : std_logic;
   signal reset_monitor : std_logic;
   signal reset_monitor_drive : std_logic;
+  signal reset_monitor_history : std_logic_vector(7 downto 0) := (others => '1');
+  
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   -- (Note that uart_monitor actually holds reset low for ~5 usec on power on,
@@ -841,7 +843,14 @@ begin
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
       -- Latch reset from monitor interface to avoid dripping on glitches
-      reset_monitor <= reset_monitor_drive;
+      reset_monitor_history(7 downto 1) <= reset_monitor_history(6 downto 0);
+      reset_monitor_history(0) <= reset_monitor_drive;
+      if reset_monitor_history = "000000000" then
+        reset_monitor <= '0';
+      else
+        reset_monitor <= '1';
+      end if;
+      
       
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
