@@ -9,7 +9,7 @@
 #include <6502.h>
 
 //#define QPP_READ
-#define QPP_WRITE
+//#define QPP_WRITE
 
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
@@ -69,7 +69,7 @@ unsigned char reg_sr1=0x00;
 
 unsigned char manufacturer;
 unsigned short device_id;
-unsigned short cfi_data[512];
+unsigned char cfi_data[512];
 unsigned short cfi_length=0;
 unsigned char flash_sector_bits=0;
 unsigned char last_sector_num=0xff;
@@ -1423,6 +1423,9 @@ void program_page(unsigned long start_address,unsigned int page_size)
   unsigned char b;
   
  top:
+
+#ifdef QPP_WRITE
+
   spi_clear_sr1();
   
   first=0;
@@ -1436,7 +1439,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // XXX Send Write Enable command (0x06 ?)
   //  printf("activating write enable...\n");
   spi_write_enable();
-
+  
   // XXX Clear status register (0x30)
   //  printf("clearing status register...\n");
   while(reg_sr1&0x61) {
@@ -1450,7 +1453,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
     // We have to read registers here to clear error flags?
     // i.e. not just read SR1?
-    read_registers();
+    read_registers();    
   }
   spi_write_enable();
 
@@ -1458,7 +1461,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
     printf("error: write latch cleared.\n");
   }
 
-#ifdef QPP_WRITE
+  spi_cs_high();
+  
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
   //  printf("writing %d bytes of data...\n",page_size);
 
@@ -1475,12 +1479,17 @@ void program_page(unsigned long start_address,unsigned int page_size)
 
   //  printf("QPP write...\n");
   for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
-#else
+
+  // Programming does not happen until CS goes high again
+  spi_cs_high();
   
-  POKE(0xD681,start_address>>0);
-  POKE(0xD682,start_address>>8);
-  POKE(0xD683,start_address>>16);
-  POKE(0xD684,start_address>>24);
+#else
+
+  // We shouldn't need free-running clock, and it may in fact cause problems.
+  POKE(0xd6cd,0x00);
+
+  // Write-enable
+  POKE(0xD680,0x66);
   
   POKE(0xD020,2);
   //  printf("Writing with page_size=%d\n",page_size);
@@ -1495,14 +1504,50 @@ void program_page(unsigned long start_address,unsigned int page_size)
     // the real data.
     //    printf("256 byte program\n");
     lcopy(data_buffer,0xffd6f00L,256);
-    POKE(0xD680,0x55);  
+
+    POKE(0xD681,start_address>>0);
+    POKE(0xD682,start_address>>8);
+    POKE(0xD683,start_address>>16);
+    POKE(0xD684,start_address>>24);    
+    POKE(0xD680,0x55);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+    
     //    printf("Hardware SPI write 256\n");
   } else if (page_size==512) {
     // Write 512 bytes
-    lcopy(data_buffer,0xffd6e00L,512);
+
+    // Enable free-running clock as otherwise QSPI QWRITE doesn't
+    // work properly.
+    POKE(0xd6cd,0x01);
+    
+    lcopy(data_buffer,0xffd6f00L,256);
+    POKE(0xD681,start_address>>0);
+    POKE(0xD682,start_address>>8);
+    POKE(0xD683,start_address>>16);
+    POKE(0xD684,start_address>>24);    
     POKE(0xD680,0x54);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+    press_any_key();
+    spi_cs_high();
+
+#if 0
+
+    POKE(0xd6cd,0x00);
+    
+    spi_write_enable();
+
+    // Enable free-running clock as otherwise QSPI QWRITE doesn't
+    // work properly.
+    POKE(0xd6cd,0x01);
+    
+    lcopy(&data_buffer[256],0xffd6f00L,256);
+    POKE(0xD682,(start_address+0x100)>>8);
+    POKE(0xD683,(start_address+0x100)>>16);
+    POKE(0xD684,(start_address+0x100)>>24);    
+    POKE(0xD680,0x55);
+    spi_cs_high();
+    while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
+#endif
     printf("Hardware SPI write 512\n");
     press_any_key();
   } 
@@ -1510,9 +1555,8 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
+
 #endif  
-  // Programming does not happen until CS goes high again
-  spi_cs_high();
   //  press_any_key();
 
   // Revert lines to input after QSPI operation
@@ -1589,15 +1633,17 @@ void read_data(unsigned long start_address)
 
 
 #else
+  POKE(0xd020,1);
   POKE(0xD681,start_address>>0);
   POKE(0xD682,start_address>>8);
   POKE(0xD683,start_address>>16);
   POKE(0xD684,start_address>>24);
-  POKE(0xD680,0x5e); // Set number of dummy cycles
+  POKE(0xD680,0x5f); // Set number of dummy cycles
   POKE(0xD680,0x53); // QSPI Flash Sector read command
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
+  POKE(0xd020,0);
   //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
 #endif
   
@@ -1617,6 +1663,17 @@ void fetch_rdid(void)
 
   unsigned short i;
 
+#if 1
+  // Hardware acclerated CFI block read
+  POKE(0xd6cd,0);
+  spi_cs_high();
+  POKE(0xD680,0x6B);
+  // Give time to complete
+  for(i=0;i<512;i++) continue;
+  spi_cs_high();
+  lcopy(0xffd6e00L,cfi_data,512);
+
+#else
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -1632,6 +1689,8 @@ void fetch_rdid(void)
   for(i=0;i<512;i++) cfi_data[i]=0x00;  
   for(i=0;i<512;i++)
     cfi_data[i]=spi_rx_byte();
+#endif
+  
   manufacturer=cfi_data[0];
   device_id=cfi_data[1]<<8;
   device_id|=cfi_data[2];
@@ -1986,10 +2045,11 @@ void main(void)
   for(i=0;i<0x80;i++)
   {
     if (!(i&15)) printf("+%03x : ",i);
-    printf("%02x",cfi_data[i]);
+    printf("%02x",(unsigned char)cfi_data[i]);
     if ((i&15)==15) printf("\n");
   }
   printf("\n");
+  press_any_key();
   
   if ((cfi_data[0x51]==0x41)&&(cfi_data[0x52]==0x4C)&&(cfi_data[0x53]==0x54)) {
     if (cfi_data[0x56]==0x00) {
