@@ -513,6 +513,7 @@ architecture Behavioral of machine is
 
   signal reset_io : std_logic;
   signal reset_monitor : std_logic;
+  signal reset_monitor_drive : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   -- (Note that uart_monitor actually holds reset low for ~5 usec on power on,
@@ -792,34 +793,36 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
+  process(cpuclock,irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
           power_on_reset,reset_monitor,hyper_trap)
   begin
     -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
     -- IRQs and NMIs
     combinedirq <= (irq and io_irq and vic_irq) or sw(15);
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    if btnCpuReset='0' then
-      report "reset asserted via btnCpuReset";
-      last_reset_source <= to_unsigned(1,3);
-      reset_combined <= '0';
-    elsif reset_io='0' then
-      report "reset asserted via reset_io";
-      last_reset_source <= to_unsigned(2,3);
-      reset_combined <= '0';
-    elsif power_on_reset(0)='0' then
-      report "reset asserted via power_on_reset(0)";
-      last_reset_source <= to_unsigned(3,3);
-      reset_combined <= '0';
-    elsif reset_monitor='0' then
-      report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
-      last_reset_source <= to_unsigned(4,3);
-      reset_combined <= '0';
-    else
-      report "reset_combined not asserted";
-      reset_combined <= '1';
+    if rising_edge(cpuclock) then
+      if btnCpuReset='0' then
+        report "reset asserted via btnCpuReset";
+        last_reset_source <= to_unsigned(1,3);
+        reset_combined <= '0';
+      elsif reset_io='0' then
+        report "reset asserted via reset_io";
+        last_reset_source <= to_unsigned(2,3);
+        reset_combined <= '0';
+      elsif power_on_reset(0)='0' then
+        report "reset asserted via power_on_reset(0)";
+        last_reset_source <= to_unsigned(3,3);
+        reset_combined <= '0';
+      elsif reset_monitor='0' then
+        report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
+        last_reset_source <= to_unsigned(4,3);
+        reset_combined <= '0';
+      else
+        report "reset_combined not asserted";
+        reset_combined <= '1';
+      end if;
     end if;
-
+    
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
     report "reset_combined = " & std_logic'image(reset_combined) severity note;
@@ -837,6 +840,9 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
+      -- Latch reset from monitor interface to avoid dripping on glitches
+      reset_monitor <= reset_monitor_drive;
+      
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
       f_wdata <= f_wdata_sd and f_wdata_cpu;
@@ -1803,7 +1809,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => reset_combined,
-    reset_out => reset_monitor,
+    reset_out => reset_monitor_drive,
 
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
