@@ -4446,12 +4446,12 @@ begin  -- behavioural
             qspidb(0) <= spi_address(31);
           end if;
           if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
+            spi_flash_cmd_only <= '0';
             report "QSPI: Exiting early due to cmd_only flag";
             qspi_clock_int <= qspi_clock_int;
             if qspi_action_state = QSPI_Release_CS then
               report "QSPI: Pulling clock low while exiting to action state";
               qspi_clock_int <= '0';
-              spi_flash_cmd_only <= '0';
             end if;
             sd_state <= qspi_action_state;
           end if;
