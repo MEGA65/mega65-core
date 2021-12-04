@@ -4424,18 +4424,20 @@ begin  -- behavioural
         when QSPI_send_command =>
           report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
             & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
+          if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
+            qspi_clock_int <= '1';
+          else
+            qspi_clock_int <= '0';
+          end if;
           -- Go through QSPI command setup and address TX.
           -- Allow extra cycles after changing clock, because
           -- there is 1 cycle latency on clock output
           if qspi_read_sector_phase < qspi_command_len then
             qspi_read_sector_phase <= qspi_read_sector_phase + 1;
           else
+            report "QSPI: Preserving clock while switching to action state";
             sd_state <= qspi_action_state;
-          end if;
-          if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
-            qspi_clock_int <= '1';
-          else
-            qspi_clock_int <= '0';
+            qspi_clock_int <= qspi_clock_int;
           end if;
           if qspi_read_sector_phase > 2 and qspi_read_sector_phase < (2 + 8*2) then
             qspidb(0) <= spi_flash_cmd_byte(7);
@@ -4445,7 +4447,9 @@ begin  -- behavioural
           end if;
           if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
             report "QSPI: Exiting early due to cmd_only flag";
+            qspi_clock_int <= qspi_clock_int;
             if qspi_action_state = QSPI_Release_CS then
+              report "QSPI: Pulling clock low while exiting to action state";
               qspi_clock_int <= '0';
               spi_flash_cmd_only <= '0';
             end if;
@@ -4477,6 +4481,8 @@ begin  -- behavioural
               -- after writing the 32nd address bit
               if qspi_action_state = QSPI_Release_CS or spi_no_dummy_cycles='1' then
                 qspi_clock_int <= '0';
+                report "QSPI: pulling clock low while switching to action state";
+                
                 spi_no_dummy_cycles <= '0';
                 sd_state <= qspi_action_state;
               end if;
@@ -4501,6 +4507,7 @@ begin  -- behavioural
           sd_state <= Idle;
         when SPI_read_512 =>
           -- Tristate SI and SO
+          report "QSPI: in SPI_read_512";
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
           sd_buffer_offset <= to_unsigned(0,9);
