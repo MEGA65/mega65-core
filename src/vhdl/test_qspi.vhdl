@@ -229,7 +229,7 @@ begin
         when 1 => POKE(x"d36cd",x"00");
 
                   -- Read CFI block
-        when 401 => POKE(x"d3680",x"6b");
+--        when 401 => POKE(x"d3680",x"6b");
         when 402 => POKE(x"d3020",x"00");
                   
         -- Enable Quad mode
@@ -266,28 +266,33 @@ begin
         when 1022 => POKE(x"d3020",x"00");
 
                      
-        when 1100 => POKE(x"d3680",x"5c"); -- select reduced dummy cycles
+        when 1100 => POKE(x"d3680",x"5f"); -- select reduced dummy cycles
                      
-        -- Write to address $80000003
-        when 1206 => POKE(x"d3681",x"03");
+        -- Write to address $00000000
+        when 1206 => POKE(x"d3681",x"00");
         when 1207 => POKE(x"d3682",x"00");
         when 1208 => POKE(x"d3683",x"00");
-        when 1209 => POKE(x"d3684",x"80");
+        when 1209 => POKE(x"d3684",x"00");
 
                      -- Enable writing
         when 1211 => POKE(x"d3680",x"66"); -- Write enable
         when 1212 => POKE(x"d0000",x"00"); -- stop writing to reg
 
                      -- Do page write
-        when 1300 => POKE(x"d3680",x"6c"); -- $53 = sector read, $54 = program 512
+        when 1300 => POKE(x"d3680",x"54"); -- $53 = sector read, $54 = program 512
                                         -- bytes, $58 = erase page, $59 = erase
                                         -- 4KB page, $66 = write enable, $55 =
                                         -- program 256 bytes, $6c = program 16 bytes
         when 1301 => POKE(x"d0000",x"00"); -- stop writing to reg
 
-        when 5001 => POKE(x"d3680",x"53"); -- Read page back
+                     -- Verify written page
+        when 5001 => POKE(x"d3680",x"56"); -- Read page back
         when 5002 => POKE(x"d0000",x"00"); -- stop writing to reg
-
+                     -- Check bytes differ (= verify fail in this case) flag in
+                     -- bit 6 of $D689
+--        when 9001 => PEEK(x"d3689",x"00");
+        when 9002 => POKE(x"d0000",x"00"); -- stop writing to reg
+          
                      
         when others => null;
       end case;

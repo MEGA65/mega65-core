@@ -350,6 +350,7 @@ architecture behavioural of sdcardio is
   signal spi_address : unsigned(31 downto 0) := (others => '0');  
   signal qspi_release_cs_on_completion : std_logic := '0';
   signal qspi_release_cs_on_completion_enable : std_logic := '1';
+  signal qspi_verify_mode : std_logic := '0';
   signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
   signal spi_flash_cmd_only : std_logic := '0';
   signal spi_flash_16bits : std_logic := '0';
@@ -1685,7 +1686,7 @@ begin  -- behavioural
     
     
     case sd_state is    
-      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_16|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4 =>
+      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_16|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4|QSPI_read_phase3 =>
         report "QSPI: Possible f011 buffer fetch";
         if f011_sector_fetch='1' then
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -2891,6 +2892,7 @@ begin  -- behavioural
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
                   qspi_action_state <= qspi_read_512;
+                  qspi_verify_mode <= '0';
                   spi_flash_cmd_byte <= x"6c";
                 when x"54" =>
                   -- T - Write a 512 byte region to QSPI flash, handling
@@ -2936,7 +2938,22 @@ begin  -- behavioural
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
-                  -- Allow setting the number of dummy cycles
+                when x"56" =>
+                  -- V - Verify a 512 byte region from QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  -- This command is non-dangerous, so allow it even from userland
+                  report "QSPI: Dispatching verify command";
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  spi_address <= sd_sector;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= qspi_read_512;
+                  qspi_verify_mode <= '1';
+                  spi_flash_cmd_byte <= x"6c";
+                  spi_no_dummy_cycles <= '0';
                 when x"58" =>
                   -- X - Erase page: Send command and address, then return
                   -- to idle immediately.
@@ -4435,7 +4452,7 @@ begin  -- behavioural
           if qspi_read_sector_phase < qspi_command_len then
             qspi_read_sector_phase <= qspi_read_sector_phase + 1;
           else
-            report "QSPI: Preserving clock while switching to action state";
+            report "QSPI: Preserving clock while switching to action state at phase " & integer'image(qspi_read_sector_phase);
             sd_state <= qspi_action_state;
             qspi_clock_int <= qspi_clock_int;
           end if;
@@ -4538,17 +4555,30 @@ begin  -- behavioural
           report "QSPI read $"
             & to_hstring(qspi_bits) & to_hstring(qspidb_in) &
             " into f011 buffer @ $" & to_hstring(sd_buffer_offset);
-          f011_buffer_write_address <= "111"&sd_buffer_offset;
-          f011_buffer_wdata(3 downto 0) <= qspidb_in;
-          f011_buffer_wdata(7 downto 4) <= qspi_bits;
-          f011_buffer_write <= '1';
-          if sd_buffer_offset = 0 then
-            qspi_byte_value(3 downto 0) <= qspidb_in;
-            qspi_byte_value(7 downto 4) <= qspi_bits;
+          if qspi_verify_mode='0' then
+            f011_buffer_write_address <= "111"&sd_buffer_offset;
+            f011_buffer_wdata(3 downto 0) <= qspidb_in;
+            f011_buffer_wdata(7 downto 4) <= qspi_bits;
+            f011_buffer_write <= '1';
+
+            if sd_buffer_offset = 0 then
+              qspi_byte_value(3 downto 0) <= qspidb_in;
+              qspi_byte_value(7 downto 4) <= qspi_bits;
+            else
+              if qspi_byte_value(3 downto 0) /= qspidb_in then
+                qspi_bytes_differ <= '1';
+              elsif qspi_byte_value(7 downto 4) /= qspi_bits then
+                qspi_bytes_differ <= '1';
+              end if;
+            end if;
           else
-            if qspi_byte_value(3 downto 0) /= qspidb_in then
-              qspi_bytes_differ <= '1';
-            elsif qspi_byte_value(7 downto 4) /= qspi_bits then
+            -- Compare byte with previously read byte and set bytes_differ flag
+            -- if different
+            report "QSPI: Verifying: read $" & to_hstring(qspi_bits) & to_hstring(qspidb_in)
+              & " vs expected $" & to_hstring(f011_buffer_rdata);
+            report "QSPI: qspi_command_len="& integer'image(qspi_command_len);
+            if (f011_buffer_rdata(3 downto 0) /= qspidb_in)
+              or (f011_buffer_rdata(7 downto 4) /= qspi_bits) then
               qspi_bytes_differ <= '1';
             end if;
           end if;
