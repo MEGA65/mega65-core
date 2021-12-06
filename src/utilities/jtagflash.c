@@ -8,6 +8,7 @@
 
 #include <6502.h>
 
+#define QPP_DMA_WRITE
 //#define QPP_READ
 //#define QPP_WRITE
 
@@ -1054,6 +1055,88 @@ void delay(void)
   //   for(di=0;di<1000;di++) continue;
 }
 
+#define SPI_BUF_SIZE 4096
+unsigned char spi_dma_buffer[SPI_BUF_SIZE];
+unsigned short spi_dma_buf_len=0;
+
+void spi_queue_cs_low(void)
+{
+  // Clock high, CS high
+  spi_dma_buffer[spi_dma_buf_len++]=0xff;
+  // Clock high, CS low
+  spi_dma_buffer[spi_dma_buf_len++]=0xff-0x40;
+}
+
+void spi_queue_tx_byte(unsigned char b)
+{
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x80)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x80)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x40)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x40)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x20)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x20)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x10)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x10)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x08)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x08)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x04)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x04)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x02)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x02)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40-0x20-0x80+((b&0x01)?1:0);
+  spi_dma_buffer[spi_dma_buf_len++]=0xfe-0x40     -0x80+((b&0x01)?1:0);
+  
+}
+
+void qspi_queue_tx_byte(unsigned char b)
+{
+  spi_dma_buffer[spi_dma_buf_len++]=0xf0-0x40-0x20-0x80+(b>>4);
+  spi_dma_buffer[spi_dma_buf_len++]=0xf0-0x40     -0x80+(b>>4);
+  spi_dma_buffer[spi_dma_buf_len++]=0xf0-0x40-0x20-0x80+(b&0xf);
+  spi_dma_buffer[spi_dma_buf_len++]=0xf0-0x40     -0x80+(b&0xf);
+}
+
+void spi_queue_cs_high(void)
+{
+  spi_dma_buffer[spi_dma_buf_len++]=0xff;
+}
+
+void do_dma(void);
+void lcopy_fixed_dest(long source_address, long destination_address, unsigned int count)
+{
+  dmalist.option_0b = 0x0b;
+  dmalist.option_80 = 0x80;
+  dmalist.source_mb = source_address >> 20;
+  dmalist.option_81 = 0x81;
+  dmalist.dest_mb = (destination_address >> 20);
+  dmalist.end_of_options = 0x00;
+  dmalist.sub_cmd = 0x00;
+
+  dmalist.command = 0x00; // copy
+  dmalist.count = count;
+  dmalist.sub_cmd = 0x08; // hold dest address F018B
+
+  dmalist.source_addr = source_address & 0xffff;
+  dmalist.source_bank = (source_address >> 16) & 0x0f;
+  //  dmalist.source_bank|=0x10; // hold source address
+
+  dmalist.dest_addr = destination_address & 0xffff;
+  dmalist.dest_bank = (destination_address >> 16) & 0x0f;
+
+  do_dma();
+  return;
+}
+
+void spi_dma_execute(void)
+{
+  lcopy_fixed_dest((unsigned long)spi_dma_buffer,0xFFD36CEL,spi_dma_buf_len);
+}
+
+void spi_dma_reset(void)
+{
+  spi_dma_buf_len=0;
+}
+
 void spi_tristate_si(void)
 {
   POKE(BITBASH_PORT,0x8f);
@@ -1326,6 +1409,32 @@ void spi_write_enable(void)
   }
 }
 
+void spi_write_disable(void)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x04);
+  spi_cs_high();
+  delay();
+
+  read_sr1();
+  while(reg_sr1&0x02) {
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0x04);
+    spi_cs_high();
+    delay();
+
+    read_sr1();
+  }
+}
+
 void spi_clear_sr1(void)
 {
   while(!(reg_sr1&0x02)) {
@@ -1417,16 +1526,39 @@ unsigned char first,last;
 
 void enable_quad_mode(void);
 
+unsigned char verify_buffer[512];
 
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   unsigned char b;
+  unsigned short verify_error;
+
+  // Save a copy of the data being written, so that we can verify it later
+  lcopy(data_buffer,verify_buffer,512);
+  
+#ifdef QPP_DMA_WRITE
+  // Prepare the page for writing, so that if we need to retry
+  // (which seems to be very often with the 512mbit flash in the R3A!)
+  // that we can do that very quickly.
+  spi_dma_reset();
+  spi_queue_cs_high();
+  spi_queue_cs_low();
+  spi_queue_tx_byte(0x34);
+  spi_queue_tx_byte(start_address>>24);
+  spi_queue_tx_byte(start_address>>16);
+  spi_queue_tx_byte(start_address>>8);
+  spi_queue_tx_byte(start_address>>0);
+  for(i=0;i<page_size;i++) {
+    qspi_queue_tx_byte(data_buffer[i]);
+  }
+  
+  spi_queue_cs_high();  
+#endif  
   
  top:
 
-#ifdef QPP_WRITE
-
   spi_clear_sr1();
+  spi_write_disable();
   
   first=0;
   last=0xff;
@@ -1455,6 +1587,20 @@ void program_page(unsigned long start_address,unsigned int page_size)
     // i.e. not just read SR1?
     read_registers();    
   }
+
+#ifdef QPP_DMA_WRITE
+
+  // Disable free-running clock, leave clock high
+  POKE(0xD6CD,0x02);
+
+  printf("Executing DMA SPI with %d rows, page_size=%d @ $%04x\n",
+	 spi_dma_buf_len,page_size,
+	 spi_dma_buffer);
+  spi_dma_execute();
+  
+#else
+#ifdef QPP_WRITE
+
   spi_write_enable();
 
   if (!(reg_sr1&0x02)) {
@@ -1477,7 +1623,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
 
-  //  printf("QPP write...\n");
+  printf("QPP write...\n");
   for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
 
   // Programming does not happen until CS goes high again
@@ -1486,10 +1632,11 @@ void program_page(unsigned long start_address,unsigned int page_size)
 #else
 
   // We shouldn't need free-running clock, and it may in fact cause problems.
-  POKE(0xd6cd,0x00);
+  POKE(0xd6cd,0x02);
 
-  // Write-enable
-  POKE(0xD680,0x66);
+  spi_write_enable();
+  spi_clock_high();
+  spi_cs_high();  
   
   POKE(0xD020,2);
   //  printf("Writing with page_size=%d\n",page_size);
@@ -1516,10 +1663,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   } else if (page_size==512) {
     // Write 512 bytes
 
-    // Enable free-running clock as otherwise QSPI QWRITE doesn't
-    // work properly.
-    POKE(0xd6cd,0x01);
-    
+    printf("Hardware SPI write 512 (a)\n");
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD681,start_address>>0);
     POKE(0xD682,start_address>>8);
@@ -1527,18 +1671,19 @@ void program_page(unsigned long start_address,unsigned int page_size)
     POKE(0xD684,start_address>>24);    
     POKE(0xD680,0x54);
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-    press_any_key();
+    //    press_any_key();
+    spi_clock_high();
     spi_cs_high();
 
 #if 0
 
-    POKE(0xd6cd,0x00);
+    POKE(0xd6cd,0x02);
     
     spi_write_enable();
 
     // Enable free-running clock as otherwise QSPI QWRITE doesn't
     // work properly.
-    POKE(0xd6cd,0x01);
+    //    POKE(0xd6cd,0x01);
     
     lcopy(&data_buffer[256],0xffd6f00L,256);
     POKE(0xD682,(start_address+0x100)>>8);
@@ -1548,14 +1693,15 @@ void program_page(unsigned long start_address,unsigned int page_size)
     spi_cs_high();
     while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
 #endif
-    printf("Hardware SPI write 512\n");
-    press_any_key();
+    printf("Hardware SPI write 512 done\n");
+    //    press_any_key();
   } 
   
   // XXX For some reason the busy flag is broken here.
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
 
+#endif  
 #endif  
   //  press_any_key();
 
@@ -1584,6 +1730,21 @@ void program_page(unsigned long start_address,unsigned int page_size)
     //    printf("data at $%08llx written.\n",start_address);
   }
 
+  //  printf("Pre-verify page size=%d\n",page_size);
+  // Now verify that it has written correctly
+  verify_error=0;
+  read_data(start_address);
+  for(i=0;i<page_size;i++) {
+    if (data_buffer[i]!=verify_buffer[i]) {
+      verify_error++;
+    }
+  }
+  if (verify_error) {
+    //    printf("%d verify errors (page_size=%d). Trying again.\n",verify_error,page_size);
+    //    press_any_key();
+    goto top;
+  }
+  
 }
 
 unsigned char b,*c,d;
@@ -1633,6 +1794,8 @@ void read_data(unsigned long start_address)
 
 
 #else
+  // Full hardware-acceleration of reading, which is both faster
+  // and more reliable.
   POKE(0xd020,1);
   POKE(0xD681,start_address>>0);
   POKE(0xD682,start_address>>8);
@@ -1665,7 +1828,7 @@ void fetch_rdid(void)
 
 #if 1
   // Hardware acclerated CFI block read
-  POKE(0xd6cd,0);
+  POKE(0xd6cd,0x02);
   spi_cs_high();
   POKE(0xD680,0x6B);
   // Give time to complete
@@ -2004,7 +2167,7 @@ void main(void)
   printf("%cProbing flash...\n",0x93);
 
   // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);  
+  POKE(CLOCKCTL_PORT,0x02);  
 
   //  flash_reset();
   
