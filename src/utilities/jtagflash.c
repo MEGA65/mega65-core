@@ -8,9 +8,6 @@
 
 #include <6502.h>
 
-#define HARDWARE_VERIFY
-#define HARDWARE_SPI
-
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
@@ -704,15 +701,10 @@ void reflash_slot(unsigned char slot)
     // Show on screen
     //    lcopy(data_buffer,0x0400+10*40,512);
     
-#ifdef HARDWARE_SPI
     // Use hardware accelerated byte comparison when reading QSPI flash
     // to speed up detecting which sectors need erasing
+    // (The BYTESDIFFER flag is automatically set when reading a data block)
     if (PEEK(0xD689)&0x40) i=0; else i=512;
-#else
-    i=0;
-    for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
-    tries++;
-#endif
     if (!(addr&0xffff)) {
       getrtc(&tm_now);
       d=seconds_between(&tm_start,&tm_now);
@@ -747,12 +739,10 @@ void reflash_slot(unsigned char slot)
       read_data(addr);
       // XXX Show the read sector on the screen
       //      lcopy(data_buffer,0x0400+10*40,512);
-#ifdef HARDWARE_SPI
+      // Use BYTESDIFFER hardware flag to quickly work out if the sector has same
+      // value in all byte positions.
       if (PEEK(0xD689)&0x40) i=0; else i=512;
       if (data_buffer[0]!=0xff) { i=0; printf("Read $%02x @ offset 0\n",data_buffer[0]); }
-#else
-      for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
-#endif
       if (i<512) {
 
 	printf("%cSector at $%lx not erased.\n",0x13,addr);
@@ -944,7 +934,6 @@ void reflash_slot(unsigned char slot)
 
       if (!bytes_returned) break;
 
-#ifdef HARDWARE_VERIFY
       // The hardware verification stuff works using the SD controller,
       // so we don't even need to move the data from the SD card read
       // buffer. Instead, we just set the flash address, and issue the
@@ -957,80 +946,6 @@ void reflash_slot(unsigned char slot)
 	press_any_key();
 	break;
       }
-#else
-      
-      read_data(addr);
-      lcopy(data_buffer,0x0400+10*40,512);
-
-      // Do fast comparison of data_buffer and buffer
-      __asm__ ("jsr $0380");
-      if (PEEK(0x037f)) {
-	i=PEEK(0x37e);
-        printf("%cVerification error at address $%llx(or +$100) (F):\n",0x13,
-            addr+i);
-        printf("Read back $%02x instead of $%02x:\n",
-            data_buffer[i+256],buffer[i]);
-        press_any_key();
-        printf("Data read from flash is:\n");
-        for(i=0;i<256;i+=64) {
-          for(x=0;x<64;x++) {
-            if (!(x&7)) printf("%04x : ",i+x);
-            printf(" %02x",data_buffer[i+x]);
-            if ((x&7)==7) printf("\n");
-          }
-
-	  press_any_key();
-        }
-
-        printf("(b) Correct data is:\n");
-
-        printf("Correct data is:\n");
-        for(i=0;i<256;i+=64) {
-          for(x=0;x<64;x++) {
-            if (!(x&7)) printf("%04x : ",i+x);
-            printf(" %02x",buffer[i+x]);
-            if ((x&7)==7) printf("\n");
-          }
-
-          press_any_key();
-        }
-        fetch_rdid();
-        i=0;
-        break;
-      }
-
-      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
-      if (i<256&&(i<(bytes_returned-256))) {
-        printf("%cVerification error at address $%llx: (B2)\n",0x13,
-            addr+256+i);
-        printf("Read back $%02x instead of $%02x:\n",
-            data_buffer[i+256],buffer[i+256]);
-        press_any_key();
-        printf("Data read from flash is:\n");
-        for(i=0;i<256;i+=64) {
-          for(x=0;x<64;x++) {
-            if (!(x&7)) printf("%04x : ",i+x);
-            printf(" %02x",data_buffer[256+i+x]);
-            if ((x&7)==7) printf("\n");
-          }
-
-          press_any_key();
-        }
-
-        printf("Correct data is:\n");
-        for(i=0;i<256;i+=64) {
-          for(x=0;x<64;x++) {
-            if (!(x&7)) printf("%04x : ",i+x);
-            printf(" %02x",buffer[256+i+x]);
-            if ((x&7)==7) printf("\n");
-          }
-
-          press_any_key();
-        }
-        fetch_rdid();
-        i=0;
-      }
-#endif
     }
   }
   getrtc(&tm_now);
