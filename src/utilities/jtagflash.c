@@ -13,6 +13,7 @@
 //#define QPP_READ
 //#define QPP_WRITE
 
+#define HARDWARE_VERIFY
 #define HARDWARE_SPI
 #define HARDWARE_SPI_WRITE
 
@@ -37,6 +38,7 @@ void fetch_rdid(void);
 void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
 void unprotect_flash(unsigned long addr_in_sector);
+unsigned char verify_data_in_place(unsigned long start_address);
 
 unsigned char compare_routine[40]=
   {
@@ -948,6 +950,21 @@ void reflash_slot(unsigned char slot)
 
       if (!bytes_returned) break;
 
+#ifdef HARDWARE_VERIFY
+      // The hardware verification stuff works using the SD controller,
+      // so we don't even need to move the data from the SD card read
+      // buffer. Instead, we just set the flash address, and issue the
+      // verify command, and then check the "bytes differ" flag on
+      // completion.
+      if (!verify_data_in_place(addr)) {
+        printf("%cVerification error at address $%llx(or +$100) (F):\n",0x13,
+            addr+i);
+	printf("You will need to reflash the slot.\n");
+	press_any_key();
+	break;
+      }
+#else
+      
       read_data(addr);
       lcopy(data_buffer,0x0400+10*40,512);
 
@@ -955,7 +972,6 @@ void reflash_slot(unsigned char slot)
       __asm__ ("jsr $0380");
       if (PEEK(0x037f)) {
 	i=PEEK(0x37e);
-	
         printf("%cVerification error at address $%llx(or +$100) (F):\n",0x13,
             addr+i);
         printf("Read back $%02x instead of $%02x:\n",
@@ -1020,6 +1036,7 @@ void reflash_slot(unsigned char slot)
         fetch_rdid();
         i=0;
       }
+#endif
     }
   }
   getrtc(&tm_now);
@@ -1438,10 +1455,12 @@ void spi_write_disable(void)
 
 void spi_clear_sr1(void)
 {
-  while(!(reg_sr1&0x02)) {
+  while((reg_sr1&0x60)) {
     POKE(0xD680,0x6a);
 
     read_sr1();
+    printf("reg_sr1=$%02x\n",reg_sr1);
+    press_any_key();
   }
 }
 
@@ -1527,11 +1546,9 @@ unsigned char first,last;
 
 void enable_quad_mode(void);
 
-unsigned char verify_data(unsigned long start_address)
+unsigned char verify_data_in_place(unsigned long start_address)
 {
   unsigned char b;
-  // Copy data to buffer for hardware compare/verify
-  lcopy(data_buffer,0xffd6e00L,512);
   POKE(0xd020,1);
   POKE(0xD681,start_address>>0);
   POKE(0xD682,start_address>>8);
@@ -1548,73 +1565,31 @@ unsigned char verify_data(unsigned long start_address)
   if (PEEK(0xD689)&0x40) return 0; else return 1;
 }
 
-unsigned char write_buffer[512];
+unsigned char verify_data(unsigned long start_address)
+{
+  // Copy data to buffer for hardware compare/verify
+  lcopy(data_buffer,0xffd6e00L,512);
+
+  return verify_data_in_place(start_address);
+}
+
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   unsigned char b;
   unsigned char errs=0;
-
-#ifdef QPP_BYTE_BY_BYTE
-
-  lcopy(data_buffer,write_buffer,512);
-  
-  errs=1;
-  while(errs) {
-    read_data(start_address);
-    errs=0;
-    for(i=0;i<page_size;i++) {
-      
-      if (data_buffer[i]!=write_buffer[i]) {
-	errs++;
-	spi_dma_reset();
-	spi_queue_cs_high();
-	spi_queue_cs_low();
-	spi_queue_tx_byte(0x34);
-	spi_queue_tx_byte((start_address+i)>>24);
-	spi_queue_tx_byte((start_address+i)>>16);
-	spi_queue_tx_byte((start_address+i)>>8);
-	spi_queue_tx_byte((start_address+i)>>0);
-	qspi_queue_tx_byte(write_buffer[i]);    
-	spi_queue_cs_high();
-	
-	spi_write_enable();
-	spi_dma_execute();
-      }
-    }
-    if (errs) printf("%d errors remaining\n",errs);
-    press_any_key();
-  }
-
-  
-#else
-  
-#ifdef QPP_DMA_WRITE
-  // Prepare the page for writing, so that if we need to retry
-  // (which seems to be very often with the 512mbit flash in the R3A!)
-  // that we can do that very quickly.
-  spi_dma_reset();
-  spi_queue_cs_high();
-  spi_queue_cs_low();
-  spi_queue_tx_byte(0x34);
-  spi_queue_tx_byte(start_address>>24);
-  spi_queue_tx_byte(start_address>>16);
-  spi_queue_tx_byte(start_address>>8);
-  spi_queue_tx_byte(start_address>>0);
-  for(i=0;i<page_size;i++) {
-    qspi_queue_tx_byte(data_buffer[i]);
-  }
-  
-  spi_queue_cs_high();  
-#endif  
   
  top:
 
+  //  printf("About to clear SR1\n");
+  
   spi_clear_sr1();
+  //  printf("About to clear WREN\n");
   spi_write_disable();
   
   first=0;
   last=0xff;
 
+  //  printf("Waiting for flash to go non-busy\n");
   while(reg_sr1&0x03) {
     //    printf("flash busy. ");
     read_sr1();
@@ -1640,49 +1615,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
     read_registers();    
   }
 
-#ifdef QPP_DMA_WRITE
-
-  // Disable free-running clock, leave clock high
-  POKE(0xD6CD,0x02);
-
-  printf("Executing DMA SPI with %d rows, page_size=%d @ $%04x\n",
-	 spi_dma_buf_len,page_size,
-	 spi_dma_buffer);
-  spi_dma_execute();
-  
-#else
-#ifdef QPP_WRITE
-
-  spi_write_enable();
-
-  if (!(reg_sr1&0x02)) {
-    printf("error: write latch cleared.\n");
-  }
-
-  spi_cs_high();
-  
-  // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  //  printf("writing %d bytes of data...\n",page_size);
-
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0x34);
-  spi_tx_byte(start_address>>24);
-  spi_tx_byte(start_address>>16);
-  spi_tx_byte(start_address>>8);
-  spi_tx_byte(start_address>>0);
-
-  printf("QPP write...\n");
-  for(i=0;i<page_size;i++) qspi_tx_byte(data_buffer[i]);
-
-  // Programming does not happen until CS goes high again
-  spi_cs_high();
-  
-#else
-
   // We shouldn't need free-running clock, and it may in fact cause problems.
   POKE(0xd6cd,0x02);
 
@@ -1697,10 +1629,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
   //	 data_buffer[0x100],data_buffer[0x101],data_buffer[0x102],data_buffer[0x103]);
   if (page_size==256) {
     // Write 256 bytes
-    // XXX For now we use 512 byte write. According to the
-    // erata for the flash that uses 256 byte pages, we can
-    // do this, provided the last 256 bytes of data sent is
-    // the real data.
     //    printf("256 byte program\n");
     lcopy(data_buffer,0xffd6f00L,256);
 
@@ -1715,7 +1643,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
   } else if (page_size==512) {
     // Write 512 bytes
 
-    printf("Hardware SPI write 512 (a)\n");
+    //    printf("Hardware SPI write 512 (a)\n");
     lcopy(data_buffer,0xffd6f00L,256);
     POKE(0xD681,start_address>>0);
     POKE(0xD682,start_address>>8);
@@ -1727,25 +1655,7 @@ void program_page(unsigned long start_address,unsigned int page_size)
     spi_clock_high();
     spi_cs_high();
 
-#if 0
-
-    POKE(0xd6cd,0x02);
-    
-    spi_write_enable();
-
-    // Enable free-running clock as otherwise QSPI QWRITE doesn't
-    // work properly.
-    //    POKE(0xd6cd,0x01);
-    
-    lcopy(&data_buffer[256],0xffd6f00L,256);
-    POKE(0xD682,(start_address+0x100)>>8);
-    POKE(0xD683,(start_address+0x100)>>16);
-    POKE(0xD684,(start_address+0x100)>>24);    
-    POKE(0xD680,0x55);
-    spi_cs_high();
-    while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);    
-#endif
-    printf("Hardware SPI write 512 done\n");
+    //    printf("Hardware SPI write 512 done\n");
     //    press_any_key();
   } 
   
@@ -1753,8 +1663,6 @@ void program_page(unsigned long start_address,unsigned int page_size)
   // So just wait a little while, but only a little while
   for(b=0;b<180;b++) continue;
 
-#endif  
-#endif  
   //  press_any_key();
 
   // Revert lines to input after QSPI operation
@@ -1763,10 +1671,10 @@ void program_page(unsigned long start_address,unsigned int page_size)
   DEBUG_BITBASH(bash_bits);
   POKE(0xD020,1);
 
-  reg_sr1=0x03;
-  while(reg_sr1&0x03) {
+  reg_sr1=0x01;
+  while(reg_sr1&0x01) {
     if (reg_sr1&0x40) {
-      //      printf("Flash write error occurred @ $%08lx.\n",start_address);
+      printf("Flash write error occurred @ $%08lx.\n",start_address);
       //      query_flash_protection(start_address);
       read_registers();
       printf("reg_sr1=$%02x, reg_cr1=$%02x\n",reg_sr1,reg_cr1);
@@ -1776,13 +1684,16 @@ void program_page(unsigned long start_address,unsigned int page_size)
     read_registers();
   }
   POKE(0xD020,0);
-
+  
   if (reg_sr1&0x03) printf("error writing data @ $%08llx\n",start_address);
   else {
     //    printf("data at $%08llx written.\n",start_address);
   }
 
+#if 0
   // Now verify that it has written correctly using hardware acceleration
+  // XXX Only makes sense for 512 byte page_size, as verify _always_ verifies
+  // 512 bytes.
   if (!verify_data(start_address)) {
     printf("verify error:\n");
     lcopy(data_buffer,0x40000L,512);
@@ -1793,11 +1704,17 @@ void program_page(unsigned long start_address,unsigned int page_size)
 	printf("%02x",data_buffer[i]);
 	if ((i&15)==15) printf("\n");
       }
-    lcopy(0x40000L,data_buffer,512);
     press_any_key();
+    for(i=256;i<512;i++)
+      {
+	if (!(i&15)) printf("+%03x : ",i);
+	printf("%02x",data_buffer[i]);
+	if ((i&15)==15) printf("\n");
+      }
+    press_any_key();
+    lcopy(0x40000L,data_buffer,512);
     goto top;
   }
-
 #endif
   
 }
@@ -2003,7 +1920,8 @@ void flash_inspector(void)
 	// Now program it
 	unprotect_flash(addr);
 	query_flash_protection(addr);
-	program_page(addr,512);
+	printf("About to call program_page()\n");
+	program_page(addr,page_size);
 	press_any_key();
       }
 
@@ -2093,6 +2011,8 @@ void unprotect_flash(unsigned long addr)
 {
   unsigned char c;
 
+  //  printf("unprotecting sector.\n");
+  
   i=addr>>flash_sector_bits;
 
   c=0;
@@ -2145,7 +2065,7 @@ void unprotect_flash(unsigned long addr)
     delay();
     
   }
-  //  printf("done.\n");
+  //   printf("done unprotecting.\n");
 
 }
 
@@ -2342,8 +2262,8 @@ void main(void)
      and then flash the bitstream.
   */
   enable_quad_mode();
-  // reflash_slot(0);
-  flash_inspector();
+  reflash_slot(0);
+  // flash_inspector();
   
 }
 
