@@ -8,7 +8,8 @@
 
 #include <6502.h>
 
-#define QPP_DMA_WRITE
+// #define QPP_BYTE_BY_BYTE
+// #define QPP_DMA_WRITE
 //#define QPP_READ
 //#define QPP_WRITE
 
@@ -1526,15 +1527,66 @@ unsigned char first,last;
 
 void enable_quad_mode(void);
 
-unsigned char verify_buffer[512];
+unsigned char verify_data(unsigned long start_address)
+{
+  unsigned char b;
+  // Copy data to buffer for hardware compare/verify
+  lcopy(data_buffer,0xffd6e00L,512);
+  POKE(0xd020,1);
+  POKE(0xD681,start_address>>0);
+  POKE(0xD682,start_address>>8);
+  POKE(0xD683,start_address>>16);
+  POKE(0xD684,start_address>>24);
+  POKE(0xD680,0x5f); // Set number of dummy cycles
+  POKE(0xD680,0x56); // QSPI Flash Sector verify command
+  // XXX For some reason the busy flag is broken here.
+  // So just wait a little while, but only a little while
+  for(b=0;b<180;b++) continue;
+  POKE(0xd020,0);
 
+  // 1 = verify success, 0 = verify failure
+  if (PEEK(0xD689)&0x40) return 0; else return 1;
+}
+
+unsigned char write_buffer[512];
 void program_page(unsigned long start_address,unsigned int page_size)
 {
   unsigned char b;
-  unsigned short verify_error;
+  unsigned char errs=0;
 
-  // Save a copy of the data being written, so that we can verify it later
-  lcopy(data_buffer,verify_buffer,512);
+#ifdef QPP_BYTE_BY_BYTE
+
+  lcopy(data_buffer,write_buffer,512);
+  
+  errs=1;
+  while(errs) {
+    read_data(start_address);
+    errs=0;
+    for(i=0;i<page_size;i++) {
+      
+      if (data_buffer[i]!=write_buffer[i]) {
+	errs++;
+	spi_dma_reset();
+	spi_queue_cs_high();
+	spi_queue_cs_low();
+	spi_queue_tx_byte(0x34);
+	spi_queue_tx_byte((start_address+i)>>24);
+	spi_queue_tx_byte((start_address+i)>>16);
+	spi_queue_tx_byte((start_address+i)>>8);
+	spi_queue_tx_byte((start_address+i)>>0);
+	qspi_queue_tx_byte(write_buffer[i]);    
+	spi_queue_cs_high();
+	
+	spi_write_enable();
+	spi_dma_execute();
+      }
+    }
+    if (errs) printf("%d errors remaining\n",errs);
+    press_any_key();
+  }
+
+  
+#else
   
 #ifdef QPP_DMA_WRITE
   // Prepare the page for writing, so that if we need to retry
@@ -1730,20 +1782,23 @@ void program_page(unsigned long start_address,unsigned int page_size)
     //    printf("data at $%08llx written.\n",start_address);
   }
 
-  //  printf("Pre-verify page size=%d\n",page_size);
-  // Now verify that it has written correctly
-  verify_error=0;
-  read_data(start_address);
-  for(i=0;i<page_size;i++) {
-    if (data_buffer[i]!=verify_buffer[i]) {
-      verify_error++;
-    }
-  }
-  if (verify_error) {
-    //    printf("%d verify errors (page_size=%d). Trying again.\n",verify_error,page_size);
-    //    press_any_key();
+  // Now verify that it has written correctly using hardware acceleration
+  if (!verify_data(start_address)) {
+    printf("verify error:\n");
+    lcopy(data_buffer,0x40000L,512);
+    read_data(start_address);
+    for(i=0;i<256;i++)
+      {
+	if (!(i&15)) printf("+%03x : ",i);
+	printf("%02x",data_buffer[i]);
+	if ((i&15)==15) printf("\n");
+      }
+    lcopy(0x40000L,data_buffer,512);
+    press_any_key();
     goto top;
   }
+
+#endif
   
 }
 
