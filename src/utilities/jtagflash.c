@@ -8,14 +8,8 @@
 
 #include <6502.h>
 
-// #define QPP_BYTE_BY_BYTE
-// #define QPP_DMA_WRITE
-//#define QPP_READ
-//#define QPP_WRITE
-
 #define HARDWARE_VERIFY
 #define HARDWARE_SPI
-#define HARDWARE_SPI_WRITE
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
@@ -1724,48 +1718,6 @@ unsigned char b,*c,d;
 void read_data(unsigned long start_address)
 {
 
-#ifdef QPP_READ
-  // Send read sector command
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0xec);
-  qspi_tx_byte(start_address>>24);
-  qspi_tx_byte(start_address>>16);
-  qspi_tx_byte(start_address>>8);
-  qspi_tx_byte(start_address>>0);
-
-  // Table 25 latency codes
-  switch(latency_code) {
-  case 0:
-    // 4 cycles = 2 bytes with quad
-    for (z=0;z<2;z++) qspi_rx_byte();
-    break;
-  case 1:
-    // 4 cycles = 2 bytes with quad
-    for (z=0;z<3;z++) qspi_rx_byte();
-    break;
-  case 2:
-    // 5 cycles = 2.5 (!!) bytes with quad
-    for (z=0;z<2;z++) qspi_rx_byte();
-    break;
-  case 3:
-    // 1 cycle = 0.5 (!!) bytes with quad
-    for (z=0;z<1;z++) qspi_rx_byte();
-    break;
-  }
-  // Actually read the data.
-  // XXX - QSPI works _only_ with hardware acceleration for reading.
-  // Use hardware-accelerated QSPI RX
-  POKE(0xD020,1);
-  POKE(0xD680,0x52); // Read 512 bytes from QSPI flash in 4-bit mode
-  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
-  lcopy(0xFFD6E00L,data_buffer,512);
-
-
-#else
   // Full hardware-acceleration of reading, which is both faster
   // and more reliable.
   POKE(0xd020,1);
@@ -1780,7 +1732,6 @@ void read_data(unsigned long start_address)
   for(b=0;b<180;b++) continue;
   POKE(0xd020,0);
   //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
-#endif
   
   // Tristate and release CS at the end
   POKE(BITBASH_PORT,0xff);
