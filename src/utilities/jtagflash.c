@@ -865,7 +865,7 @@ void reflash_slot(unsigned char slot)
       data.
      */
 
-    printf("%cVerifying that bitstream was correctly written to flash...\n",0x93);
+    printf("%cVerifying that bitstream was correctly  written to flash...\n",0x93);
     progress=0; progress_acc=0;
 
     // Setup fast comparison routine
@@ -1368,8 +1368,8 @@ void spi_clear_sr1(void)
     POKE(0xD680,0x6a);
 
     read_sr1();
-    printf("reg_sr1=$%02x\n",reg_sr1);
-    press_any_key();
+    //    printf("reg_sr1=$%02x\n",reg_sr1);
+    //    press_any_key();
   }
 }
 
