@@ -1003,7 +1003,7 @@ void reflash_slot(unsigned char slot)
     read_data(addr);
 
     // Show on screen
-    //    lcopy(data_buffer,0x0400+10*40,512);
+    //    lcopy(data_buffer,0x0400+12*40,512);
     
     // Use hardware accelerated byte comparison when reading QSPI flash
     // to speed up detecting which sectors need erasing
@@ -1028,7 +1028,7 @@ void reflash_slot(unsigned char slot)
     if (i==512) continue;
     else {
       printf("%cSector at $%lx not erased.\n",0x13,addr);
-      lcopy((unsigned long)data_buffer,0x400 + 10*40,512);
+      lcopy((unsigned long)data_buffer,0x400+12*40,512);
     }
 
     while (i<512) {
@@ -1042,7 +1042,7 @@ void reflash_slot(unsigned char slot)
       // so we try multiple times immediately following an erase.
       read_data(addr);
       // XXX Show the read sector on the screen
-      //      lcopy(data_buffer,0x0400+10*40,512);
+      //      lcopy(data_buffer,0x0400+12*40,512);
       // Use BYTESDIFFER hardware flag to quickly work out if the sector has same
       // value in all byte positions.
       if (PEEK(0xD689)&0x40) i=0; else i=512;
@@ -1050,7 +1050,7 @@ void reflash_slot(unsigned char slot)
       if (i<512) {
 
 	printf("%cSector at $%lx not erased.\n",0x13,addr);
-	lcopy((unsigned long)data_buffer,0x400 + 10*40,512);
+	lcopy((unsigned long)data_buffer,0x400+12*40,512);
 	
         tries++;
         if (tries==128) {
@@ -1136,7 +1136,7 @@ void reflash_slot(unsigned char slot)
       // XXX For 64MB flash chips, it is possible to write 512 bytes at once,
       // but 256 at a time will work fine, too.
 
-      lcopy((unsigned long)buffer,0x0400+10*40,512);
+      lcopy((unsigned long)buffer,0x0400+12*40,512);
       
       if (page_size==256) {
 	// Programming works on 256 byte pages, so we have to write two of them.
@@ -1223,10 +1223,6 @@ void reflash_slot(unsigned char slot)
 	}
       }
       
-      // Clear buffers for fast compare
-      lfill((unsigned long)data_buffer,0,512);
-      lfill((unsigned long)buffer,0,512);
-      
       bytes_returned=hy_read512();
 
       if (!bytes_returned) break;
@@ -1249,7 +1245,7 @@ void reflash_slot(unsigned char slot)
   verify_time=seconds_between(&tm_start,&tm_now);
 
   // Undraw the sector display before showing results
-  lfill(0x0400+10*40,0x20,512);
+  lfill(0x0400+12*40,0x20,512);
   
   printf("%c%c%c%c%c"
 	 "Flash slot successfully written.\n"
