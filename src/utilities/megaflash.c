@@ -24,7 +24,6 @@ void main(void)
   unsigned char valid;
   unsigned char selected=0;
   unsigned char selected_reflash_slot;
-  unsigned char slot_count=0;
 
   mega65_io_enable();
 
@@ -191,7 +190,9 @@ void main(void)
 
     // Draw footer line with instructions
     for(y=0;y<24;y++) printf("%c",0x11);
-    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count-1, slot_count-1, 0x92);
+    if (!slot_count) slot_count=8;
+    if (slot_count>8) slot_count=8;
+    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count, slot_count, 0x92);
     POKE(1024+999,0x14+0x80);
 
     // Scan for existing bitstreams
