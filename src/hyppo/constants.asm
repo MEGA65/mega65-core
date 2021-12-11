@@ -137,6 +137,7 @@
          freeze_prep_stash_sd_buffer_and_regs = 10
          freeze_prep_thumbnail = 12
          freeze_prep_viciv = 14
+ 	 freeze_prep_hyperregs = 16
 
          d81_image_max_namelen = 32
          d81_image_flag_mounted = 1
