@@ -1388,7 +1388,7 @@ void probe_qpsi_flash(unsigned char verboseP) {
     while(n) { mb=mb<<1; n--; }
   }
   slot_count = mb/SLOT_MB;
-  if (verboseP) printf("Flash size is %dmb.\n",mb);
+  if (verboseP) printf("Flash size is %dmb (%d slots)\n",mb,slot_count);
 
   latency_code=reg_cr1>>6;
   // latency_code=3;
