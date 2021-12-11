@@ -78,8 +78,8 @@ void main(void)
         // We should actually jump ($CF80) to resume hypervisor booting
         // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
-#if 0
-        printf("Continuing booting with this bitstream...\n");
+#if 1
+        printf("Continuing booting with this bitstream (a)...\n");
         printf("Trying to return control to hypervisor...\n");
 
         press_any_key();
@@ -123,6 +123,14 @@ void main(void)
       } else if (y==0xff) {
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
+
+#if 1
+        printf("Continuing booting with this bitstream (b)...\n");
+        printf("Trying to return control to hypervisor...\n");
+
+        press_any_key();
+#endif
+	
         POKE(0,64);
         POKE(0xCF7f,0x4C);
         asm (" jmp $cf7f ");
