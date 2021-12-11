@@ -1408,6 +1408,12 @@ void probe_qpsi_flash(unsigned char verboseP) {
      and then flash the bitstream.
   */
   enable_quad_mode();
+
+  // Finally make sure that there is no half-finished QSPI commands that will cause erroneous
+  // reads of sectors.
+  read_data(0);
+  read_data(0);
+  read_data(0);
 }
 
 void enable_quad_mode(void)
