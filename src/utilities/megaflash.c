@@ -78,7 +78,7 @@ void main(void)
         // We should actually jump ($CF80) to resume hypervisor booting
         // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
-#if 1
+#if 0
         printf("Continuing booting with this bitstream (a)...\n");
         printf("Trying to return control to hypervisor...\n");
 
@@ -100,7 +100,7 @@ void main(void)
 
 
       // Allow booting from slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
-      autoboot_address=SLOT_SIZE*(1+((PEEK(0xD69D)>>3)^1));
+      autoboot_address=SLOT_SIZE*(1+((PEEK(0xD69D)>>3)&1));
       
       read_data(autoboot_address+0*256);
       y=0xff;
@@ -124,7 +124,7 @@ void main(void)
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
 
-#if 1
+#if 0
         printf("Continuing booting with this bitstream (b)...\n");
         printf("Trying to return control to hypervisor...\n");
 
