@@ -1013,7 +1013,7 @@ void reflash_slot(unsigned char slot)
       getrtc(&tm_now);
       d=seconds_between(&tm_start,&tm_now);
       if (d!=d_last) {
-	unsigned int speed=(unsigned int)((addr/d)>>10);
+	unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
 	// This division is _really_ slow, which is why we do it only
 	// once per second.
 	unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
@@ -1116,7 +1116,7 @@ void reflash_slot(unsigned char slot)
 	getrtc(&tm_now);
 	d=seconds_between(&tm_start,&tm_now);
 	if (d!=d_last) {
-	  unsigned int speed=(unsigned int)((addr/d)>>10);
+	  unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
 	  // This division is _really_ slow, which is why we do it only
 	  // once per second.
 	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
@@ -1211,7 +1211,7 @@ void reflash_slot(unsigned char slot)
 	getrtc(&tm_now);
 	d=seconds_between(&tm_start,&tm_now);
 	if (d!=d_last) {
-	  unsigned int speed=(unsigned int)((addr/d)>>10);
+	  unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
 	  // This division is _really_ slow, which is why we do it only
 	  // once per second.
 	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
@@ -1261,7 +1261,10 @@ void reflash_slot(unsigned char slot)
 	 0x11,0x11,0x11,0x11,0x11,
 	 erase_time,flash_time,verify_time);
   // Coloured border to draw attention
-  while(1) POKE(0xD020,PEEK(0xD020)+1);
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1);
+  POKE(0xD020,0);
+  while(PEEK(0xD610)) POKE(0xD610,0);
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
