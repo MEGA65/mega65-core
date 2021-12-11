@@ -42,7 +42,7 @@ freeze_next_region:
 
 unfreeze_load_from_sdcard_immediate:
 
-        ;; Save the current process to the SD card. $D681-4 are expecxted to
+        ;; Restore a frozen process from the SD card. $D681-4 are expecxted to
         ;; already be pointing to the first sector of the freeze slot
 
         ;; Skip the first sector of the frozen program which is the
@@ -149,7 +149,9 @@ noD81Image1ToRemount:
         ;; cannot be frozen.
         lda #$0f
         sta $D418
+	sta $D438
         sta $D458
+	sta $D478
 
         rts
 
@@ -588,9 +590,16 @@ unfreeze_region_dma_done:
 
         ;; Call postfix routine for the region just loaded
         phx
+	pha
+	
+        lda freeze_mem_list+7,x
+	sta $0401
         tax
         jsr dispatch_unfreeze_post
+
+	pla
         plx
+	
 
         rts
 
@@ -795,6 +804,8 @@ unfreeze_prep_jump_table:
         !16 do_unfreeze_prep_none
         ;; VIC-IV regs need nothing special before unfreezing
         !16 do_unfreeze_prep_none
+	;; No prior preparation required for handling hyperregs
+	!16 do_unfreeze_prep_none
 
 unfreeze_post_jump_table:
         !16 do_unfreeze_post_scratch_to_sdcard_regs
@@ -809,6 +820,8 @@ unfreeze_post_jump_table:
         !16 do_unfreeze_post_none
         !16 do_unfreeze_post_none
         !16 do_unfreeze_post_none
+	;; No prior preparation required for handling hyperregs
+	!16 do_unfreeze_post_hyperregs
 
 do_unfreeze_prep_none:
 do_unfreeze_post_none:
@@ -820,6 +833,35 @@ do_unfreeze_post_scratch_to_sdcard_regs:
         ;; XXX - Not implemented
         rts
 
+do_unfreeze_post_hyperregs:	
+	;; XXX For reasons unknown, the DMA restoration of the hypervisor registers
+	;; messes up $D651.
+	;; At the point that this fix-up routine is called, the SD card sector
+	;; containing the data is available, and so we can simply fix the problem
+	;; by copying $ffd6e11 to $ffd3651
+	;; If problems later occur for other regs in this range, we can just
+	;; make a 32-bit ZP indirect copy loop, since there is some claim that
+	;; DMA writing to those registers is problematic.
+
+        ;; that we don't corrupt the registers.
+        lda #<$6e11
+        sta <dos_scratch_vector+0
+        lda #>$6e11
+        sta <dos_scratch_vector+1
+        lda #<$0ffd
+        sta <dos_scratch_vector+2
+        lda #>$0ffd
+        sta <dos_scratch_vector+3
+
+        ldz #$00
+        lda [<dos_scratch_vector],z
+	sta $d651
+
+	rts
+
+
+	
+	
 copy_sdcard_regs_to_scratch:
         ;; Copy the main SD card access registers to a
         ;; scratch area, so that we can save them, and thus restore
@@ -927,6 +969,9 @@ syspart_read_freeze_region_list_trap:
         jmp return_from_trap_with_success
 
 freeze_mem_list:
+	;; XXX - There must not be more than 32 of these, as the region list
+	;; has to fit within a single page.
+	
         ;; start address (4 bytes), length (3 bytes),
         ;; preparatory action required before reading/writing (1 byte)
         ;; Each segment will live in its own sector (or sectors if
@@ -975,7 +1020,7 @@ freeze_mem_list:
         !32 $ffd3640
         !16 $003f
         !8 0
-        !8 freeze_prep_none
+        !8 freeze_prep_hyperregs
 
         ;; VIC-IV palette block 0
         !32 $ffd3100
