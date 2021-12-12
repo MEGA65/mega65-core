@@ -593,7 +593,6 @@ unfreeze_region_dma_done:
 	pha
 	
         lda freeze_mem_list+7,x
-	sta $0401
         tax
         jsr dispatch_unfreeze_post
 
