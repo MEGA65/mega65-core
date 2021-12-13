@@ -100,6 +100,7 @@ void main(void)
 
       // XXX Work around weird flash thing where first read of a sector reads rubbish
       read_data(0);
+      usleep(10000);
       read_data(0);
       read_data(0);
       
