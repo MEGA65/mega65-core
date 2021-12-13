@@ -98,6 +98,11 @@ void main(void)
 
       // Check valid flag and empty state of the slot before launching it.
 
+      // XXX Work around weird flash thing where first read of a sector reads rubbish
+      read_data(0);
+      read_data(0);
+      read_data(0);
+      
 
       // Allow booting from slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
       autoboot_address=SLOT_SIZE*(1+((PEEK(0xD69D)>>3)&1));
