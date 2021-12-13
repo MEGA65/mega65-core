@@ -909,7 +909,8 @@ void flash_inspector(void)
 	unprotect_flash(addr);
 	query_flash_protection(addr);
 	printf("About to call program_page()\n");
-	program_page(addr,page_size);
+	//	program_page(addr,page_size);
+	program_page(addr,256);
 	press_any_key();
       }
 
@@ -1137,8 +1138,12 @@ void reflash_slot(unsigned char slot)
       // but 256 at a time will work fine, too.
 
       lcopy((unsigned long)buffer,0x0400+12*40,512);
+
+      // XXX - The bigger flash in the MEGA65 R3A boards _claims_ to support 512
+      // byte page writing, but seems to have problems. 256 byte page writes
+      // seem to work fine, though.
       
-      if (page_size==256) {
+      //      if (page_size==256) {
 	// Programming works on 256 byte pages, so we have to write two of them.
 	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
 	POKE(0xD020,1);
@@ -1150,13 +1155,13 @@ void reflash_slot(unsigned char slot)
 	POKE(0xD020,1);
 	program_page(addr+256,256);       
 	POKE(0xD020,0);
-      } else if (page_size==512) {
-	// Programming works on 512 byte pages
-	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,512);
-	POKE(0xD020,1);
-	program_page(addr,512);
-	POKE(0xD020,0);
-      }
+	//      } else if (page_size==512) {
+	//	// Programming works on 512 byte pages
+	//	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,512);
+	//	POKE(0xD020,1);
+	//	program_page(addr,512);
+	//	POKE(0xD020,0);
+	// }
     }
 
     getrtc(&tm_now);
