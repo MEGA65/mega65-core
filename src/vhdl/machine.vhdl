@@ -843,14 +843,11 @@ begin
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
       -- Latch reset from monitor interface to avoid dripping on glitches
-      reset_monitor_history(7 downto 1) <= reset_monitor_history(6 downto 0);
-      reset_monitor_history(0) <= reset_monitor_drive;
-      if reset_monitor_history = "000000000" then
-        reset_monitor <= '0';
-      else
-        reset_monitor <= '1';
-      end if;
-      
+      -- But requiring to be low so long causes monitor induced reset to be ignored.
+      -- Also, the glitching seemed to be a faulty board, not anything else.
+      -- So go back to just having a single drive stage to de-glitch, but no requirement
+      -- for multiple cycles low.
+      reset_monitor <= reset_monitor_drive;
       
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
