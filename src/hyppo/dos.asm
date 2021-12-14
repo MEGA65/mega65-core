@@ -193,6 +193,7 @@ trap_dos_getdefaultdrive:
 
 trap_dos_selectdrive:
 
+        ldx hypervisor_x
         jsr dos_set_current_disk
 
 return_from_trap_with_carry_flag:
@@ -1943,6 +1944,7 @@ dos_cdroot:
         ;;
         ;; INPUT: .X = disk
 
+        ldx hypervisor_x
         jsr dos_set_current_disk
         bcc dos_return_error_already_set
 
