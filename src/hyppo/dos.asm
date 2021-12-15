@@ -852,6 +852,7 @@ trap_dos_closefile:
 
         jsr dos_get_file_descriptor_offset
         bcc tdcf1
+        sta dos_current_file_descriptor_offset
         jsr dos_closefile
         bcc tdcf1
 
