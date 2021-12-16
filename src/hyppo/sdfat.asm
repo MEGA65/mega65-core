@@ -29,17 +29,11 @@ readmbr:
         ;; begin by resetting SD card
         ;;
 
-        jsr checkpoint
-        !8 0
-        !text "Resetting SDCARD"
-        !8 0
+        +Checkpoint "Resetting SDCARD"
 
         jsr sd_resetsequence
         bcs l7
-        jsr checkpoint
-        !8 0
-        !text "FAILED resetting SDCARD"
-        !8 0
+        +Checkpoint "FAILED resetting SDCARD"
 
         rts
 
@@ -255,11 +249,12 @@ sd_readsector:
         ;; Assumes fixed sector number (or byte address in case of SD cards)
         ;; is loaded into $D681 - $D684
 
+!if DEBUG_HYPPO {
         ;; print out debug info
         ;;
 ;;         jsr printsectoraddress        ; to screen
-
         jsr dumpsectoraddress        ;; checkpoint message
+}
 
         ;; check if sd card is busy
         ;;
@@ -284,10 +279,7 @@ redoread:
         ldy #>msg_sdredoread
         jsr printmessage
 
-        jsr checkpoint                        ;; we never want to do a redo-read
-        !8 0
-        !text "ERROR redoread:"
-        !8 0
+        +Checkpoint "ERROR redoread:"
 
         ldx #$f0
         ldy #$00
@@ -323,10 +315,7 @@ rereadsector:
         ;; reset sd card and try again
         ;;
 
-        jsr checkpoint                        ;; we should never get here
-        !8 0
-        !text "ERROR rereadsector:"
-        !8 0
+        +Checkpoint "ERROR rereadsector:"
 
         jsr sd_resetsequence
         jmp rs4
@@ -335,10 +324,7 @@ rsbusyfail:     ;; fail
         ;;
         lda #dos_errorcode_read_timeout
         sta dos_error_code
-        jsr checkpoint                        ;; we should not ever get here
-        !8 0
-        !text "ERROR rsbusyfail:"
-        !8 0
+        +Checkpoint "ERROR rsbusyfail:"
 
         clc
         rts

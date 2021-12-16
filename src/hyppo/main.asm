@@ -551,7 +551,9 @@ reset_entry:
 	map
 	eom
 
-!src "debugtests.asm"
+!if DEBUG_HYPPO {
+        !src "debugtests.asm"
+}
 
         jsr reset_machine_state
 
@@ -704,8 +706,10 @@ fpga_has_been_reconfigured:
 
 normalboot:
 
+!if DEBUG_HYPPO {
         jsr dump_disk_count        ;; debugging to Checkpoint
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; Try to read the MBR from the SD card to ensure SD card is happy
         ;;
@@ -825,9 +829,11 @@ gotmbr:
         ldz dos_default_disk
         jsr printhex
 
+!if DEBUG_HYPPO {
         jsr dump_disk_count     ;; debugging to Checkpoint
         jsr dumpcurrentfd       ;; debugging to Checkpoint
 ;;             jsr print_disk_table        ; debugging to Screen
+}
 
 ;;         ========================
 
@@ -1054,9 +1060,11 @@ posthickup:
 
         ;; print debug message
         ;;
+!if DEBUG_HYPPO {
         +Checkpoint "  Here we are POST-HICKUP"
 
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; for now indicate that there is no disk in drive
         ;; (unless we notice that floppy access has been virtualised)
@@ -1191,7 +1199,9 @@ attempt_load1541rom:
 
 loadrom:
 
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; ROMs are not loaded, so try to load them, or prompt
         ;; for user to insert SD card
@@ -1212,6 +1222,7 @@ loadrom:
 ;;         ========================
 
 loadedcharromok:
+!if DEBUG_HYPPO {
         ;; print debug message
         ;;
         +Checkpoint "  OK-loading CHARROM"
@@ -1223,19 +1234,26 @@ loadedcharromok:
         sta file_pagesread
         lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+1,x
         sta file_pagesread+1
+}
 
         ldx #<msg_charromloaded
         ldy #>msg_charromloaded
         jsr printmessage
+
+
+!if DEBUG_HYPPO {
         ldy #$00
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
 
 loadc65rom:
 
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; print debug message
         ;;
@@ -1326,6 +1344,7 @@ charromdmalist:
 
 loadedmegaromok:
 
+!if DEBUG_HYPPO {
         ;; prepare debug message
         ;;
         ldx dos_current_file_descriptor_offset
@@ -1333,15 +1352,19 @@ loadedmegaromok:
         sta file_pagesread
         lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+1,x
         sta file_pagesread+1
+}
 
         ldx #<msg_megaromloaded
         ldy #>msg_megaromloaded
         jsr printmessage
+
+!if DEBUG_HYPPO {
         ldy #$00
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
 
         ;; ROM file loaded, transfer control
         ;;
@@ -1363,8 +1386,9 @@ loadedmegaromok:
         jsr printmessage
 
 loaded1541rom:
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
-
+}
         ;; check for keyboard input to jump to utility menu
         jsr utility_menu_check
         jsr scankeyboard
@@ -1381,10 +1405,12 @@ romfiletoolong:
         ldx #<msg_romfilelongerror
         ldy #>msg_romfilelongerror
         jsr printmessage
+!if DEBUG_HYPPO {
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
         jsr sdwaitawhile
         jmp reset_entry
 
@@ -1392,10 +1418,12 @@ romfiletooshort:
         ldx #<msg_romfileshorterror
         ldy #>msg_romfileshorterror
         jsr printmessage
+!if DEBUG_HYPPO {
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
         jsr sdwaitawhile
         jmp reset_entry
 
@@ -1889,9 +1917,11 @@ pm4:                ;; write 16-bit character code
 endofmessage:
         inc screenrow
 
+!if DEBUG_HYPPO {
 	;; XXX DEBUG
 	;; Require key press after each line displayed.
 ;;	jsr debug_wait_on_key
+}
 
 	plz
 	rts
@@ -2342,6 +2372,8 @@ hscr1:
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
+
 checkpoint:
 
         ;; Routine to record the progress of code through the hypervisor for
@@ -2532,6 +2564,9 @@ checkpoint_nybltohex:
 
 cpnth1: adc #$06
         rts
+
+} ;; !if DEBUG_HYPPO
+
 
 ;;         ========================
 ;;       Scan the 32KB colour RAM looking for pre-loaded utilities.
@@ -3003,6 +3038,8 @@ serialwrite:
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
+
 ;; checkpoint message
 
 msg_checkpoint:         !text "$"
@@ -3014,6 +3051,8 @@ msg_checkpoint_z:       !text "%%, P:"
 msg_checkpoint_p:       !text "%% :"
 msg_checkpointmsg:      !text "                                                             " ;; END_OF_STRING
                         !8 13,10  ;; CR/LF
+
+}
 
 ;;         ========================
 
@@ -3175,7 +3214,9 @@ txt_NTSC:               !text "NTSC"
 
 ;;         ========================
 
-!src "debug.asm"
+!if DEBUG_HYPPO {
+        !src "debug.asm"
+}
 
 ;;         ========================
 
@@ -3446,6 +3487,7 @@ zptempv32b:
 dos_file_loadaddress:
         !16 0,0
 
+!if DEBUG_HYPPO {
         ;; Used for checkpoint debug system of hypervisor
         ;;
 checkpoint_a:
@@ -3462,6 +3504,7 @@ checkpoint_pcl:
         !8 0
 checkpoint_pch:
         !8 0
+}
 
         ;; SD card timeout handling
         ;;

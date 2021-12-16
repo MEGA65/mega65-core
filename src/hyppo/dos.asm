@@ -273,6 +273,7 @@ illegalvalue:
 
         ;; BG: the below section seems never called from anywhere: suggest removal
 
+!if DEBUG_HYPPO {
 ;;         tya
 ;;         tax
 ;;         jsr checkpoint_bytetohex
@@ -282,6 +283,7 @@ illegalvalue:
 ;;         jsr checkpoint
 ;;         .byte 0,"Filename contains $00 @ position $"
 ;; iv1:        .byte "%%",0
+}
 
         lda #dos_errorcode_illegal_value
         sta dos_error_code
@@ -892,6 +894,7 @@ trap_dos_geterrorcode:
         lda dos_error_code
         sta hypervisor_a
 
+!if DEBUG_HYPPO {
         tax                                ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty tdgec1+0
@@ -902,6 +905,7 @@ trap_dos_geterrorcode:
         !text "dos_geterrorcode <=$"
 tdgec1: !text "%%>"
         !8 0
+}
 
         jmp return_from_trap_with_success
 
@@ -1286,7 +1290,9 @@ dcpe1:  lda (<dos_scratch_vector),y
         jsr dos_disk_openpartition
         bcc partitionerror
 
+!if DEBUG_HYPPO {
         jsr dump_disk_table
+}
 
         ;; Check if partition is bootable (or the only partition)
         ;; If so, make the partition the default disk
@@ -1304,6 +1310,7 @@ makethispartitionthedefault:
         lda dos_disk_count
         sta dos_default_disk
 
+!if DEBUG_HYPPO {
         ;; print out this message to Checkpoint
         ;;
 
@@ -1319,6 +1326,7 @@ mtptd:  !text "xx"
         !8 0
 
 ;; jsr dump_disk_table
+}
 
         ;; return OK
         ;;
@@ -1331,6 +1339,7 @@ dontmakethispartitionthedefault:
 
         ldx dos_disk_count
 
+!if DEBUG_HYPPO {
         ;; print out this message to Checkpoint
         ;;
 
@@ -1345,6 +1354,7 @@ mtptd2: !text "x NOT set to the default_disk"
         !8 0
 
 ;; jsr dump_disk_table
+}
 
         ;; return OK
         ;;
@@ -1374,6 +1384,7 @@ partitionerror:
 
         ;; return ERROR
 
+!if DEBUG_HYPPO {
         ldx dos_error_code                ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty perr
@@ -1384,6 +1395,7 @@ partitionerror:
         !text "partitionerror="
 perr:   !text "xx"
         !8 0
+}
 
         clc
         rts
@@ -1424,7 +1436,9 @@ ddop1:  lda dos_disk_table,y
         cpx #$04
         bne ddop1
 
+!if DEBUG_HYPPO {
 jsr dumpsectoraddress        ;; debugging
+}
 
         jsr sd_readsector
         bcc partitionerror
@@ -1918,6 +1932,7 @@ dos_set_current_disk:
         asl
         sta dos_disk_table_offset
 
+!if DEBUG_HYPPO {
         ldx dos_disk_current_disk        ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty dscd+0
@@ -1930,6 +1945,7 @@ dos_set_current_disk:
         !text "dos_set_current_disk="
 dscd:   !text "xx"
         !8 0
+}
 
         sec
         rts
@@ -2368,6 +2384,7 @@ dos_readdir:
 
         jsr dos_file_read_current_sector
 
+!if DEBUG_HYPPO {
 ;; debug info, unsure what byte is being displayed...
 ;;
         +Checkpoint "-"
@@ -2400,6 +2417,7 @@ drdcp0: !text "xxyy]"
         jsr dumpfddata                ;; debug
 
 ;; end of debug
+}
 
         ldx dos_current_file_descriptor_offset
         lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
@@ -2459,6 +2477,7 @@ drce_next_piece:
 
         ;; (dos_scratch_vector) now has the address of the directory entry
 
+!if DEBUG_HYPPO {
         phx        ;; as the code below clobbers X
 
         ;; print out filename and attrib
@@ -2505,6 +2524,7 @@ eight3char1:
         !8 0
 
         plx        ;; as the code above clobbers X
+}
 
 ;;         ========================
 
@@ -2939,14 +2959,17 @@ l_dos_readdir:
 +
         +Checkpoint "drce_not_eof CHECK<3/3>"
 
+!if DEBUG_HYPPO {
         ldx dos_dirent_longfilename_length
         jsr lfndebug
+}
 
         sec
         rts
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
 lfndebug:
         ;; requires .X to be set
         ;;
@@ -2975,11 +2998,13 @@ fnmsg1: !text ".............................." ;; BG: why only 30 chars?
         !8 0
 
         rts
+}
 
 ;;         ========================
 
 drd_deleted_or_invalid_entry:
 
+!if DEBUG_HYPPO {
         tax
                                         ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
@@ -2990,6 +3015,7 @@ drd_deleted_or_invalid_entry:
         !8 0
 ddie:   !text "xx drd_deleted_or_invalid_entry"
         !8 0
+}
 	
         jsr dos_readdir_advance_to_next_entry
         bcc +
@@ -3540,6 +3566,7 @@ dfanc4: plp
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
 dos_print_current_cluster:
 
         ;; prints a message to the screen
@@ -3560,6 +3587,7 @@ dos_print_current_cluster:
         +Checkpoint "dos_print_current_cluster"
 
         rts
+}
 
 ;;         ========================
 
