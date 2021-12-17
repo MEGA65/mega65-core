@@ -3011,6 +3011,19 @@ begin
 
       sprite_fetch_drive <= '0';
 
+      -- Acknowledge IRQs after reading $D019
+      irq_raster <= irq_raster and (not ack_raster);
+      irq_rasterx <= irq_rasterx and (not ack_rasterx);
+      irq_lightpen <= irq_lightpen and (not ack_lightpen);
+      irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
+      irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
+      -- Set IRQ line status to CPU
+      irq_drive <= not ((irq_raster and mask_raster)
+                        or (irq_rasterx and mask_rasterx and irq_extras_enable)
+                        or (irq_lightpen and mask_lightpen)
+                        or (irq_collisionspritebitmap and mask_collisionspritebitmap)
+                        or (irq_collisionspritesprite and mask_collisionspritesprite));
+
       -- Add new sprite collision bits to the bitmap
       case vicii_sprite_sprite_collision_map is
         when "00000000" => null;
@@ -3062,19 +3075,6 @@ begin
       if clear_collisionspritebitmap='1' then
         vicii_sprite_bitmap_collisions <= vicii_sprite_bitmap_collision_map;
       end if;
-
-      -- Acknowledge IRQs after reading $D019
-      irq_raster <= irq_raster and (not ack_raster);
-      irq_rasterx <= irq_rasterx and (not ack_rasterx);
-      irq_lightpen <= irq_lightpen and (not ack_lightpen);
-      irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
-      irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
-      -- Set IRQ line status to CPU
-      irq_drive <= not ((irq_raster and mask_raster)
-                        or (irq_rasterx and mask_rasterx and irq_extras_enable)
-                        or (irq_lightpen and mask_lightpen)
-                        or (irq_collisionspritebitmap and mask_collisionspritebitmap)
-                        or (irq_collisionspritesprite and mask_collisionspritesprite));
 
       -- Detect lightpen event (must appear above irq_lightpen assignment above)
       if touch_active='1' and xcounter_drive(11 downto 0) = touch_x and displayy = touch_y then
