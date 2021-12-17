@@ -3026,54 +3026,26 @@ begin
 
       -- Add new sprite collision bits to the bitmap
       case vicii_sprite_sprite_collision_map is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
+        when "00000000" | "10000000" | "01000000" | "00100000" | "00010000" |
+             "00001000" | "00000100" | "00000010" | "00000001" =>
+          vicii_sprite_sprite_collisions <= vicii_sprite_sprite_collisions and (vicii_sprite_sprite_collisions'range => not(clear_collisionspritesprite));
         when others =>
           -- Sprite collision, so add it to the existing map
-          if postsprite_inborder='0' then
-            vicii_sprite_sprite_collisions
-              <= vicii_sprite_sprite_collisions or vicii_sprite_sprite_collision_map;
-          end if;
+          vicii_sprite_sprite_collisions
+            <= (vicii_sprite_sprite_collisions and (vicii_sprite_sprite_collisions'range => not(clear_collisionspritesprite))) or
+               (vicii_sprite_sprite_collision_map and (vicii_sprite_sprite_collision_map'range => not(postsprite_inborder)));
       end case;
       -- Sprite foreground collision is easier: always add it on.
-      if postsprite_inborder='0' then
-        vicii_sprite_bitmap_collisions
-          <= vicii_sprite_bitmap_collisions or vicii_sprite_bitmap_collision_map;
-      end if;
+      vicii_sprite_bitmap_collisions
+        <= (vicii_sprite_bitmap_collisions and (vicii_sprite_bitmap_collisions'range => not(clear_collisionspritebitmap))) or
+           (vicii_sprite_bitmap_collision_map and (vicii_sprite_bitmap_collision_map'range => not(postsprite_inborder)));
 
       -- Now check if we need to trigger an IRQ due to sprite collisions:
-      case vicii_sprite_sprite_collisions is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
-        when others =>
-          irq_collisionspritesprite <= '1';
-      end case;
+      if vicii_sprite_sprite_collisions /= "00000000" then
+        irq_collisionspritesprite <= '1';
+      end if;
       if vicii_sprite_bitmap_collisions /= "00000000" then
         irq_collisionspritebitmap <= '1';
-      end if;
-
-      -- Reading $D01E/$D01F clears the previous collision bits.
-      -- Note that this doesn't clear the IRQ, just the visible bits
-      if clear_collisionspritesprite='1' then
-        vicii_sprite_sprite_collisions <= vicii_sprite_sprite_collision_map;
-      end if;
-
-      if clear_collisionspritebitmap='1' then
-        vicii_sprite_bitmap_collisions <= vicii_sprite_bitmap_collision_map;
       end if;
 
       -- Detect lightpen event (must appear above irq_lightpen assignment above)
@@ -3083,15 +3055,12 @@ begin
         lightpen_y_latch <= touch_y(9 downto 2);
       end if;
       
-
-      
       -- reset masks IRQs immediately
       if irq_drive = '0' then
         irq <= '0';
       else
         irq <= 'H';
       end if;
-
 
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
