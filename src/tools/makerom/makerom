@@ -1,13 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from os.path import realpath, dirname, join
-from sys import argv, path
+from sys import argv
 
 if len(argv) < 4:
-  print("Usage: %s <template-file> <binary-file> <output-file> <component-name>" % (sys.argv[0],))
+  print("Usage: %s <template-file> <binary-file> <output-file> <component-name>" % (argv[0],))
   exit(1)
 
-print(f"argv={argv}")
+print("argv={}".format(argv))
 print("argv[0]= the name of this python script")
 print("argv[1]= the template vhdl file")
 print("argv[2]= the binary data to embedd into the ROM")
@@ -17,13 +17,13 @@ print("argv[4]= the component name within the output vhdl-file")
 # Read a binary file and use it to make an initialised RAM
 
 file3 = open(argv[3]+".vhdl", "w")
-print(f'Opened {file3.name} for {file3.mode}')
+print('Opened {} for {}'.format(file3.name, file3.mode))
 
 # Read in the ROM file
 romdata = ""
 
 file2 = open(argv[2], "rb")
-print(f"Opened {file2.name} for {file2.mode}")
+print("Opened {} for {}".format(file2.name, file2.mode))
 
 bytes_read = file2.read()
 
@@ -43,11 +43,11 @@ for b in bytes_read:
     count += 1
     c += 1
 
-print(f"read {count} bytes from {file2.name}")
+print("read {} bytes from {}".format(count, file2.name))
 
 # Read ROM template file
-file1 = open(argv[1])
-print(f"Opened {file1.name} for {file1.mode}")
+file1 = open(argv[1], 'r')
+print("Opened {} for {}".format(file1.name, file1.mode))
 
 lines = file1.readlines()
 for line in lines:
@@ -55,12 +55,12 @@ for line in lines:
     line = line.replace("ROMDATA", romdata)
     file3.write(line)
 
-print(f"Wrote {file3.name}")
+print("Wrote {}".format(file3.name))
 
 # Close the opened files
 file3.close()
-print(f"Closed {file3.name}")
+print("Closed {}".format(file3.name))
 file2.close()
-print(f"Closed {file2.name}")
+print("Closed {}".format(file2.name))
 file1.close()
-print(f"Closed {file1.name}")
+print("Closed {}".format(file1.name))
