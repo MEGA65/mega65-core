@@ -123,7 +123,7 @@ void main(void)
       } else {
         //      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
         //      printf("\n");
-        printf("(First sector not empty. Code $%02x)\n",y);
+        printf("(First sector not empty. Code $%02x FOO!)\n",y);
       }
 
       if (valid) {
