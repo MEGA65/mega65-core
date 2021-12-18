@@ -100,9 +100,12 @@ void main(void)
 
       // XXX Work around weird flash thing where first read of a sector reads rubbish
       read_data(0);
-      usleep(10000);
-      read_data(0);
-      read_data(0);
+      for(x=0;x<256;x++) {
+	if (data_buffer[0]!=0xee) break;
+	usleep(10000);
+	read_data(0);
+	read_data(0);
+      }
       
 
       // Allow booting from slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
