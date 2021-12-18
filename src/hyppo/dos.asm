@@ -881,6 +881,8 @@ trap_dos_findfile:
 trap_dos_findfirst:
 
         jsr dos_findfirst
+        lda dos_current_file_descriptor
+        sta hypervisor_a
         jmp return_from_trap_with_carry_flag
 
 ;;         ========================
