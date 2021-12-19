@@ -2074,24 +2074,34 @@ dgfd1:  txa
 
 dgfd_found_free:
 
+        stx dos_current_file_descriptor
+        sty dos_current_file_descriptor_offset
+
+        ;; Push the address dos_file_descriptors + dos_current_file_descriptor_offset
+        ;;
+        clc
+        lda #<dos_file_descriptors
+        adc dos_current_file_descriptor_offset
+        tay
+        lda #>dos_file_descriptors
+        adc #$00
+        pha
+        phy
+
         ;; Clear descriptor entry
         ;;
         ldy #$0f
         lda #$00
 
-dgfd2:  sta dos_file_descriptors,y
+dgfd2:  sta ($01,sp),y
         dey
         bne dgfd2
 
+        ;; Pop the address
+        pla
+        pla
+
         ;; Return file descriptor in X
-        ;;
-        stx dos_current_file_descriptor
-        txa
-        asl
-        asl
-        asl
-        asl
-        sta dos_current_file_descriptor_offset
         sec
         rts
 
