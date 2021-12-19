@@ -1033,17 +1033,10 @@ dos_clear_filedescriptors:
         sta currenttask_filedescriptor3
 
 	;; XXX - Doesn't flush any files open for write
-	ldx #0
-@closenextfiledescriptor:
-	phx
-	jsr dos_get_file_descriptor_offset
-	plx
-	tay
-        lda #$ff ;; not allocated flag for file descriptor
-        sta dos_file_descriptors + dos_filedescriptor_offset_diskid,y
-	inx
-	cpx #4
-	bne @closenextfiledescriptor
+        sta dos_file_descriptors
+        sta dos_file_descriptors+$10
+        sta dos_file_descriptors+$20
+        sta dos_file_descriptors+$30
 	
         sec
         rts
