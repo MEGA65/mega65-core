@@ -840,6 +840,8 @@ trap_dos_openfile:
 
         +Checkpoint "trap_dos_openfile <success>"
 
+        lda dos_current_file_descriptor
+        sta hypervisor_a
         jmp return_from_trap_with_success
 
 tdof1:
