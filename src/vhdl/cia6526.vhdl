@@ -240,8 +240,8 @@ begin  -- behavioural
                 fastio_rdata <= reg_tod_secs;
               end if;
             when x"0a" =>   
-              -- @IO:C64 $DC0A.0-5 CIA1:TODSEC TOD minutes
-              -- @IO:C64 $DD0A.0-5 CIA2:TODSEC TOD minutes
+              -- @IO:C64 $DC0A.0-5 CIA1:TODMIN TOD minutes
+              -- @IO:C64 $DD0A.0-5 CIA2:TODMIN TOD minutes
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_mins;
               else
