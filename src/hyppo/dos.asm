@@ -264,7 +264,8 @@ trap_dos_setname:
 ;;         ========================
 
 tdsnfailure:
-        lda dos_error_code
+        ;; save the error code so a later trap_dos_geterrorcode will return it
+        sta dos_error_code
         jmp return_from_trap_with_failure
 
 ;;         ========================
