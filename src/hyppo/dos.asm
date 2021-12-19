@@ -1961,6 +1961,8 @@ dos_cdroot:
         jsr dos_set_current_disk
         bcc dos_return_error_already_set
 
+dos_cdroot_current_disk_arleady_set:
+
         ;; get offset of disk entry
         ;;
 	
@@ -2200,7 +2202,8 @@ dcd_is_a_directory:
         jsr dos_set_current_file_from_dirent
         bcc l3_dos_return_error_already_set
 
-	;; copy cluster number into current directory
+	;; Close the file descriptor opened by dos_set_current_file_from_dirent
+	jsr dos_closefile
 
 	;; Copy cluster of requesteed directory into disk CWD cluster
 	ldx #3
@@ -2223,7 +2226,7 @@ dcd2:	ora dos_disk_cwd_cluster,x
 	bne @nonZeroCluster
 
 	;; Is cluster 0, so change to root directory
-	jmp dos_cdroot
+	jmp dos_cdroot_current_disk_arleady_set
 	
 @nonZeroCluster:
 	;; Return success
