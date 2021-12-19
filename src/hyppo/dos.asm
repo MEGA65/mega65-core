@@ -2175,7 +2175,8 @@ dcd_is_a_directory:
         jsr dos_set_current_file_from_dirent
         bcc l3_dos_return_error_already_set
 
-	;; copy cluster number into current directory
+	;; Close the file descriptor opened by dos_set_current_file_from_dirent
+	jsr dos_closefile
 
 	;; Copy cluster of requesteed directory into disk CWD cluster
 	ldx #3
