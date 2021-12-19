@@ -105,7 +105,6 @@ void main(void)
       read_data(autoboot_address+0*256);
       for(x=0;x<256;x++) {
 	if (data_buffer[0]!=0xee) break;
-	printf("<%d>",x);
 	usleep(50000);
 	read_data(autoboot_address+0*256);
 	read_data(autoboot_address+0*256);
