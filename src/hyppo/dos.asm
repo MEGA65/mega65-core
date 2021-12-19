@@ -800,7 +800,7 @@ trap_dos_readfile:
 
 trap_dos_cdrootdir:
 	jsr dos_cdroot
-	jmp return_from_trap_with_success
+	jmp return_from_trap_with_carry_flag
 	
 trap_dos_chdir:
 
