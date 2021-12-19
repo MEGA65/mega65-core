@@ -1946,6 +1946,8 @@ dos_cdroot:
         jsr dos_set_current_disk
         bcc dos_return_error_already_set
 
+dos_cdroot_current_disk_arleady_set:
+
         ;; get offset of disk entry
         ;;
 	
@@ -2199,7 +2201,7 @@ dcd2:	ora dos_disk_cwd_cluster,x
 	bne @nonZeroCluster
 
 	;; Is cluster 0, so change to root directory
-	jmp dos_cdroot
+	jmp dos_cdroot_current_disk_arleady_set
 	
 @nonZeroCluster:
 	;; Return success
