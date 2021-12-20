@@ -1,1 +1,2 @@
 # Hypervisor test script
+call resetdisplay
