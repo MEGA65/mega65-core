@@ -273,6 +273,7 @@ architecture behavioural of vicii_sprites is
   signal yfine_3_2 : yposition;
   signal yfine_2_1 : yposition;
   signal yfine_1_0 : yposition;
+  signal yfine_0_bp : yposition;
   signal border_7_6 : std_logic;
   signal border_6_5 : std_logic;
   signal border_5_4 : std_logic;
@@ -356,7 +357,8 @@ begin
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_in,
-             sprite_data_offset_in => 0,
+             sprite_data_offset_in
+	      => 0,
              sprite_data_offset_out => sprite_data_offset_7_6,
              sprite_number_for_data_out => sprite_number_for_data_7_6,
 
@@ -434,7 +436,8 @@ begin
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_7_6,
-             sprite_data_offset_in => sprite_data_offset_7_6,
+             sprite_data_offset_in
+	      => sprite_data_offset_7_6,
              sprite_data_offset_out => sprite_data_offset_6_5,
              sprite_number_for_data_out => sprite_number_for_data_6_5,
 
@@ -513,7 +516,8 @@ begin
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_6_5,
-             sprite_data_offset_in => sprite_data_offset_6_5,
+             sprite_data_offset_in
+	      => sprite_data_offset_6_5,
              sprite_data_offset_out => sprite_data_offset_5_4,
              sprite_number_for_data_out => sprite_number_for_data_5_4,
 
@@ -599,7 +603,8 @@ begin
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_5_4,
-             sprite_data_offset_in => sprite_data_offset_5_4,
+             sprite_data_offset_in
+	      => sprite_data_offset_5_4,
              sprite_data_offset_out => sprite_data_offset_4_3,
              sprite_number_for_data_out => sprite_number_for_data_4_3,
 
@@ -678,7 +683,8 @@ begin
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_4_3,
-             sprite_data_offset_in => sprite_data_offset_4_3,
+             sprite_data_offset_in
+	      => sprite_data_offset_4_3,
              sprite_data_offset_out => sprite_data_offset_3_2,
              sprite_number_for_data_out => sprite_number_for_data_3_2,
 
@@ -757,7 +763,8 @@ begin
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_3_2,
-             sprite_data_offset_in => sprite_data_offset_3_2,
+             sprite_data_offset_in
+	      => sprite_data_offset_3_2,
              sprite_data_offset_out => sprite_data_offset_2_1,
              sprite_number_for_data_out => sprite_number_for_data_2_1,
 
@@ -836,7 +843,8 @@ begin
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_2_1,
-             sprite_data_offset_in => sprite_data_offset_2_1,
+             sprite_data_offset_in
+	      => sprite_data_offset_2_1,
              sprite_data_offset_out => sprite_data_offset_1_0,
              sprite_number_for_data_out => sprite_number_for_data_1_0,
 
@@ -915,7 +923,8 @@ begin
 
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_1_0,
-             sprite_data_offset_in => sprite_data_offset_1_0,
+             sprite_data_offset_in
+	      => sprite_data_offset_1_0,
              sprite_data_offset_out => sprite_data_offset_0_bp,
              sprite_number_for_data_out => sprite_number_for_data_0_bp,
 
@@ -1007,7 +1016,8 @@ begin
              
              -- Sprite offset data chain for VIC-IV
              sprite_number_for_data_in => sprite_number_for_data_0_bp,
-             sprite_data_offset_in => sprite_data_offset_0_bp,
+             sprite_data_offset_in
+	      => sprite_data_offset_0_bp,
              sprite_data_offset_out => sprite_data_offset_out,
              sprite_number_for_data_out => sprite_number_for_data_out,
 
@@ -1018,6 +1028,7 @@ begin
              x640_in => x640_0_bp,
              x1280_in => x640_0_bp,
              y_in => y_0_bp,
+	     yfine_in => yfine_0_bp,
              border_in => border_0_bp,
              alt_palette_in => alt_palette_0_bp,
              pixel_in => pixel_0_bp,
