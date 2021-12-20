@@ -53,10 +53,46 @@ typedef struct instruction_log {
   unsigned char bytes[6];
   unsigned char len;
   struct regs regs;
+  unsigned int count;
 } instruction_log;
 #define MAX_LOG_LENGTH (1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
 int cpulog_len=0;
+
+#define INFINITE_LOOP_THRESHOLD 65536
+
+instruction_log *lastataddr[65536]={NULL};
+
+int identical_cpustates(struct instruction_log *a, struct instruction_log *b)
+{
+  unsigned int count=a->count;
+  a->count=b->count; 
+  int r=memcmp(a,b,sizeof(struct instruction_log));
+  a->count=count;
+  
+  if (r) return 0; else return 1;
+}
+
+char addr_description[8192];
+char *describe_address(unsigned int addr)
+{
+  struct hyppo_symbol *s=NULL;
+  
+  for(int i=0;i<hyppo_symbol_count;i++) {
+    // Check for exact address match
+    if (addr==hyppo_symbols[i].addr) s=&hyppo_symbols[i];
+    // Check for best approximate match
+    if (s&&s->addr<hyppo_symbols[i].addr&&addr>hyppo_symbols[i].addr)
+      s=&hyppo_symbols[i];
+  }
+  
+  if (s) {
+    if (s->addr==addr)  snprintf(addr_description,8192,"$%04x (%s)",addr,s->name);
+    else  snprintf(addr_description,8192,"$%04x (%s+%d)",addr,s->name,addr-s->addr);
+  } else 
+    snprintf(addr_description,8192,"$%04x",addr);
+  return addr_description;
+}
 
 void cpu_log_reset(void)
 {
@@ -109,9 +145,23 @@ int cpu_call_routine(unsigned int addr)
     log->regs=cpu.regs;
     log->pc=pc;
     log->len=0; // byte count of instruction
+    log->count=1;
 
     // Add instruction to the log
-    cpulog[cpulog_len++]=log;    
+    cpulog[cpulog_len++]=log;
+
+    // And to most recent instruction at this address, but only if the last instruction
+    // there was not identical on all registers and instruction to this one
+    if (lastataddr[pc]&&identical_cpustates(lastataddr[pc],log)) {
+      // If identical, increase the count, so that we can keep track of infinite loops
+      lastataddr[pc]->count++;
+      if (lastataddr[pc]->count>INFINITE_LOOP_THRESHOLD) {
+	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
+		describe_address(pc),lastataddr[pc]->count);
+	return -1;
+      }
+    } else lastataddr[pc]=log;
+    
   }
   if (cpulog_len==MAX_LOG_LENGTH) {
     fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
