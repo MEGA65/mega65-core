@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+char *describe_address(unsigned int addr);
+char *describe_address_label(unsigned int addr);
+
+
 #define CHIPRAM_SIZE (384*1024)
 #define HYPPORAM_SIZE (16*1024)
 
@@ -73,6 +77,42 @@ int cpulog_len=0;
 
 instruction_log *lastataddr[65536]={NULL};
 
+void disassemble_imm(struct instruction_log *log)
+{
+  printf("#$%02X",log->bytes[1]);
+}
+
+void disassemble_abs(struct instruction_log *log)
+{
+  printf("$%02X%02X",log->bytes[2],log->bytes[1]);
+}
+
+
+void disassemble_instruction(struct instruction_log *log)
+{
+  
+  if (!log->len) return;
+  switch(log->bytes[0]) {
+  case 0x29:
+    printf("AND ");
+    disassemble_imm(log);
+    break;
+  case 0x8d:
+    printf("STA ");
+    disassemble_abs(log);
+    break;
+  case 0xa9:
+    printf("LDA ");
+    disassemble_imm(log);
+    break;
+  case 0xad:
+    printf("LDA ");
+    disassemble_abs(log);
+    break;
+  }
+  
+}
+
 int show_recent_instructions(char *title,int first_instruction, int count,
 			     unsigned int highlight_address)
 {
@@ -107,12 +147,16 @@ int show_recent_instructions(char *title,int first_instruction, int count,
 	     cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
 	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
       printf(" : ");
+
+      printf("%32s : ",describe_address_label(cpulog[i]->regs.pc));
+
       for(int j=0;j<6;j++) {
 	if (j<cpulog[i]->len) printf("%02X ",cpulog[i]->bytes[j]);
 	else printf("   ");
       }
-      // XXX - Show instruction decode
       printf(" : ");
+      // XXX - Show instruction disassembly
+      disassemble_instruction(cpulog[i]);
       printf("\n");
     }
   }
@@ -148,6 +192,26 @@ char *describe_address(unsigned int addr)
     else  snprintf(addr_description,8192,"$%04X (at %s+%d)",addr,s->name,addr-s->addr);
   } else 
     snprintf(addr_description,8192,"$%04X",addr);
+  return addr_description;
+}
+
+char *describe_address_label(unsigned int addr)
+{
+  struct hyppo_symbol *s=NULL;
+  
+  for(int i=0;i<hyppo_symbol_count;i++) {
+    // Check for exact address match
+    if (addr==hyppo_symbols[i].addr) s=&hyppo_symbols[i];
+    // Check for best approximate match
+    if (s&&s->addr<hyppo_symbols[i].addr&&addr>hyppo_symbols[i].addr)
+      s=&hyppo_symbols[i];
+  }
+  
+  if (s) {
+    if (s->addr==addr)  snprintf(addr_description,8192,"%s",s->name);
+    else  snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
+  } else 
+    snprintf(addr_description,8192,"");
   return addr_description;
 }
 
