@@ -52,6 +52,7 @@ typedef struct instruction_log {
   unsigned int pc;
   unsigned char bytes[6];
   unsigned char len;
+  unsigned char dup;
   struct regs regs;
   unsigned int count;
 } instruction_log;
@@ -62,6 +63,42 @@ int cpulog_len=0;
 #define INFINITE_LOOP_THRESHOLD 65536
 
 instruction_log *lastataddr[65536]={NULL};
+
+int show_recent_instructions(char *title,int first_instruction, int count,
+			     unsigned int highlight_address)
+{
+  int last_was_dup=0;
+  if (first_instruction<0) first_instruction=0;
+  for(int i=first_instruction;count>0&&i<cpulog_len;count--,i++) {
+    if (cpulog[i]->dup&&(i>first_instruction)) {
+      if (!last_was_dup) printf("                 ... duplicated instructions omitted ...\n");
+      last_was_dup=1;
+    } else {
+      last_was_dup=0;
+      printf("I-%-7d ",cpulog_len-i);
+      if (cpulog[i]->pc==highlight_address)
+	printf("  >>>  "); else printf("       ");
+      if (cpulog[i]->count>1)
+	printf("$%04X : x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
+      else
+	printf("$%04X :         : ",cpulog[i]->pc);
+      printf("A:%02X ",cpulog[i]->regs.a);
+      printf("X:%02X ",cpulog[i]->regs.x);
+      printf("Y:%02X ",cpulog[i]->regs.y);
+      printf("Z:%02X ",cpulog[i]->regs.z);
+      printf("F:%02X ",cpulog[i]->regs.flags);
+      printf("SP:%02x%02x ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
+      for(int j=0;j<6;j++) {
+	if (j<cpulog[i]->len) printf("%02x ",cpulog[i]->bytes[j]);
+	else printf("   ");
+      }
+      // XXX - Show instruction decode
+      printf("\n");
+    }
+  }
+
+  return 0;
+}
 
 int identical_cpustates(struct instruction_log *a, struct instruction_log *b)
 {
@@ -87,10 +124,10 @@ char *describe_address(unsigned int addr)
   }
   
   if (s) {
-    if (s->addr==addr)  snprintf(addr_description,8192,"$%04x (%s)",addr,s->name);
-    else  snprintf(addr_description,8192,"$%04x (%s+%d)",addr,s->name,addr-s->addr);
+    if (s->addr==addr)  snprintf(addr_description,8192,"$%04X (first instruction in %s)",addr,s->name);
+    else  snprintf(addr_description,8192,"$%04X (at %s+%d)",addr,s->name,addr-s->addr);
   } else 
-    snprintf(addr_description,8192,"$%04x",addr);
+    snprintf(addr_description,8192,"$%04X",addr);
   return addr_description;
 }
 
@@ -107,6 +144,11 @@ void cpu_stash_ram(void)
   bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
 }
 
+int execute_instruction(unsigned int pc,struct instruction_log *log)
+{
+  return -1;
+}
+
 int cpu_call_routine(unsigned int addr)
 {
   cpu.regs.spl=0xff;
@@ -121,7 +163,7 @@ int cpu_call_routine(unsigned int addr)
     cpu.regs.in_hyper=0;
   }
 
-  printf(">>> Calling routine @ $%04x",addr);
+  printf(">>> Calling routine @ $%04X",addr);
   if (sym_by_addr[addr]) {
     printf(" (%s)",sym_by_addr[addr]->name);
   }
@@ -146,7 +188,16 @@ int cpu_call_routine(unsigned int addr)
     log->pc=pc;
     log->len=0; // byte count of instruction
     log->count=1;
+    log->dup=0;
 
+    if (execute_instruction(pc,log)) {
+      fprintf(stderr,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
+	      describe_address(pc));
+      show_recent_instructions("Instructions leading up to the exception",
+			       cpulog_len-16,16,addr);
+      return -1;
+    }
+    
     // Add instruction to the log
     cpulog[cpulog_len++]=log;
 
@@ -155,9 +206,13 @@ int cpu_call_routine(unsigned int addr)
     if (lastataddr[pc]&&identical_cpustates(lastataddr[pc],log)) {
       // If identical, increase the count, so that we can keep track of infinite loops
       lastataddr[pc]->count++;
+      log->dup=1;
       if (lastataddr[pc]->count>INFINITE_LOOP_THRESHOLD) {
 	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
 		describe_address(pc),lastataddr[pc]->count);
+	// Show upto 32 instructions prior to the infinite loop
+	show_recent_instructions("Instructions leading into the infinite loop for the first time",
+				 cpulog_len-lastataddr[pc]->count-30,32,addr);
 	return -1;
       }
     } else lastataddr[pc]=log;
@@ -228,10 +283,12 @@ int main(int argc,char **argv)
     exit(-2);
   }
   while(!feof(f)) {
-    fgets(line,1024,f);
+    line[0]=0; fgets(line,1024,f);
     char routine[1024];
     unsigned int addr;
+    if (!line[0]) continue;
     if (line[0]=='#') continue;
+    if (line[0]=='\r') continue;
     if (line[0]=='\n') continue;
     if (sscanf(line,"call %s",routine)==1) {
       int i;
