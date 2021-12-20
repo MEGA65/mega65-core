@@ -29,6 +29,7 @@ hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
 
 struct regs {
+  unsigned int pc;
   unsigned char a;
   unsigned char x;
   unsigned char y;
@@ -43,6 +44,14 @@ struct regs {
 struct cpu {
   struct regs regs;
 };
+
+#define FLAG_N 0x80
+#define FLAG_V 0x40
+#define FLAG_E 0x20
+#define FLAG_D 0x08
+#define FLAG_I 0x04
+#define FLAG_Z 0x02
+#define FLAG_C 0x01
 
 struct cpu cpu;
 struct cpu cpu_before;
@@ -86,13 +95,23 @@ int show_recent_instructions(char *title,int first_instruction, int count,
       printf("X:%02X ",cpulog[i]->regs.x);
       printf("Y:%02X ",cpulog[i]->regs.y);
       printf("Z:%02X ",cpulog[i]->regs.z);
-      printf("F:%02X ",cpulog[i]->regs.flags);
-      printf("SP:%02x%02x ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
+      printf("%c%c%c%c%c%c%c%c ",
+	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
+	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
+	     cpulog[i]->regs.flags&FLAG_E?'E':'.',
+	     cpulog[i]->regs.flags&0x10?'B':'.',
+	     cpulog[i]->regs.flags&FLAG_D?'D':'.',
+	     cpulog[i]->regs.flags&FLAG_I?'I':'.',
+	     cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
+	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
+      printf("SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
+      printf(" : ");
       for(int j=0;j<6;j++) {
-	if (j<cpulog[i]->len) printf("%02x ",cpulog[i]->bytes[j]);
+	if (j<cpulog[i]->len) printf("%02X ",cpulog[i]->bytes[j]);
 	else printf("   ");
       }
       // XXX - Show instruction decode
+      printf(" : ");
       printf("\n");
     }
   }
@@ -144,9 +163,42 @@ void cpu_stash_ram(void)
   bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
 }
 
-int execute_instruction(unsigned int pc,struct instruction_log *log)
+unsigned char read_memory(unsigned int addr)
 {
-  return -1;
+  // XXX Should support banking etc. For now it is _really_ stupid.
+  if (addr>=0x8000&&addr<0xc000) {
+    return hypporam[addr-0x8000];
+  } else {
+    return chipram[addr];
+  }
+  
+}
+
+void update_nz(unsigned char v)
+{
+  if (!v) { cpu.regs.flags|=FLAG_Z; }
+  else cpu.regs.flags&=~FLAG_Z;
+}
+
+int execute_instruction(struct cpu *cpu,struct instruction_log *log)
+{
+  for(int i=0;i<6;i++) {
+    log->bytes[i]=read_memory(cpu->regs.pc+i);
+  }
+  switch(log->bytes[0]) {
+  case 0xa9:
+    cpu->regs.a=log->bytes[1];
+    update_nz(cpu->regs.a);
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
+  default:
+    fprintf(stderr,"ERROR: Unimplemented opcode $%02X\n",log->bytes[0]);
+    log->len=6;
+    return -1;
+  }
+
+  return 0;
 }
 
 int cpu_call_routine(unsigned int addr)
@@ -176,7 +228,7 @@ int cpu_call_routine(unsigned int addr)
   // Reset the CPU instruction log
   cpu_log_reset();
 
-  unsigned int pc=addr;
+  cpu.regs.pc=addr;
   
   // Now execute instructions until we empty the stack or hit a BRK
   // or various other nasty situations that we might allow, including
@@ -185,37 +237,37 @@ int cpu_call_routine(unsigned int addr)
 
     struct instruction_log *log=calloc(sizeof(instruction_log),1);
     log->regs=cpu.regs;
-    log->pc=pc;
+    log->pc=cpu.regs.pc;
     log->len=0; // byte count of instruction
     log->count=1;
     log->dup=0;
 
-    if (execute_instruction(pc,log)) {
+    // Add instruction to the log
+    cpulog[cpulog_len++]=log;
+    
+    if (execute_instruction(&cpu,log)) {
       fprintf(stderr,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
-	      describe_address(pc));
+	      describe_address(cpu.regs.pc));
       show_recent_instructions("Instructions leading up to the exception",
 			       cpulog_len-16,16,addr);
       return -1;
     }
     
-    // Add instruction to the log
-    cpulog[cpulog_len++]=log;
-
     // And to most recent instruction at this address, but only if the last instruction
     // there was not identical on all registers and instruction to this one
-    if (lastataddr[pc]&&identical_cpustates(lastataddr[pc],log)) {
+    if (lastataddr[cpu.regs.pc]&&identical_cpustates(lastataddr[cpu.regs.pc],log)) {
       // If identical, increase the count, so that we can keep track of infinite loops
-      lastataddr[pc]->count++;
+      lastataddr[cpu.regs.pc]->count++;
       log->dup=1;
-      if (lastataddr[pc]->count>INFINITE_LOOP_THRESHOLD) {
+      if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
 	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
-		describe_address(pc),lastataddr[pc]->count);
+		describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
 	// Show upto 32 instructions prior to the infinite loop
 	show_recent_instructions("Instructions leading into the infinite loop for the first time",
-				 cpulog_len-lastataddr[pc]->count-30,32,addr);
+				 cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
 	return -1;
       }
-    } else lastataddr[pc]=log;
+    } else lastataddr[cpu.regs.pc]=log;
     
   }
   if (cpulog_len==MAX_LOG_LENGTH) {
