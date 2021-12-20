@@ -316,6 +316,14 @@ nosuchtrap:
 
 ;;         ========================
 
+return_from_trap_with_success_and_file_descriptor_in_a:
+
+        lda dos_current_file_descriptor
+        sta hypervisor_a
+        ;; FALL THROUGH to return_from_trap_with_success
+
+;;         ========================
+
 return_from_trap_with_success:
 
         ;; Return from trap with C flag clear to indicate success

@@ -732,9 +732,7 @@ trap_dos_opendir:
 tdod1:
         ;; Directory opened ok.
         ;;
-        lda dos_current_file_descriptor
-        sta hypervisor_a
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
 
 ;;         ========================
 
@@ -840,9 +838,7 @@ trap_dos_openfile:
 
         +Checkpoint "trap_dos_openfile <success>"
 
-        lda dos_current_file_descriptor
-        sta hypervisor_a
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
 
 tdof1:
         +Checkpoint "trap_dos_openfile <failure>"
@@ -884,9 +880,9 @@ trap_dos_findfile:
 trap_dos_findfirst:
 
         jsr dos_findfirst
-        lda dos_current_file_descriptor
-        sta hypervisor_a
-        jmp return_from_trap_with_carry_flag
+        bcc +
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
++	jmp return_from_trap_with_failure
 
 ;;         ========================
 
