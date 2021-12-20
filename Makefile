@@ -106,6 +106,7 @@ TOOLDIR=	$(SRCDIR)/tools
 TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/etherload/etherload \
 	$(TOOLDIR)/hotpatch/hotpatch \
+	$(TOOLDIR)/hyppotest \
 	$(TOOLDIR)/monitor_load \
 	$(TOOLDIR)/mega65_ftp \
 	$(TOOLDIR)/monitor_save \
@@ -988,6 +989,9 @@ $(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
 # for the serial-monitor
 monitor_drive:	monitor_drive.c Makefile
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
+
+$(TOOLDIR)/hyppotest:	$(TOOLDIR)/hyppotest.c  Makefile
+	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/hyppotest $(TOOLDIR)/hyppotest.c
 
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOOLDIR)/fpgajtag/*.h Makefile
 	$(CC) $(COPT) -g -Wall -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz -lpthread
