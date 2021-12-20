@@ -14,6 +14,7 @@ typedef struct hyppo_symbol {
   char *name;
   unsigned int addr;
 } hyppo_symbol;
+hyppo_symbol *sym_by_addr[65536]={NULL};
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
 
@@ -44,9 +45,21 @@ int main(int argc,char **argv)
   char line[1024];
   line[0]=0; fgets(line,1024,f);
   while(line[0]) {
-
+    char sym[1024];
+    int addr;
+    if(sscanf(line," %s = $%x",sym,&addr)==2) {
+      if (hyppo_symbol_count>=MAX_HYPPO_SYMBOLS) {
+	fprintf(stderr,"ERROR: Too many symbols. Increase MAX_HYPPO_SYMBOLS.\n");
+	exit(-2);
+      }
+      hyppo_symbols[hyppo_symbol_count].name=strdup(sym);
+      hyppo_symbols[hyppo_symbol_count].addr=addr;
+      sym_by_addr[addr]=&hyppo_symbols[hyppo_symbol_count];
+      hyppo_symbol_count++;
+    }
     line[0]=0; fgets(line,1024,f);
   }
   fclose(f);
+  printf("Read %d symbols.\n",hyppo_symbol_count);
   
 }
