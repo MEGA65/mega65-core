@@ -84,7 +84,8 @@ int show_recent_instructions(char *title,int first_instruction, int count,
       last_was_dup=1;
     } else {
       last_was_dup=0;
-      printf("I-%-7d ",cpulog_len-i);
+      if (cpulog_len-i-1) printf("I-%-7d ",cpulog_len-i-1);
+      else printf("  >>>     ");
       if (cpulog[i]->pc==highlight_address)
 	printf("  >>>  "); else printf("       ");
       if (cpulog[i]->count>1)
@@ -95,6 +96,7 @@ int show_recent_instructions(char *title,int first_instruction, int count,
       printf("X:%02X ",cpulog[i]->regs.x);
       printf("Y:%02X ",cpulog[i]->regs.y);
       printf("Z:%02X ",cpulog[i]->regs.z);
+      printf("SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
       printf("%c%c%c%c%c%c%c%c ",
 	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
 	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
@@ -104,7 +106,6 @@ int show_recent_instructions(char *title,int first_instruction, int count,
 	     cpulog[i]->regs.flags&FLAG_I?'I':'.',
 	     cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
 	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
-      printf("SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
       printf(" : ");
       for(int j=0;j<6;j++) {
 	if (j<cpulog[i]->len) printf("%02X ",cpulog[i]->bytes[j]);
@@ -174,11 +175,41 @@ unsigned char read_memory(unsigned int addr)
   
 }
 
+int write_mem(unsigned int addr,unsigned char value)
+{
+  // XXX Should support banking etc. For now it is _really_ stupid.
+  if (addr>=0x8000&&addr<0xc000) {
+    hypporam[addr-0x8000]=value;
+  } else {
+    chipram[addr]=value;
+  }
+  return 0;
+}
+
+unsigned int addr_abs(struct instruction_log *log)
+{
+  return log->bytes[1]+(log->bytes[2]<<8);
+}
+
+
 void update_nz(unsigned char v)
 {
   if (!v) { cpu.regs.flags|=FLAG_Z; }
   else cpu.regs.flags&=~FLAG_Z;
+  cpu.regs.flags&=~FLAG_N;
+  cpu.regs.flags|=v&FLAG_N;
+  
 }
+
+void update_nvzc(int v)
+{
+  update_nz(v);
+  cpu.regs.flags&=~(FLAG_C+FLAG_V);
+  if (v>0xff) cpu.regs.flags|=FLAG_C;
+  // XXX - Do V calculation as well
+}
+
+#define MEM_WRITE(ADDR,VALUE) if (write_mem(ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
 int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 {
@@ -186,11 +217,28 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->bytes[i]=read_memory(cpu->regs.pc+i);
   }
   switch(log->bytes[0]) {
-  case 0xa9:
+  case 0x29: // AND #$nn
+    cpu->regs.a&=log->bytes[1];
+    update_nz(cpu->regs.a);
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
+  case 0x8d: // STA $xxxx
+    log->len=3;
+    cpu->regs.pc+=3;
+    MEM_WRITE(addr_abs(log),cpu->regs.a);
+    break;
+  case 0xa9: // LDA #$nn
     cpu->regs.a=log->bytes[1];
     update_nz(cpu->regs.a);
     log->len=2;
     cpu->regs.pc+=2;
+    break;
+  case 0xad: // LDA $xxxx
+    log->len=3;
+    cpu->regs.pc+=3;
+    cpu->regs.a=read_memory(addr_abs(log));
+    update_nz(cpu->regs.a);
     break;
   default:
     fprintf(stderr,"ERROR: Unimplemented opcode $%02X\n",log->bytes[0]);
@@ -249,7 +297,7 @@ int cpu_call_routine(unsigned int addr)
       fprintf(stderr,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
 	      describe_address(cpu.regs.pc));
       show_recent_instructions("Instructions leading up to the exception",
-			       cpulog_len-16,16,addr);
+			       cpulog_len-16,16,cpu.regs.pc);
       return -1;
     }
     
