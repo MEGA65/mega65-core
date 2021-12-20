@@ -3916,10 +3916,9 @@ dos_d81detach:
 	sta $d68a 		; clear d64/d71 flags
 
         ;; Mark it as unmounted (but preserve other flags for remounting, e.g., if it should be write-enabled)
-        lda currenttask_d81_image0_flags
-        ora #d81_image_flag_mounted
-        eor #d81_image_flag_mounted
-        sta currenttask_d81_image0_flags
+        lda #d81_image_flag_mounted
+        trb currenttask_d81_image0_flags
+        trb currenttask_d81_image1_flags
 
         ;; But we leave the file name there, in case someone wants to re-mount the image.
         ;; This is exactly what happens when a process is unfrozen: dos_d81detach is called,
