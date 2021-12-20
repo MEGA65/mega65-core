@@ -268,14 +268,14 @@ begin  -- behavioural
       end if;
 
       -- Pre-calculate some things to improve timing
-      if y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
+      if (y_in + 1) >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
 --        report "y_in = " & integer'image(y_in);
 --        report "v_bitplane_y_start = " & integer'image(v_bitplane_y_start);
 --        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
         bitplane_y_card_position
-          <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
+          <= integer(((y_in + 1) - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
         bitplane_y_card_number_drive
-          <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
+          <= integer((((y_in + 1) - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
       else
         bitplane_y_card_position <= 0;
         bitplane_y_card_number_drive <= 0;
