@@ -37,8 +37,7 @@ struct regs {
   unsigned char b;
   unsigned char sph;
   unsigned char spl;
-  unsigned int mapl;
-  unsigned int maph;
+  unsigned char in_hyper;
 };
 
 struct cpu {
@@ -46,30 +45,78 @@ struct cpu {
 };
 
 struct cpu cpu;
+struct cpu cpu_before;
 
 // Instruction log
 typedef struct instruction_log {
   unsigned int pc;
   unsigned char bytes[6];
   unsigned char len;
-  struct regs reg;
+  struct regs regs;
 } instruction_log;
 #define MAX_LOG_LENGTH (1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
 int cpulog_len=0;
 
+void cpu_log_reset(void)
+{
+  for(int i=0;i<cpulog_len;i++) free(cpulog[i]);
+  cpulog_len=0;
+}
+
+void cpu_stash_ram(void)
+{
+  // Remember the RAM contents before calling a routine
+  bcopy(chipram_before,chipram,CHIPRAM_SIZE);
+  bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
+}
+
 int cpu_call_routine(unsigned int addr)
 {
   cpu.regs.spl=0xff;
+  
   // Is routine in hypervisor or in userland? Set stack pointer accordingly.
-  if (addr>=0x8000&&addr<0xc000) cpu.regs.sph=0xbe;
-  else cpu.regs.sph=0x01;
+  if (addr>=0x8000&&addr<0xc000) {
+    cpu.regs.sph=0xbe;
+    cpu.regs.in_hyper=1;
+  }
+  else {
+    cpu.regs.sph=0x01;
+    cpu.regs.in_hyper=0;
+  }
 
   printf(">>> Calling routine @ $%04x",addr);
   if (sym_by_addr[addr]) {
     printf(" (%s)",sym_by_addr[addr]->name);
   }
   printf("\n");
+
+  // Remember the initial CPU state
+  cpu_stash_ram();
+  cpu_before=cpu;
+
+  // Reset the CPU instruction log
+  cpu_log_reset();
+
+  unsigned int pc=addr;
+  
+  // Now execute instructions until we empty the stack or hit a BRK
+  // or various other nasty situations that we might allow, including
+  // filling the CPU instruction log
+  while(cpulog_len<MAX_LOG_LENGTH) {
+
+    struct instruction_log *log=calloc(sizeof(instruction_log),1);
+    log->regs=cpu.regs;
+    log->pc=pc;
+    log->len=0; // byte count of instruction
+
+    // Add instruction to the log
+    cpulog[cpulog_len++]=log;    
+  }
+  if (cpulog_len==MAX_LOG_LENGTH) {
+    fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
+    exit(-2);
+  }
   
   return 0;
 }
@@ -81,6 +128,9 @@ int main(int argc,char **argv)
     exit(-2);
   }
 
+  // Initialise CPU staet
+  bzero(&cpu,sizeof(cpu));
+  
   // Clear chip RAM
   bzero(chipram_before,CHIPRAM_SIZE);
   
