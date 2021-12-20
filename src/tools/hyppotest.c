@@ -28,7 +28,7 @@ hyppo_symbol *sym_by_addr[65536]={NULL};
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
 
-typedef struct regs {
+struct regs {
   unsigned char a;
   unsigned char x;
   unsigned char y;
@@ -37,7 +37,15 @@ typedef struct regs {
   unsigned char b;
   unsigned char sph;
   unsigned char spl;
-} regs;
+  unsigned int mapl;
+  unsigned int maph;
+};
+
+struct cpu {
+  struct regs regs;
+};
+
+struct cpu cpu;
 
 // Instruction log
 typedef struct instruction_log {
@@ -49,6 +57,22 @@ typedef struct instruction_log {
 #define MAX_LOG_LENGTH (1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
 int cpulog_len=0;
+
+int cpu_call_routine(unsigned int addr)
+{
+  cpu.regs.spl=0xff;
+  // Is routine in hypervisor or in userland? Set stack pointer accordingly.
+  if (addr>=0x8000&&addr<0xc000) cpu.regs.sph=0xbe;
+  else cpu.regs.sph=0x01;
+
+  printf(">>> Calling routine @ $%04x",addr);
+  if (sym_by_addr[addr]) {
+    printf(" (%s)",sym_by_addr[addr]->name);
+  }
+  printf("\n");
+  
+  return 0;
+}
 
 int main(int argc,char **argv)
 {
@@ -110,8 +134,18 @@ int main(int argc,char **argv)
     if (line[0]=='#') continue;
     if (line[0]=='\n') continue;
     if (sscanf(line,"call %s",routine)==1) {
+      int i;
+      for(i=0;i<hyppo_symbol_count;i++) {
+	if (!strcmp(routine,hyppo_symbols[i].name)) break;
+      }
+      if (i==hyppo_symbol_count) {
+	fprintf(stderr,"ERROR: Cannot call non-existent routine '%s'\n",routine);
+	exit(-2);
+      }
+      cpu_call_routine(hyppo_symbols[i].addr);
     }
     else if (sscanf(line,"call $%x",&addr)==1) {
+      cpu_call_routine(addr);
     } else {
       fprintf(stderr,"ERROR: Unrecognised test directive:\n       %s\n",line);
       exit(-2);
