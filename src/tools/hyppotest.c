@@ -5,9 +5,19 @@
 #include <stdlib.h>
 
 #define CHIPRAM_SIZE (384*1024)
-unsigned char chipram[CHIPRAM_SIZE];
 #define HYPPORAM_SIZE (16*1024)
+
+// Current memory state
+unsigned char chipram[CHIPRAM_SIZE];
 unsigned char hypporam[HYPPORAM_SIZE];
+
+// Memory state before
+unsigned char chipram_before[CHIPRAM_SIZE];
+unsigned char hypporam_before[HYPPORAM_SIZE];
+
+// Expected memory state
+unsigned char chipram_expected[CHIPRAM_SIZE];
+unsigned char hypporam_expected[HYPPORAM_SIZE];
 
 #define MAX_HYPPO_SYMBOLS HYPPORAM_SIZE
 typedef struct hyppo_symbol {
@@ -18,6 +28,28 @@ hyppo_symbol *sym_by_addr[65536]={NULL};
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
 
+typedef struct regs {
+  unsigned char a;
+  unsigned char x;
+  unsigned char y;
+  unsigned char z;
+  unsigned char flags;
+  unsigned char b;
+  unsigned char sph;
+  unsigned char spl;
+} regs;
+
+// Instruction log
+typedef struct instruction_log {
+  unsigned int pc;
+  unsigned char bytes[6];
+  unsigned char len;
+  struct regs reg;
+} instruction_log;
+#define MAX_LOG_LENGTH (1024*1024)
+instruction_log *cpulog[MAX_LOG_LENGTH];
+int cpulog_len=0;
+
 int main(int argc,char **argv)
 {
   if (argc!=4) {
@@ -25,12 +57,15 @@ int main(int argc,char **argv)
     exit(-2);
   }
 
+  // Clear chip RAM
+  bzero(chipram_before,CHIPRAM_SIZE);
+  
   FILE *f=fopen(argv[1],"rb");
   if (!f) {
     fprintf(stderr,"ERROR: Could not read HICKUP file from '%s'\n",argv[1]);
     exit(-2);
   }
-  int b=fread(hypporam,1,HYPPORAM_SIZE,f);
+  int b=fread(hypporam_before,1,HYPPORAM_SIZE,f);
   if (b!=HYPPORAM_SIZE) {
     fprintf(stderr,"ERROR: Read only %d of %d bytes from HICKUP file.\n",b,HYPPORAM_SIZE);
     exit(-2);
@@ -61,5 +96,26 @@ int main(int argc,char **argv)
   }
   fclose(f);
   printf("Read %d symbols.\n",hyppo_symbol_count);
-  
+
+  // Open test script, and start interpreting it 
+  f=fopen(argv[3],"r");
+  if (!f) {
+    fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[3]);
+    exit(-2);
+  }
+  while(!feof(f)) {
+    fgets(line,1024,f);
+    char routine[1024];
+    unsigned int addr;
+    if (line[0]=='#') continue;
+    if (line[0]=='\n') continue;
+    if (sscanf(line,"call %s",routine)==1) {
+    }
+    else if (sscanf(line,"call $%x",&addr)==1) {
+    } else {
+      fprintf(stderr,"ERROR: Unrecognised test directive:\n       %s\n",line);
+      exit(-2);
+    }
+  }
+  fclose(f);
 }
