@@ -23,6 +23,10 @@ unsigned char hypporam_before[HYPPORAM_SIZE];
 unsigned char chipram_expected[CHIPRAM_SIZE];
 unsigned char hypporam_expected[HYPPORAM_SIZE];
 
+// Instructions which modified the memory location last
+unsigned int chipram_blame[CHIPRAM_SIZE];
+unsigned int hypporam_blame[HYPPORAM_SIZE];
+
 #define MAX_HYPPO_SYMBOLS HYPPORAM_SIZE
 typedef struct hyppo_symbol {
   char *name;
@@ -54,6 +58,7 @@ struct termination_conditions {
 };
 
 struct cpu {
+  unsigned int instruction_count;
   struct regs regs;
   struct termination_conditions term;
   unsigned char stack_overflow;
@@ -271,8 +276,10 @@ int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
   // XXX Should support banking etc. For now it is _really_ stupid.
   if (addr>=0x8000&&addr<0xc000) {
     hypporam[addr-0x8000]=value;
+    hypporam_blame[addr-0x8000]=cpu->instruction_count;
   } else {
     chipram[addr]=value;
+    chipram_blame[addr]=cpu->instruction_count;
   }
   return 0;
 }
@@ -455,6 +462,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     log->dup=0;
 
     // Add instruction to the log
+    cpu.instruction_count=cpulog_len;
     cpulog[cpulog_len++]=log;
     
     if (execute_instruction(&cpu,log)) {
@@ -464,6 +472,8 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 			       cpulog_len-16,16,cpu.regs.pc);
       return -1;
     }
+
+    cpu.instruction_count=cpulog_len;
     
     // And to most recent instruction at this address, but only if the last instruction
     // there was not identical on all registers and instruction to this one
@@ -507,8 +517,41 @@ int compare_ram_contents(FILE *f)
       errors++;
     }
   }
+
   if (errors) {
     fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
+    
+    int displayed=0;
+    
+    for(int i=0;i<CHIPRAM_SIZE;i++) {
+      if (chipram[i]!=chipram_before[i]) {
+	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
+		chipram[i],describe_address(i),chipram_before[i]);
+	int first_instruction=chipram_blame[i]-3;
+	if (first_instruction<0) first_instruction=0;
+	show_recent_instructions(f,"Instructions leading to this value being written",
+				 first_instruction,4,-1);
+	displayed++;
+      }
+      if (displayed>=100) break;
+    }
+    for(int i=0;i<HYPPORAM_SIZE;i++) {
+      if (hypporam[i]!=hypporam_before[i]) {
+	fprintf(f,"ERROR: Saw $%02x at %s, but expected to see $%02x\n",
+		hypporam[i],describe_address(i+0x8000),hypporam_before[i]);
+	int first_instruction=hypporam_blame[i]-3;
+	if (first_instruction<0) first_instruction=0;
+	show_recent_instructions(f,"Instructions leading to this value being written",
+				 first_instruction,4,-1);      
+      }
+      if (displayed>=100) break;	
+    }
+    if (displayed>100) {
+      fprintf(f,"WARNING: Displayed only the first 100 incorrect memory contents. %d more suppressed.\n",
+	      errors-100);
+    }
+    
+    
   }
   return errors;
 }
