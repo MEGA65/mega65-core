@@ -160,6 +160,7 @@ int show_recent_instructions(FILE *f,char *title,int first_instruction, int coun
 			     unsigned int highlight_address)
 {
   int last_was_dup=0;
+  fprintf(f,"INFO: %s\n",title);
   if (first_instruction<0) first_instruction=0;
   for(int i=first_instruction;count>0&&i<cpulog_len;count--,i++) {
     if (cpulog[i]->dup&&(i>first_instruction)) {
@@ -636,21 +637,31 @@ void test_init(struct cpu *cpu)
 void test_conclude(struct cpu *cpu)
 {
   char cmd[8192];
-  if (logfile!=stderr) {
-    fclose(logfile);
-  }
   
   // Report test status
+  snprintf(cmd,8192,"FAIL.%s",safe_name); unlink(cmd);
+  snprintf(cmd,8192,"PASS.%s",safe_name); unlink(cmd);
+  
   if (cpu->term.error) {
     printf("\r[FAIL] %s\n",test_name);
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
+    show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
+    fprintf(logfile,"FAIL: Test failed.\n");
   } else {
     printf("\r[PASS] %s\n",test_name);
     snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
     test_passes++;
+
+    show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
+    fprintf(logfile,"PASS: Test passed.\n");
+    
   }
-  if (logfile!=stderr) system(cmd);
+
+  if (logfile!=stderr) {
+    fclose(logfile);
+    system(cmd);
+  }
 
   logfile=stderr;
 }
