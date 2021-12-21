@@ -1,3 +1,6 @@
 # Hypervisor test script
+test "Reset display correctly sets VIC-IV registers"
 call resetdisplay
 check ram
+test end
+
