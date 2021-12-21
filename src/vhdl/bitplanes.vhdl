@@ -269,7 +269,7 @@ begin  -- behavioural
         v_bitplane_x_start := bitplane_x_start;
       end if;
 
-      if (yfine_in mod 2) = 1 then
+      if (yfine_in mod 2) = 0 then
         v_y_in := y_in;
       else
         v_y_in := y_in + 1;
