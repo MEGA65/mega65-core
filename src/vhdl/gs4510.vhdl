@@ -7223,11 +7223,7 @@ begin
                       + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
-                    -- XXX If this is really about stack relative, should it
-                    -- be applying BP as part of the offset?  Maybe it should,
-                    -- if we want a way to do stack-relative with stacks deeper
-                    -- than 256 bytes? But probably not.
-                    temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
+                    temp_addr :=  to_unsigned(to_integer(reg_arg1)
                                               +to_integer(reg_sph&reg_sp),16);
                     reg_addr <= temp_addr + 1;
                     state <= InnSPYReadVectorLow;
