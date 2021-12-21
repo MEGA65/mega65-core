@@ -7,6 +7,16 @@
 char *describe_address(unsigned int addr);
 char *describe_address_label(unsigned int addr);
 
+// By default we log to stderr
+FILE *logfile=NULL;
+char logfilename[8192]="";
+#define TESTLOGFILE "/tmp/hyppotest.tmp"
+
+int test_passes=0;
+int test_fails=0;
+char test_name[1024]="unnamed test";
+char safe_name[1024]="unnamed_test";
+
 
 #define CHIPRAM_SIZE (384*1024)
 #define HYPPORAM_SIZE (16*1024)
@@ -373,7 +383,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     if (cpu->term.rts) {
       cpu->term.rts--;
       if (!cpu->term.rts) {
-	fprintf(stderr,"NOTE: Terminating via RTS\n");
+	fprintf(logfile,"NOTE: Terminating via RTS\n");
 	cpu->term.done=1;
       }
     }
@@ -503,7 +513,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     return -1;
   }
   if (cpu.term.done) {
-    fprintf(stderr,"NOTE: Execution ended.\n");
+    fprintf(logfile,"NOTE: Execution ended.\n");
   }
   
   return 0;
@@ -562,16 +572,6 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
   }
   return errors;
 }
-
-// By default we log to stderr
-FILE *logfile=NULL;
-char logfilename[8192]="";
-#define TESTLOGFILE "/tmp/hyppotest.tmp"
-
-int test_passes=0;
-int test_fails=0;
-char test_name[1024]="unnamed test";
-char safe_name[1024]="unnamed_test";
 
 void machine_init(struct cpu *cpu)
 {
@@ -700,6 +700,40 @@ int load_hyppo_symbols(char *filename)
   return 0;
 }
 
+int resolve_value(char *in)
+{
+  int v;
+  char label[1024];
+  int delta;
+  
+  // Hex is the easy case
+  if (sscanf(in,"$%x",&v)==1) return v;
+
+  // Check for label with optional +delta
+  if (sscanf(in,"%[^+]+%d",label,&delta)==2) ;
+  else if (sscanf(in,"%[^-]-%d",label,&delta)==2) ;
+  else if (sscanf(in,"%s",label)==1) ;
+  else {
+    fprintf(stderr,"ERROR: Could not parse address or value specification '%s'.\n",in);
+    if (logfile!=stderr)
+      fprintf(logfile,"ERROR: Could not parse address or value specification '%s'.\n",in);
+    cpu.term.error=1;
+    return 0;
+  }
+
+  int i;
+  for(i=0;i<hyppo_symbol_count;i++) {
+    if (!strcmp(label,hyppo_symbols[i].name)) break;
+  }
+  if (i==hyppo_symbol_count) {
+    fprintf(logfile,"ERROR: Cannot call find non-existent symbol '%s'\n",label);
+    cpu.term.error=1;
+    return 0;
+  } else {
+    v=hyppo_symbols[i].addr+delta;
+    return v;
+  }
+}
 
 int main(int argc,char **argv)
 {
@@ -722,6 +756,8 @@ int main(int argc,char **argv)
   while(!feof(f)) {
     line[0]=0; fgets(line,1024,f);
     char routine[1024];
+    char value[1024];
+    char location[1024];
     unsigned int addr;
     if (!line[0]) continue;
     if (line[0]=='#') continue;
@@ -760,6 +796,22 @@ int main(int argc,char **argv)
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
+    } else if (sscanf(line,"expect %s at %s",value,location)==2) {
+      // Update *_before[] memories to indicate the value we expect where.
+      // Resolve labels and label+offset and $nn in each of the fields.
+      int v=resolve_value(value);
+      int l=resolve_value(location);
+      // XXX Horrible hack for hypervisor memory vs chip RAM.
+      // We should eventually use 28-bit flat addresses,
+      // or auto-detect if the symbol was in hypervisor or user land,
+      // and make the decision that way.
+      if (l<0x8000||l>0xbfff) {
+	// Chip RAM
+        chipram_before[l]=v;
+      } else {
+	// Hypervisor RAM
+	hypporam_before[l-0x8000]=v;
+      }
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
