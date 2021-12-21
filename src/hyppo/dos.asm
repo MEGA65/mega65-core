@@ -803,6 +803,7 @@ trap_dos_readfile:
 
 
 trap_dos_cdrootdir:
+	ldx hypervisor_x
 	jsr dos_cdroot
 	jmp return_from_trap_with_carry_flag
 	
@@ -1957,7 +1958,6 @@ dos_cdroot:
         ;;
         ;; INPUT: .X = disk
 
-        ldx hypervisor_x
         jsr dos_set_current_disk
         bcc dos_return_error_already_set
 
