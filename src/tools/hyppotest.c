@@ -45,8 +45,18 @@ struct regs {
   unsigned char in_hyper;
 };
 
+struct termination_conditions {
+  // Indicates that execution has terminated
+  int done;
+  
+  // Terminate when number of RTS (minus JSRs) is encountered
+  int rts;
+};
+
 struct cpu {
   struct regs regs;
+  struct termination_conditions term;
+  unsigned char stack_overflow;
   unsigned char stack_underflow;
 };
 
@@ -96,6 +106,10 @@ void disassemble_instruction(struct instruction_log *log)
   switch(log->bytes[0]) {
   case 0x1c:
     printf("TRB ");
+    disassemble_abs(log);
+    break;
+  case 0x20:
+    printf("JSR ");
     disassemble_abs(log);
     break;
   case 0x29:
@@ -224,7 +238,7 @@ char *describe_address_label(unsigned int addr)
     if (s->addr==addr)  snprintf(addr_description,8192,"%s",s->name);
     else  snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
   } else 
-    snprintf(addr_description,8192,"");
+    addr_description[0]=0;
   return addr_description;
 }
 
@@ -301,6 +315,22 @@ unsigned char stack_pop(struct cpu *cpu)
       cpu->stack_underflow=1;
     if (!addr) cpu->stack_underflow=1;
   }
+  return c;
+}
+
+int stack_push(struct cpu *cpu,unsigned char v)
+{
+  int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
+  MEM_WRITE(addr,v);
+  cpu->regs.spl--;
+  if ((addr&0xff)==0xff) {
+    if (!(cpu->regs.flags&FLAG_E))
+      cpu->regs.sph--;
+    else
+      cpu->stack_overflow=1;
+    if (addr==0xffff) cpu->stack_overflow=1;
+  }
+  return 0;
 }
 
 int execute_instruction(struct cpu *cpu,struct instruction_log *log)
@@ -317,6 +347,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     MEM_WRITE(addr_abs(log),v);
     update_nz(v);
     break;
+  case 0x20: // JSR $nnnn
+    stack_push(cpu,cpu->regs.pc+2);
+    stack_push(cpu,(cpu->regs.pc+2)>>8);
+    cpu->regs.pc=addr_abs(log);    
+    break;
   case 0x29: // AND #$nn
     cpu->regs.a&=log->bytes[1];
     update_nz(cpu->regs.a);
@@ -325,6 +360,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     break;
   case 0x60: // RTS
     log->len=1;
+    if (cpu->term.rts) {
+      cpu->term.rts--;
+      if (!cpu->term.rts) {
+	fprintf(stderr,"NOTE: Terminating via RTS\n");
+	cpu->term.done=1;
+      }
+    }
     cpu->regs.pc=stack_pop(cpu);
     cpu->regs.pc|=stack_pop(cpu)<<8;
     cpu->regs.pc++;
@@ -352,8 +394,16 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     return -1;
   }
 
+  // Ignore stack underflows/overflows if execution is complete, so that
+  // terminal RTS doesn't cause a stack underflow error
+  if (cpu->term.done) return 0;
+  
   if (cpu->stack_underflow) {
     fprintf(stderr,"ERROR: Stack underflow detected.\n");
+    return -1;
+  }
+  if (cpu->stack_overflow) {
+    fprintf(stderr,"ERROR: Stack overflow detected.\n");
     return -1;
   }
   
@@ -394,6 +444,9 @@ int cpu_call_routine(unsigned int addr)
   // filling the CPU instruction log
   while(cpulog_len<MAX_LOG_LENGTH) {
 
+    // Stop once the termination condition has been reached.
+    if (cpu.term.done) break;
+    
     struct instruction_log *log=calloc(sizeof(instruction_log),1);
     log->regs=cpu.regs;
     log->pc=cpu.regs.pc;
@@ -432,6 +485,9 @@ int cpu_call_routine(unsigned int addr)
   if (cpulog_len==MAX_LOG_LENGTH) {
     fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
     exit(-2);
+  }
+  if (cpu.term.done) {
+    fprintf(stderr,"NOTE: Execution ended.\n");
   }
   
   return 0;
@@ -511,9 +567,13 @@ int main(int argc,char **argv)
 	fprintf(stderr,"ERROR: Cannot call non-existent routine '%s'\n",routine);
 	exit(-2);
       }
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(hyppo_symbols[i].addr);
     }
     else if (sscanf(line,"call $%x",&addr)==1) {
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(addr);
     } else {
       fprintf(stderr,"ERROR: Unrecognised test directive:\n       %s\n",line);
