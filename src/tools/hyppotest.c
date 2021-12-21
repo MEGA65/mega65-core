@@ -500,7 +500,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   if (cpulog_len==MAX_LOG_LENGTH) {
     cpu.term.error=1;   
     fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
-    exit(-2);
+    return -1;
   }
   if (cpu.term.done) {
     fprintf(stderr,"NOTE: Execution ended.\n");
@@ -635,7 +635,6 @@ void test_init(struct cpu *cpu)
 
 void test_conclude(struct cpu *cpu)
 {
-
   char cmd[8192];
   if (logfile!=stderr) {
     fclose(logfile);
@@ -726,11 +725,12 @@ int main(int argc,char **argv)
       }
       if (i==hyppo_symbol_count) {
 	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-	exit(-2);
+	cpu.term.error=1;
+      } else {
+	bzero(&cpu.term,sizeof(cpu.term));
+	cpu.term.rts=1; // Terminate on net RTS from routine
+	cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
-      bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.rts=1; // Terminate on net RTS from routine
-      cpu_call_routine(logfile,hyppo_symbols[i].addr);
     }
     else if (sscanf(line,"call $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
@@ -744,7 +744,6 @@ int main(int argc,char **argv)
       test_init(&cpu);
       
       fflush(stdout);
-
       
     } else if (!strncasecmp(line,"test end",strlen("test end"))) {
       test_conclude(&cpu);	
@@ -753,6 +752,6 @@ int main(int argc,char **argv)
       cpu.term.error=1;
     }
   }
-  test_conclude(&cpu);
+  if (logfile!=stderr) test_conclude(&cpu);
   fclose(f);
 }
