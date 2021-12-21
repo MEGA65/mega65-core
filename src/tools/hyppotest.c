@@ -47,6 +47,7 @@ struct regs {
 
 struct cpu {
   struct regs regs;
+  unsigned char stack_underflow;
 };
 
 #define FLAG_N 0x80
@@ -93,9 +94,19 @@ void disassemble_instruction(struct instruction_log *log)
   
   if (!log->len) return;
   switch(log->bytes[0]) {
+  case 0x1c:
+    printf("TRB ");
+    disassemble_abs(log);
+    break;
   case 0x29:
     printf("AND ");
     disassemble_imm(log);
+    break;
+  case 0x40:
+    printf("RTI");
+    break;
+  case 0x60:
+    printf("RTS");
     break;
   case 0x8d:
     printf("STA ");
@@ -205,6 +216,8 @@ char *describe_address_label(unsigned int addr)
     // Check for best approximate match
     if (s&&s->addr<hyppo_symbols[i].addr&&addr>hyppo_symbols[i].addr)
       s=&hyppo_symbols[i];
+    if ((!s)&&addr>hyppo_symbols[i].addr)
+      s=&hyppo_symbols[i];
   }
   
   if (s) {
@@ -275,17 +288,46 @@ void update_nvzc(int v)
 
 #define MEM_WRITE(ADDR,VALUE) if (write_mem(ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
+unsigned char stack_pop(struct cpu *cpu)
+{
+  int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
+  addr++;
+  cpu->regs.spl++;
+  unsigned char c=read_memory(addr);
+  if (!(addr&0xff)) {
+    if (!(cpu->regs.flags&FLAG_E))
+      cpu->regs.sph++;
+    else
+      cpu->stack_underflow=1;
+    if (!addr) cpu->stack_underflow=1;
+  }
+}
+
 int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 {
   for(int i=0;i<6;i++) {
     log->bytes[i]=read_memory(cpu->regs.pc+i);
   }
   switch(log->bytes[0]) {
+  case 0x1c: // TRB $xxxx
+    log->len=3;
+    cpu->regs.pc+=3;
+    int v=read_memory(addr_abs(log));
+    v&=~cpu->regs.a;
+    MEM_WRITE(addr_abs(log),v);
+    update_nz(v);
+    break;
   case 0x29: // AND #$nn
     cpu->regs.a&=log->bytes[1];
     update_nz(cpu->regs.a);
     log->len=2;
     cpu->regs.pc+=2;
+    break;
+  case 0x60: // RTS
+    log->len=1;
+    cpu->regs.pc=stack_pop(cpu);
+    cpu->regs.pc|=stack_pop(cpu)<<8;
+    cpu->regs.pc++;
     break;
   case 0x8d: // STA $xxxx
     log->len=3;
@@ -310,6 +352,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     return -1;
   }
 
+  if (cpu->stack_underflow) {
+    fprintf(stderr,"ERROR: Stack underflow detected.\n");
+    return -1;
+  }
+  
   return 0;
 }
 
@@ -399,6 +446,7 @@ int main(int argc,char **argv)
 
   // Initialise CPU staet
   bzero(&cpu,sizeof(cpu));
+  cpu.regs.flags=FLAG_E|FLAG_I;
   
   // Clear chip RAM
   bzero(chipram_before,CHIPRAM_SIZE);
