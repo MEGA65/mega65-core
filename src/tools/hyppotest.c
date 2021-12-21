@@ -88,81 +88,81 @@ int cpulog_len=0;
 
 instruction_log *lastataddr[65536]={NULL};
 
-void disassemble_imm(struct instruction_log *log)
+void disassemble_imm(FILE *f,struct instruction_log *log)
 {
-  printf("#$%02X",log->bytes[1]);
+  fprintf(f,"#$%02X",log->bytes[1]);
 }
 
-void disassemble_abs(struct instruction_log *log)
+void disassemble_abs(FILE *f,struct instruction_log *log)
 {
-  printf("$%02X%02X",log->bytes[2],log->bytes[1]);
+  fprintf(f,"$%02X%02X",log->bytes[2],log->bytes[1]);
 }
 
 
-void disassemble_instruction(struct instruction_log *log)
+void disassemble_instruction(FILE *f,struct instruction_log *log)
 {
   
   if (!log->len) return;
   switch(log->bytes[0]) {
   case 0x1c:
-    printf("TRB ");
-    disassemble_abs(log);
+    fprintf(f,"TRB ");
+    disassemble_abs(f,log);
     break;
   case 0x20:
-    printf("JSR ");
-    disassemble_abs(log);
+    fprintf(f,"JSR ");
+    disassemble_abs(f,log);
     break;
   case 0x29:
-    printf("AND ");
-    disassemble_imm(log);
+    fprintf(f,"AND ");
+    disassemble_imm(f,log);
     break;
   case 0x40:
-    printf("RTI");
+    fprintf(f,"RTI");
     break;
   case 0x60:
-    printf("RTS");
+    fprintf(f,"RTS");
     break;
   case 0x8d:
-    printf("STA ");
-    disassemble_abs(log);
+    fprintf(f,"STA ");
+    disassemble_abs(f,log);
     break;
   case 0xa9:
-    printf("LDA ");
-    disassemble_imm(log);
+    fprintf(f,"LDA ");
+    disassemble_imm(f,log);
     break;
   case 0xad:
-    printf("LDA ");
-    disassemble_abs(log);
+    fprintf(f,"LDA ");
+    disassemble_abs(f,log);
     break;
   }
   
 }
 
-int show_recent_instructions(char *title,int first_instruction, int count,
+int show_recent_instructions(FILE *f,char *title,int first_instruction, int count,
 			     unsigned int highlight_address)
 {
   int last_was_dup=0;
   if (first_instruction<0) first_instruction=0;
   for(int i=first_instruction;count>0&&i<cpulog_len;count--,i++) {
     if (cpulog[i]->dup&&(i>first_instruction)) {
-      if (!last_was_dup) printf("                 ... duplicated instructions omitted ...\n");
+      if (!last_was_dup) fprintf(f,"                 ... duplicated instructions omitted ...\n");
       last_was_dup=1;
     } else {
       last_was_dup=0;
-      if (cpulog_len-i-1) printf("I-%-7d ",cpulog_len-i-1);
-      else printf("  >>>     ");
+      if (cpulog_len-i-1) fprintf(f,"I-%-7d ",cpulog_len-i-1);
+      else fprintf(f,"  >>>     ");
       if (cpulog[i]->pc==highlight_address)
-	printf("  >>>  "); else printf("       ");
+	fprintf(f,"  >>>  "); else fprintf(f,"       ");
       if (cpulog[i]->count>1)
-	printf("$%04X : x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
+	fprintf(f,"$%04X : x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
       else
-	printf("$%04X :         : ",cpulog[i]->pc);
-      printf("A:%02X ",cpulog[i]->regs.a);
-      printf("X:%02X ",cpulog[i]->regs.x);
-      printf("Y:%02X ",cpulog[i]->regs.y);
-      printf("Z:%02X ",cpulog[i]->regs.z);
-      printf("SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
-      printf("%c%c%c%c%c%c%c%c ",
+	fprintf(f,"$%04X :         : ",cpulog[i]->pc);
+      fprintf(f,"A:%02X ",cpulog[i]->regs.a);
+      fprintf(f,"X:%02X ",cpulog[i]->regs.x);
+      fprintf(f,"Y:%02X ",cpulog[i]->regs.y);
+      fprintf(f,"Z:%02X ",cpulog[i]->regs.z);
+      fprintf(f,"SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
+      fprintf(f,"%c%c%c%c%c%c%c%c ",
 	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
 	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
 	     cpulog[i]->regs.flags&FLAG_E?'E':'.',
@@ -171,18 +171,18 @@ int show_recent_instructions(char *title,int first_instruction, int count,
 	     cpulog[i]->regs.flags&FLAG_I?'I':'.',
 	     cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
 	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
-      printf(" : ");
+      fprintf(f," : ");
 
-      printf("%32s : ",describe_address_label(cpulog[i]->regs.pc));
+      fprintf(f,"%32s : ",describe_address_label(cpulog[i]->regs.pc));
 
       for(int j=0;j<6;j++) {
-	if (j<cpulog[i]->len) printf("%02X ",cpulog[i]->bytes[j]);
-	else printf("   ");
+	if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
+	else fprintf(f,"   ");
       }
-      printf(" : ");
+      fprintf(f," : ");
       // XXX - Show instruction disassembly
-      disassemble_instruction(cpulog[i]);
-      printf("\n");
+      disassemble_instruction(f,cpulog[i]);
+      fprintf(f,"\n");
     }
   }
 
@@ -410,7 +410,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   return 0;
 }
 
-int cpu_call_routine(unsigned int addr)
+int cpu_call_routine(FILE *f,unsigned int addr)
 {
   cpu.regs.spl=0xff;
   
@@ -424,11 +424,11 @@ int cpu_call_routine(unsigned int addr)
     cpu.regs.in_hyper=0;
   }
 
-  printf(">>> Calling routine @ $%04X",addr);
+  fprintf(f,">>> Calling routine @ $%04X",addr);
   if (sym_by_addr[addr]) {
-    printf(" (%s)",sym_by_addr[addr]->name);
+    fprintf(f," (%s)",sym_by_addr[addr]->name);
   }
-  printf("\n");
+  fprintf(f,"\n");
 
   // Remember the initial CPU state
   cpu_stash_ram();
@@ -460,7 +460,7 @@ int cpu_call_routine(unsigned int addr)
     if (execute_instruction(&cpu,log)) {
       fprintf(stderr,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
 	      describe_address(cpu.regs.pc));
-      show_recent_instructions("Instructions leading up to the exception",
+      show_recent_instructions(stderr,"Instructions leading up to the exception",
 			       cpulog_len-16,16,cpu.regs.pc);
       return -1;
     }
@@ -475,7 +475,7 @@ int cpu_call_routine(unsigned int addr)
 	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
 		describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
 	// Show upto 32 instructions prior to the infinite loop
-	show_recent_instructions("Instructions leading into the infinite loop for the first time",
+	show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
 				 cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
 	return -1;
       }
@@ -493,7 +493,7 @@ int cpu_call_routine(unsigned int addr)
   return 0;
 }
 
-int compare_ram_contents(void)
+int compare_ram_contents(FILE *f)
 {
   int errors=0;
   
@@ -508,7 +508,7 @@ int compare_ram_contents(void)
     }
   }
   if (errors) {
-    fprintf(stderr,"ERROR: %d memory locations contained unexpected values.\n",errors);
+    fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
   }
   return errors;
 }
@@ -564,6 +564,10 @@ int main(int argc,char **argv)
   fclose(f);
   printf("Read %d symbols.\n",hyppo_symbol_count);
 
+
+  // By default we log to stderr
+  FILE *logfile=stderr;
+  
   // Open test script, and start interpreting it 
   f=fopen(argv[3],"r");
   if (!f) {
@@ -584,22 +588,22 @@ int main(int argc,char **argv)
 	if (!strcmp(routine,hyppo_symbols[i].name)) break;
       }
       if (i==hyppo_symbol_count) {
-	fprintf(stderr,"ERROR: Cannot call non-existent routine '%s'\n",routine);
+	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
 	exit(-2);
       }
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
-      cpu_call_routine(hyppo_symbols[i].addr);
+      cpu_call_routine(logfile,hyppo_symbols[i].addr);
     }
     else if (sscanf(line,"call $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
-      cpu_call_routine(addr);
+      cpu_call_routine(logfile,addr);
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
-      compare_ram_contents();
+      compare_ram_contents(logfile);
     } else {
-      fprintf(stderr,"ERROR: Unrecognised test directive:\n       %s\n",line);
+      fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       exit(-2);
     }
   }
