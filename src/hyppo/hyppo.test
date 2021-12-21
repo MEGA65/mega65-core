@@ -1,2 +1,3 @@
 # Hypervisor test script
 call resetdisplay
+check ram
