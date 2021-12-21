@@ -52,6 +52,9 @@ struct regs {
 struct termination_conditions {
   // Indicates that execution has terminated
   int done;
+
+  // Indicates that an error was detected
+  int error;
   
   // Terminate when number of RTS (minus JSRs) is encountered
   int rts;
@@ -466,6 +469,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     cpulog[cpulog_len++]=log;
     
     if (execute_instruction(&cpu,log)) {
+      cpu.term.error=1;
       fprintf(stderr,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
 	      describe_address(cpu.regs.pc));
       show_recent_instructions(stderr,"Instructions leading up to the exception",
@@ -482,6 +486,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
       lastataddr[cpu.regs.pc]->count++;
       log->dup=1;
       if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
+	cpu.term.error=1;
 	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
 		describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
 	// Show upto 32 instructions prior to the infinite loop
@@ -493,6 +498,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     
   }
   if (cpulog_len==MAX_LOG_LENGTH) {
+    cpu.term.error=1;   
     fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
     exit(-2);
   }
@@ -503,7 +509,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   return 0;
 }
 
-int compare_ram_contents(FILE *f)
+int compare_ram_contents(FILE *f, struct cpu *cpu)
 {
   int errors=0;
   
@@ -520,6 +526,7 @@ int compare_ram_contents(FILE *f)
 
   if (errors) {
     fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
+    cpu->term.error=1;
     
     int displayed=0;
     
@@ -556,6 +563,100 @@ int compare_ram_contents(FILE *f)
   return errors;
 }
 
+// By default we log to stderr
+FILE *logfile=NULL;
+char logfilename[8192]="";
+#define TESTLOGFILE "/tmp/hyppotest.tmp"
+
+int test_passes=0;
+int test_fails=0;
+char test_name[1024]="unnamed test";
+char safe_name[1024]="unnamed_test";
+
+void machine_init(struct cpu *cpu)
+{
+  // Initialise CPU staet
+  bzero(cpu,sizeof(struct cpu));
+  cpu->regs.flags=FLAG_E|FLAG_I;
+  
+  // Clear chip RAM
+  bzero(chipram_before,CHIPRAM_SIZE);
+  // Clear Hypervisor RAM
+  bzero(hypporam_before,HYPPORAM_SIZE);
+
+  // Reset blame for contents of memory
+  bzero(chipram_blame,sizeof(chipram_blame));
+  bzero(hypporam_blame,sizeof(hypporam_blame));
+
+  // Reset loaded symbols
+  for(int i=0;i<hyppo_symbol_count;i++) {
+    free(hyppo_symbols[i].name);
+  }
+  hyppo_symbol_count=0;
+  
+  // Reset instruction logs
+  for(int i=0;i<cpulog_len;i++) {
+    free(cpulog[i]);
+  }
+  cpulog_len=0;
+  bzero(lastataddr,sizeof(lastataddr));
+}
+
+void test_init(struct cpu *cpu)
+{
+
+  machine_init(cpu);
+
+  // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
+  // after.
+  unlink(TESTLOGFILE);
+  logfile=fopen(TESTLOGFILE,"w");
+  if (!logfile) {
+    fprintf(stderr,"ERROR: Could not write to '%s'\n",TESTLOGFILE);
+    exit(-2);
+  }
+
+  {
+    for(int i=0;test_name[i];i++) {
+      if ((test_name[i]>='a'&&test_name[i]<='z')
+	  ||(test_name[i]>='A'&&test_name[i]<='Z')
+	  ||(test_name[i]>='0'&&test_name[i]<='9'))
+	safe_name[i]=test_name[i];
+      else safe_name[i]='_';
+    }
+    safe_name[strlen(test_name)]=0;
+  }
+
+  
+  // Show starting of test
+  printf("[    ] %s",test_name);
+  
+}
+
+void test_conclude(struct cpu *cpu)
+{
+
+  char cmd[8192];
+  if (logfile!=stderr) {
+    fclose(logfile);
+  }
+  
+  // Report test status
+  if (cpu->term.error) {
+    printf("\r[FAIL] %s\n",test_name);
+    snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
+    test_fails++;
+  } else {
+    printf("\r[PASS] %s\n",test_name);
+    snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
+    test_passes++;
+  }
+  if (logfile!=stderr) system(cmd);
+
+  logfile=stderr;
+}
+
+
 int main(int argc,char **argv)
 {
   if (argc!=4) {
@@ -563,13 +664,10 @@ int main(int argc,char **argv)
     exit(-2);
   }
 
-  // Initialise CPU staet
-  bzero(&cpu,sizeof(cpu));
-  cpu.regs.flags=FLAG_E|FLAG_I;
-  
-  // Clear chip RAM
-  bzero(chipram_before,CHIPRAM_SIZE);
-  
+  // Setup for anonymous tests, if user doesn't supply any test directives
+  machine_init(&cpu);
+  logfile=stderr;
+
   FILE *f=fopen(argv[1],"rb");
   if (!f) {
     fprintf(stderr,"ERROR: Could not read HICKUP file from '%s'\n",argv[1]);
@@ -607,10 +705,6 @@ int main(int argc,char **argv)
   fclose(f);
   printf("Read %d symbols.\n",hyppo_symbol_count);
 
-
-  // By default we log to stderr
-  FILE *logfile=stderr;
-  
   // Open test script, and start interpreting it 
   f=fopen(argv[3],"r");
   if (!f) {
@@ -644,11 +738,21 @@ int main(int argc,char **argv)
       cpu_call_routine(logfile,addr);
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
-      compare_ram_contents(logfile);
+      compare_ram_contents(logfile,&cpu);
+    }  else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
+      // Set test name
+      test_init(&cpu);
+      
+      fflush(stdout);
+
+      
+    } else if (!strncasecmp(line,"test end",strlen("test end"))) {
+      test_conclude(&cpu);	
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
-      exit(-2);
+      cpu.term.error=1;
     }
   }
+  test_conclude(&cpu);
   fclose(f);
 }
