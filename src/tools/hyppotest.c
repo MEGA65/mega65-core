@@ -255,7 +255,7 @@ void cpu_stash_ram(void)
   bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
 }
 
-unsigned char read_memory(unsigned int addr)
+unsigned char read_memory(struct cpu *cpu,unsigned int addr)
 {
   // XXX Should support banking etc. For now it is _really_ stupid.
   if (addr>=0x8000&&addr<0xc000) {
@@ -266,7 +266,7 @@ unsigned char read_memory(unsigned int addr)
   
 }
 
-int write_mem(unsigned int addr,unsigned char value)
+int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
   // XXX Should support banking etc. For now it is _really_ stupid.
   if (addr>=0x8000&&addr<0xc000) {
@@ -300,14 +300,14 @@ void update_nvzc(int v)
   // XXX - Do V calculation as well
 }
 
-#define MEM_WRITE(ADDR,VALUE) if (write_mem(ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
+#define MEM_WRITE(CPU,ADDR,VALUE) if (write_mem(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
 unsigned char stack_pop(struct cpu *cpu)
 {
   int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
   addr++;
   cpu->regs.spl++;
-  unsigned char c=read_memory(addr);
+  unsigned char c=read_memory(cpu,addr);
   if (!(addr&0xff)) {
     if (!(cpu->regs.flags&FLAG_E))
       cpu->regs.sph++;
@@ -321,7 +321,7 @@ unsigned char stack_pop(struct cpu *cpu)
 int stack_push(struct cpu *cpu,unsigned char v)
 {
   int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
-  MEM_WRITE(addr,v);
+  MEM_WRITE(cpu,addr,v);
   cpu->regs.spl--;
   if ((addr&0xff)==0xff) {
     if (!(cpu->regs.flags&FLAG_E))
@@ -336,15 +336,15 @@ int stack_push(struct cpu *cpu,unsigned char v)
 int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 {
   for(int i=0;i<6;i++) {
-    log->bytes[i]=read_memory(cpu->regs.pc+i);
+    log->bytes[i]=read_memory(cpu,cpu->regs.pc+i);
   }
   switch(log->bytes[0]) {
   case 0x1c: // TRB $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    int v=read_memory(addr_abs(log));
+    int v=read_memory(cpu,addr_abs(log));
     v&=~cpu->regs.a;
-    MEM_WRITE(addr_abs(log),v);
+    MEM_WRITE(cpu,addr_abs(log),v);
     update_nz(v);
     break;
   case 0x20: // JSR $nnnn
@@ -374,7 +374,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x8d: // STA $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(addr_abs(log),cpu->regs.a);
+    MEM_WRITE(cpu,addr_abs(log),cpu->regs.a);
     break;
   case 0xa9: // LDA #$nn
     cpu->regs.a=log->bytes[1];
@@ -385,7 +385,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0xad: // LDA $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    cpu->regs.a=read_memory(addr_abs(log));
+    cpu->regs.a=read_memory(cpu,addr_abs(log));
     update_nz(cpu->regs.a);
     break;
   default:
@@ -493,6 +493,26 @@ int cpu_call_routine(unsigned int addr)
   return 0;
 }
 
+int compare_ram_contents(void)
+{
+  int errors=0;
+  
+  for(int i=0;i<CHIPRAM_SIZE;i++) {
+    if (chipram[i]!=chipram_before[i]) {
+      errors++;
+    }
+  }
+  for(int i=0;i<HYPPORAM_SIZE;i++) {
+    if (hypporam[i]!=hypporam_before[i]) {
+      errors++;
+    }
+  }
+  if (errors) {
+    fprintf(stderr,"ERROR: %d memory locations contained unexpected values.\n",errors);
+  }
+  return errors;
+}
+
 int main(int argc,char **argv)
 {
   if (argc!=4) {
@@ -575,6 +595,9 @@ int main(int argc,char **argv)
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(addr);
+    }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
+      // Check RAM for changes
+      compare_ram_contents();
     } else {
       fprintf(stderr,"ERROR: Unrecognised test directive:\n       %s\n",line);
       exit(-2);
