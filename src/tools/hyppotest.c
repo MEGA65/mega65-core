@@ -655,34 +655,28 @@ void test_conclude(struct cpu *cpu)
   logfile=stderr;
 }
 
-
-int main(int argc,char **argv)
+int load_hyppo(char *filename)
 {
-  if (argc!=4) {
-    fprintf(stderr,"usage: hypertest <HICKUP.M65> <HICKUP.sym> <test script>\n");
-    exit(-2);
-  }
-
-  // Setup for anonymous tests, if user doesn't supply any test directives
-  machine_init(&cpu);
-  logfile=stderr;
-
-  FILE *f=fopen(argv[1],"rb");
+  FILE *f=fopen(filename,"rb");
   if (!f) {
-    fprintf(stderr,"ERROR: Could not read HICKUP file from '%s'\n",argv[1]);
-    exit(-2);
+    fprintf(logfile,"ERROR: Could not read HICKUP file from '%s'\n",filename);
+    return -1;
   }
   int b=fread(hypporam_before,1,HYPPORAM_SIZE,f);
   if (b!=HYPPORAM_SIZE) {
-    fprintf(stderr,"ERROR: Read only %d of %d bytes from HICKUP file.\n",b,HYPPORAM_SIZE);
-    exit(-2);
+    fprintf(logfile,"ERROR: Read only %d of %d bytes from HICKUP file.\n",b,HYPPORAM_SIZE);
+    return -1;
   }
   fclose(f);
+  return 0;
+}
 
-  f=fopen(argv[2],"r");
+int load_hyppo_symbols(char *filename)
+{
+  FILE *f=fopen(filename,"r");
   if (!f) {
-    fprintf(stderr,"ERROR: Could not read HICKUP symbol list from '%s'\n",argv[2]);
-    exit(-2);
+    fprintf(logfile,"ERROR: Could not read HICKUP symbol list from '%s'\n",filename);
+    return -1;
   }
   char line[1024];
   line[0]=0; fgets(line,1024,f);
@@ -691,8 +685,8 @@ int main(int argc,char **argv)
     int addr;
     if(sscanf(line," %s = $%x",sym,&addr)==2) {
       if (hyppo_symbol_count>=MAX_HYPPO_SYMBOLS) {
-	fprintf(stderr,"ERROR: Too many symbols. Increase MAX_HYPPO_SYMBOLS.\n");
-	exit(-2);
+	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_HYPPO_SYMBOLS.\n");
+	return -1;
       }
       hyppo_symbols[hyppo_symbol_count].name=strdup(sym);
       hyppo_symbols[hyppo_symbol_count].addr=addr;
@@ -702,14 +696,29 @@ int main(int argc,char **argv)
     line[0]=0; fgets(line,1024,f);
   }
   fclose(f);
-  printf("Read %d symbols.\n",hyppo_symbol_count);
+  fprintf(logfile,"INFO: Read %d HYPPO symbols.\n",hyppo_symbol_count);
+  return 0;
+}
+
+
+int main(int argc,char **argv)
+{
+  if (argc!=2) {
+    fprintf(stderr,"usage: hypertest <test script>\n");
+    exit(-2);
+  }
+
+  // Setup for anonymous tests, if user doesn't supply any test directives
+  machine_init(&cpu);
+  logfile=stderr;
 
   // Open test script, and start interpreting it 
-  f=fopen(argv[3],"r");
+  FILE *f=fopen(argv[1],"r");
   if (!f) {
     fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[3]);
     exit(-2);
   }
+  char line[1024];
   while(!feof(f)) {
     line[0]=0; fgets(line,1024,f);
     char routine[1024];
@@ -747,6 +756,10 @@ int main(int argc,char **argv)
       
     } else if (!strncasecmp(line,"test end",strlen("test end"))) {
       test_conclude(&cpu);	
+    } else if (sscanf(line,"loadhypposymbols %s",routine)==1) {
+      if (load_hyppo_symbols(routine)) cpu.term.error=1;
+    } else if (sscanf(line,"loadhyppo %s",routine)==1) {
+      if (load_hyppo(routine)) cpu.term.error=1;
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
