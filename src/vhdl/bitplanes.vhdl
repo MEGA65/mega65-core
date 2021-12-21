@@ -254,15 +254,15 @@ begin  -- behavioural
       bitplane_data_offsets <= bitplane_data_offsets_next;
 
       if bitplane_h640='1' then
-        v_x_in := x640_in;
+        v_x_in := x640_in + 1;
         v_bitplane_y_start := bitplane_y_start_h640;
         v_bitplane_x_start := bitplane_x_start_h640;
       elsif bitplane_h1280='1' then
-        v_x_in := x1280_in;
+        v_x_in := x1280_in + 1;
         v_bitplane_y_start := bitplane_y_start_h1820;
         v_bitplane_x_start := bitplane_x_start_h1280;
       else
-        v_x_in := x_in;
+        v_x_in := x_in + 1;
         v_bitplane_y_start := bitplane_y_start;
         v_bitplane_x_start := bitplane_x_start;
       end if;
