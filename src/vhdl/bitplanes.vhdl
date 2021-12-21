@@ -270,9 +270,9 @@ begin  -- behavioural
       end if;
 
       if (yfine_in mod 2) = 1 then
-        v_y_in := y_in + 1;
-      else
         v_y_in := y_in;
+      else
+        v_y_in := y_in + 1;
       end if;
 
       -- Pre-calculate some things to improve timing

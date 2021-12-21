@@ -949,6 +949,7 @@ begin
              is_background_out => is_background_0_bp,
              x320_out => x320_0_bp,
              x640_out => x640_0_bp,
+	     yfine_out => yfine_0_bp,
              y_out => y_0_bp,
              border_out => border_0_bp,
              alt_palette_out => alt_palette_0_bp,
