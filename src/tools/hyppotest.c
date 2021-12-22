@@ -171,6 +171,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   if (!log->len) return;
   switch(log->bytes[0]) {
   case 0x03: fprintf(f,"SEE"); break;
+  case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
   case 0x18: fprintf(f,"CLC"); break;
   case 0x1A: fprintf(f,"INC"); break;
@@ -190,11 +191,13 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x60: fprintf(f,"RTS"); break;
   case 0x68: fprintf(f,"PLA"); break;
   case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
+  case 0x6B: fprintf(f,"TZA"); break;
   case 0x78: fprintf(f,"SEI"); break;
   case 0x84: fprintf(f,"STY "); disassemble_zp(f,log); break;
   case 0x85: fprintf(f,"STA "); disassemble_zp(f,log); break;
   case 0x86: fprintf(f,"STX "); disassemble_zp(f,log); break;
   case 0x8A: fprintf(f,"TXA"); break;
+  case 0x8c: fprintf(f,"STY "); disassemble_abs(f,log); break;
   case 0x8d: fprintf(f,"STA "); disassemble_abs(f,log); break;
   case 0x8e: fprintf(f,"STX "); disassemble_abs(f,log); break;
   case 0x90: fprintf(f,"BCC "); disassemble_rel8(f,log); break;
@@ -202,6 +205,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x92: fprintf(f,"STA "); disassemble_izpz(f,log); break;
   case 0x99: fprintf(f,"STA "); disassemble_absy(f,log); break;
   case 0x9A: fprintf(f,"TXS"); break;
+  case 0x9C: fprintf(f,"STZ "); disassemble_abs(f,log); break;
   case 0x9d: fprintf(f,"STA "); disassemble_absx(f,log); break;
   case 0xa0: fprintf(f,"LDY "); disassemble_imm(f,log); break;
   case 0xa2: fprintf(f,"LDX "); disassemble_imm(f,log); break;
@@ -489,6 +493,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x09: // ORA #$nn
+    cpu->regs.a|=log->bytes[1];
+    update_nz(cpu->regs.a);
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
   case 0x0c: // TSB $xxxx
     log->len=3;
     cpu->regs.pc+=3;
@@ -608,6 +618,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=2;
     cpu->regs.pc+=2;
     break;
+  case 0x6B: // TZA
+    cpu->regs.a=cpu->regs.z;
+    update_nz(cpu->regs.a);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x78: // SEI
     cpu->regs.flags|=FLAG_I;
     cpu->regs.pc++;
@@ -633,6 +649,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     update_nz(cpu->regs.a);
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0x8c: // STY $xxxx
+    log->len=3;
+    cpu->regs.pc+=3;
+    MEM_WRITE(cpu,addr_abs(log),cpu->regs.y);
     break;
   case 0x8d: // STA $xxxx
     log->len=3;
@@ -670,6 +691,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.spl=cpu->regs.x;
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0x9c: // STZ $xxxx
+    log->len=3;
+    cpu->regs.pc+=3;
+    MEM_WRITE(cpu,addr_abs(log),cpu->regs.z);
     break;
   case 0x9d: // STA $xxxx,X
     log->len=3;
@@ -939,7 +965,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 
 #define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
-#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%04X instead of $%04X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu_before.regs.Reg),cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
 int compare_register_contents(FILE *f, struct cpu *cpu)
 {
