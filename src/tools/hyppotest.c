@@ -107,6 +107,17 @@ int cpulog_len=0;
 
 instruction_log *lastataddr[65536]={NULL};
 
+int rel8_delta(unsigned char c)
+{
+  if (c<0x80) return c;
+  return c-0x100;
+}
+
+void disassemble_rel8(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"$%04X",log->pc+1+rel8_delta(log->bytes[1]));
+}
+
 void disassemble_imm(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"#$%02X",log->bytes[1]);
@@ -125,25 +136,32 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   switch(log->bytes[0]) {
   case 0x03: fprintf(f,"SEE"); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
+  case 0x18: fprintf(f,"CLC"); break;
   case 0x1c: fprintf(f,"TRB "); disassemble_abs(f,log); break;
   case 0x20: fprintf(f,"JSR "); disassemble_abs(f,log); break;
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
   case 0x40: fprintf(f,"RTI"); break;
+  case 0x4C: fprintf(f,"JMP "); disassemble_abs(f,log); break;
   case 0x5b: fprintf(f,"TAB"); break;
   case 0x5c: fprintf(f,"MAP"); break;
   case 0x60: fprintf(f,"RTS"); break;
+  case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
   case 0x78: fprintf(f,"SEI"); break;
   case 0x8A: fprintf(f,"TXA"); break;
   case 0x8d: fprintf(f,"STA "); disassemble_abs(f,log); break;
   case 0x8e: fprintf(f,"STX "); disassemble_abs(f,log); break;
+  case 0x90: fprintf(f,"BCC "); disassemble_rel8(f,log); break;
   case 0x9A: fprintf(f,"TXS"); break;
   case 0xa0: fprintf(f,"LDY "); disassemble_imm(f,log); break;
   case 0xa2: fprintf(f,"LDX "); disassemble_imm(f,log); break;
   case 0xa3: fprintf(f,"LDZ "); disassemble_imm(f,log); break;
   case 0xa9: fprintf(f,"LDA "); disassemble_imm(f,log); break;
+  case 0xAA: fprintf(f,"TAX"); break;
   case 0xad: fprintf(f,"LDA "); disassemble_abs(f,log); break;
+  case 0xd0: fprintf(f,"BNE "); disassemble_rel8(f,log); break;
   case 0xD8: fprintf(f,"CLD"); break;
+  case 0xE8: fprintf(f,"INX"); break;
   case 0xea: fprintf(f,"EOM"); break;
   }
   
@@ -375,6 +393,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     MEM_WRITE(cpu,addr_abs(log),v);
     update_nz(v);
     break;
+  case 0x18: // CLC
+    cpu->regs.flags&=~FLAG_C;
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x1c: // TRB $xxxx
     log->len=3;
     cpu->regs.pc+=3;
@@ -400,6 +423,10 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x4c: // JMP $nnnn
+    cpu->regs.pc=addr_abs(log);
+    log->len=3;
+    break;
   case 0x5b: // TAB
     cpu->regs.b=cpu->regs.a;
     cpu->regs.pc++;
@@ -423,6 +450,16 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc|=stack_pop(cpu)<<8;
     cpu->regs.pc++;
     break;
+  case 0x69: // ADC #$nn
+    // XXX - Ignores decimal mode!
+    v=cpu->regs.a+log->bytes[1];
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    cpu->regs.a=v;
+    cpu->regs.a&=0xff;
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
   case 0x78: // SEI
     cpu->regs.flags|=FLAG_I;
     cpu->regs.pc++;
@@ -443,6 +480,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=3;
     cpu->regs.pc+=3;
     MEM_WRITE(cpu,addr_abs(log),cpu->regs.x);
+    break;
+  case 0x90: // BCC $rr
+    log->len=2;
+    if (cpu->regs.flags&FLAG_C)
+      cpu->regs.pc+=2;
+    else
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     break;
   case 0x9a: // TXS
     cpu->regs.spl=cpu->regs.x;
@@ -473,14 +517,33 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=2;
     cpu->regs.pc+=2;
     break;
+  case 0xaa: // TAX
+    cpu->regs.x=cpu->regs.a;
+    update_nz(cpu->regs.x);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0xad: // LDA $xxxx
     log->len=3;
     cpu->regs.pc+=3;
     cpu->regs.a=read_memory(cpu,addr_abs(log));
     update_nz(cpu->regs.a);
     break;
+  case 0xd0: // BNE $rr
+    log->len=2;
+    if (cpu->regs.flags&FLAG_Z)
+      cpu->regs.pc+=2;
+    else
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    break;
   case 0xD8: // CLD
     cpu->regs.flags&=~FLAG_D;
+    cpu->regs.pc++;
+    log->len=1;
+    break;
+  case 0xE8: // INX
+    cpu->regs.x++;
+    update_nz(cpu->regs.x);
     cpu->regs.pc++;
     log->len=1;
     break;
@@ -745,19 +808,18 @@ void test_conclude(struct cpu *cpu)
   snprintf(cmd,8192,"PASS.%s",safe_name); unlink(cmd);
   
   if (cpu->term.error) {
-    printf("\r[FAIL] %s\n",test_name);
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
     show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
     fprintf(logfile,"FAIL: Test failed.\n");
+    printf("\r[FAIL] %s\n",test_name);
   } else {
-    printf("\r[PASS] %s\n",test_name);
     snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
     test_passes++;
 
     show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
     fprintf(logfile,"PASS: Test passed.\n");
-    
+    printf("\r[PASS] %s\n",test_name);    
   }
 
   if (logfile!=stderr) {
