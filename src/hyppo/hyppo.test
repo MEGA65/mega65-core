@@ -16,5 +16,6 @@ expect $80 at $D06F
 expect $FF at $DD00
 expect $FF at $DD01
 check ram
+check registers
 test end
 

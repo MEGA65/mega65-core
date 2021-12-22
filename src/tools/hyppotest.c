@@ -520,6 +520,24 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   return 0;
 }
 
+#define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+
+#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%04X instead of $%04X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+
+int compare_register_contents(FILE *f, struct cpu *cpu)
+{
+  COMPARE_REG("A",a);
+  COMPARE_REG("X",x);
+  COMPARE_REG("Y",y);
+  COMPARE_REG("Z",z);
+  COMPARE_REG("B",b);
+  COMPARE_REG("SPL",spl);
+  COMPARE_REG("SPH",sph);
+  COMPARE_REG16("PC",pc);
+
+  return cpu->term.error;
+}
+
 int compare_ram_contents(FILE *f, struct cpu *cpu)
 {
   int errors=0;
@@ -579,6 +597,9 @@ void machine_init(struct cpu *cpu)
   // Initialise CPU staet
   bzero(cpu,sizeof(struct cpu));
   cpu->regs.flags=FLAG_E|FLAG_I;
+
+  bzero(&cpu_before,sizeof(struct cpu));
+  cpu_before.regs.flags=FLAG_E|FLAG_I;
   
   // Clear chip RAM
   bzero(chipram_before,CHIPRAM_SIZE);
@@ -792,6 +813,9 @@ int main(int argc,char **argv)
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(logfile,addr);
+    }  else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
+      // Check registers for changes
+      compare_register_contents(logfile,&cpu);
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);
