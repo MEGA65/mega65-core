@@ -15,6 +15,7 @@ expect $C0 at $D05D
 expect $80 at $D06F
 expect $FF at $DD00
 expect $FF at $DD01
+expect $A9 at resetdisplay
 expect pc = $0001
 expect spl = $01
 check ram

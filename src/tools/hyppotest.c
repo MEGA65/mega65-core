@@ -573,7 +573,7 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     }
     for(int i=0;i<HYPPORAM_SIZE;i++) {
       if (hypporam[i]!=hypporam_before[i]) {
-	fprintf(f,"ERROR: Saw $%02x at %s, but expected to see $%02x\n",
+	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02x\n",
 		hypporam[i],describe_address(i+0x8000),hypporam_before[i]);
 	int first_instruction=hypporam_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
@@ -736,7 +736,7 @@ int resolve_value(char *in)
 {
   int v;
   char label[1024];
-  int delta;
+  int delta=0;
   
   // Hex is the easy case
   if (sscanf(in,"$%x",&v)==1) return v;
