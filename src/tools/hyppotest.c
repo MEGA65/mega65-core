@@ -831,6 +831,21 @@ int main(int argc,char **argv)
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
+    } else if (sscanf(line,"expect %s = %s",location,value)==2) {
+      // Set expected register value
+      if (!strcasecmp(location,"a")) cpu_before.regs.a=resolve_value(value);
+      else if (!strcasecmp(location,"a")) cpu_before.regs.a=resolve_value(value);
+      else if (!strcasecmp(location,"x")) cpu_before.regs.x=resolve_value(value);
+      else if (!strcasecmp(location,"y")) cpu_before.regs.y=resolve_value(value);
+      else if (!strcasecmp(location,"z")) cpu_before.regs.z=resolve_value(value);
+      else if (!strcasecmp(location,"b")) cpu_before.regs.b=resolve_value(value);
+      else if (!strcasecmp(location,"spl")) cpu_before.regs.spl=resolve_value(value);
+      else if (!strcasecmp(location,"sph")) cpu_before.regs.sph=resolve_value(value);
+      else if (!strcasecmp(location,"pc")) cpu_before.regs.pc=resolve_value(value);
+      else {
+	fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
+	cpu.term.error=1;
+      }
     } else if (sscanf(line,"expect %s at %s",value,location)==2) {
       // Update *_before[] memories to indicate the value we expect where.
       // Resolve labels and label+offset and $nn in each of the fields.
