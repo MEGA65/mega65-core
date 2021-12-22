@@ -147,6 +147,7 @@ architecture behavioural of bitplanes is
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
   signal x_in_bitplanes : std_logic := '0';
+  signal x_in_bitplanes_drive : std_logic := '0';
   signal last_x_in_bitplanes : std_logic := '0';
   signal bitplane_drawing : std_logic := '0';
   signal bitplane_drawing_next : std_logic := '0';
@@ -398,7 +399,7 @@ begin  -- behavioural
       if v_x_in = (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))))
         and (y_top='1' or bitplane_drawing='1') then
         x_left <= '1';
-        x_in_bitplanes <= '1';
+        x_in_bitplanes_drive <= '1';
         if (v_x_in /= x_last) then
           bitplanes_advance_pixel <= "11111111";
         end if;
@@ -409,22 +410,23 @@ begin  -- behavioural
 
       if bitplane_h640 = '1' and bitplane_h1280 = '1' then
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
-          x_in_bitplanes <= '0';
+          x_in_bitplanes_drive <= '0';
         end if;
       elsif bitplane_h640 = '1' then
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
-          x_in_bitplanes <= '0';
+          x_in_bitplanes_drive <= '0';
         end if;
       elsif bitplane_h1280 = '1' then
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
-          x_in_bitplanes <= '0';
+          x_in_bitplanes_drive <= '0';
         end if;
       else
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
-          x_in_bitplanes <= '0';
+          x_in_bitplanes_drive <= '0';
         end if;
       end if;
       -- Clear bitplane byte numbers at the end of each raster
+      x_in_bitplanes <= x_in_bitplanes_drive;
       last_x_in_bitplanes <= x_in_bitplanes;
       if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
         report "Hit right border. Flushing buffered bytes in all bitplanes";
