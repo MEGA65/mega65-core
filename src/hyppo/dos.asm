@@ -1910,17 +1910,20 @@ dos_return_error_already_set:
 ;;         ========================
 
 dos_set_current_disk:
-
+	
         ;; Is disk number valid?
         ;;
         ;; INPUT: .X = disk
         ;;
-        lda #dos_errorcode_no_such_disk
-        sta dos_error_code
 
         cpx dos_disk_count
-        bcc +
-        jmp partitionerror        ;; BG shouldnt this be bmi?
+        bcc + 			; Should this be BCC or BMI?
+
+        lda #dos_errorcode_no_such_disk
+        sta dos_error_code
+	clc
+	rts
+	
 +
         stx dos_disk_current_disk
         txa
@@ -1959,9 +1962,13 @@ dos_cdroot:
         ;; INPUT: .X = disk
 
         jsr dos_set_current_disk
-        bcc dos_return_error_already_set
+        bcs dos_cdroot_current_disk_already_set
 
-dos_cdroot_current_disk_arleady_set:
+	;; Could not set disk. Error will be already set
+	clc
+	rts	
+
+dos_cdroot_current_disk_already_set:
 
         ;; get offset of disk entry
         ;;
@@ -2226,7 +2233,7 @@ dcd2:	ora dos_disk_cwd_cluster,x
 	bne @nonZeroCluster
 
 	;; Is cluster 0, so change to root directory
-	jmp dos_cdroot_current_disk_arleady_set
+	jmp dos_cdroot_current_disk_already_set
 	
 @nonZeroCluster:
 	;; Return success
