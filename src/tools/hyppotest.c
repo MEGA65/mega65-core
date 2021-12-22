@@ -17,6 +17,7 @@ int test_fails=0;
 char test_name[1024]="unnamed test";
 char safe_name[1024]="unnamed_test";
 
+unsigned char breakpoints[65536];
 
 #define CHIPRAM_SIZE (384*1024)
 #define HYPPORAM_SIZE (16*1024)
@@ -321,6 +322,7 @@ unsigned char stack_pop(struct cpu *cpu)
   addr++;
   cpu->regs.spl++;
   unsigned char c=read_memory(cpu,addr);
+  //  fprintf(logfile,"NOTE: Popping $%02X from the stack\n",c);
   if (!(addr&0xff)) {
     if (!(cpu->regs.flags&FLAG_E))
       cpu->regs.sph++;
@@ -333,6 +335,7 @@ unsigned char stack_pop(struct cpu *cpu)
 
 int stack_push(struct cpu *cpu,unsigned char v)
 {
+  //  fprintf(logfile,"NOTE: Pushing $%02X onto the stack\n",v);
   int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
   MEM_WRITE(cpu,addr,v);
   cpu->regs.spl--;
@@ -349,6 +352,12 @@ int stack_push(struct cpu *cpu,unsigned char v)
 int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 {
   int v;
+
+  if (breakpoints[cpu->regs.pc]) {
+    fprintf(logfile,"INFO: Breakpoint at $%04x triggered.\n",cpu->regs.pc);
+    cpu->term.done=1;
+  }
+  
   for(int i=0;i<6;i++) {
     log->bytes[i]=read_memory(cpu,cpu->regs.pc+i);
   }
@@ -375,8 +384,8 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     update_nz(v);
     break;
   case 0x20: // JSR $nnnn
-    stack_push(cpu,cpu->regs.pc+2);
     stack_push(cpu,(cpu->regs.pc+2)>>8);
+    stack_push(cpu,cpu->regs.pc+2);
     cpu->regs.pc=addr_abs(log);
     log->len=3;
     break;
@@ -406,7 +415,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     if (cpu->term.rts) {
       cpu->term.rts--;
       if (!cpu->term.rts) {
-	fprintf(logfile,"NOTE: Terminating via RTS\n");
+	fprintf(logfile,"INFO: Terminating via RTS\n");
 	cpu->term.done=1;
       }
     }
@@ -668,6 +677,8 @@ void machine_init(struct cpu *cpu)
   bzero(cpu,sizeof(struct cpu));
   cpu->regs.flags=FLAG_E|FLAG_I;
 
+  bzero(breakpoints,sizeof(breakpoints));
+  
   bzero(&cpu_before,sizeof(struct cpu));
   cpu_before.regs.flags=FLAG_E|FLAG_I;
   
@@ -865,7 +876,7 @@ int main(int argc,char **argv)
     if (line[0]=='#') continue;
     if (line[0]=='\r') continue;
     if (line[0]=='\n') continue;
-    if (sscanf(line,"call %s",routine)==1) {
+    if (sscanf(line,"jsr %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
 	if (!strcmp(routine,hyppo_symbols[i].name)) break;
@@ -879,9 +890,27 @@ int main(int argc,char **argv)
 	cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
     }
-    else if (sscanf(line,"call $%x",&addr)==1) {
+    else if (sscanf(line,"jsr $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
+      cpu_call_routine(logfile,addr);
+    } else if (sscanf(line,"jmp %s",routine)==1) {
+      int i;
+      cpu.term.rts=0;
+      for(i=0;i<hyppo_symbol_count;i++) {
+	if (!strcmp(routine,hyppo_symbols[i].name)) break;
+      }
+      if (i==hyppo_symbol_count) {
+	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
+	cpu.term.error=1;
+      } else {
+	bzero(&cpu.term,sizeof(cpu.term));
+	cpu_call_routine(logfile,hyppo_symbols[i].addr);
+      }
+    }
+    else if (sscanf(line,"jmp $%x",&addr)==1) {
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
     }  else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
       // Check registers for changes
@@ -901,6 +930,9 @@ int main(int argc,char **argv)
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
+    } else if (sscanf(line,"breakpoint %s",routine)==1) {
+      breakpoints[resolve_value(routine)]=1;
+      fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,resolve_value(routine));
     } else if (sscanf(line,"expect %s = %s",location,value)==2) {
       // Set expected register value
       if (!strcasecmp(location,"a")) cpu_before.regs.a=resolve_value(value);
