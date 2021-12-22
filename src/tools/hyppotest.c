@@ -475,7 +475,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 
   if (breakpoints[cpu->regs.pc]) {
     fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
-	    describe_address(cpu->regs.pc),
+	    describe_address_label(cpu->regs.pc),
 	    cpu->regs.pc);
     cpu->term.done=1;
   }
