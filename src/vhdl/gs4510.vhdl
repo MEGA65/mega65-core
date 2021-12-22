@@ -898,6 +898,7 @@ architecture Behavioural of gs4510 is
     B16TakeBranch,
     InnXReadVectorLow,
     InnXReadVectorHigh,
+    InnSPYReadVectorSetup,
     InnSPYReadVectorLow,
     InnSPYReadVectorHigh,
     InnYReadVectorLow,
@@ -7225,8 +7226,9 @@ begin
                   when M_InnSPY =>
                     temp_addr :=  to_unsigned(to_integer(reg_arg1)
                                               +to_integer(reg_sph&reg_sp),16);
-                    reg_addr <= temp_addr + 1;
-                    state <= InnSPYReadVectorLow;
+                    reg_addr <= temp_addr;
+                    report "InnSPY: temp_addr=$" & to_hstring(temp_addr);
+                    state <= InnSPYReadVectorSetup;
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
                     reg_t_high <= memory_read_value;
@@ -7320,10 +7322,15 @@ begin
                                         -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
               end if;
+            when InnSPYReadVectorSetup =>
+              state <= InnSPYReadVectorLow;
+              reg_addr <= reg_addr + 1;
             when InnSPYReadVectorLow =>
+              report "InnSPY: memory_read_value=$" & to_hstring(memory_read_value);
               reg_addr(7 downto 0) <= memory_read_value;
               state <= InnSPYReadVectorHigh;
             when InnSPYReadVectorHigh =>
+              report "InnSPY: memory_read_value=$" & to_hstring(memory_read_value);
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
                             + to_integer(reg_y),16);
@@ -9213,6 +9220,12 @@ begin
             memory_access_read := '0';
             memory_access_write := '0';
           end if;
+        when InnSPYReadVectorSetup =>
+          memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnSPYReadVectorSetup ($"
+            & to_hstring(reg_addr) & ").";
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
         when InnSPYReadVectorLow =>
           memory_access_read := '1';
           report "MEMORY Setting memory_access_address for InnSPYReadVectorLow ($"
