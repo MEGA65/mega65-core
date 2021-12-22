@@ -36,6 +36,11 @@ test end
 # entry point.
 #
 ####################################################################
+
+#
+# On first boot, we should try to run the flash menu
+#
+
 test "reset_entry calls launch_flash_menu on first boot"
 # Stop whichever way it goes
 loadhyppo bin/HICKUP.M65
@@ -51,6 +56,53 @@ expect pc = launch_flash_menu
 expect B = $bf
 # We don't really care about the following registers, but we need to
 # give their expected values to avoid false positives
+expect y = $25
+expect z = $3f
+check registers
+test end
+
+#
+# But on subsequent boots, it should bypass it.
+#
+
+test "reset_entry calls doesn't call launch_flash_menu on subsequent boots"
+# Stop whichever way it goes
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+
+# Make the hypervisor think we have finished booting
+breakpoint go64_exit_hypervisor
+jmp go64
+
+# Check that the instruction was mutated
+expect $4c at first_boot_flag_instruction
+# And silence errors for things we expect
+expect $FF at hypervisor_spl
+expect $01 at hypervisor_sph
+expect $1B at $D011
+expect $C8 at $D016
+expect $14 at $D018
+expect $E5 at $D054
+expect $28 at $D058
+expect $C0 at $D05D
+expect $00 at $D06F
+expect $FF at $DD00
+expect $FF at $DD01
+check ram
+
+# Then pretend we have reset again, and see which way it goes
+# Address of instruction that follows BIT/JMP that decides if it
+# will get executed or not
+breakpoint try_flash_menu+3
+# Address that will have been jumped to if we are not running the
+# flash menu
+breakpoint dont_launch_flash_menu
+jmp reset_entry
+expect pc = dont_launch_flash_menu
+expect B = $bf
+# We don't really care about the following registers, but we need to
+# give their expected values to avoid false positives
+expect x = $00
 expect y = $25
 expect z = $3f
 check registers

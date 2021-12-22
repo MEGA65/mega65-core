@@ -2080,6 +2080,7 @@ g61:    sta $0800,x
         ;; as 512 usec.
         jsr reset_cartridge
 
+go64_exit_hypervisor:	
         ;; exit from hypervisor to start machine
         sta hypervisor_enterexit_trigger
 
