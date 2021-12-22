@@ -844,24 +844,7 @@ gotmbr:
 @thereIsADisk:
 
         ;; Go to root directory on default disk
-        ;;
-        ldx dos_default_disk
-        jsr dos_cdroot
-        bcs mountsystemdiskok
-
-        ;; failed
-        ;;
-        ldx #<msg_cdrootfailed
-        ldy #>msg_cdrootfailed
-        jsr printmessage
-        ldy #$00
-        ldz dos_error_code
-        jsr printhex
-
-        +Checkpoint "FAILED CDROOT"
-        ;;
-        ;; BG: should probably JMP to reset or something, and not fall through
-
+        jsr cdroot_and_complain_if_fails
 
 mountsystemdiskok:
 
@@ -1052,6 +1035,28 @@ nohickup:
 ;;                 ldy #>msg_nohickup
 ;;                 jsr printmessage
 
+cdroot_and_complain_if_fails:
+	
+        ldx dos_default_disk
+        jsr dos_cdroot
+        bcs @cdroot_ok
+
+        ;; failed
+        ;;
+        ldx #<msg_cdrootfailed
+        ldy #>msg_cdrootfailed
+        jsr printmessage
+        ldy #$00
+        ldz dos_error_code
+        jsr printhex
+	sec
+	rts
+
+        +Checkpoint "FAILED CDROOT"
+@cdroot_ok:
+	clc
+	rts
+	
 posthickup:
 
         ;; MILESTONE: Have file system properties.
@@ -1077,11 +1082,7 @@ f011Virtualised:
 
         ;; Go to root directory on default disk
         ;;
-        ldx dos_default_disk
-        jsr dos_cdroot
-        bcs @notSDCardError
-        jmp sdcarderror
-@notSDCardError:
+	jsr cdroot_and_complain_if_fails
 
         ;; Re-set virtual screen row length after touching $D06F
         lda #80
