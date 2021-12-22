@@ -1,8 +1,12 @@
 # Hypervisor test script
 
+####################################################################
+#
 # First a very simple test, where we just make sure that
 # memory locations get set, and register values are correct
 # at the end.
+#
+####################################################################
 test "Reset display correctly sets VIC-IV registers"
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
@@ -26,9 +30,12 @@ check ram
 check registers
 test end
 
+####################################################################
+#
 # Now let's start testing things more seriously, beginning with the reset
 # entry point.
-
+#
+####################################################################
 test "reset_entry calls launch_flash_menu on first boot"
 # Stop whichever way it goes
 loadhyppo bin/HICKUP.M65
@@ -41,5 +48,10 @@ breakpoint try_flash_menu+3
 breakpoint dont_launch_flash_menu
 jmp reset_entry
 expect pc = launch_flash_menu
+expect B = $bf
+# We don't really care about the following registers, but we need to
+# give their expected values to avoid false positives
+expect y = $25
+expect z = $3f
 check registers
 test end
