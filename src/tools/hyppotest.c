@@ -128,6 +128,16 @@ void disassemble_abs(FILE *f,struct instruction_log *log)
   fprintf(f,"$%02X%02X",log->bytes[2],log->bytes[1]);
 }
 
+void disassemble_absx(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"$%02X%02X,X",log->bytes[2],log->bytes[1]);
+}
+
+void disassemble_absy(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"$%02X%02X,Y",log->bytes[2],log->bytes[1]);
+}
+
 
 void disassemble_instruction(FILE *f,struct instruction_log *log)
 {
@@ -137,10 +147,13 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x03: fprintf(f,"SEE"); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
   case 0x18: fprintf(f,"CLC"); break;
+  case 0x1A: fprintf(f,"INC"); break;
   case 0x1c: fprintf(f,"TRB "); disassemble_abs(f,log); break;
   case 0x20: fprintf(f,"JSR "); disassemble_abs(f,log); break;
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
+  case 0x38: fprintf(f,"SEC"); break;
+  case 0x3A: fprintf(f,"DEC"); break;
   case 0x40: fprintf(f,"RTI"); break;
   case 0x4C: fprintf(f,"JMP "); disassemble_abs(f,log); break;
   case 0x5b: fprintf(f,"TAB"); break;
@@ -152,17 +165,24 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x8d: fprintf(f,"STA "); disassemble_abs(f,log); break;
   case 0x8e: fprintf(f,"STX "); disassemble_abs(f,log); break;
   case 0x90: fprintf(f,"BCC "); disassemble_rel8(f,log); break;
+  case 0x99: fprintf(f,"STA "); disassemble_absy(f,log); break;
   case 0x9A: fprintf(f,"TXS"); break;
+  case 0x9d: fprintf(f,"STA "); disassemble_absx(f,log); break;
   case 0xa0: fprintf(f,"LDY "); disassemble_imm(f,log); break;
   case 0xa2: fprintf(f,"LDX "); disassemble_imm(f,log); break;
   case 0xa3: fprintf(f,"LDZ "); disassemble_imm(f,log); break;
   case 0xa9: fprintf(f,"LDA "); disassemble_imm(f,log); break;
   case 0xAA: fprintf(f,"TAX"); break;
   case 0xad: fprintf(f,"LDA "); disassemble_abs(f,log); break;
+  case 0xB0: fprintf(f,"BCS "); disassemble_rel8(f,log); break;
+  case 0xC0: fprintf(f,"CPY "); disassemble_imm(f,log); break;
+  case 0xC8: fprintf(f,"INY"); break;
+  case 0xC9: fprintf(f,"CMP "); disassemble_imm(f,log); break;
   case 0xd0: fprintf(f,"BNE "); disassemble_rel8(f,log); break;
   case 0xD8: fprintf(f,"CLD"); break;
   case 0xE8: fprintf(f,"INX"); break;
   case 0xea: fprintf(f,"EOM"); break;
+  case 0xf0: fprintf(f,"BEQ "); disassemble_rel8(f,log); break;
   }
   
 }
@@ -314,6 +334,16 @@ unsigned int addr_abs(struct instruction_log *log)
   return log->bytes[1]+(log->bytes[2]<<8);
 }
 
+unsigned int addr_absx(struct cpu *cpu,struct instruction_log *log)
+{
+  return (log->bytes[1]+(log->bytes[2]<<8)+cpu->regs.x)&0xffff;
+}
+
+unsigned int addr_absy(struct cpu *cpu,struct instruction_log *log)
+{
+  return (log->bytes[1]+(log->bytes[2]<<8)+cpu->regs.y)&0xffff;
+}
+
 
 void update_nz(unsigned char v)
 {
@@ -398,6 +428,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x1A: // INC A
+    cpu->regs.a++;
+    update_nz(cpu->regs.a);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x1c: // TRB $xxxx
     log->len=3;
     cpu->regs.pc+=3;
@@ -420,6 +456,17 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     break;
   case 0x2b: // TYS
     cpu->regs.sph=cpu->regs.y;
+    cpu->regs.pc++;
+    log->len=1;
+    break;
+  case 0x38: // SEC
+    cpu->regs.flags|=FLAG_C;
+    cpu->regs.pc++;
+    log->len=1;
+    break;
+  case 0x3A: // DEC A
+    cpu->regs.a--;
+    update_nz(cpu->regs.a);
     cpu->regs.pc++;
     log->len=1;
     break;
@@ -488,10 +535,20 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     else
       cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     break;
+  case 0x99: // STA $xxxx,Y
+    log->len=3;
+    cpu->regs.pc+=3;
+    MEM_WRITE(cpu,addr_absy(cpu,log),cpu->regs.a);
+    break;
   case 0x9a: // TXS
     cpu->regs.spl=cpu->regs.x;
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0x9d: // STA $xxxx,X
+    log->len=3;
+    cpu->regs.pc+=3;
+    MEM_WRITE(cpu,addr_absx(cpu,log),cpu->regs.a);
     break;
   case 0xa0: // LDY #$nn
     cpu->regs.y=log->bytes[1];
@@ -529,6 +586,33 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.a=read_memory(cpu,addr_abs(log));
     update_nz(cpu->regs.a);
     break;
+  case 0xB0: // BCS $rr
+    log->len=2;
+    if (cpu->regs.flags&FLAG_C)
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    else
+      cpu->regs.pc+=2;
+    break;
+  case 0xC0: // CPY #$nn
+    v=cpu->regs.y+log->bytes[1];
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
+  case 0xC8: // INY
+    cpu->regs.y++;
+    update_nz(cpu->regs.y);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
+  case 0xC9: // CMP #$nn
+    v=cpu->regs.a+log->bytes[1];
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
   case 0xd0: // BNE $rr
     log->len=2;
     if (cpu->regs.flags&FLAG_Z)
@@ -550,6 +634,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0xea: // EOM / NOP
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0xf0: // BEQ $rr
+    log->len=2;
+    if (cpu->regs.flags&FLAG_Z)
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    else
+      cpu->regs.pc+=2;
     break;
   default:
     fprintf(stderr,"ERROR: Unimplemented opcode $%02X\n",log->bytes[0]);
