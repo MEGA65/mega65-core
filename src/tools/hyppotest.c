@@ -4,8 +4,52 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+struct regs {
+  unsigned int pc;
+  unsigned char a;
+  unsigned char x;
+  unsigned char y;
+  unsigned char z;
+  unsigned char flags;
+  unsigned char b;
+  unsigned char sph;
+  unsigned char spl;
+  unsigned char in_hyper;
+};
+
+struct termination_conditions {
+  // Indicates that execution has terminated
+  int done;
+
+  // Indicates that an error was detected
+  int error;
+  
+  // Terminate when number of RTS (minus JSRs) is encountered
+  int rts;
+};
+
+
+struct cpu {
+  unsigned int instruction_count;
+  struct regs regs;
+  struct termination_conditions term;
+  unsigned char stack_overflow;
+  unsigned char stack_underflow;
+};
+
+#define FLAG_N 0x80
+#define FLAG_V 0x40
+#define FLAG_E 0x20
+#define FLAG_D 0x08
+#define FLAG_I 0x04
+#define FLAG_Z 0x02
+#define FLAG_C 0x01
+
+
 char *describe_address(unsigned int addr);
-char *describe_address_label(unsigned int addr);
+char *describe_address_label(struct cpu *cpu,unsigned int addr);
+char *describe_address_label28(struct cpu *cpu,unsigned int addr);
+unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP);
 
 // By default we log to stderr
 FILE *logfile=NULL;
@@ -50,46 +94,6 @@ typedef struct hyppo_symbol {
 hyppo_symbol *sym_by_addr[65536]={NULL};
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
-
-struct regs {
-  unsigned int pc;
-  unsigned char a;
-  unsigned char x;
-  unsigned char y;
-  unsigned char z;
-  unsigned char flags;
-  unsigned char b;
-  unsigned char sph;
-  unsigned char spl;
-  unsigned char in_hyper;
-};
-
-struct termination_conditions {
-  // Indicates that execution has terminated
-  int done;
-
-  // Indicates that an error was detected
-  int error;
-  
-  // Terminate when number of RTS (minus JSRs) is encountered
-  int rts;
-};
-
-struct cpu {
-  unsigned int instruction_count;
-  struct regs regs;
-  struct termination_conditions term;
-  unsigned char stack_overflow;
-  unsigned char stack_underflow;
-};
-
-#define FLAG_N 0x80
-#define FLAG_V 0x40
-#define FLAG_E 0x20
-#define FLAG_D 0x08
-#define FLAG_I 0x04
-#define FLAG_Z 0x02
-#define FLAG_C 0x01
 
 struct cpu cpu;
 struct cpu cpu_before;
@@ -239,7 +243,9 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   
 }
 
-int show_recent_instructions(FILE *f,char *title,int first_instruction, int count,
+int show_recent_instructions(FILE *f,char *title,
+			     struct cpu *cpu,
+			     int first_instruction, int count,
 			     unsigned int highlight_address)
 {
   int last_was_dup=0;
@@ -275,7 +281,7 @@ int show_recent_instructions(FILE *f,char *title,int first_instruction, int coun
 	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
       fprintf(f," : ");
 
-      fprintf(f,"%32s : ",describe_address_label(cpulog[i]->regs.pc));
+      fprintf(f,"%32s : ",describe_address_label(cpu,cpulog[i]->regs.pc));
 
       for(int j=0;j<6;j++) {
 	if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
@@ -322,27 +328,37 @@ char *describe_address(unsigned int addr)
   return addr_description;
 }
 
-char *describe_address_label(unsigned int addr)
+char *describe_address_label28(struct cpu *cpu,unsigned int addr)
 {
   struct hyppo_symbol *s=NULL;
   
   for(int i=0;i<hyppo_symbol_count;i++) {
     // Check for exact address match
-    if (addr==hyppo_symbols[i].addr) s=&hyppo_symbols[i];
+    //    fprintf(stderr,"$%07x vs $%04x (%s)\n",addr,hyppo_symbols[i].addr,hyppo_symbols[i].name);
+    if (addr==(hyppo_symbols[i].addr+0xfff0000)) s=&hyppo_symbols[i];
     // Check for best approximate match
-    if (s&&s->addr<hyppo_symbols[i].addr&&addr>hyppo_symbols[i].addr)
+    if (s&&s->addr<hyppo_symbols[i].addr&&addr>(hyppo_symbols[i].addr+0xfff0000))
       s=&hyppo_symbols[i];
-    if ((!s)&&addr>hyppo_symbols[i].addr)
+    if ((!s)&&addr>(hyppo_symbols[i].addr+0xfff0000))
       s=&hyppo_symbols[i];
   }
   
   if (s) {
-    if (s->addr==addr)  snprintf(addr_description,8192,"%s",s->name);
-    else  snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
+    if ((s->addr+0xfff0000)==addr)  snprintf(addr_description,8192,"%s",s->name);
+    else {
+      snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr-0xfff000);
+      if (addr-s->addr>0xff000ff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr-0xfff0000);
+    }
   } else 
     addr_description[0]=0;
   return addr_description;
 }
+
+char *describe_address_label(struct cpu *cpu,unsigned int addr)
+{
+  return describe_address_label28(cpu,addr_to_28bit(cpu,addr,1));
+}
+
 
 void cpu_log_reset(void)
 {
@@ -511,7 +527,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 
   if (breakpoints[cpu->regs.pc]) {
     fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
-	    describe_address_label(cpu->regs.pc),
+	    describe_address_label(cpu,cpu->regs.pc),
 	    cpu->regs.pc);
     cpu->term.done=1;
     return 0;
@@ -921,11 +937,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     cpu.regs.in_hyper=0;
   }
 
-  fprintf(f,">>> Calling routine @ $%04X",addr);
-  if (sym_by_addr[addr]) {
-    fprintf(f," (%s)",sym_by_addr[addr]->name);
-  }
-  fprintf(f,"\n");
+  fprintf(f,">>> Calling routine %s @ $%04x\n",describe_address_label(&cpu,addr),addr);
 
   // Remember the initial CPU state
   cpu_stash_ram();
@@ -960,7 +972,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
       fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
 	      describe_address(cpu.regs.pc));
       show_recent_instructions(f,"Instructions leading up to the exception",
-			       cpulog_len-16,16,cpu.regs.pc);
+			       &cpu,cpulog_len-16,16,cpu.regs.pc);
       return -1;
     }
 
@@ -978,7 +990,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 		describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
 	// Show upto 32 instructions prior to the infinite loop
 	show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
-				 cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
+				 &cpu,cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
 	return -1;
       }
     } else lastataddr[cpu.regs.pc]=log;
@@ -998,7 +1010,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 
 #define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
-#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu_before.regs.Reg),cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_before.regs.Reg),cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
 int compare_register_contents(FILE *f, struct cpu *cpu)
 {
@@ -1040,6 +1052,16 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
       errors++;
     }
   }
+  for(int i=0;i<COLOURRAM_SIZE;i++) {
+    if (colourram[i]!=colourram_before[i]) {
+      errors++;
+    }
+  }
+  for(int i=0;i<65536;i++) {
+    if (ffdram[i]!=ffdram_before[i]) {
+      errors++;
+    }
+  }
 
   if (errors) {
     fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
@@ -1050,11 +1072,11 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     for(int i=0;i<CHIPRAM_SIZE;i++) {
       if (chipram[i]!=chipram_before[i]) {
 	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
-		chipram[i],describe_address_label(i),chipram_before[i]);
+		chipram[i],describe_address_label28(cpu,i),chipram_before[i]);
 	int first_instruction=chipram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
-				 first_instruction,4,-1);
+				 cpu,first_instruction,4,-1);
 	displayed++;
       }
       if (displayed>=100) break;
@@ -1062,13 +1084,37 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     for(int i=0;i<HYPPORAM_SIZE;i++) {
       if (hypporam[i]!=hypporam_before[i]) {
 	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02x\n",
-		hypporam[i],describe_address_label(i+0x8000),hypporam_before[i]);
+		hypporam[i],describe_address_label28(cpu,i+0xfff8000),hypporam_before[i]);
 	int first_instruction=hypporam_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
-				 first_instruction,4,-1);      
+				 cpu,first_instruction,4,-1);      
       }
       if (displayed>=100) break;	
+    }
+    for(int i=0;i<COLOURRAM_SIZE;i++) {
+      if (colourram[i]!=colourram_before[i]) {
+	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
+	        colourram[i],describe_address_label28(cpu,i+0xff80000),colourram_before[i]);
+	int first_instruction=colourram_blame[i]-3;
+	if (first_instruction<0) first_instruction=0;
+	show_recent_instructions(f,"Instructions leading to this value being written",
+				 cpu,first_instruction,4,-1);
+	displayed++;
+      }
+      if (displayed>=100) break;
+    }
+    for(int i=0;i<65536;i++) {
+      if (ffdram[i]!=ffdram_before[i]) {
+	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
+		ffdram[i],describe_address_label28(cpu,i+0xffd0000),ffdram_before[i]);
+	int first_instruction=colourram_blame[i]-3;
+	if (first_instruction<0) first_instruction=0;
+	show_recent_instructions(f,"Instructions leading to this value being written",
+				 cpu,first_instruction,4,-1);
+	displayed++;
+      }
+      if (displayed>=100) break;
     }
     if (displayed>100) {
       fprintf(f,"WARNING: Displayed only the first 100 incorrect memory contents. %d more suppressed.\n",
@@ -1156,14 +1202,14 @@ void test_conclude(struct cpu *cpu)
   if (cpu->term.error) {
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
-    show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
+    show_recent_instructions(logfile,"Complete instruction log follows",cpu,0,cpulog_len,-1);
     fprintf(logfile,"FAIL: Test failed.\n");
     printf("\r[FAIL] %s\n",test_name);
   } else {
     snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
     test_passes++;
 
-    show_recent_instructions(logfile,"Complete instruction log follows",0,cpulog_len,-1);
+    show_recent_instructions(logfile,"Complete instruction log follows",cpu,0,cpulog_len,-1);
     fprintf(logfile,"PASS: Test passed.\n");
     printf("\r[PASS] %s\n",test_name);    
   }
