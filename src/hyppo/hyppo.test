@@ -41,7 +41,7 @@ test end
 # On first boot, we should try to run the flash menu
 #
 
-test "reset_entry calls launch_flash_menu on first boot"
+test "Check that reset_entry calls launch_flash_menu on first boot"
 # Stop whichever way it goes
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
@@ -64,7 +64,7 @@ test end
 # But on subsequent boots, it should bypass it.
 #
 
-test "reset_entry calls doesn't call launch_flash_menu on subsequent boots"
+test "Check that reset_entry calls doesn't call launch_flash_menu on subsequent boots"
 # Stop whichever way it goes
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
@@ -85,6 +85,7 @@ ignore from $D000 to $DFFF
 ignore from $0318 to $0319
 # Its ok for longpeek dma list fields to be modified
 # NOTE: Hypervisor labels must be adjusted for address of HYPPO RAM
+# until I implement 28-bit memory awareness for symbol tables
 ignore longpeekdmalist_src_mb+$fff0000
 ignore longpeekdmalist_src_lsb+$fff0000
 ignore longpeekdmalist_src_2sb+$fff0000
