@@ -19,24 +19,28 @@ char safe_name[1024]="unnamed_test";
 
 unsigned char breakpoints[65536];
 
+#define COLOURRAM_SIZE (32*1024)
 #define CHIPRAM_SIZE (384*1024)
 #define HYPPORAM_SIZE (16*1024)
 
 // Current memory state
 unsigned char chipram[CHIPRAM_SIZE];
 unsigned char hypporam[HYPPORAM_SIZE];
+unsigned char colourram[COLOURRAM_SIZE];
+unsigned char ffdram[65536];
 
 // Memory state before
 unsigned char chipram_before[CHIPRAM_SIZE];
 unsigned char hypporam_before[HYPPORAM_SIZE];
+unsigned char colourram_before[COLOURRAM_SIZE];
+unsigned char ffdram_before[65536];
 
-// Expected memory state
-unsigned char chipram_expected[CHIPRAM_SIZE];
-unsigned char hypporam_expected[HYPPORAM_SIZE];
 
 // Instructions which modified the memory location last
 unsigned int chipram_blame[CHIPRAM_SIZE];
 unsigned int hypporam_blame[HYPPORAM_SIZE];
+unsigned int colourram_blame[COLOURRAM_SIZE];
+unsigned int ffdram_blame[65536];
 
 #define MAX_HYPPO_SYMBOLS HYPPORAM_SIZE
 typedef struct hyppo_symbol {
@@ -353,15 +357,33 @@ void cpu_stash_ram(void)
   bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
 }
 
+unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
+{
+  // XXX -- Royally stupid banking emulation for now
+  if (addr>0x8000&&addr<0xc000) return addr+0xfff0000; // hypervisor
+  if (addr>=0xd000&&addr<0xe000) return (addr&0xfff)+0xffd3000; // IO personality 3
+  return addr; // Assume chipram otherwise
+}
+
 unsigned char read_memory(struct cpu *cpu,unsigned int addr)
 {
-  // XXX Should support banking etc. For now it is _really_ stupid.
-  if (addr>=0x8000&&addr<0xc000) {
-    return hypporam[addr-0x8000];
-  } else {
+  addr=addr_to_28bit(cpu,addr,0);
+  if (addr>=0xfff8000&&addr<0xfffc000)
+  {
+    // Hypervisor sits at $FFF8000-$FFFBFFF
+    return hypporam[addr-0xfff8000];
+  } else if (addr<CHIPRAM_SIZE) {
+    // Chipram at base of address space
     return chipram[addr];
+  } else if (addr>=0xff80000&&addr<(0xff80000+COLOURRAM_SIZE)) {
+    // $FF8xxxx = colour RAM
+    return colourram[addr-0xff80000];
+  } else if ((addr&0xfff0000)==0xffd0000) {
+    // $FFDxxxx IO space
+    return ffdram[addr-0xffd0000];
   }
-  
+  // Otherwise unmapped RAM
+  return 0xbd;
 }
 
 int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
@@ -370,9 +392,20 @@ int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
   if (addr>=0x8000&&addr<0xc000) {
     hypporam[addr-0x8000]=value;
     hypporam_blame[addr-0x8000]=cpu->instruction_count;
-  } else {
+  } else if (addr<CHIPRAM_SIZE) {
     chipram[addr]=value;
     chipram_blame[addr]=cpu->instruction_count;
+  }
+  return 0;
+}
+
+int write_mem_expected(unsigned int addr,unsigned char value)
+{
+  // XXX Should support banking etc. For now it is _really_ stupid.
+  if (addr>=0xfff8000&&addr<0xfffc000) {
+    hypporam_before[addr-0xfff8000]=value;
+  } else if (addr<CHIPRAM_SIZE) {
+    chipram_before[addr]=value;
   }
   return 0;
 }
@@ -438,7 +471,7 @@ void update_nvzc(int v)
   // XXX - Do V calculation as well
 }
 
-#define MEM_WRITE(CPU,ADDR,VALUE) if (write_mem(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
+#define MEM_WRITE(CPU,ADDR,VALUE) if (write_mem(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
 
 unsigned char stack_pop(struct cpu *cpu)
 {
@@ -925,7 +958,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     
     if (execute_instruction(&cpu,log)) {
       cpu.term.error=1;
-      fprintf(f,"ERROR: Exception occurred execting instruction at %s\n       Aborted.\n",
+      fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
 	      describe_address(cpu.regs.pc));
       show_recent_instructions(f,"Instructions leading up to the exception",
 			       cpulog_len-16,16,cpu.regs.pc);
@@ -1344,13 +1377,8 @@ int main(int argc,char **argv)
       // We should eventually use 28-bit flat addresses,
       // or auto-detect if the symbol was in hypervisor or user land,
       // and make the decision that way.
-      if (l<0x8000||l>0xbfff) {
-	// Chip RAM
-        chipram_before[l]=v;
-      } else {
-	// Hypervisor RAM
-	hypporam_before[l-0x8000]=v;
-      }
+      int a=addr_to_28bit(NULL,l,1);
+      write_mem_expected(a,v);
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
