@@ -11,18 +11,18 @@ test "Reset display correctly sets VIC-IV registers"
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
 jsr resetdisplay
-expect $1B at $D011
-expect $C8 at $D016
-expect $14 at $D018
-expect $40 at $D030
-expect $E5 at $D054
-expect $50 at $D058
-expect $78 at $D05A
-expect $50 at $D05C
-expect $C0 at $D05D
-expect $80 at $D06F
-expect $FF at $DD00
-expect $FF at $DD01
+expect $1B at $FFD3011
+expect $C8 at $FFD3016
+expect $14 at $FFD3018
+expect $40 at $FFD3030
+expect $E5 at $FFD3054
+expect $50 at $FFD3058
+expect $78 at $FFD305A
+expect $50 at $FFD305C
+expect $C0 at $FFD305D
+expect $80 at $FFD306F
+expect $FF at $FFD3D00
+expect $FF at $FFD3D01
 expect $A9 at resetdisplay
 expect pc = $0001
 expect spl = $01
