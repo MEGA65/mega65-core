@@ -74,6 +74,7 @@ entity bitplanes is
     signal x640_in : in xposition;
     signal x1280_in : in xposition;
     signal y_in : in yposition;
+    signal yfine_in : in yposition;
     signal border_in : in std_logic;
     signal alt_palette_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
@@ -244,6 +245,7 @@ begin  -- behavioural
   -- outputs: colour, is_sprite_out
   main: process (pixelclock) is
     variable v_x_in : integer;
+    variable v_y_in : integer;
     variable v_bitplane_y_start : integer := 0;
     variable v_bitplane_x_start : integer := 0;
   begin  -- process main
@@ -267,15 +269,21 @@ begin  -- behavioural
         v_bitplane_x_start := bitplane_x_start;
       end if;
 
+      if (yfine_in mod 2) = 0 then
+        v_y_in := y_in;
+      else
+        v_y_in := y_in + 1;
+      end if;
+
       -- Pre-calculate some things to improve timing
-      if y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
+      if v_y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
 --        report "y_in = " & integer'image(y_in);
 --        report "v_bitplane_y_start = " & integer'image(v_bitplane_y_start);
 --        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
         bitplane_y_card_position
-          <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
+          <= integer((v_y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
         bitplane_y_card_number_drive
-          <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
+          <= integer(((v_y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
       else
         bitplane_y_card_position <= 0;
         bitplane_y_card_number_drive <= 0;
