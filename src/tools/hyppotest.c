@@ -247,7 +247,7 @@ int show_recent_instructions(FILE *f,char *title,int first_instruction, int coun
       last_was_dup=1;
     } else {
       last_was_dup=0;
-      if (cpulog_len-i-1) fprintf(f,"I-%-7d ",cpulog_len-i-1);
+      if (cpulog_len-i-1) fprintf(f,"I%-7d ",i);
       else fprintf(f,"  >>>     ");
       if (cpulog[i]->pc==highlight_address)
 	fprintf(f,"  >>>  "); else fprintf(f,"       ");
@@ -981,6 +981,18 @@ int compare_register_contents(FILE *f, struct cpu *cpu)
   return cpu->term.error;
 }
 
+int ignore_ram_changes(unsigned int low, unsigned int high)
+{
+  for(int i=low;i<=high;i++) {
+    if (i<CHIPRAM_SIZE) {
+      //      if (chipram_before[i]!=chipram[i]) fprintf(logfile,"NOTE: Ignoring mutated value at $%x\n",i);
+      chipram_before[i]=chipram[i];
+    }
+    if (i>=0xfff8000&&i<0xfffc000) hypporam_before[i-0xfff8000]=hypporam[i-0xfff8000];
+  }
+  return 0;
+}
+
 int compare_ram_contents(FILE *f, struct cpu *cpu)
 {
   int errors=0;
@@ -1005,7 +1017,7 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     for(int i=0;i<CHIPRAM_SIZE;i++) {
       if (chipram[i]!=chipram_before[i]) {
 	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
-		chipram[i],describe_address(i),chipram_before[i]);
+		chipram[i],describe_address_label(i),chipram_before[i]);
 	int first_instruction=chipram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1017,7 +1029,7 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     for(int i=0;i<HYPPORAM_SIZE;i++) {
       if (hypporam[i]!=hypporam_before[i]) {
 	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02x\n",
-		hypporam[i],describe_address(i+0x8000),hypporam_before[i]);
+		hypporam[i],describe_address_label(i+0x8000),hypporam_before[i]);
 	int first_instruction=hypporam_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1188,6 +1200,8 @@ int resolve_value(char *in)
   // Check for label with optional +delta
   if (sscanf(in,"%[^+]+%d",label,&delta)==2) ;
   else if (sscanf(in,"%[^-]-%d",label,&delta)==2) ;
+  else if (sscanf(in,"%[^+]+$%x",label,&delta)==2) ;
+  else if (sscanf(in,"%[^-]-$%x",label,&delta)==2) ;
   else if (sscanf(in,"%s",label)==1) ;
   else {
     fprintf(stderr,"ERROR: Could not parse address or value specification '%s'.\n",in);
@@ -1234,6 +1248,8 @@ int main(int argc,char **argv)
     char routine[1024];
     char value[1024];
     char location[1024];
+    char start[1024];
+    char end[1024];
     unsigned int addr;
     if (!line[0]) continue;
     if (line[0]=='#') continue;
@@ -1278,6 +1294,13 @@ int main(int argc,char **argv)
     }  else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
       // Check registers for changes
       compare_register_contents(logfile,&cpu);
+    } else if (sscanf(line,"ignore from %s to %s",start,end)==2) {
+      int low=resolve_value(start);
+      int high=resolve_value(end);
+      ignore_ram_changes(low,high);
+    } else if (sscanf(line,"ignore %s",start)==1) {
+      int low=resolve_value(start);
+      ignore_ram_changes(low,low);
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);

@@ -76,18 +76,24 @@ jmp go64
 
 # Check that the instruction was mutated
 expect $4c at first_boot_flag_instruction
+expect $4c at utility_menu
 # And silence errors for things we expect
 expect $FF at hypervisor_spl
 expect $01 at hypervisor_sph
-expect $1B at $D011
-expect $C8 at $D016
-expect $14 at $D018
-expect $E5 at $D054
-expect $28 at $D058
-expect $C0 at $D05D
-expect $00 at $D06F
-expect $FF at $DD00
-expect $FF at $DD01
+# We don't care about IO contents
+ignore from $D000 to $DFFF
+# We don't care about NMI vector being installed
+ignore from $0318 to $0319
+# Its ok for longpeek dma list fields to be modified
+# NOTE: Hypervisor labels must be adjusted for address of HYPPO RAM
+ignore longpeekdmalist_src_mb+$fff0000
+ignore longpeekdmalist_src_lsb+$fff0000
+ignore longpeekdmalist_src_2sb+$fff0000
+ignore longpeekdmalist_src_msb+$fff0000
+# ignore 32-bit scratch vector
+ignore from zptempv32+$fff0000 to zptempv32+$fff0003
+#ignore stack contents
+ignore from $fffbe80 to $fffbeff
 check ram
 
 # Then pretend we have reset again, and see which way it goes
