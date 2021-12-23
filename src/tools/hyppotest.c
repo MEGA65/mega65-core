@@ -365,9 +365,9 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
   return addr; // Assume chipram otherwise
 }
 
-unsigned char read_memory(struct cpu *cpu,unsigned int addr)
+unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
 {
-  addr=addr_to_28bit(cpu,addr,0);
+  unsigned int addr=addr_to_28bit(cpu,addr16,0);
   if (addr>=0xfff8000&&addr<0xfffc000)
   {
     // Hypervisor sits at $FFF8000-$FFFBFFF
@@ -389,9 +389,9 @@ unsigned char read_memory(struct cpu *cpu,unsigned int addr)
 int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
   // XXX Should support banking etc. For now it is _really_ stupid.
-  if (addr>=0x8000&&addr<0xc000) {
-    hypporam[addr-0x8000]=value;
-    hypporam_blame[addr-0x8000]=cpu->instruction_count;
+  if (addr>=0xfff8000&&addr<0xfffc000) {
+    hypporam[addr-0xfff8000]=value;
+    hypporam_blame[addr-0xfff8000]=cpu->instruction_count;
   } else if (addr<CHIPRAM_SIZE) {
     chipram[addr]=value;
     chipram_blame[addr]=cpu->instruction_count;
@@ -479,7 +479,6 @@ unsigned char stack_pop(struct cpu *cpu)
   addr++;
   cpu->regs.spl++;
   unsigned char c=read_memory(cpu,addr);
-  //  fprintf(logfile,"NOTE: Popping $%02X from the stack\n",c);
   if (!(addr&0xff)) {
     if (!(cpu->regs.flags&FLAG_E))
       cpu->regs.sph++;
