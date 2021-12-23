@@ -2058,8 +2058,8 @@ dos_requested_filename_to_uppercase:
         ;;
         ldx dos_requested_filename_len
         cpx #$3f
-        lda #dos_errorcode_name_too_long
         bcc drftu1
+        lda #dos_errorcode_name_too_long
         jmp dos_return_error
 drftu1:
         lda dos_requested_filename,x
@@ -2252,14 +2252,14 @@ dos_openfile:
         ;;
         lda dos_dirent_type_and_attribs
         and #fs_fat32_attribute_isdirectory
-        beq dof_not_a_directory
+        beq dos_not_a_directory
 
         lda #dos_errorcode_is_a_directory
         jmp dos_return_error
 
 ;;         ========================
 
-dof_not_a_directory:
+dos_not_a_directory:
 
         jsr dos_set_current_file_from_dirent
         bcc l3_dos_return_error_already_set
@@ -2274,10 +2274,10 @@ dos_findfile:
         ;; leave any hanging file descriptors.
 
         jsr dos_findfirst
-        php
+        bcs @found
+        jmp l3_dos_return_error_already_set
+@found: ;; if we found the file, directory-FD is still open
         jsr dos_closefile
-        plp
-        bcc l3_dos_return_error_already_set
         sec
         rts
 
@@ -2286,6 +2286,12 @@ dos_findfile:
 dos_findfirst:
 
         ;; Search for file in current directory
+        ;; if found:
+        ;;    return return carry set
+        ;;    leaves directory-FD open, to enable call dos_findnext to find more
+        ;; if not found:
+        ;;    will return carry clear
+        ;;    closes directory-FD
 
         ;; Convert name to upper case for searching
         ;;
@@ -2307,6 +2313,7 @@ l3_dos_return_error_already_set:
 dos_findnext:
 
         ;; Keep searching in directory for another match
+        ;; see dos_findfirst above for return state!
 
 dff_try_next_entry:
 
@@ -2315,6 +2322,7 @@ dff_try_next_entry:
         jsr dos_readdir
         bcs dff_have_next_entry
 
+        ;; no more entries, so we close file descriptor for convinience
         jsr dos_closefile
 
         lda #dos_errorcode_file_not_found
@@ -3629,16 +3637,9 @@ dos_readfileintomemory:
         stx dos_sectorsread+1
 
         jsr dos_findfirst
-        php
-
-        ;; close directory now that we have what we were looking for ...
-        ;;
-        jsr dos_closefile
-        plp
-
-        ;; ... but report if we hit an error
-        ;;
         bcc l_dos_return_error_already_set
+        ;; close directory now that we have what we were looking for ...
+        jsr dos_closefile
 
         jsr dos_openfile
         bcc l_dos_return_error_already_set
@@ -3921,7 +3922,8 @@ dos_d81attach0:
 
 ;;         ========================
 
-d81a1:        ;; XXX - Why do we call closefile here?
+d81a1:  ;; Why do we call closefile here?
+        ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
         jsr dos_d81check
@@ -4008,7 +4010,8 @@ dos_d81attach1:
 
 ;;         ========================
 
-d81a1b:        ;; XXX - Why do we call closefile here?
+d81a1b: ;; Why do we call closefile here?
+        ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
         jsr dos_d81check

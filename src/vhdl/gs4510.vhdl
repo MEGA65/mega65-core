@@ -7224,8 +7224,8 @@ begin
                       + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
-                    temp_addr :=  to_unsigned(to_integer(reg_arg1)
-                                              +to_integer(reg_sph&reg_sp),16);
+                    temp_addr := to_unsigned(to_integer(reg_sph&reg_sp)
+                                             +to_integer(reg_arg1),16);
                     reg_addr <= temp_addr;
                     report "InnSPY: temp_addr=$" & to_hstring(temp_addr);
                     state <= InnSPYReadVectorSetup;
