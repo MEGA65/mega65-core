@@ -1028,13 +1028,6 @@ hickupdmalist:
 
 ;;         ========================
 
-couldntopenhickup:
-
-nohickup:
-;;                 ldx #<msg_nohickup
-;;                 ldy #>msg_nohickup
-;;                 jsr printmessage
-
 cdroot_and_complain_if_fails:
 	
         ldx dos_default_disk
@@ -1049,14 +1042,21 @@ cdroot_and_complain_if_fails:
         ldy #$00
         ldz dos_error_code
         jsr printhex
-	sec
-	rts
+        clc
+        rts
 
         +Checkpoint "FAILED CDROOT"
 @cdroot_ok:
-	clc
-	rts
+        sec
+        rts
 	
+couldntopenhickup:
+
+nohickup:
+;;                 ldx #<msg_nohickup
+;;                 ldy #>msg_nohickup
+;;                 jsr printmessage
+
 posthickup:
 
         ;; MILESTONE: Have file system properties.
