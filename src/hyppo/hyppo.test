@@ -45,9 +45,8 @@ test "reset_entry calls launch_flash_menu on first boot"
 # Stop whichever way it goes
 loadhyppo bin/HICKUP.M65
 loadhypposymbols src/hyppo/HICKUP.sym
-# Address of instruction that follows BIT/JMP that decides if it
-# will get executed or not
-breakpoint try_flash_menu+3
+# Address that will have been jumped to if we are running the flash menu
+breakpoint launch_flash_menu
 # Address that will have been jumped to if we are not running the
 # flash menu
 breakpoint dont_launch_flash_menu

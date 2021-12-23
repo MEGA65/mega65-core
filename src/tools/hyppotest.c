@@ -482,6 +482,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 	    describe_address_label(cpu->regs.pc),
 	    cpu->regs.pc);
     cpu->term.done=1;
+    return 0;
   }
   
   for(int i=0;i<6;i++) {
