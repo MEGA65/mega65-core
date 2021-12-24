@@ -4892,7 +4892,7 @@ begin
             end if;
             -- Interlacing selects which of two bitplane address register
             -- fields to use
-            if (reg_v400='1') and (vicii_ycounter_v400(0)='1') then
+            if (reg_v400='1') and (vicii_ycounter_v400(0)='0') then
               -- Use odd scan set
               sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
