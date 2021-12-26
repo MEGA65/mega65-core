@@ -23,7 +23,7 @@ expect $C0 at $FFD305D
 expect $80 at $FFD306F
 expect $FF at $FFD3D00
 expect $FF at $FFD3D01
-expect $A9 at resetdisplay
+expect $A9 at resetdisplay+$FFF0000
 expect pc = $0001
 expect spl = $01
 check ram
