@@ -263,12 +263,10 @@ int show_recent_instructions(FILE *f,char *title,
       last_was_dup=0;
       if (cpulog_len-i-1) fprintf(f,"I%-7d ",i);
       else fprintf(f,"  >>>     ");
-      if (cpulog[i]->pc==highlight_address)
-	fprintf(f,"  >>>  "); else fprintf(f,"       ");
       if (cpulog[i]->count>1)
-	fprintf(f,"$%04X : x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
+	fprintf(f,"$%04X x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
       else
-	fprintf(f,"$%04X :         : ",cpulog[i]->pc);
+	fprintf(f,"$%04X         : ",cpulog[i]->pc);
       fprintf(f,"A:%02X ",cpulog[i]->regs.a);
       fprintf(f,"X:%02X ",cpulog[i]->regs.x);
       fprintf(f,"Y:%02X ",cpulog[i]->regs.y);
@@ -287,7 +285,7 @@ int show_recent_instructions(FILE *f,char *title,
 
       fprintf(f,"%32s : ",describe_address_label(cpu,cpulog[i]->regs.pc));
 
-      for(int j=0;j<6;j++) {
+      for(int j=0;j<3;j++) {
 	if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
 	else fprintf(f,"   ");
       }
@@ -386,8 +384,8 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
     fprintf(stderr,"ERROR: Asked to map non-16 bit address $%x\n",addr);
     exit(-1);
   }
-  int lnc=chipram[1]&3;
-  lnc&=~(chipram[0]&3);
+  int lnc=chipram[1]&7;
+  lnc|=(~(chipram[0]))&7;
   unsigned int bank=addr>>12;
   unsigned int zone=addr>>13;
   if (bank>15) bank=0;
@@ -399,8 +397,10 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
       break;
     case 1: case 2: case 3:
       // CharROM
-      addr&=0xfff;
-      addr|=0x2d000;
+      if (!writeP) {
+	addr&=0xfff;
+	addr|=0x2d000;
+      }
       break;
     case 5: case 6: case 7:
       // IO bank
@@ -409,20 +409,22 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
       break;
     }
   }
-  // C64 BASIC ROM
-  if (bank==10||bank==11) {
-    if (lnc==3||lnc==7) {
-      addr&=0x1fff;
-      addr|=0x2a000;
+  if (!writeP) {
+    // C64 BASIC ROM
+    if (bank==10||bank==11) {
+      if (lnc==3||lnc==7) {
+	addr&=0x1fff;
+	addr|=0x2a000;
+      }
     }
-  }
-  // C64 KERNAL ROM
-  if (bank==14||bank==15) {
-    switch(lnc){
-    case 2: case 3: case 6: case 7:
-      addr&=0x1fff;
-      addr|=0x2a000;
-      break;
+    // C64 KERNAL ROM
+    if (bank==14||bank==15) {
+      switch(lnc){
+      case 2: case 3: case 6: case 7:
+	addr&=0x1fff;
+	addr|=0x2a000;
+	break;
+      }
     }
   }
 
@@ -445,7 +447,8 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
     }
   }
 
-  fprintf(stderr,"NOTE: Address $%04x mapped to $%07x\n",addr_in,addr);
+  //  fprintf(stderr,"NOTE: Address $%04x mapped to $%07x (lnc=%d)\n",addr_in,addr,lnc);
+  //  fprintf(stderr,"      chipram[0]=$%02x, chipram[1]=$%02x\n",chipram[0],chipram[1]);
   
   return addr;
 }
@@ -1148,8 +1151,8 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     
     for(int i=0;i<CHIPRAM_SIZE;i++) {
       if (chipram[i]!=chipram_before[i]) {
-	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
-		chipram[i],describe_address_label28(cpu,i),chipram_before[i]);
+	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+		chipram[i],i,describe_address_label28(cpu,i),chipram_before[i]);
 	int first_instruction=chipram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1160,8 +1163,8 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     }
     for(int i=0;i<HYPPORAM_SIZE;i++) {
       if (hypporam[i]!=hypporam_before[i]) {
-	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02x\n",
-		hypporam[i],describe_address_label28(cpu,i+0xfff8000),hypporam_before[i]);
+	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02x\n",
+		hypporam[i],i,describe_address_label28(cpu,i+0xfff8000),hypporam_before[i]);
 	int first_instruction=hypporam_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1511,8 +1514,7 @@ int main(int argc,char **argv)
       // We should eventually use 28-bit flat addresses,
       // or auto-detect if the symbol was in hypervisor or user land,
       // and make the decision that way.
-      int a=addr_to_28bit(NULL,l,1);
-      write_mem_expected(a,v);
+      write_mem_expected(l,v);
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
