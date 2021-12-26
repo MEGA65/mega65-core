@@ -15,6 +15,10 @@ struct regs {
   unsigned char sph;
   unsigned char spl;
   unsigned char in_hyper;
+  unsigned char map_irq_inhibit;
+  unsigned short maplo,maphi;
+  unsigned char maplomb,maphimb;
+  
 };
 
 struct termination_conditions {
@@ -376,9 +380,74 @@ void cpu_stash_ram(void)
 unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
 {
   // XXX -- Royally stupid banking emulation for now
-  if (addr>0x8000&&addr<0xc000) return addr+0xfff0000; // hypervisor
-  if (addr>=0xd000&&addr<0xe000) return (addr&0xfff)+0xffd3000; // IO personality 3
-  return addr; // Assume chipram otherwise
+  unsigned int addr_in=addr;
+
+  if (addr>0xffff) {
+    fprintf(stderr,"ERROR: Asked to map non-16 bit address $%x\n",addr);
+    exit(-1);
+  }
+  int lnc=chipram[1]&3;
+  lnc&=~(chipram[0]&3);
+  unsigned int bank=addr>>12;
+  unsigned int zone=addr>>13;
+  if (bank>15) bank=0;
+  if (zone>7) zone=0;
+  if (bank==13) {
+    switch(lnc) {
+    case 0: case 4:
+      // RAM -- no mapping required
+      break;
+    case 1: case 2: case 3:
+      // CharROM
+      addr&=0xfff;
+      addr|=0x2d000;
+      break;
+    case 5: case 6: case 7:
+      // IO bank
+      addr&=0xfff;
+      addr|=0xffd3000;
+      break;
+    }
+  }
+  // C64 BASIC ROM
+  if (bank==10||bank==11) {
+    if (lnc==3||lnc==7) {
+      addr&=0x1fff;
+      addr|=0x2a000;
+    }
+  }
+  // C64 KERNAL ROM
+  if (bank==14||bank==15) {
+    switch(lnc){
+    case 2: case 3: case 6: case 7:
+      addr&=0x1fff;
+      addr|=0x2a000;
+      break;
+    }
+  }
+
+  // $D031 banking takes priority over C64 banking
+
+  // MAP takes priority over all else
+  if (zone<4) {
+    if (cpu->regs.maplo>>(12+zone)) {
+      // This 8KB area is mapped
+      addr=addr_in;
+      addr+=(cpu->regs.maplo&0xfff)<<8;
+      addr+=cpu->regs.maplomb<<20;
+    }
+  } else if (zone>3) {
+    if (cpu->regs.maphi>>(12+zone-4)) {
+      // This 8KB area is mapped
+      addr=addr_in;
+      addr+=(cpu->regs.maphi&0xfff)<<8;
+      addr+=cpu->regs.maphimb<<20;
+    }
+  }
+
+  fprintf(stderr,"NOTE: Address $%04x mapped to $%07x\n",addr_in,addr);
+  
+  return addr;
 }
 
 unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
@@ -633,8 +702,15 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=1;
     break;
   case 0x5c: // MAP
-    // XXX -- Not implemented
     cpu->regs.pc++;
+
+    if (cpu->regs.x==0x0f) cpu->regs.maplomb=cpu->regs.a;
+     else cpu->regs.maplo=cpu->regs.a+(cpu->regs.x<<8);
+    if (!cpu->regs.in_hyper) {
+      if (cpu->regs.z==0x0f) cpu->regs.maphimb=cpu->regs.y;
+      else cpu->regs.maplo=cpu->regs.y+(cpu->regs.z<<8);
+    }
+    cpu->regs.map_irq_inhibit=1;
     log->len=1;
     break;
   case 0x60: // RTS
@@ -878,6 +954,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     break;
   case 0xea: // EOM / NOP
     cpu->regs.pc++;
+    cpu->regs.map_irq_inhibit=0;
     log->len=1;
     break;
   case 0xEE: // INC $xxxx
@@ -1132,6 +1209,12 @@ void machine_init(struct cpu *cpu)
   bzero(cpu,sizeof(struct cpu));
   cpu->regs.flags=FLAG_E|FLAG_I;
 
+  // We start in hypervisor mode
+  cpu->regs.in_hyper=1;
+  // Map in hypervisor
+  cpu->regs.maphimb=0xff;
+  cpu->regs.maphi=0x3f00; 
+  
   bzero(breakpoints,sizeof(breakpoints));
   
   bzero(&cpu_before,sizeof(struct cpu));
@@ -1142,6 +1225,12 @@ void machine_init(struct cpu *cpu)
   // Clear Hypervisor RAM
   bzero(hypporam_before,HYPPORAM_SIZE);
 
+  // Set CPU IO port $01
+  chipram_before[0]=0x3f;
+  chipram_before[1]=0x27;
+  chipram[0]=0x3f;
+  chipram[1]=0x27;
+  
   // Reset blame for contents of memory
   bzero(chipram_blame,sizeof(chipram_blame));
   bzero(hypporam_blame,sizeof(hypporam_blame));
