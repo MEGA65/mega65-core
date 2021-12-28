@@ -214,6 +214,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   if (!log->len) return;
   switch(log->bytes[0]) {
   case 0x03: fprintf(f,"SEE"); break;
+  case 0x08: fprintf(f,"PHP"); break;
   case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
   case 0x18: fprintf(f,"CLC"); break;
@@ -222,6 +223,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x1c: fprintf(f,"TRB "); disassemble_abs(f,log); break;
   case 0x20: fprintf(f,"JSR "); disassemble_abs(f,log); break;
   case 0x22: fprintf(f,"JSR "); disassemble_iabs(f,log); break;
+  case 0x28: fprintf(f,"PLP"); break;
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
   case 0x2C: fprintf(f,"BIT "); disassemble_abs(f,log); break;
@@ -229,7 +231,9 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x3A: fprintf(f,"DEC"); break;
   case 0x48: fprintf(f,"PHA"); break;
   case 0x40: fprintf(f,"RTI"); break;
+  case 0x4B: fprintf(f,"TAZ"); break;
   case 0x4C: fprintf(f,"JMP "); disassemble_abs(f,log); break;
+  case 0x5a: fprintf(f,"PHY"); break;
   case 0x5b: fprintf(f,"TAB"); break;
   case 0x5c: fprintf(f,"MAP"); break;
   case 0x60: fprintf(f,"RTS"); break;
@@ -237,6 +241,8 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
   case 0x6B: fprintf(f,"TZA"); break;
   case 0x78: fprintf(f,"SEI"); break;
+  case 0x7A: fprintf(f,"PLY"); break;
+  case 0x80: fprintf(f,"BRA "); disassemble_rel8(f,log); break;
   case 0x84: fprintf(f,"STY "); disassemble_zp(f,log); break;
   case 0x85: fprintf(f,"STA "); disassemble_zp(f,log); break;
   case 0x86: fprintf(f,"STX "); disassemble_zp(f,log); break;
@@ -272,12 +278,14 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xce: fprintf(f,"DEC "); disassemble_abs(f,log); break;
   case 0xd0: fprintf(f,"BNE "); disassemble_rel8(f,log); break;
   case 0xD8: fprintf(f,"CLD"); break;
+  case 0xDA: fprintf(f,"PHX"); break;
   case 0xDB: fprintf(f,"PHZ"); break;
   case 0xE0: fprintf(f,"CPX "); disassemble_imm(f,log); break;
   case 0xE8: fprintf(f,"INX"); break;
   case 0xea: fprintf(f,"EOM"); break;
   case 0xee: fprintf(f,"INC "); disassemble_abs(f,log); break;
   case 0xf0: fprintf(f,"BEQ "); disassemble_rel8(f,log); break;
+  case 0xFA: fprintf(f,"PLX"); break;
   case 0xFB: fprintf(f,"PLZ"); break;
   }
   
@@ -757,6 +765,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x08: // PHP
+    stack_push(cpu,cpu->regs.flags);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x09: // ORA #$nn
     cpu->regs.a|=log->bytes[1];
     update_nz(cpu->regs.a);
@@ -808,6 +821,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc=addr_deref16(cpu,log);
     log->len=3;
     break;
+  case 0x28: // PLP
+    // E flag cannot be set via PLP
+    cpu->regs.flags&=FLAG_E;
+    cpu->regs.flags|=(stack_pop(cpu)&(~FLAG_E));
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x29: // AND #$nn
     cpu->regs.a&=log->bytes[1];
     update_nz(cpu->regs.a);
@@ -844,9 +864,20 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x4B: // TAZ
+    cpu->regs.z=cpu->regs.a;
+    update_nz(cpu->regs.z);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x4c: // JMP $nnnn
     cpu->regs.pc=addr_abs(log);
     log->len=3;
+    break;
+  case 0x5A: // PHY
+    stack_push(cpu,cpu->regs.y);
+    cpu->regs.pc++;
+    log->len=1;
     break;
   case 0x5b: // TAB
     cpu->regs.b=cpu->regs.a;
@@ -906,6 +937,15 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0x7a: // PLY
+    cpu->regs.pc++;
+    log->len=1;
+    cpu->regs.y=stack_pop(cpu);
+    update_nz(cpu->regs.y);
+    break;
+  case 0x80: // BRA $rr
+    log->len=2;
+    cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
   case 0x84: // STY $xx
     log->len=2;
     cpu->regs.pc+=2;
@@ -1102,6 +1142,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc++;
     log->len=1;
     break;
+  case 0xDA: // PHX
+    stack_push(cpu,cpu->regs.x);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0xDB: // PHZ
     stack_push(cpu,cpu->regs.z);
     cpu->regs.pc++;
@@ -1139,6 +1184,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     else
       cpu->regs.pc+=2;
+    break;
+  case 0xFA: // PLX
+    cpu->regs.x=stack_pop(cpu);
+    update_nz(cpu->regs.x);
+    cpu->regs.pc++;
+    log->len=1;
     break;
   case 0xFB: // PLZ
     cpu->regs.z=stack_pop(cpu);
