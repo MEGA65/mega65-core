@@ -113,3 +113,29 @@ expect y = $25
 expect z = $3f
 check registers
 test end
+
+test "OpenROMs prepares for flash menu entry on first boot"
+# Load hypervisor and symbol table
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+# Load OpenROM and symbol tables
+load src/open-roms/bin/mega65.rom at $20000
+# XXX - Some of these must surely need to be at $30000, not $20000 ?
+loadsymbols src/open-roms/build/target_mega65/BASIC_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/BASIC_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/DOS_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
+
+# Stop when we get into the flash menu
+breakpoint $080d
+jmp reset_entry
+expect pc = $080d
+expect B = $bf
+# We don't really care about the following registers, but we need to
+# give their expected values to avoid false positives
+expect y = $25
+expect z = $3f
+check registers
+test end
+

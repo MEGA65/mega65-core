@@ -95,9 +95,15 @@ typedef struct hyppo_symbol {
   char *name;
   unsigned int addr;
 } hyppo_symbol;
-hyppo_symbol *sym_by_addr[65536]={NULL};
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
+
+#define MAX_SYMBOLS CHIPRAM_SIZE
+hyppo_symbol symbols[MAX_SYMBOLS];
+int symbol_count=0;  
+
+hyppo_symbol *sym_by_addr[CHIPRAM_SIZE]={NULL};
+
 
 struct cpu cpu;
 struct cpu cpu_expected;
@@ -293,6 +299,9 @@ int show_recent_instructions(FILE *f,char *title,
       fprintf(f,"Z:%02X ",cpulog[i]->regs.z);
       fprintf(f,"SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
       fprintf(f,"B:%02X ",cpulog[i]->regs.b);
+      fprintf(f,"M:%04x+%02x/%04x+%02x ",
+	      cpulog[i]->regs.maplo,cpulog[i]->regs.maplomb,
+	      cpulog[i]->regs.maphi,cpulog[i]->regs.maphimb);
       fprintf(f,"%c%c%c%c%c%c%c%c ",
 	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
 	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
@@ -539,6 +548,7 @@ int write_mem_expected28(unsigned int addr,unsigned char value)
   {
     // Hypervisor sits at $FFF8000-$FFFBFFF
     hypporam_expected[addr-0xfff8000]=value;
+    fprintf(logfile,"NOTE: Writing to hypervisor RAM @ $%07x\n",addr);
   } else if (addr<CHIPRAM_SIZE) {
     // Chipram at base of address space
     chipram_expected[addr]=value;
@@ -1417,6 +1427,26 @@ int load_hyppo(char *filename)
   return 0;
 }
 
+unsigned char buffer[8192*1024];
+int load_file(char *filename,unsigned int location)
+{
+  FILE *f=fopen(filename,"rb");
+  if (!f) {
+    fprintf(logfile,"ERROR: Could not read binary file from '%s'\n",filename);
+    return -1;
+  }
+  int b=fread(buffer,1,8192*1024,f);
+  fprintf(logfile,"NOTE: Loading %d bytes at $%07x from %s\n",b,location,filename);
+  int h0=hypporam_expected[0x22d0];
+  for(int i=0;i<b;i++) {
+    write_mem_expected28(i+location,buffer[i]);  
+  }  
+  
+  fclose(f);
+  return 0;
+}
+
+
 int load_hyppo_symbols(char *filename)
 {
   FILE *f=fopen(filename,"r");
@@ -1445,6 +1475,38 @@ int load_hyppo_symbols(char *filename)
   fprintf(logfile,"INFO: Read %d HYPPO symbols.\n",hyppo_symbol_count);
   return 0;
 }
+
+int load_symbols(char *filename, unsigned int offset)
+{
+  FILE *f=fopen(filename,"r");
+  if (!f) {
+    fprintf(logfile,"ERROR: Could not read symbol list from '%s'\n",filename);
+    return -1;
+  }
+  char line[1024];
+  line[0]=0; fgets(line,1024,f);
+  while(line[0]) {
+    char sym[1024];
+    int addr;
+    if(sscanf(line," %s = $%x",sym,&addr)==2) {
+      if (symbol_count>=MAX_SYMBOLS) {
+	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+	return -1;
+      }
+      symbols[symbol_count].name=strdup(sym);
+      symbols[symbol_count].addr=addr+offset;
+      if (addr+offset<CHIPRAM_SIZE) {
+	sym_by_addr[addr+offset]=&symbols[symbol_count];
+      }
+      symbol_count++;
+    }
+    line[0]=0; fgets(line,1024,f);
+  }
+  fclose(f);
+  fprintf(logfile,"INFO: Read %d symbols.\n",symbol_count);
+  return 0;
+}
+
 
 int resolve_value32(char *in)
 {
@@ -1585,6 +1647,10 @@ int main(int argc,char **argv)
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
+    } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
+      if (load_file(routine,addr)) cpu.term.error=1;
+    } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
+      if (load_symbols(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
 	int addr16=addr32;
