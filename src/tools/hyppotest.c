@@ -77,11 +77,11 @@ unsigned char hypporam[HYPPORAM_SIZE];
 unsigned char colourram[COLOURRAM_SIZE];
 unsigned char ffdram[65536];
 
-// Memory state before
-unsigned char chipram_before[CHIPRAM_SIZE];
-unsigned char hypporam_before[HYPPORAM_SIZE];
-unsigned char colourram_before[COLOURRAM_SIZE];
-unsigned char ffdram_before[65536];
+// Expected memory state 
+unsigned char chipram_expected[CHIPRAM_SIZE];
+unsigned char hypporam_expected[HYPPORAM_SIZE];
+unsigned char colourram_expected[COLOURRAM_SIZE];
+unsigned char ffdram_expected[65536];
 
 
 // Instructions which modified the memory location last
@@ -100,7 +100,7 @@ hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
 int hyppo_symbol_count=0;  
 
 struct cpu cpu;
-struct cpu cpu_before;
+struct cpu cpu_expected;
 
 // Instruction log
 typedef struct instruction_log {
@@ -262,7 +262,7 @@ int show_recent_instructions(FILE *f,char *title,
     } else {
       last_was_dup=0;
       if (cpulog_len-i-1) fprintf(f,"I%-7d ",i);
-      else fprintf(f,"  >>>     ");
+      else fprintf(f,"     >>> ");
       if (cpulog[i]->count>1)
 	fprintf(f,"$%04X x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
       else
@@ -371,8 +371,8 @@ void cpu_log_reset(void)
 void cpu_stash_ram(void)
 {
   // Remember the RAM contents before calling a routine
-  bcopy(chipram_before,chipram,CHIPRAM_SIZE);
-  bcopy(hypporam_before,hypporam,HYPPORAM_SIZE);
+  bcopy(chipram_expected,chipram,CHIPRAM_SIZE);
+  bcopy(hypporam_expected,hypporam,HYPPORAM_SIZE);
 }
 
 unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
@@ -381,8 +381,11 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
   unsigned int addr_in=addr;
 
   if (addr>0xffff) {
-    fprintf(stderr,"ERROR: Asked to map non-16 bit address $%x\n",addr);
-    exit(-1);
+    fprintf(logfile,"ERROR: Asked to map %s of non-16 bit address $%x\n",writeP?"write":"read",addr);
+    show_recent_instructions(logfile,"Instructions leading up to the request",
+			     cpu,cpulog_len-6,6,cpu->regs.pc);
+    cpu->term.error=1;
+    return -1;
   }
   int lnc=chipram[1]&7;
   lnc|=(~(chipram[0]))&7;
@@ -474,26 +477,56 @@ unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
   return 0xbd;
 }
 
-int write_mem(struct cpu *cpu, unsigned int addr,unsigned char value)
+int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
-  // XXX Should support banking etc. For now it is _really_ stupid.
-  if (addr>=0xfff8000&&addr<0xfffc000) {
-    hypporam[addr-0xfff8000]=value;
+  if (addr>=0xfff8000&&addr<0xfffc000)
+  {
+    // Hypervisor sits at $FFF8000-$FFFBFFF
     hypporam_blame[addr-0xfff8000]=cpu->instruction_count;
+    hypporam[addr-0xfff8000]=value;
   } else if (addr<CHIPRAM_SIZE) {
-    chipram[addr]=value;
+    // Chipram at base of address space
     chipram_blame[addr]=cpu->instruction_count;
+    chipram[addr]=value;
+  } else if (addr>=0xff80000&&addr<(0xff80000+COLOURRAM_SIZE)) {
+    colourram_blame[addr-0xff80000]=cpu->instruction_count;
+    colourram[addr-0xff80000]=value;
+  } else if ((addr&0xfff0000)==0xffd0000) {
+    // $FFDxxxx IO space
+    ffdram[addr-0xffd0000]=value;
+    ffdram_blame[addr-0xffd0000]=cpu->instruction_count;
+  } else {
+  // Otherwise unmapped RAM
+    fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
+    cpu->term.error=1;
   }
+
   return 0;
 }
 
-int write_mem_expected(unsigned int addr,unsigned char value)
+int write_mem16(struct cpu *cpu, unsigned int addr16,unsigned char value)
 {
-  // XXX Should support banking etc. For now it is _really_ stupid.
-  if (addr>=0xfff8000&&addr<0xfffc000) {
-    hypporam_before[addr-0xfff8000]=value;
+  unsigned int addr=addr_to_28bit(cpu,addr16,1);
+  return write_mem28(cpu,addr,value);
+}
+
+int write_mem_expected28(unsigned int addr,unsigned char value)
+{
+  if (addr>=0xfff8000&&addr<0xfffc000)
+  {
+    // Hypervisor sits at $FFF8000-$FFFBFFF
+    hypporam_expected[addr-0xfff8000]=value;
   } else if (addr<CHIPRAM_SIZE) {
-    chipram_before[addr]=value;
+    // Chipram at base of address space
+    chipram_expected[addr]=value;
+  } else if (addr>=0xff80000&&addr<(0xff80000+COLOURRAM_SIZE)) {
+    colourram_expected[addr-0xff80000]=value;
+  } else if ((addr&0xfff0000)==0xffd0000) {
+    // $FFDxxxx IO space
+    ffdram_expected[addr-0xffd0000]=value;
+  } else {
+  // Otherwise unmapped RAM
+    fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
   }
   return 0;
 }
@@ -559,7 +592,7 @@ void update_nvzc(int v)
   // XXX - Do V calculation as well
 }
 
-#define MEM_WRITE(CPU,ADDR,VALUE) if (write_mem(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
+#define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
 
 unsigned char stack_pop(struct cpu *cpu)
 {
@@ -581,7 +614,7 @@ int stack_push(struct cpu *cpu,unsigned char v)
 {
   //  fprintf(logfile,"NOTE: Pushing $%02X onto the stack\n",v);
   int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
-  MEM_WRITE(cpu,addr,v);
+  MEM_WRITE16(cpu,addr,v);
   cpu->regs.spl--;
   if ((addr&0xff)==0x00) {
     if (!(cpu->regs.flags&FLAG_E))
@@ -625,7 +658,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=3;
     v=read_memory(cpu,addr_abs(log));
     v|=cpu->regs.a;
-    MEM_WRITE(cpu,addr_abs(log),v);
+    MEM_WRITE16(cpu,addr_abs(log),v);
     update_nz(v);
     break;
   case 0x18: // CLC
@@ -650,7 +683,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=3;
     v=read_memory(cpu,addr_abs(log));
     v&=~cpu->regs.a;
-    MEM_WRITE(cpu,addr_abs(log),v);
+    MEM_WRITE16(cpu,addr_abs(log),v);
     update_nz(v);
     break;
   case 0x20: // JSR $nnnn
@@ -760,17 +793,17 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x84: // STY $xx
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE(cpu,addr_zp(cpu,log),cpu->regs.y);
+    MEM_WRITE16(cpu,addr_zp(cpu,log),cpu->regs.y);
     break;
   case 0x85: // STA $xx
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE(cpu,addr_zp(cpu,log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_zp(cpu,log),cpu->regs.a);
     break;
   case 0x86: // STX $xx
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE(cpu,addr_zp(cpu,log),cpu->regs.x);
+    MEM_WRITE16(cpu,addr_zp(cpu,log),cpu->regs.x);
     break;
   case 0x8a: // TXA
     cpu->regs.a=cpu->regs.x;
@@ -781,17 +814,17 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x8c: // STY $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_abs(log),cpu->regs.y);
+    MEM_WRITE16(cpu,addr_abs(log),cpu->regs.y);
     break;
   case 0x8d: // STA $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_abs(log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_abs(log),cpu->regs.a);
     break;
   case 0x8e: // STX $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_abs(log),cpu->regs.x);
+    MEM_WRITE16(cpu,addr_abs(log),cpu->regs.x);
     break;
   case 0x90: // BCC $rr
     log->len=2;
@@ -803,17 +836,17 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x91: // STA ($xx),Y
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE(cpu,addr_izpy(cpu,log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_izpy(cpu,log),cpu->regs.a);
     break;
   case 0x92: // STA ($xx),Z
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE(cpu,addr_izpz(cpu,log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
     break;
   case 0x99: // STA $xxxx,Y
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_absy(cpu,log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_absy(cpu,log),cpu->regs.a);
     break;
   case 0x9a: // TXS
     cpu->regs.spl=cpu->regs.x;
@@ -823,12 +856,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x9c: // STZ $xxxx
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_abs(log),cpu->regs.z);
+    MEM_WRITE16(cpu,addr_abs(log),cpu->regs.z);
     break;
   case 0x9d: // STA $xxxx,X
     log->len=3;
     cpu->regs.pc+=3;
-    MEM_WRITE(cpu,addr_absx(cpu,log),cpu->regs.a);
+    MEM_WRITE16(cpu,addr_absx(cpu,log),cpu->regs.a);
     break;
   case 0xa0: // LDY #$nn
     cpu->regs.y=log->bytes[1];
@@ -922,7 +955,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=3;
     v=read_memory(cpu,addr_abs(log));
     v--; v&=0xff;
-    MEM_WRITE(cpu,addr_abs(log),v);
+    MEM_WRITE16(cpu,addr_abs(log),v);
     update_nz(v);
     break;
   case 0xd0: // BNE $rr
@@ -965,7 +998,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=3;
     v=read_memory(cpu,addr_abs(log));
     v++; v&=0xff;
-    MEM_WRITE(cpu,addr_abs(log),v);
+    MEM_WRITE16(cpu,addr_abs(log),v);
     update_nz(v);
     break;
   case 0xf0: // BEQ $rr
@@ -1021,7 +1054,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 
   // Remember the initial CPU state
   cpu_stash_ram();
-  cpu_before=cpu;
+  cpu_expected=cpu;
 
   // Reset the CPU instruction log
   cpu_log_reset();
@@ -1088,9 +1121,9 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   return 0;
 }
 
-#define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_expected.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
-#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_before.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_before.regs.Reg),cpu_before.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_expected.regs.Reg),cpu_expected.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
 
 int compare_register_contents(FILE *f, struct cpu *cpu)
 {
@@ -1110,10 +1143,10 @@ int ignore_ram_changes(unsigned int low, unsigned int high)
 {
   for(int i=low;i<=high;i++) {
     if (i<CHIPRAM_SIZE) {
-      //      if (chipram_before[i]!=chipram[i]) fprintf(logfile,"NOTE: Ignoring mutated value at $%x\n",i);
-      chipram_before[i]=chipram[i];
+      //      if (chipram_expected[i]!=chipram[i]) fprintf(logfile,"NOTE: Ignoring mutated value at $%x\n",i);
+      chipram_expected[i]=chipram[i];
     }
-    if (i>=0xfff8000&&i<0xfffc000) hypporam_before[i-0xfff8000]=hypporam[i-0xfff8000];
+    if (i>=0xfff8000&&i<0xfffc000) hypporam_expected[i-0xfff8000]=hypporam[i-0xfff8000];
   }
   return 0;
 }
@@ -1123,22 +1156,22 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
   int errors=0;
   
   for(int i=0;i<CHIPRAM_SIZE;i++) {
-    if (chipram[i]!=chipram_before[i]) {
+    if (chipram[i]!=chipram_expected[i]) {
       errors++;
     }
   }
   for(int i=0;i<HYPPORAM_SIZE;i++) {
-    if (hypporam[i]!=hypporam_before[i]) {
+    if (hypporam[i]!=hypporam_expected[i]) {
       errors++;
     }
   }
   for(int i=0;i<COLOURRAM_SIZE;i++) {
-    if (colourram[i]!=colourram_before[i]) {
+    if (colourram[i]!=colourram_expected[i]) {
       errors++;
     }
   }
   for(int i=0;i<65536;i++) {
-    if (ffdram[i]!=ffdram_before[i]) {
+    if (ffdram[i]!=ffdram_expected[i]) {
       errors++;
     }
   }
@@ -1150,9 +1183,9 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
     int displayed=0;
     
     for(int i=0;i<CHIPRAM_SIZE;i++) {
-      if (chipram[i]!=chipram_before[i]) {
+      if (chipram[i]!=chipram_expected[i]) {
 	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
-		chipram[i],i,describe_address_label28(cpu,i),chipram_before[i]);
+		chipram[i],i,describe_address_label28(cpu,i),chipram_expected[i]);
 	int first_instruction=chipram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1162,9 +1195,9 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
       if (displayed>=100) break;
     }
     for(int i=0;i<HYPPORAM_SIZE;i++) {
-      if (hypporam[i]!=hypporam_before[i]) {
+      if (hypporam[i]!=hypporam_expected[i]) {
 	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02x\n",
-		hypporam[i],i,describe_address_label28(cpu,i+0xfff8000),hypporam_before[i]);
+		hypporam[i],i+0xfff8000,describe_address_label28(cpu,i+0xfff8000),hypporam_expected[i]);
 	int first_instruction=hypporam_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1173,9 +1206,9 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
       if (displayed>=100) break;	
     }
     for(int i=0;i<COLOURRAM_SIZE;i++) {
-      if (colourram[i]!=colourram_before[i]) {
-	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
-	        colourram[i],describe_address_label28(cpu,i+0xff80000),colourram_before[i]);
+      if (colourram[i]!=colourram_expected[i]) {
+	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+	        colourram[i],i+0xff80000,describe_address_label28(cpu,i+0xff80000),colourram_expected[i]);
 	int first_instruction=colourram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
@@ -1185,10 +1218,10 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
       if (displayed>=100) break;
     }
     for(int i=0;i<65536;i++) {
-      if (ffdram[i]!=ffdram_before[i]) {
-	fprintf(f,"ERROR: Saw $%02X at %s, but expected to see $%02X\n",
-		ffdram[i],describe_address_label28(cpu,i+0xffd0000),ffdram_before[i]);
-	int first_instruction=colourram_blame[i]-3;
+      if (ffdram[i]!=ffdram_expected[i]) {
+	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+		ffdram[i],i+0xffd0000,describe_address_label28(cpu,i+0xffd0000),ffdram_expected[i]);
+	int first_instruction=ffdram_blame[i]-3;
 	if (first_instruction<0) first_instruction=0;
 	show_recent_instructions(f,"Instructions leading to this value being written",
 				 cpu,first_instruction,4,-1);
@@ -1220,17 +1253,19 @@ void machine_init(struct cpu *cpu)
   
   bzero(breakpoints,sizeof(breakpoints));
   
-  bzero(&cpu_before,sizeof(struct cpu));
-  cpu_before.regs.flags=FLAG_E|FLAG_I;
+  bzero(&cpu_expected,sizeof(struct cpu));
+  cpu_expected.regs.flags=FLAG_E|FLAG_I;
   
   // Clear chip RAM
-  bzero(chipram_before,CHIPRAM_SIZE);
+  bzero(chipram_expected,CHIPRAM_SIZE);
   // Clear Hypervisor RAM
-  bzero(hypporam_before,HYPPORAM_SIZE);
+  bzero(hypporam_expected,HYPPORAM_SIZE);
+  bzero(colourram_expected,COLOURRAM_SIZE);
+  bzero(ffdram_expected,65536);
 
   // Set CPU IO port $01
-  chipram_before[0]=0x3f;
-  chipram_before[1]=0x27;
+  chipram_expected[0]=0x3f;
+  chipram_expected[1]=0x27;
   chipram[0]=0x3f;
   chipram[1]=0x27;
   
@@ -1321,7 +1356,7 @@ int load_hyppo(char *filename)
     fprintf(logfile,"ERROR: Could not read HICKUP file from '%s'\n",filename);
     return -1;
   }
-  int b=fread(hypporam_before,1,HYPPORAM_SIZE,f);
+  int b=fread(hypporam_expected,1,HYPPORAM_SIZE,f);
   if (b!=HYPPORAM_SIZE) {
     fprintf(logfile,"ERROR: Read only %d of %d bytes from HICKUP file.\n",b,HYPPORAM_SIZE);
     return -1;
@@ -1492,21 +1527,21 @@ int main(int argc,char **argv)
       fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,resolve_value(routine));
     } else if (sscanf(line,"expect %s = %s",location,value)==2) {
       // Set expected register value
-      if (!strcasecmp(location,"a")) cpu_before.regs.a=resolve_value(value);
-      else if (!strcasecmp(location,"a")) cpu_before.regs.a=resolve_value(value);
-      else if (!strcasecmp(location,"x")) cpu_before.regs.x=resolve_value(value);
-      else if (!strcasecmp(location,"y")) cpu_before.regs.y=resolve_value(value);
-      else if (!strcasecmp(location,"z")) cpu_before.regs.z=resolve_value(value);
-      else if (!strcasecmp(location,"b")) cpu_before.regs.b=resolve_value(value);
-      else if (!strcasecmp(location,"spl")) cpu_before.regs.spl=resolve_value(value);
-      else if (!strcasecmp(location,"sph")) cpu_before.regs.sph=resolve_value(value);
-      else if (!strcasecmp(location,"pc")) cpu_before.regs.pc=resolve_value(value);
+      if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value(value);
+      else if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value(value);
+      else if (!strcasecmp(location,"x")) cpu_expected.regs.x=resolve_value(value);
+      else if (!strcasecmp(location,"y")) cpu_expected.regs.y=resolve_value(value);
+      else if (!strcasecmp(location,"z")) cpu_expected.regs.z=resolve_value(value);
+      else if (!strcasecmp(location,"b")) cpu_expected.regs.b=resolve_value(value);
+      else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=resolve_value(value);
+      else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value(value);
+      else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value(value);
       else {
 	fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
 	cpu.term.error=1;
       }
     } else if (sscanf(line,"expect %s at %s",value,location)==2) {
-      // Update *_before[] memories to indicate the value we expect where.
+      // Update *_expected[] memories to indicate the value we expect where.
       // Resolve labels and label+offset and $nn in each of the fields.
       int v=resolve_value(value);
       int l=resolve_value(location);
@@ -1514,7 +1549,7 @@ int main(int argc,char **argv)
       // We should eventually use 28-bit flat addresses,
       // or auto-detect if the symbol was in hypervisor or user land,
       // and make the decision that way.
-      write_mem_expected(l,v);
+      write_mem_expected28(l,v);
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
