@@ -150,6 +150,19 @@ void disassemble_abs(FILE *f,struct instruction_log *log)
   fprintf(f,"$%02X%02X",log->bytes[2],log->bytes[1]);
 }
 
+void disassemble_iabs(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"($%02X%02X) {PTR=$%04X,ADDR=$%04X}",log->bytes[2],log->bytes[1],
+	  log->zp_pointer,log->zp_pointer_addr);
+}
+
+void disassemble_iabsx(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"($%02X%02X,X)",log->bytes[2],log->bytes[1]);
+}
+
+
+
 void disassemble_absx(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"$%02X%02X,X",log->bytes[2],log->bytes[1]);
@@ -208,6 +221,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x1B: fprintf(f,"INZ"); break;
   case 0x1c: fprintf(f,"TRB "); disassemble_abs(f,log); break;
   case 0x20: fprintf(f,"JSR "); disassemble_abs(f,log); break;
+  case 0x22: fprintf(f,"JSR "); disassemble_iabs(f,log); break;
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
   case 0x2C: fprintf(f,"BIT "); disassemble_abs(f,log); break;
@@ -244,6 +258,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xa2: fprintf(f,"LDX "); disassemble_imm(f,log); break;
   case 0xa3: fprintf(f,"LDZ "); disassemble_imm(f,log); break;
   case 0xa5: fprintf(f,"LDA "); disassemble_zp(f,log); break;
+  case 0xA8: fprintf(f,"TAY"); break;
   case 0xa9: fprintf(f,"LDA "); disassemble_imm(f,log); break;
   case 0xAA: fprintf(f,"TAX"); break;
   case 0xad: fprintf(f,"LDA "); disassemble_abs(f,log); break;
@@ -490,7 +505,7 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
       switch(lnc){
       case 2: case 3: case 6: case 7:
 	addr&=0x1fff;
-	addr|=0x2a000;
+	addr|=0x2e000;
 	break;
       }
     }
@@ -624,6 +639,15 @@ unsigned int addr_izpy(struct cpu *cpu,struct instruction_log *log)
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
 			 +(read_memory(cpu,log->zp_pointer+1)<<8)
 			 +cpu->regs.y)&0xffff;
+  return log->zp_pointer_addr;
+}
+
+unsigned int addr_deref16(struct cpu *cpu,struct instruction_log *log)
+{
+  log->zp_pointer=(log->bytes[1]+(log->bytes[2]<<8));
+  log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
+			 +(read_memory(cpu,log->zp_pointer+1)<<8)
+			 )&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -775,6 +799,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     stack_push(cpu,(cpu->regs.pc+2)>>8);
     stack_push(cpu,cpu->regs.pc+2);
     cpu->regs.pc=addr_abs(log);
+    log->len=3;
+    break;
+  case 0x22: // JSR ($nnnn)
+    stack_push(cpu,(cpu->regs.pc+2)>>8);
+    stack_push(cpu,cpu->regs.pc+2);
+    cpu->regs.pc=addr_deref16(cpu,log);
     log->len=3;
     break;
   case 0x29: // AND #$nn
@@ -981,6 +1011,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.a=read_memory(cpu,addr_zp(cpu,log));
     update_nz(cpu->regs.a);
     break;
+  case 0xa8: // TAY
+    cpu->regs.y=cpu->regs.a;
+    update_nz(cpu->regs.a);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0xa9: // LDA #$nn
     cpu->regs.a=log->bytes[1];
     update_nz(cpu->regs.a);
@@ -989,7 +1025,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     break;
   case 0xaa: // TAX
     cpu->regs.x=cpu->regs.a;
-    update_nz(cpu->regs.x);
+    update_nz(cpu->regs.a);
     cpu->regs.pc++;
     log->len=1;
     break;
