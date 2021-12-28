@@ -5484,8 +5484,8 @@ begin
                 dmagic_dest_hold <= dmagic_dest_bank_temp(4);
               end if;
 
-                                        -- Save memory mapping flags, and set memory map to
-                                        -- be all RAM +/- IO area
+              -- Save memory mapping flags, and set memory map to
+              -- be all RAM +/- IO area
               pre_dma_cpuport_bits <= cpuport_value(2 downto 0);
               cpuport_value(2 downto 1) <= "10";
               
@@ -5493,52 +5493,51 @@ begin
                 when "11" => -- fill                  
                   state <= DMAgicFill;
 
-                                        -- And set IO visibility based on destination bank flags
-                                        -- since we are only writing.
+                  -- And set IO visibility based on destination bank flags
+                  -- since we are only writing.
                   cpuport_value(0) <= dmagic_dest_bank_temp(7);
                   
                 when "00" => -- copy
                   dmagic_first_read <= '1';
                   state <= DMagicCopyRead;
-                                        -- Set IO visibility based on source bank flags
+                  -- Set IO visibility based on source bank flags
                   cpuport_value(0) <= dmagic_src_bank_temp(7);
                 when others =>
-                                        -- swap and mix not yet implemented
+                  -- swap and mix not yet implemented
                   state <= normal_fetch_state;
                   report "monitor_instruction_strobe assert (DMA swap/mix unimplemented function abort)";
                   monitor_instruction_strobe <= '1';
               end case;
-                                        -- XXX Potential security issue: Ideally we should not allow a DMA to
-                                        -- write to Hypervisor memory, so as to make it harder to overwrite
-                                        -- hypervisor memory.  However, we currently use it to do exactly
-                                        -- that in the hickup routine.  Thus before we implement such
-                                        -- protection, we need to change hickup to use a simple copy
-                                        -- routine. We then need to get a bit creative about how we
-                                        -- implement the restriction, as the hypervisor memory doesnt
-                                        -- exist in its own 1MB off address space, so we can't easily
-                                        -- quarantine it by blockinig DMA to that section off address
-                                        -- space. It does live in its own 64KB of address space, however.
-                                        -- that would involve adding a wrap-around check on the bottom 16
-                                        -- bits of the address.
-                                        -- One question is: Does it make sense to try to protect against
-                                        -- this, since the hypervisor memory is only accessible from
-                                        -- hypervisor mode, and any exploit via DMA requires another
-                                        -- exploit first.  Perhaps the only additional issue is if a DMA
-                                        -- chained request went feral, but even that requires at least a
-                                        -- significant bug in the hypervisor.  We could just disable
-                                        -- chained DMA in the hypevisor as a simple safety catch, as this
-                                        -- will provide the main value, without a burdonsome change. But
-                                        -- even that gets used in hyppo when clearing the screen on
-                                        -- boot.
+              -- XXX Potential security issue: Ideally we should not allow a DMA to
+              -- write to Hypervisor memory, so as to make it harder to overwrite
+              -- hypervisor memory.  However, we currently use it to do exactly
+              -- that in the hickup routine.  Thus before we implement such
+              -- protection, we need to change hickup to use a simple copy
+              -- routine. We then need to get a bit creative about how we
+              -- implement the restriction, as the hypervisor memory doesnt
+              -- exist in its own 1MB of address space, so we can't easily
+              -- quarantine it by blockinig DMA to that section off address
+              -- space. It does live in its own 64KB of address space, however.
+              -- that would involve adding a wrap-around check on the bottom 16
+              -- bits of the address.
+              -- One question is: Does it make sense to try to protect against
+              -- this, since the hypervisor memory is only accessible from
+              -- hypervisor mode, and any exploit via DMA requires another
+              -- exploit first.  Perhaps the only additional issue is if a DMA
+              -- chained request went feral, but even that requires at least a
+              -- significant bug in the hypervisor.  We could just disable
+              -- chained DMA in the hypevisor as a simple safety catch, as this
+              -- will provide the main value, without a burdonsome change. But
+              -- even that gets used in hyppo when clearing the screen on
+              -- boot.
             when DMAgicFill =>
-                                        -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
-                                        -- 0)
+              -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
-                                        -- Do memory write
+              -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
-                                        -- Update address and check for end of job.
-                                        -- XXX Ignores modulus, whose behaviour is insufficiently defined
-                                        -- in the C65 specifications document
+              -- Update address and check for end of job.
+              -- XXX Ignores modulus, whose behaviour is insufficiently defined
+              -- in the C65 specifications document
               if reg_dmagic_draw_spiral = '1' then
                 -- Draw the dreaded Shallan Spriral
                 case reg_dmagic_spiral_phase is
