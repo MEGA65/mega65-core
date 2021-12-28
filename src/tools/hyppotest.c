@@ -145,7 +145,7 @@ int rel8_delta(unsigned char c)
 
 void disassemble_rel8(FILE *f,struct instruction_log *log)
 {
-  fprintf(f,"$%04X",log->pc+1+rel8_delta(log->bytes[1]));
+  fprintf(f,"$%04X",log->pc+2+rel8_delta(log->bytes[1]));
 }
 
 void disassemble_imm(FILE *f,struct instruction_log *log)
@@ -214,7 +214,14 @@ void disassemble_izpz32(FILE *f,struct instruction_log *log)
 	  log->zp_pointer,log->zp_pointer_addr);
 }
 
-
+void disassemble_stack_source(FILE *f,struct instruction_log *log)
+{
+  fprintf(f," {Pushed by ");
+  if (log->pop_blame[0]) {
+    fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
+    disassemble_instruction(f,cpulog[log->pop_blame[0]]);
+  } else fprintf(f,"<unitialised stack location>");
+}
 
 void disassemble_instruction(FILE *f,struct instruction_log *log)
 {
@@ -232,7 +239,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x1c: fprintf(f,"TRB "); disassemble_abs(f,log); break;
   case 0x20: fprintf(f,"JSR "); disassemble_abs(f,log); break;
   case 0x22: fprintf(f,"JSR "); disassemble_iabs(f,log); break;
-  case 0x28: fprintf(f,"PLP"); break;
+  case 0x28: fprintf(f,"PLP"); disassemble_stack_source(f,log); break;
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
   case 0x2C: fprintf(f,"BIT "); disassemble_abs(f,log); break;
@@ -265,11 +272,11 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
       } else fprintf(f,"<unitialised stack location>");
     fprintf(f,"}");
     break;
-  case 0x68: fprintf(f,"PLA"); break;
+  case 0x68: fprintf(f,"PLA"); disassemble_stack_source(f,log); break;
   case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
   case 0x6B: fprintf(f,"TZA"); break;
   case 0x78: fprintf(f,"SEI"); break;
-  case 0x7A: fprintf(f,"PLY"); break;
+  case 0x7A: fprintf(f,"PLY"); disassemble_stack_source(f,log); break;
   case 0x80: fprintf(f,"BRA "); disassemble_rel8(f,log); break;
   case 0x84: fprintf(f,"STY "); disassemble_zp(f,log); break;
   case 0x85: fprintf(f,"STA "); disassemble_zp(f,log); break;
@@ -313,8 +320,8 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xea: fprintf(f,"EOM"); break;
   case 0xee: fprintf(f,"INC "); disassemble_abs(f,log); break;
   case 0xf0: fprintf(f,"BEQ "); disassemble_rel8(f,log); break;
-  case 0xFA: fprintf(f,"PLX"); break;
-  case 0xFB: fprintf(f,"PLZ"); break;
+  case 0xFA: fprintf(f,"PLX"); disassemble_stack_source(f,log); break;
+  case 0xFB: fprintf(f,"PLZ"); disassemble_stack_source(f,log); break;
   }
   
 }
@@ -1003,6 +1010,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x80: // BRA $rr
     log->len=2;
     cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    break;
   case 0x84: // STY $xx
     log->len=2;
     cpu->regs.pc+=2;
