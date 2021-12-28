@@ -559,14 +559,14 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
 
   // MAP takes priority over all else
   if (zone<4) {
-    if (cpu->regs.maplo>>(12+zone)) {
+    if ((cpu->regs.maplo>>(12+zone))&1) {
       // This 8KB area is mapped
       addr=addr_in;
       addr+=(cpu->regs.maplo&0xfff)<<8;
       addr+=cpu->regs.maplomb<<20;
     }
   } else if (zone>3) {
-    if (cpu->regs.maphi>>(12+zone-4)) {
+    if ((cpu->regs.maphi>>(12+zone-4))&1) {
       // This 8KB area is mapped
       addr=addr_in;
       addr+=(cpu->regs.maphi&0xfff)<<8;
