@@ -54,11 +54,6 @@ struct cpu {
 #define FLAG_C 0x01
 
 
-char *describe_address(unsigned int addr);
-char *describe_address_label(struct cpu *cpu,unsigned int addr);
-char *describe_address_label28(struct cpu *cpu,unsigned int addr);
-unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP);
-
 // By default we log to stderr
 FILE *logfile=NULL;
 char logfilename[8192]="";
@@ -137,15 +132,32 @@ int cpulog_len=0;
 
 instruction_log *lastataddr[65536]={NULL};
 
+char *describe_address(unsigned int addr);
+char *describe_address_label(struct cpu *cpu,unsigned int addr);
+char *describe_address_label28(struct cpu *cpu,unsigned int addr);
+unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP);
+void disassemble_instruction(FILE *f,struct instruction_log *log);
+
 int rel8_delta(unsigned char c)
 {
   if (c<0x80) return c;
   return c-0x100;
 }
 
+int rel16_delta(unsigned char c)
+{
+  if (c<0x8000) return c;
+  return c-0x10000;
+}
+
 void disassemble_rel8(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"$%04X",log->pc+2+rel8_delta(log->bytes[1]));
+}
+
+void disassemble_rel16(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"$%04X",log->pc+2+rel16_delta(log->bytes[1]+(log->bytes[1]<<8)));
 }
 
 void disassemble_imm(FILE *f,struct instruction_log *log)
@@ -158,6 +170,11 @@ void disassemble_abs(FILE *f,struct instruction_log *log)
   fprintf(f,"$%02X%02X",log->bytes[2],log->bytes[1]);
 }
 
+void disassemble_absz(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"$%02X%02X,Z",log->bytes[2],log->bytes[1]);
+}
+
 void disassemble_iabs(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"($%02X%02X) {PTR=$%04X,ADDR=$%04X}",log->bytes[2],log->bytes[1],
@@ -168,7 +185,6 @@ void disassemble_iabsx(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"($%02X%02X,X)",log->bytes[2],log->bytes[1]);
 }
-
 
 
 void disassemble_absx(FILE *f,struct instruction_log *log)
@@ -233,6 +249,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x08: fprintf(f,"PHP"); break;
   case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
+  case 0x10: fprintf(f,"BPL "); disassemble_rel8(f,log); break;
   case 0x18: fprintf(f,"CLC"); break;
   case 0x1A: fprintf(f,"INC"); break;
   case 0x1B: fprintf(f,"INZ"); break;
@@ -272,6 +289,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
       } else fprintf(f,"<unitialised stack location>");
     fprintf(f,"}");
     break;
+  case 0x65: fprintf(f,"ADC "); disassemble_zp(f,log); break;
   case 0x68: fprintf(f,"PLA"); disassemble_stack_source(f,log); break;
   case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
   case 0x6B: fprintf(f,"TZA"); break;
@@ -281,6 +299,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x84: fprintf(f,"STY "); disassemble_zp(f,log); break;
   case 0x85: fprintf(f,"STA "); disassemble_zp(f,log); break;
   case 0x86: fprintf(f,"STX "); disassemble_zp(f,log); break;
+  case 0x88: fprintf(f,"DEY"); break;
   case 0x8A: fprintf(f,"TXA"); break;
   case 0x8c: fprintf(f,"STY "); disassemble_abs(f,log); break;
   case 0x8d: fprintf(f,"STA "); disassemble_abs(f,log); break;
@@ -291,6 +310,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
     if (log->zp32) disassemble_izpz32(f,log);
     else disassemble_izpz(f,log);
     break;
+  case 0x93: fprintf(f,"BCC "); disassemble_rel16(f,log); break;
   case 0x99: fprintf(f,"STA "); disassemble_absy(f,log); break;
   case 0x9A: fprintf(f,"TXS"); break;
   case 0x9C: fprintf(f,"STZ "); disassemble_abs(f,log); break;
@@ -306,6 +326,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xae: fprintf(f,"LDX "); disassemble_abs(f,log); break;
   case 0xB0: fprintf(f,"BCS "); disassemble_rel8(f,log); break;
   case 0xB1: fprintf(f,"LDA "); disassemble_izpy(f,log); break;
+  case 0xbd: fprintf(f,"LDA "); disassemble_absx(f,log); break;
   case 0xC0: fprintf(f,"CPY "); disassemble_imm(f,log); break;
   case 0xC8: fprintf(f,"INY"); break;
   case 0xC9: fprintf(f,"CMP "); disassemble_imm(f,log); break;
@@ -318,8 +339,10 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xE0: fprintf(f,"CPX "); disassemble_imm(f,log); break;
   case 0xE8: fprintf(f,"INX"); break;
   case 0xea: fprintf(f,"EOM"); break;
+  case 0xEC: fprintf(f,"CPX "); disassemble_abs(f,log); break;
   case 0xee: fprintf(f,"INC "); disassemble_abs(f,log); break;
   case 0xf0: fprintf(f,"BEQ "); disassemble_rel8(f,log); break;
+  case 0xf6: fprintf(f,"INC "); disassemble_zpx(f,log); break;
   case 0xFA: fprintf(f,"PLX"); disassemble_stack_source(f,log); break;
   case 0xFB: fprintf(f,"PLZ"); disassemble_stack_source(f,log); break;
   }
@@ -848,6 +871,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     MEM_WRITE16(cpu,addr_abs(log),v);
     update_nz(v);
     break;
+  case 0x10: // BPL $rr
+    log->len=2;
+    if (cpu->regs.flags&FLAG_N)
+      cpu->regs.pc+=2;
+    else
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    break;
   case 0x18: // CLC
     cpu->regs.flags&=~FLAG_C;
     cpu->regs.pc++;
@@ -973,6 +1003,16 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc|=stack_pop(cpu,log)<<8;
     cpu->regs.pc++;
     break;
+  case 0x65: // ADC $nn
+    // XXX - Ignores decimal mode!
+    v=cpu->regs.a+addr_zp(cpu,log);
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    cpu->regs.a=v;
+    cpu->regs.a&=0xff;
+    log->len=2;
+    cpu->regs.pc+=2;
+    break;
   case 0x68: // PLA
     // XXX -- Not implemented
     cpu->regs.pc++;
@@ -1026,6 +1066,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=2;
     MEM_WRITE16(cpu,addr_zp(cpu,log),cpu->regs.x);
     break;
+  case 0x88: // DEY
+    cpu->regs.y--;
+    update_nz(cpu->regs.y);
+    cpu->regs.pc++;
+    log->len=1;
+    break;
   case 0x8a: // TXA
     cpu->regs.a=cpu->regs.x;
     update_nz(cpu->regs.a);
@@ -1072,6 +1118,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       // Normal 16-bit ZP pointer
       log->zp16=1;
       MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
+    break;
+  case 0x93: // BCC $rr
+    log->len=3;
+    if (cpu->regs.flags&FLAG_C)
+      cpu->regs.pc+=3;
+    else
+      cpu->regs.pc+=3+rel16_delta(log->bytes[1]+(log->bytes[2]<<8));
     break;
   case 0x99: // STA $xxxx,Y
     log->len=3;
@@ -1161,6 +1214,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.a=read_memory(cpu,addr_izpy(cpu,log));
     update_nz(cpu->regs.a);
     break;
+  case 0xbd: // LDA $xxxx,X
+    log->len=3;
+    cpu->regs.pc+=3;
+    cpu->regs.a=read_memory(cpu,addr_absx(cpu,log));
+    update_nz(cpu->regs.a);
+    break;
   case 0xC0: // CPY #$nn
     v=cpu->regs.y+log->bytes[1];
     if (cpu->regs.flags&FLAG_C) v++;
@@ -1235,6 +1294,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.map_irq_inhibit=0;
     log->len=1;
     break;
+  case 0xEC: // CPX $nnnn
+    v=cpu->regs.x+read_memory(cpu,addr_abs(log));
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    log->len=3;
+    cpu->regs.pc+=3;
+    break;
   case 0xEE: // INC $xxxx
     log->len=3;
     cpu->regs.pc+=3;
@@ -1249,6 +1315,14 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     else
       cpu->regs.pc+=2;
+    break;
+  case 0xf6: // INC $xx,X
+    log->len=2;
+    cpu->regs.pc+=2;
+    v=read_memory(cpu,addr_zpx(cpu,log));
+    v++; v&=0xff;
+    MEM_WRITE16(cpu,addr_zpx(cpu,log),v);
+    update_nz(v);
     break;
   case 0xFA: // PLX
     cpu->regs.x=stack_pop(cpu,log);
