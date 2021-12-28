@@ -33,6 +33,9 @@ struct termination_conditions {
 
   // Terminated on BRK
   int brk;
+
+  // Log DMA requests
+  int log_dma;
   
 };
 
@@ -657,9 +660,22 @@ unsigned int memory_blame(struct cpu *cpu,unsigned int addr16)
   return 0;
 }
 
+int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
+{
+  if (cpu->term.log_dma) {
+    fprintf(logfile,"NOTE: %sDMA dispatched with list address $%07x\n",
+	    eDMA?"E":"",addr);
+    fprintf(logfile,"      DMA addr regs contain $%02X $%02X $%02X $%02X $%02X\n",
+	    ffdram[0x3700],ffdram[0x3701],ffdram[0x3702],ffdram[0x3703],ffdram[0x3704],ffdram[0x3705]);
+    show_recent_instructions(logfile,"Instructions leading up to the DMA request", cpu,cpulog_len-32,32,cpu->regs.pc);
+  }
+  return 0;
+}
 
 int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
+  unsigned int dma_addr;
+  
   if (addr>=0xfff8000&&addr<0xfffc000)
   {
     // Hypervisor sits at $FFF8000-$FFFBFFF
@@ -676,6 +692,47 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
     // $FFDxxxx IO space
     ffdram[addr-0xffd0000]=value;
     ffdram_blame[addr-0xffd0000]=cpu->instruction_count;
+    
+    // Now check for special address actions
+    switch(addr) {
+    case 0xffd3700: // Trigger DMA
+      if (cpu->term.log_dma)
+	fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
+		addr,cpulog_len);
+      ffdram[0x3705]=value;
+      ffdram_blame[0x3705]=cpu->instruction_count;
+      dma_addr=ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16)|(ffdram[0x3704]<<20);
+      do_dma(cpu,0,dma_addr);
+      break;
+    case 0xffd3702: // Set bits 22 to 16 of DMA address
+      ffdram[0x3704]&=0xf1;
+      ffdram[0x3704]|=(value>>4)&7;
+      ffdram_blame[0x3704]=cpu->instruction_count;
+      break;
+    case 0xffd3705: // Trigger EDMA
+      if (cpu->term.log_dma)
+	fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
+		addr,cpulog_len);
+      ffdram[0x3700]=value;
+      ffdram_blame[0x3700]=cpu->instruction_count;
+      dma_addr=ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16)|(ffdram[0x3704]<<20);
+      do_dma(cpu,0,dma_addr);
+      break;
+    }
+    if (!cpu->regs.in_hyper) {
+      if (addr>=0xffd3640&&addr<=0xffd367f) {
+	// Enter hypervisor
+	fprintf(logfile,"NOTE: CPU Entered Hypervisor via write to $%07x at instruction #%d\n",
+		addr,cpulog_len);
+      }
+    } else {
+      if (addr==0xffd367f) {
+	// Exit hypervisor
+	fprintf(logfile,"NOTE: CPU Exited Hypervisor via write to $%07x at instruction #%d\n",
+		addr,cpulog_len);
+      }
+    }
+    
   } else {
   // Otherwise unmapped RAM
     fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
@@ -1975,17 +2032,27 @@ int main(int argc,char **argv)
 	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
 	cpu.term.error=1;
       } else {
+	int log_dma=cpu.term.log_dma;
 	bzero(&cpu.term,sizeof(cpu.term));
+	cpu.term.log_dma=log_dma;
 	cpu.term.rts=1; // Terminate on net RTS from routine
 	cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
-    }
-    else if (sscanf(line,"jsr $%x",&addr)==1) {
+    } else if (!strncasecmp(line,"log dma off",strlen("log dma off"))) {
+      cpu.term.log_dma=0;
+      fprintf(logfile,"NOTE: DMA jobs will not be reported\n");
+    } else if (!strncasecmp(line,"log dma",strlen("log dma"))) {
+      cpu.term.log_dma=1;
+      fprintf(logfile,"NOTE: DMA jobs will be reported\n");
+    } else if (sscanf(line,"jsr $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(logfile,addr);
     } else if (sscanf(line,"jmp %s",routine)==1) {
       int i;
+      int log_dma=cpu.term.log_dma;
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
       for(i=0;i<hyppo_symbol_count;i++) {
 	if (!strcmp(routine,hyppo_symbols[i].name)) break;
@@ -1994,12 +2061,16 @@ int main(int argc,char **argv)
 	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
 	cpu.term.error=1;
       } else {
+	int log_dma=cpu.term.log_dma;
 	bzero(&cpu.term,sizeof(cpu.term));
+	cpu.term.log_dma=log_dma;
 	cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
     }
     else if (sscanf(line,"jmp $%x",&addr)==1) {
+      int log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
     }  else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
