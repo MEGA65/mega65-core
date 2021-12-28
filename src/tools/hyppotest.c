@@ -250,6 +250,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
   case 0x10: fprintf(f,"BPL "); disassemble_rel8(f,log); break;
+  case 0x13: fprintf(f,"BPL "); disassemble_rel16(f,log); break;
   case 0x18: fprintf(f,"CLC"); break;
   case 0x1A: fprintf(f,"INC"); break;
   case 0x1B: fprintf(f,"INZ"); break;
@@ -260,12 +261,15 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x29: fprintf(f,"AND "); disassemble_imm(f,log); break;
   case 0x2B: fprintf(f,"TYS"); break;
   case 0x2C: fprintf(f,"BIT "); disassemble_abs(f,log); break;
+  case 0x30: fprintf(f,"BMI "); disassemble_rel8(f,log); break;
+  case 0x33: fprintf(f,"BMI "); disassemble_rel16(f,log); break;
   case 0x38: fprintf(f,"SEC"); break;
   case 0x3A: fprintf(f,"DEC"); break;
   case 0x48: fprintf(f,"PHA"); break;
   case 0x40: fprintf(f,"RTI"); break;
   case 0x4B: fprintf(f,"TAZ"); break;
   case 0x4C: fprintf(f,"JMP "); disassemble_abs(f,log); break;
+  case 0x58: fprintf(f,"CLI"); break;
   case 0x5a: fprintf(f,"PHY"); break;
   case 0x5b: fprintf(f,"TAB"); break;
   case 0x5c: fprintf(f,"MAP"); break;
@@ -296,10 +300,12 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x78: fprintf(f,"SEI"); break;
   case 0x7A: fprintf(f,"PLY"); disassemble_stack_source(f,log); break;
   case 0x80: fprintf(f,"BRA "); disassemble_rel8(f,log); break;
+  case 0x83: fprintf(f,"BRA "); disassemble_rel16(f,log); break;
   case 0x84: fprintf(f,"STY "); disassemble_zp(f,log); break;
   case 0x85: fprintf(f,"STA "); disassemble_zp(f,log); break;
   case 0x86: fprintf(f,"STX "); disassemble_zp(f,log); break;
   case 0x88: fprintf(f,"DEY"); break;
+  case 0x89: fprintf(f,"BIT "); disassemble_imm(f,log); break;
   case 0x8A: fprintf(f,"TXA"); break;
   case 0x8c: fprintf(f,"STY "); disassemble_abs(f,log); break;
   case 0x8d: fprintf(f,"STA "); disassemble_abs(f,log); break;
@@ -318,7 +324,9 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xa0: fprintf(f,"LDY "); disassemble_imm(f,log); break;
   case 0xa2: fprintf(f,"LDX "); disassemble_imm(f,log); break;
   case 0xa3: fprintf(f,"LDZ "); disassemble_imm(f,log); break;
+  case 0xa4: fprintf(f,"LDY "); disassemble_zp(f,log); break;
   case 0xa5: fprintf(f,"LDA "); disassemble_zp(f,log); break;
+  case 0xa6: fprintf(f,"LDX "); disassemble_zp(f,log); break;
   case 0xA8: fprintf(f,"TAY"); break;
   case 0xa9: fprintf(f,"LDA "); disassemble_imm(f,log); break;
   case 0xAA: fprintf(f,"TAX"); break;
@@ -326,11 +334,14 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xae: fprintf(f,"LDX "); disassemble_abs(f,log); break;
   case 0xB0: fprintf(f,"BCS "); disassemble_rel8(f,log); break;
   case 0xB1: fprintf(f,"LDA "); disassemble_izpy(f,log); break;
+  case 0xb9: fprintf(f,"LDA "); disassemble_absy(f,log); break;
   case 0xbd: fprintf(f,"LDA "); disassemble_absx(f,log); break;
   case 0xC0: fprintf(f,"CPY "); disassemble_imm(f,log); break;
   case 0xC8: fprintf(f,"INY"); break;
   case 0xC9: fprintf(f,"CMP "); disassemble_imm(f,log); break;
   case 0xCA: fprintf(f,"DEX"); break;
+  case 0xCC: fprintf(f,"CPY "); disassemble_abs(f,log); break;
+  case 0xCD: fprintf(f,"CMP "); disassemble_abs(f,log); break;
   case 0xce: fprintf(f,"DEC "); disassemble_abs(f,log); break;
   case 0xd0: fprintf(f,"BNE "); disassemble_rel8(f,log); break;
   case 0xD8: fprintf(f,"CLD"); break;
@@ -340,6 +351,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xE8: fprintf(f,"INX"); break;
   case 0xea: fprintf(f,"EOM"); break;
   case 0xEC: fprintf(f,"CPX "); disassemble_abs(f,log); break;
+  case 0xED: fprintf(f,"SBC "); disassemble_abs(f,log); break;
   case 0xee: fprintf(f,"INC "); disassemble_abs(f,log); break;
   case 0xf0: fprintf(f,"BEQ "); disassemble_rel8(f,log); break;
   case 0xf6: fprintf(f,"INC "); disassemble_zpx(f,log); break;
@@ -878,6 +890,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     else
       cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     break;
+  case 0x13: // BPL $rrrr
+    log->len=3;
+    if (cpu->regs.flags&FLAG_N)
+      cpu->regs.pc+=3;
+    else
+      cpu->regs.pc+=2+rel16_delta(log->bytes[1]);
+    break;
   case 0x18: // CLC
     cpu->regs.flags&=~FLAG_C;
     cpu->regs.pc++;
@@ -942,6 +961,20 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     v&=cpu->regs.a;
     if (!v) cpu->regs.flags|=FLAG_Z;
     break;
+  case 0x30: // BMI $rr
+    log->len=2;
+    if (!(cpu->regs.flags&FLAG_N))
+      cpu->regs.pc+=2;
+    else
+      cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
+    break;
+  case 0x33: // BMI $rrrr
+    log->len=3;
+    if (!(cpu->regs.flags&FLAG_N))
+      cpu->regs.pc+=3;
+    else
+      cpu->regs.pc+=2+rel16_delta(log->bytes[1]);
+    break;
   case 0x38: // SEC
     cpu->regs.flags|=FLAG_C;
     cpu->regs.pc++;
@@ -967,6 +1000,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x4c: // JMP $nnnn
     cpu->regs.pc=addr_abs(log);
     log->len=3;
+    break;
+  case 0x58: // CLI
+    cpu->regs.flags&=~FLAG_I;
+    cpu->regs.pc++;
+    log->len=1;
     break;
   case 0x5A: // PHY
     stack_push(cpu,cpu->regs.y);
@@ -1051,6 +1089,10 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=2;
     cpu->regs.pc+=2+rel8_delta(log->bytes[1]);
     break;
+  case 0x83: // BRA $rrrr
+    log->len=3;
+    cpu->regs.pc+=2+rel16_delta(log->bytes[1]);
+    break;
   case 0x84: // STY $xx
     log->len=2;
     cpu->regs.pc+=2;
@@ -1071,6 +1113,15 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     update_nz(cpu->regs.y);
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0x89: // BIT #$xx
+    log->len=3;
+    cpu->regs.pc+=3;
+    v=log->bytes[1];
+    cpu->regs.flags&=~(FLAG_N|FLAG_V|FLAG_Z);
+    cpu->regs.flags|=v&(FLAG_N|FLAG_V);
+    v&=cpu->regs.a;
+    if (!v) cpu->regs.flags|=FLAG_Z;
     break;
   case 0x8a: // TXA
     cpu->regs.a=cpu->regs.x;
@@ -1164,11 +1215,23 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=2;
     cpu->regs.pc+=2;
     break;
+  case 0xa4: // LDY $xx
+    log->len=2;
+    cpu->regs.pc+=2;
+    cpu->regs.y=read_memory(cpu,addr_zp(cpu,log));
+    update_nz(cpu->regs.y);
+    break;
   case 0xa5: // LDA $xx
     log->len=2;
     cpu->regs.pc+=2;
     cpu->regs.a=read_memory(cpu,addr_zp(cpu,log));
     update_nz(cpu->regs.a);
+    break;
+  case 0xa6: // LDX $xx
+    log->len=2;
+    cpu->regs.pc+=2;
+    cpu->regs.x=read_memory(cpu,addr_zp(cpu,log));
+    update_nz(cpu->regs.x);
     break;
   case 0xa8: // TAY
     cpu->regs.y=cpu->regs.a;
@@ -1214,6 +1277,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.a=read_memory(cpu,addr_izpy(cpu,log));
     update_nz(cpu->regs.a);
     break;
+  case 0xb9: // LDA $xxxx,Y
+    log->len=3;
+    cpu->regs.pc+=3;
+    cpu->regs.a=read_memory(cpu,addr_absy(cpu,log));
+    update_nz(cpu->regs.a);
+    break;
   case 0xbd: // LDA $xxxx,X
     log->len=3;
     cpu->regs.pc+=3;
@@ -1235,7 +1304,6 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     break;
   case 0xC9: // CMP #$nn
     v=cpu->regs.a+log->bytes[1];
-    if (cpu->regs.flags&FLAG_C) v++;
     update_nvzc(v);
     log->len=2;
     cpu->regs.pc+=2;
@@ -1245,6 +1313,18 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     update_nz(cpu->regs.x);
     cpu->regs.pc++;
     log->len=1;
+    break;
+  case 0xCC: // CPY $nnnn
+    v=cpu->regs.y+addr_abs(log);
+    update_nvzc(v);
+    log->len=3;
+    cpu->regs.pc+=3;
+    break;
+  case 0xCD: // CMP $nnnn
+    v=cpu->regs.a+addr_abs(log);
+    update_nvzc(v);
+    log->len=3;
+    cpu->regs.pc+=3;
     break;
   case 0xCE: // DEC $xxxx
     log->len=3;
@@ -1298,6 +1378,16 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     v=cpu->regs.x+read_memory(cpu,addr_abs(log));
     if (cpu->regs.flags&FLAG_C) v++;
     update_nvzc(v);
+    log->len=3;
+    cpu->regs.pc+=3;
+    break;
+  case 0xed: // SBC $nnnn
+    // XXX - Ignores decimal mode!
+    v=cpu->regs.a-addr_abs(log)-1;
+    if (cpu->regs.flags&FLAG_C) v++;
+    update_nvzc(v);
+    cpu->regs.a=v;
+    cpu->regs.a&=0xff;
     log->len=3;
     cpu->regs.pc+=3;
     break;
