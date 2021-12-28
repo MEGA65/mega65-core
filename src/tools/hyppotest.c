@@ -30,6 +30,10 @@ struct termination_conditions {
   
   // Terminate when number of RTS (minus JSRs) is encountered
   int rts;
+
+  // Terminated on BRK
+  int brk;
+  
 };
 
 
@@ -213,6 +217,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   
   if (!log->len) return;
   switch(log->bytes[0]) {
+  case 0x00: fprintf(f,"BRK "); disassemble_imm(f,log); break;
   case 0x03: fprintf(f,"SEE"); break;
   case 0x08: fprintf(f,"PHP"); break;
   case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
@@ -760,6 +765,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->bytes[i]=read_memory(cpu,cpu->regs.pc+i);
   }
   switch(log->bytes[0]) {
+  case 0x00: // BRK
+    log->len=2;
+    cpu->term.error=1;
+    cpu->term.brk=1;
+    cpu->term.done=1;
+    break;
   case 0x03: // SEE
     cpu->regs.flags|=FLAG_E;
     cpu->regs.pc++;
@@ -1296,6 +1307,13 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     cpu.term.error=1;   
     fprintf(stderr,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
     return -1;
+  }
+  if (cpu.term.brk) {
+    fprintf(logfile,"ERROR: BRK instruction encountered.\n");
+    // Show upto 32 instructions prior to the infinite loop
+    show_recent_instructions(logfile,"Instructions leading to the BRK instruction",
+			     &cpu,cpulog_len-30,32,addr);
+    return -1;    
   }
   if (cpu.term.done) {
     fprintf(logfile,"NOTE: Execution ended.\n");
