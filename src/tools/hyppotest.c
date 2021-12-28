@@ -108,6 +108,10 @@ typedef struct instruction_log {
   unsigned char bytes[6];
   unsigned char len;
   unsigned char dup;
+  unsigned char zp16;
+  unsigned char zp32;
+  unsigned int zp_pointer;
+  unsigned int zp_pointer_addr;
   struct regs regs;
   unsigned int count;
 } instruction_log;
@@ -167,12 +171,20 @@ void disassemble_zpy(FILE *f,struct instruction_log *log)
 
 void disassemble_izpy(FILE *f,struct instruction_log *log)
 {
-  fprintf(f,"($%02X),Y",log->bytes[1]);
+  fprintf(f,"($%02X),Y {PTR=$%04X,ADDR16=$%04X}",log->bytes[1],
+	  log->zp_pointer,log->zp_pointer_addr);
 }
 
 void disassemble_izpz(FILE *f,struct instruction_log *log)
 {
-  fprintf(f,"($%02X),Z",log->bytes[1]);
+  fprintf(f,"($%02X),Z {PTR=$%04X,ADDR16=$%04X}",log->bytes[1],
+	  log->zp_pointer,log->zp_pointer_addr);
+}
+
+void disassemble_izpz32(FILE *f,struct instruction_log *log)
+{
+  fprintf(f,"[$%02X],Z {PTR=$%04X,ADDR32=$%07X}",log->bytes[1],
+	  log->zp_pointer,log->zp_pointer_addr);
 }
 
 
@@ -214,7 +226,10 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x8e: fprintf(f,"STX "); disassemble_abs(f,log); break;
   case 0x90: fprintf(f,"BCC "); disassemble_rel8(f,log); break;
   case 0x91: fprintf(f,"STA "); disassemble_izpy(f,log); break;
-  case 0x92: fprintf(f,"STA "); disassemble_izpz(f,log); break;
+  case 0x92: fprintf(f,"STA ");
+    if (log->zp32) disassemble_izpz32(f,log);
+    else disassemble_izpz(f,log);
+    break;
   case 0x99: fprintf(f,"STA "); disassemble_absy(f,log); break;
   case 0x9A: fprintf(f,"TXS"); break;
   case 0x9C: fprintf(f,"STZ "); disassemble_abs(f,log); break;
@@ -254,8 +269,13 @@ int show_recent_instructions(FILE *f,char *title,
 {
   int last_was_dup=0;
   fprintf(f,"INFO: %s\n",title);
-  if (first_instruction<0) first_instruction=0;
+  if (!first_instruction) {
+    fprintf(f," --- No relevant instruction history available (location not written?) ---\n");
+    return 0;
+  }
+  if (first_instruction<0) { count-=-first_instruction; first_instruction=0; }
   for(int i=first_instruction;count>0&&i<cpulog_len;count--,i++) {
+    if (!i) { fprintf(f,"I0        -- Machine reset --\n"); continue; }
     if (cpulog[i]->dup&&(i>first_instruction)) {
       if (!last_was_dup) fprintf(f,"                 ... duplicated instructions omitted ...\n");
       last_was_dup=1;
@@ -272,6 +292,7 @@ int show_recent_instructions(FILE *f,char *title,
       fprintf(f,"Y:%02X ",cpulog[i]->regs.y);
       fprintf(f,"Z:%02X ",cpulog[i]->regs.z);
       fprintf(f,"SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
+      fprintf(f,"B:%02X ",cpulog[i]->regs.b);
       fprintf(f,"%c%c%c%c%c%c%c%c ",
 	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
 	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
@@ -365,7 +386,8 @@ char *describe_address_label(struct cpu *cpu,unsigned int addr)
 void cpu_log_reset(void)
 {
   for(int i=0;i<cpulog_len;i++) free(cpulog[i]);
-  cpulog_len=0;
+  cpulog_len=1;
+  cpulog[0]=NULL;
 }
 
 void cpu_stash_ram(void)
@@ -498,6 +520,7 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
   } else {
   // Otherwise unmapped RAM
     fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
+    show_recent_instructions(logfile,"Instructions leading up to the request", cpu,cpulog_len-6,6,cpu->regs.pc);
     cpu->term.error=1;
   }
 
@@ -553,14 +576,31 @@ unsigned int addr_zpy(struct cpu *cpu,struct instruction_log *log)
 
 unsigned int addr_izpy(struct cpu *cpu,struct instruction_log *log)
 {
-  int a=(log->bytes[1]+(log->regs.b<<8));
-  return (read_memory(cpu,a+0)+(read_memory(cpu,a+1)<<8)+cpu->regs.y)&0xffff;
+  log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
+  log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
+			 +(read_memory(cpu,log->zp_pointer+1)<<8)
+			 +cpu->regs.y)&0xffff;
+  return log->zp_pointer_addr;
 }
 
 unsigned int addr_izpz(struct cpu *cpu,struct instruction_log *log)
 {
-  int a=(log->bytes[1]+(log->regs.b<<8));
-  return (read_memory(cpu,a+0)+(read_memory(cpu,a+1)<<8)+cpu->regs.z)&0xffff;
+  log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
+  log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
+			 +(read_memory(cpu,log->zp_pointer+1)<<8)
+			 +cpu->regs.z)&0xffff;
+  return log->zp_pointer_addr;
+}
+
+unsigned int addr_izpz32(struct cpu *cpu,struct instruction_log *log)
+{
+  log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
+  log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
+			 +(read_memory(cpu,log->zp_pointer+1)<<8)
+			 +(read_memory(cpu,log->zp_pointer+2)<<16)
+			 +(read_memory(cpu,log->zp_pointer+3)<<24)
+			 +cpu->regs.z)&0xffff;
+  return log->zp_pointer_addr;
 }
 
 
@@ -593,6 +633,7 @@ void update_nvzc(int v)
 }
 
 #define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
+#define MEM_WRITE28(CPU,ADDR,VALUE) if (write_mem28(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
 unsigned char stack_pop(struct cpu *cpu)
 {
@@ -836,12 +877,21 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x91: // STA ($xx),Y
     log->len=2;
     cpu->regs.pc+=2;
+    log->zp16=1;
     MEM_WRITE16(cpu,addr_izpy(cpu,log),cpu->regs.a);
     break;
   case 0x92: // STA ($xx),Z
     log->len=2;
     cpu->regs.pc+=2;
-    MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
+    if ((cpulog_len>1)&&cpulog[cpulog_len-2]->bytes[0]==0xEA) {
+      // NOP prefix means 32-bit ZP pointer
+      fprintf(logfile,"ZP32 address = $%07x\n",addr_izpz32(cpu,log));
+      log->zp32=1;
+      MEM_WRITE28(cpu,addr_izpz32(cpu,log),cpu->regs.a);
+    } else
+      // Normal 16-bit ZP pointer
+      log->zp16=1;
+      MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
     break;
   case 0x99: // STA $xxxx,Y
     log->len=3;
@@ -921,6 +971,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0xb1: // LDA ($xx),Y
     log->len=2;
     cpu->regs.pc+=2;
+    log->zp16=1;
     cpu->regs.a=read_memory(cpu,addr_izpy(cpu,log));
     update_nz(cpu->regs.a);
     break;
@@ -1244,6 +1295,7 @@ void machine_init(struct cpu *cpu)
   // Initialise CPU staet
   bzero(cpu,sizeof(struct cpu));
   cpu->regs.flags=FLAG_E|FLAG_I;
+  cpu->regs.b=0xbf;
 
   // We start in hypervisor mode
   cpu->regs.in_hyper=1;
@@ -1329,14 +1381,14 @@ void test_conclude(struct cpu *cpu)
   if (cpu->term.error) {
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
-    show_recent_instructions(logfile,"Complete instruction log follows",cpu,0,cpulog_len,-1);
+    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
     fprintf(logfile,"FAIL: Test failed.\n");
     printf("\r[FAIL] %s\n",test_name);
   } else {
     snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
     test_passes++;
 
-    show_recent_instructions(logfile,"Complete instruction log follows",cpu,0,cpulog_len,-1);
+    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
     fprintf(logfile,"PASS: Test passed.\n");
     printf("\r[PASS] %s\n",test_name);    
   }
@@ -1394,7 +1446,7 @@ int load_hyppo_symbols(char *filename)
   return 0;
 }
 
-int resolve_value(char *in)
+int resolve_value32(char *in)
 {
   int v;
   char label[1024];
@@ -1426,9 +1478,20 @@ int resolve_value(char *in)
     cpu.term.error=1;
     return 0;
   } else {
-    v=hyppo_symbols[i].addr+delta;
+    // Add HYPPO base address to HYPPO symbols
+    v=0xfff0000+hyppo_symbols[i].addr+delta;
     return v;
   }
+}
+
+int resolve_value8(char *in)
+{
+  return resolve_value32(in)&0xff;
+}
+
+int resolve_value16(char *in)
+{
+  return resolve_value32(in)&0xffff;
 }
 
 int main(int argc,char **argv)
@@ -1501,11 +1564,11 @@ int main(int argc,char **argv)
       // Check registers for changes
       compare_register_contents(logfile,&cpu);
     } else if (sscanf(line,"ignore from %s to %s",start,end)==2) {
-      int low=resolve_value(start);
-      int high=resolve_value(end);
+      int low=resolve_value32(start);
+      int high=resolve_value32(end);
       ignore_ram_changes(low,high);
     } else if (sscanf(line,"ignore %s",start)==1) {
-      int low=resolve_value(start);
+      int low=resolve_value32(start);
       ignore_ram_changes(low,low);
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
@@ -1523,19 +1586,24 @@ int main(int argc,char **argv)
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
-      breakpoints[resolve_value(routine)]=1;
-      fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,resolve_value(routine));
+      int addr32=resolve_value32(routine);
+	int addr16=addr32;
+      if (addr32&0xffff0000) {
+	addr16=addr32&0xffff;
+      } 
+      fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,addr16);
+      breakpoints[addr16]=1;
     } else if (sscanf(line,"expect %s = %s",location,value)==2) {
       // Set expected register value
-      if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value(value);
-      else if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value(value);
-      else if (!strcasecmp(location,"x")) cpu_expected.regs.x=resolve_value(value);
-      else if (!strcasecmp(location,"y")) cpu_expected.regs.y=resolve_value(value);
-      else if (!strcasecmp(location,"z")) cpu_expected.regs.z=resolve_value(value);
-      else if (!strcasecmp(location,"b")) cpu_expected.regs.b=resolve_value(value);
-      else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=resolve_value(value);
-      else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value(value);
-      else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value(value);
+      if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
+      else if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
+      else if (!strcasecmp(location,"x")) cpu_expected.regs.x=resolve_value8(value);
+      else if (!strcasecmp(location,"y")) cpu_expected.regs.y=resolve_value8(value);
+      else if (!strcasecmp(location,"z")) cpu_expected.regs.z=resolve_value8(value);
+      else if (!strcasecmp(location,"b")) cpu_expected.regs.b=resolve_value8(value);
+      else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=resolve_value8(value);
+      else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value8(value);
+      else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value16(value);
       else {
 	fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
 	cpu.term.error=1;
@@ -1543,12 +1611,8 @@ int main(int argc,char **argv)
     } else if (sscanf(line,"expect %s at %s",value,location)==2) {
       // Update *_expected[] memories to indicate the value we expect where.
       // Resolve labels and label+offset and $nn in each of the fields.
-      int v=resolve_value(value);
-      int l=resolve_value(location);
-      // XXX Horrible hack for hypervisor memory vs chip RAM.
-      // We should eventually use 28-bit flat addresses,
-      // or auto-detect if the symbol was in hypervisor or user land,
-      // and make the decision that way.
+      int v=resolve_value8(value);
+      int l=resolve_value32(location);
       write_mem_expected28(l,v);
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
