@@ -328,7 +328,7 @@ int show_recent_instructions(FILE *f,char *title,
 	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
       fprintf(f," : ");
 
-      fprintf(f,"%32s : ",describe_address_label(cpu,cpulog[i]->regs.pc));
+      fprintf(f,"%32s : ",describe_address_label28(cpu,addr_to_28bit(cpu,cpulog[i]->regs.pc,0)));
 
       for(int j=0;j<3;j++) {
 	if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
@@ -379,7 +379,7 @@ char *describe_address_label28(struct cpu *cpu,unsigned int addr)
 {
   struct hyppo_symbol *s=NULL;
   int exact=0;
-  
+
   for(int i=0;i<hyppo_symbol_count;i++) {
     // Check for exact address match
     //    fprintf(stderr,"$%07x vs $%04x (%s)\n",addr,hyppo_symbols[i].addr,hyppo_symbols[i].name);
@@ -417,7 +417,8 @@ char *describe_address_label28(struct cpu *cpu,unsigned int addr)
 
   
   if (s) {
-    if ((s->addr+0xfff0000)==addr)  snprintf(addr_description,8192,"%s",s->name);
+    if (nonhyppo&&(s->addr+0xfff0000)==addr)  snprintf(addr_description,8192,"%s",s->name);
+    if ((!nonhyppo)&&(s->addr)==addr)  snprintf(addr_description,8192,"%s",s->name);
     else {
       if (nonhyppo) {
 	snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
