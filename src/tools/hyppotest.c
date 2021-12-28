@@ -1756,7 +1756,7 @@ void test_conclude(struct cpu *cpu)
     snprintf(cmd,8192,"mv %s PASS.%s",TESTLOGFILE,safe_name);
     test_passes++;
 
-    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
+    //    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
     fprintf(logfile,"PASS: Test passed.\n");
     printf("\r[PASS] %s\n",test_name);    
   }
@@ -1846,6 +1846,18 @@ int load_symbols(char *filename, unsigned int offset)
     char sym[1024];
     int addr;
     if(sscanf(line," %s = $%x",sym,&addr)==2) {
+      if (symbol_count>=MAX_SYMBOLS) {
+	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+	return -1;
+      }
+      symbols[symbol_count].name=strdup(sym);
+      symbols[symbol_count].addr=addr+offset;
+      if (addr+offset<CHIPRAM_SIZE) {
+	sym_by_addr[addr+offset]=&symbols[symbol_count];
+      }
+      symbol_count++;
+    } else if (sscanf(line,"al %x %s",&addr,sym)==2) {
+      // VICE symbol list format (eg from CC65)
       if (symbol_count>=MAX_SYMBOLS) {
 	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
 	return -1;
@@ -1949,7 +1961,7 @@ int main(int argc,char **argv)
     char location[1024];
     char start[1024];
     char end[1024];
-    unsigned int addr;
+    unsigned int addr,addr2;
     if (!line[0]) continue;
     if (line[0]=='#') continue;
     if (line[0]=='\r') continue;
@@ -2019,6 +2031,10 @@ int main(int argc,char **argv)
       if (load_file(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
       if (load_symbols(routine,addr)) cpu.term.error=1;
+    } else if (sscanf(line,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
+      if (load_symbols(routine,addr-addr2)) cpu.term.error=1;
+    } else if (sscanf(line,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
+      if (load_symbols(routine,addr+addr2)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
 	int addr16=addr32;
