@@ -692,6 +692,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
   int s_x8_offset=0;
   int s_y8_offset=0;
   int s_slope=0;
+  int s_slope_overflow_toggle=0;
   int s_slope_fraction_start=0;
   int s_line_mode=0;
   int s_line_x_or_y=0;
@@ -818,6 +819,135 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
   
   while(dma_count--)
     {
+
+      // Update source address
+      {
+	if (!s_line_mode) {
+	  // Normal fill / copy
+	  if (!src_hold) {
+	    if (!src_direction) src_addr += src_skip;
+	    else src_addr -= src_skip;
+	  }
+	} else {
+	  // We are in line mode.
+	  
+	  // Add fractional position
+	  s_slope_fraction_start += s_slope;
+	  // Check if we have accumulated a whole pixel of movement?
+	  int line_x_move = 0;
+	  int line_x_move_negative = 0;
+	  int line_y_move = 0;
+	  int line_y_move_negative = 0;
+	  if (s_slope_overflow_toggle /= (s_slope_fraction_start&0x10000)) {
+	    s_slope_overflow_toggle = (s_slope_fraction_start&0x10000);
+	    // Yes: Advance in minor axis
+	    if (!s_line_x_or_y) {
+	      line_y_move = 1;
+	      line_y_move_negative = s_line_slope_negative;
+	    } else {
+	      line_x_move = 1;
+	      line_x_move_negative = s_line_slope_negative;
+	    }
+	  }
+	  // Also move major axis (which is always in the forward direction)
+	  if (!s_line_x_or_y) line_x_move = 1; else line_y_move=1;
+	  if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+	    // Y = Y + 1
+	    if (((src_addr>>11)&7)==7) {
+	      // Will overflow between Y cards
+	      src_addr |= (256*8) + (s_y8_offset<<8);
+	    } else {
+	      // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+	      src_addr |= (256*8);
+	    }
+	  } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+	    // Y = Y - 1
+	    if (((src_addr>>11)&7)==0) {
+	      // Will overflow between X cards
+	      src_addr  -= (256*8) + (s_y8_offset<<8);
+	    } else {
+	      // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+	      src_addr  -= (256*8);
+	    }
+	  } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+	    // X = X + 1
+	    if (((src_addr>>8)&7)==7) {
+	      // Will overflow between X cards
+	      src_addr += 256 + (s_x8_offset<<8);
+	    } else {
+	      // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+	      src_addr += 256;
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+	    // X = X - 1 
+	    if (((src_addr>>8)&7)==0) {
+	      // Will overflow between X cards
+	      src_addr -= 256 + (s_x8_offset<<8);
+	    } else {
+	      // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+	      src_addr -= 256;
+	    }
+	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+	    // X = X + 1, Y = Y + 1
+	    if (((src_addr>>8)&0x3f)==0x3f) {
+	      // positive overflow on both
+	      src_addr  += (256*9) + (s_x8_offset<<8) + (s_y8_offset<<8);
+	    } else if (((src_addr>>8)&0x3f)==0x38) {
+	      // positive card overflow on Y only
+	      src_addr  += (256*9) + (s_y8_offset<<8);
+	    } else if (((src_addr>>8)&0x3f)==0x07) {
+	      // positive card overflow on X only
+	      src_addr  += (256*9) + (s_x8_offset<<8);
+	    } else {
+	      // no card overflow
+	      src_addr  += (256*9);
+	    } 
+	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+	    // X = X + 1, Y = Y - 1
+	    if (((src_addr>>8)&0x3f)==0x07) {
+	      // positive card overflow on X, negative on Y 
+	      src_addr  += (256*1) - (256*8) + (s_x8_offset<<8) - (s_y8_offset<<8);
+	    } else if (((src_addr>>8)&0x3f)<0x08) {
+	      // negative card overflow on Y only
+	      src_addr  += (256*1) - (256*8) - (s_y8_offset<<8);
+	    } if (((src_addr>>8)&0x07)==0x07) {
+	      // positive overflow on X only
+	      src_addr  += (256*1) - (256*8) + (s_x8_offset<<8);
+	    } else {
+	      src_addr  += (256*1) - (256*8);
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+	    // X = X - 1, Y = Y + 1
+	    if (((src_addr>>8)&0x3f)==0x38) {
+	      // negative card overflow on X, positive on Y 
+	      src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8) + (s_y8_offset<<8);
+	    } else if (((src_addr>>11)&0x07)==0x07) {
+	      // positive card overflow on Y only
+	      src_addr  +=  - (256*1) + (256*8) + (s_y8_offset<<8);
+	    } else if (((src_addr>>8)&7)==0) {
+	      // negative overflow on X only
+	      src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8);
+	    } else {
+	      src_addr  +=  - (256*1) + (256*8);
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+	    // X = X - 1, Y = Y - 1
+	    if (((src_addr>>8)&0x3f)==0x00) {
+	      // negative card overflow on X, negative on Y 
+	      src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8) - (s_y8_offset<<8);
+	    } else if (((src_addr>>11)&0x7)==0x00) { 
+	      // negative card overflow on Y only
+	      src_addr  +=  - (256*1) - (256*8) - (s_y8_offset<<8);
+	    } else if (((src_addr>>8)&0x7)==0x00) {
+	      // negative overflow on X only
+	      src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8);
+	    } else {
+	      src_addr  +=  - (256*1) - (256*8);
+	    }
+	  }
+	}	
+      }
+
 
       // Update destination address
       {
