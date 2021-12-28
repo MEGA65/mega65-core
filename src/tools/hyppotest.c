@@ -618,9 +618,8 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
   return addr;
 }
 
-unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
+unsigned char read_memory28(struct cpu *cpu,unsigned int addr)
 {
-  unsigned int addr=addr_to_28bit(cpu,addr16,0);
   if (addr>=0xfff8000&&addr<0xfffc000)
   {
     // Hypervisor sits at $FFF8000-$FFFBFFF
@@ -637,6 +636,13 @@ unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
   }
   // Otherwise unmapped RAM
   return 0xbd;
+}
+
+unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
+{
+  unsigned int addr=addr_to_28bit(cpu,addr16,0);
+
+  return read_memory28(cpu,addr);
 }
 
 unsigned int memory_blame(struct cpu *cpu,unsigned int addr16)
@@ -662,13 +668,305 @@ unsigned int memory_blame(struct cpu *cpu,unsigned int addr16)
 
 int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 {
+  int f011b=0;
+  int with_transparency=0;
+  int floppy_mode=0;
+  int floppy_ignore_ff=0;
+  int spiral_mode=0;
+  int spiral_len=0;
+  int spiral_len_remaining=0;
+  int src_mb=0;
+  int dst_mb=0;
+  int src_skip=0;
+  int dst_skip=0;
+  int transparent_value=0;
+  int x8_offset=0;
+  int y8_offset=0;
+  int slope=0;
+  int slope_overflow_toggle=0;
+  int slope_fraction_start=0;
+  int line_mode=0;
+  int line_x_or_y=0;
+  int line_slope_negative=0;
+  int dma_count=0;
+  int s_x8_offset=0;
+  int s_y8_offset=0;
+  int s_slope=0;
+  int s_slope_fraction_start=0;
+  int s_line_mode=0;
+  int s_line_x_or_y=0;
+  int s_line_slope_negative=0;
+
+  int spiral_phase=0;
+  
   if (cpu->term.log_dma) {
     fprintf(logfile,"NOTE: %sDMA dispatched with list address $%07x\n",
 	    eDMA?"E":"",addr);
-    fprintf(logfile,"      DMA addr regs contain $%02X $%02X $%02X $%02X $%02X\n",
+    fprintf(logfile,"      DMA addr regs contain $%02X $%02X $%02X $%02X $%02X $%02X\n",
 	    ffdram[0x3700],ffdram[0x3701],ffdram[0x3702],ffdram[0x3703],ffdram[0x3704],ffdram[0x3705]);
     show_recent_instructions(logfile,"Instructions leading up to the DMA request", cpu,cpulog_len-32,32,cpu->regs.pc);
   }
+
+  if (eDMA) {
+    // Read DMA option bytes
+    while(read_memory28(cpu,addr)) {
+      int option=read_memory28(cpu,addr++);
+      int arg=0;
+      if (option&0x80) arg=read_memory28(cpu,addr++);      
+      if (cpu->term.log_dma) fprintf(logfile,"INFO: DMA option $%02X $%02X\n",option,arg);
+      switch(option) {
+      case 0x06: with_transparency=0; break;
+      case 0x07: with_transparency=0; break;
+      case 0x0a: f011b=0; break;
+      case 0x0b: f011b=1; break;
+      case 0x0d: floppy_mode=1;  break;
+      case 0x0e: floppy_mode=1; floppy_ignore_ff=1; break;
+      case 0x0f: floppy_mode=1; floppy_ignore_ff=0; break;
+      case 0x53: spiral_mode=1; spiral_len=39; spiral_len_remaining=38; break;
+      case 0x80: src_mb=arg; break;
+      case 0x81: dst_mb=arg; break;
+      case 0x82: src_skip|=arg; break;
+      case 0x83: src_skip|=arg<<8; break;
+      case 0x84: dst_skip|=arg; break;
+      case 0x85: dst_skip|=arg<<8; break;
+      case 0x86: transparent_value=arg; break;
+      case 0x87: x8_offset|=arg; break;
+      case 0x88: x8_offset|=arg<<8; break;
+      case 0x89: y8_offset|=arg; break;
+      case 0x8a: y8_offset|=arg<<8; break;
+      case 0x8b: slope|=arg; break;
+      case 0x8c: slope|=arg<<8; break;
+      case 0x8d: slope_fraction_start|=arg; break;
+      case 0x8e: slope_fraction_start|=arg<<8; break;
+      case 0x8f:
+	line_mode=arg&0x80;
+	line_x_or_y=arg&0x40;
+	line_slope_negative=arg&0x20;
+	break;
+      case 0x90: dma_count|=arg<<16; break;
+      case 0x97: s_x8_offset|=arg; break;
+      case 0x98: s_x8_offset|=arg<<8; break;
+      case 0x99: s_y8_offset|=arg; break;
+      case 0x9a: s_y8_offset|=arg<<8; break;
+      case 0x9b: s_slope|=arg; break;
+      case 0x9c: s_slope|=arg<<8; break;
+      case 0x9d: s_slope_fraction_start|=arg; break;
+      case 0x9e: s_slope_fraction_start|=arg<<8; break;
+      case 0x9f:
+	s_line_mode=arg&0x80;
+	s_line_x_or_y=arg&0x40;
+	s_line_slope_negative=arg&0x20;
+	break;
+      default:
+	fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
+	cpu->term.error=1;
+	break;
+      }
+    }
+    addr++; // skip final $00 option byte
+    if (cpu->term.log_dma)
+      fprintf(logfile,"INFO: End of DMA Options found. DMA list proper begins at $%07X (%s)\n",
+	      addr,describe_address_label28(cpu,addr));
+  } else {
+    if (cpu->term.log_dma)
+      fprintf(logfile,"INFO: Non-enhanced DMA list proper begins at $%07X (%s)\n",
+	      addr,describe_address_label28(cpu,addr));
+  }
+
+  // Read DMA list bytes
+  int dma_cmd=read_memory28(cpu,addr++);
+  dma_count|=read_memory28(cpu,addr++);
+  dma_count|=read_memory28(cpu,addr++)<<8;
+  int dma_src=read_memory28(cpu,addr++);
+  dma_src|=read_memory28(cpu,addr++)<<8;
+  dma_src|=read_memory28(cpu,addr++)<<16;
+  int dma_dst=read_memory28(cpu,addr++);
+  dma_dst|=read_memory28(cpu,addr++)<<8;
+  dma_dst|=read_memory28(cpu,addr++)<<16;
+  if (f011b) dma_cmd|=read_memory28(cpu,addr++)<<8;
+  int dma_modulo=read_memory28(cpu,addr++);
+  dma_modulo|=read_memory28(cpu,addr++)<<8;
+
+  int src_direction,src_hold,src_modulo;
+  int dest_direction,dest_hold,dest_modulo;
+  if (f011b) {
+    src_direction=(dma_cmd>>4)&1;
+    src_hold=(dma_cmd>>9)&1;
+    src_modulo=(dma_cmd>>8)&1;
+    dest_direction=(dma_cmd>>5)&1;
+    dest_hold=(dma_cmd>>11)&1;
+    dest_modulo=(dma_cmd>>10)&1;
+  } else {
+    src_direction=(dma_src>>22)&1;
+    src_modulo=(dma_src>>21)&1;
+    src_hold=(dma_src>>20)&1;
+    dest_direction=(dma_dst>>22)&1;
+    dest_modulo=(dma_dst>>21)&1;
+    dest_hold=(dma_dst>>20)&1;
+  }
+  int src_io=dma_src&0x800000;
+  int dest_io=dma_dst&0x800000;
+  dma_src&=0xfffff;
+  int src_addr=dma_src|(src_mb<<20);
+  dma_dst&=0xfffff;
+  int dest_addr=dma_dst|(dst_mb<<20);
+  
+  
+  if (cpu->term.log_dma)
+    fprintf(logfile,"INFO: DMA cmd=$%04X, src=$%07X, dst=$%07X, count=$%06X, modulo=$%04X\n",
+	    dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
+  
+  while(dma_count--)
+    {
+
+      // Update destination address
+      {
+	if (spiral_mode) {
+	  // Draw the dreaded Shallan Spriral
+	  switch(spiral_phase) {
+	  case 0: dest_addr=dest_addr+0x100; break;
+	  case 1: dest_addr=dest_addr+0x2800; break;
+	  case 2: dest_addr=dest_addr-0x100; break;
+	  case 3: dest_addr=dest_addr-0x2800; break;
+	  }
+	  if (spiral_len_remaining) spiral_len_remaining-=1;
+	  else {
+	    // Calculate details for next phase of the spiral
+	    if (!(spiral_phase&1)) {
+	      // Next phase is vertical, so reduce spiral length by 40 - 24 = 17
+	      spiral_len_remaining = spiral_len - 16;
+	    } else {
+	      spiral_len_remaining = spiral_len;
+	    }
+	    if (spiral_len) spiral_len--;
+	  }
+	  spiral_phase++; spiral_phase&=3;
+	} else if (!line_mode) {
+	  // Normal fill / copy
+	  if (!dest_hold) {
+	    if (!dest_direction) dest_addr += dst_skip;
+	    else dest_addr -= dst_skip;
+	  }
+	} else {
+	  // We are in line mode.
+	  
+	  // Add fractional position
+	  slope_fraction_start += slope;
+	  // Check if we have accumulated a whole pixel of movement?
+	  int line_x_move = 0;
+	  int line_x_move_negative = 0;
+	  int line_y_move = 0;
+	  int line_y_move_negative = 0;
+	  if (slope_overflow_toggle /= (slope_fraction_start&0x10000)) {
+	    slope_overflow_toggle = (slope_fraction_start&0x10000);
+	    // Yes: Advance in minor axis
+	    if (!line_x_or_y) {
+	      line_y_move = 1;
+	      line_y_move_negative = line_slope_negative;
+	    } else {
+	      line_x_move = 1;
+	      line_x_move_negative = line_slope_negative;
+	    }
+	  }
+	  // Also move major axis (which is always in the forward direction)
+	  if (!line_x_or_y) line_x_move = 1; else line_y_move=1;
+	  if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+	    // Y = Y + 1
+	    if (((dest_addr>>11)&7)==7) {
+	      // Will overflow between Y cards
+	      dest_addr |= (256*8) + (y8_offset<<8);
+	    } else {
+	      // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+	      dest_addr |= (256*8);
+	    }
+	  } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+	    // Y = Y - 1
+	    if (((dest_addr>>11)&7)==0) {
+	      // Will overflow between X cards
+	      dest_addr  -= (256*8) + (y8_offset<<8);
+	    } else {
+	      // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+	      dest_addr  -= (256*8);
+	    }
+	  } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+	    // X = X + 1
+	    if (((dest_addr>>8)&7)==7) {
+	      // Will overflow between X cards
+	      dest_addr += 256 + (x8_offset<<8);
+	    } else {
+	      // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+	      dest_addr += 256;
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+	    // X = X - 1 
+	    if (((dest_addr>>8)&7)==0) {
+	      // Will overflow between X cards
+	      dest_addr -= 256 + (x8_offset<<8);
+	    } else {
+	      // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+	      dest_addr -= 256;
+	    }
+	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+	    // X = X + 1, Y = Y + 1
+	    if (((dest_addr>>8)&0x3f)==0x3f) {
+	      // positive overflow on both
+	      dest_addr  += (256*9) + (x8_offset<<8) + (y8_offset<<8);
+	    } else if (((dest_addr>>8)&0x3f)==0x38) {
+	      // positive card overflow on Y only
+	      dest_addr  += (256*9) + (y8_offset<<8);
+	    } else if (((dest_addr>>8)&0x3f)==0x07) {
+	      // positive card overflow on X only
+	      dest_addr  += (256*9) + (x8_offset<<8);
+	    } else {
+	      // no card overflow
+	      dest_addr  += (256*9);
+	    } 
+	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+	    // X = X + 1, Y = Y - 1
+	    if (((dest_addr>>8)&0x3f)==0x07) {
+	      // positive card overflow on X, negative on Y 
+	      dest_addr  += (256*1) - (256*8) + (x8_offset<<8) - (y8_offset<<8);
+	    } else if (((dest_addr>>8)&0x3f)<0x08) {
+	      // negative card overflow on Y only
+	      dest_addr  += (256*1) - (256*8) - (y8_offset<<8);
+	    } if (((dest_addr>>8)&0x07)==0x07) {
+	      // positive overflow on X only
+	      dest_addr  += (256*1) - (256*8) + (x8_offset<<8);
+	    } else {
+	      dest_addr  += (256*1) - (256*8);
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+	    // X = X - 1, Y = Y + 1
+	    if (((dest_addr>>8)&0x3f)==0x38) {
+	      // negative card overflow on X, positive on Y 
+	      dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8) + (y8_offset<<8);
+	    } else if (((dest_addr>>11)&0x07)==0x07) {
+	      // positive card overflow on Y only
+	      dest_addr  +=  - (256*1) + (256*8) + (y8_offset<<8);
+	    } else if (((dest_addr>>8)&7)==0) {
+	      // negative overflow on X only
+	      dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8);
+	    } else {
+	      dest_addr  +=  - (256*1) + (256*8);
+	    }
+	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+	    // X = X - 1, Y = Y - 1
+	    if (((dest_addr>>8)&0x3f)==0x00) {
+	      // negative card overflow on X, negative on Y 
+	      dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8) - (y8_offset<<8);
+	    } else if (((dest_addr>>11)&0x7)==0x00) { 
+	      // negative card overflow on Y only
+	      dest_addr  +=  - (256*1) - (256*8) - (y8_offset<<8);
+	    } else if (((dest_addr>>8)&0x7)==0x00) {
+	      // negative overflow on X only
+	      dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8);
+	    } else {
+	      dest_addr  +=  - (256*1) - (256*8);
+	    }
+	  }
+	}	
+      }
+    }      
   return 0;
 }
 
@@ -701,7 +999,7 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 		addr,cpulog_len);
       ffdram[0x3705]=value;
       ffdram_blame[0x3705]=cpu->instruction_count;
-      dma_addr=ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16)|(ffdram[0x3704]<<20);
+      dma_addr=(ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16))|(ffdram[0x3704]<<20);
       do_dma(cpu,0,dma_addr);
       break;
     case 0xffd3702: // Set bits 22 to 16 of DMA address
@@ -715,8 +1013,8 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 		addr,cpulog_len);
       ffdram[0x3700]=value;
       ffdram_blame[0x3700]=cpu->instruction_count;
-      dma_addr=ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16)|(ffdram[0x3704]<<20);
-      do_dma(cpu,0,dma_addr);
+      dma_addr=(ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16))|(ffdram[0x3704]<<20);
+      do_dma(cpu,1,dma_addr);
       break;
     }
     if (!cpu->regs.in_hyper) {
