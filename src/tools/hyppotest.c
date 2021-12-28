@@ -712,416 +712,428 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     show_recent_instructions(logfile,"Instructions leading up to the DMA request", cpu,cpulog_len-32,32,cpu->regs.pc);
   }
 
-  if (eDMA) {
-    // Read DMA option bytes
-    while(read_memory28(cpu,addr)) {
-      int option=read_memory28(cpu,addr++);
-      int arg=0;
-      if (option&0x80) arg=read_memory28(cpu,addr++);      
-      if (cpu->term.log_dma) fprintf(logfile,"INFO: DMA option $%02X $%02X\n",option,arg);
-      switch(option) {
-      case 0x06: with_transparency=0; break;
-      case 0x07: with_transparency=0; break;
-      case 0x0a: f011b=0; break;
-      case 0x0b: f011b=1; break;
-      case 0x0d: floppy_mode=1;  break;
-      case 0x0e: floppy_mode=1; floppy_ignore_ff=1; break;
-      case 0x0f: floppy_mode=1; floppy_ignore_ff=0; break;
-      case 0x53: spiral_mode=1; spiral_len=39; spiral_len_remaining=38; break;
-      case 0x80: src_mb=arg; break;
-      case 0x81: dst_mb=arg; break;
-      case 0x82: src_skip|=arg; break;
-      case 0x83: src_skip|=arg<<8; break;
-      case 0x84: dst_skip|=arg; break;
-      case 0x85: dst_skip|=arg<<8; break;
-      case 0x86: transparent_value=arg; break;
-      case 0x87: x8_offset|=arg; break;
-      case 0x88: x8_offset|=arg<<8; break;
-      case 0x89: y8_offset|=arg; break;
-      case 0x8a: y8_offset|=arg<<8; break;
-      case 0x8b: slope|=arg; break;
-      case 0x8c: slope|=arg<<8; break;
-      case 0x8d: slope_fraction_start|=arg; break;
-      case 0x8e: slope_fraction_start|=arg<<8; break;
-      case 0x8f:
-	line_mode=arg&0x80;
-	line_x_or_y=arg&0x40;
-	line_slope_negative=arg&0x20;
-	break;
-      case 0x90: dma_count|=arg<<16; break;
-      case 0x97: s_x8_offset|=arg; break;
-      case 0x98: s_x8_offset|=arg<<8; break;
-      case 0x99: s_y8_offset|=arg; break;
-      case 0x9a: s_y8_offset|=arg<<8; break;
-      case 0x9b: s_slope|=arg; break;
-      case 0x9c: s_slope|=arg<<8; break;
-      case 0x9d: s_slope_fraction_start|=arg; break;
-      case 0x9e: s_slope_fraction_start|=arg<<8; break;
-      case 0x9f:
-	s_line_mode=arg&0x80;
-	s_line_x_or_y=arg&0x40;
-	s_line_slope_negative=arg&0x20;
-	break;
-      default:
-	fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
-	cpu->term.error=1;
-	break;
-      }
-    }
-    addr++; // skip final $00 option byte
-    if (cpu->term.log_dma)
-      fprintf(logfile,"INFO: End of DMA Options found. DMA list proper begins at $%07X (%s)\n",
-	      addr,describe_address_label28(cpu,addr));
-  } else {
-    if (cpu->term.log_dma)
-      fprintf(logfile,"INFO: Non-enhanced DMA list proper begins at $%07X (%s)\n",
-	      addr,describe_address_label28(cpu,addr));
-  }
-
-  // Read DMA list bytes
-  int dma_cmd=read_memory28(cpu,addr++);
-  dma_count|=read_memory28(cpu,addr++);
-  dma_count|=read_memory28(cpu,addr++)<<8;
-  int dma_src=read_memory28(cpu,addr++);
-  dma_src|=read_memory28(cpu,addr++)<<8;
-  dma_src|=read_memory28(cpu,addr++)<<16;
-  int dma_dst=read_memory28(cpu,addr++);
-  dma_dst|=read_memory28(cpu,addr++)<<8;
-  dma_dst|=read_memory28(cpu,addr++)<<16;
-  if (f011b) dma_cmd|=read_memory28(cpu,addr++)<<8;
-  int dma_modulo=read_memory28(cpu,addr++);
-  dma_modulo|=read_memory28(cpu,addr++)<<8;
-
-  int src_direction,src_hold,src_modulo;
-  int dest_direction,dest_hold,dest_modulo;
-  if (f011b) {
-    src_direction=(dma_cmd>>4)&1;
-    src_hold=(dma_cmd>>9)&1;
-    src_modulo=(dma_cmd>>8)&1;
-    dest_direction=(dma_cmd>>5)&1;
-    dest_hold=(dma_cmd>>11)&1;
-    dest_modulo=(dma_cmd>>10)&1;
-  } else {
-    src_direction=(dma_src>>22)&1;
-    src_modulo=(dma_src>>21)&1;
-    src_hold=(dma_src>>20)&1;
-    dest_direction=(dma_dst>>22)&1;
-    dest_modulo=(dma_dst>>21)&1;
-    dest_hold=(dma_dst>>20)&1;
-  }
-  int src_io=dma_src&0x800000;
-  int dest_io=dma_dst&0x800000;
-  dma_src&=0xfffff;
-  int src_addr=dma_src|(src_mb<<20);
-  dma_dst&=0xfffff;
-  int dest_addr=dma_dst|(dst_mb<<20);
+  int more_jobs=1;
   
-  
-  if (cpu->term.log_dma)
-    fprintf(logfile,"INFO: DMA cmd=$%04X, src=$%07X, dst=$%07X, count=$%06X, modulo=$%04X\n",
-	    dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
-  
-  while(dma_count--)
-    {
+  while(more_jobs) {
+    more_jobs=0;
 
-      // Do operation before updating addresses
-      switch (dma_cmd&3) {
-      case 0: // copy
-	{
-	  // XXX - Doesn't simulate the 4 cycle DMA pipeline
-	  int value=read_memory28(cpu,src_addr);
-	  MEM_WRITE28(cpu,dest_addr,value);
+    dma_count=0;
+    
+    if (eDMA) {
+      // Read DMA option bytes
+      while(read_memory28(cpu,addr)) {
+	int option=read_memory28(cpu,addr++);
+	int arg=0;
+	if (option&0x80) arg=read_memory28(cpu,addr++);      
+	if (cpu->term.log_dma) fprintf(logfile,"INFO: DMA option $%02X $%02X\n",option,arg);
+	switch(option) {
+	case 0x06: with_transparency=0; break;
+	case 0x07: with_transparency=0; break;
+	case 0x0a: f011b=0; break;
+	case 0x0b: f011b=1; break;
+	case 0x0d: floppy_mode=1;  break;
+	case 0x0e: floppy_mode=1; floppy_ignore_ff=1; break;
+	case 0x0f: floppy_mode=1; floppy_ignore_ff=0; break;
+	case 0x53: spiral_mode=1; spiral_len=39; spiral_len_remaining=38; break;
+	case 0x80: src_mb=arg; break;
+	case 0x81: dst_mb=arg; break;
+	case 0x82: src_skip|=arg; break;
+	case 0x83: src_skip|=arg<<8; break;
+	case 0x84: dst_skip|=arg; break;
+	case 0x85: dst_skip|=arg<<8; break;
+	case 0x86: transparent_value=arg; break;
+	case 0x87: x8_offset|=arg; break;
+	case 0x88: x8_offset|=arg<<8; break;
+	case 0x89: y8_offset|=arg; break;
+	case 0x8a: y8_offset|=arg<<8; break;
+	case 0x8b: slope|=arg; break;
+	case 0x8c: slope|=arg<<8; break;
+	case 0x8d: slope_fraction_start|=arg; break;
+	case 0x8e: slope_fraction_start|=arg<<8; break;
+	case 0x8f:
+	  line_mode=arg&0x80;
+	  line_x_or_y=arg&0x40;
+	  line_slope_negative=arg&0x20;
+	  break;
+	case 0x90: dma_count|=arg<<16; break;
+	case 0x97: s_x8_offset|=arg; break;
+	case 0x98: s_x8_offset|=arg<<8; break;
+	case 0x99: s_y8_offset|=arg; break;
+	case 0x9a: s_y8_offset|=arg<<8; break;
+	case 0x9b: s_slope|=arg; break;
+	case 0x9c: s_slope|=arg<<8; break;
+	case 0x9d: s_slope_fraction_start|=arg; break;
+	case 0x9e: s_slope_fraction_start|=arg<<8; break;
+	case 0x9f:
+	  s_line_mode=arg&0x80;
+	  s_line_x_or_y=arg&0x40;
+	  s_line_slope_negative=arg&0x20;
+	  break;
+	default:
+	  fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
+	  cpu->term.error=1;
+	  break;
 	}
-	break;
-      case 3: // fill
-        MEM_WRITE28(cpu,dest_addr,src_addr&0xff);
-	break;
-      default:
-	fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
-		dma_cmd&3);
-	cpu->term.error=1;
-	cpu->term.done=1;
-	return 0;
       }
-      
-      
-      // Update source address
-      {
-	if (!s_line_mode) {
-	  // Normal fill / copy
-	  if (!src_hold) {
-	    if (!src_direction) src_addr += src_skip;
-	    else src_addr -= src_skip;
-	  }
-	} else {
-	  // We are in line mode.
-	  
-	  // Add fractional position
-	  s_slope_fraction_start += s_slope;
-	  // Check if we have accumulated a whole pixel of movement?
-	  int line_x_move = 0;
-	  int line_x_move_negative = 0;
-	  int line_y_move = 0;
-	  int line_y_move_negative = 0;
-	  if (s_slope_overflow_toggle /= (s_slope_fraction_start&0x10000)) {
-	    s_slope_overflow_toggle = (s_slope_fraction_start&0x10000);
-	    // Yes: Advance in minor axis
-	    if (!s_line_x_or_y) {
-	      line_y_move = 1;
-	      line_y_move_negative = s_line_slope_negative;
-	    } else {
-	      line_x_move = 1;
-	      line_x_move_negative = s_line_slope_negative;
-	    }
-	  }
-	  // Also move major axis (which is always in the forward direction)
-	  if (!s_line_x_or_y) line_x_move = 1; else line_y_move=1;
-	  if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
-	    // Y = Y + 1
-	    if (((src_addr>>11)&7)==7) {
-	      // Will overflow between Y cards
-	      src_addr |= (256*8) + (s_y8_offset<<8);
-	    } else {
-	      // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
-	      src_addr |= (256*8);
-	    }
-	  } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
-	    // Y = Y - 1
-	    if (((src_addr>>11)&7)==0) {
-	      // Will overflow between X cards
-	      src_addr  -= (256*8) + (s_y8_offset<<8);
-	    } else {
-	      // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
-	      src_addr  -= (256*8);
-	    }
-	  } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
-	    // X = X + 1
-	    if (((src_addr>>8)&7)==7) {
-	      // Will overflow between X cards
-	      src_addr += 256 + (s_x8_offset<<8);
-	    } else {
-	      // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
-	      src_addr += 256;
-	    }
-	  } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
-	    // X = X - 1 
-	    if (((src_addr>>8)&7)==0) {
-	      // Will overflow between X cards
-	      src_addr -= 256 + (s_x8_offset<<8);
-	    } else {
-	      // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
-	      src_addr -= 256;
-	    }
-	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
-	    // X = X + 1, Y = Y + 1
-	    if (((src_addr>>8)&0x3f)==0x3f) {
-	      // positive overflow on both
-	      src_addr  += (256*9) + (s_x8_offset<<8) + (s_y8_offset<<8);
-	    } else if (((src_addr>>8)&0x3f)==0x38) {
-	      // positive card overflow on Y only
-	      src_addr  += (256*9) + (s_y8_offset<<8);
-	    } else if (((src_addr>>8)&0x3f)==0x07) {
-	      // positive card overflow on X only
-	      src_addr  += (256*9) + (s_x8_offset<<8);
-	    } else {
-	      // no card overflow
-	      src_addr  += (256*9);
-	    } 
-	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
-	    // X = X + 1, Y = Y - 1
-	    if (((src_addr>>8)&0x3f)==0x07) {
-	      // positive card overflow on X, negative on Y 
-	      src_addr  += (256*1) - (256*8) + (s_x8_offset<<8) - (s_y8_offset<<8);
-	    } else if (((src_addr>>8)&0x3f)<0x08) {
-	      // negative card overflow on Y only
-	      src_addr  += (256*1) - (256*8) - (s_y8_offset<<8);
-	    } if (((src_addr>>8)&0x07)==0x07) {
-	      // positive overflow on X only
-	      src_addr  += (256*1) - (256*8) + (s_x8_offset<<8);
-	    } else {
-	      src_addr  += (256*1) - (256*8);
-	    }
-	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
-	    // X = X - 1, Y = Y + 1
-	    if (((src_addr>>8)&0x3f)==0x38) {
-	      // negative card overflow on X, positive on Y 
-	      src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8) + (s_y8_offset<<8);
-	    } else if (((src_addr>>11)&0x07)==0x07) {
-	      // positive card overflow on Y only
-	      src_addr  +=  - (256*1) + (256*8) + (s_y8_offset<<8);
-	    } else if (((src_addr>>8)&7)==0) {
-	      // negative overflow on X only
-	      src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8);
-	    } else {
-	      src_addr  +=  - (256*1) + (256*8);
-	    }
-	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
-	    // X = X - 1, Y = Y - 1
-	    if (((src_addr>>8)&0x3f)==0x00) {
-	      // negative card overflow on X, negative on Y 
-	      src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8) - (s_y8_offset<<8);
-	    } else if (((src_addr>>11)&0x7)==0x00) { 
-	      // negative card overflow on Y only
-	      src_addr  +=  - (256*1) - (256*8) - (s_y8_offset<<8);
-	    } else if (((src_addr>>8)&0x7)==0x00) {
-	      // negative overflow on X only
-	      src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8);
-	    } else {
-	      src_addr  +=  - (256*1) - (256*8);
-	    }
-	  }
-	}	
-      }
+      addr++; // skip final $00 option byte
+      if (cpu->term.log_dma)
+	fprintf(logfile,"INFO: End of DMA Options found. DMA list proper begins at $%07X (%s)\n",
+		addr,describe_address_label28(cpu,addr));
+    } else {
+      if (cpu->term.log_dma)
+	fprintf(logfile,"INFO: Non-enhanced DMA list proper begins at $%07X (%s)\n",
+		addr,describe_address_label28(cpu,addr));
+    }
+    
+    // Read DMA list bytes
+    int dma_cmd=read_memory28(cpu,addr++);
+    dma_count|=read_memory28(cpu,addr++);
+    dma_count|=read_memory28(cpu,addr++)<<8;
+    int dma_src=read_memory28(cpu,addr++);
+    dma_src|=read_memory28(cpu,addr++)<<8;
+    dma_src|=read_memory28(cpu,addr++)<<16;
+    int dma_dst=read_memory28(cpu,addr++);
+    dma_dst|=read_memory28(cpu,addr++)<<8;
+    dma_dst|=read_memory28(cpu,addr++)<<16;
+    if (f011b) dma_cmd|=read_memory28(cpu,addr++)<<8;
+    int dma_modulo=read_memory28(cpu,addr++);
+    dma_modulo|=read_memory28(cpu,addr++)<<8;
+    
+    int src_direction,src_hold,src_modulo;
+    int dest_direction,dest_hold,dest_modulo;
+    if (f011b) {
+      src_direction=(dma_cmd>>4)&1;
+      src_hold=(dma_cmd>>9)&1;
+      src_modulo=(dma_cmd>>8)&1;
+      dest_direction=(dma_cmd>>5)&1;
+      dest_hold=(dma_cmd>>11)&1;
+      dest_modulo=(dma_cmd>>10)&1;
+    } else {
+      src_direction=(dma_src>>22)&1;
+      src_modulo=(dma_src>>21)&1;
+      src_hold=(dma_src>>20)&1;
+      dest_direction=(dma_dst>>22)&1;
+      dest_modulo=(dma_dst>>21)&1;
+      dest_hold=(dma_dst>>20)&1;
+    }
+    int src_io=dma_src&0x800000;
+    int dest_io=dma_dst&0x800000;
+    dma_src&=0xfffff;
+    int src_addr=dma_src|(src_mb<<20);
+    dma_dst&=0xfffff;
+    int dest_addr=dma_dst|(dst_mb<<20);
+    
+    // Is it chained?
+    more_jobs=dma_cmd&4;
+    
+    
+    if (cpu->term.log_dma)
+      fprintf(logfile,"INFO: DMA cmd=$%04X, src=$%07X, dst=$%07X, count=$%06X, modulo=$%04X\n",
+	      dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
 
-
-      // Update destination address
+    if (!dma_count) dma_count=0x10000;
+    while(dma_count--)
       {
-	if (spiral_mode) {
-	  // Draw the dreaded Shallan Spriral
-	  switch(spiral_phase) {
-	  case 0: dest_addr=dest_addr+0x100; break;
-	  case 1: dest_addr=dest_addr+0x2800; break;
-	  case 2: dest_addr=dest_addr-0x100; break;
-	  case 3: dest_addr=dest_addr-0x2800; break;
+	
+	// Do operation before updating addresses
+	switch (dma_cmd&3) {
+	case 0: // copy
+	  {
+	    // XXX - Doesn't simulate the 4 cycle DMA pipeline
+	    int value=read_memory28(cpu,src_addr);
+	    MEM_WRITE28(cpu,dest_addr,value);
 	  }
-	  if (spiral_len_remaining) spiral_len_remaining-=1;
-	  else {
-	    // Calculate details for next phase of the spiral
-	    if (!(spiral_phase&1)) {
-	      // Next phase is vertical, so reduce spiral length by 40 - 24 = 17
-	      spiral_len_remaining = spiral_len - 16;
-	    } else {
-	      spiral_len_remaining = spiral_len;
+	  break;
+	case 3: // fill
+	  MEM_WRITE28(cpu,dest_addr,src_addr&0xff);
+	  break;
+	default:
+	  fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
+		  dma_cmd&3);
+	  cpu->term.error=1;
+	  cpu->term.done=1;
+	  return 0;
+	}
+	
+	
+	// Update source address
+	{
+	  if (!s_line_mode) {
+	    // Normal fill / copy
+	    if (!src_hold) {
+	      if (!src_direction) src_addr += src_skip;
+	      else src_addr -= src_skip;
 	    }
-	    if (spiral_len) spiral_len--;
-	  }
-	  spiral_phase++; spiral_phase&=3;
-	} else if (!line_mode) {
-	  // Normal fill / copy
-	  if (!dest_hold) {
-	    if (!dest_direction) dest_addr += dst_skip;
-	    else dest_addr -= dst_skip;
-	  }
-	} else {
-	  // We are in line mode.
-	  
-	  // Add fractional position
-	  slope_fraction_start += slope;
-	  // Check if we have accumulated a whole pixel of movement?
-	  int line_x_move = 0;
-	  int line_x_move_negative = 0;
-	  int line_y_move = 0;
-	  int line_y_move_negative = 0;
-	  if (slope_overflow_toggle /= (slope_fraction_start&0x10000)) {
-	    slope_overflow_toggle = (slope_fraction_start&0x10000);
-	    // Yes: Advance in minor axis
-	    if (!line_x_or_y) {
-	      line_y_move = 1;
-	      line_y_move_negative = line_slope_negative;
-	    } else {
-	      line_x_move = 1;
-	      line_x_move_negative = line_slope_negative;
+	  } else {
+	    // We are in line mode.
+	    
+	    // Add fractional position
+	    s_slope_fraction_start += s_slope;
+	    // Check if we have accumulated a whole pixel of movement?
+	    int line_x_move = 0;
+	    int line_x_move_negative = 0;
+	    int line_y_move = 0;
+	    int line_y_move_negative = 0;
+	    if (s_slope_overflow_toggle /= (s_slope_fraction_start&0x10000)) {
+	      s_slope_overflow_toggle = (s_slope_fraction_start&0x10000);
+	      // Yes: Advance in minor axis
+	      if (!s_line_x_or_y) {
+		line_y_move = 1;
+		line_y_move_negative = s_line_slope_negative;
+	      } else {
+		line_x_move = 1;
+		line_x_move_negative = s_line_slope_negative;
+	      }
 	    }
-	  }
-	  // Also move major axis (which is always in the forward direction)
-	  if (!line_x_or_y) line_x_move = 1; else line_y_move=1;
-	  if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
-	    // Y = Y + 1
-	    if (((dest_addr>>11)&7)==7) {
-	      // Will overflow between Y cards
-	      dest_addr |= (256*8) + (y8_offset<<8);
-	    } else {
-	      // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
-	      dest_addr |= (256*8);
+	    // Also move major axis (which is always in the forward direction)
+	    if (!s_line_x_or_y) line_x_move = 1; else line_y_move=1;
+	    if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+	      // Y = Y + 1
+	      if (((src_addr>>11)&7)==7) {
+		// Will overflow between Y cards
+		src_addr |= (256*8) + (s_y8_offset<<8);
+	      } else {
+		// No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+		src_addr |= (256*8);
+	      }
+	    } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+	      // Y = Y - 1
+	      if (((src_addr>>11)&7)==0) {
+		// Will overflow between X cards
+		src_addr  -= (256*8) + (s_y8_offset<<8);
+	      } else {
+		// No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+		src_addr  -= (256*8);
+	      }
+	    } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+	      // X = X + 1
+	      if (((src_addr>>8)&7)==7) {
+		// Will overflow between X cards
+		src_addr += 256 + (s_x8_offset<<8);
+	      } else {
+		// No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+		src_addr += 256;
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+	      // X = X - 1 
+	      if (((src_addr>>8)&7)==0) {
+		// Will overflow between X cards
+		src_addr -= 256 + (s_x8_offset<<8);
+	      } else {
+		// No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+		src_addr -= 256;
+	      }
+	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+	      // X = X + 1, Y = Y + 1
+	      if (((src_addr>>8)&0x3f)==0x3f) {
+		// positive overflow on both
+		src_addr  += (256*9) + (s_x8_offset<<8) + (s_y8_offset<<8);
+	      } else if (((src_addr>>8)&0x3f)==0x38) {
+		// positive card overflow on Y only
+		src_addr  += (256*9) + (s_y8_offset<<8);
+	      } else if (((src_addr>>8)&0x3f)==0x07) {
+		// positive card overflow on X only
+		src_addr  += (256*9) + (s_x8_offset<<8);
+	      } else {
+		// no card overflow
+		src_addr  += (256*9);
+	      } 
+	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+	      // X = X + 1, Y = Y - 1
+	      if (((src_addr>>8)&0x3f)==0x07) {
+		// positive card overflow on X, negative on Y 
+		src_addr  += (256*1) - (256*8) + (s_x8_offset<<8) - (s_y8_offset<<8);
+	      } else if (((src_addr>>8)&0x3f)<0x08) {
+		// negative card overflow on Y only
+		src_addr  += (256*1) - (256*8) - (s_y8_offset<<8);
+	      } if (((src_addr>>8)&0x07)==0x07) {
+		// positive overflow on X only
+		src_addr  += (256*1) - (256*8) + (s_x8_offset<<8);
+	      } else {
+		src_addr  += (256*1) - (256*8);
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+	      // X = X - 1, Y = Y + 1
+	      if (((src_addr>>8)&0x3f)==0x38) {
+		// negative card overflow on X, positive on Y 
+		src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8) + (s_y8_offset<<8);
+	      } else if (((src_addr>>11)&0x07)==0x07) {
+		// positive card overflow on Y only
+		src_addr  +=  - (256*1) + (256*8) + (s_y8_offset<<8);
+	      } else if (((src_addr>>8)&7)==0) {
+		// negative overflow on X only
+		src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8);
+	      } else {
+		src_addr  +=  - (256*1) + (256*8);
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+	      // X = X - 1, Y = Y - 1
+	      if (((src_addr>>8)&0x3f)==0x00) {
+		// negative card overflow on X, negative on Y 
+		src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8) - (s_y8_offset<<8);
+	      } else if (((src_addr>>11)&0x7)==0x00) { 
+		// negative card overflow on Y only
+		src_addr  +=  - (256*1) - (256*8) - (s_y8_offset<<8);
+	      } else if (((src_addr>>8)&0x7)==0x00) {
+		// negative overflow on X only
+		src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8);
+	      } else {
+		src_addr  +=  - (256*1) - (256*8);
+	      }
 	    }
-	  } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
-	    // Y = Y - 1
-	    if (((dest_addr>>11)&7)==0) {
-	      // Will overflow between X cards
-	      dest_addr  -= (256*8) + (y8_offset<<8);
-	    } else {
-	      // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
-	      dest_addr  -= (256*8);
+	  }	
+	}
+	
+	
+	// Update destination address
+	{
+	  if (spiral_mode) {
+	    // Draw the dreaded Shallan Spriral
+	    switch(spiral_phase) {
+	    case 0: dest_addr=dest_addr+0x100; break;
+	    case 1: dest_addr=dest_addr+0x2800; break;
+	    case 2: dest_addr=dest_addr-0x100; break;
+	    case 3: dest_addr=dest_addr-0x2800; break;
 	    }
-	  } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
-	    // X = X + 1
-	    if (((dest_addr>>8)&7)==7) {
-	      // Will overflow between X cards
-	      dest_addr += 256 + (x8_offset<<8);
-	    } else {
-	      // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
-	      dest_addr += 256;
+	    if (spiral_len_remaining) spiral_len_remaining-=1;
+	    else {
+	      // Calculate details for next phase of the spiral
+	      if (!(spiral_phase&1)) {
+		// Next phase is vertical, so reduce spiral length by 40 - 24 = 17
+		spiral_len_remaining = spiral_len - 16;
+	      } else {
+		spiral_len_remaining = spiral_len;
+	      }
+	      if (spiral_len) spiral_len--;
 	    }
-	  } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
-	    // X = X - 1 
-	    if (((dest_addr>>8)&7)==0) {
-	      // Will overflow between X cards
-	      dest_addr -= 256 + (x8_offset<<8);
-	    } else {
-	      // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
-	      dest_addr -= 256;
+	    spiral_phase++; spiral_phase&=3;
+	  } else if (!line_mode) {
+	    // Normal fill / copy
+	    if (!dest_hold) {
+	      if (!dest_direction) dest_addr += dst_skip;
+	      else dest_addr -= dst_skip;
 	    }
-	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
-	    // X = X + 1, Y = Y + 1
-	    if (((dest_addr>>8)&0x3f)==0x3f) {
-	      // positive overflow on both
-	      dest_addr  += (256*9) + (x8_offset<<8) + (y8_offset<<8);
-	    } else if (((dest_addr>>8)&0x3f)==0x38) {
-	      // positive card overflow on Y only
-	      dest_addr  += (256*9) + (y8_offset<<8);
-	    } else if (((dest_addr>>8)&0x3f)==0x07) {
-	      // positive card overflow on X only
-	      dest_addr  += (256*9) + (x8_offset<<8);
-	    } else {
-	      // no card overflow
-	      dest_addr  += (256*9);
-	    } 
-	  } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
-	    // X = X + 1, Y = Y - 1
-	    if (((dest_addr>>8)&0x3f)==0x07) {
-	      // positive card overflow on X, negative on Y 
-	      dest_addr  += (256*1) - (256*8) + (x8_offset<<8) - (y8_offset<<8);
-	    } else if (((dest_addr>>8)&0x3f)<0x08) {
-	      // negative card overflow on Y only
-	      dest_addr  += (256*1) - (256*8) - (y8_offset<<8);
-	    } if (((dest_addr>>8)&0x07)==0x07) {
-	      // positive overflow on X only
-	      dest_addr  += (256*1) - (256*8) + (x8_offset<<8);
-	    } else {
-	      dest_addr  += (256*1) - (256*8);
+	  } else {
+	    // We are in line mode.
+	    
+	    // Add fractional position
+	    slope_fraction_start += slope;
+	    // Check if we have accumulated a whole pixel of movement?
+	    int line_x_move = 0;
+	    int line_x_move_negative = 0;
+	    int line_y_move = 0;
+	    int line_y_move_negative = 0;
+	    if (slope_overflow_toggle /= (slope_fraction_start&0x10000)) {
+	      slope_overflow_toggle = (slope_fraction_start&0x10000);
+	      // Yes: Advance in minor axis
+	      if (!line_x_or_y) {
+		line_y_move = 1;
+		line_y_move_negative = line_slope_negative;
+	      } else {
+		line_x_move = 1;
+		line_x_move_negative = line_slope_negative;
+	      }
 	    }
-	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
-	    // X = X - 1, Y = Y + 1
-	    if (((dest_addr>>8)&0x3f)==0x38) {
-	      // negative card overflow on X, positive on Y 
-	      dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8) + (y8_offset<<8);
-	    } else if (((dest_addr>>11)&0x07)==0x07) {
-	      // positive card overflow on Y only
-	      dest_addr  +=  - (256*1) + (256*8) + (y8_offset<<8);
-	    } else if (((dest_addr>>8)&7)==0) {
-	      // negative overflow on X only
-	      dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8);
-	    } else {
-	      dest_addr  +=  - (256*1) + (256*8);
+	    // Also move major axis (which is always in the forward direction)
+	    if (!line_x_or_y) line_x_move = 1; else line_y_move=1;
+	    if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+	      // Y = Y + 1
+	      if (((dest_addr>>11)&7)==7) {
+		// Will overflow between Y cards
+		dest_addr |= (256*8) + (y8_offset<<8);
+	      } else {
+		// No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+		dest_addr |= (256*8);
+	      }
+	    } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+	      // Y = Y - 1
+	      if (((dest_addr>>11)&7)==0) {
+		// Will overflow between X cards
+		dest_addr  -= (256*8) + (y8_offset<<8);
+	      } else {
+		// No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+		dest_addr  -= (256*8);
+	      }
+	    } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+	      // X = X + 1
+	      if (((dest_addr>>8)&7)==7) {
+		// Will overflow between X cards
+		dest_addr += 256 + (x8_offset<<8);
+	      } else {
+		// No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+		dest_addr += 256;
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+	      // X = X - 1 
+	      if (((dest_addr>>8)&7)==0) {
+		// Will overflow between X cards
+		dest_addr -= 256 + (x8_offset<<8);
+	      } else {
+		// No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+		dest_addr -= 256;
+	      }
+	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+	      // X = X + 1, Y = Y + 1
+	      if (((dest_addr>>8)&0x3f)==0x3f) {
+		// positive overflow on both
+		dest_addr  += (256*9) + (x8_offset<<8) + (y8_offset<<8);
+	      } else if (((dest_addr>>8)&0x3f)==0x38) {
+		// positive card overflow on Y only
+		dest_addr  += (256*9) + (y8_offset<<8);
+	      } else if (((dest_addr>>8)&0x3f)==0x07) {
+		// positive card overflow on X only
+		dest_addr  += (256*9) + (x8_offset<<8);
+	      } else {
+		// no card overflow
+		dest_addr  += (256*9);
+	      } 
+	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+	      // X = X + 1, Y = Y - 1
+	      if (((dest_addr>>8)&0x3f)==0x07) {
+		// positive card overflow on X, negative on Y 
+		dest_addr  += (256*1) - (256*8) + (x8_offset<<8) - (y8_offset<<8);
+	      } else if (((dest_addr>>8)&0x3f)<0x08) {
+		// negative card overflow on Y only
+		dest_addr  += (256*1) - (256*8) - (y8_offset<<8);
+	      } if (((dest_addr>>8)&0x07)==0x07) {
+		// positive overflow on X only
+		dest_addr  += (256*1) - (256*8) + (x8_offset<<8);
+	      } else {
+		dest_addr  += (256*1) - (256*8);
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+	      // X = X - 1, Y = Y + 1
+	      if (((dest_addr>>8)&0x3f)==0x38) {
+		// negative card overflow on X, positive on Y 
+		dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8) + (y8_offset<<8);
+	      } else if (((dest_addr>>11)&0x07)==0x07) {
+		// positive card overflow on Y only
+		dest_addr  +=  - (256*1) + (256*8) + (y8_offset<<8);
+	      } else if (((dest_addr>>8)&7)==0) {
+		// negative overflow on X only
+		dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8);
+	      } else {
+		dest_addr  +=  - (256*1) + (256*8);
+	      }
+	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+	      // X = X - 1, Y = Y - 1
+	      if (((dest_addr>>8)&0x3f)==0x00) {
+		// negative card overflow on X, negative on Y 
+		dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8) - (y8_offset<<8);
+	      } else if (((dest_addr>>11)&0x7)==0x00) { 
+		// negative card overflow on Y only
+		dest_addr  +=  - (256*1) - (256*8) - (y8_offset<<8);
+	      } else if (((dest_addr>>8)&0x7)==0x00) {
+		// negative overflow on X only
+		dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8);
+	      } else {
+		dest_addr  +=  - (256*1) - (256*8);
+	      }
 	    }
-	  } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
-	    // X = X - 1, Y = Y - 1
-	    if (((dest_addr>>8)&0x3f)==0x00) {
-	      // negative card overflow on X, negative on Y 
-	      dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8) - (y8_offset<<8);
-	    } else if (((dest_addr>>11)&0x7)==0x00) { 
-	      // negative card overflow on Y only
-	      dest_addr  +=  - (256*1) - (256*8) - (y8_offset<<8);
-	    } else if (((dest_addr>>8)&0x7)==0x00) {
-	      // negative overflow on X only
-	      dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8);
-	    } else {
-	      dest_addr  +=  - (256*1) - (256*8);
-	    }
-	  }
-	}	
+	  }	
+	}
       }
-    }      
+  }
   return 0;
 }
 
