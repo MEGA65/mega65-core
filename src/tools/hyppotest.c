@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
+#define MEM_WRITE28(CPU,ADDR,VALUE) if (write_mem28(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
+
 struct regs {
   unsigned int pc;
   unsigned char a;
@@ -140,6 +143,7 @@ char *describe_address_label(struct cpu *cpu,unsigned int addr);
 char *describe_address_label28(struct cpu *cpu,unsigned int addr);
 unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP);
 void disassemble_instruction(FILE *f,struct instruction_log *log);
+int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value);
 
 int rel8_delta(unsigned char c)
 {
@@ -820,6 +824,27 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
   while(dma_count--)
     {
 
+      // Do operation before updating addresses
+      switch (dma_cmd&3) {
+      case 0: // copy
+	{
+	  // XXX - Doesn't simulate the 4 cycle DMA pipeline
+	  int value=read_memory28(cpu,src_addr);
+	  MEM_WRITE28(cpu,dest_addr,value);
+	}
+	break;
+      case 3: // fill
+        MEM_WRITE28(cpu,dest_addr,src_addr&0xff);
+	break;
+      default:
+	fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
+		dma_cmd&3);
+	cpu->term.error=1;
+	cpu->term.done=1;
+	return 0;
+      }
+      
+      
       // Update source address
       {
 	if (!s_line_mode) {
@@ -1286,8 +1311,6 @@ void update_nvzc(int v)
   // XXX - Do V calculation as well
 }
 
-#define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
-#define MEM_WRITE28(CPU,ADDR,VALUE) if (write_mem28(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
 unsigned char stack_pop(struct cpu *cpu,struct instruction_log *log)
 {
