@@ -363,26 +363,60 @@ char *describe_address(unsigned int addr)
 char *describe_address_label28(struct cpu *cpu,unsigned int addr)
 {
   struct hyppo_symbol *s=NULL;
+  int exact=0;
   
   for(int i=0;i<hyppo_symbol_count;i++) {
     // Check for exact address match
     //    fprintf(stderr,"$%07x vs $%04x (%s)\n",addr,hyppo_symbols[i].addr,hyppo_symbols[i].name);
-    if (addr==(hyppo_symbols[i].addr+0xfff0000)) s=&hyppo_symbols[i];
+    if (addr==(hyppo_symbols[i].addr+0xfff0000)) { s=&hyppo_symbols[i]; exact=1; }
     // Check for best approximate match
     if (s&&s->addr<hyppo_symbols[i].addr&&addr>(hyppo_symbols[i].addr+0xfff0000))
       s=&hyppo_symbols[i];
     if ((!s)&&addr>(hyppo_symbols[i].addr+0xfff0000))
       s=&hyppo_symbols[i];
   }
+
+  int nonhyppo=0;
+  if (!exact) {
+    for(int i=0;i<symbol_count;i++) {
+      // Check for exact address match
+      //      fprintf(stderr,"$%07x vs $%07x (%s)\n",addr,symbols[i].addr,symbols[i].name);
+      if (addr==(symbols[i].addr)) s=&hyppo_symbols[i];
+      // Check for best approximate match
+      int delta=0;
+      if (s) delta=addr-s->addr; else delta=addr;
+      if (!nonhyppo) delta-=0xfff0000;
+      if (s&&s->addr<symbols[i].addr&&addr>(symbols[i].addr)
+	  &&((addr-symbols[i].addr)<delta)) {
+	//fprintf(stderr,"$%07x vs $%07x (%s) (delta=$%07x)\n",addr,symbols[i].addr,symbols[i].name,
+	//		addr-symbols[i].addr);
+	nonhyppo=1;
+	s=&symbols[i];
+      }
+      if ((!s)&&addr>(symbols[i].addr)) {
+	nonhyppo=1;
+	s=&symbols[i];
+      }
+    }
+  }
+
   
   if (s) {
     if ((s->addr+0xfff0000)==addr)  snprintf(addr_description,8192,"%s",s->name);
     else {
-      snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr-0xfff000);
-      if (addr-s->addr>0xff000ff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr-0xfff0000);
+      if (nonhyppo) {
+	snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
+	if (addr-s->addr>0xff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr);
+      } else {
+	snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr-0xfff0000);
+	if (addr-s->addr>0xff000ff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr-0xfff0000);
+      }
     }
   } else 
     addr_description[0]=0;
+
+
+  
   return addr_description;
 }
 
