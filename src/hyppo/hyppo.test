@@ -130,12 +130,11 @@ loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
 # Stop when we get into the flash menu
 breakpoint $080d
 jmp reset_entry
-expect pc = $080d
-expect B = $bf
-# We don't really care about the following registers, but we need to
-# give their expected values to avoid false positives
-expect y = $25
-expect z = $3f
+expect PC = $080d
+expect A = $48
+expect B = $00
+expect Z = $3f
+expect SPH = $01
 check registers
 test end
 
