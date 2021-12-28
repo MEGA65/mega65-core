@@ -1437,7 +1437,6 @@ int load_file(char *filename,unsigned int location)
   }
   int b=fread(buffer,1,8192*1024,f);
   fprintf(logfile,"NOTE: Loading %d bytes at $%07x from %s\n",b,location,filename);
-  int h0=hypporam_expected[0x22d0];
   for(int i=0;i<b;i++) {
     write_mem_expected28(i+location,buffer[i]);  
   }  
@@ -1536,9 +1535,20 @@ int resolve_value32(char *in)
     if (!strcmp(label,hyppo_symbols[i].name)) break;
   }
   if (i==hyppo_symbol_count) {
-    fprintf(logfile,"ERROR: Cannot call find non-existent symbol '%s'\n",label);
-    cpu.term.error=1;
-    return 0;
+
+    // Now look for non-hyppo symbols
+    for(i=0;i<symbol_count;i++) {
+      if (!strcmp(label,symbols[i].name)) break;
+    }
+    if (i==symbol_count) {
+      fprintf(logfile,"ERROR: Cannot call find non-existent symbol '%s'\n",label);
+      cpu.term.error=1;
+      return 0;
+    } else {
+      // Return symbol address
+      v=symbols[i].addr+delta;
+      return v;
+    }
   } else {
     // Add HYPPO base address to HYPPO symbols
     v=0xfff0000+hyppo_symbols[i].addr+delta;
