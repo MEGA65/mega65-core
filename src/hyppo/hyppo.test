@@ -130,6 +130,9 @@ loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
 load src/utilities/megaflash-a200t.prg at $50000
 loadsymbols src/utilities/megaflash-a200t.label at $50000-$07ff
 
+# Log DMA requests
+log dma
+
 # Stop when we get into the flash menu
 breakpoint $080d
 jmp reset_entry
