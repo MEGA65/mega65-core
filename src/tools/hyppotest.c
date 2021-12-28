@@ -124,6 +124,10 @@ typedef struct instruction_log {
   unsigned int zp_pointer_addr;
   struct regs regs;
   unsigned int count;
+
+#define MAX_POPS 4
+  unsigned char pops;
+  unsigned int pop_blame[MAX_POPS];
 } instruction_log;
 #define MAX_LOG_LENGTH (1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
@@ -241,7 +245,26 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x5a: fprintf(f,"PHY"); break;
   case 0x5b: fprintf(f,"TAB"); break;
   case 0x5c: fprintf(f,"MAP"); break;
-  case 0x60: fprintf(f,"RTS"); break;
+  case 0x60:
+    fprintf(f,"RTS {Address pushed by ");
+    if (log->pop_blame[0]!=log->pop_blame[1]) {
+      fprintf(f," two different instructions: ");
+      if (log->pop_blame[0]) {
+	fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
+	disassemble_instruction(f,cpulog[log->pop_blame[0]]);
+      } else fprintf(f,"<unitialised stack location>");
+      fprintf(f," and ");
+      if (log->pop_blame[1]) {
+	fprintf(f,"$%04X ",cpulog[log->pop_blame[1]]->pc);
+	disassemble_instruction(f,cpulog[log->pop_blame[1]]);
+      } else fprintf(f,"<unitialised stack location>");      
+    } else 
+      if (log->pop_blame[0]) {
+	fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
+	disassemble_instruction(f,cpulog[log->pop_blame[0]]);
+      } else fprintf(f,"<unitialised stack location>");
+    fprintf(f,"}");
+    break;
   case 0x68: fprintf(f,"PLA"); break;
   case 0x69: fprintf(f,"ADC "); disassemble_imm(f,log); break;
   case 0x6B: fprintf(f,"TZA"); break;
@@ -571,6 +594,28 @@ unsigned char read_memory(struct cpu *cpu,unsigned int addr16)
   return 0xbd;
 }
 
+unsigned int memory_blame(struct cpu *cpu,unsigned int addr16)
+{
+  unsigned int addr=addr_to_28bit(cpu,addr16,0);
+  if (addr>=0xfff8000&&addr<0xfffc000)
+  {
+    // Hypervisor sits at $FFF8000-$FFFBFFF
+    return hypporam_blame[addr-0xfff8000];
+  } else if (addr<CHIPRAM_SIZE) {
+    // Chipram at base of address space
+    return chipram_blame[addr];
+  } else if (addr>=0xff80000&&addr<(0xff80000+COLOURRAM_SIZE)) {
+    // $FF8xxxx = colour RAM
+    return colourram_blame[addr-0xff80000];
+  } else if ((addr&0xfff0000)==0xffd0000) {
+    // $FFDxxxx IO space
+    return ffdram_blame[addr-0xffd0000];
+  }
+  // Otherwise unmapped RAM, no one to blame
+  return 0;
+}
+
+
 int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
   if (addr>=0xfff8000&&addr<0xfffc000)
@@ -717,7 +762,7 @@ void update_nvzc(int v)
 #define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
 #define MEM_WRITE28(CPU,ADDR,VALUE) if (write_mem28(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
 
-unsigned char stack_pop(struct cpu *cpu)
+unsigned char stack_pop(struct cpu *cpu,struct instruction_log *log)
 {
   int addr=(cpu->regs.sph<<8)+cpu->regs.spl;
   addr++;
@@ -730,6 +775,7 @@ unsigned char stack_pop(struct cpu *cpu)
       cpu->stack_underflow=1;
     if (!addr) cpu->stack_underflow=1;
   }
+  log->pop_blame[log->pops++]=memory_blame(cpu,addr);
   return c;
 }
 
@@ -835,7 +881,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x28: // PLP
     // E flag cannot be set via PLP
     cpu->regs.flags&=FLAG_E;
-    cpu->regs.flags|=(stack_pop(cpu)&(~FLAG_E));
+    cpu->regs.flags|=(stack_pop(cpu,log)&(~FLAG_E));
     cpu->regs.pc++;
     log->len=1;
     break;
@@ -916,15 +962,15 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 	cpu->term.done=1;
       }
     }
-    cpu->regs.pc=stack_pop(cpu);
-    cpu->regs.pc|=stack_pop(cpu)<<8;
+    cpu->regs.pc=stack_pop(cpu,log);
+    cpu->regs.pc|=stack_pop(cpu,log)<<8;
     cpu->regs.pc++;
     break;
   case 0x68: // PLA
     // XXX -- Not implemented
     cpu->regs.pc++;
     log->len=1;
-    cpu->regs.a=stack_pop(cpu);
+    cpu->regs.a=stack_pop(cpu,log);
     update_nz(cpu->regs.a);
     break;
   case 0x69: // ADC #$nn
@@ -951,7 +997,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   case 0x7a: // PLY
     cpu->regs.pc++;
     log->len=1;
-    cpu->regs.y=stack_pop(cpu);
+    cpu->regs.y=stack_pop(cpu,log);
     update_nz(cpu->regs.y);
     break;
   case 0x80: // BRA $rr
@@ -1197,13 +1243,13 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       cpu->regs.pc+=2;
     break;
   case 0xFA: // PLX
-    cpu->regs.x=stack_pop(cpu);
+    cpu->regs.x=stack_pop(cpu,log);
     update_nz(cpu->regs.x);
     cpu->regs.pc++;
     log->len=1;
     break;
   case 0xFB: // PLZ
-    cpu->regs.z=stack_pop(cpu);
+    cpu->regs.z=stack_pop(cpu,log);
     update_nz(cpu->regs.z);
     cpu->regs.pc++;
     log->len=1;
