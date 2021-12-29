@@ -144,3 +144,30 @@ expect SPH = $01
 check registers
 test end
 
+test "Flash menu is copied to bank 0, executes and returns control to the hypervisor"
+# Load hypervisor and symbol table
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+# Load OpenROM and symbol tables
+load src/open-roms/bin/mega65.rom at $20000
+# XXX - Some of these must surely need to be at $30000, not $20000 ?
+loadsymbols src/open-roms/build/target_mega65/BASIC_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/BASIC_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/DOS_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
+# Load megaflash at $50000
+load src/utilities/megaflash-a200t.prg at $50000
+loadsymbols src/utilities/megaflash-a200t.label at $50000-$07ff
+
+# Stop when we leave the flash menu
+breakpoint $cf7f
+jmp reset_entry
+expect PC = $cf7f
+expect A = $48
+expect B = $00
+expect Z = $3f
+expect SPH = $01
+check registers
+test end
+
