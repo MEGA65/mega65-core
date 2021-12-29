@@ -50,6 +50,7 @@ breakpoint launch_flash_menu
 # Address that will have been jumped to if we are not running the
 # flash menu
 breakpoint dont_launch_flash_menu
+log dma
 jmp reset_entry
 expect pc = launch_flash_menu
 expect B = $bf
@@ -159,6 +160,11 @@ loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
 # Load megaflash at $50000
 load src/utilities/megaflash-a200t.prg at $50000
 loadsymbols src/utilities/megaflash-a200t.label at $50000-$07ff
+
+#log dma
+
+# Dump full instruction stream if we fail
+#log on failure
 
 # Stop when we leave the flash menu
 breakpoint $cf7f
