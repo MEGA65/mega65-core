@@ -1869,8 +1869,8 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=1;
     break;
   case 0x89: // BIT #$xx
-    log->len=3;
-    cpu->regs.pc+=3;
+    log->len=2;
+    cpu->regs.pc+=2;
     v=log->bytes[1];
     cpu->regs.flags&=~(FLAG_N|FLAG_V|FLAG_Z);
     cpu->regs.flags|=v&(FLAG_N|FLAG_V);
@@ -1924,7 +1924,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       log->zp16=1;
       MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
     break;
-  case 0x93: // BCC $rr
+  case 0x93: // BCC $rrrr
     log->len=3;
     if (cpu->regs.flags&FLAG_C)
       cpu->regs.pc+=3;
