@@ -2107,6 +2107,11 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     // Show upto 32 instructions prior to the infinite loop
     show_recent_instructions(logfile,"Instructions leading to the BRK instruction",
 			     &cpu,cpulog_len-30,32,addr);
+    int blame=memory_blame(&cpu,cpu.regs.pc);
+    if (blame) {
+      show_recent_instructions(logfile,"Instructions leading to the BRK instruction being written",
+			       &cpu,blame-16,17,cpu.regs.pc);
+    }
     return -1;    
   }
   if (cpu.term.done) {
