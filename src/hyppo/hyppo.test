@@ -177,5 +177,6 @@ expect B = $00
 expect Z = $3f
 expect SPH = $01
 check registers
+dump instructions 1587000 to 1588000
 test end
 

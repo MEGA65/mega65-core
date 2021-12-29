@@ -148,6 +148,7 @@ char *describe_address_label28(struct cpu *cpu,unsigned int addr);
 unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP);
 void disassemble_instruction(FILE *f,struct instruction_log *log);
 int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value);
+unsigned int memory_blame(struct cpu *cpu,unsigned int addr16);
 
 int rel8_delta(unsigned char c)
 {
@@ -188,8 +189,30 @@ void disassemble_absz(FILE *f,struct instruction_log *log)
 
 void disassemble_iabs(FILE *f,struct instruction_log *log)
 {
-  fprintf(f,"($%02X%02X) {PTR=$%04X,ADDR=$%04X}",log->bytes[2],log->bytes[1],
+  struct cpu fakecpu;
+
+  bzero(&fakecpu,sizeof(fakecpu));
+  fakecpu.regs=log->regs;
+  
+  fprintf(f,"($%02X%02X) {PTR=$%04X,ADDR=$%04X",log->bytes[2],log->bytes[1],
 	  log->zp_pointer,log->zp_pointer_addr);
+  fprintf(f,", Pointer written by ");
+  // XXX Need regs from cpulog[], not current CPU mapping state
+  // XXX Actually, we need to keep track of $00 and $01 andd $D031 in cpu->regs as well, so that we can examine
+  // historical memory mappings.
+  if (memory_blame(&fakecpu,log->zp_pointer+0)) {
+    fprintf(f,"I%d: ",memory_blame(&fakecpu,log->zp_pointer+0));
+    disassemble_instruction(f,cpulog[memory_blame(&fakecpu,log->zp_pointer+0)]);
+  }
+  else fprintf(f,"<uninitialised memory>");
+  fprintf(f," and ");
+  if (memory_blame(&fakecpu,log->zp_pointer+1)) {
+    fprintf(f,"I%d: ",memory_blame(&fakecpu,log->zp_pointer+1));
+    disassemble_instruction(f,cpulog[memory_blame(&fakecpu,log->zp_pointer+1)]);
+  }
+  else fprintf(f,"<uninitialised memory>");
+  fprintf(f,"}");
+  
 }
 
 void disassemble_iabsx(FILE *f,struct instruction_log *log)
@@ -2832,7 +2855,7 @@ int main(int argc,char **argv)
     char location[1024];
     char start[1024];
     char end[1024];
-    unsigned int addr,addr2;
+    unsigned int addr,addr2,first,last;
     if (!line[0]) continue;
     if (line[0]=='#') continue;
     if (line[0]=='\r') continue;
@@ -2852,6 +2875,8 @@ int main(int argc,char **argv)
 	cpu.term.rts=1; // Terminate on net RTS from routine
 	cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
+    } else if (sscanf(line,"dump instructions %d to %d",&first,&last)==2) {
+      show_recent_instructions(logfile,line,&cpu,first,last-first+1,-1);
     } else if (!strncasecmp(line,"log dma off",strlen("log dma off"))) {
       cpu.term.log_dma=0;
       fprintf(logfile,"NOTE: DMA jobs will not be reported\n");
