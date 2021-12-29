@@ -65,6 +65,7 @@ FILE *logfile=NULL;
 char logfilename[8192]="";
 #define TESTLOGFILE "/tmp/hyppotest.tmp"
 
+int log_on_failure=0;
 int test_passes=0;
 int test_fails=0;
 char test_name[1024]="unnamed test";
@@ -718,6 +719,10 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     more_jobs=0;
 
     dma_count=0;
+
+    src_skip=0x0100;
+    dst_skip=0x0100;
+
     
     if (eDMA) {
       // Read DMA option bytes
@@ -789,14 +794,14 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     int dma_cmd=read_memory28(cpu,addr++);
     dma_count|=read_memory28(cpu,addr++);
     dma_count|=read_memory28(cpu,addr++)<<8;
-    int dma_src=read_memory28(cpu,addr++);
+    unsigned int dma_src=read_memory28(cpu,addr++);
     dma_src|=read_memory28(cpu,addr++)<<8;
     dma_src|=read_memory28(cpu,addr++)<<16;
-    int dma_dst=read_memory28(cpu,addr++);
+    unsigned int dma_dst=read_memory28(cpu,addr++);
     dma_dst|=read_memory28(cpu,addr++)<<8;
     dma_dst|=read_memory28(cpu,addr++)<<16;
     if (f011b) dma_cmd|=read_memory28(cpu,addr++)<<8;
-    int dma_modulo=read_memory28(cpu,addr++);
+    unsigned int dma_modulo=read_memory28(cpu,addr++);
     dma_modulo|=read_memory28(cpu,addr++)<<8;
     
     int src_direction,src_hold,src_modulo;
@@ -819,14 +824,13 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     int src_io=dma_src&0x800000;
     int dest_io=dma_dst&0x800000;
     dma_src&=0xfffff;
-    int src_addr=dma_src|(src_mb<<20);
+    unsigned long long src_addr=(dma_src<<8)|(((unsigned long long)src_mb)<<28);
     dma_dst&=0xfffff;
-    int dest_addr=dma_dst|(dst_mb<<20);
+    unsigned long long dest_addr=(dma_dst<<8)|(((unsigned long long)dst_mb)<<28);
     
     // Is it chained?
     more_jobs=dma_cmd&4;
-    
-    
+
     if (cpu->term.log_dma)
       fprintf(logfile,"INFO: DMA cmd=$%04X, src=$%07X, dst=$%07X, count=$%06X, modulo=$%04X\n",
 	      dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
@@ -840,7 +844,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 	int symbols_copied=0;
 	int pre_symbol_count=symbol_count; // don't duplicate duplicates!
 	for(int i=0;i<pre_symbol_count;i++) {
-	  if (symbols[i].addr>=src_addr&&symbols[i].addr<(src_addr+dma_count)) {
+	  if (symbols[i].addr>=(src_addr>>8)&&symbols[i].addr<((src_addr>>8)+dma_count)) {
 	    /*	    fprintf(stderr,"NOTE: Copying symbol #%d '%s' from $%07X to $%07X due to DMA copy.\n",
 		    i,symbols[i].name,
 		    symbols[i].addr,
@@ -854,16 +858,16 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 	      return -1;
 	    }
 	    symbols[symbol_count].name=symbols[i].name;
-	    symbols[symbol_count].addr=dest_addr + (symbols[i].addr-src_addr);
-	    if ((dest_addr + (symbols[i].addr-src_addr))<CHIPRAM_SIZE) {
-	      sym_by_addr[dest_addr + (symbols[i].addr-src_addr)]=&symbols[symbol_count];
+	    symbols[symbol_count].addr=(dest_addr>>8) + (symbols[i].addr-(src_addr>>8));
+	    if (((dest_addr>>8) + (symbols[i].addr-(src_addr>>8)))<CHIPRAM_SIZE) {
+	      sym_by_addr[(dest_addr>>8) + (symbols[i].addr-(src_addr>>8))]=&symbols[symbol_count];
 	    }
 	    symbol_count++;
 	  }
 	}
 	if (symbols_copied)
-	  fprintf(logfile,"NOTE: Duplicated %d symbols due to DMA copy from $%07X-$%07X to $%07X-$%07X.\n",
-		  symbols_copied,src_addr,src_addr+dma_count-1,dest_addr,dest_addr+dma_count-1);
+	  fprintf(logfile,"NOTE: Duplicated %d symbols due to DMA copy from $%07llX-$%07llX to $%07llX-$%07llX.\n",
+		  symbols_copied,src_addr>>8,(src_addr>>8)+dma_count-1,dest_addr>>8,(dest_addr>>8)+dma_count-1);
       }
       break;
     case 3:
@@ -871,7 +875,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
       {
 	int symbols_erased=0;
 	for(int i=0;i<symbol_count;i++) {
-	  if (symbols[i].addr>=dest_addr&&symbols[i].addr<(dest_addr+dma_count)) {
+	  if (symbols[i].addr>=(dest_addr>>8)&&symbols[i].addr<((dest_addr>>8)+dma_count)) {
 	    symbols_erased++;
 	    symbols[i].addr=symbols[symbol_count-1].addr;
 	    free(symbols[i].name);
@@ -880,8 +884,8 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 	  }
 	}
 	if (symbols_erased)
-	  fprintf(logfile,"NOTE: Erased %d symbols due to DMA fill from $%07X to $%07X.\n",
-		  symbols_erased,dest_addr,dest_addr+dma_count-1);
+	  fprintf(logfile,"NOTE: Erased %d symbols due to DMA fill from $%07llX to $%07llX.\n",
+		  symbols_erased,dest_addr>>8,(dest_addr>>8)+dma_count-1);
       }
       break;
     }
@@ -890,18 +894,19 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     
     while(dma_count--)
       {
-	
+
 	// Do operation before updating addresses
 	switch (dma_cmd&3) {
 	case 0: // copy
 	  {
 	    // XXX - Doesn't simulate the 4 cycle DMA pipeline
-	    int value=read_memory28(cpu,src_addr);
-	    MEM_WRITE28(cpu,dest_addr,value);
+	    int value=read_memory28(cpu,src_addr>>8);
+	    MEM_WRITE28(cpu,dest_addr>>8,value);
+	    //	    fprintf(stderr,"DEBUG: Copying $%02X from $%07X to $%07X\n",value,src_addr>>8,dest_addr>>8);
 	  }
 	  break;
 	case 3: // fill
-	  MEM_WRITE28(cpu,dest_addr,src_addr&0xff);
+	  MEM_WRITE28(cpu,dest_addr>>8,(src_addr>>8)&0xff);
 	  break;
 	default:
 	  fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
@@ -2293,6 +2298,8 @@ void test_init(struct cpu *cpu)
 
   machine_init(cpu);
 
+  log_on_failure=0;
+  
   // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
   // after.
   unlink(TESTLOGFILE);
@@ -2330,7 +2337,7 @@ void test_conclude(struct cpu *cpu)
   if (cpu->term.error) {
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
-    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
+    if (log_on_failure) show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
     fprintf(logfile,"FAIL: Test failed.\n");
     printf("\r[FAIL] %s\n",test_name);
   } else {
@@ -2568,6 +2575,9 @@ int main(int argc,char **argv)
     } else if (!strncasecmp(line,"log dma",strlen("log dma"))) {
       cpu.term.log_dma=1;
       fprintf(logfile,"NOTE: DMA jobs will be reported\n");
+    } else if (!strncasecmp(line,"log on failure",strlen("log on failure"))) {
+      // Dump all instructions on test failure
+      log_on_failure=1;      
     } else if (sscanf(line,"jsr $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
