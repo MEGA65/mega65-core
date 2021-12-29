@@ -134,7 +134,7 @@ typedef struct instruction_log {
   unsigned char pops;
   unsigned int pop_blame[MAX_POPS];
 } instruction_log;
-#define MAX_LOG_LENGTH (1024*1024)
+#define MAX_LOG_LENGTH (16*1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
 int cpulog_len=0;
 
@@ -259,6 +259,7 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0x03: fprintf(f,"SEE"); break;
   case 0x08: fprintf(f,"PHP"); break;
   case 0x09: fprintf(f,"ORA "); disassemble_imm(f,log); break;
+  case 0x0A: fprintf(f,"ASL A"); break;
   case 0x0c: fprintf(f,"TSB "); disassemble_abs(f,log); break;
   case 0x10: fprintf(f,"BPL "); disassemble_rel8(f,log); break;
   case 0x13: fprintf(f,"BPL "); disassemble_rel16(f,log); break;
@@ -1471,6 +1472,15 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=2;
     cpu->regs.pc+=2;
     break;
+  case 0x0A: // ASL A
+    v=cpu->regs.a<<1;
+    if (cpu->regs.flags&FLAG_C) v|=0x1;
+    v&=0xff;
+    update_nz(v);
+    cpu->regs.a=v;
+    log->len=1;
+    cpu->regs.pc+=1;
+    break;
   case 0x0c: // TSB $xxxx
     log->len=3;
     cpu->regs.pc+=3;
@@ -1689,8 +1699,8 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     v=v>>1;
     update_nz(v);
     cpu->regs.a=v;
-    log->len=2;
-    cpu->regs.pc+=2;
+    log->len=1;
+    cpu->regs.pc+=1;
     break;
   case 0x6B: // TZA
     cpu->regs.a=cpu->regs.z;
@@ -2459,7 +2469,12 @@ void test_conclude(struct cpu *cpu)
   if (cpu->term.error) {
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
-    if (log_on_failure) show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
+    if (log_on_failure) {
+      if (cpulog_len<500000) 
+	show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
+      else
+	show_recent_instructions(logfile,"Log of last 500,000 instructions follows ",cpu,cpulog_len-500000,cpulog_len,-1);
+    }
     fprintf(logfile,"NOTE: MEGA65 screen at end of test:\n");
     do_screen_shot_ascii(logfile);
     fprintf(logfile,"FAIL: Test failed.\n");
