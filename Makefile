@@ -991,7 +991,7 @@ monitor_drive:	monitor_drive.c Makefile
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
 $(TOOLDIR)/hyppotest:	$(TOOLDIR)/hyppotest.c  Makefile
-	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/hyppotest $(TOOLDIR)/hyppotest.c
+	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/hyppotest $(TOOLDIR)/hyppotest.c -lpng
 
 hyppotest:	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
 	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
