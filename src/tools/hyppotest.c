@@ -2348,6 +2348,18 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
   return errors;
 }
 
+unsigned char viciv_regs[0x80]=
+  {
+   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+   0x00,0x9B,0x37,0x00,0x00,0x00,0xC8,0x00,0x14,0x71,0xE0,0x00,0x00,0x00,0x00,0x00,
+   0x0E,0x06,0x01,0x02,0x03,0x04,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x0C,0x00,
+   0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+   0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x68,0x00,0xF8,0x01,0x50,0x00,0x68,0x00,
+   0x0C,0x83,0xE9,0x81,0x05,0x00,0x00,0x00,  80,   0,0x78,0x01,0x50,0xC0,0x28,0x00,
+   0x00,0xb8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x90,0x00,0x00,0xF8,0x07,0x00,0x00,
+   0xFF,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x37,0x81,0x18,0xC2,0x00,0x00,0x7F   
+  };
+
 void machine_init(struct cpu *cpu)
 {
   // Initialise CPU staet
@@ -2373,6 +2385,12 @@ void machine_init(struct cpu *cpu)
   bzero(colourram_expected,COLOURRAM_SIZE);
   bzero(ffdram_expected,65536);
 
+  // Setup default VIC-IV register values
+  for(int i=0;i<0x80;i++) {
+    ffdram[0x3000+i]=viciv_regs[i];
+    ffdram_expected[0x3000+i]=viciv_regs[i];
+  }
+  
   // Set CPU IO port $01
   chipram_expected[0]=0x3f;
   chipram_expected[1]=0x27;
@@ -2977,100 +2995,100 @@ char* to_utf8(const uint32_t cp)
   return ret;
 }
 
-void print_screencode(unsigned char c, int upper_case)
+void print_screencode(FILE *f,unsigned char c, int upper_case)
 {
   int rev = 0;
   if (c & 0x80) {
     rev = 1;
     c &= 0x7f;
     // Now swap foreground/background
-    printf("%c[7m", 27);
+    fprintf(f,"%c[7m", 27);
   }
   if (c >= '0' && c <= '9')
-    printf("%c", c);
+    fprintf(f,"%c", c);
   else if (c >= 0x00 && c <= 0x1f) {
     if (upper_case)
-      printf("%c", c + 0x40);
+      fprintf(f,"%c", c + 0x40);
     else
-      printf("%c", c + 0x60);
+      fprintf(f,"%c", c + 0x60);
   }
   else if (c >= 0x20 && c < 0x40)
-    printf("%c", c);
+    fprintf(f,"%c", c);
   else if ((c >= 0x40 && c <= 0x5f) && (!upper_case))
-    printf("%c", c);
+    fprintf(f,"%c", c);
 
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x61)
-    printf("%s", to_utf8(0x258c));
+    fprintf(f,"%s", to_utf8(0x258c));
   else if (c == 0x62)
-    printf("%s", to_utf8(0x2584));
+    fprintf(f,"%s", to_utf8(0x2584));
   else if (c == 0x63)
-    printf("%s", to_utf8(0x2594));
+    fprintf(f,"%s", to_utf8(0x2594));
   else if (c == 0x64)
-    printf("%s", to_utf8(0x2581));
+    fprintf(f,"%s", to_utf8(0x2581));
   else if (c == 0x65)
-    printf("%s", to_utf8(0x258e));
+    fprintf(f,"%s", to_utf8(0x258e));
   else if (c == 0x66)
-    printf("%s", to_utf8(0x2592));
+    fprintf(f,"%s", to_utf8(0x2592));
   else if (c == 0x67)
-    printf("%s", to_utf8(0x258a));
+    fprintf(f,"%s", to_utf8(0x258a));
   else if (c == 0x68)
-    printf("%s", to_utf8(0x7f)); // No Unicode equivalent
+    fprintf(f,"%s", to_utf8(0x7f)); // No Unicode equivalent
   else if (c == 0x69)
-    printf("%s", to_utf8(0x25e4));
+    fprintf(f,"%s", to_utf8(0x25e4));
   else if (c == 0x6A)
-    printf("%s", to_utf8(0x258a));
+    fprintf(f,"%s", to_utf8(0x258a));
   else if (c == 0x6B)
-    printf("%s", to_utf8(0x2523));
+    fprintf(f,"%s", to_utf8(0x2523));
   else if (c == 0x6C)
-    printf("%s", to_utf8(0x2597));
+    fprintf(f,"%s", to_utf8(0x2597));
   else if (c == 0x6D)
-    printf("%s", to_utf8(0x2517));
+    fprintf(f,"%s", to_utf8(0x2517));
   else if (c == 0x6E)
-    printf("%s", to_utf8(0x2513));
+    fprintf(f,"%s", to_utf8(0x2513));
   else if (c == 0x6F)
-    printf("%s", to_utf8(0x2582));
+    fprintf(f,"%s", to_utf8(0x2582));
 
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
   else if (c == 0x60)
-    printf("%s", to_utf8(0xA0));
+    fprintf(f,"%s", to_utf8(0xA0));
 
   else
-    printf("?");
+    fprintf(f,"?");
 
   if (rev) {
     // Reverse off again
-    printf("%c[0m", 27);
+    fprintf(f,"%c[0m", 27);
   }
 }
 
@@ -3078,6 +3096,21 @@ int do_screen_shot_ascii(FILE *f)
 {
   //  dump_bytes(0,"screen data",screen_data,screen_size);
   get_video_state();
+  fprintf(f,"INFO: Screen RAM address = $%07X, Colours=$%02X,$%02X\n",
+	  screen_address,vic_regs[0x020],vic_regs[0x021]);
+  fprintf(f,"INFO: Screen RAM contents:\n");
+  for(int i=0;i<screen_size;i++) {
+    if (!(i&0x0f)) fprintf(f,"      $%07X :",screen_address+i);
+    fprintf(f," %02X",screen_data[i]);
+    if ((i&0xf)==0xf) fprintf(f,"\n");
+  }
+  if (screen_size&0xf) fprintf(f,"\n");
+  fprintf(f,"INFO: VIC-IV Registers:\n");
+  for(int i=0;i<0x0400;i++) {
+    if (!(i&0x0f)) fprintf(f,"      $%04X :",0xd000+i);
+    fprintf(f," %02X",vic_regs[i]);
+    if ((i&0xf)==0xf) fprintf(f,"\n");
+  }
 
 #ifndef WINDOWS
   // Display a thin border
@@ -3169,7 +3202,7 @@ int do_screen_shot_ascii(FILE *f)
           fprintf(f,"?");
       }
       else
-        print_screencode(char_id & 0xff, upper_case);
+        print_screencode(f,char_id & 0xff, upper_case);
     }
 
     fprintf(f,"%c[48;2;%d;%d;%dm ", 27,
@@ -3185,7 +3218,7 @@ int do_screen_shot_ascii(FILE *f)
       ((vic_regs[0x0200 + border_colour] & 0xf) << 4) + ((vic_regs[0x0200 + border_colour] & 0xf0) >> 4),
       ((vic_regs[0x0300 + border_colour] & 0xf) << 4) + ((vic_regs[0x0300 + border_colour] & 0xf0) >> 4));
   for (int x = 0; x < (1 + screen_width + 1); x++)
-    printf(" ");
+    fprintf(f," ");
   fprintf(f,"%c[0m", 27);
 
 #endif
