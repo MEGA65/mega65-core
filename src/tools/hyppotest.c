@@ -832,6 +832,62 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 	      dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
 
     if (!dma_count) dma_count=0x10000;
+
+    switch(dma_cmd&3) {
+    case 0:
+      /* Copy operation: Clone symbols from source region to destination region. */
+      {
+	int symbols_copied=0;
+	int pre_symbol_count=symbol_count; // don't duplicate duplicates!
+	for(int i=0;i<pre_symbol_count;i++) {
+	  if (symbols[i].addr>=src_addr&&symbols[i].addr<(src_addr+dma_count)) {
+	    /*	    fprintf(stderr,"NOTE: Copying symbol #%d '%s' from $%07X to $%07X due to DMA copy.\n",
+		    i,symbols[i].name,
+		    symbols[i].addr,
+		    dest_addr + (symbols[i].addr-src_addr)); */
+	    symbols_copied++;
+	    
+	    if (symbol_count>=MAX_SYMBOLS) {
+	      fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+	      cpu->term.error=1;
+	      cpu->term.done=1;
+	      return -1;
+	    }
+	    symbols[symbol_count].name=symbols[i].name;
+	    symbols[symbol_count].addr=dest_addr + (symbols[i].addr-src_addr);
+	    if ((dest_addr + (symbols[i].addr-src_addr))<CHIPRAM_SIZE) {
+	      sym_by_addr[dest_addr + (symbols[i].addr-src_addr)]=&symbols[symbol_count];
+	    }
+	    symbol_count++;
+	  }
+	}
+	if (symbols_copied)
+	  fprintf(logfile,"NOTE: Duplicated %d symbols due to DMA copy from $%07X-$%07X to $%07X-$%07X.\n",
+		  symbols_copied,src_addr,src_addr+dma_count-1,dest_addr,dest_addr+dma_count-1);
+      }
+      break;
+    case 3:
+      /* Fill operation: Erase symbols from destination region */
+      {
+	int symbols_erased=0;
+	for(int i=0;i<symbol_count;i++) {
+	  if (symbols[i].addr>=dest_addr&&symbols[i].addr<(dest_addr+dma_count)) {
+	    symbols_erased++;
+	    symbols[i].addr=symbols[symbol_count-1].addr;
+	    free(symbols[i].name);
+	    symbols[i].name=symbols[symbol_count-1].name;
+	    symbol_count--;
+	  }
+	}
+	if (symbols_erased)
+	  fprintf(logfile,"NOTE: Erased %d symbols due to DMA fill from $%07X to $%07X.\n",
+		  symbols_erased,dest_addr,dest_addr+dma_count-1);
+      }
+      break;
+    }
+
+    
+    
     while(dma_count--)
       {
 	
@@ -2563,12 +2619,12 @@ int main(int argc,char **argv)
       if (load_hyppo(routine)) cpu.term.error=1;
     } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
       if (load_file(routine,addr)) cpu.term.error=1;
-    } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
-      if (load_symbols(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr-addr2)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr+addr2)) cpu.term.error=1;
+    } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
+      if (load_symbols(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
 	int addr16=addr32;
