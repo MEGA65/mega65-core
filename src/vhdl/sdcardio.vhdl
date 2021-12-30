@@ -664,6 +664,7 @@ architecture behavioural of sdcardio is
   signal fw_no_data : std_logic := '0';
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
+  signal f_index_rising_edge : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
 
   signal crc_reset : std_logic := '1';
@@ -1785,10 +1786,14 @@ begin  -- behavioural
       -- Maintain de-bounced index hole sensor reading
       f_index_history(6 downto 0) <= f_index_history(7 downto 1);
       f_index_history(7) <= f_index;
+      f_index_rising_edge <= '0';
       if f_index_history = x"00" then
         last_f_index <= '0';
       else
         last_f_index <= '1';
+        if last_f_index='0' then
+          f_index_rising_edge <= '1';
+        end if;
       end if;
       
       fw_byte_valid <= '0';
@@ -3737,7 +3742,7 @@ begin  -- behavioural
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
 
@@ -3762,7 +3767,7 @@ begin  -- behavioural
           
           debug_track_format_counter <= debug_track_format_counter + 1;
           
-          if (f_index_history=x"00" and last_f_index='1') then
+          if f_index_rising_edge='1' then
             report "FLOPPY: end of track due to index hole";
             f_wgate <= '1';
             f011_busy <= '0';
@@ -3795,7 +3800,7 @@ begin  -- behavioural
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             sd_state <= FDCAutoFormatTrack;
 
             -- Start writing
@@ -3825,7 +3830,7 @@ begin  -- behavioural
 
           crc_feed <= '0';
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             -- Abort format as soon as we reach the end of the track.
             -- i.e., write as many sectors as will fit, but no more.
             f_wgate <= '1';
@@ -4224,12 +4229,12 @@ begin  -- behavioural
             if index_wait_timeout /= 0 then
               index_wait_timeout <= index_wait_timeout -1;
             end if;
-            if (f_index_history=x"00" and last_f_index='1') or index_wait_timeout=0 then
+            if (f_index_rising_edge='1') or index_wait_timeout=0 then
               rotation_count <= rotation_count + 1;
               -- Allow 250ms per rotation (they should be ~200ms)
               index_wait_timeout <= cpu_frequency / 4;
             end if;
-            if ((f_index_history=x"00" and last_f_index='1') and (fdc_sector_found='0') and (fdc_sector_found_2x='0')) or index_wait_timeout=0 then
+            if ((f_index_rising_edge='1') and (fdc_sector_found='0') and (fdc_sector_found_2x='0')) or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
