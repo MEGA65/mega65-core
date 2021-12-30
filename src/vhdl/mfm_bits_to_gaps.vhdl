@@ -216,9 +216,6 @@ begin
       -- the clock gets used for the byte just written when it gets output
       -- after the current byte
 
-      -- XXX Another problem is that we should wait for the next index
-      -- pulse before starting to write. Currently we just start writing.
-
       if bits_queued = 0 and byte_in_buffer='0' then
         no_data <= '1';
       else

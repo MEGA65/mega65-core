@@ -843,7 +843,7 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
-      -- Latch reset from monitor interface to avoid dripping on glitches
+      -- Latch reset from monitor interface to avoid tripping on glitches
       -- But requiring to be low so long causes monitor induced reset to be ignored.
       -- Also, the glitching seemed to be a faulty board, not anything else.
       -- So go back to just having a single drive stage to de-glitch, but no requirement

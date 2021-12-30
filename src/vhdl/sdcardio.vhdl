@@ -223,6 +223,10 @@ architecture behavioural of sdcardio is
   signal f_wdata_rll : std_logic := '0';
   signal fw_no_data_rll : std_logic := '0';
   signal fw_ready_for_next_rll : std_logic := '0';
+  signal f_wdata_int : std_logic := '0';
+  signal f_wdata_last : std_logic := '0';
+  signal f_wdata_interval : integer range 0 to 255 := 255;
+  signal f_wdata_minimum : integer range 0 to 255 := 255;
 
   signal mfm_encoding : std_logic := '0';
   signal rll27_encoding : std_logic := '0';  
@@ -1518,6 +1522,8 @@ begin  -- behavioural
             fastio_rdata(0) <= qspi_clock_run;
             fastio_rdata(1) <= qspi_clock_int;
             fastio_rdata(7 downto 2) <= (others => '0');
+          when x"CE" =>
+            fastio_rdata <= to_unsigned(f_wdata_minimum,8);
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1681,9 +1687,30 @@ begin  -- behavioural
       
       -- Select RLL or MFM writer for floppy drive
       -- (do this under a clock to avoid glitching on WDATA and WGATE)
+      f_wdata_last <= f_wdata_int;
+      if f_wdata_int = '0' and f_wdata_last='1' then
+        -- Negative edge on F_WDATA.
+        -- Count how many cycles since the last one,
+        -- and if less than the minimum seen so far, update
+        -- the minimum. This is to help track down a bug with apparently
+        -- glitched F_WDATA output where we seem to be inserting one (or
+        -- it seems more typically two) magnetic inversions in a gap
+        -- from time to time.
+        if f_wdata_interval < f_wdata_minimum then
+          f_wdata_minimum <= f_wdata_interval;
+        end if;
+        f_wdata_interval <= 0;
+      else
+        -- Count cycles between F_WDATA negative edges.
+        if f_wdata_interval < 255 then
+          f_wdata_interval <= f_wdata_interval + 1;
+        end if;
+      end if;
+        
       if fdc_encoding_mode= x"1" then
         -- RLL27
         f_wdata <= f_wdata_rll;
+        f_wdata_int <= f_wdata_rll;
         fw_no_data <= fw_no_data_rll;
         fw_ready_for_next <= fw_ready_for_next_rll;
         rll27_encoding <= '1';
@@ -1691,6 +1718,7 @@ begin  -- behavioural
         raw_encoding <= '0';
       elsif fdc_encoding_mode=x"0" then
         f_wdata <= f_wdata_mfm;
+        f_wdata_int <= f_wdata_mfm;
         fw_no_data <= fw_no_data_mfm;
         fw_ready_for_next <= fw_ready_for_next_mfm;
         mfm_encoding <= '1';
@@ -1698,6 +1726,7 @@ begin  -- behavioural
         raw_encoding <= '0';
       elsif fdc_encoding_mode=x"F" then
         f_wdata <= f_wdata_raw;
+        f_wdata_int <= f_wdata_raw;
         fw_no_data <= fw_no_data_raw;
         fw_ready_for_next <= fw_ready_for_next_raw;
         mfm_encoding <= '0';
@@ -1708,6 +1737,7 @@ begin  -- behavioural
         rll27_encoding <= '0';
         raw_encoding <= '0';
         f_wdata <= '1';
+        f_wdata_int <= '1';
       end if;    
       
       -- Export last floppy gap info so that we can have a magic DMA mode to
@@ -3425,7 +3455,9 @@ begin  -- behavioural
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
                 trigger_reconfigure <= '1';
-              end if;              
+              end if;
+              -- Or write any other value to reset floppy write gap debug value
+              f_wdata_minimum <= 255;
             when x"D0" =>
               -- @IO:GS $D6D0 MISCIO:I2CBUSSEL Select I2C bus number (I2C busses vary between MEGA65 and MEGAphone variants)
               i2c_bus_id <= fastio_wdata;
