@@ -208,6 +208,8 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal f_rdata_drive : std_logic := '0';
+  
   signal f_rdata_loopback_int : std_logic := '0';
   
   signal saved_fdc_encoding_mode : unsigned(3 downto 0) := x"0";
@@ -926,7 +928,7 @@ begin  -- behavioural
   mfm0: entity work.mfm_decoder generic map ( unit_id => 2 )
     port map (
     clock40mhz => clock,
-    f_rdata => f_rdata,
+    f_rdata => f_rdata_drive,
     encoding_mode => x"0", -- Always MFM for single-rate decoder
     cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
@@ -975,7 +977,7 @@ begin  -- behavioural
   mfm2x: entity work.mfm_decoder generic map ( unit_id => 3)
     port map (
     clock40mhz => clock,
-    f_rdata => f_rdata,
+    f_rdata => f_rdata_drive,
     encoding_mode => fdc_encoding_mode,
     cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
@@ -1032,7 +1034,7 @@ begin  -- behavioural
            f011_buffer_rdata,f011_reg_clock,f011_reg_step,f011_reg_pcode,
            last_sd_state,f011_buffer_disk_address,f011_buffer_cpu_address,
            f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
-           f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
+           f_index,f_track0,f_writeprotect,f_rdata,f_rdata_drive,f_diskchanged,
            use_real_floppy0,use_real_floppy2,target_any,fdc_first_byte,fdc_sector_end,
            fdc_sector_data_gap,fdc_sector_found,fdc_byte_valid,
            fdc_read_request,cycles_per_interval,found_track,
@@ -1673,6 +1675,9 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Buffer RDATA line
+      f_rdata_drive <= f_rdata;
+      
       -- Select RLL or MFM writer for floppy drive
       -- (do this under a clock to avoid glitching on WDATA and WGATE)
       if fdc_encoding_mode= x"1" then
