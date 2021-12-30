@@ -852,7 +852,8 @@ begin
       
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
-      f_wdata <= f_wdata_sd and f_wdata_cpu;
+      f_wdata <= f_wdata_sd; -- XXX disable CPU raw flux writing in case it is
+                             -- cause of write glitching and f_wdata_cpu;
       f_rdata_history(0) <= f_rdata;
       f_rdata_history(3 downto 1) <= f_rdata_history(2 downto 0);
       -- Similarly allow looping back of floppy write to read for debugging
