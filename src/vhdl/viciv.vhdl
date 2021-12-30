@@ -1525,6 +1525,8 @@ begin
       screen_ram_base(15 downto 14) <= not last_dd00_bits;
       vicii_sprite_pointer_address(15 downto 14) <= not last_dd00_bits;
       character_set_address(15 downto 14) <= not last_dd00_bits;
+      -- Clear high bank set with VIC-IV $D06A
+      character_set_address(23 downto 16) <= (others => '0');
       
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
