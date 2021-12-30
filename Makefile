@@ -400,11 +400,13 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 
 # GHDL with mcode backend for backtraces (PGS special debug version)
 GHDLGCC = /usr/local/bin/ghdl
-simulate-gcc:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDLGCC) -i -g $(SIMULATIONVHDL)
 	$(GHDLGCC) -m -g cpu_test
+
+simulate-gcc: simulate-gcc-build
 	./cpu_test
 
 
@@ -773,7 +775,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
-$(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
+$(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/*.asm $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
