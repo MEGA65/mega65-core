@@ -1051,35 +1051,6 @@ begin  -- behavioural
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
 
-    -- Select RLL or MFM writer for floppy drive
-    if fdc_encoding_mode= x"1" then
-      -- RLL27
-      f_wdata <= f_wdata_rll;
-      fw_no_data <= fw_no_data_rll;
-      fw_ready_for_next <= fw_ready_for_next_rll;
-      rll27_encoding <= '1';
-      mfm_encoding <= '0';
-      raw_encoding <= '0';
-    elsif fdc_encoding_mode=x"0" then
-      f_wdata <= f_wdata_mfm;
-      fw_no_data <= fw_no_data_mfm;
-      fw_ready_for_next <= fw_ready_for_next_mfm;
-      mfm_encoding <= '1';
-      rll27_encoding <= '0';
-      raw_encoding <= '0';
-    elsif fdc_encoding_mode=x"F" then
-      f_wdata <= f_wdata_raw;
-      fw_no_data <= fw_no_data_raw;
-      fw_ready_for_next <= fw_ready_for_next_raw;
-      mfm_encoding <= '0';
-      rll27_encoding <= '0';
-      raw_encoding <= '1';
-    else
-      mfm_encoding <= '0';
-      rll27_encoding <= '0';
-      raw_encoding <= '0';
-    end if;
-    
     if hypervisor_mode='0' then
       sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr_fast(8 downto 0));
     else
@@ -1702,6 +1673,36 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Select RLL or MFM writer for floppy drive
+      -- (do this under a clock to avoid glitching on WDATA and WGATE)
+      if fdc_encoding_mode= x"1" then
+        -- RLL27
+        f_wdata <= f_wdata_rll;
+        fw_no_data <= fw_no_data_rll;
+        fw_ready_for_next <= fw_ready_for_next_rll;
+        rll27_encoding <= '1';
+        mfm_encoding <= '0';
+        raw_encoding <= '0';
+      elsif fdc_encoding_mode=x"0" then
+        f_wdata <= f_wdata_mfm;
+        fw_no_data <= fw_no_data_mfm;
+        fw_ready_for_next <= fw_ready_for_next_mfm;
+        mfm_encoding <= '1';
+        rll27_encoding <= '0';
+        raw_encoding <= '0';
+      elsif fdc_encoding_mode=x"F" then
+        f_wdata <= f_wdata_raw;
+        fw_no_data <= fw_no_data_raw;
+        fw_ready_for_next <= fw_ready_for_next_raw;
+        mfm_encoding <= '0';
+        rll27_encoding <= '0';
+        raw_encoding <= '1';
+      else
+        mfm_encoding <= '0';
+        rll27_encoding <= '0';
+        raw_encoding <= '0';
+      end if;    
+      
       -- Export last floppy gap info so that we can have a magic DMA mode to
       -- read raw flux from the floppy at 25ns resolution
       if fdc_last_gap(15 downto 8) /= x"00" then
