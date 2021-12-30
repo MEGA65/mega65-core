@@ -74,9 +74,9 @@ trap_entry_points:
         jmp syspart_trap                        ;; Trap #$02
         eom                                     ;; refer: hyppo_syspart.asm
         jmp serialwrite                         ;; Trap #$03
-        eom                                     ;; refer serialwrite in this file
-        jmp nosuchtrap
-        eom
+        eom                                     ;; refer serialwrite in this file	
+        jmp emulatortrap                        ;; Trap #$04	
+        eom                                     ;; Reserved for Xemu to use
         jmp nosuchtrap
         eom
         jmp nosuchtrap
@@ -294,6 +294,9 @@ trap_entry_points:
 ;;     (Consider replacing with trap to hypervisor error screen with option
 ;;     to return?)
 ;;     ---------------------------------------------------------------- */
+emulatortrap:
+	;; FALL-THROUGH -- return failure on real hardware
+	;; Xemu will intercept it itself
 nosuchtrap:
 
         ;; Clear C flag for caller to indicate failure
