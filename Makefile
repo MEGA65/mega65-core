@@ -413,11 +413,13 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 
 # GHDL with mcode backend for backtraces (PGS special debug version)
 GHDLGCC = /usr/local/bin/ghdl
-simulate-gcc:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDLGCC) -i -g $(SIMULATIONVHDL)
 	$(GHDLGCC) -m -g cpu_test
+
+simulate-gcc: simulate-gcc-build
 	./cpu_test
 
 

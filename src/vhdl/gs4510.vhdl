@@ -9347,16 +9347,19 @@ begin
         when LoadTarget32 =>
           if axyz_phase /= 4 then
             -- More bytes to read, so schedule next byte to read                
-            report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
             memory_access_read := '1';
             report "MEMORY Setting memory_access_address for LoadTarget32 ($"
               & to_hstring(reg_addr + axyz_phase) & ").";
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
+            if absolute32_addressing_enabled='1' then
+              memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+            else
+              memory_access_address(27 downto 16) := x"000";
+            end if;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
           end if;
         when StoreTarget32 =>
-          report "VAL32: StoreTarget32 memory_access_address=$" & to_hstring(memory_access_address) & ", reg_val32=$" & to_hstring(reg_val32);
           if axyz_phase /= 4 then
             memory_access_read := '0';
             memory_access_write := '1';
@@ -9365,6 +9368,11 @@ begin
               & to_hstring(reg_addr + axyz_phase) & "). Data value will be $" & to_hstring(reg_val32(7 downto 0));
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
+            if absolute32_addressing_enabled='1' then
+              memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+            else
+              memory_access_address(27 downto 16) := x"000";
+            end if;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
           end if;              
         when MicrocodeInterpret =>
