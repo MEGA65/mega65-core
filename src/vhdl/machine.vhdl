@@ -772,6 +772,7 @@ architecture Behavioral of machine is
   signal f_wdata_cpu : std_logic := '1';
   signal f_rdata_switched : std_logic := '0';
   signal f_rdata_loopback : std_logic;
+  signal f_rdata_history : std_logic_vector(3 downto 0) := "1111";
 
   signal last_reset_source : unsigned(2 downto 0) := "000";
   
@@ -852,12 +853,18 @@ begin
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
       f_wdata <= f_wdata_sd and f_wdata_cpu;
+      f_rdata_history(0) <= f_rdata;
+      f_rdata_history(3 downto 1) <= f_rdata_history(2 downto 0);
       -- Similarly allow looping back of floppy write to read for debugging
       -- and also investigating write precomp requirements/effects etc
       if f_rdata_loopback='1' then
         f_rdata_switched <= f_wdata_sd and f_wdata_cpu;
       else
-        f_rdata_switched <= f_rdata;
+        if f_rdata_history="0000" then
+          f_rdata_switched <= '0';
+        else
+          f_rdata_switched <= '1';
+        end if;
       end if;
       
       pal50_select_out <= pal50_select;
