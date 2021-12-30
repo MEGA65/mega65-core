@@ -1701,6 +1701,7 @@ begin  -- behavioural
         mfm_encoding <= '0';
         rll27_encoding <= '0';
         raw_encoding <= '0';
+        f_wdata <= '1';
       end if;    
       
       -- Export last floppy gap info so that we can have a magic DMA mode to
