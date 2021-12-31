@@ -2307,12 +2307,15 @@ begin  -- behavioural
               case temp_cmd is
 
                 when x"A0" | x"A4" | x"A8" | x"AC" =>
-                  -- Format a track (completely automatically)
-                  -- At high data rates, it is problematic to feed the data
-                  -- fast enough to avoid failures, especially when using
-                  -- code written using CC65, as I am using to test things.
-                  -- So this command just attempts to format the whole track
-                  -- with all empty sectors, and everything nicely built.
+                  -- Format a track.
+                  -- This can either be buffered, i.e., completely automatically,
+                  -- or unbuffered, the way the old C65 ROMs expect.
+                  --
+                  -- Buffered formatting is more or less essential at the
+                  -- higher data-rates, unless you want to write fairly optimised
+                  -- assembly code to do unbuffered formatting, e.g., if you want
+                  -- to master tracks with specific content, rather than have empty
+                  -- sectors written for you.
 
                   f_wgate <= '1';
                   f011_busy <= '1';
@@ -2327,44 +2330,19 @@ begin  -- behavioural
                   if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
                     report "FLOPPY: Real drive selected, so starting track format";
-                    sd_state <= FDCAutoFormatTrackSyncWait;
+                    if fastio_wdata(0)='0' then
+                      sd_state <= FDCAutoFormatTrackSyncWait;
+                    else
+                      -- Clear the LOST and DRQ flags at the beginning.
+                      f011_lost <= '0';
+                      f011_drq <= '0';
+
+                      sd_state <= FDCFormatTrackSyncWait;
+                    end if;
                   else
                     report "FLOPPY: Ignoring track format, due to using D81 image";
                   end if;
-                  
-                when x"A1" | x"A5" =>
-                  -- Track write: Unbuffered
-                  -- It doesn't matter if you enable buffering or not, for
-                  -- track write, as we just enforce unbuffered operation,
-                  -- since it is the only way that it is used on the C65, and
-                  -- thus the MEGA65.
-                  -- (Conversely, when we get to that point, we will probably only
-                  -- support buffered mode for sector writes).
-
-                  -- Clear the LOST and DRQ flags at the beginning.
-                  f011_lost <= '0';
-                  f011_drq <= '0';
-
-                  -- We clear the write gate until we hit a sync pulse, and
-                  -- only then begin writing.  The write gate will be closed
-                  -- again at the next sync pulse.
-                  f_wgate <= '1';
-
-                  -- Mark drive busy, as we should
-                  -- C65 DOS also relies on this.
-                  f011_busy <= '1';
-
-                  report "FLOPPY: Asked for track format";
-                  
-                  -- Only allow formatting when real drive is used
-                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
-                    (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
-                    report "FLOPPY: Real drive selected, so starting track format";
-                    sd_state <= FDCFormatTrackSyncWait;
-                  else
-                    report "FLOPPY: Ignoring track format, due to using D81 image";
-                  end if;
-                  
+                                    
                 when x"40" | x"44" =>         -- read sector
                   -- calculate sector number.
                   -- physical sector on disk = track * $14 + sector on track
