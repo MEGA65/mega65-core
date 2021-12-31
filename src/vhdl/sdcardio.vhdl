@@ -4009,7 +4009,7 @@ begin  -- behavioural
                 crc_feed <= '0';
                 
               when 1000 to 1002 =>
-                -- Write track info header sync bytes
+                -- Write Track Info Block sync bytes
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
