@@ -34,6 +34,8 @@ architecture tb of tb_example is
   
   signal v : test_vectors := (
     0 => (n=>x"00000001",d=>x"00000040",q_expected=>x"0000000004000000"),
+    1 => (n=>x"00000001",d=>x"00000100",q_expected=>x"0000000001000000"),
+    2 => (n=>x"00000001",d=>x"00000064",q_expected=>x"00000000028f5c28"),
     others => (n=>to_unsigned(0,32), d=>to_unsigned(0,32), q_expected=>to_unsigned(0,64)));
   
 begin
