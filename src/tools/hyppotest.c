@@ -6,6 +6,7 @@
 
 int do_screen_shot_ascii(FILE *f);
 int do_screen_shot(char *filename);
+void get_video_state(void);
 
 #define MEM_WRITE16(CPU,ADDR,VALUE) if (write_mem28(CPU,addr_to_28bit(CPU,ADDR,1),VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(addr_to_28bit(CPU,ADDR,1))); return -1; }
 #define MEM_WRITE28(CPU,ADDR,VALUE) if (write_mem28(CPU,ADDR,VALUE)) { fprintf(stderr,"ERROR: Memory write failed to %s.\n",describe_address(ADDR)); return -1; }
@@ -156,7 +157,7 @@ int rel8_delta(unsigned char c)
   return c-0x100;
 }
 
-int rel16_delta(unsigned char c)
+int rel16_delta(unsigned short c)
 {
   if (c<0x8000) return c;
   return c-0x10000;
@@ -881,8 +882,8 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
       dest_modulo=(dma_dst>>21)&1;
       dest_hold=(dma_dst>>20)&1;
     }
-    int src_io=dma_src&0x800000;
-    int dest_io=dma_dst&0x800000;
+    // int src_io=dma_src&0x800000;
+    // int dest_io=dma_dst&0x800000;
     dma_src&=0xfffff;
     unsigned long long src_addr=(dma_src<<8)|(((unsigned long long)src_mb)<<28);
     dma_dst&=0xfffff;
