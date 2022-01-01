@@ -24,7 +24,7 @@ struct regs {
   unsigned char map_irq_inhibit;
   unsigned short maplo,maphi;
   unsigned char maplomb,maphimb;
-  
+
 };
 
 struct termination_conditions {
@@ -33,7 +33,7 @@ struct termination_conditions {
 
   // Indicates that an error was detected
   int error;
-  
+
   // Terminate when number of RTS (minus JSRs) is encountered
   int rts;
 
@@ -42,7 +42,7 @@ struct termination_conditions {
 
   // Log DMA requests
   int log_dma;
-  
+
 };
 
 
@@ -86,7 +86,7 @@ unsigned char hypporam[HYPPORAM_SIZE];
 unsigned char colourram[COLOURRAM_SIZE];
 unsigned char ffdram[65536];
 
-// Expected memory state 
+// Expected memory state
 unsigned char chipram_expected[CHIPRAM_SIZE];
 unsigned char hypporam_expected[HYPPORAM_SIZE];
 unsigned char colourram_expected[COLOURRAM_SIZE];
@@ -105,11 +105,11 @@ typedef struct hyppo_symbol {
   unsigned int addr;
 } hyppo_symbol;
 hyppo_symbol hyppo_symbols[MAX_HYPPO_SYMBOLS];
-int hyppo_symbol_count=0;  
+int hyppo_symbol_count=0;
 
 #define MAX_SYMBOLS CHIPRAM_SIZE
 hyppo_symbol symbols[MAX_SYMBOLS];
-int symbol_count=0;  
+int symbol_count=0;
 
 hyppo_symbol *sym_by_addr[CHIPRAM_SIZE]={NULL};
 
@@ -193,9 +193,9 @@ void disassemble_iabs(FILE *f,struct instruction_log *log)
 
   bzero(&fakecpu,sizeof(fakecpu));
   fakecpu.regs=log->regs;
-  
+
   fprintf(f,"($%02X%02X) {PTR=$%04X,ADDR=$%04X",log->bytes[2],log->bytes[1],
-	  log->zp_pointer,log->zp_pointer_addr);
+          log->zp_pointer,log->zp_pointer_addr);
   fprintf(f,", Pointer written by ");
   // XXX Need regs from cpulog[], not current CPU mapping state
   // XXX Actually, we need to keep track of $00 and $01 andd $D031 in cpu->regs as well, so that we can examine
@@ -212,7 +212,7 @@ void disassemble_iabs(FILE *f,struct instruction_log *log)
   }
   else fprintf(f,"<uninitialised memory>");
   fprintf(f,"}");
-  
+
 }
 
 void disassemble_iabsx(FILE *f,struct instruction_log *log)
@@ -249,26 +249,26 @@ void disassemble_zpy(FILE *f,struct instruction_log *log)
 void disassemble_izpy(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"($%02X),Y {PTR=$%04X,ADDR16=$%04X}",log->bytes[1],
-	  log->zp_pointer,log->zp_pointer_addr);
+          log->zp_pointer,log->zp_pointer_addr);
 }
 
 void disassemble_izpx(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"($%02X,X) {PTR=$%04X,ADDR16=$%04X}",log->bytes[1],
-	  log->zp_pointer,log->zp_pointer_addr);
+          log->zp_pointer,log->zp_pointer_addr);
 }
 
 
 void disassemble_izpz(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"($%02X),Z {PTR=$%04X,ADDR16=$%04X}",log->bytes[1],
-	  log->zp_pointer,log->zp_pointer_addr);
+          log->zp_pointer,log->zp_pointer_addr);
 }
 
 void disassemble_izpz32(FILE *f,struct instruction_log *log)
 {
   fprintf(f,"[$%02X],Z {PTR=$%04X,ADDR32=$%07X}",log->bytes[1],
-	  log->zp_pointer,log->zp_pointer_addr);
+          log->zp_pointer,log->zp_pointer_addr);
 }
 
 void disassemble_stack_source(FILE *f,struct instruction_log *log)
@@ -282,7 +282,7 @@ void disassemble_stack_source(FILE *f,struct instruction_log *log)
 
 void disassemble_instruction(FILE *f,struct instruction_log *log)
 {
-  
+
   if (!log->len) return;
   switch(log->bytes[0]) {
   case 0x00: fprintf(f,"BRK "); disassemble_imm(f,log); break;
@@ -328,18 +328,18 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
     if (log->pop_blame[0]!=log->pop_blame[1]) {
       fprintf(f," two different instructions: ");
       if (log->pop_blame[0]) {
-	fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
-	disassemble_instruction(f,cpulog[log->pop_blame[0]]);
+        fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
+        disassemble_instruction(f,cpulog[log->pop_blame[0]]);
       } else fprintf(f,"<unitialised stack location>");
       fprintf(f," and ");
       if (log->pop_blame[1]) {
-	fprintf(f,"$%04X ",cpulog[log->pop_blame[1]]->pc);
-	disassemble_instruction(f,cpulog[log->pop_blame[1]]);
-      } else fprintf(f,"<unitialised stack location>");      
-    } else 
+        fprintf(f,"$%04X ",cpulog[log->pop_blame[1]]->pc);
+        disassemble_instruction(f,cpulog[log->pop_blame[1]]);
+      } else fprintf(f,"<unitialised stack location>");
+    } else
       if (log->pop_blame[0]) {
-	fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
-	disassemble_instruction(f,cpulog[log->pop_blame[0]]);
+        fprintf(f,"$%04X ",cpulog[log->pop_blame[0]]->pc);
+        disassemble_instruction(f,cpulog[log->pop_blame[0]]);
       } else fprintf(f,"<unitialised stack location>");
     fprintf(f,"}");
     break;
@@ -426,13 +426,13 @@ void disassemble_instruction(FILE *f,struct instruction_log *log)
   case 0xFA: fprintf(f,"PLX"); disassemble_stack_source(f,log); break;
   case 0xFB: fprintf(f,"PLZ"); disassemble_stack_source(f,log); break;
   }
-  
+
 }
 
 int show_recent_instructions(FILE *f,char *title,
-			     struct cpu *cpu,
-			     int first_instruction, int count,
-			     unsigned int highlight_address)
+                             struct cpu *cpu,
+                             int first_instruction, int count,
+                             unsigned int highlight_address)
 {
   int last_was_dup=0;
   fprintf(f,"INFO: %s\n",title);
@@ -451,9 +451,9 @@ int show_recent_instructions(FILE *f,char *title,
       if (cpulog_len-i-1) fprintf(f,"I%-7d ",i);
       else fprintf(f,"     >>> ");
       if (cpulog[i]->count>1)
-	fprintf(f,"$%04X x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
+        fprintf(f,"$%04X x%-6d : ",cpulog[i]->pc,cpulog[i]->count);
       else
-	fprintf(f,"$%04X         : ",cpulog[i]->pc);
+        fprintf(f,"$%04X         : ",cpulog[i]->pc);
       fprintf(f,"A:%02X ",cpulog[i]->regs.a);
       fprintf(f,"X:%02X ",cpulog[i]->regs.x);
       fprintf(f,"Y:%02X ",cpulog[i]->regs.y);
@@ -461,24 +461,24 @@ int show_recent_instructions(FILE *f,char *title,
       fprintf(f,"SP:%02X%02X ",cpulog[i]->regs.sph,cpulog[i]->regs.spl);
       fprintf(f,"B:%02X ",cpulog[i]->regs.b);
       fprintf(f,"M:%04x+%02x/%04x+%02x ",
-	      cpulog[i]->regs.maplo,cpulog[i]->regs.maplomb,
-	      cpulog[i]->regs.maphi,cpulog[i]->regs.maphimb);
+              cpulog[i]->regs.maplo,cpulog[i]->regs.maplomb,
+              cpulog[i]->regs.maphi,cpulog[i]->regs.maphimb);
       fprintf(f,"%c%c%c%c%c%c%c%c ",
-	     cpulog[i]->regs.flags&FLAG_N?'N':'.',
-	     cpulog[i]->regs.flags&FLAG_V?'V':'.',
-	     cpulog[i]->regs.flags&FLAG_E?'E':'.',
-	     cpulog[i]->regs.flags&0x10?'B':'.',
-	     cpulog[i]->regs.flags&FLAG_D?'D':'.',
-	     cpulog[i]->regs.flags&FLAG_I?'I':'.',
-	     cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
-	     cpulog[i]->regs.flags&FLAG_C?'C':'.');
+             cpulog[i]->regs.flags&FLAG_N?'N':'.',
+             cpulog[i]->regs.flags&FLAG_V?'V':'.',
+             cpulog[i]->regs.flags&FLAG_E?'E':'.',
+             cpulog[i]->regs.flags&0x10?'B':'.',
+             cpulog[i]->regs.flags&FLAG_D?'D':'.',
+             cpulog[i]->regs.flags&FLAG_I?'I':'.',
+             cpulog[i]->regs.flags&FLAG_Z?'Z':'.',
+             cpulog[i]->regs.flags&FLAG_C?'C':'.');
       fprintf(f," : ");
 
       fprintf(f,"%32s : ",describe_address_label28(cpu,addr_to_28bit(cpu,cpulog[i]->regs.pc,0)));
 
       for(int j=0;j<3;j++) {
-	if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
-	else fprintf(f,"   ");
+        if (j<cpulog[i]->len) fprintf(f,"%02X ",cpulog[i]->bytes[j]);
+        else fprintf(f,"   ");
       }
       fprintf(f," : ");
       // XXX - Show instruction disassembly
@@ -493,10 +493,10 @@ int show_recent_instructions(FILE *f,char *title,
 int identical_cpustates(struct instruction_log *a, struct instruction_log *b)
 {
   unsigned int count=a->count;
-  a->count=b->count; 
+  a->count=b->count;
   int r=memcmp(a,b,sizeof(struct instruction_log));
   a->count=count;
-  
+
   if (r) return 0; else return 1;
 }
 
@@ -504,7 +504,7 @@ char addr_description[8192];
 char *describe_address(unsigned int addr)
 {
   struct hyppo_symbol *s=NULL;
-  
+
   for(int i=0;i<hyppo_symbol_count;i++) {
     // Check for exact address match
     if (addr==hyppo_symbols[i].addr) s=&hyppo_symbols[i];
@@ -512,11 +512,11 @@ char *describe_address(unsigned int addr)
     if (s&&s->addr<hyppo_symbols[i].addr&&addr>hyppo_symbols[i].addr)
       s=&hyppo_symbols[i];
   }
-  
+
   if (s) {
     if (s->addr==addr)  snprintf(addr_description,8192,"$%04X (first instruction in %s)",addr,s->name);
     else  snprintf(addr_description,8192,"$%04X (at %s+%d)",addr,s->name,addr-s->addr);
-  } else 
+  } else
     snprintf(addr_description,8192,"$%04X",addr);
   return addr_description;
 }
@@ -548,37 +548,37 @@ char *describe_address_label28(struct cpu *cpu,unsigned int addr)
       if (s) delta=addr-s->addr; else delta=addr;
       if (!nonhyppo) delta-=0xfff0000;
       if (s&&s->addr<symbols[i].addr&&addr>(symbols[i].addr)
-	  &&((addr-symbols[i].addr)<delta)) {
-	//fprintf(stderr,"$%07x vs $%07x (%s) (delta=$%07x)\n",addr,symbols[i].addr,symbols[i].name,
-	//		addr-symbols[i].addr);
-	nonhyppo=1;
-	s=&symbols[i];
+          &&((addr-symbols[i].addr)<delta)) {
+        //fprintf(stderr,"$%07x vs $%07x (%s) (delta=$%07x)\n",addr,symbols[i].addr,symbols[i].name,
+        //              addr-symbols[i].addr);
+        nonhyppo=1;
+        s=&symbols[i];
       }
       if ((!s)&&addr>(symbols[i].addr)) {
-	nonhyppo=1;
-	s=&symbols[i];
+        nonhyppo=1;
+        s=&symbols[i];
       }
     }
   }
 
-  
+
   if (s) {
     if (nonhyppo&&(s->addr+0xfff0000)==addr)  snprintf(addr_description,8192,"%s",s->name);
     if ((!nonhyppo)&&(s->addr)==addr)  snprintf(addr_description,8192,"%s",s->name);
     else {
       if (nonhyppo) {
-	snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
-	if (addr-s->addr>0xff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr);
+        snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr);
+        if (addr-s->addr>0xff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr);
       } else {
-	snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr-0xfff0000);
-	if (addr-s->addr>0xff000ff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr-0xfff0000);
+        snprintf(addr_description,8192,"%s+%d",s->name,addr-s->addr-0xfff0000);
+        if (addr-s->addr>0xff000ff) snprintf(addr_description,8192,"%s+$%x",s->name,addr-s->addr-0xfff0000);
       }
     }
-  } else 
+  } else
     addr_description[0]=0;
 
 
-  
+
   return addr_description;
 }
 
@@ -610,7 +610,7 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
   if (addr>0xffff) {
     fprintf(logfile,"ERROR: Asked to map %s of non-16 bit address $%x\n",writeP?"write":"read",addr);
     show_recent_instructions(logfile,"Instructions leading up to the request",
-			     cpu,cpulog_len-6,6,cpu->regs.pc);
+                             cpu,cpulog_len-6,6,cpu->regs.pc);
     cpu->term.error=1;
     return -1;
   }
@@ -628,8 +628,8 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
     case 1: case 2: case 3:
       // CharROM
       if (!writeP) {
-	addr&=0xfff;
-	addr|=0x2d000;
+        addr&=0xfff;
+        addr|=0x2d000;
       }
       break;
     case 5: case 6: case 7:
@@ -643,17 +643,17 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
     // C64 BASIC ROM
     if (bank==10||bank==11) {
       if (lnc==3||lnc==7) {
-	addr&=0x1fff;
-	addr|=0x2a000;
+        addr&=0x1fff;
+        addr|=0x2a000;
       }
     }
     // C64 KERNAL ROM
     if (bank==14||bank==15) {
       switch(lnc){
       case 2: case 3: case 6: case 7:
-	addr&=0x1fff;
-	addr|=0x2e000;
-	break;
+        addr&=0x1fff;
+        addr|=0x2e000;
+        break;
       }
     }
   }
@@ -679,7 +679,7 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
 
   //  fprintf(stderr,"NOTE: Address $%04x mapped to $%07x (lnc=%d)\n",addr_in,addr,lnc);
   //  fprintf(stderr,"      chipram[0]=$%02x, chipram[1]=$%02x\n",chipram[0],chipram[1]);
-  
+
   return addr;
 }
 
@@ -764,17 +764,17 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
   int s_line_slope_negative=0;
 
   int spiral_phase=0;
-  
+
   if (cpu->term.log_dma) {
     fprintf(logfile,"NOTE: %sDMA dispatched with list address $%07x\n",
-	    eDMA?"E":"",addr);
+            eDMA?"E":"",addr);
     fprintf(logfile,"      DMA addr regs contain $%02X $%02X $%02X $%02X $%02X $%02X\n",
-	    ffdram[0x3700],ffdram[0x3701],ffdram[0x3702],ffdram[0x3703],ffdram[0x3704],ffdram[0x3705]);
+            ffdram[0x3700],ffdram[0x3701],ffdram[0x3702],ffdram[0x3703],ffdram[0x3704],ffdram[0x3705]);
     show_recent_instructions(logfile,"Instructions leading up to the DMA request", cpu,cpulog_len-32,32,cpu->regs.pc);
   }
 
   int more_jobs=1;
-  
+
   while(more_jobs) {
     more_jobs=0;
 
@@ -783,73 +783,73 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     src_skip=0x0100;
     dst_skip=0x0100;
 
-    
+
     if (eDMA) {
       // Read DMA option bytes
       while(read_memory28(cpu,addr)) {
-	int option=read_memory28(cpu,addr++);
-	int arg=0;
-	if (option&0x80) arg=read_memory28(cpu,addr++);      
-	if (cpu->term.log_dma) fprintf(logfile,"INFO: DMA option $%02X $%02X\n",option,arg);
-	switch(option) {
-	case 0x06: with_transparency=0; break;
-	case 0x07: with_transparency=0; break;
-	case 0x0a: f011b=0; break;
-	case 0x0b: f011b=1; break;
-	case 0x0d: floppy_mode=1;  break;
-	case 0x0e: floppy_mode=1; floppy_ignore_ff=1; break;
-	case 0x0f: floppy_mode=1; floppy_ignore_ff=0; break;
-	case 0x53: spiral_mode=1; spiral_len=39; spiral_len_remaining=38; break;
-	case 0x80: src_mb=arg; break;
-	case 0x81: dst_mb=arg; break;
-	case 0x82: src_skip|=arg; break;
-	case 0x83: src_skip|=arg<<8; break;
-	case 0x84: dst_skip|=arg; break;
-	case 0x85: dst_skip|=arg<<8; break;
-	case 0x86: transparent_value=arg; break;
-	case 0x87: x8_offset|=arg; break;
-	case 0x88: x8_offset|=arg<<8; break;
-	case 0x89: y8_offset|=arg; break;
-	case 0x8a: y8_offset|=arg<<8; break;
-	case 0x8b: slope|=arg; break;
-	case 0x8c: slope|=arg<<8; break;
-	case 0x8d: slope_fraction_start|=arg; break;
-	case 0x8e: slope_fraction_start|=arg<<8; break;
-	case 0x8f:
-	  line_mode=arg&0x80;
-	  line_x_or_y=arg&0x40;
-	  line_slope_negative=arg&0x20;
-	  break;
-	case 0x90: dma_count|=arg<<16; break;
-	case 0x97: s_x8_offset|=arg; break;
-	case 0x98: s_x8_offset|=arg<<8; break;
-	case 0x99: s_y8_offset|=arg; break;
-	case 0x9a: s_y8_offset|=arg<<8; break;
-	case 0x9b: s_slope|=arg; break;
-	case 0x9c: s_slope|=arg<<8; break;
-	case 0x9d: s_slope_fraction_start|=arg; break;
-	case 0x9e: s_slope_fraction_start|=arg<<8; break;
-	case 0x9f:
-	  s_line_mode=arg&0x80;
-	  s_line_x_or_y=arg&0x40;
-	  s_line_slope_negative=arg&0x20;
-	  break;
-	default:
-	  fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
-	  cpu->term.error=1;
-	  break;
-	}
+        int option=read_memory28(cpu,addr++);
+        int arg=0;
+        if (option&0x80) arg=read_memory28(cpu,addr++);
+        if (cpu->term.log_dma) fprintf(logfile,"INFO: DMA option $%02X $%02X\n",option,arg);
+        switch(option) {
+        case 0x06: with_transparency=0; break;
+        case 0x07: with_transparency=0; break;
+        case 0x0a: f011b=0; break;
+        case 0x0b: f011b=1; break;
+        case 0x0d: floppy_mode=1;  break;
+        case 0x0e: floppy_mode=1; floppy_ignore_ff=1; break;
+        case 0x0f: floppy_mode=1; floppy_ignore_ff=0; break;
+        case 0x53: spiral_mode=1; spiral_len=39; spiral_len_remaining=38; break;
+        case 0x80: src_mb=arg; break;
+        case 0x81: dst_mb=arg; break;
+        case 0x82: src_skip|=arg; break;
+        case 0x83: src_skip|=arg<<8; break;
+        case 0x84: dst_skip|=arg; break;
+        case 0x85: dst_skip|=arg<<8; break;
+        case 0x86: transparent_value=arg; break;
+        case 0x87: x8_offset|=arg; break;
+        case 0x88: x8_offset|=arg<<8; break;
+        case 0x89: y8_offset|=arg; break;
+        case 0x8a: y8_offset|=arg<<8; break;
+        case 0x8b: slope|=arg; break;
+        case 0x8c: slope|=arg<<8; break;
+        case 0x8d: slope_fraction_start|=arg; break;
+        case 0x8e: slope_fraction_start|=arg<<8; break;
+        case 0x8f:
+          line_mode=arg&0x80;
+          line_x_or_y=arg&0x40;
+          line_slope_negative=arg&0x20;
+          break;
+        case 0x90: dma_count|=arg<<16; break;
+        case 0x97: s_x8_offset|=arg; break;
+        case 0x98: s_x8_offset|=arg<<8; break;
+        case 0x99: s_y8_offset|=arg; break;
+        case 0x9a: s_y8_offset|=arg<<8; break;
+        case 0x9b: s_slope|=arg; break;
+        case 0x9c: s_slope|=arg<<8; break;
+        case 0x9d: s_slope_fraction_start|=arg; break;
+        case 0x9e: s_slope_fraction_start|=arg<<8; break;
+        case 0x9f:
+          s_line_mode=arg&0x80;
+          s_line_x_or_y=arg&0x40;
+          s_line_slope_negative=arg&0x20;
+          break;
+        default:
+          fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
+          cpu->term.error=1;
+          break;
+        }
       }
       addr++; // skip final $00 option byte
       if (cpu->term.log_dma)
-	fprintf(logfile,"INFO: End of DMA Options found. DMA list proper begins at $%07X (%s)\n",
-		addr,describe_address_label28(cpu,addr));
+        fprintf(logfile,"INFO: End of DMA Options found. DMA list proper begins at $%07X (%s)\n",
+                addr,describe_address_label28(cpu,addr));
     } else {
       if (cpu->term.log_dma)
-	fprintf(logfile,"INFO: Non-enhanced DMA list proper begins at $%07X (%s)\n",
-		addr,describe_address_label28(cpu,addr));
+        fprintf(logfile,"INFO: Non-enhanced DMA list proper begins at $%07X (%s)\n",
+                addr,describe_address_label28(cpu,addr));
     }
-    
+
     // Read DMA list bytes
     int dma_cmd=read_memory28(cpu,addr++);
     dma_count|=read_memory28(cpu,addr++);
@@ -863,7 +863,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     if (f011b) dma_cmd|=read_memory28(cpu,addr++)<<8;
     unsigned int dma_modulo=read_memory28(cpu,addr++);
     dma_modulo|=read_memory28(cpu,addr++)<<8;
-    
+
     int src_direction,src_hold,src_modulo;
     int dest_direction,dest_hold,dest_modulo;
     if (f011b) {
@@ -887,13 +887,13 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     unsigned long long src_addr=(dma_src<<8)|(((unsigned long long)src_mb)<<28);
     dma_dst&=0xfffff;
     unsigned long long dest_addr=(dma_dst<<8)|(((unsigned long long)dst_mb)<<28);
-    
+
     // Is it chained?
     more_jobs=dma_cmd&4;
 
     if (cpu->term.log_dma)
       fprintf(logfile,"INFO: DMA cmd=$%04X, src=$%07X, dst=$%07X, count=$%06X, modulo=$%04X\n",
-	      dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
+              dma_cmd,dma_src,dma_dst,dma_count,dma_modulo);
 
     if (!dma_count) dma_count=0x10000;
 
@@ -901,358 +901,358 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
     case 0:
       /* Copy operation: Clone symbols from source region to destination region. */
       {
-	int symbols_copied=0;
-	int pre_symbol_count=symbol_count; // don't duplicate duplicates!
-	for(int i=0;i<pre_symbol_count;i++) {
-	  if (symbols[i].addr>=(src_addr>>8)&&symbols[i].addr<((src_addr>>8)+dma_count)) {
-	    /*	    fprintf(stderr,"NOTE: Copying symbol #%d '%s' from $%07X to $%07X due to DMA copy.\n",
-		    i,symbols[i].name,
-		    symbols[i].addr,
-		    dest_addr + (symbols[i].addr-src_addr)); */
-	    symbols_copied++;
-	    
-	    if (symbol_count>=MAX_SYMBOLS) {
-	      fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
-	      cpu->term.error=1;
-	      cpu->term.done=1;
-	      return -1;
-	    }
-	    symbols[symbol_count].name=symbols[i].name;
-	    symbols[symbol_count].addr=(dest_addr>>8) + (symbols[i].addr-(src_addr>>8));
-	    if (((dest_addr>>8) + (symbols[i].addr-(src_addr>>8)))<CHIPRAM_SIZE) {
-	      sym_by_addr[(dest_addr>>8) + (symbols[i].addr-(src_addr>>8))]=&symbols[symbol_count];
-	    }
-	    symbol_count++;
-	  }
-	}
-	if (symbols_copied)
-	  fprintf(logfile,"NOTE: Duplicated %d symbols due to DMA copy from $%07llX-$%07llX to $%07llX-$%07llX.\n",
-		  symbols_copied,src_addr>>8,(src_addr>>8)+dma_count-1,dest_addr>>8,(dest_addr>>8)+dma_count-1);
+        int symbols_copied=0;
+        int pre_symbol_count=symbol_count; // don't duplicate duplicates!
+        for(int i=0;i<pre_symbol_count;i++) {
+          if (symbols[i].addr>=(src_addr>>8)&&symbols[i].addr<((src_addr>>8)+dma_count)) {
+            /*      fprintf(stderr,"NOTE: Copying symbol #%d '%s' from $%07X to $%07X due to DMA copy.\n",
+                    i,symbols[i].name,
+                    symbols[i].addr,
+                    dest_addr + (symbols[i].addr-src_addr)); */
+            symbols_copied++;
+
+            if (symbol_count>=MAX_SYMBOLS) {
+              fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+              cpu->term.error=1;
+              cpu->term.done=1;
+              return -1;
+            }
+            symbols[symbol_count].name=symbols[i].name;
+            symbols[symbol_count].addr=(dest_addr>>8) + (symbols[i].addr-(src_addr>>8));
+            if (((dest_addr>>8) + (symbols[i].addr-(src_addr>>8)))<CHIPRAM_SIZE) {
+              sym_by_addr[(dest_addr>>8) + (symbols[i].addr-(src_addr>>8))]=&symbols[symbol_count];
+            }
+            symbol_count++;
+          }
+        }
+        if (symbols_copied)
+          fprintf(logfile,"NOTE: Duplicated %d symbols due to DMA copy from $%07llX-$%07llX to $%07llX-$%07llX.\n",
+                  symbols_copied,src_addr>>8,(src_addr>>8)+dma_count-1,dest_addr>>8,(dest_addr>>8)+dma_count-1);
       }
       break;
     case 3:
       /* Fill operation: Erase symbols from destination region */
       {
-	int symbols_erased=0;
-	for(int i=0;i<symbol_count;i++) {
-	  if (symbols[i].addr>=(dest_addr>>8)&&symbols[i].addr<((dest_addr>>8)+dma_count)) {
-	    symbols_erased++;
-	    symbols[i].addr=symbols[symbol_count-1].addr;
-	    free(symbols[i].name);
-	    symbols[i].name=symbols[symbol_count-1].name;
-	    symbol_count--;
-	  }
-	}
-	if (symbols_erased)
-	  fprintf(logfile,"NOTE: Erased %d symbols due to DMA fill from $%07llX to $%07llX.\n",
-		  symbols_erased,dest_addr>>8,(dest_addr>>8)+dma_count-1);
+        int symbols_erased=0;
+        for(int i=0;i<symbol_count;i++) {
+          if (symbols[i].addr>=(dest_addr>>8)&&symbols[i].addr<((dest_addr>>8)+dma_count)) {
+            symbols_erased++;
+            symbols[i].addr=symbols[symbol_count-1].addr;
+            free(symbols[i].name);
+            symbols[i].name=symbols[symbol_count-1].name;
+            symbol_count--;
+          }
+        }
+        if (symbols_erased)
+          fprintf(logfile,"NOTE: Erased %d symbols due to DMA fill from $%07llX to $%07llX.\n",
+                  symbols_erased,dest_addr>>8,(dest_addr>>8)+dma_count-1);
       }
       break;
     }
 
-    
-    
+
+
     while(dma_count--)
       {
 
-	// Do operation before updating addresses
-	switch (dma_cmd&3) {
-	case 0: // copy
-	  {
-	    // XXX - Doesn't simulate the 4 cycle DMA pipeline
-	    int value=read_memory28(cpu,src_addr>>8);
-	    MEM_WRITE28(cpu,dest_addr>>8,value);
-	    //	    fprintf(stderr,"DEBUG: Copying $%02X from $%07X to $%07X\n",value,src_addr>>8,dest_addr>>8);
-	  }
-	  break;
-	case 3: // fill
-	  MEM_WRITE28(cpu,dest_addr>>8,(src_addr>>8)&0xff);
-	  break;
-	default:
-	  fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
-		  dma_cmd&3);
-	  cpu->term.error=1;
-	  cpu->term.done=1;
-	  return 0;
-	}
-	
-	
-	// Update source address
-	{
-	  if (!s_line_mode) {
-	    // Normal fill / copy
-	    if (!src_hold) {
-	      if (!src_direction) src_addr += src_skip;
-	      else src_addr -= src_skip;
-	    }
-	  } else {
-	    // We are in line mode.
-	    
-	    // Add fractional position
-	    s_slope_fraction_start += s_slope;
-	    // Check if we have accumulated a whole pixel of movement?
-	    int line_x_move = 0;
-	    int line_x_move_negative = 0;
-	    int line_y_move = 0;
-	    int line_y_move_negative = 0;
-	    if (s_slope_overflow_toggle /= (s_slope_fraction_start&0x10000)) {
-	      s_slope_overflow_toggle = (s_slope_fraction_start&0x10000);
-	      // Yes: Advance in minor axis
-	      if (!s_line_x_or_y) {
-		line_y_move = 1;
-		line_y_move_negative = s_line_slope_negative;
-	      } else {
-		line_x_move = 1;
-		line_x_move_negative = s_line_slope_negative;
-	      }
-	    }
-	    // Also move major axis (which is always in the forward direction)
-	    if (!s_line_x_or_y) line_x_move = 1; else line_y_move=1;
-	    if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
-	      // Y = Y + 1
-	      if (((src_addr>>11)&7)==7) {
-		// Will overflow between Y cards
-		src_addr |= (256*8) + (s_y8_offset<<8);
-	      } else {
-		// No overflow, so just add 8 bytes (with 8-bit pixel resolution)
-		src_addr |= (256*8);
-	      }
-	    } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
-	      // Y = Y - 1
-	      if (((src_addr>>11)&7)==0) {
-		// Will overflow between X cards
-		src_addr  -= (256*8) + (s_y8_offset<<8);
-	      } else {
-		// No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
-		src_addr  -= (256*8);
-	      }
-	    } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
-	      // X = X + 1
-	      if (((src_addr>>8)&7)==7) {
-		// Will overflow between X cards
-		src_addr += 256 + (s_x8_offset<<8);
-	      } else {
-		// No overflow, so just add 1 pixel (with 8-bit pixel resolution)
-		src_addr += 256;
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
-	      // X = X - 1 
-	      if (((src_addr>>8)&7)==0) {
-		// Will overflow between X cards
-		src_addr -= 256 + (s_x8_offset<<8);
-	      } else {
-		// No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
-		src_addr -= 256;
-	      }
-	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
-	      // X = X + 1, Y = Y + 1
-	      if (((src_addr>>8)&0x3f)==0x3f) {
-		// positive overflow on both
-		src_addr  += (256*9) + (s_x8_offset<<8) + (s_y8_offset<<8);
-	      } else if (((src_addr>>8)&0x3f)==0x38) {
-		// positive card overflow on Y only
-		src_addr  += (256*9) + (s_y8_offset<<8);
-	      } else if (((src_addr>>8)&0x3f)==0x07) {
-		// positive card overflow on X only
-		src_addr  += (256*9) + (s_x8_offset<<8);
-	      } else {
-		// no card overflow
-		src_addr  += (256*9);
-	      } 
-	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
-	      // X = X + 1, Y = Y - 1
-	      if (((src_addr>>8)&0x3f)==0x07) {
-		// positive card overflow on X, negative on Y 
-		src_addr  += (256*1) - (256*8) + (s_x8_offset<<8) - (s_y8_offset<<8);
-	      } else if (((src_addr>>8)&0x3f)<0x08) {
-		// negative card overflow on Y only
-		src_addr  += (256*1) - (256*8) - (s_y8_offset<<8);
-	      } if (((src_addr>>8)&0x07)==0x07) {
-		// positive overflow on X only
-		src_addr  += (256*1) - (256*8) + (s_x8_offset<<8);
-	      } else {
-		src_addr  += (256*1) - (256*8);
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
-	      // X = X - 1, Y = Y + 1
-	      if (((src_addr>>8)&0x3f)==0x38) {
-		// negative card overflow on X, positive on Y 
-		src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8) + (s_y8_offset<<8);
-	      } else if (((src_addr>>11)&0x07)==0x07) {
-		// positive card overflow on Y only
-		src_addr  +=  - (256*1) + (256*8) + (s_y8_offset<<8);
-	      } else if (((src_addr>>8)&7)==0) {
-		// negative overflow on X only
-		src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8);
-	      } else {
-		src_addr  +=  - (256*1) + (256*8);
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
-	      // X = X - 1, Y = Y - 1
-	      if (((src_addr>>8)&0x3f)==0x00) {
-		// negative card overflow on X, negative on Y 
-		src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8) - (s_y8_offset<<8);
-	      } else if (((src_addr>>11)&0x7)==0x00) { 
-		// negative card overflow on Y only
-		src_addr  +=  - (256*1) - (256*8) - (s_y8_offset<<8);
-	      } else if (((src_addr>>8)&0x7)==0x00) {
-		// negative overflow on X only
-		src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8);
-	      } else {
-		src_addr  +=  - (256*1) - (256*8);
-	      }
-	    }
-	  }	
-	}
-	
-	
-	// Update destination address
-	{
-	  if (spiral_mode) {
-	    // Draw the dreaded Shallan Spriral
-	    switch(spiral_phase) {
-	    case 0: dest_addr=dest_addr+0x100; break;
-	    case 1: dest_addr=dest_addr+0x2800; break;
-	    case 2: dest_addr=dest_addr-0x100; break;
-	    case 3: dest_addr=dest_addr-0x2800; break;
-	    }
-	    if (spiral_len_remaining) spiral_len_remaining-=1;
-	    else {
-	      // Calculate details for next phase of the spiral
-	      if (!(spiral_phase&1)) {
-		// Next phase is vertical, so reduce spiral length by 40 - 24 = 17
-		spiral_len_remaining = spiral_len - 16;
-	      } else {
-		spiral_len_remaining = spiral_len;
-	      }
-	      if (spiral_len) spiral_len--;
-	    }
-	    spiral_phase++; spiral_phase&=3;
-	  } else if (!line_mode) {
-	    // Normal fill / copy
-	    if (!dest_hold) {
-	      if (!dest_direction) dest_addr += dst_skip;
-	      else dest_addr -= dst_skip;
-	    }
-	  } else {
-	    // We are in line mode.
-	    
-	    // Add fractional position
-	    slope_fraction_start += slope;
-	    // Check if we have accumulated a whole pixel of movement?
-	    int line_x_move = 0;
-	    int line_x_move_negative = 0;
-	    int line_y_move = 0;
-	    int line_y_move_negative = 0;
-	    if (slope_overflow_toggle /= (slope_fraction_start&0x10000)) {
-	      slope_overflow_toggle = (slope_fraction_start&0x10000);
-	      // Yes: Advance in minor axis
-	      if (!line_x_or_y) {
-		line_y_move = 1;
-		line_y_move_negative = line_slope_negative;
-	      } else {
-		line_x_move = 1;
-		line_x_move_negative = line_slope_negative;
-	      }
-	    }
-	    // Also move major axis (which is always in the forward direction)
-	    if (!line_x_or_y) line_x_move = 1; else line_y_move=1;
-	    if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
-	      // Y = Y + 1
-	      if (((dest_addr>>11)&7)==7) {
-		// Will overflow between Y cards
-		dest_addr |= (256*8) + (y8_offset<<8);
-	      } else {
-		// No overflow, so just add 8 bytes (with 8-bit pixel resolution)
-		dest_addr |= (256*8);
-	      }
-	    } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
-	      // Y = Y - 1
-	      if (((dest_addr>>11)&7)==0) {
-		// Will overflow between X cards
-		dest_addr  -= (256*8) + (y8_offset<<8);
-	      } else {
-		// No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
-		dest_addr  -= (256*8);
-	      }
-	    } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
-	      // X = X + 1
-	      if (((dest_addr>>8)&7)==7) {
-		// Will overflow between X cards
-		dest_addr += 256 + (x8_offset<<8);
-	      } else {
-		// No overflow, so just add 1 pixel (with 8-bit pixel resolution)
-		dest_addr += 256;
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
-	      // X = X - 1 
-	      if (((dest_addr>>8)&7)==0) {
-		// Will overflow between X cards
-		dest_addr -= 256 + (x8_offset<<8);
-	      } else {
-		// No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
-		dest_addr -= 256;
-	      }
-	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
-	      // X = X + 1, Y = Y + 1
-	      if (((dest_addr>>8)&0x3f)==0x3f) {
-		// positive overflow on both
-		dest_addr  += (256*9) + (x8_offset<<8) + (y8_offset<<8);
-	      } else if (((dest_addr>>8)&0x3f)==0x38) {
-		// positive card overflow on Y only
-		dest_addr  += (256*9) + (y8_offset<<8);
-	      } else if (((dest_addr>>8)&0x3f)==0x07) {
-		// positive card overflow on X only
-		dest_addr  += (256*9) + (x8_offset<<8);
-	      } else {
-		// no card overflow
-		dest_addr  += (256*9);
-	      } 
-	    } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
-	      // X = X + 1, Y = Y - 1
-	      if (((dest_addr>>8)&0x3f)==0x07) {
-		// positive card overflow on X, negative on Y 
-		dest_addr  += (256*1) - (256*8) + (x8_offset<<8) - (y8_offset<<8);
-	      } else if (((dest_addr>>8)&0x3f)<0x08) {
-		// negative card overflow on Y only
-		dest_addr  += (256*1) - (256*8) - (y8_offset<<8);
-	      } if (((dest_addr>>8)&0x07)==0x07) {
-		// positive overflow on X only
-		dest_addr  += (256*1) - (256*8) + (x8_offset<<8);
-	      } else {
-		dest_addr  += (256*1) - (256*8);
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
-	      // X = X - 1, Y = Y + 1
-	      if (((dest_addr>>8)&0x3f)==0x38) {
-		// negative card overflow on X, positive on Y 
-		dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8) + (y8_offset<<8);
-	      } else if (((dest_addr>>11)&0x07)==0x07) {
-		// positive card overflow on Y only
-		dest_addr  +=  - (256*1) + (256*8) + (y8_offset<<8);
-	      } else if (((dest_addr>>8)&7)==0) {
-		// negative overflow on X only
-		dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8);
-	      } else {
-		dest_addr  +=  - (256*1) + (256*8);
-	      }
-	    } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
-	      // X = X - 1, Y = Y - 1
-	      if (((dest_addr>>8)&0x3f)==0x00) {
-		// negative card overflow on X, negative on Y 
-		dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8) - (y8_offset<<8);
-	      } else if (((dest_addr>>11)&0x7)==0x00) { 
-		// negative card overflow on Y only
-		dest_addr  +=  - (256*1) - (256*8) - (y8_offset<<8);
-	      } else if (((dest_addr>>8)&0x7)==0x00) {
-		// negative overflow on X only
-		dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8);
-	      } else {
-		dest_addr  +=  - (256*1) - (256*8);
-	      }
-	    }
-	  }	
-	}
+        // Do operation before updating addresses
+        switch (dma_cmd&3) {
+        case 0: // copy
+          {
+            // XXX - Doesn't simulate the 4 cycle DMA pipeline
+            int value=read_memory28(cpu,src_addr>>8);
+            MEM_WRITE28(cpu,dest_addr>>8,value);
+            //      fprintf(stderr,"DEBUG: Copying $%02X from $%07X to $%07X\n",value,src_addr>>8,dest_addr>>8);
+          }
+          break;
+        case 3: // fill
+          MEM_WRITE28(cpu,dest_addr>>8,(src_addr>>8)&0xff);
+          break;
+        default:
+          fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
+                  dma_cmd&3);
+          cpu->term.error=1;
+          cpu->term.done=1;
+          return 0;
+        }
+
+
+        // Update source address
+        {
+          if (!s_line_mode) {
+            // Normal fill / copy
+            if (!src_hold) {
+              if (!src_direction) src_addr += src_skip;
+              else src_addr -= src_skip;
+            }
+          } else {
+            // We are in line mode.
+
+            // Add fractional position
+            s_slope_fraction_start += s_slope;
+            // Check if we have accumulated a whole pixel of movement?
+            int line_x_move = 0;
+            int line_x_move_negative = 0;
+            int line_y_move = 0;
+            int line_y_move_negative = 0;
+            if (s_slope_overflow_toggle /= (s_slope_fraction_start&0x10000)) {
+              s_slope_overflow_toggle = (s_slope_fraction_start&0x10000);
+              // Yes: Advance in minor axis
+              if (!s_line_x_or_y) {
+                line_y_move = 1;
+                line_y_move_negative = s_line_slope_negative;
+              } else {
+                line_x_move = 1;
+                line_x_move_negative = s_line_slope_negative;
+              }
+            }
+            // Also move major axis (which is always in the forward direction)
+            if (!s_line_x_or_y) line_x_move = 1; else line_y_move=1;
+            if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+              // Y = Y + 1
+              if (((src_addr>>11)&7)==7) {
+                // Will overflow between Y cards
+                src_addr |= (256*8) + (s_y8_offset<<8);
+              } else {
+                // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+                src_addr |= (256*8);
+              }
+            } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+              // Y = Y - 1
+              if (((src_addr>>11)&7)==0) {
+                // Will overflow between X cards
+                src_addr  -= (256*8) + (s_y8_offset<<8);
+              } else {
+                // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+                src_addr  -= (256*8);
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+              // X = X + 1
+              if (((src_addr>>8)&7)==7) {
+                // Will overflow between X cards
+                src_addr += 256 + (s_x8_offset<<8);
+              } else {
+                // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+                src_addr += 256;
+              }
+            } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+              // X = X - 1
+              if (((src_addr>>8)&7)==0) {
+                // Will overflow between X cards
+                src_addr -= 256 + (s_x8_offset<<8);
+              } else {
+                // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+                src_addr -= 256;
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+              // X = X + 1, Y = Y + 1
+              if (((src_addr>>8)&0x3f)==0x3f) {
+                // positive overflow on both
+                src_addr  += (256*9) + (s_x8_offset<<8) + (s_y8_offset<<8);
+              } else if (((src_addr>>8)&0x3f)==0x38) {
+                // positive card overflow on Y only
+                src_addr  += (256*9) + (s_y8_offset<<8);
+              } else if (((src_addr>>8)&0x3f)==0x07) {
+                // positive card overflow on X only
+                src_addr  += (256*9) + (s_x8_offset<<8);
+              } else {
+                // no card overflow
+                src_addr  += (256*9);
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+              // X = X + 1, Y = Y - 1
+              if (((src_addr>>8)&0x3f)==0x07) {
+                // positive card overflow on X, negative on Y
+                src_addr  += (256*1) - (256*8) + (s_x8_offset<<8) - (s_y8_offset<<8);
+              } else if (((src_addr>>8)&0x3f)<0x08) {
+                // negative card overflow on Y only
+                src_addr  += (256*1) - (256*8) - (s_y8_offset<<8);
+              } if (((src_addr>>8)&0x07)==0x07) {
+                // positive overflow on X only
+                src_addr  += (256*1) - (256*8) + (s_x8_offset<<8);
+              } else {
+                src_addr  += (256*1) - (256*8);
+              }
+            } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+              // X = X - 1, Y = Y + 1
+              if (((src_addr>>8)&0x3f)==0x38) {
+                // negative card overflow on X, positive on Y
+                src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8) + (s_y8_offset<<8);
+              } else if (((src_addr>>11)&0x07)==0x07) {
+                // positive card overflow on Y only
+                src_addr  +=  - (256*1) + (256*8) + (s_y8_offset<<8);
+              } else if (((src_addr>>8)&7)==0) {
+                // negative overflow on X only
+                src_addr  +=  - (256*1) + (256*8) - (s_x8_offset<<8);
+              } else {
+                src_addr  +=  - (256*1) + (256*8);
+              }
+            } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+              // X = X - 1, Y = Y - 1
+              if (((src_addr>>8)&0x3f)==0x00) {
+                // negative card overflow on X, negative on Y
+                src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8) - (s_y8_offset<<8);
+              } else if (((src_addr>>11)&0x7)==0x00) {
+                // negative card overflow on Y only
+                src_addr  +=  - (256*1) - (256*8) - (s_y8_offset<<8);
+              } else if (((src_addr>>8)&0x7)==0x00) {
+                // negative overflow on X only
+                src_addr  +=  - (256*1) - (256*8) - (s_x8_offset<<8);
+              } else {
+                src_addr  +=  - (256*1) - (256*8);
+              }
+            }
+          }
+        }
+
+
+        // Update destination address
+        {
+          if (spiral_mode) {
+            // Draw the dreaded Shallan Spriral
+            switch(spiral_phase) {
+            case 0: dest_addr=dest_addr+0x100; break;
+            case 1: dest_addr=dest_addr+0x2800; break;
+            case 2: dest_addr=dest_addr-0x100; break;
+            case 3: dest_addr=dest_addr-0x2800; break;
+            }
+            if (spiral_len_remaining) spiral_len_remaining-=1;
+            else {
+              // Calculate details for next phase of the spiral
+              if (!(spiral_phase&1)) {
+                // Next phase is vertical, so reduce spiral length by 40 - 24 = 17
+                spiral_len_remaining = spiral_len - 16;
+              } else {
+                spiral_len_remaining = spiral_len;
+              }
+              if (spiral_len) spiral_len--;
+            }
+            spiral_phase++; spiral_phase&=3;
+          } else if (!line_mode) {
+            // Normal fill / copy
+            if (!dest_hold) {
+              if (!dest_direction) dest_addr += dst_skip;
+              else dest_addr -= dst_skip;
+            }
+          } else {
+            // We are in line mode.
+
+            // Add fractional position
+            slope_fraction_start += slope;
+            // Check if we have accumulated a whole pixel of movement?
+            int line_x_move = 0;
+            int line_x_move_negative = 0;
+            int line_y_move = 0;
+            int line_y_move_negative = 0;
+            if (slope_overflow_toggle /= (slope_fraction_start&0x10000)) {
+              slope_overflow_toggle = (slope_fraction_start&0x10000);
+              // Yes: Advance in minor axis
+              if (!line_x_or_y) {
+                line_y_move = 1;
+                line_y_move_negative = line_slope_negative;
+              } else {
+                line_x_move = 1;
+                line_x_move_negative = line_slope_negative;
+              }
+            }
+            // Also move major axis (which is always in the forward direction)
+            if (!line_x_or_y) line_x_move = 1; else line_y_move=1;
+            if ((!line_x_move)&&line_y_move&&(!line_y_move_negative)) {
+              // Y = Y + 1
+              if (((dest_addr>>11)&7)==7) {
+                // Will overflow between Y cards
+                dest_addr |= (256*8) + (y8_offset<<8);
+              } else {
+                // No overflow, so just add 8 bytes (with 8-bit pixel resolution)
+                dest_addr |= (256*8);
+              }
+            } else if ((!line_x_move)&&line_y_move&&line_y_move_negative) {
+              // Y = Y - 1
+              if (((dest_addr>>11)&7)==0) {
+                // Will overflow between X cards
+                dest_addr  -= (256*8) + (y8_offset<<8);
+              } else {
+                // No overflow, so just subtract 8 bytes (with 8-bit pixel resolution)
+                dest_addr  -= (256*8);
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&(!line_y_move)) {
+              // X = X + 1
+              if (((dest_addr>>8)&7)==7) {
+                // Will overflow between X cards
+                dest_addr += 256 + (x8_offset<<8);
+              } else {
+                // No overflow, so just add 1 pixel (with 8-bit pixel resolution)
+                dest_addr += 256;
+              }
+            } else if (line_x_move&&line_x_move_negative&&(!line_y_move)) {
+              // X = X - 1
+              if (((dest_addr>>8)&7)==0) {
+                // Will overflow between X cards
+                dest_addr -= 256 + (x8_offset<<8);
+              } else {
+                // No overflow, so just subtract 1 pixel (with 8-bit pixel resolution)
+                dest_addr -= 256;
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&(!line_y_move_negative)) {
+              // X = X + 1, Y = Y + 1
+              if (((dest_addr>>8)&0x3f)==0x3f) {
+                // positive overflow on both
+                dest_addr  += (256*9) + (x8_offset<<8) + (y8_offset<<8);
+              } else if (((dest_addr>>8)&0x3f)==0x38) {
+                // positive card overflow on Y only
+                dest_addr  += (256*9) + (y8_offset<<8);
+              } else if (((dest_addr>>8)&0x3f)==0x07) {
+                // positive card overflow on X only
+                dest_addr  += (256*9) + (x8_offset<<8);
+              } else {
+                // no card overflow
+                dest_addr  += (256*9);
+              }
+            } else if (line_x_move&&(!line_x_move_negative)&&line_y_move&&line_y_move_negative) {
+              // X = X + 1, Y = Y - 1
+              if (((dest_addr>>8)&0x3f)==0x07) {
+                // positive card overflow on X, negative on Y
+                dest_addr  += (256*1) - (256*8) + (x8_offset<<8) - (y8_offset<<8);
+              } else if (((dest_addr>>8)&0x3f)<0x08) {
+                // negative card overflow on Y only
+                dest_addr  += (256*1) - (256*8) - (y8_offset<<8);
+              } if (((dest_addr>>8)&0x07)==0x07) {
+                // positive overflow on X only
+                dest_addr  += (256*1) - (256*8) + (x8_offset<<8);
+              } else {
+                dest_addr  += (256*1) - (256*8);
+              }
+            } else if (line_x_move&&line_x_move_negative&&line_y_move&&(!line_y_move_negative)) {
+              // X = X - 1, Y = Y + 1
+              if (((dest_addr>>8)&0x3f)==0x38) {
+                // negative card overflow on X, positive on Y
+                dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8) + (y8_offset<<8);
+              } else if (((dest_addr>>11)&0x07)==0x07) {
+                // positive card overflow on Y only
+                dest_addr  +=  - (256*1) + (256*8) + (y8_offset<<8);
+              } else if (((dest_addr>>8)&7)==0) {
+                // negative overflow on X only
+                dest_addr  +=  - (256*1) + (256*8) - (x8_offset<<8);
+              } else {
+                dest_addr  +=  - (256*1) + (256*8);
+              }
+            } else if (line_x_move&&line_x_move_negative&&line_y_move&&line_y_move_negative) {
+              // X = X - 1, Y = Y - 1
+              if (((dest_addr>>8)&0x3f)==0x00) {
+                // negative card overflow on X, negative on Y
+                dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8) - (y8_offset<<8);
+              } else if (((dest_addr>>11)&0x7)==0x00) {
+                // negative card overflow on Y only
+                dest_addr  +=  - (256*1) - (256*8) - (y8_offset<<8);
+              } else if (((dest_addr>>8)&0x7)==0x00) {
+                // negative overflow on X only
+                dest_addr  +=  - (256*1) - (256*8) - (x8_offset<<8);
+              } else {
+                dest_addr  +=  - (256*1) - (256*8);
+              }
+            }
+          }
+        }
       }
   }
   return 0;
@@ -1261,7 +1261,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
 {
   unsigned int dma_addr;
-  
+
   if (addr>=0xfff8000&&addr<0xfffc000)
   {
     // Hypervisor sits at $FFF8000-$FFFBFFF
@@ -1284,13 +1284,13 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
     // $FFDxxxx IO space
     ffdram[addr-0xffd0000]=value;
     ffdram_blame[addr-0xffd0000]=cpu->instruction_count;
-    
+
     // Now check for special address actions
     switch(addr) {
     case 0xffd3700: // Trigger DMA
       if (cpu->term.log_dma)
-	fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
-		addr,cpulog_len);
+        fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
+                addr,cpulog_len);
       ffdram[0x3705]=value;
       ffdram_blame[0x3705]=cpu->instruction_count;
       dma_addr=(ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16))|(ffdram[0x3704]<<20);
@@ -1303,8 +1303,8 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
       break;
     case 0xffd3705: // Trigger EDMA
       if (cpu->term.log_dma)
-	fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
-		addr,cpulog_len);
+        fprintf(logfile,"NOTE: DMA triggered via write to $%07x at instruction #%d\n",
+                addr,cpulog_len);
       ffdram[0x3700]=value;
       ffdram_blame[0x3700]=cpu->instruction_count;
       dma_addr=(ffdram[0x3700]+(ffdram[0x3701]<<8)+((ffdram[0x3702]&0x7f)<<16))|(ffdram[0x3704]<<20);
@@ -1313,18 +1313,18 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
     }
     if (!cpu->regs.in_hyper) {
       if (addr>=0xffd3640&&addr<=0xffd367f) {
-	// Enter hypervisor
-	fprintf(logfile,"NOTE: CPU Entered Hypervisor via write to $%07x at instruction #%d\n",
-		addr,cpulog_len);
+        // Enter hypervisor
+        fprintf(logfile,"NOTE: CPU Entered Hypervisor via write to $%07x at instruction #%d\n",
+                addr,cpulog_len);
       }
     } else {
       if (addr==0xffd367f) {
-	// Exit hypervisor
-	fprintf(logfile,"NOTE: CPU Exited Hypervisor via write to $%07x at instruction #%d\n",
-		addr,cpulog_len);
+        // Exit hypervisor
+        fprintf(logfile,"NOTE: CPU Exited Hypervisor via write to $%07x at instruction #%d\n",
+                addr,cpulog_len);
       }
     }
-    
+
   } else {
   // Otherwise unmapped RAM
     fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
@@ -1387,8 +1387,8 @@ unsigned int addr_izpy(struct cpu *cpu,struct instruction_log *log)
 {
   log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
-			 +(read_memory(cpu,log->zp_pointer+1)<<8)
-			 +cpu->regs.y)&0xffff;
+                         +(read_memory(cpu,log->zp_pointer+1)<<8)
+                         +cpu->regs.y)&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -1397,10 +1397,10 @@ unsigned int addr_izpx(struct cpu *cpu,struct instruction_log *log)
   // Note that we allow the pointer to cross ZP boundary, i.e.,
   // "The ($xx,X) bug" is purposely not fixed in the MEGA65 for
   // backwards compatibility.
-  log->zp_pointer=((log->bytes[1]+cpu->regs.x)&0xff)+(log->regs.b<<8);		   
+  log->zp_pointer=((log->bytes[1]+cpu->regs.x)&0xff)+(log->regs.b<<8);
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
-			 +(read_memory(cpu,log->zp_pointer+1)<<8)
-			 )&0xffff;
+                         +(read_memory(cpu,log->zp_pointer+1)<<8)
+                         )&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -1408,8 +1408,8 @@ unsigned int addr_deref16(struct cpu *cpu,struct instruction_log *log)
 {
   log->zp_pointer=(log->bytes[1]+(log->bytes[2]<<8));
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
-			 +(read_memory(cpu,log->zp_pointer+1)<<8)
-			 )&0xffff;
+                         +(read_memory(cpu,log->zp_pointer+1)<<8)
+                         )&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -1417,8 +1417,8 @@ unsigned int addr_izpz(struct cpu *cpu,struct instruction_log *log)
 {
   log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
-			 +(read_memory(cpu,log->zp_pointer+1)<<8)
-			 +cpu->regs.z)&0xffff;
+                         +(read_memory(cpu,log->zp_pointer+1)<<8)
+                         +cpu->regs.z)&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -1426,10 +1426,10 @@ unsigned int addr_izpz32(struct cpu *cpu,struct instruction_log *log)
 {
   log->zp_pointer=(log->bytes[1]+(log->regs.b<<8));
   log->zp_pointer_addr= (read_memory(cpu,log->zp_pointer+0)
-			 +(read_memory(cpu,log->zp_pointer+1)<<8)
-			 +(read_memory(cpu,log->zp_pointer+2)<<16)
-			 +(read_memory(cpu,log->zp_pointer+3)<<24)
-			 +cpu->regs.z)&0xffff;
+                         +(read_memory(cpu,log->zp_pointer+1)<<8)
+                         +(read_memory(cpu,log->zp_pointer+2)<<16)
+                         +(read_memory(cpu,log->zp_pointer+3)<<24)
+                         +cpu->regs.z)&0xffff;
   return log->zp_pointer_addr;
 }
 
@@ -1451,7 +1451,7 @@ void update_nz(unsigned char v)
   else cpu.regs.flags&=~FLAG_Z;
   cpu.regs.flags&=~FLAG_N;
   cpu.regs.flags|=v&FLAG_N;
-  
+
 }
 
 void update_nvzc(int v)
@@ -1502,12 +1502,12 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
 
   if (breakpoints[cpu->regs.pc]) {
     fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
-	    describe_address_label(cpu,cpu->regs.pc),
-	    cpu->regs.pc);
+            describe_address_label(cpu,cpu->regs.pc),
+            cpu->regs.pc);
     cpu->term.done=1;
     return 0;
   }
-  
+
   for(int i=0;i<6;i++) {
     log->bytes[i]=read_memory(cpu,cpu->regs.pc+i);
   }
@@ -1711,7 +1711,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     if (v&1) cpu->regs.flags|=FLAG_C;
     v=v>>1;
     update_nz(v);
-    MEM_WRITE16(cpu,addr_zp(cpu,log),v);    
+    MEM_WRITE16(cpu,addr_zp(cpu,log),v);
     log->len=2;
     cpu->regs.pc+=2;
     break;
@@ -1768,8 +1768,8 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     if (cpu->term.rts) {
       cpu->term.rts--;
       if (!cpu->term.rts) {
-	fprintf(logfile,"INFO: Terminating via RTS\n");
-	cpu->term.done=1;
+        fprintf(logfile,"INFO: Terminating via RTS\n");
+        cpu->term.done=1;
       }
     }
     cpu->regs.pc=stack_pop(cpu,log);
@@ -1793,7 +1793,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     if (v&1) cpu->regs.flags|=FLAG_C;
     v=v>>1;
     update_nz(v);
-    MEM_WRITE16(cpu,addr_zp(cpu,log),v);    
+    MEM_WRITE16(cpu,addr_zp(cpu,log),v);
     log->len=2;
     cpu->regs.pc+=2;
     break;
@@ -2297,7 +2297,7 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   // Ignore stack underflows/overflows if execution is complete, so that
   // terminal RTS doesn't cause a stack underflow error
   if (cpu->term.done) return 0;
-  
+
   if (cpu->stack_underflow) {
     fprintf(stderr,"ERROR: Stack underflow detected.\n");
     return -1;
@@ -2306,14 +2306,14 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
     fprintf(stderr,"ERROR: Stack overflow detected.\n");
     return -1;
   }
-  
+
   return 0;
 }
 
 int cpu_call_routine(FILE *f,unsigned int addr)
 {
   cpu.regs.spl=0xff;
-  
+
   // Is routine in hypervisor or in userland? Set stack pointer accordingly.
   if (addr>=0x8000&&addr<0xc000) {
     cpu.regs.sph=0xbe;
@@ -2334,7 +2334,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   cpu_log_reset();
 
   cpu.regs.pc=addr;
-  
+
   // Now execute instructions until we empty the stack or hit a BRK
   // or various other nasty situations that we might allow, including
   // filling the CPU instruction log
@@ -2342,7 +2342,7 @@ int cpu_call_routine(FILE *f,unsigned int addr)
 
     // Stop once the termination condition has been reached.
     if (cpu.term.done) break;
-    
+
     struct instruction_log *log=calloc(sizeof(instruction_log),1);
     log->regs=cpu.regs;
     log->pc=cpu.regs.pc;
@@ -2353,18 +2353,18 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     // Add instruction to the log
     cpu.instruction_count=cpulog_len;
     cpulog[cpulog_len++]=log;
-    
+
     if (execute_instruction(&cpu,log)) {
       cpu.term.error=1;
       fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
-	      describe_address(cpu.regs.pc));
+              describe_address(cpu.regs.pc));
       show_recent_instructions(f,"Instructions leading up to the exception",
-			       &cpu,cpulog_len-16,16,cpu.regs.pc);
+                               &cpu,cpulog_len-16,16,cpu.regs.pc);
       return -1;
     }
 
     cpu.instruction_count=cpulog_len;
-    
+
     // And to most recent instruction at this address, but only if the last instruction
     // there was not identical on all registers and instruction to this one
     if (lastataddr[cpu.regs.pc]&&identical_cpustates(lastataddr[cpu.regs.pc],log)) {
@@ -2372,19 +2372,19 @@ int cpu_call_routine(FILE *f,unsigned int addr)
       lastataddr[cpu.regs.pc]->count++;
       log->dup=1;
       if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
-	cpu.term.error=1;
-	fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
-		describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
-	// Show upto 32 instructions prior to the infinite loop
-	show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
-				 &cpu,cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
-	return -1;
+        cpu.term.error=1;
+        fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
+                describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
+        // Show upto 32 instructions prior to the infinite loop
+        show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
+                                 &cpu,cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
+        return -1;
       }
     } else lastataddr[cpu.regs.pc]=log;
-    
+
   }
   if (cpulog_len==MAX_LOG_LENGTH) {
-    cpu.term.error=1;   
+    cpu.term.error=1;
     fprintf(logfile,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
     return -1;
   }
@@ -2392,18 +2392,18 @@ int cpu_call_routine(FILE *f,unsigned int addr)
     fprintf(logfile,"ERROR: BRK instruction encountered.\n");
     // Show upto 32 instructions prior to the infinite loop
     show_recent_instructions(logfile,"Instructions leading to the BRK instruction",
-			     &cpu,cpulog_len-30,32,addr);
+                             &cpu,cpulog_len-30,32,addr);
     int blame=memory_blame(&cpu,cpu.regs.pc);
     if (blame) {
       show_recent_instructions(logfile,"Instructions leading to the BRK instruction being written",
-			       &cpu,blame-16,17,cpu.regs.pc);
+                               &cpu,blame-16,17,cpu.regs.pc);
     }
-    return -1;    
+    return -1;
   }
   if (cpu.term.done) {
     fprintf(logfile,"NOTE: Execution ended.\n");
   }
-  
+
   return 0;
 }
 
@@ -2440,7 +2440,7 @@ int ignore_ram_changes(unsigned int low, unsigned int high)
 int compare_ram_contents(FILE *f, struct cpu *cpu)
 {
   int errors=0;
-  
+
   for(int i=0;i<CHIPRAM_SIZE;i++) {
     if (chipram[i]!=chipram_expected[i]) {
       errors++;
@@ -2465,62 +2465,62 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
   if (errors) {
     fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
     cpu->term.error=1;
-    
+
     int displayed=0;
-    
+
     for(int i=0;i<CHIPRAM_SIZE;i++) {
       if (chipram[i]!=chipram_expected[i]) {
-	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
-		chipram[i],i,describe_address_label28(cpu,i),chipram_expected[i]);
-	int first_instruction=chipram_blame[i]-3;
-	if (first_instruction<0) first_instruction=0;
-	show_recent_instructions(f,"Instructions leading to this value being written",
-				 cpu,first_instruction,4,-1);
-	displayed++;
+        fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+                chipram[i],i,describe_address_label28(cpu,i),chipram_expected[i]);
+        int first_instruction=chipram_blame[i]-3;
+        if (first_instruction<0) first_instruction=0;
+        show_recent_instructions(f,"Instructions leading to this value being written",
+                                 cpu,first_instruction,4,-1);
+        displayed++;
       }
       if (displayed>=100) break;
     }
     for(int i=0;i<HYPPORAM_SIZE;i++) {
       if (hypporam[i]!=hypporam_expected[i]) {
-	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02x\n",
-		hypporam[i],i+0xfff8000,describe_address_label28(cpu,i+0xfff8000),hypporam_expected[i]);
-	int first_instruction=hypporam_blame[i]-3;
-	if (first_instruction<0) first_instruction=0;
-	show_recent_instructions(f,"Instructions leading to this value being written",
-				 cpu,first_instruction,4,-1);      
+        fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02x\n",
+                hypporam[i],i+0xfff8000,describe_address_label28(cpu,i+0xfff8000),hypporam_expected[i]);
+        int first_instruction=hypporam_blame[i]-3;
+        if (first_instruction<0) first_instruction=0;
+        show_recent_instructions(f,"Instructions leading to this value being written",
+                                 cpu,first_instruction,4,-1);
       }
-      if (displayed>=100) break;	
+      if (displayed>=100) break;
     }
     for(int i=0;i<COLOURRAM_SIZE;i++) {
       if (colourram[i]!=colourram_expected[i]) {
-	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
-	        colourram[i],i+0xff80000,describe_address_label28(cpu,i+0xff80000),colourram_expected[i]);
-	int first_instruction=colourram_blame[i]-3;
-	if (first_instruction<0) first_instruction=0;
-	show_recent_instructions(f,"Instructions leading to this value being written",
-				 cpu,first_instruction,4,-1);
-	displayed++;
+        fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+                colourram[i],i+0xff80000,describe_address_label28(cpu,i+0xff80000),colourram_expected[i]);
+        int first_instruction=colourram_blame[i]-3;
+        if (first_instruction<0) first_instruction=0;
+        show_recent_instructions(f,"Instructions leading to this value being written",
+                                 cpu,first_instruction,4,-1);
+        displayed++;
       }
       if (displayed>=100) break;
     }
     for(int i=0;i<65536;i++) {
       if (ffdram[i]!=ffdram_expected[i]) {
-	fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
-		ffdram[i],i+0xffd0000,describe_address_label28(cpu,i+0xffd0000),ffdram_expected[i]);
-	int first_instruction=ffdram_blame[i]-3;
-	if (first_instruction<0) first_instruction=0;
-	show_recent_instructions(f,"Instructions leading to this value being written",
-				 cpu,first_instruction,4,-1);
-	displayed++;
+        fprintf(f,"ERROR: Saw $%02X at $%07x (%s), but expected to see $%02X\n",
+                ffdram[i],i+0xffd0000,describe_address_label28(cpu,i+0xffd0000),ffdram_expected[i]);
+        int first_instruction=ffdram_blame[i]-3;
+        if (first_instruction<0) first_instruction=0;
+        show_recent_instructions(f,"Instructions leading to this value being written",
+                                 cpu,first_instruction,4,-1);
+        displayed++;
       }
       if (displayed>=100) break;
     }
     if (displayed>100) {
       fprintf(f,"WARNING: Displayed only the first 100 incorrect memory contents. %d more suppressed.\n",
-	      errors-100);
+              errors-100);
     }
-    
-    
+
+
   }
   return errors;
 }
@@ -2534,7 +2534,7 @@ unsigned char viciv_regs[0x80]=
    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x68,0x00,0xF8,0x01,0x50,0x00,0x68,0x00,
    0x0C,0x83,0xE9,0x81,0x05,0x00,0x00,0x00,  80,   0,0x78,0x01,0x50,0xC0,0x28,0x00,
    0x00,0xb8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x90,0x00,0x00,0xF8,0x07,0x00,0x00,
-   0xFF,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x37,0x81,0x18,0xC2,0x00,0x00,0x7F   
+   0xFF,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x37,0x81,0x18,0xC2,0x00,0x00,0x7F
   };
 
 void machine_init(struct cpu *cpu)
@@ -2548,13 +2548,13 @@ void machine_init(struct cpu *cpu)
   cpu->regs.in_hyper=1;
   // Map in hypervisor
   cpu->regs.maphimb=0xff;
-  cpu->regs.maphi=0x3f00; 
-  
+  cpu->regs.maphi=0x3f00;
+
   bzero(breakpoints,sizeof(breakpoints));
-  
+
   bzero(&cpu_expected,sizeof(struct cpu));
   cpu_expected.regs.flags=FLAG_E|FLAG_I;
-  
+
   // Clear chip RAM
   bzero(chipram_expected,CHIPRAM_SIZE);
   // Clear Hypervisor RAM
@@ -2567,13 +2567,13 @@ void machine_init(struct cpu *cpu)
     ffdram[0x3000+i]=viciv_regs[i];
     ffdram_expected[0x3000+i]=viciv_regs[i];
   }
-  
+
   // Set CPU IO port $01
   chipram_expected[0]=0x3f;
   chipram_expected[1]=0x27;
   chipram[0]=0x3f;
   chipram[1]=0x27;
-  
+
   // Reset blame for contents of memory
   bzero(chipram_blame,sizeof(chipram_blame));
   bzero(hypporam_blame,sizeof(hypporam_blame));
@@ -2583,7 +2583,7 @@ void machine_init(struct cpu *cpu)
     free(hyppo_symbols[i].name);
   }
   hyppo_symbol_count=0;
-  
+
   // Reset instruction logs
   for(int i=0;i<cpulog_len;i++) {
     free(cpulog[i]);
@@ -2598,7 +2598,7 @@ void test_init(struct cpu *cpu)
   machine_init(cpu);
 
   log_on_failure=0;
-  
+
   // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
   // after.
   unlink(TESTLOGFILE);
@@ -2611,36 +2611,36 @@ void test_init(struct cpu *cpu)
   {
     for(int i=0;test_name[i];i++) {
       if ((test_name[i]>='a'&&test_name[i]<='z')
-	  ||(test_name[i]>='A'&&test_name[i]<='Z')
-	  ||(test_name[i]>='0'&&test_name[i]<='9'))
-	safe_name[i]=test_name[i];
+          ||(test_name[i]>='A'&&test_name[i]<='Z')
+          ||(test_name[i]>='0'&&test_name[i]<='9'))
+        safe_name[i]=test_name[i];
       else safe_name[i]='_';
     }
     safe_name[strlen(test_name)]=0;
   }
 
-  
+
   // Show starting of test
   printf("[    ] %s",test_name);
-  
+
 }
 
 void test_conclude(struct cpu *cpu)
 {
   char cmd[8192];
-  
+
   // Report test status
   snprintf(cmd,8192,"FAIL.%s",safe_name); unlink(cmd);
   snprintf(cmd,8192,"PASS.%s",safe_name); unlink(cmd);
-  
+
   if (cpu->term.error) {
     snprintf(cmd,8192,"mv %s FAIL.%s",TESTLOGFILE,safe_name);
     test_fails++;
     if (log_on_failure) {
-      if (cpulog_len<500000) 
-	show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
+      if (cpulog_len<500000)
+        show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
       else
-	show_recent_instructions(logfile,"Log of last 500,000 instructions follows ",cpu,cpulog_len-500000,cpulog_len,-1);
+        show_recent_instructions(logfile,"Log of last 500,000 instructions follows ",cpu,cpulog_len-500000,cpulog_len,-1);
     }
     fprintf(logfile,"NOTE: MEGA65 screen at end of test:\n");
     do_screen_shot_ascii(logfile);
@@ -2652,7 +2652,7 @@ void test_conclude(struct cpu *cpu)
 
     //    show_recent_instructions(logfile,"Complete instruction log follows",cpu,1,cpulog_len,-1);
     fprintf(logfile,"PASS: Test passed.\n");
-    printf("\r[PASS] %s\n",test_name);    
+    printf("\r[PASS] %s\n",test_name);
   }
 
   if (logfile!=stderr) {
@@ -2690,9 +2690,9 @@ int load_file(char *filename,unsigned int location)
   int b=fread(buffer,1,8192*1024,f);
   fprintf(logfile,"NOTE: Loading %d bytes at $%07x from %s\n",b,location,filename);
   for(int i=0;i<b;i++) {
-    write_mem_expected28(i+location,buffer[i]);  
-  }  
-  
+    write_mem_expected28(i+location,buffer[i]);
+  }
+
   fclose(f);
   return 0;
 }
@@ -2712,8 +2712,8 @@ int load_hyppo_symbols(char *filename)
     int addr;
     if(sscanf(line," %s = $%x",sym,&addr)==2) {
       if (hyppo_symbol_count>=MAX_HYPPO_SYMBOLS) {
-	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_HYPPO_SYMBOLS.\n");
-	return -1;
+        fprintf(logfile,"ERROR: Too many symbols. Increase MAX_HYPPO_SYMBOLS.\n");
+        return -1;
       }
       hyppo_symbols[hyppo_symbol_count].name=strdup(sym);
       hyppo_symbols[hyppo_symbol_count].addr=addr;
@@ -2741,25 +2741,25 @@ int load_symbols(char *filename, unsigned int offset)
     int addr;
     if(sscanf(line," %s = $%x",sym,&addr)==2) {
       if (symbol_count>=MAX_SYMBOLS) {
-	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
-	return -1;
+        fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+        return -1;
       }
       symbols[symbol_count].name=strdup(sym);
       symbols[symbol_count].addr=addr+offset;
       if (addr+offset<CHIPRAM_SIZE) {
-	sym_by_addr[addr+offset]=&symbols[symbol_count];
+        sym_by_addr[addr+offset]=&symbols[symbol_count];
       }
       symbol_count++;
     } else if (sscanf(line,"al %x %s",&addr,sym)==2) {
       // VICE symbol list format (eg from CC65)
       if (symbol_count>=MAX_SYMBOLS) {
-	fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
-	return -1;
+        fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+        return -1;
       }
       symbols[symbol_count].name=strdup(sym);
       symbols[symbol_count].addr=addr+offset;
       if (addr+offset<CHIPRAM_SIZE) {
-	sym_by_addr[addr+offset]=&symbols[symbol_count];
+        sym_by_addr[addr+offset]=&symbols[symbol_count];
       }
       symbol_count++;
     }
@@ -2776,7 +2776,7 @@ int resolve_value32(char *in)
   int v;
   char label[1024];
   int delta=0;
-  
+
   // Hex is the easy case
   if (sscanf(in,"$%x",&v)==1) return v;
 
@@ -2841,7 +2841,7 @@ int main(int argc,char **argv)
   machine_init(&cpu);
   logfile=stderr;
 
-  // Open test script, and start interpreting it 
+  // Open test script, and start interpreting it
   FILE *f=fopen(argv[1],"r");
   if (!f) {
     fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[3]);
@@ -2863,17 +2863,17 @@ int main(int argc,char **argv)
     if (sscanf(line,"jsr %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
-	if (!strcmp(routine,hyppo_symbols[i].name)) break;
+        if (!strcmp(routine,hyppo_symbols[i].name)) break;
       }
       if (i==hyppo_symbol_count) {
-	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-	cpu.term.error=1;
+        fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
+        cpu.term.error=1;
       } else {
-	int log_dma=cpu.term.log_dma;
-	bzero(&cpu.term,sizeof(cpu.term));
-	cpu.term.log_dma=log_dma;
-	cpu.term.rts=1; // Terminate on net RTS from routine
-	cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        int log_dma=cpu.term.log_dma;
+        bzero(&cpu.term,sizeof(cpu.term));
+        cpu.term.log_dma=log_dma;
+        cpu.term.rts=1; // Terminate on net RTS from routine
+        cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
     } else if (sscanf(line,"dump instructions %d to %d",&first,&last)==2) {
       show_recent_instructions(logfile,line,&cpu,first,last-first+1,-1);
@@ -2885,7 +2885,7 @@ int main(int argc,char **argv)
       fprintf(logfile,"NOTE: DMA jobs will be reported\n");
     } else if (!strncasecmp(line,"log on failure",strlen("log on failure"))) {
       // Dump all instructions on test failure
-      log_on_failure=1;      
+      log_on_failure=1;
     } else if (sscanf(line,"jsr $%x",&addr)==1) {
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
@@ -2897,16 +2897,16 @@ int main(int argc,char **argv)
       cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
       for(i=0;i<hyppo_symbol_count;i++) {
-	if (!strcmp(routine,hyppo_symbols[i].name)) break;
+        if (!strcmp(routine,hyppo_symbols[i].name)) break;
       }
       if (i==hyppo_symbol_count) {
-	fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-	cpu.term.error=1;
+        fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
+        cpu.term.error=1;
       } else {
-	int log_dma=cpu.term.log_dma;
-	bzero(&cpu.term,sizeof(cpu.term));
-	cpu.term.log_dma=log_dma;
-	cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        int log_dma=cpu.term.log_dma;
+        bzero(&cpu.term,sizeof(cpu.term));
+        cpu.term.log_dma=log_dma;
+        cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
     }
     else if (sscanf(line,"jmp $%x",&addr)==1) {
@@ -2931,11 +2931,11 @@ int main(int argc,char **argv)
     }  else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
       // Set test name
       test_init(&cpu);
-      
+
       fflush(stdout);
-      
+
     } else if (!strncasecmp(line,"test end",strlen("test end"))) {
-      test_conclude(&cpu);	
+      test_conclude(&cpu);
     } else if (sscanf(line,"loadhypposymbols %s",routine)==1) {
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
@@ -2950,10 +2950,10 @@ int main(int argc,char **argv)
       if (load_symbols(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
-	int addr16=addr32;
+        int addr16=addr32;
       if (addr32&0xffff0000) {
-	addr16=addr32&0xffff;
-      } 
+        addr16=addr32&0xffff;
+      }
       fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,addr16);
       breakpoints[addr16]=1;
     } else if (sscanf(line,"expect %s = %s",location,value)==2) {
@@ -2968,8 +2968,8 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value8(value);
       else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value16(value);
       else {
-	fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
-	cpu.term.error=1;
+        fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
+        cpu.term.error=1;
       }
     } else if (sscanf(line,"expect %s at %s",value,location)==2) {
       // Update *_expected[] memories to indicate the value we expect where.
@@ -2987,7 +2987,7 @@ int main(int argc,char **argv)
 }
 
 /* ----------------------------------------------------------------------------------------------------------
-   Screen shot code follows 
+   Screen shot code follows
    ----------------------------------------------------------------------------------------------------------
 */
 
@@ -3281,7 +3281,7 @@ int do_screen_shot_ascii(FILE *f)
   //  dump_bytes(0,"screen data",screen_data,screen_size);
   get_video_state();
   fprintf(f,"INFO: Screen RAM address = $%07X, Colours=$%02X,$%02X\n",
-	  screen_address,vic_regs[0x020],vic_regs[0x021]);
+          screen_address,vic_regs[0x020],vic_regs[0x021]);
   fprintf(f,"INFO: Screen RAM contents:\n");
   for(int i=0;i<screen_size;i++) {
     if (!(i&0x0f)) fprintf(f,"      $%07X :",screen_address+i);
@@ -3346,10 +3346,10 @@ int do_screen_shot_ascii(FILE *f)
       int glyph_bold = 0;
       int glyph_reverse = 0;
       if (viciii_attribs && (!multicolour_mode)) {
-        //	glyph_blink=colour_value&0x0010;
+        //      glyph_blink=colour_value&0x0010;
         glyph_reverse = colour_value & 0x0020;
         glyph_bold = colour_value & 0x0040;
-        //	glyph_underline=colour_value&0x0080;
+        //      glyph_underline=colour_value&0x0080;
         if (glyph_bold)
           foreground_colour |= 0x10;
       }
@@ -3497,7 +3497,7 @@ void get_video_state(void)
 
   if (0) {
     fprintf(stderr, "Screen is at $%07x, width= %d chars, height= %d rows, size=%d bytes, uppercase=%d, line_step= %d\n",
-	    screen_address, screen_width, screen_rows, screen_size, upper_case, screen_line_step);
+            screen_address, screen_width, screen_rows, screen_size, upper_case, screen_line_step);
     fprintf(stderr, "charset_address=$%x\n", charset_address);
   }
 
@@ -3549,11 +3549,11 @@ void paint_screen_shot(void)
       }
       if (extended_background_mode) {
         char_id = char_value &= 0x3f;
-        //	char_background_colour=vic_regs[0x21+((char_value>>6)&3)];
+        //      char_background_colour=vic_regs[0x21+((char_value>>6)&3)];
       }
       else {
         char_id = char_value & 0x1fff;
-        //	char_background_colour=background_colour;
+        //      char_background_colour=background_colour;
       }
       int glyph_width_deduct = char_value >> 13;
 
@@ -3777,8 +3777,8 @@ void paint_screen_shot(void)
                 r = mega65_rgb(foreground_colour, 0);
                 g = mega65_rgb(foreground_colour, 1);
                 b = mega65_rgb(foreground_colour, 2);
-                //	      printf("Foreground pixel. colour = $%02x = #%02x%02x%02x\n",
-                //		     foreground_colour,b,g,r);
+                //            printf("Foreground pixel. colour = $%02x = #%02x%02x%02x\n",
+                //                   foreground_colour,b,g,r);
                 is_foreground = 1;
               }
             }
