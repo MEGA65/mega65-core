@@ -2224,7 +2224,7 @@ begin  -- behavioural
               if fastio_wdata(5)='0' then
                 latched_disk_change_event <= '0';
               end if;
-              f_side1 <= fastio_wdata(3);
+              f_side1 <= not fastio_wdata(3);
               
               f011_swap <= fastio_wdata(4);
               if fastio_wdata(4) /= f011_swap then
