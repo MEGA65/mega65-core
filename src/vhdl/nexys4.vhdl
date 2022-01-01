@@ -283,7 +283,9 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal qspi_clock : std_logic := '0';
---  signal qspi_clock_int : std_logic := '0';
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal kbd_datestamp : unsigned(13 downto 0) := to_unsigned(0,14);
   signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -446,9 +448,11 @@ begin
       sector_buffer_mapped => sector_buffer_mapped,
 
       qspi_clock => qspi_clock,
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-     
+      qspicsn => qspicsn,
+      qspidb => qspidb_out,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
+           
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
@@ -631,6 +635,8 @@ begin
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb;
   
   process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
