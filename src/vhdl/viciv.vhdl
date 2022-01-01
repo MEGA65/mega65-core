@@ -1525,15 +1525,14 @@ begin
       screen_ram_base(15 downto 14) <= not last_dd00_bits;
       vicii_sprite_pointer_address(15 downto 14) <= not last_dd00_bits;
       character_set_address(15 downto 14) <= not last_dd00_bits;
+      -- NOTE: We DONT reset the character set address with a legacy write,
+      -- even if HOTREG are enabled. This makes it easier to use alternate
+      -- character sets, and full-colour text mode upgrading of old programmes.
       
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
       colour_ram_base <= (others => '0');
 
-      -- NOTE: We DONT reset the character set address with a legacy write.
-      -- This makes it easier to use alternate character sets, and full-colour
-      -- text mode upgrading of old programmes.
-      
     end procedure viciv_interpret_legacy_mode_registers;
     procedure viciv_update_side_border_dimensions is
     begin
