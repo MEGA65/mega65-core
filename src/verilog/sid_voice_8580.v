@@ -158,7 +158,7 @@ always @(posedge clock) begin
 end
 
 // Waveform Output Selector
-always @(posedge (ce_1m)) begin
+always @(posedge (clock)) begin
 	case (control[7:4])
 		4'b0001: wave_out = triangle;
 		4'b0010: wave_out = sawtooth;
