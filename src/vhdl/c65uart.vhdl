@@ -178,7 +178,7 @@ architecture behavioural of c65uart is
   signal reg_status3_rx_framing_error_drive : std_logic := '0';
   signal reg_status4_rx_idle_mode_drive : std_logic := '0';  -- XXX not implemented
   signal reg_status5_tx_eot_drive : std_logic := '0';
-  signal reg_status6_tx_empty_drive : std_logic := '1';
+  signal reg_status6_tx_empty_drive : std_logic;
   signal reg_status7_xmit_on_drive : std_logic := '0';
   
   signal reg_ctrl0_parity_even : std_logic := '0';

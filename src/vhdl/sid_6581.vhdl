@@ -139,10 +139,10 @@ architecture Behavioral of sid6581 is
 
 	signal Misc_Osc3_Random	: unsigned(7 downto 0)	:= (others => '0');
 	signal Misc_Osc3_Random_6581	: unsigned(7 downto 0)	:= (others => '0');
-	signal Misc_Osc3_Random_8580	: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Osc3_Random_8580	: unsigned(7 downto 0);
 	signal Misc_Env3			: unsigned(7 downto 0)	:= (others => '0');
 	signal Misc_Env3_6581			: unsigned(7 downto 0)	:= (others => '0');
-	signal Misc_Env3_8580			: unsigned(7 downto 0)	:= (others => '0');
+	signal Misc_Env3_8580			: unsigned(7 downto 0);
 
 	signal do_buf				: unsigned(7 downto 0)	:= (others => '0');
 
