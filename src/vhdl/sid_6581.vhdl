@@ -84,7 +84,7 @@ use IEEE.numeric_std.all;
 entity sid6581 is
 	port (
 		clk_1MHz			: in  std_logic;		-- main SID clock signal
-		clk32				: in  std_logic;		-- main clock signal
+		cpuclock				: in  std_logic;		-- main clock signal
 		reset				: in  std_logic;		-- high active signal (reset when reset = '1')
 		cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
 		we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
@@ -236,7 +236,8 @@ begin
 	);
 
 	sid_voice_8580_1: entity work.sid_voice_8580
-	port map(
+          port map(
+                clock                           => cpuclock,
 		ce_1m				=> clk_1MHz,
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_1_Freq_lo,
@@ -255,6 +256,7 @@ begin
 
 	sid_voice_8580_2: entity work.sid_voice_8580
 	port map(
+                clock                           => cpuclock,
 		ce_1m				=> clk_1MHz,
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_2_Freq_lo,
@@ -273,6 +275,7 @@ begin
 
 	sid_voice_8580_3: entity work.sid_voice_8580
 	port map(
+                clock                           => cpuclock,
 		ce_1m				=> clk_1MHz,
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_3_Freq_lo,
@@ -327,9 +330,9 @@ begin
 		end if;
 	end process;
 
-	process(clk32)
+	process(cpuclock)
 	begin
-          if rising_edge(clk32) then
+          if rising_edge(cpuclock) then
             reset_drive <= reset;
             tick_q1 <= ff1;
             tick_q2 <= tick_q1;
@@ -342,12 +345,13 @@ begin
 	voice1_signed <= signed("0" & voice_1) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
 	voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_2_8580) - 2048;
 	voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_3_8580) - 2048;
+
         misc_osc3_random <= misc_osc3_random_6581 when mode='0' else misc_osc3_random_8580;
         misc_env3 <= misc_env3_6581 when mode='0' else misc_env3_8580;
 
 	filters: entity work.sid_filters 
 	port map (
-		clk			=> clk32,
+		clk			=> cpuclock,
 		rst			=> reset_drive,
                 mode                    => mode,
 		-- SID registers.
@@ -377,9 +381,9 @@ begin
 	signed_audio	<= filtered_audio(18 downto 1);
         
 -- Register decoding
-	register_decoder:process(clk32)
+	register_decoder:process(cpuclock)
 	begin
-		if rising_edge(clk32) then
+		if rising_edge(cpuclock) then
 			if (reset_drive = '1') then
 				--------------------------------------- Voice-1
 				Voice_1_Freq_lo	<= (others => '0');

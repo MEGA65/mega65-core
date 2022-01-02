@@ -1023,7 +1023,7 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
     mode => sid_mode(0),
@@ -1045,7 +1045,7 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
     mode => sid_mode(1),
@@ -1067,7 +1067,7 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
     mode => sid_mode(2),
@@ -1089,7 +1089,7 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
     mode => sid_mode(3),
