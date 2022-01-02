@@ -1332,14 +1332,6 @@ loadedcharromok:
         jsr printmessage
 
 
-!if DEBUG_HYPPO {
-        ldy #$00
-        ldz file_pagesread+1
-        jsr printhex
-        ldz file_pagesread
-        jsr printhex
-}
-
 loadc65rom:
 
 !if DEBUG_HYPPO {
@@ -1448,14 +1440,6 @@ loadedmegaromok:
         ldx #<msg_megaromloaded
         ldy #>msg_megaromloaded
         jsr printmessage
-
-!if DEBUG_HYPPO {
-        ldy #$00
-        ldz file_pagesread+1
-        jsr printhex
-        ldz file_pagesread
-        jsr printhex
-}
 
         ;; ROM file loaded, transfer control
         ;;
@@ -3178,9 +3162,9 @@ msg_romok:              !text "ROM CHECKSUM OK - BOOTING"
 ;;                      !8 0
 ;; msg_charrombad:      !text "COULD NOT LOAD CHARROM.M65"
 ;;                      !8 0
-msg_charromloaded:      !text "LOADED CHARROM.M65 ($$$$ PAGES)"
+msg_charromloaded:      !text "LOADED CHARROM.M65"
                         !8 0
-msg_megaromloaded:      !text "LOADED MEGA65.ROM ($$$$ PAGES)"
+msg_megaromloaded:      !text "LOADED MEGA65.ROM"
                         !8 0
 msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
                         !8 0
