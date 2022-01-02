@@ -220,7 +220,7 @@ GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
-GS $D054.5 VIC-IV:PALEMU video output pal simulation
+GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
 GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
 GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
 GS $D054 SUMMARY:VIC-IV Control register C
@@ -490,7 +490,7 @@ GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
 GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
 GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
 GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
-GS $D629 MISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
+GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
 GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
 GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
 GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
@@ -509,6 +509,9 @@ GS $D638 AUXFPGA:FWGIT0 LSB of Auxilliary (MAX10) FPGA design git commit
 GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
+GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
+GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
 GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
@@ -683,10 +686,11 @@ GS $D689.2 - (read only, debug) sd_handshake signal.
 GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
 GS $D689.3 - (read only, debug) sd_data_ready signal.
 GS $D689.3 SD:DRDY SD Card Data Ready indication
-GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
-GS $D689.4 SD:AUTOTUNE Set to disable FDC automatic stepping to the requested track
-GS $D689.5 - F011 swap drive 0 / 1 
+GS $D689.4 - RESERVED              
+GS $D689.4 SD:RESERVED Reserved
+GS $D689.5 - F011 swap drive 0 / 1
 GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
+GS $D689.6 - QSPI bytes not all identical during last read
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
 GS $D689.7 SD:BUFFSEL Set to switch sector buffer to view SD card direct access, clear for access to the F011 FDC sector buffer.
 GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
@@ -694,39 +698,40 @@ GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
 GS $D68A.2 SD:VFDC0 (read only) Set if drive 0 is virtualised (sectors delivered via serial monitor interface)
 GS $D68A.3 SD:VFDC1 (read only) Set if drive 1 is virtualised (sectors delivered via serial monitor interface)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
-GS $D68B.0 - F011 disk 1 disk image enable
-GS $D68B.0 SDFDC:D0IMG F011 disk 0 use disk image if set, otherwise use real floppy drive. 
-GS $D68B.1 - F011 disk 1 present
+GS $D68B.0 - F011 drive 0 disk image enable
+GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.1 - F011 drive 0 present
 GS $D68B.1 SDFDC:D0P F011 drive 0 media present
-GS $D68B.2 - F011 disk 1 write protect
-GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
-GS $D68B.3 SDFDC:D1IMG F011 disk 1 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.2 - F011 drive 0 write protect
+GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
+GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
 GS $D68B.4 SDFDC:D1P F011 drive 1 media present
-GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
+GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
 GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
 GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
 GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
-GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+GS $D68C-$D68F - F011 drive 0 disk image address on SD card
 GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
-GS $D68C SDFDC:D0STARTSEC0 F011 disk 1 disk image address on SD card (LSB)
-GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+GS $D68C SDFDC:D0STARTSEC0 F011 drive 0 disk image address on SD card (LSB)
 GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
-GS $D68D SDFDC:D0STARTSEC1 F011 disk 1 disk image address on SD card (2nd byte)
-GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+GS $D68D SDFDC:D0STARTSEC1 F011 drive 0 disk image address on SD card (2nd byte)
 GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
-GS $D68E SDFDC:D0STARTSEC2 F011 disk 1 disk image address on SD card (3rd byte)
-GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+GS $D68E SDFDC:D0STARTSEC2 F011 drive 0 disk image address on SD card (3rd byte)
 GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
-GS $D68F SDFDC:D0STARTSEC3 F011 disk 1 disk image address on SD card (MSB)
-GS $D690-$D693 - F011 disk 2 disk image address on SD card
-GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
-GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
-GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
-GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
+GS $D68F SDFDC:D0STARTSEC3 F011 drive 0 disk image address on SD card (MSB)
+GS $D690-$D693 - F011 drive 1 disk image address on SD card
+GS $D690 F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+GS $D690 SDFDC:D1STARTSEC0 F011 drive 1 disk image address on SD card (LSB)
+GS $D691 F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+GS $D691 SDFDC:D1STARTSEC1 F011 drive 1 disk image address on SD card (2nd byte)
+GS $D692 F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+GS $D692 SDFDC:D1STARTSEC2 F011 drive 1 disk image address on SD card (3rd byte)
+GS $D693 F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+GS $D693 SDFDC:D1STARTSEC3 F011 drive 1 disk image address on SD card (MSB)
+GS $D696 F011:AUTOTUNE Enable automatic track seeking for sector reads and writes
 GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
 GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
@@ -750,33 +755,35 @@ GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy d
 GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
 GS $D6A1.3-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
-GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic
+GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic interval (decrease to increase data rate)
 GS $D6A3 - FDC track number of last matching sector header
 GS $D6A4 - FDC sector number of last matching sector header
 GS $D6A5 - FDC side number of last matching sector header
-GS $D6A6 - DEBUG FDC decoded MFM byte
-GS $D6A7 - DEBUG FDC decoded MFM state
-GS $D6A8 - DEBUG FDC last decoded MFM byte
-GS $D6A9 - DEBUG FDC last gap interval (LSB)
-GS $D6AA - DEBUG FDC last gap interval (MSB)
-GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
-GS $D6AC - DEBUG FDC last quantised gap
+GS $D6A6 - SD:TITRACK Track number from track info block (or $FF if not yet received)
+GS $D6A7 - SD:TIRATE Track data rate from track info block
+GS $D6A8 - SD:TIENCODING Track encoding from track info block ($x1 = RLL2,7, $x0 = MFM, $4x = track-at-once, $0x = individually writable sectors)
+GS $D6A9 - SD:TISECTORS Number of sectors from track info block
+GS $D6AA - DEBUG FDC last gap interval (LSB)
+GS $D6AB - DEBUG FDC last gap interval (MSB)
+GS $D6AC.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+GS $D6AC.4-6 - PHONE:RESERVED
+GS $D6AC.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
 GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
 GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
 GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
 GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
-GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
-GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
-GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
-GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
-GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
+GS $D6AE.0-3 SD:FDCENC Select floppy encoding (0=MFM, 1=RLL2,7, F=Raw encoding)
+GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
+GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
+GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
+GS $D6AE.7 SD:FDCTIBEN Enable use of Track Info Block settings
 GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
 GS $D6AF.1 SD:VWFOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
 GS $D6AF.2 SD:VEQINH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
 GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (indented for virtual F011 mode only)
-GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
 GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (indented for virtual F011 mode only)
 GS $D6AF.5 SD:VLOST Manually set f011_lost signal (indented for virtual F011 mode only)
+GS $D6AF - DEBUG FDC last quantised gap READ ONLY
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
 GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
 GS $D6B0.1 TOUCH:EV2 Touch event 2 is valid
@@ -826,10 +833,10 @@ GS $D6C9 FPGA:BOOTADDR1 Address of bitstream in boot flash for reconfiguration
 GS $D6CA FPGA:BOOTADDR2 Address of bitstream in boot flash for reconfiguration
 GS $D6CB FPGA:BOOTADDR3 Address of bitstream in boot flash for reconfiguration (most significant byte)
 GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
-GS $D6CC.4 QSPI:DB0 DDR (1=output)
+GS $D6CC.4 QSPI:RESERVED (set to 0)
 GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
 GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
-GS $D6CC.7 QSPI:DB1 DDR (1=output)
+GS $D6CC.7 QSPI:TRI Tristate DB0-3
 GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
 GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
 GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
@@ -922,12 +929,15 @@ C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
 C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
 GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
 GS $D704 DMA:ADDRMB DMA list address mega-byte
-GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
 GS $D705 - Enhanced DMAgic job option $00 = End of options
 GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
 GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
 GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
 GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
+GS $D705 - Enhanced DMAgic job option $0D = Write floppy raw flux (use with COPY)
+GS $D705 - Enhanced DMAgic job option $0E = Read floppy raw flux, ignoring long gaps
+GS $D705 - Enhanced DMAgic job option $0F = Read floppy raw flux (use with FILL)
 GS $D705 - Enhanced DMAgic job option $80 $xx = Set MB of source address
 GS $D705 - Enhanced DMAgic job option $81 $xx = Set MB of destination address
 GS $D705 - Enhanced DMAgic job option $82 $xx = Set source skip rate (/256ths of bytes)
@@ -935,6 +945,8 @@ GS $D705 - Enhanced DMAgic job option $83 $xx = Set source skip rate (whole byte
 GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256ths of bytes)
 GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
 GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
+GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
+GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
 GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
 GS $D70F.6 MATH:MULBUSY Set if hardware multiplier is busy
 GS $D70F.7 MATH:DIVBUSY Set if hardware divider is busy

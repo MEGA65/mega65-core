@@ -31,7 +31,7 @@ entity audio_complex is
   port (    
     cpuclock : in std_logic;
 
-    sid4_enable : in std_logic := '0';
+    dc_track_rate : in unsigned(7 downto 0);
     
     -- Interface for accessing mix table via CPU
     audio_mix_reg : in unsigned(7 downto 0) := x"FF";
@@ -352,8 +352,9 @@ begin
   -- Audio Mixer to combine everything
   mix0: entity work.audio_mixer port map (
     cpuclock => cpuclock,
+    dc_track_rate => dc_track_rate,
     reg_num => audio_mix_reg,
-    reg_write => audio_mix_write,
+    reg_write => audio_mix_write,    
     wdata => audio_mix_wdata,
     rdata => audio_mix_rdata,
     audio_loopback => audio_loopback,

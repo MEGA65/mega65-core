@@ -18,6 +18,7 @@ entity c65uart is
     c65uart_cs : in std_logic;
 
     sid_mode : out unsigned(3 downto 0) := "0000";
+    dc_track_rate : out unsigned(7 downto 0) := x"ff";
     
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
@@ -260,6 +261,7 @@ architecture behavioural of c65uart is
   signal disco_led_val_int : unsigned(7 downto 0) := x"00";
 
   signal sid_mode_int : unsigned(3 downto 0) := "0000";
+  signal dc_track_rate_int : unsigned(7 downto 0) := x"ff";
   
 begin  -- behavioural
   
@@ -314,6 +316,7 @@ begin  -- behavioural
     if rising_edge(cpuclock) then
 
       sid_mode <= sid_mode_int;
+      dc_track_rate <= dc_track_rate_int;
       
       if target = simulation then
         real_hardware <= '0';
@@ -564,6 +567,7 @@ begin  -- behavioural
           when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when x"3C" => sid_mode_int <= fastio_wdata(3 downto 0);
+          when x"3D" => dc_track_rate <= fastio_wdata(7 downto 0);
           when others => null;
         end case;
       end if;
@@ -829,7 +833,8 @@ begin  -- behavioural
         when x"3c" => fastio_rdata(3 downto 0) <= sid_mode_int;
                       fastio_rdata(4) <= '0';
                       fastio_rdata(7 downto 5) <= last_reset_source;
-                      
+        -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
+        when x"3d" => fastio_rdata <= dc_track_rate_int;
         when others =>
           report "Reading untied register, result = Z";
           fastio_rdata <= (others => 'Z');

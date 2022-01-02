@@ -36,6 +36,8 @@ entity audio_mixer is
     modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
 
+    dc_track_rate : in unsigned(7 downto 0);
+    
     -- Read in values from audio knobs
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
     volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
@@ -58,6 +60,11 @@ architecture elizabethan of audio_mixer is
   signal srcs : sample_vector_t := (others => x"0000");
   signal source_num : integer range 0 to 15 := 0;
 
+  signal dc_estimate : dc_level_vector_t := (others => x"8000");
+  signal dc_estimate_age : sprite_vector_8 := (others => x"00");
+  signal dc_votes_below : sprite_vector_8 := (others => x"00");
+  signal dc_votes_above : sprite_vector_8 := (others => x"00");
+  
   signal state : integer := 0;
   signal output_offset : integer := 0;
   signal output_num : integer := 0;
@@ -73,7 +80,7 @@ architecture elizabethan of audio_mixer is
   signal set_output : std_logic := '0';
   signal output_channel : integer range 0 to 15 := 0;
   
-  signal mixed_value : signed(15 downto 0) := x"0000";
+  signal mixed_value : signed(19 downto 0) := x"00000";
 
   signal dummy : unsigned(15 downto 0) := x"0000";
 
@@ -123,7 +130,8 @@ begin
 
       result := signed(result_unsigned);
 
-      return result(31 downto 16);
+      -- Sign-extend the result to fill all 20 bits
+      return result(31)&result(31)&result(31)&result(31)&result(31 downto 16);
       
     end function;   
     
@@ -213,13 +221,48 @@ begin
             report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
             ram_raddr <= safe_to_integer(reg_num(7 downto 1));
           end if;
-          
         when 16 =>
+          -- Subtract DC
+          -- We must maintain separate DC estimates for each of the 8 output channels.
+
+          -- Subtract DC and clamp to 16-bit range
+          -- We still want the mixed_value to be signed, i.e., centred on $8000,
+          -- so need to account for this.
+          if (to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767 then
+            mixed_value <= x"0ffff";
+            if dc_votes_above(output_num) < 255 then
+              dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
+            end if;
+          elsif (to_integer(unsigned(mixed_value)) + 32768) >= to_integer(dc_estimate(output_num)) then
+            mixed_value <= signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20));
+          else
+            mixed_value <= x"00000";
+            if dc_votes_below(output_num) < 255 then
+              dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
+            end if;
+          end if;
+
+          -- Update DC estimate periodically
+          if dc_estimate_age(output_num) < dc_track_rate then
+            dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
+          else
+            dc_estimate_age(output_num) <= to_unsigned(0,16);
+            dc_votes_below(output_num) <= to_unsigned(0,8);
+            dc_votes_above(output_num) <= to_unsigned(0,8);
+            if dc_votes_below(output_num) > dc_votes_above(output_num) then
+              dc_estimate(output_num) <= dc_estimate(output_num) + 1;
+            elsif dc_votes_below(output_num) < dc_votes_above(output_num) then
+              dc_estimate(output_num) <= dc_estimate(output_num) - 1;
+            end if;
+          end if;
+           
+          
+        when 17 =>
           -- Apply master volume
           report "For output "
             & integer'image(output_num)
             & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mixed_value <= multiply_by_volume_coefficient(mixed_value,ram_rdata(31 downto 16));
+          mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
           
@@ -242,16 +285,16 @@ begin
       end case;
       
       -- Advance through all inputs
-      if state /= 16 then
+      if state /= 17 then
         state <= state + 1;
       else
         state <= 0;
       end if;
       -- Push mixed output value
       if set_output='1' then
-        outputs(output_channel) <= mixed_value;
+        outputs(output_channel) <= mixed_value(15 downto 0);
         report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
-          & to_hstring(mixed_value);
+          & to_hstring(mixed_value(15 downto 0));
       end if;
     end if;
   end process;
