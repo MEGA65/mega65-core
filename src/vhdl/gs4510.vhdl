@@ -1733,7 +1733,8 @@ begin
       audio_dma_enables(3) <= '0';
       
       -- Enable chipselect for all peripherals and memories
-      chipselect_enables <= x"EF";
+      -- Now done by checking hyper_protected_hardware(7) under clock40mhz
+      -- chipselect_enables <= x"EF";
       cartridge_enable <= '1';
       hyper_protected_hardware <= x"00";
       

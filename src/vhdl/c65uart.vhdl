@@ -113,15 +113,15 @@ architecture behavioural of c65uart is
 
   -- Work out what fraction of a 7.09375MHz tick we cover every pixel clock.
   -- This is used to allow us to match C65 UART speeds.
-  -- 7.09375 / 193.5 / 16 * 1048576 = 2403;
+  -- 7.09375 / 81 / 16 * 1048576 = 5739;
   -- Note that these ticks are in 1/16ths of the desired baud rate.
-  -- This limits our maximum usable baud rate to something like 193.5MHz/16 = ~10MHz
+  -- This limits our maximum usable baud rate to something like 81MHz/16 = ~5MHz
   -- But I am not totally convinced that I have all the calculations right
   -- here. Will need to check what actually comes out the port at particular claimed
   -- speeds to be sure.
-  constant baud_subcounter_step : integer := 2403;
+  constant baud_subcounter_step : integer := 5739;
   signal baud_subcounter : integer range 0 to (1048576 + baud_subcounter_step);
-  -- If 1, then use approximated 7.09375MHz clock, if 0 use 193.5MHz clock
+  -- If 1, then use approximated 7.09375MHz clock, if 0 use 81MHz clock
   signal clock709375 : std_logic := '1';
 
   -- Work out 7.09375ishMHz clock ticks;
@@ -129,7 +129,7 @@ architecture behavioural of c65uart is
 
   signal real_hardware : std_logic := '1';
   
-  -- Then merge this with 193.5MHz clock to have a single clock source used for
+  -- Then merge this with 81MHz clock to have a single clock source used for
   -- generating half-ticks at the requested baud rate
   signal fine_tick : std_logic := '0';
 
@@ -171,6 +171,9 @@ architecture behavioural of c65uart is
   signal reg_status5_tx_eot : std_logic := '0';
   signal reg_status6_tx_empty : std_logic := '1';
   signal reg_status7_xmit_on : std_logic := '0';
+
+  signal reg_data_tx_toggle : std_logic := '0';
+  signal reg_data_tx_toggle_prev : std_logic := '0';
 
   signal reg_status0_rx_full_drive : std_logic := '0';
   signal reg_status1_rx_overrun_drive : std_logic := '0';
@@ -463,7 +466,7 @@ begin  -- behavioural
           when x"00" =>
             reg_data_tx <= std_logic_vector(fastio_wdata);
             reg_status5_tx_eot <= '0';
-            reg_status6_tx_empty <= '0';
+            reg_data_tx_toggle <= not reg_data_tx_toggle;
           when x"01" => null;
           when x"02" =>
             reg_ctrl0_parity_even <= fastio_wdata(0);
@@ -861,8 +864,8 @@ begin  -- behavioural
       end if;
       if tick709375='1' or clock709375='0' then
         -- Depending on whether we are running from the 7.09375MHz
-        -- clock or the 193.5MHz pixel clock, see if we are at a baud tick
-        -- (193.5MHz clock is used for baud rates above 57.6K.)
+        -- clock or the 81MHz pixel clock, see if we are at a baud tick
+        -- (81MHz clock is used for baud rates above 57.6K.)
         fine_tick <= '1';
       else
         fine_tick <= '0';
@@ -888,9 +891,15 @@ begin  -- behavioural
         filtered_rx <= '0';
       end if;
       
-      if baud_tick = '1' then
+      if baud_tick = '0' then
+        -- Cross-domain accept next byte to TX from CPU clock side
+        if reg_data_tx_toggle /= reg_data_tx_toggle_prev then
+          reg_data_tx_toggle_prev <= reg_data_tx_toggle;
+          reg_status6_tx_empty <= '0';
+        end if;
+      else
         -- Here we have a clock tick that is 7.09375MHz/reg_divisor
-        -- (or 193.5MHz/reg_divisor if clock709375 is not asserted).
+        -- (or 81MHz/reg_divisor if clock709375 is not asserted).
         -- So we now have a clock which is the target baud rate.
         -- XXX We should adjust our timing position to try to match the phase
         -- of the sender, but we aren't doing that right now. Instead, we will
@@ -967,7 +976,7 @@ begin  -- behavioural
             end if;
             -- XXX Assert IRQ and/or NMI according to RX interrupt masks
           end if;
-        end if;
+        end if;        
       end if;
     end if;
   end process;
