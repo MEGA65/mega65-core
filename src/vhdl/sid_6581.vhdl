@@ -231,7 +231,7 @@ begin
 		PA_MSB_in			=> voice_2_PA_MSB,
 		PA_MSB_out			=> voice_3_PA_MSB,
 		Osc					=> Misc_Osc3_Random_6581,
-		Env					=> Misc_Env3,
+		Env					=> Misc_Env3_6581,
 		voice					=> voice_3
 	);
 
