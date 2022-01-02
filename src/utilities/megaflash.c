@@ -208,7 +208,7 @@ void main(void)
     for(y=0;y<24;y++) printf("%c",0x11);
     if (!slot_count) slot_count=8;
     if (slot_count>8) slot_count=8;
-    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count, slot_count, 0x92);
+    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count-1, slot_count-1, 0x92);
     POKE(1024+999,0x14+0x80);
 
     // Scan for existing bitstreams
