@@ -382,7 +382,8 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
-  signal sid_mode : unsigned(3 downto 0) := "0000"; -- 1=8580, 0=6581
+  signal sid_mode : unsigned(3 downto 0); -- 1=8580, 0=6581
+  signal dc_track_rate : unsigned(7 downto 0);
   
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
@@ -578,9 +579,6 @@ architecture behavioral of iomapper is
   signal filter_table_val2 : unsigned(15 downto 0);
   signal filter_table_addr3 : integer range 0 to 2047;
   signal filter_table_val3 : unsigned(15 downto 0);
-
-  signal sid4_enable : std_logic := '0';
-  signal sid4_enable_counter : integer := 0;
 
   signal accessible_key_event : unsigned(7 downto 0);
   signal accessible_key_enable : std_logic;
@@ -792,6 +790,7 @@ begin
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,
       sid_mode => sid_mode,
+      dc_track_rate => dc_track_rate,
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
       reset => reset,
@@ -1193,7 +1192,7 @@ begin
     port map (
     cpuclock => cpuclock,
 
-    sid4_enable => sid4_enable,
+    dc_track_rate => dc_track_rate,
     
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,
@@ -1553,27 +1552,7 @@ begin
       
       the_button <= fb_fire and i2c_joya_fire_int;
       i2c_joya_fire <= i2c_joya_fire_int;
-      
-      -- Enable 2nd two SIDs only if they are being accessed. If they are not
-      -- accessed for a couple of frames, then we remove them from the audio stream,
-      -- and leave the primary two SIDs at full volume
-      case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D34" | x"D05" =>
-          if ((((address(6) and address(5)) xor address(8)) and lscs_en) or
-            ((((not address(6)) and address(5)) xor address(8)) and rscs_en)) = '1' then
-            sid4_enable <= '1';
-            sid4_enable_counter <= cpu_frequency / 20;
-          end if;
-        when others =>
-          if sid4_enable_counter=0 then
-            sid4_enable <= '0';
-          else
-            sid4_enable_counter <= sid4_enable_counter - 1;
-          end if;
-      end case;                  
-      
-
-      
+                  
       touch1_valid <= touch1_valid_int;
       
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,
