@@ -560,6 +560,9 @@ reset_entry:
 
         jsr reset_machine_state
 
+	;; If banner is in flash, load it _immediately_
+	jsr tryloadbootlogofromflash
+	
         ;; display welcome screen
         ;;
         ldx #<msg_hyppo
@@ -850,19 +853,12 @@ gotmbr:
         jsr cdroot_and_complain_if_fails
 
 mountsystemdiskok:
-
+	
+loadbannerfromsd:	
         ;; Load and display boot logo
-        ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
-        ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
-        lda #$00
-        sta <dos_file_loadaddress+0
-        lda #$7d
-        sta <dos_file_loadaddress+1
-        lda #$05
-        sta <dos_file_loadaddress+2
-        lda #$00
-        sta <dos_file_loadaddress+3
 
+	jsr setup_banner_load_pointer
+	
         ldx #<txt_BOOTLOGOM65
         ldy #>txt_BOOTLOGOM65
         jsr dos_setname
@@ -1147,6 +1143,97 @@ d81attachfail:
 	
 ;;         ========================
 
+tryloadbootlogofromflash:
+
+	jsr setup_banner_load_pointer
+	jsr sd_map_sectorbuffer
+
+	;;  Check if we have BANNER.M65 embedded in flash.
+	
+	;; Load first sector of flash to check for banner present
+	;; byte.
+	lda #$00
+	ldx #3
+@zoop:
+	sta $d681,x
+	dex
+	bpl @zoop
+	lda #$53
+	sta $d680
+	;; Wait a little while for flash to read
+@zoop2:	
+	dex
+	bne @zoop2
+	lda $de71
+	cmp #$01
+	beq loadbannerfromflash
+	jmp sd_unmap_sectorbuffer
+
+loadbannerfromflash:
+	;; Load and display boot logo
+	;; Logo will be at $7F8000-$7FFFFF
+
+	lda #$80
+	sta $d682
+	lda #$7f
+	sta $d683
+        lda #$00
+	sta $d681
+	sta $d684
+
+        jsr sd_map_sectorbuffer
+
+nextflashbannersector:	
+	
+	lda #$53
+	sta $d680
+	;; No need to wait long here, because our copy routine is so slow
+	;; Use the #$53 above
+@zzminus:
+	dec
+	bpl @zzminus
+	;; Leaves A=$00 which we use below for TAx/z to save bytes
+	
+stashbannersector:	
+
+	;;  Advance $100 bytes to next flash sector
+	inc $d682
+	
+	ldx #0
+	ldz #0
+
+        ;; Actually write the bytes to memory that have been loaded
+zdrfim_rr1:
+        lda sd_sectorbuffer,x                ;; is $DE00
+        sta [<dos_file_loadaddress],z
+        inz ;; dest offset
+        inx ;; src offset
+	bne zdrfim_rr1
+
+        inc <dos_file_loadaddress+1
+	bne nextflashbannersector
+
+	jsr sd_unmap_sectorbuffer
+	
+	;; Now display it
+	jmp setbannerpalette
+
+	
+setup_banner_load_pointer:	
+	
+        ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
+        ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
+        lda #$00
+        sta <dos_file_loadaddress+0
+        lda #$7d
+        sta <dos_file_loadaddress+1
+        lda #$05
+        sta <dos_file_loadaddress+2
+        lda #$00
+        sta <dos_file_loadaddress+3
+	rts
+	
+	
 attempt_loadcharrom:
         ;; Load CHARROM.M65 into character ROM
         ;;
