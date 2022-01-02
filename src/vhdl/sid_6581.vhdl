@@ -237,8 +237,8 @@ begin
 
 	sid_voice_8580_1: entity work.sid_voice_8580
           port map(
-                clock                           => cpuclock,
-		ce_1m				=> clk_1MHz,
+                clock                           => clk_1Mhz,
+		ce_1m				=> '1',
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_1_Freq_lo,
 		Freq_hi				=> Voice_1_Freq_hi,
@@ -256,8 +256,8 @@ begin
 
 	sid_voice_8580_2: entity work.sid_voice_8580
 	port map(
-                clock                           => cpuclock,
-		ce_1m				=> clk_1MHz,
+                clock                           => clk_1Mhz,
+		ce_1m				=> '1',
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_2_Freq_lo,
 		Freq_hi				=> Voice_2_Freq_hi,
@@ -275,8 +275,8 @@ begin
 
 	sid_voice_8580_3: entity work.sid_voice_8580
 	port map(
-                clock                           => cpuclock,
-		ce_1m				=> clk_1MHz,
+                clock                           => clk_1Mhz,
+		ce_1m				=> '1',
 		reset					=> reset_drive,
 		Freq_lo				=> Voice_3_Freq_lo,
 		Freq_hi				=> Voice_3_Freq_hi,
