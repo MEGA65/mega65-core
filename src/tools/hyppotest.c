@@ -1943,10 +1943,11 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
       fprintf(logfile,"ZP32 address = $%07x\n",addr_izpz32(cpu,log));
       log->zp32=1;
       MEM_WRITE28(cpu,addr_izpz32(cpu,log),cpu->regs.a);
-    } else
+    } else {
       // Normal 16-bit ZP pointer
       log->zp16=1;
       MEM_WRITE16(cpu,addr_izpz(cpu,log),cpu->regs.a);
+    }
     break;
   case 0x93: // BCC $rrrr
     log->len=3;
