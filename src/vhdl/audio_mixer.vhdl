@@ -223,12 +223,12 @@ begin
             source14_volume <= ram_rdata(31 downto 16);
           end if;
           mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
-          if output_num=0 then
+          if output_num=10 then
 --            report "MIXER: Applying volume#"
 --              & integer'image(state-1) & " = $" & to_hstring(ram_rdata(31 downto 16)) & " to $"
 --              & to_hstring(srcs(state-1)) & " -> $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
-            report "MIXER: Adding $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)))
-              & " to. Now=$" & to_hstring(mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
+--            report "MIXER: Adding $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)))
+--              & " to. Now=$" & to_hstring(mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
           end if;
           -- Request next mix coefficient
           if state /= 15 then
@@ -245,33 +245,39 @@ begin
           -- Subtract DC and clamp to 16-bit range
           -- We still want the mixed_value to be signed, i.e., centred on $8000,
           -- so need to account for this.
-          if output_num = 0 then
+          if output_num = 10 then
             report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
               & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
               & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
               & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
           end if;
-          if mixed_value(19)='0' and ((to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767) then
-            if output_num=0 then
-              report "MIXER: Clamping output at $07FFF";
+          -- Track DC level
+          if mixed_value = x"00000" then
+          elsif mixed_value(19)='1' then
+            if dc_votes_below(output_num) < 255 then
+              dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
-            mixed_value <= x"07fff";
+          else
             if dc_votes_above(output_num) < 255 then
               dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
             end if;
+          end if;
+          
+          if mixed_value(19)='0' and ((to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767) then
+            if output_num=10 then
+              report "MIXER: Clamping output at $07FFF";
+            end if;
+            mixed_value <= x"07fff";
           elsif (to_integer(unsigned(mixed_value)) + 32768) >= to_integer(dc_estimate(output_num)) then
             mixed_value <= signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20));
-            if output_num=0 then
+            if output_num=10 then
               report "MIXER: Passing output value $" &
                 to_hstring(signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20)));
             end if;
           else
             mixed_value <= x"f8000";
-            if output_num=0 then
+            if output_num=10 then
               report "MIXER: Clamping output to $f8000";
-            end if;
-            if dc_votes_below(output_num) < 255 then
-              dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
           end if;
 
@@ -279,12 +285,12 @@ begin
           if dc_estimate_age(output_num) < dc_track_rate then
             dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
           else
-            dc_estimate_age(output_num) <= to_unsigned(0,16);
+            dc_estimate_age(output_num) <= to_unsigned(0,8);
             dc_votes_below(output_num) <= to_unsigned(0,8);
             dc_votes_above(output_num) <= to_unsigned(0,8);
-            if dc_votes_below(output_num) > dc_votes_above(output_num) then
+            if dc_votes_below(output_num) < dc_votes_above(output_num) then
               dc_estimate(output_num) <= dc_estimate(output_num) + 1;
-            elsif dc_votes_below(output_num) < dc_votes_above(output_num) then
+            elsif dc_votes_below(output_num) > dc_votes_above(output_num) then
               dc_estimate(output_num) <= dc_estimate(output_num) - 1;
             end if;
           end if;
@@ -292,7 +298,7 @@ begin
           
         when 17 =>
           -- Apply master volume
-          if output_num=0 then
+          if output_num=10 then
             report "For output "
               & integer'image(output_num)
               & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
@@ -328,8 +334,8 @@ begin
       -- Push mixed output value
       if set_output='1' then
         outputs(output_channel) <= mixed_value(15 downto 0);
-        report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
-          & to_hstring(mixed_value(15 downto 0));
+--        report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
+--          & to_hstring(mixed_value(15 downto 0));
       end if;
     end if;
   end process;

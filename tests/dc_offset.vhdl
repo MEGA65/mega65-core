@@ -17,8 +17,13 @@ end entity;
 
 architecture tb of tb_dc_offset is
 
+  signal last_output : signed(15 downto 0);
+  type output_history_t is array(0 to 1000) of signed(15 downto 0);
+  signal output_history : output_history_t;
+  
   signal cpuclock : std_logic := '0';
-  signal dc_track_rate : unsigned(7 downto 0) := x"ff";
+  -- Track DC as fast as possible to reduce simulation time
+  signal dc_track_rate : unsigned(7 downto 0) := x"01";
   signal reg_num : unsigned(7 downto 0) := x"FF";
   signal reg_write : std_logic := '0';
   signal wdata : unsigned(15 downto 0) := x"FFFF";
@@ -115,7 +120,7 @@ begin
         for i in 1 to 1000 loop
           cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
         end loop;
-        if outputs(0) /= x"3FFE" then
+        if outputs(0) >= x"4000" or outputs(0) <= x"3f00" then
           assert false report "Expected $3FFE from single input of $4000 (-1 for input volume and -1 for master volume multiplications), but saw $" & to_hstring(outputs(0));
         end if;
 
@@ -124,15 +129,37 @@ begin
         -- out (minus volume multiplication loss)
         setup_mixer; 
         sources <= (others => x"0000");
-        -- Negative DC DC
+        -- Negative DC
         sources(0) <= x"B000";
         -- Time to get updated
         for i in 1 to 1000 loop
           cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
         end loop;
-        if outputs(0) /= x"B002" then
-          assert false report "Expected $B002 from single input of $B000 (+1 for input volume and +1 for master volume multiplications), but saw $" & to_hstring(outputs(0));
+        if outputs(0) <= x"b000" or outputs(0) >= x"b100" then
+          assert false report "Expected $B000 from single input of $B000 (multiplication rounds work in favour of -ve values), but saw $" & to_hstring(outputs(0));
         end if;
+      elsif run("DC+ offset is progressively reduced") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Positive DC
+        sources(0) <= x"3000";
+        -- Time to get updated
+        last_output <= x"3000";
+        for j in 1 to 1000 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          if outputs(0) > last_output or outputs(0) = last_output then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to have reduced from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        report "Output 0 DC offset reduced over time:";
+        for j in 1 to 1000 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
       end if;
     end loop;    
     test_runner_cleanup(runner); -- Simulation ends here
