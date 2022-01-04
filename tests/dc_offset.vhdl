@@ -145,7 +145,7 @@ begin
         sources(0) <= x"3000";
         -- Time to get updated
         last_output <= x"3000";
-        for j in 1 to 1000 loop
+        for j in 1 to 100 loop
           for i in 1 to 1000 loop
             cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
           end loop;
@@ -156,10 +156,82 @@ begin
           last_output <= outputs(0);
           output_history(j) <= outputs(0);
         end loop;
-        report "Output 0 DC offset reduced over time:";
-        for j in 1 to 1000 loop
+        report "Output 0 +DC offset reduced over time:";
+        for j in 1 to 100 loop
           report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
         end loop;
+      elsif run("DC- offset is progressively increased") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Positive DC
+        sources(0) <= x"E000";
+        -- Time to get updated
+        last_output <= x"E000";
+        for j in 1 to 100 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          if outputs(0) < last_output or outputs(0) = last_output then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to have increased from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        report "Output 0 -DC offset increased over time:";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
+      elsif run("DC+ offset doesn't cross zero") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Positive DC
+        sources(0) <= x"00A0";
+        -- Time to get updated
+        last_output <= x"00A0";
+        for j in 1 to 100 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          if (outputs(0) > last_output or outputs(0) = last_output) and outputs(0) /= x"0000" then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to have decreased from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        report "Output 0 +DC offset decreased over time:";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
+        if outputs(0) /= x"0000" then
+          assert false report "Expected +DC output to reach and stabilise at zero.";
+        end if;
+      elsif run("DC- offset doesn't cross zero") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Positive DC
+        sources(0) <= x"FF80";
+        -- Time to get updated
+        last_output <= x"FF80";
+        for j in 1 to 100 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          if (outputs(0) < last_output or outputs(0) = last_output) and outputs(0) /= x"0000" then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to have increased from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        report "Output 0 -DC offset increased over time:";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
+        if outputs(0) /= x"0000" then
+          assert false report "Expected -DC output to reach and stabilise at zero.";
+        end if;
       end if;
     end loop;    
     test_runner_cleanup(runner); -- Simulation ends here
