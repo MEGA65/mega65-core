@@ -60,7 +60,7 @@ architecture elizabethan of audio_mixer is
   signal srcs : sample_vector_t := (others => x"0000");
   signal source_num : integer range 0 to 15 := 0;
 
-  signal dc_estimate : dc_level_vector_t := (others => x"8000");
+  signal dc_estimate : dc_level_vector_t := (others => x"00000");
   signal dc_estimate_age : sprite_vector_8 := (others => x"00");
   signal dc_votes_below : sprite_vector_8 := (others => x"00");
   signal dc_votes_above : sprite_vector_8 := (others => x"00");
@@ -153,7 +153,7 @@ begin
       elsif to_integer(reg_num) < 24 then
         audio_loopback <= outputs(safe_to_integer(reg_num)-16);
       elsif to_integer(reg_num) < 32 then
-        audio_loopback <= signed(dc_estimate(safe_to_integer(reg_num)-24));
+        audio_loopback <= signed(dc_estimate(safe_to_integer(reg_num)-24)(15 downto 0));
       else
         audio_loopback <= x"DEAD";
       end if;
@@ -247,40 +247,41 @@ begin
           -- Subtract DC and clamp to 16-bit range
           -- We still want the mixed_value to be signed, i.e., centred on $8000,
           -- so need to account for this.
-          if output_num = 10 then
+          if output_num = 0 then
             report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
               & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
               & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
               & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
           end if;
-          -- Track DC level
-          if mixed_value = x"00000" then
-          elsif mixed_value(19)='1' then
+          -- Track DC level          
+          if to_integer(dc_estimate(output_num)) > to_integer(mixed_value) then
             if dc_votes_below(output_num) < 255 then
               dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
-          else
+          elsif to_integer(dc_estimate(output_num)) < to_integer(mixed_value) then
             if dc_votes_above(output_num) < 255 then
               dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
             end if;
           end if;
-          
-          if mixed_value(19)='0' and ((to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767) then
-            if output_num=10 then
+          -- Clamp output value
+          if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
+            if output_num=0 then
               report "MIXER: Clamping output at $07FFF";
             end if;
             mixed_value <= x"07fff";
-          elsif (to_integer(unsigned(mixed_value)) + 32768) >= to_integer(dc_estimate(output_num)) then
-            mixed_value <= signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20));
-            if output_num=10 then
-              report "MIXER: Passing output value $" &
-                to_hstring(signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20)));
+          elsif to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) < x"f8000" then
+            if output_num=0 then
+              report "MIXER: Clamping output at $F8000 ($"
+                & to_hstring(to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20))
+                & " was out of range)";
             end if;
-          else
             mixed_value <= x"f8000";
-            if output_num=10 then
-              report "MIXER: Clamping output to $f8000";
+          else
+            -- Pass value
+            if output_num=0 then
+              report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
             end if;
+            mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
           end if;
 
           -- Update DC estimate periodically

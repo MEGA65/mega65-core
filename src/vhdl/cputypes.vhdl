@@ -14,7 +14,7 @@ package cputypes is
     );
   
   type sample_vector_t is array(0 to 15) of signed(15 downto 0);
-  type dc_level_vector_t is array(0 to 7) of unsigned(15 downto 0);
+  type dc_level_vector_t is array(0 to 7) of unsigned(19 downto 0);
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
   
   type addressingmode is (
