@@ -127,6 +127,11 @@ FREEZER_FILES= \
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
 
+# phony target to force submodule builds
+FORCE:
+
+.PHONY: FORCE
+
 freezer_files: $(FREEZER_FILES)
 
 SUBMODULEUPDATE= \
@@ -135,30 +140,30 @@ SUBMODULEUPDATE= \
 	git submodule update --init ; \
 	fi
 
-$(FREEZER_FILES): %.M65:
+$(FREEZER_FILES): %.M65: FORCE
 	$(SUBMODULEUPDATE)
 	make -C src/mega65-freezemenu $(notdir $@) USE_LOCAL_CC65=$(USE_LOCAL_CC65)
 	cp src/mega65-freezemenu/$(notdir $@) $(SDCARD_DIR)/
 
-$(CBMCONVERT):
+$(CBMCONVERT): FORCE
 	$(SUBMODULEUPDATE)
 	( cd cbmconvert && make -f Makefile.unix )
 
-cc65/bin/cc65:
+cc65/bin/cc65: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
 	( cd cc65 && make -j 8 )
 
 
-Ophis/bin/ophis:
+Ophis/bin/ophis: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
 	# Ophis submodule has the executable pre-built at Ophis/bin/ophis
 
 
-src/tools/acme/src/acme:
+src/tools/acme/src/acme: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
@@ -171,7 +176,7 @@ ghdl/ghdl_mcode: ghdl/build/bin/ghdl
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
-ghdl/build/bin/ghdl:
+ghdl/build/bin/ghdl: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
@@ -830,7 +835,7 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg:
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE
 	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg)  
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
@@ -878,7 +883,7 @@ $(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
+$(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png FORCE
 	( cd $(SRCDIR)/open-roms ; make bin/mega65.rom )
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
