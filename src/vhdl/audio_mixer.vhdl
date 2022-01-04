@@ -107,6 +107,7 @@ begin
   process (cpuclock) is
     variable src_temp : unsigned(15 downto 0);
     variable mix_temp : integer;
+    variable delta : signed(19 downto 0);
 
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(15 downto 0))
@@ -253,12 +254,14 @@ begin
               & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
               & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
           end if;
-          -- Track DC level          
-          if to_integer(dc_estimate(output_num)) > to_integer(mixed_value) then
+          -- Track DC level
+          delta := to_signed(to_integer(dc_estimate(output_num)) - to_integer(mixed_value),20);
+          if delta = x"00000" then
+          elsif delta(19)='0' then
             if dc_votes_below(output_num) < 255 then
               dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
-          elsif to_integer(dc_estimate(output_num)) < to_integer(mixed_value) then
+          elsif delta(19)='1' then
             if dc_votes_above(output_num) < 255 then
               dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
             end if;
