@@ -53,5 +53,5 @@ $BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE $FILES || exit 3
 
 # convert cor to mcs
 echo "creating mcs file"
-$BIT2MCS $CORFILE $MCSFILE || exit 4
+$BIT2MCS $CORFILE $MCSFILE 0 || exit 4
 echo "MCS file written: \"$MCSFILE\""
