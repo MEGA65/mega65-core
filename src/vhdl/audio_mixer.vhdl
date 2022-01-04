@@ -152,6 +152,8 @@ begin
         audio_loopback <= sources(safe_to_integer(reg_num));
       elsif to_integer(reg_num) < 24 then
         audio_loopback <= outputs(safe_to_integer(reg_num)-16);
+      elsif to_integer(reg_num) < 32 then
+        audio_loopback <= signed(dc_estimate(safe_to_integer(reg_num)-24));
       else
         audio_loopback <= x"DEAD";
       end if;
