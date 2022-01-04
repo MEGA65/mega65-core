@@ -115,6 +115,7 @@ begin
       variable result_unsigned : unsigned(31 downto 0);
       variable result : signed(31 downto 0);
     begin
+      -- Convert signed value to unsigned
       if (value(15)='0') then
         value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
       else
@@ -122,14 +123,22 @@ begin
       end if;
       value_unsigned(15) := '0';
 
+      -- Compute unsigned product
       result_unsigned := value_unsigned * volume;
 
+      -- If value was negative, negate the result
       if value(15)='1' then
         result_unsigned := (not result_unsigned) + 1;
       end if;
-
+      
       result := signed(result_unsigned);
 
+      
+      
+--      report "MIXER:multiply_by_volume_coefficient($" & to_hstring(value_unsigned) & ",$" & to_hstring(volume) & " ) = $"
+--        & to_hstring(result);
+                                                   
+  
       -- Sign-extend the result to fill all 20 bits
       return result(31)&result(31)&result(31)&result(31)&result(31 downto 16);
       
@@ -148,7 +157,7 @@ begin
       end if;
       
       if reg_write='1' then
-        report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
+--        report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= safe_to_integer(reg_num(7 downto 1));
         ram_wdata(31 downto 16) <= wdata;
         if reg_num = x"5E" then
@@ -179,7 +188,7 @@ begin
         ram_we <= '0';
       end if;
 
-      report "Read data = $" & to_hstring(ram_rdata(31 downto 16)) & " in state " & integer'image(state);
+--      report "Read data = $" & to_hstring(ram_rdata(31 downto 16)) & " in state " & integer'image(state);
       -- State machine for mixing audio sources
       case state is
         when 0 =>
@@ -192,33 +201,41 @@ begin
           -- the same volume level, taken from source 14
           -- (This is used for the OPL2 FM synthesiser)
           mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume);
-          report "Zeroing mixed_value";
+--          report "MIXER: Applying volume#14 = $" & to_hstring(source14_volume) & " to source 15 $"
+--            & to_hstring(sources(15)) & " -> $" & to_hstring(multiply_by_volume_coefficient(sources(15),source14_volume));
           -- Request second mix coefficient (first was already scheduled last cycle)
           -- (this is to handle the wait state on read).
           ram_raddr <= 1 + output_offset;
           -- Store fetched coefficient based on CPU request
           -- Service CPU initiated reading of mix coefficient
           rdata <= ram_rdata(31 downto 16);                   
-          report "Read coefficient for the CPU as $" & to_hstring(ram_rdata(31 downto 16));
+--          report "Read coefficient for the CPU as $" & to_hstring(ram_rdata(31 downto 16));
         when 1|2|3|4|5|6|7|8|9|10|11|12|13|14|15 =>
           -- Add this input using the read coefficient
-          report "For output "
-            & integer'image(output_num)
-            & ": adding input " & integer'image(state-1)
-            & " (= $" & to_hstring(srcs(state - 1)) & ")"
-            & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
-            & " to current sum = $" & to_hstring(mixed_value);
+--          report "For output "
+--            & integer'image(output_num)
+--            & ": adding input " & integer'image(state-1)
+--            & " (= $" & to_hstring(srcs(state - 1)) & ")"
+--            & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
+--            & " to current sum = $" & to_hstring(mixed_value);
 --          mix_temp := ram_rdata(31 downto 16) * srcs(state - 1);
           if state = 15 then
             source14_volume <= ram_rdata(31 downto 16);
           end if;
           mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
+          if output_num=0 then
+--            report "MIXER: Applying volume#"
+--              & integer'image(state-1) & " = $" & to_hstring(ram_rdata(31 downto 16)) & " to $"
+--              & to_hstring(srcs(state-1)) & " -> $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
+            report "MIXER: Adding $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)))
+              & " to. Now=$" & to_hstring(mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
+          end if;
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
           else
             -- Service one CPU request per iteration of an output
-            report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
+--            report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
             ram_raddr <= safe_to_integer(reg_num(7 downto 1));
           end if;
         when 16 =>
@@ -228,15 +245,31 @@ begin
           -- Subtract DC and clamp to 16-bit range
           -- We still want the mixed_value to be signed, i.e., centred on $8000,
           -- so need to account for this.
-          if (to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767 then
-            mixed_value <= x"0ffff";
+          if output_num = 0 then
+            report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
+              & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
+              & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
+              & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
+          end if;
+          if mixed_value(19)='0' and ((to_integer(unsigned(mixed_value)) - to_integer(dc_estimate(output_num))) > 32767) then
+            if output_num=0 then
+              report "MIXER: Clamping output at $07FFF";
+            end if;
+            mixed_value <= x"07fff";
             if dc_votes_above(output_num) < 255 then
               dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
             end if;
           elsif (to_integer(unsigned(mixed_value)) + 32768) >= to_integer(dc_estimate(output_num)) then
             mixed_value <= signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20));
+            if output_num=0 then
+              report "MIXER: Passing output value $" &
+                to_hstring(signed(to_unsigned(to_integer(unsigned(mixed_value)) + 32768 - to_integer(dc_estimate(output_num)),20)));
+            end if;
           else
-            mixed_value <= x"00000";
+            mixed_value <= x"f8000";
+            if output_num=0 then
+              report "MIXER: Clamping output to $f8000";
+            end if;
             if dc_votes_below(output_num) < 255 then
               dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
@@ -259,9 +292,11 @@ begin
           
         when 17 =>
           -- Apply master volume
-          report "For output "
-            & integer'image(output_num)
-            & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
+          if output_num=0 then
+            report "For output "
+              & integer'image(output_num)
+              & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
+          end if;
           mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;

@@ -42,8 +42,6 @@ architecture tb of tb_dc_offset is
     -- Audio outputs
   signal outputs : sample_vector_t := (others => x"0000");
   
-  
-  
 begin
 
   -- Audio Mixer to combine everything
@@ -68,20 +66,75 @@ begin
 
     sources => sources,
     outputs => outputs
-    );   
+    );     
   
   main : process
+
+    procedure write_reg(r : unsigned(7 downto 0); v : unsigned(15 downto 0)) is
+    begin
+      reg_write <= '1';
+      reg_num <= r;
+      wdata <= v;
+      cpuclock <= '0'; wait for 12.5 ns;
+      cpuclock <= '1'; wait for 12.5 ns;
+    end procedure;
+    
+    procedure setup_mixer is
+    begin
+      for i in 0 to 255 loop
+        write_reg(to_unsigned(i,8),x"ffff");
+      end loop;
+      report "MIXER READY";
+    end procedure;  
+      
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
 
-      if run("Divider passes collected test values") then
-        assert false report "not implemented";
-        
+      if run("Silence in = silence out") then
+        -- Setup mixer with all coefficients maximum
+        setup_mixer; 
+        -- Sources are signed, so $0000 = the mid point in output voltage
+        -- Make sure all zeroes in gives all zeroes out
+        sources <= (others => x"0000");
+        for i in 1 to 1000 loop
+          cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+        end loop;
+        if outputs(0) /= x"0000" then
+          assert false report "Silence in should yield silence out, but output=$" & to_hstring(outputs(0));
+        end if;
+      elsif run("DC+ in = DC+ out initially") then
+        -- Now put a fixed value on a source, and make sure that we get it back
+        -- out (minus volume multiplication loss)
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Positive DC
+        sources(0) <= x"4000";
+        -- Time to get updated
+        for i in 1 to 1000 loop
+          cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+        end loop;
+        if outputs(0) /= x"3FFE" then
+          assert false report "Expected $3FFE from single input of $4000 (-1 for input volume and -1 for master volume multiplications), but saw $" & to_hstring(outputs(0));
+        end if;
+
+      elsif run("DC- in = DC- out initially") then
+        -- Now put a fixed value on a source, and make sure that we get it back
+        -- out (minus volume multiplication loss)
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Negative DC DC
+        sources(0) <= x"B000";
+        -- Time to get updated
+        for i in 1 to 1000 loop
+          cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+        end loop;
+        if outputs(0) /= x"B002" then
+          assert false report "Expected $B002 from single input of $B000 (+1 for input volume and +1 for master volume multiplications), but saw $" & to_hstring(outputs(0));
+        end if;
       end if;
-    end loop;
-    
+    end loop;    
     test_runner_cleanup(runner); -- Simulation ends here
   end process;
 end architecture;
