@@ -135,7 +135,7 @@ begin
         for i in 1 to 1000 loop
           cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
         end loop;
-        if outputs(0) <= x"b000" or outputs(0) >= x"b100" then
+        if outputs(0) < x"b000" or outputs(0) >= x"b100" then
           assert false report "Expected $B000 from single input of $B000 (multiplication rounds work in favour of -ve values), but saw $" & to_hstring(outputs(0));
         end if;
       elsif run("DC+ offset is progressively reduced") then
@@ -184,7 +184,7 @@ begin
         end loop;
       elsif run("DC+ offset doesn't cross zero") then
         setup_mixer; 
-        sources <= (others => x"0000");
+         sources <= (others => x"0000");
         -- Positive DC
         sources(0) <= x"00A0";
         -- Time to get updated
