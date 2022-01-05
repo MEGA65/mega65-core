@@ -118,15 +118,24 @@ begin
       variable result : signed(31 downto 0);
     begin
       -- Convert signed value to unsigned
-      if (value(15)='0') then
+      if debug then
+        report "value=$" & to_hstring(value);
+      end if;
+      if value = x"8000" then
+        value_unsigned := x"8000";
+      elsif (value(15)='0') then
+        value_unsigned(15) := '0';
         value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
       else
+        value_unsigned(15) := '0';
         value_unsigned(14 downto 0) := (not unsigned(value(14 downto 0)) + 1);
       end if;
-      value_unsigned(15) := '0';
-
+      
       -- Compute unsigned product
       result_unsigned := value_unsigned * volume;
+      if debug then
+        report "Intermediate result = $" & to_hstring(result_unsigned);
+      end if;
       
       -- If value was negative, negate the result
       if value(15)='1' then
@@ -312,7 +321,7 @@ begin
             report "For output "
               & integer'image(output_num)
               & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16))
-              & " to value $" & to_hstring(mixed_value)
+              & " to value $" & to_hstring(mixed_value(15 downto 0))
               & ", result = $" &
               to_hstring(multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),true));
           end if;
