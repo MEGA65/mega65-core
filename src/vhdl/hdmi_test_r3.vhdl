@@ -808,7 +808,7 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => zero,
       vsync_invert => zero,
-      pal50_select => zero,
+      pal50_select => one,
       vga60_select => zero,
       test_pattern_enable => one,      
       
@@ -995,7 +995,7 @@ begin
     end if;
     -- LED on main board 
 --    led <= portp(4);
-    led <= cpuclock;
+    led <= pixelclock;
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
