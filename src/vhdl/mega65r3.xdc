@@ -12,7 +12,7 @@ set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
 create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
-set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
+#set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
