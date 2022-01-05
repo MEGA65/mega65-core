@@ -39,11 +39,15 @@ architecture RTL of clocking is
   signal clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
   signal clock9969mhz_bufg : std_logic := '0'; 
+
   signal u_clock27 : std_logic := '0';
-  signal u_clock135p : std_logic := '0';
+  signal u_clock41 : std_logic := '0';
   signal u_clock50 : std_logic := '0';
+  signal u_clock81p : std_logic := '0';
+  signal u_clock135p : std_logic := '0';
+  signal u_clock163 : std_logic := '0';
   signal u_clock200 : std_logic := '0';
-  signal u_clock50q : std_logic := '0';
+  signal u_clock325 : std_logic := '0';
   
 begin
 
@@ -194,29 +198,41 @@ begin
      RST                 => '0');
     
 
-  bufg0:
+  bufg_inter_connect:
   bufg port map ( I => clock9969mhz,
                   O => clock9969mhz_bufg);  
   
-  bufg1:
+  bufg27:
   bufg port map ( I => u_clock27,
                   O => clock27);  
-  
-  bufg2:
-  bufg port map ( I => u_clock135p,
-                  O => clock135p);  
 
-  bufg3:
+  bufg41:
+  bufg port map ( I => u_clock41,
+                  O => clock41);  
+  
+  bufg50:
   bufg port map ( I => u_clock50,
                   O => clock50);  
 
-  bufg4:
-  bufg port map ( I => u_clock50q,
-                  O => clock50q);  
+  bufg81:
+  bufg port map ( I => u_clock81p,
+                  O => clock81p);  
   
-  bufg5:
+  bufg135p:
+  bufg port map ( I => u_clock135p,
+                  O => clock135p);  
+
+  bufg163:
+  bufg port map ( I => u_clock163,
+                  O => clock163);  
+
+  bufg200:
   bufg port map ( I => u_clock200,
                   O => clock200);  
+
+  bufg325:
+  bufg port map ( I => u_clock325,
+                  O => clock325);  
   
   mmcm_adv0 : MMCM_ADV
   generic map
@@ -278,14 +294,12 @@ begin
   port map
     -- Output clocks
    (CLKFBOUT            => clk_fb,
-    CLKOUT0             => clock325,
+    CLKOUT0             => u_clock325,
     CLKOUT1             => u_clock135p,
-    CLKOUT1B            => clock135n,
-    CLKOUT2             => clock81p,
-    CLKOUT2B            => clock81n,
-    CLKOUT3             => clock41,
+    CLKOUT2             => u_clock81p,
+    CLKOUT3             => u_clock41,
     CLKOUT4             => u_clock27,
-    CLKOUT5             => clock163,
+    CLKOUT5             => u_clock163,
     -- Input clock control
     CLKFBIN             => clk_fb,
     CLKIN1              => clock9969mhz_bufg,
@@ -367,10 +381,9 @@ begin
     -- Output clocks
     (
     CLKFBOUT            => clk_fb_eth,
-    CLKOUT0             => clock100,
     CLKOUT1             => u_clock50,
     CLKOUT2             => u_clock200,
-    CLKOUT3             => u_clock50q,
+--    CLKOUT3             => u_clock50q,
     -- Input clock control
     CLKFBIN             => clk_fb_eth,
     CLKIN1              => clk_in,

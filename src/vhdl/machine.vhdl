@@ -59,7 +59,6 @@ entity machine is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
-         clock100 : in std_logic;    -- Must be 2x ethernet clock
          clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
@@ -1472,7 +1471,6 @@ begin
                   cpu_frequency => cpu_frequency)
     port map (
       cpuclock => cpuclock,
-      clock100mhz => clock100,
       clock200mhz => clock200,
       clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,
