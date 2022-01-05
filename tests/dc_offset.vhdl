@@ -210,7 +210,7 @@ begin
       elsif run("DC- offset doesn't cross zero") then
         setup_mixer; 
         sources <= (others => x"0000");
-        -- Positive DC
+        -- Negative DC
         sources(0) <= x"FF80";
         -- Time to get updated
         last_output <= x"FF80";
@@ -232,6 +232,62 @@ begin
         if outputs(0) /= x"0000" then
           assert false report "Expected -DC output to reach and stabilise at zero.";
         end if;
+      elsif run("Large positive DC offsets get clamped until in range") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Will add up to $8020, which is >$7FFF, and thus must be clamped to
+        -- $7FFF initially, until DC offset tracking brings it back in range.
+        sources(0) <= x"4000";
+        sources(1) <= x"4020";
+        -- Time to get updated
+        last_output <= x"7FFF";
+        for j in 1 to 100 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          if (outputs(0) > last_output) and outputs(0) /= x"0000" then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to be same or decrease from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        if outputs(0) = x"7fff" then
+          assert false report "Large positive DC offset failed to be reigned in";
+        end if;
+        report "Output 0 large positive DC was initially clamped, then reduced";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
+      elsif run("Large negative DC offsets get clamped until in range") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- Will add up to $F7FE0, which is < $F7F80, and thus must be clamped to
+        -- $0000 initially, until DC offset tracking brings it back in range.
+        sources(0) <= x"C000";
+        sources(1) <= x"BFE0";
+        -- Time to get updated
+        last_output <= x"8000";
+        for j in 1 to 100 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+          end loop;
+          report "Iteration #" & integer'image(j) & " = $" & to_hstring(outputs(0));
+          if (outputs(0) < last_output) and outputs(0) /= x"8000" then
+            assert false report "Expected output in iteration " & integer'image(j) &
+              " to be same or increase from $" & to_hstring(last_output) & ", but saw $" & to_hstring(outputs(0));
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        if outputs(0) = x"8000" then
+          assert false report "Large negative DC offset failed to be reigned in";
+        end if;
+        report "Output 0 large negative DC was initially clamped, then reduced";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
+        
       end if;
     end loop;    
     test_runner_cleanup(runner); -- Simulation ends here
