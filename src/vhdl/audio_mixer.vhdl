@@ -110,7 +110,8 @@ begin
     variable delta : signed(19 downto 0);
 
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
-                                             volume : unsigned(15 downto 0))
+                                             volume : unsigned(15 downto 0);
+                                             debug : boolean)
       return signed is
       variable value_unsigned : unsigned(15 downto 0);
       variable result_unsigned : unsigned(31 downto 0);
@@ -126,7 +127,7 @@ begin
 
       -- Compute unsigned product
       result_unsigned := value_unsigned * volume;
-
+      
       -- If value was negative, negate the result
       if value(15)='1' then
         result_unsigned := (not result_unsigned) + 1;
@@ -135,9 +136,10 @@ begin
       result := signed(result_unsigned);
 
       
-      
---      report "MIXER:multiply_by_volume_coefficient($" & to_hstring(value_unsigned) & ",$" & to_hstring(volume) & " ) = $"
---        & to_hstring(result);
+      if debug then
+        report "MIXER:multiply_by_volume_coefficient($" & to_hstring(value_unsigned) & ",$" & to_hstring(volume) & " ) = $"
+          & to_hstring(result);
+      end if;
                                                    
   
       -- Sign-extend the result to fill all 20 bits
@@ -203,7 +205,7 @@ begin
           -- XXX A bit of a hack to allow 16 inputs: Inputs #14 and #15 have
           -- the same volume level, taken from source 14
           -- (This is used for the OPL2 FM synthesiser)
-          mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume);
+          mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume,false);
 --          report "MIXER: Applying volume#14 = $" & to_hstring(source14_volume) & " to source 15 $"
 --            & to_hstring(sources(15)) & " -> $" & to_hstring(multiply_by_volume_coefficient(sources(15),source14_volume));
           -- Request second mix coefficient (first was already scheduled last cycle)
@@ -225,7 +227,7 @@ begin
           if state = 15 then
             source14_volume <= ram_rdata(31 downto 16);
           end if;
-          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
+          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16),false);
           if output_num=10 then
 --            report "MIXER: Applying volume#"
 --              & integer'image(state-1) & " = $" & to_hstring(ram_rdata(31 downto 16)) & " to $"
@@ -255,13 +257,15 @@ begin
               & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
           end if;
           -- Track DC level
-          delta := to_signed(to_integer(dc_estimate(output_num)) - to_integer(mixed_value),20);
-          if delta = x"00000" then
-          elsif delta(19)='0' then
+          delta := dc_estimate(output_num);
+          delta := delta - to_integer(mixed_value);
+          report "delta = $" & to_hstring(delta);
+          if delta = to_signed(0,20) then
+          elsif delta > 0 then
             if dc_votes_below(output_num) < 255 then
               dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
             end if;
-          elsif delta(19)='1' then
+          elsif delta < 0 then
             if dc_votes_above(output_num) < 255 then
               dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
             end if;
@@ -304,12 +308,15 @@ begin
           
         when 17 =>
           -- Apply master volume
-          if output_num=10 then
+          if output_num=0 then
             report "For output "
               & integer'image(output_num)
-              & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
+              & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16))
+              & " to value $" & to_hstring(mixed_value)
+              & ", result = $" &
+              to_hstring(multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),true));
           end if;
-          mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16));
+          mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),false);
           set_output <= '1';
           output_channel <= output_num;
           
