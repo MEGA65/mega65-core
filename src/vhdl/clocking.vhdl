@@ -15,13 +15,9 @@ entity clocking is
       clock27    : out std_logic;
       clock41    : out std_logic;
       clock50    : out std_logic;
-      clock50q   : out std_logic;
       clock81p   : out std_logic;
-      clock81n   : out std_logic;
       clock200   : out std_logic;
-      clock100   : out std_logic;
       clock135p  : out std_logic;
-      clock135n  : out std_logic;
       clock163   : out std_logic;
       clock325   : out std_logic
    );
