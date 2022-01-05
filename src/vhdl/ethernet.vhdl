@@ -1654,7 +1654,7 @@ begin  -- behavioural
               eth_mac_filter <= fastio_wdata(0);
               eth_disable_crc_check <= fastio_wdata(1);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
-              eth_txd_phase_drive <= fastio_wdata(3 downto 2);
+              eth_txd_phase <= fastio_wdata(3 downto 2);
               -- @IO:GS $D6E5.6-7 Ethernet RX clock phase adjust
               eth_rx_latch_phase <= fastio_wdata(7 downto 6);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets
