@@ -1318,7 +1318,7 @@ begin
           vicii_ycounter_minus_one,lightpen_x_latch,lightpen_y_latch,irq_rasterx,irq_lightpen,
           mask_rasterx,mask_lightpen,no_raster_buffer_delay,raster_buffer_double_line,
           vicii_is_raster_source,shadow_mask_enable,sprite_h640,vicii_hot_regs_enable,
-          enable_raster_display,display_row_width,sprite_h640_msbs,glyphs_from_hyperram,
+          display_row_width,sprite_h640_msbs,glyphs_from_hyperram,
           reg_xcounter_delay,show_render_activity,test_pattern_enable,vga60_select_internal,
           sprite_y_adjust,reg_alpha_delay,sprite_alpha_blend_value,sprite_alpha_blend_enables,
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
