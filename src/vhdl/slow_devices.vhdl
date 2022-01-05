@@ -256,7 +256,7 @@ begin
   end generate;
 
   
-  process (pixelclock) is
+  process (pixelclock,reset) is
   begin
 
     reset_inverted <= not reset;

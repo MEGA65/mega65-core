@@ -22,7 +22,7 @@ architecture behavioural of videobuffer is
     others => x"65" );
 
 begin
-  PROCESS(Clka,addrb,ram)
+  PROCESS(Clka,clkb,addrb,ram)
 BEGIN
   --report "viciv reading charrom address $"
   --  & to_hstring(address)

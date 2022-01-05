@@ -242,16 +242,16 @@ set_property PULLUP true [get_ports {Qspidb[2]}]
 set_property PULLUP true [get_ports {Qspidb[3]}]
 
 ## Hyper RAM
-set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr_clk_p]
-set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[0]}]
-set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[1]}]
-set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[2]}]
-set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[3]}]
-set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[4]}]
-set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[5]}]
-set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[6]}]
-set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[7]}]
-set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr_rwds]
+set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[7]}]
+set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_cs0]
 
@@ -304,24 +304,24 @@ set hr0_dq_ports    [get_ports hr_d[*]]
 set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
 # (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
-set_max_delay -from [get_clocks clock162] -to ${hr0_dq_ports} 23
-set_max_delay -from [get_clocks clock162] -to ${hr2_dq_ports} 23
-set_max_delay -to [get_clocks clock162] -from ${hr0_dq_ports} 23
-set_max_delay -to [get_clocks clock162] -from ${hr2_dq_ports} 23
-set_max_delay -from [get_clocks clock162] -to hr_rwds 23
-set_max_delay -from [get_clocks clock162] -to hr2_rwds 23
-set_max_delay -to [get_clocks clock162] -from hr_rwds 23
-set_max_delay -to [get_clocks clock162] -from hr2_rwds 23
+set_max_delay -from [get_clocks clock163] -to ${hr0_dq_ports} 23
+set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
+set_max_delay -to [get_clocks clock163] -from ${hr0_dq_ports} 23
+set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
+set_max_delay -from [get_clocks clock163] -to hr_rwds 23
+set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
+set_max_delay -to [get_clocks clock163] -from hr_rwds 23
+set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
 
-#set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
-#set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
-#set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
-#set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
+#set_input_delay -clock [get_clocks clock163] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
 #
-#set_input_delay -clock [get_clocks clock162]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
-#set_input_delay -clock [get_clocks clock162] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
-#set_input_delay -clock [get_clocks clock162]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
-#set_input_delay -clock [get_clocks clock162] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
+#set_input_delay -clock [get_clocks clock163] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+#set_input_delay -clock [get_clocks clock163] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
 
 ##SMSC Ethernet PHY
 #
@@ -405,12 +405,12 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
-     -group { cpuclock CLKOUT3 hdmi_clk_OBUF vdac_clk_OBUF clock162 pixelclock clock325 hr_rwds } \
-     -group { CLKFBOUT CLKOUT2 clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF clk_60 }
+     -group { cpuclock CLKOUT2 CLKOUT3 hdmi_clk_OBUF vdac_clk_OBUF clock163 pixelclock clock325 hr_rwds } \
+     -group { CLKFBOUT clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF clk_60 }
 
 # Deal with more false paths crossing ethernet / cpu clock domains
-set_false_path -from [get_clocks hr_rwds] -to [get_clocks clock162]
-set_false_path -from [get_clocks clock162] -to [get_clocks hr_rwds]
+set_false_path -from [get_clocks hr_rwds] -to [get_clocks clock163]
+set_false_path -from [get_clocks clock163] -to [get_clocks hr_rwds]
 set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
 set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
 set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]

@@ -147,7 +147,7 @@ begin
     data_o => wdata   
     );
   
-  process(clock,address)
+  process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata)
   begin
 
     if rising_edge(clock) then

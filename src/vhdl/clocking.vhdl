@@ -32,9 +32,11 @@ architecture RTL of clocking is
   signal clk_fb_adjust2     : std_logic := '0';
   signal clk_fb_eth : std_logic := '0';
   signal clock69mhz : std_logic := '0';
+  signal u_clock69mhz : std_logic := '0';
   signal clock124mhz : std_logic := '0';
+  signal u_clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
-  signal clock9969mhz_bufg : std_logic := '0'; 
+  signal u_clock9969mhz : std_logic := '0'; 
 
   signal u_clock27 : std_logic := '0';
   signal u_clock41 : std_logic := '0';
@@ -79,7 +81,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust0,
-     CLKOUT0             => clock69mhz,
+     CLKOUT0             => u_clock69mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust0,
      CLKIN1              => clk_in,
@@ -125,7 +127,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust1,
-     CLKOUT0             => clock124mhz,
+     CLKOUT0             => u_clock124mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust1,
      CLKIN1              => clock69mhz,
@@ -172,7 +174,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust2,
-     CLKOUT0             => clock9969mhz,
+     CLKOUT0             => u_clock9969mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust2,
      CLKIN1              => clock124mhz,
@@ -194,9 +196,17 @@ begin
      RST                 => '0');
     
 
+  bufg_inter_connect69:
+  bufg port map ( I => u_clock69mhz,
+                  O => clock69mhz);  
+  
+  bufg_inter_connect124:
+  bufg port map ( I => u_clock124mhz,
+                  O => clock124mhz);  
+
   bufg_inter_connect:
-  bufg port map ( I => clock9969mhz,
-                  O => clock9969mhz_bufg);  
+  bufg port map ( I => u_clock9969mhz,
+                  O => clock9969mhz);  
   
   bufg27:
   bufg port map ( I => u_clock27,

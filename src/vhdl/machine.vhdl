@@ -796,7 +796,7 @@ begin
   -- interrupt.
   -----------------------------------------------------------------------------
   process(cpuclock,irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
-          power_on_reset,reset_monitor,hyper_trap)
+          power_on_reset,reset_monitor,hyper_trap,monitor_hyper_trap)
   begin
     -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
     -- IRQs and NMIs
