@@ -404,6 +404,7 @@ architecture Behavioral of container is
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
+  signal portp_drive : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
   signal qspidb_oe : std_logic;
@@ -519,7 +520,7 @@ begin
         fref        => 100.0
         )
       port map (
-            select_44100 => portp(3),
+            select_44100 => portp_drive(3),
             ref_rst   => reset_high,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
@@ -539,7 +540,7 @@ begin
     
     hdmi0: entity work.vga_to_hdmi
       port map (
-        select_44100 => portp(3),
+        select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
@@ -1069,7 +1070,9 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1) xor dipsw(1);
+      portp_drive <= portp;
+      
+      dvi_select <= portp_drive(1) xor dipsw(1);
       
       reset_high <= not btncpureset;
 
@@ -1178,12 +1181,12 @@ begin
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
-    if portp(7)='1' then
+    if portp_drive(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+    led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -1198,7 +1201,7 @@ begin
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp(2)='1' then
+    if portp_drive(2)='1' then
       vgagreen <= unsigned(audio_left(15 downto 8));
       vgared <= unsigned(audio_right(15 downto 8));
       hdmigreen <= unsigned(audio_left(15 downto 8));
