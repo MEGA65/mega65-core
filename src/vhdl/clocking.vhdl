@@ -308,7 +308,7 @@ begin
     CLKOUT5             => u_clock163,
     -- Input clock control
     CLKFBIN             => clk_fb,
-    CLKIN1              => clock9969mhz_bufg,
+    CLKIN1              => clock9969mhz,
     CLKIN2              => '0',
     -- Tied to always select the primary input clock
     CLKINSEL            => '1',
