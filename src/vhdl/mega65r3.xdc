@@ -405,7 +405,7 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
-     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 pixelclock clock325 hr_rwds } \
+     -group { cpuclock CLKOUT3 hdmi_clk_OBUF vdac_clk_OBUF clock162 pixelclock clock325 hr_rwds } \
      -group { CLKFBOUT CLKOUT2 clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF clk_60 }
 
 # Deal with more false paths crossing ethernet / cpu clock domains
