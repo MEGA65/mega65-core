@@ -1562,7 +1562,9 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
       
-  process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
+  process (clock,mathclock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,flag_d,all_pause,read_data,
+           pending_dma_address,dmagic_job_mapped_list,ocean_cart_mode,dat_bitplane_bank,
+           ocean_cart_lo_bank,ocean_cart_hi_bank)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;

@@ -54,7 +54,7 @@ begin
             srval_tq => '0',            -- TQ output value when SR is used (1'b0,1'b1)
             tbyte_ctl => "FALSE",       -- Enable tristate byte operation (FALSE, TRUE)
             tbyte_src => "FALSE",       -- Tristate byte source (FALSE, TRUE)
-            tristate_width => 1         -- 3-state converter width (1,4)
+            tristate_width => 4         -- 3-state converter width (1,4)
         )
         port map (
             ofb         => open,        -- 1-bit output: Feedback path for data
@@ -99,7 +99,7 @@ begin
             srval_tq => '0',            -- TQ output value when SR is used (1'b0,1'b1)
             tbyte_ctl => "FALSE",       -- Enable tristate byte operation (FALSE, TRUE)
             tbyte_src => "FALSE",       -- Tristate byte source (FALSE, TRUE)
-            tristate_width => 1         -- 3-state converter width (1,4)
+            tristate_width => 4         -- 3-state converter width (1,4)
         )
         port map (
             ofb         => open,        -- 1-bit output: Feedback path for data

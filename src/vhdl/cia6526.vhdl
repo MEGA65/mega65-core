@@ -172,7 +172,10 @@ begin  -- behavioural
           reg_porta_read,reg_portb_read,
           reg_tod_secs,reg_tod_mins,reg_tod_dsecs,
           read_tod_secs,read_tod_mins,read_tod_dsecs,read_tod_hours,
-          reg_timera_pb6_out,reg_timera_start
+          reg_timera_pb6_out,reg_timera_start,
+          hypervisor_mode,reg_timera_latch,reg_timerb_latch,imask_flag,
+          imask_serialport,imask_alarm,imask_ta,imask_tb,reg_alarm_dsecs,
+          reg_alarm_secs,reg_alarm_mins,reg_alarm_hours,reg_alarm_ampm          
           ) is
     variable register_number : unsigned(7 downto 0);
   begin

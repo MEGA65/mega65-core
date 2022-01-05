@@ -1314,7 +1314,17 @@ begin
           vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vicii_ycounter_scale_minus_zero,
-          hsync_polarity_internal,vsync_polarity_internal
+          hsync_polarity_internal,vsync_polarity_internal,
+          vicii_ycounter_minus_one,lightpen_x_latch,lightpen_y_latch,irq_rasterx,irq_lightpen,
+          mask_rasterx,mask_lightpen,no_raster_buffer_delay,raster_buffer_double_line,
+          vicii_is_raster_source,shadow_mask_enable,sprite_h640,vicii_hot_regs_enable,
+          enable_raster_display,display_row_width,sprite_h640_msbs,glyphs_from_hyperram,
+          reg_xcounter_delay,show_render_activity,test_pattern_enable,vga60_select_internal,
+          sprite_y_adjust,reg_alpha_delay,sprite_alpha_blend_value,sprite_alpha_blend_enables,
+          sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
+          sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
+          hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y
           ) is
     variable bitplane_number : integer;
 
@@ -2947,7 +2957,7 @@ begin
 
   end process;
 
-  process(pixelclock) is
+  process(pixelclock,all_pause,reg_h640,ramaddress,this_screen_row_fetch_address,glyph_full_colour) is
     variable indisplay : std_logic := '0';
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
@@ -5487,7 +5497,8 @@ begin
 
   -- raster buffer read address/sub calculations
   -- pulled out so "next" value can be fed directly to raster buffer ram read address.
-  process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1)
+  process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1,
+          reg_h640)
   begin
     raster_buffer_read_address_next <= raster_buffer_read_address;
     if xcounter = x_chargen_start_minus1 then
@@ -5527,7 +5538,8 @@ begin
   -- This is pulled out into a combinatorial section so that ramaddress changes as soon as the raster_fetch_state
   -- value changes so that it can be driven into the block ram and sampled at the next clock cycle, thus providing the
   -- expected data on the next clock as well.
-  process(raster_fetch_state,this_ramaccess_is_screen_row_fetch,glyph_data_address,sprite_pointer_address,sprite_data_address)
+  process(raster_fetch_state,this_ramaccess_is_screen_row_fetch,glyph_data_address,sprite_pointer_address,sprite_data_address,
+          ramaddress,this_screen_row_fetch_address,glyph_full_colour)
   begin
     next_ramaddress <= ramaddress;
 

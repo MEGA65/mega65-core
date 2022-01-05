@@ -1056,7 +1056,7 @@ begin
              );
 
   
-  process(cpuclock,fastio_addr,is_sprite_final,sprite_colour_final,alt_palette_final,pixel_final,alpha_final) is
+  process(cpuclock,pixelclock,fastio_addr,is_sprite_final,sprite_colour_final,alt_palette_final,pixel_final,alpha_final) is
     variable register_bank : unsigned(7 downto 0) := x"00";
     variable register_page : unsigned(3 downto 0) := "0000";
     variable register_num : unsigned(7 downto 0) := x"00";
@@ -1160,7 +1160,8 @@ begin
     end if;
   end process;
 
-  process(pixelclock) is
+  process(pixelclock,sprite_number_final,is_sprite_final,sprite_colour_final,alt_palette_final,
+          pixel_final,alpha_final) is
   begin
     -- Merge chargen and sprite pixels
     sprite_number_out <= sprite_number_final;
