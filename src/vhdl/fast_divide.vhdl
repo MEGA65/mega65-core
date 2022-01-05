@@ -20,7 +20,7 @@ entity fast_divide is
 end entity;
 
 architecture wattle_and_daub of fast_divide is
-  type state_t is (idle, normalise, step, output);
+  type state_t is (idle, normalise, step, preoutput, output);
   signal state : state_t := idle;
   signal steps_remaining : integer range 0 to 5 := 0;
 
@@ -102,15 +102,18 @@ begin
           if steps_remaining /= 0 and dd /= x"FFFFFFFFF" then
             steps_remaining <= steps_remaining - 1;
           else
-            state <= output;
+            state <= preoutput;
           end if;
-        when output =>
-          busy <= '0';
+        when preoutput =>
           -- No idea why we need to add one, but we do to stop things like 4/2
           -- giving a result of 1.999999999
-          temp64(67 downto 0) := nn + 1;
+          temp64(67 downto 0) := nn;
           temp64(73 downto 68) := (others => '0');
+          temp64 := temp64 + 1;
           report "temp64=$" & to_hstring(temp64);
+          state <= output;
+        when output =>
+          busy <= '0';
           q <= temp64(67 downto 4);
           state <= idle;
       end case;
