@@ -307,12 +307,6 @@ architecture Behavioral of container is
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
-  signal v_vga_hsync : std_logic;
-  signal v_hdmi_hsync : std_logic;
-  signal v_vsync : std_logic;
-  signal v_red : unsigned(7 downto 0);
-  signal v_green : unsigned(7 downto 0);
-  signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
   signal hdmi_dataenable : std_logic;
 
@@ -995,28 +989,19 @@ begin
     end if;
     -- LED on main board 
 --    led <= portp(4);
-    led <= pixelclock;
+    led <= pattern_hsync;
 
     if rising_edge(pixelclock) then
-      hsync <= v_vga_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
-      hdmired <= v_red;
-      hdmigreen <= v_green;
-      hdmiblue <= v_blue;
+      hsync <= pattern_hsync;
+      vsync <= pattern_vsync;
+      vgared <= pattern_r;
+      vgagreen <= pattern_g;
+      vgablue <= pattern_b;
+      hdmired <= pattern_r;
+      hdmigreen <= pattern_g;
+      hdmiblue <= pattern_b;
     end if;
 
-    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
-    -- getting through
-    if portp(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
-    end if;
-    
   end process;    
   
 end Behavioral;
