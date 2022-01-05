@@ -268,7 +268,7 @@ begin
           -- Track DC level
           delta := dc_estimate(output_num);
           delta := delta - to_integer(mixed_value);
-          report "delta = $" & to_hstring(delta);
+--          report "delta = $" & to_hstring(delta);
           if delta = to_signed(0,20) then
           elsif delta > 0 then
             if dc_votes_below(output_num) < 255 then
@@ -323,7 +323,7 @@ begin
               & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16))
               & " to value $" & to_hstring(mixed_value(15 downto 0))
               & ", result = $" &
-              to_hstring(multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),true));
+              to_hstring(multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),false));
           end if;
           mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),false);
           set_output <= '1';
