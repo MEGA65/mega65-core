@@ -46,6 +46,34 @@ architecture tb of tb_dc_offset is
   signal sources : sample_vector_t := (others => x"0000");
     -- Audio outputs
   signal outputs : sample_vector_t := (others => x"0000");
+
+  type sine_rate_t is array (0 to 15) of integer;
+  signal sine_rate : sine_rate_t;
+  signal sine_offset : sine_rate_t := (others => 0);
+  signal sine_counter : sine_rate_t;
+  signal saw_clip_top : std_logic := '0';
+  signal saw_clip_bottom : std_logic := '0';
+  signal saw_unclipped : std_logic := '0';
+  
+ type s7_0to31 is array (0 to 31) of signed(7 downto 0);
+  signal sine_table : s7_0to31 := (
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(255-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(103+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(1+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(103+128,8))    
+    );
   
 begin
 
@@ -288,6 +316,57 @@ begin
           report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
         end loop;
         
+      elsif run("Full range sine waves clip") then
+        setup_mixer; 
+        sources <= (others => x"0000");
+        -- All sine curves at same rate initially.
+        -- This means that they will constructively interfere,
+        -- resulting in a signal that regularly clips.
+        sine_rate <= (others => 0 );
+        for j in 1 to 10 loop
+          for i in 1 to 1000 loop
+            cpuclock <= '0'; wait for 12.5 ns; cpuclock <= '1'; wait for 12.5 ns;
+            -- Update sine curves at various rates
+            for s in 0 to 15 loop
+              if sine_counter(s) /= sine_rate(s) then
+                sine_counter(s) <= sine_counter(s) + 1;
+              else
+                sine_counter(s) <= 0;
+                if sine_offset(s) /= 31 then
+                  sine_offset(s) <= sine_offset(s) + 1;
+                else
+                  sine_offset(s) <= 0;
+                end if;
+              end if;
+              sources(s)(15 downto 8) <= sine_table(sine_offset(s));
+              sources(s)(7 downto 0) <= (others => '0');
+            end loop;
+          end loop;
+          if outputs(0) = x"7fff" then
+            saw_clip_top <= '1';
+          elsif outputs(0) = x"8000" then
+            saw_clip_bottom <= '1';
+          elsif outputs(0)(15 downto 12) = x"f" then
+            -- Saw a value $Fxxx, that was not clipped
+            saw_unclipped <= '1';
+          end if;
+          last_output <= outputs(0);
+          output_history(j) <= outputs(0);
+        end loop;
+        if saw_clip_top='0' then
+          assert false report "Did not see multiple full-amplitude sine waves clip at upper limit";
+        end if;
+        if saw_clip_bottom='0' then
+          assert false report "Did not see multiple full-amplitude sine waves clip at upper limit";
+        end if;
+        if saw_unclipped='0' then
+          assert false report "Did not see multiple full-amplitude sine waves produce unclipped values";
+        end if;
+
+        report "Output 0 large positive DC was initially clamped, then reduced";
+        for j in 1 to 100 loop
+          report "   Iteration #" & integer'image(j) & " = $" & to_hstring(output_history(j));
+        end loop;
       end if;
     end loop;    
     test_runner_cleanup(runner); -- Simulation ends here
