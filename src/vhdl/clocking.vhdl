@@ -295,6 +295,7 @@ begin
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
+    
     CLKIN1_PERIOD        => 10.000,
     REF_JITTER1          => 0.010)
   port map

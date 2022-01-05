@@ -270,7 +270,6 @@ architecture Behavioral of container is
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock100 : std_logic;
@@ -459,7 +458,7 @@ architecture Behavioral of container is
 
   signal tmds : slv_9_0_t(0 to 2);
 
-  signal reset_high : std_logic := '1';
+  signal reset_high : std_logic := '0';
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
@@ -802,7 +801,7 @@ begin
       clock81 => pixelclock, -- 80MHz
       clock27 => clock27,
 
-      cpuclock => clock41,
+      cpuclock => cpuclock,
 
       pixel_strobe_out => pixel_strobe,
       
@@ -883,7 +882,7 @@ begin
 
       dvi_select <= portp(1) xor dipsw(1);
       
-      reset_high <= not btncpureset;
+--      reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
       
@@ -909,7 +908,7 @@ begin
 --        led <= not led;
       end if;
 
-      reset_high <= not btncpureset;
+--      reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
 --      led <= flopled_drive;
@@ -995,7 +994,8 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+--    led <= portp(4);
+    led <= cpuclock;
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
