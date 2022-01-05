@@ -24,76 +24,82 @@ architecture wattle_and_daub of fast_divide is
   signal state : state_t := idle;
   signal steps_remaining : integer range 0 to 5 := 0;
 
-  signal dd : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal nn : unsigned(63 downto 0) := to_unsigned(0,64);
+  signal dd : unsigned(35 downto 0) := to_unsigned(0,36);
+  signal nn : unsigned(67 downto 0) := to_unsigned(0,68);
     
 begin
 
   process (clock) is
-    variable temp64 : unsigned(65 downto 0) := to_unsigned(0,66);
-    variable temp96 : unsigned(97 downto 0) := to_unsigned(0,98);
-    variable f : unsigned(33 downto 0) := to_unsigned(0,34);
+    variable temp64 : unsigned(73 downto 0) := to_unsigned(0,74);
+    variable temp96 : unsigned(105 downto 0) := to_unsigned(0,106);
+    variable f : unsigned(37 downto 0) := to_unsigned(0,38);
   begin
     if rising_edge(clock) then
       report "state is " & state_t'image(state);
+      -- only for vunit test
+      -- report "q$" & to_hstring(q) & " = n$" & to_hstring(n) & " / d$" & to_hstring(d);
       case state is
         when idle =>
           -- Deal with divide by zero
-          if dd = to_unsigned(0,32) then
+          if dd = to_unsigned(0,36) then
             q <= (others => '1');
             busy <= '0';
           end if;
         when normalise =>
-          if dd(31)='1' then
-            report "Normalised to $" & to_hstring(nn) & " / $" & to_hstring(dd);
+          if dd(35)='1' then
+            report "Normalised to $" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
+              & " / $" & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
             state <= step;
           else
-            -- Normalise in not more than 5 cycles
-            if dd(31 downto 16)= to_unsigned(0,16) then
-              dd(31 downto 16) <= dd(15 downto 0);
-              dd(15 downto 0) <= (others => '0');
-              nn(63 downto 16) <= nn(47 downto 0);
-              nn(15 downto 0) <= (others => '0');
-            elsif dd(31 downto 24)= to_unsigned(0,8) then
-              dd(31 downto 8) <= dd(23 downto 0);
+              -- Normalise in not more than 5 cycles
+            if dd(35 downto 20)= to_unsigned(0,16) then
+              dd(35 downto 20) <= dd(19 downto 4);
+              dd(19 downto 0) <= (others => '0');
+              nn(67 downto 20) <= nn(51 downto 4);
+              nn(19 downto 0) <= (others => '0');
+            elsif dd(35 downto 28)= to_unsigned(0,8) then
+              dd(35 downto 12) <= dd(27 downto 4);
+              dd(11 downto 0) <= (others => '0');
+              nn(67 downto 12) <= nn(59 downto 4);
+              nn(11 downto 0) <= (others => '0');
+            elsif dd(35 downto 32) = to_unsigned(0,4) then
+              dd(35 downto 8) <= dd(31 downto 4);
               dd(7 downto 0) <= (others => '0');
-              nn(63 downto 8) <= nn(55 downto 0);
+              nn(67 downto 8) <= nn(63 downto 4);
               nn(7 downto 0) <= (others => '0');
-            elsif dd(31 downto 28) = to_unsigned(0,4) then
-              dd(31 downto 4) <= dd(27 downto 0);
-              dd(3 downto 0) <= (others => '0');
-              nn(63 downto 4) <= nn(59 downto 0);
-              nn(3 downto 0) <= (others => '0');
-            elsif dd(31 downto 30) = to_unsigned(0,2) then
-              dd(31 downto 2) <= dd(29 downto 0);
-              dd(1 downto 0) <= (others => '0');
-              nn(63 downto 2) <= nn(61 downto 0);
-              nn(1 downto 0) <= (others => '0');
-            elsif dd(31)='0' then
-              dd(31 downto 1) <= dd(30 downto 0);
-              dd(0) <= '0';
-              nn(63 downto 1) <= nn(62 downto 0);
-              nn(0) <= '0';
+            elsif dd(35 downto 34) = to_unsigned(0,2) then
+              dd(35 downto 6) <= dd(33 downto 4);
+              dd(5 downto 0) <= (others => '0');
+              nn(67 downto 6) <= nn(65 downto 4);
+              nn(5 downto 0) <= (others => '0');
+            elsif dd(35)='0' then
+              dd(35 downto 5) <= dd(34 downto 4);
+              dd(4 downto 0) <= (others => '0');
+              nn(67 downto 5) <= nn(66 downto 4);
+              nn(4 downto 0) <= (others => '0');
             end if;
           end if;
         when step =>
-          report "nn=$" & to_hstring(nn(63 downto 32)) & "." & to_hstring(nn(31 downto 0))
-            & ", dd=$" & to_hstring(dd);
+          report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
+            & " / $" & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
 
-          -- f = 2 - dd
-          f := to_unsigned(0,34);
-          f(33) := '1';
+        -- f = 2 - dd
+          f := to_unsigned(0,38);
+          f(37) := '1';
           f := f - dd;
           report "f = $" & to_hstring(f);
 
           -- Now multiply both nn and dd by f
           temp96 := nn * f;
-          nn <= temp96(95 downto 32);
+          nn <= temp96(103 downto 36);
+          report "temp96=$" & to_hstring(temp96);
+
           temp64 := dd * f;
-          dd <= temp64(63 downto 32);      
+          dd <= temp64(71 downto 36);
+          report "temp64=$" & to_hstring(temp64);
 
           -- Perform number of required steps, or abort early if we can
-          if steps_remaining /= 0 and dd /= x"FFFFFFFF" then
+          if steps_remaining /= 0 and dd /= x"FFFFFFFFF" then
             steps_remaining <= steps_remaining - 1;
           else
             state <= output;
@@ -102,15 +108,20 @@ begin
           busy <= '0';
           -- No idea why we need to add one, but we do to stop things like 4/2
           -- giving a result of 1.999999999
-          q <= nn(63 downto 0) + 1;
+          temp64(67 downto 0) := nn + 1;
+          temp64(73 downto 68) := (others => '0');
+          report "temp64=$" & to_hstring(temp64);
+          q <= temp64(67 downto 4);
           state <= idle;
       end case;
 
       if start_over='1' and d /= to_unsigned(0,32) then
         report "Calculating $" & to_hstring(n) & " / $" & to_hstring(d);
-        dd(31 downto 0) <= d;
-        nn(31 downto 0) <= n;
-        nn(63 downto 32) <= (others => '0');
+        dd(35 downto 4) <= d;
+        dd(3 downto 0) <= (others => '0');
+        nn(35 downto 4) <= n;
+        nn(3 downto 0) <= (others => '0');
+        nn(67 downto 36) <= (others => '0');
         state <= normalise;
         steps_remaining <= 5;
         busy <= '1';
@@ -118,10 +129,6 @@ begin
         report "Ignoring divide by zero";
       end if;
 
-      
     end if;
   end process;
 end wattle_and_daub;
-
-
-
