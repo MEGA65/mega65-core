@@ -19,6 +19,7 @@ entity c65uart is
 
     sid_mode : out unsigned(3 downto 0) := "0000";
     dc_track_rate : out unsigned(7 downto 0) := x"ff";
+    dc_track_enable : out std_logic := '0';
     
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
@@ -262,6 +263,7 @@ architecture behavioural of c65uart is
 
   signal sid_mode_int : unsigned(3 downto 0) := "0000";
   signal dc_track_rate_int : unsigned(7 downto 0) := x"ff";
+  signal dc_track_enable_int : std_logic := '0';
   
 begin  -- behavioural
   
@@ -317,6 +319,7 @@ begin  -- behavioural
 
       sid_mode <= sid_mode_int;
       dc_track_rate <= dc_track_rate_int;
+      dc_track_enable <= dc_track_enable_int;
       
       if target = simulation then
         real_hardware <= '0';
@@ -567,6 +570,7 @@ begin  -- behavioural
           when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when x"3C" => sid_mode_int <= fastio_wdata(3 downto 0);
+                        dc_track_enable <= fastio_wdata(4);
           when x"3D" => dc_track_rate <= fastio_wdata(7 downto 0);
           when others => null;
         end case;
@@ -829,9 +833,10 @@ begin  -- behavioural
         when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
         when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
         -- @IO:GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+        -- @IO:GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer              
         -- @IO:GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
         when x"3c" => fastio_rdata(3 downto 0) <= sid_mode_int;
-                      fastio_rdata(4) <= '0';
+                      fastio_rdata(4) <= dc_track_enable_int;
                       fastio_rdata(7 downto 5) <= last_reset_source;
         -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
         when x"3d" => fastio_rdata <= dc_track_rate_int;
