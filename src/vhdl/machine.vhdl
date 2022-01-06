@@ -803,6 +803,15 @@ begin
     combinedirq <= (irq and io_irq and vic_irq) or sw(15);
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if rising_edge(cpuclock) then
+
+      -- Latch reset from monitor interface to avoid tripping on glitches
+      -- But requiring to be low so long causes monitor induced reset to be ignored.
+      -- monitor asserts reset for 255 cycles, so looking for 8 in a row should
+      -- be safe.
+      reset_monitor <= reset_monitor_drive;      
+      reset_monitor_history(7 downto 1) <= reset_monitor_history(6 downto 0);
+      reset_monitor_history(0) <= reset_monitor;
+      
       if btnCpuReset='0' then
         report "reset asserted via btnCpuReset";
         last_reset_source <= to_unsigned(1,3);
@@ -815,7 +824,7 @@ begin
         report "reset asserted via power_on_reset(0)";
         last_reset_source <= to_unsigned(3,3);
         reset_combined <= '0';
-      elsif reset_monitor='0' then
+      elsif reset_monitor_history=x"00" then
         report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
         last_reset_source <= to_unsigned(4,3);
         reset_combined <= '0';
@@ -842,13 +851,6 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
-      -- Latch reset from monitor interface to avoid tripping on glitches
-      -- But requiring to be low so long causes monitor induced reset to be ignored.
-      -- Also, the glitching seemed to be a faulty board, not anything else.
-      -- So go back to just having a single drive stage to de-glitch, but no requirement
-      -- for multiple cycles low.
-      reset_monitor <= reset_monitor_drive;
-      
       -- Allow CPU direct floppy writing, as well as from the SD controller
       -- (CPU direct writing is used for DMA-based raw flux writing)
       -- XXX disable CPU raw flux writing in case it is cause of write glitching
