@@ -51,6 +51,7 @@ architecture Behavioral of max10 is
   signal reset_button_drive : std_logic := '1';
   signal dipsw_drive : std_logic_vector(4 downto 0) := (others => '0');
   signal dipsw_drive_last : std_logic_vector(4 downto 0) := (others => '0');
+  signal dipsw_drive_last2 : std_logic_vector(4 downto 0) := (others => '0');
   signal j21in_drive : std_logic_vector(11 downto 0) := (others => '0');
   
   signal reset_button_counter : integer range 0 to 255 := 0;
@@ -62,7 +63,7 @@ begin
     if rising_edge(cpuclock) then
       max10_fpga_commit <= max10_fpga_commit_drive;
       max10_fpga_date <= max10_fpga_date_drive;
-      if dipsw_drive_last = dipsw_drive then
+      if dipsw_drive_last = dipsw_drive and dipsw_drive_last2 = dipsw_drive then
         dipsw <= dipsw_drive;
       end if;
       j21in <= j21in_drive;
@@ -141,6 +142,7 @@ begin
             dipsw_drive(2) <= not max10_in_vector(14);
             dipsw_drive(1) <= not max10_in_vector(13);
             dipsw_drive(0) <= not max10_in_vector(12);
+            dipsw_drive_last2 <= dipsw_drive_last;
             dipsw_drive_last <= dipsw_drive;
             reset_button_drive <= max10_in_vector(16);
           end if;
