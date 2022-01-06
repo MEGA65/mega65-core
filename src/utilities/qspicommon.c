@@ -971,6 +971,37 @@ void reflash_slot(unsigned char slot)
   read_data(0);
   read_data(0);
   read_data(0);
+
+  /*
+    The 512S QSPI on the R3A boards _sometimes_ suffer high write error rates
+    that can often be worked around by processing flash sector at a time, so
+    that if such an error occurs that requires rewriting a sector*, we can do just
+    that sector. It also has the nice side-effect that if only part of a bitstream
+    (or the embedded files in a COR file) change, then only that part will need to
+    be modified.
+
+    The trick is that we will have to refactor the code here quite a bit, because
+    we can't seek backwards through an SD card file here, and the hardware verification
+    support requires that the data be in the SD card buffer, so we will have to buffer
+    a sector's worth of data in HyperRAM (non-MEGA65R3 targets are assumed to have JTAG
+    and Vivado as the main flashing solution for now. We can resolve this post-release),
+    and then copying those sectors of data back into the SD card sector buffer for
+    hardware verification.  
+
+    This might end up being a bit slower or a bit faster, its hard to predict right now.
+    The extra copying will slow things down, but not having to read the file from SD card
+    twice will potentially speed things up.  Overall, performance should be quite acceptable,
+    however.
+
+    It's probably easiest in fact to simply read the whole <= 8MB COR file into HyperRAM,
+    and then just work from that.
+
+    * This only occurs if a byte gets bits cleared that shouldn't have been cleared.
+    This happens only when the QSPI chip misses clock edges or detects extra ones,
+    both of which we have seen happen.
+  */
+
+
   
   printf("%cErasing flash slot...\n",0x93);
   lfill((unsigned long)buffer,0,512);
