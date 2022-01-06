@@ -2782,11 +2782,11 @@ int resolve_value32(char *in)
   // Hex is the easy case
   if (sscanf(in,"$%x",&v)==1) return v;
 
-  // Check for label with optional +delta
+  // Check for label with optional +/-delta
   if (sscanf(in,"%[^+]+%d",label,&delta)==2) ;
-  else if (sscanf(in,"%[^-]-%d",label,&delta)==2) ;
+  else if (sscanf(in,"%[^-]-%d",label,&delta)==2) delta=-delta;
   else if (sscanf(in,"%[^+]+$%x",label,&delta)==2) ;
-  else if (sscanf(in,"%[^-]-$%x",label,&delta)==2) ;
+  else if (sscanf(in,"%[^-]-$%x",label,&delta)==2) delta=-delta;
   else if (sscanf(in,"%s",label)==1) ;
   else {
     fprintf(stderr,"ERROR: Could not parse address or value specification '%s'.\n",in);
