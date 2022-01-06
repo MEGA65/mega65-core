@@ -116,6 +116,7 @@ entity sdcardio is
     
     drive_led0 : out std_logic := '0';
     drive_led2 : out std_logic := '0';
+    drive_ledsd : out std_logic := '0';
     motor : out std_logic := '0';
     
     dipsw : in std_logic_vector(4 downto 0);
