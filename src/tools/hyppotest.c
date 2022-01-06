@@ -2796,6 +2796,11 @@ int resolve_value32(char *in)
     return 0;
   }
 
+  // Remove any trailing comma from the label
+  v=strlen(label)-1;
+  if (label[v]==',')
+    label[v]=0;
+
   int i;
   for(i=0;i<hyppo_symbol_count;i++) {
     if (!strcmp(label,hyppo_symbols[i].name)) break;
@@ -2988,6 +2993,13 @@ int main(int argc,char **argv)
         sym_by_addr[addr]=&symbols[symbol_count];
       }
       symbol_count++;
+    } else if (sscanf(line,"poke%s%n",location,&last)==1) {
+      char *p=line+last;
+      unsigned char b;
+      for (addr=resolve_value32(location);(sscanf(p,"%s%n",value,&last))==1;++addr,p+=last) {
+        b=resolve_value8(value);
+        write_mem_expected28(addr,b);
+      }
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
