@@ -2822,14 +2822,14 @@ int resolve_value32(char *in)
   }
 }
 
-int resolve_value8(char *in)
+unsigned char resolve_value8(char *in)
 {
-  return resolve_value32(in)&0xff;
+  return (unsigned char)(resolve_value32(in)&0xff);
 }
 
-int resolve_value16(char *in)
+unsigned short resolve_value16(char *in)
 {
-  return resolve_value32(in)&0xffff;
+  return (unsigned short)(resolve_value32(in)&0xffff);
 }
 
 int main(int argc,char **argv)
