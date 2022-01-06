@@ -2,6 +2,7 @@
 
 SCRIPT=`realpath $0`
 SCRIPTPATH=`dirname $SCRIPT`
+BASEPATH=${SCRIPTPATH#$PWD/}
 
 function usage {
     echo "bitembed <m65target> <foo.bit> <core name> <core version> <out.cor>"
@@ -25,8 +26,8 @@ CORVER=$4
 CORFILE=$(realpath -m "$5")
 MCSFILE=${CORFILE%.cor}.mcs
 
-BIT2COR=$SCRIPTPATH/mega65-tools/bin/bit2core
-BIT2MCS=$SCRIPTPATH/mega65-tools/bin/bit2mcs
+BIT2COR=$BASEPATH/mega65-tools/bin/bit2core
+BIT2MCS=$BASEPATH/mega65-tools/bin/bit2mcs
 
 # check utilities
 if [[ ! -x $BIT2COR ]]; then
@@ -38,14 +39,14 @@ if [[ ! -x $BIT2MCS ]]; then
 fi
 
 # check release-prep
-if [[ ! -r $SCRIPTPATH/mega65-release-prep/corfiles.txt ]]; then
+if [[ ! -r $BASEPATH/mega65-release-prep/corfiles.txt ]]; then
     failpath "mega65-release-prep/corfiles.txt"
 fi
 
 FILES=""
 while IFS='' read -r file; do
-    FILES="${FILES} $SCRIPTPATH/mega65-release-prep/${file%%[[:cntrl:]]}"
-done < "$SCRIPTPATH/mega65-release-prep/corfiles.txt"
+    FILES="${FILES} $BASEPATH/mega65-release-prep/${file%%[[:cntrl:]]}"
+done < "$BASEPATH/mega65-release-prep/corfiles.txt"
 
 # call bit2core
 echo "creating cor file"
