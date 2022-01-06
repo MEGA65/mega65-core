@@ -507,7 +507,9 @@ architecture Behavioral of machine is
   signal speed_gate_enable : std_logic;
   signal badline_toggle : std_logic;
   
-  signal drive_led : std_logic;
+  signal drive_led0 : std_logic;
+  signal drive_led2 : std_logic;
+  signal drive_ledsd : std_logic;
   signal motor : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
