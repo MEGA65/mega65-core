@@ -19,7 +19,7 @@ short i,x,y,z;
 short a1,a2,a3;
 unsigned char n=0;
 
-unsigned long addr;
+unsigned long addr,vaddr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
 unsigned char tries = 0;
@@ -1225,7 +1225,7 @@ void reflash_slot(unsigned char slot)
     read_data(0);
     read_data(0);
     
-    for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
+    for(vaddr=(SLOT_SIZE)*slot;vaddr<(SLOT_SIZE)*(slot+1);vaddr+=512) {
       progress_acc+=512;
 #ifdef A100T      
       if (progress_acc>26214) {
@@ -1243,14 +1243,14 @@ void reflash_slot(unsigned char slot)
       if (!(k&0xff)) progress_bar(progress);
       k++;
 
-      if (!(addr&0xffff)) {
+      if (!(vaddr&0xffff)) {
 	getrtc(&tm_now);
 	d=seconds_between(&tm_start,&tm_now);
 	if (d!=d_last) {
-	  unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
+	  unsigned int speed=(unsigned int)(((vaddr-(SLOT_SIZE*slot))/d)>>10);
 	  // This division is _really_ slow, which is why we do it only
 	  // once per second.
-	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-vaddr)/speed)>>10;
 	  d_last=d;
 	  printf("%c%c%c%c%c%c%c%c%c%cVerifying %dKB/sec, done in %ld sec.          \n",
 		 0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
@@ -1268,11 +1268,27 @@ void reflash_slot(unsigned char slot)
       // buffer. Instead, we just set the flash address, and issue the
       // verify command, and then check the "bytes differ" flag on
       // completion.
-      if (!verify_data_in_place(addr)) {
-        printf("%cVerification error at address $%llx(or +$100) (F):\n",0x13,
-            addr+i);
-	printf("You will need to reflash the slot.\n");
+      if (!verify_data_in_place(vaddr)) {
+	printf("%cVerification error at address $%llx(or +$100) (F):\n",0x93,
+	       vaddr);	
+
+	// Stash a copy in Attic RAM
+	lcopy(0xffd6e00,0x8000000,512);
+	// Read from the QSPI flash
+	read_data(vaddr);
+
+	// Now compare data_buffer to 0x8000000
+	for(i=0;i<512;i++) {
+	  if (lpeek(0x8000000L+i)!=data_buffer[i]) {
+	    printf("$%03X: File=$%02X, Flash=$%02X\n",
+		   i,lpeek(0x8000000L+i),data_buffer[i]);
+	    press_any_key();
+	  }
+	}
+	
+	printf("\nYou will need to reflash the slot.\n");
 	press_any_key();
+	
 	break;
       }
     }
