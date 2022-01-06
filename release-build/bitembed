@@ -29,6 +29,8 @@ MCSFILE=${CORFILE%.cor}.mcs
 BIT2COR=$BASEPATH/mega65-tools/bin/bit2core
 BIT2MCS=$BASEPATH/mega65-tools/bin/bit2mcs
 
+EMBEDLIST=$BASEPATH/mega65-release-prep/corfiles.txt
+
 # check utilities
 if [[ ! -x $BIT2COR ]]; then
     failpath "mega65-tools/bin/bit2core"
@@ -39,18 +41,19 @@ if [[ ! -x $BIT2MCS ]]; then
 fi
 
 # check release-prep
-if [[ ! -r $BASEPATH/mega65-release-prep/corfiles.txt ]]; then
+if [[ ! -r $EMBEDLIST ]]; then
     failpath "mega65-release-prep/corfiles.txt"
 fi
 
-FILES=""
-while IFS='' read -r file; do
-    FILES="${FILES} $BASEPATH/mega65-release-prep/${file%%[[:cntrl:]]}"
-done < "$BASEPATH/mega65-release-prep/corfiles.txt"
+## FILES=""
+## while IFS='' read -r file; do
+##     FILES="${FILES} $BASEPATH/mega65-release-prep/${file%%[[:cntrl:]]}"
+## done < "$BASEPATH/mega65-release-prep/corfiles.txt"
 
 # call bit2core
 echo "creating cor file"
-$BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE $FILES || exit 3
+## $BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE $FILES || exit 3
+$BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE @$EMBEDLIST || exit 3
 
 # convert cor to mcs
 echo "creating mcs file"
