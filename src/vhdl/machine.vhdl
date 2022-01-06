@@ -84,7 +84,9 @@ entity machine is
          disco_led_val : out unsigned(7 downto 0) := x"00";
          disco_led_en : out std_logic := '0';
 
-         flopled : out std_logic := '0';
+         flopled0 : out std_logic := '0';
+         flopled2 : out std_logic := '0';
+         flopledsd : out std_logic := '0';
          flopmotor : out std_logic := '0';
 
          j21in : in std_logic_vector(11 downto 0) := (others => '1');
@@ -881,7 +883,7 @@ begin
       led(6) <= external_pixel_strobe;
       led(7) <= external_frame_x_zero;      
       led(8) <= external_frame_y_zero;      
-      led(9) <= drive_led;
+      led(9) <= drive_led0;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -1593,7 +1595,9 @@ begin
       hyppo_rdata => hyppo_rdata,
       hyppo_address => hyppo_address,
       colourram_at_dc00 => colourram_at_dc00,
-      drive_led => drive_led,
+      drive_led0 => drive_led0,
+      drive_led2 => drive_led2,
+      drive_ledsd => drive_ledsd,
       motor => motor,
       dipsw => dipsw,
       sw => sw,
@@ -1913,7 +1917,9 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      flopled <= drive_led;
+      flopled0 <= drive_led0;
+      flopled2 <= drive_led2;
+      flopledsd <= drive_ledsd;
       flopmotor <= motor;
 
       -- Generate 2MHz for SIDs from CPUCLOCK / 20
