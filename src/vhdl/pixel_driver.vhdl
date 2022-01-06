@@ -224,8 +224,6 @@ architecture greco_roman of pixel_driver is
   signal raddr60 : integer := 0;
   signal raddrvga60 : integer := 0;
 
-  signal counter : unsigned(23 downto 0) := to_unsigned(0,24);
-  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -304,7 +302,7 @@ begin
 
                red_o => test_pattern_red50,
                green_o => test_pattern_green50,
---               blue_o => test_pattern_blue50,
+               blue_o => test_pattern_blue50,
                
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
@@ -542,9 +540,6 @@ begin
       report "plotting = " & std_logic'image(plotting)
         & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
 
-      test_pattern_blue50 <= counter(23 downto 16);
-      counter <= counter + 1;
-      
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
 

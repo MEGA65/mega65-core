@@ -326,11 +326,11 @@ begin
         if fullwidth_dataenable_driver = '1' then
           -- Inside frame, draw a test pattern
           red_o <= to_unsigned(x,8);
-          green_o <= to_unsigned(y mod 16,8);
+          green_o <= to_unsigned(y mod 256,8);
 --          blue_o <= to_unsigned(x+y,8);
           blue_o <= to_unsigned(0,8);
           nred_o <= to_unsigned(x,8);
-          ngreen_o <= to_unsigned(y mod 16,8);
+          ngreen_o <= to_unsigned(y mod 256,8);
 --          nblue_o <= to_unsigned(x+y,8);
           nblue_o <= to_unsigned(0,8);
         end if;
