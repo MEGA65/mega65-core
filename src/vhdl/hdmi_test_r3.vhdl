@@ -410,7 +410,7 @@ architecture Behavioral of container is
   signal spdif_44100 : std_logic;
   
   signal porto : unsigned(7 downto 0);
-  signal portp : unsigned(7 downto 0);
+  signal portp : unsigned(7 downto 0) := x"00";
 
   signal qspi_clock : std_logic;
 
