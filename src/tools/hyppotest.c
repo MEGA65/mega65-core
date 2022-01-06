@@ -2976,6 +2976,18 @@ int main(int argc,char **argv)
       int v=resolve_value8(value);
       int l=resolve_value32(location);
       write_mem_expected28(l,v);
+    } else if (sscanf(line,"define %s as %s",routine,location)==2) {
+      addr=resolve_value32(location);
+      if (symbol_count>=MAX_SYMBOLS) {
+        fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
+        cpu.term.error=1;
+      }
+      symbols[symbol_count].name=strdup(routine);
+      symbols[symbol_count].addr=addr;
+      if (addr<CHIPRAM_SIZE) {
+        sym_by_addr[addr]=&symbols[symbol_count];
+      }
+      symbol_count++;
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
       cpu.term.error=1;
