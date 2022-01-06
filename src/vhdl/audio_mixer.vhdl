@@ -36,6 +36,7 @@ entity audio_mixer is
     modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
 
+    dc_track_enable : in std_logic;
     dc_track_rate : in unsigned(7 downto 0);
     
     -- Read in values from audio knobs
@@ -297,23 +298,26 @@ begin
             if output_num=0 then
               report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
             end if;
-            mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
+            if dc_track_enable='1' then
+              mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
+            end if;
           end if;
 
           -- Update DC estimate periodically
-          if dc_estimate_age(output_num) < dc_track_rate then
-            dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
-          else
-            dc_estimate_age(output_num) <= to_unsigned(0,8);
-            dc_votes_below(output_num) <= to_unsigned(0,8);
-            dc_votes_above(output_num) <= to_unsigned(0,8);
-            if dc_votes_below(output_num) < dc_votes_above(output_num) then
-              dc_estimate(output_num) <= dc_estimate(output_num) + 1;
-            elsif dc_votes_below(output_num) > dc_votes_above(output_num) then
-              dc_estimate(output_num) <= dc_estimate(output_num) - 1;
+          if dc_track_enable = '1' then
+            if dc_estimate_age(output_num) < dc_track_rate then
+              dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
+            else
+              dc_estimate_age(output_num) <= to_unsigned(0,8);
+              dc_votes_below(output_num) <= to_unsigned(0,8);
+              dc_votes_above(output_num) <= to_unsigned(0,8);
+              if dc_votes_below(output_num) < dc_votes_above(output_num) then
+                dc_estimate(output_num) <= dc_estimate(output_num) + 1;
+              elsif dc_votes_below(output_num) > dc_votes_above(output_num) then
+                dc_estimate(output_num) <= dc_estimate(output_num) - 1;
+              end if;
             end if;
           end if;
-           
           
         when 17 =>
           -- Apply master volume

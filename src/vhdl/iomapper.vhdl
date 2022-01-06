@@ -383,6 +383,7 @@ architecture behavioral of iomapper is
 
   signal sid_mode : unsigned(3 downto 0); -- 1=8580, 0=6581
   signal dc_track_rate : unsigned(7 downto 0);
+  signal dc_track_enable : std_logic;
   
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
@@ -789,6 +790,7 @@ begin
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,
       sid_mode => sid_mode,
+      dc_track_enable => dc_track_enable,
       dc_track_rate => dc_track_rate,
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
@@ -1190,6 +1192,7 @@ begin
     port map (
     cpuclock => cpuclock,
 
+    dc_track_enable => dc_track_enable,
     dc_track_rate => dc_track_rate,
     
     volume_knob1_target => volume_knob1_target,
