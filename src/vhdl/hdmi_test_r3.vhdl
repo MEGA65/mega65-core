@@ -572,9 +572,9 @@ begin
         vga_vs => pattern_vsync, -- active high vsync
         vga_hs => pattern_hsync, -- active high hsync
         vga_de => pattern_de,   -- pixel enable
-        vga_r => std_logic_vector(pattern_r),
-        vga_g => std_logic_vector(pattern_g),
-        vga_b => std_logic_vector(pattern_b),
+        vga_r => x"00", -- std_logic_vector(pattern_r),
+        vga_g => x"00", -- std_logic_vector(pattern_g),
+        vga_b => x"ff", -- std_logic_vector(pattern_b),
 
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
@@ -1001,10 +1001,6 @@ begin
       vgagreen <= pattern_g;
 --      vgablue <= pattern_b;
       vgablue <= x"80";
-      hdmired <= pattern_r;
-      hdmigreen <= pattern_g;
---      hdmiblue <= pattern_b;
-      hdmiblue <= x"80";
     end if;
 
   end process;    
