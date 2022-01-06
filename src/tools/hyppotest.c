@@ -2862,7 +2862,11 @@ int main(int argc,char **argv)
     if (line[0]=='#') continue;
     if (line[0]=='\r') continue;
     if (line[0]=='\n') continue;
-    if (sscanf(line,"jsr %s",routine)==1) {
+    if (sscanf(line,"jsr $%x",&addr)==1) {
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.rts=1; // Terminate on net RTS from routine
+      cpu_call_routine(logfile,addr);
+    } else if (sscanf(line,"jsr %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
         if (!strcmp(routine,hyppo_symbols[i].name)) break;
@@ -2888,9 +2892,11 @@ int main(int argc,char **argv)
     } else if (!strncasecmp(line,"log on failure",strlen("log on failure"))) {
       // Dump all instructions on test failure
       log_on_failure=1;
-    } else if (sscanf(line,"jsr $%x",&addr)==1) {
+    } else if (sscanf(line,"jmp $%x",&addr)==1) {
+      int log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.rts=1; // Terminate on net RTS from routine
+      cpu.term.log_dma=log_dma;
+      cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
     } else if (sscanf(line,"jmp %s",routine)==1) {
       int i;
@@ -2910,14 +2916,7 @@ int main(int argc,char **argv)
         cpu.term.log_dma=log_dma;
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
       }
-    }
-    else if (sscanf(line,"jmp $%x",&addr)==1) {
-      int log_dma=cpu.term.log_dma;
-      bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.log_dma=log_dma;
-      cpu.term.rts=0;
-      cpu_call_routine(logfile,addr);
-    }  else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
+    } else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
       // Check registers for changes
       compare_register_contents(logfile,&cpu);
     } else if (sscanf(line,"ignore from %s to %s",start,end)==2) {
@@ -2930,26 +2929,24 @@ int main(int argc,char **argv)
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);
-    }  else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
-      // Set test name
-      test_init(&cpu);
-
-      fflush(stdout);
-
     } else if (!strncasecmp(line,"test end",strlen("test end"))) {
       test_conclude(&cpu);
+    } else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
+      // Set test name
+      test_init(&cpu);
+      fflush(stdout);
     } else if (sscanf(line,"loadhypposymbols %s",routine)==1) {
       if (load_hyppo_symbols(routine)) cpu.term.error=1;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=1;
-    } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
-      if (load_file(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr-addr2)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr+addr2)) cpu.term.error=1;
     } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
       if (load_symbols(routine,addr)) cpu.term.error=1;
+    } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
+      if (load_file(routine,addr)) cpu.term.error=1;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
         int addr16=addr32;
