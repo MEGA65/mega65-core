@@ -813,9 +813,9 @@ begin
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
-      red_i => to_unsigned(0,8),
-      green_i => to_unsigned(255,8),
-      blue_i => to_unsigned(0,8),
+      red_i => to_unsigned(255,8),
+      green_i => to_unsigned(0,8),
+      blue_i => to_unsigned(255,8),
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel
