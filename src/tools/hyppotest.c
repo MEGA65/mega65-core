@@ -599,8 +599,8 @@ void cpu_log_reset(void)
 void cpu_stash_ram(void)
 {
   // Remember the RAM contents before calling a routine
-  bcopy(chipram_expected,chipram,CHIPRAM_SIZE);
-  bcopy(hypporam_expected,hypporam,HYPPORAM_SIZE);
+  bcopy(chipram,chipram_expected,CHIPRAM_SIZE);
+  bcopy(hypporam,hypporam_expected,HYPPORAM_SIZE);
 }
 
 unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
@@ -2998,7 +2998,7 @@ int main(int argc,char **argv)
       unsigned char b;
       for (addr=resolve_value32(location);(sscanf(p,"%s%n",value,&last))==1;++addr,p+=last) {
         b=resolve_value8(value);
-        write_mem_expected28(addr,b);
+        write_mem28(&cpu,addr,b);
       }
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);

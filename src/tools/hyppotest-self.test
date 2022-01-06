@@ -37,3 +37,14 @@ expect $08 at $3808
 expect $09 at $3809
 check ram
 test end
+
+test "check ram"
+# lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
+poke $2000, $a9, $12, $8d, $00, $30, $ad, $00, $25, $8d, $01, $30, $a9, $34, $8d, $00, $35, $60
+poke $2500, $ab
+jsr $2000
+expect $12 at $3000
+expect $ab at $3001
+ignore from $3500 to $35ff
+check ram
+test end
