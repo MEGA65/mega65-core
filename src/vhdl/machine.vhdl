@@ -513,7 +513,7 @@ architecture Behavioral of machine is
   signal reset_io : std_logic;
   signal reset_monitor : std_logic;
   signal reset_monitor_drive : std_logic;
-  signal reset_monitor_history : std_logic_vector(7 downto 0) := (others => '1');
+  signal reset_monitor_history : std_logic_vector(15 downto 0) := (others => '1');
   
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
@@ -809,7 +809,7 @@ begin
       -- monitor asserts reset for 255 cycles, so looking for 8 in a row should
       -- be safe.
       reset_monitor <= reset_monitor_drive;      
-      reset_monitor_history(7 downto 1) <= reset_monitor_history(6 downto 0);
+      reset_monitor_history(15 downto 1) <= reset_monitor_history(14 downto 0);
       reset_monitor_history(0) <= reset_monitor;
       
       if btnCpuReset='0' then
@@ -824,7 +824,7 @@ begin
         report "reset asserted via power_on_reset(0)";
         last_reset_source <= to_unsigned(3,3);
         reset_combined <= '0';
-      elsif reset_monitor_history=x"00" then
+      elsif reset_monitor_history=x"0000" then
         report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
         last_reset_source <= to_unsigned(4,3);
         reset_combined <= '0';
