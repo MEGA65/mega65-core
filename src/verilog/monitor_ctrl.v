@@ -121,7 +121,7 @@ assign reset_out = (reset_timeout != 0);
 
 always @(posedge clk)
   begin
-     $display("reset=%b, reset_processing=%b, reset_timeoud=%u",reset,reset_processing,reset_timeout);
+     $display("reset=%b, reset_processing=%b, reset_timeout=%u",reset,reset_processing,reset_timeout);
      
   if(reset & ~reset_processing)
   begin
