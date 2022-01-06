@@ -114,7 +114,8 @@ entity sdcardio is
 
     last_scan_code : in std_logic_vector(12 downto 0);
     
-    drive_led : out std_logic := '0';
+    drive_led0 : out std_logic := '0';
+    drive_led2 : out std_logic := '0';
     motor : out std_logic := '0';
     
     dipsw : in std_logic_vector(4 downto 0);
@@ -527,6 +528,7 @@ architecture behavioural of sdcardio is
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
+  signal silent_sdcard : std_logic := '0';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 10 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
@@ -1353,8 +1355,8 @@ begin  -- behavioural
             fastio_rdata(2) <= use_real_floppy2;
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
-            -- @IO:GS $D6A1.3-7 - FDC debug status flags
-            fastio_rdata(3) <= fdc_sector_end;
+            fastio_rdata(3) <= silent_sdcard;
+            -- @IO:GS $D6A1.4-7 - FDC debug status flags
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
             fastio_rdata(6) <= fdc_byte_valid;
@@ -2200,7 +2202,27 @@ begin  -- behavioural
               --        output will go true (low).
               f011_irqenable <= fastio_wdata(7);
               f011_led <= fastio_wdata(6);
-              drive_led <= fastio_wdata(6);
+              if fastio_wdata(2 downto 1) = "00" then
+                if (fastio_wdata(0) xor f011_swap_drives) = '0' then
+                  if use_real_floppy0='1' then
+                    drive_led0 <= fastio_wdata(6);
+                    drive_ledsd <= '0';
+                  else
+                    drive_led0 <= '0';
+                    drive_ledsd <= fastio_wdata(6);
+                  end if;
+                  drive_led2 <= '0';
+                else
+                  drive_led0 <= '0';
+                  if use_real_floppy2='1' then
+                    drive_ledsd <= '0';
+                    drive_led2 <= fastio_wdata(6);
+                  else
+                    drive_ledsd <= fastio_wdata(6);
+                    drive_led2 <= '0';
+                  end if;
+                end if;
+              end if;
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
@@ -2212,11 +2234,21 @@ begin  -- behavioural
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
               if fastio_wdata(2 downto 1) = "00" then
                 if (fastio_wdata(0) xor f011_swap_drives) = '0' then
-                  f_motora <= not fastio_wdata(5); -- start motor on real drive
-                  f_selecta <= not fastio_wdata(5);
+                  if use_real_floppy0='1' or silent_sdcard='0' then
+                    f_motora <= not fastio_wdata(5); -- start motor on real drive
+                    f_selecta <= not fastio_wdata(5);
+                  else
+                    f_motora <= '1';
+                    f_selecta <= '1';
+                  end if;
                 else
-                  f_motorb <= not fastio_wdata(5); -- start motor on real drive
-                  f_selectb <= not fastio_wdata(5);
+                  if use_real_floppy2='1' or silent_sdcard='0' then
+                    f_motorb <= not fastio_wdata(5); -- start motor on real drive
+                    f_selectb <= not fastio_wdata(5);
+                  else
+                    f_motorb <= '1';
+                    f_selectb <= '1';
+                  end if;
                 end if;
               end if;
               
@@ -3281,6 +3313,8 @@ begin  -- behavioural
                 use_real_floppy2 <= fastio_wdata(2);
               end if;
               target_any <= fastio_wdata(1);
+              -- @IO:GS $D6A1.3 SDFDC:SILENT Disable floppy spinning and tracking for SD card operations.
+              silent_sdcard <= fastio_wdata(3);
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
             when x"a2" =>

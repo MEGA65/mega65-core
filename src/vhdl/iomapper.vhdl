@@ -121,7 +121,9 @@ entity iomapper is
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
-        drive_led : out std_logic := '0';
+        drive_led0 : out std_logic := '0';
+        drive_led2 : out std_logic := '0';
+        drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
         porto_out : out unsigned(7 downto 0);
         portp_out : out unsigned(7 downto 0);
@@ -1418,7 +1420,9 @@ begin
     qspidb_oe => qspidb_oe,
     qspi_clock => qspi_clock,
     
-    drive_led => drive_led,
+    drive_led0 => drive_led0,
+    drive_led2 => drive_led2,
+    drive_ledsd => drive_ledsd,
     motor => motor,
 
     pwm_knob => volume_knob1,
