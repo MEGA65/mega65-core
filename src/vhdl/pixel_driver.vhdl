@@ -224,6 +224,8 @@ architecture greco_roman of pixel_driver is
   signal raddr60 : integer := 0;
   signal raddrvga60 : integer := 0;
 
+  signal counter : unsigned(23 downto 0) := to_unsigned(0,24);
+  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -299,6 +301,10 @@ begin
                vga_inletterbox => vga_inletterbox_pal50,
 
                vga_blank => vga_blank_pal50,
+
+               red_o => test_pattern_red50,
+               green_o => test_pattern_green50,
+--               blue_o => test_pattern_blue50,
                
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
@@ -535,6 +541,9 @@ begin
 
       report "plotting = " & std_logic'image(plotting)
         & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
+
+      test_pattern_blue50 <= counter(23 downto 16);
+      counter <= counter + 1;
       
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
@@ -550,9 +559,12 @@ begin
         green_o <= x"00";
         blue_o <= x"00";
       elsif test_pattern_enable120='1' then
-        red_o <= to_unsigned(raddr50,8);
-        green_o <= to_unsigned(raddr60,8);
-        blue_o <= to_unsigned(raddrvga60,8);
+--        red_o <= to_unsigned(raddr50,8);
+--        green_o <= to_unsigned(raddr60,8);
+--        blue_o <= to_unsigned(raddrvga60,8);
+        red_o <= test_pattern_red50;
+        green_o <= test_pattern_green50;
+        blue_o <= test_pattern_blue50;
       else
         red_o <= red_i;
         green_o <= green_i;
@@ -564,9 +576,12 @@ begin
         green_no <= x"00";
         blue_no <= x"00";
       elsif test_pattern_enable120='1' then
-        red_no <= to_unsigned(raddr50,8);
-        green_no <= to_unsigned(raddr60,8);
-        blue_no <= to_unsigned(raddrvga60,8);
+--        red_no <= to_unsigned(raddr50,8);
+--        green_no <= to_unsigned(raddr60,8);
+--        blue_no <= to_unsigned(raddrvga60,8);
+        red_no <= test_pattern_red50;
+        green_no <= test_pattern_green50;
+        blue_no <= test_pattern_blue50;
       else
         red_no <= red_i;
         green_no <= green_i;

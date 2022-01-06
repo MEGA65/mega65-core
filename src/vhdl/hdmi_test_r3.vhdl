@@ -390,6 +390,7 @@ architecture Behavioral of container is
   signal pattern_g : unsigned(7 downto 0);
   signal pattern_b: unsigned(7 downto 0);
   signal pattern_de : std_logic;
+  signal pattern_de_n : std_logic;
   signal pattern_hsync : std_logic;
   signal pattern_vsync : std_logic;
 
@@ -800,9 +801,9 @@ begin
       pixel_strobe_out => pixel_strobe,
       
       -- Configuration information from the VIC-IV
-      hsync_invert => zero,
-      vsync_invert => zero,
-      pal50_select => one,
+      hsync_invert => one,
+      vsync_invert => one,
+      pal50_select => dipsw(0),
       vga60_select => zero,
       test_pattern_enable => one,      
       
@@ -856,6 +857,8 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
+    pattern_de_n <= not pattern_de;
+    
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
@@ -989,17 +992,19 @@ begin
     end if;
     -- LED on main board 
 --    led <= portp(4);
-    led <= pattern_hsync;
+    led <= key_left;
 
     if rising_edge(pixelclock) then
       hsync <= pattern_hsync;
       vsync <= pattern_vsync;
       vgared <= pattern_r;
       vgagreen <= pattern_g;
-      vgablue <= pattern_b;
+--      vgablue <= pattern_b;
+      vgablue <= x"80";
       hdmired <= pattern_r;
       hdmigreen <= pattern_g;
-      hdmiblue <= pattern_b;
+--      hdmiblue <= pattern_b;
+      hdmiblue <= x"80";
     end if;
 
   end process;    
