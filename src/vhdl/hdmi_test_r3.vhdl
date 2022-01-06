@@ -992,7 +992,7 @@ begin
     end if;
     -- LED on main board 
 --    led <= portp(4);
-    led <= key_left;
+    led <= dipsw(0);
 
     if rising_edge(pixelclock) then
       hsync <= pattern_hsync;
