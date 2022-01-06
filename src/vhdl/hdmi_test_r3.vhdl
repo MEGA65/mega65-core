@@ -572,9 +572,9 @@ begin
         vga_vs => pattern_vsync, -- active high vsync
         vga_hs => pattern_hsync, -- active high hsync
         vga_de => pattern_de,   -- pixel enable
-        vga_r => x"00", -- std_logic_vector(pattern_r),
-        vga_g => x"00", -- std_logic_vector(pattern_g),
-        vga_b => x"ff", -- std_logic_vector(pattern_b),
+        vga_r => std_logic_vector(pattern_r),
+        vga_g => std_logic_vector(pattern_g),
+        vga_b => std_logic_vector(pattern_b),
 
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
@@ -803,9 +803,9 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
-      pal50_select => dipsw(0),
+      pal50_select => one,
       vga60_select => zero,
-      test_pattern_enable => one,      
+      test_pattern_enable => dipsw(3),      
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
@@ -999,8 +999,7 @@ begin
       vsync <= pattern_vsync;
       vgared <= pattern_r;
       vgagreen <= pattern_g;
---      vgablue <= pattern_b;
-      vgablue <= x"80";
+      vgablue <= pattern_b;
     end if;
 
   end process;    
