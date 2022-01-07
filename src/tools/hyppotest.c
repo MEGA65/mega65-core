@@ -2865,8 +2865,8 @@ unsigned short resolve_value16(char *in)
 
 int main(int argc,char **argv)
 {
-  if (argc!=2) {
-    fprintf(stderr,"usage: hypertest <test script>\n");
+  if (argc<2 || argc>3) {
+    fprintf(stderr,"usage: hyppotest <test script> [<test>]\n");
     exit(-2);
   }
 
@@ -2880,7 +2880,12 @@ int main(int argc,char **argv)
     fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[3]);
     exit(-2);
   }
+  const char* test_target=(argc==3?argv[2]:NULL);
+  if (test_target) {
+    printf("INFO: Only running test \"%s\"\n",test_target);
+  }
   char line[1024];
+  bool skipping_test=false;
   while(!feof(f)) {
     line[0]=0; fgets(line,1024,f);
     char routine[1024];
@@ -2894,6 +2899,13 @@ int main(int argc,char **argv)
     while (isspace(*line_ptr)) ++line_ptr;
     if (!line_ptr[0]) continue;
     if (line_ptr[0]=='#') continue;
+    if (skipping_test) {
+      if (strncasecmp(line_ptr,"test end",strlen("test end"))==0
+          ||strncasecmp(line_ptr,"end test",strlen("end test"))==0) {
+        skipping_test=false;
+      }
+      continue;
+    }
     if (sscanf(line_ptr,"jsr $%x",&addr)==1) {
       bool prior_error=cpu.term.error;
       bzero(&cpu.term,sizeof(cpu.term));
@@ -2986,9 +2998,12 @@ int main(int argc,char **argv)
         ||strncasecmp(line_ptr,"end test",strlen("end test"))==0) {
       test_conclude(&cpu);
     } else if (sscanf(line_ptr,"test \"%[^\"]\"",test_name)==1) {
-      // Set test name
-      test_init(&cpu);
-      fflush(stdout);
+      if (!test_target || strcmp(test_target, test_name)==0) {
+        // Set test name
+        test_init(&cpu);
+        fflush(stdout);
+      } else
+        skipping_test=true;
     } else if (sscanf(line_ptr,"loadhypposymbols %s",routine)==1) {
       if (load_hyppo_symbols(routine)) cpu.term.error=true;
     } else if (sscanf(line_ptr,"loadhyppo %s",routine)==1) {
