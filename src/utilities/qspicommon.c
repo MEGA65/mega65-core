@@ -994,7 +994,7 @@ void reflash_slot(unsigned char slot)
 {
   unsigned long d,d_last,size,waddr;
   unsigned short bytes_returned;
-  unsigned char fd;
+  unsigned char fd,tries;
   unsigned char *file=select_bitstream_file();
   if (!file) return;
   if ((unsigned short)file==0xffff) return;
@@ -1127,7 +1127,15 @@ void reflash_slot(unsigned char slot)
     
     // Verify the sector to see if it is already correct
     printf("%c  Verifying sector at $%08lX         ",0x13,addr);
+    tries=0;
     while(flash_region_differs(addr,addr-SLOT_SIZE*slot,size)) {
+      tries++;
+      if (tries==10) {
+	printf("%c%c%cERROR: Could not write to flash after %d tries.\n",0x11,0x11,0x11,tries);
+	printf("Press any key to enter flash inspector.\n");
+	press_any_key();
+	flash_inspector();
+      }
       printf("%c    Erasing sector at $%08lX",0x13,addr);
       POKE(0xD020,2);
       erase_sector(addr);
