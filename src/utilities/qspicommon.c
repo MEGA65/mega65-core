@@ -1066,6 +1066,7 @@ void reflash_slot(unsigned char slot)
     // (as the model_id checking read the first 512 bytes already)
     fd=hy_open(file);
     
+    progress_acc=0; progress=0;
     printf("%cLoading COR file into Attic RAM...\n",0x93);    
     
     getciartc(&tm_start);
