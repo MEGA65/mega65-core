@@ -996,6 +996,7 @@ void reflash_slot(unsigned char slot)
   unsigned short bytes_returned;
   unsigned char fd,tries;
   unsigned char *file=select_bitstream_file();
+  unsigned char erase_mode=0;
   if (!file) return;
   if ((unsigned short)file==0xffff) return;
 
@@ -1060,32 +1061,114 @@ void reflash_slot(unsigned char slot)
 
     if (!check_model_id_field())
       return;
-  }
 
-  // start reading file from beginning again
-  // (as the model_id checking read the first 512 bytes already)
-  fd=hy_open(file);
-
-  printf("%cLoading COR file into Attic RAM...\n",0x93);    
-  
-  getciartc(&tm_start);
-  for(addr=0;addr<SLOT_SIZE;addr+=512) {
-    progress_acc+=512;
+    // start reading file from beginning again
+    // (as the model_id checking read the first 512 bytes already)
+    fd=hy_open(file);
+    
+    printf("%cLoading COR file into Attic RAM...\n",0x93);    
+    
+    getciartc(&tm_start);
+    for(addr=0;addr<SLOT_SIZE;addr+=512) {
+      progress_acc+=512;
 #ifdef A100T
-    if (progress_acc>26214) {
-      progress_acc-=26214;
-      progress++;
-      progress_bar(progress);
-    }
+      if (progress_acc>26214) {
+	progress_acc-=26214;
+	progress++;
+	progress_bar(progress);
+      }
 #else
-    if (progress_acc>52428UL) {
-      progress_acc-=52428UL;
-      progress++;
-      progress_bar(progress);
-    }
+      if (progress_acc>52428UL) {
+	progress_acc-=52428UL;
+	progress++;
+	progress_bar(progress);
+      }
 #endif
-
-    if (!(addr&0xffff)) {
+      
+      if (!(addr&0xffff)) {
+	getciartc(&tm_now);
+	d=seconds_between(&tm_start,&tm_now);
+	if (d!=d_last) {
+	  unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
+	  // This division is _really_ slow, which is why we do it only
+	  // once per second.
+	  unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	  d_last=d;
+	  printf("%c%c%c%c%c%c%c%c%c%cLoading %dKB/sec, done in %ld sec.          \n",
+		 0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
+		 eta
+		 );
+	}
+      }
+    
+      bytes_returned=hy_read512();
+      
+      if (!bytes_returned) break;
+      lcopy(0xffd6e00L,0x8000000L+addr,512);
+    }  
+    getciartc(&tm_now);
+    load_time=seconds_between(&tm_start,&tm_now);
+    printf("%cLoaded COR file in %d seconds.\n",0x93,load_time);
+     
+    progress_acc=0; progress=0;
+    getciartc(&tm_start);
+    
+    addr=SLOT_SIZE*slot;
+    while(addr < (SLOT_SIZE*(slot+1))) {
+      if (num_4k_sectors*4096>addr)
+	size=4096;
+      else
+	size=1L<<((long)flash_sector_bits);
+      
+      // Do a dummy read to clear any pending stuck QSPI commands
+      // (else we get incorrect return value from QSPI verify command)
+      while(!verify_data_in_place(0L)) read_data(0);
+      
+      // Verify the sector to see if it is already correct
+      printf("%c  Verifying sector at $%08lX/%07lX",0x13,addr,addr-SLOT_SIZE*slot);
+      tries=0;
+      while(flash_region_differs(addr-SLOT_SIZE*slot,addr,size)) {
+	tries++;
+	if (tries==10) {
+	  printf("%c%c%cERROR: Could not write to flash after %d tries.\n",0x11,0x11,0x11,tries);
+	  printf("Press any key to enter flash inspector.\n");
+	  press_any_key();
+	  flash_inspector();
+	}
+	printf("%c    Erasing sector at $%08lX",0x13,addr);
+	POKE(0xD020,2);
+	erase_sector(addr);
+	read_data(0xffffffff);
+	POKE(0xD020,0);
+	
+	printf("%cProgramming sector at $%08lX",0x13,addr);
+	for(waddr=addr;waddr<(addr+size);waddr+=256) {
+	  lcopy(0x8000000L+waddr-SLOT_SIZE*slot,(unsigned long)data_buffer,256);
+	  //	lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
+	  POKE(0xD020,3);
+	  program_page(waddr,256);
+	  POKE(0xD020,0);
+	}
+	
+      }
+      
+      progress_acc+=size;
+#ifdef A100T
+      while (progress_acc>26214UL) {
+	progress_acc-=26214UL;
+	progress++;
+	progress_bar(progress);
+      }
+#else
+      while (progress_acc>52428UL) {
+	progress_acc-=52428UL;
+	progress++;
+	progress_bar(progress);
+      }
+#endif
+      
+      addr+=size;
+      
       getciartc(&tm_now);
       d=seconds_between(&tm_start,&tm_now);
       if (d!=d_last) {
@@ -1094,116 +1177,82 @@ void reflash_slot(unsigned char slot)
 	// once per second.
 	unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
 	d_last=d;
-	printf("%c%c%c%c%c%c%c%c%c%cLoading %dKB/sec, done in %ld sec.          \n",
+	printf("%c%c%c%c%c%c%c%c%c%cFlashing at %dKB/sec, done in %ld sec.          \n",
 	       0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
 	       eta
 	       );
-      }
+      }    
+      
     }
-
+    flash_time=seconds_between(&tm_start,&tm_now);
     
-    bytes_returned=hy_read512();
-    
-    if (!bytes_returned) break;
-    lcopy(0xffd6e00L,0x8000000L+addr,512);
-  }  
-  getciartc(&tm_now);
-  load_time=seconds_between(&tm_start,&tm_now);
-  printf("%cLoaded COR file in %d seconds.\n",0x93,load_time);
-
-  progress_acc=0; progress=0;
-  getciartc(&tm_start);
-  
-  addr=SLOT_SIZE*slot;
-  while(addr < (SLOT_SIZE*(slot+1))) {
-    if (num_4k_sectors*4096>addr)
-      size=4096;
-    else
-      size=1L<<((long)flash_sector_bits);
-
-    // Do a dummy read to clear any pending stuck QSPI commands
-    // (else we get incorrect return value from QSPI verify command)
-    while(!verify_data_in_place(0L)) read_data(0);
-    
-    // Verify the sector to see if it is already correct
-    printf("%c  Verifying sector at $%08lX/%07lX",0x13,addr,addr-SLOT_SIZE*slot);
-    tries=0;
-    while(flash_region_differs(addr-SLOT_SIZE*slot,addr,size)) {
-      tries++;
-      if (tries==10) {
-	printf("%c%c%cERROR: Could not write to flash after %d tries.\n",0x11,0x11,0x11,tries);
-	printf("Press any key to enter flash inspector.\n");
-	press_any_key();
-	flash_inspector();
-      }
+    // Undraw the sector display before showing results
+    lfill(0x0400+12*40,0x20,512);
+  } else {
+    // Erase mode
+    addr=SLOT_SIZE*slot;
+    while(addr < (SLOT_SIZE*(slot+1))) {
+      if (num_4k_sectors*4096>addr)
+	size=4096;
+      else
+	size=1L<<((long)flash_sector_bits);
+      
       printf("%c    Erasing sector at $%08lX",0x13,addr);
       POKE(0xD020,2);
       erase_sector(addr);
       read_data(0xffffffff);
       POKE(0xD020,0);
-      
-      printf("%cProgramming sector at $%08lX",0x13,addr);
-      for(waddr=addr;waddr<(addr+size);waddr+=256) {
-	lcopy(0x8000000L+waddr-SLOT_SIZE*slot,(unsigned long)data_buffer,256);
-	//	lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
-	POKE(0xD020,3);
-	program_page(waddr,256);
-	POKE(0xD020,0);
-      }
-      
-    }
-
-    progress_acc+=size;
+            
+      progress_acc+=size;
 #ifdef A100T
-    while (progress_acc>26214UL) {
-      progress_acc-=26214UL;
-      progress++;
-      progress_bar(progress);
-    }
+      while (progress_acc>26214UL) {
+	progress_acc-=26214UL;
+	progress++;
+	progress_bar(progress);
+      }
 #else
-    while (progress_acc>52428UL) {
-      progress_acc-=52428UL;
-      progress++;
-      progress_bar(progress);
-    }
+      while (progress_acc>52428UL) {
+	progress_acc-=52428UL;
+	progress++;
+	progress_bar(progress);
+      }
 #endif
+      
+      addr+=size;
+      
+      getciartc(&tm_now);
+      d=seconds_between(&tm_start,&tm_now);
+      if (d!=d_last) {
+	unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
+	// This division is _really_ slow, which is why we do it only
+	// once per second.
+	unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
+	d_last=d;
+	printf("%c%c%c%c%c%c%c%c%c%cErasing at %dKB/sec, done in %ld sec.          \n",
+	       0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
+	       eta
+	       );
+      }    
+      
+    }
+    flash_time=seconds_between(&tm_start,&tm_now);
 
-    addr+=size;
-    
-    getciartc(&tm_now);
-    d=seconds_between(&tm_start,&tm_now);
-    if (d!=d_last) {
-      unsigned int speed=(unsigned int)(((addr-(SLOT_SIZE*slot))/d)>>10);
-      // This division is _really_ slow, which is why we do it only
-      // once per second.
-      unsigned long eta=(((SLOT_SIZE)*(slot+1)-addr)/speed)>>10;
-      d_last=d;
-      printf("%c%c%c%c%c%c%c%c%c%cFlashing at %dKB/sec, done in %ld sec.          \n",
-	     0x13,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,speed,
-	     eta
-	     );
-    }    
     
   }
-  flash_time=seconds_between(&tm_start,&tm_now);
   
-  // Undraw the sector display before showing results
-  lfill(0x0400+12*40,0x20,512);
-  
-  printf("%c%c%c%c%c%c%c%c"
-	 "Flash slot successfully updated.\n"
-	 "    Load: %d sec\n"
-	 "   Flash: %d sec\n"
-	 "\n"
-	 "Press any key to return to menu.\n",
-	 0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
-	 load_time,flash_time);
-  // Coloured border to draw attention
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1);
-  POKE(0xD020,0);
-  while(PEEK(0xD610)) POKE(0xD610,0);
-
+    printf("%c%c%c%c%c%c%c%c\n"
+	   "Flash slot successfully erased.\n"
+	   "   Erase: %d sec\n"
+	   "\n"
+	   "Press any key to return to menu.\n",
+	   0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
+	   flash_time);
+    // Coloured border to draw attention
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1);
+    POKE(0xD020,0);
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
   return;
