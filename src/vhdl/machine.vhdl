@@ -518,6 +518,8 @@ architecture Behavioral of machine is
   signal reset_monitor : std_logic;
   signal reset_monitor_drive : std_logic;
   signal reset_monitor_history : std_logic_vector(15 downto 0) := (others => '1');
+  signal reset_monitor_count_int : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal reset_monitor_count : unsigned(11 downto 0) := to_unsigned(0,12);
   
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
@@ -812,6 +814,14 @@ begin
       -- But requiring to be low so long causes monitor induced reset to be ignored.
       -- monitor asserts reset for 255 cycles, so looking for 8 in a row should
       -- be safe.
+      if reset_monitor='0' then
+        if reset_monitor_count_int /= x"fff" then
+          reset_monitor_count_int <= reset_monitor_count_int + 1;
+        else
+          reset_monitor_count_int <= x"000";
+        end if;
+      end if;
+      reset_monitor_count <= reset_monitor_count_int;
       reset_monitor <= reset_monitor_drive;      
       reset_monitor_history(15 downto 1) <= reset_monitor_history(14 downto 0);
       reset_monitor_history(0) <= reset_monitor;
@@ -1504,6 +1514,7 @@ begin
       dd00_bits => dd00_bits,
 
       last_reset_source => last_reset_source,
+      reset_monitor_count => reset_monitor_count,
       
       max10_fpga_date => max10_fpga_date,
       max10_fpga_commit => max10_fpga_commit,
