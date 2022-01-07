@@ -3054,6 +3054,41 @@ int main(int argc,char **argv)
         b=resolve_value8(value);
         write_mem28(&cpu,addr,b);
       }
+    } else if (sscanf(line_ptr,"step %u",&first)==1) {
+      fprintf(logfile,">>> Stepping %u instructions starting at %s @ $%04x\n",
+              first,describe_address_label(&cpu,cpu.regs.pc),cpu.regs.pc);
+      bool prior_error=cpu.term.error, prior_log_dma=cpu.term.log_dma;
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.log_dma=prior_log_dma;
+      for(unsigned i=0;i<first;++i) {
+        if (!cpu_step(logfile)) break;
+      }
+      cpu.term.error|=prior_error;
+    } else if (strncasecmp(line_ptr,"step",strlen("step"))==0) {
+      fprintf(logfile,">>> Stepping instruction at %s @ $%04x\n",
+              describe_address_label(&cpu,cpu.regs.pc),cpu.regs.pc);
+      bool prior_error=cpu.term.error, prior_log_dma=cpu.term.log_dma;
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.log_dma=prior_log_dma;
+      cpu_step(logfile);
+      cpu.term.error|=prior_error;
+    } else if (sscanf(line_ptr,"run until %s",location)==1) {
+      bool run_until_brk=strcasecmp("brk",location)==0;
+      fprintf(logfile,">>> Running from %s @ $%04x until %s\n",
+              describe_address_label(&cpu,cpu.regs.pc),cpu.regs.pc,
+              run_until_brk?"brk":"rts");
+      bool prior_error=cpu.term.error, prior_log_dma=cpu.term.log_dma;
+      bzero(&cpu.term,sizeof(cpu.term));
+      cpu.term.log_dma=prior_log_dma;
+      if (!run_until_brk)
+        cpu.term.rts=1; // Terminate on net RTS from routine
+      cpu_run(logfile);
+      if (run_until_brk && cpu.term.brk) {
+        cpu.term.error=false;
+        fprintf(logfile,"INFO: Terminating via BRK at %s @ $%04x\n",
+                describe_address_label(&cpu,cpu.regs.pc),cpu.regs.pc);
+      }
+      cpu.term.error|=prior_error;
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
       cpu.term.error=true;

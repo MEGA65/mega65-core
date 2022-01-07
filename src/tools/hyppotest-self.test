@@ -101,3 +101,46 @@ test "clear breakpoint directives"
   expect a = $23
   check registers
 end test
+
+
+test "step and run directives"
+  # lda #$12: inc: tax: clc: adc #$23: tay: ldz #$45: rts
+  poke $2000, $a9, $12, $1a, $aa, $18, $69, $23, $a8, $a3, $45, $60
+
+  # Start the routine at $2000 but immediately stop at the first instruction
+  breakpoint $2000
+  jsr $2000
+  clear all breakpoints
+  expect pc = $2000
+  check registers
+
+  # Test stepping over a 2-byte instruction
+  # lda #$12
+  step
+  expect pc = $2002
+  expect a = $12
+  check registers
+
+  # Test stepping over a 1-byte instruction
+  # inc
+  step
+  expect pc = $2003
+  expect a = $13
+  check registers
+
+  # Test stepping over a 3 instructions
+  # tax: clc: adc #$23
+  step 3
+  expect pc = $2007
+  expect x = $13
+  expect a = $36
+  check registers
+
+  # Test running until the end of the routine
+  # tay: ldz #$45: rts
+  run until rts
+  ignore all regs
+  expect y = $36
+  expect z = $45
+  check registers
+end test
