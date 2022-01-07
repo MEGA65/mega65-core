@@ -99,6 +99,7 @@ entity c65uart is
     j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
 
     last_reset_source : in unsigned(2 downto 0);
+    reset_monitor_count : in unsigned(11 downto 0);
     
     accessible_key_event : in unsigned(7 downto 0);
     accessible_key_enable : inout std_logic := '0';
@@ -840,6 +841,10 @@ begin  -- behavioural
                       fastio_rdata(7 downto 5) <= last_reset_source;
         -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
         when x"3d" => fastio_rdata <= dc_track_rate_int;
+        when x"3e" => fastio_rdata <= reset_monitor_count(7 downto 0);
+        when x"3f" => fastio_rdata(3 downto 0) <= reset_monitor_count(11 downto 8);
+                      fastio_rdata(7 downto 4) <= x"0";
+          
         when others =>
           report "Reading untied register, result = Z";
           fastio_rdata <= (others => 'Z');

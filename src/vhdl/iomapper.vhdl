@@ -822,6 +822,7 @@ begin
       portg(0) => drive_connect,
 
       last_reset_source => last_reset_source,
+      reset_monitor_count => reset_monitor_count,
 
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable,
