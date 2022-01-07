@@ -25,8 +25,8 @@ void main(void)
   // Probe flash with verbose output
   probe_qpsi_flash(1);
   
+  // flash_inspector();
    reflash_slot(0);
-   // flash_inspector();
   
 }
 
