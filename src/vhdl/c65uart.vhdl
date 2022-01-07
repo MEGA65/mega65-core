@@ -570,7 +570,7 @@ begin  -- behavioural
           when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when x"3C" => sid_mode_int <= fastio_wdata(3 downto 0);
-                        dc_track_enable <= fastio_wdata(4);
+                        dc_track_enable_int <= fastio_wdata(4);
           when x"3D" => dc_track_rate <= fastio_wdata(7 downto 0);
           when others => null;
         end case;
