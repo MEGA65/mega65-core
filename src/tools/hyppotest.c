@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -1497,18 +1498,9 @@ int stack_push(struct cpu *cpu,unsigned char v)
   return 0;
 }
 
-int execute_instruction(struct cpu *cpu,struct instruction_log *log)
+bool execute_instruction(struct cpu *cpu,struct instruction_log *log)
 {
   int v;
-
-  if (breakpoints[cpu->regs.pc]) {
-    fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
-            describe_address_label(cpu,cpu->regs.pc),
-            cpu->regs.pc);
-    cpu->term.done=1;
-    return 0;
-  }
-
   for(int i=0;i<6;i++) {
     log->bytes[i]=read_memory(cpu,cpu->regs.pc+i);
   }
@@ -2293,26 +2285,98 @@ int execute_instruction(struct cpu *cpu,struct instruction_log *log)
   default:
     fprintf(stderr,"ERROR: Unimplemented opcode $%02X\n",log->bytes[0]);
     log->len=6;
-    return -1;
+    return false;
+  }
+  return true;
+}
+
+bool cpu_step(FILE *f) {
+  if (breakpoints[cpu.regs.pc]) {
+    fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
+            describe_address_label(&cpu,cpu.regs.pc),
+            cpu.regs.pc);
+    cpu.term.done=1;
+    return false;
+  }
+
+  struct instruction_log *log=malloc(sizeof(instruction_log));
+  log->regs=cpu.regs;
+  log->pc=cpu.regs.pc;
+  log->len=0; // byte count of instruction
+  log->count=1;
+  log->dup=0;
+
+  // Add instruction to the log
+  cpu.instruction_count=cpulog_len;
+  cpulog[cpulog_len++]=log;
+
+  if (!execute_instruction(&cpu,log)) {
+    cpu.term.error=1;
+    fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
+            describe_address(cpu.regs.pc));
+    show_recent_instructions(f,"Instructions leading up to the exception",
+                             &cpu,cpulog_len-16,16,cpu.regs.pc);
+    return false;
   }
 
   // Ignore stack underflows/overflows if execution is complete, so that
   // terminal RTS doesn't cause a stack underflow error
-  if (cpu->term.done) return 0;
+  if (cpu.term.done) return false;
 
-  if (cpu->stack_underflow) {
+  if (cpu.stack_underflow) {
+    cpu.term.error=1;
     fprintf(stderr,"ERROR: Stack underflow detected.\n");
-    return -1;
+    show_recent_instructions(f,"Instructions leading up to the stack underflow",
+                             &cpu,cpulog_len-16,16,cpu.regs.pc);
+    return false;
   }
-  if (cpu->stack_overflow) {
+  if (cpu.stack_overflow) {
+    cpu.term.error=1;
     fprintf(stderr,"ERROR: Stack overflow detected.\n");
-    return -1;
+    show_recent_instructions(f,"Instructions leading up to the stack overflow",
+                             &cpu,cpulog_len-16,16,cpu.regs.pc);
+    return false;
   }
 
-  return 0;
+  cpu.instruction_count=cpulog_len;
+
+  // And to most recent instruction at this address, but only if the last instruction
+  // there was not identical on all registers and instruction to this one
+  if (lastataddr[cpu.regs.pc]&&identical_cpustates(lastataddr[cpu.regs.pc],log)) {
+    // If identical, increase the count, so that we can keep track of infinite loops
+    lastataddr[cpu.regs.pc]->count++;
+    log->dup=1;
+  } else {
+    lastataddr[cpu.regs.pc]=log;
+  }
+  return true;
 }
 
-int cpu_call_routine(FILE *f,unsigned int addr)
+bool cpu_run(FILE *f) {
+  unsigned int start_addr = cpu.regs.pc;
+  // Execute instructions until we empty the stack or hit a BRK
+  // or various other nasty situations that we might allow, including
+  // filling the CPU instruction log
+  while(cpulog_len<MAX_LOG_LENGTH) {
+    // Stop once the termination condition has been reached.
+    if (cpu.term.done) break;
+    // Do the next instruction
+    if (!cpu_step(f)) return false;
+    // Detect infinite loops
+    if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
+      cpu.term.error=1;
+      fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
+              describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
+      // Show upto 32 instructions prior to the infinite loop
+      show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
+                               &cpu,cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,start_addr);
+      return false;
+    }
+  }
+  return true;
+}
+
+bool cpu_call_routine(FILE *f,unsigned int addr)
 {
   cpu.regs.spl=0xff;
 
@@ -2336,59 +2400,12 @@ int cpu_call_routine(FILE *f,unsigned int addr)
   cpu_log_reset();
 
   cpu.regs.pc=addr;
+  if (!cpu_run(f)) return false;
 
-  // Now execute instructions until we empty the stack or hit a BRK
-  // or various other nasty situations that we might allow, including
-  // filling the CPU instruction log
-  while(cpulog_len<MAX_LOG_LENGTH) {
-
-    // Stop once the termination condition has been reached.
-    if (cpu.term.done) break;
-
-    struct instruction_log *log=calloc(sizeof(instruction_log),1);
-    log->regs=cpu.regs;
-    log->pc=cpu.regs.pc;
-    log->len=0; // byte count of instruction
-    log->count=1;
-    log->dup=0;
-
-    // Add instruction to the log
-    cpu.instruction_count=cpulog_len;
-    cpulog[cpulog_len++]=log;
-
-    if (execute_instruction(&cpu,log)) {
-      cpu.term.error=1;
-      fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
-              describe_address(cpu.regs.pc));
-      show_recent_instructions(f,"Instructions leading up to the exception",
-                               &cpu,cpulog_len-16,16,cpu.regs.pc);
-      return -1;
-    }
-
-    cpu.instruction_count=cpulog_len;
-
-    // And to most recent instruction at this address, but only if the last instruction
-    // there was not identical on all registers and instruction to this one
-    if (lastataddr[cpu.regs.pc]&&identical_cpustates(lastataddr[cpu.regs.pc],log)) {
-      // If identical, increase the count, so that we can keep track of infinite loops
-      lastataddr[cpu.regs.pc]->count++;
-      log->dup=1;
-      if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
-        cpu.term.error=1;
-        fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
-                describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
-        // Show upto 32 instructions prior to the infinite loop
-        show_recent_instructions(stderr,"Instructions leading into the infinite loop for the first time",
-                                 &cpu,cpulog_len-lastataddr[cpu.regs.pc]->count-30,32,addr);
-        return -1;
-      }
-    } else lastataddr[cpu.regs.pc]=log;
-
-  }
   if (cpulog_len==MAX_LOG_LENGTH) {
     cpu.term.error=1;
     fprintf(logfile,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
-    return -1;
+    return false;
   }
   if (cpu.term.brk) {
     fprintf(logfile,"ERROR: BRK instruction encountered.\n");
@@ -2400,13 +2417,13 @@ int cpu_call_routine(FILE *f,unsigned int addr)
       show_recent_instructions(logfile,"Instructions leading to the BRK instruction being written",
                                &cpu,blame-16,17,cpu.regs.pc);
     }
-    return -1;
+    return false;
   }
   if (cpu.term.done) {
     fprintf(logfile,"NOTE: Execution ended.\n");
   }
 
-  return 0;
+  return true;
 }
 
 #define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_expected.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
