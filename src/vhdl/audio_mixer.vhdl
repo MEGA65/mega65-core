@@ -260,31 +260,31 @@ begin
           -- Subtract DC
           -- We must maintain separate DC estimates for each of the 8 output channels.
 
-          -- Subtract DC and clamp to 16-bit range
-          -- We still want the mixed_value to be signed, i.e., centred on $8000,
-          -- so need to account for this.
-          if output_num = 0 then
-            report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
-              & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
-              & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
-              & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
-          end if;
-          -- Track DC level
-          delta := dc_estimate(output_num);
-          delta := delta - to_integer(mixed_value);
---          report "delta = $" & to_hstring(delta);
-          if delta = to_signed(0,20) then
-          elsif delta > 0 then
-            if dc_votes_below(output_num) < 255 then
-              dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
-            end if;
-          elsif delta < 0 then
-            if dc_votes_above(output_num) < 255 then
-              dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
-            end if;
-          end if;
           -- Clamp output value
           if dc_track_enable = '1' and dc_track_feature then
+            -- Subtract DC and clamp to 16-bit range
+            -- We still want the mixed_value to be signed, i.e., centred on $8000,
+            -- so need to account for this.
+            if output_num = 0 then
+              report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
+                & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
+                & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
+                & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
+            end if;
+            -- Track DC level
+            delta := dc_estimate(output_num);
+            delta := delta - to_integer(mixed_value);
+--          report "delta = $" & to_hstring(delta);
+            if delta = to_signed(0,20) then
+            elsif delta > 0 then
+              if dc_votes_below(output_num) < 255 then
+                dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
+              end if;
+            elsif delta < 0 then
+              if dc_votes_above(output_num) < 255 then
+                dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
+              end if;
+            end if;
             if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
               if output_num=0 then
                 report "MIXER: Clamping output at $07FFF";
