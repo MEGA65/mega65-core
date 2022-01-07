@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -2883,17 +2884,18 @@ int main(int argc,char **argv)
     char start[1024];
     char end[1024];
     unsigned int addr,addr2,first,last;
-    if (!line[0]) continue;
-    if (line[0]=='#') continue;
-    if (line[0]=='\r') continue;
-    if (line[0]=='\n') continue;
-    if (sscanf(line,"jsr $%x",&addr)==1) {
+    char *line_ptr=line;
+    // Skip any leading whitespace
+    while (isspace(*line_ptr)) ++line_ptr;
+    if (!line_ptr[0]) continue;
+    if (line_ptr[0]=='#') continue;
+    if (sscanf(line_ptr,"jsr $%x",&addr)==1) {
       bool prior_error=cpu.term.error;
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(logfile,addr);
       cpu.term.error|=prior_error;
-    } else if (sscanf(line,"jsr %s",routine)==1) {
+    } else if (sscanf(line_ptr,"jsr %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
         if (!strcmp(routine,hyppo_symbols[i].name)) break;
@@ -2910,18 +2912,18 @@ int main(int argc,char **argv)
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
         cpu.term.error|=prior_error;
       }
-    } else if (sscanf(line,"dump instructions %d to %d",&first,&last)==2) {
-      show_recent_instructions(logfile,line,&cpu,first,last-first+1,-1);
-    } else if (!strncasecmp(line,"log dma off",strlen("log dma off"))) {
+    } else if (sscanf(line_ptr,"dump instructions %d to %d",&first,&last)==2) {
+      show_recent_instructions(logfile,line_ptr,&cpu,first,last-first+1,-1);
+    } else if (!strncasecmp(line_ptr,"log dma off",strlen("log dma off"))) {
       cpu.term.log_dma=false;
       fprintf(logfile,"NOTE: DMA jobs will not be reported\n");
-    } else if (!strncasecmp(line,"log dma",strlen("log dma"))) {
+    } else if (!strncasecmp(line_ptr,"log dma",strlen("log dma"))) {
       cpu.term.log_dma=true;
       fprintf(logfile,"NOTE: DMA jobs will be reported\n");
-    } else if (!strncasecmp(line,"log on failure",strlen("log on failure"))) {
+    } else if (!strncasecmp(line_ptr,"log on failure",strlen("log on failure"))) {
       // Dump all instructions on test failure
       log_on_failure=true;
-    } else if (sscanf(line,"jmp $%x",&addr)==1) {
+    } else if (sscanf(line_ptr,"jmp $%x",&addr)==1) {
       bool prior_error=cpu.term.error;
       bool log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
@@ -2929,7 +2931,7 @@ int main(int argc,char **argv)
       cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
       cpu.term.error|=prior_error;
-    } else if (sscanf(line,"jmp %s",routine)==1) {
+    } else if (sscanf(line_ptr,"jmp %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
         if (!strcmp(routine,hyppo_symbols[i].name)) break;
@@ -2945,16 +2947,16 @@ int main(int argc,char **argv)
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
         cpu.term.error|=prior_error;
       }
-    } else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
+    } else if (!strncasecmp(line_ptr,"check registers",strlen("check registers"))) {
       // Check registers for changes
       compare_register_contents(logfile,&cpu);
-    } else if (sscanf(line,"ignore from %s to %s",start,end)==2) {
+    } else if (sscanf(line_ptr,"ignore from %s to %s",start,end)==2) {
       int low=resolve_value32(start);
       int high=resolve_value32(end);
       ignore_ram_changes(low,high);
-    } else if (!strncasecmp(line,"ignore all regs",strlen("ignore all regs"))) {
+    } else if (!strncasecmp(line_ptr,"ignore all regs",strlen("ignore all regs"))) {
       cpu_expected.regs=cpu.regs;
-    } else if (sscanf(line,"ignore reg %s",location)==1) {
+    } else if (sscanf(line_ptr,"ignore reg %s",location)==1) {
       // Set expected register value
       if (!strcasecmp(location,"a")) cpu_expected.regs.a=cpu.regs.a;
       else if (!strcasecmp(location,"x")) cpu_expected.regs.x=cpu.regs.x;
@@ -2968,35 +2970,35 @@ int main(int argc,char **argv)
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
         cpu.term.error=true;
       }
-    } else if (sscanf(line,"ignore %s",start)==1) {
+    } else if (sscanf(line_ptr,"ignore %s",start)==1) {
       int low=resolve_value32(start);
       ignore_ram_changes(low,low);
-    }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
+    }  else if (!strncasecmp(line_ptr,"check ram",strlen("check ram"))) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);
-    } else if (strncasecmp(line,"test end",strlen("test end"))==0
-        || strncasecmp(line,"end test",strlen("end test"))==0) {
+    } else if (strncasecmp(line_ptr,"test end",strlen("test end"))==0
+        ||strncasecmp(line_ptr,"end test",strlen("end test"))==0) {
       test_conclude(&cpu);
-    } else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
+    } else if (sscanf(line_ptr,"test \"%[^\"]\"",test_name)==1) {
       // Set test name
       test_init(&cpu);
       fflush(stdout);
-    } else if (sscanf(line,"loadhypposymbols %s",routine)==1) {
+    } else if (sscanf(line_ptr,"loadhypposymbols %s",routine)==1) {
       if (load_hyppo_symbols(routine)) cpu.term.error=true;
-    } else if (sscanf(line,"loadhyppo %s",routine)==1) {
+    } else if (sscanf(line_ptr,"loadhyppo %s",routine)==1) {
       if (load_hyppo(routine)) cpu.term.error=true;
-    } else if (sscanf(line,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
+    } else if (sscanf(line_ptr,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr-addr2)) cpu.term.error=true;
-    } else if (sscanf(line,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
+    } else if (sscanf(line_ptr,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
       if (load_symbols(routine,addr+addr2)) cpu.term.error=true;
-    } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
+    } else if (sscanf(line_ptr,"loadsymbols %s at $%x",routine,&addr)==2) {
       if (load_symbols(routine,addr)) cpu.term.error=true;
-    } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
+    } else if (sscanf(line_ptr,"load %s at $%x",routine,&addr)==2) {
       if (load_file(routine,addr)) cpu.term.error=true;
-    }  else if (!strncasecmp(line,"clear all breakpoints",strlen("clear all breakpoints"))) {
+    }  else if (!strncasecmp(line_ptr,"clear all breakpoints",strlen("clear all breakpoints"))) {
       fprintf(logfile,"INFO: Cleared all breakpoints\n");
       bzero(breakpoints,sizeof(breakpoints));
-    } else if (sscanf(line,"clear breakpoint %s",routine)==1) {
+    } else if (sscanf(line_ptr,"clear breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
       int addr16=addr32;
       if (addr32&0xffff0000) {
@@ -3004,7 +3006,7 @@ int main(int argc,char **argv)
       }
       fprintf(logfile,"INFO: Breakpoint cleared at %s ($%04x)\n",routine,addr16);
       breakpoints[addr16]=0;
-    } else if (sscanf(line,"breakpoint %s",routine)==1) {
+    } else if (sscanf(line_ptr,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
         int addr16=addr32;
       if (addr32&0xffff0000) {
@@ -3012,7 +3014,7 @@ int main(int argc,char **argv)
       }
       fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,addr16);
       breakpoints[addr16]=1;
-    } else if (sscanf(line,"expect %s = %s",location,value)==2) {
+    } else if (sscanf(line_ptr,"expect %s = %s",location,value)==2) {
       // Set expected register value
       if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
       else if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
@@ -3027,13 +3029,13 @@ int main(int argc,char **argv)
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
         cpu.term.error=true;
       }
-    } else if (sscanf(line,"expect %s at %s",value,location)==2) {
+    } else if (sscanf(line_ptr,"expect %s at %s",value,location)==2) {
       // Update *_expected[] memories to indicate the value we expect where.
       // Resolve labels and label+offset and $nn in each of the fields.
       int v=resolve_value8(value);
       int l=resolve_value32(location);
       write_mem_expected28(l,v);
-    } else if (sscanf(line,"define %s as %s",routine,location)==2) {
+    } else if (sscanf(line_ptr,"define %s as %s",routine,location)==2) {
       addr=resolve_value32(location);
       if (symbol_count>=MAX_SYMBOLS) {
         fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
@@ -3045,15 +3047,15 @@ int main(int argc,char **argv)
         sym_by_addr[addr]=&symbols[symbol_count];
       }
       symbol_count++;
-    } else if (sscanf(line,"poke%s%n",location,&last)==1) {
-      char *p=line+last;
+    } else if (sscanf(line_ptr,"poke%s%n",location,&last)==1) {
+      line_ptr+=last;
       unsigned char b;
-      for (addr=resolve_value32(location);(sscanf(p,"%s%n",value,&last))==1;++addr,p+=last) {
+      for (addr=resolve_value32(location);(sscanf(line_ptr,"%s%n",value,&last))==1;++addr,line_ptr+=last) {
         b=resolve_value8(value);
         write_mem28(&cpu,addr,b);
       }
     } else {
-      fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
+      fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
       cpu.term.error=true;
     }
   }

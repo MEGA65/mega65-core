@@ -1,96 +1,103 @@
 # These are tests for the hyppotest program itself.
 # Hyppo's tests are in src/hyppo.
 
+
 test "poke directive"
-define data as $3800
-define val as $8
-poke $2000, $60
-poke $2010, $12, $34
-poke $2020, $56, $78, $9a
-poke data, $12
-poke data+5678, $34
-poke data-1234, $56
-poke data+$480, $78
-poke data-$fed, $9a
-poke data+1, val
-poke data+2, $2, $3, $4, $5, $6, $7, val, $9
-jsr $2000
-expect $60 at $2000
-expect $12 at $2010
-expect $34 at $2011
-expect $56 at $2020
-expect $78 at $2021
-expect $9a at $2022
-expect $12 at $3800
-expect $34 at $4e2e
-expect $56 at $332e
-expect $78 at $3c80
-expect $9a at $2813
-expect $08 at $3801
-expect $02 at $3802
-expect $03 at $3803
-expect $04 at $3804
-expect $05 at $3805
-expect $06 at $3806
-expect $07 at $3807
-expect $08 at $3808
-expect $09 at $3809
-check ram
+  define data as $3800
+  define val as $8
+  poke $2000, $60
+  poke $2010, $12, $34
+  poke $2020, $56, $78, $9a
+  poke data, $12
+  poke data+5678, $34
+  poke data-1234, $56
+  poke data+$480, $78
+  poke data-$fed, $9a
+  poke data+1, val
+  poke data+2, $2, $3, $4, $5, $6, $7, val, $9
+  jsr $2000
+  expect $60 at $2000
+  expect $12 at $2010
+  expect $34 at $2011
+  expect $56 at $2020
+  expect $78 at $2021
+  expect $9a at $2022
+  expect $12 at $3800
+  expect $34 at $4e2e
+  expect $56 at $332e
+  expect $78 at $3c80
+  expect $9a at $2813
+  expect $08 at $3801
+  expect $02 at $3802
+  expect $03 at $3803
+  expect $04 at $3804
+  expect $05 at $3805
+  expect $06 at $3806
+  expect $07 at $3807
+  expect $08 at $3808
+  expect $09 at $3809
+  check ram
 end test
+
 
 test "check ram"
-# lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
-poke $2000, $a9, $12, $8d, $00, $30, $ad, $00, $25, $8d, $01, $30, $a9, $34, $8d, $00, $35, $60
-poke $2500, $ab
-jsr $2000
-expect $12 at $3000
-expect $ab at $3001
-ignore from $3500 to $35ff
-check ram
+  # lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
+  poke $2000, $a9, $12, $8d, $00, $30, $ad, $00, $25, $8d, $01, $30, $a9, $34, $8d, $00, $35, $60
+  poke $2500, $ab
+  jsr $2000
+  expect $12 at $3000
+  expect $ab at $3001
+  ignore from $3500 to $35ff
+  check ram
 end test
+
 
 test "ignore reg directives"
-# lda #$12: ldx #$23 rts
-poke $2000, $a9, $12, $a2, $23, $60
-jsr $2000
-ignore reg spl
-ignore reg sph
-expect pc = $0001
-expect a = $12
-expect x = $23
-check registers
-jsr $2000
-ignore all regs
-check registers
-jsr $2000
-ignore all regs
-expect a = $12
-expect x = $23
-check registers
+  # lda #$12: ldx #$23 rts
+  poke $2000, $a9, $12, $a2, $23, $60
+  jsr $2000
+  ignore reg spl
+  ignore reg sph
+  expect pc = $0001
+  expect a = $12
+  expect x = $23
+  check registers
+  jsr $2000
+  ignore all regs
+  check registers
+  jsr $2000
+  ignore all regs
+  expect a = $12
+  expect x = $23
+  check registers
 end test
 
+
 test "clear breakpoint directives"
-# lda #$12: lda #$23 rts
-poke $2000, $a9, $12, $a9, $23, $60
-breakpoint $2000
-breakpoint $2002
-breakpoint $2004
-jsr $2000
-ignore reg spl
-ignore reg sph
-expect pc = $2000
-expect a = $00
-check registers
-clear breakpoint $2000
-jsr $2000
-ignore all regs
-expect pc = $2002
-expect a = $12
-check registers
-clear all breakpoints
-jsr $2000
-ignore all regs
-expect pc = $0001
-expect a = $23
-check registers
+  # lda #$12: lda #$23 rts
+  poke $2000, $a9, $12, $a9, $23, $60
+  breakpoint $2000
+  breakpoint $2002
+  breakpoint $2004
+
+  jsr $2000
+  ignore reg spl
+  ignore reg sph
+  expect pc = $2000
+  expect a = $00
+  check registers
+  clear breakpoint $2000
+
+  jsr $2000
+  ignore all regs
+  expect pc = $2002
+  expect a = $12
+  check registers
+  clear all breakpoints
+
+  jsr $2000
+  ignore all regs
+  expect pc = $0001
+  expect a = $23
+  check registers
 end test
