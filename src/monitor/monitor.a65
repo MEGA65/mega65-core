@@ -459,6 +459,9 @@ do_jump:
       jmp         (cmd_jmp_table,x)
       
 reset_cmd:
+	;; XXX - Debug spontaneous reset by shoring if the monitor thinks it sent the command.
+	lda #$40
+	jsr output_char
       lda         #255
       sta         mon_reset                     ; We probably won't make it past here...
       jmp         next_command
