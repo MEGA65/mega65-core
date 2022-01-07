@@ -3017,7 +3017,6 @@ int main(int argc,char **argv)
     } else if (sscanf(line_ptr,"expect %s = %s",location,value)==2) {
       // Set expected register value
       if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
-      else if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
       else if (!strcasecmp(location,"x")) cpu_expected.regs.x=resolve_value8(value);
       else if (!strcasecmp(location,"y")) cpu_expected.regs.y=resolve_value8(value);
       else if (!strcasecmp(location,"z")) cpu_expected.regs.z=resolve_value8(value);
