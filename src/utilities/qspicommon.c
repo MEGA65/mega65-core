@@ -1241,12 +1241,13 @@ void reflash_slot(unsigned char slot)
   }
   
     printf("%c%c%c%c%c%c%c%c\n"
-	   "Flash slot successfully erased.\n"
-	   "   Erase: %d sec\n"
+	   "Flash slot successfully updated.\n"
+	   "    Load: %d sec\n"
+	   "   Flash: %d sec\n"
 	   "\n"
 	   "Press any key to return to menu.\n",
 	   0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
-	   flash_time);
+	   load_time,flash_time);
     // Coloured border to draw attention
     while(PEEK(0xD610)) POKE(0xD610,0);
     while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1);
