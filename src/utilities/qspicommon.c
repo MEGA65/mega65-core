@@ -1191,6 +1191,7 @@ void reflash_slot(unsigned char slot)
     lfill(0x0400+12*40,0x20,512);
   } else {
     // Erase mode
+    progress_acc=0; progress=0;
     addr=SLOT_SIZE*slot;
     while(addr < (SLOT_SIZE*(slot+1))) {
       if (num_4k_sectors*4096>addr)
@@ -1242,13 +1243,15 @@ void reflash_slot(unsigned char slot)
   }
   
     printf("%c%c%c%c%c%c%c%c\n"
-	   "Flash slot successfully updated.\n"
-	   "    Load: %d sec\n"
-	   "   Flash: %d sec\n"
-	   "\n"
-	   "Press any key to return to menu.\n",
-	   0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
-	   load_time,flash_time);
+	   "Flash slot successfully updated.\n");
+    if (load_time + flash_time > 0)
+      printf(
+	      "    Load: %d sec\n"
+	      "   Flash: %d sec\n"
+	      "\n"
+	      "Press any key to return to menu.\n",
+	      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
+	      load_time,flash_time);
     // Coloured border to draw attention
     while(PEEK(0xD610)) POKE(0xD610,0);
     while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1);
