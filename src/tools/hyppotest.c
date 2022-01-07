@@ -2993,6 +2993,17 @@ int main(int argc,char **argv)
       if (load_symbols(routine,addr)) cpu.term.error=true;
     } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
       if (load_file(routine,addr)) cpu.term.error=true;
+    }  else if (!strncasecmp(line,"clear all breakpoints",strlen("clear all breakpoints"))) {
+      fprintf(logfile,"INFO: Cleared all breakpoints\n");
+      bzero(breakpoints,sizeof(breakpoints));
+    } else if (sscanf(line,"clear breakpoint %s",routine)==1) {
+      int addr32=resolve_value32(routine);
+      int addr16=addr32;
+      if (addr32&0xffff0000) {
+        addr16=addr32&0xffff;
+      }
+      fprintf(logfile,"INFO: Breakpoint cleared at %s ($%04x)\n",routine,addr16);
+      breakpoints[addr16]=0;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
         int addr16=addr32;

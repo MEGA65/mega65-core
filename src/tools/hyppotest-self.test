@@ -68,3 +68,29 @@ expect a = $12
 expect x = $23
 check registers
 end test
+
+test "clear breakpoint directives"
+# lda #$12: lda #$23 rts
+poke $2000, $a9, $12, $a9, $23, $60
+breakpoint $2000
+breakpoint $2002
+breakpoint $2004
+jsr $2000
+ignore reg spl
+ignore reg sph
+expect pc = $2000
+expect a = $00
+check registers
+clear breakpoint $2000
+jsr $2000
+ignore all regs
+expect pc = $2002
+expect a = $12
+check registers
+clear all breakpoints
+jsr $2000
+ignore all regs
+expect pc = $0001
+expect a = $23
+check registers
+end test
