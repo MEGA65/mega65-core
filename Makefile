@@ -1114,6 +1114,7 @@ clean:
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
 	rm -f $(TOOLS)
+	rm -f FAIL.* PASS.*
 
 cleangen:
 	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
