@@ -2354,6 +2354,9 @@ bool cpu_step(FILE *f) {
 
 bool cpu_run(FILE *f) {
   unsigned int start_addr = cpu.regs.pc;
+  // Clear any previous stack overflow or underflow exception
+  cpu.stack_overflow=false;
+  cpu.stack_underflow=false;
   // Execute instructions until we empty the stack or hit a BRK
   // or various other nasty situations that we might allow, including
   // filling the CPU instruction log
