@@ -24,9 +24,6 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity audio_mixer is
-  generic (
-    dc_track_feature : boolean := false
-    );
   port (    
     cpuclock : in std_logic;
 
@@ -39,9 +36,6 @@ entity audio_mixer is
     modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
 
-    dc_track_enable : in std_logic;
-    dc_track_rate : in unsigned(7 downto 0);
-    
     -- Read in values from audio knobs
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
     volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
@@ -64,11 +58,6 @@ architecture elizabethan of audio_mixer is
   signal srcs : sample_vector_t := (others => x"0000");
   signal source_num : integer range 0 to 15 := 0;
 
-  signal dc_estimate : dc_level_vector_t := (others => x"00000");
-  signal dc_estimate_age : sprite_vector_8 := (others => x"00");
-  signal dc_votes_below : sprite_vector_8 := (others => x"00");
-  signal dc_votes_above : sprite_vector_8 := (others => x"00");
-  
   signal state : integer := 0;
   signal output_offset : integer := 0;
   signal output_num : integer := 0;
@@ -84,7 +73,7 @@ architecture elizabethan of audio_mixer is
   signal set_output : std_logic := '0';
   signal output_channel : integer range 0 to 15 := 0;
   
-  signal mixed_value : signed(19 downto 0) := x"00000";
+  signal mixed_value : signed(15 downto 0) := x"0000";
 
   signal dummy : unsigned(15 downto 0) := x"0000";
 
@@ -111,52 +100,30 @@ begin
   process (cpuclock) is
     variable src_temp : unsigned(15 downto 0);
     variable mix_temp : integer;
-    variable delta : signed(19 downto 0);
 
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
-                                             volume : unsigned(15 downto 0);
-                                             debug : boolean)
+                                             volume : unsigned(15 downto 0))
       return signed is
       variable value_unsigned : unsigned(15 downto 0);
       variable result_unsigned : unsigned(31 downto 0);
       variable result : signed(31 downto 0);
     begin
-      -- Convert signed value to unsigned
-      if debug then
-        report "value=$" & to_hstring(value);
-      end if;
-      if value = x"8000" then
-        value_unsigned := x"8000";
-      elsif (value(15)='0') then
-        value_unsigned(15) := '0';
+      if (value(15)='0') then
         value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
       else
-        value_unsigned(15) := '0';
         value_unsigned(14 downto 0) := (not unsigned(value(14 downto 0)) + 1);
       end if;
-      
-      -- Compute unsigned product
+      value_unsigned(15) := '0';
+
       result_unsigned := value_unsigned * volume;
-      if debug then
-        report "Intermediate result = $" & to_hstring(result_unsigned);
-      end if;
-      
-      -- If value was negative, negate the result
+
       if value(15)='1' then
         result_unsigned := (not result_unsigned) + 1;
       end if;
-      
+
       result := signed(result_unsigned);
 
-      
-      if debug then
-        report "MIXER:multiply_by_volume_coefficient($" & to_hstring(value_unsigned) & ",$" & to_hstring(volume) & " ) = $"
-          & to_hstring(result);
-      end if;
-                                                   
-  
-      -- Sign-extend the result to fill all 20 bits
-      return result(31)&result(31)&result(31)&result(31)&result(31 downto 16);
+      return result(31 downto 16);
       
     end function;   
     
@@ -168,14 +135,12 @@ begin
         audio_loopback <= sources(safe_to_integer(reg_num));
       elsif to_integer(reg_num) < 24 then
         audio_loopback <= outputs(safe_to_integer(reg_num)-16);
-      elsif to_integer(reg_num) < 32 then
-        audio_loopback <= signed(dc_estimate(safe_to_integer(reg_num)-24)(15 downto 0));
       else
         audio_loopback <= x"DEAD";
       end if;
       
       if reg_write='1' then
---        report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
+        report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= safe_to_integer(reg_num(7 downto 1));
         ram_wdata(31 downto 16) <= wdata;
         if reg_num = x"5E" then
@@ -206,7 +171,7 @@ begin
         ram_we <= '0';
       end if;
 
---      report "Read data = $" & to_hstring(ram_rdata(31 downto 16)) & " in state " & integer'image(state);
+      report "Read data = $" & to_hstring(ram_rdata(31 downto 16)) & " in state " & integer'image(state);
       -- State machine for mixing audio sources
       case state is
         when 0 =>
@@ -218,119 +183,43 @@ begin
           -- XXX A bit of a hack to allow 16 inputs: Inputs #14 and #15 have
           -- the same volume level, taken from source 14
           -- (This is used for the OPL2 FM synthesiser)
-          mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume,false);
---          report "MIXER: Applying volume#14 = $" & to_hstring(source14_volume) & " to source 15 $"
---            & to_hstring(sources(15)) & " -> $" & to_hstring(multiply_by_volume_coefficient(sources(15),source14_volume));
+          mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume);
+          report "Zeroing mixed_value";
           -- Request second mix coefficient (first was already scheduled last cycle)
           -- (this is to handle the wait state on read).
           ram_raddr <= 1 + output_offset;
           -- Store fetched coefficient based on CPU request
           -- Service CPU initiated reading of mix coefficient
           rdata <= ram_rdata(31 downto 16);                   
---          report "Read coefficient for the CPU as $" & to_hstring(ram_rdata(31 downto 16));
+          report "Read coefficient for the CPU as $" & to_hstring(ram_rdata(31 downto 16));
         when 1|2|3|4|5|6|7|8|9|10|11|12|13|14|15 =>
           -- Add this input using the read coefficient
---          report "For output "
---            & integer'image(output_num)
---            & ": adding input " & integer'image(state-1)
---            & " (= $" & to_hstring(srcs(state - 1)) & ")"
---            & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
---            & " to current sum = $" & to_hstring(mixed_value);
+          report "For output "
+            & integer'image(output_num)
+            & ": adding input " & integer'image(state-1)
+            & " (= $" & to_hstring(srcs(state - 1)) & ")"
+            & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
+            & " to current sum = $" & to_hstring(mixed_value);
 --          mix_temp := ram_rdata(31 downto 16) * srcs(state - 1);
           if state = 15 then
             source14_volume <= ram_rdata(31 downto 16);
           end if;
-          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16),false);
-          if output_num=10 then
---            report "MIXER: Applying volume#"
---              & integer'image(state-1) & " = $" & to_hstring(ram_rdata(31 downto 16)) & " to $"
---              & to_hstring(srcs(state-1)) & " -> $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
---            report "MIXER: Adding $" & to_hstring(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)))
---              & " to. Now=$" & to_hstring(mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)));
-          end if;
+          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
           else
             -- Service one CPU request per iteration of an output
---            report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
+            report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
             ram_raddr <= safe_to_integer(reg_num(7 downto 1));
           end if;
-        when 16 =>
-          -- Subtract DC
-          -- We must maintain separate DC estimates for each of the 8 output channels.
-
-          -- Clamp output value
-          if dc_track_enable = '1' and dc_track_feature then
-            -- Subtract DC and clamp to 16-bit range
-            -- We still want the mixed_value to be signed, i.e., centred on $8000,
-            -- so need to account for this.
-            if output_num = 0 then
-              report "MIXEROUT: Output " & integer'image(output_num) & " = $" & to_hstring(mixed_value)
-                & " before clamping.  DC offset estimate = $" & to_hstring(dc_estimate(output_num))
-                & ", " & integer'image(to_integer(dc_votes_above(output_num))) & " votes to increase DC, and "
-                & integer'image(to_integer(dc_votes_below(output_num))) & " votes to decrease DC.";
-            end if;
-            -- Track DC level
-            delta := dc_estimate(output_num);
-            delta := delta - to_integer(mixed_value);
---          report "delta = $" & to_hstring(delta);
-            if delta = to_signed(0,20) then
-            elsif delta > 0 then
-              if dc_votes_below(output_num) < 255 then
-                dc_votes_below(output_num) <= dc_votes_below(output_num) + 1;
-              end if;
-            elsif delta < 0 then
-              if dc_votes_above(output_num) < 255 then
-                dc_votes_above(output_num) <= dc_votes_above(output_num) + 1;
-              end if;
-            end if;
-            if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
-              if output_num=0 then
-                report "MIXER: Clamping output at $07FFF";
-              end if;
-              mixed_value <= x"07fff";
-            elsif to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) < x"f8000" then
-              if output_num=0 then
-                report "MIXER: Clamping output at $F8000 ($"
-                  & to_hstring(to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20))
-                  & " was out of range)";
-              end if;
-              mixed_value <= x"f8000";
-            else
-              -- Pass value
-              if output_num=0 then
-                report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
-              end if;
-              mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
-            end if;
-            
-            -- Update DC estimate periodically
-            if dc_estimate_age(output_num) < dc_track_rate then
-              dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
-            else
-              dc_estimate_age(output_num) <= to_unsigned(0,8);
-              dc_votes_below(output_num) <= to_unsigned(0,8);
-              dc_votes_above(output_num) <= to_unsigned(0,8);
-              if dc_votes_below(output_num) < dc_votes_above(output_num) then
-                dc_estimate(output_num) <= dc_estimate(output_num) + 1;
-              elsif dc_votes_below(output_num) > dc_votes_above(output_num) then
-                dc_estimate(output_num) <= dc_estimate(output_num) - 1;
-              end if;
-            end if;
-          end if;
           
-        when 17 =>
+        when 16 =>
           -- Apply master volume
-          if output_num=0 then
-            report "For output "
-              & integer'image(output_num)
-              & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16))
-              & " to value $" & to_hstring(mixed_value(15 downto 0))
-              & ", result = $" &
-              to_hstring(multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),false));
-          end if;
-          mixed_value <= multiply_by_volume_coefficient(mixed_value(15 downto 0),ram_rdata(31 downto 16),false);
+          report "For output "
+            & integer'image(output_num)
+            & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
+          mixed_value <= multiply_by_volume_coefficient(mixed_value,ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
           
@@ -353,16 +242,16 @@ begin
       end case;
       
       -- Advance through all inputs
-      if state /= 17 then
+      if state /= 16 then
         state <= state + 1;
       else
         state <= 0;
       end if;
       -- Push mixed output value
       if set_output='1' then
-        outputs(output_channel) <= mixed_value(15 downto 0);
---        report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
---          & to_hstring(mixed_value(15 downto 0));
+        outputs(output_channel) <= mixed_value;
+        report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
+          & to_hstring(mixed_value);
       end if;
     end if;
   end process;
