@@ -56,8 +56,7 @@ test "ignore reg directives"
   # lda #$12: ldx #$23 rts
   poke $2000, $a9, $12, $a2, $23, $60
   jsr $2000
-  ignore reg spl
-  ignore reg sph
+  ignore reg sp
   expect pc = $0001
   expect a = $12
   expect x = $23
@@ -81,8 +80,7 @@ test "clear breakpoint directives"
   breakpoint $2004
 
   jsr $2000
-  ignore reg spl
-  ignore reg sph
+  ignore reg sp
   expect pc = $2000
   expect a = $00
   check registers
@@ -152,8 +150,7 @@ test "let directive"
   let Y = $45
   let Z = $56
   let b = $78
-  let sph = $12
-  let spl = $34
+  let sp = $1234
   let pc = $2000
   poke $2000, $00
   run until brk
@@ -162,8 +159,7 @@ test "let directive"
   expect y = $45
   expect z = $56
   expect b = $78
-  expect sph = $12
-  expect spl = $34
+  expect sp = $1234
   expect pc = $2000
   check registers
 end test

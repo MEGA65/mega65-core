@@ -21,8 +21,13 @@ struct regs {
   unsigned char z;
   unsigned char flags;
   unsigned char b;
-  unsigned char sph;
-  unsigned char spl;
+  union __attribute__((__packed__, __scalar_storage_order__("little-endian")))  {
+    unsigned short sp;
+    struct __attribute__((__packed__, __scalar_storage_order__("little-endian")))  {
+      unsigned char spl;
+      unsigned char sph;
+    };
+  };
   unsigned char in_hyper;
   unsigned char map_irq_inhibit;
   unsigned short maplo,maphi;
@@ -2965,6 +2970,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"b")) cpu_expected.regs.b=cpu.regs.b;
       else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=cpu.regs.spl;
       else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=cpu.regs.sph;
+      else if (!strcasecmp(location,"sp")) cpu_expected.regs.sp=cpu.regs.sp;
       else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=cpu.regs.pc;
       else {
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
@@ -3023,6 +3029,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"b")) cpu_expected.regs.b=resolve_value8(value);
       else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=resolve_value8(value);
       else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value8(value);
+      else if (!strcasecmp(location,"sp")) cpu_expected.regs.sp=resolve_value16(value);
       else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value16(value);
       else {
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
@@ -3096,6 +3103,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"b")) cpu.regs.b=resolve_value8(value);
       else if (!strcasecmp(location,"spl")) cpu.regs.spl=resolve_value8(value);
       else if (!strcasecmp(location,"sph")) cpu.regs.sph=resolve_value8(value);
+      else if (!strcasecmp(location,"sp")) cpu.regs.sp=resolve_value16(value);
       else if (!strcasecmp(location,"pc")) cpu.regs.pc=resolve_value16(value);
       else {
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
