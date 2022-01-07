@@ -48,3 +48,23 @@ expect $ab at $3001
 ignore from $3500 to $35ff
 check ram
 test end
+
+test "ignore reg directives"
+# lda #$12: ldx #$23 rts
+poke $2000, $a9, $12, $a2, $23, $60
+jsr $2000
+ignore reg spl
+ignore reg sph
+expect pc = $0001
+expect a = $12
+expect x = $23
+check registers
+jsr $2000
+ignore all regs
+check registers
+jsr $2000
+ignore all regs
+expect a = $12
+expect x = $23
+check registers
+test end

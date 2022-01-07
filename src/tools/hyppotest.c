@@ -2952,6 +2952,22 @@ int main(int argc,char **argv)
       int low=resolve_value32(start);
       int high=resolve_value32(end);
       ignore_ram_changes(low,high);
+    } else if (!strncasecmp(line,"ignore all regs",strlen("ignore all regs"))) {
+      cpu_expected.regs=cpu.regs;
+    } else if (sscanf(line,"ignore reg %s",location)==1) {
+      // Set expected register value
+      if (!strcasecmp(location,"a")) cpu_expected.regs.a=cpu.regs.a;
+      else if (!strcasecmp(location,"x")) cpu_expected.regs.x=cpu.regs.x;
+      else if (!strcasecmp(location,"y")) cpu_expected.regs.y=cpu.regs.y;
+      else if (!strcasecmp(location,"z")) cpu_expected.regs.z=cpu.regs.z;
+      else if (!strcasecmp(location,"b")) cpu_expected.regs.b=cpu.regs.b;
+      else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=cpu.regs.spl;
+      else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=cpu.regs.sph;
+      else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=cpu.regs.pc;
+      else {
+        fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
+        cpu.term.error=true;
+      }
     } else if (sscanf(line,"ignore %s",start)==1) {
       int low=resolve_value32(start);
       ignore_ram_changes(low,low);
