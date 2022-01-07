@@ -129,6 +129,7 @@ entity iomapper is
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
+        reset_monitor_count : in unsigned(11 downto 0);
         
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
