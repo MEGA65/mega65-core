@@ -24,6 +24,9 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity audio_mixer is
+  generic (
+    dc_track_feature : boolean := false
+    )
   port (    
     cpuclock : in std_logic;
 
@@ -281,7 +284,7 @@ begin
             end if;
           end if;
           -- Clamp output value
-          if dc_track_enable = '1' then
+          if dc_track_enable = '1' and dc_track_feature then
             if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
               if output_num=0 then
                 report "MIXER: Clamping output at $07FFF";
@@ -299,9 +302,7 @@ begin
               if output_num=0 then
                 report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
               end if;
-              if dc_track_enable='1' then
-                mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
-              end if;
+              mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
             end if;
             
             -- Update DC estimate periodically
