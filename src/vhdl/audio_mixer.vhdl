@@ -281,30 +281,30 @@ begin
             end if;
           end if;
           -- Clamp output value
-          if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
-            if output_num=0 then
-              report "MIXER: Clamping output at $07FFF";
-            end if;
-            mixed_value <= x"07fff";
-          elsif to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) < x"f8000" then
-            if output_num=0 then
-              report "MIXER: Clamping output at $F8000 ($"
-                & to_hstring(to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20))
-                & " was out of range)";
-            end if;
-            mixed_value <= x"f8000";
-          else
-            -- Pass value
-            if output_num=0 then
-              report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
-            end if;
-            if dc_track_enable='1' then
-              mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
-            end if;
-          end if;
-
-          -- Update DC estimate periodically
           if dc_track_enable = '1' then
+            if to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) > x"07fff" then
+              if output_num=0 then
+                report "MIXER: Clamping output at $07FFF";
+              end if;
+              mixed_value <= x"07fff";
+            elsif to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20) < x"f8000" then
+              if output_num=0 then
+                report "MIXER: Clamping output at $F8000 ($"
+                  & to_hstring(to_signed((to_integer(mixed_value) - to_integer(dc_estimate(output_num))),20))
+                  & " was out of range)";
+              end if;
+              mixed_value <= x"f8000";
+            else
+              -- Pass value
+              if output_num=0 then
+                report "MIXER: Passing value $" & to_hstring(to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20));
+              end if;
+              if dc_track_enable='1' then
+                mixed_value <= to_signed(to_integer(mixed_value) - to_integer(dc_estimate(output_num)),20);
+              end if;
+            end if;
+            
+            -- Update DC estimate periodically
             if dc_estimate_age(output_num) < dc_track_rate then
               dc_estimate_age(output_num) <= dc_estimate_age(output_num) + 1;
             else
