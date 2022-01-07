@@ -1243,14 +1243,14 @@ void reflash_slot(unsigned char slot)
   }
   
     printf("%c%c%c%c%c%c%c%c\n"
-	   "Flash slot successfully updated.\n");
+	   "Flash slot successfully updated.\n",
+     0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11);
     if (load_time + flash_time > 0)
       printf(
 	      "    Load: %d sec\n"
 	      "   Flash: %d sec\n"
 	      "\n"
 	      "Press any key to return to menu.\n",
-	      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,
 	      load_time,flash_time);
     // Coloured border to draw attention
     while(PEEK(0xD610)) POKE(0xD610,0);
