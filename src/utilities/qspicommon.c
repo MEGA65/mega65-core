@@ -1126,9 +1126,9 @@ void reflash_slot(unsigned char slot)
     while(!verify_data_in_place(0L)) read_data(0);
     
     // Verify the sector to see if it is already correct
-    printf("%c  Verifying sector at $%08lX         ",0x13,addr);
+    printf("%c  Verifying sector at $%08lX/%07lX",0x13,addr,addr-SLOT_SIZE*slot);
     tries=0;
-    while(flash_region_differs(addr,addr-SLOT_SIZE*slot,size)) {
+    while(flash_region_differs(addr-SLOT_SIZE*slot,addr,size)) {
       tries++;
       if (tries==10) {
 	printf("%c%c%cERROR: Could not write to flash after %d tries.\n",0x11,0x11,0x11,tries);
