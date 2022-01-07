@@ -31,19 +31,19 @@ struct regs {
 
 struct termination_conditions {
   // Indicates that execution has terminated
-  int done;
+  bool done;
 
   // Indicates that an error was detected
-  int error;
+  bool error;
 
   // Terminate when number of RTS (minus JSRs) is encountered
   int rts;
 
   // Terminated on BRK
-  int brk;
+  bool brk;
 
   // Log DMA requests
-  int log_dma;
+  bool log_dma;
 
 };
 
@@ -52,8 +52,8 @@ struct cpu {
   unsigned int instruction_count;
   struct regs regs;
   struct termination_conditions term;
-  unsigned char stack_overflow;
-  unsigned char stack_underflow;
+  bool stack_overflow;
+  bool stack_underflow;
 };
 
 #define FLAG_N 0x80
@@ -70,7 +70,7 @@ FILE *logfile=NULL;
 char logfilename[8192]="";
 #define TESTLOGFILE "/tmp/hyppotest.tmp"
 
-int log_on_failure=0;
+bool log_on_failure=false;
 int test_passes=0;
 int test_fails=0;
 char test_name[1024]="unnamed test";
@@ -613,7 +613,7 @@ unsigned int addr_to_28bit(struct cpu *cpu,unsigned int addr,int writeP)
     fprintf(logfile,"ERROR: Asked to map %s of non-16 bit address $%x\n",writeP?"write":"read",addr);
     show_recent_instructions(logfile,"Instructions leading up to the request",
                              cpu,cpulog_len-6,6,cpu->regs.pc);
-    cpu->term.error=1;
+    cpu->term.error=true;
     return -1;
   }
   int lnc=chipram[1]&7;
@@ -838,7 +838,7 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
           break;
         default:
           fprintf(logfile,"ERROR: Unknown DMA option $%02X used.\n",option);
-          cpu->term.error=1;
+          cpu->term.error=true;
           break;
         }
       }
@@ -915,8 +915,8 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
 
             if (symbol_count>=MAX_SYMBOLS) {
               fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
-              cpu->term.error=1;
-              cpu->term.done=1;
+              cpu->term.error=true;
+              cpu->term.done=true;
               return -1;
             }
             symbols[symbol_count].name=symbols[i].name;
@@ -973,8 +973,8 @@ int do_dma(struct cpu *cpu,int eDMA,unsigned int addr)
         default:
           fprintf(logfile,"ERROR: Unsupported DMA operation %d requested.\n",
                   dma_cmd&3);
-          cpu->term.error=1;
-          cpu->term.done=1;
+          cpu->term.error=true;
+          cpu->term.done=true;
           return 0;
         }
 
@@ -1331,7 +1331,7 @@ int write_mem28(struct cpu *cpu, unsigned int addr,unsigned char value)
   // Otherwise unmapped RAM
     fprintf(logfile,"ERROR: Writing to unmapped address $%07x\n",addr);
     show_recent_instructions(logfile,"Instructions leading up to the request", cpu,cpulog_len-6,6,cpu->regs.pc);
-    cpu->term.error=1;
+    cpu->term.error=true;
   }
 
   return 0;
@@ -1475,8 +1475,8 @@ unsigned char stack_pop(struct cpu *cpu,struct instruction_log *log)
     if (!(cpu->regs.flags&FLAG_E))
       cpu->regs.sph++;
     else
-      cpu->stack_underflow=1;
-    if (!addr) cpu->stack_underflow=1;
+      cpu->stack_underflow=true;
+    if (!addr) cpu->stack_underflow=true;
   }
   log->pop_blame[log->pops++]=memory_blame(cpu,addr);
   return c;
@@ -1492,8 +1492,8 @@ int stack_push(struct cpu *cpu,unsigned char v)
     if (!(cpu->regs.flags&FLAG_E))
       cpu->regs.sph--;
     else
-      cpu->stack_overflow=1;
-    if (addr==0xffff) cpu->stack_overflow=1;
+      cpu->stack_overflow=true;
+    if (addr==0xffff) cpu->stack_overflow=true;
   }
   return 0;
 }
@@ -1507,9 +1507,9 @@ bool execute_instruction(struct cpu *cpu,struct instruction_log *log)
   switch(log->bytes[0]) {
   case 0x00: // BRK
     log->len=2;
-    cpu->term.error=1;
-    cpu->term.brk=1;
-    cpu->term.done=1;
+    cpu->term.error=true;
+    cpu->term.brk=true;
+    cpu->term.done=true;
     break;
   case 0x03: // SEE
     cpu->regs.flags|=FLAG_E;
@@ -1762,7 +1762,7 @@ bool execute_instruction(struct cpu *cpu,struct instruction_log *log)
       cpu->term.rts--;
       if (!cpu->term.rts) {
         fprintf(logfile,"INFO: Terminating via RTS\n");
-        cpu->term.done=1;
+        cpu->term.done=true;
       }
     }
     cpu->regs.pc=stack_pop(cpu,log);
@@ -2295,7 +2295,7 @@ bool cpu_step(FILE *f) {
     fprintf(logfile,"INFO: Breakpoint at %s ($%04X) triggered.\n",
             describe_address_label(&cpu,cpu.regs.pc),
             cpu.regs.pc);
-    cpu.term.done=1;
+    cpu.term.done=true;
     return false;
   }
 
@@ -2311,7 +2311,7 @@ bool cpu_step(FILE *f) {
   cpulog[cpulog_len++]=log;
 
   if (!execute_instruction(&cpu,log)) {
-    cpu.term.error=1;
+    cpu.term.error=true;
     fprintf(f,"ERROR: Exception occurred executing instruction at %s\n       Aborted.\n",
             describe_address(cpu.regs.pc));
     show_recent_instructions(f,"Instructions leading up to the exception",
@@ -2324,14 +2324,14 @@ bool cpu_step(FILE *f) {
   if (cpu.term.done) return false;
 
   if (cpu.stack_underflow) {
-    cpu.term.error=1;
+    cpu.term.error=true;
     fprintf(stderr,"ERROR: Stack underflow detected.\n");
     show_recent_instructions(f,"Instructions leading up to the stack underflow",
                              &cpu,cpulog_len-16,16,cpu.regs.pc);
     return false;
   }
   if (cpu.stack_overflow) {
-    cpu.term.error=1;
+    cpu.term.error=true;
     fprintf(stderr,"ERROR: Stack overflow detected.\n");
     show_recent_instructions(f,"Instructions leading up to the stack overflow",
                              &cpu,cpulog_len-16,16,cpu.regs.pc);
@@ -2367,7 +2367,7 @@ bool cpu_run(FILE *f) {
     if (!cpu_step(f)) return false;
     // Detect infinite loops
     if (lastataddr[cpu.regs.pc]->count>INFINITE_LOOP_THRESHOLD) {
-      cpu.term.error=1;
+      cpu.term.error=true;
       fprintf(stderr,"ERROR: Infinite loop detected at %s.\n       Aborted after %d iterations.\n",
               describe_address(cpu.regs.pc),lastataddr[cpu.regs.pc]->count);
       // Show upto 32 instructions prior to the infinite loop
@@ -2406,7 +2406,7 @@ bool cpu_call_routine(FILE *f,unsigned int addr)
   if (!cpu_run(f)) return false;
 
   if (cpulog_len==MAX_LOG_LENGTH) {
-    cpu.term.error=1;
+    cpu.term.error=true;
     fprintf(logfile,"ERROR: CPU instruction log filled.  Maybe a problem with the called routine?\n");
     return false;
   }
@@ -2429,11 +2429,11 @@ bool cpu_call_routine(FILE *f,unsigned int addr)
   return true;
 }
 
-#define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_expected.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_expected.regs.Reg); cpu->term.error=true; /* XXX show instruction that set it */ }
 
-#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_expected.regs.Reg),cpu_expected.regs.Reg); cpu->term.error=1; /* XXX show instruction that set it */ }
+#define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_expected.regs.Reg),cpu_expected.regs.Reg); cpu->term.error=true; /* XXX show instruction that set it */ }
 
-int compare_register_contents(FILE *f, struct cpu *cpu)
+bool compare_register_contents(FILE *f, struct cpu *cpu)
 {
   COMPARE_REG("A",a);
   COMPARE_REG("X",x);
@@ -2486,7 +2486,7 @@ int compare_ram_contents(FILE *f, struct cpu *cpu)
 
   if (errors) {
     fprintf(f,"ERROR: %d memory locations contained unexpected values.\n",errors);
-    cpu->term.error=1;
+    cpu->term.error=true;
 
     int displayed=0;
 
@@ -2619,7 +2619,7 @@ void test_init(struct cpu *cpu)
 
   machine_init(cpu);
 
-  log_on_failure=0;
+  log_on_failure=false;
 
   // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
   // after.
@@ -2812,7 +2812,7 @@ int resolve_value32(char *in)
     fprintf(stderr,"ERROR: Could not parse address or value specification '%s'.\n",in);
     if (logfile!=stderr)
       fprintf(logfile,"ERROR: Could not parse address or value specification '%s'.\n",in);
-    cpu.term.error=1;
+    cpu.term.error=true;
     return 0;
   }
 
@@ -2833,7 +2833,7 @@ int resolve_value32(char *in)
     }
     if (i==symbol_count) {
       fprintf(logfile,"ERROR: Cannot call find non-existent symbol '%s'\n",label);
-      cpu.term.error=1;
+      cpu.term.error=true;
       return 0;
     } else {
       // Return symbol address
@@ -2898,9 +2898,9 @@ int main(int argc,char **argv)
       }
       if (i==hyppo_symbol_count) {
         fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-        cpu.term.error=1;
+        cpu.term.error=true;
       } else {
-        int log_dma=cpu.term.log_dma;
+        bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
         cpu.term.rts=1; // Terminate on net RTS from routine
@@ -2909,23 +2909,23 @@ int main(int argc,char **argv)
     } else if (sscanf(line,"dump instructions %d to %d",&first,&last)==2) {
       show_recent_instructions(logfile,line,&cpu,first,last-first+1,-1);
     } else if (!strncasecmp(line,"log dma off",strlen("log dma off"))) {
-      cpu.term.log_dma=0;
+      cpu.term.log_dma=false;
       fprintf(logfile,"NOTE: DMA jobs will not be reported\n");
     } else if (!strncasecmp(line,"log dma",strlen("log dma"))) {
-      cpu.term.log_dma=1;
+      cpu.term.log_dma=true;
       fprintf(logfile,"NOTE: DMA jobs will be reported\n");
     } else if (!strncasecmp(line,"log on failure",strlen("log on failure"))) {
       // Dump all instructions on test failure
-      log_on_failure=1;
+      log_on_failure=true;
     } else if (sscanf(line,"jmp $%x",&addr)==1) {
-      int log_dma=cpu.term.log_dma;
+      bool log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
     } else if (sscanf(line,"jmp %s",routine)==1) {
       int i;
-      int log_dma=cpu.term.log_dma;
+      bool log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
@@ -2934,9 +2934,9 @@ int main(int argc,char **argv)
       }
       if (i==hyppo_symbol_count) {
         fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-        cpu.term.error=1;
+        cpu.term.error=true;
       } else {
-        int log_dma=cpu.term.log_dma;
+        bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
@@ -2961,17 +2961,17 @@ int main(int argc,char **argv)
       test_init(&cpu);
       fflush(stdout);
     } else if (sscanf(line,"loadhypposymbols %s",routine)==1) {
-      if (load_hyppo_symbols(routine)) cpu.term.error=1;
+      if (load_hyppo_symbols(routine)) cpu.term.error=true;
     } else if (sscanf(line,"loadhyppo %s",routine)==1) {
-      if (load_hyppo(routine)) cpu.term.error=1;
+      if (load_hyppo(routine)) cpu.term.error=true;
     } else if (sscanf(line,"loadsymbols %s at $%x-$%x",routine,&addr,&addr2)==3) {
-      if (load_symbols(routine,addr-addr2)) cpu.term.error=1;
+      if (load_symbols(routine,addr-addr2)) cpu.term.error=true;
     } else if (sscanf(line,"loadsymbols %s at $%x+$%x",routine,&addr,&addr2)==3) {
-      if (load_symbols(routine,addr+addr2)) cpu.term.error=1;
+      if (load_symbols(routine,addr+addr2)) cpu.term.error=true;
     } else if (sscanf(line,"loadsymbols %s at $%x",routine,&addr)==2) {
-      if (load_symbols(routine,addr)) cpu.term.error=1;
+      if (load_symbols(routine,addr)) cpu.term.error=true;
     } else if (sscanf(line,"load %s at $%x",routine,&addr)==2) {
-      if (load_file(routine,addr)) cpu.term.error=1;
+      if (load_file(routine,addr)) cpu.term.error=true;
     } else if (sscanf(line,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
         int addr16=addr32;
@@ -2993,7 +2993,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"pc")) cpu_expected.regs.pc=resolve_value16(value);
       else {
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
-        cpu.term.error=1;
+        cpu.term.error=true;
       }
     } else if (sscanf(line,"expect %s at %s",value,location)==2) {
       // Update *_expected[] memories to indicate the value we expect where.
@@ -3005,7 +3005,7 @@ int main(int argc,char **argv)
       addr=resolve_value32(location);
       if (symbol_count>=MAX_SYMBOLS) {
         fprintf(logfile,"ERROR: Too many symbols. Increase MAX_SYMBOLS.\n");
-        cpu.term.error=1;
+        cpu.term.error=true;
       }
       symbols[symbol_count].name=strdup(routine);
       symbols[symbol_count].addr=addr;
@@ -3022,7 +3022,7 @@ int main(int argc,char **argv)
       }
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line);
-      cpu.term.error=1;
+      cpu.term.error=true;
     }
   }
   if (logfile!=stderr) test_conclude(&cpu);
