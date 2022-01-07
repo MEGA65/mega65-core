@@ -36,7 +36,7 @@ expect $07 at $3807
 expect $08 at $3808
 expect $09 at $3809
 check ram
-test end
+end test
 
 test "check ram"
 # lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
@@ -47,7 +47,7 @@ expect $12 at $3000
 expect $ab at $3001
 ignore from $3500 to $35ff
 check ram
-test end
+end test
 
 test "ignore reg directives"
 # lda #$12: ldx #$23 rts
@@ -67,4 +67,4 @@ ignore all regs
 expect a = $12
 expect x = $23
 check registers
-test end
+end test

@@ -2974,7 +2974,8 @@ int main(int argc,char **argv)
     }  else if (!strncasecmp(line,"check ram",strlen("check ram"))) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);
-    } else if (!strncasecmp(line,"test end",strlen("test end"))) {
+    } else if (strncasecmp(line,"test end",strlen("test end"))==0
+        || strncasecmp(line,"end test",strlen("end test"))==0) {
       test_conclude(&cpu);
     } else if (sscanf(line,"test \"%[^\"]\"",test_name)==1) {
       // Set test name
