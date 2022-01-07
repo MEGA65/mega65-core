@@ -26,7 +26,7 @@ use work.cputypes.all;
 entity audio_mixer is
   generic (
     dc_track_feature : boolean := false
-    )
+    );
   port (    
     cpuclock : in std_logic;
 
