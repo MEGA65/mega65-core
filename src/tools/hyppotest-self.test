@@ -144,3 +144,26 @@ test "step and run directives"
   expect z = $45
   check registers
 end test
+
+
+test "let directive"
+  let a = $01
+  let x = $23
+  let Y = $45
+  let Z = $56
+  let b = $78
+  let sph = $12
+  let spl = $34
+  let pc = $2000
+  poke $2000, $00
+  run until brk
+  expect A = $01
+  expect X = $23
+  expect y = $45
+  expect z = $56
+  expect b = $78
+  expect sph = $12
+  expect spl = $34
+  expect pc = $2000
+  check registers
+end test

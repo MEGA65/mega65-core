@@ -3089,6 +3089,19 @@ int main(int argc,char **argv)
                 describe_address_label(&cpu,cpu.regs.pc),cpu.regs.pc);
       }
       cpu.term.error|=prior_error;
+    } else if (sscanf(line_ptr,"let %s = %s",location,value)==2) {
+      if (!strcasecmp(location,"a")) cpu.regs.a=resolve_value8(value);
+      else if (!strcasecmp(location,"x")) cpu.regs.x=resolve_value8(value);
+      else if (!strcasecmp(location,"y")) cpu.regs.y=resolve_value8(value);
+      else if (!strcasecmp(location,"z")) cpu.regs.z=resolve_value8(value);
+      else if (!strcasecmp(location,"b")) cpu.regs.b=resolve_value8(value);
+      else if (!strcasecmp(location,"spl")) cpu.regs.spl=resolve_value8(value);
+      else if (!strcasecmp(location,"sph")) cpu.regs.sph=resolve_value8(value);
+      else if (!strcasecmp(location,"pc")) cpu.regs.pc=resolve_value16(value);
+      else {
+        fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
+        cpu.term.error=true;
+      }
     } else {
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
       cpu.term.error=true;
