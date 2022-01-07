@@ -2888,9 +2888,11 @@ int main(int argc,char **argv)
     if (line[0]=='\r') continue;
     if (line[0]=='\n') continue;
     if (sscanf(line,"jsr $%x",&addr)==1) {
+      bool prior_error=cpu.term.error;
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.rts=1; // Terminate on net RTS from routine
       cpu_call_routine(logfile,addr);
+      cpu.term.error|=prior_error;
     } else if (sscanf(line,"jsr %s",routine)==1) {
       int i;
       for(i=0;i<hyppo_symbol_count;i++) {
@@ -2900,11 +2902,13 @@ int main(int argc,char **argv)
         fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
         cpu.term.error=true;
       } else {
+        bool prior_error=cpu.term.error;
         bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
         cpu.term.rts=1; // Terminate on net RTS from routine
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        cpu.term.error|=prior_error;
       }
     } else if (sscanf(line,"dump instructions %d to %d",&first,&last)==2) {
       show_recent_instructions(logfile,line,&cpu,first,last-first+1,-1);
@@ -2918,17 +2922,15 @@ int main(int argc,char **argv)
       // Dump all instructions on test failure
       log_on_failure=true;
     } else if (sscanf(line,"jmp $%x",&addr)==1) {
+      bool prior_error=cpu.term.error;
       bool log_dma=cpu.term.log_dma;
       bzero(&cpu.term,sizeof(cpu.term));
       cpu.term.log_dma=log_dma;
       cpu.term.rts=0;
       cpu_call_routine(logfile,addr);
+      cpu.term.error|=prior_error;
     } else if (sscanf(line,"jmp %s",routine)==1) {
       int i;
-      bool log_dma=cpu.term.log_dma;
-      bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.log_dma=log_dma;
-      cpu.term.rts=0;
       for(i=0;i<hyppo_symbol_count;i++) {
         if (!strcmp(routine,hyppo_symbols[i].name)) break;
       }
@@ -2936,10 +2938,12 @@ int main(int argc,char **argv)
         fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
         cpu.term.error=true;
       } else {
+        bool prior_error=cpu.term.error;
         bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        cpu.term.error|=prior_error;
       }
     } else if (!strncasecmp(line,"check registers",strlen("check registers"))) {
       // Check registers for changes
