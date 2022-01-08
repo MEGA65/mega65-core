@@ -15,14 +15,10 @@ entity clocking is
       clock27    : out std_logic;
       clock41    : out std_logic;
       clock50    : out std_logic;
-      clock50q   : out std_logic;
       clock81p   : out std_logic;
-      clock81n   : out std_logic;
-      clock200   : out std_logic;
-      clock100   : out std_logic;
-      clock135p  : out std_logic;
-      clock135n  : out std_logic;
       clock163   : out std_logic;
+      clock200   : out std_logic;
+      clock270   : out std_logic;
       clock325   : out std_logic
    );
 end entity;
@@ -36,14 +32,20 @@ architecture RTL of clocking is
   signal clk_fb_adjust2     : std_logic := '0';
   signal clk_fb_eth : std_logic := '0';
   signal clock69mhz : std_logic := '0';
+  signal u_clock69mhz : std_logic := '0';
   signal clock124mhz : std_logic := '0';
+  signal u_clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
-  signal clock9969mhz_bufg : std_logic := '0'; 
+  signal u_clock9969mhz : std_logic := '0'; 
+
   signal u_clock27 : std_logic := '0';
-  signal u_clock135p : std_logic := '0';
+  signal u_clock41 : std_logic := '0';
   signal u_clock50 : std_logic := '0';
+  signal u_clock81p : std_logic := '0';
+  signal u_clock163 : std_logic := '0';
   signal u_clock200 : std_logic := '0';
-  signal u_clock50q : std_logic := '0';
+  signal u_clock270 : std_logic := '0';
+  signal u_clock325 : std_logic := '0';
   
 begin
 
@@ -79,7 +81,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust0,
-     CLKOUT0             => clock69mhz,
+     CLKOUT0             => u_clock69mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust0,
      CLKIN1              => clk_in,
@@ -125,7 +127,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust1,
-     CLKOUT0             => clock124mhz,
+     CLKOUT0             => u_clock124mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust1,
      CLKIN1              => clock69mhz,
@@ -172,7 +174,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust2,
-     CLKOUT0             => clock9969mhz,
+     CLKOUT0             => u_clock9969mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust2,
      CLKIN1              => clock124mhz,
@@ -194,29 +196,49 @@ begin
      RST                 => '0');
     
 
-  bufg0:
-  bufg port map ( I => clock9969mhz,
-                  O => clock9969mhz_bufg);  
+  bufg_inter_connect69:
+  bufg port map ( I => u_clock69mhz,
+                  O => clock69mhz);  
   
-  bufg1:
+  bufg_inter_connect124:
+  bufg port map ( I => u_clock124mhz,
+                  O => clock124mhz);  
+
+  bufg_inter_connect:
+  bufg port map ( I => u_clock9969mhz,
+                  O => clock9969mhz);  
+  
+  bufg27:
   bufg port map ( I => u_clock27,
                   O => clock27);  
-  
-  bufg2:
-  bufg port map ( I => u_clock135p,
-                  O => clock135p);  
 
-  bufg3:
+  bufg41:
+  bufg port map ( I => u_clock41,
+                  O => clock41);  
+  
+  bufg50:
   bufg port map ( I => u_clock50,
                   O => clock50);  
 
-  bufg4:
-  bufg port map ( I => u_clock50q,
-                  O => clock50q);  
+  bufg81:
+  bufg port map ( I => u_clock81p,
+                  O => clock81p);  
   
-  bufg5:
+  bufg163:
+  bufg port map ( I => u_clock163,
+                  O => clock163);  
+
+  bufg200:
   bufg port map ( I => u_clock200,
                   O => clock200);  
+
+  bufg270:
+  bufg port map ( I => u_clock270,
+                  O => clock270);  
+  
+  bufg325:
+  bufg port map ( I => u_clock325,
+                  O => clock325);  
   
   mmcm_adv0 : MMCM_ADV
   generic map
@@ -232,63 +254,62 @@ begin
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = clock325 = 812.5MHz/2.5
+    -- CLKOUT0 = clock325 = 812.5MHz/2.5
     CLKOUT0_DIVIDE_F     => 2.50,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT1 = CLK_OUT2 = clock135 ~= 812.5MHz/6
+    -- CLKOUT1 = clock135 = 812.5MHz/6
     CLKOUT1_DIVIDE       => 6,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT2 = CLK_OUT3 = clock81 ~= 812.5MHz/10
+    -- CLKOUT2 = clock81 = 812.5MHz/10
     CLKOUT2_DIVIDE       => 10,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT3 = CLK_OUT4 = clock41 ~= 812.5MHz/20
+    -- CLKOUT3 = clock41 = 812.5MHz/20
     CLKOUT3_DIVIDE       => 20,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT4 = CLK_OUT5 = clock27 = 812.5MHz/30 = 27.083
+    -- CLKOUT4 = clock27 = 812.5MHz/30 = 27.083
     CLKOUT4_DIVIDE       => 30,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
     
-    -- CLKOUT5 = CLK_OUT6 = clock163 - 812.5MHz/5 = 162.5 MHz
+    -- CLKOUT5 = clock163 = 812.5MHz/5 = 162.5 MHz
     CLKOUT5_DIVIDE       => 5,
     CLKOUT5_PHASE        => 0.0,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT6 = CLK_OUT7 = UNUSED
-    CLKOUT6_DIVIDE       => 5,
+    -- CLKOUT6 = clock270 = 270MHz
+    CLKOUT6_DIVIDE       => 3,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
+    
     CLKIN1_PERIOD        => 10.000,
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks
    (CLKFBOUT            => clk_fb,
-    CLKOUT0             => clock325,
-    CLKOUT1             => u_clock135p,
-    CLKOUT1B            => clock135n,
-    CLKOUT2             => clock81p,
-    CLKOUT2B            => clock81n,
-    CLKOUT3             => clock41,
+    CLKOUT0             => u_clock325,
+    CLKOUT2             => u_clock81p,
+    CLKOUT3             => u_clock41,
     CLKOUT4             => u_clock27,
-    CLKOUT5             => clock163,
+    CLKOUT5             => u_clock163,
+    CLKOUT6             => u_clock270,
     -- Input clock control
     CLKFBIN             => clk_fb,
-    CLKIN1              => clock9969mhz_bufg,
+    CLKIN1              => clock9969mhz,
     CLKIN2              => '0',
     -- Tied to always select the primary input clock
     CLKINSEL            => '1',
@@ -367,10 +388,9 @@ begin
     -- Output clocks
     (
     CLKFBOUT            => clk_fb_eth,
-    CLKOUT0             => clock100,
     CLKOUT1             => u_clock50,
     CLKOUT2             => u_clock200,
-    CLKOUT3             => u_clock50q,
+--    CLKOUT3             => u_clock50q,
     -- Input clock control
     CLKFBIN             => clk_fb_eth,
     CLKIN1              => clk_in,

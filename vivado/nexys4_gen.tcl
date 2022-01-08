@@ -105,6 +105,8 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sprite.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pal_simulation.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_voice.vhdl"]"\
+ "[file normalize "$origin_dir/src/verilog/sid_voice_8580.v"]"\
+ "[file normalize "$origin_dir/src/verilog/sid_envelope.v"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_filters.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_videobuffer.vhdl"]"\
@@ -149,6 +151,10 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps_to_bits.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_quantise_gaps.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/raw_bits_to_gaps.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/rll27_bits_to_gaps.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/rll27_gaps_to_bits.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/rll27_quantise_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/crc1581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keymapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_screen_ram_buffer.vhdl"]"\
@@ -314,6 +320,22 @@ set file "vhdl/sid_coeffs.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/rll27_gaps_to_bits.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/rll27_quantise_gaps.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/raw_bits_to_gaps.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/rll27_bits_to_gaps.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/mfm_quantise_gaps.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -369,6 +391,14 @@ set_property -name "file_type" -value "VHDL" -objects $file_obj
 set file "vhdl/sid_voice.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "verilog/sid_voice_8580.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/sid_envelope.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
 
 set file "vhdl/sid_filters.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]

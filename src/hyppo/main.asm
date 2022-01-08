@@ -74,9 +74,9 @@ trap_entry_points:
         jmp syspart_trap                        ;; Trap #$02
         eom                                     ;; refer: hyppo_syspart.asm
         jmp serialwrite                         ;; Trap #$03
-        eom                                     ;; refer serialwrite in this file
-        jmp nosuchtrap
-        eom
+        eom                                     ;; refer serialwrite in this file	
+        jmp emulatortrap                        ;; Trap #$04	
+        eom                                     ;; Reserved for Xemu to use
         jmp nosuchtrap
         eom
         jmp nosuchtrap
@@ -294,6 +294,9 @@ trap_entry_points:
 ;;     (Consider replacing with trap to hypervisor error screen with option
 ;;     to return?)
 ;;     ---------------------------------------------------------------- */
+emulatortrap:
+	;; FALL-THROUGH -- return failure on real hardware
+	;; Xemu will intercept it itself
 nosuchtrap:
 
         ;; Clear C flag for caller to indicate failure
@@ -551,10 +554,15 @@ reset_entry:
 	map
 	eom
 
-!src "debugtests.asm"
+!if DEBUG_HYPPO {
+        !src "debugtests.asm"
+}
 
         jsr reset_machine_state
 
+	;; If banner is in flash, load it _immediately_
+	jsr tryloadbootlogofromflash
+	
         ;; display welcome screen
         ;;
         ldx #<msg_hyppo
@@ -704,8 +712,10 @@ fpga_has_been_reconfigured:
 
 normalboot:
 
+!if DEBUG_HYPPO {
         jsr dump_disk_count        ;; debugging to Checkpoint
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; Try to read the MBR from the SD card to ensure SD card is happy
         ;;
@@ -825,9 +835,11 @@ gotmbr:
         ldz dos_default_disk
         jsr printhex
 
+!if DEBUG_HYPPO {
         jsr dump_disk_count     ;; debugging to Checkpoint
         jsr dumpcurrentfd       ;; debugging to Checkpoint
 ;;             jsr print_disk_table        ; debugging to Screen
+}
 
 ;;         ========================
 
@@ -838,39 +850,15 @@ gotmbr:
 @thereIsADisk:
 
         ;; Go to root directory on default disk
-        ;;
-        ldx dos_default_disk
-        jsr dos_cdroot
-        bcs mountsystemdiskok
-
-        ;; failed
-        ;;
-        ldx #<msg_cdrootfailed
-        ldy #>msg_cdrootfailed
-        jsr printmessage
-        ldy #$00
-        ldz dos_error_code
-        jsr printhex
-
-        +Checkpoint "FAILED CDROOT"
-        ;;
-        ;; BG: should probably JMP to reset or something, and not fall through
-
+        jsr cdroot_and_complain_if_fails
 
 mountsystemdiskok:
-
+	
+loadbannerfromsd:	
         ;; Load and display boot logo
-        ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
-        ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
-        lda #$00
-        sta <dos_file_loadaddress+0
-        lda #$7d
-        sta <dos_file_loadaddress+1
-        lda #$05
-        sta <dos_file_loadaddress+2
-        lda #$00
-        sta <dos_file_loadaddress+3
 
+	jsr setup_banner_load_pointer
+	
         ldx #<txt_BOOTLOGOM65
         ldy #>txt_BOOTLOGOM65
         jsr dos_setname
@@ -1039,6 +1027,28 @@ hickupdmalist:
 
 ;;         ========================
 
+cdroot_and_complain_if_fails:
+	
+        ldx dos_default_disk
+        jsr dos_cdroot
+        bcs @cdroot_ok
+
+        ;; failed
+        ;;
+        ldx #<msg_cdrootfailed
+        ldy #>msg_cdrootfailed
+        jsr printmessage
+        ldy #$00
+        ldz dos_error_code
+        jsr printhex
+        clc
+        rts
+
+        +Checkpoint "FAILED CDROOT"
+@cdroot_ok:
+        sec
+        rts
+	
 couldntopenhickup:
 
 nohickup:
@@ -1054,9 +1064,11 @@ posthickup:
 
         ;; print debug message
         ;;
+!if DEBUG_HYPPO {
         +Checkpoint "  Here we are POST-HICKUP"
 
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; for now indicate that there is no disk in drive
         ;; (unless we notice that floppy access has been virtualised)
@@ -1069,11 +1081,7 @@ f011Virtualised:
 
         ;; Go to root directory on default disk
         ;;
-        ldx dos_default_disk
-        jsr dos_cdroot
-        bcs @notSDCardError
-        jmp sdcarderror
-@notSDCardError:
+	jsr cdroot_and_complain_if_fails
 
         ;; Re-set virtual screen row length after touching $D06F
         lda #80
@@ -1135,6 +1143,97 @@ d81attachfail:
 	
 ;;         ========================
 
+tryloadbootlogofromflash:
+
+	jsr setup_banner_load_pointer
+	jsr sd_map_sectorbuffer
+
+	;;  Check if we have BANNER.M65 embedded in flash.
+	
+	;; Load first sector of flash to check for banner present
+	;; byte.
+	lda #$00
+	ldx #3
+@zoop:
+	sta $d681,x
+	dex
+	bpl @zoop
+	lda #$53
+	sta $d680
+	;; Wait a little while for flash to read
+@zoop2:	
+	dex
+	bne @zoop2
+	lda $de71
+	cmp #$01
+	beq loadbannerfromflash
+	jmp sd_unmap_sectorbuffer
+
+loadbannerfromflash:
+	;; Load and display boot logo
+	;; Logo will be at $7F8000-$7FFFFF
+
+	lda #$80
+	sta $d682
+	lda #$7f
+	sta $d683
+        lda #$00
+	sta $d681
+	sta $d684
+
+        jsr sd_map_sectorbuffer
+
+nextflashbannersector:	
+	
+	lda #$53
+	sta $d680
+	;; No need to wait long here, because our copy routine is so slow
+	;; Use the #$53 above
+@zzminus:
+	dec
+	bpl @zzminus
+	;; Leaves A=$00 which we use below for TAx/z to save bytes
+	
+stashbannersector:	
+
+	;;  Advance $100 bytes to next flash sector
+	inc $d682
+	
+	ldx #0
+	ldz #0
+
+        ;; Actually write the bytes to memory that have been loaded
+zdrfim_rr1:
+        lda sd_sectorbuffer,x                ;; is $DE00
+        sta [<dos_file_loadaddress],z
+        inz ;; dest offset
+        inx ;; src offset
+	bne zdrfim_rr1
+
+        inc <dos_file_loadaddress+1
+	bne nextflashbannersector
+
+	jsr sd_unmap_sectorbuffer
+	
+	;; Now display it
+	jmp setbannerpalette
+
+	
+setup_banner_load_pointer:	
+	
+        ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
+        ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
+        lda #$00
+        sta <dos_file_loadaddress+0
+        lda #$7d
+        sta <dos_file_loadaddress+1
+        lda #$05
+        sta <dos_file_loadaddress+2
+        lda #$00
+        sta <dos_file_loadaddress+3
+	rts
+	
+	
 attempt_loadcharrom:
         ;; Load CHARROM.M65 into character ROM
         ;;
@@ -1191,7 +1290,9 @@ attempt_load1541rom:
 
 loadrom:
 
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; ROMs are not loaded, so try to load them, or prompt
         ;; for user to insert SD card
@@ -1212,6 +1313,7 @@ loadrom:
 ;;         ========================
 
 loadedcharromok:
+!if DEBUG_HYPPO {
         ;; print debug message
         ;;
         +Checkpoint "  OK-loading CHARROM"
@@ -1223,19 +1325,18 @@ loadedcharromok:
         sta file_pagesread
         lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+1,x
         sta file_pagesread+1
+}
 
         ldx #<msg_charromloaded
         ldy #>msg_charromloaded
         jsr printmessage
-        ldy #$00
-        ldz file_pagesread+1
-        jsr printhex
-        ldz file_pagesread
-        jsr printhex
+
 
 loadc65rom:
 
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
+}
 
         ;; print debug message
         ;;
@@ -1326,6 +1427,7 @@ charromdmalist:
 
 loadedmegaromok:
 
+!if DEBUG_HYPPO {
         ;; prepare debug message
         ;;
         ldx dos_current_file_descriptor_offset
@@ -1333,15 +1435,11 @@ loadedmegaromok:
         sta file_pagesread
         lda dos_file_descriptors + dos_filedescriptor_offset_fileoffset+1,x
         sta file_pagesread+1
+}
 
         ldx #<msg_megaromloaded
         ldy #>msg_megaromloaded
         jsr printmessage
-        ldy #$00
-        ldz file_pagesread+1
-        jsr printhex
-        ldz file_pagesread
-        jsr printhex
 
         ;; ROM file loaded, transfer control
         ;;
@@ -1363,8 +1461,9 @@ loadedmegaromok:
         jsr printmessage
 
 loaded1541rom:
+!if DEBUG_HYPPO {
         jsr dumpcurrentfd        ;; debugging to Checkpoint
-
+}
         ;; check for keyboard input to jump to utility menu
         jsr utility_menu_check
         jsr scankeyboard
@@ -1381,10 +1480,12 @@ romfiletoolong:
         ldx #<msg_romfilelongerror
         ldy #>msg_romfilelongerror
         jsr printmessage
+!if DEBUG_HYPPO {
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
         jsr sdwaitawhile
         jmp reset_entry
 
@@ -1392,10 +1493,12 @@ romfiletooshort:
         ldx #<msg_romfileshorterror
         ldy #>msg_romfileshorterror
         jsr printmessage
+!if DEBUG_HYPPO {
         ldz file_pagesread+1
         jsr printhex
         ldz file_pagesread
         jsr printhex
+}
         jsr sdwaitawhile
         jmp reset_entry
 
@@ -1889,9 +1992,11 @@ pm4:                ;; write 16-bit character code
 endofmessage:
         inc screenrow
 
+!if DEBUG_HYPPO {
 	;; XXX DEBUG
 	;; Require key press after each line displayed.
 ;;	jsr debug_wait_on_key
+}
 
 	plz
 	rts
@@ -1968,10 +2073,28 @@ go64:
 	;; Prevent flash menu from being launched
 	lda #$4c
 	sta first_boot_flag_instruction
+
+	;; Warn user if dipswitch 3 is on
+	lda $d69d
+	and #$04
+	beq l41
+        ldx #<msg_dipswitch3on
+        ldy #>msg_dipswitch3on
+        jsr printmessage
+l40a:
+	;; Wait for user to press RUN/STOP to continue booting
+	lda $d610
+	cmp #$03
+	beq l41
+	inc $d020
+	jmp l40a
+l41:
+	;; remove RUN/STOP from key queue
+	sta $d610
 	
         ;; Check if hold boot switch is set (control-key)
         ;;
-l41:    lda buckykey_status
+	lda buckykey_status
         and #$14
         beq l42      ;; no, so continue
 
@@ -2032,6 +2155,7 @@ g61:    sta $0800,x
         ;; as 512 usec.
         jsr reset_cartridge
 
+go64_exit_hypervisor:	
         ;; exit from hypervisor to start machine
         sta hypervisor_enterexit_trigger
 
@@ -2324,6 +2448,8 @@ hscr1:
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
+
 checkpoint:
 
         ;; Routine to record the progress of code through the hypervisor for
@@ -2514,6 +2640,9 @@ checkpoint_nybltohex:
 
 cpnth1: adc #$06
         rts
+
+} ;; !if DEBUG_HYPPO
+
 
 ;;         ========================
 ;;       Scan the 32KB colour RAM looking for pre-loaded utilities.
@@ -2985,6 +3114,8 @@ serialwrite:
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
+
 ;; checkpoint message
 
 msg_checkpoint:         !text "$"
@@ -2996,6 +3127,8 @@ msg_checkpoint_z:       !text "%%, P:"
 msg_checkpoint_p:       !text "%% :"
 msg_checkpointmsg:      !text "                                                             " ;; END_OF_STRING
                         !8 13,10  ;; CR/LF
+
+}
 
 ;;         ========================
 
@@ -3029,9 +3162,9 @@ msg_romok:              !text "ROM CHECKSUM OK - BOOTING"
 ;;                      !8 0
 ;; msg_charrombad:      !text "COULD NOT LOAD CHARROM.M65"
 ;;                      !8 0
-msg_charromloaded:      !text "LOADED CHARROM.M65 ($$$$ PAGES)"
+msg_charromloaded:      !text "LOADED CHARROM.M65"
                         !8 0
-msg_megaromloaded:      !text "LOADED MEGA65.ROM ($$$$ PAGES)"
+msg_megaromloaded:      !text "LOADED MEGA65.ROM"
                         !8 0
 msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
                         !8 0
@@ -3076,6 +3209,8 @@ msg_nod81:              !text "CANNOT MOUNT D81 - (ERRNO: $$)"
 msg_d81mounted:         !text "D81 SUCCESSFULLY MOUNTED"
                         !8 0
 msg_releasectrl:        !text "RELEASE CONTROL TO CONTINUE BOOTING."
+                        !8 0
+msg_dipswitch3on:       !text "SW3 OFF OR PRESS RUN/STOP TO CONTINUE."
                         !8 0
 msg_romnotfound:        !text "COULD NOT FIND ROM MEGA65XXROM"
                         !8 0
@@ -3155,7 +3290,9 @@ txt_NTSC:               !text "NTSC"
 
 ;;         ========================
 
-!src "debug.asm"
+!if DEBUG_HYPPO {
+        !src "debug.asm"
+}
 
 ;;         ========================
 
@@ -3426,6 +3563,7 @@ zptempv32b:
 dos_file_loadaddress:
         !16 0,0
 
+!if DEBUG_HYPPO {
         ;; Used for checkpoint debug system of hypervisor
         ;;
 checkpoint_a:
@@ -3442,6 +3580,7 @@ checkpoint_pcl:
         !8 0
 checkpoint_pch:
         !8 0
+}
 
         ;; SD card timeout handling
         ;;

@@ -270,15 +270,12 @@ architecture Behavioral of container is
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
-  signal clock81n : std_logic;
   signal clock100 : std_logic;
-  signal clock135p : std_logic;
-  signal clock135n : std_logic;
-  signal clock162 : std_logic;
+  signal clock163 : std_logic;
   signal clock200 : std_logic;
+  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
@@ -310,12 +307,6 @@ architecture Behavioral of container is
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
-  signal v_vga_hsync : std_logic;
-  signal v_hdmi_hsync : std_logic;
-  signal v_vsync : std_logic;
-  signal v_red : unsigned(7 downto 0);
-  signal v_green : unsigned(7 downto 0);
-  signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
   signal hdmi_dataenable : std_logic;
 
@@ -399,6 +390,7 @@ architecture Behavioral of container is
   signal pattern_g : unsigned(7 downto 0);
   signal pattern_b: unsigned(7 downto 0);
   signal pattern_de : std_logic;
+  signal pattern_de_n : std_logic;
   signal pattern_hsync : std_logic;
   signal pattern_vsync : std_logic;
 
@@ -418,7 +410,7 @@ architecture Behavioral of container is
   signal spdif_44100 : std_logic;
   
   signal porto : unsigned(7 downto 0);
-  signal portp : unsigned(7 downto 0);
+  signal portp : unsigned(7 downto 0) := x"00";
 
   signal qspi_clock : std_logic;
 
@@ -461,7 +453,7 @@ architecture Behavioral of container is
 
   signal tmds : slv_9_0_t(0 to 2);
 
-  signal reset_high : std_logic := '1';
+  signal reset_high : std_logic := '0';
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
@@ -531,11 +523,8 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock81n  => clock81n,   --   81     MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135     MHz
-               clock135n => clock135n,  --  135     MHz
-               clock163  => clock162,   --  162.5   MHz
+               clock270  => clock270,
+               clock163  => clock163,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
                clock325  => clock325    --  325     MHz
                );
@@ -607,7 +596,7 @@ begin
             port map (
                 rst     => reset_high,
                 clk     => clock27,
-                clk_x5  => clock135p,
+                clk_x10  => clock270,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
@@ -617,7 +606,7 @@ begin
         port map (
             rst     => reset_high,
             clk     => clock27,
-            clk_x5  => clock135p,
+            clk_x10  => clock270,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
@@ -807,16 +796,16 @@ begin
       clock81 => pixelclock, -- 80MHz
       clock27 => clock27,
 
-      cpuclock => clock41,
+      cpuclock => cpuclock,
 
       pixel_strobe_out => pixel_strobe,
       
       -- Configuration information from the VIC-IV
-      hsync_invert => zero,
-      vsync_invert => zero,
-      pal50_select => zero,
+      hsync_invert => one,
+      vsync_invert => one,
+      pal50_select => one,
       vga60_select => zero,
-      test_pattern_enable => one,      
+      test_pattern_enable => dipsw(3),      
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
@@ -824,9 +813,9 @@ begin
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
-      red_i => to_unsigned(0,8),
-      green_i => to_unsigned(255,8),
-      blue_i => to_unsigned(0,8),
+      red_i => to_unsigned(255,8),
+      green_i => to_unsigned(0,8),
+      blue_i => to_unsigned(255,8),
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel
@@ -868,6 +857,8 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
+    pattern_de_n <= not pattern_de;
+    
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
@@ -888,7 +879,7 @@ begin
 
       dvi_select <= portp(1) xor dipsw(1);
       
-      reset_high <= not btncpureset;
+--      reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
       
@@ -914,7 +905,7 @@ begin
 --        led <= not led;
       end if;
 
-      reset_high <= not btncpureset;
+--      reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
 --      led <= flopled_drive;
@@ -1000,28 +991,17 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+--    led <= portp(4);
+    led <= dipsw(3);
 
     if rising_edge(pixelclock) then
-      hsync <= v_vga_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
-      hdmired <= v_red;
-      hdmigreen <= v_green;
-      hdmiblue <= v_blue;
+      hsync <= pattern_hsync;
+      vsync <= pattern_vsync;
+      vgared <= pattern_r;
+      vgagreen <= pattern_g;
+      vgablue <= pattern_b;
     end if;
 
-    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
-    -- getting through
-    if portp(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
-    end if;
-    
   end process;    
   
 end Behavioral;

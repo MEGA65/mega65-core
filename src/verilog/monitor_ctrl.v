@@ -49,7 +49,7 @@
 `define MON_CHAR_INOUT        5'h1E       // Hypervisor character input/output
 `define MON_CHAR_STATUS       5'h1F
 
-module monitor_ctrl(input clk, input reset, output wire reset_out, 
+module monitor_ctrl(input clk, input reset, output reg reset_out, 
                     `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
 						   `MARK_DEBUG input [4:0] address, 
 						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
@@ -114,26 +114,26 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 assign monitor_di = di;
 
 // MON_RESET_TIMEOUT
-reg [7:0] reset_timeout = 255;
-reg reset_processing = 0;
-// reset_out is asserted any time reset_timeout != 0
-assign reset_out = (reset_timeout != 0);
+reg [7:0] reset_timeout = 0;
 
 always @(posedge clk)
   begin
-     $display("reset=%b, reset_processing=%b, reset_timeoud=%u",reset,reset_processing,reset_timeout);
+//     $display("reset=%b, reset_processing=%b, reset_timeout=%u",reset,reset_processing,reset_timeout);
+
+     // reset_out is asserted any time reset_timeout != 0
+     // BUT clock latched to prevent glitching
+     reset_out <= (reset_timeout != 0);
      
-  if(reset & ~reset_processing)
-  begin
-    reset_processing <= 1;
-    reset_timeout <= 255;
-  end
+     
+  if(reset) 
+      // Then as soon as we see the reset signal latched by the system, we stop asserting it
+     reset_timeout <= 0;     
   else if(address == `MON_RESET_TIMEOUT && write)
     reset_timeout <= di;
-  else if(reset_timeout != 0 && reset_processing)
+  else if(reset_timeout != 0)
     reset_timeout <= reset_timeout - 1;
-  else if(~reset) // Don't clear reset_processing flop until reset has been deasserted externally for at least one cycle.
-    reset_processing <= 0;
+  else 
+    reset_timeout <= 0;      
 end
 
 // CPU State Record control
@@ -148,11 +148,12 @@ assign cpu_state_write_index = cpu_state_write_index_next;
 // the current clock cycle so the state write doesn't lag the CPU by a clock cycle.
 always @(*)
 begin
-  if(reset) begin
-    cpu_state_write <= 0;
-    cpu_state_was_hold_next <= 0;
-    cpu_state_write_index_next <= 0;
-  end else begin
+//  if(reset) begin
+//    cpu_state_write <= 0;
+//    cpu_state_was_hold_next <= 0;
+//    cpu_state_write_index_next <= 0;
+//  end else
+  begin
     cpu_state_write <= 0;
     cpu_state_write_index_next <= cpu_state_write_index_reg;
     if(cpu_state != 8'h10) begin
@@ -207,12 +208,6 @@ uart_rx_buffered rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART
 always @(posedge clk)
 begin
   if(reset)
-    // PGS 20181111 - 2Mbps has problems with intermittant lost characters
-    // with the shift to 40MHz cpu clock.  Oddly, 4Mbps works just fine.
-    // So we will use that.
-    // PGS 20181111 - Ah, the problem is that we need to reduce the count by one.
-    // With the reduced clock speed, the error in timing was increased to the point
-    // where it began causing problems.
     bit_rate_divisor_reg <= (40000000/2000000) - 1;
   else if(write)
   begin

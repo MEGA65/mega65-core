@@ -6,6 +6,13 @@
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
 
+
+# Set DEBUG_HYPPO to 1 to include code that is useful debugging Hyppo itself
+ifndef DEBUG_HYPPO
+	DEBUG_HYPPO= 0
+endif
+
+
 ifdef USE_LOCAL_OPHIS
 	# use locally installed binary (requires 'ophis' to be in the $PATH)
 	OPHIS=	ophis
@@ -101,6 +108,7 @@ TOOLDIR=	$(SRCDIR)/tools
 TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/etherload/etherload \
 	$(TOOLDIR)/hotpatch/hotpatch \
+	$(TOOLDIR)/hyppotest \
 	$(TOOLDIR)/monitor_load \
 	$(TOOLDIR)/mega65_ftp \
 	$(TOOLDIR)/monitor_save \
@@ -111,13 +119,20 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 
 FREEZER_FILES= \
 	$(SDCARD_DIR)/FREEZER.M65 \
+	$(SDCARD_DIR)/MAKEDISK.M65 \
+	$(SDCARD_DIR)/MONITOR.M65 \
 	$(SDCARD_DIR)/AUDIOMIX.M65 \
 	$(SDCARD_DIR)/C64THUMB.M65 \
 	$(SDCARD_DIR)/C65THUMB.M65 \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
+
+# phony target to force submodule builds
+FORCE:
+
+.PHONY: FORCE
 
 freezer_files: $(FREEZER_FILES)
 
@@ -127,30 +142,30 @@ SUBMODULEUPDATE= \
 	git submodule update --init ; \
 	fi
 
-$(FREEZER_FILES): %.M65:
+$(FREEZER_FILES): %.M65: FORCE
 	$(SUBMODULEUPDATE)
 	make -C src/mega65-freezemenu $(notdir $@) USE_LOCAL_CC65=$(USE_LOCAL_CC65)
 	cp src/mega65-freezemenu/$(notdir $@) $(SDCARD_DIR)/
 
-$(CBMCONVERT):
+$(CBMCONVERT): FORCE
 	$(SUBMODULEUPDATE)
 	( cd cbmconvert && make -f Makefile.unix )
 
-cc65/bin/cc65:
+cc65/bin/cc65: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
 	( cd cc65 && make -j 8 )
 
 
-Ophis/bin/ophis:
+Ophis/bin/ophis: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
 	# Ophis submodule has the executable pre-built at Ophis/bin/ophis
 
 
-src/tools/acme/src/acme:
+src/tools/acme/src/acme: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(SUBMODULEUPDATE)
@@ -163,7 +178,7 @@ ghdl/ghdl_mcode: ghdl/build/bin/ghdl
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
-ghdl/build/bin/ghdl:
+ghdl/build/bin/ghdl: FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
@@ -199,6 +214,7 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhdl \
 			$(VHDLSRCDIR)/sid_components.vhdl \
 			$(VHDLSRCDIR)/sid_filters.vhdl \
 			$(VHDLSRCDIR)/sid_voice.vhdl \
+			$(VHDLSRCDIR)/ghdl_8580_voice_stub.vhdl \
 
 CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
@@ -258,6 +274,8 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl \
+			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x2048.vhdl \
@@ -402,11 +420,13 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 
 # GHDL with mcode backend for backtraces (PGS special debug version)
 GHDLGCC = /usr/local/bin/ghdl
-simulate-gcc:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDLGCC) -i -g $(SIMULATIONVHDL)
 	$(GHDLGCC) -m -g cpu_test
+
+simulate-gcc: simulate-gcc-build
 	./cpu_test
 
 
@@ -416,7 +436,7 @@ ghdl_bug:	$(GHDL_DEPEND) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g ghdl_bug
 
-MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 simulatemfm:	$(GHDL_DEPEND) $(MFMTESTSRCS)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
@@ -473,9 +493,12 @@ mmsimulate:	$(GHDL_DEPEND) $(MMFILES) $(TOOLDIR)/osk_image
 
 MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/mfm_decoder.vhdl \
-	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/sdcardio.vhdl \
 	 $(VHDLSRCDIR)/cputypes.vhdl \
@@ -487,6 +510,37 @@ mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -i $(MFMFILES)
 	$(GHDL) -m test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
+
+QSPIFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
+	 $(VHDLSRCDIR)/mfm_decoder.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
+	 $(VHDLSRCDIR)/crc1581.vhdl \
+	 $(VHDLSRCDIR)/sdcardio.vhdl \
+	 $(VHDLSRCDIR)/cputypes.vhdl \
+	 $(VHDLSRCDIR)/s25fl512s.vhd \
+	 $(VHDLSRCDIR)/gen_utils.vhd \
+	 $(VHDLSRCDIR)/test_qspi.vhdl
+
+qspisimulate: $(GHDL_DEPEND) $(QSPIFILES) $(ASSETS)/synthesised-60ns.dat
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(QSPIFILES)
+	$(GHDL) -m test_qspi
+	( ./test_qspi --vcd=qspi.vcd || $(GHDL) -r test_qspi --vcd=qspi.vcd )
+
+READCOMPFILES=	$(VHDLSRCDIR)/test_readcomp.vhdl $(VHDLSRCDIR)/floppy_read_compensator.vhdl
+readcompsimulate: $(GHDL_DEPEND) $(READCOMPFILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(READCOMPFILES)
+	$(GHDL) -m test_readcomp
+	( ./test_readcomp || $(GHDL) -r test_readcomp )
+
 
 pdmsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(info =============================================================)
@@ -560,6 +614,14 @@ fpacksimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -m test_framepacker
 	( ./test_framepacker || $(GHDL) -r test_framepacker )
+
+HWSC_FILES=	$(VHDLSRCDIR)/test_sc.vhdl $(VHDLSRCDIR)/sc_cell_calc.vhdl 
+scsimulate: $(GHDL_DEPEND) $(HWSC_FILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(HWSC_FILES)
+	$(GHDL) -m test_sc
+	( ./test_i2c || $(GHDL) -r test_sc )
 
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
@@ -700,12 +762,12 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< -Ln $*.lbl -vm --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
 		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
@@ -718,18 +780,27 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(CC65_DEPEND)
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
 
+$(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
+	$(UTILDIR)/userwarning.sh
 
-
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
+		--add-source -Ln $*.label --listing $*.list --mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
-	-stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
+	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
 	test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
+
+$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/qspicommon.c $(CC65_DEPEND)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagflash.prg \
+		--add-source --listing $*.list --mapfile $*.map $< \
+		$(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
+
 
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s) $(wildcard $(SRCDIR)/mega65-libc/cc65/include/*.h) $(CC65_DEPEND)
 	$(info =============================================================)
@@ -766,7 +837,7 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg:
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE
 	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg)  
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
@@ -775,8 +846,8 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
-$(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
-	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
+$(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
+	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -814,7 +885,7 @@ $(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
+$(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png FORCE
 	( cd $(SRCDIR)/open-roms ; make bin/mega65.rom )
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
@@ -930,6 +1001,12 @@ $(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
 # for the serial-monitor
 monitor_drive:	monitor_drive.c Makefile
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
+
+$(TOOLDIR)/hyppotest:	$(TOOLDIR)/hyppotest.c  Makefile
+	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/hyppotest $(TOOLDIR)/hyppotest.c -lpng
+
+hyppotest:	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
+	$(TOOLDIR)/hyppotest $(BINDIR)/HICKUP.M65 src/hyppo/HICKUP.sym src/hyppo/hyppo.test
 
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOOLDIR)/fpgajtag/*.h Makefile
 	$(CC) $(COPT) -g -Wall -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz -lpthread

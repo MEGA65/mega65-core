@@ -44,7 +44,7 @@ entity ethernet is
   port (
     clock : in std_logic;
     clock50mhz : in std_logic;
-    clock100 : in std_logic;
+    clock200 : in std_logic;
     clock200 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := '1';
@@ -207,7 +207,6 @@ architecture behavioural of ethernet is
   signal eth_mac_counter : integer range 0 to 7;
 
   signal rxbuffer_cs : std_logic_vector(3 downto 0) := "0000";
-  signal rxbuffer_write : std_logic_vector(3 downto 0) := "0000";
   signal rxbuffer_end_of_packet_toggle : std_logic := '0';
   signal rxbuffer_end_of_packet_toggle_drive : std_logic := '0';
   signal last_rxbuffer_end_of_packet_toggle : std_logic := '0';
@@ -215,10 +214,17 @@ architecture behavioural of ethernet is
   signal rxbuffer_write_toggle_drive : std_logic := '0';
   signal last_rxbuffer_write_toggle : std_logic := '0';
   signal rxbuffer_writeaddress : integer range 0 to 2047;
+
+  signal rxbuffer_write : std_logic_vector(3 downto 0) := "0000";
   signal rxbuffer_writeaddress_l : integer range 0 to 2047;
-  signal rxbuffer_readaddress : integer range 0 to 2047;
   signal rxbuffer_wdata_l : unsigned(7 downto 0) := x"00";
+  signal rxbuffer_write_drive : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_writeaddress_l_drive : integer range 0 to 2047;
+  signal rxbuffer_wdata_l_drive : unsigned(7 downto 0) := x"00";
+
   signal rxbuffer_wdata : unsigned(7 downto 0) := x"00";
+
+  signal rxbuffer_readaddress : integer range 0 to 2047;
   signal eth_rx_buffer_inuse : unsigned(3 downto 0) := "0000";
   signal rxbuff_id_cpuside : integer range 0 to 3 := 0;
   signal rxbuff_id_ethside : integer range 0 to 3 := 0;
@@ -250,6 +256,7 @@ architecture behavioural of ethernet is
   signal eth_tx_trigger_50mhz_drive : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
+  signal eth_tx_complete_drive : std_logic := '0';
   signal eth_txen_int : std_logic := '0';
   signal eth_txd_int : unsigned(1 downto 0) := "00";
   signal eth_tx_wait : integer range 0 to 50 := 0;
@@ -514,7 +521,7 @@ begin  -- behavioural
         rx_phase_counter <= 0;
       end if;
 
-      if rx_phase_counter = to_integer(eth_rx_latch_phase) then
+      if rx_phase_counter = to_integer(eth_rx_latch_phase_drive) then
         eth_rxd_latched <= eth_rxd_in;
         eth_rxdv_latched <= eth_rxdv_in;
       end if;
@@ -547,6 +554,10 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      rxbuffer_write <= rxbuffer_write_drive;
+      rxbuffer_wdata_l <= rxbuffer_wdata_l_drive;
+      rxbuffer_writeaddress_l <= rxbuffer_writeaddress_l_drive;
+      
       -- Cross-domain latch the reset signals
       reset_50mhz <= reset_50mhz_drive;
       reset_50mhz_drive <= reset;
@@ -1326,15 +1337,15 @@ begin  -- behavioural
       rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
       if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
         last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
-        rxbuffer_write <= "0000";
-        rxbuffer_write(rxbuff_id_ethside) <= '1';
-        rxbuffer_wdata_l <= rxbuffer_wdata;
-        rxbuffer_writeaddress_l <= rxbuffer_writeaddress;
+        rxbuffer_write_drive <= "0000";
+        rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
+        rxbuffer_wdata_l_drive <= rxbuffer_wdata;
+        rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
         eth_rx_write_count <= eth_rx_write_count + 1;
         -- Mark buffer in use once it starts being written to
         eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
       else
-        rxbuffer_write <= "0000";
+        rxbuffer_write_drive <= "0000";
       end if;
       
       -- Notice when we change raster lines
@@ -1469,7 +1480,8 @@ begin  -- behavioural
       
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
       -- (but don't accidently de-assert when sending compressed video.)
-      if (eth_tx_complete = '1')
+      eth_tx_complete_drive <= eth_tx_complete;
+      if (eth_tx_complete_drive = '1')
         and (eth_tx_viciv='0') and (eth_tx_dump='0') then
         eth_tx_trigger <= '0';
       end if;

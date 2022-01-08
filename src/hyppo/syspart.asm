@@ -212,6 +212,8 @@ syspart_unfreeze_from_slot_trap:
 	;;  Make sure we resume a frozen program on the same raster line as
 	;; it entered the freezer.  This might need a bit of tuning to get
 	;; perfect, but it should already be accurate to within one raster line.
+
+	
 	lda #$ff
 @unfreezesyncwait:
 	cmp $d012

@@ -11,7 +11,23 @@ entity iomapper is
             cpu_frequency : integer
              );
   port (cpuclock : in std_logic;
-        clock100mhz : in std_logic;
+        clock200mhz : in std_logic;
+        clock50mhz : in std_logic;
+        clock2mhz : in std_logic;
+        phi0_1mhz : in std_logic;
+        pixelclk : in std_logic;
+        uartclock : in std_logic;
+
+        floppy_last_gap : out unsigned(7 downto 0) := x"00";
+        floppy_gap_strobe : out std_logic := '0';        
+        
+        dd00_bits : out unsigned(1 downto 0) := "11";
+        cpu_slow : in std_logic;
+        
+        accessible_row : out integer range 0 to 255 := 255;
+        accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
+        dim_shift : inout std_logic := '0';
+        
         clock200mhz : in std_logic;
         clock50mhz : in std_logic;
         clock2mhz : in std_logic;
@@ -119,11 +135,16 @@ entity iomapper is
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
-        drive_led : out std_logic := '0';
+        drive_led0 : out std_logic := '0';
+        drive_led2 : out std_logic := '0';
+        drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
         porto_out : out unsigned(7 downto 0);
         portp_out : out unsigned(7 downto 0);
 
+        last_reset_source : in unsigned(2 downto 0);
+        reset_monitor_count : in unsigned(11 downto 0);
+        
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
@@ -179,7 +200,9 @@ entity iomapper is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0);
+         QspiDB : out unsigned(3 downto 0);
+         QspiDB_in : in unsigned(3 downto 0);
+         qspidb_oe : out std_logic;
          QspiCSn : out std_logic;
          qspi_clock : out std_logic;
 
@@ -216,6 +239,7 @@ entity iomapper is
          f_writeprotect : in std_logic;
          f_rdata : in std_logic;
          f_diskchanged : in std_logic;
+         f_rdata_loopback : out std_logic;
 
 
         
@@ -374,6 +398,8 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
+  signal sid_mode : unsigned(3 downto 0); -- 1=8580, 0=6581
+  
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
 
@@ -568,9 +594,6 @@ architecture behavioral of iomapper is
   signal filter_table_val2 : unsigned(15 downto 0);
   signal filter_table_addr3 : integer range 0 to 2047;
   signal filter_table_val3 : unsigned(15 downto 0);
-
-  signal sid4_enable : std_logic := '0';
-  signal sid4_enable_counter : integer := 0;
 
   signal accessible_key_event : unsigned(7 downto 0);
   signal accessible_key_enable : std_logic;
@@ -781,6 +804,7 @@ begin
       pixelclock => pixelclk,
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,
+      sid_mode => sid_mode,
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
       reset => reset,
@@ -807,6 +831,9 @@ begin
       -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
       portg(1) => drive_reset,
       portg(0) => drive_connect,
+
+      last_reset_source => last_reset_source,
+      reset_monitor_count => reset_monitor_count,
 
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable,
@@ -1010,9 +1037,10 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
+    mode => sid_mode(0),
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1031,9 +1059,10 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
+    mode => sid_mode(1),
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1052,9 +1081,10 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
+    mode => sid_mode(2),
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1073,9 +1103,10 @@ begin
     -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
     -- is too slow, so we feed them 2MHz instead
     clk_1MHz => clock2mhz,
-    clk32 => cpuclock,
+    cpuclock => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
+    mode => sid_mode(3),
     we => w,
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
@@ -1107,7 +1138,6 @@ begin
   
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
-    clock100 => clock100mhz,
     clock200 => clock200mhz,
     clock => cpuclock,
     reset => reset,
@@ -1175,7 +1205,7 @@ begin
     generic map ( clock_frequency => cpu_frequency )
     port map (
     cpuclock => cpuclock,
-
+    
     sid4_enable => sid4_enable,
     
     volume_knob1_target => volume_knob1_target,
@@ -1376,6 +1406,9 @@ begin
     virtualise_f011_drive0 => virtualised_hardware_in(0),
     virtualise_f011_drive1 => virtualised_hardware_in(1),
     secure_mode => protected_hardware_in(7),
+
+    floppy_last_gap => floppy_last_gap,
+    floppy_gap_strobe => floppy_gap_strobe,
     
     fpga_temperature => fpga_temperature,
 
@@ -1394,9 +1427,13 @@ begin
 
     qspicsn => qspicsn,
     qspidb => qspidb,
+    qspidb_in => qspidb_in,
+    qspidb_oe => qspidb_oe,
     qspi_clock => qspi_clock,
     
-    drive_led => drive_led,
+    drive_led0 => drive_led0,
+    drive_led2 => drive_led2,
+    drive_ledsd => drive_ledsd,
     motor => motor,
 
     pwm_knob => volume_knob1,
@@ -1419,6 +1456,7 @@ begin
     f_writeprotect => f_writeprotect,
     f_rdata => f_rdata,
     f_diskchanged => f_diskchanged,
+    f_rdata_loopback => f_rdata_loopback,
 
     dipsw => dipsw,
     sw => sw,
@@ -1530,27 +1568,7 @@ begin
       
       the_button <= fb_fire and i2c_joya_fire_int;
       i2c_joya_fire <= i2c_joya_fire_int;
-      
-      -- Enable 2nd two SIDs only if they are being accessed. If they are not
-      -- accessed for a couple of frames, then we remove them from the audio stream,
-      -- and leave the primary two SIDs at full volume
-      case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D34" | x"D05" =>
-          if ((((address(6) and address(5)) xor address(8)) and lscs_en) or
-            ((((not address(6)) and address(5)) xor address(8)) and rscs_en)) = '1' then
-            sid4_enable <= '1';
-            sid4_enable_counter <= cpu_frequency / 20;
-          end if;
-        when others =>
-          if sid4_enable_counter=0 then
-            sid4_enable <= '0';
-          else
-            sid4_enable_counter <= sid4_enable_counter - 1;
-          end if;
-      end case;                  
-      
-
-      
+                  
       touch1_valid <= touch1_valid_int;
       
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,

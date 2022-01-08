@@ -41,7 +41,9 @@ architecture behavior of cpu_test is
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
 
-  signal qspidb : unsigned(3 downto 0) := (others => '0');
+  signal qspidb_out : unsigned(3 downto 0) := (others => '0');
+  signal qspidb_in : unsigned(3 downto 0) := (others => '0');
+  signal qspidb_oe : std_logic := '0';
   signal qspicsn : std_logic := '0';
   signal qspisck : std_logic := '0';
   signal aclsck : std_logic := '0';
@@ -327,9 +329,8 @@ begin
 
       sector_buffer_mapped => sector_buffer_mapped,
       
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-      qspisck => qspisck,
+--      qspicsn => qspicsn,      
+--      qspisck => qspisck,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -420,6 +421,10 @@ begin
       
       no_hyppo => '0',
 
+      qspidb => qspidb_out,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
+      
       iec_bus_active => '0',
       iec_srq_external => '1',
 

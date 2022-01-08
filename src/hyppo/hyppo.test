@@ -1,0 +1,182 @@
+# Hypervisor test script
+
+####################################################################
+#
+# First a very simple test, where we just make sure that
+# memory locations get set, and register values are correct
+# at the end.
+#
+####################################################################
+test "Reset display correctly sets VIC-IV registers"
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+jsr resetdisplay
+expect $1B at $FFD3011
+expect $C8 at $FFD3016
+expect $14 at $FFD3018
+expect $40 at $FFD3030
+expect $E5 at $FFD3054
+expect $50 at $FFD3058
+expect $78 at $FFD305A
+expect $50 at $FFD305C
+expect $C0 at $FFD305D
+expect $80 at $FFD306F
+expect $FF at $FFD3D00
+expect $FF at $FFD3D01
+expect $A9 at resetdisplay+$FFF0000
+expect pc = $0001
+expect spl = $01
+check ram
+check registers
+test end
+
+####################################################################
+#
+# Now let's start testing things more seriously, beginning with the reset
+# entry point.
+#
+####################################################################
+
+#
+# On first boot, we should try to run the flash menu
+#
+
+test "Check that reset_entry calls launch_flash_menu on first boot"
+# Stop whichever way it goes
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+# Address that will have been jumped to if we are running the flash menu
+breakpoint launch_flash_menu
+# Address that will have been jumped to if we are not running the
+# flash menu
+breakpoint dont_launch_flash_menu
+log dma
+jmp reset_entry
+expect pc = launch_flash_menu
+expect B = $bf
+# We don't really care about the following registers, but we need to
+# give their expected values to avoid false positives
+expect y = $25
+expect z = $3f
+check registers
+test end
+
+#
+# But on subsequent boots, it should bypass it.
+#
+
+test "Check that reset_entry calls doesn't call launch_flash_menu on subsequent boots"
+# Stop whichever way it goes
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+
+# Make the hypervisor think we have finished booting
+breakpoint go64_exit_hypervisor
+jmp go64
+
+# Check that the instruction was mutated
+expect $4c at first_boot_flag_instruction
+expect $4c at utility_menu
+# And silence errors for things we expect
+expect $FF at hypervisor_spl
+expect $01 at hypervisor_sph
+# We don't care about IO contents
+ignore from $D000 to $DFFF
+# We don't care about NMI vector being installed
+ignore from $0318 to $0319
+# Its ok for longpeek dma list fields to be modified
+# NOTE: Hypervisor labels must be adjusted for address of HYPPO RAM
+# until I implement 28-bit memory awareness for symbol tables
+ignore longpeekdmalist_src_mb+$fff0000
+ignore longpeekdmalist_src_lsb+$fff0000
+ignore longpeekdmalist_src_2sb+$fff0000
+ignore longpeekdmalist_src_msb+$fff0000
+# ignore 32-bit scratch vector
+ignore from zptempv32+$fff0000 to zptempv32+$fff0003
+#ignore stack contents
+ignore from $fffbe80 to $fffbeff
+check ram
+
+# Then pretend we have reset again, and see which way it goes
+# Address of instruction that follows BIT/JMP that decides if it
+# will get executed or not
+breakpoint try_flash_menu+3
+# Address that will have been jumped to if we are not running the
+# flash menu
+breakpoint dont_launch_flash_menu
+jmp reset_entry
+expect pc = dont_launch_flash_menu
+expect B = $bf
+# We don't really care about the following registers, but we need to
+# give their expected values to avoid false positives
+expect x = $00
+expect y = $25
+expect z = $3f
+check registers
+test end
+
+test "OpenROMs prepares for flash menu entry on first boot"
+# Load hypervisor and symbol table
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+# Load OpenROM and symbol tables
+load src/open-roms/bin/mega65.rom at $20000
+# XXX - Some of these must surely need to be at $30000, not $20000 ?
+loadsymbols src/open-roms/build/target_mega65/BASIC_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/BASIC_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/DOS_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
+# Load megaflash at $50000
+load src/utilities/megaflash-a200t.prg at $50000
+loadsymbols src/utilities/megaflash-a200t.label at $50000-$07ff
+
+# Log DMA requests
+log dma
+
+# Stop when we get into the flash menu
+breakpoint $080d
+jmp reset_entry
+expect PC = $080d
+expect A = $48
+expect B = $00
+expect Z = $3f
+expect SPH = $01
+check registers
+test end
+
+test "Flash menu is copied to bank 0, executes and returns control to the hypervisor"
+# Load hypervisor and symbol table
+loadhyppo bin/HICKUP.M65
+loadhypposymbols src/hyppo/HICKUP.sym
+# Load OpenROM and symbol tables
+load src/open-roms/bin/mega65.rom at $20000
+# XXX - Some of these must surely need to be at $30000, not $20000 ?
+loadsymbols src/open-roms/build/target_mega65/BASIC_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/BASIC_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/DOS_1_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_0_combined.sym at $20000
+loadsymbols src/open-roms/build/target_mega65/KERNAL_1_combined.sym at $20000
+# Load megaflash at $50000
+load src/utilities/megaflash-a200t.prg at $50000
+loadsymbols src/utilities/megaflash-a200t.label at $50000-$07ff
+# Banner (which includes palette values) at $57D00
+load sdcard-files/BANNER.M65 at $57D00
+
+#log dma
+
+# Dump full instruction stream if we fail
+#log on failure
+
+# Stop when we leave the flash menu
+breakpoint $cf7f
+jmp reset_entry
+expect PC = $cf7f
+expect A = $48
+expect B = $00
+expect Z = $3f
+expect SPH = $01
+check registers
+dump instructions 1587000 to 1588000
+test end
+

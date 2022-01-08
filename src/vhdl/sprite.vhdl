@@ -146,7 +146,7 @@ begin  -- behavioural
   -- type   : sequential
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
-  main: process (pixelclock,sprite_number,sprite_h640,x640_in,x320_in)
+  main: process (pixelclock,sprite_number,sprite_h640,x640_in,x320_in,x_offset)
     variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
     variable pixel_16 : std_logic_vector(3 downto 0);
     variable sprite_color2_bits  : std_logic_vector(1 downto 0);

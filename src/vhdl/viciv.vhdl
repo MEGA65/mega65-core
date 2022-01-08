@@ -1314,7 +1314,17 @@ begin
           vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vicii_ycounter_scale_minus_zero,
-          hsync_polarity_internal,vsync_polarity_internal
+          hsync_polarity_internal,vsync_polarity_internal,
+          vicii_ycounter_minus_one,lightpen_x_latch,lightpen_y_latch,irq_rasterx,irq_lightpen,
+          mask_rasterx,mask_lightpen,no_raster_buffer_delay,raster_buffer_double_line,
+          vicii_is_raster_source,shadow_mask_enable,sprite_h640,vicii_hot_regs_enable,
+          display_row_width,sprite_h640_msbs,glyphs_from_hyperram,
+          reg_xcounter_delay,show_render_activity,test_pattern_enable,vga60_select_internal,
+          sprite_y_adjust,reg_alpha_delay,sprite_alpha_blend_value,sprite_alpha_blend_enables,
+          sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
+          sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
+          hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y
           ) is
     variable bitplane_number : integer;
 
@@ -1525,6 +1535,9 @@ begin
       screen_ram_base(15 downto 14) <= not last_dd00_bits;
       vicii_sprite_pointer_address(15 downto 14) <= not last_dd00_bits;
       character_set_address(15 downto 14) <= not last_dd00_bits;
+      -- NOTE: We DONT reset the character set address with a legacy write,
+      -- even if HOTREG are enabled. This makes it easier to use alternate
+      -- character sets, and full-colour text mode upgrading of old programmes.
       
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
@@ -2948,7 +2961,7 @@ begin
 
   end process;
 
-  process(pixelclock) is
+  process(pixelclock,all_pause,reg_h640,ramaddress,this_screen_row_fetch_address,glyph_full_colour) is
     variable indisplay : std_logic := '0';
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
@@ -3011,58 +3024,6 @@ begin
 
       sprite_fetch_drive <= '0';
 
-      -- Add new sprite collision bits to the bitmap
-      case vicii_sprite_sprite_collision_map is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
-        when others =>
-          -- Sprite collision, so add it to the existing map
-          if postsprite_inborder='0' then
-            vicii_sprite_sprite_collisions
-              <= vicii_sprite_sprite_collisions or vicii_sprite_sprite_collision_map;
-          end if;
-      end case;
-      -- Sprite foreground collision is easier: always add it on.
-      if postsprite_inborder='0' then
-        vicii_sprite_bitmap_collisions
-          <= vicii_sprite_bitmap_collisions or vicii_sprite_bitmap_collision_map;
-      end if;
-
-      -- Now check if we need to trigger an IRQ due to sprite collisions:
-      case vicii_sprite_sprite_collisions is
-        when "00000000" => null;
-        when "10000000" => null;
-        when "01000000" => null;
-        when "00100000" => null;
-        when "00010000" => null;
-        when "00001000" => null;
-        when "00000100" => null;
-        when "00000010" => null;
-        when "00000001" => null;
-        when others =>
-          irq_collisionspritesprite <= '1';
-      end case;
-      if vicii_sprite_bitmap_collisions /= "00000000" then
-        irq_collisionspritebitmap <= '1';
-      end if;
-
-      -- Reading $D01E/$D01F clears the previous collision bits.
-      -- Note that this doesn't clear the IRQ, just the visible bits
-      if clear_collisionspritesprite='1' then
-        vicii_sprite_sprite_collisions <= vicii_sprite_sprite_collision_map;
-      end if;
-
-      if clear_collisionspritebitmap='1' then
-        vicii_sprite_bitmap_collisions <= vicii_sprite_bitmap_collision_map;
-      end if;
-
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
       irq_rasterx <= irq_rasterx and (not ack_rasterx);
@@ -3076,6 +3037,30 @@ begin
                         or (irq_collisionspritebitmap and mask_collisionspritebitmap)
                         or (irq_collisionspritesprite and mask_collisionspritesprite));
 
+      -- Add new sprite collision bits to the bitmap
+      case vicii_sprite_sprite_collision_map is
+        when "00000000" | "10000000" | "01000000" | "00100000" | "00010000" |
+             "00001000" | "00000100" | "00000010" | "00000001" =>
+          vicii_sprite_sprite_collisions <= vicii_sprite_sprite_collisions and (vicii_sprite_sprite_collisions'range => not(clear_collisionspritesprite));
+        when others =>
+          -- Sprite collision, so add it to the existing map
+          vicii_sprite_sprite_collisions
+            <= (vicii_sprite_sprite_collisions and (vicii_sprite_sprite_collisions'range => not(clear_collisionspritesprite))) or
+               (vicii_sprite_sprite_collision_map and (vicii_sprite_sprite_collision_map'range => not(postsprite_inborder)));
+      end case;
+      -- Sprite foreground collision is easier: always add it on.
+      vicii_sprite_bitmap_collisions
+        <= (vicii_sprite_bitmap_collisions and (vicii_sprite_bitmap_collisions'range => not(clear_collisionspritebitmap))) or
+           (vicii_sprite_bitmap_collision_map and (vicii_sprite_bitmap_collision_map'range => not(postsprite_inborder)));
+
+      -- Now check if we need to trigger an IRQ due to sprite collisions:
+      if vicii_sprite_sprite_collisions /= "00000000" then
+        irq_collisionspritesprite <= '1';
+      end if;
+      if vicii_sprite_bitmap_collisions /= "00000000" then
+        irq_collisionspritebitmap <= '1';
+      end if;
+
       -- Detect lightpen event (must appear above irq_lightpen assignment above)
       if touch_active='1' and xcounter_drive(11 downto 0) = touch_x and displayy = touch_y then
         irq_lightpen <= '1';
@@ -3083,15 +3068,12 @@ begin
         lightpen_y_latch <= touch_y(9 downto 2);
       end if;
       
-
-      
       -- reset masks IRQs immediately
       if irq_drive = '0' then
         irq <= '0';
       else
         irq <= 'H';
       end if;
-
 
       -- Hsync has trouble meeting timing, so I have spread out the control
       -- over 3 cycles, including one pure drive cycle, which should hopefully
@@ -4923,7 +4905,7 @@ begin
             end if;
             -- Interlacing selects which of two bitplane address register
             -- fields to use
-            if (reg_v400='1') and (vicii_ycounter_v400(0)='1') then
+            if (reg_v400='1') and (vicii_ycounter_v400(0)='0') then
               -- Use odd scan set
               sprite_pointer_address(15 downto 13)
                 <= bitplane_addresses(sprite_fetch_sprite_number mod 8)
@@ -5519,7 +5501,8 @@ begin
 
   -- raster buffer read address/sub calculations
   -- pulled out so "next" value can be fed directly to raster buffer ram read address.
-  process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1)
+  process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1,
+          reg_h640)
   begin
     raster_buffer_read_address_next <= raster_buffer_read_address;
     if xcounter = x_chargen_start_minus1 then
@@ -5559,7 +5542,8 @@ begin
   -- This is pulled out into a combinatorial section so that ramaddress changes as soon as the raster_fetch_state
   -- value changes so that it can be driven into the block ram and sampled at the next clock cycle, thus providing the
   -- expected data on the next clock as well.
-  process(raster_fetch_state,this_ramaccess_is_screen_row_fetch,glyph_data_address,sprite_pointer_address,sprite_data_address)
+  process(raster_fetch_state,this_ramaccess_is_screen_row_fetch,glyph_data_address,sprite_pointer_address,sprite_data_address,
+          ramaddress,this_screen_row_fetch_address,glyph_full_colour)
   begin
     next_ramaddress <= ramaddress;
 

@@ -193,6 +193,7 @@ trap_dos_getdefaultdrive:
 
 trap_dos_selectdrive:
 
+        ldx hypervisor_x
         jsr dos_set_current_disk
 
 return_from_trap_with_carry_flag:
@@ -263,7 +264,8 @@ trap_dos_setname:
 ;;         ========================
 
 tdsnfailure:
-        lda dos_error_code
+        ;; save the error code so a later trap_dos_geterrorcode will return it
+        sta dos_error_code
         jmp return_from_trap_with_failure
 
 ;;         ========================
@@ -273,6 +275,7 @@ illegalvalue:
 
         ;; BG: the below section seems never called from anywhere: suggest removal
 
+!if DEBUG_HYPPO {
 ;;         tya
 ;;         tax
 ;;         jsr checkpoint_bytetohex
@@ -282,6 +285,7 @@ illegalvalue:
 ;;         jsr checkpoint
 ;;         .byte 0,"Filename contains $00 @ position $"
 ;; iv1:        .byte "%%",0
+}
 
         lda #dos_errorcode_illegal_value
         sta dos_error_code
@@ -799,8 +803,9 @@ trap_dos_readfile:
 
 
 trap_dos_cdrootdir:
+	ldx hypervisor_x
 	jsr dos_cdroot
-	jmp return_from_trap_with_success
+	jmp return_from_trap_with_carry_flag
 	
 trap_dos_chdir:
 
@@ -852,6 +857,7 @@ trap_dos_closefile:
 
         jsr dos_get_file_descriptor_offset
         bcc tdcf1
+        sta dos_current_file_descriptor_offset
         jsr dos_closefile
         bcc tdcf1
 
@@ -876,6 +882,8 @@ trap_dos_findfile:
 trap_dos_findfirst:
 
         jsr dos_findfirst
+        lda dos_current_file_descriptor
+        sta hypervisor_a
         jmp return_from_trap_with_carry_flag
 
 ;;         ========================
@@ -892,6 +900,7 @@ trap_dos_geterrorcode:
         lda dos_error_code
         sta hypervisor_a
 
+!if DEBUG_HYPPO {
         tax                                ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty tdgec1+0
@@ -902,6 +911,7 @@ trap_dos_geterrorcode:
         !text "dos_geterrorcode <=$"
 tdgec1: !text "%%>"
         !8 0
+}
 
         jmp return_from_trap_with_success
 
@@ -1031,17 +1041,10 @@ dos_clear_filedescriptors:
         sta currenttask_filedescriptor3
 
 	;; XXX - Doesn't flush any files open for write
-	ldx #0
-@closenextfiledescriptor:
-	phx
-	jsr dos_get_file_descriptor_offset
-	plx
-	tay
-        lda #$ff ;; not allocated flag for file descriptor
-        sta dos_file_descriptors + dos_filedescriptor_offset_diskid,y
-	inx
-	cpx #4
-	bne @closenextfiledescriptor
+        sta dos_file_descriptors
+        sta dos_file_descriptors+$10
+        sta dos_file_descriptors+$20
+        sta dos_file_descriptors+$30
 	
         sec
         rts
@@ -1286,7 +1289,9 @@ dcpe1:  lda (<dos_scratch_vector),y
         jsr dos_disk_openpartition
         bcc partitionerror
 
+!if DEBUG_HYPPO {
         jsr dump_disk_table
+}
 
         ;; Check if partition is bootable (or the only partition)
         ;; If so, make the partition the default disk
@@ -1304,6 +1309,7 @@ makethispartitionthedefault:
         lda dos_disk_count
         sta dos_default_disk
 
+!if DEBUG_HYPPO {
         ;; print out this message to Checkpoint
         ;;
 
@@ -1319,6 +1325,7 @@ mtptd:  !text "xx"
         !8 0
 
 ;; jsr dump_disk_table
+}
 
         ;; return OK
         ;;
@@ -1331,6 +1338,7 @@ dontmakethispartitionthedefault:
 
         ldx dos_disk_count
 
+!if DEBUG_HYPPO {
         ;; print out this message to Checkpoint
         ;;
 
@@ -1345,6 +1353,7 @@ mtptd2: !text "x NOT set to the default_disk"
         !8 0
 
 ;; jsr dump_disk_table
+}
 
         ;; return OK
         ;;
@@ -1374,6 +1383,7 @@ partitionerror:
 
         ;; return ERROR
 
+!if DEBUG_HYPPO {
         ldx dos_error_code                ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty perr
@@ -1384,6 +1394,7 @@ partitionerror:
         !text "partitionerror="
 perr:   !text "xx"
         !8 0
+}
 
         clc
         rts
@@ -1424,7 +1435,9 @@ ddop1:  lda dos_disk_table,y
         cpx #$04
         bne ddop1
 
+!if DEBUG_HYPPO {
 jsr dumpsectoraddress        ;; debugging
+}
 
         jsr sd_readsector
         bcc partitionerror
@@ -1897,17 +1910,20 @@ dos_return_error_already_set:
 ;;         ========================
 
 dos_set_current_disk:
-
+	
         ;; Is disk number valid?
         ;;
         ;; INPUT: .X = disk
         ;;
-        lda #dos_errorcode_no_such_disk
-        sta dos_error_code
 
         cpx dos_disk_count
-        bcc +
-        jmp partitionerror        ;; BG shouldnt this be bmi?
+        bcc + 			; Should this be BCC or BMI?
+
+        lda #dos_errorcode_no_such_disk
+        sta dos_error_code
+	clc
+	rts
+	
 +
         stx dos_disk_current_disk
         txa
@@ -1918,6 +1934,7 @@ dos_set_current_disk:
         asl
         sta dos_disk_table_offset
 
+!if DEBUG_HYPPO {
         ldx dos_disk_current_disk        ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
         sty dscd+0
@@ -1930,6 +1947,7 @@ dos_set_current_disk:
         !text "dos_set_current_disk="
 dscd:   !text "xx"
         !8 0
+}
 
         sec
         rts
@@ -1944,7 +1962,13 @@ dos_cdroot:
         ;; INPUT: .X = disk
 
         jsr dos_set_current_disk
-        bcc dos_return_error_already_set
+        bcs dos_cdroot_current_disk_already_set
+
+	;; Could not set disk. Error will be already set
+	clc
+	rts	
+
+dos_cdroot_current_disk_already_set:
 
         ;; get offset of disk entry
         ;;
@@ -2034,8 +2058,8 @@ dos_requested_filename_to_uppercase:
         ;;
         ldx dos_requested_filename_len
         cpx #$3f
-        lda #dos_errorcode_name_too_long
         bcc drftu1
+        lda #dos_errorcode_name_too_long
         jmp dos_return_error
 drftu1:
         lda dos_requested_filename,x
@@ -2072,24 +2096,34 @@ dgfd1:  txa
 
 dgfd_found_free:
 
+        stx dos_current_file_descriptor
+        sty dos_current_file_descriptor_offset
+
+        ;; Push the address dos_file_descriptors + dos_current_file_descriptor_offset
+        ;;
+        clc
+        lda #<dos_file_descriptors
+        adc dos_current_file_descriptor_offset
+        tay
+        lda #>dos_file_descriptors
+        adc #$00
+        pha
+        phy
+
         ;; Clear descriptor entry
         ;;
         ldy #$0f
         lda #$00
 
-dgfd2:  sta dos_file_descriptors,y
+dgfd2:  sta ($01,sp),y
         dey
         bne dgfd2
 
+        ;; Pop the address
+        pla
+        pla
+
         ;; Return file descriptor in X
-        ;;
-        stx dos_current_file_descriptor
-        txa
-        asl
-        asl
-        asl
-        asl
-        sta dos_current_file_descriptor_offset
         sec
         rts
 
@@ -2175,7 +2209,8 @@ dcd_is_a_directory:
         jsr dos_set_current_file_from_dirent
         bcc l3_dos_return_error_already_set
 
-	;; copy cluster number into current directory
+	;; Close the file descriptor opened by dos_set_current_file_from_dirent
+	jsr dos_closefile
 
 	;; Copy cluster of requesteed directory into disk CWD cluster
 	ldx #3
@@ -2198,7 +2233,7 @@ dcd2:	ora dos_disk_cwd_cluster,x
 	bne @nonZeroCluster
 
 	;; Is cluster 0, so change to root directory
-	jmp dos_cdroot
+	jmp dos_cdroot_current_disk_already_set
 	
 @nonZeroCluster:
 	;; Return success
@@ -2217,14 +2252,14 @@ dos_openfile:
         ;;
         lda dos_dirent_type_and_attribs
         and #fs_fat32_attribute_isdirectory
-        beq dof_not_a_directory
+        beq dos_not_a_directory
 
         lda #dos_errorcode_is_a_directory
         jmp dos_return_error
 
 ;;         ========================
 
-dof_not_a_directory:
+dos_not_a_directory:
 
         jsr dos_set_current_file_from_dirent
         bcc l3_dos_return_error_already_set
@@ -2239,10 +2274,10 @@ dos_findfile:
         ;; leave any hanging file descriptors.
 
         jsr dos_findfirst
-        php
+        bcs @found
+        jmp l3_dos_return_error_already_set
+@found: ;; if we found the file, directory-FD is still open
         jsr dos_closefile
-        plp
-        bcc l3_dos_return_error_already_set
         sec
         rts
 
@@ -2251,6 +2286,12 @@ dos_findfile:
 dos_findfirst:
 
         ;; Search for file in current directory
+        ;; if found:
+        ;;    return return carry set
+        ;;    leaves directory-FD open, to enable call dos_findnext to find more
+        ;; if not found:
+        ;;    will return carry clear
+        ;;    closes directory-FD
 
         ;; Convert name to upper case for searching
         ;;
@@ -2272,6 +2313,7 @@ l3_dos_return_error_already_set:
 dos_findnext:
 
         ;; Keep searching in directory for another match
+        ;; see dos_findfirst above for return state!
 
 dff_try_next_entry:
 
@@ -2280,6 +2322,7 @@ dff_try_next_entry:
         jsr dos_readdir
         bcs dff_have_next_entry
 
+        ;; no more entries, so we close file descriptor for convinience
         jsr dos_closefile
 
         lda #dos_errorcode_file_not_found
@@ -2368,6 +2411,7 @@ dos_readdir:
 
         jsr dos_file_read_current_sector
 
+!if DEBUG_HYPPO {
 ;; debug info, unsure what byte is being displayed...
 ;;
         +Checkpoint "-"
@@ -2400,6 +2444,7 @@ drdcp0: !text "xxyy]"
         jsr dumpfddata                ;; debug
 
 ;; end of debug
+}
 
         ldx dos_current_file_descriptor_offset
         lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
@@ -2459,6 +2504,7 @@ drce_next_piece:
 
         ;; (dos_scratch_vector) now has the address of the directory entry
 
+!if DEBUG_HYPPO {
         phx        ;; as the code below clobbers X
 
         ;; print out filename and attrib
@@ -2505,6 +2551,7 @@ eight3char1:
         !8 0
 
         plx        ;; as the code above clobbers X
+}
 
 ;;         ========================
 
@@ -2939,14 +2986,17 @@ l_dos_readdir:
 +
         +Checkpoint "drce_not_eof CHECK<3/3>"
 
+!if DEBUG_HYPPO {
         ldx dos_dirent_longfilename_length
         jsr lfndebug
+}
 
         sec
         rts
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
 lfndebug:
         ;; requires .X to be set
         ;;
@@ -2975,11 +3025,13 @@ fnmsg1: !text ".............................." ;; BG: why only 30 chars?
         !8 0
 
         rts
+}
 
 ;;         ========================
 
 drd_deleted_or_invalid_entry:
 
+!if DEBUG_HYPPO {
         tax
                                         ;; convert .X to char-representation for display
         jsr checkpoint_bytetohex        ;; returns: .X and .Y (Y is MSB, X is LSB, print YX)
@@ -2990,6 +3042,7 @@ drd_deleted_or_invalid_entry:
         !8 0
 ddie:   !text "xx drd_deleted_or_invalid_entry"
         !8 0
+}
 	
         jsr dos_readdir_advance_to_next_entry
         bcc +
@@ -3540,6 +3593,7 @@ dfanc4: plp
 
 ;;         ========================
 
+!if DEBUG_HYPPO {
 dos_print_current_cluster:
 
         ;; prints a message to the screen
@@ -3560,6 +3614,7 @@ dos_print_current_cluster:
         +Checkpoint "dos_print_current_cluster"
 
         rts
+}
 
 ;;         ========================
 
@@ -3582,16 +3637,9 @@ dos_readfileintomemory:
         stx dos_sectorsread+1
 
         jsr dos_findfirst
-        php
-
-        ;; close directory now that we have what we were looking for ...
-        ;;
-        jsr dos_closefile
-        plp
-
-        ;; ... but report if we hit an error
-        ;;
         bcc l_dos_return_error_already_set
+        ;; close directory now that we have what we were looking for ...
+        jsr dos_closefile
 
         jsr dos_openfile
         bcc l_dos_return_error_already_set
@@ -3874,7 +3922,8 @@ dos_d81attach0:
 
 ;;         ========================
 
-d81a1:        ;; XXX - Why do we call closefile here?
+d81a1:  ;; Why do we call closefile here?
+        ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
         jsr dos_d81check
@@ -3909,7 +3958,7 @@ l94d:   lda $d681,x		;; resolved sector number
 
 	lda $d68b
 	and #%10111000
-        ora #$43
+        ora #$47
 	sta $d68b
 
 not_mega_floppy2:	
@@ -3961,7 +4010,8 @@ dos_d81attach1:
 
 ;;         ========================
 
-d81a1b:        ;; XXX - Why do we call closefile here?
+d81a1b: ;; Why do we call closefile here?
+        ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
         jsr dos_d81check
@@ -3989,14 +4039,13 @@ l94db:   lda $d681,x		;; resolved sector number
         ora #$38
         sta $d68b
 
-	;; And set the MEGAfloppy flag if the file is 64MiB long
+	;; And set the MEGAfloppy flag if the file is 5500KB long
 	lda d81_clustercount+1
-	cmp #$80
+	cmp #$05
 	bne not_mega_floppy2b
 
 	lda $d68b
-	and #%01000111
-        ora #$98
+        ora #$80
 	sta $d68b
 
 not_mega_floppy2b:	

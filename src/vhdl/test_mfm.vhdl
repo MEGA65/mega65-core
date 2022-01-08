@@ -128,31 +128,7 @@ begin
 
     
     );
-  
-  decoder0: entity work.mfm_decoder port map (
-    clock40mhz => clock40mhz,
-    f_rdata => f_rdata,
-    cycles_per_interval => cycles_per_interval,
-    invalidate => '0',
-
-    target_track => target_track,
-    target_sector => target_sector,
-    target_side => target_side,
-    target_any => target_any,
-
-    sector_found => sector_found,
-    sector_data_gap => sector_data_gap,
-    found_track => found_track,
-    found_sector => found_sector,
-    found_side => found_side,
-
-    first_byte => first_byte,
-    byte_valid => byte_valid,
-    byte_out => byte_out,
-    crc_error => crc_error,
-    sector_end => sector_end
-    );
-  
+    
   process is
   begin
     while true loop
@@ -185,14 +161,39 @@ begin
           fastio_wdata <= x"01";
           fastio_write <= '1';
           sdcardio_cs <= '1';
+          f011_cs <= '0';
         when 2 =>
-          report "TEST: $D6A2 <- 29";
-          -- Set data rate to 29
+          report "TEST: $D6A2 <- 23";
+          -- Set data rate to 23
           fastio_addr <= x"D36A2";
-          fastio_wdata <= to_unsigned(29,8);
+          fastio_wdata <= to_unsigned(23,8);
           fastio_write <= '1';
           sdcardio_cs <= '1';
+          f011_cs <= '0';
         when 3 =>
+          report "TEST: $D084 <- 40 (track 40)";
+          -- Track number is 0
+          fastio_addr <= x"D3084";
+          fastio_wdata <= to_unsigned(40,8);
+          fastio_write <= '1';
+          sdcardio_cs <= '0';
+          f011_cs <= '1';
+        when 4 =>
+          report "TEST: $D085 <- 2 (2 sectors per track)";
+          -- Track number is 0
+          fastio_addr <= x"D3085";
+          fastio_wdata <= to_unsigned(2,8);
+          fastio_write <= '1';
+          f011_cs <= '1';
+        when 5 =>
+          report "TEST: $D6AE <- $F1";
+          -- Select RLL encoding, enable TIB to set data rate and encoding
+          fastio_addr <= x"D36AE";
+          fastio_wdata <= x"F1";
+          fastio_write <= '1';
+          sdcardio_cs <= '1';
+          f011_cs <= '0';
+        when 6 =>
           -- Format track with write precomp, sector gaps
           report "TEST: $D081 <- $A4";
           fastio_addr <= x"D3081";
@@ -203,9 +204,9 @@ begin
           fastio_write <= '0';
           fastio_read <= '1';
           fastio_addr <= x"D36A7";
-          if cycle_count > 4 and fastio_rdata /= x"28" then
-            report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
-          end if;
+--          if cycle_count > 10 and fastio_rdata /= x"28" then
+--            report "TRACKINFO: track_info_rate = $" & to_hstring(fastio_rdata);
+--          end if;
           f011_cs <= '0';
           sdcardio_cs <= '1';
       end case;

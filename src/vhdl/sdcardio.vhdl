@@ -65,6 +65,10 @@ entity sdcardio is
     sdcardio_cs : in std_logic;
     f011_cs : in std_logic;
 
+    -- Direct export of floppy gap timing info
+    floppy_last_gap : out unsigned(7 downto 0) := x"00";
+    floppy_gap_strobe : out std_logic := '0';
+    
     -- Interface for accessing mix table via CPU
     audio_mix_reg : out unsigned(7 downto 0) := x"FF";
     audio_mix_write : out std_logic := '0';
@@ -110,7 +114,9 @@ entity sdcardio is
 
     last_scan_code : in std_logic_vector(12 downto 0);
     
-    drive_led : out std_logic := '0';
+    drive_led0 : out std_logic := '0';
+    drive_led2 : out std_logic := '0';
+    drive_ledsd : out std_logic := '0';
     motor : out std_logic := '0';
     
     dipsw : in std_logic_vector(4 downto 0);
@@ -145,6 +151,7 @@ entity sdcardio is
     f_writeprotect : in std_logic;
     f_rdata : in std_logic;
     f_diskchanged : in std_logic;
+    f_rdata_loopback : out std_logic := '0';
 
     sd1541_data : out unsigned(7 downto 0) := x"FF";
     sd1541_ready_toggle : out std_logic := '0';
@@ -192,24 +199,46 @@ entity sdcardio is
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
-    QspiDB : inout unsigned(3 downto 0) := "ZZZZ";
-    QspiCSn : out std_logic := '0';
-    qspi_clock : out std_logic := '0'    
+    QspiDB : out unsigned(3 downto 0) := "1111";
+    QspiDB_in : in unsigned(3 downto 0);
+    qspidb_oe : out std_logic := '0';
+    QspiCSn : out std_logic := '1';
+    qspi_clock : out std_logic := '1'    
 
     );
 end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal f_rdata_drive : std_logic := '0';
+  
+  signal f_rdata_loopback_int : std_logic := '0';
+  
+  signal saved_fdc_encoding_mode : unsigned(3 downto 0) := x"0";
+  signal fdc_encoding_mode : unsigned(3 downto 0) := x"0";
+  signal f_wdata_raw : std_logic := '0';
+  signal fw_no_data_raw : std_logic := '0';
+  signal fw_ready_for_next_raw : std_logic := '0';
+  signal f_wdata_mfm : std_logic := '0';
+  signal fw_no_data_mfm : std_logic := '0';
+  signal fw_ready_for_next_mfm : std_logic := '0';
+  signal f_wdata_rll : std_logic := '0';
+  signal fw_no_data_rll : std_logic := '0';
+  signal fw_ready_for_next_rll : std_logic := '0';
+  signal f_wdata_int : std_logic := '0';
+  signal f_wdata_last : std_logic := '0';
+  signal f_wdata_interval : integer range 0 to 255 := 255;
+  signal f_wdata_minimum : integer range 0 to 255 := 255;
+
+  signal mfm_encoding : std_logic := '0';
+  signal rll27_encoding : std_logic := '0';  
+  signal raw_encoding : std_logic := '0';  
+  
   signal sd_interface_select_internal : std_logic := '0';
   
   signal read_on_idle : std_logic := '0';
   
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
-  
-  signal qspi_clock_int : std_logic := '1';
-  signal qspi_clock_run : std_logic := '1';
-  signal qspi_csn_int : std_logic := '1'; 
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -245,7 +274,7 @@ architecture behavioural of sdcardio is
   signal sd_wdata        : unsigned(7 downto 0) := (others => '0');
   signal sd_error        : std_logic;
   signal sd_reset        : std_logic := '1';
-  signal sdhc_mode : std_logic := '0';
+  signal sdhc_mode : std_logic := '1';
 
   signal sd_fill_mode    : std_logic := '0';
   signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
@@ -279,12 +308,62 @@ architecture behavioural of sdcardio is
                       F011WriteSectorRealDriveWait,   -- 0x11
                       F011WriteSectorRealDrive,       -- 0x12
                       FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack              -- 0x14
+                      FDCAutoFormatTrack,              -- 0x14
+
+                      QSPI_Send_Command,
+                      QSPI_Release_CS,
+                      QSPI_write_256,
+                      QSPI_write_512,
+                      QSPI_qwrite_16,
+                      QSPI_qwrite_256,
+                      QSPI_qwrite_512,
+                      QSPI_write_phase1,
+                      QSPI_write_phase2,
+                      QSPI_write_phase3,
+                      QSPI_write_phase4,
+                      QSPI_qwrite_phase1,
+                      QSPI_qwrite_phase2,
+                      QSPI_qwrite_phase3,
+                      QSPI_qwrite_phase4,
+                      QSPI4_write_256,
+                      QSPI4_write_512,
+                      QSPI4_write_phase1,
+                      QSPI4_write_phase2,
+                      QSPI_read_512,
+                      QSPI_read_phase1,
+                      QSPI_read_phase2,
+                      QSPI_read_phase3,
+                      QSPI_read_phase4,
+                      SPI_read_512,
+                      SPI_read_phase1,
+                      SPI_read_phase2,
+                      SPI_read_phase3,
+                      SPI_read_phase4                      
                       );
   signal sd_state : sd_state_t := Idle;
   signal last_sd_state_t : sd_state_t := HyperTrapRead;
   signal last_f011_drq : std_logic := '0';
 
+  signal qspi_clock_int : std_logic := '1';
+  signal qspi_clock_run : std_logic := '1';
+  signal qspi_csn_int : std_logic := '1';
+  signal qspi_bits : unsigned(3 downto 0) := "0000";
+  signal qspi_bytes_differ : std_logic := '0';
+  signal qspi_byte_value : unsigned(7 downto 0) := x"00";
+  signal qspi_bit_counter : integer range 0 to 7 := 0;
+  signal qspidb_tristate : std_logic := '1';
+  signal qspi_read_sector_phase : integer range 0 to 128 := 0;
+  signal qspi_action_state : sd_state_t := Idle;
+  signal qspi_command_len : integer range 84 to 100 := 98;
+  signal spi_address : unsigned(31 downto 0) := (others => '0');  
+  signal qspi_release_cs_on_completion : std_logic := '0';
+  signal qspi_release_cs_on_completion_enable : std_logic := '1';
+  signal qspi_verify_mode : std_logic := '0';
+  signal spi_flash_cmd_byte : unsigned(7 downto 0) := x"ec";
+  signal spi_flash_cmd_only : std_logic := '0';
+  signal spi_flash_16bits : std_logic := '0';
+  signal spi_no_dummy_cycles : std_logic := '0';
+  
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
   signal last_sd_rxbyte : unsigned(7 downto 0);
@@ -395,7 +474,7 @@ architecture behavioural of sdcardio is
   signal write_precomp_delay15 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal saved_cycles_per_interval : unsigned(7 downto 0)
-    := to_unsigned(cpu_frequency/500000,8);
+    := to_unsigned(cpu_frequency/500000,8);  
   
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -419,6 +498,7 @@ architecture behavioural of sdcardio is
   -- Debug info from single rate MFM reader
   signal fdc_mfm_state : unsigned(7 downto 0);
   signal fdc_last_gap : unsigned(15 downto 0);
+  signal fdc_last_gap_strobe : std_logic := '0';
   signal fdc_mfm_byte : unsigned(7 downto 0);
   signal fdc_quantised_gap : unsigned(7 downto 0);
 
@@ -449,6 +529,7 @@ architecture behavioural of sdcardio is
   
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
+  signal silent_sdcard : std_logic := '0';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 10 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
@@ -590,6 +671,7 @@ architecture behavioural of sdcardio is
   signal fw_no_data : std_logic := '0';
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
+  signal f_index_rising_edge : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
 
   signal crc_reset : std_logic := '1';
@@ -614,6 +696,10 @@ architecture behavioural of sdcardio is
   signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
   signal track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal use_tib_info : std_logic := '1';
+
+  signal crc_force_delay_counter : integer range 0 to 12 := 0;
+  signal crc_force_delay : std_logic := '0';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -784,23 +870,57 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  rawencoder0: entity work.raw_bits_to_gaps port map (
+    clock40mhz => clock,
+    enabled => raw_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
+    ready_for_next => fw_ready_for_next_raw,
+    no_data => fw_no_data_raw,
+    f_write => f_wdata_raw,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
+    );  
    
   mfmencoder0: entity work.mfm_bits_to_gaps port map (
-      clock40mhz => clock,
-      cycles_per_interval => cycles_per_interval_actual,
-      write_precomp_enable => f011_write_precomp,
-      write_precomp_magnitude => write_precomp_magnitude,
-      write_precomp_magnitude_b => write_precomp_magnitude_b,
-      write_precomp_delay15 => write_precomp_delay15,
-      ready_for_next => fw_ready_for_next,
-      no_data => fw_no_data,
-      f_write => f_wdata,
-      byte_valid => fw_byte_valid,
-      byte_in => fw_byte_in,
-      clock_byte_in => f011_reg_clock
+    clock40mhz => clock,
+    enabled => mfm_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
+    ready_for_next => fw_ready_for_next_mfm,
+    no_data => fw_no_data_mfm,
+    f_write => f_wdata_mfm,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
     );
 
- crc0: entity work.crc1581 port map (
+  rllencoder0: entity work.rll27_bits_to_gaps port map (
+    clock40mhz => clock,
+    enabled => rll27_encoding,
+    cycles_per_interval => cycles_per_interval_actual,
+    write_precomp_enable => f011_write_precomp,
+    write_precomp_magnitude => write_precomp_magnitude,
+    write_precomp_magnitude_b => write_precomp_magnitude_b,
+    write_precomp_delay15 => write_precomp_delay15,
+    ready_for_next => fw_ready_for_next_rll,
+    no_data => fw_no_data_rll,
+    f_write => f_wdata_rll,
+    byte_valid => fw_byte_valid,
+    byte_in => fw_byte_in,
+    clock_byte_in => f011_reg_clock
+    );
+  
+  crc0: entity work.crc1581
+    generic map ( id => 1 )
+    port map (
     clock40mhz => clock,
     crc_byte => crc_byte,
     crc_feed => crc_feed,
@@ -813,15 +933,20 @@ begin  -- behavioural
   -- Reader for real floppy drive: single rate
   -- Track info blocks are always witten for this speed, so we have a fixed decoder
   -- for them, which also serves as the 1581 DD decoder
-  mfm0: entity work.mfm_decoder port map (
+  mfm0: entity work.mfm_decoder generic map ( unit_id => 2 )
+    port map (
     clock40mhz => clock,
-    f_rdata => f_rdata,
+    f_rdata => f_rdata_drive,
+    encoding_mode => x"0", -- Always MFM for single-rate decoder
+    cycles_per_interval => to_unsigned(81,8),
+    invalidate => fdc_read_invalidate,
     cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
 
     mfm_state => fdc_mfm_state,
     mfm_last_gap => fdc_last_gap,
+    mfm_last_gap_strobe => fdc_last_gap_strobe,
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
 
@@ -836,6 +961,7 @@ begin  -- behavioural
     track_info_track => fdc_track_info_track,
     track_info_rate => fdc_track_info_rate,
     track_info_encoding => fdc_track_info_encoding,
+    track_info_sectors => fdc_track_info_sectors,
     track_info_valid => track_info_valid,
 
     sector_data_gap => fdc_sector_data_gap,
@@ -858,9 +984,11 @@ begin  -- behavioural
   -- HD decoder, as we are only going to make HD disks with
   -- it enabled.  We set the variable encoding rate based
   -- on what we read from the track info block.
-  mfm2x: entity work.mfm_decoder port map (
+  mfm2x: entity work.mfm_decoder generic map ( unit_id => 3)
+    port map (
     clock40mhz => clock,
-    f_rdata => f_rdata,
+    f_rdata => f_rdata_drive,
+    encoding_mode => fdc_encoding_mode,
     cycles_per_interval => cycles_per_interval_actual,
     invalidate => fdc_read_invalidate,
 
@@ -892,6 +1020,11 @@ begin  -- behavioural
     sector_end => fdc_sector_end_2x    
     );
 
+  qspi_clock <= qspi_clock_int;
+  process (qspi_clock_int) is
+  begin
+    report "qspi_clock <= " & std_logic'image(qspi_clock_int);
+  end process;
   
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
@@ -911,13 +1044,17 @@ begin  -- behavioural
            f011_buffer_rdata,f011_reg_clock,f011_reg_step,f011_reg_pcode,
            last_sd_state,f011_buffer_disk_address,f011_buffer_cpu_address,
            f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
-           f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
+           f_index,f_track0,f_writeprotect,f_rdata,f_rdata_drive,f_diskchanged,
            use_real_floppy0,use_real_floppy2,target_any,fdc_first_byte,fdc_sector_end,
            fdc_sector_data_gap,fdc_sector_found,fdc_byte_valid,
            fdc_read_request,cycles_per_interval,found_track,
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
            fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
-           fdc_bytes_read,fpga_temperature                      
+           fdc_bytes_read,fpga_temperature,
+           fdc_encoding_mode,
+           f_wdata_rll,fw_no_data_rll,fw_ready_for_next_rll,
+           f_wdata_mfm,fw_no_data_mfm,fw_ready_for_next_mfm,
+           f_wdata_raw,fw_no_data_raw,fw_ready_for_next_raw
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -1118,7 +1255,8 @@ begin  -- behavioural
           -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - RESERVED              
-          -- @IO:GS $D689.5 - F011 swap drive 0 / 1 
+          -- @IO:GS $D689.5 - F011 swap drive 0 / 1
+          -- @IO:GS $D689.6 - QSPI bytes not all identical during last read
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
@@ -1127,7 +1265,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= '0';
             fastio_rdata(5) <= f011_swap_drives;
-            fastio_rdata(6) <= '0';
+            fastio_rdata(6) <= qspi_bytes_differ;
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
@@ -1220,8 +1358,8 @@ begin  -- behavioural
             fastio_rdata(2) <= use_real_floppy2;
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
-            -- @IO:GS $D6A1.3-7 - FDC debug status flags
-            fastio_rdata(3) <= fdc_sector_end;
+            fastio_rdata(3) <= silent_sdcard;
+            -- @IO:GS $D6A1.4-7 - FDC debug status flags
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
             fastio_rdata(6) <= fdc_byte_valid;
@@ -1257,8 +1395,7 @@ begin  -- behavioural
             -- @IO:GS $D6A7 - SD:TIRATE Track data rate from track info block
             fastio_rdata <= track_info_rate;
           when x"a8" =>
-            -- @IO:GS $D6A8 - SD:TIENCODING Track encoding from track info block ($80 = RLL2,7, $00 =
-            -- MFM, $40 = track-at-once, $00 = individually writable sectors)
+            -- @IO:GS $D6A8 - SD:TIENCODING Track encoding from track info block ($x1 = RLL2,7, $x0 = MFM, $4x = track-at-once, $0x = individually writable sectors)
             fastio_rdata <= track_info_encoding;
           when x"a9" =>
             -- @IO:GS $D6A9 - SD:TISECTORS Number of sectors from track info block
@@ -1270,21 +1407,26 @@ begin  -- behavioural
             -- @IO:GS $D6AB - DEBUG FDC last gap interval (MSB)
             fastio_rdata <= fdc_last_gap(15 downto 8);
           when x"ac" =>
-            -- @IO:GS $D6AC - DEBUG FDC last quantised gap
-            fastio_rdata <= unsigned(fdc_quantised_gap);
+            -- @IO:GS $D6AC.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+            -- @IO:GS $D6AC.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
+            -- @IO:GS $D6AC.4-6 - PHONE:RESERVED
+            fastio_rdata(3 downto 0) <= volume_knob3_target;
+            fastio_rdata(6 downto 4) <= "000";
+            fastio_rdata(7) <= pwm_knob_en;
           when x"ad" =>
             -- @IO:GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
             -- @IO:GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
             fastio_rdata(3 downto 0) <= volume_knob1_target;
             fastio_rdata(7 downto 4) <= volume_knob2_target;
           when x"ae" =>
-            -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
-            -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
-            fastio_rdata(3 downto 0) <= volume_knob3_target;
+            fastio_rdata(3 downto 0) <= unsigned(fdc_encoding_mode);
             fastio_rdata(4) <= auto_fdc_2x_select;
             fastio_rdata(5) <= fdc_variable_data_rate;
             fastio_rdata(6) <= fdc_2x_select;
-            fastio_rdata(7) <= pwm_knob_en;
+            fastio_rdata(7) <= use_tib_info;
+          when x"af" =>
+            -- @IO:GS $D6AF - DEBUG FDC last quantised gap READ ONLY
+            fastio_rdata <= unsigned(fdc_quantised_gap);
           when x"af" =>
             -- @IO:GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
             -- @IO:GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
@@ -1381,14 +1523,17 @@ begin  -- behavioural
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
           when x"CC" =>
-            fastio_rdata(7) <= '1';
+            fastio_rdata(7) <= qspidb_tristate;
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
             fastio_rdata(4) <= '0';
-            fastio_rdata(3 downto 0) <= qspidb;
+            fastio_rdata(3 downto 0) <= qspidb_in;
           when x"CD" =>
             fastio_rdata(0) <= qspi_clock_run;
-            fastio_rdata(7 downto 1) <= (others => '0');
+            fastio_rdata(1) <= qspi_clock_int;
+            fastio_rdata(7 downto 2) <= (others => '0');
+          when x"CE" =>
+            fastio_rdata <= to_unsigned(f_wdata_minimum,8);
           when x"D0" =>
             -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1531,11 +1676,13 @@ begin  -- behavioural
     
     
     case sd_state is    
-      when WriteSector|WritingSector|WritingSectorAckByte =>
+      when WriteSector|WritingSector|WritingSectorAckByte|QSPI_write_phase1|QSPI_qwrite_16|QSPI_qwrite_512|qspi_qwrite_256|QSPI_qwrite_phase4|QSPI_read_phase3 =>
+        report "QSPI: Possible f011 buffer fetch";
         if f011_sector_fetch='1' then
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
         else
           f011_buffer_read_address <= "111"&sd_buffer_offset;
+          report "QSPI: reading from 111&sd_buffer_offset = $" & to_hstring("111"&sd_buffer_offset);
         end if;
       when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
         f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -1545,6 +1692,83 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Buffer RDATA line
+      f_rdata_drive <= f_rdata;
+      
+      -- Select RLL or MFM writer for floppy drive
+      -- (do this under a clock to avoid glitching on WDATA and WGATE)
+      f_wdata_last <= f_wdata_int;
+      if f_wdata_int = '0' and f_wdata_last='1' then
+        -- Negative edge on F_WDATA.
+        -- Count how many cycles since the last one,
+        -- and if less than the minimum seen so far, update
+        -- the minimum. This is to help track down a bug with apparently
+        -- glitched F_WDATA output where we seem to be inserting one (or
+        -- it seems more typically two) magnetic inversions in a gap
+        -- from time to time.
+        if f_wdata_interval < f_wdata_minimum then
+          f_wdata_minimum <= f_wdata_interval;
+        end if;
+        f_wdata_interval <= 0;
+      else
+        -- Count cycles between F_WDATA negative edges.
+        if f_wdata_interval < 255 then
+          f_wdata_interval <= f_wdata_interval + 1;
+        end if;
+      end if;
+        
+      if fdc_encoding_mode= x"1" then
+        -- RLL27
+        f_wdata <= f_wdata_rll;
+        f_wdata_int <= f_wdata_rll;
+        fw_no_data <= fw_no_data_rll;
+        fw_ready_for_next <= fw_ready_for_next_rll;
+        rll27_encoding <= '1';
+        mfm_encoding <= '0';
+        raw_encoding <= '0';
+      elsif fdc_encoding_mode=x"0" then
+        f_wdata <= f_wdata_mfm;
+        f_wdata_int <= f_wdata_mfm;
+        fw_no_data <= fw_no_data_mfm;
+        fw_ready_for_next <= fw_ready_for_next_mfm;
+        mfm_encoding <= '1';
+        rll27_encoding <= '0';
+        raw_encoding <= '0';
+      elsif fdc_encoding_mode=x"F" then
+        f_wdata <= f_wdata_raw;
+        f_wdata_int <= f_wdata_raw;
+        fw_no_data <= fw_no_data_raw;
+        fw_ready_for_next <= fw_ready_for_next_raw;
+        mfm_encoding <= '0';
+        rll27_encoding <= '0';
+        raw_encoding <= '1';
+      else
+        mfm_encoding <= '0';
+        rll27_encoding <= '0';
+        raw_encoding <= '0';
+        f_wdata <= '1';
+        f_wdata_int <= '1';
+      end if;    
+      
+      -- Export last floppy gap info so that we can have a magic DMA mode to
+      -- read raw flux from the floppy at 25ns resolution
+      if fdc_last_gap(15 downto 8) /= x"00" then
+        floppy_last_gap <= x"ff";
+      else
+        floppy_last_gap <= fdc_last_gap(7 downto 0);
+      end if;
+      floppy_gap_strobe <= fdc_last_gap_strobe;
+      
+      -- Allow blocking readiness of CRC result to allow CRC internal
+      -- pipeline to take effect (because crc_ready flag doesn't clear
+      -- until a couple of cycles after a new byte has been fed into it).
+      if crc_force_delay_counter /= 0 then
+        crc_force_delay_counter <= 0;
+      end if;
+      if crc_force_delay_counter < 2 then
+        crc_force_delay <= '0';
+      end if;
+      
       -- Automatically select whether to show last DD or HD sector
       if auto_fdc_2x_select='1' then
         if found_track /= last_found_track or found_sector /= last_found_sector or found_side /= last_found_side then
@@ -1567,7 +1791,11 @@ begin  -- behavioural
         track_info_rate <= fdc_track_info_rate;
         track_info_encoding <= fdc_track_info_encoding;
         track_info_sectors <= fdc_track_info_sectors;
-        cycles_per_interval_from_track_info <= fdc_track_info_rate; 
+        if use_tib_info='1' then
+          cycles_per_interval_from_track_info <= fdc_track_info_rate;
+          fdc_encoding_mode <= fdc_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(fdc_track_info_encoding(3 downto 0)) & " from track info block.";
+        end if;
       end if; 
             
       -- If using variable data rate, then set rate based on
@@ -1598,10 +1826,14 @@ begin  -- behavioural
       -- Maintain de-bounced index hole sensor reading
       f_index_history(6 downto 0) <= f_index_history(7 downto 1);
       f_index_history(7) <= f_index;
+      f_index_rising_edge <= '0';
       if f_index_history = x"00" then
         last_f_index <= '0';
       else
         last_f_index <= '1';
+        if last_f_index='0' then
+          f_index_rising_edge <= '1';
+        end if;
       end if;
       
       fw_byte_valid <= '0';
@@ -1614,8 +1846,7 @@ begin  -- behavioural
       end if;
       
       -- XXX DEBUG toggle QSPI clock madly
-      if qspi_clock_run = '1' and hypervisor_mode='1' then
-        qspi_clock <= not qspi_clock_int;
+      if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
         qspi_clock_int <= not qspi_clock_int;
       end if;
       
@@ -1806,7 +2037,7 @@ begin  -- behavioural
           step_countdown <= 500;
           -- reset track info when stepping
           track_info_track <= x"FF";
-          track_info_rate <= x"28";
+          track_info_rate <= x"51";
           track_info_encoding <= x"00";
           track_info_sectors <= x"00";
           f_stepdir <= autotune_stepdir;
@@ -1817,7 +2048,7 @@ begin  -- behavioural
           f_step <= '0';
           -- reset track info when stepping
           track_info_track <= x"FF";
-          track_info_rate <= x"28";
+          track_info_rate <= x"51";
           track_info_encoding <= x"00";
           track_info_sectors <= x"00";
           step_countdown <= 500;
@@ -1979,7 +2210,27 @@ begin  -- behavioural
               --        output will go true (low).
               f011_irqenable <= fastio_wdata(7);
               f011_led <= fastio_wdata(6);
-              drive_led <= fastio_wdata(6);
+              if fastio_wdata(2 downto 1) = "00" then
+                if (fastio_wdata(0) xor f011_swap_drives) = '0' then
+                  if use_real_floppy0='1' then
+                    drive_led0 <= fastio_wdata(6);
+                    drive_ledsd <= '0';
+                  else
+                    drive_led0 <= '0';
+                    drive_ledsd <= fastio_wdata(6);
+                  end if;
+                  drive_led2 <= '0';
+                else
+                  drive_led0 <= '0';
+                  if use_real_floppy2='1' then
+                    drive_ledsd <= '0';
+                    drive_led2 <= fastio_wdata(6);
+                  else
+                    drive_ledsd <= fastio_wdata(6);
+                    drive_led2 <= '0';
+                  end if;
+                end if;
+              end if;
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
@@ -1991,11 +2242,21 @@ begin  -- behavioural
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
               if fastio_wdata(2 downto 1) = "00" then
                 if (fastio_wdata(0) xor f011_swap_drives) = '0' then
-                  f_motora <= not fastio_wdata(5); -- start motor on real drive
-                  f_selecta <= not fastio_wdata(5);
+                  if use_real_floppy0='1' or silent_sdcard='0' then
+                    f_motora <= not fastio_wdata(5); -- start motor on real drive
+                    f_selecta <= not fastio_wdata(5);
+                  else
+                    f_motora <= '1';
+                    f_selecta <= '1';
+                  end if;
                 else
-                  f_motorb <= not fastio_wdata(5); -- start motor on real drive
-                  f_selectb <= not fastio_wdata(5);
+                  if use_real_floppy2='1' or silent_sdcard='0' then
+                    f_motorb <= not fastio_wdata(5); -- start motor on real drive
+                    f_selectb <= not fastio_wdata(5);
+                  else
+                    f_motorb <= '1';
+                    f_selectb <= '1';
+                  end if;
                 end if;
               end if;
               
@@ -2086,12 +2347,15 @@ begin  -- behavioural
               case temp_cmd is
 
                 when x"A0" | x"A4" | x"A8" | x"AC" =>
-                  -- Format a track (completely automatically)
-                  -- At high data rates, it is problematic to feed the data
-                  -- fast enough to avoid failures, especially when using
-                  -- code written using CC65, as I am using to test things.
-                  -- So this command just attempts to format the whole track
-                  -- with all empty sectors, and everything nicely built.
+                  -- Format a track.
+                  -- This can either be buffered, i.e., completely automatically,
+                  -- or unbuffered, the way the old C65 ROMs expect.
+                  --
+                  -- Buffered formatting is more or less essential at the
+                  -- higher data-rates, unless you want to write fairly optimised
+                  -- assembly code to do unbuffered formatting, e.g., if you want
+                  -- to master tracks with specific content, rather than have empty
+                  -- sectors written for you.
 
                   f_wgate <= '1';
                   f011_busy <= '1';
@@ -2106,44 +2370,19 @@ begin  -- behavioural
                   if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
                     report "FLOPPY: Real drive selected, so starting track format";
-                    sd_state <= FDCAutoFormatTrackSyncWait;
+                    if fastio_wdata(0)='0' then
+                      sd_state <= FDCAutoFormatTrackSyncWait;
+                    else
+                      -- Clear the LOST and DRQ flags at the beginning.
+                      f011_lost <= '0';
+                      f011_drq <= '0';
+
+                      sd_state <= FDCFormatTrackSyncWait;
+                    end if;
                   else
                     report "FLOPPY: Ignoring track format, due to using D81 image";
                   end if;
-                  
-                when x"A1" | x"A5" =>
-                  -- Track write: Unbuffered
-                  -- It doesn't matter if you enable buffering or not, for
-                  -- track write, as we just enforce unbuffered operation,
-                  -- since it is the only way that it is used on the C65, and
-                  -- thus the MEGA65.
-                  -- (Conversely, when we get to that point, we will probably only
-                  -- support buffered mode for sector writes).
-
-                  -- Clear the LOST and DRQ flags at the beginning.
-                  f011_lost <= '0';
-                  f011_drq <= '0';
-
-                  -- We clear the write gate until we hit a sync pulse, and
-                  -- only then begin writing.  The write gate will be closed
-                  -- again at the next sync pulse.
-                  f_wgate <= '1';
-
-                  -- Mark drive busy, as we should
-                  -- C65 DOS also relies on this.
-                  f011_busy <= '1';
-
-                  report "FLOPPY: Asked for track format";
-                  
-                  -- Only allow formatting when real drive is used
-                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
-                    (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
-                    report "FLOPPY: Real drive selected, so starting track format";
-                    sd_state <= FDCFormatTrackSyncWait;
-                  else
-                    report "FLOPPY: Ignoring track format, due to using D81 image";
-                  end if;
-                  
+                                    
                 when x"40" | x"44" =>         -- read sector
                   -- calculate sector number.
                   -- physical sector on disk = track * $14 + sector on track
@@ -2198,19 +2437,9 @@ begin  -- behavioural
                       -- We use the SD-card buffer offset to count the bytes read
                       sd_buffer_offset <= (others => '0');
                       if f011_ds="000" then
-                        if sdhc_mode='1' then
-                          sd_sector <= diskimage_sector + diskimage1_offset;
-                        else
-                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                    diskimage1_offset;     
-                        end if;
+                        sd_sector <= diskimage_sector + diskimage1_offset;
                       else
-                        if sdhc_mode='1' then
-                          sd_sector <= diskimage2_sector + diskimage2_offset;
-                        else
-                          sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
-                                                    diskimage2_offset;
-                        end if;
+                        sd_sector <= diskimage2_sector + diskimage2_offset;
                       end if;                        
                     end if;
                     if (virtualise_f011_drive0='1' and f011_ds="000")
@@ -2299,19 +2528,9 @@ begin  -- behavioural
                     -- XXX Doesn't trigger an error for bad track/sector:
                     -- just writes to sector 1599 of the disk image!
                     if f011_ds="000" then
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage1_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage1_offset;     
-                      end if;
+                      sd_sector <= diskimage_sector + diskimage1_offset;
                     elsif f011_ds="001" then
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage2_sector + diskimage2_offset;
-                      else
-                        sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
-                                                  diskimage2_offset;     
-                      end if;
+                      sd_sector <= diskimage2_sector + diskimage2_offset;
                     else
                       sd_sector <= (others => '1');
                     end if;
@@ -2333,6 +2552,7 @@ begin  -- behavioural
                       else
                         sd_sector(16 downto 0) <= (others => '0');
                       end if;
+                      sd_sector(31 downto 17) <= (others => '0');                      
                     end if;
                     sd_sector(31 downto 17) <= (others => '0');
                     sdio_error <= '0';
@@ -2347,7 +2567,7 @@ begin  -- behavioural
 
                   -- reset track info when stepping
                   track_info_track <= x"FF";
-                  track_info_rate <= x"28";
+                  track_info_rate <= x"51";
                   track_info_encoding <= x"00";
                   track_info_sectors <= x"00";
                   
@@ -2388,7 +2608,7 @@ begin  -- behavioural
 
                   -- reset track info when stepping
                   track_info_track <= x"FF";
-                  track_info_rate <= x"28";
+                  track_info_rate <= x"51";
                   track_info_encoding <= x"00";
                   track_info_sectors <= x"00";
                   
@@ -2411,6 +2631,12 @@ begin  -- behavioural
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
+                when x"D0" =>
+                  f_rdata_loopback <= '0';
+                  f_rdata_loopback_int <= '0';
+                when x"D1" =>
+                  f_rdata_loopback <= '1';
+                  f_rdata_loopback_int <= '1';
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
@@ -2425,7 +2651,7 @@ begin  -- behavioural
             when "00100" =>
               -- @IO:C65 $D084 FDC:TRACK F011 FDC track selection register
               f011_track <= fastio_wdata;
-
+              report "D084: Setting f011_track to $" & to_hstring(f011_track);
             when "00101" =>
               -- @IO:C65 $D085 FDC:SECTOR F011 FDC sector selection register
               f011_sector <= fastio_wdata;
@@ -2478,7 +2704,6 @@ begin  -- behavioural
           
           -- microSD controller registers
           case fastio_addr(7 downto 0) is
-
             -- @IO:GS $D680 SD:CMDANDSTAT SD controller status/command
             when x"80" =>
               -- status / command register
@@ -2683,7 +2908,244 @@ begin  -- behavioural
                   write_sector_gate_timeout <= 40000; -- about 1ms               
                 when x"57" => 
                   write_sector_gate_open <= '1';
-                  write_sector_gate_timeout <= 40000; -- about 1ms               
+                  write_sector_gate_timeout <= 40000; -- about 1ms
+                when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sd_state <= qspi_write_256;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sd_state <= qspi_write_512;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
+                  report "QSPI: Read request";
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_read_512;
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"53" =>
+                  -- S - Read a 512 byte region from QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  -- This command is non-dangerous, so allow it even from userland
+                  report "QSPI: Dispatching command";
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  spi_address <= sd_sector;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= qspi_read_512;
+                  qspi_verify_mode <= '0';
+                  spi_flash_cmd_byte <= x"6c";
+                when x"54" =>
+                  -- T - Write a 512 byte region to QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    spi_no_dummy_cycles <= '1';
+                    qspi_action_state <= qspi_qwrite_512;
+                    spi_flash_cmd_byte <= x"34";
+                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
+                    f011_sector_fetch <= '0';
+                    -- Write whole SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(0,9);
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"55" =>
+                  -- U - Write a 256 byte region to QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= qspi_qwrite_256;
+                    spi_flash_cmd_byte <= x"34";
+                    spi_no_dummy_cycles <= '1';
+                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
+                    f011_sector_fetch <= '0';
+                    -- Write last 256 bytes of SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(256,9);
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"56" =>
+                  -- V - Verify a 512 byte region from QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address.
+                  -- This command is non-dangerous, so allow it even from userland
+                  report "QSPI: Dispatching verify command";
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  spi_address <= sd_sector;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= qspi_read_512;
+                  qspi_verify_mode <= '1';
+                  spi_flash_cmd_byte <= x"6c";
+                  spi_no_dummy_cycles <= '0';
+                when x"58" =>
+                  -- X - Erase page: Send command and address, then return
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"dc";
+                    f011_sector_fetch <= '0';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"59" =>
+                  -- Y - Erase small page: Send command and address, then return
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"21";
+                    f011_sector_fetch <= '0';
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"5a" => qspi_command_len <= 90;
+                when x"5b" => qspi_command_len <= 92;
+                when x"5c" => qspi_command_len <= 94;
+                when x"5d" => qspi_command_len <= 96;
+                when x"5e" => qspi_command_len <= 98;
+                when x"5f" => qspi_command_len <= 100;
+                when x"66" =>
+                  -- SPI Flash write enable
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"06";
+                    spi_flash_cmd_only <= '1';
+                    f011_sector_fetch <= '0';
+                    report "QSPI: Starting bare command";
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"67" =>
+                  qspi_release_cs_on_completion_enable <= '0';
+                when x"68" =>
+                  qspi_release_cs_on_completion_enable <= '1';
+                when x"69" =>
+                  -- Set CR1
+                  -- to idle immediately.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= QSPI_Release_CS;
+                    spi_flash_cmd_byte <= x"01";
+                    spi_flash_16bits <= '1';
+                    f011_sector_fetch <= '0';
+                    report "QSPI: Starting bare command";
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                when x"6a" =>
+                  -- SPI Clear status register. Allowed from user land
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= QSPI_Release_CS;
+                  spi_flash_cmd_byte <= x"30";
+                  spi_flash_cmd_only <= '1';
+                  f011_sector_fetch <= '0';
+                  report "QSPI: Starting bare command";
+                when x"6b" =>
+                  -- Read CFI data block
+                  -- This command is non-dangerous, so allow it even from userland
+                  report "QSPI: Dispatching command";
+                  sdio_error <= '0';
+                  sdio_fsm_error <= '0';
+                  sdio_busy <= '1';
+                  sd_state <= qspi_send_command;
+                  spi_address <= x"00000000";
+                  qspi_read_sector_phase <= 0;
+                  qspi_action_state <= spi_read_512;
+                  spi_flash_cmd_byte <= x"9f";
+                  spi_flash_cmd_only <= '1';
+                  spi_no_dummy_cycles <= '1';
+                when x"6c" =>
+                  -- Write a 16 byte region to QSPI flash, handling
+                  -- all aspects of the transaction.  Sector address is taken
+                  -- from $D681-$D684 address. This is meant for debugging.
+                  if hypervisor_mode='1' or dipsw(2)='1' then
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    sdio_busy <= '1';
+                    sd_state <= qspi_send_command;
+                    spi_address <= sd_sector;
+                    qspi_read_sector_phase <= 0;
+                    qspi_action_state <= qspi_qwrite_16;
+                    spi_flash_cmd_byte <= x"34";
+                    spi_no_dummy_cycles <= '1';
+                    qspi_release_cs_on_completion <= qspi_release_cs_on_completion_enable;
+                    f011_sector_fetch <= '0';
+                    -- Write last 16 bytes of SD card buffer to QSPI
+                    sd_buffer_offset <= to_unsigned(256+240,9);
+                  else
+                    -- Permission denied
+                    sdio_error <= '1';
+                  end if;
+                  -- Allow setting the number of dummy cycles
+                  
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
@@ -2758,10 +3220,10 @@ begin  -- behavioural
               end if;
               -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
               -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.5 SDFDC:D1WP Write protect F011 drive 1
+              -- @IO:GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
               -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
-              -- @IO:GS $D68B.2 SDFDC:D0WP Write protect F011 drive 0
+              -- @IO:GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
               -- @IO:GS $D68B.1 SDFDC:D0P F011 drive 0 media present
               -- @IO:GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive. 
               diskimage2_enable <= fastio_wdata(3);
@@ -2860,6 +3322,8 @@ begin  -- behavioural
                 use_real_floppy2 <= fastio_wdata(2);
               end if;
               target_any <= fastio_wdata(1);
+              -- @IO:GS $D6A1.3 SDFDC:SILENT Disable floppy spinning and tracking for SD card operations.
+              silent_sdcard <= fastio_wdata(3);
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
             when x"a2" =>
@@ -2877,22 +3341,25 @@ begin  -- behavioural
               if hypervisor_mode='0' then
                 write_precomp_delay15 <= fastio_wdata;
               end if;
+            when x"ac" =>
+              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              pwm_knob_en <= fastio_wdata(7);
             when x"ad" => 
               -- @IO:GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
               -- @IO:GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
-              -- @IO:GS $D6AE.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
+              -- @IO:GS $D6AE.0-3 SD:FDCENC Select floppy encoding (0=MFM, 1=RLL2,7, F=Raw encoding)
               -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
               -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
               -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
-              -- @IO:GS $D6AE.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
-              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              -- @IO:GS $D6AE.7 SD:FDCTIBEN Enable use of Track Info Block settings
+              fdc_encoding_mode <= fastio_wdata(3 downto 0);
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
               fdc_2x_select <= fastio_wdata(6);
-              pwm_knob_en <= fastio_wdata(7);
+              use_tib_info <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
@@ -2972,49 +3439,19 @@ begin  -- behavioural
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
             when x"CC" =>
-              -- @IO:GS $D6CC.7 QSPI:DB1 DDR (1=output)
+              -- @IO:GS $D6CC.7 QSPI:TRI Tristate DB0-3
               -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
               -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:DB0 DDR (1=output)
+              -- @IO:GS $D6CC.4 QSPI:RESERVED (set to 0)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
-              if hypervisor_mode='1' then
+              if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
-                qspi_clock <= fastio_wdata(5);
-                qspi_clock_int <= fastio_wdata(5);
-
-                -- DB2 and DB3 have 1.8K external pull-up resistors, so can be driven
-                -- open-collector.
-                if fastio_wdata(3) = '0' then
-                  qspidb(3) <= '0';
-                else
-                  qspidb(3) <= 'Z';
-                end if;
-                if fastio_wdata(2) = '0' then
-                  qspidb(2) <= '0';
-                else
-                  qspidb(2) <= 'Z';
-                end if;
-                -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
-                if fastio_wdata(1) = '0' then
-                  qspidb(1) <= '0';
-                else
-                  if fastio_wdata(7)='1' then
-                    qspidb(1) <= '1';
-                  else
-                    qspidb(1) <= 'Z';
-                  end if;
-                end if;
-                if fastio_wdata(0) = '0' then
-                  qspidb(0) <= '0';
-                else
-                  if fastio_wdata(4)='1' then
-                    qspidb(0) <= '1';
-                  else
-                    qspidb(0) <= 'Z';
-                  end if;
-                end if;
+--                qspi_clock_int <= fastio_wdata(5);
+                qspidb <= fastio_wdata(3 downto 0);
+                qspidb_tristate <= fastio_wdata(7);                
+                qspidb_oe <= not fastio_wdata(7);                
               end if;
             when x"CD" =>
               -- XXX This register was added, because without it the QSPI clock
@@ -3022,14 +3459,26 @@ begin  -- behavioural
               -- possible to control it via $D6CC :/
               -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
               -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
-              qspi_clock_run <= fastio_wdata(0);
-              qspi_clock <= fastio_wdata(1);
-              qspi_clock_int <= fastio_wdata(1);
+              if hypervisor_mode='1' or dipsw(2)='1' then
+                qspi_clock_run <= fastio_wdata(0);
+                qspi_clock_int <= fastio_wdata(1);
+              end if;
+            when x"CE" =>
+              if hypervisor_mode='1' or dipsw(2)='1' then
+                qspicsn <= fastio_wdata(6);
+                qspi_csn_int <= fastio_wdata(6);
+                qspi_clock_int <= fastio_wdata(5);
+                qspidb <= fastio_wdata(3 downto 0);
+                qspidb_tristate <= fastio_wdata(7);                
+                qspidb_oe <= not fastio_wdata(7);                
+              end if;              
             when x"CF" =>
               -- @IO:GS $D6CF FPGA:RECONFTRIG Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
                 trigger_reconfigure <= '1';
-              end if;              
+              end if;
+              -- Or write any other value to reset floppy write gap debug value
+              f_wdata_minimum <= 255;
             when x"D0" =>
               -- @IO:GS $D6D0 MISCIO:I2CBUSSEL Select I2C bus number (I2C busses vary between MEGA65 and MEGAphone variants)
               i2c_bus_id <= fastio_wdata;
@@ -3172,6 +3621,10 @@ begin  -- behavioural
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
           f_wgate <= '1';
+          if qspi_release_cs_on_completion='1' then
+            qspi_release_cs_on_completion <= '0';
+            qspicsn <= '1';
+          end if;
 
           if sectorbuffercs='1' and fastio_write='1' then
             -- Writing via memory mapped sector buffer
@@ -3185,6 +3638,9 @@ begin  -- behavioural
             end if;
             f011_buffer_wdata <= fastio_wdata;
             f011_buffer_write <= '1';
+
+            report "QSPI: Writing $" & to_hstring(fastio_wdata) & " into sector buffer @ $"
+              & to_hstring(fastio_addr(11 downto 0));
             
           end if;
 
@@ -3339,7 +3795,7 @@ begin  -- behavioural
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             sd_state <= FDCFormatTrack;
             f_wgate <= '0';
 
@@ -3364,7 +3820,7 @@ begin  -- behavioural
           
           debug_track_format_counter <= debug_track_format_counter + 1;
           
-          if (f_index_history=x"00" and last_f_index='1') then
+          if f_index_rising_edge='1' then
             report "FLOPPY: end of track due to index hole";
             f_wgate <= '1';
             f011_busy <= '0';
@@ -3397,7 +3853,7 @@ begin  -- behavioural
           
           debug_track_format_sync_wait_counter <= debug_track_format_sync_wait_counter + 1;
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             sd_state <= FDCAutoFormatTrack;
 
             -- Start writing
@@ -3412,11 +3868,13 @@ begin  -- behavioural
             format_state <= 0;
             format_sector_number <= 0;
 
-            -- Write track lead-in gaps at DD speed to give
+            -- Write track lead-in gaps at DD speed and using MFM to give
             -- head enough time to switch to write.
             -- We then also write the track info block at
             -- DD speed, before switching to the higher speed
             saved_cycles_per_interval <= cycles_per_interval;
+            saved_fdc_encoding_mode <= fdc_encoding_mode;
+            fdc_encoding_mode <= x"0"; -- MFM for Track Info Blocks
             cycles_per_interval <= to_unsigned(81,8);
             
           end if;
@@ -3425,7 +3883,7 @@ begin  -- behavioural
 
           crc_feed <= '0';
           
-          if f_index_history = x"00" and last_f_index='1' then
+          if f_index_rising_edge='1' then
             -- Abort format as soon as we reach the end of the track.
             -- i.e., write as many sectors as will fit, but no more.
             f_wgate <= '1';
@@ -3434,8 +3892,13 @@ begin  -- behavioural
             fdc_sector_operation <= '0';
           end if;
           
-          if fw_ready_for_next='1' and last_fw_ready_for_next='0' then
+          if crc_ready='0' or crc_force_delay = '1' then
+            last_fw_ready_for_next <= last_fw_ready_for_next;
+            report "CRC1WAIT: crc_force_delay=" & std_logic'image(crc_force_delay)
+              & ", counter=" & integer'image(crc_force_delay_counter) & ", ready=" & std_logic'image(crc_ready);
+          elsif fw_ready_for_next='1' and last_fw_ready_for_next='0' then
             format_state <= format_state + 1;
+            report "format_state = " & integer'image(format_state);
             case format_state is
               when 0 to 12 =>
                 -- Start of track gaps
@@ -3444,8 +3907,10 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_reset <= '1';
                 crc_feed <= '0';
-                -- Jump to state for writing track header block
-                format_state <= 1000;
+                if format_state = 12 then
+                  -- Jump to state for writing track header block
+                  format_state <= 1000;
+                end if;
               when 13 to 15 =>
                 -- Write sector header sync bytes
                 fw_byte_in <= x"A1";
@@ -3490,12 +3955,20 @@ begin  -- behavioural
                 fw_byte_valid <= '1';
                 crc_byte <= x"02";
                 crc_feed <= '1';
+                -- Force wait so that CRC has time to start updating, and thus
+                -- crc_ready to go low, so that we don't try to read it immediately
+                -- before it has started.
+                crc_force_delay_counter <= 8 + 4;
+                crc_force_delay <= '1';
               when 21 =>
                 -- Sector header: First CRC byte
+                report "SECTORHEADER: Writing CRC byte 1 $" & to_hstring(crc_value(15 downto 8));
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
+                crc_feed <= '0';
               when 22 =>
                 -- Sector header: Second CRC byte
+                report "SECTORHEADER: Writing CRC byte 2 $" & to_hstring(crc_value(7 downto 0));
                 fw_byte_in <= crc_value(7 downto 0);
                 fw_byte_valid <= '1';
                 if format_no_gaps='1' then
@@ -3544,10 +4017,18 @@ begin  -- behavioural
                 end if;
                 fw_byte_valid <= '1';
                 crc_feed <= '1';
+                if format_state = 62 + 511 then
+                  -- Force wait so that CRC has time to start updating, and thus
+                  -- crc_ready to go low, so that we don't try to read it immediately
+                  -- before it has started.
+                  crc_force_delay_counter <= 8 + 4;
+                  crc_force_delay <= '1';
+                end if;
               when 574 =>
                 -- First CRC byte
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
+                crc_feed <= '0';
               when 575 =>
                 -- Second CRC byte
                 fw_byte_in <= crc_value(7 downto 0);
@@ -3571,7 +4052,7 @@ begin  -- behavioural
                 crc_feed <= '0';
                 
               when 1000 to 1002 =>
-                -- Write track info header sync bytes
+                -- Write Track Info Block sync bytes
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
@@ -3598,27 +4079,32 @@ begin  -- behavioural
                 crc_byte <= saved_cycles_per_interval;
                 crc_feed <= '1';
               when 1006 =>
-                -- Track Info: Encoding: bit7 = MFM(0)/RLL(1).
+                -- Track Info: Encoding: bits0-3: 0=MFM, 1=RLL2,7. Others reserved
                 -- bit6 = track-at-once(1)/normal sectors with gaps that can be
                 -- written to individually(0)
                 -- Other bits reserved
+                report "TRACKINFO: setting encoding byte to $x" & to_hstring(saved_fdc_encoding_mode);
+                
                 if format_no_gaps = '1' then
-                  fw_byte_in <= x"00";
-                  crc_byte <= x"00";
+                  fw_byte_in(7 downto 4) <= x"0";
+                  crc_byte(7 downto 4) <= x"0";
                 else
-                  fw_byte_in <= x"40";
-                  crc_byte <= x"40";
+                  fw_byte_in(7 downto 4) <= x"4";
+                  crc_byte(7 downto 4) <= x"4";
                 end if;
+                fw_byte_in(3 downto 0) <= saved_fdc_encoding_mode;
+                crc_byte(3 downto 0) <= saved_fdc_encoding_mode;
                 fw_byte_valid <= '1';
                 crc_feed <= '1';
               when 1007 =>
-                -- Track Info: Sector count (read from $D084)
+                -- Track Info: Sector count (read from $D085)
                 fw_byte_in <= f011_sector;
                 fw_byte_valid <= '1';
                 crc_byte <= f011_sector;
                 crc_feed <= '1';
               when 1008 =>
                 -- Track Info: First CRC byte
+                crc_feed <= '0';
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
               when 1009 =>
@@ -3635,6 +4121,7 @@ begin  -- behavioural
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
                 cycles_per_interval <= saved_cycles_per_interval;
+                fdc_encoding_mode <= saved_fdc_encoding_mode;
                 
               when others =>
                 null;
@@ -3694,7 +4181,10 @@ begin  -- behavioural
           -- Check for edge on fw_ready_for_next, except for first byte, which
           -- we write immediately, because fw_ready_for_next will have been stuck
           -- asserted since the last write or format command
-          if fw_ready_for_next = '1' and (last_fw_ready_for_next='0' or fdc_write_byte_number=0) then
+          if crc_ready='0' or crc_force_delay='1' then
+            last_fw_ready_for_next <= last_fw_ready_for_next;
+            report "CRC1WAIT";
+          elsif fw_ready_for_next = '1' and (last_fw_ready_for_next='0' or fdc_write_byte_number=0) then
             fdc_write_byte_number <= fdc_write_byte_number + 1;
             case fdc_write_byte_number is
               when 0 to 22 =>
@@ -3732,6 +4222,11 @@ begin  -- behavioural
                 crc_feed <= '1';
                 fw_byte_valid <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
+                -- Force wait so that CRC has time to start updating, and thus
+                -- crc_ready to go low, so that we don't try to read it immediately
+                -- before it has started.
+                crc_force_delay_counter <= 8 + 4;
+                crc_force_delay <= '1';                
               when 23 + 16 + 512 =>
                 -- First CRC byte
                 f011_reg_clock <= x"FF";
@@ -3787,12 +4282,12 @@ begin  -- behavioural
             if index_wait_timeout /= 0 then
               index_wait_timeout <= index_wait_timeout -1;
             end if;
-            if (f_index_history=x"00" and last_f_index='1') or index_wait_timeout=0 then
+            if (f_index_rising_edge='1') or index_wait_timeout=0 then
               rotation_count <= rotation_count + 1;
               -- Allow 250ms per rotation (they should be ~200ms)
               index_wait_timeout <= cpu_frequency / 4;
             end if;
-            if ((f_index_history=x"00" and last_f_index='1') and (fdc_sector_found='0') and (fdc_sector_found_2x='0')) or index_wait_timeout=0 then
+            if ((f_index_rising_edge='1') and (fdc_sector_found='0') and (fdc_sector_found_2x='0')) or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
@@ -4007,6 +4502,319 @@ begin  -- behavioural
             f011_busy <= '0';
             f011_wsector_found <= '1';
           end if;
+
+        when QSPI_send_command =>
+          report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
+            & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
+          if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
+            qspi_clock_int <= '1';
+          else
+            qspi_clock_int <= '0';
+          end if;
+          -- Go through QSPI command setup and address TX.
+          -- Allow extra cycles after changing clock, because
+          -- there is 1 cycle latency on clock output
+          if qspi_read_sector_phase < qspi_command_len then
+            qspi_read_sector_phase <= qspi_read_sector_phase + 1;
+          else
+            report "QSPI: Preserving clock while switching to action state at phase " & integer'image(qspi_read_sector_phase);
+            sd_state <= qspi_action_state;
+            qspi_clock_int <= qspi_clock_int;
+          end if;
+          if qspi_read_sector_phase > 2 and qspi_read_sector_phase < (2 + 8*2) then
+            qspidb(0) <= spi_flash_cmd_byte(7);
+          end if;
+          if qspi_read_sector_phase > 18 and qspi_read_sector_phase < (18 + 32*2) then
+            qspidb(0) <= spi_address(31);
+          end if;
+          if qspi_read_sector_phase = 20 and spi_flash_cmd_only='1' then
+            spi_flash_cmd_only <= '0';
+            report "QSPI: Exiting early due to cmd_only flag";
+            qspi_clock_int <= qspi_clock_int;
+            if qspi_action_state = QSPI_Release_CS then
+              report "QSPI: Pulling clock low while exiting to action state";
+              qspi_clock_int <= '0';
+            end if;
+            sd_state <= qspi_action_state;
+          end if;
+          if qspi_read_sector_phase = (20+16*2) and spi_flash_16bits='1' then
+            report "QSPI: Exiting early due to flash_16bits flag";
+            if qspi_action_state = QSPI_Release_CS then
+              qspi_clock_int <= '0';
+              spi_flash_16bits <= '0';
+            end if;
+            sd_state <= qspi_action_state;
+          end if;
+          case qspi_read_sector_phase is
+            when 4 | 6 | 8 | 10 | 12 | 14 | 16 =>
+              spi_flash_cmd_byte(7 downto 1) <= spi_flash_cmd_byte(6 downto 0);
+            when 20 | 22 | 24 | 26 | 28 | 30 | 32 |
+              34 | 36 | 38 | 40 | 42 | 44 | 46 | 48 |
+              50 | 52 | 54 | 56 | 58 | 60 | 62 | 64 |
+              66 | 68 | 70 | 72 | 74 | 76 | 78 | 80 | 82 =>
+              spi_address(31 downto 1) <= spi_address(30 downto 0);
+            when 81 =>
+              if qspi_action_state = qspi_qwrite_512 or qspi_action_state = qspi_qwrite_256 or qspi_action_state = qspi_qwrite_16 then
+                sd_state <= qspi_action_state;
+              end if;                
+            when 84 =>
+              -- No dummy cycles for sector erase operations,
+              -- and CS must be released while clock low IMMEDIATELY
+              -- after writing the 32nd address bit
+              if qspi_action_state = QSPI_Release_CS or spi_no_dummy_cycles='1' then
+                qspi_clock_int <= '0';
+                report "QSPI: pulling clock low while switching to action state";
+                
+                spi_no_dummy_cycles <= '0';
+                sd_state <= qspi_action_state;
+              end if;
+            when others =>
+              null;
+          end case;
+          case qspi_read_sector_phase is
+                            -- Release CS to ensure new transaction
+            when 0 | 1   => qspicsn <= '1';
+                            -- Bring chip to attention
+            when 2       => qspicsn <= '0';
+                            -- Send QSPI command
+            when 3 | 4   => qspidb_oe <= '1'; qspidb_tristate <= '0';
+                            qspidb(3 downto 1) <= "111";
+                            -- Address of data to read              
+            when others => null;
+          end case;
+
+        when QSPI_Release_CS =>
+          qspi_clock_int <= '0';
+          qspicsn <= '1';
+          sd_state <= Idle;
+        when SPI_read_512 =>
+          -- Tristate SI and SO
+          report "QSPI: in SPI_read_512";
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= SPI_read_phase1;
+          -- Keep track if read bytes are identical or not
+          -- (used for speeding up erasure checking of flash)
+          qspi_bytes_differ <= '0';          
+        when QSPI_read_512 =>
+          -- Tristate SI and SO
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI_read_phase1;
+          -- Keep track if read bytes are identical or not
+          -- (used for speeding up erasure checking of flash)
+          qspi_bytes_differ <= '0';
+        when QSPI_read_phase1 =>
+          qspi_clock_int <= '0';
+          sd_state <= QSPI_read_phase2;          
+        when QSPI_read_phase2 =>
+          qspi_clock_int <= '1';          
+          sd_state <= QSPI_read_phase3;
+        when QSPI_read_phase3 =>          
+          qspi_bits <= qspidb_in;         
+          qspi_clock_int <= '0';
+          sd_state <= QSPI_read_phase4;
+        when QSPI_read_phase4 =>
+          report "QSPI read $"
+            & to_hstring(qspi_bits) & to_hstring(qspidb_in) &
+            " into f011 buffer @ $" & to_hstring(sd_buffer_offset);
+          if qspi_verify_mode='0' then
+            f011_buffer_write_address <= "111"&sd_buffer_offset;
+            f011_buffer_wdata(3 downto 0) <= qspidb_in;
+            f011_buffer_wdata(7 downto 4) <= qspi_bits;
+            f011_buffer_write <= '1';
+
+            if sd_buffer_offset = 0 then
+              qspi_byte_value(3 downto 0) <= qspidb_in;
+              qspi_byte_value(7 downto 4) <= qspi_bits;
+            else
+              if qspi_byte_value(3 downto 0) /= qspidb_in then
+                qspi_bytes_differ <= '1';
+              elsif qspi_byte_value(7 downto 4) /= qspi_bits then
+                qspi_bytes_differ <= '1';
+              end if;
+            end if;
+          else
+            -- Compare byte with previously read byte and set bytes_differ flag
+            -- if different
+            report "QSPI: Verifying: read $" & to_hstring(qspi_bits) & to_hstring(qspidb_in)
+              & " vs expected $" & to_hstring(f011_buffer_rdata);
+            report "QSPI: qspi_command_len="& integer'image(qspi_command_len);
+            if (f011_buffer_rdata(3 downto 0) /= qspidb_in)
+              or (f011_buffer_rdata(7 downto 4) /= qspi_bits) then
+              qspi_bytes_differ <= '1';
+            end if;
+          end if;
+          if sd_buffer_offset /= 511 then
+            sd_buffer_offset <= sd_buffer_offset + 1;
+            sd_state <= QSPI_read_phase1;
+          else
+            sd_state <= Idle;
+            sdio_busy <= '0';
+          end if;
+          qspi_clock_int <= '1';
+        when QSPI_qwrite_512 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspi_clock_int <= '1';
+          sd_state <= QSPI_qwrite_phase1;
+        when QSPI_write_512 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspi_clock_int <= '1';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI_write_phase1;
+        when QSPI_qwrite_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspi_clock_int <= '1';
+          sd_state <= QSPI_qwrite_phase1;
+        when QSPI_qwrite_16 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspi_clock_int <= '1';
+          sd_state <= QSPI_qwrite_phase1;
+        when QSPI_write_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspi_clock_int <= '1';
+          -- Write 2nd half of SD card buffer to QSPI
+          sd_buffer_offset <= to_unsigned(256,9);
+          sd_state <= QSPI_write_phase1;
+
+        when QSPI_qwrite_phase1 =>
+          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata) & " @ $" & to_hstring(sd_buffer_offset);
+          sd_state <= QSPI_qwrite_phase2;
+          qspidb <= f011_buffer_rdata(7 downto 4);
+          qspi_bits <= f011_buffer_rdata(3 downto 0);
+          qspi_clock_int <= '0';
+        when QSPI_qwrite_phase2 =>
+          sd_state <= QSPI_qwrite_phase3;
+          qspi_clock_int <= '1';
+        when QSPI_qwrite_phase3 =>
+          sd_state <= QSPI_qwrite_phase4;
+          qspidb <= qspi_bits;
+          qspi_clock_int <= '0';
+          report "QSPI: Bump sd_buffer_offset from $" & to_hstring(sd_buffer_offset);
+          if sd_buffer_offset /= 511 then
+            sd_buffer_offset <= sd_buffer_offset + 1;
+          else
+            sd_buffer_offset <= to_unsigned(0,9);
+          end if;
+        when QSPI_qwrite_phase4 =>
+          qspi_clock_int <= '1';
+          if sd_buffer_offset /= 0 then
+            sd_state <= QSPI_qwrite_phase1;
+          else
+            sd_state <= Idle;
+            sdio_busy <= '0';
+          end if;            
+
+        when QSPI_write_phase1 =>
+          qspi_bit_counter <= 0;
+          sd_state <= QSPI_write_phase2;
+        when QSPI_write_phase2 =>
+          if qspi_bit_counter = 0 then
+            report "QSPI: Sending byte $" & to_hstring(f011_buffer_rdata);
+            qspi_byte_value <= f011_buffer_rdata;
+          end if;
+          qspi_clock_int <= '0';
+          sd_state <= QSPI_write_phase3;
+        when QSPI_write_phase3 =>
+          qspidb_tristate <= '0';
+          qspidb_oe <= '1';
+          qspidb(3 downto 1) <= "111";
+          qspidb(0) <= qspi_byte_value(7);
+          report "QSPI: Writing bit " & std_logic'image(std_logic(qspi_byte_value(7)));
+          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
+          sd_state <= QSPI_write_phase4;
+        when QSPI_write_phase4 =>
+          qspi_clock_int <= '1';
+          if qspi_bit_counter = 7 then
+            if sd_buffer_offset /= 511 then
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              sd_state <= QSPI_write_phase1;
+            else
+              sd_state <= Idle;
+              sdio_busy <= '0';
+            end if;            
+          else
+            qspi_bit_counter <= qspi_bit_counter + 1;
+            sd_state <= QSPI_write_phase2;
+          end if;
+
+        when SPI_read_phase1 =>
+          qspi_bit_counter <= 0;
+          sd_state <= SPI_read_phase2;
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+        when SPI_read_phase2 =>
+          qspi_clock_int <= '0';
+          sd_state <= SPI_read_phase3;
+        when SPI_read_phase3 =>
+          qspi_byte_value(0) <= qspidb_in(1);
+          report "QSPI: Reading bit " & std_logic'image(std_logic(qspidb_in(1)));
+          qspi_byte_value(7 downto 1) <= qspi_byte_value(6 downto 0);
+          sd_state <= SPI_read_phase4;
+        when SPI_read_phase4 =>
+          qspi_clock_int <= '1';
+          if qspi_bit_counter = 7 then
+            report "QSPI: SPI read byte $" & to_hstring(qspi_byte_value);
+            f011_buffer_write_address <= "111"&sd_buffer_offset;
+            f011_buffer_wdata <= qspi_byte_value;
+            f011_buffer_write <= '1';
+
+            if sd_buffer_offset /= 511 then
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              sd_state <= SPI_read_phase1;
+            else
+              sd_state <= Idle;
+              sdio_busy <= '0';
+              qspicsn <= '1';
+            end if;            
+          else
+            qspi_bit_counter <= qspi_bit_counter + 1;
+            sd_state <= SPI_read_phase2;
+          end if;
+
+          
+        when QSPI4_write_512 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          sd_buffer_offset <= to_unsigned(0,9);
+          sd_state <= QSPI4_write_phase1;
+        when QSPI4_write_256 =>
+          sdio_busy <= '1';
+          sdio_error <= '0';
+          qspidb_tristate <= '1';
+          qspidb_oe <= '0';
+          -- Write 2nd half of SD card buffer to QSPI
+          sd_buffer_offset <= to_unsigned(256,9);
+          sd_state <= QSPI4_write_phase1;
+        when QSPI4_write_phase1 =>
+          qspi_bit_counter <= 0;
+          sd_state <= QSPI4_write_phase2;
+        when QSPI4_write_phase2 =>
+          if qspi_bit_counter = 0 then
+            report "QSPI4: Sending byte $" & to_hstring(f011_buffer_rdata);
+            qspi_byte_value <= f011_buffer_rdata;
+          end if;
+          -- XXX INCOMPLETE!
+          sd_state <= Idle;
       end case;    
 
     end if;

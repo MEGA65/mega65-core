@@ -1,0 +1,61 @@
+#!/bin/bash
+
+SCRIPT=`realpath $0`
+SCRIPTPATH=`dirname $SCRIPT`
+BASEPATH=${SCRIPTPATH#$PWD/}
+
+function usage {
+    echo "bitembed <m65target> <foo.bit> <core name> <core version> <out.cor>"
+    exit 1
+}
+
+function failpath {
+    echo "Cannot find $1 in release-prep!"
+    echo "please link path or git clone"
+    exit 2
+}
+
+if [[ $# != 5 ]]; then
+    usage
+fi
+
+TARGET=$1
+BITFILE=$(realpath "$2")
+CORNAME=$3
+CORVER=$4
+CORFILE=$(realpath -m "$5")
+MCSFILE=${CORFILE%.cor}.mcs
+
+BIT2COR=$BASEPATH/mega65-tools/bin/bit2core
+BIT2MCS=$BASEPATH/mega65-tools/bin/bit2mcs
+
+EMBEDLIST=$BASEPATH/mega65-release-prep/corfiles.txt
+
+# check utilities
+if [[ ! -x $BIT2COR ]]; then
+    failpath "mega65-tools/bin/bit2core"
+fi
+
+if [[ ! -x $BIT2MCS ]]; then
+    failpath "mega65-tools/bin/bit2mcs"
+fi
+
+# check release-prep
+if [[ ! -r $EMBEDLIST ]]; then
+    failpath "mega65-release-prep/corfiles.txt"
+fi
+
+## FILES=""
+## while IFS='' read -r file; do
+##     FILES="${FILES} $BASEPATH/mega65-release-prep/${file%%[[:cntrl:]]}"
+## done < "$BASEPATH/mega65-release-prep/corfiles.txt"
+
+# call bit2core
+echo "creating cor file"
+## $BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE $FILES || exit 3
+$BIT2COR $TARGET $BITFILE $CORNAME $CORVER $CORFILE @$EMBEDLIST || exit 3
+
+# convert cor to mcs
+echo "creating mcs file"
+$BIT2MCS $CORFILE $MCSFILE 0 || exit 4
+echo "MCS file written: \"$MCSFILE\""

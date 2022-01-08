@@ -325,18 +325,21 @@ begin
         -- Colourful pattern inside frame
         if fullwidth_dataenable_driver = '1' then
           -- Inside frame, draw a test pattern
-          red_o <= to_unsigned(x,8);
-          green_o <= to_unsigned(y mod 16,8);
---          blue_o <= to_unsigned(x+y,8);
-          blue_o <= to_unsigned(0,8);
-          nred_o <= to_unsigned(x,8);
-          ngreen_o <= to_unsigned(y mod 16,8);
---          nblue_o <= to_unsigned(x+y,8);
-          nblue_o <= to_unsigned(0,8);
+          green_o <= to_unsigned(x,8);
+          red_o <= to_unsigned(y mod 256,8);
+          ngreen_o <= to_unsigned(x,8);
+          nred_o <= to_unsigned(y mod 256,8);
+          if x>255 and x<512 then
+            blue_o <= x"ff";
+            nblue_o <= x"ff";
+          else
+            blue_o <= x"00";
+            nblue_o <= x"00";
+          end if;
         end if;
         
         -- Draw white edge on frame
-        if x = narrow_start or x = (narrow_start + narrow_width - 1) then
+        if x = narrow_start + pipeline_delay or x = (narrow_start + narrow_width - 1 - 1) then
           red_o <= x"FF";
           green_o <= x"FF";
           blue_o <= x"FF";
@@ -344,10 +347,13 @@ begin
           ngreen_o <= x"FF";
           nblue_o <= x"FF";
         end if;
-        if y = first_raster or y = last_raster then
+        if y = first_raster or y = last_raster-1 then
           red_o <= x"FF";
           green_o <= x"FF";
           blue_o <= x"FF";
+        end if;
+        -- XXX Why is HDMI first raster one later than VGA?
+        if y = first_raster+40 or y = last_raster-40 then
           nred_o <= x"FF";
           ngreen_o <= x"FF";
           nblue_o <= x"FF";

@@ -80,7 +80,7 @@ entity gs4510 is
     --Bit 0: Trap on F011 FDC read/write
     virtualised_hardware : out unsigned(7 downto 0);
     -- Enable disabling of various IO devices, including for secure mode
-    chipselect_enables : buffer std_logic_vector(7 downto 0) := x"EF";
+    chipselect_enables : buffer std_logic_vector(7 downto 0);
     
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
@@ -186,6 +186,9 @@ entity gs4510 is
     debug4_state_out : out std_logic_vector(3 downto 0);
     
     proceed_dbg_out : out std_logic;
+
+    f_read : in std_logic;
+    f_write : out std_logic := '1';
     
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
@@ -270,6 +273,9 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal f_rdata : std_logic := '1';
+  signal f_rdata_last : std_logic := '1';
+  
   signal iec_bus_slow_enable : std_logic := '0';
   signal iec_bus_slowdown : std_logic := '0';
   signal iec_bus_cooldown : integer range 0 to 65535 := 0;
@@ -537,7 +543,7 @@ architecture Behavioural of gs4510 is
   signal dma_checksum : unsigned(23 downto 0) := x"000000";
   signal dmagic_cmd : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_subcmd : unsigned(7 downto 0)  := (others => '0');	-- F018A/B extention
-  signal dmagic_count : unsigned(15 downto 0)  := (others => '0');
+  signal dmagic_count : unsigned(23 downto 0)  := (others => '0');
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
@@ -567,7 +573,9 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_spiral_len : integer range 0 to 41 := 0;
   signal reg_dmagic_spiral_len_remaining : integer range 0 to 41 := 0;
   signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
-
+  signal reg_dmagic_floppy_mode : std_logic := '0';
+  signal reg_dmagic_floppy_ignore_ff : std_logic := '0';
+  
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
   signal dmagic_src_modulo : std_logic := '0';
@@ -587,6 +595,10 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_src_skip : unsigned(15 downto 0) := x"0100";
   signal reg_dmagic_dst_skip : unsigned(15 downto 0) := x"0100";
 
+  -- If set, DMAgic list will be read from CPU's memory context, instead of from
+  -- a flat 28-bit address
+  signal dmagic_job_mapped_list : std_logic := '0';
+  
   -- Temporary registers used while loading DMA list
   signal dmagic_dest_bank_temp : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_bank_temp : unsigned(7 downto 0)  := (others => '0');
@@ -861,6 +873,8 @@ architecture Behavioural of gs4510 is
     DMAgicCopyRead,DMAgicCopyWrite,               -- 0x0d, 0x0e
     DMAgicCopyPauseForAudioDMA,
     DMAgicFillPauseForAudioDMA,
+    DMAgicFillPauseForFloppyWait,
+    DMAgicCopyFloppyWrite,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
@@ -884,6 +898,7 @@ architecture Behavioural of gs4510 is
     B16TakeBranch,
     InnXReadVectorLow,
     InnXReadVectorHigh,
+    InnSPYReadVectorSetup,
     InnSPYReadVectorLow,
     InnSPYReadVectorHigh,
     InnYReadVectorLow,
@@ -911,6 +926,7 @@ architecture Behavioural of gs4510 is
     Pop,
     MicrocodeInterpret,
     LoadTarget32,
+    ExecuteQreg32,
     Execute32,
     Commit32,
     StoreTarget32,
@@ -1434,6 +1450,12 @@ architecture Behavioural of gs4510 is
   signal div_q : unsigned(63 downto 0);
   signal div_start_over : std_logic := '0';  
   signal div_busy : std_logic := '0';  
+
+  signal floppy_last_gap : unsigned(11 downto 0) := x"000";
+  signal floppy_gap : unsigned(11 downto 0) := x"000";
+  signal floppy_gap_strobe : std_logic := '0';
+  signal floppy_write_release_counter : integer range 0 to 8 := 0;
+  signal floppy_write_counter : unsigned(8 downto 0) := to_unsigned(0,9);
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -1540,7 +1562,9 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
       
-  process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
+  process (clock,mathclock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,flag_d,all_pause,read_data,
+           pending_dma_address,dmagic_job_mapped_list,ocean_cart_mode,dat_bitplane_bank,
+           ocean_cart_lo_bank,ocean_cart_hi_bank)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -1711,7 +1735,8 @@ begin
       audio_dma_enables(3) <= '0';
       
       -- Enable chipselect for all peripherals and memories
-      chipselect_enables <= x"EF";
+      -- Now done by checking hyper_protected_hardware(7) under clock40mhz
+      -- chipselect_enables <= x"EF";
       cartridge_enable <= '1';
       hyper_protected_hardware <= x"00";
       
@@ -3017,7 +3042,10 @@ begin
         -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
-        -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+        -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
+        reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
+        -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
@@ -3421,6 +3449,9 @@ begin
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
       reg_dmagic_s_line_x_or_y <= '0';
+
+      reg_dmagic_floppy_mode <= '0';      
+      reg_dmagic_draw_spiral <= '0';
     end procedure;
     
     procedure alu_op_cmp (
@@ -3589,9 +3620,11 @@ begin
     variable stack_pop : std_logic := '0';
     variable stack_push : std_logic := '0';
     variable push_value : unsigned(7 downto 0) := (others => '0');
+    variable qreg_operation : std_logic := '0';
 
     variable temp_addr : unsigned(15 downto 0) := (others => '0');
 
+    variable temp33 : unsigned(32 downto 0) := (others => '0');
     variable temp17 : unsigned(16 downto 0) := (others => '0');
     variable temp9 : unsigned(8 downto 0) := (others => '0');
 
@@ -3652,6 +3685,28 @@ begin
 
     if rising_edge(clock) then
 
+      -- DMA-based floppy reading and writing support
+      f_rdata <= f_read;
+      f_rdata_last <= f_rdata;
+      if f_rdata='0' and f_rdata_last='1' then
+        floppy_gap_strobe <= '1';
+        floppy_last_gap <= floppy_gap;
+        floppy_gap <= x"000";
+      else
+        if floppy_gap /= x"fff" then
+          -- Count cycles between gaps
+          floppy_gap <= floppy_gap + 1;
+          floppy_gap_strobe <= '0';
+        else
+          -- Time out if no gaps for 4K cycles
+          floppy_gap <= x"000";
+          floppy_gap_strobe <= '1';
+        end if;
+      end if;
+        
+        
+      
+      
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
       pwm_mode_select <= pwm_mode_select_int;
       
@@ -5178,7 +5233,7 @@ begin
               if reg_mb_low = x"ff" then
                 reg_mb_low <= x"00";
               end if;
-                                        -- IO, but no C64 ROMS
+              -- IO, but no C64 ROMS
               cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
                                         -- enable hypervisor mode flag
@@ -5268,7 +5323,7 @@ begin
                   when x"84" => reg_dmagic_dst_skip(7 downto 0) <= memory_read_value;
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
                   when x"85" => reg_dmagic_dst_skip(15 downto 8) <= memory_read_value;
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
                   when x"86" => reg_dmagic_transparent_value <= memory_read_value;
                   -- For hardware line drawing, we need to know about the
                   -- screen layout.  Note that this only works for
@@ -5295,6 +5350,8 @@ begin
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
+                  when x"90" => dmagic_count(23 downto 16) <= memory_read_value;
                   -- Similar for reading from sources at funny angles, to more
                   -- readily support rotating textures
                   when x"97" => reg_dmagic_s_x8_offset(7 downto 0) <= memory_read_value;
@@ -5326,19 +5383,27 @@ begin
                     when x"00" =>
                       report "End of Enhanced DMA option list.";
                       state <= DMAgicReadList;
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
+                      -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+                      -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
                       
                     when x"06" => reg_dmagic_use_transparent_value <= '0';               
                     when x"07" => reg_dmagic_use_transparent_value <= '1';               
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
-                                        -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
                     when x"0A" => job_is_f018b <= '0';
                     when x"0B" => job_is_f018b <= '1';
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0D = Write floppy raw flux (use with COPY)
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0E = Read floppy raw flux, ignoring long gaps
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0F = Read floppy raw flux (use with FILL)
+                    when x"0D" => reg_dmagic_floppy_mode <= '1';
+                    when x"0E" => reg_dmagic_floppy_mode <= '1';
+                                  reg_dmagic_floppy_ignore_ff <= '1';
+                    when x"0F" => reg_dmagic_floppy_mode <= '1';
+                                  reg_dmagic_floppy_ignore_ff <= '0';
                     when x"53" => reg_dmagic_draw_spiral <= '1';
                                   reg_dmagic_spiral_phase <= "00";
                                   reg_dmagic_spiral_len <= 39;
-                                  reg_dmagic_spiral_len_remaining <= 38;
+                                  reg_dmagic_spiral_len_remaining <= 38;                                  
                     when others => null;
                   end case;
                 end if;
@@ -5363,7 +5428,7 @@ begin
               dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
               dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
-              dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
+              dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);              
               dmagic_cmd <= dmagic_count(7 downto 0);
               if (job_is_f018b = '0') and (dmagic_list_counter = 10) then
                 state <= DMAgicGetReady;
@@ -5381,6 +5446,12 @@ begin
                 & to_hstring(dmagic_src_addr(23 downto 8))
                 & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
                 & ", count=$" & to_hstring(dmagic_count);
+              -- If count=0, then it means 64KB
+              -- UNLESS we have set the MSB of the count to allow
+              -- jobs >64KB
+              if dmagic_count = x"000000" then
+                dmagic_count <= x"010000";
+              end if;
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               if (job_is_f018b = '1') then
                 dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
@@ -5416,8 +5487,8 @@ begin
                 dmagic_dest_hold <= dmagic_dest_bank_temp(4);
               end if;
 
-                                        -- Save memory mapping flags, and set memory map to
-                                        -- be all RAM +/- IO area
+              -- Save memory mapping flags, and set memory map to
+              -- be all RAM +/- IO area
               pre_dma_cpuport_bits <= cpuport_value(2 downto 0);
               cpuport_value(2 downto 1) <= "10";
               
@@ -5425,52 +5496,51 @@ begin
                 when "11" => -- fill                  
                   state <= DMAgicFill;
 
-                                        -- And set IO visibility based on destination bank flags
-                                        -- since we are only writing.
+                  -- And set IO visibility based on destination bank flags
+                  -- since we are only writing.
                   cpuport_value(0) <= dmagic_dest_bank_temp(7);
                   
                 when "00" => -- copy
                   dmagic_first_read <= '1';
                   state <= DMagicCopyRead;
-                                        -- Set IO visibility based on source bank flags
+                  -- Set IO visibility based on source bank flags
                   cpuport_value(0) <= dmagic_src_bank_temp(7);
                 when others =>
-                                        -- swap and mix not yet implemented
+                  -- swap and mix not yet implemented
                   state <= normal_fetch_state;
                   report "monitor_instruction_strobe assert (DMA swap/mix unimplemented function abort)";
                   monitor_instruction_strobe <= '1';
               end case;
-                                        -- XXX Potential security issue: Ideally we should not allow a DMA to
-                                        -- write to Hypervisor memory, so as to make it harder to overwrite
-                                        -- hypervisor memory.  However, we currently use it to do exactly
-                                        -- that in the hickup routine.  Thus before we implement such
-                                        -- protection, we need to change hickup to use a simple copy
-                                        -- routine. We then need to get a bit creative about how we
-                                        -- implement the restriction, as the hypervisor memory doesnt
-                                        -- exist in its own 1MB off address space, so we can't easily
-                                        -- quarantine it by blockinig DMA to that section off address
-                                        -- space. It does live in its own 64KB of address space, however.
-                                        -- that would involve adding a wrap-around check on the bottom 16
-                                        -- bits of the address.
-                                        -- One question is: Does it make sense to try to protect against
-                                        -- this, since the hypervisor memory is only accessible from
-                                        -- hypervisor mode, and any exploit via DMA requires another
-                                        -- exploit first.  Perhaps the only additional issue is if a DMA
-                                        -- chained request went feral, but even that requires at least a
-                                        -- significant bug in the hypervisor.  We could just disable
-                                        -- chained DMA in the hypevisor as a simple safety catch, as this
-                                        -- will provide the main value, without a burdonsome change. But
-                                        -- even that gets used in hyppo when clearing the screen on
-                                        -- boot.
+              -- XXX Potential security issue: Ideally we should not allow a DMA to
+              -- write to Hypervisor memory, so as to make it harder to overwrite
+              -- hypervisor memory.  However, we currently use it to do exactly
+              -- that in the hickup routine.  Thus before we implement such
+              -- protection, we need to change hickup to use a simple copy
+              -- routine. We then need to get a bit creative about how we
+              -- implement the restriction, as the hypervisor memory doesnt
+              -- exist in its own 1MB of address space, so we can't easily
+              -- quarantine it by blockinig DMA to that section off address
+              -- space. It does live in its own 64KB of address space, however.
+              -- that would involve adding a wrap-around check on the bottom 16
+              -- bits of the address.
+              -- One question is: Does it make sense to try to protect against
+              -- this, since the hypervisor memory is only accessible from
+              -- hypervisor mode, and any exploit via DMA requires another
+              -- exploit first.  Perhaps the only additional issue is if a DMA
+              -- chained request went feral, but even that requires at least a
+              -- significant bug in the hypervisor.  We could just disable
+              -- chained DMA in the hypevisor as a simple safety catch, as this
+              -- will provide the main value, without a burdonsome change. But
+              -- even that gets used in hyppo when clearing the screen on
+              -- boot.
             when DMAgicFill =>
-                                        -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
-                                        -- 0)
+              -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
-                                        -- Do memory write
+              -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
-                                        -- Update address and check for end of job.
-                                        -- XXX Ignores modulus, whose behaviour is insufficiently defined
-                                        -- in the C65 specifications document
+              -- Update address and check for end of job.
+              -- XXX Ignores modulus, whose behaviour is insufficiently defined
+              -- in the C65 specifications document
               if reg_dmagic_draw_spiral = '1' then
                 -- Draw the dreaded Shallan Spriral
                 case reg_dmagic_spiral_phase is
@@ -5675,6 +5745,10 @@ begin
                 if pending_dma_busy='1' then
                   state <= DMAgicFillPauseForAudioDMA;
                 end if;
+
+                if reg_dmagic_floppy_mode='1' and (floppy_gap_strobe='0' or (reg_dmagic_floppy_ignore_ff='1' and floppy_last_gap=x"ff")) then
+                  state <= DMAgicFillPauseForFloppyWait;
+                end if;
                 
               end if;
             when VDCRead =>
@@ -5858,17 +5932,26 @@ begin
               cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
-                                        -- Remember value just read
+              -- Remember value just read
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
                 & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
-                                        -- Set IO visibility for source
+              -- Set IO visibility for source
               cpuport_value(0) <= dmagic_src_io;
               if pending_dma_busy='1' then
                 state <= DMAgicCopyPauseForAudioDMA;
+              elsif reg_dmagic_floppy_mode='1' then
+                state <= DMAgicCopyFloppyWrite;
+                f_write <= '0';
+                -- Max floppy write gap 2x memory value, so that we can have intervals
+                -- of upto 512 clock ticks = ~12,800ns, as DD data rates require
+                -- up to ~320 ticks 
+                floppy_write_counter(8 downto 1) <= memory_read_value;
+                floppy_write_counter(0) <= '0';
+                floppy_write_release_counter <= 8;
               else
                 state <= DMAgicCopyRead;
               end if;
@@ -6058,9 +6141,27 @@ begin
               if pending_dma_busy = '0' then
                 state <= DMAgicCopyRead;
               end if;
+            when DMAgicCopyFloppyWrite =>
+              if floppy_write_release_counter = 0 then
+                f_write <= '1';
+              else
+                floppy_write_release_counter <= floppy_write_release_counter - 1;
+              end if;
+              if floppy_write_counter = 0 then
+                state <= DMAgicCopyRead;
+              else
+                floppy_write_counter <= floppy_write_counter - 1;
+              end if;
             when DMAgicFillPauseForAudioDMA =>
               if pending_dma_busy = '0' then
                 state <= DMAgicFill;
+              end if;
+            when DMAgicFillPauseForFloppyWait =>
+              if floppy_gap_strobe = '1' and (reg_dmagic_floppy_ignore_ff='0' or floppy_last_gap/=x"ff") then
+                state <= DMAgicFill;
+                -- Get updated floppy gap value into the spot that DMAgic will
+                -- use as the fill value.
+                dmagic_src_addr(15 downto 8) <= floppy_last_gap(8 downto 1);
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
@@ -6155,6 +6256,7 @@ begin
                 flat32_address_prime <= '0';
                 value32_enabled <= '0';
                 next_is_axyz32_instruction <= '0';
+                qreg_operation := '0';
                 
                 report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
                   & ", value32_enabled = " & std_logic'image(value32_enabled);
@@ -6165,42 +6267,77 @@ begin
                     report "ZPCACHE: Flushing cache due to setting E flag";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');
-                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                  when x"0A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- ASLQ Q
+                    else
+                      reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                    end if;
                   when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                   when x"18" => flag_c <= '0';  -- CLC
-                  when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  when x"1A" =>
+                  if next_is_axyz32_instruction = '1' then
+                    qreg_operation := '1'; -- INQ Q
+                  else
+                    reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  end if;
                   when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
-                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                  when x"2A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- ROLQ Q
+                    else
+                      reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                    end if;
                   when x"2B" =>
                     reg_sph <= reg_y; -- TYS
                     report "ZPCACHE: Flushing cache due to setting SPH";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');                    
                   when x"38" => flag_c <= '1';  -- SEC
-                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                  when x"3A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- DEQ Q
+                    else
+                      reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                    end if;
                   when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
                   when x"42" =>
                     reg_a <= a_negated; set_nz(a_negated); -- NEG A
                     -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
                     -- regs as single 32-bit pseudo register.
-                    -- This prefix can be used together with the NOP / NOP prefix
+                    -- This prefix can be used together with the NOP prefix
                     -- for the 32-bit ZP-indirect instructions. In that case,
-                    -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
+                    -- this prefix must come first, i.e., NEG / NEG / NOP
                     -- / LDA or STA ($xx), Z
                     if value32_enabled = '0' then
                       value32_enabled <= '1';
                     else
                       next_is_axyz32_instruction <= '1';
                     end if;
-                  when x"43" => reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
-                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                  when x"43" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- ASRQ Q
+                    else
+                      reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
+                    end if;
+                  when x"4A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- LSRQ Q
+                    else
+                      reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                    end if;
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
                   when x"5B" =>
                     reg_b <= reg_a; -- TAB
                     report "ZPCACHE: Flushing cache due to moving ZP";
                     cache_flushing <= '1';
                     cache_flush_counter <= (others => '0');
-                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                  when x"6A" =>
+                    if next_is_axyz32_instruction = '1' then
+                      qreg_operation := '1'; -- RORQ Q
+                    else
+                      reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                    end if;
                   when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
                   when x"78" => flag_i <= '1';  -- SEI
                   when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
@@ -6252,7 +6389,11 @@ begin
                   when others => null;
                 end case;
                 
-                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                if qreg_operation = '1' then
+                  report "Qreg Opcode, skipping to ExecuteQreg32";
+                  pc_inc := '0';
+                  state <= ExecuteQreg32;
+                elsif op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
                   if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
                     or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
                     or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
@@ -7085,14 +7226,11 @@ begin
                       + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
-                    -- XXX If this is really about stack relative, should it
-                    -- be applying BP as part of the offset?  Maybe it should,
-                    -- if we want a way to do stack-relative with stacks deeper
-                    -- than 256 bytes? But probably not.
-                    temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
-                                              +to_integer(reg_sph&reg_sp),16);
-                    reg_addr <= temp_addr + 1;
-                    state <= InnSPYReadVectorLow;
+                    temp_addr := to_unsigned(to_integer(reg_sph&reg_sp)
+                                             +to_integer(reg_arg1),16);
+                    reg_addr <= temp_addr;
+                    report "InnSPY: temp_addr=$" & to_hstring(temp_addr);
+                    state <= InnSPYReadVectorSetup;
                   when M_immnnnn =>                
                     reg_t <= reg_arg1;
                     reg_t_high <= memory_read_value;
@@ -7186,10 +7324,15 @@ begin
                                         -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
               end if;
+            when InnSPYReadVectorSetup =>
+              state <= InnSPYReadVectorLow;
+              reg_addr <= reg_addr + 1;
             when InnSPYReadVectorLow =>
+              report "InnSPY: memory_read_value=$" & to_hstring(memory_read_value);
               reg_addr(7 downto 0) <= memory_read_value;
               state <= InnSPYReadVectorHigh;
             when InnSPYReadVectorHigh =>
+              report "InnSPY: memory_read_value=$" & to_hstring(memory_read_value);
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
                             + to_integer(reg_y),16);
@@ -7397,6 +7540,61 @@ begin
                 -- Already got the four bytes, so now trigger the execution
                 state <= Execute32;                    
               end if;
+            when ExecuteQreg32 =>
+              -- reg_q33 holds the q reg, no need to load anything
+              next_is_axyz32_instruction <= '0';
+              report "ExecuteQreg32: reg_q33 = $" & to_hstring(reg_q33) & ", reg_instruction = " & instruction'image(reg_instruction);
+              pc_inc := '1';
+              pc_dec := '0';
+              case reg_instruction is
+                when I_INC =>
+                  temp33(31 downto 0) := reg_q33(31 downto 0) + 1;
+                when I_DEC =>
+                  temp33(31 downto 0) := reg_q33(31 downto 0) - 1;
+                when I_ASL | I_ROL =>
+                  temp33(31 downto 1) := reg_q33(30 downto 0);
+                  case reg_instruction is
+                    when I_ASL =>
+                      temp33(0) := '0';
+                    when I_ROL =>
+                      temp33(0) := flag_c;
+                    when others => null;
+                  end case;
+                  flag_c <= reg_q33(31);
+                when I_LSR | I_ASR | I_ROR =>
+                  temp33(30 downto 0) := reg_q33(31 downto 1);
+                  case reg_instruction is
+                    when I_LSR =>
+                      temp33(31) := '0';
+                    when I_ASR =>
+                      temp33(31) := reg_q33(31);
+                    when I_ROR =>
+                      temp33(31) := flag_c;
+                    when others => null;
+                  end case;
+                  flag_c <= reg_q33(0);
+                when others =>
+                  -- Can't get here, in theory
+                  report "monitor_instruction_strobe assert (unknown instruction in ExecuteQreg32)";
+                  monitor_instruction_strobe <= '1';
+                  pc_inc := '0';
+                  state <= normal_fetch_state;
+              end case;
+              report "ExecuteQreg32: temp33 = $" & to_hstring(temp33);
+              -- Store Result
+              reg_a <= temp33(7 downto 0);
+              reg_x <= temp33(15 downto 8);
+              reg_y <= temp33(23 downto 16);
+              reg_z <= temp33(31 downto 24);
+              -- Set Flags
+              if temp33(31 downto 0) = to_unsigned(0,32) then
+                flag_z <= '1';
+              else
+                flag_z <= '0';
+              end if;
+              flag_n <= temp33(31);
+              monitor_instruction_strobe <= '1';
+              state <= fast_fetch_state;
             when Execute32 =>
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               next_is_axyz32_instruction <= '0';
@@ -7509,7 +7707,7 @@ begin
                   pc_inc := '0';
                 end if;
                 pc_dec := reg_microcode.mcDecPC;
-                report "monitor_instruction_strobe assert (Execute32 non-RMW)";
+                report "monitor_instruction_strobe assert (Commit32 non-RMW)";
                 monitor_instruction_strobe <= '1';
                 if reg_microcode.mcInstructionFetch='1' then
                   report "Fast dispatch for next instruction by order of microcode";
@@ -8049,6 +8247,7 @@ begin
             report "DMAgic: Enhanced DMA pending";
             dma_pending <= '1';
             state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '0';
 
                                         -- Normal DMA, use pre-set F018A/B mode
             job_is_f018b <= support_f018b;
@@ -8061,7 +8260,25 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3706"
+            or memory_access_address = x"FFD1706" then
+            report "DMAgic: Enhanced DMA pending, with MAP-honouring list reading";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '1';
 
+                                        -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+                                        -- Don't increment PC if we were otherwise going to shortcut to
+                                        -- InstructionDecode next cycle
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;
+          
           -- @IO:GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
           -- @IO:GS $D641 CPU:HTRAP01 Writing triggers hypervisor trap \$01
           -- @IO:GS $D642 CPU:HTRAP02 Writing triggers hypervisor trap \$02
@@ -8700,19 +8917,19 @@ begin
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicReadOptions =>
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicReadList =>
           report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
             & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
-          memory_access_resolve_address := '0';
+          memory_access_resolve_address := dmagic_job_mapped_list;
           memory_access_read := '1';
         when DMAgicFill =>
           report "MEMORY Setting memory_access_address to dmagic_dest_addr ($"
@@ -8762,7 +8979,7 @@ begin
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 0) := x"FFFFFFF";
           
-        when DMAgicCopyRead =>
+        when DMAgicCopyRead | DMAgicCopyFloppyWrite =>
           -- Do memory read
           memory_access_read := '1';
           memory_access_resolve_address := '0';
@@ -9005,6 +9222,12 @@ begin
             memory_access_read := '0';
             memory_access_write := '0';
           end if;
+        when InnSPYReadVectorSetup =>
+          memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnSPYReadVectorSetup ($"
+            & to_hstring(reg_addr) & ").";
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
         when InnSPYReadVectorLow =>
           memory_access_read := '1';
           report "MEMORY Setting memory_access_address for InnSPYReadVectorLow ($"
@@ -9127,16 +9350,19 @@ begin
         when LoadTarget32 =>
           if axyz_phase /= 4 then
             -- More bytes to read, so schedule next byte to read                
-            report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
             memory_access_read := '1';
             report "MEMORY Setting memory_access_address for LoadTarget32 ($"
               & to_hstring(reg_addr + axyz_phase) & ").";
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
+            if absolute32_addressing_enabled='1' then
+              memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+            else
+              memory_access_address(27 downto 16) := x"000";
+            end if;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
           end if;
         when StoreTarget32 =>
-          report "VAL32: StoreTarget32 memory_access_address=$" & to_hstring(memory_access_address) & ", reg_val32=$" & to_hstring(reg_val32);
           if axyz_phase /= 4 then
             memory_access_read := '0';
             memory_access_write := '1';
@@ -9145,6 +9371,11 @@ begin
               & to_hstring(reg_addr + axyz_phase) & "). Data value will be $" & to_hstring(reg_val32(7 downto 0));
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
+            if absolute32_addressing_enabled='1' then
+              memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+            else
+              memory_access_address(27 downto 16) := x"000";
+            end if;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
           end if;              
         when MicrocodeInterpret =>

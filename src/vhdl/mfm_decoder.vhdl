@@ -23,14 +23,18 @@ use Std.TextIO.all;
 use work.debugtools.all;
   
 entity mfm_decoder is
+  generic ( unit_id : integer);
   port (
     clock40mhz : in std_logic;
 
     f_rdata : in std_logic;
     invalidate : in std_logic;
 
+    encoding_mode : in unsigned(3 downto 0);
+    
     mfm_state : out unsigned(7 downto 0) := x"00";
     mfm_last_gap : out unsigned(15 downto 0) := x"0000";
+    mfm_last_gap_strobe : out std_logic := '0';
     mfm_last_byte : out unsigned(7 downto 0) := x"00";
     mfm_quantised_gap : out unsigned(7 downto 0) := x"00";
     packed_rdata : out std_logic_vector(7 downto 0);
@@ -135,6 +139,19 @@ architecture behavioural of mfm_decoder is
 
   signal last_crc : unsigned(15 downto 0) := x"0000";
   signal crc_wait : std_logic_vector(3 downto 0) := x"0";
+
+  signal mfm_bit_valid : std_logic := '0';
+  signal mfm_bit_in : std_logic := '0';
+  signal mfm_sync_in : std_logic := '0';
+  signal mfm_byte_out : unsigned(7 downto 0) := x"00";
+
+  signal rll_byte_out : unsigned(7 downto 0) := x"00";
+  signal rll_bit_valid : std_logic := '0';
+  signal rll_bit_in : std_logic := '0';
+  signal rll_sync_in : std_logic := '0';
+  signal rll_gap_size_valid : std_logic := '0';
+  signal rll_gap_size : unsigned(2 downto 0) := "000";
+  
   
 begin
 
@@ -167,11 +184,34 @@ begin
     gap_valid => gap_size_valid,
     gap_size => gap_size,
 
-    bit_valid => bit_valid,
-    bit_out => bit_in,
-    sync_out => sync_in
+    bit_valid => mfm_bit_valid,
+    bit_out => mfm_bit_in,
+    sync_out => mfm_sync_in
     );
 
+  rllquantise0: entity work.rll27_quantise_gaps port map (
+    clock40mhz => clock40mhz,
+
+    cycles_per_interval => cycles_per_interval,
+
+    gap_valid_in => gap_valid,
+    gap_length_in => gap_length,
+
+    gap_valid_out => rll_gap_size_valid,
+    gap_size_out => rll_gap_size
+    );
+
+  rllbits0: entity work.rll27_gaps_to_bits port map (
+    clock40mhz => clock40mhz,
+
+    gap_valid => rll_gap_size_valid,
+    gap_size => rll_gap_size,
+
+    bit_valid => rll_bit_valid,
+    bit_out => rll_bit_in,
+    sync_out => rll_sync_in
+    );
+  
   bytes0: entity work.mfm_bits_to_bytes port map (
     clock40mhz => clock40mhz,
 
@@ -184,7 +224,8 @@ begin
     byte_valid => byte_valid_in    
     );
 
-  crc0: entity work.crc1581 port map (
+  crc0: entity work.crc1581 generic map ( id => unit_id )
+    port map (
     clock40mhz => clock40mhz,
     crc_byte => crc_byte,
     crc_feed => crc_feed,
@@ -194,8 +235,25 @@ begin
     crc_value => crc_value
     );
   
-  process (clock40mhz,f_rdata) is
+  process (clock40mhz,f_rdata,
+           encoding_mode,
+           rll_bit_valid,rll_bit_in,rll_sync_in,rll_byte_out,
+           mfm_bit_valid,mfm_bit_in,mfm_sync_in,mfm_byte_out) is
   begin
+
+    case encoding_mode is
+      when x"1" =>
+        bit_valid <= rll_bit_valid;
+        bit_in <= rll_bit_in;
+        sync_in <= rll_sync_in;
+        byte_out <= rll_byte_out;
+      when others =>
+        bit_valid <= mfm_bit_valid;
+        bit_in <= mfm_bit_in;
+        sync_in <= mfm_sync_in;
+        byte_out <= mfm_byte_out;
+    end case;
+    
     if rising_edge(clock40mhz) then
 
       track_info_valid <= '0';
@@ -208,9 +266,12 @@ begin
       mfm_state <= to_unsigned(MFMState'pos(state),8);
       mfm_last_gap(11 downto 0) <= gap_length(11 downto 0);
       mfm_last_gap(15 downto 12) <= gap_count;
+      mfm_last_gap_strobe <= gap_valid;
       if gap_size_valid='1' then
         mfm_quantised_gap(7) <= sync_in;
-        mfm_quantised_gap(6 downto 2) <= qgap_count(4 downto 0);
+        mfm_quantised_gap(6) <= mfm_sync_in;
+        mfm_quantised_gap(5) <= rll_sync_in;
+        mfm_quantised_gap(4 downto 2) <= qgap_count(2 downto 0);
         mfm_quantised_gap(1 downto 0) <= gap_size;
         if qgap_count /= "111111" then
           qgap_count <= qgap_count + 1;
@@ -236,10 +297,11 @@ begin
 
         -- set crc_error and clear seen_valid if CRC /= 0
         if crc_value /= x"0000" then
-          report "crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
+--          report "HEADER: crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
           seen_valid <= '0';
           crc_error <= '1';
         else
+--          report "HEADER: CRC good.";
           crc_error <= '0';
           if byte_count /= 0 then
             sector_end <= '1';
@@ -248,10 +310,11 @@ begin
             if (target_any='1')
               or (
                 (to_integer(target_track) = to_integer(seen_track))
-                and (to_integer(target_sector) = to_integer(seen_sector))
-                and (to_integer(target_side) = to_integer(seen_side))) then
+                and (to_integer(target_sector) = to_integer(seen_sector))) then
+                  -- Don't check side?
+--                and (to_integer(target_side) = to_integer(seen_side))) then
               if (last_crc = x"0000") then
---                report "Seen sector matches target";
+--                report "HEADER: Seen sector matches target, CRC good";
                 found_track <= seen_track;
                 found_sector <= seen_sector;
                 found_side <= seen_side;
@@ -328,6 +391,7 @@ begin
         sync_count <= 0;
         if sync_count = 3 then
           -- First byte after a sync
+          report "TRACKINFO: Post Sync byte = $" & to_hstring(byte_in);
           if byte_in = x"FE" then
             -- Sector header marker
             crc_feed <= '1'; crc_byte <= byte_in;

@@ -41,7 +41,7 @@ begin
   writes <= write_count;
   no_writes <= no_write_count;
 --process for read and write operation.
-  PROCESS(ClkA)
+  PROCESS(ClkA,csa,addressa)
   BEGIN
     if(rising_edge(ClkA)) then 
       if wea /= '0' and csa='1' then

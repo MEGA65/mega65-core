@@ -153,7 +153,7 @@ entity container is
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
          ---------------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0) := (others => '0');
+         QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
                 
          ---------------------------------------------------------------------------
@@ -273,12 +273,9 @@ architecture Behavioral of container is
   signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
-  signal clock81n : std_logic;
-  signal clock100 : std_logic;
-  signal clock135p : std_logic;
-  signal clock135n : std_logic;
   signal clock162 : std_logic;
   signal clock200 : std_logic;
+  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
@@ -365,7 +362,9 @@ architecture Behavioral of container is
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
 
-  signal flopled_drive : std_logic;
+  signal flopled0_drive : std_logic;
+  signal flopled2_drive : std_logic;
+  signal flopledsd_drive : std_logic;
   signal flopmotor_drive : std_logic;
 
   signal joy3 : std_logic_vector(4 downto 0);
@@ -406,8 +405,12 @@ architecture Behavioral of container is
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
+  signal portp_drive : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal disco_led_en : std_logic := '0';
   signal disco_led_val : unsigned(7 downto 0);
@@ -504,12 +507,9 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock81n  => clock81n,   --   81     MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135     MHz
-               clock135n => clock135n,  --  135     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
+               clock270  => clock270,   --  270     MHz
                clock325  => clock325    --  325     MHz
                );
 
@@ -520,7 +520,7 @@ begin
         fref        => 100.0
         )
       port map (
-            select_44100 => portp(3),
+            select_44100 => portp_drive(3),
             ref_rst   => reset_high,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
@@ -540,7 +540,7 @@ begin
     
     hdmi0: entity work.vga_to_hdmi
       port map (
-        select_44100 => portp(3),
+        select_44100 => portp_drive(3),
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
@@ -580,7 +580,7 @@ begin
             port map (
                 rst     => reset_high,
                 clk     => clock27,
-                clk_x5  => clock135p,
+                clk_x10  => clock270,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
@@ -590,7 +590,7 @@ begin
         port map (
             rst     => reset_high,
             clk     => clock27,
-            clk_x5  => clock135p,
+            clk_x10  => clock270,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
@@ -612,7 +612,9 @@ begin
       disco_led_val => disco_led_val,
       
       powerled => '1',
-      flopled => flopled_drive,
+      flopled0 => flopled0_drive,
+      flopled2 => flopled2_drive,
+      flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
@@ -804,7 +806,6 @@ begin
           cpuclock        => cpuclock,
           uartclock       => cpuclock, -- Match CPU clock
           clock162 => clock162,
-          clock100 => clock100,
           clock200 => clock200,
           clock27 => clock27,
           clock50mhz      => ethclock,
@@ -836,7 +837,9 @@ begin
           
           qspi_clock => qspi_clock,
           qspicsn => qspicsn,
-          qspidb => qspidb,
+          qspidb => qspidb_out,
+          qspidb_in => qspidb_in,
+          qspidb_oe => qspidb_oe,
           
           joy3 => joy3,
           joy4 => joy4,
@@ -981,7 +984,9 @@ begin
           disco_led_id => disco_led_id,
           disco_led_val => disco_led_val,      
           
-          flopled => flopled_drive,
+          flopled0 => flopled0_drive,
+          flopled2 => flopled2_drive,
+          flopledsd => flopledsd_drive,
           flopmotor => flopmotor_drive,
           ampPWM_l => pwm_l_drive,
           ampPWM_r => pwm_r_drive,
@@ -1039,6 +1044,9 @@ begin
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
+
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb;
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
@@ -1066,7 +1074,9 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1) xor dipsw(1);
+      portp_drive <= portp;
+      
+      dvi_select <= portp_drive(1) xor dipsw(1);
       
       reset_high <= not btncpureset;
 
@@ -1175,12 +1185,12 @@ begin
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
-    if portp(7)='1' then
+    if portp_drive(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+    led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -1195,7 +1205,7 @@ begin
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp(2)='1' then
+    if portp_drive(2)='1' then
       vgagreen <= unsigned(audio_left(15 downto 8));
       vgared <= unsigned(audio_right(15 downto 8));
       hdmigreen <= unsigned(audio_left(15 downto 8));

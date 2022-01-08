@@ -59,7 +59,7 @@ entity machine is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
-         clock100 : in std_logic;    -- Must be 2x ethernet clock
+         clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
@@ -85,7 +85,9 @@ entity machine is
          disco_led_val : out unsigned(7 downto 0) := x"00";
          disco_led_en : out std_logic := '0';
 
-         flopled : out std_logic := '0';
+         flopled0 : out std_logic := '0';
+         flopled2 : out std_logic := '0';
+         flopledsd : out std_logic := '0';
          flopmotor : out std_logic := '0';
 
          j21in : in std_logic_vector(11 downto 0) := (others => '1');
@@ -121,7 +123,9 @@ entity machine is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
+         QspiDB : out unsigned(3 downto 0);
+         QspiDB_in : in unsigned(3 downto 0);
+         qspidb_oe : out std_logic;
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
          
@@ -504,13 +508,20 @@ architecture Behavioral of machine is
   signal speed_gate_enable : std_logic;
   signal badline_toggle : std_logic;
   
-  signal drive_led : std_logic;
+  signal drive_led0 : std_logic;
+  signal drive_led2 : std_logic;
+  signal drive_ledsd : std_logic;
   signal motor : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
 
   signal reset_io : std_logic;
   signal reset_monitor : std_logic;
+  signal reset_monitor_drive : std_logic;
+  signal reset_monitor_history : std_logic_vector(15 downto 0) := (others => '1');
+  signal reset_monitor_count_int : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal reset_monitor_count : unsigned(11 downto 0) := to_unsigned(0,12);
+  
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
   -- (Note that uart_monitor actually holds reset low for ~5 usec on power on,
@@ -760,6 +771,17 @@ architecture Behavioral of machine is
   signal dd00_bits : unsigned(1 downto 0);
 
   signal cpu_slow : std_logic;
+
+  signal floppy_last_gap : unsigned(7 downto 0);
+  signal floppy_gap_strobe : std_logic := '0';
+  signal f_wdata_sd : std_logic := '1';
+  signal f_wdata_cpu : std_logic := '1';
+  signal f_rdata_switched : std_logic := '0';
+  signal f_rdata_loopback : std_logic;
+  signal f_rdata_history : std_logic_vector(3 downto 0) := "1111";
+
+  signal last_reset_source : unsigned(2 downto 0) := "000";
+  signal btnCpuReset_counter : integer range 0 to 8191 := 0;
   
 begin
 
@@ -781,30 +803,63 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
-          power_on_reset,reset_monitor,hyper_trap)
+  process(cpuclock,irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
+          power_on_reset,reset_monitor,hyper_trap,monitor_hyper_trap)
   begin
     -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
     -- IRQs and NMIs
     combinedirq <= (irq and io_irq and vic_irq) or sw(15);
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
-    if btnCpuReset='0' then
-      report "reset asserted via btnCpuReset";
-      reset_combined <= '0';
-    elsif reset_io='0' then
-      report "reset asserted via reset_io";
-      reset_combined <= '0';
-    elsif power_on_reset(0)='0' then
-      report "reset asserted via power_on_reset(0)";
-      reset_combined <= '0';
-    elsif reset_monitor='0' then
-      report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
-      reset_combined <= '0';
-    else
-      report "reset_combined not asserted";
-      reset_combined <= '1';
-    end if;
+    if rising_edge(cpuclock) then
 
+      -- Latch reset from monitor interface to avoid tripping on glitches
+      -- But requiring to be low so long causes monitor induced reset to be ignored.
+      -- monitor asserts reset for 255 cycles, so looking for 8 in a row should
+      -- be safe.
+      if reset_monitor='0' then
+        if reset_monitor_count_int /= x"fff" then
+          reset_monitor_count_int <= reset_monitor_count_int + 1;
+        else
+          reset_monitor_count_int <= x"000";
+        end if;
+      end if;
+      reset_monitor_count <= reset_monitor_count_int;
+      reset_monitor <= reset_monitor_drive;      
+      reset_monitor_history(15 downto 1) <= reset_monitor_history(14 downto 0);
+      reset_monitor_history(0) <= reset_monitor;
+
+      if btnCpuReset='0' then
+        if btnCpuReset_counter < 8191 then
+          btnCpuReset_counter <= btnCpuReset_counter + 1;
+        end if;
+      else
+        btnCpuReset_counter <= 0;
+      end if;
+      
+      if btnCpuReset='0' and btnCpuReset_counter>1024 then
+        report "reset asserted via btnCpuReset";
+        last_reset_source <= to_unsigned(1,3);
+        reset_combined <= '0';
+      elsif reset_io='0' then
+        report "reset asserted via reset_io";
+        last_reset_source <= to_unsigned(2,3);
+        reset_combined <= '0';
+      elsif power_on_reset(0)='0' then
+        report "reset asserted via power_on_reset(0)";
+        last_reset_source <= to_unsigned(3,3);
+        reset_combined <= '0';
+      elsif reset_monitor_history=x"0000" then
+        report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
+        last_reset_source <= to_unsigned(4,3);
+        -- #474 On some boards only, we get reset glitching from the serial monitor
+        -- so disable it in the release bitstream
+        reset_combined <= '0';
+      else
+        report "reset_combined not asserted";
+        reset_combined <= '1';
+      end if;
+    end if;
+    
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
     report "reset_combined = " & std_logic'image(reset_combined) severity note;
@@ -822,6 +877,25 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
+      -- Allow CPU direct floppy writing, as well as from the SD controller
+      -- (CPU direct writing is used for DMA-based raw flux writing)
+      -- XXX disable CPU raw flux writing in case it is cause of write glitching
+      f_wdata <= f_wdata_sd and f_wdata_cpu;
+      -- f_wdata <= f_wdata_sd;
+      f_rdata_history(0) <= f_rdata;
+      f_rdata_history(3 downto 1) <= f_rdata_history(2 downto 0);
+      -- Similarly allow looping back of floppy write to read for debugging
+      -- and also investigating write precomp requirements/effects etc
+      if f_rdata_loopback='1' then
+        f_rdata_switched <= f_wdata_sd and f_wdata_cpu;
+      else
+        if f_rdata_history="0000" then
+          f_rdata_switched <= '0';
+        else
+          f_rdata_switched <= '1';
+        end if;
+      end if;
+      
       pal50_select_out <= pal50_select;
       
       led(0) <= irq;
@@ -833,7 +907,7 @@ begin
       led(6) <= external_pixel_strobe;
       led(7) <= external_frame_x_zero;      
       led(8) <= external_frame_y_zero;      
-      led(9) <= drive_led;
+      led(9) <= drive_led0;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -990,6 +1064,9 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      f_read => f_rdata_switched,
+      f_write => f_wdata_cpu,
+      
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
       cpu_pcm_enable => cpu_pcm_enable,
@@ -1422,7 +1499,7 @@ begin
                   cpu_frequency => cpu_frequency)
     port map (
       cpuclock => cpuclock,
-      clock100mhz => clock100,
+      clock200mhz => clock200,
       clock200mhz => clock200,
       clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,
@@ -1444,7 +1521,13 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      floppy_last_gap => floppy_last_gap,
+      floppy_gap_strobe => floppy_gap_strobe,      
+      
       dd00_bits => dd00_bits,
+
+      last_reset_source => last_reset_source,
+      reset_monitor_count => reset_monitor_count,
       
       max10_fpga_date => max10_fpga_date,
       max10_fpga_commit => max10_fpga_commit,
@@ -1453,6 +1536,8 @@ begin
       
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
       qspidb => qspidb,
 
       j21in => j21in,
@@ -1536,7 +1621,9 @@ begin
       hyppo_rdata => hyppo_rdata,
       hyppo_address => hyppo_address,
       colourram_at_dc00 => colourram_at_dc00,
-      drive_led => drive_led,
+      drive_led0 => drive_led0,
+      drive_led2 => drive_led2,
+      drive_ledsd => drive_ledsd,
       motor => motor,
       dipsw => dipsw,
       sw => sw,
@@ -1568,14 +1655,15 @@ begin
     f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
-    f_wdata => f_wdata,
+    f_wdata => f_wdata_sd,
     f_wgate => f_wgate,
     f_side1 => f_side1,
     f_index => f_index,
     f_track0 => f_track0,
     f_writeprotect => f_writeprotect,
-    f_rdata => f_rdata,
-    f_diskchanged => f_diskchanged,
+    f_rdata => f_rdata_switched,
+      f_diskchanged => f_diskchanged,
+      f_rdata_loopback => f_rdata_loopback,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -1766,7 +1854,7 @@ begin
   -----------------------------------------------------------------------------
   monitor0 : uart_monitor port map (
     reset => reset_combined,
-    reset_out => reset_monitor,
+    reset_out => reset_monitor_drive,
 
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
@@ -1855,7 +1943,9 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      flopled <= drive_led;
+      flopled0 <= drive_led0;
+      flopled2 <= drive_led2;
+      flopledsd <= drive_ledsd;
       flopmotor <= motor;
 
       -- Generate 2MHz for SIDs from CPUCLOCK / 20

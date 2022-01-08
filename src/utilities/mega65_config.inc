@@ -200,7 +200,7 @@ videoPageIndex:
 ;-------------------------------------------------------------------------------
 ;Audio tab
 ;-------------------------------------------------------------------------------
-audioPageCnt	=	1
+audioPageCnt	=	2
 
 audioOptions0:
 	.byte		$20
@@ -211,19 +211,18 @@ audioOptions0:
 	.defPStr	"mono"
 
 	.byte		$20
+	.word		$0022
+	.byte		$01
+	.defPStr	"sid generation:"
+	.defPStr	"6581"
+	.defPStr	"8580"
+
+	.byte		$20
 	.word		$0003
 	.byte		$20
 	.defPStr	"swap stereo channels:"
 	.defPStr	"no"
 	.defPStr	"yes"
-
-	.byte		$20
-	.word		$0003
-	.byte		$80
-	.defPStr	"dac algorithm:"
-	.defPStr	"pdm"
-	.defPStr	"pwm"
-
 
 	.byte		$20
 	.word		$0003
@@ -237,13 +236,22 @@ audioOptions0_end:
 	.assert		(audioOptions0_end - audioOptions0) < 256, error, "Audio Options 0 too large!"
 
 audioOptions1:
+	.byte		$20
+	.word		$0003
+	.byte		$80
+	.defPStr	"dac algorithm:"
+	.defPStr	"pdm"
+	.defPStr	"pwm"
+
+	.byte		$00
+
 audioOptions1_end:
 	.assert		(audioOptions1_end - audioOptions1) < 256, error, "Audio Options 1 too large!"
 	
 
 audioPageIndex:
 	.word		audioOptions0
-;	.word		audioOptions1
+	.word		audioOptions1
 
 
 ;-------------------------------------------------------------------------------
@@ -256,6 +264,7 @@ networkOptions0:
 	.word		$0006
 	.defPStr	"mac address:"
 	.byte		$00, $00, $00, $00, $00, $00
+
 	.byte		$00
 networkOptions0_end:
 	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"

@@ -9,7 +9,9 @@ entity mega65kbd_to_matrix is
     cpuclock : in std_logic;
 
     flopmotor : in std_logic;
-    flopled : in std_logic;
+    flopled0 : in std_logic;
+    flopled2 : in std_logic;
+    flopledsd : in std_logic;
     powerled : in std_logic;    
 
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
@@ -193,9 +195,15 @@ begin  -- behavioural
               if flopmotor='1' then
                 output_vector(23 downto 0) <= x"00FF00";
                 output_vector(47 downto 24) <= x"00FF00";
-              elsif (flopled='1' and counter(24)='1') then
+              elsif (flopled0='1' and counter(24)='1') then
                 output_vector(23 downto 0) <= x"0000FF";
                 output_vector(47 downto 24) <= x"0000FF";
+              elsif (flopled2='1' and counter(24)='1') then
+                output_vector(23 downto 0) <= x"00FFFF";
+                output_vector(47 downto 24) <= x"00FFFF";
+              elsif (flopledsd='1' and counter(24)='1') then
+                output_vector(23 downto 0) <= x"00FF00";
+                output_vector(47 downto 24) <= x"00FF00";
               end if;
               if powerled='1' then
                 output_vector(71 downto 48) <= x"00FF00";

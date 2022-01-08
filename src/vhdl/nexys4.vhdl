@@ -193,8 +193,6 @@ architecture Behavioral of container is
   signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
-  signal clock81n : std_logic;
-  signal clock100 : std_logic;
   signal clock135p : std_logic;
   signal clock135n : std_logic;
   signal clock162 : std_logic;
@@ -283,7 +281,9 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal qspi_clock : std_logic := '0';
---  signal qspi_clock_int : std_logic := '0';
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal kbd_datestamp : unsigned(13 downto 0) := to_unsigned(0,14);
   signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -336,12 +336,7 @@ begin
                clock27   => clock27,    --   27.083 MHz
                clock41   => cpuclock,   --   40.625 MHz
                clock50   => ethclock,   --   50     MHz
-               clock50q  => ethclock_rotate,
                clock81p  => pixelclock, --   81.25  MHz
-               clock81n  => clock81n,   --   81.25  MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135.417 MHz
-               clock135n => clock135n,  --  135.417 MHz
                clock163  => clock162,   -- 162.5    MHz
                clock200  => clock200,   -- 200      MHz
                clock325  => clock325    -- 325      MHz
@@ -433,7 +428,6 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       clock162 => clock162,
-      clock100 => clock100,
       clock27 => clock27,
       clock50mhz      => ethclock,
       clock200  => clock200,
@@ -446,9 +440,11 @@ begin
       sector_buffer_mapped => sector_buffer_mapped,
 
       qspi_clock => qspi_clock,
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-     
+      qspicsn => qspicsn,
+      qspidb => qspidb_out,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
+           
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
@@ -631,6 +627,8 @@ begin
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb;
   
   process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
