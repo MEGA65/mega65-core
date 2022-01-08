@@ -45,7 +45,6 @@ entity ethernet is
     clock : in std_logic;
     clock50mhz : in std_logic;
     clock200 : in std_logic;
-    clock200 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := '1';
     ethernet_cs : in std_logic;
