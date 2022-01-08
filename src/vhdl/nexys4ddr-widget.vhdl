@@ -104,10 +104,14 @@ entity container is
          ps2data : in std_logic;
 
          ----------------------------------------------------------------------
+         -- PMOD for joystick interface
+         ----------------------------------------------------------------------
+         jalo : in std_logic_vector(4 downto 1) := (others => 'Z');
+         jahi : in std_logic_vector(9 downto 7) := (others => '0');
+
+         ----------------------------------------------------------------------
          -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
-         jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jblo : in std_logic_vector(4 downto 1) := (others => 'Z');
          jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
@@ -458,11 +462,18 @@ begin
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
-      fa_fire => '1',
-      fa_up =>  '1',
-      fa_left => '1',
-      fa_down => '1',
-      fa_right => '1',
+      -- fa_fire => '1',
+      -- fa_up =>  '1',
+	  -- fa_left => '1',
+      -- fa_down => '1',
+      -- fa_right => '1',
+
+	  -- Joystick port via PMOD
+      fa_fire => jahi(9),
+      fa_up => jalo(1),     
+      fa_left => jalo(2),
+      fa_down => jahi(7),
+      fa_right => jahi(8),
 
       fb_fire => '1',
       fb_up => '1',
