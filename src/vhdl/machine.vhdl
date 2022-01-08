@@ -843,7 +843,7 @@ begin
         last_reset_source <= to_unsigned(4,3);
         -- #474 On some boards only, we get reset glitching from the serial monitor
         -- so disable it in the release bitstream
---        reset_combined <= '0';
+        reset_combined <= '0';
       else
         report "reset_combined not asserted";
         reset_combined <= '1';

@@ -49,7 +49,7 @@
 `define MON_CHAR_INOUT        5'h1E       // Hypervisor character input/output
 `define MON_CHAR_STATUS       5'h1F
 
-module monitor_ctrl(input clk, input reset, output wire reset_out, 
+module monitor_ctrl(input clk, input reset, output reg reset_out, 
                     `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
 						   `MARK_DEBUG input [4:0] address, 
 						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
@@ -114,21 +114,25 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 assign monitor_di = di;
 
 // MON_RESET_TIMEOUT
-reg [7:0] reset_timeout = 255;
+reg [7:0] reset_timeout = 0;
 reg reset_processing = 0;
-// reset_out is asserted any time reset_timeout != 0
-assign reset_out = (reset_timeout != 0);
 
 always @(posedge clk)
   begin
      $display("reset=%b, reset_processing=%b, reset_timeout=%u",reset,reset_processing,reset_timeout);
+
+     // reset_out is asserted any time reset_timeout != 0
+     // BUT clock latched to prevent glitching
+     reset_out <= (reset_timeout != 0);
      
-  if(reset & ~reset_processing)
-  begin
-    reset_processing <= 1;
-    reset_timeout <= 255;
-  end
-  else if(address == `MON_RESET_TIMEOUT && write)
+     
+//  if(reset & ~reset_processing)
+//  begin
+//    reset_processing <= 1;
+//    reset_timeout <= 255;
+//  end
+//  else
+ if(address == `MON_RESET_TIMEOUT && write)
     reset_timeout <= di;
   else if(reset_timeout != 0 && reset_processing)
     reset_timeout <= reset_timeout - 1;
