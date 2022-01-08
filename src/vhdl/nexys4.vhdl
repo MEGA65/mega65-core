@@ -334,7 +334,6 @@ begin
                clock27   => clock27,    --   27.083 MHz
                clock41   => cpuclock,   --   40.625 MHz
                clock50   => ethclock,   --   50     MHz
-               clock50q  => ethclock_rotate,
                clock81p  => pixelclock, --   81.25  MHz
                clock163  => clock162,   -- 162.5    MHz
                clock200  => clock200,   -- 200      MHz
