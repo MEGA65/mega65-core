@@ -780,6 +780,7 @@ architecture Behavioral of machine is
   signal f_rdata_history : std_logic_vector(3 downto 0) := "1111";
 
   signal last_reset_source : unsigned(2 downto 0) := "000";
+  signal btnCpuReset_counter : integer range 0 to 8191 := 0;
   
 begin
 
@@ -825,8 +826,16 @@ begin
       reset_monitor <= reset_monitor_drive;      
       reset_monitor_history(15 downto 1) <= reset_monitor_history(14 downto 0);
       reset_monitor_history(0) <= reset_monitor;
-      
+
       if btnCpuReset='0' then
+        if btnCpuReset_counter < 8191 then
+          btnCpuReset_counter <= btnCpuReset_counter + 1;
+        end if;
+      else
+        btnCpuReset_counter = 0;
+      end if;
+      
+      if btnCpuReset='0' and btnCpuReset_counter>1024 then
         report "reset asserted via btnCpuReset";
         last_reset_source <= to_unsigned(1,3);
         reset_combined <= '0';
