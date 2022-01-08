@@ -31,8 +31,6 @@ entity audio_complex is
   port (    
     cpuclock : in std_logic;
 
-    sid4_enable : in std_logic := '0';
-    
     -- Interface for accessing mix table via CPU
     audio_mix_reg : in unsigned(7 downto 0) := x"FF";
     audio_mix_write : in std_logic := '0';
