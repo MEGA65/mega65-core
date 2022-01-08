@@ -2964,7 +2964,8 @@ int main(int argc,char **argv)
         cpu_call_routine(logfile,hyppo_symbols[i].addr);
         cpu.term.error|=prior_error;
       }
-    } else if (!strncasecmp(line_ptr,"check registers",strlen("check registers"))) {
+    } else if (strncasecmp(line_ptr,"check registers",strlen("check registers"))==0
+        ||strncasecmp(line_ptr,"check regs",strlen("check regs"))==0) {
       // Check registers for changes
       compare_register_contents(logfile,&cpu);
     } else if (sscanf(line_ptr,"ignore from %s to %s",start,end)==2) {
@@ -2991,7 +2992,9 @@ int main(int argc,char **argv)
     } else if (sscanf(line_ptr,"ignore %s",start)==1) {
       int low=resolve_value32(start);
       ignore_ram_changes(low,low);
-    }  else if (!strncasecmp(line_ptr,"check ram",strlen("check ram"))) {
+    } else if (strncasecmp(line_ptr,"check ram",strlen("check ram"))==0
+        ||strncasecmp(line_ptr,"check mem",strlen("check mem"))==0
+        ||strncasecmp(line_ptr,"check memory",strlen("check memory"))==0) {
       // Check RAM for changes
       compare_ram_contents(logfile,&cpu);
     } else if (strncasecmp(line_ptr,"test end",strlen("test end"))==0

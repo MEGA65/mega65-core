@@ -36,11 +36,11 @@ test "poke directive"
   expect $07 at $3807
   expect $08 at $3808
   expect $09 at $3809
-  check ram
+  check mem
 end test
 
 
-test "check ram"
+test "check mem"
   # lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
   poke $2000, $a9, $12, $8d, $00, $30, $ad, $00, $25, $8d, $01, $30, $a9, $34, $8d, $00, $35, $60
   poke $2500, $ab
@@ -48,7 +48,7 @@ test "check ram"
   expect $12 at $3000
   expect $ab at $3001
   ignore from $3500 to $35ff
-  check ram
+  check mem
 end test
 
 
@@ -60,15 +60,15 @@ test "ignore reg directives"
   expect pc = $0001
   expect a = $12
   expect x = $23
-  check registers
+  check regs
   jsr $2000
   ignore all regs
-  check registers
+  check regs
   jsr $2000
   ignore all regs
   expect a = $12
   expect x = $23
-  check registers
+  check regs
 end test
 
 
@@ -83,21 +83,21 @@ test "clear breakpoint directives"
   ignore reg sp
   expect pc = $2000
   expect a = $00
-  check registers
+  check regs
   clear breakpoint $2000
 
   jsr $2000
   ignore all regs
   expect pc = $2002
   expect a = $12
-  check registers
+  check regs
   clear all breakpoints
 
   jsr $2000
   ignore all regs
   expect pc = $0001
   expect a = $23
-  check registers
+  check regs
 end test
 
 
@@ -110,21 +110,21 @@ test "step and run directives"
   jsr $2000
   clear all breakpoints
   expect pc = $2000
-  check registers
+  check regs
 
   # Test stepping over a 2-byte instruction
   # lda #$12
   step
   expect pc = $2002
   expect a = $12
-  check registers
+  check regs
 
   # Test stepping over a 1-byte instruction
   # inc
   step
   expect pc = $2003
   expect a = $13
-  check registers
+  check regs
 
   # Test stepping over a 3 instructions
   # tax: clc: adc #$23
@@ -132,7 +132,7 @@ test "step and run directives"
   expect pc = $2007
   expect x = $13
   expect a = $36
-  check registers
+  check regs
 
   # Test running until the end of the routine
   # tay: ldz #$45: rts
@@ -140,7 +140,7 @@ test "step and run directives"
   ignore all regs
   expect y = $36
   expect z = $45
-  check registers
+  check regs
 end test
 
 
@@ -161,5 +161,5 @@ test "let directive"
   expect b = $78
   expect sp = $1234
   expect pc = $2000
-  check registers
+  check regs
 end test
