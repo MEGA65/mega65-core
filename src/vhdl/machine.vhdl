@@ -841,7 +841,9 @@ begin
       elsif reset_monitor_history=x"0000" then
         report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
         last_reset_source <= to_unsigned(4,3);
-        reset_combined <= '0';
+        -- #474 On some boards only, we get reset glitching from the serial monitor
+        -- so disable it in the release bitstream
+--        reset_combined <= '0';
       else
         report "reset_combined not asserted";
         reset_combined <= '1';
