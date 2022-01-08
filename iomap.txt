@@ -134,7 +134,7 @@ C65 $D02F Write anything else to return to C64/VIC-II IO map
 C64 $D030.0 VIC-II:C128FAST 2MHz select (for C128 2MHz emulation)
 C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
-C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
+C65 $D030.2 VIC-III:PAL Use PALETTE ROM (0) or RAM (1) entries for colours 0 - 15
 C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
 C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
 C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
@@ -510,6 +510,7 @@ GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
 GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
+GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer              
 GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
 GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
 GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
@@ -740,18 +741,6 @@ GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
 GS $D6A0.0 FDC:DBGWGATE Control floppy drive SIDE1 line
 GS $D6A0.1 FDC:DBGWGATE Control floppy drive WGATE line
 GS $D6A0.2 FDC:DBGWDATA Control floppy drive WDATA line
-GS $D690 SDFDC:D0STARTSEC0 F011 disk 2 disk image address on SD card (LSB)
-GS $D691 SDFDC:D1STARTSEC1 F011 disk 2 disk image address on SD card (2nd byte)
-GS $D692 SDFDC:D2STARTSEC2 F011 disk 2 disk image address on SD card (3rd byte)
-GS $D693 SDFDC:D3STARTSEC3 F011 disk 2 disk image address on SD card (MSB)
-GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
-GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
-GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
-GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
-GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
-GS $D6A0.0 FDC:DBGWGATE Control floppy drive SIDE1 line
-GS $D6A0.1 FDC:DBGWGATE Control floppy drive WGATE line
-GS $D6A0.2 FDC:DBGWDATA Control floppy drive WDATA line
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0.3 FDC:DBGDIR Control floppy drive STEP line
 GS $D6A0.4 FDC:DBGDIR Control floppy drive STEPDIR line
@@ -765,7 +754,8 @@ GS $D6A1.1 - Match any sector on a real floppy read/write
 GS $D6A1.1 SDFDC:TARGANY Read next sector under head if set, ignoring the requested side, track and sector number.
 GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
 GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
-GS $D6A1.3-7 - FDC debug status flags
+GS $D6A1.3 SDFDC:SILENT Disable floppy spinning and tracking for SD card operations.
+GS $D6A1.4-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
 GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic interval (decrease to increase data rate)
 GS $D6A3 - FDC track number of last matching sector header
@@ -780,7 +770,6 @@ GS $D6AB - DEBUG FDC last gap interval (MSB)
 GS $D6AC.0-3 MISCIO:WHEEL3TARGET Select audio channel volume to be set by thumb wheel #3
 GS $D6AC.4-6 - PHONE:RESERVED
 GS $D6AC.7 MISCIO:WHEELBRIGHTEN Enable control of LCD panel brightness via thumb wheel
-GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
 GS $D6AD.0-3 MISCIO:WHEEL1TARGET Select audio channel volume to be set by thumb wheel #1
 GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
 GS $D6AD.4-7 MISCIO:WHEEL2TARGET Select audio channel volume to be set by thumb wheel #2
@@ -1304,7 +1293,7 @@ C64 $DC06 CIA1:TIMERB Timer B counter (16 bit)
 C64 $DC07 CIA1:TIMERB Timer B counter (16 bit)
 C64 $DC08.0-3 CIA1:TODJIF TOD tenths of seconds
 C64 $DC09.0-5 CIA1:TODSEC TOD seconds
-C64 $DC0A.0-5 CIA1:TODSEC TOD minutes
+C64 $DC0A.0-5 CIA1:TODMIN TOD minutes
 C64 $DC0B.0-4 CIA1:TODHOUR TOD hours
 C64 $DC0B.7 CIA1:TODAMPM TOD PM flag
 C64 $DC0C CIA1:SDR shift register data register(writing starts sending)
@@ -1362,7 +1351,6 @@ C64 $DD06 CIA2:TIMERB Timer B counter (16 bit)
 C64 $DD07 CIA2:TIMERB Timer B counter (16 bit)
 C64 $DD08.0-3 CIA2:TODJIF TOD tenths of seconds
 C64 $DD09.0-5 CIA2:TODSEC TOD seconds
-C64 $DD0A.0-5 CIA2:TODSEC TOD minutes
 C64 $DD0B.0-4 CIA2:TODHOUR TOD hours
 C64 $DD0B.7 CIA2:TODAMPM TOD PM flag
 C64 $DD0C CIA2:SDR shift register data register(writing starts sending)
