@@ -574,10 +574,6 @@ msg_syspart_info:
 msg_syspart_config_invalid:
         !text "SYSPART CONFIG INVALID. PLEASE SET."
         !8 0
-
-txt_ONBOARDM65:
-	!text "ONBOARD.M65"
-	!8 0
 	
 syspart_trap:
         sei
