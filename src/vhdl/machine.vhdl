@@ -832,7 +832,7 @@ begin
           btnCpuReset_counter <= btnCpuReset_counter + 1;
         end if;
       else
-        btnCpuReset_counter = 0;
+        btnCpuReset_counter <= 0;
       end if;
       
       if btnCpuReset='0' and btnCpuReset_counter>1024 then
