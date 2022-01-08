@@ -266,10 +266,6 @@ architecture Behavioral of container is
   signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
-  signal clock81n : std_logic;
-  signal clock100 : std_logic;
-  signal clock135p : std_logic;
-  signal clock135n : std_logic;
   signal clock162 : std_logic;
   signal clock200 : std_logic;
   signal clock325 : std_logic;
@@ -393,7 +389,8 @@ architecture Behavioral of container is
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
-
+  signal portp_drive : unsigned(7 downto 0);
+  
   signal qspi_clock : std_logic;
   signal qspidb_oe : std_logic;
   signal qspidb_out : unsigned(3 downto 0);
@@ -468,10 +465,6 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock81n  => clock81n,   --   81     MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135     MHz
-               clock135n => clock135n,  --  135     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
                clock325  => clock325    --  325     MHz
@@ -678,7 +671,6 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       clock162 => clock162,
-      clock100 => clock100,
       clock200 => clock200,
       clock27 => clock27,
       clock50mhz      => ethclock,
@@ -964,7 +956,8 @@ begin
 
 --      led <= cart_exrom;
 --      led <= flopled_drive;
-
+      portp_drive <= portp;
+      
       btncpureset <= max10_reset_out;
       
       fa_left_drive <= fa_left;
@@ -1030,15 +1023,15 @@ begin
     h_audio_right <= audio_right;
     h_audio_right <= audio_left;
     -- toggle signed/unsigned audio flipping
-    if portp(7)='1' then
+    if portp_drive(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+    led <= portp_drive(4);
 
     -- Make SPDIF audio switchable for debugging HDMI output
-    if portp(0) = '1' then
+    if portp_drive(0) = '1' then
       hdmi_spdif <= spdif_48000;
     else
       hdmi_spdif <= '0';
@@ -1058,7 +1051,7 @@ begin
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp(2)='1' then
+    if portp_drive(2)='1' then
       vgagreen <= unsigned(audio_left(15 downto 8));
       vgared <= unsigned(audio_right(15 downto 8));
       hdmigreen <= unsigned(audio_left(15 downto 8));
