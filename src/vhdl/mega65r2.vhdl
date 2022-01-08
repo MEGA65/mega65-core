@@ -350,7 +350,9 @@ architecture Behavioral of container is
   signal pwm_r_drive : std_logic;
   signal pcspeaker_left_drive : std_logic;
 
-  signal flopled_drive : std_logic;
+  signal flopled0_drive : std_logic;
+  signal flopled2_drive : std_logic;
+  signal flopledsd_drive : std_logic;
   signal flopmotor_drive : std_logic;
 
   signal joy3 : std_logic_vector(4 downto 0);
@@ -502,7 +504,9 @@ begin
       disco_led_val => disco_led_val,
       
       powerled => '1',
-      flopled => flopled_drive,
+      flopled0 => flopled0_drive,
+      flopled2 => flopled2_drive,
+      flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
@@ -847,7 +851,9 @@ begin
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,      
       
-      flopled => flopled_drive,
+      flopled0 => flopled0_drive,
+      flopled2 => flopled2_drive,
+      flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
