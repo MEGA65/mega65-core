@@ -163,3 +163,20 @@ test "let directive"
   expect pc = $2000
   check regs
 end test
+
+
+test "flag directives"
+  poke $2000, $60
+
+  let f = $a5
+  jsr $2000
+  ignore all regs
+  expect f = $a5
+  check regs
+
+  let f = $5a
+  jsr $2000
+  ignore all regs
+  expect f = $5a
+  check regs
+end test

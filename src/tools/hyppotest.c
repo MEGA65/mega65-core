@@ -19,7 +19,19 @@ struct regs {
   unsigned char x;
   unsigned char y;
   unsigned char z;
-  unsigned char flags;
+  union __attribute__((__packed__))  {
+    unsigned char flags;
+    struct __attribute__((__packed__))  {
+      bool flag_c : 1;
+      bool flag_z : 1;
+      bool flag_i : 1;
+      bool flag_d : 1;
+      bool        : 1;
+      bool flag_e : 1;
+      bool flag_v : 1;
+      bool flag_n : 1;
+    };
+  };
   unsigned char b;
   union __attribute__((__packed__, __scalar_storage_order__("little-endian")))  {
     unsigned short sp;
@@ -2435,8 +2447,8 @@ bool cpu_call_routine(FILE *f,unsigned int addr)
   return true;
 }
 
+#define COMPARE_FLAG(FLAG,Flag) if (cpu->regs.Flag!=cpu_expected.regs.Flag) { fprintf(f,"ERROR: Flag %s is %s instead of %s\n",FLAG,cpu->regs.Flag?"set":"clear",cpu_expected.regs.Flag?"set":"clear"); cpu->term.error=true; /* XXX show instruction that changed it */ }
 #define COMPARE_REG(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains $%02X instead of $%02X\n",cpu->regs.Reg,cpu_expected.regs.Reg); cpu->term.error=true; /* XXX show instruction that set it */ }
-
 #define COMPARE_REG16(REG,Reg) if (cpu->regs.Reg!=cpu_expected.regs.Reg) { fprintf(f,"ERROR: Register "REG" contains %s ($%04X) instead of",describe_address_label(cpu,cpu->regs.Reg),cpu->regs.Reg); fprintf(f," %s ($%04X)\n",describe_address_label(cpu,cpu_expected.regs.Reg),cpu_expected.regs.Reg); cpu->term.error=true; /* XXX show instruction that set it */ }
 
 bool compare_register_contents(FILE *f, struct cpu *cpu)
@@ -2449,6 +2461,13 @@ bool compare_register_contents(FILE *f, struct cpu *cpu)
   COMPARE_REG("SPL",spl);
   COMPARE_REG("SPH",sph);
   COMPARE_REG16("PC",pc);
+  COMPARE_FLAG("C",flag_c);
+  COMPARE_FLAG("Z",flag_z);
+  COMPARE_FLAG("I",flag_i);
+  COMPARE_FLAG("D",flag_d);
+  COMPARE_FLAG("E",flag_e);
+  COMPARE_FLAG("V",flag_v);
+  COMPARE_FLAG("N",flag_n);
 
   return cpu->term.error;
 }
@@ -2981,6 +3000,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"y")) cpu_expected.regs.y=cpu.regs.y;
       else if (!strcasecmp(location,"z")) cpu_expected.regs.z=cpu.regs.z;
       else if (!strcasecmp(location,"b")) cpu_expected.regs.b=cpu.regs.b;
+      else if (!strcasecmp(location,"f")) cpu_expected.regs.flags=cpu.regs.flags;
       else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=cpu.regs.spl;
       else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=cpu.regs.sph;
       else if (!strcasecmp(location,"sp")) cpu_expected.regs.sp=cpu.regs.sp;
@@ -3045,6 +3065,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"y")) cpu_expected.regs.y=resolve_value8(value);
       else if (!strcasecmp(location,"z")) cpu_expected.regs.z=resolve_value8(value);
       else if (!strcasecmp(location,"b")) cpu_expected.regs.b=resolve_value8(value);
+      else if (!strcasecmp(location,"f")) cpu_expected.regs.flags=resolve_value8(value);
       else if (!strcasecmp(location,"spl")) cpu_expected.regs.spl=resolve_value8(value);
       else if (!strcasecmp(location,"sph")) cpu_expected.regs.sph=resolve_value8(value);
       else if (!strcasecmp(location,"sp")) cpu_expected.regs.sp=resolve_value16(value);
@@ -3119,6 +3140,7 @@ int main(int argc,char **argv)
       else if (!strcasecmp(location,"y")) cpu.regs.y=resolve_value8(value);
       else if (!strcasecmp(location,"z")) cpu.regs.z=resolve_value8(value);
       else if (!strcasecmp(location,"b")) cpu.regs.b=resolve_value8(value);
+      else if (!strcasecmp(location,"f")) cpu.regs.flags=resolve_value8(value);
       else if (!strcasecmp(location,"spl")) cpu.regs.spl=resolve_value8(value);
       else if (!strcasecmp(location,"sph")) cpu.regs.sph=resolve_value8(value);
       else if (!strcasecmp(location,"sp")) cpu.regs.sp=resolve_value16(value);
