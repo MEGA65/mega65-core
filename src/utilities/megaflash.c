@@ -279,10 +279,6 @@ void main(void)
         }
       }
 
-      if (selected_reflash_slot>0 && selected_reflash_slot<slot_count) {
-        reflash_slot(selected_reflash_slot);
-        printf("%c",0x93);
-      }
     }
 
 
