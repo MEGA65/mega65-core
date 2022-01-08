@@ -28,20 +28,6 @@ entity iomapper is
         accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
         dim_shift : inout std_logic := '0';
         
-        clock200mhz : in std_logic;
-        clock50mhz : in std_logic;
-        clock2mhz : in std_logic;
-        phi0_1mhz : in std_logic;
-        pixelclk : in std_logic;
-        uartclock : in std_logic;
-        
-        dd00_bits : out unsigned(1 downto 0) := "11";
-        cpu_slow : in std_logic;
-        
-        accessible_row : out integer range 0 to 255 := 255;
-        accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
-        dim_shift : inout std_logic := '0';
-        
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
         pal_mode : in std_logic;
@@ -1205,8 +1191,6 @@ begin
     generic map ( clock_frequency => cpu_frequency )
     port map (
     cpuclock => cpuclock,
-    
-    sid4_enable => sid4_enable,
     
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,

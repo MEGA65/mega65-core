@@ -940,8 +940,6 @@ begin  -- behavioural
     encoding_mode => x"0", -- Always MFM for single-rate decoder
     cycles_per_interval => to_unsigned(81,8),
     invalidate => fdc_read_invalidate,
-    cycles_per_interval => to_unsigned(81,8),
-    invalidate => fdc_read_invalidate,
     packed_rdata => packed_rdata,
 
     mfm_state => fdc_mfm_state,
@@ -1427,11 +1425,6 @@ begin  -- behavioural
           when x"af" =>
             -- @IO:GS $D6AF - DEBUG FDC last quantised gap READ ONLY
             fastio_rdata <= unsigned(fdc_quantised_gap);
-          when x"af" =>
-            -- @IO:GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
-            -- @IO:GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
-            fastio_rdata(3 downto 0) <= to_unsigned(fdc_rotation_timeout,4);
-            fastio_rdata(7 downto 4) <= to_unsigned(rotation_count,4);
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
             -- @IO:GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
@@ -2554,7 +2547,6 @@ begin  -- behavioural
                       end if;
                       sd_sector(31 downto 17) <= (others => '0');                      
                     end if;
-                    sd_sector(31 downto 17) <= (others => '0');
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     report "Commencing FDC buffered write.";
@@ -2630,7 +2622,7 @@ begin  -- behavioural
                 when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
-                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
+                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"D0" =>
                   f_rdata_loopback <= '0';
                   f_rdata_loopback_int <= '0';
