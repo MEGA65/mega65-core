@@ -25,7 +25,7 @@ echo ${branch}
 #
 # exclude all tags from strings!
 commit_id=`git describe --always --abbrev=7 --dirty=~ --exclude="*"`
-version32=`git describe --always --abbrev=7 --exclude="*"`
+version32=`git describe --always --abbrev=8 --exclude="*"`
 datestamp=$(expr $(expr $(date +%Y) - 2020) \* 366 + `date +%j`)
 
 
