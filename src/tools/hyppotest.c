@@ -26,7 +26,7 @@ struct regs {
       bool flag_z : 1;
       bool flag_i : 1;
       bool flag_d : 1;
-      bool        : 1;
+      bool flag_b : 1;
       bool flag_e : 1;
       bool flag_v : 1;
       bool flag_n : 1;
@@ -2465,6 +2465,7 @@ bool compare_register_contents(FILE *f, struct cpu *cpu)
   COMPARE_FLAG("Z",flag_z);
   COMPARE_FLAG("I",flag_i);
   COMPARE_FLAG("D",flag_d);
+  COMPARE_FLAG("B",flag_b);
   COMPARE_FLAG("E",flag_e);
   COMPARE_FLAG("V",flag_v);
   COMPARE_FLAG("N",flag_n);
@@ -3052,12 +3053,59 @@ int main(int argc,char **argv)
       breakpoints[addr16]=0;
     } else if (sscanf(line_ptr,"breakpoint %s",routine)==1) {
       int addr32=resolve_value32(routine);
-        int addr16=addr32;
+      int addr16=addr32;
       if (addr32&0xffff0000) {
         addr16=addr32&0xffff;
       }
       fprintf(logfile,"INFO: Breakpoint set at %s ($%04x)\n",routine,addr16);
       breakpoints[addr16]=1;
+    } else if (sscanf(line_ptr,"clear flag %s",location)==1) {
+      if (!strcasecmp(location,"c")) cpu.regs.flag_c=false;
+      else if (!strcasecmp(location,"z")) cpu.regs.flag_z=false;
+      else if (!strcasecmp(location,"i")) cpu.regs.flag_i=false;
+      else if (!strcasecmp(location,"d")) cpu.regs.flag_d=false;
+      else if (!strcasecmp(location,"b")) cpu.regs.flag_b=false;
+      else if (!strcasecmp(location,"e")) cpu.regs.flag_e=false;
+      else if (!strcasecmp(location,"v")) cpu.regs.flag_v=false;
+      else if (!strcasecmp(location,"n")) cpu.regs.flag_n=false;
+      else {
+        fprintf(logfile,"ERROR: Unknown flag '%s'\n",location);
+        cpu.term.error=true;
+      }
+    } else if (sscanf(line_ptr,"set flag %s",location)==1) {
+      if (!strcasecmp(location,"c")) cpu.regs.flag_c=true;
+      else if (!strcasecmp(location,"z")) cpu.regs.flag_z=true;
+      else if (!strcasecmp(location,"i")) cpu.regs.flag_i=true;
+      else if (!strcasecmp(location,"d")) cpu.regs.flag_d=true;
+      else if (!strcasecmp(location,"b")) cpu.regs.flag_b=true;
+      else if (!strcasecmp(location,"e")) cpu.regs.flag_e=true;
+      else if (!strcasecmp(location,"v")) cpu.regs.flag_v=true;
+      else if (!strcasecmp(location,"n")) cpu.regs.flag_n=true;
+      else {
+        fprintf(logfile,"ERROR: Unknown flag '%s'\n",location);
+        cpu.term.error=true;
+      }
+    } else if (sscanf(line_ptr,"expect flag %s is %s",location,value)==2) {
+      bool v;
+      if (strcasecmp(value, "set")==0) {
+        v = true;
+      } else if (strcasecmp(value, "clear")==0) {
+        v = false;
+      } else {
+        goto directive_error;
+      }
+      if (!strcasecmp(location,"c")) cpu_expected.regs.flag_c=v;
+      else if (!strcasecmp(location,"z")) cpu_expected.regs.flag_z=v;
+      else if (!strcasecmp(location,"i")) cpu_expected.regs.flag_i=v;
+      else if (!strcasecmp(location,"d")) cpu_expected.regs.flag_d=v;
+      else if (!strcasecmp(location,"b")) cpu_expected.regs.flag_b=v;
+      else if (!strcasecmp(location,"e")) cpu_expected.regs.flag_e=v;
+      else if (!strcasecmp(location,"v")) cpu_expected.regs.flag_v=v;
+      else if (!strcasecmp(location,"n")) cpu_expected.regs.flag_n=v;
+      else {
+        fprintf(logfile,"ERROR: Unknown flag '%s'\n",location);
+        cpu.term.error=true;
+      }
     } else if (sscanf(line_ptr,"expect %s = %s",location,value)==2) {
       // Set expected register value
       if (!strcasecmp(location,"a")) cpu_expected.regs.a=resolve_value8(value);
@@ -3150,6 +3198,7 @@ int main(int argc,char **argv)
         cpu.term.error=true;
       }
     } else {
+directive_error:
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
       cpu.term.error=true;
     }

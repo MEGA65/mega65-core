@@ -179,4 +179,62 @@ test "flag directives"
   ignore all regs
   expect f = $5a
   check regs
+
+  let f = $4a
+  set flag c
+  clear flag z
+  set flag i
+  clear flag d
+  set flag b
+  clear flag e
+  set flag v
+  clear flag n
+  jsr $2000
+  ignore all regs
+  expect flag C is set
+  expect flag Z is clear
+  expect flag I is set
+  expect flag D is clear
+  expect flag B is set
+  expect flag E is clear
+  expect flag V is set
+  expect flag N is clear
+  check regs
+
+  let f = $b5
+  clear flag C
+  set flag Z
+  clear flag I
+  set flag D
+  clear flag B
+  set flag E
+  clear flag V
+  set flag N
+  jsr $2000
+  ignore all regs
+  expect flag c is clear
+  expect flag z is set
+  expect flag i is clear
+  expect flag d is set
+  expect flag b is clear
+  expect flag e is set
+  expect flag v is clear
+  expect flag n is set
+  check regs
+
+  let f = $00
+  set flag c
+  set flag d
+  set flag v
+  jsr $2000
+  ignore all regs
+  expect f = $49
+  check regs
+
+  let f = $dd
+  jsr $2000
+  ignore all regs
+  expect flag z is clear
+  expect flag e is clear
+  check regs
 end test
