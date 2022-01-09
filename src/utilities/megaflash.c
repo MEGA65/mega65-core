@@ -10,6 +10,7 @@
 
 #include "qspicommon.h"
 #include "userwarning.c"
+unsigned char check_input(char *m, uint8_t case_sensitive);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -33,7 +34,7 @@ void main(void)
   SEI();
 
   probe_qpsi_flash(0);
-  
+
   printf("%c",0x93);
 
   // We care about whether the IPROG bit is set.
@@ -277,6 +278,7 @@ void main(void)
           POKE(base_addr+x,PEEK(base_addr+x)&0x7F);
         }
       }
+
     }
 
 
@@ -362,6 +364,6 @@ void main(void)
     }
   }
 
-  
+
 }
 

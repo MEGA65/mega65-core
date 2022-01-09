@@ -18,6 +18,7 @@ src/tools/*.prg
 src/utilities/*.prg
 src/monitor/gen_dis
 src/tools/ftphelper.c
+iomap.txt
 
 # ophis
 src/*.list

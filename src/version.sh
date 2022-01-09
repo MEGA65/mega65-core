@@ -23,8 +23,9 @@ echo ${branch}
 # ###############################
 # get git-commit and the dirty-flag
 #
-commit_id=`git describe --always --abbrev=7 --dirty=~`
-version32=`git describe --always | cut -c1-8`
+# exclude all tags from strings!
+commit_id=`git describe --always --abbrev=7 --dirty=~ --exclude="*"`
+version32=`git describe --always --abbrev=8 --exclude="*"`
 datestamp=$(expr $(expr $(date +%Y) - 2020) \* 366 + `date +%j`)
 
 

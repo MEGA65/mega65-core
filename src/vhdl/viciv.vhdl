@@ -1543,6 +1543,10 @@ begin
       -- colour RAM.
       colour_ram_base <= (others => '0');
 
+      -- NOTE: We DONT reset the character set address with a legacy write.
+      -- This makes it easier to use alternate character sets, and full-colour
+      -- text mode upgrading of old programmes.
+      
     end procedure viciv_interpret_legacy_mode_registers;
     procedure viciv_update_side_border_dimensions is
     begin
@@ -2528,7 +2532,7 @@ begin
           -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
           rom_at_8000 <= fastio_wdata(3);
           reg_rom_8000 <= fastio_wdata(3);
-          -- @IO:C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
+          -- @IO:C65 $D030.2 VIC-III:PAL Use PALETTE ROM (0) or RAM (1) entries for colours 0 - 15
           reg_palrom <= fastio_wdata(2);
           -- @IO:C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
           -- @IO:C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
