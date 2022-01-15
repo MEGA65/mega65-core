@@ -2740,7 +2740,7 @@ int load_file(char *filename,unsigned int location)
   int b=fread(buffer,1,8192*1024,f);
   fprintf(logfile,"NOTE: Loading %d bytes at $%07x from %s\n",b,location,filename);
   for(int i=0;i<b;i++) {
-    write_mem_expected28(i+location,buffer[i]);
+    write_mem28(&cpu,i+location,buffer[i]);
   }
 
   fclose(f);
