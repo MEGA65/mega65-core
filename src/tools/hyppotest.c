@@ -2403,10 +2403,12 @@ bool cpu_call_routine(FILE *f,unsigned int addr)
 
   // Is routine in hypervisor or in userland? Set stack pointer accordingly.
   if (addr>=0x8000&&addr<0xc000) {
+    cpu.regs.b=0xbf;
     cpu.regs.sph=0xbe;
     cpu.regs.in_hyper=1;
   }
   else {
+    cpu.regs.b=0x00;
     cpu.regs.sph=0x01;
     cpu.regs.in_hyper=0;
   }
