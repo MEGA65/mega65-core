@@ -2962,28 +2962,18 @@ int main(int argc,char **argv)
     } else if (!strncasecmp(line_ptr,"log on failure",strlen("log on failure"))) {
       // Dump all instructions on test failure
       log_on_failure=true;
-    } else if (sscanf(line_ptr,"jmp $%x",&addr)==1) {
-      bool prior_error=cpu.term.error;
-      bool log_dma=cpu.term.log_dma;
-      bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.log_dma=log_dma;
-      cpu.term.rts=0;
-      cpu_call_routine(logfile,addr);
-      cpu.term.error|=prior_error;
     } else if (sscanf(line_ptr,"jmp %s",routine)==1) {
-      int i;
-      for(i=0;i<hyppo_symbol_count;i++) {
-        if (!strcmp(routine,hyppo_symbols[i].name)) break;
-      }
-      if (i==hyppo_symbol_count) {
-        fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-        cpu.term.error=true;
-      } else {
+      int addr32=resolve_value32(routine);
+      if (addr32>0) {
+        int addr16=addr32;
+        if (addr32&0xffff0000) {
+          addr16=addr32&0xffff;
+        }
         bool prior_error=cpu.term.error;
         bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
-        cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        cpu_call_routine(logfile,addr16);
         cpu.term.error|=prior_error;
       }
     } else if (strncasecmp(line_ptr,"check registers",strlen("check registers"))==0
