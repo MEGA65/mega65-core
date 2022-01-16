@@ -88,6 +88,8 @@ FILE *logfile=NULL;
 char logfilename[8192]="";
 #define TESTLOGFILE "/tmp/hyppotest.tmp"
 
+bool fail_on_stack_overflow=true;
+bool fail_on_stack_underflow=true;
 bool log_on_failure=false;
 int test_passes=0;
 int test_fails=0;
@@ -2320,18 +2322,24 @@ bool cpu_step(FILE *f) {
   if (cpu.term.done) return false;
 
   if (cpu.stack_underflow) {
-    cpu.term.error=true;
-    fprintf(stderr,"ERROR: Stack underflow detected.\n");
-    show_recent_instructions(f,"Instructions leading up to the stack underflow",
-                             &cpu,cpulog_len-16,16,cpu.regs.pc);
-    return false;
+    if (fail_on_stack_underflow) {
+      cpu.term.error=true;
+      fprintf(stderr,"ERROR: Stack underflow detected.\n");
+      show_recent_instructions(f,"Instructions leading up to the stack underflow",
+                               &cpu,cpulog_len-16,16,cpu.regs.pc);
+      return false;
+    } else
+      cpu.stack_underflow=false;
   }
   if (cpu.stack_overflow) {
-    cpu.term.error=true;
-    fprintf(stderr,"ERROR: Stack overflow detected.\n");
-    show_recent_instructions(f,"Instructions leading up to the stack overflow",
-                             &cpu,cpulog_len-16,16,cpu.regs.pc);
-    return false;
+    if (fail_on_stack_overflow) {
+      cpu.term.error=true;
+      fprintf(stderr,"ERROR: Stack overflow detected.\n");
+      show_recent_instructions(f,"Instructions leading up to the stack overflow",
+                               &cpu,cpulog_len-16,16,cpu.regs.pc);
+      return false;
+    } else
+      cpu.stack_overflow=false;
   }
 
   cpu.instruction_count=cpulog_len;
@@ -2625,6 +2633,8 @@ void test_init(struct cpu *cpu)
 
   machine_init(cpu);
 
+  fail_on_stack_overflow=true;
+  fail_on_stack_underflow=true;
   log_on_failure=false;
 
   // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
@@ -3167,6 +3177,18 @@ int main(int argc,char **argv)
         fprintf(logfile,"ERROR: Unknown register '%s'\n",location);
         cpu.term.error=true;
       }
+    } else if (strncasecmp(line_ptr,"allow stack overflow",strlen("allow stack overflow"))==0) {
+      fprintf(logfile,"INFO: Allowing the stack to overflow\n");
+      fail_on_stack_overflow=false;
+    } else if (strncasecmp(line_ptr,"allow stack underflow",strlen("allow stack underflow"))==0) {
+      fprintf(logfile,"INFO: Allowing the stack to underflow\n");
+      fail_on_stack_underflow=false;
+    } else if (strncasecmp(line_ptr,"forbid stack overflow",strlen("forbid stack overflow"))==0) {
+      fprintf(logfile,"INFO: Forbidding the stack to overflow\n");
+      fail_on_stack_overflow=true;
+    } else if (strncasecmp(line_ptr,"forbid stack underflow",strlen("forbid stack underflow"))==0) {
+      fprintf(logfile,"INFO: Forbidding the stack to underflow\n");
+      fail_on_stack_underflow=true;
     } else {
 directive_error:
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
