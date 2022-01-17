@@ -156,7 +156,7 @@ typedef struct instruction_log {
   unsigned char pops;
   unsigned int pop_blame[MAX_POPS];
 } instruction_log;
-#define MAX_LOG_LENGTH (16*1024*1024)
+#define MAX_LOG_LENGTH (32*1024*1024)
 instruction_log *cpulog[MAX_LOG_LENGTH];
 int cpulog_len=0;
 
