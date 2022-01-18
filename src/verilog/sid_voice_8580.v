@@ -16,7 +16,7 @@ module sid_voice_8580
 
 	input   [7:0] st_out,
 	input   [7:0] p_t_out,
-	input   [7:0] ps__out,
+	input   [7:0] ps_out,
 	input   [7:0] pst_out,
 
 	output reg [11:0] sawtooth,
@@ -166,7 +166,7 @@ always @(posedge (clock)) begin
 		4'b0011: wave_out = {st_out, 4'b1111};
 		4'b0100: wave_out = pulse;
 		4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
-		4'b0110: wave_out = {ps__out, 4'b1111}  & pulse;
+		4'b0110: wave_out = {ps_out, 4'b1111}  & pulse;
 		4'b0111: wave_out = {pst_out, 4'b1111}	 & pulse;
 		4'b1000: wave_out = noise;
 		//default: wave_out = 0;

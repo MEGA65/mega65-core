@@ -168,23 +168,29 @@ architecture Behavioral of sid6581 is
 
         -- 8580 waveform lookup table (shared among the three voices)
         signal sid_table_state : integer range 0 to 15 := 0;
+        signal f_sawtooth : unsigned(11 downto 0);
+        signal f_triangle : unsigned(11 downto 0);
+        signal f_ps_out : unsigned(7 downto 0);
+        signal f_p_t_out : unsigned(7 downto 0);
+        signal f_pst_out : unsigned(7 downto 0);
+        signal f_st_out : unsigned(7 downto 0);
         signal voice_1_sawtooth_8580 : unsigned(11 downto 0);
         signal voice_1_triangle_8580 : unsigned(11 downto 0);
-        signal voice_1__st_out_8580 : unsigned(7 downto 0);
+        signal voice_1_st_out_8580 : unsigned(7 downto 0);
         signal voice_1_p_t_out_8580 : unsigned(7 downto 0);
-        signal voice_1_ps__out_8580 : unsigned(7 downto 0);
+        signal voice_1_ps_out_8580 : unsigned(7 downto 0);
         signal voice_1_pst_out_8580 : unsigned(7 downto 0);
         signal voice_2_sawtooth_8580 : unsigned(11 downto 0);
         signal voice_2_triangle_8580 : unsigned(11 downto 0);
-        signal voice_2__st_out_8580 : unsigned(7 downto 0);
+        signal voice_2_st_out_8580 : unsigned(7 downto 0);
         signal voice_2_p_t_out_8580 : unsigned(7 downto 0);
-        signal voice_2_ps__out_8580 : unsigned(7 downto 0);
+        signal voice_2_ps_out_8580 : unsigned(7 downto 0);
         signal voice_2_pst_out_8580 : unsigned(7 downto 0);
         signal voice_3_sawtooth_8580 : unsigned(11 downto 0);
         signal voice_3_triangle_8580 : unsigned(11 downto 0);
-        signal voice_3__st_out_8580 : unsigned(7 downto 0);
+        signal voice_3_st_out_8580 : unsigned(7 downto 0);
         signal voice_3_p_t_out_8580 : unsigned(7 downto 0);
-        signal voice_3_ps__out_8580 : unsigned(7 downto 0);
+        signal voice_3_ps_out_8580 : unsigned(7 downto 0);
         signal voice_3_pst_out_8580 : unsigned(7 downto 0);
 
   
@@ -207,10 +213,10 @@ begin
 
   sid_tables0: entity work.sid_tables
     port map (
-      clock => clock40mhz,
+      clock => cpuclock,
       sawtooth => f_sawtooth,
       triangle => f_triangle,
-      st_out => f__st_out,
+      st_out => f_st_out,
       p_t_out => f_p_t_out,
       ps_out => f_ps_out,
       pst_out => f_pst_out
@@ -286,9 +292,9 @@ begin
 		osc_MSB_out			=> voice_1_PA_MSB_8580,
                 sawtooth                        => voice_1_sawtooth_8580,
                 triangle                        => voice_1_triangle_8580,
-                st_out                          => voice_1__st_out_8580,
+                st_out                          => voice_1_st_out_8580,
                 p_t_out                         => voice_1_p_t_out_8580,
-                ps__out                         => voice_1_ps__out_8580,
+                ps_out                         => voice_1_ps_out_8580,
                 pst_out                         => voice_1_pst_out_8580,
 --		Osc					=> open,
 --		Env					=> open,
@@ -311,9 +317,9 @@ begin
 		osc_MSB_out			=> voice_2_PA_MSB_8580,
                 sawtooth                        => voice_2_sawtooth_8580,
                 triangle                        => voice_2_triangle_8580,
-                st_out                          => voice_2__st_out_8580,
+                st_out                          => voice_2_st_out_8580,
                 p_t_out                         => voice_2_p_t_out_8580,
-                ps__out                         => voice_2_ps__out_8580,
+                ps_out                         => voice_2_ps_out_8580,
                 pst_out                         => voice_2_pst_out_8580,
 --		Osc					=> open,
 --		Env					=> open,
@@ -336,9 +342,9 @@ begin
 		osc_MSB_out			=> voice_3_PA_MSB_8580,
                 sawtooth                        => voice_3_sawtooth_8580,
                 triangle                        => voice_3_triangle_8580,
-                st_out                          => voice_3__st_out_8580,
+                st_out                          => voice_3_st_out_8580,
                 p_t_out                         => voice_3_p_t_out_8580,
-                ps__out                         => voice_3_ps__out_8580,
+                ps_out                         => voice_3_ps_out_8580,
                 pst_out                         => voice_3_pst_out_8580,
 		Osc_out					=> Misc_Osc3_Random_8580,
 		Env_out					=> Misc_Env3_8580,
@@ -397,20 +403,21 @@ begin
             end if;
             case sid_table_state is
               when 1  => f_sawtooth <= voice_1_sawtooth_8580; f_triangle <= voice_1_triangle_8580;
-              when 3  => voice_1__st_out_8580 <= f__st_out;
+              when 3  => voice_1_st_out_8580 <= f_st_out;
                          voice_1_p_t_out_8580 <= f_p_t_out;
-                         voice_1_ps__out_8580 <= f_ps_out;
+                         voice_1_ps_out_8580 <= f_ps_out;
                          voice_1_pst_out_8580 <= f_pst_out;
               when 5  => f_sawtooth <= voice_2_sawtooth_8580; f_triangle <= voice_2_triangle_8580;
-              when 7  => voice_2__st_out_8580 <= f__st_out;
+              when 7  => voice_2_st_out_8580 <= f_st_out;
                          voice_2_p_t_out_8580 <= f_p_t_out;
-                         voice_2_ps__out_8580 <= f_ps_out;
+                         voice_2_ps_out_8580 <= f_ps_out;
                          voice_2_pst_out_8580 <= f_pst_out;
               when 9  => f_sawtooth <= voice_3_sawtooth_8580; f_triangle <= voice_3_triangle_8580;
-              when 11 => voice_3__st_out_8580 <= f__st_out;
+              when 11 => voice_3_st_out_8580 <= f_st_out;
                          voice_3_p_t_out_8580 <= f_p_t_out;
-                         voice_3_ps__out_8580 <= f_ps_out;
+                         voice_3_ps_out_8580 <= f_ps_out;
                          voice_3_pst_out_8580 <= f_pst_out;
+              when others => null;
             end case;
           end if;
 	end process;

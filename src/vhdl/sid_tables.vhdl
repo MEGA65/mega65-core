@@ -20,7 +20,7 @@ architecture sequential of sid_tables is
 
 begin
 
-  process (clock,sawtooth,triang) is
+  process (clock,sawtooth,triangle) is
   begin
     if rising_edge(clock) then
       if sawtooth < x"07e" then   st_out <= x"00";
