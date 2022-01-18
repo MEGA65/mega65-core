@@ -14,7 +14,7 @@ module sid_voice_8580
 	input   [7:0] sus_rel,
 	input         osc_msb_in,
 
-	input   [7:0] _st_out,
+	input   [7:0] st_out,
 	input   [7:0] p_t_out,
 	input   [7:0] ps__out,
 	input   [7:0] pst_out,
@@ -163,7 +163,7 @@ always @(posedge (clock)) begin
 		4'b0001: wave_out = triangle;
 		4'b0010: wave_out = sawtooth;
 		4'b1010: wave_out = supersawtooth;
-		4'b0011: wave_out = {_st_out, 4'b1111};
+		4'b0011: wave_out = {st_out, 4'b1111};
 		4'b0100: wave_out = pulse;
 		4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
 		4'b0110: wave_out = {ps__out, 4'b1111}  & pulse;
