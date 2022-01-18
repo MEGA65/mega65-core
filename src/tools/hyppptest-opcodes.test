@@ -1,0 +1,14 @@
+# These test require a build of the 6502 function and 65c02 extended opcodes tests.
+# You can download the bin and lbl files from a recent release at
+# https://github.com/jimnicholls/6502_65C02_functional_tests/releases
+# These downloads cannot be included in mega65-core directly because that code had a GPL 3 license.
+
+test "6502 functional test"
+  log on failure
+  load 6502_functional_test.bin at $0
+  loadsymbols 6502_functional_test.lbl at $0
+  allow stack overflow
+  allow stack underflow
+  breakpoint .report_success
+  jmp .startup
+end test
