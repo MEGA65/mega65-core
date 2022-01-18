@@ -3375,7 +3375,7 @@ int main(int argc,char **argv)
   // Open test script, and start interpreting it
   FILE *f=fopen(argv[1],"r");
   if (!f) {
-    fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[3]);
+    fprintf(stderr,"ERROR: Could not read test procedure from '%s'\n",argv[1]);
     exit(-2);
   }
   const char* test_target=(argc==3?argv[2]:NULL);
