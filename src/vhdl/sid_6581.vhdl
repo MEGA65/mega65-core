@@ -212,7 +212,7 @@ begin
       triangle => f_triangle,
       st_out => f__st_out,
       p_t_out => f_p_t_out,
-      ps__out => f_ps__out,
+      ps_out => f_ps_out,
       pst_out => f_pst_out
       );      
 	
@@ -399,17 +399,17 @@ begin
               when 1  => f_sawtooth <= voice_1_sawtooth_8580; f_triangle <= voice_1_triangle_8580;
               when 3  => voice_1__st_out_8580 <= f__st_out;
                          voice_1_p_t_out_8580 <= f_p_t_out;
-                         voice_1_ps__out_8580 <= f_ps__out;
+                         voice_1_ps__out_8580 <= f_ps_out;
                          voice_1_pst_out_8580 <= f_pst_out;
               when 5  => f_sawtooth <= voice_2_sawtooth_8580; f_triangle <= voice_2_triangle_8580;
               when 7  => voice_2__st_out_8580 <= f__st_out;
                          voice_2_p_t_out_8580 <= f_p_t_out;
-                         voice_2_ps__out_8580 <= f_ps__out;
+                         voice_2_ps__out_8580 <= f_ps_out;
                          voice_2_pst_out_8580 <= f_pst_out;
               when 9  => f_sawtooth <= voice_3_sawtooth_8580; f_triangle <= voice_3_triangle_8580;
               when 11 => voice_3__st_out_8580 <= f__st_out;
                          voice_3_p_t_out_8580 <= f_p_t_out;
-                         voice_3_ps__out_8580 <= f_ps__out;
+                         voice_3_ps__out_8580 <= f_ps_out;
                          voice_3_pst_out_8580 <= f_pst_out;
             end case;
           end if;
