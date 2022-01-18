@@ -1839,7 +1839,7 @@ begin  -- behavioural
       end if;
       
       -- XXX DEBUG toggle QSPI clock madly
-      if qspi_clock_run = '1' and (hypervisor_mode='1' ) then -- or dipsw(2)='1') then
+      if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
         qspi_clock_int <= not qspi_clock_int;
       end if;
       
@@ -2902,7 +2902,7 @@ begin  -- behavioural
                   write_sector_gate_open <= '1';
                   write_sector_gate_timeout <= 40000; -- about 1ms
                 when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sd_state <= qspi_write_256;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -2912,7 +2912,7 @@ begin  -- behavioural
                     sdio_error <= '1';
                   end if;
                 when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sd_state <= qspi_write_512;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -2923,7 +2923,7 @@ begin  -- behavioural
                   end if;
                 when x"52" => -- R - Read 512 bytes from QSPI flash in 4-bit mode
                   report "QSPI: Read request";
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -2951,7 +2951,7 @@ begin  -- behavioural
                   -- T - Write a 512 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
                   -- from $D681-$D684 address.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -2973,7 +2973,7 @@ begin  -- behavioural
                   -- U - Write a 256 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
                   -- from $D681-$D684 address.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3010,7 +3010,7 @@ begin  -- behavioural
                 when x"58" =>
                   -- X - Erase page: Send command and address, then return
                   -- to idle immediately.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3027,7 +3027,7 @@ begin  -- behavioural
                 when x"59" =>
                   -- Y - Erase small page: Send command and address, then return
                   -- to idle immediately.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3050,7 +3050,7 @@ begin  -- behavioural
                 when x"66" =>
                   -- SPI Flash write enable
                   -- to idle immediately.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3072,7 +3072,7 @@ begin  -- behavioural
                 when x"69" =>
                   -- Set CR1
                   -- to idle immediately.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3118,7 +3118,7 @@ begin  -- behavioural
                   -- Write a 16 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
                   -- from $D681-$D684 address. This is meant for debugging.
-                  if hypervisor_mode='1' then -- or dipsw(2)='1' then
+                  if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     sdio_busy <= '1';
@@ -3437,7 +3437,7 @@ begin  -- behavioural
               -- @IO:GS $D6CC.4 QSPI:RESERVED (set to 0)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
-              if hypervisor_mode='1' then -- or dipsw(2)='1' then
+              if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
 --                qspi_clock_int <= fastio_wdata(5);
@@ -3451,12 +3451,12 @@ begin  -- behavioural
               -- possible to control it via $D6CC :/
               -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
               -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
-              if hypervisor_mode='1' then -- or dipsw(2)='1' then
+              if hypervisor_mode='1' or dipsw(2)='1' then
                 qspi_clock_run <= fastio_wdata(0);
                 qspi_clock_int <= fastio_wdata(1);
               end if;
             when x"CE" =>
-              if hypervisor_mode='1' then -- or dipsw(2)='1' then
+              if hypervisor_mode='1' or dipsw(2)='1' then
                 qspicsn <= fastio_wdata(6);
                 qspi_csn_int <= fastio_wdata(6);
                 qspi_clock_int <= fastio_wdata(5);
