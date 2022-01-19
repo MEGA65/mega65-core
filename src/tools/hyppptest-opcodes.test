@@ -12,3 +12,11 @@ test "6502 functional test"
   breakpoint .report_success
   jmp .startup
 end test
+
+test "65c02 extended opcode test"
+  log on failure
+  load 65C02_extended_opcodes_test.bin at $0
+  loadsymbols 65C02_extended_opcodes_test.lbl at $0
+  breakpoint .report_success
+  jmp .startup
+end test
