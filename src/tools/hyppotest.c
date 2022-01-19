@@ -3126,6 +3126,16 @@ void test_init(struct cpu *cpu)
   fail_on_stack_underflow=true;
   log_on_failure=false;
 
+  for (int i=0;i<hyppo_symbol_count;i++) free(hyppo_symbols[i].name);
+  bzero(hyppo_symbols,sizeof(hyppo_symbols));
+  hyppo_symbol_count=0;
+  bzero(sym_by_addr, sizeof(sym_by_addr));
+  for (int i=0;i<symbol_count;i++) free(symbols[i].name);
+  bzero(symbols,sizeof(symbols));
+  symbol_count=0;
+
+  bzero(breakpoints, sizeof(breakpoints));
+  
   // Log to temporary file, so that we can rename it to PASS.* or FAIL.*
   // after.
   unlink(TESTLOGFILE);
