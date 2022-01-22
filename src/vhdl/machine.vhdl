@@ -781,6 +781,8 @@ architecture Behavioral of machine is
 
   signal last_reset_source : unsigned(2 downto 0) := "000";
   signal btnCpuReset_counter : integer range 0 to 8191 := 0;
+
+  signal rightsid_audio : signed(17 downto 0);
   
 begin
 
@@ -1063,6 +1065,8 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      sid_audio => rightsid_audio,
+      
       f_read => f_rdata_switched,
       f_write => f_wdata_cpu,
       
@@ -1704,6 +1708,8 @@ begin
       pota_y => pota_y,
       potb_x => potb_x,
       potb_y => potb_y,      
+
+      rightsid_audio_out => rightsid_audio,
       
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
