@@ -1,6 +1,68 @@
 # These are tests for the hyppotest program itself.
 # Hyppo's tests are in src/hyppo.
 
+test "assemble with acme"
+  log on failure
+  assemble with acme
+    start:
+      jsr   ($3000)
+      jsr   ($3002)
+      lda   #$01
+      ldx   #$02
+      ldy   #$03
+      ldz   #$04
+    end:
+      rts
+    load:   !8  1,2,3,4
+  end assemble
+  assemble at $3000 with acme
+      !addr zp  = $02
+
+      !16   setdata
+      !16   save_zp_b
+
+    setdata:
+      lda #<data
+      sta zp
+      lda #>data
+      sta zp+1
+      ldz #$00
+      lda (zp),z
+      eor #$FF
+      sta (zp),z
+      rts
+    data:   !8  $55
+
+      !align $FF, 0, $24
+    save_zp_b:
+      tba
+      sta   bp
+      tsx
+      stx   spl
+      ;tsy
+      ;sty   sph
+      rts
+    bp:     !8  $c3
+    spl:    !8  $c3
+    sph:    !8  $c3
+  end assemble
+  jsr start
+  ignore reg sp
+  ignore reg pc
+  expect a = $01
+  expect x = $02
+  expect y = $03
+  expect z = $04
+  check regs
+  ignore from zp to zp+1
+  ignore from $100 to $1FF
+  expect $aa at data
+  expect $00 at bp
+  expect $fd at spl
+  #expect $01 at sph
+  check mem
+end test
+
 
 test "poke directive"
   define data as $3800

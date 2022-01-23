@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -3752,6 +3754,80 @@ unsigned short resolve_value16(char *in)
   return (unsigned short)(resolve_value32(in)&0xffff);
 }
 
+void assemble_with_acme(FILE* f, struct cpu *cpu, unsigned short pc)
+{
+  FILE *src_file=NULL;
+  char* bin_file_name=mktemp(strdup(P_tmpdir"acme.bin.XXXXXX")); assert(bin_file_name!=NULL);
+  char* src_file_name=mktemp(strdup(P_tmpdir"acme.src.XXXXXX")); assert(src_file_name!=NULL);
+  char* sym_file_name=mktemp(strdup(P_tmpdir"acme.sym.XXXXXX")); assert(sym_file_name!=NULL);
+  //
+  // Read the lines between the assemble and end assemble directives into a memory buffer file
+  //
+  const size_t max_src_size=1024*1024;
+  FILE *buffer_file=fmemopen(NULL, max_src_size, "w+");
+  assert(buffer_file!=NULL);
+  char line[1024];
+  unsigned min_c=9999;
+  while(!feof(f)) {
+    *line=0; fgets(line,sizeof(line)/sizeof(char),f);
+    char *line_ptr=line;
+    while (isspace(*line_ptr)) ++line_ptr;
+    if (!line_ptr[0]) continue;
+    if (!strncasecmp(line_ptr,"end assemble",strlen("end assemble"))) break;
+    if (line_ptr-line<min_c) min_c=line_ptr-line;
+    if (fputs(line,buffer_file)==EOF) {
+      fprintf(stderr,"ERROR: Assembly source is larger than %zu bytes.\n", max_src_size);
+      if (logfile!=stderr)
+        fprintf(logfile,"ERROR: Assembly source is larger than %zu bytes.\n", max_src_size);
+      cpu->term.error=true;
+      goto cleanup;
+    }
+  }
+  rewind(buffer_file);
+  //
+  // Save the assembly source into a temporary file.
+  // Trim common whitespace from each line, in case the asembler is sensitive to things beginning in the first column.
+  //
+  src_file=fopen(src_file_name,"wx");
+  if (src_file==NULL) {
+    snprintf(line,sizeof(line)/sizeof(char),
+             "ERROR: Failed to open file %s for writing the assembly source: %s\n",
+             src_file_name,strerror(errno));
+    fprintf(stderr,line);
+    if (logfile!=stderr) fprintf(logfile,line);
+    cpu->term.error=true;
+    goto cleanup;
+  }
+  while (!feof(buffer_file)) {
+    if(fgets(line,sizeof(line)/sizeof(char),buffer_file))
+      fputs(line+min_c,src_file);
+  }
+  fclose(src_file); src_file=NULL;
+  fclose(buffer_file); buffer_file=NULL;
+  //
+  // Execute ACME on the temporary source file
+  //
+  snprintf(line,sizeof(line)/sizeof(char),
+           "acme --setpc '$%x' --cpu m65 --format plain --outfile '%s' --symbollist '%s' '%s'",
+           pc,bin_file_name,sym_file_name,src_file_name);
+  if (system(line) != 0) {
+    fprintf(stderr,"ERROR: acme failed to assemble the source\n");
+    if (logfile!=stderr) fprintf(logfile,"ERROR: acme failed to assemble the source\n");
+    cpu->term.error=true;
+    goto cleanup;
+  }
+  //
+  // Load the ACME output files
+  load_file(bin_file_name, pc);
+  load_symbols(sym_file_name, 0);
+cleanup:
+  if (buffer_file!=NULL) fclose(buffer_file);
+  if (src_file!=NULL) fclose(src_file);
+  remove(bin_file_name);  free(bin_file_name);
+  remove(src_file_name);  free(src_file_name);
+  remove(sym_file_name);  free(sym_file_name);
+}
+
 int main(int argc,char **argv)
 {
   if (argc<2 || argc>3) {
@@ -4060,6 +4136,11 @@ int main(int argc,char **argv)
     } else if (strncasecmp(line_ptr,"forbid stack underflow",strlen("forbid stack underflow"))==0) {
       fprintf(logfile,"INFO: Forbidding the stack to underflow\n");
       fail_on_stack_underflow=true;
+    } else if (strncasecmp(line_ptr,"assemble with acme",strlen("assemble with acme"))==0) {
+      assemble_with_acme(f, &cpu, 0x2000);
+    } else if (sscanf(line_ptr,"assemble at %s with acme",location)==1) {
+      addr=resolve_value16(location);
+      if (!cpu.term.error) assemble_with_acme(f, &cpu, addr);
     } else {
 directive_error:
       fprintf(logfile,"ERROR: Unrecognised test directive:\n       %s\n",line_ptr);
