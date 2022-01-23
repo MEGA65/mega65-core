@@ -113,7 +113,10 @@ architecture Behavioral of sid_voice is
 	-- based on the accumulator MSB of the previous oscillator.
 	alias		sync							: std_logic is Control(1);
 	--
-	alias		gate							: std_logic is Control(0);
+
+        -- We have to latch GATE if the CPU is running at >1MHz, to make sure
+        -- it doesn't get missed
+	signal		gate							: std_logic;
 
 -------------------------------------------------------------------------------------
 
@@ -145,17 +148,21 @@ begin
 	-- based on the accumulator MSB of the previous oscillator."
 	PhaseAcc:process(clk_1MHz)
 	begin
-		if (rising_edge(clk_1MHz)) then
-			PA_MSB_in_prev <= PA_MSB_in;
-			-- the reset and test signal can stop the oscillator,
-			-- stopping the oscillator is very useful when you want to play "samples"
-			if ((reset = '1') or (test = '1') or ((sync = '1') and (PA_MSB_in_prev /= PA_MSB_in) and (PA_MSB_in = '0'))) then
-				accumulator <= (others => '0');
-			else
-				-- accumulate the new phase (i.o.w. increment env_counter with the freq. value)
-                                accumulator <= accumulator + ("0" & frequency);
-			end if;
-		end if;
+          -- Catch short edges of gate when CPU >1MHz
+          gate <= gate or Control(0);
+          if (rising_edge(clk_1MHz)) then
+            gate <= Control(0);
+            
+            PA_MSB_in_prev <= PA_MSB_in;
+            -- the reset and test signal can stop the oscillator,
+            -- stopping the oscillator is very useful when you want to play "samples"
+            if ((reset = '1') or (test = '1') or ((sync = '1') and (PA_MSB_in_prev /= PA_MSB_in) and (PA_MSB_in = '0'))) then
+              accumulator <= (others => '0');
+            else
+              -- accumulate the new phase (i.o.w. increment env_counter with the freq. value)
+              accumulator <= accumulator + ("0" & frequency);
+            end if;
+          end if;
 	end process;
 
 	-- Sawtooth waveform :
