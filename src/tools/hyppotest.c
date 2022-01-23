@@ -1863,6 +1863,7 @@ bool execute_instruction(struct cpu *cpu,struct instruction_log *log)
     log->len=3;
     break;
   case 0x20: // JSR $nnnn
+    if (cpu->term.rts) cpu->term.rts++;
     stack_push(cpu,(cpu->regs.pc+2)>>8);
     stack_push(cpu,cpu->regs.pc+2);
     cpu->regs.pc=addr_abs(log);
@@ -1877,6 +1878,7 @@ bool execute_instruction(struct cpu *cpu,struct instruction_log *log)
     cpu->regs.pc+=2;
     break;
   case 0x22: // JSR ($nnnn)
+    if (cpu->term.rts) cpu->term.rts++;
     stack_push(cpu,(cpu->regs.pc+2)>>8);
     stack_push(cpu,cpu->regs.pc+2);
     cpu->regs.pc=addr_deref16(cpu,log);
@@ -3793,27 +3795,19 @@ int main(int argc,char **argv)
       }
       continue;
     }
-    if (sscanf(line_ptr,"jsr $%x",&addr)==1) {
-      bool prior_error=cpu.term.error;
-      bzero(&cpu.term,sizeof(cpu.term));
-      cpu.term.rts=1; // Terminate on net RTS from routine
-      cpu_call_routine(logfile,addr);
-      cpu.term.error|=prior_error;
-    } else if (sscanf(line_ptr,"jsr %s",routine)==1) {
-      int i;
-      for(i=0;i<hyppo_symbol_count;i++) {
-        if (!strcmp(routine,hyppo_symbols[i].name)) break;
-      }
-      if (i==hyppo_symbol_count) {
-        fprintf(logfile,"ERROR: Cannot call non-existent routine '%s'\n",routine);
-        cpu.term.error=true;
-      } else {
+    if (sscanf(line_ptr,"jsr %s",routine)==1) {
+      int addr32=resolve_value32(routine);
+      if (addr32>0) {
+        int addr16=addr32;
+        if (addr32&0xffff0000) {
+          addr16=addr32&0xffff;
+        }
         bool prior_error=cpu.term.error;
         bool log_dma=cpu.term.log_dma;
         bzero(&cpu.term,sizeof(cpu.term));
         cpu.term.log_dma=log_dma;
         cpu.term.rts=1; // Terminate on net RTS from routine
-        cpu_call_routine(logfile,hyppo_symbols[i].addr);
+        cpu_call_routine(logfile,addr16);
         cpu.term.error|=prior_error;
       }
     } else if (sscanf(line_ptr,"dump instructions %d to %d",&first,&last)==2) {
