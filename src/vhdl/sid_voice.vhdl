@@ -146,7 +146,7 @@ begin
 	-- self-contained and there was no room at all for a wavetable on the chip."
 	-- "Hard Sync was accomplished by clearing the accumulator of an Oscillator
 	-- based on the accumulator MSB of the previous oscillator."
-	PhaseAcc:process(clk_1MHz)
+	PhaseAcc:process(clk_1MHz,gate,Control)
 	begin
           -- Catch short edges of gate when CPU >1MHz
           gate <= gate or Control(0);
