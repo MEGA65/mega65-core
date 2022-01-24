@@ -2433,70 +2433,70 @@ begin
             when x"7e" => return reg_mult_p(55 downto 48);
             when x"7f" => return reg_mult_p(63 downto 56);
             -- @IO:GS $D780-$D7BF - 16 x 32 bit Math Unit values
-            -- @IO:GS $D780 MATH:MATHIN0 Math unit 32-bit input 0
-            -- @IO:GS $D781 MATH:MATHIN0 Math unit 32-bit input 0
-            -- @IO:GS $D782 MATH:MATHIN0 Math unit 32-bit input 0
-            -- @IO:GS $D783 MATH:MATHIN0 Math unit 32-bit input 0
-            -- @IO:GS $D784 MATH:MATHIN1 Math unit 32-bit input 1
-            -- @IO:GS $D785 MATH:MATHIN1 Math unit 32-bit input 1
-            -- @IO:GS $D786 MATH:MATHIN1 Math unit 32-bit input 1
-            -- @IO:GS $D787 MATH:MATHIN1 Math unit 32-bit input 1
-            -- @IO:GS $D788 MATH:MATHIN2 Math unit 32-bit input 2
-            -- @IO:GS $D789 MATH:MATHIN2 Math unit 32-bit input 2
-            -- @IO:GS $D78A MATH:MATHIN2 Math unit 32-bit input 2
-            -- @IO:GS $D78B MATH:MATHIN2 Math unit 32-bit input 2
-            -- @IO:GS $D78C MATH:MATHIN3 Math unit 32-bit input 3
-            -- @IO:GS $D78D MATH:MATHIN3 Math unit 32-bit input 3
-            -- @IO:GS $D78E MATH:MATHIN3 Math unit 32-bit input 3
-            -- @IO:GS $D78F MATH:MATHIN3 Math unit 32-bit input 3
-            -- @IO:GS $D790 MATH:MATHIN4 Math unit 32-bit input 4
-            -- @IO:GS $D791 MATH:MATHIN4 Math unit 32-bit input 4
-            -- @IO:GS $D792 MATH:MATHIN4 Math unit 32-bit input 4
-            -- @IO:GS $D793 MATH:MATHIN4 Math unit 32-bit input 4
-            -- @IO:GS $D794 MATH:MATHIN5 Math unit 32-bit input 5
-            -- @IO:GS $D795 MATH:MATHIN5 Math unit 32-bit input 5
-            -- @IO:GS $D796 MATH:MATHIN5 Math unit 32-bit input 5
-            -- @IO:GS $D797 MATH:MATHIN5 Math unit 32-bit input 5
-            -- @IO:GS $D798 MATH:MATHIN6 Math unit 32-bit input 6
-            -- @IO:GS $D799 MATH:MATHIN6 Math unit 32-bit input 6
-            -- @IO:GS $D79A MATH:MATHIN6 Math unit 32-bit input 6
-            -- @IO:GS $D79B MATH:MATHIN6 Math unit 32-bit input 6
-            -- @IO:GS $D79C MATH:MATHIN7 Math unit 32-bit input 7
-            -- @IO:GS $D79D MATH:MATHIN7 Math unit 32-bit input 7
-            -- @IO:GS $D79E MATH:MATHIN7 Math unit 32-bit input 7
-            -- @IO:GS $D79F MATH:MATHIN7 Math unit 32-bit input 7
-            -- @IO:GS $D7A0 MATH:MATHIN8 Math unit 32-bit input 8
-            -- @IO:GS $D7A1 MATH:MATHIN8 Math unit 32-bit input 8
-            -- @IO:GS $D7A2 MATH:MATHIN8 Math unit 32-bit input 8
-            -- @IO:GS $D7A3 MATH:MATHIN8 Math unit 32-bit input 8
-            -- @IO:GS $D7A4 MATH:MATHIN9 Math unit 32-bit input 9
-            -- @IO:GS $D7A5 MATH:MATHIN9 Math unit 32-bit input 9
-            -- @IO:GS $D7A6 MATH:MATHIN9 Math unit 32-bit input 9
-            -- @IO:GS $D7A7 MATH:MATHIN9 Math unit 32-bit input 9
-            -- @IO:GS $D7A8 MATH:MATHIN10 Math unit 32-bit input 10
-            -- @IO:GS $D7A9 MATH:MATHIN10 Math unit 32-bit input 10
-            -- @IO:GS $D7AA MATH:MATHIN10 Math unit 32-bit input 10
-            -- @IO:GS $D7AB MATH:MATHIN10 Math unit 32-bit input 10
-            -- @IO:GS $D7AC MATH:MATHIN11 Math unit 32-bit input 11
-            -- @IO:GS $D7AD MATH:MATHIN11 Math unit 32-bit input 11
-            -- @IO:GS $D7AE MATH:MATHIN11 Math unit 32-bit input 11
-            -- @IO:GS $D7AF MATH:MATHIN11 Math unit 32-bit input 11
-            -- @IO:GS $D7B0 MATH:MATHIN12 Math unit 32-bit input 12
-            -- @IO:GS $D7B1 MATH:MATHIN12 Math unit 32-bit input 12
-            -- @IO:GS $D7B2 MATH:MATHIN12 Math unit 32-bit input 12
-            -- @IO:GS $D7B3 MATH:MATHIN12 Math unit 32-bit input 12
-            -- @IO:GS $D7B4 MATH:MATHIN13 Math unit 32-bit input 13
-            -- @IO:GS $D7B5 MATH:MATHIN13 Math unit 32-bit input 13
-            -- @IO:GS $D7B6 MATH:MATHIN13 Math unit 32-bit input 13
-            -- @IO:GS $D7B7 MATH:MATHIN13 Math unit 32-bit input 13
-            -- @IO:GS $D7B8 MATH:MATHIN14 Math unit 32-bit input 14
-            -- @IO:GS $D7B9 MATH:MATHIN14 Math unit 32-bit input 14
-            -- @IO:GS $D7BA MATH:MATHIN14 Math unit 32-bit input 14
-            -- @IO:GS $D7BB MATH:MATHIN14 Math unit 32-bit input 14
-            -- @IO:GS $D7BC MATH:MATHIN15 Math unit 32-bit input 15
-            -- @IO:GS $D7BD MATH:MATHIN15 Math unit 32-bit input 15
-            -- @IO:GS $D7BE MATH:MATHIN15 Math unit 32-bit input 15
-            -- @IO:GS $D7BF MATH:MATHIN15 Math unit 32-bit input 15
+            -- @IO:GS $D780 MATH:MATHIN0@MATHINX Math unit 32-bit input X
+            -- @IO:GS $D781 MATH:MATHIN0 @MATHINX
+            -- @IO:GS $D782 MATH:MATHIN0 @MATHINX
+            -- @IO:GS $D783 MATH:MATHIN0 @MATHINX
+            -- @IO:GS $D784 MATH:MATHIN1 @MATHINX
+            -- @IO:GS $D785 MATH:MATHIN1 @MATHINX
+            -- @IO:GS $D786 MATH:MATHIN1 @MATHINX
+            -- @IO:GS $D787 MATH:MATHIN1 @MATHINX
+            -- @IO:GS $D788 MATH:MATHIN2 @MATHINX
+            -- @IO:GS $D789 MATH:MATHIN2 @MATHINX
+            -- @IO:GS $D78A MATH:MATHIN2 @MATHINX
+            -- @IO:GS $D78B MATH:MATHIN2 @MATHINX
+            -- @IO:GS $D78C MATH:MATHIN3 @MATHINX
+            -- @IO:GS $D78D MATH:MATHIN3 @MATHINX
+            -- @IO:GS $D78E MATH:MATHIN3 @MATHINX
+            -- @IO:GS $D78F MATH:MATHIN3 @MATHINX
+            -- @IO:GS $D790 MATH:MATHIN4 @MATHINX
+            -- @IO:GS $D791 MATH:MATHIN4 @MATHINX
+            -- @IO:GS $D792 MATH:MATHIN4 @MATHINX
+            -- @IO:GS $D793 MATH:MATHIN4 @MATHINX
+            -- @IO:GS $D794 MATH:MATHIN5 @MATHINX
+            -- @IO:GS $D795 MATH:MATHIN5 @MATHINX
+            -- @IO:GS $D796 MATH:MATHIN5 @MATHINX
+            -- @IO:GS $D797 MATH:MATHIN5 @MATHINX
+            -- @IO:GS $D798 MATH:MATHIN6 @MATHINX
+            -- @IO:GS $D799 MATH:MATHIN6 @MATHINX
+            -- @IO:GS $D79A MATH:MATHIN6 @MATHINX
+            -- @IO:GS $D79B MATH:MATHIN6 @MATHINX
+            -- @IO:GS $D79C MATH:MATHIN7 @MATHINX
+            -- @IO:GS $D79D MATH:MATHIN7 @MATHINX
+            -- @IO:GS $D79E MATH:MATHIN7 @MATHINX
+            -- @IO:GS $D79F MATH:MATHIN7 @MATHINX
+            -- @IO:GS $D7A0 MATH:MATHIN8 @MATHINX
+            -- @IO:GS $D7A1 MATH:MATHIN8 @MATHINX
+            -- @IO:GS $D7A2 MATH:MATHIN8 @MATHINX
+            -- @IO:GS $D7A3 MATH:MATHIN8 @MATHINX
+            -- @IO:GS $D7A4 MATH:MATHIN9 @MATHINX
+            -- @IO:GS $D7A5 MATH:MATHIN9 @MATHINX
+            -- @IO:GS $D7A6 MATH:MATHIN9 @MATHINX
+            -- @IO:GS $D7A7 MATH:MATHIN9 @MATHINX
+            -- @IO:GS $D7A8 MATH:MATHINA @MATHINX
+            -- @IO:GS $D7A9 MATH:MATHINA @MATHINX
+            -- @IO:GS $D7AA MATH:MATHINA @MATHINX
+            -- @IO:GS $D7AB MATH:MATHINA @MATHINX
+            -- @IO:GS $D7AC MATH:MATHINB @MATHINX
+            -- @IO:GS $D7AD MATH:MATHINB @MATHINX
+            -- @IO:GS $D7AE MATH:MATHINB @MATHINX
+            -- @IO:GS $D7AF MATH:MATHINB @MATHINX
+            -- @IO:GS $D7B0 MATH:MATHINC @MATHINX
+            -- @IO:GS $D7B1 MATH:MATHINC @MATHINX
+            -- @IO:GS $D7B2 MATH:MATHINC @MATHINX
+            -- @IO:GS $D7B3 MATH:MATHINC @MATHINX
+            -- @IO:GS $D7B4 MATH:MATHIND @MATHINX
+            -- @IO:GS $D7B5 MATH:MATHIND @MATHINX
+            -- @IO:GS $D7B6 MATH:MATHIND @MATHINX
+            -- @IO:GS $D7B7 MATH:MATHIND @MATHINX
+            -- @IO:GS $D7B8 MATH:MATHINE @MATHINX
+            -- @IO:GS $D7B9 MATH:MATHINE @MATHINX
+            -- @IO:GS $D7BA MATH:MATHINE @MATHINX
+            -- @IO:GS $D7BB MATH:MATHINE @MATHINX
+            -- @IO:GS $D7BC MATH:MATHINF @MATHINX
+            -- @IO:GS $D7BD MATH:MATHINF @MATHINX
+            -- @IO:GS $D7BE MATH:MATHINF @MATHINX
+            -- @IO:GS $D7BF MATH:MATHINF @MATHINX
             when
               x"80"|x"81"|x"82"|x"83"|x"84"|x"85"|x"86"|x"87"|
               x"88"|x"89"|x"8A"|x"8B"|x"8C"|x"8D"|x"8E"|x"8F"|
@@ -2514,140 +2514,140 @@ begin
                 when others => return x"59";
               end case;
             when
-              --@IO:GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
-              -- @IO:GS $D7C0.0-3 MATH:UNIT0INA Select which of the 16 32-bit math registers is input A for Math Function Unit 0.
-              -- @IO:GS $D7C0.4-7 MATH:UNIT0INB Select which of the 16 32-bit math registers is input B for Math Function Unit 0.
-              -- @IO:GS $D7C1.0-3 MATH:UNIT1INA Select which of the 16 32-bit math registers is input A for Math Function Unit 1.
-              -- @IO:GS $D7C1.4-7 MATH:UNIT1INB Select which of the 16 32-bit math registers is input B for Math Function Unit 1.
-              -- @IO:GS $D7C2.0-3 MATH:UNIT2INA Select which of the 16 32-bit math registers is input A for Math Function Unit 2.
-              -- @IO:GS $D7C2.4-7 MATH:UNIT2INB Select which of the 16 32-bit math registers is input B for Math Function Unit 2.
-              -- @IO:GS $D7C3.0-3 MATH:UNIT3INA Select which of the 16 32-bit math registers is input A for Math Function Unit 3.
-              -- @IO:GS $D7C3.4-7 MATH:UNIT3INB Select which of the 16 32-bit math registers is input B for Math Function Unit 3.
-              -- @IO:GS $D7C4.0-3 MATH:UNIT4INA Select which of the 16 32-bit math registers is input A for Math Function Unit 4.
-              -- @IO:GS $D7C4.4-7 MATH:UNIT4INB Select which of the 16 32-bit math registers is input B for Math Function Unit 4.
-              -- @IO:GS $D7C5.0-3 MATH:UNIT5INA Select which of the 16 32-bit math registers is input A for Math Function Unit 5.
-              -- @IO:GS $D7C5.4-7 MATH:UNIT5INB Select which of the 16 32-bit math registers is input B for Math Function Unit 5.
-              -- @IO:GS $D7C6.0-3 MATH:UNIT6INA Select which of the 16 32-bit math registers is input A for Math Function Unit 6.
-              -- @IO:GS $D7C6.4-7 MATH:UNIT6INB Select which of the 16 32-bit math registers is input B for Math Function Unit 6.
-              -- @IO:GS $D7C7.0-3 MATH:UNIT7INA Select which of the 16 32-bit math registers is input A for Math Function Unit 7.
-              -- @IO:GS $D7C7.4-7 MATH:UNIT7INB Select which of the 16 32-bit math registers is input B for Math Function Unit 7.
-              -- @IO:GS $D7C8.0-3 MATH:UNIT8INA Select which of the 16 32-bit math registers is input A for Math Function Unit 8.
-              -- @IO:GS $D7C8.4-7 MATH:UNIT8INB Select which of the 16 32-bit math registers is input B for Math Function Unit 8.
-              -- @IO:GS $D7C9.0-3 MATH:UNIT9INA Select which of the 16 32-bit math registers is input A for Math Function Unit 9.
-              -- @IO:GS $D7C9.4-7 MATH:UNIT9INB Select which of the 16 32-bit math registers is input B for Math Function Unit 9.
-              -- @IO:GS $D7CA.0-3 MATH:UNIT10INA Select which of the 16 32-bit math registers is input A for Math Function Unit 10.
-              -- @IO:GS $D7CA.4-7 MATH:UNIT10INB Select which of the 16 32-bit math registers is input B for Math Function Unit 10.
-              -- @IO:GS $D7CB.0-3 MATH:UNIT11INA Select which of the 16 32-bit math registers is input A for Math Function Unit 11.
-              -- @IO:GS $D7CB.4-7 MATH:UNIT11INB Select which of the 16 32-bit math registers is input B for Math Function Unit 11.
-              -- @IO:GS $D7CC.0-3 MATH:UNIT12INA Select which of the 16 32-bit math registers is input A for Math Function Unit 12.
-              -- @IO:GS $D7CC.4-7 MATH:UNIT12INB Select which of the 16 32-bit math registers is input B for Math Function Unit 12.
-              -- @IO:GS $D7CD.0-3 MATH:UNIT13INA Select which of the 16 32-bit math registers is input A for Math Function Unit 13.
-              -- @IO:GS $D7CD.4-7 MATH:UNIT13INB Select which of the 16 32-bit math registers is input B for Math Function Unit 13.
-              -- @IO:GS $D7CE.0-3 MATH:UNIT14INA Select which of the 16 32-bit math registers is input A for Math Function Unit 14.
-              -- @IO:GS $D7CE.4-7 MATH:UNIT14INB Select which of the 16 32-bit math registers is input B for Math Function Unit 14.
-              -- @IO:GS $D7CF.0-3 MATH:UNIT15INA Select which of the 16 32-bit math registers is input A for Math Function Unit 15.
-              -- @IO:GS $D7CF.4-7 MATH:UNIT15INB Select which of the 16 32-bit math registers is input B for Math Function Unit 15.
+              -- @IO:GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
+              -- @IO:GS $D7C0.0-3 MATH:UNIT0INA@UNITXINA Select which of the 16 32-bit math registers is input A for Math Function Unit X.
+              -- @IO:GS $D7C0.4-7 MATH:UNIT0INB@UNITXINB Select which of the 16 32-bit math registers is input B for Math Function Unit X.
+              -- @IO:GS $D7C1.0-3 MATH:UNIT1INA @UNITXINA
+              -- @IO:GS $D7C1.4-7 MATH:UNIT1INB @UNITXINB
+              -- @IO:GS $D7C2.0-3 MATH:UNIT2INA @UNITXINA
+              -- @IO:GS $D7C2.4-7 MATH:UNIT2INB @UNITXINB
+              -- @IO:GS $D7C3.0-3 MATH:UNIT3INA @UNITXINA
+              -- @IO:GS $D7C3.4-7 MATH:UNIT3INB @UNITXINB
+              -- @IO:GS $D7C4.0-3 MATH:UNIT4INA @UNITXINA
+              -- @IO:GS $D7C4.4-7 MATH:UNIT4INB @UNITXINB
+              -- @IO:GS $D7C5.0-3 MATH:UNIT5INA @UNITXINA
+              -- @IO:GS $D7C5.4-7 MATH:UNIT5INB @UNITXINB
+              -- @IO:GS $D7C6.0-3 MATH:UNIT6INA @UNITXINA
+              -- @IO:GS $D7C6.4-7 MATH:UNIT6INB @UNITXINB
+              -- @IO:GS $D7C7.0-3 MATH:UNIT7INA @UNITXINA
+              -- @IO:GS $D7C7.4-7 MATH:UNIT7INB @UNITXINB
+              -- @IO:GS $D7C8.0-3 MATH:UNIT8INA @UNITXINA
+              -- @IO:GS $D7C8.4-7 MATH:UNIT8INB @UNITXINB
+              -- @IO:GS $D7C9.0-3 MATH:UNIT9INA @UNITXINA
+              -- @IO:GS $D7C9.4-7 MATH:UNIT9INB @UNITXINB
+              -- @IO:GS $D7CA.0-3 MATH:UNITAINA @UNITXINA
+              -- @IO:GS $D7CA.4-7 MATH:UNITAINB @UNITXINB
+              -- @IO:GS $D7CB.0-3 MATH:UNITBINA @UNITXINA
+              -- @IO:GS $D7CB.4-7 MATH:UNITBINB @UNITXINB
+              -- @IO:GS $D7CC.0-3 MATH:UNITCINA @UNITXINA
+              -- @IO:GS $D7CC.4-7 MATH:UNITCINB @UNITXINB
+              -- @IO:GS $D7CD.0-3 MATH:UNITDINA @UNITXINA
+              -- @IO:GS $D7CD.4-7 MATH:UNITDINB @UNITXINB
+              -- @IO:GS $D7CE.0-3 MATH:UNITEINA @UNITXINA
+              -- @IO:GS $D7CE.4-7 MATH:UNITEINB @UNITXINB
+              -- @IO:GS $D7CF.0-3 MATH:UNITFINA @UNITXINA
+              -- @IO:GS $D7CF.4-7 MATH:UNITFINB @UNITXINB
               x"C0"|x"C1"|x"C2"|x"C3"|x"C4"|x"C5"|x"C6"|x"C7"|
               x"C8"|x"C9"|x"CA"|x"CB"|x"CC"|x"CD"|x"CE"|x"CF" =>
               return
                 to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).source_b,4)
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).source_a,4);
             when
-              -- @IO:GS $D7D0.0-3 MATH:UNIT0OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 0
-              -- @IO:GS $D7D0.4 - MATH:U0LOWOUT If set, the low-half of the output of Math Function Unit 0 is written to math register UNIT0OUT.
-              -- @IO:GS $D7D0.5 - MATH:U0HIOUT If set, the high-half of the output of Math Function Unit 0 is written to math register UNIT0OUT.
-              -- @IO:GS $D7D0.6 - MATH:U0ADD If set, Math Function Unit 0 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D0.7 - MATH:U0LATCH If set, Math Function Unit 0's output is latched.
+              -- @IO:GS $D7D0.0-3 MATH:UNIT0OUT@UNITXOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit X
+              -- @IO:GS $D7D0.4   MATH:U0!LOWOUT@UXLOWOUT If set, the low-half of the output of Math Function Unit X is written to math register UNITXOUT.
+              -- @IO:GS $D7D0.5   MATH:U0!HIOUT@UXHIOUT If set, the high-half of the output of Math Function Unit X is written to math register UNITXOUT.
+              -- @IO:GS $D7D0.6   MATH:U0!MLADD@UXMLADD If set, Math Function Unit X acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D0.7   MATH:U0!LATCH@UXLATCH If set, Math Function Unit X's output is latched.
               
-              -- @IO:GS $D7D1.0-3 MATH:UNIT1OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 1
-              -- @IO:GS $D7D1.4 - MATH:U1LOWOUT If set, the low-half of the output of Math Function Unit 1 is written to math register UNIT1OUT.
-              -- @IO:GS $D7D1.5 - MATH:U1HIOUT If set, the high-half of the output of Math Function Unit 1 is written to math register UNIT1OUT.
-              -- @IO:GS $D7D1.6 - MATH:U1ADD If set, Math Function Unit 1 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D1.7 - MATH:U1LATCH If set, Math Function Unit 1's output is latched.
+              -- @IO:GS $D7D1.0-3 MATH:UNIT1OUT @UNITXOUT
+              -- @IO:GS $D7D1.4   MATH:U1!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D1.5   MATH:U1!HIOUT @UXHIOUT
+              -- @IO:GS $D7D1.6   MATH:U1!MLADD @UXMLADD
+              -- @IO:GS $D7D1.7   MATH:U1!LATCH @UXLATCH
               
-              -- @IO:GS $D7D2.0-3 MATH:UNIT2OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 2
-              -- @IO:GS $D7D2.4 - MATH:U2LOWOUT If set, the low-half of the output of Math Function Unit 2 is written to math register UNIT2OUT.
-              -- @IO:GS $D7D2.5 - MATH:U2HIOUT If set, the high-half of the output of Math Function Unit 2 is written to math register UNIT2OUT.
-              -- @IO:GS $D7D2.6 - MATH:U2ADD If set, Math Function Unit 2 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D2.7 - MATH:U2LATCH If set, Math Function Unit 2's output is latched.
+              -- @IO:GS $D7D2.0-3 MATH:UNIT2OUT @UNITXOUT
+              -- @IO:GS $D7D2.4   MATH:U2!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D2.5   MATH:U2!HIOUT @UXHIOUT
+              -- @IO:GS $D7D2.6   MATH:U2!MLADD @UXMLADD
+              -- @IO:GS $D7D2.7   MATH:U2!LATCH @UXLATCH
               
-              -- @IO:GS $D7D3.0-3 MATH:UNIT3OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 3
-              -- @IO:GS $D7D3.4 - MATH:U3LOWOUT If set, the low-half of the output of Math Function Unit 3 is written to math register UNIT3OUT.
-              -- @IO:GS $D7D3.5 - MATH:U3HIOUT If set, the high-half of the output of Math Function Unit 3 is written to math register UNIT3OUT.
-              -- @IO:GS $D7D3.6 - MATH:U3ADD If set, Math Function Unit 3 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D3.7 - MATH:U3LATCH If set, Math Function Unit 3's output is latched.
+              -- @IO:GS $D7D3.0-3 MATH:UNIT3OUT @UNITXOUT
+              -- @IO:GS $D7D3.4   MATH:U3!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D3.5   MATH:U3!HIOUT @UXHIOUT
+              -- @IO:GS $D7D3.6   MATH:U3!MLADD @UXMLADD
+              -- @IO:GS $D7D3.7   MATH:U3!LATCH @UXLATCH
               
-              -- @IO:GS $D7D4.0-3 MATH:UNIT4OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 4
-              -- @IO:GS $D7D4.4 - MATH:U4LOWOUT If set, the low-half of the output of Math Function Unit 4 is written to math register UNIT4OUT.
-              -- @IO:GS $D7D4.5 - MATH:U4HIOUT If set, the high-half of the output of Math Function Unit 4 is written to math register UNIT4OUT.
-              -- @IO:GS $D7D4.6 - MATH:U4ADD If set, Math Function Unit 4 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D4.7 - MATH:U4LATCH If set, Math Function Unit 4's output is latched.
+              -- @IO:GS $D7D4.0-3 MATH:UNIT4OUT @UNITXOUT
+              -- @IO:GS $D7D4.4   MATH:U4!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D4.5   MATH:U4!HIOUT @UXHIOUT
+              -- @IO:GS $D7D4.6   MATH:U4!MLADD @UXMLADD
+              -- @IO:GS $D7D4.7   MATH:U4!LATCH @UXLATCH
               
-              -- @IO:GS $D7D5.0-3 MATH:UNIT5OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 5
-              -- @IO:GS $D7D5.4 - MATH:U5LOWOUT If set, the low-half of the output of Math Function Unit 5 is written to math register UNIT5OUT.
-              -- @IO:GS $D7D5.5 - MATH:U5HIOUT If set, the high-half of the output of Math Function Unit 5 is written to math register UNIT5OUT.
-              -- @IO:GS $D7D5.6 - MATH:U5ADD If set, Math Function Unit 5 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D5.7 - MATH:U5LATCH If set, Math Function Unit 5's output is latched.
+              -- @IO:GS $D7D5.0-3 MATH:UNIT5OUT @UNITXOUT
+              -- @IO:GS $D7D5.4   MATH:U5!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D5.5   MATH:U5!HIOUT @UXHIOUT
+              -- @IO:GS $D7D5.6   MATH:U5!MLADD @UXMLADD
+              -- @IO:GS $D7D5.7   MATH:U5!LATCH @UXLATCH
               
-              -- @IO:GS $D7D6.0-3 MATH:UNIT6OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 6
-              -- @IO:GS $D7D6.4 - MATH:U6LOWOUT If set, the low-half of the output of Math Function Unit 6 is written to math register UNIT6OUT.
-              -- @IO:GS $D7D6.5 - MATH:U6HIOUT If set, the high-half of the output of Math Function Unit 6 is written to math register UNIT6OUT.
-              -- @IO:GS $D7D6.6 - MATH:U6ADD If set, Math Function Unit 6 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D6.7 - MATH:U6LATCH If set, Math Function Unit 6's output is latched.
+              -- @IO:GS $D7D6.0-3 MATH:UNIT6OUT @UNITXOUT
+              -- @IO:GS $D7D6.4   MATH:U6!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D6.5   MATH:U6!HIOUT @UXHIOUT
+              -- @IO:GS $D7D6.6   MATH:U6!MLADD @UXMLADD
+              -- @IO:GS $D7D6.7   MATH:U6!LATCH @UXLATCH
               
-              -- @IO:GS $D7D7.0-3 MATH:UNIT7OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 7
-              -- @IO:GS $D7D7.4 - MATH:U7LOWOUT If set, the low-half of the output of Math Function Unit 7 is written to math register UNIT7OUT.
-              -- @IO:GS $D7D7.5 - MATH:U7HIOUT If set, the high-half of the output of Math Function Unit 7 is written to math register UNIT7OUT.
-              -- @IO:GS $D7D7.6 - MATH:U7ADD If set, Math Function Unit 7 acts as a 32-bit adder instead of 32-bit multiplier.
-              -- @IO:GS $D7D7.7 - MATH:U7LATCH If set, Math Function Unit 7's output is latched.
+              -- @IO:GS $D7D7.0-3 MATH:UNIT7OUT @UNITXOUT
+              -- @IO:GS $D7D7.4   MATH:U7!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D7.5   MATH:U7!HIOUT @UXHIOUT
+              -- @IO:GS $D7D7.6   MATH:U7!MLADD @UXMLADD
+              -- @IO:GS $D7D7.7   MATH:U7!LATCH @UXLATCH
               
-              -- @IO:GS $D7D8.0-3 MATH:UNIT8OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 8
-              -- @IO:GS $D7D8.4 - MATH:U8LOWOUT If set, the low-half of the output of Math Function Unit 8 is written to math register UNIT8OUT.
-              -- @IO:GS $D7D8.5 - MATH:U8HIOUT If set, the high-half of the output of Math Function Unit 8 is written to math register UNIT8OUT.
-              -- @IO:GS $D7D8.6 - MATH:U8ADD If set, Math Function Unit 8 acts as a 32-bit adder instead of 32-bit barrel-shifter.
-              -- @IO:GS $D7D8.7 - MATH:U8LATCH If set, Math Function Unit 8's output is latched.
+              -- @IO:GS $D7D8.0-3 MATH:UNIT8OUT @UNITXOUT
+              -- @IO:GS $D7D8.4   MATH:U8!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D8.5   MATH:U8!HIOUT @UXHIOUT
+              -- @IO:GS $D7D8.6   MATH:U8!BSADD@UXBSADD If set, Math Function Unit Y acts as a 32-bit adder instead of 32-bit barrel-shifter.
+              -- @IO:GS $D7D8.7   MATH:U8!LATCH @UXLATCH
               
-              -- @IO:GS $D7D9.0-3 MATH:UNIT9OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 9
-              -- @IO:GS $D7D9.4 - MATH:U9LOWOUT If set, the low-half of the output of Math Function Unit 9 is written to math register UNIT9OUT.
-              -- @IO:GS $D7D9.5 - MATH:U9HIOUT If set, the high-half of the output of Math Function Unit 9 is written to math register UNIT9OUT.
-              -- @IO:GS $D7D9.6 - MATH:U9ADD If set, Math Function Unit 9 acts as a 32-bit adder instead of 32-bit barrel-shifter.
-              -- @IO:GS $D7D9.7 - MATH:U9LATCH If set, Math Function Unit 9's output is latched.
+              -- @IO:GS $D7D9.0-3 MATH:UNIT9OUT @UNITXOUT
+              -- @IO:GS $D7D9.4   MATH:U9!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7D9.5   MATH:U9!HIOUT @UXHIOUT
+              -- @IO:GS $D7D9.6   MATH:U9!BSADD @UXBSADD
+              -- @IO:GS $D7D9.7   MATH:U9!LATCH @UXLATCH
               
-              -- @IO:GS $D7DA.0-3 MATH:UNIT10OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit A
-              -- @IO:GS $D7DA.4 - MATH:UALOWOUT If set, the low-half of the output of Math Function Unit A is written to math register UNIT10OUT.
-              -- @IO:GS $D7DA.5 - MATH:UAHIOUT If set, the high-half of the output of Math Function Unit A is written to math register UNIT10OUT.
-              -- @IO:GS $D7DA.6 - MATH:UAADD If set, Math Function Unit A acts as a 32-bit adder instead of 32-bit barrel-shifter.
-              -- @IO:GS $D7DA.7 - MATH:UALATCH If set, Math Function Unit A's output is latched.
+              -- @IO:GS $D7DA.0-3 MATH:UNITAOUT @UNITXOUT
+              -- @IO:GS $D7DA.4   MATH:UA!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DA.5   MATH:UA!HIOUT @UXHIOUT
+              -- @IO:GS $D7DA.6   MATH:UA!BSADD @UXBSADD
+              -- @IO:GS $D7DA.7   MATH:UA!LATCH @UXLATCH
               
-              -- @IO:GS $D7DB.0-3 MATH:UNIT11OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit B
-              -- @IO:GS $D7DB.4 - MATH:UBLOWOUT If set, the low-half of the output of Math Function Unit B is written to math register UNIT11OUT.
-              -- @IO:GS $D7DB.5 - MATH:UBHIOUT If set, the high-half of the output of Math Function Unit B is written to math register UNIT11OUT.
-              -- @IO:GS $D7DB.6 - MATH:UBADD If set, Math Function Unit B acts as a 32-bit adder instead of 32-bit barrel-shifter.
-              -- @IO:GS $D7DB.7 - MATH:UBLATCH If set, Math Function Unit B's output is latched.
+              -- @IO:GS $D7DB.0-3 MATH:UNITBOUT @UNITXOUT
+              -- @IO:GS $D7DB.4   MATH:UB!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DB.5   MATH:UB!HIOUT @UXHIOUT
+              -- @IO:GS $D7DB.6   MATH:UB!BSADD @UXBSADD
+              -- @IO:GS $D7DB.7   MATH:UB!LATCH @UXLATCH
               
-              -- @IO:GS $D7DC.0-3 MATH:UNIT12OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit C
-              -- @IO:GS $D7DC.4 - MATH:UCLOWOUT If set, the low-half of the output of Math Function Unit C is written to math register UNIT12OUT.
-              -- @IO:GS $D7DC.5 - MATH:UCHIOUT If set, the high-half of the output of Math Function Unit C is written to math register UNIT12OUT.
-              -- @IO:GS $D7DC.6 - MATH:UCADD If set, Math Function Unit C acts as a 32-bit adder instead of 32-bit divider.
-              -- @IO:GS $D7DC.7 - MATH:UCLATCH If set, Math Function Unit C's output is latched.
+              -- @IO:GS $D7DC.0-3 MATH:UNITCOUT @UNITXOUT
+              -- @IO:GS $D7DC.4   MATH:UC!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DC.5   MATH:UC!HIOUT @UXHIOUT
+              -- @IO:GS $D7DC.6   MATH:UC!DVADD@UXDVADD If set, Math Function Unit X acts as a 32-bit adder instead of 32-bit divider.
+              -- @IO:GS $D7DC.7   MATH:UC!LATCH @UXLATCH
               
-              -- @IO:GS $D7DD.0-3 MATH:UNIT13OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit D
-              -- @IO:GS $D7DD.4 - MATH:UDLOWOUT If set, the low-half of the output of Math Function Unit D is written to math register UNIT13OUT.
-              -- @IO:GS $D7DD.5 - MATH:UDHIOUT If set, the high-half of the output of Math Function Unit D is written to math register UNIT13OUT.
-              -- @IO:GS $D7DD.6 - MATH:UDADD If set, Math Function Unit D acts as a 32-bit adder instead of 32-bit divider.
-              -- @IO:GS $D7DD.7 - MATH:UDLATCH If set, Math Function Unit D's output is latched.
+              -- @IO:GS $D7DD.0-3 MATH:UNITDOUT @UNITXOUT
+              -- @IO:GS $D7DD.4   MATH:UD!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DD.5   MATH:UD!HIOUT @UXHIOUT
+              -- @IO:GS $D7DD.6   MATH:UD!DVADD@UXDVADD
+              -- @IO:GS $D7DD.7   MATH:UD!LATCH @UXLATCH
               
-              -- @IO:GS $D7DE.0-3 MATH:UNIT14OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit E
-              -- @IO:GS $D7DE.4 - MATH:UELOWOUT If set, the low-half of the output of Math Function Unit E is written to math register UNIT14OUT.
-              -- @IO:GS $D7DE.5 - MATH:UEHIOUT If set, the high-half of the output of Math Function Unit E is written to math register UNIT14OUT.
-              -- @IO:GS $D7DE.6 - MATH:UEADD If set, Math Function Unit E acts as a 32-bit adder instead of 32-bit divider.
-              -- @IO:GS $D7DE.7 - MATH:UELATCH If set, Math Function Unit E's output is latched.
+              -- @IO:GS $D7DE.0-3 MATH:UNITEOUT @UNITXOUT
+              -- @IO:GS $D7DE.4   MATH:UE!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DE.5   MATH:UE!HIOUT @UXHIOUT
+              -- @IO:GS $D7DE.6   MATH:UE!DVADD@UXDVADD
+              -- @IO:GS $D7DE.7   MATH:UE!LATCH @UXLATCH
               
-              -- @IO:GS $D7DF.0-3 MATH:UNIT15OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit F
-              -- @IO:GS $D7DF.4 - MATH:UFLOWOUT If set, the low-half of the output of Math Function Unit F is written to math register UNIT15OUT.
-              -- @IO:GS $D7DF.5 - MATH:UFHIOUT If set, the high-half of the output of Math Function Unit F is written to math register UNIT15OUT.
-              -- @IO:GS $D7DF.6 - MATH:UFADD If set, Math Function Unit F acts as a 32-bit adder instead of 32-bit divider.
-              -- @IO:GS $D7DF.7 - MATH:UFLATCH If set, Math Function Unit F's output is latched.
+              -- @IO:GS $D7DF.0-3 MATH:UNITFOUT @UNITXOUT
+              -- @IO:GS $D7DF.4   MATH:UF!LOWOUT @UXLOWOUT
+              -- @IO:GS $D7DF.5   MATH:UF!HIOUT @UXHIOUT
+              -- @IO:GS $D7DF.6   MATH:UF!DVADD@UXDVADD
+              -- @IO:GS $D7DF.7   MATH:UF!LATCH @UXLATCH
               
               x"D0"|x"D1"|x"D2"|x"D3"|x"D4"|x"D5"|x"D6"|x"D7"|
               x"D8"|x"D9"|x"DA"|x"DB"|x"DC"|x"DD"|x"DE"|x"DF" =>
@@ -2787,8 +2787,8 @@ begin
             when "110010" => return hyper_protected_hardware;
                              
             when "111100" => -- $D640+$3C
-              -- @IO:GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
-              -- @IO:GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
+              -- @IO:GS $D67C.6   (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
+              -- @IO:GS $D67C.7   (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
               -- so we have an immediate busy flag that we manage separately.
               return "000000"
                 & immediate_monitor_char_busy
@@ -2968,7 +2968,7 @@ begin
         cache_flush_counter <= (others => '0');
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD30A0") or (long_address = x"FFD10A0") then
-        -- @ IO:C65 $D0A0 - C65 RAM Expansion controller
+        -- @ IO:C65 $D0A0   C65 RAM Expansion controller
         -- The specifications of this interface is VERY under-documented.
         -- There are two versions: 512KB and 1MB - 8MB
 
@@ -3048,9 +3048,9 @@ begin
         -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
-        -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
-        -- @IO:GS $D710.1 - CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
-        -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
+        -- @IO:GS $D710.0   CPU:BADLEN Enable badline emulation
+        -- @IO:GS $D710.1   CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
+        -- @IO:GS $D710.2   MISC:VDCSEN Enable VDC inteface simulation
         badline_enable <= value(0);
         slow_interrupts <= value(1);
         vdc_enabled <= value(2);
