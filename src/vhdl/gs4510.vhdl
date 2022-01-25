@@ -2200,10 +2200,10 @@ begin
             when x"10" => return "00" & badline_extra_cycles  & charge_for_branches_taken & vdc_enabled & slow_interrupts & badline_enable;
             -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
-            -- @IO:GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
+            -- @IO:GS $D711.5 DMA:AUD!WRBLK Audio DMA block writes (samples still get read) 
             -- @IO:GS $D711.4 DMA:NOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
-            -- @IO:GS $D711.0-2 DMA:AUDBLKTO Audio DMA block timeout (read only) DEBUG
+            -- @IO:GS $D711.0-2 DMA:AUD!BLKTO Audio DMA block timeout (read only) DEBUG
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
@@ -2219,95 +2219,94 @@ begin
             when x"1e" => return audio_dma_pan_volume(2)(7 downto 0);
             when x"1f" => return audio_dma_pan_volume(3)(7 downto 0);
 
-            -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
-            -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
-            -- @IO:GS $D720.5 DMA:CH0SGN Enable Audio DMA channel 0 signed samples
-            -- @IO:GS $D720.4 DMA:CH0SINE Audio DMA channel 0 play 32-sample sine wave instead of DMA data
-            -- @IO:GS $D720.3 DMA:CH0STP Audio DMA channel 0 stop flag
-            -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-            -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
-            -- @IO:GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
-            -- @IO:GS $D723 DMA:CH0BADDR Audio DMA channel 0 base address MSB
-            -- @IO:GS $D724 DMA:CH0FREQ Audio DMA channel 0 frequency LSB
-            -- @IO:GS $D725 DMA:CH0FREQ Audio DMA channel 0 frequency middle byte
-            -- @IO:GS $D726 DMA:CH0FREQ Audio DMA channel 0 frequency MSB
-            -- @IO:GS $D727 DMA:CH0TADDR Audio DMA channel 0 top address LSB
-            -- @IO:GS $D728 DMA:CH0TADDR Audio DMA channel 0 top address middle byte
-            -- @IO:GS $D729 DMA:CH0VOLUME Audio DMA channel 0 playback volume
-            -- @IO:GS $D72A DMA:CH0CURADDR Audio DMA channel 0 current address LSB
-            -- @IO:GS $D72B DMA:CH0CURADDR Audio DMA channel 0 current address middle byte
-            -- @IO:GS $D72C DMA:CH0CURADDR Audio DMA channel 0 current address MSB
-            -- @IO:GS $D72D DMA:CH0TMRADDR Audio DMA channel 0 timing counter LSB
-            -- @IO:GS $D72E DMA:CH0TMRADDR Audio DMA channel 0 timing counter middle byte
-            -- @IO:GS $D72F DMA:CH0TMRADDR Audio DMA channel 0 timing counter address MSB
+            -- @IO:GS $D720.7 DMA:CH0!EN@CHXEN Enable Audio DMA channel X
+            -- @IO:GS $D720.6 DMA:CH0!LOOP@CHXLOOP Enable Audio DMA channel X looping
+            -- @IO:GS $D720.5 DMA:CH0!SGN@CHXSGN Enable Audio DMA channel X signed samples
+            -- @IO:GS $D720.4 DMA:CH0!SINE@CHXSINE Audio DMA channel X play 32-sample sine wave instead of DMA data
+            -- @IO:GS $D720.3 DMA:CH0!STP@CHXSTP Audio DMA channel X stop flag
+            -- @IO:GS $D720.0-1 DMA:CH0!SBITS@CHXSBITS Audio DMA channel X sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D721 DMA:CH0BADDRL@CHXBADDRL Audio DMA channel X base address LSB
+            -- @IO:GS $D722 DMA:CH0BADDRC@CHXBADDRC Audio DMA channel X base address middle byte
+            -- @IO:GS $D723 DMA:CH0BADDRM@CHXBADDRM Audio DMA channel X base address MSB
+            -- @IO:GS $D724 DMA:CH0FREQL@CHXFREQL Audio DMA channel X frequency LSB
+            -- @IO:GS $D725 DMA:CH0FREQC@CHXFREQC Audio DMA channel X frequency middle byte
+            -- @IO:GS $D726 DMA:CH0FREQM@CHXFREQM Audio DMA channel X frequency MSB
+            -- @IO:GS $D727 DMA:CH0TADDRL@CHXTADDRL Audio DMA channel X top address LSB
+            -- @IO:GS $D728 DMA:CH0TADDRM@CHXTADDRM Audio DMA channel X top address MSB
+            -- @IO:GS $D729 DMA:CH0VOLUME@CHXVOLUME Audio DMA channel X playback volume
+            -- @IO:GS $D72A DMA:CH0CURADDRL@CHXCURADDRL Audio DMA channel X current address LSB
+            -- @IO:GS $D72B DMA:CH0CURADDRC@CHXCURADDRC Audio DMA channel X current address middle byte
+            -- @IO:GS $D72C DMA:CH0CURADDRM@CHXCURADDRM Audio DMA channel X current address MSB
+            -- @IO:GS $D72D DMA:CH0TMRADDRL@CHXTMRADDRL Audio DMA channel X timing counter LSB
+            -- @IO:GS $D72E DMA:CH0TMRADDRC@CHXTMRADDRC Audio DMA channel X timing counter middle byte
+            -- @IO:GS $D72F DMA:CH0TMRADDRM@CHXTMRADDRM Audio DMA channel X timing counter MSB
 
-            -- @IO:GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
-            -- @IO:GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
-            -- @IO:GS $D730.5 DMA:CH1SGN Enable Audio DMA channel 1 signed samples
-            -- @IO:GS $D730.4 DMA:CH1SINE Audio DMA channel 1 play 32-sample sine wave instead of DMA data
-            -- @IO:GS $D730.3 DMA:CH1STP Audio DMA channel 1 stop flag
-            -- @IO:GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-            -- @IO:GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
-            -- @IO:GS $D732 DMA:CH1BADDR Audio DMA channel 1 base address middle byte
-            -- @IO:GS $D733 DMA:CH1BADDR Audio DMA channel 1 base address MSB
-            -- @IO:GS $D734 DMA:CH1FREQ Audio DMA channel 1 frequency LSB
-            -- @IO:GS $D735 DMA:CH1FREQ Audio DMA channel 1 frequency middle byte
-            -- @IO:GS $D736 DMA:CH1FREQ Audio DMA channel 1 frequency MSB
-            -- @IO:GS $D737 DMA:CH1TADDR Audio DMA channel 1 top address LSB
-            -- @IO:GS $D738 DMA:CH1TADDR Audio DMA channel 1 top address middle byte
-            -- @IO:GS $D739 DMA:CH1VOLUME Audio DMA channel 1 playback volume
-            -- @IO:GS $D73A DMA:CH1CURADDR Audio DMA channel 1 current address LSB
-            -- @IO:GS $D73B DMA:CH1CURADDR Audio DMA channel 1 current address middle byte
-            -- @IO:GS $D73C DMA:CH1CURADDR Audio DMA channel 1 current address MSB
-            -- @IO:GS $D73D DMA:CH1TMRADDR Audio DMA channel 1 timing counter LSB
-            -- @IO:GS $D73E DMA:CH1TMRADDR Audio DMA channel 1 timing counter middle byte
-            -- @IO:GS $D73F DMA:CH1TMRADDR Audio DMA channel 1 timing counter address MSB
+            -- @IO:GS $D730.7 DMA:CH1!EN @CHXEN
+            -- @IO:GS $D730.6 DMA:CH1!LOOP @CHXLOOP
+            -- @IO:GS $D730.5 DMA:CH1!SGN @CHXSGN
+            -- @IO:GS $D730.4 DMA:CH1!SINE @CHXSINE
+            -- @IO:GS $D730.3 DMA:CH1!STP @CHXSTP
+            -- @IO:GS $D730.0-1 DMA:CH1!SBITS @CHXSBITS
+            -- @IO:GS $D731 DMA:CH1BADDRL @CHXBADDRL
+            -- @IO:GS $D732 DMA:CH1BADDRC @CHXBADDRC
+            -- @IO:GS $D733 DMA:CH1BADDRM @CHXBADDRM
+            -- @IO:GS $D734 DMA:CH1FREQL @CHXFREQL
+            -- @IO:GS $D735 DMA:CH1FREQC @CHXFREQC
+            -- @IO:GS $D736 DMA:CH1FREQM @CHXFREQM
+            -- @IO:GS $D737 DMA:CH1TADDRL @CHXTADDRL
+            -- @IO:GS $D738 DMA:CH1TADDRM @CHXTADDRM
+            -- @IO:GS $D739 DMA:CH1VOLUME @CHXVOLUME
+            -- @IO:GS $D73A DMA:CH1CURADDRL @CHXCURADDRL
+            -- @IO:GS $D73B DMA:CH1CURADDRC @CHXCURADDRC
+            -- @IO:GS $D73C DMA:CH1CURADDRM @CHXCURADDRM
+            -- @IO:GS $D73D DMA:CH1TMRADDRL @CHXTMRADDRL
+            -- @IO:GS $D73E DMA:CH1TMRADDRC @CHXTMRADDRC
+            -- @IO:GS $D73F DMA:CH1TMRADDRM @CHXTMRADDRM
 
-            -- @IO:GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
-            -- @IO:GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
-            -- @IO:GS $D740.5 DMA:CH2SGN Enable Audio DMA channel 2 signed samples
-            -- @IO:GS $D740.4 DMA:CH2SINE Audio DMA channel 2 play 32-sample sine wave instead of DMA data
-            -- @IO:GS $D740.3 DMA:CH2STP Audio DMA channel 2 stop flag
-            -- @IO:GS $D740.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-            -- @IO:GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
-            -- @IO:GS $D742 DMA:CH2BADDR Audio DMA channel 2 base address middle byte
-            -- @IO:GS $D743 DMA:CH2BADDR Audio DMA channel 2 base address MSB
-            -- @IO:GS $D744 DMA:CH2FREQ Audio DMA channel 2 frequency LSB
-            -- @IO:GS $D745 DMA:CH2FREQ Audio DMA channel 2 frequency middle byte
-            -- @IO:GS $D746 DMA:CH2FREQ Audio DMA channel 2 frequency MSB
-            -- @IO:GS $D747 DMA:CH2TADDR Audio DMA channel 2 top address LSB
-            -- @IO:GS $D748 DMA:CH2TADDR Audio DMA channel 2 top address middle byte
-            -- @IO:GS $D749 DMA:CH2VOLUME Audio DMA channel 2 playback volume
-            -- @IO:GS $D74A DMA:CH2CURADDR Audio DMA channel 2 current address LSB
-            -- @IO:GS $D74B DMA:CH2CURADDR Audio DMA channel 2 current address middle byte
-            -- @IO:GS $D74C DMA:CH2CURADDR Audio DMA channel 2 current address MSB
-            -- @IO:GS $D74D DMA:CH2TMRADDR Audio DMA channel 2 timing counter LSB
-            -- @IO:GS $D74E DMA:CH2TMRADDR Audio DMA channel 2 timing counter middle byte
-            -- @IO:GS $D74F DMA:CH2TMRADDR Audio DMA channel 2 timing counter address MSB
-                          
-            -- @IO:GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
-            -- @IO:GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
-            -- @IO:GS $D750.5 DMA:CH3SGN Enable Audio DMA channel 3 signed samples
-            -- @IO:GS $D750.4 DMA:CH3SINE Audio DMA channel 3 play 32-sample sine wave instead of DMA data
-            -- @IO:GS $D750.3 DMA:CH3STP Audio DMA channel 3 stop flag
-            -- @IO:GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-            -- @IO:GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
-            -- @IO:GS $D752 DMA:CH3BADDR Audio DMA channel 3 base address middle byte
-            -- @IO:GS $D753 DMA:CH3BADDR Audio DMA channel 3 base address MSB
-            -- @IO:GS $D754 DMA:CH3FREQ Audio DMA channel 3 frequency LSB
-            -- @IO:GS $D755 DMA:CH3FREQ Audio DMA channel 3 frequency middle byte
-            -- @IO:GS $D756 DMA:CH3FREQ Audio DMA channel 3 frequency MSB
-            -- @IO:GS $D757 DMA:CH3TADDR Audio DMA channel 3 top address LSB
-            -- @IO:GS $D758 DMA:CH3TADDR Audio DMA channel 3 top address middle byte
-            -- @IO:GS $D759 DMA:CH3VOLUME Audio DMA channel 3 playback volume
-            -- @IO:GS $D75A DMA:CH3CURADDR Audio DMA channel 3 current address LSB
-            -- @IO:GS $D75B DMA:CH3CURADDR Audio DMA channel 3 current address middle byte
-            -- @IO:GS $D75C DMA:CH3CURADDR Audio DMA channel 3 current address MSB
-            -- @IO:GS $D75D DMA:CH3TMRADDR Audio DMA channel 3 timing counter LSB
-            -- @IO:GS $D75E DMA:CH3TMRADDR Audio DMA channel 3 timing counter middle byte
-            -- @IO:GS $D75F DMA:CH3TMRADDR Audio DMA channel 3 timing counter address MSB
+            -- @IO:GS $D740.7 DMA:CH2!EN @CHXEN
+            -- @IO:GS $D740.6 DMA:CH2!LOOP @CHXLOOP
+            -- @IO:GS $D740.5 DMA:CH2!SGN @CHXSGN
+            -- @IO:GS $D740.4 DMA:CH2!SINE @CHXSINE
+            -- @IO:GS $D740.3 DMA:CH2!STP @CHXSTP
+            -- @IO:GS $D740.0-1 DMA:CH2!SBITS @CHXSBITS
+            -- @IO:GS $D741 DMA:CH2BADDRL @CHXBADDRL
+            -- @IO:GS $D742 DMA:CH2BADDRC @CHXBADDRC
+            -- @IO:GS $D743 DMA:CH2BADDRM @CHXBADDRM
+            -- @IO:GS $D744 DMA:CH2FREQL @CHXFREQL
+            -- @IO:GS $D745 DMA:CH2FREQC @CHXFREQC
+            -- @IO:GS $D746 DMA:CH2FREQM @CHXFREQM
+            -- @IO:GS $D747 DMA:CH2TADDRL @CHXTADDRL
+            -- @IO:GS $D748 DMA:CH2TADDRM @CHXTADDRM
+            -- @IO:GS $D749 DMA:CH2VOLUME @CHXVOLUME
+            -- @IO:GS $D74A DMA:CH2CURADDRL @CHXCURADDRL
+            -- @IO:GS $D74B DMA:CH2CURADDRC @CHXCURADDRC
+            -- @IO:GS $D74C DMA:CH2CURADDRM @CHXCURADDRM
+            -- @IO:GS $D74D DMA:CH2TMRADDRL @CHXTMRADDRL
+            -- @IO:GS $D74E DMA:CH2TMRADDRC @CHXTMRADDRC
+            -- @IO:GS $D74F DMA:CH2TMRADDRM @CHXTMRADDRM
 
-                          
+            -- @IO:GS $D750.7 DMA:CH3!EN @CHXEN
+            -- @IO:GS $D750.6 DMA:CH3!LOOP @CHXLOOP
+            -- @IO:GS $D750.5 DMA:CH3!SGN @CHXSGN
+            -- @IO:GS $D750.4 DMA:CH3!SINE @CHXSINE
+            -- @IO:GS $D750.3 DMA:CH3!STP @CHXSTP
+            -- @IO:GS $D750.0-1 DMA:CH3!SBITS @CHXSBITS
+            -- @IO:GS $D751 DMA:CH3BADDRL @CHXBADDRL
+            -- @IO:GS $D752 DMA:CH3BADDRC @CHXBADDRC
+            -- @IO:GS $D753 DMA:CH3BADDRM @CHXBADDRM
+            -- @IO:GS $D754 DMA:CH3FREQL @CHXFREQL
+            -- @IO:GS $D755 DMA:CH3FREQC @CHXFREQC
+            -- @IO:GS $D756 DMA:CH3FREQM @CHXFREQM
+            -- @IO:GS $D757 DMA:CH3TADDRL @CHXTADDRL
+            -- @IO:GS $D758 DMA:CH3TADDRM @CHXTADDRM
+            -- @IO:GS $D759 DMA:CH3VOLUME @CHXVOLUME
+            -- @IO:GS $D75A DMA:CH3CURADDRL @CHXCURADDRL
+            -- @IO:GS $D75B DMA:CH3CURADDRC @CHXCURADDRC
+            -- @IO:GS $D75C DMA:CH3CURADDRM @CHXCURADDRM
+            -- @IO:GS $D75D DMA:CH3TMRADDRL @CHXTMRADDRL
+            -- @IO:GS $D75E DMA:CH3TMRADDRC @CHXTMRADDRC
+            -- @IO:GS $D75F DMA:CH3TMRADDRM @CHXTMRADDRM
+
             -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
                             audio_dma_sine_wave(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
@@ -8279,73 +8278,73 @@ begin
             reg_pc <= reg_pc;
           end if;
           
-          -- @IO:GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
-          -- @IO:GS $D641 CPU:HTRAP01 Writing triggers hypervisor trap \$01
-          -- @IO:GS $D642 CPU:HTRAP02 Writing triggers hypervisor trap \$02
-          -- @IO:GS $D643 CPU:HTRAP03 Writing triggers hypervisor trap \$03
-          -- @IO:GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
-          -- @IO:GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
-          -- @IO:GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
-          -- @IO:GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
-          -- @IO:GS $D648 CPU:HTRAP08 Writing triggers hypervisor trap \$08
-          -- @IO:GS $D649 CPU:HTRAP09 Writing triggers hypervisor trap \$09
-          -- @IO:GS $D64A CPU:HTRAP0A Writing triggers hypervisor trap \$0A
-          -- @IO:GS $D64B CPU:HTRAP0B Writing triggers hypervisor trap \$0B
-          -- @IO:GS $D64C CPU:HTRAP0C Writing triggers hypervisor trap \$0C
-          -- @IO:GS $D64D CPU:HTRAP0D Writing triggers hypervisor trap \$0D
-          -- @IO:GS $D64E CPU:HTRAP0E Writing triggers hypervisor trap \$0E
-          -- @IO:GS $D64F CPU:HTRAP0F Writing triggers hypervisor trap \$0F
+          -- @IO:GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
+          -- @IO:GS $D641 CPU:HTRAP01 @HTRAPXX
+          -- @IO:GS $D642 CPU:HTRAP02 @HTRAPXX
+          -- @IO:GS $D643 CPU:HTRAP03 @HTRAPXX
+          -- @IO:GS $D644 CPU:HTRAP04 @HTRAPXX
+          -- @IO:GS $D645 CPU:HTRAP05 @HTRAPXX
+          -- @IO:GS $D646 CPU:HTRAP06 @HTRAPXX
+          -- @IO:GS $D647 CPU:HTRAP07 @HTRAPXX
+          -- @IO:GS $D648 CPU:HTRAP08 @HTRAPXX
+          -- @IO:GS $D649 CPU:HTRAP09 @HTRAPXX
+          -- @IO:GS $D64A CPU:HTRAP0A @HTRAPXX
+          -- @IO:GS $D64B CPU:HTRAP0B @HTRAPXX
+          -- @IO:GS $D64C CPU:HTRAP0C @HTRAPXX
+          -- @IO:GS $D64D CPU:HTRAP0D @HTRAPXX
+          -- @IO:GS $D64E CPU:HTRAP0E @HTRAPXX
+          -- @IO:GS $D64F CPU:HTRAP0F @HTRAPXX
 
-          -- @IO:GS $D650 CPU:HTRAP10 Writing triggers hypervisor trap \$10
-          -- @IO:GS $D651 CPU:HTRAP11 Writing triggers hypervisor trap \$11
-          -- @IO:GS $D652 CPU:HTRAP12 Writing triggers hypervisor trap \$12
-          -- @IO:GS $D653 CPU:HTRAP13 Writing triggers hypervisor trap \$13
-          -- @IO:GS $D654 CPU:HTRAP14 Writing triggers hypervisor trap \$14
-          -- @IO:GS $D655 CPU:HTRAP15 Writing triggers hypervisor trap \$15
-          -- @IO:GS $D656 CPU:HTRAP16 Writing triggers hypervisor trap \$16
-          -- @IO:GS $D657 CPU:HTRAP17 Writing triggers hypervisor trap \$17
-          -- @IO:GS $D658 CPU:HTRAP18 Writing triggers hypervisor trap \$18
-          -- @IO:GS $D659 CPU:HTRAP19 Writing triggers hypervisor trap \$19
-          -- @IO:GS $D65A CPU:HTRAP1A Writing triggers hypervisor trap \$1A
-          -- @IO:GS $D65B CPU:HTRAP1B Writing triggers hypervisor trap \$1B
-          -- @IO:GS $D65C CPU:HTRAP1C Writing triggers hypervisor trap \$1C
-          -- @IO:GS $D65D CPU:HTRAP1D Writing triggers hypervisor trap \$1D
-          -- @IO:GS $D65E CPU:HTRAP1E Writing triggers hypervisor trap \$1E
-          -- @IO:GS $D65F CPU:HTRAP1F Writing triggers hypervisor trap \$1F
+          -- @IO:GS $D650 CPU:HTRAP10 @HTRAPXX
+          -- @IO:GS $D651 CPU:HTRAP11 @HTRAPXX
+          -- @IO:GS $D652 CPU:HTRAP12 @HTRAPXX
+          -- @IO:GS $D653 CPU:HTRAP13 @HTRAPXX
+          -- @IO:GS $D654 CPU:HTRAP14 @HTRAPXX
+          -- @IO:GS $D655 CPU:HTRAP15 @HTRAPXX
+          -- @IO:GS $D656 CPU:HTRAP16 @HTRAPXX
+          -- @IO:GS $D657 CPU:HTRAP17 @HTRAPXX
+          -- @IO:GS $D658 CPU:HTRAP18 @HTRAPXX
+          -- @IO:GS $D659 CPU:HTRAP19 @HTRAPXX
+          -- @IO:GS $D65A CPU:HTRAP1A @HTRAPXX
+          -- @IO:GS $D65B CPU:HTRAP1B @HTRAPXX
+          -- @IO:GS $D65C CPU:HTRAP1C @HTRAPXX
+          -- @IO:GS $D65D CPU:HTRAP1D @HTRAPXX
+          -- @IO:GS $D65E CPU:HTRAP1E @HTRAPXX
+          -- @IO:GS $D65F CPU:HTRAP1F @HTRAPXX
 
-          -- @IO:GS $D660 CPU:HTRAP20 Writing triggers hypervisor trap \$20
-          -- @IO:GS $D661 CPU:HTRAP21 Writing triggers hypervisor trap \$21
-          -- @IO:GS $D662 CPU:HTRAP22 Writing triggers hypervisor trap \$22
-          -- @IO:GS $D663 CPU:HTRAP23 Writing triggers hypervisor trap \$23
-          -- @IO:GS $D664 CPU:HTRAP24 Writing triggers hypervisor trap \$24
-          -- @IO:GS $D665 CPU:HTRAP25 Writing triggers hypervisor trap \$25
-          -- @IO:GS $D666 CPU:HTRAP26 Writing triggers hypervisor trap \$26
-          -- @IO:GS $D667 CPU:HTRAP27 Writing triggers hypervisor trap \$27
-          -- @IO:GS $D668 CPU:HTRAP28 Writing triggers hypervisor trap \$28
-          -- @IO:GS $D669 CPU:HTRAP29 Writing triggers hypervisor trap \$29
-          -- @IO:GS $D66A CPU:HTRAP2A Writing triggers hypervisor trap \$2A
-          -- @IO:GS $D66B CPU:HTRAP2B Writing triggers hypervisor trap \$2B
-          -- @IO:GS $D66C CPU:HTRAP2C Writing triggers hypervisor trap \$2C
-          -- @IO:GS $D66D CPU:HTRAP2D Writing triggers hypervisor trap \$2D
-          -- @IO:GS $D66E CPU:HTRAP2E Writing triggers hypervisor trap \$2E
-          -- @IO:GS $D66F CPU:HTRAP2F Writing triggers hypervisor trap \$2F
+          -- @IO:GS $D660 CPU:HTRAP20 @HTRAPXX
+          -- @IO:GS $D661 CPU:HTRAP21 @HTRAPXX
+          -- @IO:GS $D662 CPU:HTRAP22 @HTRAPXX
+          -- @IO:GS $D663 CPU:HTRAP23 @HTRAPXX
+          -- @IO:GS $D664 CPU:HTRAP24 @HTRAPXX
+          -- @IO:GS $D665 CPU:HTRAP25 @HTRAPXX
+          -- @IO:GS $D666 CPU:HTRAP26 @HTRAPXX
+          -- @IO:GS $D667 CPU:HTRAP27 @HTRAPXX
+          -- @IO:GS $D668 CPU:HTRAP28 @HTRAPXX
+          -- @IO:GS $D669 CPU:HTRAP29 @HTRAPXX
+          -- @IO:GS $D66A CPU:HTRAP2A @HTRAPXX
+          -- @IO:GS $D66B CPU:HTRAP2B @HTRAPXX
+          -- @IO:GS $D66C CPU:HTRAP2C @HTRAPXX
+          -- @IO:GS $D66D CPU:HTRAP2D @HTRAPXX
+          -- @IO:GS $D66E CPU:HTRAP2E @HTRAPXX
+          -- @IO:GS $D66F CPU:HTRAP2F @HTRAPXX
 
-          -- @IO:GS $D670 CPU:HTRAP30 Writing triggers hypervisor trap \$30
-          -- @IO:GS $D671 CPU:HTRAP31 Writing triggers hypervisor trap \$31
-          -- @IO:GS $D672 CPU:HTRAP32 Writing triggers hypervisor trap \$32
-          -- @IO:GS $D673 CPU:HTRAP33 Writing triggers hypervisor trap \$33
-          -- @IO:GS $D674 CPU:HTRAP34 Writing triggers hypervisor trap \$34
-          -- @IO:GS $D675 CPU:HTRAP35 Writing triggers hypervisor trap \$35
-          -- @IO:GS $D676 CPU:HTRAP36 Writing triggers hypervisor trap \$36
-          -- @IO:GS $D677 CPU:HTRAP37 Writing triggers hypervisor trap \$37
-          -- @IO:GS $D678 CPU:HTRAP38 Writing triggers hypervisor trap \$38
-          -- @IO:GS $D679 CPU:HTRAP39 Writing triggers hypervisor trap \$39
-          -- @IO:GS $D67A CPU:HTRAP3A Writing triggers hypervisor trap \$3A
-          -- @IO:GS $D67B CPU:HTRAP3B Writing triggers hypervisor trap \$3B
-          -- @IO:GS $D67C CPU:HTRAP3C Writing triggers hypervisor trap \$3C
-          -- @IO:GS $D67D CPU:HTRAP3D Writing triggers hypervisor trap \$3D
-          -- @IO:GS $D67E CPU:HTRAP3E Writing triggers hypervisor trap \$3E
-          -- @IO:GS $D67F CPU:HTRAP3F Writing triggers hypervisor trap \$3F
+          -- @IO:GS $D670 CPU:HTRAP30 @HTRAPXX
+          -- @IO:GS $D671 CPU:HTRAP31 @HTRAPXX
+          -- @IO:GS $D672 CPU:HTRAP32 @HTRAPXX
+          -- @IO:GS $D673 CPU:HTRAP33 @HTRAPXX
+          -- @IO:GS $D674 CPU:HTRAP34 @HTRAPXX
+          -- @IO:GS $D675 CPU:HTRAP35 @HTRAPXX
+          -- @IO:GS $D676 CPU:HTRAP36 @HTRAPXX
+          -- @IO:GS $D677 CPU:HTRAP37 @HTRAPXX
+          -- @IO:GS $D678 CPU:HTRAP38 @HTRAPXX
+          -- @IO:GS $D679 CPU:HTRAP39 @HTRAPXX
+          -- @IO:GS $D67A CPU:HTRAP3A @HTRAPXX
+          -- @IO:GS $D67B CPU:HTRAP3B @HTRAPXX
+          -- @IO:GS $D67C CPU:HTRAP3C @HTRAPXX
+          -- @IO:GS $D67D CPU:HTRAP3D @HTRAPXX
+          -- @IO:GS $D67E CPU:HTRAP3E @HTRAPXX
+          -- @IO:GS $D67F CPU:HTRAP3F @HTRAPXX
           
           -- @IO:GS $D67F HCPU:ENTEREXIT Writing trigger return from hypervisor
           if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
