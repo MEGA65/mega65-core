@@ -1249,12 +1249,12 @@ begin  -- behavioural
           when x"8" =>
             -- @IO:GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
             fastio_rdata <= miim_read_value(15 downto 8);
-          -- @IO:GS $D6E9 ETH:MACADDR1 Ethernet MAC address
-          -- @IO:GS $D6EA ETH:MACADDR2 Ethernet MAC address
-          -- @IO:GS $D6EB ETH:MACADDR3 Ethernet MAC address
-          -- @IO:GS $D6EC ETH:MACADDR4 Ethernet MAC address
-          -- @IO:GS $D6ED ETH:MACADDR5 Ethernet MAC address
-          -- @IO:GS $D6EE ETH:MACADDR6 Ethernet MAC address
+          -- @IO:GS $D6E9 ETH:MACADDR1@MACADDRX Ethernet MAC address
+          -- @IO:GS $D6EA ETH:MACADDR2 @MACADDRX
+          -- @IO:GS $D6EB ETH:MACADDR3 @MACADDRX
+          -- @IO:GS $D6EC ETH:MACADDR4 @MACADDRX
+          -- @IO:GS $D6ED ETH:MACADDR5 @MACADDRX
+          -- @IO:GS $D6EE ETH:MACADDR6 @MACADDRX
           when x"9" => fastio_rdata <= eth_mac(47 downto 40);
           when x"A" => fastio_rdata <= eth_mac(39 downto 32);
           when x"B" => fastio_rdata <= eth_mac(31 downto 24);
