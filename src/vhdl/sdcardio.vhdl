@@ -3342,11 +3342,11 @@ begin  -- behavioural
               volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
               volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
             when x"ae" =>
-              -- @IO:GS $D6AE.0-3 SD:FDCENC Select floppy encoding (0=MFM, 1=RLL2,7, F=Raw encoding)
-              -- @IO:GS $D6AE.4 SD:AUTO2XSEL Automatically select DD or HD decoder for last sector display
-              -- @IO:GS $D6AE.5 SD:FDCVARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
-              -- @IO:GS $D6AE.6 SD:FDC2XSEL Select HD decoder for last sector display
-              -- @IO:GS $D6AE.7 SD:FDCTIBEN Enable use of Track Info Block settings
+              -- @IO:GS $D6AE.0-3 SD:FDC!ENC Select floppy encoding (0=MFM, 1=RLL2,7, F=Raw encoding)
+              -- @IO:GS $D6AE.4 SD:AUTO!2XSEL Automatically select DD or HD decoder for last sector display
+              -- @IO:GS $D6AE.5 SD:FDC!VARSPD Enable automatic variable speed selection for floppy controller using Track Information Blocks on MEGA65 HD floppies
+              -- @IO:GS $D6AE.6 SD:FDC!2XSEL Select HD decoder for last sector display
+              -- @IO:GS $D6AE.7 SD:FDC!TIBEN Enable use of Track Info Block settings
               fdc_encoding_mode <= fastio_wdata(3 downto 0);
               auto_fdc_2x_select <= fastio_wdata(4);
               fdc_variable_data_rate <= fastio_wdata(5);
@@ -3354,9 +3354,9 @@ begin  -- behavioural
               use_tib_info <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-              -- @IO:GS $D6AF.0 SD:VRFOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.1 SD:VWFOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.2 SD:VEQINH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.0 SD:VR!FOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.1 SD:VW!FOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.2 SD:VEQ!INH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
               -- @IO:GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (indented for virtual F011 mode only)
               -- @IO:GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (indented for virtual F011 mode only)
               -- @IO:GS $D6AF.5 SD:VLOST Manually set f011_lost signal (indented for virtual F011 mode only)
