@@ -386,7 +386,7 @@ begin
             if env_counter = "11111111" then
               next_state			<= decay;
             else
-              if gate = '0' then
+              if gate = '0' and gate_edge='0' then
                 next_state		<= release;
               else
                 next_state		<= attack_lp;
@@ -410,7 +410,7 @@ begin
             if (env_counter(7 downto 4) = Sus_Rel(7 downto 4)) then
               next_state 			<= sustain;
             else
-              if gate = '0' then
+              if gate = '0' and gate_edge='0' then
                 next_state		<= release;
               else
                 next_state		<= decay_lp;
@@ -435,7 +435,7 @@ begin
           when sustain =>
             divider_value 		<= 0;
             Dec_rel_sel				<='1';			-- select release as input for decay/release table
-            if gate = '0' then	
+            if gate = '0' and gate_edge='0' then	
               next_state 			<= release;
             else
               if (env_counter(7 downto 4) = Sus_Rel(7 downto 4)) then
@@ -462,7 +462,7 @@ begin
             if env_counter = "00000000" then
               next_state 			<= idle;
             else
-              if gate = '1' then
+              if gate = '1' or gate_edge='1' then
                 next_state 		<= idle;
               else
                 next_state		<= release_lp;
