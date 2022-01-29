@@ -162,7 +162,7 @@ begin
       end if;
       
       last_clk_1mhz <= clk_1mhz;
-      if clk_1Mhz /= last_clk_1mhz then
+      if clk_1Mhz='1' and last_clk_1mhz='0' then
         
         PA_MSB_in_prev <= PA_MSB_in;
         -- the reset and test signal can stop the oscillator,
