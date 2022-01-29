@@ -2,6 +2,7 @@
 // altera message_off 10030
 module sid_voice_8580
 (
+	input         cpuclock,
 	input         clock,
 	input         ce_1m,
 	input         reset,

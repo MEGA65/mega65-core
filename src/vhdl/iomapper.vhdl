@@ -13,7 +13,6 @@ entity iomapper is
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
         clock50mhz : in std_logic;
-        clock2mhz : in std_logic;
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -1022,9 +1021,7 @@ begin
   block6: block
   begin
     leftsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
@@ -1044,9 +1041,7 @@ begin
   block7: block
   begin
   rightsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
@@ -1066,9 +1061,7 @@ begin
  block6b: block
   begin
     frontsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
@@ -1088,9 +1081,7 @@ begin
   block7b: block
   begin
   backsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
