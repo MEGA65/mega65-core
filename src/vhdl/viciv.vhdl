@@ -2910,7 +2910,7 @@ begin
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
         elsif register_number=123 then
-          -- @IO:GS $D07B VIC-IV:Number of text rows to display
+          -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C.0-2 VIC-IV:BIT!PBANK Set which 128KB bank bitplanes
