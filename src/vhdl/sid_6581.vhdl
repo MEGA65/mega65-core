@@ -89,7 +89,7 @@ entity sid6581 is
     cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
     we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
     
-    mode : in std_logic; -- 0=6581, 1=8580
+    mode : in std_logic; -- 1=6581, 0=8580
     
     addr				: in  unsigned(4 downto 0);	-- address lines
     di					: in  unsigned(7 downto 0);	-- data in (to chip)
@@ -436,12 +436,12 @@ begin
   input_valid <= '1' when tick_q1 /=tick_q2 else '0';
   
   
-  voice1_signed <= signed("0" & voice_1) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
-  voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_2_8580) - 2048;
-  voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_3_8580) - 2048;
+  voice1_signed <= signed("0" & voice_1) - 2048 when mode='1' else signed("0" & voice_1_8580) - 2048;
+  voice2_signed <= signed("0" & voice_2) - 2048 when mode='1' else signed("0" & voice_2_8580) - 2048;
+  voice3_signed <= signed("0" & voice_3) - 2048 when mode='1' else signed("0" & voice_3_8580) - 2048;
   
-  misc_osc3_random <= misc_osc3_random_6581 when mode='0' else misc_osc3_random_8580;
-  misc_env3 <= misc_env3_6581 when mode='0' else misc_env3_8580;
+  misc_osc3_random <= misc_osc3_random_6581 when mode='1' else misc_osc3_random_8580;
+  misc_env3 <= misc_env3_6581 when mode='1' else misc_env3_8580;
   
   filters: entity work.sid_filters 
     port map (

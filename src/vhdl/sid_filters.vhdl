@@ -198,7 +198,7 @@ begin
 				w.dVlp := mulr(35) & mulr(35 downto 19);
 				w.Vbp := r.Vbp - r.dVbp;
 				-- Get Q, synchronous.
-				if mode = '1' then
+				if mode = '0' then
 				   w.q := to_signed(divmul_8580(to_integer(unsigned(res))), 18);
 				else
 				   w.q := to_signed(divmul_6581(to_integer(unsigned(res))), 18);
