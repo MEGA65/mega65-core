@@ -3278,6 +3278,7 @@ begin  -- behavioural
             when x"8a" =>
               -- @ IO:GS $D68A.6 F011:D64DISK0 Disk image 0 is a D64 image if this bit is set.
               -- @ IO:GS $D68A.7 F011:D64DISK2 Disk image 2 is a D64 image if this bit is set.
+              if hypervisor_mode='1' then
                 f011_d64_disk <= fastio_wdata(6);
                 f011_d64_disk2 <= fastio_wdata(7);
               end if;
