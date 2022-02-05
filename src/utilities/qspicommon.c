@@ -28,7 +28,6 @@ unsigned int num_4k_sectors=0;
 
 unsigned char first,last;
 
-unsigned int base_addr;
 unsigned char part[256];
 
 
