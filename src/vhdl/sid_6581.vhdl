@@ -372,6 +372,10 @@ begin
       -- Read from SID-register
       -------------------------
       case addr is
+        -- @IO:GS $D419 SID:PADDLE1 Analog/Digital Converter: Game Paddle 1 (0-255)
+        -- @IO:GS $D41A SID:PADDLE2 Analog/Digital Converter Game Paddle 2 (0-255)
+        -- @IO:GS $D41B SID:OSC3RNG Oscillator 3 Random Number Generator
+        -- @IO:GS $D41C SID:ENV3OUT Envelope Generator 3 Output
         -------------------------------------- Misc
         when "11001" => do <= pot_x;
         when "11010" => do <= pot_Y;
@@ -540,7 +544,71 @@ begin
           if (we='1') then	-- Write to SID-register
                                             ------------------------
             case addr is
-                                        -------------------------------------- Voice-1	
+                -- @IO:GS $D400 SID:VOICE1!FRQLO@VOICEX!FRQLO Voice X Frequency Low
+                -- @IO:GS $D401 SID:VOICE1!FRQHI@VOICEX!FRQHI Voice X Frequency High
+                -- @IO:GS $D402 SID:VOICE1!PWLO@VOICEX!PWLO Voice X Pulse Waveform Width Low
+                -- @IO:GS $D403.0-3 SID:VOICE1!PWHI@VOICEX!PWHI Voice X Pulse Waveform Width High
+                -- @IO:GS $D403.4-7 SID:VOICE1!UNSD@VOICEX!UNSD Unused
+                -- @IO:GS $D404.7 SID:VOICE1!CTRLRNW@VOICEX!CTRLRNW Voice X Control Random Noise Waveform
+                -- @IO:GS $D404.6 SID:VOICE1!CTRLPUL@VOICEX!CTRLPUL Voice X Pulse Waveform
+                -- @IO:GS $D404.5 SID:VOICE1!CTRLSAW@VOICEX!CTRLSAW Voice X Sawtooth Waveform
+                -- @IO:GS $D404.4 SID:VOICE1!CTRLTRI@VOICEX!CTRLTRI Voice X Triangle Waveform
+                -- @IO:GS $D404.3 SID:VOICE1!CTRLTST@VOICEX!CTRLTST Voice X Test Bit - Disable Oscillator
+                -- @IO:GS $D404.2 SID:VOICE1!CTRLRMO Voice 1 Ring Modulate Osc. 1 with Osc. 3 Output
+                -- @IO:GS $D404.1 SID:VOICE1!CTRLRMF Voice 1 Synchronize Osc. 1 with Osc. 3 Frequency
+                -- @IO:GS $D404.0 SID:VOICE1!CTRLGATE@VOICEX!CTRLGATE Voice X Gate Bit (1 = Start, 0 = Release)
+                -- @IO:GS $D405.7-4 SID:ENV1!ATTDUR@ENVX!ATTDUR Envelope Generator X Attack Cycle Duration
+                -- @IO:GS $D405.3-0 SID:ENV1!DECDUR@ENVX!DECDUR Envelope Generator X Decay Cycle Duration
+                -- @IO:GS $D406.7-4 SID:ENV1!SUSDUR@ENVX!SUSDUR Envelope Generator X Sustain Cycle Duration
+                -- @IO:GS $D406.3-0 SID:ENV1!RELDUR@ENVX!RELDUR Envelope Generator X Release Cycle Duration
+                -- @IO:GS $D407 SID:VOICE2!FRQLO @VOICEX!FRQLO
+                -- @IO:GS $D408 SID:VOICE2!FRQHI @VOICEX!FRQHI
+                -- @IO:GS $D409 SID:VOICE2!PWLO @VOICEX!PWLO
+                -- @IO:GS $D40A.0-3 SID:VOICE2!PWHI @VOICEX!PWHI
+                -- @IO:GS $D40A.4-7 SID:VOICE2!UNSD @VOICEX!UNSD
+                -- @IO:GS $D40B.7 SID:VOICE2!CTRLRNW @VOICEX!CTRLRNW
+                -- @IO:GS $D40B.6 SID:VOICE2!CTRLPUL @VOICEX!CTRLPUL
+                -- @IO:GS $D40B.5 SID:VOICE2!CTRLSAW @VOICEX!CTRLSAW
+                -- @IO:GS $D40B.4 SID:VOICE2!CTRLTRI @VOICEX!CTRLTRI
+                -- @IO:GS $D40B.3 SID:VOICE2!CTRLTST @VOICEX!CTRLTST
+                -- @IO:GS $D40B.2 SID:VOICE2!CTRLRMO Voice 2 Ring Modulate Osc. 2 with Osc. 1 Output
+                -- @IO:GS $D40B.1 SID:VOICE2!CTRLRMF Voice 2 Synchronize Osc. 2 with Osc. 1 Frequency
+                -- @IO:GS $D40B.0 SID:VOICE2!CTRLGATE @VOICEX!CTRLGATE
+                -- @IO:GS $D40C.7-4 SID:ENV2!ATTDUR @ENVX!ATTDUR
+                -- @IO:GS $D40C.3-0 SID:ENV2!DECDUR @ENVX!DECDUR
+                -- @IO:GS $D40D.7-4 SID:ENV2!SUSDUR @ENVX!SUSDUR
+                -- @IO:GS $D40D.3-0 SID:ENV2!RELDUR @ENVX!RELDUR
+                -- @IO:GS $D40E SID:VOICE3!FRQLO @VOICEX!FRQLO
+                -- @IO:GS $D40F SID:VOICE3!FRQHI @VOICEX!FRQHI
+                -- @IO:GS $D410 SID:VOICE3!PWLO @VOICEX!PWLO
+                -- @IO:GS $D411.0-3 SID:VOICE3!PWHI @VOICEX!PWHI
+                -- @IO:GS $D411.4-7 SID:VOICE3!UNSD @VOICEX!UNSD
+                -- @IO:GS $D412.7 SID:VOICE3!CTRLRNW @VOICEX!CTRLRNW
+                -- @IO:GS $D412.6 SID:VOICE3!CTRLPUL @VOICEX!CTRLPUL
+                -- @IO:GS $D412.5 SID:VOICE3!CTRLSAW @VOICEX!CTRLSAW
+                -- @IO:GS $D412.4 SID:VOICE3!CTRLTRI @VOICEX!CTRLTRI
+                -- @IO:GS $D412.3 SID:VOICE3!CTRLTST @VOICEX!CTRLTST
+                -- @IO:GS $D412.2 SID:VOICE3!CTRLRMO Voice 3 Ring Modulate Osc. 3 with Osc. 2 Output
+                -- @IO:GS $D412.1 SID:VOICE3!CTRLRMF Voice 3 Synchronize Osc. 3 with Osc. 2 Frequency
+                -- @IO:GS $D412.0 SID:VOICE3!CTRLGATE @VOICEX!CTRLGATE
+                -- @IO:GS $D413.7-4 SID:ENV3!ATTDUR @ENVX!ATTDUR
+                -- @IO:GS $D413.3-0 SID:ENV3!DECDUR @ENVX!DECDUR
+                -- @IO:GS $D414.7-4 SID:ENV3!SUSDUR @ENVX!SUSDUR
+                -- @IO:GS $D414.3-0 SID:ENV3!RELDUR @ENVX!RELDUR
+                -- @IO:GS $D415 SID:FLTR!CUTFRQLO@FLTR!CUTFRQLO Filter Cutoff Frequency Low
+                -- @IO:GS $D416 SID:FLTR!CUTFRQHI@FLTR!CUTFRQHI Filter Cutoff Frequency High
+                -- @IO:GS $D417.7-4 SID:FLTR!RESON@FLTR!RESON Filter Resonance
+                -- @IO:GS $D417.3 SID:FLTR!EXTINP@FLTR!EXTINP Filter External Input
+                -- @IO:GS $D417.2 SID:FLTR!V1OUT@FLTR!VXOUT Filter Voice X Output
+                -- @IO:GS $D417.1 SID:FLTR!V2OUT @FLTR!VXOUT
+                -- @IO:GS $D417.0 SID:FLTR!V3OUT @FLTR!VXOUT
+                -- @IO:GS $D418.7 SID:FLTR!CUTV3 Filter Cut-Off Voice 3 Output (1 = off)
+                -- @IO:GS $D418.6 SID:FLTR!HIPASS Filter High-Pass Mode
+                -- @IO:GS $D418.5 SID:FLTR!BDPASS Filter Band-Pass Mode
+                -- @IO:GS $D418.4 SID:FLTR!LOPASS Filter Low-Pass Mode
+                -- @IO:GS $D418.0-3 SID:FLTR!VOL Filter Output Volume
+
+                                    -------------------------------------- Voice-1
               when "00000" =>	Voice_1_Freq_lo	<= di;
               when "00001" =>	Voice_1_Freq_hi	<= di;
               when "00010" =>	Voice_1_Pw_lo		<= di;
