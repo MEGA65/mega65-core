@@ -440,6 +440,8 @@ architecture behavioural of sdcardio is
   signal f011_write_protected : std_logic := '0';
   signal f011_disk1_write_protected : std_logic := '0';
   signal f011_disk2_write_protected : std_logic := '0';
+  signal f011_d64_disk : std_logic := '0';
+  signal f011_d64_disk2 : std_logic := '0';
   signal f011_mega_disk : std_logic := '0';
   signal f011_mega_disk2 : std_logic := '0';
 
@@ -1275,6 +1277,9 @@ begin  -- behavioural
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
             fastio_rdata(3) <= virtualise_f011_drive1;
+
+            fastio_rdata(6) <= f011_d64_disk;
+            fastio_rdata(7) <= f011_d64_disk2;
             
           when x"8b" =>
             -- BG the description seems in conflict with the assignment in the write section (below)
@@ -2107,7 +2112,7 @@ begin  -- behavioural
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
-      if f011_mega_disk='0' then
+      if f011_mega_disk='0' and f011_d64_disk='0' then
         diskimage1_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
@@ -2119,7 +2124,44 @@ begin  -- behavioural
           -- point to last sector if disk instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
-      else
+      elsif f011_mega_disk='0' and f011_d64_disk='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;
+        
+      elsif f011_mega_disk='1' and f011_d64_disk='1' then
+        -- XXX 1571 disk image
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;
+      else -- mega and not d64
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
         diskimage1_offset <=
           to_unsigned(
@@ -2132,7 +2174,7 @@ begin  -- behavioural
         end if;
       end if;   
 
-      if f011_mega_disk2='0' then
+      if f011_mega_disk2='0' and f011_d64_disk2='0' then
         diskimage2_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")
@@ -2143,7 +2185,44 @@ begin  -- behavioural
           -- point to last sector if disk instead
           diskimage2_offset <= to_unsigned(0,17);
         end if;
-      else
+      elsif f011_mega_disk2='0' and f011_d64_disk2='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
+        
+      elsif f011_mega_disk2='1' and f011_d64_disk2='1' then
+        -- XXX 1571 disk image
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
+      else -- mega and not d64
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
         diskimage2_offset <=
           to_unsigned(
@@ -3196,6 +3275,12 @@ begin  -- behavioural
               -- the section below is for OTHER I/O
               -- ==================================================================
 
+            when x"8a" =>
+              -- @ IO:GS $D68A.6 F011:D64DISK0 Disk image 0 is a D64 image if this bit is set.
+              -- @ IO:GS $D68A.7 F011:D64DISK2 Disk image 2 is a D64 image if this bit is set.
+                f011_d64_disk <= fastio_wdata(6);
+                f011_d64_disk2 <= fastio_wdata(7);
+              end if;
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               if hypervisor_mode='1' then
