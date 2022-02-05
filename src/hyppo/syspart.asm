@@ -405,6 +405,14 @@ syspart_configsector_apply:
         ;; Set audio and related options
 	lda $de0d
 	sta $d61a
+	lda #$00
+	sta $d63c
+	lda $de22
+	beq @sid6581
+	lda #$0f
+	sta $d63c
+@sid6581:
+	
 
 	;; Trigger onboarding menu or not
 	;; (activated elsewhere)

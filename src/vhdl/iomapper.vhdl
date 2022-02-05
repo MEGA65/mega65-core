@@ -13,7 +13,6 @@ entity iomapper is
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
         clock50mhz : in std_logic;
-        clock2mhz : in std_logic;
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -160,6 +159,8 @@ entity iomapper is
         pot_drain : in std_logic;
         pot_via_iec : buffer std_logic;
 
+        rightsid_audio_out : out signed(17 downto 0);
+        
         mouse_debug : in unsigned(7 downto 0);
         amiga_mouse_enable_a : out std_logic;
         amiga_mouse_enable_b : out std_logic;
@@ -1020,9 +1021,7 @@ begin
   block6: block
   begin
     leftsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
@@ -1042,9 +1041,7 @@ begin
   block7: block
   begin
   rightsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
@@ -1064,9 +1061,7 @@ begin
  block6b: block
   begin
     frontsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
@@ -1086,9 +1081,7 @@ begin
   block7b: block
   begin
   backsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
@@ -1542,6 +1535,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      -- Direct export of SID audio for supporting SID debugging
+      rightsid_audio_out <= rightsid_audio;
+      
       for i in 0 to 1 loop
         if dd00_bits_out(i)='1' or dd00_bits_ddr(i)='0' then
           dd00_bits(i) <= '1';

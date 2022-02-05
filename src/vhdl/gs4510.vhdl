@@ -90,6 +90,8 @@ entity gs4510 is
     dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
     pixel_frame_toggle : in std_logic;
+
+    sid_audio : in signed(17 downto 0);
     
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0) := x"01";
@@ -575,6 +577,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
   signal reg_dmagic_floppy_mode : std_logic := '0';
   signal reg_dmagic_floppy_ignore_ff : std_logic := '0';
+  signal reg_dmagic_sid_mode : std_logic := '0';
   
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
@@ -875,6 +878,7 @@ architecture Behavioural of gs4510 is
     DMAgicFillPauseForAudioDMA,
     DMAgicFillPauseForFloppyWait,
     DMAgicCopyFloppyWrite,
+    DMAgicFillPauseForSIDWait,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
@@ -1456,7 +1460,11 @@ architecture Behavioural of gs4510 is
   signal floppy_gap_strobe : std_logic := '0';
   signal floppy_write_release_counter : integer range 0 to 8 := 0;
   signal floppy_write_counter : unsigned(8 downto 0) := to_unsigned(0,9);
-  
+
+  signal sid_sample_toggle : std_logic := '0';
+  signal last_sid_sample_toggle : std_logic := '0';
+  signal sid_sample_counter : integer range 0 to 1023 := 0;
+
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -3451,6 +3459,7 @@ begin
 
       reg_dmagic_floppy_mode <= '0';      
       reg_dmagic_draw_spiral <= '0';
+      reg_dmagic_sid_mode <= '0';      
     end procedure;
     
     procedure alu_op_cmp (
@@ -3684,6 +3693,13 @@ begin
 
     if rising_edge(clock) then
 
+      if sid_sample_counter /= 918 then
+        sid_sample_counter <= sid_sample_counter + 1;
+      else
+        sid_sample_counter <= 0;
+        sid_sample_toggle <= not sid_sample_toggle;
+      end if;
+      
       -- DMA-based floppy reading and writing support
       f_rdata <= f_read;
       f_rdata_last <= f_rdata;
@@ -5399,6 +5415,7 @@ begin
                                   reg_dmagic_floppy_ignore_ff <= '1';
                     when x"0F" => reg_dmagic_floppy_mode <= '1';
                                   reg_dmagic_floppy_ignore_ff <= '0';
+                    when x"10" => reg_dmagic_sid_mode <= '1';                      
                     when x"53" => reg_dmagic_draw_spiral <= '1';
                                   reg_dmagic_spiral_phase <= "00";
                                   reg_dmagic_spiral_len <= 39;
@@ -5745,8 +5762,15 @@ begin
                   state <= DMAgicFillPauseForAudioDMA;
                 end if;
 
+                -- XXX Note that floppy and SID handling modes override
+                -- background DMA audio.  These are the only DMA modes that
+                -- take priority.
                 if reg_dmagic_floppy_mode='1' and (floppy_gap_strobe='0' or (reg_dmagic_floppy_ignore_ff='1' and floppy_last_gap=x"ff")) then
                   state <= DMAgicFillPauseForFloppyWait;
+                end if;
+
+                if reg_dmagic_sid_mode='1' and sid_sample_toggle=last_sid_sample_toggle then
+                  state <= DMagicFillPauseForSidWait;
                 end if;
                 
               end if;
@@ -6161,6 +6185,12 @@ begin
                 -- Get updated floppy gap value into the spot that DMAgic will
                 -- use as the fill value.
                 dmagic_src_addr(15 downto 8) <= floppy_last_gap(8 downto 1);
+              end if;
+            when DMAgicFillPauseForSIDWait =>
+              if sid_sample_toggle /= last_sid_sample_toggle then
+                last_sid_sample_toggle <= sid_sample_toggle;
+                state <= DMAgicFill;
+                dmagic_src_addr(15 downto 8) <= unsigned(sid_audio(17 downto 10));
               end if;
             when InstructionWait =>
               state <= InstructionFetch;

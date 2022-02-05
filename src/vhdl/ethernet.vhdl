@@ -387,8 +387,7 @@ begin  -- behavioural
   -- a time.  We will manually form this into bytes, and then stuff into RX buffer.
   -- Frame is completely received when RX_DV goes low, or RXER is asserted, in
   -- which case any partially received frame should be discarded.
-  -- We will use a 4KB RX buffer split into two 2KB halves, so that the most
-  -- recent frame can be read out by the CPU while another frame is being received.
+  -- We will use four 2KB RX buffers.
   -- RX buffer is written from ethernet side, so use 50MHz clock.
   -- reads are fully asynchronous, so no need for a read-side clock for the CPU
   -- side.
@@ -1662,8 +1661,15 @@ begin  -- behavioural
               eth_accept_multicast <= fastio_wdata(5);
             when x"6" =>
               miim_request <= '1';
+              miim_write <= '0';
               miim_register <= fastio_wdata(4 downto 0);
               miim_phyid(2 downto 0) <= fastio_wdata(7 downto 5);
+            when x"7" =>
+              miim_write_value(7 downto 0) <= fastio_wdata;
+            when x"8" =>
+              miim_request <= '1';
+              miim_write <= '1';
+              miim_write_value(15 downto 8) <= fastio_wdata;
             when x"9" => eth_mac(47 downto 40) <= fastio_wdata;
             when x"A" => eth_mac(39 downto 32) <= fastio_wdata;
             when x"B" => eth_mac(31 downto 24) <= fastio_wdata;
