@@ -2314,7 +2314,7 @@ begin
         elsif register_number=17 then             -- $D011
           report "D011 WRITTEN" severity note;
           -- @IO:C64 $D011 VIC-II control register
-          -- @IO:C64 $D011.7 VIC-II:RC raster compare bit 8
+          -- @IO:C64 $D011.7 VIC-II:RC8 raster compare bit 8
           vicii_raster_compare(10 downto 8) <= "00" & fastio_wdata(7);
           vicii_is_raster_source <= '1';
           -- @IO:C64 $D011.6 VIC-II:ECM extended background mode
@@ -2679,7 +2679,7 @@ begin
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
           pal_simulate <= fastio_wdata(5);
-          -- @IO:GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
+          -- @IO:GS $D054.4 VIC-IV:SPR!H640 Sprite H640 enable
           sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
@@ -2891,16 +2891,16 @@ begin
           -- @IO:GS $D076 VIC-IV:SPRENV400 Sprite V400 enables
           sprite_v400s <= fastio_wdata;
         elsif register_number=119 then  -- $D3077
-          -- @IO:GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
+          -- @IO:GS $D077 VIC-IV:SPRYMSBS Sprite V400 Y position MSBs
           sprite_v400_msbs <= fastio_wdata;
         elsif register_number=120 then  -- $D3078
           -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
           sprite_v400_super_msbs <= fastio_wdata;
         elsif register_number=121 then  -- $D3079
-          -- @IO:GS $D079 VIC-IV:RSTCOMP Raster compare value
+          -- @IO:GS $D079 VIC-IV:RASCMP Raster compare value
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
-          -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
+          -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
