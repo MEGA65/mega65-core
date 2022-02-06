@@ -130,13 +130,13 @@ architecture behavioral of matrix_to_ascii is
     45 => x"3a", -- [/:
     46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
-    48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
+    48 => x"a3", -- SPECIAL/UNPRINTABLE/NO KEY
     49 => x"2a", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"13", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"3d", -- }/=
-    54 => x"00", -- SPECIAL/UNPRINTABLE/^
+    54 => x"AF", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
     56 => x"31", -- !/1
     57 => x"5f", -- SPECIAL/UNPRINTABLE/_
