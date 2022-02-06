@@ -390,10 +390,10 @@ architecture behavioral of matrix_to_ascii is
     );
 
   signal matrix_alt : key_matrix_t := (
-    0 => x"00", -- INS/DEL
+    0 => x"7f", -- INS/DEL
     1 => x"00", -- RET/NO KEY
-    2 => x"00", -- HORZ/CRSR
-    3 => x"00", -- F8/F7
+    2 => x"df", -- HORZ/CRSR
+    3 => x"de", -- F8/F7
     4 => x"B9", -- super-script 1
     5 => x"B2", -- super-script 2
     6 => x"B3", -- super-script 3
@@ -416,16 +416,16 @@ architecture behavioral of matrix_to_ascii is
     23 => x"D7", -- Multiply symbol
     24 => x"B4", -- Acute accent
     25 => x"FF", -- Y with umlaut
-    26 => x"00", -- G/g
-    27 => x"00", -- (/8
+    26 => x"E8", -- G/g
+    27 => x"E2", -- (/8
     28 => x"FA", -- U with accute accent (was B/b)
     29 => x"FD", -- Y with accute accent (was H/h)
     30 => x"FC", -- u with umlaut
-    31 => x"00", -- V/v
-    32 => x"00", -- )/9
+    31 => x"d3", -- V/v
+    32 => x"da", -- )/9
     33 => x"ED", -- I with accute accent (Icelandic)
     34 => x"E9", -- (was J/j)
-    35 => x"00", -- {/0
+    35 => x"db", -- {/0
     36 => x"B5", -- mu symbol (was m)
     37 => x"E1", -- A with accute accent (was K/k)
     38 => x"F8", -- O with stroke through 
@@ -441,27 +441,27 @@ architecture behavioral of matrix_to_ascii is
     48 => x"A3", -- British pound?
     49 => x"B7", -- Middle dot
     50 => x"E4", -- Also a with umlaut (for convenience for German typists)
-    51 => x"00", -- CLR/HOM
-    52 => x"00", -- RIGHT/SHIFT
-    53 => x"AF", -- Macron ("overscore")
-    54 => x"00", -- SPECIAL/UNPRINTABLE/^
+    51 => x"DC", -- CLR/HOM
+    52 => x"DD", -- RIGHT/SHIFT
+    53 => x"A6", -- Broken vertical line
+    54 => x"AF", -- Macron ("overscore")
     55 => x"BF", -- upside-down question mark (was ?)
     56 => x"A1", -- upside-down ! (was 1)
-    57 => x"00", -- `/_
+    57 => x"B8", -- `/_
     58 => x"00", -- CTRL/NO KEY
-    59 => x"00", -- "/2
-    60 => x"00", -- SPACE/BAR
+    59 => x"AA", -- "/2
+    60 => x"a0", -- SPACE/BAR
     61 => x"00", -- C=/NO KEY
     62 => x"A9", -- Copyright symbol (was Q)
-    63 => x"00", -- RUN/STOP
+    63 => x"BA", -- RUN/STOP
     64 => x"00", -- NO/SCRL
-    65 => x"00", -- TAB/NO KEY
+    65 => x"C0", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
     67 => x"1f", -- HELP/NO KEY
     68 => x"BC", -- 1/4 fraction
     69 => x"BD", -- 1/2 fraction
     70 => x"BE", -- 3/4 fraction
-    71 => x"00", -- ESC/NO KEY
+    71 => x"DB", -- ESC/NO KEY
 
     others => x"00"
     );
