@@ -9,6 +9,7 @@ entity keyboard_complex is
     cpuclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : in std_logic;
+    matrix_disable_modifiers : in std_logic;
 
     viciv_frame_indicate : in std_logic;
     
@@ -292,6 +293,7 @@ begin
 
       matrix_col => matrix_combined_col,
       matrix_col_idx => matrix_combined_col_idx,
+      matrix_disable_modifiers => matrix_disable_modifiers,
 
       key_up => key_up,
       key_left => key_left,
