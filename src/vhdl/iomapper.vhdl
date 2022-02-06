@@ -586,6 +586,8 @@ architecture behavioral of iomapper is
 
   signal dd00_bits_out : std_logic_vector(1 downto 0);
   signal dd00_bits_ddr : std_logic_vector(1 downto 0);
+
+  signal matrix_disable_modifiers : std_logic;
   
 begin
 

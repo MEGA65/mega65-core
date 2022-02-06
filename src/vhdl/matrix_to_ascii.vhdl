@@ -10,8 +10,9 @@ entity matrix_to_ascii is
            clock_frequency : integer);
   port (Clk : in std_logic;
         reset_in : in std_logic;
-        
-        matrix_disable_modifiers => matrix_disable_modifiers,
+
+        matrix_mode_in : in std_logic;
+        matrix_disable_modifiers : in std_logic;
         
         matrix_col : in std_logic_vector(7 downto 0);
         matrix_col_idx : in integer range 0 to 15;
