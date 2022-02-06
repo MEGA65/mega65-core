@@ -84,6 +84,7 @@ entity c65uart is
     portg : inout std_logic_vector(7 downto 0) := (others => '0');
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
+    matrix_disable_modifiers : inout std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
     portj_out : out std_logic_vector(7 downto 0) := (others => '0');
@@ -512,6 +513,7 @@ begin  -- behavioural
             pot_via_iec <= fastio_wdata(0);
             -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
             joyreal_enable_internal <= fastio_wdata(1);
+            matrix_disable_modifiers <= fastio_wdata(7);
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
@@ -695,7 +697,8 @@ begin  -- behavioural
           -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
-          fastio_rdata(7 downto 0) <= unsigned(porti);
+          fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
+          fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>
           -- @   IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
           fastio_rdata(0) <= widget_enable_internal;

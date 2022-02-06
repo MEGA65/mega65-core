@@ -855,6 +855,7 @@ begin
       portf(5 downto 0) => pmoda(5 downto 0),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
+      matrix_disable_modifiers => matrix_disable_modifiers,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
       portj_in => std_logic_vector(matrix_segment_out),
@@ -898,6 +899,7 @@ begin
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
       viciv_frame_indicate => viciv_frame_indicate,
+      matrix_disable_modifiers => matrix_disable_modifiers,      
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
