@@ -293,6 +293,7 @@ begin
 
       matrix_col => matrix_combined_col,
       matrix_col_idx => matrix_combined_col_idx,
+      matrix_mode_in => matrix_mode_in,
       matrix_disable_modifiers => matrix_disable_modifiers,
 
       key_up => key_up,
