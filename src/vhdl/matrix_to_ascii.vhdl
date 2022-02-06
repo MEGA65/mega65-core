@@ -10,7 +10,9 @@ entity matrix_to_ascii is
            clock_frequency : integer);
   port (Clk : in std_logic;
         reset_in : in std_logic;
-
+        
+        matrix_disable_modifiers => matrix_disable_modifiers,
+        
         matrix_col : in std_logic_vector(7 downto 0);
         matrix_col_idx : in integer range 0 to 15;
         
@@ -588,20 +590,27 @@ begin
       
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
-      -- as unique keys
-      if bucky_key_internal(3)='1' then
-        key_matrix := matrix_cbm;
-      elsif bucky_key_internal(4)='1' then
-        key_matrix := matrix_alt;
-      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='1' or key_left='1' then
-        -- Force shifted key set if UP or LEFT keys active, to try to prevent
-        -- glitching of those keys.
-        key_matrix := matrix_shift;
-      elsif bucky_key_internal(2)='1' then
-        key_matrix := matrix_control;
+      -- as unique keys.
+      -- Allow disabling of bucky keys (but not in matrix mode, where they should
+      -- always work, so that things behave as expected when displaying it)
+      if matrix_mode_in='1' or matrix_disable_modifiers='0' then
+        if bucky_key_internal(3)='1' then
+          key_matrix := matrix_cbm;
+        elsif bucky_key_internal(4)='1' then
+          key_matrix := matrix_alt;
+        elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='1' or key_left='1' then
+          -- Force shifted key set if UP or LEFT keys active, to try to prevent
+          -- glitching of those keys.
+          key_matrix := matrix_shift;
+        elsif bucky_key_internal(2)='1' then
+          key_matrix := matrix_control;
+        else
+          key_matrix := matrix_normal;
+        end if;
       else
         key_matrix := matrix_normal;
       end if;
+        
 
       bucky_key <= bucky_key_internal;
 
