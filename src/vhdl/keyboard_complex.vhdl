@@ -22,6 +22,9 @@ entity keyboard_complex is
     scan_rate : in unsigned(7 downto 0);
     keyboard_restore : in std_logic := '1';
     keyboard_column8_out : out std_logic := '1';
+    
+    key_cbm : in std_logic;
+    
     key_left : in std_logic;
     key_up : in std_logic;
     keyboard_capslock : in std_logic;
@@ -223,6 +226,8 @@ begin
     capslock_physkey => keyboard_capslock,
     restore_physkey => keyboard_restore,
     restore_virtual => virtual_restore,
+
+    cbm_physkey => key_cbm,
 
     joykey_disable => joykey_disable,
     joya_physkey => keyboard_joya,

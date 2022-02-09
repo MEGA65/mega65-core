@@ -36,6 +36,8 @@ entity mega65kbd_to_matrix is
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1';
 
+    cbmkey: out std_logic := '1';
+    
     -- LEFT and UP cursor keys are active HIGH
     leftkey : out std_logic := '0';
     upkey : out std_logic := '0'
@@ -116,6 +118,10 @@ begin  -- behavioural
           keyram_offset := phase/8;
 
           -- Receive keys with dedicated lines
+          if phase = 61 then
+            cbmkey <= kio10;
+          end if;
+                    
           if phase = 72 then
             capslock_out <= kio10;
           end if;

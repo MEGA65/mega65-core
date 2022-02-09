@@ -609,7 +609,14 @@ begin
           key_matrix := matrix_normal;
         end if;
       else
-        key_matrix := matrix_normal;
+          if bucky_key_internal(3)='1' then
+                case key_num is
+                    when 65 => key_matrix := matrix_cbm;
+                    when others => key_matrix := matrix_normal;
+                end case;                
+          else
+                key_matrix := matrix_normal;
+          end if;
       end if;
         
 

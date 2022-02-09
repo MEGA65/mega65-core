@@ -24,6 +24,9 @@ entity keymapper is
     physkey_disable : in std_logic;
     matrix_col_physkey : in std_logic_vector(7 downto 0);
     capslock_physkey : in std_logic;
+    
+    cbm_physkey : in std_logic;
+    
     restore_physkey : in std_logic;
     restore_virtual : in std_logic;
 
@@ -333,7 +336,7 @@ begin  -- behavioural
           if restore_down_ticks < 8 then
             -- <0.25 seconds = quick tap = trigger NMI
             restore_out <= '0';
-          elsif restore_down_ticks < 128 then
+          elsif (restore_down_ticks < 128) and (cbm_physkey = '0') then
             -- 0.25 - ~ 4 second hold = trigger hypervisor trap
             hyper_trap_on_frame_sync <= '1';
 --          elsif restore_down_ticks < 128 then
