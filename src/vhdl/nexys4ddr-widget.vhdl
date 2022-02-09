@@ -179,6 +179,7 @@ architecture Behavioral of container is
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
+  signal keycbm : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -360,6 +361,9 @@ begin
     matrix_col_idx => widget_matrix_col_idx,
     restore => widget_restore,
     capslock_out => widget_capslock,
+    
+    cbmkey => keycbm,
+    
     joya => widget_joya,
     joyb => widget_joyb
     );  
@@ -436,6 +440,8 @@ begin
       nmi => nmi,
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
+
+      keycbm => keycbm,
 
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
@@ -578,6 +584,7 @@ begin
       widget_joya => widget_joya,
       widget_joyb => widget_joyb,      
       
+    
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 

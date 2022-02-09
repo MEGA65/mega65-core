@@ -182,6 +182,12 @@ architecture Behavioral of container is
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
+  
+  --DENGLAND This will make it such that the CBM keys is considered down when
+  -- checking for freezer key
+  
+  signal keycbm : std_logic := '0';
+  
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -403,6 +409,9 @@ begin
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
+      
+      keycbm => keycbm,      
+      
       sector_buffer_mapped => sector_buffer_mapped,
 
       joy3 => joy3,
