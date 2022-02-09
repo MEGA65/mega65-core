@@ -512,7 +512,7 @@ begin  -- behavioural
             -- @IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
             pot_via_iec <= fastio_wdata(0);
             -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
-            joyreal_enable_internal <= fastio_wdata(1);
+            -- joyreal_enable_internal <= fastio_wdata(1);
             matrix_disable_modifiers <= fastio_wdata(7);
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));

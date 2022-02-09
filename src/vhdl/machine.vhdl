@@ -168,6 +168,7 @@ entity machine is
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
          portb_pins : in  std_logic_vector(7 downto 0);
+         keycbm : in std_logic;
          keyleft : in std_logic;
          keyup : in std_logic;
          keyboard_column8 : out std_logic := '1';
@@ -1681,6 +1682,9 @@ begin
       portb_pins => portb_pins,
       capslock_key => caps_lock_key,
       keyboard_column8_out => keyboard_column8,
+      
+      key_cbm => keycbm,
+      
       key_left => keyleft,
       key_up => keyup,
 

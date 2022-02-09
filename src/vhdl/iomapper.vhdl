@@ -134,6 +134,9 @@ entity iomapper is
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
+
+        key_cbm : in std_logic;
+
         key_left : in std_logic;
         key_up : in std_logic;
 
@@ -927,6 +930,9 @@ begin
     restore_out => restore_nmi,
     keyboard_restore => restore_key,
     keyboard_capslock => capslock_key,
+    
+    key_cbm => key_cbm,
+    
     key_left => key_left,
     key_up => key_up,
 

@@ -272,6 +272,9 @@ architecture Behavioral of container is
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
+
+  signal keycbm : std_logic := '1';
+
   -- XXX Note that left and up are active HIGH!
   -- XXX Plumb these into the MEGA65R2 keyboard protocol receiver
   signal keyleft : std_logic := '0';
@@ -521,6 +524,9 @@ begin
       restore => widget_restore,
       fastkey_out => fastkey,
       capslock_out => widget_capslock,
+      
+      cbmkey => keycbm,
+      
       upkey => keyup,
       leftkey => keyleft
       
@@ -751,6 +757,7 @@ begin
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
       caps_lock_key => '1',
+      keycbm => keycbm,
       keyleft => keyleft,
       keyup => keyup,
 
