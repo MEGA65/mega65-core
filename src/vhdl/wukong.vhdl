@@ -195,10 +195,8 @@ architecture Behavioral of container is
   signal row : std_logic_vector(7 downto 0) := (others => '1');
   
   --DENGLAND This will make the CBM key be down for the freeze key test
-  
   signal keycbm : std_logic := '0';
-  
-  
+
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -720,7 +718,7 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
-      keycbm => keycbm,        
+      keycbm => keycbm,
 
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,

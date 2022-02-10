@@ -13,7 +13,7 @@ entity matrix_to_ascii is
 
         matrix_mode_in : in std_logic;
         matrix_disable_modifiers : in std_logic;
-        
+
         matrix_col : in std_logic_vector(7 downto 0);
         matrix_col_idx : in integer range 0 to 15;
         
@@ -613,12 +613,11 @@ begin
                 case key_num is
                     when 65 => key_matrix := matrix_cbm;
                     when others => key_matrix := matrix_normal;
-                end case;                
+                end case;
           else
                 key_matrix := matrix_normal;
           end if;
       end if;
-        
 
       bucky_key <= bucky_key_internal;
 

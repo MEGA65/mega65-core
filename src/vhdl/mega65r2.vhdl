@@ -524,9 +524,9 @@ begin
       restore => widget_restore,
       fastkey_out => fastkey,
       capslock_out => widget_capslock,
-      
+
       cbmkey => keycbm,
-      
+
       upkey => keyup,
       leftkey => keyleft
       

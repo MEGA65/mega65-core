@@ -185,10 +185,8 @@ architecture Behavioral of container is
   
   --DENGLAND This will make it such that the CBM keys is considered down when
   -- checking for freezer key
-  
   signal keycbm : std_logic := '0';
 
-  
   signal buffer_vgared : unsigned(7 downto 0);
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
@@ -441,9 +439,9 @@ begin
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
-      
-      keycbm => keycbm,  
-      
+
+      keycbm => keycbm,
+
       sector_buffer_mapped => sector_buffer_mapped,
 
       qspi_clock => qspi_clock,
