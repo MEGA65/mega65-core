@@ -235,7 +235,7 @@ entity iomapper is
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
-        scancode_out : out std_logic_vector(12 downto 0); 												  
+        scancode_out : out std_logic_vector(12 downto 0);
         -- Widget board / MEGA65R2 keyboard
         widget_matrix_col_idx : out integer range 0 to 8 := 0;
         widget_matrix_col : in std_logic_vector(7 downto 0);
@@ -902,115 +902,114 @@ begin
   begin
     kc0 : entity work.keyboard_complex
       port map (
-      reset_in => reset,
-      matrix_mode_in => protected_hardware_in(6),
-      viciv_frame_indicate => viciv_frame_indicate,
-      matrix_disable_modifiers => matrix_disable_modifiers,      
+        reset_in => reset,
+        matrix_mode_in => protected_hardware_in(6),
+        viciv_frame_indicate => viciv_frame_indicate,
+        matrix_disable_modifiers => matrix_disable_modifiers,
 
-      matrix_segment_num => matrix_segment_num,
-      matrix_segment_out => matrix_segment_out,
-      suppress_key_glitches => suppress_key_glitches,
-      suppress_key_retrigger => suppress_key_retrigger,
+        matrix_segment_num => matrix_segment_num,
+        matrix_segment_out => matrix_segment_out,
+        suppress_key_glitches => suppress_key_glitches,
+        suppress_key_retrigger => suppress_key_retrigger,
 
-      scan_mode => keyboard_scan_mode,
-      scan_rate => keyboard_scan_rate,
-      
-    widget_disable => widget_disable,
-    ps2_disable => ps2_disable,
-    joyreal_disable => joyreal_disable,
-    joykey_disable => joykey_disable,
-    physkey_disable => physkey_disable,
-    virtual_disable => virtual_disable,
+        scan_mode => keyboard_scan_mode,
+        scan_rate => keyboard_scan_rate,
 
-      joyswap => joyswap,
-      
-      joya_rotate => joya_rotate,
-      joyb_rotate => joyb_rotate,
-      
-      cpuclock       => cpuclock,
-    restore_out => restore_nmi,
-    keyboard_restore => restore_key,
-    keyboard_capslock => capslock_key,
-    
-    key_cbm => key_cbm,
-    
-    key_left => key_left,
-    key_up => key_up,
+        widget_disable => widget_disable,
+        ps2_disable => ps2_disable,
+        joyreal_disable => joyreal_disable,
+        joykey_disable => joykey_disable,
+        physkey_disable => physkey_disable,
+        virtual_disable => virtual_disable,
 
-    key1 => unsigned(virtual_key1),
-    key2 => unsigned(virtual_key2),
-    key3 => unsigned(virtual_key3),
+        joyswap => joyswap,
 
-    touch_key1 => touch_key1_driver,  
-    touch_key2 => touch_key2_driver,  
+        joya_rotate => joya_rotate,
+        joyb_rotate => joyb_rotate,
 
-    keydown1 => osk_key1,
-    keydown2 => osk_key2,
-    keydown3 => osk_key3,
-    keydown4 => osk_key4,
-      
-    hyper_trap_out => hyper_trap,
-    hyper_trap_count => hyper_trap_count,
-    restore_up_count => restore_up_count,
-    restore_down_count => restore_down_count,
-    reset_out => reset_out,
-    ps2clock       => ps2clock,
-    ps2data        => ps2data,
-    last_scan_code => last_scan_code,
---    key_status     => seg_led(1 downto 0),
-    porta_in       => cia1porta_out,
-    portb_in       => cia1portb_out,    
-    porta_out      => cia1porta_in,
-    portb_out      => cia1portb_in,
-    porta_ddr      => cia1porta_ddr,
-    portb_ddr      => cia1portb_ddr,
+        cpuclock       => cpuclock,
+        restore_out => restore_nmi,
+        keyboard_restore => restore_key,
+        keyboard_capslock => capslock_key,
 
-    joya(4) => fa_fire,
-    joya(0) => fa_up,
-    joya(2) => fa_left,
-    joya(1) => fa_down,
-    joya(3) => fa_right,
-    
-    joyb(4) => fb_fire,
-    joyb(0) => fb_up,
-    joyb(2) => fb_left,
-    joyb(1) => fb_down,
-    joyb(3) => fb_right,
-    
-    key_debug_out => key_debug,
-  
-    porta_pins => porta_pins,
-    portb_pins => portb_pins,
+        key_cbm => key_cbm,
 
-    speed_gate => speed_gate,
-    speed_gate_enable => speed_gate_enable,
+        key_left => key_left,
+        key_up => key_up,
 
-    capslock_out => capslock_from_keymapper,
-    keyboard_column8_out => keyboard_column8_out,
-    keyboard_column8_select_in => keyboard_column8_select,
+        key1 => unsigned(virtual_key1),
+        key2 => unsigned(virtual_key2),
+        key3 => unsigned(virtual_key3),
 
-    widget_matrix_col_idx => widget_matrix_col_idx,
-    widget_matrix_col => widget_matrix_col,
-    widget_restore => widget_restore,
-    widget_capslock => widget_capslock,
-    widget_joya => widget_joya,
-    widget_joyb => widget_joyb,
-      
-      
-    -- remote keyboard input via ethernet
---    eth_keycode_toggle => eth_keycode_toggle,
---    eth_keycode => eth_keycode
+        touch_key1 => touch_key1_driver,
+        touch_key2 => touch_key2_driver,
 
-    -- remote 
-    eth_keycode_toggle => key_scancode_toggle,
-    eth_keycode => key_scancode,
+        keydown1 => osk_key1,
+        keydown2 => osk_key2,
+        keydown3 => osk_key3,
+        keydown4 => osk_key4,
 
-    -- ASCII feed via hardware keyboard scanner
-    ascii_key => ascii_key,
-    ascii_key_valid => ascii_key_valid,
-    bucky_key => bucky_key(6 downto 0)
-    
-    );
+        hyper_trap_out => hyper_trap,
+        hyper_trap_count => hyper_trap_count,
+        restore_up_count => restore_up_count,
+        restore_down_count => restore_down_count,
+        reset_out => reset_out,
+        ps2clock       => ps2clock,
+        ps2data        => ps2data,
+        last_scan_code => last_scan_code,
+        --    key_status     => seg_led(1 downto 0),
+        porta_in       => cia1porta_out,
+        portb_in       => cia1portb_out,
+        porta_out      => cia1porta_in,
+        portb_out      => cia1portb_in,
+        porta_ddr      => cia1porta_ddr,
+        portb_ddr      => cia1portb_ddr,
+
+        joya(4) => fa_fire,
+        joya(0) => fa_up,
+        joya(2) => fa_left,
+        joya(1) => fa_down,
+        joya(3) => fa_right,
+
+        joyb(4) => fb_fire,
+        joyb(0) => fb_up,
+        joyb(2) => fb_left,
+        joyb(1) => fb_down,
+        joyb(3) => fb_right,
+
+        key_debug_out => key_debug,
+
+        porta_pins => porta_pins,
+        portb_pins => portb_pins,
+
+        speed_gate => speed_gate,
+        speed_gate_enable => speed_gate_enable,
+
+        capslock_out => capslock_from_keymapper,
+        keyboard_column8_out => keyboard_column8_out,
+        keyboard_column8_select_in => keyboard_column8_select,
+
+        widget_matrix_col_idx => widget_matrix_col_idx,
+        widget_matrix_col => widget_matrix_col,
+        widget_restore => widget_restore,
+        widget_capslock => widget_capslock,
+        widget_joya => widget_joya,
+        widget_joyb => widget_joyb,
+
+
+        -- remote keyboard input via ethernet
+        --    eth_keycode_toggle => eth_keycode_toggle,
+        --    eth_keycode => eth_keycode
+
+        -- remote
+        eth_keycode_toggle => key_scancode_toggle,
+        eth_keycode => key_scancode,
+
+        -- ASCII feed via hardware keyboard scanner
+        ascii_key => ascii_key,
+        ascii_key_valid => ascii_key_valid,
+        bucky_key => bucky_key(6 downto 0)
+      );
   end block;
 
  sidcblock: block

@@ -24,9 +24,9 @@ entity keymapper is
     physkey_disable : in std_logic;
     matrix_col_physkey : in std_logic_vector(7 downto 0);
     capslock_physkey : in std_logic;
-    
+
     cbm_physkey : in std_logic;
-    
+
     restore_physkey : in std_logic;
     restore_virtual : in std_logic;
 

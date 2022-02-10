@@ -361,9 +361,9 @@ begin
     matrix_col_idx => widget_matrix_col_idx,
     restore => widget_restore,
     capslock_out => widget_capslock,
-    
+
     cbmkey => keycbm,
-    
+
     joya => widget_joya,
     joyb => widget_joyb
     );  
@@ -583,8 +583,7 @@ begin
       widget_capslock => widget_capslock,
       widget_joya => widget_joya,
       widget_joyb => widget_joyb,      
-      
-    
+
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 

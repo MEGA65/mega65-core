@@ -16,10 +16,10 @@ entity widget_to_matrix is
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
     
- --DENGLAND This will effectively say, for the sake of freezing, that the
- --  cbm key is always down.
+    --DENGLAND This will effectively say, for the sake of freezing, that the
+    -- cbm key is always down.
     cbmkey : out std_logic := '0';
-    
+
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1';
     reset_out : out std_logic := '1';
