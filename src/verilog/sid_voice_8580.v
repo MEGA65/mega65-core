@@ -88,8 +88,8 @@ always @(posedge clock) begin
 		else 
 		  begin
 			oscillator <= oscillator + {1'b0,freq_hi, freq_lo};
-			oscillatora <= oscillatorb + {1'b0,freqa};
-			oscillatora <= oscillatorb + {1'b0,freqb};
+			oscillatora <= oscillatora + {1'b0,freqa};
+			oscillatorb <= oscillatorb + {1'b0,freqb};
 		   end
 	end // if (ce_1m)
    freqa <= {freq_hi,freq_lo} + pw_lo;
