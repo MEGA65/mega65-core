@@ -424,6 +424,9 @@ architecture Behavioural of gs4510 is
   signal audio_dma_right_saturated : std_logic := '0';  
   signal audio_dma_saturation_enable : std_logic := '1';
   signal audio_dma_swap : std_logic := '0';
+  signal audio_dma_reg_num : unsigned(7 downto 0) := x"00";
+  signal audio_dma_reg_value : unsigned(7 downto 0) := x"00";
+  signal audio_dma_reg_write : std_logic := '0';
 
   signal pending_dma_busy : std_logic := '0';
   signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
@@ -3087,43 +3090,9 @@ begin
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
         or (long_address(27 downto 4) = x"FFD375") or (long_address(27 downto 4) = x"FFD175")
       then
-        case long_address(3 downto 0) is
-          -- We put this one first, so that writing linearly will correctly
-          -- initialise things when freezing and unfreezing
-          when x"0" => audio_dma_enables(to_integer(long_address(7 downto 4)-2)) <= value(7);
-                       audio_dma_repeat(to_integer(long_address(7 downto 4)-2)) <= value(6);
-                       audio_dma_signed(to_integer(long_address(7 downto 4)-2)) <= value(5);
-                       audio_dma_sine_wave(to_integer(long_address(7 downto 4)-2)) <= value(4);
-                       audio_dma_stop(to_integer(long_address(7 downto 4)-2)) <= value(3);
-                       audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
-                       report "Setting Audio DMA channel "
-                         & integer'image(to_integer(long_address(7 downto 4)-2)) &
-                         " flags to $" & to_hstring(value);
-          when x"1" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-          when x"2" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-          when x"3" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-          when x"4" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(7 downto 0) <= value;
-          when x"5" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(15 downto 8) <= value;
-          when x"6" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-                       report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-                         & " <time_base to $" & to_hstring(value);                       
-          when x"7" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)    <= value;
-          when x"8" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8)   <= value;
-                       report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-                         & " <top_addr to $" & to_hstring(value);
-          when x"9" => audio_dma_volume(to_integer(long_address(7 downto 4)-2))      <= value;
-          when x"a" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-          when x"b" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-          when x"c" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-                       audio_dma_current_addr_set_flag(to_integer(long_address(7 downto 4)-2))
-                         <= not audio_dma_current_addr_set_flag(to_integer(long_address(7 downto 4)-2));
-          when x"d" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
-          when x"e" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
-          when x"f" => audio_dma_timing_counter_set(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-                       audio_dma_timing_counter_set_flag(to_integer(long_address(7 downto 4)-2))
-                         <= not audio_dma_timing_counter_set_flag(to_integer(long_address(7 downto 4)-2));
-          when others => null;
-        end case;
+        audio_dma_reg_write <= '1';
+        audio_dma_reg_num <= long_address(7 downto 0);
+        audio_dma_reg_value <= value;
       -- @IO:GS $D770-3 32-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
@@ -3939,6 +3908,48 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      if audio_dma_reg_write='1' then
+        audio_dma_reg_write <= '0';
+        case audio_dma_reg_num is
+          -- We put this one first, so that writing linearly will correctly
+          -- initialise things when freezing and unfreezing
+          when x"0" => audio_dma_enables(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(7);
+                       audio_dma_repeat(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(6);
+                       audio_dma_signed(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(5);
+                       audio_dma_sine_wave(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(4);
+                       audio_dma_stop(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(3);
+                       audio_dma_sample_width(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(1 downto 0);
+                       report "Setting Audio DMA channel "
+                         & integer'image(to_integer(audio_dma_reg_num(7 downto 4)-2)) &
+                         " flags to $" & to_hstring(audio_dma_reg_value);
+          when x"1" => audio_dma_base_addr(to_integer(audio_dma_reg_num(7 downto 4)-2))(7 downto 0)   <= audio_dma_reg_value;
+          when x"2" => audio_dma_base_addr(to_integer(audio_dma_reg_num(7 downto 4)-2))(15 downto 8)  <= audio_dma_reg_value;
+          when x"3" => audio_dma_base_addr(to_integer(audio_dma_reg_num(7 downto 4)-2))(23 downto 16) <= audio_dma_reg_value;
+          when x"4" => audio_dma_time_base(to_integer(audio_dma_reg_num(7 downto 4)-2))(7 downto 0) <= audio_dma_reg_value;
+          when x"5" => audio_dma_time_base(to_integer(audio_dma_reg_num(7 downto 4)-2))(15 downto 8) <= audio_dma_reg_value;
+          when x"6" => audio_dma_time_base(to_integer(audio_dma_reg_num(7 downto 4)-2))(23 downto 16) <= audio_dma_reg_value;
+                       report "Setting Audio DMA channel " & integer'image(to_integer(audio_dma_reg_num(7 downto 4)-2))
+                         & " <time_base to $" & to_hstring(audio_dma_reg_value);                       
+          when x"7" => audio_dma_top_addr(to_integer(audio_dma_reg_num(7 downto 4)-2))(7 downto 0)    <= audio_dma_reg_value;
+          when x"8" => audio_dma_top_addr(to_integer(audio_dma_reg_num(7 downto 4)-2))(15 downto 8)   <= audio_dma_reg_value;
+                       report "Setting Audio DMA channel " & integer'image(to_integer(audio_dma_reg_num(7 downto 4)-2))
+                         & " <top_addr to $" & to_hstring(audio_dma_reg_value);
+          when x"9" => audio_dma_volume(to_integer(audio_dma_reg_num(7 downto 4)-2))      <= audio_dma_reg_value;
+          when x"a" => audio_dma_current_addr_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(7 downto 0)   <= audio_dma_reg_value;
+          when x"b" => audio_dma_current_addr_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(15 downto 8)  <= audio_dma_reg_value;
+          when x"c" => audio_dma_current_addr_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(23 downto 16) <= audio_dma_reg_value;
+                       audio_dma_current_addr_set_flag(to_integer(audio_dma_reg_num(7 downto 4)-2))
+                         <= not audio_dma_current_addr_set_flag(to_integer(audio_dma_reg_num(7 downto 4)-2));
+          when x"d" => audio_dma_timing_counter_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(7 downto 0)   <= audio_dma_reg_value;
+          when x"e" => audio_dma_timing_counter_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(15 downto 8)  <= audio_dma_reg_value;
+          when x"f" => audio_dma_timing_counter_set(to_integer(audio_dma_reg_num(7 downto 4)-2))(23 downto 16) <= audio_dma_reg_value;
+                       audio_dma_timing_counter_set_flag(to_integer(audio_dma_reg_num(7 downto 4)-2))
+                         <= not audio_dma_timing_counter_set_flag(to_integer(audio_dma_reg_num(7 downto 4)-2));
+          when others => null;
+        end case;
+      end if;
+      
+      
       monitor_watch_match <= '0';       -- set if writing to watched address
       
       reg_q33 <= '0' & reg_z & reg_y & reg_x & reg_a;
