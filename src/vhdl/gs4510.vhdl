@@ -7796,6 +7796,8 @@ begin
                 axyz_phase <= axyz_phase + 1;
               end if;              
               if axyz_phase = 4 then
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 -- Go to next instruction by default
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
@@ -7835,6 +7837,8 @@ begin
                 reg_val32(7 downto 0) <= reg_x;
                 state <= StoreTarget32;
               else
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
                 else
@@ -9410,7 +9414,7 @@ begin
         when MicrocodeInterpret =>
 
           report "BACKGROUNDDMA: in MicrocodeInterpret";
-          
+
           if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
           if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
           if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
