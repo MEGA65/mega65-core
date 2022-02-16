@@ -450,7 +450,6 @@ architecture Behavioral of container is
   signal vga_blank : std_logic := '0';
 
   signal tmds : slv_9_0_t(0 to 2);
-  signal tmds_drive : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '1';
 
@@ -582,7 +581,7 @@ begin
                 rst     => reset_high,
                 clk     => clock27,
                 clk_x10  => clock270,
-                d       => tmds_drive(i),
+                d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
             );
@@ -1049,15 +1048,6 @@ begin
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
 
-  -- Add extra drive stage for HDMI data to try to improve signal integrity
-  process(clock27) is
-  begin
-    if rising_edge(clock27) then
-      tmds_drive <= tmds;
-    end if;
-  end process;
-  
-  
   process (pixelclock,cpuclock,pcm_clk) is
   begin
     vdac_sync_n <= '0';  -- no sync on green

@@ -52,7 +52,7 @@ architecture synth of serialiser_10to1_selectio is
   
 begin
 
-  process (clk_x10,d,clk)
+  process (clk_x10,d,d_d,clk)
   begin
     if rising_edge(clk_x10) then
       d_d <= d;
