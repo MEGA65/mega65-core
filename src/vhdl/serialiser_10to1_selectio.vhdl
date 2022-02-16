@@ -48,20 +48,22 @@ architecture synth of serialiser_10to1_selectio is
   signal TMDS_shift_load : std_logic := '0';
   signal q : std_logic := '0';
   signal q_d : std_logic := '0';
+  signal d_d : std_logic_vector(9 downto 0);
   
 begin
 
   process (clk_x10,d,clk)
   begin
     if rising_edge(clk_x10) then
+      d_d <= d;
       if TMDS_shift_load='1' then
-        TMDS_shift <= d;
+        TMDS_shift <= d_d;
       else
         TMDS_shift(8 downto 0) <= TMDS_shift(9 downto 1);
       end if;
       q_d <= TMDS_shift(0);
       q <= q_d;
-      
+
       if TMDS_mod10 /= 9 then
         TMDS_mod10 <= TMDS_mod10 + 1;
         TMDS_shift_load <= '0';
