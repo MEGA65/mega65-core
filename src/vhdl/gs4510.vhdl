@@ -7407,9 +7407,6 @@ begin
                 & ", memory_access_address was $" & to_hstring(memory_access_address);
               reg_addr_lsbs(7 downto 0) <= memory_read_value;
               if absolute32_addressing_enabled='1' then
-                -- Clear the flag so that successive eligible instructions
-                -- don't end up interpretted as 32-bit ones.
-                absolute32_addressing_enabled <= '0';
                 report "VAL32: absolute32_addressing_enabled=1, so proceeding to InnZReadVectorByte2";
                 state <= InnZReadVectorByte2;
                 reg_addr <= reg_addr + 1;
