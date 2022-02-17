@@ -62,8 +62,8 @@ begin
       Q => ddr_out, -- 1-bit DDR output
       C => clk_x5, -- 1-bit clock input
       CE => '1', -- 1-bit clock enable input
-      D1 => dibit(0), -- 1-bit data input (positive edge)
-      D2 => dibit(1), -- 1-bit data input (negative edge)
+      D1 => dibit(1), -- 1-bit data input (positive edge)
+      D2 => dibit(0), -- 1-bit data input (negative edge)
       R => '0', -- 1-bit reset input
       S => '0' -- 1-bit set input
       );
