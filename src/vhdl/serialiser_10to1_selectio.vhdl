@@ -34,7 +34,7 @@ entity serialiser_10to1_selectio is
     port (
         rst     : in    std_logic;                      -- reset
         clk     : in    std_logic;                      -- parallel data clcok
-        clk_x10 : in    std_logic;                      -- serialiser DDR clock
+        clk_x5  : in    std_logic;                      -- serialiser DDR clock
         d       : in    std_logic_vector(9 downto 0);   -- input parallel data
         out_p   : out   std_logic;                      -- output serial data
         out_n   : out   std_logic                       -- "
@@ -47,21 +47,37 @@ architecture synth of serialiser_10to1_selectio is
   signal TMDS_shift : std_logic_vector(9 downto 0) := (others => '0');
   signal TMDS_shift_load : std_logic := '0';
   signal q : std_logic := '0';
-  signal q_d : std_logic := '0';
-  signal d_d : std_logic_vector(9 downto 0);
+  signal q_d : std_logic_vector(1 downto 0) := "00";
+  signal dibit : std_logic_vector(1 downto 0) := "00";
+  signal ddr_out : std_logic;
   
 begin
 
-  process (clk_x10,d,d_d,clk)
+  ODDR_inst : ODDR
+    generic map(
+      DDR_CLK_EDGE => "SAME_EDGE",
+      INIT => '0', -- Initial value for Q port ('1' or '0')
+      SRTYPE => "SYNC") -- Reset Type ("ASYNC" or "SYNC")
+    port map (
+      Q => ddr_out, -- 1-bit DDR output
+      C => clk_x5, -- 1-bit clock input
+      CE => '1', -- 1-bit clock enable input
+      D1 => dibit(0), -- 1-bit data input (positive edge)
+      D2 => dibit(1), -- 1-bit data input (negative edge)
+      R => '0', -- 1-bit reset input
+      S => '0' -- 1-bit set input
+      );
+  
+  process (clk_x5,d,clk)
   begin
-    if rising_edge(clk_x10) then
+    if rising_edge(clk_x5) then
       if TMDS_shift_load='1' then
         TMDS_shift <= d;
       else
-        TMDS_shift(8 downto 0) <= TMDS_shift(9 downto 1);
+        TMDS_shift(7 downto 0) <= TMDS_shift(9 downto 2);
       end if;
-      q_d <= TMDS_shift(0);
-      q <= q_d;
+      q_d <= TMDS_shift(1 downto 0);
+      dibit <= q_d;
 
       if TMDS_mod10 /= 9 then
         TMDS_mod10 <= TMDS_mod10 + 1;
@@ -76,7 +92,7 @@ begin
   -- differential output buffer
   U_OBUF: obufds
     port map (
-      i   => q,
+      i   => ddr_out,
       o   => out_p,
       ob  => out_n
       );

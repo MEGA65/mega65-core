@@ -16,9 +16,9 @@ entity clocking is
       clock41    : out std_logic;
       clock50    : out std_logic;
       clock81p   : out std_logic;
+      clock135   : out std_logic;
       clock163   : out std_logic;
       clock200   : out std_logic;
-      clock270   : out std_logic;
       clock325   : out std_logic
    );
 end entity;
@@ -44,7 +44,7 @@ architecture RTL of clocking is
   signal u_clock81p : std_logic := '0';
   signal u_clock163 : std_logic := '0';
   signal u_clock200 : std_logic := '0';
-  signal u_clock270 : std_logic := '0';
+  signal u_clock135 : std_logic := '0';
   signal u_clock325 : std_logic := '0';
   
 begin
@@ -233,8 +233,8 @@ begin
                   O => clock200);  
 
   bufg270:
-  bufg port map ( I => u_clock270,
-                  O => clock270);  
+  bufg port map ( I => u_clock135,
+                  O => clock135);  
   
   bufg325:
   bufg port map ( I => u_clock325,
@@ -290,8 +290,8 @@ begin
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT6 = clock270 = 270MHz
-    CLKOUT6_DIVIDE       => 3,
+    -- CLKOUT6 = clock135 = 135MHz
+    CLKOUT6_DIVIDE       => 6,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
@@ -306,7 +306,7 @@ begin
     CLKOUT3             => u_clock41,
     CLKOUT4             => u_clock27,
     CLKOUT5             => u_clock163,
-    CLKOUT6             => u_clock270,
+    CLKOUT6             => u_clock135,
     -- Input clock control
     CLKFBIN             => clk_fb,
     CLKIN1              => clock9969mhz,
