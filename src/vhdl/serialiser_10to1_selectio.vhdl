@@ -54,12 +54,9 @@ begin
 
   process (clk_x10,d,d_d,clk)
   begin
-    if rising_edge(clk) then
-      d_d <= d;
-    end if;
     if rising_edge(clk_x10) then
       if TMDS_shift_load='1' then
-        TMDS_shift <= d_d;
+        TMDS_shift <= d;
       else
         TMDS_shift(8 downto 0) <= TMDS_shift(9 downto 1);
       end if;
