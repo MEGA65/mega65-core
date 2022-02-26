@@ -331,7 +331,7 @@ begin
     dob => summary_out
     );
 
-  process(kd_phase)
+  process(kd_phase,summary_out)
     variable kd_phase_vec : std_logic_vector(6 downto 0);
     variable kd_phase_index : integer range 0 to 15;
     variable kd_phase_bit : integer range 0 to 7;
@@ -344,7 +344,7 @@ begin
     summary_index  <= kd_phase_index;
   end process;
         
-  process (cpuclock)
+  process (cpuclock,matrix_col_idx)
     variable num : integer;
   begin
 

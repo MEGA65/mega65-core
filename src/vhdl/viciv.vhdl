@@ -1275,7 +1275,7 @@ begin
   chipram_address <= next_ramaddress when safe_to_integer(next_ramaddress) < chipram_size else to_unsigned(0,20);
   ramdata <= chipram_datain;
 
-  process(cpuclock,fastio_addr,fastio_read,chardata,
+  process(cpuclock,fastio_addr,fastio_read,chardata,enable_raster_delay,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,

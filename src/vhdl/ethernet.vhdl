@@ -480,7 +480,7 @@ begin  -- behavioural
     );
 
   -- Look after CPU side of mapping of RX buffer
-  process(fastio_addr,fastio_read) is
+  process(fastio_addr,fastio_read,rxbuff_id_cpuside) is
   begin    
     rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
     if fastio_read='1' and (
@@ -1156,7 +1156,7 @@ begin  -- behavioural
   end process;
   
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,rxbuffer_write_toggle,
-           rxbuffer_wdata,rxbuffer_writeaddress
+           rxbuffer_wdata,rxbuffer_writeaddress,ethernet_cs,eth_tx_idle_cpuside
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 

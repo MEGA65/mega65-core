@@ -3910,7 +3910,7 @@ begin
 
       if audio_dma_reg_write='1' then
         audio_dma_reg_write <= '0';
-        case audio_dma_reg_num is
+        case audio_dma_reg_num(3 downto 0) is
           -- We put this one first, so that writing linearly will correctly
           -- initialise things when freezing and unfreezing
           when x"0" => audio_dma_enables(to_integer(audio_dma_reg_num(7 downto 4)-2)) <= audio_dma_reg_value(7);
@@ -8460,6 +8460,7 @@ begin
            dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
            reg_mult_a,read_data,shadow_wdata,shadow_address,hyppo_address,
            reg_pageid,rom_writeprotect,georam_page,
+           dmagic_job_mapped_list,ocean_cart_mode,dat_bitplane_bank,ocean_cart_lo_bank,ocean_cart_hi_bank,
            hyppo_address_next,clock,fastio_rdata,fastio_addr,phi_pause,audio_dma_tick_counter,audio_dma_write_sequence,
            audio_dma_left,audio_dma_right,resolved_vdc_to_viciv_address,resolved_vdc_to_viciv_src_address,axyz_phase,reg_val32,
            gated_exrom,gated_game,cpuport_value,cpuport_ddr,hyper_iomode,sector_buffer_mapped,colourram_at_dc00,reg_map_high,

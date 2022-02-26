@@ -673,8 +673,8 @@ architecture Behavioral of machine is
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   
-  signal xcounter_viciv : integer;
-  signal ycounter_viciv : integer;
+  signal xcounter_viciv : integer range 0 to 4095;
+  signal ycounter_viciv : integer range 0 to 2047;
   signal xcounter_viciv_u : unsigned(11 downto 0);
   signal ycounter_viciv_u : unsigned(11 downto 0);
   
