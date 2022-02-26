@@ -43,7 +43,7 @@ end entity serialiser_10to1_selectio;
 
 architecture synth of serialiser_10to1_selectio is
 
-  signal TMDS_mod10 : integer range 0 to 9 := 0;
+  signal TMDS_mod5 : integer range 0 to 4 := 0;
   signal TMDS_shift : std_logic_vector(9 downto 0) := (others => '0');
   signal TMDS_shift_load : std_logic := '0';
   signal q : std_logic := '0';
@@ -83,11 +83,11 @@ begin
       q_d <= TMDS_shift(1 downto 0);
       dibit <= q_d;
 
-      if TMDS_mod10 /= 9 then
-        TMDS_mod10 <= TMDS_mod10 + 1;
+      if TMDS_mod5 /= 4 then
+        TMDS_mod5 <= TMDS_mod5 + 1;
         TMDS_shift_load <= '0';
       else
-        TMDS_mod10 <= 0;
+        TMDS_mod5 <= 0;
         TMDS_shift_load <= '1';
       end if;
     end if;
