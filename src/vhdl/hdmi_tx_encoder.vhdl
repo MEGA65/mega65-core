@@ -39,14 +39,14 @@ entity hdmi_tx_encoder is
         channel : integer range 0 to 2 -- affects encoding of guard bands
     );
     port (
-        rst     : in    std_logic;                      -- synchronous reset
+        rst_in     : in    std_logic;                      -- synchronous reset
         clk     : in    std_logic;                      -- pixel clock
-        de      : in    std_logic;                      -- pixel data enable
-        p       : in    std_logic_vector(7 downto 0);   -- pixel data
-        enc     : in    std_logic_vector(1 downto 0);   -- encoding type (non-video)
-        c       : in    std_logic_vector(1 downto 0);   -- control
-        d       : in    std_logic_vector(3 downto 0);   -- aux data (for data islands)
-        q       : out   std_logic_vector(9 downto 0)    -- TMDS encoded output
+        de_in      : in    std_logic;                      -- pixel data enable
+        p_in       : in    std_logic_vector(7 downto 0);   -- pixel data
+        enc_in     : in    std_logic_vector(1 downto 0);   -- encoding type (non-video)
+        c_in       : in    std_logic_vector(1 downto 0);   -- control
+        d_in       : in    std_logic_vector(3 downto 0);   -- aux data (for data islands)
+        q_out       : out   std_logic_vector(9 downto 0)    -- TMDS encoded output
     );
 end entity hdmi_tx_encoder;
 
@@ -54,6 +54,16 @@ end entity hdmi_tx_encoder;
 
 architecture synth of hdmi_tx_encoder is
 
+  -- Drive signals
+  signal rst     :    std_logic;                      -- synchronous reset
+  signal de      :    std_logic;                      -- pixel data enable
+  signal p       :    std_logic_vector(7 downto 0);   -- pixel data
+  signal enc     :    std_logic_vector(1 downto 0);   -- encoding type (non-video)
+  signal c       :    std_logic_vector(1 downto 0);   -- control
+  signal d       :    std_logic_vector(3 downto 0);   -- aux data (for data islands)
+  signal q       :    std_logic_vector(9 downto 0);    -- TMDS encoded output
+
+  
     -- TMDS encoding related
     signal n1p      : unsigned(3 downto 0); -- 0 to 8
     signal q_m      : std_logic_vector(8 downto 0);
@@ -90,7 +100,17 @@ begin
 
     process(clk)
     begin
-        if rising_edge(clk) then
+      if rising_edge(clk) then
+
+        -- Add drive stage to try to avoid glitching
+        rst <= rst_in;
+        de <= de_in;
+        p <= p_in;
+        enc <= enc_in;
+        c <= c_in;
+        d <= d_in;
+        q_out <= q;
+        
             if rst = '1' then
                 q <= "1101010100";
                 cnt <= x"0";

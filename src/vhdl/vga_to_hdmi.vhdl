@@ -980,14 +980,14 @@ begin
                 channel => i
             )
             port map (
-                rst     => vga_rst,
+                rst_in     => vga_rst,
                 clk     => vga_clk,
-                de      => s4_de,
-                p       => s4_p(i),
-                c       => s4_c(i),
-                d       => s4_d(i),
-                enc     => s4_enc,
-                q       => tmds(i)
+                de_in      => s4_de,
+                p_in       => s4_p(i),
+                c_in       => s4_c(i),
+                d_in       => s4_d(i),
+                enc_in     => s4_enc,
+                q_out       => tmds(i)
             );
     end generate GEN_TMDS;
 
