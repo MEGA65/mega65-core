@@ -184,6 +184,13 @@ set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
 set_property PACKAGE_PIN AA5 [get_ports {TMDS_data_p[2]}]
 set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 
+# 270MHz = ~3.7ns
+set tmds_freq_ns 3.7
+#Set allowable skew to be <0.6x that
+# (see, e.g., https://e2e.ti.com/support/interface-group/interface/f/interface-forum/691524/tmds171-input-inter-pair-skew-tolerance)
+set tmds_ports [get_ports TMDS_*]
+set max_delay -from [get_clocks clock135] -to ${tmds_ports} 1.5
+
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable]
@@ -236,10 +243,10 @@ set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1
 set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
 set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
 set_property  -dict { PACKAGE_PIN T19 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
-set_property PULLUP true [get_ports {Qspidb[0]}]
-set_property PULLUP true [get_ports {Qspidb[1]}]
-set_property PULLUP true [get_ports {Qspidb[2]}]
-set_property PULLUP true [get_ports {Qspidb[3]}]
+#set_property PULLUP true [get_ports {Qspidb[0]}]
+#set_property PULLUP true [get_ports {Qspidb[1]}]
+#set_property PULLUP true [get_ports {Qspidb[2]}]
+#set_property PULLUP true [get_ports {Qspidb[3]}]
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]
