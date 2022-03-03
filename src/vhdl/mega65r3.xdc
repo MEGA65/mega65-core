@@ -188,7 +188,7 @@ set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 set tmds_freq_ns 3.7
 #Set allowable skew to be <0.6x that
 # (see, e.g., https://e2e.ti.com/support/interface-group/interface/f/interface-forum/691524/tmds171-input-inter-pair-skew-tolerance)
-set tmds_ports [get_ports TMDS_*]
+set tmds_ports [get_ports TMDS_data_n[*] TMDS_data_p[*] TMDS_clk_p TMDS_clk_n]
 set max_delay -from [get_clocks clock135] -to ${tmds_ports} 1.5
 
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
