@@ -133,9 +133,9 @@ entity container is
          vdac_blank_n : out std_logic; -- tie high
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (7 downto 0);
-         vgagreen : out  UNSIGNED (7 downto 0);
-         vgablue : out  UNSIGNED (7 downto 0);
+         vgared : out  UNSIGNED (7 downto 0) := x"FF";
+         vgagreen : out  UNSIGNED (7 downto 0) := x"00";
+         vgablue : out  UNSIGNED (7 downto 0) := x"7F";
 
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
@@ -1000,9 +1000,9 @@ begin
     if rising_edge(pixelclock) then
       hsync <= pattern_hsync;
       vsync <= pattern_vsync;
-      vgared <= pattern_r;
-      vgagreen <= pattern_g;
-      vgablue <= pattern_b;
+--      vgared <= pattern_r;
+--      vgagreen <= pattern_g;
+--      vgablue <= pattern_b;
     end if;
 
   end process;    
