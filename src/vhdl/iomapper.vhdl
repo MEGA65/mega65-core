@@ -675,29 +675,39 @@ begin
     );
   end block;
 
-  drive1541: entity work.internal1541
-    port map (
-      clock => cpuclock,
-      fastio_read => r,
-      fastio_write => w,
-      fastio_address => unsigned(address(19 downto 0)),
-      fastio_wdata => unsigned(data_i),
-      std_logic_vector(fastio_rdata) => data_o,
-      cs_driverom => cs_driverom,
-      cs_driveram => cs_driveram,
-      drive_clock_cycle_strobe => drive_clock_cycle_strobe,
-      drive_reset => drive_reset,
-      drive_suspend => cpu_hypervisor_mode,
+  -- the Internal 1541 does use up lots of precious space and
+  -- this causes problems with the mega65r2 build. So we only
+  -- want the 1541 and it's 6502 CPU placed if we are not
+  -- building the mega65r2 target.
+  -- WARNING/TODO: drive1541 will be undefined. This does
+  -- currently not porduce any problems, as it is not yet used
+  -- anywhere in the design! But it might if this changes...
+  drive1541_mega65r3:
+  if target /= mega65r2 generate
+    drive1541: entity work.internal1541
+      port map (
+        clock => cpuclock,
+        fastio_read => r,
+        fastio_write => w,
+        fastio_address => unsigned(address(19 downto 0)),
+        fastio_wdata => unsigned(data_i),
+        std_logic_vector(fastio_rdata) => data_o,
+        cs_driverom => cs_driverom,
+        cs_driveram => cs_driveram,
+        drive_clock_cycle_strobe => drive_clock_cycle_strobe,
+        drive_reset => drive_reset,
+        drive_suspend => cpu_hypervisor_mode,
 
-      -- Debug output of 1541 CPU next address
-      address_next => address_next_1541,
-      
-      sd_data_byte => sd1541_data,
-      sd_data_ready_toggle => sd1541_ready_toggle,
-      sd_data_request_toggle => sd1541_request_toggle,
-      sd_1541_enable => sd1541_enable,
-      sd_1541_track => sd1541_track
-      );  
+        -- Debug output of 1541 CPU next address
+        address_next => address_next_1541,
+
+        sd_data_byte => sd1541_data,
+        sd_data_ready_toggle => sd1541_ready_toggle,
+        sd_data_request_toggle => sd1541_request_toggle,
+        sd_1541_enable => sd1541_enable,
+        sd_1541_track => sd1541_track
+      );
+  end generate drive1541_mega65r3;
   
   block3: block
   begin

@@ -214,7 +214,6 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/termmem.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/internal1541.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/m6522.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
