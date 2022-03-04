@@ -273,9 +273,9 @@ architecture Behavioral of container is
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock100 : std_logic;
+  signal clock135 : std_logic;
   signal clock163 : std_logic;
   signal clock200 : std_logic;
-  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
@@ -523,7 +523,7 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock270  => clock270,
+               clock135  => clock135,   --  135     MHz
                clock163  => clock163,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
                clock325  => clock325    --  325     MHz
@@ -596,7 +596,7 @@ begin
             port map (
                 rst     => reset_high,
                 clk     => clock27,
-                clk_x10  => clock270,
+                clk_x5  => clock135,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
@@ -606,7 +606,7 @@ begin
         port map (
             rst     => reset_high,
             clk     => clock27,
-            clk_x10  => clock270,
+            clk_x5  => clock135,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
@@ -628,7 +628,9 @@ begin
       disco_led_val => disco_led_val,
       
       powerled => '1',
-      flopled => flopled_drive,
+      flopled0 => flopled_drive,
+      flopled2 => flopled_drive,
+      flopledsd => flopled_drive,
       flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
@@ -676,7 +678,8 @@ begin
       reset_in => '1',
       matrix_mode_in => '0',
       viciv_frame_indicate => '0',
-
+      
+      matrix_disable_modifiers => '1',
       matrix_segment_num => matrix_segment_num,
 --      matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => '0',
