@@ -450,6 +450,7 @@ architecture Behavioral of container is
   signal vga_blank : std_logic := '0';
 
   signal tmds : slv_9_0_t(0 to 2);
+  signal tmds_drive : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '1';
 
@@ -577,11 +578,14 @@ begin
         pcm_n => pcm_n, -- ACR N value
         pcm_cts => pcm_cts, -- ACR CTS value
 
-        tmds => tmds
+        tmds => tmds_drive
         );
 
-   process (clock270)
+   process (clock270,clock27)
    begin
+     if rising_edge(clock27) then
+       tmds <= tmds_drive;
+     end if;
      if rising_edge(clock270) then
       if TMDS_mod10 = "1001" then
          TMDS_shift_load <= '1';
