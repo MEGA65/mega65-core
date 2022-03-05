@@ -571,7 +571,8 @@ begin
         -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
         pcm_clk => pcm_clk, -- audio clock at fs
-        pcm_clken => pcm_clken, -- audio clock enable
+--        pcm_clken => pcm_clken, -- audio clock enable
+        pcm_clken => '0',
         pcm_l => pcm_l,
         pcm_r => pcm_r,
         pcm_acr => pcm_acr, -- 1KHz
