@@ -275,7 +275,7 @@ architecture Behavioral of container is
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock162 : std_logic;
   signal clock200 : std_logic;
-  signal clock135 : std_logic;
+  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
@@ -457,6 +457,13 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
+
+  signal TMDS_mod10       : std_logic_vector(3 downto 0) := (others => '0');  -- modulus 10 counter
+  signal TMDS_shift_red   : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_green : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_blue  : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_load  : std_logic := '0';
+
   
 begin
 
@@ -507,7 +514,7 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock135  => clock135,   --  135     MHz
+               clock270  => clock270,   --  270     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
                clock325  => clock325    --  325     MHz
@@ -572,29 +579,38 @@ begin
 
         tmds => tmds
         );
-    
-     -- serialiser: in this design we use TMDS SelectIO outputs
-    GEN_HDMI_DATA: for i in 0 to 2 generate
-    begin
-        HDMI_DATA: entity work.serialiser_10to1_selectio
-            port map (
-                rst     => reset_high,
-                clk     => clock27,
-                clk_x5  => clock135,
-                d       => tmds(i),
-                out_p   => TMDS_data_p(i),
-                out_n   => TMDS_data_n(i)
-            );
-    end generate GEN_HDMI_DATA;
-    HDMI_CLK: entity work.serialiser_10to1_selectio
-        port map (
-            rst     => reset_high,
-            clk     => clock27,
-            clk_x5  => clock135,
-            d       => "0000011111",
-            out_p   => TMDS_clk_p,
-            out_n   => TMDS_clk_n
-        );
+
+   process (clock270)
+   begin
+     if rising_edge(clock270) then
+      if TMDS_mod10 = "1001" then
+         TMDS_shift_load <= '1';
+      else
+         TMDS_shift_load <= '0';
+      end if;
+
+      if TMDS_shift_load = '1' then
+         TMDS_shift_red   <= TMDS(0);
+         TMDS_shift_green <= TMDS(1);
+         TMDS_shift_blue  <= TMDS(2);
+      else
+         TMDS_shift_red   <= '0' & TMDS_shift_red  (9 downto 1);
+         TMDS_shift_green <= '0' & TMDS_shift_green(9 downto 1);
+         TMDS_shift_blue  <= '0' & TMDS_shift_blue (9 downto 1);
+      end if;
+
+      if TMDS_mod10 = "1001" then
+         TMDS_mod10 <= "0000";
+      else
+         TMDS_mod10 <= std_logic_vector(unsigned(TMDS_mod10)+1);
+      end if;
+     end if;
+   end process;
+
+   OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
+   OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
+   OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
+   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDS_clk_p, OB => TMDS_clk_n);
   
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
