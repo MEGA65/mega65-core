@@ -585,29 +585,6 @@ begin
 
         tmds => tmds
         );
-    
-     -- serialiser: in this design we use TMDS SelectIO outputs
-    GEN_HDMI_DATA: for i in 0 to 2 generate
-    begin
-        HDMI_DATA: entity work.serialiser_10to1_selectio
-            port map (
-                rst     => reset_high,
-                clk     => clock27,
-                clk_x5  => clock135,
-                d       => tmds(i),
-                out_p   => TMDS_data_p(i),
-                out_n   => TMDS_data_n(i)
-            );
-    end generate GEN_HDMI_DATA;
-    HDMI_CLK: entity work.serialiser_10to1_selectio
-        port map (
-            rst     => reset_high,
-            clk     => clock27,
-            clk_x5  => clock135,
-            d       => "0000011111",
-            out_p   => TMDS_clk_p,
-            out_n   => TMDS_clk_n
-        );
   
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
@@ -848,6 +825,39 @@ begin
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
+
+   process (clock270)
+   begin
+     if rising_edge(clock270) then
+      if TMDS_mod10 = "1001" then
+         TMDS_shift_load <= '1';
+      else
+         TMDS_shift_load <= '0';
+      end if;
+
+      if TMDS_shift_load = '1' then
+         TMDS_shift_red   <= TMDS(0);
+         TMDS_shift_green <= TMDS(1);
+         TMDS_shift_blue  <= TMDS(2);
+      else
+         TMDS_shift_red   <= '0' & TMDS_shift_red  (9 downto 1);
+         TMDS_shift_green <= '0' & TMDS_shift_green(9 downto 1);
+         TMDS_shift_blue  <= '0' & TMDS_shift_blue (9 downto 1);
+      end if;
+
+      if TMDS_mod10 = "1001" then
+         TMDS_mod10 <= "0000";
+      else
+         TMDS_mod10 <= std_logic_vector(unsigned(TMDS_mod10)+1);
+      end if;
+     end if;
+   end process;
+
+   OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
+   OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
+   OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
+   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDSp_clock, OB => TMDSn_clock);
+
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
