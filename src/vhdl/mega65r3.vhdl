@@ -273,6 +273,7 @@ architecture Behavioral of container is
   signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
+  signal clock135 : std_logic;
   signal clock162 : std_logic;
   signal clock200 : std_logic;
   signal clock270 : std_logic;
@@ -515,6 +516,7 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
+               clock135  => clock135,   --  135     MHz
                clock270  => clock270,   --  270     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
