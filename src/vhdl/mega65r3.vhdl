@@ -523,14 +523,9 @@ begin
 
     -- Feed audio into digital video feed
     AUDIO_TONE: entity work.audio_out_test_tone
-      generic map (
-        -- You have to update audio_clock if you change this
-        fref        => 100.0
-        )
       port map (
             select_44100 => portp_drive(3),
-            ref_rst   => reset_high,
-            ref_clk   => CLK_IN,
+            clock270 => clock270,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,

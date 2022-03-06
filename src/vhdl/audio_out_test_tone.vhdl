@@ -22,16 +22,12 @@ use ieee.numeric_std.all;
 library work;
 
 entity audio_out_test_tone is
-    generic (
-        fref        : real                                  -- reference clock frequency (MHz)
-    );
     port (
 
       -- Allow switching between these to audio sample rates
       select_44100 : in std_logic; 
       
-        ref_rst     : in    std_logic;                      -- reference clock reset
-        ref_clk     : in    std_logic;                      -- reference clock (100MHz)
+      clock270 : in std_logic;
 
         pcm_rst     : inout   std_logic;                      -- audio clock reset
         pcm_clk     : inout   std_logic;                      -- audio clock (256Fs = 12.288MHz)
@@ -61,8 +57,7 @@ begin
         )
       port map (
         select_44100 => select_44100,
-            rsti    => ref_rst,
-            clki    => ref_clk,
+        clock270 => clock270,
             rsto    => pcm_rst,
             clk     => pcm_clk,
             clken   => pcm_clken

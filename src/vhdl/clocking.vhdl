@@ -16,6 +16,7 @@ entity clocking is
       clock41    : out std_logic;
       clock50    : out std_logic;
       clock81p   : out std_logic;
+      clock135   : out std_logic;
       clock270   : out std_logic;
       clock163   : out std_logic;
       clock200   : out std_logic;
@@ -42,6 +43,7 @@ architecture RTL of clocking is
   signal u_clock41 : std_logic := '0';
   signal u_clock50 : std_logic := '0';
   signal u_clock81p : std_logic := '0';
+  signal u_clock135 : std_logic := '0';
   signal u_clock163 : std_logic := '0';
   signal u_clock200 : std_logic := '0';
   signal u_clock270 : std_logic := '0';
@@ -223,6 +225,10 @@ begin
   bufg81:
   bufg port map ( I => u_clock81p,
                   O => clock81p);  
+
+  bufg135:
+  bufg port map ( I => u_clock135,
+                  O => clock135);  
   
   bufg163:
   bufg port map ( I => u_clock163,
@@ -260,8 +266,8 @@ begin
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT1 = clock270 = 812.5MHz/3
-    CLKOUT1_DIVIDE       => 3,
+    -- CLKOUT1 = clock135 = 812.5MHz/6
+    CLKOUT1_DIVIDE       => 6,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
@@ -302,6 +308,7 @@ begin
     -- Output clocks
    (CLKFBOUT            => clk_fb,
     CLKOUT0             => u_clock325,
+    CLKOUT1             => u_clock135,
     CLKOUT2             => u_clock81p,
     CLKOUT3             => u_clock41,
     CLKOUT4             => u_clock27,

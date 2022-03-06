@@ -276,6 +276,7 @@ architecture Behavioral of container is
   signal clock135 : std_logic;
   signal clock163 : std_logic;
   signal clock200 : std_logic;
+  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
@@ -526,19 +527,15 @@ begin
                clock135  => clock135,   --  135     MHz
                clock163  => clock163,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
+               clock270  => clock270,   --  270     MHz
                clock325  => clock325    --  325     MHz
                );
 
-    -- Feed audio into digital video feed
+  -- Feed audio into digital video feed
     AUDIO_TONE: entity work.audio_out_test_tone
-      generic map (
-        -- You have to update audio_clock if you change this
-        fref        => 100.0
-        )
       port map (
-            select_44100 => portp(3),
-            ref_rst   => reset_high,
-            ref_clk   => CLK_IN,
+            select_44100 => '0',
+            clock270 => clock270,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
