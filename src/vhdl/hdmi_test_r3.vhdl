@@ -453,6 +453,11 @@ architecture Behavioral of container is
   signal vga_blank : std_logic := '0';
 
   signal tmds : slv_9_0_t(0 to 2);
+  signal TMDS_mod10       : std_logic_vector(3 downto 0) := (others => '0');  -- modulus 10 counter
+  signal TMDS_shift_red   : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_green : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_blue  : std_logic_vector(9 downto 0) := (others => '0');
+  signal TMDS_shift_load  : std_logic := '0';
 
   signal reset_high : std_logic := '0';
 
@@ -856,7 +861,7 @@ begin
    OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
    OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
    OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
-   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDSp_clock, OB => TMDSn_clock);
+   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDS_clk_p, OB => TMDS_clk_n);
 
   
   process (pixelclock,cpuclock,pcm_clk) is
