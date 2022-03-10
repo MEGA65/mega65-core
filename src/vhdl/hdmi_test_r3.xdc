@@ -404,16 +404,14 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
-set_clock_groups -asynchronous \
-     -group { cpuclock CLKOUT2 CLKOUT3 hdmi_clk_OBUF vdac_clk_OBUF clock163 pixelclock clock325 hr_rwds } \
-     -group { CLKFBOUT clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF clk_60 }
+#set_clock_groups -asynchronous \
+#     -group { cpuclock CLKOUT2 CLKOUT3 hdmi_clk_OBUF vdac_clk_OBUF clock163 pixelclock clock325 hr_rwds } \
+#     -group { CLKFBOUT clk_fb_eth u_clock50 u_clock500 u_clock50q clock100 clock200 eth_clock_OBUF clk_60 }
 
 # Deal with more false paths crossing ethernet / cpu clock domains
-set_false_path -from [get_clocks hr_rwds] -to [get_clocks clock163]
-set_false_path -from [get_clocks clock163] -to [get_clocks hr_rwds]
-set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
-set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
-set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
-set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
-# Fix 12.288MHz clock generation clock domain crossing
-set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_60]
+#set_false_path -from [get_clocks hr_rwds] -to [get_clocks clock163]
+#set_false_path -from [get_clocks clock163] -to [get_clocks hr_rwds]
+#set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+#set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+#set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
+#set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
