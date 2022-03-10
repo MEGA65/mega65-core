@@ -22,6 +22,9 @@ use ieee.numeric_std.all;
 library work;
 
 entity audio_out_test_tone is
+  generic (
+    clock_freq : integer := 270_000_000
+    );
     port (
 
       -- Allow switching between these to audio sample rates
@@ -51,7 +54,8 @@ architecture synth of audio_out_test_tone is
 begin
 
     CLOCK: entity work.audio_clock
-        generic map (
+      generic map (
+        clock_freq => clock_freq,
             fs      => 48.0,
             ratio   => 256
         )

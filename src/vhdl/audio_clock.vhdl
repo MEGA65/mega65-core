@@ -16,20 +16,24 @@
 --------------------------------------------------------------------------------
 
 library ieee;
+use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 
 library unisim;
 use unisim.vcomponents.all;
 
 entity audio_clock is
-    generic (
+  generic (
+    clock_freq : integer := 270_000_000;
         fs      : real;     -- sampling (clken) frequency (kHz)
         ratio   : integer   -- clk to fs frequency ratio
     );
     port (
 
-        rsti    : in    std_logic;          -- reset in
-        clki    : in    std_logic;          -- reference clock in
+      select_44100 : in std_logic;
+
+      clock270 : in std_logic;
+      
         rsto    : out   std_logic;          -- reset out (from MMCM lock status)
         clk     : inout   std_logic;          -- audio clock out (fs * ratio)
         clken   : out   std_logic           -- audio clock enable out (fs)
@@ -39,138 +43,81 @@ end entity audio_clock;
 
 architecture synth of audio_clock is
 
-    signal locked   : std_logic;     -- MMCM lock status
-    signal clk_u    : std_logic;     -- unbuffered output clock
-    signal clko_fb  : std_logic;     -- unbuffered feedback clock
-    signal clki_fb  : std_logic;    -- feedback clock
-    signal count    : integer range 0 to ratio-1;
+  -- 44100*256/270MHz << 23 = 350755.662506667
+  -- Error rate ~1x10^-6
+  constant delta_44100_270 : unsigned(19 downto 0) := to_unsigned(350756,20);
+  -- 48000*256/270MHz << 23 = 381774.870755556
+  -- Error rate = ~4x10^-7
+  constant delta_48000_270 : unsigned(19 downto 0) := to_unsigned(381774,20);
 
-    -- Assume input clock is 50MHz
-    constant mmcm_vco_mul   : real      := 96.0;  -- 50MHz x 96 = 4.8GHz
-    constant mmcm_vco_div   : integer   := 5;     -- 4.8GHz / 5 = 960 MHz
-    constant mmcm_o_div     : real      := 78.125; -- 960 MHz / 78.125 =
-                                                      -- 12.288 MHz
+  constant delta_44100_250 : unsigned(19 downto 0) := to_unsigned(378816,20);
+  constant delta_48000_250 : unsigned(19 downto 0) := to_unsigned(412317,20);
+  
+  -- Used to detect each tick.
+  signal delta_counter : unsigned(20 downto 0) := to_unsigned(0,21);
+  -- Then every 8 ticks = 1x fs*ratio clock
+  signal tick_counter : unsigned(3 downto 0) := to_unsigned(0,4);
 
-    ----------------------------------------------------------------------
+  signal last_delta_counter : std_logic := '0';
+  signal last_tick_counter : std_logic := '0';
+  
+  signal clk_u    : std_logic;     -- unbuffered output clock
+
+  signal ratio_counter : integer := 0;
+  
+  ----------------------------------------------------------------------
 
 begin
-
-    process(locked,clk)
-    begin
-        if locked = '0' then
-            count <= 0;
-            clken <= '0';
-        elsif rising_edge(clk) then
-            clken <= '0';
-            if count = ratio-1 then
-                count <= 0;
-                clken <= '1';
-            else
-                count <= count + 1;
-            end if;
-        end if;
-    end process;
-
-    MMCM: mmcme2_adv
-    generic map(
-        bandwidth               => "OPTIMIZED",
-        clkfbout_mult_f         => 24.0, -- 50x24 = 1200 mhz
-        clkfbout_phase          => 0.0,
-        clkfbout_use_fine_ps    => false,
-        divclk_divide           => 1,    -- keep 1200MHz
-        clkin1_period           => 20.0,
-        clkin2_period           => 0.0,
-        clkout0_divide_f        => 97.625, -- 1200 / 97.625MHz = 12.291933MHz.
-                                           -- Error = 3.933 KHz
-        clkout0_duty_cycle      => 0.5,
-        clkout0_phase           => 0.0,
-        clkout0_use_fine_ps     => false,
-        clkout1_divide          => 1,
-        clkout1_duty_cycle      => 0.5,
-        clkout1_phase           => 0.0,
-        clkout1_use_fine_ps     => false,
-        clkout2_divide          => 1,
-        clkout2_duty_cycle      => 0.5,
-        clkout2_phase           => 0.0,
-        clkout2_use_fine_ps     => false,
-        clkout3_divide          => 1,
-        clkout3_duty_cycle      => 0.5,
-        clkout3_phase           => 0.0,
-        clkout3_use_fine_ps     => false,
-        clkout4_cascade         => false,
-        clkout4_divide          => 1,
-        clkout4_duty_cycle      => 0.5,
-        clkout4_phase           => 0.0,
-        clkout4_use_fine_ps     => false,
-        clkout5_divide          => 1,
-        clkout5_duty_cycle      => 0.5,
-        clkout5_phase           => 0.0,
-        clkout5_use_fine_ps     => false,
-        clkout6_divide          => 1,
-        clkout6_duty_cycle      => 0.5,
-        clkout6_phase           => 0.0,
-        clkout6_use_fine_ps     => false,
-        compensation            => "ZHOLD",
-        is_clkinsel_inverted    => '0',
-        is_psen_inverted        => '0',
-        is_psincdec_inverted    => '0',
-        is_pwrdwn_inverted      => '0',
-        is_rst_inverted         => '0',
-        ref_jitter1             => 0.01,
-        ref_jitter2             => 0.01,
-        ss_en                   => "FALSE",
-        ss_mode                 => "CENTER_HIGH",
-        ss_mod_period           => 10000,
-        startup_wait            => false
-    )
-    port map (
-        pwrdwn          => '0',
-        rst             => rsti,
-        locked          => locked,
-        clkin1          => clki,
-        clkin2          => '0',
-        clkinsel        => '1',
-        clkinstopped    => open,
-        clkfbin         => clki_fb,
-        clkfbout        => clko_fb,
-        clkfboutb       => open,
-        clkfbstopped    => open,
-        clkout0         => clk_u,
-        clkout0b        => open,
-        clkout1         => open,
-        clkout1b        => open,
-        clkout2         => open,
-        clkout2b        => open,
-        clkout3         => open,
-        clkout3b        => open,
-        clkout4         => open,
-        clkout5         => open,
-        clkout6         => open,
-        dclk            => '0',
-        daddr           => (others => '0'),
-        den             => '0',
-        dwe             => '0',
-        di              => (others => '0'),
-        do              => open,
-        drdy            => open,
-        psclk           => '0',
-        psdone          => open,
-        psen            => '0',
-        psincdec        => '0'
-    );
-
+    
     BUFG_O: unisim.vcomponents.bufg
         port map (
             I   => clk_u,
             O   => clk
         );
 
-    BUFG_F: unisim.vcomponents.bufg
-        port map (
-            I   => clko_fb,
-            O   => clki_fb
-        );
+    process(clock270)
+    begin 
+      if rising_edge(clock270) then
+        if select_44100 = '0' then
+          -- 48KHz
+          if clock_freq = 270_000_000 then
+            delta_counter <= delta_counter + delta_48000_270;
+          else
+            delta_counter <= delta_counter + delta_48000_250;
+          end if;
+        else
+          -- 44.1KHz
+          if clock_freq = 270_000_000 then
+            delta_counter <= delta_counter + delta_44100_270;
+          else
+            delta_counter <= delta_counter + delta_44100_250;
+          end if;
+        end if;
+        if delta_counter(20) /= last_delta_counter then
+          tick_counter <= tick_counter + 1;
+          last_delta_counter <= delta_counter(20);
+        end if;
 
-    rsto <= not locked;
+        -- Clock has two phases, so use one bit lower to get
+        -- two transitions per time
+        clk_u <= tick_counter(2);
 
+        -- Then from that derive the sample clock
+        if ratio_counter = 0 then
+          clken <= '1';
+        else
+          clken <= '0';          
+        end if;
+        if tick_counter(3) /= last_tick_counter then
+          last_tick_counter <= tick_counter(3);
+          if ratio_counter < (ratio -1) then
+            ratio_counter <= ratio_counter + 1;
+          else
+            ratio_counter <= 0;
+          end if;
+        end if;
+      end if;
+    end process;
+      
+      
 end architecture synth;
