@@ -751,14 +751,6 @@ begin
                     data_ack(i) <= '0';
                 end if;
             end loop;
-            -- PGS XXX DEBUG disable some packet times to find out which mess
-            -- things up
-            data_req(0) <= '0';
-            data_req(1) <= '0';
-            data_req(2) <= '0';
-            data_req(3) <= '0';
-            data_req(4) <= '0';
-            data_req(5) <= '0';
 
             -- HDMI encoding pipeline stage 1
 
