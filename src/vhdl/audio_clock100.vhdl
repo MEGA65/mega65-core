@@ -24,8 +24,8 @@ use unisim.vcomponents.all;
 
 entity audio_clock is
     generic (
-        fs      : real;     -- sampling (clken) frequency (kHz)
-        ratio   : integer   -- clk to fs frequency ratio
+      fs      : real;     -- sampling (clken) frequency (kHz)
+      ratio   : integer   -- clk to fs frequency ratio
     );
     port (
 
@@ -98,10 +98,15 @@ begin
         end if;
         if tick_counter(3) /= last_tick_counter then
           last_tick_counter <= tick_counter(3);
-          if ratio_counter < (ratio -1) then
-            ratio_counter <= ratio_counter + 1;
+          if ratio = 256 then
+            -- Special efficient case for convenient ratio
+            ratio_counter <= to_integer(to_unsigned(ratio,8)+1);
           else
-            ratio_counter <= 0;
+            if ratio_counter < (ratio - 1) then
+              ratio_counter <= ratio_counter + 1;
+            else
+              ratio_counter <= 0;
+            end if;
           end if;
         end if;
       end if;
