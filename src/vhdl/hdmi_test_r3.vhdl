@@ -856,14 +856,14 @@ begin
   
   process (clock25,pcm_clk) is
   begin
+    -- VGA output at full pixel clock
+    vdac_clk <= clock25;
+
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
-    -- VGA output at full pixel clock
-    vdac_clk <= clock25,
-
     pattern_de_n <= not pattern_de;
-    
+        
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
