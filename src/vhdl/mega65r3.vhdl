@@ -518,13 +518,14 @@ begin
                clock81p  => pixelclock, --   81     MHz
                clock135  => clock135,   --  135     MHz
                clock270  => clock270,   --  270     MHz
-               clock163  => clock162,   --  162.5   MHz
+               clock162  => clock162,   --  162     MHz
                clock200  => clock200,   --  200     MHz
-               clock325  => clock325    --  325     MHz
+               clock324  => clock325    --  324     MHz
                );
 
     -- Feed audio into digital video feed
-    AUDIO_TONE: entity work.audio_out_test_tone
+  AUDIO_TONE: entity work.audio_out_test_tone
+    generic map ( clock_freq => 270_000_000 )
       port map (
             select_44100 => portp_drive(3),
             clock270 => clock270,
@@ -656,7 +657,7 @@ begin
     port map (
       pixelclock => pixelclock,
       clock163 => clock162,
-      clock325 => clock325,
+      clock325 => clock324,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
