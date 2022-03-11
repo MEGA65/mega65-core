@@ -55,7 +55,7 @@ begin
 
     CLOCK: entity work.audio_clock
       generic map (
-        clock_freq => clock_freq,
+--        clock_freq => clock_freq,
             fs      => 48.0,
             ratio   => 256
         )
