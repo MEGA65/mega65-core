@@ -553,7 +553,9 @@ begin
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
         dvi => dvi_select, 
-        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+        vic => std_logic_vector(to_unsigned(1,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60
+                                                   -- NTSC, 1 = VGA 640x480
+                                                   -- 25.18MHz 
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
         vs_pol => '1',  -- 1=active high
@@ -775,8 +777,8 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
-      pal50_select => one,
-      vga60_select => zero,
+      pal50_select => zero,
+      vga60_select => one,
       test_pattern_enable => dipsw(3),      
       
       -- Framing information for VIC-IV

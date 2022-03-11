@@ -376,16 +376,15 @@ begin
   -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync
   -- Ends up being 64Hz, because our dotclock is ~27MHz.  Most monitors accept
   -- it, anyway.
-  -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
   frame60vga: entity work.frame_generator
-    generic map ( frame_width => 858,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => 800,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  fullwidth_start => 16+62+60,
-                  fullwidth_width => 800,
+                  fullwidth_start => 16+64,
+                  fullwidth_width => 640,
 
                   narrow_start => 16+62+60,
-                  narrow_width => 720,
+                  narrow_width => 640,
 
                   pipeline_delay => 0,
                   
@@ -393,16 +392,16 @@ begin
                   vsync_end => 6+6,
 
                   hsync_start => 16,
-                  hsync_end => 16+62,
+                  hsync_end => 16+96,
 
-                  vga_hsync_start => 858-1-(64-16)-62,
-                  vga_hsync_end => 858-1-(64-16),
+                  vga_hsync_start => 16,
+                  vga_hsync_end => 16+96,
                   
-                  first_raster => 42,
-                  last_raster => 522,
+                  first_raster => 0,
+                  last_raster => 480,
 
-                  lcd_first_raster => 42,
-                  lcd_last_raster => 522,
+                  lcd_first_raster => 0,
+                  lcd_last_raster => 480,
 
                   cycles_per_raster_1mhz => 65,
                   cycles_per_raster_2mhz => 65*2,
