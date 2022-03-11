@@ -270,9 +270,9 @@ architecture Behavioral of container is
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock25 : std_logic;
-  signal clock125 : std_logic;
-  signal clock250 : std_logic;
+  signal clock27 : std_logic;
+  signal clock135 : std_logic;
+  signal clock270 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -422,7 +422,7 @@ architecture Behavioral of container is
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
 
-  constant clock_frequency : integer := 25000000;
+  constant clock_frequency : integer := 27000000;
   constant target_sample_rate : integer := 48000;
   signal audio_counter : integer := 0;
   signal sample_ready_toggle : std_logic := '0';
@@ -520,17 +520,17 @@ begin
   -- protected) domain crossings used for those.
   clocks1: entity work.clocking
     port map ( clk_in    => CLK_IN,
-               clock25   => clock25, 
-               clock125   => clock125, 
-               clock250   => clock250
+               clock27   => clock27, 
+               clock135   => clock135, 
+               clock270   => clock270
                );
 
   -- Feed audio into digital video feed
   AUDIO_TONE: entity work.audio_out_test_tone
-    generic map ( clock_freq => 250_000_000 )
+    generic map ( clock_freq => 270_000_000 )
       port map (
             select_44100 => '0',
-            clock270 => clock250,
+            clock270 => clock270,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
@@ -553,7 +553,7 @@ begin
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
         dvi => dvi_select, 
-        vic => std_logic_vector(to_unsigned(1,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60
+        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60
                                                    -- NTSC, 1 = VGA 640x480
                                                    -- 25.18MHz 
         aspect => "01", -- 01=4:3, 10=16:9
@@ -562,7 +562,7 @@ begin
         hs_pol => '1',
 
         vga_rst => reset_high, -- active high reset
-        vga_clk => clock25, -- VGA pixel clock
+        vga_clk => clock27, -- VGA pixel clock
         vga_vs => pattern_vsync, -- active high vsync
         vga_hs => pattern_hsync, -- active high hsync
         vga_de => pattern_de,   -- pixel enable
@@ -587,12 +587,12 @@ begin
     generic map (DELAY_CYCLES => 480)
     port map (
       rst => '0',
-      clk => clock25,
+      clk => clock27,
       temp => fpga_temperature); 
   
   kbd0: entity work.mega65kbd_to_matrix
     port map (
-      cpuclock => clock25,
+      cpuclock => clock27,
 
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
@@ -623,8 +623,8 @@ begin
   
   max10: entity work.max10
     port map (
-      pixelclock      => clock125,
-      cpuclock        => clock25,
+      pixelclock      => clock135,
+      cpuclock        => clock27,
 
 --      led => led,
       
@@ -672,7 +672,7 @@ begin
       joya_rotate => '0',
       joyb_rotate => '0',
       
-    cpuclock       => clock25,
+    cpuclock       => clock27,
 --    restore_out => restore_nmi,
     keyboard_restore => key_restore,
     keyboard_capslock => key_caps,
@@ -758,8 +758,8 @@ begin
   uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => ascii_key_valid,
-      BIT_TMR_MAX => to_unsigned((25000000/2000000) - 1,24),
-      clk     => clock25,
+      BIT_TMR_MAX => to_unsigned((27000000/2000000) - 1,24),
+      clk     => clock27,
       data    => ascii_key,
 --      ready   => tx0_ready,
       uart_tx => UART_TXD);
@@ -767,18 +767,18 @@ begin
   
   pixel0: entity work.pixel_driver
     port map (
-      clock81 => clock25, -- 80MHz
-      clock27 => clock25,
+      clock81 => clock27, -- 80MHz
+      clock27 => clock27,
 
-      cpuclock => clock25,
+      cpuclock => clock27,
 
       pixel_strobe_out => pixel_strobe,
       
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
-      pal50_select => zero,
-      vga60_select => one,
+      pal50_select => one,
+      vga60_select => zero,
       test_pattern_enable => dipsw(3),      
       
       -- Framing information for VIC-IV
@@ -823,9 +823,9 @@ begin
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
 
-   process (clock250)
+   process (clock270)
    begin
-     if rising_edge(clock250) then
+     if rising_edge(clock270) then
       if TMDS_mod10 = "1001" then
          TMDS_shift_load <= '1';
       else
@@ -853,13 +853,13 @@ begin
    OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
    OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
    OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
-   OBUFDS_clock : OBUFDS port map (I => clock25, O => TMDS_clk_p, OB => TMDS_clk_n);
+   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDS_clk_p, OB => TMDS_clk_n);
 
   
-  process (clock25,pcm_clk) is
+  process (clock27,pcm_clk) is
   begin
     -- VGA output at full pixel clock
-    vdac_clk <= clock25;
+    vdac_clk <= clock27;
 
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
@@ -882,7 +882,7 @@ begin
     end if;
     
     -- Drive most ports, to relax timing
-    if rising_edge(clock25) then      
+    if rising_edge(clock27) then      
 
       dvi_select <= portp(1) xor dipsw(1);
       
@@ -1001,7 +1001,7 @@ begin
 --    led <= portp(4);
     led <= dipsw(3);
 
-    if rising_edge(clock25) then
+    if rising_edge(clock27) then
       hsync <= pattern_hsync;
       vsync <= pattern_vsync;
 --      vgared <= pattern_r;
