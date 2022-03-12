@@ -610,9 +610,9 @@ begin
      end if;
    end process;
 
-   OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
+   OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
    OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
-   OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
+   OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
    OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDS_clk_p, OB => TMDS_clk_n);
   
   fpgatemp0: entity work.fpgatemp
