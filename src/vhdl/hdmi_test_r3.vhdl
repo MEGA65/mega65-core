@@ -480,7 +480,7 @@ architecture Behavioral of container is
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
 
-  signal packet_disable : std_logic_vector(5 downto 0) := (others => '1');
+  signal packet_enable : std_logic_vector(5 downto 0) := (others => '1');
   
 begin
 
@@ -567,7 +567,7 @@ begin
         -- this behaviour
         dvi => dvi_select,
 
-        packet_disable => packet_disable,
+        packet_enable => packet_enable,
         
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
@@ -900,17 +900,17 @@ begin
 
       if ascii_key_valid ='1' then
         case ascii_key is
-          when x"31" => packet_disable(0) <= not packet_disable(0);
+          when x"31" => packet_enable(0) <= not packet_enable(0);
                        led <= not led;                       
-          when x"32" => packet_disable(1) <= not packet_disable(1);
+          when x"32" => packet_enable(1) <= not packet_enable(1);
                        led <= not led;                       
-          when x"33" => packet_disable(2) <= not packet_disable(2);
+          when x"33" => packet_enable(2) <= not packet_enable(2);
                        led <= not led;                       
-          when x"34" => packet_disable(3) <= not packet_disable(3);
+          when x"34" => packet_enable(3) <= not packet_enable(3);
                        led <= not led;                       
-          when x"35" => packet_disable(4) <= not packet_disable(4);
+          when x"35" => packet_enable(4) <= not packet_enable(4);
                        led <= not led;                       
-          when x"36" => packet_disable(5) <= not packet_disable(5);
+          when x"36" => packet_enable(5) <= not packet_enable(5);
                        led <= not led;                       
           when others => null;
         end case;

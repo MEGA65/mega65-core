@@ -33,7 +33,7 @@ entity vga_to_hdmi is
       select_44100 : in std_logic;
       
       dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
-      packet_disable : in std_logic_vector(5 downto 0);
+      packet_enable : in std_logic_vector(5 downto 0);
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
         pix_rep     : in    std_logic;                     -- signals pixel repetition (SD interlaced modes)
@@ -965,7 +965,7 @@ begin
 
             -- XXX PGS disable HDMI data packets
             for i in 0 to 5 loop
-              data_req(i) <= data_req(i) and (not packet_disable(i));
+              data_req(i) <= data_req(i) and packet_enable(i);
             end loop;
             
         end if;
