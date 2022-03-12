@@ -547,6 +547,7 @@ begin
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
+        packet_enable => (others => '1'),
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
