@@ -271,6 +271,7 @@ architecture Behavioral of container is
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock27 : std_logic;
+  signal clock27n : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock100 : std_logic;
   signal clock135 : std_logic;
@@ -867,8 +868,9 @@ begin
    OBUFDS_red   : OBUFDS port map (I => TMDS_shift_red  (0), O => TMDS_data_p(2), OB => TMDS_data_n(2));
    OBUFDS_green : OBUFDS port map (I => TMDS_shift_green(0), O => TMDS_data_p(1), OB => TMDS_data_n(1));
    OBUFDS_blue  : OBUFDS port map (I => TMDS_shift_blue (0), O => TMDS_data_p(0), OB => TMDS_data_n(0));
-   OBUFDS_clock : OBUFDS port map (I => clock27, O => TMDS_clk_p, OB => TMDS_clk_n);
+   OBUFDS_clock : OBUFDS port map (I => clock27n, O => TMDS_clk_p, OB => TMDS_clk_n);
 
+  clock27n <= not clock27;
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
