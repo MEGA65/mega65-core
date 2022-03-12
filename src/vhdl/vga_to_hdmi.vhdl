@@ -963,7 +963,7 @@ begin
             end if;
 
             -- XXX PGS disable HDMI data packets
-            data_req(0) <= '0';
+--            data_req(0) <= '0';
             data_req(1) <= '0';
             data_req(2) <= '0';
             data_req(3) <= '0';
