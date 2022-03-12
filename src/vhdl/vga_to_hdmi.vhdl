@@ -32,7 +32,8 @@ entity vga_to_hdmi is
       -- Select which of the two audio clocks above to use
       select_44100 : in std_logic;
       
-        dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
+      dvi         : in    std_logic;                     -- DVI mode disables all HDMI enhancements e.g. audio
+      packet_disable : in std_logic_vector(5 downto 0);
         vic         : in    std_logic_vector(7 downto 0);  -- CEA/CTA VIC
         aspect      : in    std_logic_vector(1 downto 0);  -- for aspect ratio signalling in AVI InfoFrames
         pix_rep     : in    std_logic;                     -- signals pixel repetition (SD interlaced modes)
@@ -963,12 +964,9 @@ begin
             end if;
 
             -- XXX PGS disable HDMI data packets
---            data_req(0) <= '0';
-            data_req(1) <= '0';
-            data_req(2) <= '0';
-            data_req(3) <= '0';
-            data_req(4) <= '0';
-            data_req(5) <= '0';
+            for i in 0 to 5 loop
+              data_req(i) <= data_req(i) and (not packet_disable(i));
+            end loop;
             
         end if;
 

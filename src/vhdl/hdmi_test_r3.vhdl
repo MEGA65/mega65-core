@@ -479,6 +479,8 @@ architecture Behavioral of container is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal packet_disable : std_logic_vector(5 downto 0) := (others => '1');
   
 begin
 
@@ -563,7 +565,10 @@ begin
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
-        dvi => dvi_select, 
+        dvi => dvi_select,
+
+        packet_disable => packet_disable,
+        
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -893,6 +898,18 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
+      if ascii_key_valid ='1' then
+        case ascii_key is
+          when x"1" => packet_disable(0) <= not packet_disable(0);
+          when x"2" => packet_disable(1) <= not packet_disable(1);
+          when x"3" => packet_disable(2) <= not packet_disable(2);
+          when x"4" => packet_disable(3) <= not packet_disable(3);
+          when x"5" => packet_disable(4) <= not packet_disable(4);
+          when x"6" => packet_disable(5) <= not packet_disable(5);
+          when others => null;
+        end case;
+      end if;
+      
       dvi_select <= portp(1) xor dipsw(1);
       
 --      reset_high <= not btncpureset;
