@@ -901,11 +901,17 @@ begin
       if ascii_key_valid ='1' then
         case ascii_key is
           when x"1" => packet_disable(0) <= not packet_disable(0);
+                       led <= not led;                       
           when x"2" => packet_disable(1) <= not packet_disable(1);
+                       led <= not led;                       
           when x"3" => packet_disable(2) <= not packet_disable(2);
+                       led <= not led;                       
           when x"4" => packet_disable(3) <= not packet_disable(3);
+                       led <= not led;                       
           when x"5" => packet_disable(4) <= not packet_disable(4);
+                       led <= not led;                       
           when x"6" => packet_disable(5) <= not packet_disable(5);
+                       led <= not led;                       
           when others => null;
         end case;
       end if;
@@ -1025,7 +1031,7 @@ begin
     end if;
     -- LED on main board 
 --    led <= portp(4);
-    led <= dipsw(3);
+--    led <= dipsw(3);
 
     if rising_edge(pixelclock) then
       hsync <= pattern_hsync;
