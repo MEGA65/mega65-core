@@ -681,14 +681,14 @@ begin
                     vga_iec_lp & vga_iec_lc & vga_iec_lu & vga_iec_lv;
                 pcm_count <= (pcm_count + 1) mod 4;
                 if pcm_count = 0 then
-                    data_req(0) <= '1';
+                    data_req(0) <= packet_enable(0);
                     hb(0) <= hb_a;
                     pb(0) <= pb_a;
                 end if;
             end if;
 
             if vga_acr = '1' then
-                data_req(1) <= '1';
+                data_req(1) <= packet_enable(1);
             end if;
             hb(1) <= hb_1;
             pb(1) <= (others => x"00");
@@ -702,7 +702,7 @@ begin
             end loop;
 
             if vga_vs_p = '1' and vga_vs_1 = '0' then -- once per field
-              data_req(2) <= '1';
+              data_req(2) <= packet_enable(2);
             end if;
             hb(2) <= hb_2;
             pb(2) <= pb_2;
@@ -710,15 +710,15 @@ begin
             -- XXX Only check for falling edge on VSYNC, as HSYNC may not be
             -- synchronised to VSYNC, depending on the video mode
             if vga_vs_p = '1' and vga_vs_1 = '0' then --  and vga_hs_p /= vga_hs_1 then -- once per frame
-              data_req(3) <= '1';
+              data_req(3) <= packet_enable(3);
               -- Send approximately once per second.
               -- XXX Try sending two different versions to see if we can do
               -- animated SPD :)
               if spd_toggle="000000" then
-                data_req(4) <= '1';
+                data_req(4) <= packet_enable(4);
               end if;
               if spd_toggle="100000" then
-                data_req(5) <= '1';
+                data_req(5) <= packet_enable(5);
               end if;
               spd_toggle <= spd_toggle + 1;
             end if;
@@ -963,11 +963,6 @@ begin
                 s4_d <= (others => (others => '0'));
             end if;
 
-            -- XXX PGS disable HDMI data packets
-            for i in 0 to 5 loop
-              data_req(i) <= data_req(i) and packet_enable(i);
-            end loop;
-            
         end if;
 
      end process;
