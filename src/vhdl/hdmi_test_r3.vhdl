@@ -482,6 +482,8 @@ architecture Behavioral of container is
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
 
   signal packet_enable : std_logic_vector(5 downto 0) := (others => '1');
+  signal vs_pol : std_logic := '0';
+  signal hs_pol : std_logic := '0';
   
 begin
 
@@ -573,8 +575,8 @@ begin
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
-        vs_pol => '0',  -- 1=active high
-        hs_pol => '0',
+        vs_pol => vs_pol,  -- 1=active high
+        hs_pol => hs_pol,
 
         vga_rst => reset_high, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
@@ -904,7 +906,11 @@ begin
           when x"35" => packet_enable(4) <= not packet_enable(4);
                        led <= not led;                       
           when x"36" => packet_enable(5) <= not packet_enable(5);
-                       led <= not led;                       
+                        led <= not led;
+          when x"71" => vs_pol <= '0';
+          when x"77" => vs_pol <= '1';
+          when x"65" => hs_pol <= '0';
+          when x"72" => hs_pol <= '1';
           when others => null;
         end case;
       end if;
