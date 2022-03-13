@@ -257,7 +257,7 @@ architecture Behavioral of container is
   signal cpu_exrom : std_logic := '1';
 
   -- Communications with the MAX10 FPGA
-  signal btncpureset : std_logic := '1';
+  signal btncpureset : std_logic;
   signal j21ddr : std_logic_vector(11 downto 0) := (others => '0');
   signal j21out : std_logic_vector(11 downto 0) := (others => '0');
   signal j21in : std_logic_vector(11 downto 0) := (others => '0');
