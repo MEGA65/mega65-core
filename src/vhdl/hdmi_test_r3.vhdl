@@ -546,7 +546,7 @@ begin
   AUDIO_TONE: entity work.audio_out_test_tone
     generic map (clock_freq => 270_000_000 )
       port map (
-            select_44100 => '0',
+            select_44100 => '1',
             clock270 => clock270,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
@@ -565,7 +565,7 @@ begin
     
     hdmi0: entity work.vga_to_hdmi
       port map (
-        select_44100 => portp(3),
+        select_44100 => '1',
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
