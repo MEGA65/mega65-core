@@ -573,8 +573,8 @@ begin
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
-        vs_pol => '1',  -- 1=active high
-        hs_pol => '1',
+        vs_pol => '0',  -- 1=active high
+        hs_pol => '0',
 
         vga_rst => reset_high, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
