@@ -909,11 +909,17 @@ begin
           when x"36" => packet_enable(5) <= not packet_enable(5);
                         led <= not led;
           when x"71" => vs_pol <= '0';
+                       led <= not led;                       
           when x"77" => vs_pol <= '1';
+                       led <= not led;                       
           when x"65" => hs_pol <= '0';
+                       led <= not led;                       
           when x"72" => hs_pol <= '1';
+                       led <= not led;                       
           when x"74" => clock_word <= "0000011111";
+                       led <= not led;                       
           when x"79" => clock_word <= "1111100000";
+                       led <= not led;                       
           when others => null;
         end case;
       end if;
