@@ -484,6 +484,7 @@ architecture Behavioral of container is
   signal packet_enable : std_logic_vector(5 downto 0) := (others => '1');
   signal vs_pol : std_logic := '0';
   signal hs_pol : std_logic := '0';
+  signal clock_word : std_logic_vector(9 downto 0) := "0000011111";
   
 begin
 
@@ -618,7 +619,7 @@ begin
             rst     => reset_high,
             clk     => clock27,
             clk_x5  => clock135,
-            d       => "0000011111",
+            d       => clock_word, 
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
         );
@@ -911,6 +912,8 @@ begin
           when x"77" => vs_pol <= '1';
           when x"65" => hs_pol <= '0';
           when x"72" => hs_pol <= '1';
+          when x"74" => clock_word <= "0000011111";
+          when x"79" => clock_word <= "1111100000";
           when others => null;
         end case;
       end if;
