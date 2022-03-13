@@ -399,7 +399,7 @@ begin  -- behavioural
   -- have the right number of waitstates in the CPU.
   rxbuffers: for i in 0 to 3 generate
     rxbuffer0: entity work.ram8x2048 port map (
-      clkw => clock,
+      clkw => clock50mhz,
       clkr => clock,
       cs => rxbuffer_cs(i),
       w => rxbuffer_write(i),
