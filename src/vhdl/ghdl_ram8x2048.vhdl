@@ -27,14 +27,17 @@ architecture behavioural of ram8x2048 is
 
 begin  -- behavioural
 
-  process(clkr,clkw,cs,address,ram)
+  process(clkr,cs,address,ram)
   begin
     if cs='1' then
       rdata <= ram(address);
     else
       rdata <= (others => 'Z');
     end if;
+  end process;
 
+  process(clkw,w,write_address)
+  begin
     if(rising_edge(Clkw)) then
       if w='1' then
         ram(write_address) <= wdata;
