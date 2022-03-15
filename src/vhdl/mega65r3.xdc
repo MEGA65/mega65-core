@@ -440,6 +440,6 @@ set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
      -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
-     -group { CLKOUT1 u_clock200}
+     -group { clock50 clock200 u_clock50 u_clock200}
 
 
