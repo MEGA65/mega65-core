@@ -142,6 +142,8 @@ architecture behavioural of cia6526 is
   signal reg_read_sdr : std_logic_vector(7 downto 0) := x"FF";
 
   signal reg_sdr_data : std_logic_vector(7 downto 0) := x"00";
+  signal reg_sdr_filled : std_logic := '0';
+  signal reg_shift_data : std_logic_vector(7 downto 0) := x"00";
   signal sdr_bits_remaining : integer := 0;
   signal sdr_bit_alternate : std_logic := '0';
 
@@ -549,9 +551,9 @@ begin  -- behavioural
             -- pin.
             countout <= sdr_bit_alternate;
             if sdr_bit_alternate='0' then
-              spout <= reg_sdr_data(0);
-              reg_sdr_data(6 downto 0) <= reg_sdr_data(7 downto 1);
-              reg_sdr_data(7) <= '0';
+              spout <= reg_shift_data(7);
+              reg_sdr_data(7 downto 1) <= reg_sdr_data(6 downto 0);
+              reg_sdr_data(0) <= '0';
               report "Shifting out bit, " & integer'image(sdr_bits_remaining-1) & " to go.";
               
               sdr_bits_remaining <= sdr_bits_remaining - 1;
@@ -560,6 +562,13 @@ begin  -- behavioural
                 -- indicate this
                 reg_isr(3) <= '1';
                 report "Asserting shift register ISR flag";
+                -- Refill shift register from SDR
+                if reg_sdr_filled then
+                    reg_shift_data <= reg_sdr_data;
+                    sdr_bits_remaining <= 8;
+                    sdr_bit_alternate <= '1';
+                    reg_sdr_filled <= '0';
+                end if;
               end if;
             end if;
           end if;
@@ -761,10 +770,16 @@ begin  -- behavioural
             end if;
           when x"0c" =>
             -- Begin shifting data in or out on shift register
-            report "CIA" & to_hstring(unit) & " Loading shift register";
-            reg_sdr_data <= std_logic_vector(fastio_wdata);
-            sdr_bits_remaining <= 8;
-            sdr_bit_alternate <= '1';
+            if  sdr_bits_remaining ='0' then -- start shifting right away
+                report "CIA" & to_hstring(unit) & " Loading shift register";
+                reg_shift_data <= std_logic_vector(fastio_wdata);
+                sdr_bits_remaining <= 8;
+                sdr_bit_alternate <= '1';
+            else -- we have to double-buffer this byte
+                report "CIA" & to_hstring(unit) & " Loading serial data register";
+                reg_sdr_data <= std_logic_vector(fastio_wdata);
+                reg_sdr_filled <= '1';
+            end if;
           when x"0d" =>
             if fastio_wdata(7)='1' then
               -- Set interrupt mask bits
