@@ -560,7 +560,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_mode : std_logic := '0';
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
-  signal reg_dmagic_line_mode_first_pixel : std_logic := '0';
+  signal reg_dmagic_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
 
   signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
@@ -570,7 +570,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_s_line_mode : std_logic := '0';
   signal reg_dmagic_s_line_x_or_y : std_logic := '0';
   signal reg_dmagic_s_line_slope_negative : std_logic := '0';
-  signal reg_dmagic_s_line_mode_first_pixel : std_logic := '0';
+  signal reg_dmagic_s_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
   
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
@@ -3448,7 +3448,7 @@ begin
       reg_dmagic_line_slope_negative <= '0';
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
-      reg_dmagic_line_mode_first_pixel <= '0';
+      reg_dmagic_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_line_x_or_y <= '0';
 
       reg_dmagic_s_x8_offset <= x"0000";
@@ -3458,7 +3458,7 @@ begin
       reg_dmagic_s_line_slope_negative <= '0';
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
-      reg_dmagic_s_line_mode_first_pixel <= '0';
+      reg_dmagic_s_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_s_line_x_or_y <= '0';
 
       reg_dmagic_floppy_mode <= '0';      
@@ -5367,7 +5367,7 @@ begin
                   when x"8d" => reg_dmagic_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"8e" => reg_dmagic_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
-                                reg_dmagic_line_mode_first_pixel <= memory_read_value(7);
+                                reg_dmagic_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
@@ -5383,7 +5383,7 @@ begin
                   when x"9d" => reg_dmagic_s_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"9e" => reg_dmagic_s_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
-                                reg_dmagic_s_line_mode_first_pixel <= memory_read_value(7);
+                                reg_dmagic_s_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_s_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_s_line_slope_negative <= memory_read_value(5);
                     
@@ -5559,8 +5559,8 @@ begin
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
               -- Clear first pixel of line flag
-              reg_dmagic_line_mode_first_pixel <= '0';
-              reg_dmagic_s_line_mode_first_pixel <= '0';
+              reg_dmagic_line_mode_skip_pixel <= reg_dmagic_line_mode_skip_pixel(0) & "1";
+              reg_dmagic_s_line_mode_skip_pixel <= reg_dmagic_s_line_mode_skip_pixel(0) & "1";
               
               -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -5629,7 +5629,7 @@ begin
                 -- so handle this by not advancing the major axis on the first
                 -- pixel.  The first pixel will thus effectively be written to
                 -- twice.
-                if reg_dmagic_line_mode_first_pixel='0' then
+                if reg_dmagic_line_mode_skip_pixels="00" then
                   if reg_dmagic_line_x_or_y='0' then
                     line_x_move := '1';
                   else
@@ -5808,8 +5808,8 @@ begin
                                         -- and can read or write on every cycle.
                                         -- so we need to read the first byte now.
 
-              reg_dmagic_line_mode_first_pixel <= '0';
-              reg_dmagic_s_line_mode_first_pixel <= '0';
+              reg_dmagic_line_mode_skip_pixel <= reg_dmagic_line_mode_skip_pixel(0) & "1";
+              reg_dmagic_s_line_mode_skip_pixel <= reg_dmagic_s_line_mode_skip_pixel(0) & "1";
             
                                         -- Do memory read
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -5842,7 +5842,7 @@ begin
                   end if;
                 end if;
                 -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_s_line_mode_first_pixel='0' then
+                if reg_dmagic_s_line_mode_skip_pixels="00" then
                   if reg_dmagic_s_line_x_or_y='0' then
                     line_x_move := '1';
                   else
@@ -5977,9 +5977,6 @@ begin
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
 
-              reg_dmagic_line_mode_first_pixel <= '0';
-              reg_dmagic_s_line_mode_first_pixel <= '0';
-              
               -- Remember value just read
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
@@ -6033,7 +6030,7 @@ begin
                     end if;
                   end if;
                   -- Also move major axis (which is always in the forward direction)
-                  if reg_dmagic_line_mode_first_pixel='0' then
+                  if reg_dmagic_line_mode_skip_pixels= "00" then
                     if reg_dmagic_line_x_or_y='0' then
                       line_x_move := '1';
                     else
