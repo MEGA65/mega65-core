@@ -5559,8 +5559,8 @@ begin
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
               -- Clear first pixel of line flag
-              reg_dmagic_line_mode_skip_pixel <= reg_dmagic_line_mode_skip_pixel(0) & "1";
-              reg_dmagic_s_line_mode_skip_pixel <= reg_dmagic_s_line_mode_skip_pixel(0) & "1";
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "1";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "1";
               
               -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -5808,8 +5808,8 @@ begin
                                         -- and can read or write on every cycle.
                                         -- so we need to read the first byte now.
 
-              reg_dmagic_line_mode_skip_pixel <= reg_dmagic_line_mode_skip_pixel(0) & "1";
-              reg_dmagic_s_line_mode_skip_pixel <= reg_dmagic_s_line_mode_skip_pixel(0) & "1";
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "1";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "1";
             
                                         -- Do memory read
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
