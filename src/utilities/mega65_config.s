@@ -549,7 +549,7 @@ main:
 		CMP	#$9D
 		BEQ	@doMoveTabRight
 		CMP	#keyF1
-		BNE	@tstF2Key
+		BNE	@tstF4Key
 @doMoveTabRight:
 		JSR	moveTabRight
 		JMP	main
