@@ -274,7 +274,9 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \

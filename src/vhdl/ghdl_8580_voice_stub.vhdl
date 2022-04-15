@@ -20,6 +20,14 @@ library IEEE;
 entity sid_voice_8580 is
   port (
     ce_1m			: in	std_logic;
+    clock : in std_logic;
+    cpuclock : in std_logic;
+    sawtooth : in unsigned(11 downto 0);
+    triangle : in unsigned(11 downto 0);
+    st_out : in unsigned(7 downto 0);
+    p_t_out : in unsigned(7 downto 0);
+    ps_out : in unsigned(7 downto 0);
+    pst_out : in unsigned(7 downto 0);
     reset			: in	std_logic;
     Freq_lo			: in	unsigned(7 downto 0);	-- low-byte of frequency register 
     Freq_hi			: in	unsigned(7 downto 0);	-- high-byte of frequency register 
@@ -36,7 +44,7 @@ entity sid_voice_8580 is
 	);
 end sid_voice_8580;
 
-architecture Behavioral of sid_voice_8580 is	
+architecture vhdl_conversion_from_verilog of sid_voice_8580 is	
 begin
 
-end Behavioral;
+end vhdl_conversion_from_verilog;
