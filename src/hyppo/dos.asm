@@ -2650,7 +2650,15 @@ disable_lfn_byte:
         ;; long filenames as UTF-16, and then convert them to UTF-8.
 
         ldy #fs_fat32_dirent_offset_lfn_part_number
+
+        ;; assess if this is the first part in the list
         lda (<dos_scratch_vector),y
+        pha
+        and #$40  ;; bit4=1 means it's the first part in the list
+        sta dos_first_vfat_chunk_in_list_flag
+
+        ;; assess which part number it is
+        pla
         and #$3f ;; mask out end of LFN indicator
         dec ;; subtract one, since pieces are numbered from 1 upwards
 
@@ -2672,7 +2680,10 @@ disable_lfn_byte:
 drce2:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2689,7 +2700,10 @@ drce2:  lda (<dos_scratch_vector),y
 drce3:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2706,7 +2720,10 @@ drce3:  lda (<dos_scratch_vector),y
 drce4:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2722,12 +2739,14 @@ drce_eot_in_filename:
 
         ;; got all characters from this LFN piece
         ;;
-        cpx dos_dirent_longfilename_length
-        bcc drce_piece_didnt_grow_name_length
-        stx dos_dirent_longfilename_length
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
+        cpx dos_dirent_longfilename_length      ;; GI_NOTE: I'm suspicious of this part
+        bcc drce_piece_didnt_grow_name_length   ;; We branch if x < dos_dirent_longfilename_length
+        stx dos_dirent_longfilename_length      ;; in my case x=19, dos_dirent_longerfilename=18. So why store this?
         cpx #$3f
-        bcs drce_eot_in_filename2
-
+        bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
++
         ;; null terminate if there is space, for convenience
         ;;
         lda #$00
