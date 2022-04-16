@@ -2748,10 +2748,10 @@ drce_eot_in_filename:
         bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
 +
         ;; null terminate if there is space, for convenience
-        ;;
-        lda #$00
-        sta dos_dirent_longfilename,x
-        stx dos_dirent_longfilename_length
+        ;; GI. Let's skip null terminator, as it is in the wrong place, and we wipe out dos_dirent_longfilename with zeroes each time anyway
+        ;; lda #$00
+        ;; sta dos_dirent_longfilename,x
+        ;; stx dos_dirent_longfilename_length
 
 drce_eot_in_filename2:
 
