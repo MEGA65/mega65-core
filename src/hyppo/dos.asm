@@ -2564,7 +2564,7 @@ eight3char1:
         bne +
         jmp drd_deleted_or_invalid_entry
 +
-	cmp #$00
+	cmp #$00  ;; NOTE: In Windows, I've seen #$00 markers equating to the end of direntries (i.e., stop iterating over direntries at this point)
         bne +
 	;; Empty entry, so skip over it
 	jmp drd_deleted_or_invalid_entry
@@ -2628,9 +2628,6 @@ drce_longname:
 
 disable_lfn_byte:	
 	jmp drce_cont_next_part
-
-	inc $d020
-	jmp drce_longname
 	
         ;; make sure long entry type is "filename" (=$00)
         ;;
