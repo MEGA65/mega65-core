@@ -2679,6 +2679,7 @@ disable_lfn_byte:
         ldz #fs_fat32_dirent_offset_lfn_part1_chars
 drce2:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
         lda dos_first_vfat_chunk_in_list_flag
         beq +
@@ -2699,6 +2700,7 @@ drce2:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part2_chars
 drce3:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
         lda dos_first_vfat_chunk_in_list_flag
         beq +
@@ -2719,6 +2721,7 @@ drce3:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part3_chars
 drce4:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
         lda dos_first_vfat_chunk_in_list_flag
         beq +
