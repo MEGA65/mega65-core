@@ -2052,23 +2052,23 @@ multipliedclusternumber:
 
 ;;         ========================
 
-dos_requested_filename_to_uppercase:
+;; dos_requested_filename_to_uppercase:
 
         ;; Convert filename to upper case for comparison
         ;;
-        ldx dos_requested_filename_len
-        cpx #$3f
-        bcc drftu1
-        lda #dos_errorcode_name_too_long
-        jmp dos_return_error
-drftu1:
-        lda dos_requested_filename,x
-        jsr toupper
-        sta dos_requested_filename,x
-        dex
-        bpl drftu1
-        sec
-        rts
+        ;;ldx dos_requested_filename_len
+        ;;cpx #$3f
+        ;;bcc drftu1
+        ;;lda #dos_errorcode_name_too_long
+        ;;jmp dos_return_error
+;;drftu1:
+        ;;lda dos_requested_filename,x
+        ;;jsr toupper
+        ;;sta dos_requested_filename,x
+        ;;dex
+        ;;bpl drftu1
+        ;;sec
+        ;;rts
 
 ;;         ========================
 
@@ -2295,8 +2295,10 @@ dos_findfirst:
 
         ;; Convert name to upper case for searching
         ;;
-        jsr dos_requested_filename_to_uppercase
-        bcc l3_dos_return_error_already_set
+        ;; GI. Avoiding uppercase for now, so we find matches on LFN files
+        ;; But later on, would rather enforce uppercase 'everywhere', even on the files we iterate over in the directory...
+        ;; jsr dos_requested_filename_to_uppercase
+        ;; bcc l3_dos_return_error_already_set
 
         jsr dos_opendir
         bcs +
@@ -2747,8 +2749,8 @@ drce_eot_in_filename:
         cpx dos_dirent_longfilename_length      ;; GI_NOTE: I'm suspicious of this part
         bcc drce_piece_didnt_grow_name_length   ;; We branch if x < dos_dirent_longfilename_length
         stx dos_dirent_longfilename_length      ;; in my case x=19, dos_dirent_longerfilename=18. So why store this?
-        cpx #$3f
-        bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
+        ;; cpx #$3f
+        ;; bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
 +
         ;; null terminate if there is space, for convenience
         ;; GI. Let's skip null terminator, as it is in the wrong place, and we wipe out dos_dirent_longfilename with zeroes each time anyway
