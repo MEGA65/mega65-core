@@ -3097,8 +3097,9 @@ dos_dirent_compare_name_to_requested:
         ;;
         ldx dos_dirent_longfilename_length
         dex
-dff4:   lda dos_dirent_longfilename,x
-        cmp dos_requested_filename,x
+dff4:   lda dos_requested_filename,x
+        jsr toupper
+        cmp dos_dirent_longfilename,x
         bne dff3
         dex
         bpl dff4
