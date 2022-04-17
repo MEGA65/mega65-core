@@ -3358,6 +3358,9 @@ dfatns1:
         ;; and if necessary, advance to next cluster
         ;;
         beq dos_file_advance_to_next_cluster
+
+        ; since we've changed sectors, read in new sector data
+        jsr dos_file_read_current_sector
         sec
         rts
 
