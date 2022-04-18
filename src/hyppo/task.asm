@@ -204,6 +204,12 @@ restore_press_trap:
         ldy #>txt_FREEZER
         jsr dos_setname
 
+        ;; TODO: preserve current directory, so that we can restore it later
+
+        ;; bring directory back to root, just in-case user loaded a .d81 from another directory
+        ldx dos_default_disk
+        jsr dos_cdroot
+
         ;; Prepare 32-bit pointer for loading freezer program ($000007FF)
         ;; (i.e. $0801 - 2 byte header, so we can use a normal PRG file)
         ;;
