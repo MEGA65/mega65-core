@@ -2352,9 +2352,8 @@ dff_have_next_entry:
 dos_opendir:
 
         ;; assure we are using the sdcard buffer (not the fdc buffer)
-        lda $d689
-        ora $80
-        sta $d689
+        lda #$80
+        tsb $d689
 
         ;; Open the current directory as a file
         ;;
