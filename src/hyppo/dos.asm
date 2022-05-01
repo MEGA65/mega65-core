@@ -2277,8 +2277,6 @@ dos_findfirst:
         ;;
         ;; GI. Avoiding uppercase for now, so we find matches on LFN files
         ;; But later on, would rather enforce uppercase 'everywhere', even on the files we iterate over in the directory...
-        ;; jsr dos_requested_filename_to_uppercase
-        ;; bcc l3_dos_return_error_already_set
 
         jsr dos_opendir
         bcs +
