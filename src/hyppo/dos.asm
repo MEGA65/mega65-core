@@ -2052,26 +2052,6 @@ multipliedclusternumber:
 
 ;;         ========================
 
-;; dos_requested_filename_to_uppercase:
-
-        ;; Convert filename to upper case for comparison
-        ;;
-        ;;ldx dos_requested_filename_len
-        ;;cpx #$3f
-        ;;bcc drftu1
-        ;;lda #dos_errorcode_name_too_long
-        ;;jmp dos_return_error
-;;drftu1:
-        ;;lda dos_requested_filename,x
-        ;;jsr toupper
-        ;;sta dos_requested_filename,x
-        ;;dex
-        ;;bpl drftu1
-        ;;sec
-        ;;rts
-
-;;         ========================
-
 dos_get_free_descriptor:
 
         ldx #$00
