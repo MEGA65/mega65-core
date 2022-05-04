@@ -306,36 +306,40 @@ helpText2:
 	.defPStr	"f1/f3 or crsr left/right."
 helpText4:
 	.defPStr	"each tab has pages that have options."
-
 helpText5:
-	.defPStr	"using the crsr up/down keys, toggle or"
+	.defPStr	"use f2/f4 to move between pages."
+
 helpText6:
-	.defPStr	"select options using the space or"
+	.defPStr	"using the crsr up/down keys, toggle or"
 helpText7:
+	.defPStr	"select options using the space or"
+helpText8:
 	.defPStr	"return keys."
 	
-helpText8:
-	.defPStr	"you may also use the mouse to click"
 helpText9:
+	.defPStr	"you may also use the mouse to click"
+helpTextA:
 	.defPStr	"tabs, options or pages."
 	
-helpTextA:
-	.defPStr	"some options require data entry. use"
 helpTextB:
+	.defPStr	"some options require data entry. use"
+helpTextC:
 	.defPStr	"the appropriate keys to complete."
 	
-helpTextC:
+helpTextD:
 	.defPStr	"when done, save or exit with f7"
 	
-helpTextD:
+helpSpacer:
 	.defPStr	""
 	
 
 helpTexts:
-	.word	helpText0, helpTextD, helpText1, helpText2
-	.word	helpText4, helpTextD, helpText5, helpText6, helpText7
-	.word	helpTextD, helpText8, helpText9, helpTextD, helpTextA
-	.word	helpTextB, helpTextD, helpTextC
+	.word	helpText0,  helpSpacer
+  .word helpText1,  helpText2,  helpText4,  helpText5,  helpSpacer
+	.word	helpText6,  helpText7,  helpText8,  helpSpacer
+	.word	helpText9,  helpTextA,  helpSpacer
+  .word helpTextB,  helpTextC,  helpSpacer
+	.word	helpTextD
 	.byte	$00
 
 
@@ -549,7 +553,7 @@ main:
 		CMP	#$9D
 		BEQ	@doMoveTabRight
 		CMP	#keyF1
-		BNE	@tstF2Key
+		BNE	@tstF4Key
 @doMoveTabRight:
 		JSR	moveTabRight
 		JMP	main
