@@ -452,6 +452,7 @@ architecture Behavioral of container is
   signal tmds : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '1';
+  signal dvi_reset : std_logic := '1';
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
@@ -521,7 +522,7 @@ begin
         )
       port map (
             select_44100 => portp_drive(3),
-            ref_rst   => '0',
+            ref_rst   => dvi_reset,
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
@@ -551,7 +552,7 @@ begin
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 
-        vga_rst => '0', -- active high reset
+        vga_rst => dvi_reset, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
         vga_vs => v_vsync, -- active high vsync
         vga_hs => v_hdmi_hsync, -- active high hsync
@@ -578,7 +579,7 @@ begin
     begin
         HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
-                rst     => '0',
+                rst     => dvi_reset,
                 clk     => clock27,
                 clk_x10  => clock270,
                 d       => tmds(i),
@@ -588,7 +589,7 @@ begin
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
-            rst     => '0',
+            rst     => dvi_reset,
             clk     => clock27,
             clk_x10  => clock270,
             d       => "0000011111",
@@ -1081,6 +1082,11 @@ begin
       reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
+
+      -- Provide and clear single reset impulse to digital video output modules
+      if reset_high='0' then
+        dvi_reset <= '0';
+      end if;
       
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
