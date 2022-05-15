@@ -521,7 +521,7 @@ begin
         )
       port map (
             select_44100 => portp_drive(3),
-            ref_rst   => reset_high,
+            ref_rst   => '0',
             ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
@@ -551,7 +551,7 @@ begin
         vs_pol => '1',  -- 1=active high
         hs_pol => '1',
 
-        vga_rst => reset_high, -- active high reset
+        vga_rst => '0', -- active high reset
         vga_clk => clock27, -- VGA pixel clock
         vga_vs => v_vsync, -- active high vsync
         vga_hs => v_hdmi_hsync, -- active high hsync
@@ -578,7 +578,7 @@ begin
     begin
         HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
-                rst     => reset_high,
+                rst     => '0',
                 clk     => clock27,
                 clk_x10  => clock270,
                 d       => tmds(i),
@@ -588,7 +588,7 @@ begin
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
-            rst     => reset_high,
+            rst     => '0',
             clk     => clock27,
             clk_x10  => clock270,
             d       => "0000011111",
