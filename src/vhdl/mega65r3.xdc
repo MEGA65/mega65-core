@@ -436,3 +436,13 @@ set_clock_groups -asynchronous \
      -group { CLKOUT1 u_clock200}
 
 
+
+# Place MAX10 close to I/O pins
+create_pblock pblock_MAX10
+add_cells_to_pblock pblock_MAX10 [get_cells [list MAX10]]
+resize_pblock pblock_MAX10 -add {SLICE_X0Y150:SLICE_X7Y174}
+
+# Place Keyboard close to I/O pins
+create_pblock pblock_m65driver
+add_cells_to_pblock pblock_m65driver [get_cells [list MEGA65/i_m2m_keyb/m65driver]]
+resize_pblock pblock_m65driver -add {SLICE_X0Y225:SLICE_X7Y243}
