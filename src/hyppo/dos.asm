@@ -2052,26 +2052,6 @@ multipliedclusternumber:
 
 ;;         ========================
 
-dos_requested_filename_to_uppercase:
-
-        ;; Convert filename to upper case for comparison
-        ;;
-        ldx dos_requested_filename_len
-        cpx #$3f
-        bcc drftu1
-        lda #dos_errorcode_name_too_long
-        jmp dos_return_error
-drftu1:
-        lda dos_requested_filename,x
-        jsr toupper
-        sta dos_requested_filename,x
-        dex
-        bpl drftu1
-        sec
-        rts
-
-;;         ========================
-
 dos_get_free_descriptor:
 
         ldx #$00
@@ -2295,8 +2275,8 @@ dos_findfirst:
 
         ;; Convert name to upper case for searching
         ;;
-        jsr dos_requested_filename_to_uppercase
-        bcc l3_dos_return_error_already_set
+        ;; GI. Avoiding uppercase for now, so we find matches on LFN files
+        ;; But later on, would rather enforce uppercase 'everywhere', even on the files we iterate over in the directory...
 
         jsr dos_opendir
         bcs +
@@ -2348,6 +2328,10 @@ dff_have_next_entry:
 ;;         ========================
 
 dos_opendir:
+
+        ;; assure we are using the sdcard buffer (not the fdc buffer)
+        lda #$80
+        tsb $d689
 
         ;; Open the current directory as a file
         ;;
@@ -2564,7 +2548,7 @@ eight3char1:
         bne +
         jmp drd_deleted_or_invalid_entry
 +
-	cmp #$00
+	cmp #$00  ;; NOTE: In Windows, I've seen #$00 markers equating to the end of direntries (i.e., stop iterating over direntries at this point)
         bne +
 	;; Empty entry, so skip over it
 	jmp drd_deleted_or_invalid_entry
@@ -2628,9 +2612,6 @@ drce_longname:
 
 disable_lfn_byte:	
 	jmp drce_cont_next_part
-
-	inc $d020
-	jmp drce_longname
 	
         ;; make sure long entry type is "filename" (=$00)
         ;;
@@ -2653,7 +2634,15 @@ disable_lfn_byte:
         ;; long filenames as UTF-16, and then convert them to UTF-8.
 
         ldy #fs_fat32_dirent_offset_lfn_part_number
+
+        ;; assess if this is the first part in the list
         lda (<dos_scratch_vector),y
+        pha
+        and #$40  ;; bit4=1 means it's the first part in the list
+        sta dos_first_vfat_chunk_in_list_flag
+
+        ;; assess which part number it is
+        pla
         and #$3f ;; mask out end of LFN indicator
         dec ;; subtract one, since pieces are numbered from 1 upwards
 
@@ -2674,8 +2663,12 @@ disable_lfn_byte:
         ldz #fs_fat32_dirent_offset_lfn_part1_chars
 drce2:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2691,8 +2684,12 @@ drce2:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part2_chars
 drce3:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2708,8 +2705,12 @@ drce3:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part3_chars
 drce4:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2725,17 +2726,19 @@ drce_eot_in_filename:
 
         ;; got all characters from this LFN piece
         ;;
-        cpx dos_dirent_longfilename_length
-        bcc drce_piece_didnt_grow_name_length
-        stx dos_dirent_longfilename_length
-        cpx #$3f
-        bcs drce_eot_in_filename2
-
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
+        cpx dos_dirent_longfilename_length      ;; GI_NOTE: I'm suspicious of this part
+        bcc drce_piece_didnt_grow_name_length   ;; We branch if x < dos_dirent_longfilename_length
+        stx dos_dirent_longfilename_length      ;; in my case x=19, dos_dirent_longerfilename=18. So why store this?
+        ;; cpx #$3f
+        ;; bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
++
         ;; null terminate if there is space, for convenience
-        ;;
-        lda #$00
-        sta dos_dirent_longfilename,x
-        stx dos_dirent_longfilename_length
+        ;; GI. Let's skip null terminator, as it is in the wrong place, and we wipe out dos_dirent_longfilename with zeroes each time anyway
+        ;; lda #$00
+        ;; sta dos_dirent_longfilename,x
+        ;; stx dos_dirent_longfilename_length
 
 drce_eot_in_filename2:
 
@@ -3076,8 +3079,9 @@ dos_dirent_compare_name_to_requested:
         ;;
         ldx dos_dirent_longfilename_length
         dex
-dff4:   lda dos_dirent_longfilename,x
-        cmp dos_requested_filename,x
+dff4:   lda dos_requested_filename,x
+        jsr toupper
+        cmp dos_dirent_longfilename,x
         bne dff3
         dex
         bpl dff4
@@ -3337,6 +3341,9 @@ dfatns1:
         ;; and if necessary, advance to next cluster
         ;;
         beq dos_file_advance_to_next_cluster
+
+        ; since we've changed sectors, read in new sector data
+        jsr dos_file_read_current_sector
         sec
         rts
 

@@ -62,7 +62,7 @@
         ;; used to store a long-file-name fragment.
         ;;
          fs_fat32_dirent_offset_lfn_part_number = 0
-         fs_fat32_dirent_offset_lfn_type = 12
+         fs_fat32_dirent_offset_lfn_type = 12 ;; $0C
          fs_fat32_dirent_offset_lfn_checksum = 13
          fs_fat32_dirent_offset_lfn_part1_chars = 5
          fs_fat32_dirent_offset_lfn_part1_start = 1

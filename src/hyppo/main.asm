@@ -3501,6 +3501,9 @@ dos_current_file_descriptor:
 dos_current_file_descriptor_offset:
         !8 0
 
+dos_first_vfat_chunk_in_list_flag:
+        !8 0
+
 ;;         ========================
 
     ;; For providing feedback on why DOS calls have failed
