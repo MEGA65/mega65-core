@@ -121,6 +121,10 @@ architecture behavioural of mega65r3_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  type rtc_vals is array (0 to 5) of uint8;
+  signal rtc_prev1 : rtc_vals := (others => x"00");
+  signal rtc_prev2 : rtc_vals := (others => x"00");  
+  
 begin
 
   i2c1: entity work.i2c_master
@@ -292,8 +296,22 @@ begin
           -- Read the 48 bytes from the device
           i2c1_rw <= '1';
           command_en <= '1';
-          if busy_count > 11 then
+          -- The first 6 registers are the RTC values.
+          -- To avoid glitching in I2C reading causing trouble, we
+          -- double-buffer the RTC values, and only update the user-visible values
+          -- if two successive reads are identical.
+          if busy_count = 11 then
+            rtc_prev2 <= rtc_prev1;
+          end if;
+          if busy_count > 11 and busy_count < (11+6+1) then
+            rtc_prev1(busy_count-12) <= i2c1_rdata;
+          elsif busy_count > 11 then
             bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
+          end if;
+          if busy_count > 12 and busy_count < (12 + 6 + 1) then
+            if rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13) then
+              bytes(16 + busy_count - 13) <= rtc_prev1(busy_count - 13);
+            end if;
           end if;
         when 60 =>
           report "RTC SRAM (64 of 128 bytes)";
