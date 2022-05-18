@@ -230,6 +230,13 @@ entity container is
          fpga_scl : inout std_logic;         
 
          ----------------------------------------------------------------------
+         -- Grove connector I2C peripherals
+         -- (Currently used for auxilliary RTC, for boards with faulty RTCs)
+         ----------------------------------------------------------------------
+         grove_sda : inout std_logic;
+         grove_scl : inout std_logic;         
+         
+         ----------------------------------------------------------------------
          -- Comms link to MAX10 FPGA
          ----------------------------------------------------------------------
          max10_tx : in std_logic;
@@ -1003,6 +1010,9 @@ begin
           -- Normal connection of I2C peripherals to dedicated address space
           i2c1sda => fpga_sda,
           i2c1scl => fpga_scl,
+
+          grove_sda => grove_sda,
+          grove_scl => grove_scl,
           
 --      tmpsda => fpga_sda,
 --      tmpscl => fpga_scl,

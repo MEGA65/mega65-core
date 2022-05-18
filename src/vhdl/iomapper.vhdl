@@ -356,6 +356,9 @@ entity iomapper is
 
     i2c1SDA : inout std_logic := '0';
     i2c1SCL : inout std_logic := '0';
+
+    grove_sda : inout std_logic := '0';
+    grove_scl : inout std_logic := '0';         
     
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
@@ -441,6 +444,7 @@ architecture behavioral of iomapper is
 
   signal i2cperipherals_cs : std_logic;
   signal i2chdmi_cs : std_logic;
+  signal grove_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -589,7 +593,9 @@ architecture behavioral of iomapper is
   signal dd00_bits_ddr : std_logic_vector(1 downto 0);
 
   signal matrix_disable_modifiers : std_logic;
-  
+
+  signal grove_rtc_present : std_logic;
+
 begin
 
   block1: block
@@ -1265,6 +1271,30 @@ begin
 
     );
 
+  ----------------------------------------------------------------------------------
+  -- Grove I2C bus. Currently only used for allowing an external RTC
+  ----------------------------------------------------------------------------------
+  i2c_grove:
+    entity work.grove_i2c
+      generic map ( clock_frequency => cpu_frequency )
+      port map (
+        clock => cpuclock,
+ 
+        cs => grove_cs,
+       
+        sda => grove_sda,
+        scl => grove_scl,
+
+        grove_rtc_present => grove_rtc_present,
+        
+        fastio_addr => unsigned(address),
+        fastio_write => w,
+        fastio_read => r,
+        fastio_wdata => unsigned(data_i),
+        std_logic_vector(fastio_rdata) => data_o
+    );
+        
+  
   i2cperiph_megaphone:
   if target = megaphoner1 generate
     i2c1: entity work.i2c_wrapper
@@ -1314,6 +1344,8 @@ begin
       clock => cpuclock,
       cs => i2cperipherals_cs,
 
+      grove_rtc_present => grove_rtc_present,
+      
       sda => i2c1SDA,
       scl => i2c1SCL,
     
@@ -1822,6 +1854,11 @@ begin
           i2chdmi_cs <= '1';
           report "i2chdmi_cs for MEGA65R3 asserted";
         end if;
+        if address(19 downto 8) = x"D74" then
+          grove_cs <= '0';
+          report "grove_cs for MEGA65R3 asserted";
+        end if;
+        
       end if;      
 
       cs_driveram <= '0';

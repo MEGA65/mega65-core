@@ -72,6 +72,8 @@ entity mega65r3_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    grove_rtc_present : in std_logic;
+    
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
