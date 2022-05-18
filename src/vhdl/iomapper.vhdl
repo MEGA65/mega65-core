@@ -1827,6 +1827,7 @@ begin
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
+      grove_cs <= '0';
       if target = megaphoner1 then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
@@ -1855,7 +1856,7 @@ begin
           report "i2chdmi_cs for MEGA65R3 asserted";
         end if;
         if address(19 downto 8) = x"D74" then
-          grove_cs <= '0';
+          grove_cs <= '1';
           report "grove_cs for MEGA65R3 asserted";
         end if;
         
