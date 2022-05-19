@@ -143,7 +143,7 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       else
-        fastio_rdata <= (others => 'Z');
+        fastio_rdata <= x"42";
       end if; 
     end if;
     
