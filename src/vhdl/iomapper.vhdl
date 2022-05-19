@@ -1858,8 +1858,7 @@ begin
         if address(19 downto 8) = x"D74" then
           grove_cs <= '1';
           report "grove_cs for MEGA65R3 asserted";
-        end if;
-        
+        end if;        
       end if;      
 
       cs_driveram <= '0';

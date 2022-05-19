@@ -144,7 +144,9 @@ begin
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       else
         fastio_rdata <= x"42";
-      end if; 
+      end if;
+    else
+      fastio_rdata <= (others => 'Z');
     end if;
     
     if rising_edge(clock) then
