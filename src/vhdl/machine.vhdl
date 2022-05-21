@@ -303,8 +303,8 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
-         grove_sda : inout std_logic := '1';
-         grove_scl : inout std_logic := '1';
+         grove_sda : inout std_logic;
+         grove_scl : inout std_logic;
          
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := 'H';

@@ -357,8 +357,8 @@ entity iomapper is
     i2c1SDA : inout std_logic := '0';
     i2c1SCL : inout std_logic := '0';
 
-    grove_sda : inout std_logic := '0';
-    grove_scl : inout std_logic := '0';         
+    grove_sda : inout std_logic;
+    grove_scl : inout std_logic;         
     
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
