@@ -91,8 +91,8 @@ architecture behavioural of grove_i2c is
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal busy_count : integer range 0 to 255 := 150;
-  signal last_busy_count : integer range 0 to 255 := 150;
+  signal busy_count : integer range 0 to 255 := 0;
+  signal last_busy_count : integer range 0 to 255 := 0;
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
@@ -143,7 +143,7 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       else
-        fastio_rdata <= x"42";
+        fastio_rdata <= to_unsigned(busy_count,8);
       end if;
     else
       fastio_rdata <= (others => 'Z');
