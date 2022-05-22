@@ -18,7 +18,11 @@ architecture foo of test_grove is
 
 begin
 
-  i2c1: entity work.mega65r2_i2c port map (
+  i2c1: entity work.grove_i2c
+    generic map (
+      clock_frequency => 50_000_000
+      )
+    port map (
     clock => clock50mhz,
     cs => '1',
     
