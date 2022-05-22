@@ -149,7 +149,7 @@ begin
       elsif fastio_addr(7 downto 0) = x"ff" then
         fastio_rdata <= read_i2c_addr;
       else
-        fastio_rdata <= to_unsigned(busy_count,8);
+        fastio_rdata <= x"FF";
       end if;
     else
       fastio_rdata <= (others => 'Z');
@@ -181,17 +181,9 @@ begin
       
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
-        if to_integer(fastio_addr(7 downto 0)) >= 0 and to_integer(fastio_addr(7 downto 0)) < 8 then
-          -- RTC registers
+        if to_integer(fastio_addr(7 downto 0)) >= 0 and to_integer(fastio_addr(7 downto 0)) < 64 then
+          -- RTC registers and SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
-          write_job_pending <= '1';
-        elsif to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 24 then
-          -- RTC registers
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
-          write_job_pending <= '1';
-        elsif to_integer(fastio_addr(7 downto 0)) >= 64 and to_integer(fastio_addr(7 downto 0)) < 120 then
-          -- RTC SRAM
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 8,8);
           write_job_pending <= '1';
         elsif fastio_addr(7 downto 0) = x"fe" then
           write_i2c_addr <= fastio_wdata;
