@@ -111,6 +111,8 @@ architecture behavioural of grove_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  signal the_i2c_addr : unsigned(6 downto 0) := x"1101000";
+  
 begin
 
   i2c1: entity work.i2c_master
@@ -142,6 +144,10 @@ begin
       if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
+      elsif fastio_addr(7 downto 6) = "fe" then
+        fastio_rdata <= write_i2c_addr;
+      elsif fastio_addr(7 downto 6) = "ff" then
+        fastio_rdata <= read_i2c_addr;
       else
         fastio_rdata <= to_unsigned(busy_count,8);
       end if;
@@ -190,6 +196,10 @@ begin
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 8,8);
           write_addr <= x"D0";            
           write_job_pending <= '1';
+        elsif to_integer(fastio_addr(7 downto 0)) = x"fe" then
+          write_i2c_addr <= fastio_wdata;
+        elsif to_integer(fastio_addr(7 downto 0)) = x"ff" then
+          read_i2c_addr <= fastio_wdata;
         end if;
         write_val <= fastio_wdata;
       end if;
@@ -227,7 +237,7 @@ begin
         when 0 =>
 --          report "Read RTC registers";
           command_en <= '1';
-          i2c1_address <= "1101000"; 
+          i2c1_address <= read_i2c_addr(7 downto 1); 
           i2c1_wdata <= x"00";
           i2c1_rw <= '0';
         when
@@ -238,7 +248,7 @@ begin
           65 =>
           i2c1_rw <= '1';
           command_en <= '1';          
-          if busy_count > 1+1 then
+          if busy_count > 1 then
             bytes(busy_count - 2) <= i2c1_rdata;
           end if;
         --------------------------------------------------------------------
