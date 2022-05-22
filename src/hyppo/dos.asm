@@ -3132,6 +3132,10 @@ drce_end_of_sector:
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
 
         jsr dos_file_advance_to_next_sector
+        ; since we've changed sectors, read in new sector data
+        bcc @skipreadsector
+        jsr dos_file_read_current_sector
+@skipreadsector:
         rts
 
 ;;         ========================
@@ -3342,8 +3346,6 @@ dfatns1:
         ;;
         beq dos_file_advance_to_next_cluster
 
-        ; since we've changed sectors, read in new sector data
-        jsr dos_file_read_current_sector
         sec
         rts
 
