@@ -712,6 +712,31 @@ fpga_has_been_reconfigured:
 
 normalboot:
 
+; add a test if the TAB key is held down
+; if so, make an endless loop so that a person debugging
+; and turn trace mode on, move the pc (with 'g<addr>') to skip
+; over the loop and then comfortably step through early
+; hypervisor code.
+        ldx #$ff    ;; make a few attempts are reading keyscan early
+
+@earlyscan:
+        jsr scankeyboard
+        bcc @earlycheckkey
+        
+        dex     ;; no key pressed yet
+        bne @earlyscan
+        jmp @skipearlycheck  ;; no key was pressed, despite looping for a while to wait for it
+
+@earlycheckkey:
+        cmp #$1f    ;; was HELP key pressed?
+        bne @skipearlycheck
+
+@loopendlessly
+        inc $d020
+        jmp @loopendlessly
+
+@skipearlycheck:
+
 !if DEBUG_HYPPO {
         jsr dump_disk_count        ;; debugging to Checkpoint
         jsr dumpcurrentfd        ;; debugging to Checkpoint
