@@ -100,10 +100,12 @@ architecture behavioural of grove_i2c is
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
-  signal write_addr : unsigned(7 downto 0) := x"48";
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
 
+  signal read_i2c_addr : unsigned(7 downto 0) := x"d0";
+  signal write_i2c_addr : unsigned(7 downto 0) := x"d0";
+  
   signal delayed_en : integer range 0 to 65535 := 0;
 
   signal i2c1_swap : std_logic := '0';
@@ -111,8 +113,6 @@ architecture behavioural of grove_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  signal the_i2c_addr : unsigned(6 downto 0) := x"1101000";
-  
 begin
 
   i2c1: entity work.i2c_master
@@ -144,9 +144,9 @@ begin
       if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
-      elsif fastio_addr(7 downto 6) = "fe" then
+      elsif fastio_addr(7 downto 6) = x"fe" then
         fastio_rdata <= write_i2c_addr;
-      elsif fastio_addr(7 downto 6) = "ff" then
+      elsif fastio_addr(7 downto 6) = x"ff" then
         fastio_rdata <= read_i2c_addr;
       else
         fastio_rdata <= to_unsigned(busy_count,8);
@@ -184,21 +184,18 @@ begin
         if to_integer(fastio_addr(7 downto 0)) >= 0 and to_integer(fastio_addr(7 downto 0)) < 8 then
           -- RTC registers
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
-          write_addr <= x"D0";
           write_job_pending <= '1';
         elsif to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 24 then
           -- RTC registers
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
-          write_addr <= x"D0";
           write_job_pending <= '1';
         elsif to_integer(fastio_addr(7 downto 0)) >= 64 and to_integer(fastio_addr(7 downto 0)) < 120 then
           -- RTC SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 8,8);
-          write_addr <= x"D0";            
           write_job_pending <= '1';
-        elsif to_integer(fastio_addr(7 downto 0)) = x"fe" then
+        elsif fastio_addr(7 downto 0) = x"fe" then
           write_i2c_addr <= fastio_wdata;
-        elsif to_integer(fastio_addr(7 downto 0)) = x"ff" then
+        elsif fastio_addr(7 downto 0) = x"ff" then
           read_i2c_addr <= fastio_wdata;
         end if;
         write_val <= fastio_wdata;
@@ -262,7 +259,7 @@ begin
           end if;
           i2c1_rw <= '0';
           command_en <= '1';
-          i2c1_address <= write_addr(7 downto 1);
+          i2c1_address <= write_i2c_addr(7 downto 1);
           i2c1_wdata <= write_reg;
         when 67 =>
           -- Second, write the actual value into the register
