@@ -161,17 +161,15 @@ begin
       
       -- Must come first, so state machines below can set delayed_en
       if delayed_en /= 0 then
-        report "Waiting for delay to expire: " & integer'image(delayed_en);
+--        report "Waiting for delay to expire: " & integer'image(delayed_en);
         delayed_en <= delayed_en - 1;
         if delayed_en = 1024 then
           i2c1_command_en <= '0';
+          report "Clearing i2c1_command_en due to delayed_en=1024";
         end if;
       else
 --        report "No command delay: busy=" & std_logic'image(i2c1_busy) & ", last_busy=" & std_logic'image(last_busy);
         -- Activate command
-        if command_en = '1' and i2c1_busy = '0' and command_en='1' then
-          report "Enabling command";
-        end if;
         i2c1_command_en <= command_en;
         if i2c1_busy = '1' and last_busy = '0' then
           report "Command latched.";
