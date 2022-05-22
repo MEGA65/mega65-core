@@ -144,9 +144,9 @@ begin
       if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
-      elsif fastio_addr(7 downto 6) = x"fe" then
+      elsif fastio_addr(7 downto 0) = x"fe" then
         fastio_rdata <= write_i2c_addr;
-      elsif fastio_addr(7 downto 6) = x"ff" then
+      elsif fastio_addr(7 downto 0) = x"ff" then
         fastio_rdata <= read_i2c_addr;
       else
         fastio_rdata <= to_unsigned(busy_count,8);
