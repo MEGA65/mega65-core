@@ -103,7 +103,7 @@ architecture behavioural of grove_i2c is
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
 
-  signal read_i2c_addr : unsigned(7 downto 0) := x"d0";
+  signal read_i2c_addr : unsigned(7 downto 0) := x"d1";
   signal write_i2c_addr : unsigned(7 downto 0) := x"d0";
   
   signal delayed_en : integer range 0 to 65535 := 0;
@@ -226,7 +226,7 @@ begin
           command_en <= '1';
           i2c1_address <= read_i2c_addr(7 downto 1); 
           i2c1_wdata <= x"00";
-          i2c1_rw <= '0';
+          i2c1_rw <= '1';
         when
           1 |  2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
           17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 |
