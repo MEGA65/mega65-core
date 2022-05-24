@@ -8,6 +8,7 @@ assignees: ''
 ---
 
 **Test Environment (required)**
+You can use [MEGA65INFO](https://files.mega65.org?id=3eeb7d82-8bd7-44b7-82b6-cef29d123b0e) to retrieve this.
  - Platform: (DevKit, MEGA65, NexysA7, xemu)
  - Core Commit: (7 digit hex number, press MEGA-TAB)
  - ROM Release: (i.e. 920XXX)
