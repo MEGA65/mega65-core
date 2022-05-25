@@ -113,3 +113,7 @@ release-build/mega65-tools
 
 # py tests
 tests/vunit_out
+
+# hyppotest outputs
+FAIL.*
+PASS.*
