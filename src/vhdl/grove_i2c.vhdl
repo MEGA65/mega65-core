@@ -118,7 +118,8 @@ begin
   i2c1: entity work.i2c_master
     generic map (
       input_clk => clock_frequency,
-      bus_clk => 400_000
+      -- The DS1307 only works at 100KHz ! No 400KHz mode supported !
+      bus_clk => 100_000
       )
     port map (
       clk => clock,
@@ -130,8 +131,8 @@ begin
       busy => i2c1_busy,
       unsigned(data_rd) => i2c1_rdata,
       ack_error => i2c1_error,
-      sda => sda,
-      scl => scl,
+--      sda => sda,
+--      scl => scl,
       swap => i2c1_swap,
       debug_sda => i2c1_debug_sda,
       debug_scl => i2c1_debug_scl      
@@ -144,6 +145,10 @@ begin
       if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
+      elsif fastio_addr(7 downto 0) = x"fd" then
+        fastio_rdata <= x"00";
+        fastio_rdata(1) <= sda;
+        fastio_rdata(0) <= scl;
       elsif fastio_addr(7 downto 0) = x"fe" then
         fastio_rdata <= write_i2c_addr;
       elsif fastio_addr(7 downto 0) = x"ff" then
@@ -183,6 +188,17 @@ begin
           -- RTC registers and SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
           write_job_pending <= '1';
+        elsif fastio_addr(7 downto 0) = x"fd" then
+          if fastio_wdata(7)='0' then
+            sda <= 'Z';
+          else
+            sda <= fastio_wdata(6);
+          end if;
+          if fastio_wdata(5)='0' then
+            scl <= 'Z';
+          else
+            scl <= fastio_wdata(4);
+          end if;
         elsif fastio_addr(7 downto 0) = x"fe" then
           write_i2c_addr <= fastio_wdata;
         elsif fastio_addr(7 downto 0) = x"ff" then
@@ -196,6 +212,11 @@ begin
       last_busy <= i2c1_busy;
       if i2c1_busy='1' and last_busy='0' then
 
+        -- Clear command between operations, so that we don't write to any
+        -- registers when selecting the regiser to read.
+        i2c1_rw <= '0';
+        command_en <= '0';                  
+        
         -- Sequence through the list of transactions endlessly
         if (busy_count < 66) or ((write_job_pending='1') and (busy_count < (66+4))) then
           busy_count <= busy_count + 1;
@@ -223,12 +244,20 @@ begin
         --------------------------------------------------------------------        
         when 0 =>
 --          report "Read RTC registers";
+
+          -- Send write address and register 0
+          command_en <= '1';
+          i2c1_address <= write_i2c_addr(7 downto 1); 
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
+        when 1 =>
+          -- Then switch to read
           command_en <= '1';
           i2c1_address <= read_i2c_addr(7 downto 1); 
-          i2c1_wdata <= x"00";
+          i2c1_wdata <= x"42";
           i2c1_rw <= '1';
         when
-          1 |  2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
+          2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
           17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 |
           33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 |
           49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 |
