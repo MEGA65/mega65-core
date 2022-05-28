@@ -563,7 +563,7 @@ begin  -- behavioural
                 reg_isr(3) <= '1';
                 report "Asserting shift register ISR flag";
                 -- Refill shift register from SDR
-                if reg_sdr_filled then
+                if reg_sdr_filled='1' then
                     reg_shift_data <= reg_sdr_data;
                     sdr_bits_remaining <= 8;
                     sdr_bit_alternate <= '1';
@@ -770,7 +770,7 @@ begin  -- behavioural
             end if;
           when x"0c" =>
             -- Begin shifting data in or out on shift register
-            if  sdr_bits_remaining ='0' then -- start shifting right away
+            if  sdr_bits_remaining = 0 then -- start shifting right away
                 report "CIA" & to_hstring(unit) & " Loading shift register";
                 reg_shift_data <= std_logic_vector(fastio_wdata);
                 sdr_bits_remaining <= 8;
