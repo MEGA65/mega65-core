@@ -1,4 +1,4 @@
-  ;; ------------------------------------------------------------------- 
+  ;; -------------------------------------------------------------------
   ;;   MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
   ;;   Paul Gardner-Stephen, 2014-2019.
   ;;   -------------------------------------------------------------------
@@ -23,7 +23,7 @@
 
   ;;   This included file defines many of the alias used throughout
   ;;   it also suggests some memory-map definitions
-  ;;   ---------------------------------------------------------------- 
+  ;;   ----------------------------------------------------------------
 
 !src "constants.asm"
 !src "macros.asm"
@@ -40,7 +40,7 @@
 !addr HyppoZP_Start                = $bf00
 !addr Hyppo_End                    = $bfff
 
-;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"] 
+;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
 	!to "bin/HICKUP.M65", plain
 
 ;; .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
@@ -74,8 +74,8 @@ trap_entry_points:
         jmp syspart_trap                        ;; Trap #$02
         eom                                     ;; refer: hyppo_syspart.asm
         jmp serialwrite                         ;; Trap #$03
-        eom                                     ;; refer serialwrite in this file	
-        jmp emulatortrap                        ;; Trap #$04	
+        eom                                     ;; refer serialwrite in this file
+        jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
         jmp nosuchtrap
         eom
@@ -241,7 +241,7 @@ trap_entry_points:
         eom
 
         jmp unstable_illegal_opcode_trap        ;; Trap #$46 (6502 unstable illegal opcode)
-        eom                                     
+        eom
         jmp kill_opcode_trap                    ;; Trap #$47 (6502 KIL instruction)
         eom
         jmp nosuchtrap
@@ -276,7 +276,7 @@ trap_entry_points:
         !16 reset_entry    ;; RESET
         !16 hypervisor_irq ;; IRQ
 
-	
+
         ;; .segment Traps
         * = Traps_Start
 
@@ -332,7 +332,7 @@ return_from_trap_with_success:
 
 	;; DO NOT Clear A on return
         ;; (else traps can't return anything in A register)
-	
+
         ;; return from hypervisor
         sta hypervisor_enterexit_trigger
 
@@ -366,7 +366,7 @@ invalid_subfunction:
 ;;     System Partition functions
 ;;     ---------------------------------------------------------------- */
 
-!src "syspart.asm"		
+!src "syspart.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     Freeze/Unfreeze functions
@@ -445,7 +445,7 @@ reset_machine_state:
 	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
 	lda #$02
 	tsb $d7fb
-	
+
 	;; /EXROM and /GAME follow cartridge port
         lda #$3f
         sta $d7fd
@@ -468,10 +468,6 @@ reset_machine_state:
 	sta $d07f   		; Hide VIC-IV cross-hairs
         sta $DC0D
         sta $DD0D
-
-        sec
-        ;; determine VIC mode and set it accordingly in VICIV_MAGIC
-        jsr enhanced_io
 
         ;; clear UART interrupt status
         lda uart65_irq_flag
@@ -562,7 +558,7 @@ reset_entry:
 
 	;; If banner is in flash, load it _immediately_
 	jsr tryloadbootlogofromflash
-	
+
         ;; display welcome screen
         ;;
         ldx #<msg_hyppo
@@ -586,7 +582,7 @@ reset_entry:
         ;; SD-cardless operation
         bit go64
         bit $1234
-	
+
         ;; Display help text
 	lda first_boot_flag_instruction
 	cmp #$4c
@@ -595,17 +591,17 @@ reset_entry:
         ldy #>msg_hyppohelpfirst
         jsr printmessage
 	jmp first_boot_flag_instruction
-	
-not_first_boot_message:	
+
+not_first_boot_message:
         ldx #<msg_hyppohelpnotfirst
         ldy #>msg_hyppohelpnotfirst
         jsr printmessage
-	
+
 	;; Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 
 first_boot_flag_instruction:
-try_flash_menu:	
-	
+try_flash_menu:
+
 	;; Use first boot code path only once
 	;; WARNING: Self modifying code!
 	bit dont_launch_flash_menu
@@ -613,7 +609,7 @@ try_flash_menu:
 	;; On first boot, we start the flash menu regardless
 	;; (The flash menu will work out whether to switch bitstream or not)
 	jmp launch_flash_menu
-	
+
 	;; On ALT or either joystick button, enter flash menu.
 	;; But only on first boot, while flash menu program can still be relied upon to be in memory.
 	lda $d610
@@ -623,12 +619,12 @@ try_flash_menu:
 	and $dc01
 	and #$10
 	bne dont_launch_flash_menu
-	
+
 launch_flash_menu:
 
 	;; Disable digital audio when launching flash menu
 	jsr safe_video_mode
-	
+
 	;; Store where the flash menu should jump to if it doesn't need to do anything.
 	lda #<return_from_flashmenu
 	sta $cf80
@@ -639,7 +635,7 @@ launch_flash_menu:
 
 	jmp flash_menu
 
-return_from_flashmenu:	
+return_from_flashmenu:
 
 	;; Here we have been given control back from the flash menu program.
 	;; So we have to put some things back to continue the kickstart boot process.
@@ -651,7 +647,7 @@ return_from_flashmenu:
 	tys
 	ldx #$ff
 	txs
-	
+
         lda #$ff
         sta $d702
         lda #$ff
@@ -668,7 +664,7 @@ return_from_flashmenu:
         sta $d705
 	lda #$01
 	trb $d030
-	
+
 	;; And finally, the screen data
         lda #>screenrestore_dmalist
         sta $d701
@@ -677,9 +673,9 @@ return_from_flashmenu:
         sta $d705
 
 	jsr resetdisplay
-		
+
 	jmp dont_launch_flash_menu
-	
+
 dont_launch_flash_menu:
 	lda ascii_key_in
 	cmp #$09
@@ -693,14 +689,14 @@ noflash_menu:
 	inc $d020
 nfm1:
 	jmp nfm1
-	
 
-fpga_has_been_reconfigured:	
+
+fpga_has_been_reconfigured:
 
 	;; We can't trust that the flash menu is still in memory by this point, so do nothing.
 	;; (This also means if you choose "safe mode" factory bitstream, and then reset, it
 	;; won't try to run upgraded bitstream again.)
-	
+
         ;; wait 0.1 msec for things to settle after power-up
         jsr sdwaitawhile
 
@@ -878,12 +874,12 @@ gotmbr:
         jsr cdroot_and_complain_if_fails
 
 mountsystemdiskok:
-	
-loadbannerfromsd:	
+
+loadbannerfromsd:
         ;; Load and display boot logo
 
 	jsr setup_banner_load_pointer
-	
+
         ldx #<txt_BOOTLOGOM65
         ldy #>txt_BOOTLOGOM65
         jsr dos_setname
@@ -1053,7 +1049,7 @@ hickupdmalist:
 ;;         ========================
 
 cdroot_and_complain_if_fails:
-	
+
         ldx dos_default_disk
         jsr dos_cdroot
         bcs @cdroot_ok
@@ -1073,7 +1069,7 @@ cdroot_and_complain_if_fails:
 @cdroot_ok:
         sec
         rts
-	
+
 couldntopenhickup:
 
 nohickup:
@@ -1118,7 +1114,7 @@ f011Virtualised:
 	lda $d6a1
 	and #$01
 	bne @dontMountD81
-	
+
         ;; set name of file we are looking for
         ;;
         ldx #<txt_MEGA65D81
@@ -1165,7 +1161,7 @@ d81attachfail:
         +Checkpoint "couldnt mount/attach MEGA65.D81"
 
 	jmp loadrom
-	
+
 ;;         ========================
 
 tryloadbootlogofromflash:
@@ -1174,7 +1170,7 @@ tryloadbootlogofromflash:
 	jsr sd_map_sectorbuffer
 
 	;;  Check if we have BANNER.M65 embedded in flash.
-	
+
 	;; Load first sector of flash to check for banner present
 	;; byte.
 	lda #$00
@@ -1186,7 +1182,7 @@ tryloadbootlogofromflash:
 	lda #$53
 	sta $d680
 	;; Wait a little while for flash to read
-@zoop2:	
+@zoop2:
 	dex
 	bne @zoop2
 	lda $de71
@@ -1208,8 +1204,8 @@ loadbannerfromflash:
 
         jsr sd_map_sectorbuffer
 
-nextflashbannersector:	
-	
+nextflashbannersector:
+
 	lda #$53
 	sta $d680
 	;; No need to wait long here, because our copy routine is so slow
@@ -1218,12 +1214,12 @@ nextflashbannersector:
 	dec
 	bpl @zzminus
 	;; Leaves A=$00 which we use below for TAx/z to save bytes
-	
-stashbannersector:	
+
+stashbannersector:
 
 	;;  Advance $100 bytes to next flash sector
 	inc $d682
-	
+
 	ldx #0
 	ldz #0
 
@@ -1239,13 +1235,13 @@ zdrfim_rr1:
 	bne nextflashbannersector
 
 	jsr sd_unmap_sectorbuffer
-	
+
 	;; Now display it
 	jmp setbannerpalette
 
-	
-setup_banner_load_pointer:	
-	
+
+setup_banner_load_pointer:
+
         ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
         ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
         lda #$00
@@ -1257,8 +1253,8 @@ setup_banner_load_pointer:
         lda #$00
         sta <dos_file_loadaddress+3
 	rts
-	
-	
+
+
 attempt_loadcharrom:
         ;; Load CHARROM.M65 into character ROM
         ;;
@@ -1575,7 +1571,7 @@ resetdisplay:
         ;; (Also required to make sure matrix mode pixels aren't ragged on first boot).
 	;; The label here is used so that the syspartition settings can be used to
 	;; change the default video mode on reset.
-pal_ntsc_minus_1:	
+pal_ntsc_minus_1:
         lda #$80
         sta $d06f
 
@@ -1639,7 +1635,7 @@ resetpalette:
         tsb $D030        ;; enable PAL bit in $D030
 
 	jsr setbannerpalette
-	
+
         ;; C64 colours designed to look like C65 colours on an
         ;; RGBI screen.
         ;;
@@ -1965,7 +1961,7 @@ pm22:
 pm2:
 	cpx #$00
         beq pm1
-	
+
         clc
         lda <zptempp2
         adc #$50          ;; 40 columns x 16 bit
@@ -2116,7 +2112,7 @@ l40a:
 l41:
 	;; remove RUN/STOP from key queue
 	sta $d610
-	
+
         ;; Check if hold boot switch is set (control-key)
         ;;
 	lda buckykey_status
@@ -2180,7 +2176,7 @@ g61:    sta $0800,x
         ;; as 512 usec.
         jsr reset_cartridge
 
-go64_exit_hypervisor:	
+go64_exit_hypervisor:
         ;; exit from hypervisor to start machine
         sta hypervisor_enterexit_trigger
 
@@ -2329,36 +2325,12 @@ resetmemmap:
         rts
 
 ;;         ========================
-
-enhanced_io:
-
-        ;; If C=1, enable enhanced IO bank,
-        ;;   else, return to C64 standard IO map.
-        ;;
-
-        bcs l1
-        ;; Return to VIC-II / C64 IO
-        ;;
-        lda #$00
-        sta viciv_magic
-        rts
-
-l1:                ;; Enable VIC-IV / MEGA65 IO
-        ;;
-        lda #$47
-        sta viciv_magic
-        lda #$53
-        sta viciv_magic
-        rts
-
-
-;;         ========================
 !src "keyboard.asm"
 
 utility_menu_check:
         lda buckykey_status
 	cmp #$20
-	beq @startFlashMenu	
+	beq @startFlashMenu
         cmp #$03
         beq @startUtilMenu
         and #$10
@@ -2382,7 +2354,7 @@ keyboardread:
 ;; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
         jsr utility_menu_check
-        
+
         ldx #$01
         lda $d629
         and #$40
@@ -2392,11 +2364,11 @@ keyboardread:
 @startscan:
         jsr scankeyboard
         bcc @checkkey
-        
+
         dex     ;; no key pressed yet
         bne @startscan
         jmp kr2  ;; no key was pressed, despite looping for a while to wait for it
-        
+
 @checkkey:
         cmp #$20
         bne @notUtilMenu
@@ -2690,14 +2662,14 @@ safe_video_mode:
 	lda #$80
 	sta $d06f
 	rts
-	
+
 utility_menu:
 	;; Gets self-modified to prevent entering utility menu except on first boot
 	bit noutility_menu
 
 	;; Disable digital audio when utility menu
 	jsr safe_video_mode
-	
+
         ;; Display GIT commit again, so that it's easy to check commit of a build
         ldx #<msg_gitcommit
         ldy #>msg_gitcommit
@@ -2717,7 +2689,7 @@ utility_menu:
 um1:
         jsr utillist_validity_check
         bcc utility_end_of_list
-	
+
         ;; Display utility and assign number
         ldy #39
         lda #$20
@@ -2796,7 +2768,7 @@ ueol1:
 
 	;; We have to call this before initialising OpenROM
 	jsr setup_for_openrom
-	
+
         ;; load address is always $07FF (to skip $0801 header)
         ;; start @ zptempv32 + 44
         ;; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
@@ -2843,7 +2815,7 @@ flash_menu:
 
 	;; Run the flash menu which is pre-loaded into memory on first boot
 	;; (in the FPGA BRAM).
-	;; Also DMA copy our current screen safely somewhere for later restoration	
+	;; Also DMA copy our current screen safely somewhere for later restoration
 
         lda #$ff
         sta $d702
@@ -2856,14 +2828,14 @@ flash_menu:
         sta $d705
 
 	;; FALL THROUGH
-run_util_in_hypervisor_context:	
+run_util_in_hypervisor_context:
 	;; XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	;; Hypervisor memory map!
 	lda #$00
 	!8 $5B ;; tab
 	ldy #$01
 	!8 $2B ;; tys
-		
+
 	jsr setup_for_openrom
 	;; XXX Work around bug in OpenROMs that erases our banner palette when we do this
 	;; by putting the palette back immediately.
@@ -2871,9 +2843,9 @@ run_util_in_hypervisor_context:
 
 	;; Actually launch freeze menu
 	jmp $080d
-	
+
 setup_for_openrom:
-	
+
 	;; Bank in KERNAL ROM space so megaflash can run
 	;; Writing to $01 when ZP is relocated is a bit tricky, as
 	;; we have to mess about with the Base Register, or force
@@ -2897,7 +2869,7 @@ setup_for_openrom:
 	lda #0
 	ldx #$0f
 	map
-	eom	
+	eom
 
 	;; Tell KERNAL screen is at $0400
 	lda #>$0400
@@ -2942,7 +2914,7 @@ setup_for_openrom:
 ;;	map
 ;;	lda #0    ;; to give time to effect clearing irq_pending in CPU
 ;;	eom
-	
+
 	;; And ignore any queued NMI (these don't get cleared by the MAP trick)
 
 	;;  Clear pending NMI flag
@@ -2956,7 +2928,7 @@ setup_for_openrom:
 	lda #<$0420
 	sta $0318
 	lda #>$0420
-	sta $0319	
+	sta $0319
 	rts
 
 flashmenu_dmalist:
@@ -2971,8 +2943,8 @@ flashmenu_dmalist:
         !8 $00 ;; no more options
         ;; F018A DMA list
         !8 $04 ;; copy + chained
-        !16 $0800 ;; size of copy 
-        !16 $0400 ;; starting addr 
+        !16 $0800 ;; size of copy
+        !16 $0400 ;; starting addr
         !8 $00   ;; of bank $0
         !16 $9000 ;; destination address is $8000
         !8 $00   ;; of bank $5
@@ -2982,8 +2954,8 @@ flashmenu_dmalist:
         !8 $00 ;; no more options
 	;; F018A DMA list
         !8 $00 ;; copy + not chained request
-        !16 $77FF ;; size of copy 
-        !16 $0000 ;; starting addr 
+        !16 $77FF ;; size of copy
+        !16 $0000 ;; starting addr
         !8 $05   ;; of bank $5
         !16 $07FF ;; destination address is $0801 - 2
         !8 $00   ;; of bank $0
@@ -2995,15 +2967,15 @@ screenrestore_dmalist:
         !8 $00 ;; no more options
         ;; F018A DMA list
         !8 $00 ;; copy + last in chain
-        !16 $0800 ;; size of copy 
+        !16 $0800 ;; size of copy
         !16 $9000 ;; destination address is $0000
         !8 $00   ;; of bank $0
-        !16 $0400 ;; starting addr 
+        !16 $0400 ;; starting addr
         !8 $00   ;; of bank $5
         !16 $0000 ;; modulo (unused)
 
 scroll_screen:
-	
+
         lda #$ff
         sta $d702
         sta $d704  ;; dma list is in top MB of address space
@@ -3017,7 +2989,7 @@ scroll_screen:
         sta $d705
 
 	rts
-	
+
 scrollscreen_dmalist:
         !8 $80,$00  ;; Copy from $00xxxxx
         !8 $81,$00  ;; Copy to $00xxxxx
@@ -3030,8 +3002,8 @@ scrollscreen_dmalist:
         !16 1664 ;; starting addr is line 8 of screen
         !8 $00   ;; of bank $0
         !16 $0000 ;; modulo (unused)
-	
-	
+
+
 utility_dmalist:
         ;; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
 
@@ -3131,7 +3103,7 @@ serialwrite:
 	;; First wait for it to go ready
 	ldx hypervisor_write_char_to_serial_monitor
 	bne serialwrite
-	
+
         ;; XXX - Have some kind of permission control on this
         ;; XXX - $D67C should not work when matrix mode is enabled at all?
         sta hypervisor_write_char_to_serial_monitor
@@ -3165,14 +3137,14 @@ msg_utilitymenu:
         !text "SELECT UTILITY TO LAUNCH"
         !8 0
 
-msg_noutilitymenu:	
+msg_noutilitymenu:
 		        !text "HOLD ALT + POWER CYCLE FOR UTILITY MENU"
 	                !8 0
-	
-msg_noflashmenu:	
+
+msg_noflashmenu:
 		        !text "HOLD NO SCROLL + POWER CYCLE FOR FLASH"
 	                !8 0
-	
+
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
 msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.16"
@@ -3264,7 +3236,7 @@ msg_dmagica:            !text "DMAGIC REV A MODE"
                         !8 0
 msg_dmagicb:            !text "DMAGIC REV B MODE"
                         !8 0
-	
+
 ;; Include the GIT Message as a string
 !src "../version.asm"
 
@@ -3443,7 +3415,7 @@ dos_opendir_entry:
 
         ;; Current long filename (max 64 bytes)
         ;;
-dos_dirent_struct_start:	
+dos_dirent_struct_start:
 dos_dirent_longfilename:
         !text "Venezualen casaba melon productio" ;; 33-chars
         !text "n statistics (2012-2015).txt  "    ;; 30-chars
@@ -3464,7 +3436,7 @@ dos_dirent_length:
 
 dos_dirent_type_and_attribs:
         !8 0
-dos_dirent_struct_end:	
+dos_dirent_struct_end:
 
 ;;         ========================
 
