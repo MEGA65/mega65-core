@@ -728,7 +728,7 @@ normalboot:
         jmp @skipearlycheck  ;; no key was pressed, despite looping for a while to wait for it
 
 @earlycheckkey:
-        cmp #$03    ;; was RUN-STOP key pressed?
+        cmp #$1b    ;; was ESCAPE key pressed?
         bne @skipearlycheck
 
 @loopendlessly
