@@ -1235,7 +1235,7 @@ begin  -- behavioural
             fastio_rdata(4) <= eth_accept_broadcast;
             -- @IO:GS $D6E5.5 ETH:MCST Accept multicast frames
             fastio_rdata(5) <= eth_accept_multicast;
-            -- @IO:GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
+            -- @IO:GS $D6E5.6-7 ETH:RXPH Ethernet RX clock phase adjust
             fastio_rdata(7 downto 6) <= eth_rx_latch_phase;
           when x"6" =>
             -- @IO:GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
