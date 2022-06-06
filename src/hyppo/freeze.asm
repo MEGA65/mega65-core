@@ -1017,7 +1017,7 @@ freeze_mem_list:
         ;; XXX - These can't be read by DMA, so we need to have a
         ;; prep routine that copies them out first?
         !32 $ffd3640
-        !16 $003f
+        !16 $003e
         !8 0
         !8 freeze_prep_hyperregs
 
