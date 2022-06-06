@@ -23,7 +23,6 @@ src/monitor/gen_dis
 src/tools/ftphelper.c
 src/hyppo/HICKUP.*
 exomized.prg
-iomap.txt
 
 # ophis
 src/*.list

@@ -4721,7 +4721,7 @@ begin
           watchdog_fed <= '1';
         end if;
                                         -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
-        if last_write_address = x"FFD367E" and hypervisor_mode='1' then
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' and pending_dma_busy = '0' then
           hypervisor_upgraded <= '1';
         end if;
 

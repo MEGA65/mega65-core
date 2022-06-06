@@ -64,6 +64,12 @@ unfreeze_next_region:
 
         jsr unfreeze_load_region
 
+        ;; Re-enable M65 IO in case we wrote over the key register during the region unfreeze
+        lda #$47
+        sta $d02f
+        lda #$53
+        sta $d02f
+
         txa
         clc
         adc #$08
