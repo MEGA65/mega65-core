@@ -2656,7 +2656,7 @@ num1:
 
 safe_video_mode:
 	;; No digital audio, just pure DVI
-	lda #$00
+	lda #$02
 	sta $d61a
 	;; NTSC
 	lda #$80
