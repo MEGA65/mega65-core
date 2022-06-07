@@ -64,6 +64,18 @@ unfreeze_next_region:
 
         jsr unfreeze_load_region
 
+        ;; Re-enable M65 IO in case we wrote over the key register during the region unfreeze
+        ;; NOTE: This usage was re-instated after deleting it cause exiting the freeze-menu to
+        ;; either stall in BASIC (in an endless loop awaiting for the sd-card to be ready) for
+        ;; some users, or causing DIR to return 'Drive not ready' for other users.
+        ;; The exact reason behind the impact of its removal isn't known and warrants further
+        ;; investigation at some stage. See this past Discord thread for more details:
+        ;; https://discord.com/channels/719326990221574164/791383472853614593/982994187681161278
+        lda #$47
+        sta $d02f
+        lda #$53
+        sta $d02f
+
         txa
         clc
         adc #$08
@@ -1011,7 +1023,7 @@ freeze_mem_list:
         ;; XXX - These can't be read by DMA, so we need to have a
         ;; prep routine that copies them out first?
         !32 $ffd3640
-        !16 $003f
+        !16 $003e
         !8 0
         !8 freeze_prep_hyperregs
 
