@@ -131,8 +131,8 @@ begin
       busy => i2c1_busy,
       unsigned(data_rd) => i2c1_rdata,
       ack_error => i2c1_error,
---      sda => sda,
---      scl => scl,
+      sda => sda,
+      scl => scl,
       swap => i2c1_swap,
       debug_sda => i2c1_debug_sda,
       debug_scl => i2c1_debug_scl      
@@ -189,16 +189,16 @@ begin
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
           write_job_pending <= '1';
         elsif fastio_addr(7 downto 0) = x"fd" then
-          if fastio_wdata(7)='0' then
-            sda <= 'Z';
-          else
-            sda <= fastio_wdata(6);
-          end if;
-          if fastio_wdata(5)='0' then
-            scl <= 'Z';
-          else
-            scl <= fastio_wdata(4);
-          end if;
+--          if fastio_wdata(7)='0' then
+--            sda <= 'Z';
+--          else
+--            sda <= fastio_wdata(6);
+--          end if;
+--          if fastio_wdata(5)='0' then
+--            scl <= 'Z';
+--          else
+--            scl <= fastio_wdata(4);
+--          end if;
         elsif fastio_addr(7 downto 0) = x"fe" then
           write_i2c_addr <= fastio_wdata;
         elsif fastio_addr(7 downto 0) = x"ff" then
