@@ -756,9 +756,9 @@ begin  -- behavioural
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
-          -- @IO:GS $D61D.7 UARTMISC:KEYLEDENA Keyboard LED control enable
-          -- @IO:GS $D61D.0-6 UARTMISC:KEYLEDREG Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
-          -- @IO:GS $D61E UARTMISC:KEYLEDVAL Keyboard LED register value (write only)
+          -- @IO:GS $D61D.7 UARTMISC:KEYLED!ENA Keyboard LED control enable
+          -- @IO:GS $D61D.0-6 UARTMISC:KEYLED!REG Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
+          -- @IO:GS $D61E UARTMISC:KEYLED!VAL Keyboard LED register value (write only)
           fastio_rdata(7) <= disco_led_en_int;
           fastio_rdata(6 downto 0) <= disco_led_id_int(6 downto 0);
         when x"1e" =>
