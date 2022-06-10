@@ -23,6 +23,10 @@ src/monitor/gen_dis
 src/tools/ftphelper.c
 src/hyppo/HICKUP.*
 exomized.prg
+# don't include iomap.txt here, we like to have it version controlled
+# please commit a new iomap.txt when it was changed by your core changes
+# see issue #574
+# iomap.txt
 
 # ophis
 src/*.list
