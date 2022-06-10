@@ -251,10 +251,10 @@ begin
           i2c1_wdata <= x"00";
           i2c1_rw <= '0';
         when 1 =>
-          -- Then switch to read
+          -- Then switch to read, reading from register 0
           command_en <= '1';
           i2c1_address <= read_i2c_addr(7 downto 1); 
-          i2c1_wdata <= x"42";
+          i2c1_wdata <= x"00";
           i2c1_rw <= '1';
         when
           2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
