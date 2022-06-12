@@ -2398,8 +2398,11 @@ dos_readdir:
         ldx dos_current_file_descriptor_offset
         lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
         cmp #dos_filemode_end_of_directory
-        bne drd_notadir
+        bne drd_continue
+        lda #dos_errorcode_eof
+        jmp dos_return_error
 
+drd_continue:
         jsr dos_file_read_current_sector
 
 !if DEBUG_HYPPO {
