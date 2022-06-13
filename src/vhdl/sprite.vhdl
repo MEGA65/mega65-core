@@ -482,10 +482,10 @@ begin  -- behavioural
       -- horizontally tiled sprites.
       -- (but allow non-tiled sprites to wrap around into left border, as on the
       -- C64.)
-      if (sprite_h640='0') and (x_in > 417) and (sprite_horizontal_tile_enable='1') then
+      if (sprite_h640='0') and (x_in > 416) and (sprite_horizontal_tile_enable='1') then
         x_in_sprite <= '0';
       end if;
-      if (sprite_h640='1') and (x_in > 833) and (sprite_horizontal_tile_enable='1') then
+      if (sprite_h640='1') and (x_in > 832) and (sprite_horizontal_tile_enable='1') then
         x_in_sprite <= '0';
       end if;
       
