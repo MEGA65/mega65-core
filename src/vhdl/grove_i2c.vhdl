@@ -79,6 +79,7 @@ architecture behavioural of grove_i2c is
   signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c1_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_reg : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_busy : std_logic := '0';
   signal i2c1_busy_last : std_logic := '0';
@@ -86,7 +87,10 @@ architecture behavioural of grove_i2c is
   signal i2c1_rw_internal : std_logic := '0';
   signal i2c1_error : std_logic := '0';  
   signal i2c1_reset : std_logic := '1';
-  signal i2c1_command_en : std_logic := '0';  
+  signal i2c1_command_en : std_logic := '0';
+  signal i2c1_rd_strobe : std_logic;
+  signal i2c1_count : unsigned(15 downto 0) := (others => '0');
+  signal i2c1_raddr : unsigned(7 downto 0);
   signal command_en : std_logic := '0';
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -106,8 +110,6 @@ architecture behavioural of grove_i2c is
   signal read_i2c_addr : unsigned(7 downto 0) := x"d1";
   signal write_i2c_addr : unsigned(7 downto 0) := x"d0";
   
-  signal delayed_en : integer range 0 to 65535 := 0;
-
   signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
@@ -115,27 +117,27 @@ architecture behavioural of grove_i2c is
 
 begin
 
-  i2c1: entity work.i2c_master
+  i2c1: entity work.i2c_controller
     generic map (
-      input_clk => clock_frequency,
+      clock_frequency => clock_frequency,
       -- The DS1307 only works at 100KHz ! No 400KHz mode supported !
       bus_clk => 100_000
       )
     port map (
-      clk => clock,
-      reset_n => i2c1_reset,
-      ena => i2c1_command_en,
-      addr => std_logic_vector(i2c1_address),
+      clock => clock,
+      req => i2c1_command_en,
+      addr => i2c1_address,
       rw => i2c1_rw,
-      data_wr => std_logic_vector(i2c1_wdata),
+      reg_addr => i2c1_reg,
+      data_wr => i2c1_wdata,
       busy => i2c1_busy,
-      unsigned(data_rd) => i2c1_rdata,
-      ack_error => i2c1_error,
+      data_rd => i2c1_rdata,
+      rd_strobe => i2c1_rd_strobe,
+      rd_addr => i2c1_raddr,
+      rd_count => i2c1_count,
+      
       sda => sda,
-      scl => scl,
-      swap => i2c1_swap,
-      debug_sda => i2c1_debug_sda,
-      debug_scl => i2c1_debug_scl      
+      scl => scl
       ); 
   
   process (clock,cs,fastio_read,fastio_addr) is
@@ -166,23 +168,11 @@ begin
 
       grove_rtc_present <= grove_rtc_present_drive;
       
-      -- Must come first, so state machines below can set delayed_en
-      if delayed_en /= 0 then
---        report "Waiting for delay to expire: " & integer'image(delayed_en);
-        delayed_en <= delayed_en - 1;
-        if delayed_en = 1024 then
-          i2c1_command_en <= '0';
-          report "Clearing i2c1_command_en due to delayed_en=1024";
-        end if;
-      else
---        report "No command delay: busy=" & std_logic'image(i2c1_busy) & ", last_busy=" & std_logic'image(last_busy);
-        -- Activate command
-        i2c1_command_en <= command_en;
-        if i2c1_busy = '1' and last_busy = '0' then
-          report "Command latched.";
-          command_en <= '0';
-        end if;
-      end if;           
+      i2c1_command_en <= command_en;
+      if i2c1_busy = '1' and last_busy = '0' then
+        report "Command latched.";
+        command_en <= '0';
+      end if;
       
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
@@ -211,6 +201,11 @@ begin
       
       -- State machine for reading registers from the various
       -- devices.
+
+      if i2c1_rd_strobe='1' then
+        bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
+      end if;
+      
       last_busy <= i2c1_busy;
       if i2c1_busy='1' and last_busy='0' then
 
@@ -220,18 +215,11 @@ begin
         command_en <= '0';                  
         
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 66) or ((write_job_pending='1') and (busy_count < (66+4))) then
+        if (busy_count < 1) or ((write_job_pending='1') and (busy_count = 1)) then
           busy_count <= busy_count + 1;
           report "busy_count = " & integer'image(busy_count + 1);
-          -- Delay switch to write so we generate a stop before hand and after
-          -- the write.
-          if ((busy_count = 66-1) or (busy_count = 66+1)) and (delayed_en = 0) then
-            delayed_en <= 1024;
-          end if;
         else
           busy_count <= 0;
-          -- Make sure we really start the job a new each round
-          delayed_en <= 1024;
           report "busy_count = " & integer'image(0);
         end if;        
       end if;
@@ -249,47 +237,18 @@ begin
 
           -- Send write address and register 0
           command_en <= '1';
-          i2c1_address <= write_i2c_addr(7 downto 1); 
-          i2c1_wdata <= x"00";
-          i2c1_rw <= '0';
-        when
-          1 | 2 |  3 |  4 |  5 |  6 |  7 |  8 |  9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 |
-          17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 |
-          33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 |
-          49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 |
-          65 =>
+          i2c1_address <= write_i2c_addr(7 downto 1);
+          i2c1_reg <= x"00";
+          i2c1_count <= to_unsigned(64,16);
           i2c1_rw <= '1';
-          command_en <= '1';          
-          if busy_count > 1 then
-            bytes(busy_count - 2) <= i2c1_rdata;
-          end if;
-        --------------------------------------------------------------------
-        -- End of Auto-Generated Content
-        --------------------------------------------------------------------        
-        when 66 =>
-          -- Write to a register, if a request is pending:
-          -- First, write the address and register number.
-          if last_busy_count /= busy_count then
-            report "Writing to register $" & to_hstring(write_reg);
-          end if;
-          i2c1_rw <= '0';
+        when 1 =>
           command_en <= '1';
           i2c1_address <= write_i2c_addr(7 downto 1);
-          i2c1_wdata <= write_reg;
-        when 67 =>
-          -- Second, write the actual value into the register
-          if last_busy_count /= busy_count then
-            report "Writing value $" & to_hstring(write_val) & " to register";
-          end if;
-          -- Make sure we send a STOP before the next command starts
-          -- NOTE: This is done above in the incrementer for busy_count
-          command_en <= '1';
-          i2c1_rw <= '0';
+          i2c1_reg <= write_reg;
           i2c1_wdata <= write_val;
+          i2c1_count <= to_unsigned(1,16);
+          i2c1_rw <= '0';
         when others =>
-          if last_busy_count /= busy_count then
-            report "in others";
-          end if;
           -- Make sure we can't get stuck.
           command_en <= '0';
           busy_count <= 0;

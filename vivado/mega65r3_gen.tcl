@@ -144,6 +144,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/pcm_transceiver.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/touch.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_master.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/i2c_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_wrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r3_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/grove_i2c.vhdl"]"\

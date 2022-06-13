@@ -178,7 +178,7 @@ ghdl/ghdl_mcode: ghdl/build/bin/ghdl
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
-ghdl/build/bin/ghdl: FORCE
+ghdl/build/bin/ghdl: #FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
@@ -595,10 +595,10 @@ i2csimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
 
-grovesimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+grovesimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(GHDL) -i $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
 	$(GHDL) -m test_grove
 	( ./test_grove || $(GHDL) -r test_grove )
 
