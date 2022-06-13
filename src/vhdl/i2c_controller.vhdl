@@ -57,6 +57,7 @@ architecture hopeful of i2c_controller is
   signal i2c_reg : unsigned(7 downto 0);
   signal i2c_wdata : unsigned(7 downto 0);
   signal i2c_read_count : integer := 0;
+  signal rd_addr_next : unsigned(7 downto 0) := x"00";
 
   type state_t is (Idle,
                    Start,
@@ -123,6 +124,8 @@ begin
                 else
                   i2c_ack_bit <= sda;
                   rd_strobe <= '1';
+                  rd_addr <= rd_addr_next;
+                  rd_addr_next <= rd_addr_next + 1;
                 end if;
               end if;
             when others => null;
@@ -138,6 +141,7 @@ begin
                 i2c_rw <= rw;
                 i2c_reg <= reg_addr;
                 i2c_wdata <= data_wr;
+                rd_addr_next <= x"00";
                 i2c_read_count <= to_integer(rd_count);
                 state <= Start;
                 sda <= '0';
