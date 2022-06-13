@@ -2393,6 +2393,16 @@ dos_readdir:
         lda #0
         sta dos_dirent_longfilename_length
 
+        ;; assess the EOF marker very early, to catch case where last read direntry
+        ;; was the last direntry of the cluster
+        ldx dos_current_file_descriptor_offset
+        lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
+        cmp #dos_filemode_end_of_directory
+        bne drd_continue
+        lda #dos_errorcode_eof
+        jmp dos_return_error
+
+drd_continue:
         jsr dos_file_read_current_sector
 
 !if DEBUG_HYPPO {
