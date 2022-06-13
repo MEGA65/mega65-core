@@ -81,6 +81,9 @@ begin
     variable clock_phase : unsigned(1 downto 0);
   begin
     if rising_edge(clock) then
+
+      rd_strobe <= '0';
+      
       if tick_countdown /= 0 then
         tick_countdown <= tick_countdown - 1;
         tick_strobe <= '0';
@@ -119,6 +122,7 @@ begin
                   i2c_byte(7 downto 1) <= i2c_byte(6 downto 0);
                 else
                   i2c_ack_bit <= sda;
+                  rd_strobe <= '1';
                 end if;
               end if;
             when others => null;
