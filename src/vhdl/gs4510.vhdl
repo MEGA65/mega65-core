@@ -4732,7 +4732,7 @@ begin
         -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
         -- But don't set it if written in a DMA copy, so that unfreezing
         -- doesn't set the hypervisor upgraded flag. #530
-        if last_write_address = x"FFD367E" and hypervisor_mode='1' and state /= DMACopyWrite then
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' and state /= DMAgicCopyWrite then
           hypervisor_upgraded <= '1';
         end if;
 
