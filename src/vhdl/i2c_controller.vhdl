@@ -163,15 +163,15 @@ begin
             when WriteSendRegNum =>
               i2c_byte <= i2c_reg;
               i2c_bits <= 0;
-              state <= WriteSendData;
-            when WriteSendData =>
-              i2c_byte <= i2c_wdata;
-              i2c_bits <= 0;
               if i2c_rw = '0' then
-                state <= Stop;
+                state <= WriteSendData;
               else
                 state <= SwitchToRead;
               end if;
+            when WriteSendData =>
+              i2c_byte <= i2c_wdata;
+              i2c_bits <= 0;
+              state <= Stop;
             when Stop =>
               scl <= '0';
               sda <= '0';
