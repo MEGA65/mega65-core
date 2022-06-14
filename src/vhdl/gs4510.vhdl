@@ -4724,8 +4724,11 @@ begin
             & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
-                                        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
-        if last_write_address = x"FFD367E" and hypervisor_mode='1' then
+
+        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
+        -- But don't set it if written in a DMA copy, so that unfreezing
+        -- doesn't set the hypervisor upgraded flag. #530
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' and state /= DMACopyWrite then
           hypervisor_upgraded <= '1';
         end if;
 
