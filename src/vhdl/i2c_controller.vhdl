@@ -103,7 +103,11 @@ begin
               if i2c_byte_direction='1' then
                 -- Write
                 if i2c_bits < (8*4) then
-                  sda <= i2c_byte(7);
+                  if i2c_byte(7)='1' then
+                    sda <= 'Z';
+                  else
+                    sda <= '0';
+                  end if;
                 else
                   sda <= 'Z';
                 end if;
@@ -192,7 +196,7 @@ begin
               scl <= 'Z';
               state <= SwitchToRead2;
             when SwitchToRead2 =>
-              sda <= '1';
+              sda <= 'Z';
               state <= SwitchToRead3;
             when SwitchToRead3 =>
               sda <= '0';
