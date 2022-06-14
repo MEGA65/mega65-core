@@ -186,6 +186,11 @@ sdtimeoutreset:
 ;;         ========================
 
 sdreadytest:
+        ;; for xemu skip this test (sd-card is always ready, instantaneous)
+        lda $d60f
+        cmp #$20
+        bne sdisready
+
         ;; check if SD card is ready, or if timeout has occurred
         ;; C is set if ready.
         ;; Z is set if timeout has occurred.
@@ -258,10 +263,15 @@ sd_readsector:
 
         ;; check if sd card is busy
         ;;
+        lda $d60f   ;; if xemu, then skip over sd card busy check
+        cmp #$20
+        bne sdr_skip_sdcheck
+
         lda $d680
         and #$01
         bne rsbusyfail
 
+sdr_skip_sdcheck:
         ;;
         jmp rs4                ;; skipping the redoread-delay below
 

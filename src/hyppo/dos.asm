@@ -4124,14 +4124,35 @@ dos_d81check:
         ;; bit in sectors per cluster.  we can do this because
         ;; clusters in FAT must be 2^n sectors.
         ;;
+
         lda #$00
         sta d81_clustercount
         sta d81_clustercount+1
+
+        ;; check if it is a d64. If so, this has 341 sectors, but round up to 344 (to cluster boundary)
+        ldy dos_requested_filename_len
+        dey
+        lda dos_requested_filename,y
+        cmp #'4'
+        bne setd81size
+        dey
+        lda dos_requested_filename,y
+        cmp #'6'
+        bne setd81size
+
+        lda #<344
+        sta d81_clustersneeded
+        lda #>344
+        sta d81_clustersneeded+1
+        bra get_sectors_per_cluster
+
+setd81size:
         lda #<1600
         sta d81_clustersneeded
         lda #>1600
         sta d81_clustersneeded+1
 
+get_sectors_per_cluster:
         ;; get sectors per cluster of disk
         ;;
         ldx dos_disk_table_offset
