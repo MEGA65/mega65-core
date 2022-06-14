@@ -16,6 +16,11 @@ architecture foo of test_grove is
   signal sda_last : std_logic := '1';
   signal scl_last : std_logic := '1';
 
+  signal read_req : std_logic;
+  signal data_to_master : std_logic_vector(7 downto 0) := x"01";
+  signal data_valid : std_logic;
+  signal data_from_master : std_logic_vector(7 downto 0);
+  
 begin
 
   i2c1: entity work.grove_i2c
@@ -36,7 +41,21 @@ begin
 --    std_logic_vector(fastio_rdata) => data_o
     
     );
-  
+
+  slave1: entity work.i2c_slave
+    generic map (
+      SLAVE_ADDR => "1101000"
+      )
+    port map (
+      scl => scl,
+      sda => sda,
+      clk => clock50mhz,
+      rst => '0',
+      read_req => read_req,
+      data_to_master => data_to_master,
+      data_valid => data_valid,
+      data_from_master => data_from_master
+      );
   
   process is
   begin
@@ -60,7 +79,13 @@ begin
       if sda /= sda_last or scl /= scl_last then
         report "SDA=" & std_logic'image(sda) &
           ", SCL=" & std_logic'image(scl);
-      end if;  
+      end if;
+
+      -- Provide ever changing value for dummy I2C slave
+      if read_req='1' then
+        data_to_master <= std_logic_vector(to_unsigned(to_integer(unsigned(data_to_master))+1,8));
+      end if;
+      
     end if;
   end process;
 
