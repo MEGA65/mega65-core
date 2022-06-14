@@ -289,10 +289,10 @@ fsr1:
 
         ;; xemu seems to drop the viciv mode at this point, due to prior DMA job at line 778
         ;; so I'll manually bring it back for now...
-        lda #$47
-        sta $d02f
-        lda #$53
-        sta $d02f
+        ;; lda #$47
+        ;; sta $d02f
+        ;; lda #$53
+        ;; sta $d02f
 
         plx
 
