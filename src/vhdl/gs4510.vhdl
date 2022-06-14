@@ -538,6 +538,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_list_counter : integer range 0 to 12;
   signal dmagic_first_read : std_logic := '0';
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
+  signal dma_inline : std_logic := '0';
   signal reg_dmagic_withio : std_logic := '0';
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
@@ -3056,6 +3057,9 @@ begin
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
         -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3707") or (long_address = x"FFD1707") then
+        -- @IO:GS $D707 - Trigger Enhanced DMAgic job inline (i.e., beginning at PC value, and setting PC to end of job when done)
+        
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0   CPU:BADLEN Enable badline emulation
         -- @IO:GS $D710.1   CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
@@ -5767,9 +5771,14 @@ begin
                   report "monitor_instruction_strobe assert (end of DMA job)";
                   monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
-                                        -- Reset DMAgic options to normal at the end of the last DMA job
-                                        -- in a chain.
+                  -- Reset DMAgic options to normal at the end of the last DMA job
+                  -- in a chain.                  
                   dmagic_reset_options;
+                  -- Continue after DMA job if it was an inline job
+                  if dma_inline='1' then
+                    reg_pc <= reg_dmagic_addr(15 downto 0) + 1;
+                    dma_inline <= '0';
+                  end if;
                 else
                                         -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -6179,6 +6188,11 @@ begin
                                         -- Reset DMAgic options to normal at the end of the last DMA job
                                         -- in a chain.
                     dmagic_reset_options;
+                    -- Continue after DMA job if it was an inline job
+                    if dma_inline='1' then
+                      reg_pc <= reg_dmagic_addr(15 downto 0) + 1;
+                      dma_inline <= '0';
+                    end if;
                   else
                                         -- Chain to next DMA job
                     state <= DMAgicTrigger;
@@ -8338,6 +8352,28 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3707"
+            or memory_access_address = x"FFD1707" then
+            report "DMAgic: Enhanced DMA pending, with MAP-honouring list reading, list inline at PC";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '1';
+            reg_dmagic_addr(15 downto 0) <= reg_pc;
+            dma_inline <= '1';
+
+            -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            -- (actually, we will over-write the PC with the next address after
+            -- running the DMA job, anyway)
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;          
           
           -- @IO:GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
           -- @IO:GS $D641 CPU:HTRAP01 @HTRAPXX
