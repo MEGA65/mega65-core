@@ -113,8 +113,13 @@ begin
                 -- Read
                 sda <= 'Z';
               end if;
-            when "01" =>   scl <= '1';
-            when "10" =>   null;
+            when "01" =>   scl <= 'Z';
+            when "10" =>
+              -- Allow clock stretching: check if SCL stays low after we have
+              -- released it
+              if scl = '0' then
+                i2c_bits <= i2c_bits;
+              end if;
             when "11" =>
               scl <= '0';
               if i2c_byte_direction='0' then
@@ -145,7 +150,7 @@ begin
                 i2c_read_count <= to_integer(rd_count);
                 state <= Start;
                 sda <= '0';
-                scl <= '1';
+                scl <= 'Z';
               end if;
             when Start =>
               scl <= '0';
@@ -172,7 +177,7 @@ begin
               sda <= '0';
               state <= Stop2;
             when Stop2 =>
-              scl <= '1';
+              scl <= 'Z';
               state <= Stop3;
             when Stop3 =>
               sda <= '1';
@@ -184,7 +189,7 @@ begin
               state <= Idle;
             when SwitchToRead =>
               -- Begin restart
-              scl <= '1';
+              scl <= 'Z';
               state <= SwitchToRead2;
             when SwitchToRead2 =>
               sda <= '1';
