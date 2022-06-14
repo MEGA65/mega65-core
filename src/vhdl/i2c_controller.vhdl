@@ -133,6 +133,7 @@ begin
                 else
                   i2c_ack_bit <= sda;
                   rd_strobe <= '1';
+                  data_rd <= i2c_byte;
                   rd_addr <= rd_addr_next;
                   rd_addr_next <= rd_addr_next + 1;
                 end if;
