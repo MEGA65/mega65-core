@@ -115,7 +115,7 @@ begin
                 i2c_byte(0) <= '0';
               else
                 -- Read
-                if i2c_bits < (8*4) then
+                if i2c_bits < (8*4) or (i2c_read_count = 0) then
                   sda <= 'Z';
                 else
                   -- Start sending ACK of read
@@ -183,18 +183,23 @@ begin
               i2c_bits <= 0;
               state <= Stop;
             when Stop =>
+              report "STOP initiated";
               scl <= '0';
               sda <= '0';
               state <= Stop2;
             when Stop2 =>
+              report "STOP2";
               scl <= 'Z';
               state <= Stop3;
             when Stop3 =>
+              report "STOP3";
               sda <= 'Z';
               state <= Stop4;
             when Stop4 =>
+              report "STOP4";
               state <= Stop5;
             when Stop5 =>
+              report "STOP5";
               busy <= '0';
               state <= Idle;
             when SwitchToRead =>
@@ -219,10 +224,11 @@ begin
             when ReadLoop =>
               i2c_bits <= 0;
               i2c_byte_direction <= '0';
-              if i2c_read_count > 1 then
+              if i2c_read_count > 0 then
                 i2c_read_count <= i2c_read_count - 1;
                 state <= ReadLoop;
               else
+                report "stopping read";
                 state <= Stop;
               end if;
           end case;
