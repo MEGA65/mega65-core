@@ -115,7 +115,12 @@ begin
                 i2c_byte(0) <= '0';
               else
                 -- Read
-                sda <= 'Z';
+                if i2c_bits < (8*4) then
+                  sda <= 'Z';
+                else
+                  -- Start sending ACK of read
+                  sda <= '0';
+                end if;
               end if;
             when "01" =>   scl <= 'Z';
             when "10" =>
@@ -185,7 +190,7 @@ begin
               scl <= 'Z';
               state <= Stop3;
             when Stop3 =>
-              sda <= '1';
+              sda <= 'Z';
               state <= Stop4;
             when Stop4 =>
               state <= Stop5;
