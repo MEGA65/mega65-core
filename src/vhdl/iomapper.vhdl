@@ -595,6 +595,8 @@ architecture behavioral of iomapper is
   signal matrix_disable_modifiers : std_logic;
 
   signal grove_rtc_present : std_logic;
+  signal rtc_reg : unsigned(7 downto 0);
+  signal rtc_val : unsigned(7 downto 0);
 
 begin
 
@@ -1275,7 +1277,8 @@ begin
   -- Grove I2C bus. Currently only used for allowing an external RTC
   ----------------------------------------------------------------------------------
   i2c_grove:
-    entity work.grove_i2c
+  if target = mega65r3 generate
+    grove0: entity work.grove_i2c
       generic map ( clock_frequency => cpu_frequency )
       port map (
         clock => cpuclock,
@@ -1286,6 +1289,8 @@ begin
         scl => grove_scl,
 
         grove_rtc_present => grove_rtc_present,
+        reg_out => rtc_reg,
+        val_out => rtc_val,
         
         fastio_addr => unsigned(address),
         fastio_write => w,
@@ -1293,7 +1298,7 @@ begin
         fastio_wdata => unsigned(data_i),
         std_logic_vector(fastio_rdata) => data_o
     );
-        
+  end generate;      
   
   i2cperiph_megaphone:
   if target = megaphoner1 generate
@@ -1345,6 +1350,8 @@ begin
       cs => i2cperipherals_cs,
 
       grove_rtc_present => grove_rtc_present,
+      reg_in => rtc_reg,
+      val_in => rtc_val,
       
       sda => i2c1SDA,
       scl => i2c1SCL,

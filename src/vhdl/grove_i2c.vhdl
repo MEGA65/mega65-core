@@ -59,6 +59,8 @@ entity grove_i2c is
     scl : inout std_logic;
 
     grove_rtc_present : out std_logic := '0';
+    reg_out : out unsigned(7 downto 0);
+    val_out : out unsigned(7 downto 0);
     
     -- FastIO interface
     cs : in std_logic;
@@ -117,6 +119,13 @@ architecture behavioural of grove_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  signal grove_detect_counter : unsigned(3 downto 0) := x"0";
+  signal last_sec : unsigned(7 downto 0) := x"00";
+
+  signal reg_drive : unsigned(7 downto 0);
+  signal val_drive : unsigned(7 downto 0);
+  signal rtc_drive : std_logic := '0';
+  
 begin
 
   i2c1: entity work.i2c_controller
@@ -149,12 +158,9 @@ begin
       if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
-      elsif fastio_addr(7 downto 0) = x"fc" then
-        fastio_rdata <= to_unsigned(rx_count,8);
       elsif fastio_addr(7 downto 0) = x"fd" then
         fastio_rdata <= x"00";
-        fastio_rdata(1) <= sda;
-        fastio_rdata(0) <= scl;
+        fastio_rdata(7) <= grove_rtc_present_drive;
       elsif fastio_addr(7 downto 0) = x"fe" then
         fastio_rdata <= write_i2c_addr;
       elsif fastio_addr(7 downto 0) = x"ff" then
@@ -168,6 +174,8 @@ begin
     
     if rising_edge(clock) then
 
+      reg_out <= reg_drive;
+      val_out <= val_drive;
       grove_rtc_present <= grove_rtc_present_drive;
       
       i2c1_command_en <= command_en;
@@ -205,9 +213,30 @@ begin
       -- devices.
 
       if i2c1_rd_strobe='1' then
+        reg_drive <= i2c1_raddr;
+        val_drive <= i2c1_rdata;
         bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
-        bytes(62) <= i2c1_raddr;
-        bytes(63) <= i2c1_rdata;
+        if i2c1_raddr = x"00" or i2c1_raddr = x"12" or i2c1_raddr = x"24" or i2c1_raddr = x"36" then
+          last_sec <= i2c1_rdata;
+          if last_sec = i2c1_rdata and i2c1_rdata /= x"ff" then
+            -- We see repeating registers every $12 regs, and its not all 1s
+            -- which would indicate no connected device.
+            -- We interpret this as evidence that we have a DS3231 RTC
+            -- connected to the grove connector
+            if grove_detect_counter < 15 then
+              grove_detect_counter <= grove_detect_counter + 1;
+            else
+              grove_rtc_present_drive <= '1';
+            end if;
+          else
+            -- ... anything else suggests not
+            if grove_detect_counter /= 0 then
+              grove_detect_counter <= grove_detect_counter - 1;
+            else
+              grove_rtc_present_drive <= '0';
+            end if;
+          end if;
+        end if;
         rx_count <= rx_count + 1;
       end if;
       
