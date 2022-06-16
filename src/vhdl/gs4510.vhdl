@@ -5776,7 +5776,8 @@ begin
                   dmagic_reset_options;
                   -- Continue after DMA job if it was an inline job
                   if dma_inline='1' then
-                    reg_pc <= reg_dmagic_addr(15 downto 0) + 1;
+                    reg_pc <= reg_dmagic_addr(15 downto 0);
+                    report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
                     dma_inline <= '0';
                   end if;
                 else
@@ -6190,7 +6191,8 @@ begin
                     dmagic_reset_options;
                     -- Continue after DMA job if it was an inline job
                     if dma_inline='1' then
-                      reg_pc <= reg_dmagic_addr(15 downto 0) + 1;
+                      reg_pc <= reg_dmagic_addr(15 downto 0);
+                      report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
                       dma_inline <= '0';
                     end if;
                   else
