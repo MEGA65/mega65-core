@@ -221,7 +221,7 @@ begin
         if i2c1_raddr < 64 then
           bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
         end if;
-        if (i2c1_raddr = x"12") or (i2c1_raddr = x"24") or (i2c1_raddr = x"36") then
+        if (i2c1_raddr = x"13") or (i2c1_raddr = x"26") or (i2c1_raddr = x"39") then
           report "GROVEDETECT: Checking values";
           last_sec <= i2c1_rdata;
           if (last_sec = i2c1_rdata) and (i2c1_rdata /= x"ff") then
