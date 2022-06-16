@@ -120,6 +120,7 @@ architecture behavioural of grove_i2c is
   signal debug_status : unsigned(5 downto 0) := "000000";
 
   signal grove_detect_counter : integer := 1;
+  signal grove_detect_neg_counter : integer := 0;
   signal last_sec : unsigned(7 downto 0) := x"00";
 
   signal reg_drive : unsigned(7 downto 0);
@@ -159,7 +160,7 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       elsif fastio_addr(7 downto 0) = x"fd" then
-        fastio_rdata(6 downto 4) <= (others => '0');
+        fastio_rdata(6 downto 4) <= to_unsigned(grove_detect_neg_counter,3);
         fastio_rdata(3 downto 0) <= to_unsigned(grove_detect_counter,4);
         fastio_rdata(7) <= grove_rtc_present_drive;
       elsif fastio_addr(7 downto 0) = x"fe" then
@@ -216,25 +217,38 @@ begin
       if i2c1_rd_strobe='1' then
         reg_drive <= i2c1_raddr;
         val_drive <= i2c1_rdata;
-        bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
+        report "i2c1_raddr = $" & to_hstring(i2c1_raddr);
+        if i2c1_raddr < 64 then
+          bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
+        end if;
         if (i2c1_raddr = x"12") or (i2c1_raddr = x"24") or (i2c1_raddr = x"36") then
+          report "GROVEDETECT: Checking values";
           last_sec <= i2c1_rdata;
           if (last_sec = i2c1_rdata) and (i2c1_rdata /= x"ff") then
             -- We see repeating registers every $12 regs, and its not all 1s
             -- which would indicate no connected device.
             -- We interpret this as evidence that we have a DS3231 RTC
             -- connected to the grove connector
+            report "     +++";
             if grove_detect_counter /= 15 then
               grove_detect_counter <= grove_detect_counter + 1;
             else
               grove_rtc_present_drive <= '1';
             end if;
+            if grove_detect_neg_counter /= 0 then
+              grove_detect_neg_counter <= grove_detect_neg_counter - 1;
+            end if;
           else
             -- ... anything else suggests not
+            report "     ---";
             if grove_detect_counter /= 0 then
               grove_detect_counter <= grove_detect_counter - 1;
             else
               grove_rtc_present_drive <= '0';
+            end if;
+            if grove_detect_neg_counter /= 7 then
+              grove_detect_neg_counter <= grove_detect_neg_counter + 1;
+              report "neg ++";
             end if;
           end if;
         end if;
