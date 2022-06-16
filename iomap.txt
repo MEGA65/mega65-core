@@ -1539,3 +1539,4 @@ GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
 GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
 GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
 GS ETH:$D6E0 Ethernet control
+
