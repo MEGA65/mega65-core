@@ -119,7 +119,7 @@ architecture behavioural of grove_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  signal grove_detect_counter : unsigned(3 downto 0) := x"0";
+  signal grove_detect_counter : integer := 0;
   signal last_sec : unsigned(7 downto 0) := x"00";
 
   signal reg_drive : unsigned(7 downto 0);
@@ -160,7 +160,7 @@ begin
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       elsif fastio_addr(7 downto 0) = x"fd" then
         fastio_rdata(6 downto 4) <= (others => '0');
-        fastio_rdata(3 downto 0) <= grove_detect_counter;
+        fastio_rdata(3 downto 0) <= to_unsigned(grove_detect_counter,4);
         fastio_rdata(7) <= grove_rtc_present_drive;
       elsif fastio_addr(7 downto 0) = x"fe" then
         fastio_rdata <= write_i2c_addr;
@@ -224,7 +224,7 @@ begin
             -- which would indicate no connected device.
             -- We interpret this as evidence that we have a DS3231 RTC
             -- connected to the grove connector
-            if grove_detect_counter < 15 then
+            if grove_detect_counter /= 15 then
               grove_detect_counter <= grove_detect_counter + 1;
             else
               grove_rtc_present_drive <= '1';
