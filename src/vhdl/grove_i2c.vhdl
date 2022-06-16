@@ -159,7 +159,8 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       elsif fastio_addr(7 downto 0) = x"fd" then
-        fastio_rdata <= x"00";
+        fastio_rdata(6 downto 4) <= (others => '0');
+        fastio_rdata(3 downto 0) <= grove_detect_counter;
         fastio_rdata(7) <= grove_rtc_present_drive;
       elsif fastio_addr(7 downto 0) = x"fe" then
         fastio_rdata <= write_i2c_addr;
@@ -216,9 +217,9 @@ begin
         reg_drive <= i2c1_raddr;
         val_drive <= i2c1_rdata;
         bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
-        if i2c1_raddr = x"00" or i2c1_raddr = x"12" or i2c1_raddr = x"24" or i2c1_raddr = x"36" then
+        if i2c1_raddr = x"12" or i2c1_raddr = x"24" or i2c1_raddr = x"36" then
           last_sec <= i2c1_rdata;
-          if last_sec = i2c1_rdata and i2c1_rdata /= x"ff" then
+          if (last_sec = i2c1_rdata) and (i2c1_rdata /= x"ff") then
             -- We see repeating registers every $12 regs, and its not all 1s
             -- which would indicate no connected device.
             -- We interpret this as evidence that we have a DS3231 RTC
