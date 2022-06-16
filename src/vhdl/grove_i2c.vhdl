@@ -119,7 +119,7 @@ architecture behavioural of grove_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  signal grove_detect_counter : integer := 0;
+  signal grove_detect_counter : integer := 1;
   signal last_sec : unsigned(7 downto 0) := x"00";
 
   signal reg_drive : unsigned(7 downto 0);
@@ -217,7 +217,7 @@ begin
         reg_drive <= i2c1_raddr;
         val_drive <= i2c1_rdata;
         bytes(to_integer(i2c1_raddr)) <= i2c1_rdata;
-        if i2c1_raddr = x"12" or i2c1_raddr = x"24" or i2c1_raddr = x"36" then
+        if (i2c1_raddr = x"12") or (i2c1_raddr = x"24") or (i2c1_raddr = x"36") then
           last_sec <= i2c1_rdata;
           if (last_sec = i2c1_rdata) and (i2c1_rdata /= x"ff") then
             -- We see repeating registers every $12 regs, and its not all 1s
