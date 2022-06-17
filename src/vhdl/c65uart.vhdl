@@ -538,7 +538,6 @@ begin  -- behavioural
             portn_internal <= std_logic_vector(fastio_wdata);
           when x"19" =>
             porto_write_strobe <= '1';
-            porto_internal <= std_logic_vector(fastio_wdata);
           when x"1A" =>
             portp_internal <= std_logic_vector(fastio_wdata);
           when x"1b" =>
