@@ -124,7 +124,7 @@ entity iomapper is
         drive_led2 : out std_logic := '0';
         drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
-        porto_out : out unsigned(7 downto 0);
+        porto_out : out unsigned(7 downto 0) := x"00";
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
@@ -491,14 +491,22 @@ architecture behavioral of iomapper is
 
   signal ascii_key_valid : std_logic := '0';
   signal last_ascii_key_valid : std_logic := '0';
+  signal petcii_key_valid : std_logic := '0';
+  signal last_petcii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
+  signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal ascii_key_presenting : std_logic := '0';
+  signal petscii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal petscii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   signal ascii_key_buffer : key_buffer_t;
   signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
+  signal petscii_key_buffer : key_buffer_t;
+  signal petscii_key_buffer_count : integer range 0 to 4 := 0;
+  signal petscii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -876,6 +884,7 @@ begin
       portf(5 downto 0) => pmoda(5 downto 0),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
+      porto_write_strobe => petscii_key_next,
       matrix_disable_modifiers => matrix_disable_modifiers,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
@@ -887,7 +896,7 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
-      porto_out => porto_out,
+      porto => petscii_key_buffered,
       portp_out => portp_out,
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
@@ -1020,6 +1029,8 @@ begin
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
+    petscii_key => petscii_key,
+    petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
     
     );
@@ -1763,11 +1774,34 @@ begin
           end if;
         end if;
       end if;
-        
+
+      last_petcii_key_valid <= petscii_key_valid;
+      if petscii_key_valid='1' and last_petscii_key_valid='0' then
+        if protected_hardware_in(6)='0' then
+          -- Push char to matrix mode monitor (it will know if it is active or
+          -- not)
+          petscii_char <= petscii_key;
+          petscii_char_valid <= '1';
+          -- Push char to $D610 accelerated keyboard reader as well
+          if petscii_key_presenting = '1' then
+            if petscii_key_buffer_count < 4 then
+              petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
+              petscii_key_buffer_count <= petscii_key_buffer_count + 1;
+            end if;
+          else
+            petscii_key_buffered <= petscii_key;
+            petscii_key_presenting <= '1';
+          end if;
+        end if;
+      end if;
+      
       if reset_high = '1' then
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
+        petscii_key_buffered <= '0';
+        petscii_key_presenting <= '0';
+        petscii_key_buffered <= x"00";
       elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
           ascii_key_presenting <= '1';
@@ -1779,6 +1813,23 @@ begin
         else
           ascii_key_presenting <= '0';
           ascii_key_buffered <= x"00";
+        end if;
+        if ascii_key_event_count /= x"FFFF" then
+          ascii_key_event_count <= ascii_key_event_count + 1;
+        else
+          ascii_key_event_count <= x"0000";
+        end if;
+      elsif petscii_key_next = '1' then
+        if petscii_key_buffer_count > 0 then
+          petscii_key_presenting <= '1';
+          petscii_key_buffered <= petscii_key_buffer(0);
+          petscii_key_buffer_count <= petscii_key_buffer_count - 1;
+          for i in 0 to 2 loop
+            petscii_key_buffer(i) <= petscii_key_buffer(i+1);
+          end loop;
+        else
+          petscii_key_presenting <= '0';
+          petscii_key_buffered <= x"00";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;

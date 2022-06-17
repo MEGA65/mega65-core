@@ -26,6 +26,9 @@ entity matrix_to_ascii is
         
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
+        petscii_key : out unsigned(7 downto 0) := (others => '0');
+        
+        
         -- Bucky key list:
         -- 0 = left shift
         -- 1 = right shift
@@ -35,7 +38,8 @@ entity matrix_to_ascii is
         -- 5 = NO SCROLL
         -- 6 = ASC/DIN/CAPS LOCK (XXX - Has a separate line. Not currently monitored)
         bucky_key : out std_logic_vector(6 downto 0) := (others  => '0');
-        ascii_key_valid : out std_logic := '0'
+        ascii_key_valid : out std_logic := '0';
+        petscii_key_valid : out std_logic := '0'
         );
 end entity matrix_to_ascii;
   
@@ -466,6 +470,385 @@ architecture behavioral of matrix_to_ascii is
     others => x"00"
     );
 
+ signal matrix_petscii_normal : key_matrix_t := (
+    0 => x"14",
+    1 => x"0d",
+    2 => x"1d",
+    3 => x"88",
+    4 => x"85",
+    5 => x"86",
+    6 => x"87",
+    7 => x"11",
+    8 => x"33",
+    9 => x"57",
+    10 => x"41",
+    11 => x"34",
+    12 => x"5a",
+    13 => x"53",
+    14 => x"45",
+    15 => x"01",
+    16 => x"35",
+    17 => x"52",
+    18 => x"44",
+    19 => x"36",
+    20 => x"43",
+    21 => x"46",
+    22 => x"54",
+    23 => x"58",
+    24 => x"37",
+    25 => x"59",
+    26 => x"47",
+    27 => x"38",
+    28 => x"42",
+    29 => x"48",
+    30 => x"55",
+    31 => x"56",
+    32 => x"39",
+    33 => x"49",
+    34 => x"4a",
+    35 => x"30",
+    36 => x"4d",
+    37 => x"4b",
+    38 => x"4f",
+    39 => x"4e",
+    40 => x"2b",
+    41 => x"50",
+    42 => x"4c",
+    43 => x"2d",
+    44 => x"2e",
+    45 => x"3a",
+    46 => x"40",
+    47 => x"2c",
+    48 => x"5c",
+    49 => x"2a",
+    50 => x"3b",
+    51 => x"13",
+    52 => x"01",
+    53 => x"3d",
+    54 => x"5e",
+    55 => x"2f",
+    56 => x"31",
+    57 => x"5f",
+    58 => x"04",
+    59 => x"32",
+    60 => x"20",
+    61 => x"02",
+    62 => x"51",
+    63 => x"03",
+    64 => x"ff",
+    65 => x"09",
+    66 => x"08",
+    67 => x"84",
+    68 => x"10",
+    69 => x"16",
+    70 => x"19",
+    71 => x"1b",
+    others => x"ff"
+  );
+
+  signal matrix_petscii_shifted : key_matrix_t := (
+    0 => x"94",
+    1 => x"8d",
+    2 => x"9d",
+    3 => x"8c",
+    4 => x"89",
+    5 => x"8a",
+    6 => x"8b",
+    7 => x"91",
+    8 => x"23",
+    9 => x"d7",
+    10 => x"c1",
+    11 => x"24",
+    12 => x"da",
+    13 => x"d3",
+    14 => x"c5",
+    15 => x"01",
+    16 => x"00",
+    17 => x"25",
+    18 => x"d2",
+    19 => x"c4",
+    20 => x"26",
+    21 => x"c3",
+    22 => x"c6",
+    23 => x"d4",
+    24 => x"d8",
+    25 => x"27",
+    26 => x"d9",
+    27 => x"c7",
+    28 => x"28",
+    29 => x"c2",
+    30 => x"c8",
+    31 => x"d5",
+    32 => x"d6",
+    33 => x"29",
+    34 => x"c9",
+    35 => x"ca",
+    36 => x"30",
+    37 => x"cd",
+    38 => x"cb",
+    39 => x"cf",
+    40 => x"ce",
+    41 => x"db",
+    42 => x"d0",
+    43 => x"cc",
+    44 => x"dd",
+    45 => x"3e",
+    46 => x"5b",
+    47 => x"ba",
+    48 => x"3c",
+    49 => x"a9",
+    50 => x"c0",
+    51 => x"5d",
+    52 => x"93",
+    53 => x"01",
+    54 => x"3d",
+    55 => x"de",
+    56 => x"3f",
+    57 => x"21",
+    58 => x"5f",
+    59 => x"04",
+    60 => x"22",
+    61 => x"a0",
+    62 => x"02",
+    63 => x"d1",
+    64 => x"83",
+    65 => x"ff",
+    66 => x"1a",
+    67 => x"08",
+    68 => x"84",
+    69 => x"15",
+    70 => x"17",
+    71 => x"1a",
+    others => x"ff"
+  );
+
+  signal matrix_petscii_control : key_matrix_t := (
+    0 => x"ff",
+    1 => x"ff",
+    2 => x"ff",
+    3 => x"ff",
+    4 => x"ff",
+    5 => x"ff",
+    6 => x"ff",
+    7 => x"ff",
+    8 => x"1c",
+    9 => x"17",
+    10 => x"01",
+    11 => x"9f",
+    12 => x"1a",
+    13 => x"13",
+    14 => x"05",
+    15 => x"ff",
+    16 => x"9c",
+    17 => x"12",
+    18 => x"04",
+    19 => x"1e",
+    20 => x"03",
+    21 => x"06",
+    22 => x"14",
+    23 => x"18",
+    24 => x"1f",
+    25 => x"19",
+    26 => x"07",
+    27 => x"9e",
+    28 => x"02",
+    29 => x"08",
+    30 => x"15",
+    31 => x"16",
+    32 => x"12",
+    33 => x"09",
+    34 => x"0a",
+    35 => x"92",
+    36 => x"0d",
+    37 => x"0b",
+    38 => x"0f",
+    39 => x"0e",
+    40 => x"ff",
+    41 => x"10",
+    42 => x"0c",
+    43 => x"ff",
+    44 => x"ff",
+    45 => x"1b",
+    46 => x"00",
+    47 => x"ff",
+    48 => x"1c",
+    49 => x"ff",
+    50 => x"1d",
+    51 => x"ff",
+    52 => x"ff",
+    53 => x"1f",
+    54 => x"1e",
+    55 => x"ff",
+    56 => x"90",
+    57 => x"60",
+    58 => x"ff",
+    59 => x"05",
+    60 => x"ff",
+    61 => x"ff",
+    62 => x"11",
+    63 => x"ff",
+    64 => x"ff",
+    65 => x"09",
+    66 => x"08",
+    67 => x"84",
+    68 => x"ff",
+    69 => x"ff",
+    70 => x"ff",
+    71 => x"1b",
+    others => x"ff"
+  );
+
+  signal matrix_petscii_mega : key_matrix_t := (
+    0 => x"94",
+    1 => x"8d",
+    2 => x"9d",
+    3 => x"8c",
+    4 => x"89",
+    5 => x"8a",
+    6 => x"8b",
+    7 => x"91",
+    8 => x"96",
+    9 => x"b3",
+    10 => x"b0",
+    11 => x"97",
+    12 => x"ad",
+    13 => x"ae",
+    14 => x"b1",
+    15 => x"01",
+    16 => x"98",
+    17 => x"b2",
+    18 => x"ac",
+    19 => x"99",
+    20 => x"bc",
+    21 => x"bb",
+    22 => x"a3",
+    23 => x"bd",
+    24 => x"9a",
+    25 => x"b7",
+    26 => x"a5",
+    27 => x"9b",
+    28 => x"bf",
+    29 => x"b4",
+    30 => x"b8",
+    31 => x"be",
+    32 => x"29",
+    33 => x"a2",
+    34 => x"b5",
+    35 => x"30",
+    36 => x"a7",
+    37 => x"a1",
+    38 => x"b9",
+    39 => x"aa",
+    40 => x"a6",
+    41 => x"af",
+    42 => x"b6",
+    43 => x"dc",
+    44 => x"7c",
+    45 => x"7b",
+    46 => x"a4",
+    47 => x"7e",
+    48 => x"a8",
+    49 => x"df",
+    50 => x"7d",
+    51 => x"93",
+    52 => x"01",
+    53 => x"5f",
+    54 => x"de",
+    55 => x"5c",
+    56 => x"81",
+    57 => x"60",
+    58 => x"04",
+    59 => x"95",
+    60 => x"a0",
+    61 => x"02",
+    62 => x"ab",
+    63 => x"03",
+    64 => x"ff",
+    65 => x"18",
+    66 => x"08",
+    67 => x"84",
+    68 => x"15",
+    69 => x"17",
+    70 => x"1a",
+    71 => x"1b",
+    others => x"ff"
+  );
+
+  signal matrix_petscii_capslock : key_matrix_t := (
+    0 => x"14",
+    1 => x"0d",
+    2 => x"1d",
+    3 => x"88",
+    4 => x"85",
+    5 => x"86",
+    6 => x"87",
+    7 => x"11",
+    8 => x"33",
+    9 => x"d7",
+    10 => x"c1",
+    11 => x"34",
+    12 => x"da",
+    13 => x"d3",
+    14 => x"c5",
+    15 => x"01",
+    16 => x"35",
+    17 => x"d2",
+    18 => x"c4",
+    19 => x"36",
+    20 => x"c3",
+    21 => x"c6",
+    22 => x"d4",
+    23 => x"d8",
+    24 => x"37",
+    25 => x"d9",
+    26 => x"c7",
+    27 => x"38",
+    28 => x"c2",
+    29 => x"c8",
+    30 => x"d5",
+    31 => x"d6",
+    32 => x"39",
+    33 => x"c9",
+    34 => x"ca",
+    35 => x"30",
+    36 => x"cd",
+    37 => x"cb",
+    38 => x"cf",
+    39 => x"ce",
+    40 => x"2b",
+    41 => x"d0",
+    42 => x"cc",
+    43 => x"2d",
+    44 => x"2e",
+    45 => x"3a",
+    46 => x"40",
+    47 => x"2c",
+    48 => x"5c",
+    49 => x"2a",
+    50 => x"3b",
+    51 => x"13",
+    52 => x"01",
+    53 => x"3d",
+    54 => x"5e",
+    55 => x"2f",
+    56 => x"31",
+    57 => x"5f",
+    58 => x"04",
+    59 => x"32",
+    60 => x"20",
+    61 => x"02",
+    62 => x"d1",
+    63 => x"03",
+    64 => x"ff",
+    65 => x"09",
+    66 => x"08",
+    67 => x"84",
+    68 => x"10",
+    69 => x"16",
+    70 => x"19",
+    71 => x"1b",
+    others => x"ff"
+  );  
   
   signal key_num : integer range 0 to 71 := 0;
 
@@ -574,9 +957,12 @@ begin
   
   process(clk)
     variable key_matrix : key_matrix_t;
+    variable petscii_matrix : key_matrix_t;
   begin
     if rising_edge(clk) then
 
+      petscii_key_valid <= '0';
+      
       -- CAPS LOCK key like others is active low, so we invert it when
       -- recording its status.
       bucky_key_internal(6) <= not key_caps;
@@ -597,19 +983,28 @@ begin
       if matrix_mode_in='1' or matrix_disable_modifiers='0' then
         if bucky_key_internal(3)='1' then
           key_matrix := matrix_cbm;
+          petscii_matrix := matrix_petscii_mega;
         elsif bucky_key_internal(4)='1' then
           key_matrix := matrix_alt;
+          petscii_matrix := matrix_petscii_normal;
         elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='1' or key_left='1' then
           -- Force shifted key set if UP or LEFT keys active, to try to prevent
           -- glitching of those keys.
           key_matrix := matrix_shift;
+          petscii_matrix := matrix_petscii_shifted;
         elsif bucky_key_internal(2)='1' then
           key_matrix := matrix_control;
+          petscii_matrix := matrix_petscii_control;
+        elsif bucky_key_internal(6)='1' then
+          key_matrix := matrix_normal;
+          petscii_matrix := matrix_petscii_capslock;
         else
           key_matrix := matrix_normal;
+          petscii_matrix := matrix_petscii_normal;
         end if;
       else
         key_matrix := matrix_normal;
+        petscii_matrix := matrix_petscii_normal;
       end if;
         
 
@@ -619,6 +1014,7 @@ begin
       if keyscan_counter /= 0 then
         keyscan_counter <= keyscan_counter - 1;
         ascii_key_valid <= '0';
+        petscii_key_valid <= '0';
       else
 --        report "Checking matrix for key event, matrix=" & to_string(matrix);
 
@@ -637,6 +1033,10 @@ begin
         keyscan_counter <= keyscan_delay;
 
         if (last_key_state = '1') and (debounce_key_state='0') then
+          if petscii_matrix(key_num) /= x"00" then
+            petscii_key <= petscii_matrix(key_num);
+            petscii_key_valid <= '1';
+          end if;
           if key_matrix(key_num) /= x"00" then
             -- Key press event
             report "matrix = " & to_string(matrix);
@@ -678,6 +1078,10 @@ begin
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
               ascii_key <= key_matrix(repeat_key);
+
+              petscii_key_valid <= '1';
+              petscii_key <= petscii_matrix(repeat_key);
+              
               --else
               --ascii_key_valid <= '0';              
             end if;
