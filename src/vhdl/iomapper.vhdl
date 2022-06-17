@@ -491,8 +491,8 @@ architecture behavioral of iomapper is
 
   signal ascii_key_valid : std_logic := '0';
   signal last_ascii_key_valid : std_logic := '0';
-  signal petcii_key_valid : std_logic := '0';
-  signal last_petcii_key_valid : std_logic := '0';
+  signal petscii_key_valid : std_logic := '0';
+  signal last_petscii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
@@ -1775,14 +1775,10 @@ begin
         end if;
       end if;
 
-      last_petcii_key_valid <= petscii_key_valid;
+      last_petscii_key_valid <= petscii_key_valid;
       if petscii_key_valid='1' and last_petscii_key_valid='0' then
         if protected_hardware_in(6)='0' then
-          -- Push char to matrix mode monitor (it will know if it is active or
-          -- not)
-          petscii_char <= petscii_key;
-          petscii_char_valid <= '1';
-          -- Push char to $D610 accelerated keyboard reader as well
+          -- Push char to $D619 accelerated keyboard reader
           if petscii_key_presenting = '1' then
             if petscii_key_buffer_count < 4 then
               petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
@@ -1799,9 +1795,10 @@ begin
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
-        petscii_key_buffered <= '0';
+
         petscii_key_presenting <= '0';
         petscii_key_buffered <= x"00";
+        petscii_key_buffer_count <= 0;
       elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
           ascii_key_presenting <= '1';
