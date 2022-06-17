@@ -185,16 +185,18 @@ begin
       -- XXX external RTC is read-only from these registers for now.
       -- Making it R/W will be the responsibility of the grove_i2c module
       -- to sniff the bus for writes to the addresses here.
-      -- XXX We need to reformat some of the fields, due to differences between
-      -- the two chips.
       if grove_rtc_present='1' then
         case reg_in is
+          -- Convert between register layout of the two
           when x"00" => bytes(16 + 0) <= val_in;
           when x"01" => bytes(16 + 1) <= val_in;
-          when x"02" => bytes(16 + 2) <= val_in;
-          when x"03" => bytes(16 + 3) <= val_in;
-          when x"04" => bytes(16 + 4) <= val_in;
-          when x"05" => bytes(16 + 5) <= val_in;
+          when x"02" => bytes(16 + 2)(5 downto 0) <= val_in(5 downto 0);
+                        bytes(16 + 2)(6) <= '0';
+                        bytes(16 + 2)(7) <= val_in(6);                        
+          when x"03" => bytes(16 + 6) <= val_in;
+          when x"04" => bytes(16 + 3) <= val_in;
+          when x"05" => bytes(16 + 4) <= val_in;
+          when x"06" => bytes(16 + 5) <= val_in;
           when others => null;
         end case;
       end if;
