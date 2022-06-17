@@ -24,21 +24,31 @@
 --
 -- I2C peripherals are (in 7-bit address notation)
 
---   0x57 = DS1307     = 8 RTC registers followed by 56 NVRAM bytes in the RTC
 --
 -- 8-bit read addresses:
 -- 0xD1
 
--- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
--- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7400-12 RTC:EXTRTC Optional External Real-time Clock
+-- @IO:GS $FFD7400 RTC:EXTRTCSEC External Real-time Clock seconds value (binary coded decimal)
+-- @IO:GS $FFD7401 RTC:EXTRTCMIN External Real-time Clock minutes value (binary coded decimal)
+-- @IO:GS $FFD7402 RTC:EXTRTCHOUR External Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7403 RTC:EXTRTCDOW External Real-time Clock day of month value (binary coded decimal)
+-- @IO:GS $FFD7404 RTC:EXTRTCDAY External Real-time Clock day of month value (binary coded decimal)
+-- @IO:GS $FFD7405 RTC:EXTRTCMONTH External Real-time Clock month value (binary coded decimal)
+-- @IO:GS $FFD7406 RTC:EXTRTCYEAR External Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7407 RTC:EXTRTCA1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
+-- @IO:GS $FFD7408 RTC:EXTRTCA1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
+-- @IO:GS $FFD7409 RTC:EXTRTCA1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
+-- @IO:GS $FFD740A RTC:EXTRTCA1DAYDATE External Real-time Clock alarm 1 day of week / day of month value (binary coded decimal)
+-- @IO:GS $FFD740B RTC:EXTRTCA2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
+-- @IO:GS $FFD740C RTC:EXTRTCA2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
+-- @IO:GS $FFD740D RTC:EXTRTCA2DAYDATE External Real-time Clock alarm 2 day of week / day of month value (binary coded decimal)
+-- @IO:GS $FFD740E RTC:EXTRTCCTRL External Real-time Clock control
+-- @IO:GS $FFD740F RTC:EXTRTCST External Real-time Clock control/status register
+-- @IO:GS $FFD7410 RTC:EXTRTCAGINGOFS External Real-time Clock aging offset (do not modify)
+-- @IO:GS $FFD7411 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (MSB)
+-- @IO:GS $FFD7412 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (LSB)
 
-
--- @IO:GS $FFD7140-7F RTC:NVRAM 56-bytes of non-volatile RAM. Can be used for storing machine configuration.
 
 
 use WORK.ALL;
@@ -186,7 +196,7 @@ begin
         command_en <= '0';
       end if;
       
-      -- Write to registers as required
+      -- Write to registers as required      
       if cs='1' and fastio_write='1' then
         if to_integer(fastio_addr(7 downto 0)) >= 0 and to_integer(fastio_addr(7 downto 0)) < 64 then
           -- RTC registers and SRAM
@@ -210,7 +220,31 @@ begin
         end if;
         write_val <= fastio_wdata;
       end if;
-      
+      -- Update external RTC when internal RTC is written to
+      if fastio_addr(19 downto 4) = x"d711" and fastio_write='1' then
+        case fastio_addr(3 downto 0) is
+          when x"0" => -- RTC seconds
+            write_reg <= x"00"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when x"1" => -- RTC minute
+            write_reg <= x"01"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when x"2" => -- RTC hour
+            write_reg <= x"02"; write_job_pending <= '1';
+            write_val(5 downto 0) <= fastio_wdata(5 downto 0);
+            write_val(7) <= '0';
+            write_val(6) <= fastio_wdata(7);
+          when x"3" => -- RTC day of month
+            write_reg <= x"04"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when x"4" => -- RTC month
+            write_reg <= x"05"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when x"5" => -- RTC year
+            write_reg <= x"06"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when x"6" => -- RTC day of week
+            write_reg <= x"03"; write_job_pending <= '1'; write_val <= fastio_wdata;
+          when others =>
+            null;
+        end case;
+      end if;
+        
       -- State machine for reading registers from the various
       -- devices.
 
