@@ -1617,113 +1617,23 @@ resetpalette:
 	
         ;; C64 colours designed to look like C65 colours on an
         ;; RGBI screen.
-        ;;
-        ;; formatted in ASM to help visualise what each code is for.
-        ;;
-        lda #$00
-            sta $D100
-            sta $D200
-            sta $D300
+	ldx #$0F
+-       lda c64_colours_table+$00,x     ; load & store red component
+        sta $D100,x
+        lda c64_colours_table+$10,x     ; load & store green component
+        sta $D200,x
+        lda c64_colours_table+$20,x     ; load & store blue component
+        sta $D300,x
+        dex
+        bpl -
 
-        lda #$ff
-            sta $D101
-            sta $D201
-            sta $D301
-
-        lda #$ba
-                    sta $D102
-                lda #$13
-                    sta $D202
-                lda #$62
-                    sta $D302
-
-                lda #$66
-                    sta $D103
-                lda #$ad
-                    sta $D203
-                lda #$ff
-                    sta $D303
-
-                lda #$bb
-                    sta $D104
-                lda #$f3
-                    sta $D204
-                lda #$8b
-                    sta $D304
-
-                lda #$55
-                    sta $D105
-                lda #$ec
-                    sta $D205
-                lda #$85
-                    sta $D305
-
-                lda #$d1
-                    sta $D106
-                lda #$e0
-                    sta $D206
-                lda #$79
-                    sta $D306
-
-                lda #$ae
-                    sta $D107
-                lda #$5f
-                    sta $D207
-                lda #$c7
-                    sta $D307
-
-                lda #$9b
-                    sta $D108
-                lda #$47
-                    sta $D208
-                lda #$81
-                    sta $D308
-
-                lda #$87
-                    sta $D109
-                lda #$37
-                    sta $D209
-                lda #$00
-                    sta $D309
-
-                lda #$dd
-                    sta $D10a
-                lda #$39
-                    sta $D20a
-                lda #$78
-                    sta $D30a
-
-                lda #$b5
-                    sta $D10b
-                    sta $D20b
-                    sta $D30b
-
-                lda #$b8
-                    sta $D10c
-                    sta $D20c
-                    sta $D30c
-
-                lda #$0b
-                    sta $D10d
-                lda #$4f
-                    sta $D20d
-                lda #$ca
-                    sta $D30d
-
-                lda #$aa
-                    sta $D10e
-                lda #$d9
-                    sta $D20e
-                lda #$fe
-                    sta $D30e
-
-                lda #$8b
-                    sta $D10f
-                    sta $D20f
-                    sta $D30f
-
-
-    rts
+	rts
+	
+c64_colours_table:
+        ;   0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
+        !8 $00,$ff,$ba,$66,$bb,$55,$d1,$ae,$9b,$87,$dd,$b5,$b8,$0b,$aa,$8b  ; -- red
+        !8 $00,$ff,$13,$ad,$f3,$ec,$e0,$5f,$47,$37,$39,$b5,$b8,$4f,$d9,$8b  ; -- green
+        !8 $00,$ff,$62,$ff,$8b,$85,$79,$c7,$81,$00,$78,$b5,$b8,$ca,$fe,$8b  ; -- blue	
 
 ;;         ========================
 
