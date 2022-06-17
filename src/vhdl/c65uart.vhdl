@@ -739,7 +739,7 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:UNUSED port o output value
+          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata <= unsigned(porto);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
