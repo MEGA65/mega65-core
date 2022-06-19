@@ -992,6 +992,11 @@ begin  -- behavioural
     cycles_per_interval => to_unsigned(40,8),
     invalidate => fdc_read_invalidate,
 
+    target_track => target_track,
+    target_sector => target_sector,
+    target_side => target_side,
+    target_any => target_any,
+    
     track_info_track => hd_track_info_track,
     track_info_rate => hd_track_info_rate,
     track_info_encoding => hd_track_info_encoding,
