@@ -212,6 +212,9 @@ non_hypervisor_task:
 	tay ;;   <- uses $00 in A from above
         jsr freeze_to_slot
 
+	;; Now mark that we are in a system task, so that the freezer can't be frozen
+	jsr task_set_as_system_task
+	
         ;; Load freeze program
         jsr attempt_loadcharrom
         jsr attempt_loadc65rom
