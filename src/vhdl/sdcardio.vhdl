@@ -689,11 +689,17 @@ architecture behavioural of sdcardio is
   signal format_sector_number : integer range 0 to 255 := 0;
 
   -- Track info data from track info block
-  signal track_info_valid : std_logic := '0';
-  signal fdc_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal fdc_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
-  signal fdc_track_info_encoding : unsigned(7 downto 0) := x"00";
-  signal fdc_track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal dd_track_info_valid : std_logic := '0';
+  signal dd_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal dd_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal dd_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal dd_track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal hd_track_info_valid : std_logic := '0';
+  signal hd_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal hd_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal hd_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal hd_track_info_sectors : unsigned(7 downto 0) := x"00";
+  
   signal track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
   signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
@@ -933,8 +939,9 @@ begin  -- behavioural
     );
   
   -- Reader for real floppy drive: single rate
-  -- Track info blocks are always witten for this speed, so we have a fixed decoder
-  -- for them, which also serves as the 1581 DD decoder
+  -- Track info blocks are written in either DD or HD speed.
+  -- so we have fixed decoders for both.  The DD speed one also
+  -- serves as the DD speed decoder.
   mfm0: entity work.mfm_decoder generic map ( unit_id => 2 )
     port map (
     clock40mhz => clock,
@@ -958,11 +965,11 @@ begin  -- behavioural
     target_side => target_side,
     target_any => target_any,
 
-    track_info_track => fdc_track_info_track,
-    track_info_rate => fdc_track_info_rate,
-    track_info_encoding => fdc_track_info_encoding,
-    track_info_sectors => fdc_track_info_sectors,
-    track_info_valid => track_info_valid,
+    track_info_track => dd_track_info_track,
+    track_info_rate => dd_track_info_rate,
+    track_info_encoding => dd_track_info_encoding,
+    track_info_sectors => dd_track_info_sectors,
+    track_info_valid => dd_track_info_valid,
 
     sector_data_gap => fdc_sector_data_gap,
     sector_found => fdc_sector_found,
@@ -977,14 +984,31 @@ begin  -- behavioural
     sector_end => fdc_sector_end    
     );
 
-  -- Double-rate MFM decoder, used so that we can easily
-  -- detect and use HD formatted disks, without having to
+  mfmhdonly: entity work.mfm_decoder generic map ( unit_id => 2 )
+    port map (
+    clock40mhz => clock,
+    f_rdata => f_rdata_drive,
+    encoding_mode => x"0", -- Always MFM for HD-rate TIB decoder
+    cycles_per_interval => to_unsigned(40,8),
+    invalidate => fdc_read_invalidate,
+
+    track_info_track => hd_track_info_track,
+    track_info_rate => hd_track_info_rate,
+    track_info_encoding => hd_track_info_encoding,
+    track_info_sectors => hd_track_info_sectors,
+    track_info_valid => hd_track_info_valid
+
+    );
+
+
+  -- Variable-rate MFM decoder, used so that we can easily
+  -- detect and use HD and HD+ formatted disks, without having to
   -- have a program figure it out.
   -- Also, we ALWAYS enable variable recording rate for the
   -- HD decoder, as we are only going to make HD disks with
   -- it enabled.  We set the variable encoding rate based
   -- on what we read from the track info block.
-  mfm2x: entity work.mfm_decoder generic map ( unit_id => 3)
+  mfm_fast: entity work.mfm_decoder generic map ( unit_id => 3)
     port map (
     clock40mhz => clock,
     f_rdata => f_rdata_drive,
@@ -1783,19 +1807,32 @@ begin  -- behavioural
         end if;
       end if;
       
-      if track_info_valid='1' then
+      if dd_track_info_valid='1' then
         report "TRACKINFO: Saw track_info_valid";
-        track_info_track <= fdc_track_info_track;
-        track_info_rate <= fdc_track_info_rate;
-        track_info_encoding <= fdc_track_info_encoding;
-        track_info_sectors <= fdc_track_info_sectors;
+        track_info_track <= dd_track_info_track;
+        track_info_rate <= dd_track_info_rate;
+        track_info_encoding <= dd_track_info_encoding;
+        track_info_sectors <= dd_track_info_sectors;
         if use_tib_info='1' then
-          cycles_per_interval_from_track_info <= fdc_track_info_rate;
-          fdc_encoding_mode <= fdc_track_info_encoding(3 downto 0);
-          report "TRACKINFO: Setting encoding to $" & to_hstring(fdc_track_info_encoding(3 downto 0)) & " from track info block.";
+          cycles_per_interval_from_track_info <= dd_track_info_rate;
+          fdc_encoding_mode <= dd_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(dd_track_info_encoding(3 downto 0)) & " from track info block.";
         end if;
       end if; 
-            
+
+      if hd_track_info_valid='1' then
+        report "TRACKINFO: Saw track_info_valid";
+        track_info_track <= hd_track_info_track;
+        track_info_rate <= hd_track_info_rate;
+        track_info_encoding <= hd_track_info_encoding;
+        track_info_sectors <= hd_track_info_sectors;
+        if use_tib_info='1' then
+          cycles_per_interval_from_track_info <= hd_track_info_rate;
+          fdc_encoding_mode <= hd_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(hd_track_info_encoding(3 downto 0)) & " from track info block.";
+        end if;
+      end if; 
+      
       -- If using variable data rate, then set rate based on
       -- current selected rate, modified for track number
       if fdc_variable_data_rate='0' then
@@ -3952,13 +3989,20 @@ begin  -- behavioural
             format_sector_number <= 0;
 
             -- Write track lead-in gaps at DD speed and using MFM to give
-            -- head enough time to switch to write.
+            -- head enough time to switch to write.            
             -- We then also write the track info block at
             -- DD speed, before switching to the higher speed
+            -- BUT if the speed indicates a HD disk, we write the TIB at HD
+            -- rate, because DD rate is too slow for the drive electronics when
+            -- in HD mode.
             saved_cycles_per_interval <= cycles_per_interval;
             saved_fdc_encoding_mode <= fdc_encoding_mode;
             fdc_encoding_mode <= x"0"; -- MFM for Track Info Blocks
-            cycles_per_interval <= to_unsigned(81,8);
+            if cycles_per_interval < 60 then
+              cycles_per_interval <= to_unsigned(40,8);
+            else
+              cycles_per_interval <= to_unsigned(81,8);
+            end if;
             
           end if;
 
@@ -3991,7 +4035,7 @@ begin  -- behavioural
                 crc_reset <= '1';
                 crc_feed <= '0';
                 if format_state = 12 then
-                  -- Jump to state for writing track header block
+                  -- Jump to state for writing track info block
                   format_state <= 1000;
                 end if;
               when 13 to 15 =>
@@ -4135,7 +4179,7 @@ begin  -- behavioural
                 crc_feed <= '0';
                 
               when 1000 to 1002 =>
-                -- Write Track Info Block sync bytes
+                -- Write Track Info Block sync bytes                
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
@@ -4200,6 +4244,7 @@ begin  -- behavioural
                 -- Alow the CRC bytes to flush out before we change speed
                 fw_byte_in <= x"00";
                 fw_byte_valid <= '1';
+
               when 1014 =>
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;
