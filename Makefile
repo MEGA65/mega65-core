@@ -1109,7 +1109,8 @@ clean:
 	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
 	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
 	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
-	rm -f iomap.txt
+	## should not remove iomap.txt, as this is committed to repo!
+	#rm -f iomap.txt
 	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
@@ -1124,6 +1125,10 @@ clean:
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
 	rm -f $(TOOLS)
 	rm -f FAIL.* PASS.*
+
+cleanall: clean
+	make -C src/mega65-fdisk clean
+	make -C src/mega65-freezemenu clean
 
 cleangen:
 	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
