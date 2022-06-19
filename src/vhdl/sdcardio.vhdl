@@ -2124,7 +2124,7 @@ begin  -- behavioural
           -- point to first sector if disk instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
-        if f011_d64_disk='1' and (f011_track >34) or (f011_track = 34 and f011_sector > 2) then
+        if f011_d64_disk='1' and ((f011_track >17) or (f011_track = 17 and f011_sector > 1)) then
           -- Past end of D64 image, point to first sector instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
@@ -2152,7 +2152,7 @@ begin  -- behavioural
           -- point to last sector if disk instead
           diskimage2_offset <= to_unsigned(0,17);
         end if;
-        if f011_d64_disk='1' and (f011_track >34) or (f011_track = 34 and f011_sector > 2) then
+        if f011_d64_disk2='1' and ((f011_track >17) or (f011_track = 17 and f011_sector > 1)) then
           -- Past end of D64 image, point to first sector instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
