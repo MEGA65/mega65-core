@@ -442,6 +442,8 @@ architecture behavioural of sdcardio is
   signal f011_disk2_write_protected : std_logic := '0';
   signal f011_mega_disk : std_logic := '0';
   signal f011_mega_disk2 : std_logic := '0';
+  signal f011_d64_disk : std_logic := '0';
+  signal f011_d64_disk2 : std_logic := '0';
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
@@ -1275,6 +1277,9 @@ begin  -- behavioural
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
             fastio_rdata(3) <= virtualise_f011_drive1;
+
+            fastio_rdata(6) <= f011_d64_disk;
+            fastio_rdata(7) <= f011_d64_disk2;
             
           when x"8b" =>
             -- BG the description seems in conflict with the assignment in the write section (below)
@@ -1285,8 +1290,8 @@ begin  -- behavioural
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
-            -- @IO:GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
-            -- @IO:GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
+            -- @IO:GS $D68B.6 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 0
+            -- @IO:GS $D68B.7 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 1
             fastio_rdata(6) <= f011_mega_disk;
             fastio_rdata(7) <= f011_mega_disk2;
           when x"8c" =>
@@ -2116,7 +2121,11 @@ begin  -- behavioural
             +to_integer("000" & physical_sector),17);
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
-          -- point to last sector if disk instead
+          -- point to first sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;
+        if f011_d64_disk='1' and (f011_track >34) or (f011_track = 34 and f011_sector > 2) then
+          -- Past end of D64 image, point to first sector instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
       else
@@ -2142,6 +2151,10 @@ begin  -- behavioural
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
           diskimage2_offset <= to_unsigned(0,17);
+        end if;
+        if f011_d64_disk='1' and (f011_track >34) or (f011_track = 34 and f011_sector > 2) then
+          -- Past end of D64 image, point to first sector instead
+          diskimage1_offset <= to_unsigned(0,17);
         end if;
       else
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
@@ -3196,6 +3209,13 @@ begin  -- behavioural
               -- the section below is for OTHER I/O
               -- ==================================================================
 
+            when x"8a" =>
+              -- @IO:GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 image if set (otherwise 800KiB 1581 or D65 image)
+              -- @IO:GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 mega image if set (otherwise 800KiB 1581 or D65 image)
+              if hypervisor_mode='1' then
+                f011_d64_disk <= fastio_wdata(6);
+                f011_d64_disk2 <= fastio_wdata(7);
+              end if;
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               if hypervisor_mode='1' then
@@ -3210,8 +3230,8 @@ begin  -- behavioural
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
               end if;
-              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 image if set (otherwise 800KiB 1581 image)
               -- @IO:GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
               -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
