@@ -2112,7 +2112,7 @@ begin  -- behavioural
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
-      if f011_mega_disk='0' then
+      if f011_mega_disk='0' and f011_d64_disk='0' then
         diskimage1_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
@@ -2128,6 +2128,42 @@ begin  -- behavioural
           -- Past end of D64 image, point to first sector instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
+      elsif f011_mega_disk='0' and f011_d64_disk='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to first sector if disk instead
+           diskimage1_offset <= to_unsigned(0,17);
+         end if;
+      elsif f011_mega_disk='1' and f011_d64_disk='1' then
+        -- XXX 1571 disk image
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;        
       else
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
         diskimage1_offset <=
@@ -2141,7 +2177,7 @@ begin  -- behavioural
         end if;
       end if;   
 
-      if f011_mega_disk2='0' then
+      if f011_mega_disk2='0' and f011_d64_disk2='0' then
         diskimage2_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")
@@ -2155,6 +2191,41 @@ begin  -- behavioural
         if f011_d64_disk2='1' and ((f011_track >17) or (f011_track = 17 and f011_sector > 1)) then
           -- Past end of D64 image, point to first sector instead
           diskimage1_offset <= to_unsigned(0,17);
+        end if;
+      elsif f011_mega_disk2='0' and f011_d64_disk2='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
+      elsif f011_mega_disk2='1' and f011_d64_disk2='1' then
+        -- 1571 disk image
+        -- CBDOS ROM is responsible for implementing the 1571 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683 x 512 byte sectors (exactly)
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 35) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
         end if;
       else
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
