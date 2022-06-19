@@ -209,6 +209,16 @@ syspart_unfreeze_from_slot_trap:
         ldx hypervisor_x
         jsr syspart_locate_freezeslot
         jsr unfreeze_load_from_sdcard_immediate
+
+	;; Set task ID to $00 if it was $ff, so that you can't unfreeze something,
+	;; and have the hypervisor think that it loaded it
+	lda currenttask_id
+	cmp #$ff
+	bne wasnt_ff
+	lda #$00
+	sta currenttask_id
+wasnt_ff:	
+	
 	;;  Make sure we resume a frozen program on the same raster line as
 	;; it entered the freezer.  This might need a bit of tuning to get
 	;; perfect, but it should already be accurate to within one raster line.
