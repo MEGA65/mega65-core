@@ -608,6 +608,7 @@ try_flash_menu:
 
 	;; On first boot, we start the flash menu regardless
 	;; (The flash menu will work out whether to switch bitstream or not)
+
 	jmp launch_flash_menu
 
 	;; On ALT or either joystick button, enter flash menu.
@@ -632,6 +633,7 @@ launch_flash_menu:
 	sta $cf81
 	;; Then actually start it.
 	;; NOTE: Flash menu runs in hypervisor mode, so can't use memory beyond $7FFF etc.
+	;; (and is immune to attempts to freeze it)
 
 	jmp flash_menu
 
@@ -1493,6 +1495,10 @@ loaded1541rom:
         bne nokey4
         jmp utility_menu
 nokey4:
+	;; Setup process control block and non-OS process ID before leaving the
+	;; hypervisor.
+	jsr task_new_processcontrolblock
+
         jmp go64
 
 ;;         ========================
@@ -2751,7 +2757,8 @@ run_util_in_hypervisor_context:
 	;; by putting the palette back immediately.
         jsr setbannerpalette
 
-	;; Actually launch freeze menu
+	;; Actually launch the utility in the hypervisor context
+	;; (so must not use RAM > $7FFF, is immune to freezing etc)
 	jmp $080d
 
 setup_for_openrom:

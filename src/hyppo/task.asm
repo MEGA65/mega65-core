@@ -171,6 +171,12 @@ task_asblankslate:
         jsr task_set_c64_memorymap
         rts
 
+task_set_as_system_task:
+	;; Task ID is reserved for the hypervisor and its helpers, and prevents freezing
+	lda #$ff
+	sta currenttask_id
+	rts
+	
 ;;         ========================
 
 unstable_illegal_opcode_trap:
@@ -184,6 +190,16 @@ kill_opcode_trap:
 	
 restore_press_trap:
 
+	;; Check if we are already in the freezer?
+	lda currenttask_id
+	cmp #$ff
+	bne non_hypervisor_task
+
+	;; Don't allow freezing if we are in a hypervisor task
+        sta hypervisor_enterexit_trigger
+
+non_hypervisor_task:	
+	
         ;; Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
