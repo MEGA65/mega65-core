@@ -72,6 +72,10 @@ entity mega65r3_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    grove_rtc_present : in std_logic;
+    reg_in : in unsigned(7 downto 0);
+    val_in : in unsigned(7 downto 0);
+    
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
@@ -121,6 +125,10 @@ architecture behavioural of mega65r3_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  type rtc_vals is array (0 to 5) of uint8;
+  signal rtc_prev1 : rtc_vals := (others => x"00");
+  signal rtc_prev2 : rtc_vals := (others => x"00");  
+  
 begin
 
   i2c1: entity work.i2c_master
@@ -172,6 +180,28 @@ begin
 
     if rising_edge(clock) then
 
+      -- If an external RTC is connected, use that in place of
+      -- the internal one.
+      -- XXX external RTC is read-only from these registers for now.
+      -- Making it R/W will be the responsibility of the grove_i2c module
+      -- to sniff the bus for writes to the addresses here.
+      if grove_rtc_present='1' then
+        case reg_in is
+          -- Convert between register layout of the two
+          when x"00" => bytes(16 + 0) <= val_in;
+          when x"01" => bytes(16 + 1) <= val_in;
+          when x"02" => bytes(16 + 2)(5 downto 0) <= val_in(5 downto 0);
+                        bytes(16 + 2)(6) <= '0';
+                        bytes(16 + 2)(7) <= val_in(6);                        
+          when x"03" => bytes(16 + 6) <= val_in;
+          when x"04" => bytes(16 + 3) <= val_in;
+          when x"05" => bytes(16 + 4) <= val_in;
+          when x"06" => bytes(16 + 5) <= val_in;
+          when others => null;
+        end case;
+      end if;
+      
+      
       -- Must come first, so state machines below can set delayed_en
       if delayed_en /= 0 then
         report "Waiting for delay to expire: " & integer'image(delayed_en);
@@ -292,8 +322,24 @@ begin
           -- Read the 48 bytes from the device
           i2c1_rw <= '1';
           command_en <= '1';
-          if busy_count > 11 then
-            bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
+          -- The first 6 registers are the RTC values.
+          -- To avoid glitching in I2C reading causing trouble, we
+          -- double-buffer the RTC values, and only update the user-visible values
+          -- if two successive reads are identical.
+          if grove_rtc_present='0' then
+            if busy_count = 11 then
+              rtc_prev2 <= rtc_prev1;
+            end if;
+            if busy_count > 11 and busy_count < (11+6+1) then
+              rtc_prev1(busy_count-12) <= i2c1_rdata;
+            elsif busy_count > 11 then
+              bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
+            end if;
+            if busy_count > 12 and busy_count < (12 + 6 + 1) then
+              if rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13) then
+                bytes(16 + busy_count - 13) <= rtc_prev1(busy_count - 13);
+              end if;
+            end if;
           end if;
         when 60 =>
           report "RTC SRAM (64 of 128 bytes)";

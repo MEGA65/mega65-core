@@ -4770,7 +4770,13 @@ begin
                   else
                     if viciii_extended_attributes='1' then
                       -- multi-colour text mode with full-colour VIC III/IV mode
-                      paint_foreground <= glyph_colour;
+                      -- Mask out bit 2, so that people used to the VIC-II behaviour
+                      -- don't get surprised -- but do allow the upper 4 bits
+                      -- to allow selection of more colours.
+                      -- See #571 for more discussion on this
+                      paint_foreground(7 downto 4) <= glyph_colour(7 downto 4);
+                      paint_foreground(3) <= '0';
+                      paint_foreground(2 downto 0) <= glyph_colour(2 downto 0);
                     else
                       -- multi-colour text mode masks bit 3 of the foreground
                       -- colour to select whether the character is multi-colour or

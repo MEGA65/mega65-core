@@ -124,7 +124,7 @@ entity iomapper is
         drive_led2 : out std_logic := '0';
         drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
-        porto_out : out unsigned(7 downto 0);
+        porto_out : out unsigned(7 downto 0) := x"00";
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
@@ -356,6 +356,9 @@ entity iomapper is
 
     i2c1SDA : inout std_logic := '0';
     i2c1SCL : inout std_logic := '0';
+
+    grove_sda : inout std_logic;
+    grove_scl : inout std_logic;         
     
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
@@ -441,6 +444,7 @@ architecture behavioral of iomapper is
 
   signal i2cperipherals_cs : std_logic;
   signal i2chdmi_cs : std_logic;
+  signal grove_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -487,14 +491,22 @@ architecture behavioral of iomapper is
 
   signal ascii_key_valid : std_logic := '0';
   signal last_ascii_key_valid : std_logic := '0';
+  signal petscii_key_valid : std_logic := '0';
+  signal last_petscii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
+  signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal ascii_key_presenting : std_logic := '0';
+  signal petscii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal petscii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   signal ascii_key_buffer : key_buffer_t;
   signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
+  signal petscii_key_buffer : key_buffer_t;
+  signal petscii_key_buffer_count : integer range 0 to 4 := 0;
+  signal petscii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -589,7 +601,11 @@ architecture behavioral of iomapper is
   signal dd00_bits_ddr : std_logic_vector(1 downto 0);
 
   signal matrix_disable_modifiers : std_logic;
-  
+
+  signal grove_rtc_present : std_logic;
+  signal rtc_reg : unsigned(7 downto 0);
+  signal rtc_val : unsigned(7 downto 0);
+
 begin
 
   block1: block
@@ -868,6 +884,7 @@ begin
       portf(5 downto 0) => pmoda(5 downto 0),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
+      porto_write_strobe => petscii_key_next,
       matrix_disable_modifiers => matrix_disable_modifiers,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
@@ -879,7 +896,7 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
-      porto_out => porto_out,
+      porto => petscii_key_buffered,
       portp_out => portp_out,
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
@@ -1012,6 +1029,8 @@ begin
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
+    petscii_key => petscii_key,
+    petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
     
     );
@@ -1265,6 +1284,33 @@ begin
 
     );
 
+  ----------------------------------------------------------------------------------
+  -- Grove I2C bus. Currently only used for allowing an external RTC
+  ----------------------------------------------------------------------------------
+  i2c_grove:
+  if target = mega65r3 generate
+    grove0: entity work.grove_i2c
+      generic map ( clock_frequency => cpu_frequency )
+      port map (
+        clock => cpuclock,
+ 
+        cs => grove_cs,
+       
+        sda => grove_sda,
+        scl => grove_scl,
+
+        grove_rtc_present => grove_rtc_present,
+        reg_out => rtc_reg,
+        val_out => rtc_val,
+        
+        fastio_addr => unsigned(address),
+        fastio_write => w,
+        fastio_read => r,
+        fastio_wdata => unsigned(data_i),
+        std_logic_vector(fastio_rdata) => data_o
+    );
+  end generate;      
+  
   i2cperiph_megaphone:
   if target = megaphoner1 generate
     i2c1: entity work.i2c_wrapper
@@ -1314,6 +1360,10 @@ begin
       clock => cpuclock,
       cs => i2cperipherals_cs,
 
+      grove_rtc_present => grove_rtc_present,
+      reg_in => rtc_reg,
+      val_in => rtc_val,
+      
       sda => i2c1SDA,
       scl => i2c1SCL,
     
@@ -1724,11 +1774,31 @@ begin
           end if;
         end if;
       end if;
-        
+
+      last_petscii_key_valid <= petscii_key_valid;
+      if petscii_key_valid='1' and last_petscii_key_valid='0' then
+        if protected_hardware_in(6)='0' then
+          -- Push char to $D619 accelerated keyboard reader
+          if petscii_key_presenting = '1' then
+            if petscii_key_buffer_count < 4 then
+              petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
+              petscii_key_buffer_count <= petscii_key_buffer_count + 1;
+            end if;
+          else
+            petscii_key_buffered <= petscii_key;
+            petscii_key_presenting <= '1';
+          end if;
+        end if;
+      end if;
+      
       if reset_high = '1' then
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
+
+        petscii_key_presenting <= '0';
+        petscii_key_buffered <= x"00";
+        petscii_key_buffer_count <= 0;
       elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
           ascii_key_presenting <= '1';
@@ -1740,6 +1810,23 @@ begin
         else
           ascii_key_presenting <= '0';
           ascii_key_buffered <= x"00";
+        end if;
+        if ascii_key_event_count /= x"FFFF" then
+          ascii_key_event_count <= ascii_key_event_count + 1;
+        else
+          ascii_key_event_count <= x"0000";
+        end if;
+      elsif petscii_key_next = '1' then
+        if petscii_key_buffer_count > 0 then
+          petscii_key_presenting <= '1';
+          petscii_key_buffered <= petscii_key_buffer(0);
+          petscii_key_buffer_count <= petscii_key_buffer_count - 1;
+          for i in 0 to 2 loop
+            petscii_key_buffer(i) <= petscii_key_buffer(i+1);
+          end loop;
+        else
+          petscii_key_presenting <= '0';
+          petscii_key_buffered <= x"00";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;
@@ -1795,6 +1882,7 @@ begin
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
+      grove_cs <= '0';
       if target = megaphoner1 then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
@@ -1822,6 +1910,10 @@ begin
           i2chdmi_cs <= '1';
           report "i2chdmi_cs for MEGA65R3 asserted";
         end if;
+        if address(19 downto 8) = x"D74" then
+          grove_cs <= '1';
+          report "grove_cs for MEGA65R3 asserted";
+        end if;        
       end if;      
 
       cs_driveram <= '0';

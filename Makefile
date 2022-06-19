@@ -178,7 +178,7 @@ ghdl/ghdl_mcode: ghdl/build/bin/ghdl
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
-ghdl/build/bin/ghdl: FORCE
+ghdl/build/bin/ghdl: #FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
@@ -274,7 +274,9 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
@@ -592,6 +594,13 @@ i2csimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
+
+grovesimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+	$(GHDL) -m test_grove
+	( ./test_grove || $(GHDL) -r test_grove )
 
 k2simulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
 	$(info =============================================================)

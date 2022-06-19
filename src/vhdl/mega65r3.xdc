@@ -211,8 +211,8 @@ set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 #set_property -dict {PACKAGE_PIN U12 IOSTANDARD LVCMOS33} [get_ports fpga_init]
 
 
-set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl0]
-set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda0]
+set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl]
+set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda]
 
 # PWM Audio
 #
@@ -436,3 +436,13 @@ set_clock_groups -asynchronous \
      -group { CLKOUT1 u_clock200}
 
 
+
+# Place MAX10 close to I/O pins
+create_pblock pblock_MAX10
+add_cells_to_pblock pblock_MAX10 [get_cells [list MAX10]]
+resize_pblock pblock_MAX10 -add {SLICE_X0Y150:SLICE_X7Y174}
+
+# Place Keyboard close to I/O pins
+create_pblock pblock_m65driver
+add_cells_to_pblock pblock_m65driver [get_cells [list MEGA65/i_m2m_keyb/m65driver]]
+resize_pblock pblock_m65driver -add {SLICE_X0Y225:SLICE_X7Y243}

@@ -84,6 +84,7 @@ entity c65uart is
     portg : inout std_logic_vector(7 downto 0) := (others => '0');
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
+    porto_write_strobe : out std_logic := '0';
     matrix_disable_modifiers : inout std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
@@ -92,7 +93,7 @@ entity c65uart is
     portl_out : out  std_logic_vector(7 downto 0) := (others => '0');
     portm_out : out  std_logic_vector(7 downto 0) := (others => '0');
     portn_out : out unsigned(7 downto 0) := (others => '0');
-    porto_out : out unsigned(7 downto 0) := (others => '0');
+    porto : in unsigned(7 downto 0) := (others => '0');
     portp_out : out unsigned(7 downto 0) := (others => '0');
     portq_in : in unsigned(7 downto 0);
     j21in : in std_logic_vector(11 downto 0) := (others => '1');
@@ -235,8 +236,6 @@ architecture behavioural of c65uart is
   signal portl_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
-
-  signal porto_internal : std_logic_vector(7 downto 0) := x"14";
 
   -- Bit 1 = disable DVI audio
   -- Bit 7 = invert samples
@@ -402,7 +401,6 @@ begin  -- behavioural
       portl_out <= portl_internal;
       portm_out <= portm_internal;
       portn_out <= unsigned(portn_internal);
-      porto_out <= unsigned(porto_internal);
       portp_out <= unsigned(portp_internal);
       
       rx_clear_flags <= '0';
@@ -439,6 +437,7 @@ begin  -- behavioural
       reg_status7_xmit_on_drive <= reg_status7_xmit_on;      
       
       porth_write_strobe <= '0';
+      porto_write_strobe <= '0';
       
       -- Calculate read value for various ports
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
@@ -538,7 +537,7 @@ begin  -- behavioural
           when x"18" =>
             portn_internal <= std_logic_vector(fastio_wdata);
           when x"19" =>
-            porto_internal <= std_logic_vector(fastio_wdata);
+            porto_write_strobe <= '1';
           when x"1A" =>
             portp_internal <= std_logic_vector(fastio_wdata);
           when x"1b" =>
@@ -739,8 +738,8 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:UNUSED port o output value
-          fastio_rdata <= unsigned(porto_internal);
+          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          fastio_rdata <= unsigned(porto);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
           

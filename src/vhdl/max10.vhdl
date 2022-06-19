@@ -47,6 +47,7 @@ architecture Behavioral of max10 is
   signal max10_saw_1 : std_logic := '0';
   
   signal max10_fpga_commit_drive : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal max10_fpga_commit_last : unsigned(31 downto 0) := to_unsigned(0,32);
   signal max10_fpga_date_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal reset_button_drive : std_logic := '1';
   signal dipsw_drive : std_logic_vector(4 downto 0) := (others => '0');
@@ -74,8 +75,11 @@ begin
       if reset_button_drive = '1' then
         reset_button_counter <= 0;
       elsif reset_button_counter < 255 then
-        reset_button_counter <= reset_button_counter + 1;
-      else
+        reset_button_counter <= reset_button_counter + 1;       
+      elsif max10_fpga_commit_drive = max10_fpga_commit_last then
+        -- Only allow reset to take effect if the MAX10 communications is stable
+        -- (as tested by having two successive identical readings of the git
+        -- commit ID)
         reset_button <= '0';
         led <= '0';
       end if;
@@ -144,6 +148,9 @@ begin
             dipsw_drive(0) <= not max10_in_vector(12);
             dipsw_drive_last2 <= dipsw_drive_last;
             dipsw_drive_last <= dipsw_drive;
+
+            max10_fpga_commit_last <= max10_fpga_commit_drive;
+            
             reset_button_drive <= max10_in_vector(16);
           end if;
         end if;
