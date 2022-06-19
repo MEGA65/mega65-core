@@ -4225,7 +4225,9 @@ d81nextcluster:
 
 l94a:   lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
         cmp d81_clusternumber,y
-        bne d81isfragged
+	beq not_a_frag
+        jmp d81isfragged
+not_a_frag:	
         inx
         iny
         cpy #4
