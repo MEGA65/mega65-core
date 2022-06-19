@@ -3900,7 +3900,8 @@ dos_d81detach:
 	;; Detaches both drive 0 and drive 1
 	
         lda #$00
-        sta $d68b
+        sta $d68b		; clear mount, d81/d65 flags
+	sta $d68a 		; clear d64/d71 flags
 
         ;; Mark it as unmounted (but preserve other flags for remounting, e.g., if it should be write-enabled)
         lda currenttask_d81_image0_flags
@@ -3957,7 +3958,38 @@ l94d:   lda $d681,x		;; resolved sector number
 	and #%10111000
         ora #$07
         sta $d68b
+	;; Clear D64 flag
+	lda #$40
+	trb $d68a
 
+	;; Set D64/D71 flag if size is 342 or 683 sectors = 43 or 86 clusters
+	lda d81_clustercount+1
+	bne not_d64_or_d71
+	lda d81_clustercount+0
+	cmp #43
+	bne not_d64
+
+	;; D61 disk image
+
+	;; Set D64 flag
+	lda #$40
+	tsb $d68a
+	jmp not_mega_floppy2
+	
+not_d64:
+	cmp #86
+	bne not_d64_or_d71
+
+	;; D71 disk image
+	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
+
+	;; Set D64 flag
+	lda #$40
+	tsb $d68a
+	tsb $d68b
+	jmp not_mega_floppy2
+
+not_d64_or_d71:	
 	;; And set the MEGAfloppy flag if the file is ~5.5MiB long
 	lda d81_clustercount+1
 	cmp #$05
@@ -4045,7 +4077,39 @@ l94db:   lda $d681,x		;; resolved sector number
 	and #%01000111
         ora #$38
         sta $d68b
+	;; Clear D64 flag
+	lda #$80
+	trb $d68a
 
+	;; Set D64/D71 flag if size is 342 or 683 sectors = 43 or 86 clusters
+	lda d81_clustercount+1
+	bne not_d64_or_d71b
+	lda d81_clustercount+0
+	cmp #43
+	bne not_d64b
+
+	;; D61 disk image
+
+	;; Set D64 flag
+	lda #$80
+	tsb $d68a
+	jmp not_mega_floppy2b
+	
+not_d64b:
+	cmp #86
+	bne not_d64_or_d71b
+
+	;; D71 disk image
+	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
+
+	;; Set D64 flag
+	lda #$80
+	tsb $d68a
+	tsb $d68b
+	jmp not_mega_floppy2b
+
+not_d64_or_d71b:	
+	
 	;; And set the MEGAfloppy flag if the file is 5500KB long
 	lda d81_clustercount+1
 	cmp #$05
@@ -4206,6 +4270,25 @@ l96:
         ;; we have read to end of D81 file, and it is contiguous
         ;; now check that it is the right length
 
+	;; It might also be a D64 (1541) or D71 (1571) disk image,
+	;; so check for 683x256/4096 = 42.6875 = 43 clusters or
+	;; double that for D71
+	lda d81_clustercount+1
+	bne not_5quarter
+	cmp d81_clustercount+0
+	cmp #43
+	bne not_1541
+
+	;;  IS a d64 sized file
+	jmp d81_is_good
+not_1541:
+	cmp #86
+	bne not_5quarter
+
+	;; IS a d71 sized file
+	jmp d81_is_good
+
+not_5quarter:	
 	;; First check if we read enough for 85 tracks x 64 sectors x 2 sides = 5,570,560 bytes
 	;; = 1,360 clusters = $0550 clusters
 	;; XXX - This currently assumes 8 sectors per cluster = 4KB sectors
