@@ -465,7 +465,9 @@ begin  -- behavioural
       
       prev_todclock <= todclock;
       if todclock='0' and prev_todclock='1' and hypervisor_mode='0' then
-        if todcounter = (5 - 1) then
+        if (todcounter >= (5 - 1) and reg_60hz='0')
+          or (todcounter = (6 - 1) and reg_60hz='1')
+        then
           todcounter <= 0;
           if( reg_tod_dsecs(3 downto 0) = 9) then
             reg_tod_dsecs(3 downto 0) <= "0000";
