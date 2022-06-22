@@ -32,7 +32,7 @@
 -- @IO:GS $FFD7400 RTC:EXTRTCSEC External Real-time Clock seconds value (binary coded decimal)
 -- @IO:GS $FFD7401 RTC:EXTRTCMIN External Real-time Clock minutes value (binary coded decimal)
 -- @IO:GS $FFD7402 RTC:EXTRTCHOUR External Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7403 RTC:EXTRTCDOW External Real-time Clock day of month value (binary coded decimal)
+-- @IO:GS $FFD7403 RTC:EXTRTCDOW External Real-time Clock day of week value (binary coded decimal)
 -- @IO:GS $FFD7404 RTC:EXTRTCDAY External Real-time Clock day of month value (binary coded decimal)
 -- @IO:GS $FFD7405 RTC:EXTRTCMONTH External Real-time Clock month value (binary coded decimal)
 -- @IO:GS $FFD7406 RTC:EXTRTCYEAR External Real-time Clock year value (binary coded decimal)

@@ -106,7 +106,7 @@ architecture behavioural of cia6526 is
   signal reg_alarm_dsecs : unsigned(7 downto 0) := (others => '0');
 
   -- BCD time of day clock
-  signal reg_60hz : std_logic := '0';
+  signal reg_50hz : std_logic := '0';
   signal tod_running : std_logic := '1';
   signal reg_tod_ampm : std_logic := '0';
   signal reg_tod_hours : unsigned(6 downto 0) := (others => '0');
@@ -163,7 +163,7 @@ begin  -- behavioural
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
           reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
           reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
-          reg_isr,reg_60hz,reg_serialport_direction,
+          reg_isr,reg_50hz,reg_serialport_direction,
           reg_timera_tick_source,reg_timera_oneshot,
           reg_timera_toggle_or_pulse,reg_tod_alarm_edit,
           reg_timerb_tick_source,reg_timerb_oneshot,
@@ -290,7 +290,7 @@ begin  -- behavioural
               -- @IO:C64 $DD0E.5 CIA2:IMODA Timer A Timer A tick source
               -- @IO:C64 $DD0E.6 CIA2:SPMOD Serial port direction
               -- @IO:C64 $DD0E.7 CIA2:TOD50 50/60Hz select for TOD clock
-              fastio_rdata <= reg_60hz
+              fastio_rdata <= reg_50hz
                               & reg_serialport_direction
                               & reg_timera_tick_source
                               & '0'
@@ -465,7 +465,9 @@ begin  -- behavioural
       
       prev_todclock <= todclock;
       if todclock='0' and prev_todclock='1' and hypervisor_mode='0' then
-        if todcounter = (5 - 1) then
+        if (todcounter >= (5 - 1) and reg_50hz='1')
+          or (todcounter = (6 - 1) and reg_50hz='0')
+        then
           todcounter <= 0;
           if( reg_tod_dsecs(3 downto 0) = 9) then
             reg_tod_dsecs(3 downto 0) <= "0000";
@@ -784,7 +786,7 @@ begin  -- behavioural
               imask_ta <= imask_ta and (not fastio_wdata(0));                 
             end if;
           when x"0e" =>
-            reg_60hz <= fastio_wdata(7);
+            reg_50hz <= fastio_wdata(7);
             reg_serialport_direction <= fastio_wdata(6);
             report "CIA" & to_hstring(unit) & " reg_serialport_direction = " & std_logic'image(fastio_wdata(6));
             reg_timera_tick_source <= fastio_wdata(5);

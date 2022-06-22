@@ -168,17 +168,17 @@ returnFeatureState:
 trap_dos_getversion:
 
         ;; Return OS and DOS version.
-        ;; A/X = OS Version major/minor
-        ;; Z/Y = DOS Version major/minor
+        ;; A.X = OS Version major/minor
+        ;; Y.Z = DOS Version major/minor
 
         lda #<os_version
         sta hypervisor_x
         lda #>os_version
         sta hypervisor_a
-        lda #<dos_version
-        sta hypervisor_z
         lda #>dos_version
         sta hypervisor_y
+        lda #<dos_version
+        sta hypervisor_z
         jmp return_from_trap_with_success
 
 ;;         ========================
