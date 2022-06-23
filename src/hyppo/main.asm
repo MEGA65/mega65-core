@@ -735,6 +735,10 @@ normalboot:
 
 @skipearlycheck:
 
+        ;; Setup process control block and non-OS process ID upon entering the
+        ;; hypervisor.
+        jsr task_new_processcontrolblock
+
 !if DEBUG_HYPPO {
         jsr dump_disk_count        ;; debugging to Checkpoint
         jsr dumpcurrentfd        ;; debugging to Checkpoint
@@ -1495,9 +1499,6 @@ loaded1541rom:
         bne nokey4
         jmp utility_menu
 nokey4:
-	;; Setup process control block and non-OS process ID before leaving the
-	;; hypervisor.
-	jsr task_new_processcontrolblock
 
         jmp go64
 
