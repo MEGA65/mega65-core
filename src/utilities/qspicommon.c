@@ -1399,17 +1399,34 @@ void probe_qpsi_flash(unsigned char verboseP) {
     press_any_key();
   }
 
+  /*
+    Check if SW3 is on, which is required to access the flash at a lower level.
+  */
+  if (!(PEEK(0xD69D)&0x04)) printf("Enable S3 dip-switch 3 to continue.\n");
+  while(!(PEEK(0xD69D)&0x04)) POKE(0xD020,PEEK(0xD020)+1);
+  
   /* The 64MB = 512Mbit flash in the MEGA65 R3A comes write-protected, and with
      quad-SPI mode disabled. So we have to fix both of those (which then persists),
      and then flash the bitstream.
   */
   enable_quad_mode();
 
+  read_registers();
+
+  if (reg_sr1&0x80) {
+    printf("ERROR: Could not clear whole-of-flash write-protect flag.\n");
+    while(1) POKE(0xD020,PEEK(0xD020)+1);
+  }
+  
+  printf("Quad mode enabled, flash is write-enabled\n");
+  
   // Finally make sure that there is no half-finished QSPI commands that will cause erroneous
   // reads of sectors.
   read_data(0);
   read_data(0);
   read_data(0);
+
+  printf("Done probing flash\n");
 }
 
 void enable_quad_mode(void)
