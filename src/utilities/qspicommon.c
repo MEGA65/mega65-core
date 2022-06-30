@@ -1401,11 +1401,6 @@ void probe_qpsi_flash(unsigned char verboseP) {
     press_any_key();
   }
 
-  /*
-    Check if SW3 is on, which is required to access the flash at a lower level.
-  */
-  if (!(PEEK(0xD69D)&0x04)) printf("Enable S3 dip-switch 3 to continue.\n");
-  while(!(PEEK(0xD69D)&0x04)) POKE(0xD020,PEEK(0xD020)+1);
   
   /* The 64MB = 512Mbit flash in the MEGA65 R3A comes write-protected, and with
      quad-SPI mode disabled. So we have to fix both of those (which then persists),
