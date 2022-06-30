@@ -1589,7 +1589,7 @@ begin  -- behavioural
                 eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
                 -- Advance to next buffer, if there are any
-                if ((rxbuff_id_cpuside + 0) = rxbuff_id_ethside) then
+                if eth_rx_buffer_inuse = "0000" then
                   -- No more waiting packets
                   null;
                 else
