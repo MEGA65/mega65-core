@@ -1294,7 +1294,7 @@ begin  -- behavioural
     end if;
 
     if rising_edge(clock) then
-
+      
       -- Correctly compute the number of free RX buffers
       case eth_rx_buffer_inuse is
         when "0000" => eth_rx_buffers_free <= 0;
@@ -1303,7 +1303,13 @@ begin  -- behavioural
         when "0111"|"1011"|"1101"|"1110" => eth_rx_buffers_free <= 3;
         when others => eth_rx_buffers_free <= 4;
       end case;
-          
+
+      if eth_rx_buffers_free < 4 then
+        eth_irq_rx <= '1';
+      else
+        eth_irq_rx <= eth_rx_blocked;
+      end if;
+      
       -- De-glitch eth_tx_trigger before we push it to the 50MHz side
       eth_tx_trigger_drive <= eth_tx_trigger;
       
@@ -1563,15 +1569,6 @@ begin  -- behavioural
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
 
-              -- When we get blocked due to filling all RX buffers, the RX IRQ status
-              -- can end up cleared, while there are still packet(s) left in the RX
-              -- queue.  So we look for this situation and re-assert irq_rx so long as
-              -- we don't have all our RX buffers free.
-              if eth_rx_buffers_free < 4 then
-                eth_irq_rx <= '1';
-              else
-                eth_irq_rx <= eth_rx_blocked;
-              end if;
               eth_irq_tx <= '0';
 
               -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
