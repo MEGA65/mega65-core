@@ -60,6 +60,8 @@ void main(void)
   //  while(1) POKE(0xD020,PEEK(0xD020));
 
   // TAB key or NO SCROLL bucky held forces menu to appear
+  POKE(0x0340,PEEK(0xD610));
+  POKE(0x0341,PEEK(0xD611));
   if ((PEEK(0xD610)!=0x09)&&(!(PEEK(0xD611)&0x20))) {
 
     // Select BOOTSTS register
@@ -334,13 +336,13 @@ void main(void)
           reflash_slot(0);
         printf("%c",0x93);
         break;
-      case 144: case 0x42: case 0x62: // CTRL-1
+      case 144: // CTRL-1
         selected_reflash_slot = 1;
         break;
-      case 5: case 0x43: case 0x63: // CTRL-2
+      case 5: // CTRL-2
         selected_reflash_slot = 2;
         break;
-      case 28: case 0x44: case 0x64: // CTRL-3
+      case 28: // CTRL-3
         selected_reflash_slot = 3;
         break;
       case 159: // CTRL-4
