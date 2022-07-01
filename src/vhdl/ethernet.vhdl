@@ -1297,11 +1297,11 @@ begin  -- behavioural
       
       -- Correctly compute the number of free RX buffers
       case eth_rx_buffer_inuse is
-        when "0000" => eth_rx_buffers_free <= 0;
-        when "0001"|"0010"|"0100"|"1000" => eth_rx_buffers_free <= 1;
+        when "0000" => eth_rx_buffers_free <= 4;
+        when "0001"|"0010"|"0100"|"1000" => eth_rx_buffers_free <= 3;
         when "0011"|"0101"|"0110"|"1001"|"1010"|"1100" => eth_rx_buffers_free <= 2;
-        when "0111"|"1011"|"1101"|"1110" => eth_rx_buffers_free <= 3;
-        when others => eth_rx_buffers_free <= 4;
+        when "0111"|"1011"|"1101"|"1110" => eth_rx_buffers_free <= 1;
+        when others => eth_rx_buffers_free <= 0;
       end case;
 
       if eth_rx_buffers_free < 4 then
