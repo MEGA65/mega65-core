@@ -55,7 +55,9 @@ use work.cputypes.all;
 entity machine is
   generic (cpu_frequency : integer;
            hyper_installed : boolean := false;
-           target : mega65_target_t );
+           target : mega65_target_t;
+           num_eth_rx_buffers : integer := 4
+           );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
@@ -1498,7 +1500,9 @@ begin
   
   iomapper0: entity work.iomapper
     generic map ( target => target,
-                  cpu_frequency => cpu_frequency)
+                  cpu_frequency => cpu_frequency,
+                  num_eth_rx_buffers => num_eth_rx_buffers
+)
     port map (
       cpuclock => cpuclock,
       clock200mhz => clock200,

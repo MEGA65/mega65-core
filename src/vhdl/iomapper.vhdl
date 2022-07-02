@@ -8,7 +8,8 @@ use work.cputypes.all;
 
 entity iomapper is
   generic ( target : mega65_target_t;
-            cpu_frequency : integer
+            cpu_frequency : integer;
+            num_eth_rx_buffers : integer := 4
              );
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
@@ -1148,7 +1149,11 @@ begin
     end generate;
   
   
-  ethernet0 : entity work.ethernet port map (
+  ethernet0 : entity work.ethernet
+    generic map (
+      num_buffers => num_eth_rx_buffers
+      )
+    port map (
     clock50mhz => clock50mhz,
     clock200 => clock200mhz,
     clock => cpuclock,

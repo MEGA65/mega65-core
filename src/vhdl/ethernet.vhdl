@@ -41,6 +41,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
   
 entity ethernet is
+  generic (
+    num_buffers : in integer := 4
+    );
   port (
     clock : in std_logic;
     clock50mhz : in std_logic;
@@ -205,7 +208,7 @@ architecture behavioural of ethernet is
   signal eth_frame_len : integer range 0 to 2047;
   signal eth_mac_counter : integer range 0 to 7;
 
-  signal rxbuffer_cs : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_cs : std_logic_vector((num_buffers-1) downto 0) := (others => '0');
   signal rxbuffer_end_of_packet_toggle : std_logic := '0';
   signal rxbuffer_end_of_packet_toggle_drive : std_logic := '0';
   signal last_rxbuffer_end_of_packet_toggle : std_logic := '0';
@@ -214,20 +217,20 @@ architecture behavioural of ethernet is
   signal last_rxbuffer_write_toggle : std_logic := '0';
   signal rxbuffer_writeaddress : integer range 0 to 2047;
 
-  signal rxbuffer_write : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_write : std_logic_vector((num_buffers-1) downto 0) := (others => '0');
   signal rxbuffer_writeaddress_l : integer range 0 to 2047;
   signal rxbuffer_wdata_l : unsigned(7 downto 0) := x"00";
-  signal rxbuffer_write_drive : std_logic_vector(3 downto 0) := "0000";
+  signal rxbuffer_write_drive : std_logic_vector((num_buffers-1) downto 0) := (others => '0');
   signal rxbuffer_writeaddress_l_drive : integer range 0 to 2047;
   signal rxbuffer_wdata_l_drive : unsigned(7 downto 0) := x"00";
 
   signal rxbuffer_wdata : unsigned(7 downto 0) := x"00";
 
   signal rxbuffer_readaddress : integer range 0 to 2047;
-  signal eth_rx_buffer_inuse : unsigned(3 downto 0) := "0000";
-  signal rxbuff_id_cpuside : integer range 0 to 3 := 0;
-  signal rxbuff_id_ethside : integer range 0 to 3 := 0;
-  signal eth_rx_buffers_free : integer range 0 to 4 := 4;
+  signal eth_rx_buffer_inuse : unsigned((num_buffers-1) downto 0) := (others => '0');
+  signal rxbuff_id_cpuside : integer range 0 to (num_buffers-1) := 0;
+  signal rxbuff_id_ethside : integer range 0 to (num_buffers-1) := 0;
+  signal eth_rx_buffers_free : integer range 0 to num_buffers := num_buffers;
  
   signal eth_tx_toggle_48mhz : std_logic := '1';
   signal eth_tx_toggle : std_logic := '1';
@@ -397,7 +400,7 @@ begin  -- behavioural
   -- and so we still get cross-clock timing violations with this.
   -- We could use _sync, in which case we just need to make sure that we
   -- have the right number of waitstates in the CPU.
-  rxbuffers: for i in 0 to 3 generate
+  rxbuffers: for i in 0 to (num_buffers-1) generate
     rxbuffer0: entity work.ram8x2048 port map (
       clkw => clock,
       clkr => clock,
@@ -488,7 +491,7 @@ begin  -- behavioural
       or (fastio_addr(19 downto 12) = x"D2" and fastio_addr(11)='1')
       )
     then
-      for i in 0 to 3 loop
+      for i in 0 to (num_buffers-1) loop
         if rxbuff_id_cpuside = i then
           rxbuffer_cs(i) <= '1';
         else
@@ -496,7 +499,7 @@ begin  -- behavioural
         end if;
       end loop;
     else
-      rxbuffer_cs <= "0000";
+      rxbuffer_cs <= (others => '0');
     end if;
   end process;
 
@@ -1100,7 +1103,7 @@ begin  -- behavioural
           rxbuffer_writeaddress <= 0;
           rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
-          report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
+          report "ETHRX: writing eth_frame_len = " & integer'image(eth_frame_len);
           eth_wait <= 20;
           eth_state <= ReceivedFrame2Wait;
         when ReceivedFrame2Wait =>
@@ -1159,7 +1162,7 @@ begin  -- behavioural
            rxbuffer_wdata,rxbuffer_writeaddress
            ) is
     variable temp_cmd : unsigned(7 downto 0);
-
+    variable buffers_occupied : integer := 0;
   begin
 
     fastio_rdata <= (others => 'Z');
@@ -1211,19 +1214,13 @@ begin  -- behavioural
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
             -- @IO:GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
-          -- $D6E3.4-7 ETH:DBGRXBFLGS occupancy state of RX buffers (read only) (DEBUG ONLY. May be deprecated)
+          -- $D6E3.4-7 ETH:DBGRXBFLGS occupancy state of RX buffers 0 to 3 (read only) (DEBUG ONLY. DEPRECATED. WILL be replaced)
           when x"3" =>
-            fastio_rdata(7 downto 4) <= eth_rx_buffer_inuse;
+            fastio_rdata(7 downto 4) <= eth_rx_buffer_inuse(3 downto 0);
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (read only) (DEBUG ONLY. May be deprecated)
+          -- $D6E4 ETH:RXBUFCOUNT Returns number of ethernet RX buffers on this system (read only) 
           when x"4"  =>
-            fastio_rdata(0) <= eth_tx_trigger;
-            fastio_rdata(1) <= eth_tx_commenced;
-            fastio_rdata(2) <= eth_tx_complete;
-            fastio_rdata(3) <= eth_txen_int;
-            fastio_rdata(5 downto 4) <= eth_txd_int(1 downto 0);
-            fastio_rdata(6) <= eth_tx_viciv;
-            fastio_rdata(7) <= '0';
+            fastio_rdata <= to_unsigned(num_buffers,8);
           when x"5" =>
             -- @IO:GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
             fastio_rdata(0) <= eth_mac_filter;
@@ -1297,16 +1294,20 @@ begin  -- behavioural
       
       -- Correctly compute the number of free RX buffers
       eth_rx_blocked <= '0';
-      case eth_rx_buffer_inuse is
-        when "0000" => eth_rx_buffers_free <= 4;
-        when "0001"|"0010"|"0100"|"1000" => eth_rx_buffers_free <= 3;
-        when "0011"|"0101"|"0110"|"1001"|"1010"|"1100" => eth_rx_buffers_free <= 2;
-        when "0111"|"1011"|"1101"|"1110" => eth_rx_buffers_free <= 1;
-        when others => eth_rx_buffers_free <= 0;
-                       eth_rx_blocked <= '1';
-      end case;
+      buffers_occupied := 0;
+      for i in 0 to (num_buffers-1) loop
+        if eth_rx_buffer_inuse(i)='1' then
+          buffers_occupied := buffers_occupied + 1;
+        end if;
+      end loop;
 
-      if eth_rx_buffers_free < 4 then
+      eth_rx_buffers_free <= num_buffers - buffers_occupied;
+
+      if buffers_occupied = num_buffers then
+        eth_rx_blocked <= '1';
+      end if;
+      
+      if eth_rx_buffers_free < num_buffers then
         eth_irq_rx <= '1';
       else
         eth_irq_rx <= eth_rx_blocked;
@@ -1330,7 +1331,7 @@ begin  -- behavioural
         eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
         
         -- Now work out the next RX buffer to use.
-        if rxbuff_id_ethside /= 3 then
+        if rxbuff_id_ethside /= (num_buffers-1) then
           rxbuff_id_ethside <= rxbuff_id_ethside + 1;
         else
           rxbuff_id_ethside <= 0;
@@ -1341,7 +1342,7 @@ begin  -- behavioural
       rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
       if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
         last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
-        rxbuffer_write_drive <= "0000";
+        rxbuffer_write_drive <= (others => '0');
         rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
         rxbuffer_wdata_l_drive <= rxbuffer_wdata;
         rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
@@ -1349,7 +1350,7 @@ begin  -- behavioural
         -- Buffer gets marked as occupied when we finish receiving the frame.
         -- so nothing to do here.
       else
-        rxbuffer_write_drive <= "0000";
+        rxbuffer_write_drive <= (others => '0');
       end if;
       
       -- Notice when we change raster lines
@@ -1549,7 +1550,7 @@ begin  -- behavioural
               if fastio_wdata(0) = '0' or fastio_wdata(1) = '0' then
                 -- Reset RX buffer state: CPU viewing buffer 0,
                 -- other three buffers free
-                rxbuff_id_ethside <= 1;
+                rxbuff_id_ethside <= 2;
                 rxbuff_id_cpuside <= 0;
                 eth_rx_blocked <= '0';
               end if;
@@ -1586,11 +1587,11 @@ begin  -- behavioural
                 eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
                 -- Advance to next buffer, if there are any
-                if eth_rx_buffer_inuse = "0000" then
+                if unsigned(eth_rx_buffer_inuse) = to_unsigned(0,num_buffers) then
                   -- No more waiting packets
                   null;
                 else
-                  if rxbuff_id_cpuside /= 3 then
+                  if rxbuff_id_cpuside /= (num_buffers-1) then
                     rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
                   else
                     rxbuff_id_cpuside <= 0;

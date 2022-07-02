@@ -806,6 +806,13 @@ begin
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
                      target => mega65r3,
+                     -- MEGA65R3 has A200T which has plenty of spare BRAM.
+                     -- We can thus increase the number of eth RX buffers from
+                     -- 4x2KB to 32x2KB = 64KB.
+                     -- This will, inpractice, allow the reception of ~32x1.3K
+                     -- = ~40KB of data in a burst, before the RX buffers are
+                     -- filled.
+                     num_eth_rx_buffers => 32,
                      hyper_installed => true -- For VIC-IV to know it can use
                                              -- hyperram for full-colour glyphs
                      )                 
