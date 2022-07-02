@@ -1296,12 +1296,14 @@ begin  -- behavioural
     if rising_edge(clock) then
       
       -- Correctly compute the number of free RX buffers
+      eth_rx_blocked <= '0';
       case eth_rx_buffer_inuse is
         when "0000" => eth_rx_buffers_free <= 4;
         when "0001"|"0010"|"0100"|"1000" => eth_rx_buffers_free <= 3;
         when "0011"|"0101"|"0110"|"1001"|"1010"|"1100" => eth_rx_buffers_free <= 2;
         when "0111"|"1011"|"1101"|"1110" => eth_rx_buffers_free <= 1;
         when others => eth_rx_buffers_free <= 0;
+                       eth_rx_blocked <= '1';
       end case;
 
       if eth_rx_buffers_free < 4 then
@@ -1328,17 +1330,10 @@ begin  -- behavioural
         eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
         
         -- Now work out the next RX buffer to use.
-        -- If the next buffer would be the one the CPU is looking at,
-        -- then we have run out of buffers and are blocked.
-        if ((rxbuff_id_ethside + 1) = rxbuff_id_cpuside)
-          or ((rxbuff_id_ethside = 3) and (rxbuff_id_cpuside = 0)) then
-          eth_rx_blocked <= '1';
+        if rxbuff_id_ethside /= 3 then
+          rxbuff_id_ethside <= rxbuff_id_ethside + 1;
         else
-          if rxbuff_id_ethside /= 3 then
-            rxbuff_id_ethside <= rxbuff_id_ethside + 1;
-          else
-            rxbuff_id_ethside <= 0;
-          end if;
+          rxbuff_id_ethside <= 0;
         end if;
         
       end if;
@@ -1602,16 +1597,6 @@ begin  -- behavioural
                   end if;
                 end if;
                 
-                -- By definition, popping a packet from the rx queue has to enable
-                -- another packet to be received.
-                eth_rx_blocked <= '0';
-                -- If we were blocked, then the next buffer to use for eth RX
-                -- side is the one we have just freed up. If it wasn't blocked,
-                -- then there is nothing more to be done.
-                if eth_rx_blocked = '1' then
-                  rxbuff_id_ethside <= rxbuff_id_cpuside;
-                end if;
-
               end if;
 
               -- @IO:GS $D6E1.0 RESERVED
