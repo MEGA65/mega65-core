@@ -72,27 +72,15 @@ void main(void)
     if (PEEK(0xD6C5)&0x01) {
       // FPGA has been reconfigured, so assume that we should boot
       // normally, unless magic keys are being pressed.
-      if ((PEEK(0xD610)==0x09)||(!(PEEK(0xDC00)&0x10))||(!(PEEK(0xDC01)&0x10)))
-      {
-        // Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
-        while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-      else {      
-        // We should actually jump ($CF80) to resume hypervisor booting
-        // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
-#if 0
-        printf("Continuing booting with this bitstream (a)...\n");
-        printf("Trying to return control to hypervisor...\n");
+      // We should actually jump ($CF80) to resume hypervisor booting
+      // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
-        press_any_key();
-#endif
+      // Switch back to normal speed control before exiting
+      POKE(0,64);
+      POKE(0xCF7f,0x4C);
+      asm (" jmp $cf7f ");
 
-        // Switch back to normal speed control before exiting
-        POKE(0,64);
-        POKE(0xCF7f,0x4C);
-        asm (" jmp $cf7f ");
-      }
     } else {
       // FPGA has NOT been reconfigured
       // So if we have a valid upgrade bitstream in slot 1, then run it.
