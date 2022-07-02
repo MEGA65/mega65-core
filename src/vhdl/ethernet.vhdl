@@ -1324,9 +1324,8 @@ begin  -- behavioural
         -- End of packet RX signalled
         last_rxbuffer_end_of_packet_toggle <= rxbuffer_end_of_packet_toggle;
 
-        -- Assert RX IRQ because a frame has been received
-        report "ETHRX: Asserting IRQ";
-        eth_irq_rx <= '1';
+        -- Mark buffer in occupied, now that the frame has been received
+        eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
         
         -- Now work out the next RX buffer to use.
         -- If the next buffer would be the one the CPU is looking at,
@@ -1352,8 +1351,8 @@ begin  -- behavioural
         rxbuffer_wdata_l_drive <= rxbuffer_wdata;
         rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
         eth_rx_write_count <= eth_rx_write_count + 1;
-        -- Mark buffer in use once it starts being written to
-        eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
+        -- Buffer gets marked as occupied when we finish receiving the frame.
+        -- so nothing to do here.
       else
         rxbuffer_write_drive <= "0000";
       end if;
