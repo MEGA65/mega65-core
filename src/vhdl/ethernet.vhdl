@@ -1320,7 +1320,7 @@ begin  -- behavioural
       
       rxbuffer_end_of_packet_toggle_drive <= rxbuffer_end_of_packet_toggle;
       if (rxbuffer_end_of_packet_toggle = rxbuffer_end_of_packet_toggle_drive)
-        and (last_rxbuffer_end_of_packet_toggle /= rxbuffer_end_of_packet_toggle) then
+        and (last_rxbuffer_end_of_packet_toggle /= rxbuffer_end_of_packet_toggle_drive) then
         -- End of packet RX signalled
         last_rxbuffer_end_of_packet_toggle <= rxbuffer_end_of_packet_toggle;
 
