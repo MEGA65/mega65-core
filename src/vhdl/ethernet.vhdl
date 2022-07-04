@@ -970,7 +970,7 @@ begin  -- behavioural
             rxbuffer_write_toggle <= not rxbuffer_write_toggle;
             rxbuffer_wdata <= x"EA";
             rxbuffer_writeaddress <= eth_frame_len;
-          elsif eth_rxdv='1' then
+          else
             -- got two more bits
 --            report "ETHRX: Received bits from RMII: "
 --              & to_string(std_logic_vector(eth_rxd));
