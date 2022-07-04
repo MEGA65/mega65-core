@@ -643,6 +643,18 @@ miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
 
+MIIMFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
+		$(VHDLSRCDIR)/test_ethernet.vhdl
+
+ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(ETHFILES)
+	$(GHDL) -m test_ethernet
+	( ./test_ethernet || $(GHDL) -r test_ethernet )
+
+
+
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
