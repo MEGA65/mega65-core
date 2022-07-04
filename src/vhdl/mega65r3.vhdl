@@ -1055,10 +1055,11 @@ begin
           );
     end generate;  
       
-  -- BUFG on ethernet clock to keep the clock nice and strong
-  ethbufg0:
-  bufg port map ( I => ethclock,
-                  O => eth_clock);
+  -- Ethernet clock already has a bufg, so just propagate it out
+  eth_clock <= ethclock;
+--  ethbufg0:
+--  bufg port map ( I => ethclock,
+--                  O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
