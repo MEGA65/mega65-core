@@ -532,7 +532,7 @@ begin  -- behavioural
 
       -- Record over-sampled ethernet RX data for debugging
       eth_rx_oversample_drive(7 downto 6) <= eth_rxd_in;
-      eth_rx_oversample_drive(5 downto 0) <= eth_rx_oversample_drive(7 downto 6);
+      eth_rx_oversample_drive(5 downto 0) <= eth_rx_oversample_drive(7 downto 2);
       eth_rx_oversample <= eth_rx_oversample_drive;
       
       eth_txd_delayed(7 downto 2) <= eth_txd_delayed(5 downto 0);
