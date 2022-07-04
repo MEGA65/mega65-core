@@ -369,6 +369,9 @@ architecture behavioural of ethernet is
 
  signal eth_debug_select : unsigned(7 downto 0) := x"00";
  signal tx_frame_count : unsigned(7 downto 0) := x"00";
+
+ signal eth_rx_oversample : unsigned(7 downto 0) := x"00";
+ signal eth_rx_oversample_drive : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -527,6 +530,10 @@ begin  -- behavioural
         eth_rxdv_latched <= eth_rxdv_in;
       end if;
 
+      -- Record over-sampled ethernet RX data for debugging
+      eth_rx_oversample_drive(7 downto 6) <= eth_rxd_in;
+      eth_rx_oversample_drive(5 downto 0) <= eth_rx_oversample_drive(7 downto 6);
+      eth_rx_oversample <= eth_rx_oversample_drive;
       
       eth_txd_delayed(7 downto 2) <= eth_txd_delayed(5 downto 0);
       eth_txen_delayed(3 downto 1) <= eth_txen_delayed(2 downto 0);
@@ -908,11 +915,11 @@ begin  -- behavioural
         when DebugRxFrame =>
           rxbuffer_writeaddress <= eth_frame_len;
           rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-          rxbuffer_wdata <= x"00";
-          rxbuffer_wdata(7) <= eth_rxdv;
-          rxbuffer_wdata(6) <= eth_rxer;
-          rxbuffer_wdata(5) <= eth_interrupt;
-          rxbuffer_wdata(1 downto 0) <= eth_rxd;
+          rxbuffer_wdata <= eth_rx_oversample;
+--          rxbuffer_wdata(7) <= eth_rxdv;
+--          rxbuffer_wdata(6) <= eth_rxer;
+--          rxbuffer_wdata(5) <= eth_interrupt;
+--          rxbuffer_wdata(1 downto 0) <= eth_rxd;
           eth_frame_len <= eth_frame_len + 1;
           if eth_frame_len = 2047 then
             eth_state <= DebugRxFrameDone;
