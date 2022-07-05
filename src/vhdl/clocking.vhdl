@@ -57,7 +57,7 @@ begin
 
   adjust0 : MMCM_ADV
   generic map
-   (BANDWIDTH            => "LOW",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
@@ -104,7 +104,7 @@ begin
 
   adjust1 : MMCM_ADV
   generic map
-   (BANDWIDTH            => "LOW",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
@@ -151,7 +151,7 @@ begin
 
     adjust2 : MMCM_ADV
   generic map
-   (BANDWIDTH            => "LOW",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
@@ -242,7 +242,7 @@ begin
   
   mmcm_adv0 : MMCM_ADV
   generic map
-   (BANDWIDTH            => "LOW",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
@@ -329,7 +329,7 @@ begin
   
   mmcm_adv1_eth : MMCM_ADV
   generic map
-   (BANDWIDTH            => "LOW",
+   (BANDWIDTH            => "HIGH",
     CLKOUT4_CASCADE      => FALSE,
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
