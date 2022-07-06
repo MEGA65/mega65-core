@@ -802,7 +802,7 @@ begin
       );
 
   m0:
-    if true generate
+    if false generate
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
                      target => mega65r3,
@@ -1057,6 +1057,14 @@ begin
       
   -- Ethernet clock already has a bufg, so just propagate it out
   eth_clock <= ethclock;
+
+  -- XXX DEBUG ethernet loopback
+  eth_reset <= '1';
+  eth_txd <= eth_rxd;
+  eth_txen <= eth_rxdv;
+  
+
+  
 --  ethbufg0:
 --  bufg port map ( I => ethclock,
 --                  O => eth_clock);
