@@ -1135,6 +1135,8 @@ void reflash_slot(unsigned char slot)
           printf("Press any key to enter flash inspector.\n");
           press_any_key();
           flash_inspector();
+          hy_close();
+          return;
         }
         printf("%c    Erasing sector at $%08lX",0x13,addr);
         POKE(0xD020,2);
