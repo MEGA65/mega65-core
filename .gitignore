@@ -63,7 +63,7 @@ src/version.a65
 src/version.asm
 src/monitor/monitor_dis.a65
 src/monitor/version.a65
-
+src/utilities/version.s
 
 # executables
 src/tools/bin2c

@@ -4,6 +4,7 @@
 # get branch name
 #
 branch=`git rev-parse --abbrev-ref HEAD`
+freeze_branch=${branch:0:6}
 #echo ${branch}
 #
 # if branchname is long, just use the first X-chars and last X-chars, ie "abcde...vwxyz"
@@ -25,6 +26,7 @@ echo ${branch}
 #
 # exclude all tags from strings!
 commit_id=`git describe --always --abbrev=7 --dirty=~ --exclude="*"`
+commit_id_no_dirt=`git describe --always --abbrev=7 --exclude="*"`
 version32=`git describe --always --abbrev=8 --exclude="*"`
 datestamp=$(expr $(expr $(date +%Y) - 2020) \* 366 + `date +%j`)
 
@@ -73,6 +75,9 @@ echo "wrote: src/version.asm"
 
 echo 'msg_gitcommit: .byte "GIT: '${stringout}'"' > src/monitor/version.a65
 echo "wrote: src/monitor/version.a65"
+
+echo -e ".segment \"CODE\"\n_version:\n  .asciiz \"v:${datetime}-${freeze_branch}-${commit_id_no_dirt}\"" > src/utilities/version.s
+echo "wrote: src/utilities/version.s"
 
 cat assets/matrix_banner.txt | sed -e 's/GITCOMMITID/'"${stringout}"'/g' | src/tools/format_banner bin/matrix_banner.txt 50
 echo "wrote: bin/matrix_banner.txt"
