@@ -35,6 +35,8 @@ unsigned int page_size=0;
 unsigned char latency_code=0xff;
 unsigned char reg_cr1=0x00;
 unsigned char reg_sr1=0x00;
+unsigned char reg_ppbl=0x00;
+unsigned char reg_ppb=0x00;
 
 unsigned char manufacturer;
 unsigned short device_id;
@@ -1136,6 +1138,14 @@ void reflash_slot(unsigned char slot)
           press_any_key();
           flash_inspector();
         }
+
+	// Check if sector is write protected
+	read_ppb_for_sector(addr);
+	if (reg_ppb!=0xff) {
+          printf("%c%c%cERROR: Sector is write-protected via PPB. Stopped.\n",0x11,0x11,0x11);
+	  while(1) continue;
+	}
+	
         printf("%c    Erasing sector at $%08lX",0x13,addr);
         POKE(0xD020,2);
         erase_sector(addr);
@@ -1312,6 +1322,7 @@ void probe_qpsi_flash(unsigned char verboseP) {
       read_registers();
     }
   }
+  
 
   if (verboseP) {
     for(i=0;i<0x80;i++)
@@ -1947,6 +1958,37 @@ void read_sr1(void)
   reg_sr1=spi_rx_byte();
   spi_cs_high();
   delay();
+}
+
+void read_ppbl(void)
+{
+  // PPB Lock Register
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xa7);
+  reg_ppbl=spi_rx_byte();
+  spi_cs_high();
+  delay();
+}
+
+void read_ppb_for_sector(unsigned long sector_start)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xe2);
+  spi_tx_byte(sector_start>>24);
+  spi_tx_byte(sector_start>>16);
+  spi_tx_byte(sector_start>> 8);
+  spi_tx_byte(sector_start>> 0);
+  reg_ppb=spi_rx_byte();
+  spi_cs_high();
+  delay();  
 }
 
 void spi_write_enable(void)

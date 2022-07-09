@@ -15,6 +15,8 @@ extern unsigned int page_size;
 extern unsigned char latency_code;
 extern unsigned char reg_cr1;
 extern unsigned char reg_sr1;
+extern unsigned char reg_ppbl;
+extern unsigned char reg_ppb;
 
 extern unsigned char manufacturer;
 extern unsigned short device_id;
@@ -65,6 +67,8 @@ void spi_tx_byte(unsigned char b);
 unsigned char qspi_rx_byte(void);
 unsigned char spi_rx_byte(void);
 void read_sr1(void);
+void read_ppb_for_sector(unsigned long sector_start);
+void read_ppbl(void);
 void spi_write_enable(void);
 void spi_clear_sr1(void);
 void spi_write_disable(void);
