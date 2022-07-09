@@ -372,6 +372,10 @@ architecture behavioural of ethernet is
 
  signal eth_rx_oversample : unsigned(7 downto 0) := x"00";
  signal eth_rx_oversample_drive : unsigned(7 downto 0) := x"00";
+
+ signal eth_mode_100 : std_logic := '1';
+ signal eth_dibit_strobe : std_logic := '1';
+ signal eth_10mbit_strobe : std_logic_vector(9 downto 0) := "1000000000";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -877,7 +881,17 @@ begin  -- behavioural
       end if;
             
       frame_length := to_unsigned(eth_frame_len,11);
-      case eth_state is
+      
+      if eth_mode_100='1' then
+        eth_dibit_strobe <= '1';
+      else
+        -- 10mbit mode: do eth actions at 1/10th rate
+        eth_dibit_strobe <= eth_10mbit_strobe(0);
+        eth_10mbit_strobe(8 downto 0) <= eth_10mbit_strobe(9 downto 1);
+        eth_10mbit_strobe(9) <= eth_10mbit_strobe(0);
+      end if;
+      if eth_dibit_strobe='1' then
+        case eth_state is
         when Idle =>
           if debug_rx = '1' then
             eth_frame_len <= 0;
@@ -1161,7 +1175,8 @@ begin  -- behavioural
           end if;
         when others =>
           null;
-      end case;
+        end case;
+      end if;
     end if;
   end process;
   
@@ -1623,6 +1638,14 @@ begin  -- behavioural
                 when x"01" =>
                   -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
+                when x"10" =>
+                  eth_mode_100 <= '0';
+                when x"11" =>
+                  eth_mode_100 <= '1';
+                when x"12" =>
+                  -- Reserved for gigabit mode selection
+                when x"13" =>
+                  -- Reserved for 10-gigabit mode selection
                 when x"dc" =>
                   -- @IO:GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when \$D6E1.3 is set
                   cpu_ethernet_stream <= '1';
