@@ -146,7 +146,7 @@ architecture behavioural of ethernet is
     );
   
   type ethernet_state is (Idle,
-                          DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,DebugRxFrameLatch,
+                          DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,
                           SkippingFrame,
                           WaitingForPreamble,
                           ReceivingPreamble,
@@ -937,11 +937,10 @@ begin  -- behavioural
             eth_frame_len <= eth_frame_len + 1;
             if eth_frame_len = 2047 then
               eth_state <= DebugRxFrameDone;
+              rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+              debug_rx <= '0';
             end if;
           when DebugRxFrameDone =>
-            rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
-            eth_state <= DebugRxFrameLatch;
-          when DebugRxFrameLatch =>
             if debug_rx = '0' then
               eth_state <= Idle;
             end if;
