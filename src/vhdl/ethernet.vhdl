@@ -566,6 +566,15 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      if eth_mode_100='1' then
+        eth_dibit_strobe <= '1';
+      else
+        -- 10mbit mode: do eth actions at 1/10th rate
+        eth_dibit_strobe <= eth_10mbit_strobe(0);
+        eth_10mbit_strobe(8 downto 0) <= eth_10mbit_strobe(9 downto 1);
+        eth_10mbit_strobe(9) <= eth_10mbit_strobe(0);
+      end if;
+      
       rxbuffer_write <= rxbuffer_write_drive;
       rxbuffer_wdata_l <= rxbuffer_wdata_l_drive;
       rxbuffer_writeaddress_l <= rxbuffer_writeaddress_l_drive;
@@ -606,271 +615,273 @@ begin  -- behavioural
       else
         eth_tx_idle <= '0';
       end if;
-      
-      case eth_tx_state is
-        when IdleWait =>
-          -- Wait for 0.96usec before allowing transmission of next frame.
-          -- We are operating on the 50MHz ethernet clock, so 96usec =
-          -- 0.96 * 50 = 48 cycles.  We will wait 50 just to be sure.
 
-          -- make sure we release the transceiver.
-          eth_txen_int <= '0';
-
-          eth_tx_wait <= 50;
-          eth_tx_state <= InterPacketGap;
-        when InterPacketGap =>
-          -- Count down the inter-packet gap
-          if eth_tx_wait = 0 then
-            eth_tx_state <= Idle;
-            eth_tx_complete <= '0';
-          else
-            eth_tx_wait <= eth_tx_wait - 1;
-          end if;
-        when Idle =>
-          if eth_tx_trigger_50mhz = '0' then
-            eth_tx_complete <= '0';
-          end if;
-
-          -- XXX Try having TXD be ready for preamble, to see if that
-          -- fixes the weird problem with packet loss due to wrong preamble length.
-          eth_txd_int <= "01";
-          
-          if eth_tx_trigger_50mhz = '1' then
-
-            -- reset frame padding state
-            eth_tx_padding <= '0';
-            if to_integer(eth_tx_size)<60 then
-              eth_tx_size_padded <= to_unsigned(60,12);
+      if eth_dibit_strobe='1' then
+        case eth_tx_state is
+          when IdleWait =>
+            -- Wait for 0.96usec before allowing transmission of next frame.
+            -- We are operating on the 50MHz ethernet clock, so 96usec =
+            -- 0.96 * 50 = 48 cycles.  We will wait 50 just to be sure.
+            
+            -- make sure we release the transceiver.
+            eth_txen_int <= '0';
+            
+            eth_tx_wait <= 50;
+            eth_tx_state <= InterPacketGap;
+          when InterPacketGap =>
+            -- Count down the inter-packet gap
+            if eth_tx_wait = 0 then
+              eth_tx_state <= Idle;
+              eth_tx_complete <= '0';
             else
-              eth_tx_size_padded <= eth_tx_size;
+              eth_tx_wait <= eth_tx_wait - 1;
             end if;
-            -- begin transmission
-            tx_frame_count <= tx_frame_count + 1;
-            eth_tx_commenced <= '1';
-            eth_tx_complete <= '0';
-            -- 56 bits of preamble = 28 dibits.
-            -- We add a few extra just to make sure.
-            tx_preamble_count <= tx_preamble_length;
-            eth_txen_int <= '1';
+          when Idle =>
+            if eth_tx_trigger_50mhz = '0' then
+              eth_tx_complete <= '0';
+            end if;
+            
+            -- XXX Try having TXD be ready for preamble, to see if that
+            -- fixes the weird problem with packet loss due to wrong preamble length.
             eth_txd_int <= "01";
-            eth_tx_state <= WaitBeforeTX;
-            eth_tx_viciv <= '0';
-            eth_tx_dump <= '0';
-          elsif false and (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
-            -- start sending an IPv6 multicast packet containing the compressed
-            -- video or CPU instruction trace.
-            report "ETHERDUMP: Sending next packet ("
-              & std_logic'image(activity_dump_ready_toggle) & " vs " &
-              std_logic'image(last_activity_dump_ready_toggle) & ")"
-              severity note;
-            last_activity_dump_ready_toggle <= activity_dump_ready_toggle;
-            dumpram_raddr <= (not activity_dump_ready_toggle) & "00000000000";
-            eth_tx_commenced <= '1';
-            eth_tx_complete <= '0';
-            tx_preamble_count <= tx_preamble_length;
-            eth_txen_int <= '1';
-            eth_txd_int <= "01";
-            eth_tx_state <= WaitBeforeTX;
-            eth_tx_viciv <= '0';
-            eth_tx_dump <= '1';
-          elsif false and (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
-            -- start sending an IPv6 multicast packet containing the compressed
-            -- video.
-            report "FRAMEPACKER: Sending next packet ("
-              & std_logic'image(buffer_moby_toggle) & " vs " &
-              std_logic'image(last_buffer_moby_toggle) & ")"
-              severity note;
-            last_buffer_moby_toggle <= buffer_moby_toggle;
-            buffer_address <= (not buffer_moby_toggle) & "00000000000";
-            eth_tx_commenced <= '1';
-            eth_tx_complete <= '0';
-            tx_preamble_count <= tx_preamble_length;
-            eth_txen_int <= '1';
-            eth_txd_int <= "01";
-            eth_tx_state <= WaitBeforeTX;
-            eth_tx_viciv <= '1';
-            eth_tx_dump <= '0';
-          end if;
-        when WaitBeforeTX =>
-          if eth_tx_packet_count /= "111111" then
-            eth_tx_packet_count <= eth_tx_packet_count + 1;
-          else
-            eth_tx_packet_count <= "000000";
-          end if;           
-
-          txbuffer_readaddress <= 0;
-          eth_tx_state <= SendingPreamble;
-          report "Reseting TX CRC";
-          tx_fcs_crc_load_init <= '1';
-          report "TX CRC init not announcing data";
-          tx_fcs_crc_d_valid <= '0';
-          tx_fcs_crc_calc_en <= '0';
-        when SendingPreamble =>
-          if tx_preamble_count = 0 then
-            eth_txd_int <= "11";
-            eth_tx_state <= SendingFrame;
-            eth_tx_bit_count <= 0;
-            txbuffer_readaddress <= txbuffer_readaddress + 1;
-            tx_fcs_crc_load_init <= '0';
-            report "Releasing TX CRC init";
-            tx_fcs_crc_d_valid <= '1';
-            tx_fcs_crc_calc_en <= '1';
-            report "TX CRC announcing input";
-            if eth_tx_viciv='0' and eth_tx_dump='0' then
-              eth_tx_bits <= txbuffer_rdata;
-              tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
-              report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
+            
+            if eth_tx_trigger_50mhz = '1' then
+              
+              -- reset frame padding state
+              eth_tx_padding <= '0';
+              if to_integer(eth_tx_size)<60 then
+                eth_tx_size_padded <= to_unsigned(60,12);
+              else
+                eth_tx_size_padded <= eth_tx_size;
+              end if;
+              -- begin transmission
+              tx_frame_count <= tx_frame_count + 1;
+              eth_tx_commenced <= '1';
+              eth_tx_complete <= '0';
+              -- 56 bits of preamble = 28 dibits.
+              -- We add a few extra just to make sure.
+              tx_preamble_count <= tx_preamble_length;
+              eth_txen_int <= '1';
+              eth_txd_int <= "01";
+              eth_tx_state <= WaitBeforeTX;
+              eth_tx_viciv <= '0';
+              eth_tx_dump <= '0';
+            elsif false and (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
+              -- start sending an IPv6 multicast packet containing the compressed
+              -- video or CPU instruction trace.
+              report "ETHERDUMP: Sending next packet ("
+                & std_logic'image(activity_dump_ready_toggle) & " vs " &
+                std_logic'image(last_activity_dump_ready_toggle) & ")"
+                severity note;
+              last_activity_dump_ready_toggle <= activity_dump_ready_toggle;
+              dumpram_raddr <= (not activity_dump_ready_toggle) & "00000000000";
+              eth_tx_commenced <= '1';
+              eth_tx_complete <= '0';
+              tx_preamble_count <= tx_preamble_length;
+              eth_txen_int <= '1';
+              eth_txd_int <= "01";
+              eth_tx_state <= WaitBeforeTX;
+              eth_tx_viciv <= '0';
+              eth_tx_dump <= '1';
+            elsif false and (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
+              -- start sending an IPv6 multicast packet containing the compressed
+              -- video.
+              report "FRAMEPACKER: Sending next packet ("
+                & std_logic'image(buffer_moby_toggle) & " vs " &
+                std_logic'image(last_buffer_moby_toggle) & ")"
+                severity note;
+              last_buffer_moby_toggle <= buffer_moby_toggle;
+              buffer_address <= (not buffer_moby_toggle) & "00000000000";
+              eth_tx_commenced <= '1';
+              eth_tx_complete <= '0';
+              tx_preamble_count <= tx_preamble_length;
+              eth_txen_int <= '1';
+              eth_txd_int <= "01";
+              eth_tx_state <= WaitBeforeTX;
+              eth_tx_viciv <= '1';
+              eth_tx_dump <= '0';
+            end if;
+          when WaitBeforeTX =>
+            if eth_tx_packet_count /= "111111" then
+              eth_tx_packet_count <= eth_tx_packet_count + 1;
             else
-              eth_tx_bits <= x"ff";
-              tx_fcs_crc_data_in <= x"ff";
-            end if;
-          else
-            eth_txd_int <= "01";
-            tx_preamble_count <= tx_preamble_count - 1;
-          end if;
-        -- when SendingVicIVVideoPacketHeader =>
-        --   send (mostly) constant ethernet + IPv6 header
-        --   Then send 2,048 bytes of data.
-        --   eth_tx_state <= SendingFrame
-        when SendingFrame =>
-          tx_fcs_crc_d_valid <= '0';
-          tx_fcs_crc_calc_en <= '0';
-          report "TX CRC no input";
-          eth_txd_int <= eth_tx_bits(1 downto 0);
-          if eth_tx_bit_count = 6 then
-            -- Prepare to send from next byte
-            eth_tx_bit_count <= 0;
-            tx_fcs_crc_d_valid <= '1';
-            tx_fcs_crc_calc_en <= '1';
-            report "TX CRC announcing input";
-            if eth_tx_dump='1' then
-              if txbuffer_readaddress < video_packet_header'length then
-                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
-                eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
-                tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
-              else
-                report "ETHERDUMP: Sending byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(dumpram_rdata) & " dumpram_raddr=$" & to_hstring(dumpram_raddr);
-                eth_tx_bits <= unsigned(dumpram_rdata);
-                tx_fcs_crc_data_in <= dumpram_rdata;
-              end if;              
-            elsif eth_tx_viciv='0' then
-              if eth_tx_padding = '1' then
-                report "PADDING: writing padding byte @ "
-                  & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
-                tx_fcs_crc_data_in <= x"00";
-                eth_tx_bits <= x"00";
-              else
-                report "ETHTX: writing actual byte $"
-                  & to_hstring(txbuffer_rdata) & 
-                  " @ "
-                  & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
+              eth_tx_packet_count <= "000000";
+            end if;           
+            
+            txbuffer_readaddress <= 0;
+            eth_tx_state <= SendingPreamble;
+            report "Reseting TX CRC";
+            tx_fcs_crc_load_init <= '1';
+            report "TX CRC init not announcing data";
+            tx_fcs_crc_d_valid <= '0';
+            tx_fcs_crc_calc_en <= '0';
+          when SendingPreamble =>
+            if tx_preamble_count = 0 then
+              eth_txd_int <= "11";
+              eth_tx_state <= SendingFrame;
+              eth_tx_bit_count <= 0;
+              txbuffer_readaddress <= txbuffer_readaddress + 1;
+              tx_fcs_crc_load_init <= '0';
+              report "Releasing TX CRC init";
+              tx_fcs_crc_d_valid <= '1';
+              tx_fcs_crc_calc_en <= '1';
+              report "TX CRC announcing input";
+              if eth_tx_viciv='0' and eth_tx_dump='0' then
                 eth_tx_bits <= txbuffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
+                report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
+              else
+                eth_tx_bits <= x"ff";
+                tx_fcs_crc_data_in <= x"ff";
               end if;
             else
-              if txbuffer_readaddress < video_packet_header'length then
-                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
-                eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
-                tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
-              else
-                report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
-                eth_tx_bits <= buffer_rdata;
-                tx_fcs_crc_data_in <= std_logic_vector(buffer_rdata);
-              end if;
+              eth_txd_int <= "01";
+              tx_preamble_count <= tx_preamble_count - 1;
             end if;
-
-            if (eth_tx_dump='1')
-              and ((to_unsigned(txbuffer_readaddress,12) /=
-                    (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
-              and ((to_unsigned(txbuffer_readaddress,12) /=
-                    (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
-            then
-              -- Not yet at end of CPU/BUS log dump, so advance read address
-              -- pointer for dump buffer
-              txbuffer_readaddress <= txbuffer_readaddress + 1;
-              if txbuffer_readaddress = eth_tx_size then
-                eth_tx_padding <= '1';
-              end if;
-              report "ETHERDUMP: txbuffer_readaddress = $" & to_hstring(to_unsigned(txbuffer_readaddress,12));
-              if (to_unsigned(txbuffer_readaddress,12) >= video_packet_header'length) then
-                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(txbuffer_readaddress - video_packet_header'length,11));
-                report "ETHERDUMP: dumpram_raddr = $" & to_hstring(dumpram_raddr);
-              else
-                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,11));
-              end if;
-            elsif ((eth_tx_dump='0') and (eth_tx_viciv='0')
-                   and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
-              or
-              ((eth_tx_viciv='1')
-               and ((to_unsigned(txbuffer_readaddress,12) /=
-                     (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
-               and ((to_unsigned(txbuffer_readaddress,12) /=
-                     (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
-               )
-            then
-              txbuffer_readaddress <= txbuffer_readaddress + 1;
-              if txbuffer_readaddress = eth_tx_size then
-                eth_tx_padding <= '1';
-              end if;
-              -- For VIC-IV compressed video frames work out address.
-              -- We have an 86 byte packet header
-              if txbuffer_readaddress >= video_packet_header'length then
-                if last_buffer_moby_toggle = '1' then
-                  -- Reading from upper half
-                  buffer_address <= to_unsigned(txbuffer_readaddress
-                                                - video_packet_header'length,12);
+          -- when SendingVicIVVideoPacketHeader =>
+          --   send (mostly) constant ethernet + IPv6 header
+          --   Then send 2,048 bytes of data.
+          --   eth_tx_state <= SendingFrame
+          when SendingFrame =>
+            tx_fcs_crc_d_valid <= '0';
+            tx_fcs_crc_calc_en <= '0';
+            report "TX CRC no input";
+            eth_txd_int <= eth_tx_bits(1 downto 0);
+            if eth_tx_bit_count = 6 then
+              -- Prepare to send from next byte
+              eth_tx_bit_count <= 0;
+              tx_fcs_crc_d_valid <= '1';
+              tx_fcs_crc_calc_en <= '1';
+              report "TX CRC announcing input";
+              if eth_tx_dump='1' then
+                if txbuffer_readaddress < video_packet_header'length then
+                  report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
+                  eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
+                  tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
                 else
-                  -- Reading from lower half
-                  buffer_address <= to_unsigned(txbuffer_readaddress + 2048
-                                                - video_packet_header'length,12);
+                  report "ETHERDUMP: Sending byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(dumpram_rdata) & " dumpram_raddr=$" & to_hstring(dumpram_raddr);
+                  eth_tx_bits <= unsigned(dumpram_rdata);
+                  tx_fcs_crc_data_in <= dumpram_rdata;
+                end if;              
+              elsif eth_tx_viciv='0' then
+                if eth_tx_padding = '1' then
+                  report "PADDING: writing padding byte @ "
+                    & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
+                  tx_fcs_crc_data_in <= x"00";
+                  eth_tx_bits <= x"00";
+                else
+                  report "ETHTX: writing actual byte $"
+                    & to_hstring(txbuffer_rdata) & 
+                    " @ "
+                    & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
+                  eth_tx_bits <= txbuffer_rdata;
+                  tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
                 end if;
               else
-                buffer_address <= to_unsigned(0,12);
+                if txbuffer_readaddress < video_packet_header'length then
+                  report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
+                  eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
+                  tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
+                else
+                  report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
+                  eth_tx_bits <= buffer_rdata;
+                  tx_fcs_crc_data_in <= std_logic_vector(buffer_rdata);
+                end if;
+              end if;
+              
+              if (eth_tx_dump='1')
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+              then
+                -- Not yet at end of CPU/BUS log dump, so advance read address
+                -- pointer for dump buffer
+                txbuffer_readaddress <= txbuffer_readaddress + 1;
+                if txbuffer_readaddress = eth_tx_size then
+                  eth_tx_padding <= '1';
+                end if;
+                report "ETHERDUMP: txbuffer_readaddress = $" & to_hstring(to_unsigned(txbuffer_readaddress,12));
+                if (to_unsigned(txbuffer_readaddress,12) >= video_packet_header'length) then
+                  dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(txbuffer_readaddress - video_packet_header'length,11));
+                  report "ETHERDUMP: dumpram_raddr = $" & to_hstring(dumpram_raddr);
+                else
+                  dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,11));
+                end if;
+              elsif ((eth_tx_dump='0') and (eth_tx_viciv='0')
+                     and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
+                or
+                ((eth_tx_viciv='1')
+                 and ((to_unsigned(txbuffer_readaddress,12) /=
+                       (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+                 and ((to_unsigned(txbuffer_readaddress,12) /=
+                       (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+                 )
+              then
+                txbuffer_readaddress <= txbuffer_readaddress + 1;
+                if txbuffer_readaddress = eth_tx_size then
+                  eth_tx_padding <= '1';
+                end if;
+                -- For VIC-IV compressed video frames work out address.
+                -- We have an 86 byte packet header
+                if txbuffer_readaddress >= video_packet_header'length then
+                  if last_buffer_moby_toggle = '1' then
+                    -- Reading from upper half
+                    buffer_address <= to_unsigned(txbuffer_readaddress
+                                                  - video_packet_header'length,12);
+                  else
+                    -- Reading from lower half
+                    buffer_address <= to_unsigned(txbuffer_readaddress + 2048
+                                                  - video_packet_header'length,12);
+                  end if;
+                else
+                  buffer_address <= to_unsigned(0,12);
+                end if;
+              else
+                -- Now send TX FCS, value will be in tx_crc_reg, send
+                -- high-order bytes first (but low-order bits first).
+                -- This requires some bit munging.
+                eth_tx_state <= SendFCS;
+                report "TX CRC not announcing data";
+                tx_fcs_crc_d_valid <= '0';
+                tx_fcs_crc_calc_en <= '0';
+                eth_tx_crc_bits <= not (tx_crc_reg(31 downto 24)
+                                        & tx_crc_reg(23 downto 16)
+                                        & tx_crc_reg(15 downto 8)
+                                        & tx_crc_reg(7 downto 0));
+                report "ETHTX: CRC = $" & to_hstring(tx_crc_reg);
+                eth_tx_crc_count <= 16;
               end if;
             else
-              -- Now send TX FCS, value will be in tx_crc_reg, send
-              -- high-order bytes first (but low-order bits first).
-              -- This requires some bit munging.
-              eth_tx_state <= SendFCS;
-              report "TX CRC not announcing data";
-              tx_fcs_crc_d_valid <= '0';
-              tx_fcs_crc_calc_en <= '0';
-              eth_tx_crc_bits <= not (tx_crc_reg(31 downto 24)
-                                      & tx_crc_reg(23 downto 16)
-                                      & tx_crc_reg(15 downto 8)
-                                      & tx_crc_reg(7 downto 0));
-              report "ETHTX: CRC = $" & to_hstring(tx_crc_reg);
-              eth_tx_crc_count <= 16;
+              -- Prepare to send next 2 bits next cycle
+              eth_tx_bit_count <= eth_tx_bit_count + 2;
+              eth_tx_bits <= "00" & eth_tx_bits(7 downto 2);
             end if;
-          else
-            -- Prepare to send next 2 bits next cycle
-            eth_tx_bit_count <= eth_tx_bit_count + 2;
-            eth_tx_bits <= "00" & eth_tx_bits(7 downto 2);
-          end if;
-        when SendFCS =>
-          report "ETHTX: writing FCS";
-          if eth_tx_crc_count /= 0 then
-            eth_txd_int(0) <= eth_tx_crc_bits(31);
-            eth_txd_int(1) <= eth_tx_crc_bits(30);
-            eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
-            eth_tx_crc_count <= eth_tx_crc_count - 1;
-          else
-            eth_txen_int <= '0';
-            eth_tx_state <= SentFrame;
-            eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
-          end if;
-        when SentFrame =>
-          -- Wait for eth_tx_trigger to go low, unless it is
-          -- a VIC-IV video frame, in which case immediately clear.
-          eth_tx_complete <= '1';
-          if eth_tx_trigger='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
-            eth_tx_commenced <= '0';
+          when SendFCS =>
+            report "ETHTX: writing FCS";
+            if eth_tx_crc_count /= 0 then
+              eth_txd_int(0) <= eth_tx_crc_bits(31);
+              eth_txd_int(1) <= eth_tx_crc_bits(30);
+              eth_tx_crc_bits(31 downto 2) <= eth_tx_crc_bits(29 downto 0);
+              eth_tx_crc_count <= eth_tx_crc_count - 1;
+            else
+              eth_txen_int <= '0';
+              eth_tx_state <= SentFrame;
+              eth_tx_toggle_50mhz <= not eth_tx_toggle_50mhz;
+            end if;
+          when SentFrame =>
+            -- Wait for eth_tx_trigger to go low, unless it is
+            -- a VIC-IV video frame, in which case immediately clear.
+            eth_tx_complete <= '1';
+            if eth_tx_trigger='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
+              eth_tx_commenced <= '0';
+              eth_tx_state <= IdleWait;
+            end if;
+          when others =>
             eth_tx_state <= IdleWait;
-          end if;
-        when others =>
-          eth_tx_state <= IdleWait;
-      end case;
-
+        end case;
+      end if;
+      
       -- Allow resetting of the ethernet TX state machine
       if eth_reset_int_50mhz='0' or reset_50mhz='0' or eth_soft_reset_50mhz='0' then
         eth_tx_state <= Idle;
@@ -882,14 +893,6 @@ begin  -- behavioural
       
       frame_length := to_unsigned(eth_frame_len,11);
       
-      if eth_mode_100='1' then
-        eth_dibit_strobe <= '1';
-      else
-        -- 10mbit mode: do eth actions at 1/10th rate
-        eth_dibit_strobe <= eth_10mbit_strobe(0);
-        eth_10mbit_strobe(8 downto 0) <= eth_10mbit_strobe(9 downto 1);
-        eth_10mbit_strobe(9) <= eth_10mbit_strobe(0);
-      end if;
       if eth_dibit_strobe='1' then
         case eth_state is
           when Idle =>
