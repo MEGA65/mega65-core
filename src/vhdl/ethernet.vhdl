@@ -941,7 +941,6 @@ begin  -- behavioural
             if eth_frame_len = 2047 then
               eth_state <= DebugRxFrameDone;
               rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
-              debug_rx <= '0';
             end if;
           when DebugRxFrameDone =>
             if debug_rx = '0' then
