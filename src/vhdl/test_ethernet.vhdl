@@ -21,6 +21,7 @@ architecture foo of test_ethernet is
   signal cpu_ethernet_stream : std_logic := '0';
 
   signal eth_dibit_counter : integer := 0;
+  signal cpu_counter : integer := 0;
   
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -28,10 +29,10 @@ architecture foo of test_ethernet is
   signal eth_mdio : std_logic := 'Z';
   signal eth_mdc : std_logic;
   signal eth_reset : std_logic;
-  signal eth_rxd : unsigned(1 downto 0) := "00";
+  signal eth_rxd : unsigned(1 downto 0);
   signal eth_txd_out : unsigned(1 downto 0);
   signal eth_txen_out : std_logic;
-  signal eth_rxdv : std_logic := '0';
+  signal eth_rxdv : std_logic;
   signal eth_rxer : std_logic := '0';
   signal eth_interrupt : std_logic := '0';
     
@@ -151,6 +152,25 @@ begin
       end loop;
     end process;
 
+    process (clock50mhz) is
+    begin
+      if rising_edge(clock50mhz) then
+        cpu_counter <= cpu_counter + 1;
+
+        fastio_read <= '0'; fastio_write <= '0';
+        case cpu_counter is
+          -- Select 10mbit mode
+          when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"10";
+          -- Release ethernet from reset
+          when 1 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e0"; fastio_wdata <= x"03";
+          -- Enable debug mode
+          when 2 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"de";
+          when others => null;
+        end case;
+        
+      end if;
+    end process;
+    
     process (clock5mhz) is
     begin
       if rising_edge(clock5mhz) then
@@ -158,16 +178,20 @@ begin
 
         eth_dibit_counter <= eth_dibit_counter + 1;
 
-        report "ethernet counter = " & integer'image(eth_dibit_counter);
+        report "ethernet counter = " & integer'image(eth_dibit_counter)
+          & ", eth_rxd = " & to_string(std_logic_vector(eth_rxd));
         
         case eth_dibit_counter is
           when 0   => eth_rxdv <= '0'; eth_rxd <= "00";
                       -- Send 01010111 final preamble byte
-          when 10  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 10  => eth_rxdv <= '1'; eth_rxd <= "01";  -- x3
+          when 11  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 12  => eth_rxdv <= '1'; eth_rxd <= "01";  
           when 13  => eth_rxdv <= '1'; eth_rxd <= "11";
                       -- Dest MAC: FF:FF:FF:FF:FF:FF
           when 14  => eth_rxdv <= '1'; eth_rxd <= "11";
-                      -- SRC MAC: 10:05:01:12:34:56
+          when 15 to 37 => eth_rxdv <= '1'; eth_rxd <= "11";
+                      -- SRC MAC: 10:05:01:12:34:56            
           when 38  => eth_rxdv <= '1'; eth_rxd <= "00";
           when 39  => eth_rxdv <= '1'; eth_rxd <= "00";
           when 40  => eth_rxdv <= '1'; eth_rxd <= "01";
