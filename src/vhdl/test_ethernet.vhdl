@@ -9,8 +9,11 @@ end entity;
 
 architecture foo of test_ethernet is
 
+  signal clock5mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
   signal clock200mhz : std_logic := '0';
+  signal counter5 : integer range 0 to 4 := 0;  
+  
   signal reset : std_logic;
   signal irq : std_logic := '1';
   signal ethernet_cs : std_logic;
@@ -103,6 +106,19 @@ begin
 
     );
 
+    process (clock50mhz) is
+    begin
+      if rising_edge(clock50mhz) then
+        if counter5 < 4 then
+          counter5 <= counter5 + 1;
+        else
+          counter5 <= 0;
+          clock5mhz <= not clock5mhz;
+        end if;
+      end if;
+    end process;
+    
+  
     process is
     begin
       for i in 1 to 10000000 loop
