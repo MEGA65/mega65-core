@@ -643,7 +643,7 @@ miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
 
-MIIMFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
+ETHFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
 		$(VHDLSRCDIR)/test_ethernet.vhdl
 
 ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)

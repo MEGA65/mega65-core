@@ -9,13 +9,13 @@ end entity;
 
 architecture foo of test_ethernet is
 
-  signal clock50mhz : std_logic := '1';
-  signal clock200 : in std_logic;
-  signal reset : in std_logic;
-  signal irq : out std_logic := '1';
-  signal ethernet_cs : in std_logic;
+  signal clock50mhz : std_logic := '0';
+  signal clock200mhz : std_logic := '0';
+  signal reset : std_logic;
+  signal irq : std_logic := '1';
+  signal ethernet_cs : std_logic;
 
-  signal cpu_ethernet_stream : out std_logic := '0';
+  signal cpu_ethernet_stream : std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -64,10 +64,10 @@ begin
     port map (
     clock => clock50mhz,
     clock50mhz => clock50mhz,
-    clock200 => clock200,
+    clock200 => clock200mhz,
     reset => reset,
     irq => irq,
-    ethernet_cs => cs,
+    ethernet_cs => '1',
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -99,36 +99,37 @@ begin
     vicii_raster => to_unsigned(0,12),
     badline_toggle => '0',
     debug_vector => (others => '0'),
-    d031_write_toggle => '
+    d031_write_toggle => '0'
 
     );
 
     process is
+    begin
       for i in 1 to 10000000 loop
         clock200mhz <= '0';
         clock50mhz <= '0';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '1';
         clock50mhz <= '0';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '0';
         clock50mhz <= '0';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '1';
         clock50mhz <= '0';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '0';
         clock50mhz <= '1';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '1';
         clock50mhz <= '1';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '0';
         clock50mhz <= '1';
-        wait for 2.5ns;
+        wait for 2.5 ns;
         clock200mhz <= '1';
         clock50mhz <= '1';
-        wait for 2.5ns;
+        wait for 2.5 ns;
       end loop;
     end process;
 
