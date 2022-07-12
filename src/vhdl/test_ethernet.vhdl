@@ -19,17 +19,19 @@ architecture foo of test_ethernet is
   signal ethernet_cs : std_logic;
 
   signal cpu_ethernet_stream : std_logic := '0';
-    
+
+  signal eth_dibit_counter : integer := 0;
+  
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
   signal eth_mdio : std_logic := 'Z';
   signal eth_mdc : std_logic;
   signal eth_reset : std_logic;
-  signal eth_rxd_in : unsigned(1 downto 0) := "00";
+  signal eth_rxd : unsigned(1 downto 0) := "00";
   signal eth_txd_out : unsigned(1 downto 0);
   signal eth_txen_out : std_logic;
-  signal eth_rxdv_in : std_logic := '0';
+  signal eth_rxdv : std_logic := '0';
   signal eth_rxer : std_logic := '0';
   signal eth_interrupt : std_logic := '0';
     
@@ -76,8 +78,8 @@ begin
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
     eth_mdio => eth_mdio,
-    eth_rxd_in => eth_rxd_in,
-    eth_rxdv_in => eth_rxdv_in,
+    eth_rxd_in => eth_rxd,
+    eth_rxdv_in => eth_rxdv,
     eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
     
@@ -149,4 +151,59 @@ begin
       end loop;
     end process;
 
+    process (clock5mhz) is
+    begin
+      if rising_edge(clock5mhz) then
+        -- Feed in 10mbit ethernet frame data
+
+        eth_dibit_counter <= eth_dibit_counter + 1;
+
+        report "ethernet counter = " & integer'image(eth_dibit_counter);
+        
+        case eth_dibit_counter is
+          when 0   => eth_rxdv <= '0'; eth_rxd <= "00";
+                      -- Send 01010111 final preamble byte
+          when 10  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 13  => eth_rxdv <= '1'; eth_rxd <= "11";
+                      -- Dest MAC: FF:FF:FF:FF:FF:FF
+          when 14  => eth_rxdv <= '1'; eth_rxd <= "11";
+                      -- SRC MAC: 10:05:01:12:34:56
+          when 38  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 39  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 40  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 41  => eth_rxdv <= '1'; eth_rxd <= "00";
+
+          when 42  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 43  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 44  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 45  => eth_rxdv <= '1'; eth_rxd <= "00";
+                      
+          when 46  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 47  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 48  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 49  => eth_rxdv <= '1'; eth_rxd <= "00";
+                      
+          when 50  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 51  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 52  => eth_rxdv <= '1'; eth_rxd <= "10";
+          when 53  => eth_rxdv <= '1'; eth_rxd <= "00";
+                      
+          when 54  => eth_rxdv <= '1'; eth_rxd <= "11";
+          when 55  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 56  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 57  => eth_rxdv <= '1'; eth_rxd <= "01";
+                      
+          when 58  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 59  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 60  => eth_rxdv <= '1'; eth_rxd <= "10";
+          when 61  => eth_rxdv <= '1'; eth_rxd <= "01";
+                      
+          when others => eth_rxdv <= '0'; eth_rxd <= "00";
+        end case;
+        
+        
+      end if;
+    end process;
+    
+    
 end foo;
