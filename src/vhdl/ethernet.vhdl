@@ -893,7 +893,7 @@ begin  -- behavioural
       
       frame_length := to_unsigned(eth_frame_len,11);
       
-      if eth_dibit_strobe='1' then
+      if eth_dibit_strobe='1' or debug_rx='1' then
         case eth_state is
           when Idle =>
             if debug_rx = '1' then
