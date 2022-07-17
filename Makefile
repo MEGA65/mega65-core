@@ -1061,7 +1061,7 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VER
 
 preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries $(SRCDIR)/version.txt
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -1079,10 +1079,10 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILO
 	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 	# Make a copy named after the commit and datestamp, for easy going back to previous versions
-	cp $@ $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.bit
+	cp $@ $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.bit
 	echo ./vivado_timing $(subst bin/,,$*)
 	./vivado_timing $(subst bin/,,$*)
-	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.timing.txt
+	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.timing.txt
 
 $(BINDIR)/%.mcs:	$(BINDIR)/%.bit freezer_files
 	mkdir -p $(SDCARD_DIR)
@@ -1116,7 +1116,7 @@ clean:
 	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
+	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
 	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
@@ -1125,7 +1125,7 @@ clean:
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
-	rm -f $(TOOLS) $(UTILDIR)/version.s
+	rm -f $(TOOLS) $(UTILDIR)/version.s $(SRCDIR)/version.txt
 	rm -f FAIL.* PASS.*
 
 cleanall: clean

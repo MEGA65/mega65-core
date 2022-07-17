@@ -41,8 +41,15 @@ datetime=`date +%Y%m%d.%H`
 # and put it all together
 #
 stringout="${branch},${datetime},${commit_id}"
-echo $stringout
+freezerout="${datetime}-${freeze_branch}-${commit_id_no_dirt}"
+fileout="${datetime}-${freeze_branch}-${commit_id}"
 
+echo "Generated version strings"
+echo "-------------------------"
+echo "internal: ${stringout}"
+echo "freezer:  ${freezerout}"
+echo "file:     ${fileout}"
+echo "-------------------------"
 
 # ###############################
 # generate the source file(s)
@@ -67,6 +74,9 @@ echo "wrote: src/vhdl/version.vhdl"
 # ###############################
 # note that the following string should be no more than 40 chars [TBC]
 #
+echo "${fileout}" > src/version.txt
+echo "wrote: src/version.txt"
+
 echo 'msg_gitcommit: .byte "GIT:'${stringout}'",0' > src/version.a65
 echo "wrote: src/version.a65"
 
@@ -76,7 +86,7 @@ echo "wrote: src/version.asm"
 echo 'msg_gitcommit: .byte "GIT: '${stringout}'"' > src/monitor/version.a65
 echo "wrote: src/monitor/version.a65"
 
-echo -e ".segment \"CODE\"\n_version:\n  .asciiz \"v:${datetime}-${freeze_branch}-${commit_id_no_dirt}\"" > src/utilities/version.s
+echo -e ".segment \"CODE\"\n_version:\n  .asciiz \"v:${freezerout}\"" > src/utilities/version.s
 echo "wrote: src/utilities/version.s"
 
 cat assets/matrix_banner.txt | sed -e 's/GITCOMMITID/'"${stringout}"'/g' | src/tools/format_banner bin/matrix_banner.txt 50

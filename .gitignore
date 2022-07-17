@@ -59,6 +59,7 @@ src/vhdl/version.vhdl
 
 
 # generated ASM
+src/version.txt
 src/version.a65
 src/version.asm
 src/monitor/monitor_dis.a65
