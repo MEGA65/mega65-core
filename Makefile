@@ -970,7 +970,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # NOTE that we should use make to build the ISE project so that the
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm $(BINDIR)/matrix_banner.txt $(UTILDIR)/version.s:	FORCE .git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm src/version.txt $(BINDIR)/matrix_banner.txt $(UTILDIR)/version.s:	FORCE .git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
