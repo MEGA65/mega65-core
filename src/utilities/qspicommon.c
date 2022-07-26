@@ -1132,10 +1132,15 @@ void reflash_slot(unsigned char slot)
         tries++;
         if (tries==10) {
           printf("%c%c%cERROR: Could not write to flash after %d tries.\n",0x11,0x11,0x11,tries);
-          printf("Press any key to enter flash inspector.\n");
-          press_any_key();
+          printf("Please turn the system off!\n");
+          // secret Ctrl-F (keycode 0x06) will launch flash inspector
+          while(PEEK(0xD610)) POKE(0xD610,0);
+          while(PEEK(0xD610) != 0x06) POKE(0xD610,0);
+          while(PEEK(0xD610)) POKE(0xD610,0);
           flash_inspector();
           hy_close();
+          // don't do anything else, as this will result in slot 0 corruption
+          // as global addr gets changed by flash_inspector
           return;
         }
         printf("%c    Erasing sector at $%08lX",0x13,addr);
