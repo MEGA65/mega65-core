@@ -737,13 +737,12 @@ dump_bad_addr:
       jmp         next_command
 
 ; -------------------------------------
-; Dump CPU Memory Command (d or D)
+; Dump CPU Memory Command (@)
 ; -------------------------------------
 .scope
 dump_cpu_memory_cmd:
 	lda #$01
 	sta use_cpu_perspective
-	jmp dump_mem
       plx                               ; pop x
       ; we really should make sure it is only a 16-bit address,
       ; but it isn't that important
