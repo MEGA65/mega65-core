@@ -1468,6 +1468,13 @@ architecture Behavioural of gs4510 is
   signal last_sid_sample_toggle : std_logic := '0';
   signal sid_sample_counter : integer range 0 to 1023 := 0;
 
+  signal trng_consume_toggle : std_logic := '1';
+  signal trng_consume_toggle_last : std_logic := '0';
+  signal next_trng : unsigned(7 downto 0) := x"04"; -- a very random number initially
+  signal trng_valid : std_logic;
+  signal trng_enable : std_logic;
+  signal trng_out : unsigned(7 downto 0);
+  
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -1494,6 +1501,20 @@ begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
 
+  trng0: entity work.neoTRNG generic map (
+    NUM_CELLS => 3,
+    NUM_INV_START => 5,
+    NUM_INV_INC => 2,
+    NUM_INV_DELAY => 2,
+    POST_PROC_EN => true,
+    IS_SIM => false )
+    port map (
+      clk_i => clock,
+      enable_i => trng_enable,
+      unsigned(data_o) => trng_out,
+      valid_o => trng_valid
+      );
+  
   fd0: entity work.fast_divide
     port map (
       clock => clock,
@@ -2689,7 +2710,11 @@ begin
             when x"e9" => return reg_math_cycle_compare(15 downto 8);
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
-
+                          
+            when x"ef" =>
+              -- @IO:GS $D7EF CPU:RAND Hardware random number generator
+              trng_consume_toggle <= not trng_consume_toggle;
+              return next_trng;
             when x"f0" =>
               return reg_cycle_counter;
                           
@@ -2704,6 +2729,8 @@ begin
             when x"f4" => return last_cycles_per_frame(23 downto 16);
             when x"f5" => return last_cycles_per_frame(31 downto 24);
             --@IO:GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+            --@IO:GS $D7F7 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 2)              
+            --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 3)
             --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
             when x"f6" => return last_proceeds_per_frame(7 downto 0);
             when x"f7" => return last_proceeds_per_frame(15 downto 8);
@@ -3701,6 +3728,16 @@ begin
 
     if rising_edge(clock) then
 
+      -- Run TRNG to generate next byte when previous byte has been consumed
+      if trng_consume_toggle /= trng_consume_toggle_last then
+        trng_enable <= '1';
+        if trng_valid = '1' then
+          next_trng <= trng_out;
+          trng_consume_toggle_last <= trng_consume_toggle;
+          trng_enable <= '0';
+        end if;
+      end if;
+      
       if sid_sample_counter /= 918 then
         sid_sample_counter <= sid_sample_counter + 1;
       else
