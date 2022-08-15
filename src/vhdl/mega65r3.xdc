@@ -451,6 +451,3 @@ create_pblock pblock_m65driver
 add_cells_to_pblock pblock_m65driver [get_cells [list MEGA65/i_m2m_keyb/m65driver]]
 resize_pblock pblock_m65driver -add {SLICE_X0Y225:SLICE_X7Y243}
 
-# Allow TRNG to synthesise
-set_property ALLOW_COMBINATORIAL_LOOPS TRUE [get_nets m0.machine0/cpu0/trng0/neoTRNG_cell_inst[0].neoTRNG_cell_inst_i/real_hardware.inv_chain_s_reg[4]_i_1]
-set_property ALLOW_COMBINATORIAL_LOOPS TRUE [get_nets *trng0*]

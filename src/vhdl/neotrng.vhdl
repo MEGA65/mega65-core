@@ -383,6 +383,11 @@ architecture neoTRNG_cell_rtl of neoTRNG_cell is
   signal enable_sreg_l : std_ulogic_vector(NUM_INV_L-1 downto 0); -- enable shift register for long chain
   signal lfsr          : std_ulogic_vector(15 downto 0); -- LFSR - for simulation only!!!
 
+  attribute DONT_TOUCH : string;
+  attribute DONT_TOUCH of enable_sreg_l : signal is "TRUE";
+  attribute ALLOW_COMBINATORIAL_LOOPS : string;
+  attribute ALLOW_COMBINATORIAL_LOOPS of enable_sreg_l : signal is "TRUE";
+  
 begin
 
   -- Ring Oscillator ------------------------------------------------------------------------
