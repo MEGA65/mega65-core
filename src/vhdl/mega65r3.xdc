@@ -451,3 +451,8 @@ create_pblock pblock_m65driver
 add_cells_to_pblock pblock_m65driver [get_cells [list MEGA65/i_m2m_keyb/m65driver]]
 resize_pblock pblock_m65driver -add {SLICE_X0Y225:SLICE_X7Y243}
 
+# NEOTRNG exceptions
+set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
+set_disable_timing cpu0i_10/trng0/i_1/i_6 -from B -to Z
+set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from A -to Z
+set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from B -to Z
