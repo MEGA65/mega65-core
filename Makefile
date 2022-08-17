@@ -134,7 +134,13 @@ all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BI
 # phony target to force submodule builds
 FORCE:
 
-.PHONY: FORCE
+format:
+	submodules=""; for sm in `git submodule | awk '{ print "./" $$2 }'`; do \
+		submodules="$$submodules -o -path $$sm"; \
+	done; \
+	find . -type d \( -path ./release-build $$submodules \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print0 | xargs -0 clang-format --style=file -i --verbose
+
+.PHONY: FORCE format
 
 freezer_files: $(FREEZER_FILES)
 
