@@ -2,11 +2,11 @@ extern struct m65_tm tm_start;
 extern struct m65_tm tm_now;
 
 #ifdef A100T
-#define SLOT_SIZE (4L*1048576L)
+#define SLOT_SIZE (4L * 1048576L)
 #define SLOT_MB 4
 #else
 #define SLOT_MB 8
-#define SLOT_SIZE (8L*1048576L)
+#define SLOT_SIZE (8L * 1048576L)
 #endif
 
 extern unsigned char slot_count;
@@ -33,13 +33,12 @@ extern unsigned short mb;
 
 extern unsigned char buffer[512];
 
-extern short i,x,y,z;
+extern short i, x, y, z;
 
 void probe_qpsi_flash(unsigned char verboseP);
 void reflash_slot(unsigned char slot);
 void reconfig_fpga(unsigned long addr);
 void flash_inspector(void);
-
 
 void read_registers(void);
 void query_flash_protection(unsigned long addr_in_sector);
@@ -51,7 +50,7 @@ void unprotect_flash(unsigned long addr_in_sector);
 unsigned char verify_data_in_place(unsigned long start_address);
 void progress_bar(unsigned char onesixtieths);
 void read_data(unsigned long start_address);
-void program_page(unsigned long start_address,unsigned int page_size);
+void program_page(unsigned long start_address, unsigned int page_size);
 void erase_sector(unsigned long address_in_sector);
 void enable_quad_mode(void);
 
@@ -69,13 +68,11 @@ void spi_write_enable(void);
 void spi_clear_sr1(void);
 void spi_write_disable(void);
 
-
-
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
-#define CASE_INSENSITIVE  0
-#define CASE_SENSITIVE    1
+#define CASE_INSENSITIVE 0
+#define CASE_SENSITIVE 1
 
 /*
   $D6C8-B = address for FPGA to boot from in flash
@@ -100,7 +97,7 @@ void spi_write_disable(void);
 
 /*
   Here are our routines for accessing the SD card without relying on the
-  hypervisor.  Note that we can't even assume that the hypervisor has 
+  hypervisor.  Note that we can't even assume that the hypervisor has
   found and reset the SD card, because of the very early point at which
   the flash menu gets called.  "Alles muss man selber machen" ;)
   Oh, yes, and we have only about 5KB space left in this utility, before

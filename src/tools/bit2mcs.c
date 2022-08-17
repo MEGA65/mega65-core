@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-
-void error(char *fmt, ...) {
+void error(char *fmt, ...)
+{
   va_list ap;
 
   va_start(ap, fmt);
@@ -15,9 +15,9 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
-
-int main(int argc, char *argv[]) {
-  unsigned int loadAddr=0;
+int main(int argc, char *argv[])
+{
+  unsigned int loadAddr = 0;
   FILE *infile;
   FILE *outfile;
   int numBytes, i;
@@ -25,20 +25,20 @@ int main(int argc, char *argv[]) {
   unsigned char lineData[16];
   unsigned int chksum;
 
-	//loadAddr=0;
+  // loadAddr=0;
 
   if (argc != 3) {
     printf("bit2mcs - Converts XILINX bitstream files to flashable files\n"
-	   "Usage: bit2mcs <input file> <output file>\nExample: bit2mcs mega65.bit mega65.mcs\n");
+           "Usage: bit2mcs <input file> <output file>\nExample: bit2mcs mega65.bit mega65.mcs\n");
     exit(1);
   }
 
   infile = fopen(argv[1], "rb");
-  
+
   if (infile == NULL) {
     error("cannot open input file %s", argv[2]);
   }
-  fseek (infile , 120 , SEEK_SET );
+  fseek(infile, 120, SEEK_SET);
   outfile = fopen(argv[2], "wt");
   if (outfile == NULL) {
     error("cannot open output file %s", argv[3]);
@@ -47,9 +47,7 @@ int main(int argc, char *argv[]) {
     if ((loadAddr & 0xFFFF) == 0) {
       fprintf(outfile, ":02000004");
       fprintf(outfile, "%04X", loadAddr >> 16);
-      chksum = 0x02 + 0x04 +
-               ((loadAddr >> 24) & 0xFF) +
-               ((loadAddr >> 16) & 0xFF);
+      chksum = 0x02 + 0x04 + ((loadAddr >> 24) & 0xFF) + ((loadAddr >> 16) & 0xFF);
       fprintf(outfile, "%02X\n", (-chksum) & 0xFF);
     }
     chksum = 0;
@@ -69,8 +67,7 @@ int main(int argc, char *argv[]) {
       fprintf(outfile, "%02X", lineData[i]);
     }
     chksum += numBytes;
-    chksum += ((loadAddr >> 8) & 0xFF) +
-              ((loadAddr >> 0) & 0xFF);
+    chksum += ((loadAddr >> 8) & 0xFF) + ((loadAddr >> 0) & 0xFF);
     fprintf(outfile, "%02X\n", (-chksum) & 0xFF);
     loadAddr += numBytes;
     if (c == EOF) {
