@@ -382,7 +382,7 @@ void main(void)
       else
         reconfig_fpga(selected * (SLOT_SIZE) + 4096);
       break;
-    case 0x0a: // CTRL-J
+    case 0x06: // CTRL-F
       // Flash memory monitor
       printf("%c", 0x93);
       flash_inspector();
