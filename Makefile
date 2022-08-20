@@ -779,38 +779,42 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< -Ln $*.lbl -vm --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
-		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
-
 $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	mkdir -p $(SDCARD_DIR)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --mapfile $(UTILDIR)/ONBOARD.map $(UTILDIR)/version.s $< $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
+	@test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
 
 $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
 	$(UTILDIR)/userwarning.sh
+
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a100t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a100t.prg)
+	@test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
 $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
-	test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
+	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
 $(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/qspicommon.c $(CC65_DEPEND)
 	$(info =============================================================)

@@ -18,7 +18,7 @@ src/tools/*.prg
 src/utilities/*.prg
 src/utilities/userwarning.c
 src/utilities/mega65_config.lbl
-src/utilities/megaflash-a200t.label
+src/utilities/*.label
 src/monitor/gen_dis
 src/tools/ftphelper.c
 src/hyppo/HICKUP.*

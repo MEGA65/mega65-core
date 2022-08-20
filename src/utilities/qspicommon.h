@@ -53,6 +53,7 @@ void read_data(unsigned long start_address);
 void program_page(unsigned long start_address, unsigned int page_size);
 void erase_sector(unsigned long address_in_sector);
 void enable_quad_mode(void);
+char *get_model_name(uint8_t model_id);
 
 void spi_clock_low(void);
 void spi_clock_high(void);
