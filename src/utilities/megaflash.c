@@ -289,8 +289,6 @@ void main(void)
     }
     while (PEEK(0xD610))
       POKE(0xD610, 0);
-
-    printf("%c", 0x93);
   }
 
 #if 0
@@ -307,6 +305,7 @@ void main(void)
   // Scan for existing bitstreams
   scan_bitstream_information();
 
+  printf("%c", 0x93);
   while (1) {
     // home cursor
     printf("%c%c", 0x13, 0x05);
