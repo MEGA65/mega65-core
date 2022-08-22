@@ -464,7 +464,7 @@ void main(void)
 
   printf("%cWelcome to the MEGA65!\n", 0x93);
   printf("\nBefore you go further, there are couple of things you need to do.\n");
-  printf("\nPress F3 - F13 to set the time and date.");
+  printf("\nPress F3 - F13 to set the time and date (shift toggles direction).");
 
   while (1) {
     POKE(0x286, 1);
@@ -485,11 +485,11 @@ void main(void)
     printf("\nTime:  ");
     POKE(0x286, 7);
     if (tm.tm_sec < 61) {
-      printf("%c%02d:%02d:%02d %02d/%s/%04d%c  ", 0x12, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_mday, month_name(tm.tm_mon),
-          tm.tm_year + 1900, 0x92);
+      printf("%c%02d-%s-%04d %02d:%02d:%02d%c  ", 0x12, tm.tm_mday, month_name(tm.tm_mon),
+          tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, 0x92);
     }
     POKE(0x286, 14);
-    printf("\n       F3 F5 F7 F9 F11 F13\n");
+    printf("\n       F9 F11 F13  F3 F5 F7\n");
     POKE(0x286, 1);
     printf("\n\n");
 
@@ -635,8 +635,6 @@ void main(void)
         tm.tm_mday = 31;
       if (tm.tm_mday > 127)
         tm.tm_mday = 31;
-      if (tm.tm_mday > 31)
-        tm.tm_mday = 1;
       switch (tm.tm_mon) {
       case 2:
         if (tm.tm_mday > 29)
@@ -653,6 +651,9 @@ void main(void)
         if (tm.tm_mday > 30)
           tm.tm_mday = 1;
         break;
+      default:
+        if (tm.tm_mday > 31)
+          tm.tm_mday = 1;
       }
       setrtc(&tm);
       break;
@@ -783,6 +784,3 @@ void main(void)
       POKE(0xD054, 0x00);
   }
 }
-
-#define SCREEN_ADDRESS 0x0400
-#define COLOUR_RAM_ADDRESS 0x1f800
