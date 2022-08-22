@@ -607,27 +607,14 @@ not_first_boot_message:
 
 	;; Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 
-first_boot_flag_instruction:
 try_flash_menu:
-
 	;; Use first boot code path only once
 	;; WARNING: Self modifying code!
+first_boot_flag_instruction:
 	bit dont_launch_flash_menu
 
 	;; On first boot, we start the flash menu regardless
 	;; (The flash menu will work out whether to switch bitstream or not)
-
-	jmp launch_flash_menu
-
-	;; On ALT or either joystick button, enter flash menu.
-	;; But only on first boot, while flash menu program can still be relied upon to be in memory.
-	lda $d610
-	cmp #$09
-	beq launch_flash_menu
-	lda $dc00
-	and $dc01
-	and #$10
-	bne dont_launch_flash_menu
 
 launch_flash_menu:
 
@@ -689,7 +676,10 @@ return_from_flashmenu:
 dont_launch_flash_menu:
 	lda ascii_key_in
 	cmp #$09
-	bne fpga_has_been_reconfigured
+	beq noflash_menu
+        lda buckykey_status
+        and #$20
+        beq fpga_has_been_reconfigured
 
 	;; Tell user what to do if they can't access the flash menu
 noflash_menu:
@@ -718,7 +708,7 @@ fpga_has_been_reconfigured:
 
 normalboot:
 
-; add a test if the TAB key is held down
+; add a test if the ESC key is held down
 ; if so, make an endless loop so that a person debugging
 ; and turn trace mode on, move the pc (with 'g<addr>') to skip
 ; over the loop and then comfortably step through early
@@ -728,8 +718,8 @@ normalboot:
 @earlyscan:
         jsr scankeyboard
         bcc @earlycheckkey
-        
-        dex     ;; no key pressed yet
+        ;; no key pressed yet
+        dex
         bne @earlyscan
         jmp @skipearlycheck  ;; no key was pressed, despite looping for a while to wait for it
 
@@ -1501,13 +1491,8 @@ loaded1541rom:
 }
         ;; check for keyboard input to jump to utility menu
         jsr utility_menu_check
-        jsr scankeyboard
-        bcs nokey4
-        cmp #$20
-        bne nokey4
-        jmp utility_menu
-nokey4:
 
+        ;; start system
         jmp go64
 
 ;;         ========================
@@ -2029,19 +2014,19 @@ go64:
         jsr printmessage
 l40a:
 	;; Wait for user to press RUN/STOP to continue booting
-	lda $d610
+	lda ascii_key_in
 	cmp #$03
 	beq l41
 	inc $d020
 	jmp l40a
 l41:
 	;; remove RUN/STOP from key queue
-	sta $d610
+	sta ascii_key_in
 
         ;; Check if hold boot switch is set (control-key)
         ;;
 	lda buckykey_status
-        and #$14
+        and #$04
         beq l42      ;; no, so continue
 
         ;; yes, display message
@@ -2050,14 +2035,12 @@ l41:
         ldy #>msg_releasectrl
         jsr printmessage
 
-l41a:
-        ;; check for ALT key to jump to utility menu
-        jsr utility_menu_check
-
-        ;; and otherwise wait until CTRL is released
+        ;; wait until CTRL is released
+@holdControl:
         lda buckykey_status
         and #$04
-        bne l41a
+        bne @holdControl
+
 l42:
         ;; unmap sector buffer so C64 can see CIAs
         ;;
@@ -2254,11 +2237,11 @@ resetmemmap:
 
 utility_menu_check:
         lda buckykey_status
-	cmp #$20
+	cmp #$20 ;; NO-SCROLL
 	beq @startFlashMenu
-        cmp #$03
+        cmp #$03 ;; both SHIFT
         beq @startUtilMenu
-        and #$10
+        and #$10 ;; ALT
         bne @startUtilMenu
 @menuCheckDone:
         rts
@@ -2289,21 +2272,17 @@ keyboardread:
 @startscan:
         jsr scankeyboard
         bcc @checkkey
-
-        dex     ;; no key pressed yet
+        ;; no key pressed yet
+        dex
         bne @startscan
         jmp kr2  ;; no key was pressed, despite looping for a while to wait for it
 
 @checkkey:
-        cmp #$20
-        bne @notUtilMenu
-        jmp utility_menu
-@notUtilMenu:
         cmp #$30
         bcc kr2
         cmp #$39
         bcc kr1
-kr2:        lda #$20 ;; default to space
+kr2:    lda #$20 ;; default to space
 kr1:
         ;; put character into 6th byte position of ROM file name.
         ;; so no key looks for MEGA65.ROM, where as 0-9 will look

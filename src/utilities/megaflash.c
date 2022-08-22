@@ -27,14 +27,12 @@ char slot_core_version[MAX_SLOTS][32];
 
 void display_version(void)
 {
+  unsigned char key;
   uint8_t hardware_model_id = PEEK(0xD629);
   uint8_t core_hash_1 = PEEK(0xD632);
   uint8_t core_hash_2 = PEEK(0xD633);
   uint8_t core_hash_3 = PEEK(0xD634);
   uint8_t core_hash_4 = PEEK(0xD635);
-
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
 
   printf("%c%c%c", 0x93, 0x11, 0x11);
   printf("  MEGAFLASH/Core hash:\n    %02x%02x%02x%02x%s\n\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
@@ -44,33 +42,92 @@ void display_version(void)
 
   // wait for ESC or RUN/STOP
   do {
-    x = PEEK(0xD610);
+    while (!(key = PEEK(0xD610)));
     POKE(0xD610, 0);
-  } while (x != 0x1b && x != 0x03);
-
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
+  } while (key != 0x1b && key != 0x03);
 
   // CLR screen for redraw
   printf("%c", 0x93);
 }
 
+void scan_bitstream_information(void)
+{
+  short i, j, x, y;
+  unsigned char valid;
+
+  for (i = 0; i < slot_count; i++) {
+    read_data(i * SLOT_SIZE + 0 * 256);
+    //       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
+    y = 0xff;
+    valid = 1;
+    for (x = 0; x < 256; x++)
+      y &= data_buffer[x];
+    for (x = 0; x < 16; x++)
+      if (data_buffer[x] != bitstream_magic[x]) {
+        valid = 0;
+        break;
+      }
+
+    // extract names
+    for (j = 0; j < 31; j++) {
+      slot_core_name[i][j] = data_buffer[16 + j];
+      slot_core_version[i][j] = data_buffer[48 + j];
+      // ASCII to PETSCII conversion
+      if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x57)
+          || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x77))
+        slot_core_name[i][j] ^= 0x20;
+    }
+    slot_core_name[i][31] = 0;
+    slot_core_version[i][31] = 0;
+    slot_core_valid[i] = 1;
+
+    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
+    if (y == 0xff) {
+      read_data(i * SLOT_SIZE + 1 * 256);
+      for (x = 0; x < 256; x++)
+        y &= data_buffer[x];
+    }
+
+    if (i == 0) {
+      // slot 0 is always displayed as FACTORY CORE
+      strncpy(slot_core_name[i], "MEGA65 FACTORY CORE            ", 32);
+    }
+    else if (y == 0xff) {
+      // 0xff in the first 512 bytes, this is empty
+      strncpy(slot_core_name[i], "EMPTY SLOT                     ", 32);
+      memset(slot_core_version[i], ' ', 31);
+      slot_core_version[i][31] = 0;
+      slot_core_valid[i] = 0;
+    }
+    else if (!valid) {
+      // no bitstream magic at the start of the slot
+      strncpy(slot_core_name[i], "UNKNOWN CONTENT                ", 32);
+      memset(slot_core_version[i], ' ', 31);
+      slot_core_version[i][31] = 0;
+      slot_core_valid[i] = 2;
+    }
+
+    // Check if entire slot is empty
+    //    if (slot_empty_check(i)) then do write it into slot info...
+  }
+}
+
 void main(void)
 {
-  unsigned char valid, j;
-  unsigned char selected = 0;
+  unsigned char selected = 0, valid;
   unsigned char selected_reflash_slot;
 
   mega65_io_enable();
 
-  // White text
-  POKE(0x286, 1);
-
   SEI();
 
-  probe_qpsi_flash(0);
-
+  // white text, blue screen, black border, clear screen
+  POKE(0x286, 1);
+  POKE(0xd020, 0);
+  POKE(0xd021, 6);
   printf("%c", 0x93);
+
+  probe_qpsi_flash(0);
 
   // We care about whether the IPROG bit is set.
   // If the IPROG bit is set, then we are post-config, and we
@@ -96,8 +153,11 @@ void main(void)
   // TAB key or NO SCROLL bucky held forces menu to appear
   POKE(0x0340, PEEK(0xD610));
   POKE(0x0341, PEEK(0xD611));
-  if ((PEEK(0xD610) != 0x09) && (!(PEEK(0xD611) & 0x20))) {
-
+#ifdef A100T
+  if ((PEEK(0xD610) != 0x09) && (!(PEEK(0xD611) & 0x20))) { // TAB or NO-SCROLL on nexys and semilar
+#else
+  if (!(PEEK(0xD611) & 0x20)) { // only NO-SCROLL on mega65r2
+#endif
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
     usleep(10);
@@ -245,61 +305,7 @@ void main(void)
     slot_count = 8;
 
   // Scan for existing bitstreams
-  for (i = 0; i < slot_count; i++) {
-    read_data(i * SLOT_SIZE + 0 * 256);
-    //       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
-    y = 0xff;
-    valid = 1;
-    for (x = 0; x < 256; x++)
-      y &= data_buffer[x];
-    for (x = 0; x < 16; x++)
-      if (data_buffer[x] != bitstream_magic[x]) {
-        valid = 0;
-        break;
-      }
-
-    // extract names
-    for (j = 0; j < 31; j++) {
-      slot_core_name[i][j] = data_buffer[16 + j];
-      slot_core_version[i][j] = data_buffer[48 + j];
-      // ASCII to PETSCII conversion
-      if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x57)
-          || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x77))
-        slot_core_name[i][j] ^= 0x20;
-    }
-    slot_core_name[i][31] = 0;
-    slot_core_version[i][31] = 0;
-    slot_core_valid[i] = 1;
-
-    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-    if (y == 0xff) {
-      read_data(i * SLOT_SIZE + 1 * 256);
-      for (x = 0; x < 256; x++)
-        y &= data_buffer[x];
-    }
-
-    if (i == 0) {
-      // slot 0 is always displayed as FACTORY CORE
-      strncpy(slot_core_name[i], "MEGA65 FACTORY CORE            ", 32);
-    }
-    else if (y == 0xff) {
-      // 0xff in the first 512 bytes, this is empty
-      strncpy(slot_core_name[i], "EMPTY SLOT                     ", 32);
-      memset(slot_core_version[i], ' ', 31);
-      slot_core_version[i][31] = 0;
-      slot_core_valid[i] = 0;
-    }
-    else if (!valid) {
-      // no bitstream magic at the start of the slot
-      strncpy(slot_core_name[i], "UNKNOWN CONTENT                ", 32);
-      memset(slot_core_version[i], ' ', 31);
-      slot_core_version[i][31] = 0;
-      slot_core_valid[i] = 2;
-    }
-
-    // Check if entire slot is empty
-    //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
-  }
+  scan_bitstream_information();
 
   while (1) {
     // home cursor
@@ -319,7 +325,7 @@ void main(void)
         // Highlight selected item
         for (x = 0; x < (3 * 40); x++) {
           POKE(base_addr + x, PEEK(base_addr + x) | 0x80);
-          POKE(base_addr + 0xd400 + x, slot_core_valid[i] == 1 ? 1 : (slot_core_valid[i] == 2 ? 2 : 7));
+          POKE(base_addr + 0xd400 + x, slot_core_valid[i] == 1 ? 1 : (slot_core_valid[i] == 0 ? 2 : 7));
         }
       }
       else {
@@ -338,14 +344,21 @@ void main(void)
       x = PEEK(0xd610);
       y = PEEK(0xd611);
     }
-
     POKE(0xd610, 0);
+
     if (x >= '0' && x < slot_count + '0') {
       if (x == '0') {
         reconfig_fpga(0);
       }
-      else if (slot_core_valid[x - '0'] == 1) // only boot slot if valid
-        reconfig_fpga((x - '0') * (SLOT_SIZE) + 4096);
+      else if (slot_core_valid[x - '0'] != 0) // only boot slot if not empty
+        reconfig_fpga((x - '0') * SLOT_SIZE + 4096);
+      else {
+        POKE(0xd020, 2);
+        POKE(0xd021, 2);
+        usleep(150000L);
+        POKE(0xd020, 0);
+        POKE(0xd021, 6);
+      }
     }
 
     selected_reflash_slot = 0;
@@ -379,8 +392,15 @@ void main(void)
         reconfig_fpga(0);
         printf("%c", 0x93);
       }
-      else
-        reconfig_fpga(selected * (SLOT_SIZE) + 4096);
+      else if (slot_core_valid[selected] != 0)
+        reconfig_fpga(selected * SLOT_SIZE + 4096);
+      else {
+        POKE(0xd020, 2);
+        POKE(0xd021, 2);
+        usleep(150000L);
+        POKE(0xd020, 0);
+        POKE(0xd021, 6);
+      }
       break;
     case 0x06: // CTRL-F
       // Flash memory monitor
@@ -389,8 +409,10 @@ void main(void)
       printf("%c", 0x93);
       break;
     case 0x7e: // TILDE (MEGA-LT)
-      if (user_has_been_warned())
+      if (user_has_been_warned()) {
         reflash_slot(0);
+        scan_bitstream_information();
+      }
       printf("%c", 0x93);
       break;
     case 144: // CTRL-1
@@ -427,6 +449,7 @@ void main(void)
 
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
       reflash_slot(selected_reflash_slot);
+      scan_bitstream_information();
       printf("%c", 0x93);
     }
 

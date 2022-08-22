@@ -1289,7 +1289,7 @@ void reflash_slot(unsigned char slot)
   }
 
   printf("%c%c%c%c%c%c%c%c\n"
-         "Flash slot successfully updated.\n",
+         "Flash slot successfully updated.     \n",
       0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11);
   if (load_time + flash_time > 0)
     printf("    Load: %d sec\n"
