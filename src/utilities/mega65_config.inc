@@ -8,11 +8,11 @@
 ;Using the option lists
 ;----------------------
 ;
-;The input options are defined by a type and a list of details for that type.  
-;They usually have an offset and flag byte followed by a set of pascal-style   
-;strings.  The option is defined in the type byte high nybble and the low nybble 
-;used to set the current value (except for string and button input types, see 
-;below).  Pascal strings are used to speed up various operations (list 
+;The input options are defined by a type and a list of details for that type.
+;They usually have an offset and flag byte followed by a set of pascal-style
+;strings.  The option is defined in the type byte high nybble and the low nybble
+;used to set the current value (except for string and button input types, see
+;below).  Pascal strings are used to speed up various operations (list
 ;traversal, on-screen manipulation).  Use .defPStr to declare a Pascal string.
 ;
 ;The options are defined in a list for each page and grouped under six tabs.
@@ -20,9 +20,9 @@
 ;by the user.  Each list must be a maximum of 256 bytes due to a limitation in
 ;the current implementation.  This limitation is checked with compile asserts.
 ;
-;Each page (or list) is defined to belong to one of six tabs, as already 
-;mentioned.  These tabs are:  System, Disk, Video, Audio, Network and Save.  
-;The Save tab options must not be changed as the code relies on them being 
+;Each page (or list) is defined to belong to one of six tabs, as already
+;mentioned.  These tabs are:  System, Disk, Video, Audio, Network and Save.
+;The Save tab options must not be changed as the code relies on them being
 ;defined in a particular way (although the text of the buttons can be changed).
 ;
 ;The number of screen lines used to display a page's options must not exceed 20.
@@ -41,14 +41,14 @@
 ;			followed by word offset and byte flags
 ;			requires 3 strings:  label, option unset, option set.
 ;	30	-	string input.
-;			followed by word offset and byte for string 
+;			followed by word offset and byte for string
 ;			length requires 1 string:  label
 ;			requires data area of string length for storage.
 ;			input string will be null or length terminated.
 ;	40	- 	Blank line, no data
 ;	50	-	MAC Address input.  requires 1 string (label), word
 ;			offset and data	area of 6 bytes for storage of address.
-;	
+;
 ;===============================================================================
 
 
@@ -56,14 +56,14 @@
 configMagicByte0	=	$01
 configMagicByte1	=	$01
 ;-------------------------------------------------------------------------------
-	
+
 
 
 ;-------------------------------------------------------------------------------
 ;Input tab
 ;-------------------------------------------------------------------------------
 inputPageCnt	=	1
-	
+
 inputOptions0:
 
 	.byte		$20			;option input type
@@ -105,7 +105,7 @@ inputOptions0_end:
 
 inputPageIndex:
 	.word		inputOptions0
-	
+
 
 ;-------------------------------------------------------------------------------
 ;Chipset tab
@@ -116,7 +116,7 @@ chipsetOptions0:
 	; Dummy field for RTC values.
   	; In reality, we read it from the RTC, and write the values
 	; back there.
-	.byte		$60	
+	.byte		$60
 	.word		$01f0
 	.defPStr	"real-time clock:"
 rtc_values:
@@ -140,7 +140,7 @@ rtc_values:
 	.word		$0010			;offset into config table
 	.byte		$10			;input string length
 	.defPStr	"default disk image:"	;label
-	
+
 	.byte		$00, $00, $00, $00	;storage for value
 	.byte		$00, $00, $00, $00
 	.byte		$00, $00, $00, $00
@@ -160,8 +160,8 @@ chipsetOptions0_end:
 
 chipsetPageIndex:
 	.word		chipsetOptions0
-	
-	
+
+
 ;-------------------------------------------------------------------------------
 ;Video tab
 ;-------------------------------------------------------------------------------
@@ -247,7 +247,7 @@ audioOptions1:
 
 audioOptions1_end:
 	.assert		(audioOptions1_end - audioOptions1) < 256, error, "Audio Options 1 too large!"
-	
+
 
 audioPageIndex:
 	.word		audioOptions0
@@ -301,10 +301,10 @@ saveOptions1:
 	.byte		$10
 	.defPStr	"ok"
 	.byte		$00
-	
+
 saveOptions2:
 	.byte		$00
-	
+
 savePageIndex:
 	.word		saveOptions0, saveOptions1, saveOptions2
 
@@ -331,6 +331,6 @@ helpOptions0:
 	.defPStr	"ok"
 
 	.byte		$00
-	
+
 helpPageIndex:
 	.word		helpOptions0
