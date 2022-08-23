@@ -639,7 +639,9 @@ void main(void)
       case 2:
         if (tm.tm_mday > 29)
           tm.tm_mday = 1;
-        if ((tm.tm_year & 3) || (tm.tm_year == 0) || (tm.tm_year == 200)) {
+        // year is minus 1900, so 100 is 2000 (no leap year), and we
+        // do not need to check 500, as the RTC can't do this.
+        if (tm.tm_year & 3 || tm.tm_year == 100) {
           if (tm.tm_mday > 28)
             tm.tm_mday = 1;
         }
@@ -674,7 +676,9 @@ void main(void)
       case 2:
         if (tm.tm_mday > 29)
           tm.tm_mday = 29;
-        if ((tm.tm_year & 3) || (tm.tm_year == 0) || (tm.tm_year == 200)) {
+        // year is minus 1900, so 100 is 2000 (no leap year), and we
+        // do not need to check 500, as the RTC can't do this.
+        if (tm.tm_year & 3 || tm.tm_year == 100) {
           if (tm.tm_mday > 28)
             tm.tm_mday = 28;
         }
