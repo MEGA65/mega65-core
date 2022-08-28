@@ -2166,10 +2166,6 @@ begin  -- behavioural
           -- point to first sector if disk instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
-        if f011_d64_disk='1' and ((f011_track >17) or (f011_track = 17 and f011_sector > 1)) then
-          -- Past end of D64 image, point to first sector instead
-          diskimage1_offset <= to_unsigned(0,17);
-        end if;
       elsif f011_mega_disk='0' and f011_d64_disk='1' then
         -- 1541 disk image
         -- CBDOS ROM is responsible for implementing the 1541 geometry.
@@ -2229,10 +2225,6 @@ begin  -- behavioural
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
           diskimage2_offset <= to_unsigned(0,17);
-        end if;
-        if f011_d64_disk2='1' and ((f011_track >17) or (f011_track = 17 and f011_sector > 1)) then
-          -- Past end of D64 image, point to first sector instead
-          diskimage1_offset <= to_unsigned(0,17);
         end if;
       elsif f011_mega_disk2='0' and f011_d64_disk2='1' then
         -- 1541 disk image
