@@ -3052,7 +3052,7 @@ msg_noflashmenu:
 
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.16"
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
