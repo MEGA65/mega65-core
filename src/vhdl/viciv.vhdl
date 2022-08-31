@@ -357,6 +357,7 @@ architecture Behavioral of viciv is
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
   signal ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   signal ycounter_drive : unsigned(11 downto 0) := (others => '0');
+  signal last_ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   -- Virtual raster number for VIC-II
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
@@ -3188,11 +3189,15 @@ begin
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
-        -- However, if a raster interrupt is being triggered from a VIC-IV
-        -- physical raster, then there is no need to make raster IRQs edge triggered
-        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) then
+        -- Make VIC-IV raster interrupts edge triggered, as well, to avoid re-triggering
+        -- of the raster interrupt at the end of the raster line (eg. if the raster
+        -- interrupt has already been acknowledged before the raster line reaches the end).
+        -- Retriggering would happen once external_frame_x_zero_latched = '1' but ycounter
+        -- not yet updated (it will get updated two clock cycles later).
+        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) and last_ycounter /= ycounter then
           irq_raster <= '1';
         end if;
+        last_ycounter <= ycounter;
 
         if last_external_frame_x_zero_latched='0' then
           -- ... update Y position, even during VSYNC, since frame timing is
