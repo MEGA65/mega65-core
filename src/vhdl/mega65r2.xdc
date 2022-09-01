@@ -88,6 +88,10 @@ set_property -dict {PACKAGE_PIN M22 IOSTANDARD LVCMOS33} [get_ports {cart_a[3]}]
 set_property -dict {PACKAGE_PIN K21 IOSTANDARD LVCMOS33} [get_ports {cart_a[2]}]
 set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33} [get_ports {cart_a[1]}]
 set_property -dict {PACKAGE_PIN K19 IOSTANDARD LVCMOS33} [get_ports {cart_a[0]}]
+# Place Cartidge near IO Pins
+create_pblock pblock_cart
+add_cells_to_pblock pblock_cart [get_cells [list slow_devices0/cartport0]]
+resize_pblock pblock_cart -add {SLICE_X0Y50:SLICE_X7Y134}
 
 # C65 Keyboard
 #
@@ -100,6 +104,11 @@ set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports kb_io0]
 set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports kb_io1]
 set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
 set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
+# Place Keyboard close to I/O pins
+create_pblock pblock_kbd0
+add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0]]
+resize_pblock pblock_kbd0 -add {SLICE_X0Y175:SLICE_X9Y189}
+
 
 # Joystick port A
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
@@ -237,29 +246,29 @@ set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_le
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports PS2Data]
 
 ##Quad SPI Flash
-set_property  -dict { PACKAGE_PIN P22 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[0]}]
-set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1]}]
-set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
-set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
+set_property  -dict { PACKAGE_PIN P22 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[0]}]
+set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[1]}]
+set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[2]}]
+set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[3]}]
 set_property  -dict { PACKAGE_PIN T19 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
-set_property PULLUP true [get_ports {qspidb[0]}]
-set_property PULLUP true [get_ports {qspidb[1]}]
-set_property PULLUP true [get_ports {qspidb[2]}]
-set_property PULLUP true [get_ports {qspidb[3]}]
 
 ## Hyper RAM
-set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr_clk_p]
-set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[0]}]
-set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[1]}]
-set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[2]}]
-set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[3]}]
-set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[4]}]
-set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[5]}]
-set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[6]}]
-set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr_d[7]}]
-set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr_rwds]
+set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[7]}]
+set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_cs0]
+# Place HyperRAM close to I/O pins
+create_pblock pblock_hyperram
+add_cells_to_pblock pblock_hyperram [get_cells [list hyperram0]]
+resize_pblock pblock_hyperram -add {SLICE_X0Y135:SLICE_X35Y179}
 
 ## Pmod Header P1
 #set_property -dict { PACKAGE_PIN F1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
@@ -344,6 +353,10 @@ set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports max10_tx]
 set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports max10_rx]
 set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports reset_from_max10]
+# Place MAX10 close to I/O pins
+create_pblock pblock_max10
+add_cells_to_pblock pblock_max10 [get_cells [list max10]]
+resize_pblock pblock_max10 -add {SLICE_X0Y100:SLICE_X10Y112}
 
 ##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
