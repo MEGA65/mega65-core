@@ -2670,7 +2670,7 @@ begin
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
           shadow_mask_enable <= fastio_wdata(6);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
@@ -2898,14 +2898,14 @@ begin
           -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
           sprite_v400_super_msbs <= fastio_wdata;
         elsif register_number=121 then  -- $D3079
-          -- @IO:GS $D079 VIC-IV:RASCMP Raster compare value
+          -- @IO:GS $D079 VIC-IV:RASCMP Physical raster compare value to be used if FNRSTCMP is clear
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
-          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
