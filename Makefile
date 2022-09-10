@@ -142,7 +142,10 @@ format:
 
 .PHONY: FORCE format
 
-freezer_files: $(FREEZER_FILES)
+freezer_files: $(SDCARD_DIR) $(FREEZER_FILES)
+
+$(SDCARD_DIR):
+	mkdir $(SDCARD_DIR)
 
 SUBMODULEUPDATE= \
 	@if [ -z "$(DO_SMU)" ] || [ "$(DO_SMU)" -eq "1" ] ; then \
@@ -1123,7 +1126,6 @@ clean:
 	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
 	## should not remove iomap.txt, as this is committed to repo!
 	#rm -f iomap.txt
-	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
 	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
