@@ -2,9 +2,11 @@
 ;M65 Configuration Utility
 ;===============================================================================
 ;
-;Version 00.99D beta
+;Version 01.00
+;Copyright (c) 2022 M.E.G.A., Daniel England
 ;
 ;Written by Daniel England for the MEGA65 project.
+;
 ;-------------------------------------------------------------------------------
 ;
 ;The mouse driver was initially cobbled together from the example in the 1351
@@ -14,6 +16,38 @@
 ;A small portion of the C64 Kernal's reset routines have been copied and
 ;utilised.
 ;
+;
+;TODO
+;
+;HISTORY
+;		27AUG2022	dengland	01.00
+;			-	Date sub field movement
+;			-	Fix potential concurrency issues
+;			-	Date input month
+;			-	Date input day/year
+;			-	Date commit write to RTC
+;		26AUG2022	dengland	01.00
+;			-	Time validation routines
+;			-	Ensure valid date and time at start
+;			-	Do not write date or time when machine has no RTC
+;			-	Do not fetch time and date in IRQ when RTC not present
+;			-	Randomise MAC when press R
+;			-	Make MAC address uni cast when press U
+;			-	Update NIC MAC address also when save option
+;		24AUG2022	dengland	01.00
+;			-	BCD transformation
+;			-	Date validation routines
+;			-	Date look-up routines
+;		23AUG2022	dengland	01.00
+;			-	Reimplement RTC control input keys
+;			-	Add date control (display)
+;			-	Date display routines
+;			-	Ensure RTC hour is correct in key entry
+;		22AUG2022	dengland	01.00
+;			-	Move selection up/down properly navigates new controls
+;			-	Unhook RTC control from MAC control
+;			-	Real-time updates of RTC
+;			-	Debounce RTC reads
 ;===============================================================================
 
 
@@ -32,16 +66,18 @@
 ;	on a C64, using only C64 features).  Set to 0 to run in "M65 mode"
 ;	(doesn't use Kernal, uses M65 features).  This is for the sake of
 ;	debugging.
+
+;	WARNING!  This define may no longer be supported
 	.define		C64_MODE	0
 
 ;	Set this to use certain other debugging features
 	.define		DEBUG_MODE	0
 
-	.if		C64_MODE
+.if		C64_MODE
 	.setcpu	"6502"
-	.else
-	.setcpu		"4510"
-	.endif
+.else
+	.setcpu	"4510"
+.endif
 
 ;===============================================================================
 
@@ -49,31 +85,32 @@
 ;===============================================================================
 ;ZPage storage
 ;-------------------------------------------------------------------------------
-ptrCurrOpts	=	$40			;Might be able to be non-ZP
-selectedOpt	=	$42			;Might be able to be non-ZP
-optTempLine	=	$43			;Might be able to be non-ZP
-optTempIndx	=	$44			;Might be able to be non-ZP
-tabSelected	=	$45			;Might be able to be non-ZP
-saveSlctOpt	=	$46			;Might be able to be non-ZP
-progTermint	=	$47			;Might be able to be non-ZP
-pgeSelected	=	$48			;Might be able to be non-ZP
-currPageCnt	=	$49			;Might be able to be non-ZP
+ptrCurrOpts	=	$40			;word
+selectedOpt	=	$42			;byte
+optTempLine	=	$43			;byte
+optTempIndx	=	$44			;byte
+tabSelected	=	$45			;byte
+saveSlctOpt	=	$46			;byte
+progTermint	=	$47			;byte
+pgeSelected	=	$48			;byte
+currPageCnt	=	$49			;byte
 
-ptrTempData	=	$A5
-crsrIsDispl	=	$A7			;Might be able to be non-ZP
-ptrCrsrSPos	=	$A8
-ptrNextInsP	=	$AA
-currTextLen	=	$AC			;Might be able to be non-ZP
-currTextMax	=	$AD			;Might be able to be non-ZP
-ptrIRQTemp0	=	$AE
-ptrPageIndx	=	$B0
-currMACByte	=	$B2			;Might be able to be non-ZP
-currMACNybb	=	$B3			;Might be able to be non-ZP
+ptrTempData	=	$A5			;word
+crsrIsDispl	=	$A7			;byte
+ptrCrsrSPos	=	$A8			;word
+ptrNextInsP	=	$AA			;word
+currTextLen	=	$AC			;byte
+currTextMax	=	$AD			;byte
+ptrIRQTemp0	=	$AE			;word
+ptrPageIndx	=	$B0			;word
+currMACByte	=	$B2			;byte
+currMACNybb	=	$B3			;byte
+currDATIndx	=	$B4			;byte
 
-zp32		=	$F7	; 32-bit pointer for far memory access
+zpRTC32		=	$F7			;dword RTC memory access
 
-ptrOptsTemp	=	$FB
-ptrCurrHeap	=	$FD
+ptrOptsTemp	=	$FB			;word
+ptrCurrHeap	=	$FD			;word
 ;===============================================================================
 
 
@@ -249,15 +286,15 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		": version 00.99e beta     :"
+	.byte		"- version 01.00              B"
 infoText1:
 	.if	C64_MODE
-	.byte		": press f8 for help       :"
+	.byte		"- press f8 for help          B"
 	.else
-	.byte		": press help for help     :"
+	.byte		"- press help for a help page B"
 	.endif
 infoText2:
-	.byte		": f7 - save and exit opts :"
+	.byte		"- f7 for save/exit options   B"
 
 count_infoTexts = 3
 
@@ -335,10 +372,10 @@ helpSpacer:
 
 helpTexts:
 	.word	helpText0,  helpSpacer
-  .word helpText1,  helpText2,  helpText4,  helpText5,  helpSpacer
+	.word	helpText1,  helpText2,  helpText4,  helpText5,  helpSpacer
 	.word	helpText6,  helpText7,  helpText8,  helpSpacer
 	.word	helpText9,  helpTextA,  helpSpacer
-  .word helpTextB,  helpTextC,  helpSpacer
+	.word	helpTextB,  helpTextC,  helpSpacer
 	.word	helpTextD
 	.byte	$00
 
@@ -360,9 +397,9 @@ sdErrorTxt6:
 
 
 sdErrorTexts:
-	.word	helpTextD, sdErrorTxt0, helpTextD, helpTextD
-	.word	sdErrorTxt1, sdErrorTxt2, helpTextD, helpTextD
-	.word	sdErrorTxt3, sdErrorTxt4, helpTextD
+	.word	helpSpacer, sdErrorTxt0, helpSpacer, helpSpacer
+	.word	sdErrorTxt1, sdErrorTxt2, helpSpacer, helpSpacer
+	.word	sdErrorTxt3, sdErrorTxt4, helpSpacer
 	.word	sdErrorTxt5, sdErrorTxt6
 	.byte	$00
 
@@ -387,6 +424,20 @@ sdcSlot:
 
 sdcounter:
 	.dword	$00000000
+
+dispChanged:
+	.byte	$00
+dispRefresh:
+	.byte	$00
+
+rtc_enable:
+	.byte	$00
+rtc_block:
+	.byte	$00
+rtc_dirty:
+	.byte	$00
+rtc_values:
+	.byte	$00, $00, $00, $00, $00, $00
 ;===============================================================================
 
 
@@ -433,13 +484,37 @@ init:
 
 		JSR	initState
 
+		LDA	#<$7110
+		STA	zpRTC32 + 0
+		LDA	#>$7110
+		STA	zpRTC32 + 1
+		LDA	#<$FFD
+		STA	zpRTC32 + 2
+		LDA	#>$FFD
+		STA	zpRTC32 + 3
+
+;	Check if have RTC for models Mega65 R2 and above & MegaPhone
+		LDA	#$00
+		STA	rtc_enable
+
+		LDA	$D629
+		CMP	#$40
+		BCS	@cont0
+
+		CMP	#$02
+		BCC	@cont0
+
+		LDA	#$01
+		STA	rtc_enable
+
+@cont0:
 	.if	.not DEBUG_MODE
 	.if	.not C64_MODE
 		JSR	selectSDC
 
 		LDA	sdcSlot
 		CMP	#$FF
-		BEQ	@cont0
+		BEQ	@skip0
 
 ;		JSR	checkSanity
 		JSR	hypervisorLoadOrResetConfig
@@ -447,10 +522,10 @@ init:
 	.endif
 	.endif
 
-@cont0:
+@skip0:
 		JSR	initMouse
 
-		CLI				;enable the interrupts
+;		CLI				;enable the interrupts
 
 		LDA	#$00
 		STA	progTermint
@@ -480,12 +555,19 @@ init:
 
 		JSR	setupSelectedTab
 
+
 ;-------------------------------------------------------------------------------
 main:
 ;-------------------------------------------------------------------------------
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 @inputLoop:
+		CLI
+
+		SEI
+
 		LDA	progTermint
 		BEQ	@cont
 
@@ -493,6 +575,35 @@ main:
 		JMP	@halt
 
 @cont:
+		LDA	dispChanged
+		BNE	@refresh
+
+		LDA	tabSelected
+		CMP	#$01
+		BNE	@begin
+
+;		SEI
+		LDA	rtc_dirty
+		BEQ	@begin
+
+		LDA	rtc_block
+		BNE	@begin
+
+		LDA	#$00
+		STA	rtc_dirty
+
+@refresh:
+		LDA	#$01
+		STA	dispRefresh
+		JSR	displayOptionsPage
+
+		LDA	#$00
+		STA	dispRefresh
+		STA	dispChanged
+
+@begin:
+;		CLI
+
 		JSR	hotTrackMouse
 
 		LDA	ButtonLClick
@@ -522,6 +633,9 @@ main:
 		BNE	@tstDownKey
 
 		JSR	themeNext
+
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 		JMP	@inputLoop
@@ -543,8 +657,10 @@ main:
 @tstF3Key:
 		CMP	#$1D
 		BEQ	@doMoveTabLeft
+
 		CMP	#keyF3
 		BNE	@tstF1Key
+
 @doMoveTabLeft:
 		JSR	moveTabLeft
 		JMP	main
@@ -552,8 +668,10 @@ main:
 @tstF1Key:
 		CMP	#$9D
 		BEQ	@doMoveTabRight
+
 		CMP	#keyF1
 		BNE	@tstF4Key
+
 @doMoveTabRight:
 		JSR	moveTabRight
 		JMP	main
@@ -809,7 +927,7 @@ copySessionOptionsToSectorBuffer:
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
 ;	disable interrupts, just in-case they are interfering
-		SEI
+;		SEI
 
 ;	enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
 		LDA	#$81
@@ -836,7 +954,7 @@ copySessionOptionsToSectorBuffer:
 		STA	$DE00
 		STA	$DE01
 
-		CLI
+;		CLI
 		RTS
 
 ;-------------------------------------------------------------------------------
@@ -845,7 +963,7 @@ copyDefaultOptionsToSectorBuffer:
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
 ;	disable interrupts, just in-case they are interfering
-		SEI
+;		SEI
 
 ;	enable mapping of the SD/FDC sector buffer at $DE00 – $DFFF
 		LDA	#$81
@@ -872,7 +990,7 @@ copyDefaultOptionsToSectorBuffer:
 		STA	$DE00
 		STA	$DE01
 
-		CLI
+;		CLI
 
 		RTS
 
@@ -931,7 +1049,8 @@ hypervisorLoadOrResetConfig:
 		STA	$D680
 
 ;;; Work-around for retrieving Real-Time Clock values for editing
-		jsr readRealTimeClock
+		JSR	readRealTimeClock
+		JSR	copyRealTimeClock
 
 ;;	 Check for empty config
 		LDA	optDfltBase+0
@@ -939,7 +1058,10 @@ hypervisorLoadOrResetConfig:
 		BEQ	getDefaultSettings
 		RTS
 
+
+;----------------------------------------------------------
 getDefaultSettings:
+;----------------------------------------------------------
 ;;	 Empty config, so zero out and reset
 		LDA	#$00
 		TAX
@@ -954,86 +1076,283 @@ getDefaultSettings:
 		STA	optDfltBase
 		STA	optDfltBase+1
 
-	;; MAC address
-	;; Generate a random one
+;	MAC address
+;	Generate a random one
 		LDX	#$05
 @macrandom:
 		PHX
 		JSR	getRandomByte
 		PLX
-		STA	optDfltBase+6, X
+		STA	optDfltBase + 6, X
 		STA	$D6E9, X
 		DEX
-		bpl @macrandom
-		LDA	$DE06
+		BPL	@macrandom
+
+		LDA	optDfltBase + 6
 		ORA	#$02	; Make "locally administered"
 		AND	#$FE 	; Make unicast
-		STA	$DE06
+		STA	optDfltBase + 6
 		STA	$D6E9
 
-		jsr readRealTimeClock
+		JSR	readRealTimeClock
+		JSR	copyRealTimeClock
 
 		RTS
 
+;----------------------------------------------------------
+copyRealTimeClock:
+;----------------------------------------------------------
+		LDA	rtc_enable
+		BNE	@begin
+
+		RTS
+
+@begin:
+		LDA	rtc_values + $2
+		STA	optDfltBase + $1f2	; seconds
+		STA	optSessBase + $1f2	; seconds
+
+		LDA	rtc_values + $1
+		STA	optDfltBase + $1f1	; minutes
+		STA	optSessBase + $1f1	; minutes
+
+		LDA	rtc_values + $0
+;; Hide bit7 which indicates 24 hour time
+		AND	#$7F
+		STA	optDfltBase + $1f0		; hours
+		STA	optSessBase + $1f0		; hours
+
+		LDA	rtc_values + $3
+		STA	optDfltBase + $1f3	; day of month
+		STA	optSessBase + $1f3	; day of month
+
+		LDA	rtc_values + $4
+		STA	optDfltBase + $1f4	; month of year
+		STA	optSessBase + $1f4	; month of year
+
+		LDA	rtc_values + $5
+		STA	optDfltBase + $1f5	; year
+		STA	optSessBase + $1f5	; year
+
+		JSR	reinitDateTime
+
+		RTS
+
+
+;----------------------------------------------------------
+reinitDateTime:
+;----------------------------------------------------------
+;	Write-enable the clock
+		LDZ	#8
+		NOP
+		LDA	(zpRTC32), Z
+		ORA	#$40
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		LDZ	#0
+		LDA	rtc_values + 2
+		NOP
+		STA (zpRTC32), Z
+		JSR	i2cwait
+
+		INZ
+		LDA	rtc_values + 1
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		INZ
+		LDA	rtc_values + 0
+
+;	Always store RTC time in 24-hour format
+		ORA	#$80
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		INZ
+		LDA	rtc_values + 3
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		INZ
+		LDA	rtc_values + 4
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		INZ
+		LDA	rtc_values + 5
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+;	Write-protect the clock
+		LDZ	#8
+		NOP
+		LDA	(zpRTC32), Z
+		AND	#$BF
+		NOP
+		STA	(zpRTC32), Z
+		LDZ #0
+
+		RTS
+
+
+
+rtc_readdata:
+	.byte	$00, $00, $00, $00
+
+
+;----------------------------------------------------------
+waitRTCData:
+;----------------------------------------------------------
+		LDX	#$00
+@loop0:
+		LDY	#$00
+@loop1:
+		DEY
+		BNE	@loop1
+
+		DEX
+		BNE	@loop0
+
+		RTS
+
+
+;----------------------------------------------------------
+readRTCData:
+;----------------------------------------------------------
+		LDA	#$00
+		STA	rtc_readdata
+		LDA	#$01
+		STA	rtc_readdata + 1
+
+@loop:
+		LDA	rtc_readdata
+		CMP	rtc_readdata + 1
+		BNE	@next
+
+		CMP	rtc_readdata + 2
+		BNE	@next
+
+		CMP	rtc_readdata + 3
+		BEQ	@found
+
+@next:
+		NOP
+		LDA	(zpRTC32), Z
+		STA	rtc_readdata
+
+		JSR	waitRTCData
+
+		NOP
+		LDA	(zpRTC32), Z
+		STA	rtc_readdata + 1
+
+		JSR	waitRTCData
+
+		NOP
+		LDA	(zpRTC32), Z
+		STA	rtc_readdata + 2
+
+		JSR	waitRTCData
+
+		NOP
+		LDA	(zpRTC32), Z
+		STA	rtc_readdata + 3
+
+		JSR	waitRTCData
+
+		BRA	@loop
+
+@found:
+		LDA	rtc_readdata
+		RTS
+
+
+;----------------------------------------------------------
 readRealTimeClock:
-	;; We insert them, as though they came from the config sector
-	;; $FFD7110-5 has the real-time clock values on MEGA65R2
-	;; XXX - Support MEGAphone as well
-	lda #<$7110
-	sta zp32+0
-	lda #>$7110
-	sta zp32+1
-	lda #<$FFD
-	sta zp32+2
-	lda #>$FFD
-	sta zp32+3
-	LDZ #0
-	NOP
-	LDA (zp32),Z
-	STA optDfltBase+$1f2	; seconds
-	STA optSessBase+$1f2	; seconds
-	sta rtc_values+$2
-	INZ
-	NOP
-	LDA (zp32),Z
-	STA optDfltBase+$1f1	; minutes
-	STA optSessBase+$1f1	; minutes
-	sta rtc_values+$1
-	INZ
-	NOP
-	LDA (zp32),Z
-	;; Hide bit7 which indicates 24 hour time
-	and #$7f
-	STA optDfltBase+$1f0		; hours
-	STA optSessBase+$1f0		; hours
-	sta rtc_values+$0
-	INZ
-	;; YY-MM-DD date, so neither the Americans nor Europeans can claim we are favouring the other
-	NOP
-	LDA (zp32),Z
-	STA optDfltBase+$1f5	; day of month
-	STA optSessBase+$1f5	; day of month
-	sta rtc_values+$5
-	INZ
-	NOP
-	LDA (zp32),Z
-	STA optDfltBase+$1f4	; month of year
-	STA optSessBase+$1f4	; month of year
-	sta rtc_values+$4
-	INZ
-	NOP
-	LDA (zp32),Z
-	STA optDfltBase+$1f3	; year
-	STA optSessBase+$1f3	; year
-	sta rtc_values+$3
-	LDZ #0
+;----------------------------------------------------------
+		LDZ	#0
 
-	RTS
+@seconds:
+		JSR	readRTCData
+		STA	rtc_values + $2		;seconds
+		INZ
+
+@minutes:
+		JSR	readRTCData
+		STA	rtc_values + $1		;minutes
+		INZ
+
+@hours:
+		JSR	readRTCData
+;; Hide bit7 which indicates 24 hour time
+		AND	#$7F
+		STA	rtc_values + $0		;hours
+		INZ
+
+@day:
+		JSR	readRTCData
+		STA	rtc_values + $3		;day
+		INZ
+
+@month:
+		JSR	readRTCData
+		STA	rtc_values + $4		;month
+		INZ
+
+@year:
+		JSR	readRTCData
+		STA	rtc_values + $5		;year
+
+		LDZ	#0
 
 
+		LDA	rtc_values + 2
+		STA	dispOptTemp0
+		LDA	rtc_values + 1
+		STA	dispOptTemp1
+		LDA	rtc_values + 0
+		STA	dispOptTemp2
+
+;	s, m, h in dispOptTemp0...
+		JSR	timeValidateTime
+
+		LDA	dispOptTemp0
+		STA	rtc_values + 2
+		LDA	dispOptTemp1
+		STA	rtc_values + 1
+		LDA	dispOptTemp2
+		STA	rtc_values + 0
+
+		LDA	rtc_values + 3
+		STA	dispOptTemp0
+		LDA	rtc_values + 4
+		STA	dispOptTemp1
+		LDA	rtc_values + 5
+		STA	dispOptTemp2
+
+;	d, m , y in dispOptTemp0, 1, 2
+		JSR	dateValidateDate
+
+		LDA	dispOptTemp0
+		STA	rtc_values + 3
+		LDA	dispOptTemp1
+		STA	rtc_values + 4
+		LDA	dispOptTemp2
+		STA	rtc_values + 5
+
+		RTS
 
 
+;-----------------------------------------------------------
 getRandomByte:
+;-----------------------------------------------------------
 	;; get parity of 256 reads of lowest bit of FPGA temperature
 	;; for each bit. Then add to raster number.
 	;; Should probably have more than enough entropy, even if the
@@ -1403,10 +1722,27 @@ doReadOpt:
 @tstMACOpt:
 		CMP	#$50
 		BEQ	@isMACOpt
-		CMP	#$60
-		BNE	@unknownOpt
-@isMACOpt:
 
+		CMP	#$60
+		BEQ	@isRTCOpt
+
+		CMP	#$70
+		BNE	@unknownOpt
+
+@isRTCOpt:
+		INY
+		JSR	setOptBasePtr
+		JSR	doSkipString
+		TYA
+		CLC
+		ADC	#$03
+		TAY
+
+		CLC
+		RTS
+
+
+@isMACOpt:
 		INY
 		JSR	setOptBasePtr
 
@@ -1558,6 +1894,7 @@ doWaitForUser:
 		STA	$D610
 		STA	$D020
 		RTS
+
 
 ;-------------------------------------------------------------------------------
 doSaveOptions:
@@ -1839,13 +2176,28 @@ doSaveOpt:
 @tstMACOpt:
 		CMP	#$50
 		BEQ	@isMACOpt
-		CMP	#$60
-		BNE	@unknownOpt
-@isMACOpt:
 
+		CMP	#$60
+		BNE	@isRTCOpt
+
+		CMP	#$70
+		BNE	@unknownOpt
+
+@isRTCOpt:
 		INY
 		JSR	setOptBasePtr
+		JSR	doSkipString
+		TYA
+		CLC
+		ADC	#$03
+		TAY
 
+		CLC
+		RTS
+
+@isMACOpt:
+		INY
+		JSR	setOptBasePtr
 		JSR	doSkipString
 
 		STY	readTemp2
@@ -1864,6 +2216,8 @@ doSaveOpt:
 ;		STA	(ptrTempData), Y
 		STA_HYPERIO
 
+		STA	$D6E9, X
+
 		INC	readTemp0
 
 		INX
@@ -1879,6 +2233,8 @@ doSaveOpt:
 @unknownOpt:
 		SEC
 		RTS
+
+
 
 ;-------------------------------------------------------------------------------
 doJumpApplyNow:
@@ -1916,7 +2272,22 @@ doTestDataInput:
 		BEQ	@doMacKeys
 
 		CMP	#$60
-		BNE	@exit
+		BEQ	@doRTCKeys
+
+		CMP	#$70
+		BEQ	@doDateKeys
+
+		BRA	@exit
+
+@doDateKeys:
+		PLA
+		JSR	doTestDateKeys
+		RTS
+
+@doRTCKeys:
+		PLA
+		JSR	doTestRTCKeys
+		RTS
 
 @doMacKeys:
 		PLA
@@ -1933,6 +2304,812 @@ doTestDataInput:
 		RTS
 
 
+
+;-----------------------------------------------------------
+doTestDateKeys:
+;-----------------------------------------------------------
+		STA	dispOptTemp0
+
+		CMP	#$0D
+		BNE	@tsttab
+
+		JMP	doCommitDate
+
+@tsttab:
+		CMP	#$09
+		BNE	@tstshftab
+
+		LDA	currMACByte
+		CMP	#$02
+		BNE	@advbyte
+
+		RTS
+
+@advbyte:
+		JMP	doAdvByteDate
+
+@tstshftab:
+		CMP	#$0F
+		BNE	@tstdel
+
+		LDA	currMACByte
+		BNE	@bakbyte
+
+		RTS
+
+@bakbyte:
+		JMP	doBakByteDate
+
+@tstdel:
+		CMP	#$14
+		BNE	@tstnum
+
+		LDA	currMACNybb
+		BNE	@baknyb
+
+		LDA	currMACByte
+		BNE	@baknyb
+
+		RTS
+
+@baknyb:
+		JMP	doBakNybbDate
+
+@tstnum:
+		LDX	currMACByte
+		CPX	#$01
+		BNE	@dayyear
+
+		CMP	#$61
+		BCS	@tstmonth1
+
+		RTS
+
+@tstmonth1:
+		CMP	#($7A + 1)
+		BCS	@exit
+
+		JMP	doInpMonthDate
+
+@dayyear:
+		CMP	#$30
+		BCC	@exit
+
+		CMP	#$3A
+		BCS	@exit
+
+		JMP	doInpNumDate
+
+@exit:
+		RTS
+
+
+;-----------------------------------------------------------
+doCommitDate:
+;-----------------------------------------------------------
+		LDA	rtc_enable
+		BNE	@begin
+
+		RTS
+
+@begin:
+;	validate date
+		LDY	#$02
+@copyval0:
+		LDA	(ptrNextInsP), Y
+		STA	dispOptTemp0, Y
+		DEY
+		BPL	@copyval0
+
+		JSR	dateValidateDate
+
+;	refetch date
+		LDY	#$02
+@copyval1:
+		LDA	dispOptTemp0, Y
+		STA	(ptrNextInsP), Y
+		DEY
+		BPL	@copyval1
+
+;	write date
+		LDZ #8
+		NOP
+		LDA	(zpRTC32), Z
+		ORA	#$40
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		LDZ #3
+		LDY	#$00
+@writedate:
+		LDA	(ptrNextInsP), Y
+
+		NOP
+		STA	(zpRTC32), z
+		JSR	i2cwait
+
+		INZ
+		INY
+
+		CPY	#03
+		BNE	@writedate
+
+;	Write-protect the clock
+		LDZ	#8
+		NOP
+		LDA	(zpRTC32), Z
+		AND	#$BF
+		NOP
+		STA (zpRTC32), Z
+		JSR	i2cwait
+
+;	refresh display
+		LDA	#$01
+		STA	dispChanged
+
+		RTS
+
+
+;-----------------------------------------------------------
+doAdvByteDate:
+;-----------------------------------------------------------
+		LDA	currMACByte
+		CMP	#$01
+		BNE	@day
+
+		SEC
+		LDA	#$06
+		SBC	currMACNybb
+
+		CLC
+		ADC	ptrCrsrSPos
+		STA	ptrCrsrSPos
+		LDA	#$00
+		ADC	ptrCrsrSPos + 1
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+@day:
+		LDA	currMACNybb
+		BEQ	@advwholebyte
+
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+@advwholebyte:
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$03
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+@done:
+		LDA	#$00
+		STA	currMACNybb
+		INC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+doBakByteDate:
+;-----------------------------------------------------------
+		LDA	currMACByte
+		CMP	#$02
+		BEQ	@year
+
+		LDA	currMACNybb
+		INA
+		INA
+		INA
+
+		STA	dispOptTemp1
+
+		SEC
+		LDA ptrCrsrSPos
+		SBC	dispOptTemp1
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+
+@year:
+		LDA	currMACNybb
+		BEQ	@baknonyb
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$07
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+@baknonyb:
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$06
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+@done:
+		LDA	#$00
+		STA	currMACNybb
+		DEC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+doBakNybbDate:
+;-----------------------------------------------------------
+		LDA	currMACNybb
+		BEQ	@prevbyte
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		DEC	currMACNybb
+
+		RTS
+
+@prevbyte:
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	currMACByte
+		CMP	#$02
+		BNE	@month
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$02
+		BRA	@done
+
+@month:
+		LDA	#$01
+
+@done:
+		STA	currMACNybb
+		DEC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+doInpMonthDate:
+;-----------------------------------------------------------
+;	currDATIndx		in	current month
+;	currMACNybb		in	current input position
+
+;	dispOptTemp0	in	character input
+		STA	dispOptTemp0
+
+		JSR	dateGetFirst
+
+;	carry set		out	no month matched
+;	carry clear		out	month matched
+;	dispOptTemp1	out when carry clear month matched
+		BCS	@exit
+
+		LDA	dispOptTemp1
+		STA	currDATIndx
+
+		LDY	#$01
+		STA	(ptrNextInsP), Y
+
+		LDA	#$01
+		STA	dispChanged
+
+		INC	currMACNybb
+
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	currMACNybb
+		CMP	#$03
+		BNE	@exit
+
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$03
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$00
+		STA	currMACNybb
+		INC	currMACByte
+
+@exit:
+		RTS
+
+
+;-----------------------------------------------------------
+doInpNumDate:
+;-----------------------------------------------------------
+		SEC
+		SBC	#$30
+
+		STA	dispOptTemp0
+
+		LDA	currMACNybb
+		BEQ	@isHigh
+
+		LDY	currMACByte
+		LDA	(ptrNextInsP), Y
+		AND	#$F0
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+
+@tstadv:
+;		LDA	currMACNybb
+;		BNE	@done
+
+		CPY	#$02
+		BNE	@advnybb
+
+		LDA	currMACNybb
+		BEQ	@advnybb
+
+@done:
+		LDX	#$01
+		STX	crsrIsDispl
+		STX	dispChanged
+
+		RTS
+
+@isHigh:
+		LDA	dispOptTemp0
+		ASL
+		ASL
+		ASL
+		ASL
+		STA	dispOptTemp0
+
+		LDY	currMACByte
+		LDA	(ptrNextInsP), Y
+		AND	#$0F
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+
+		BRA	@tstadv
+
+@advnybb:
+		JSR	doAdvNybbRTC
+
+		BRA	@done
+
+
+maxRTCNums:
+	.byte	$32, $3A, $36, $3A, $36, $3A
+
+
+;-----------------------------------------------------------
+doTestRTCKeys:
+;-----------------------------------------------------------
+		CMP	#$0D
+		BNE	@tsttab
+
+		JMP	doCommitRTC
+
+@tsttab:
+		CMP	#$09
+		BNE	@tstshftab
+
+		LDA	currMACByte
+		CMP	#$02
+		BNE	@advbyte
+
+		RTS
+
+@advbyte:
+		JMP	doAdvByteRTC
+
+@tstshftab:
+		CMP	#$0F
+		BNE	@tstdel
+
+		LDA	currMACByte
+;		CMP	#$00
+		BNE	@bakbyte
+
+		RTS
+
+@bakbyte:
+		JMP	doBakByteRTC
+
+@tstdel:
+		CMP	#$14
+		BNE	@tstnum
+
+		LDA	currMACNybb
+		BNE	@baknyb
+
+		LDA	currMACByte
+		BNE	@baknyb
+
+		RTS
+
+@baknyb:
+		JMP	doBakNybbRTC
+
+@tstnum:
+		CMP	#$30
+		BCC	@exit
+
+		CMP	#$3A
+		BCS	@exit
+
+		PHA
+		LDA	currMACByte
+		ASL
+		CLC
+		ADC	currMACNybb
+
+		TAX
+		PLA
+
+		PHA
+
+		CMP	maxRTCNums, X
+		BCC	@chkhour
+
+		BRA	@inpnum
+
+@chkhour:
+
+		LDA	currMACByte
+		BNE	@inpnum
+
+		LDA	currMACNybb
+		BEQ	@inpnum
+
+		LDY	currMACByte
+		LDA	(ptrNextInsP), Y
+		AND	#$F0
+
+		CMP	#$20
+		BNE	@inpnum
+
+		PLA
+		PHA
+		CMP	#$34
+		BCS	@exit
+
+@inpnum:
+		PLA
+		JMP	doInpNumRTC
+
+@exit:
+		RTS
+
+
+;-----------------------------------------------------------
+doInpNumRTC:
+;-----------------------------------------------------------
+		LDX	#$00
+		STX	crsrIsDispl
+
+		TAX
+
+		LDY	#$00
+	.if	C64_MODE
+		JSR	inputToCharROM
+	.else
+		JSR	asciiToCharROM
+	.endif
+		ORA	#$80
+		STA	(ptrCrsrSPos), Y
+
+		TXA
+		SEC
+		SBC	#$30
+
+		STA	dispOptTemp0
+
+		LDA	currMACNybb
+		BEQ	@isHigh
+
+		LDY	currMACByte
+		LDA	(ptrNextInsP), Y
+		AND	#$F0
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+
+@tstadv:
+		LDA	currMACNybb
+		BNE	@done
+
+		CPY	#$02
+		BNE	@advnybb
+
+		LDA	currMACNybb
+		BEQ	@advnybb
+
+@done:
+		LDX	#$01
+		STX	crsrIsDispl
+
+		RTS
+
+@isHigh:
+		LDA	dispOptTemp0
+		ASL
+		ASL
+		ASL
+		ASL
+		STA	dispOptTemp0
+
+		LDY	currMACByte
+		LDA	(ptrNextInsP), Y
+		AND	#$0F
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+
+		BRA	@tstadv
+
+@advnybb:
+		JSR	doAdvNybbRTC
+
+		LDX	#$01
+		STX	crsrIsDispl
+
+		RTS
+
+
+;-----------------------------------------------------------
+doAdvNybbRTC:
+;-----------------------------------------------------------
+		LDA	currMACNybb
+		BEQ	@nextnybb
+
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$00
+		STA	currMACNybb
+		INC	currMACByte
+
+		RTS
+
+@nextnybb:
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$01
+		STA	currMACNybb
+
+		RTS
+
+
+;-----------------------------------------------------------
+doBakNybbRTC:
+;-----------------------------------------------------------
+		LDA	currMACNybb
+		BEQ	@prevbyte
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$00
+		STA	currMACNybb
+
+		RTS
+
+@prevbyte:
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$01
+		STA	currMACNybb
+
+		DEC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+doAdvByteRTC:
+;-----------------------------------------------------------
+		LDA	currMACNybb
+		BEQ	@advwholebyte
+
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+@advwholebyte:
+		CLC
+		LDA	ptrCrsrSPos
+		ADC	#$03
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+@done:
+		LDA	#$00
+		STA	currMACNybb
+		INC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+doBakByteRTC:
+;-----------------------------------------------------------
+		LDA	currMACNybb
+		BEQ	@baknonyb
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$04
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		BRA	@done
+
+@baknonyb:
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$03
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+@done:
+		LDA	#$00
+		STA	currMACNybb
+		DEC	currMACByte
+
+		RTS
+
+
+;-----------------------------------------------------------
+i2cwait:
+;-----------------------------------------------------------
+;;	I2C peripherals can take a while for writes to get scheduled
+@i2c1:
+		LDA	$D012
+		CMP	#$80
+		BNE	@i2c1
+
+@i2c2:
+		LDA $D012
+		CMP #$70
+		BNE @i2c2
+
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doCommitRTC:
+;-------------------------------------------------------------------------------
+		LDA	rtc_enable
+		BNE	@begin
+
+		RTS
+
+@begin:
+;	Write-enable the clock
+		LDZ #8
+
+		NOP
+		LDA (zpRTC32), Z
+		ORA #$40
+
+		NOP
+		STA (zpRTC32), Z
+		JSR i2cwait
+
+;	Write time
+		LDY	#$02
+		LDZ	#0
+		LDA	(ptrNextInsP), Y
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+		INZ
+		DEY
+
+		LDA	(ptrNextInsP), Y
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+		INZ
+		DEY
+
+		LDA	(ptrNextInsP), Y
+;;	Always store RTC time in 24-hour format
+		ORA	#$80
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+;;	 Write-protect the clock
+		LDZ	#8
+		NOP
+		LDA	(zpRTC32), Z
+		AND	#$BF
+		NOP
+		STA	(zpRTC32), Z
+		JSR	i2cwait
+
+		LDZ	#0
+
+		RTS
+
+
 ;-------------------------------------------------------------------------------
 doTestMACKeys:
 ;-------------------------------------------------------------------------------
@@ -1943,6 +3120,18 @@ doTestMACKeys:
 		RTS
 
 @tstCharIn:
+		CMP	#$72
+		BNE	@tstuni
+
+		JMP	doRndMACInp
+
+@tstuni:
+		CMP	#$75
+		BNE	@tstdigit
+
+		JMP	doUniMACInp
+
+@tstdigit:
 		TAX
 
 		CMP	#$30
@@ -1969,6 +3158,72 @@ doTestMACKeys:
 		RTS
 
 @exit:
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doRndMACInp:
+;-------------------------------------------------------------------------------
+		SEC
+		LDA	ptrNextInsP
+		SBC	currMACByte
+		STA	ptrNextInsP
+		LDA	ptrNextInsP + 1
+		SBC	#$00
+		STA	ptrNextInsP + 1
+
+		LDA	#$00
+		STA	currMACByte
+		STA	currMACNybb
+
+		LDY	#$05
+@macrandom:
+		PHY
+		JSR	getRandomByte
+		PLY
+
+;		STA	optDfltBase + 6, Y
+		STA	(ptrNextInsP), Y
+
+		STA	$D6E9, Y
+
+		DEY
+		BPL	@macrandom
+
+		JMP	doUniMACInp_cont
+
+
+;-------------------------------------------------------------------------------
+doUniMACInp:
+;-------------------------------------------------------------------------------
+		SEC
+		LDA	ptrNextInsP
+		SBC	currMACByte
+		STA	ptrNextInsP
+		LDA	ptrNextInsP + 1
+		SBC	#$00
+		STA	ptrNextInsP + 1
+
+		LDA	#$00
+		STA	currMACByte
+		STA	currMACNybb
+
+doUniMACInp_cont:
+		LDY	#$00
+;		LDA	optDfltBase + 6
+		LDA	(ptrNextInsP), Y
+
+		ORA	#$02	; Make "locally administered"
+		AND	#$FE 	; Make unicast
+
+;		STA	optDfltBase + 6
+		STA	(ptrNextInsP), Y
+
+		STA	$D6E9
+
+		LDA	#$01
+		STA	dispChanged
+
 		RTS
 
 
@@ -2088,82 +3343,14 @@ doAppMACChar:
 		BEQ	@isHigh
 
 		JSR	doAppMACCharLow
-		jmp	@exit
+		JMP	@exit
 
 @isHigh:
 		JSR	doAppMACCharHigh
 
 @exit:
-	;; HACK: For setting the real-time clock we do this as you type.
-	lda tabSelected
-	cmp #1
-	bne notRTCTab
-
-	.if	.not C64_MODE
-
-	;;  Write-enable the clock
-	ldz #8
-	NOP
-	LDA (zp32),z
-	ora #$40
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	ldz #0
-	lda rtc_values+2
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	INZ
-	lda rtc_values+1
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	INZ
-	lda rtc_values+0
-	;; Always store RTC time in 24-hour format
-	ora #$80
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	INZ
-	lda rtc_values+5
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	INZ
-	lda rtc_values+4
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	INZ
-	lda rtc_values+3
-	NOP
-	STA (zp32),z
-	jsr i2cwait
-	;;  Write-protect the clock
-	ldz #8
-	NOP
-	LDA (zp32),z
-	and #$BF
-	NOP
-	STA (zp32),z
-	LDZ #0
-
-	.endif
-
-notRTCTab:
 		RTS
 
-i2cwait:
-	;; I2C peripherals can take a while for writes to get scheduled
-@i2c1:	lda $d012
-	cmp #$80
-	bne @i2c1
-@i2c2:	lda $d012
-	cmp #$70
-	bne @i2c2
-	rts
 
 ;-------------------------------------------------------------------------------
 doAppMACCharLow:
@@ -2431,6 +3618,8 @@ doTestHelpKeys:
 		LDA	helpLastPage
 		STA	pgeSelected
 
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 @exit:
@@ -2495,6 +3684,9 @@ doHandleSaveButton:
 
 @update:
 		STX	pgeSelected
+
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 @exit:
@@ -2503,7 +3695,7 @@ doHandleSaveButton:
 
 ;-------------------------------------------------------------------------------
 usleep:
-;***FIXME:  Should include .Y for 16 bit resolution.
+;***FIXME :  Should include .Y for 16 bit resolution.
 ;-------------------------------------------------------------------------------
 @loop0:
 		CMP	#$40
@@ -2745,11 +3937,6 @@ highlightInputTab:
 ;-------------------------------------------------------------------------------
 setupChipsetPage0:
 ;-------------------------------------------------------------------------------
-	.if .not C64_MODE
-;;	Re-read RTC everytime we display a tab, so to give fresh time
-		JSR readRealTimeClock
-	.endif
-
 		LDA	#$00
 		STA	pgeSelected
 		LDA	#chipsetPageCnt
@@ -2958,7 +4145,7 @@ mouseLastY:
 ;-------------------------------------------------------------------------------
 hotTrackMouse:
 ;-------------------------------------------------------------------------------
-		SEI
+;		SEI
 
 		LDA	mouseLastY
 		CMP	YPos
@@ -2968,7 +4155,7 @@ hotTrackMouse:
 		CMP	YPos + 1
 		BNE	@update
 
-		CLI
+;		CLI
 		JMP	@exit
 
 @update:
@@ -2991,7 +4178,7 @@ hotTrackMouse:
 		DEX
 		BPL	@yDiv8Loop
 
-		CLI
+;		CLI
 
 		LDA	mouseTemp0
 		CMP	mouseYRow
@@ -3030,6 +4217,15 @@ hotTrackMouse:
 		BEQ	@exit
 
 		CMP	#$30
+		BEQ	@selectLine
+
+		CMP	#$50
+		BEQ	@selectLine
+
+		CMP	#$60
+		BEQ	@selectLine
+
+		CMP	#$70
 		BEQ	@selectLine
 
 		RTS
@@ -3143,6 +4339,15 @@ doMouseClick:
 		BEQ	@exit
 
 		CMP	#$30
+		BEQ	@selectLine
+
+		CMP	#$50
+		BEQ	@selectLine
+
+		CMP	#$60
+		BEQ	@selectLine
+
+		CMP	#$70
 		BEQ	@selectLine
 
 		TAY
@@ -3283,6 +4488,9 @@ doClickMenu:
 
 		STA	tabSelected
 		JSR	setupSelectedTab
+
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 @exit:
@@ -3297,6 +4505,9 @@ doClickFooter:
 		BNE @tstPrior
 
 		JSR	moveNextPage
+
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 		RTS
 
@@ -3305,6 +4516,9 @@ doClickFooter:
 		BNE	@exit
 
 		JSR	movePriorPage
+
+		LDA	#$00
+		STA	dispRefresh
 		JSR	displayOptionsPage
 
 @exit:
@@ -3412,8 +4626,19 @@ moveSelectDown:
 @test:
 		LDA	pageOptions, X
 		AND	#$F0
+
 		CMP	#$30
 		BEQ	@found
+
+		CMP	#$50
+		BEQ	@found
+
+		CMP	#$60
+		BEQ	@found
+
+		CMP	#$70
+		BEQ	@found
+
 		CMP	#$00
 		BNE	@loop
 
@@ -3449,10 +4674,22 @@ moveSelectUp:
 @test:
 		LDA	pageOptions, X
 		AND	#$F0
+
 		CMP	#$30
 		BEQ	@found
+
+		CMP	#$50
+		BEQ	@found
+
+		CMP	#$60
+		BEQ	@found
+
+		CMP	#$70
+		BEQ	@found
+
 		CMP	#$00
 		BNE	@loop
+
 
 @found:
 		STX	selectedOpt
@@ -3469,16 +4706,19 @@ moveSelectUp:
 ;-------------------------------------------------------------------------------
 doUpdateSelected:
 ;-------------------------------------------------------------------------------
-		LDA		crsrIsDispl
-		CMP		#$01
-		BNE		@begin
+		LDA	dispRefresh
+		BNE	@begin
 
-		LDA		#$00
-		STA		crsrIsDispl
+		LDA	crsrIsDispl
+		CMP	#$01
+		BNE	@begin
 
-		LDY		#$00
-		LDA		(ptrCrsrSPos), Y
-		ORA		#$80
+		LDA	#$00
+		STA	crsrIsDispl
+
+		LDY	#$00
+		LDA	(ptrCrsrSPos), Y
+		ORA	#$80
 		STA	(ptrCrsrSPos), Y
 
 @begin:
@@ -3490,9 +4730,21 @@ doUpdateSelected:
 
 		CMP	#$50
 		BEQ	@updateMAC
-		CMP	#$60
-		BEQ	@updateMAC
 
+		CMP	#$60
+		BEQ	@updateRTC
+
+		CMP	#$70
+		BEQ	@updateDate
+
+		RTS
+
+@updateDate:
+		JSR	doUpdateDate
+		RTS
+
+@updateRTC:
+		JSR	doUpdateRTC
 		RTS
 
 @updateMAC:
@@ -3505,6 +4757,161 @@ doUpdateSelected:
 
 @exit:
 		RTS
+
+
+;-------------------------------------------------------------------------------
+doUpdateDate:
+;-------------------------------------------------------------------------------
+		LDA	dispRefresh
+		BEQ	@begin
+
+		LDA	crsrIsDispl
+		BNE	@restore
+
+		RTS
+
+@restore:
+		LDA	blinkStat
+		BEQ	@nocrsr
+
+		RTS
+
+@nocrsr:
+		LDY	#$00
+		LDA	(ptrCrsrSPos), Y
+		AND	#$7F
+		STA	(ptrCrsrSPos), Y
+
+		RTS
+
+@begin:
+		LDA	pageOptions, X
+		AND	#$0F
+
+		ASL
+		TAX
+
+		CLC
+		LDA	heap0, X		;Get pointer to the label
+		ADC	#$03
+		STA	ptrOptsTemp
+		LDA	heap0 + 1, X
+		ADC	#$00
+		STA	ptrOptsTemp + 1
+
+		LDY	#$00			;Get pointer to data area
+		LDA	(ptrOptsTemp), Y
+		TAY
+		INY
+		TYA
+		CLC
+		ADC	ptrOptsTemp
+		STA	ptrNextInsP
+		LDA	ptrOptsTemp + 1
+		ADC	#$00
+		STA	ptrNextInsP + 1
+
+		CLC
+		LDA	selectedOpt
+		ADC	#optLineOffs
+		TAX
+
+		CLC
+		LDA	screenRowsLo, X		;Get screen RAM ptr for line #
+		ADC	#$1C				;and column
+		STA	ptrCrsrSPos
+		LDA	screenRowsHi, X
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$00
+		STA	currMACByte
+		STA	currMACNybb
+
+		LDA	#$01
+		STA	crsrIsDispl
+
+		LDY	#$01
+		LDA	(ptrNextInsP), Y
+		STA	currDATIndx
+
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doUpdateRTC:
+;-------------------------------------------------------------------------------
+		LDA	dispRefresh
+		BEQ	@begin
+
+		LDA	crsrIsDispl
+		BNE	@restore
+
+		RTS
+
+@restore:
+		LDA	blinkStat
+		BEQ	@nocrsr
+
+		RTS
+
+@nocrsr:
+		LDY	#$00
+		LDA	(ptrCrsrSPos), Y
+		AND	#$7F
+		STA	(ptrCrsrSPos), Y
+
+		RTS
+
+@begin:
+		LDA	pageOptions, X
+		AND	#$0F
+
+		ASL
+		TAX
+
+		CLC
+		LDA	heap0, X		;Get pointer to the label
+		ADC	#$03
+		STA	ptrOptsTemp
+		LDA	heap0 + 1, X
+		ADC	#$00
+		STA	ptrOptsTemp + 1
+
+		LDY	#$00			;Get pointer to data area
+		LDA	(ptrOptsTemp), Y
+		TAY
+		INY
+		TYA
+		CLC
+		ADC	ptrOptsTemp
+		STA	ptrNextInsP
+		LDA	ptrOptsTemp + 1
+		ADC	#$00
+		STA	ptrNextInsP + 1
+
+		CLC
+		LDA	selectedOpt
+		ADC	#optLineOffs
+		TAX
+
+		CLC
+		LDA	screenRowsLo, X		;Get screen RAM ptr for line #
+		ADC	#$1F				;and column
+		STA	ptrCrsrSPos
+		LDA	screenRowsHi, X
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDA	#$00
+		STA	currMACByte
+		STA	currMACNybb
+
+		LDA	#$01
+		STA	crsrIsDispl
+
+		RTS
+
 
 
 ;-------------------------------------------------------------------------------
@@ -3562,6 +4969,29 @@ doUpdateMAC:
 ;-------------------------------------------------------------------------------
 doUpdateString:
 ;-------------------------------------------------------------------------------
+		LDA	dispRefresh
+		BEQ	@begin
+
+		LDA	crsrIsDispl
+		BNE	@restore
+
+		RTS
+
+@restore:
+		LDA	blinkStat
+		BEQ	@nocrsr
+
+		RTS
+
+@nocrsr:
+		LDY	#$00
+		LDA	(ptrCrsrSPos), Y
+		AND	#$7F
+		STA	(ptrCrsrSPos), Y
+
+		RTS
+
+@begin:
 		LDA	pageOptions, X
 		AND	#$0F
 
@@ -3720,9 +5150,13 @@ doToggleOption:
 @exit:
 		RTS
 
+
 ;-------------------------------------------------------------------------------
 displayOptionsPage:
 ;-------------------------------------------------------------------------------
+		LDA	dispRefresh
+		BNE	@begin0
+
 		LDY	#$00
 		STY	crsrIsDispl
 
@@ -3731,10 +5165,18 @@ displayOptionsPage:
 		JSR	highlightSelectedTab
 		JSR	updateFooter
 
+;		SEI
+
 		LDA	#$00
 		STA	infoCntr
 		STA	infoCntr + 1
 
+;		CLI
+
+		LDY	#$FF
+		STY	selectedOpt
+
+@begin0:
 		LDA	pgeSelected
 		ASL
 		TAY
@@ -3752,8 +5194,6 @@ displayOptionsPage:
 		LDA	#>heap0
 		STA	ptrCurrHeap + 1
 
-		LDY	#$FF
-		STY	selectedOpt
 		LDY	#$00
 		STY	optTempLine
 		STY	optTempIndx
@@ -3803,7 +5243,7 @@ displayOptionsPage:
 
 @finish:
 		LDX	optTempLine		;Clear line usage until end
-						;of page
+							;of page
 @loop1:
 		CPX	#optLineMaxC
 		BEQ	@done
@@ -3858,6 +5298,9 @@ displayOptionsPage:
 		JMP	@cont
 
 @updateStd:
+		LDA	dispRefresh
+		BNE	@updateSel
+
 		LDX	#$00
 		LDA	pageOptions, X
 		CMP	#$FF
@@ -3867,9 +5310,9 @@ displayOptionsPage:
 @cont:
 		STX	selectedOpt
 
+@updateSel:
 		LDA	clr_highlt
 		JSR	doHighlightSelected
-
 		JSR	doUpdateSelected
 
 @exit:
@@ -4190,18 +5633,21 @@ doDisplayOpt:
 		CMP	#$50
 		BNE	@tstRTCOpt
 
-		lda #1
-		sta isRTCField
 		JSR	doDispMACOpt
 		RTS
 
 @tstRTCOpt:
 		CMP	#$60
+		BNE	@tstDateOpt
+
+		JSR	doDispRTCOpt
+		RTS
+
+@tstDateOpt:
+		CMP	#$70
 		BNE	@unknownOpt
 
-		lda #0
-		sta isRTCField
-		JSR	doDispMACOpt
+		JSR	doDispDateOpt
 		RTS
 
 @unknownOpt:
@@ -4396,25 +5842,25 @@ doDispStringOpt:
 ;-------------------------------------------------------------------------------
 doDispMACOpt:
 ;-------------------------------------------------------------------------------
-		INY				;Skip past offset
+		INY						;Skip past offset
 		INY
 
 		JSR	doDispOptHdrLbl		;Display the header label
 
-		LDA	optTempLine		;Get current line #
+		LDA	optTempLine			;Get current line #
 		CLC
 		ADC	#optLineOffs		;Add 3 for our menu/header
-		TAX				;Store in .X
+		TAX						;Store in .X
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
 		STA	ptrTempData
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1
 
-		LDA	#$16
-		LDX	#$12
+		LDA	#$16				;Start pos on line
+		LDX	#$12				;Entry field length
 
-		CLC				;Add this position to colour
-		ADC	ptrTempData		;RAM pointer
+		CLC						;Add this position to colour
+		ADC	ptrTempData			;RAM pointer
 		STA	ptrTempData
 		LDA	ptrTempData + 1
 		ADC	#$00
@@ -4423,7 +5869,7 @@ doDispMACOpt:
 		TYA
 		PHA
 
-		LDY	#$00			;Set colour for input field
+		LDY	#$00				;Set colour for input field
 		LDA	clr_ctrlfc
 @loop0:
 		STA	(ptrTempData), Y
@@ -4431,10 +5877,10 @@ doDispMACOpt:
 		DEX
 		BNE	@loop0
 
-		LDA	optTempLine		;Get current line #
+		LDA	optTempLine			;Get current line #
 		CLC
 		ADC	#optLineOffs		;Add 3 for our menu/header
-		TAX				;Store in .X
+		TAX						;Store in .X
 		LDA	screenRowsLo, X		;Get screen RAM ptr for line #
 		STA	ptrTempData
 		LDA	screenRowsHi, X
@@ -4442,8 +5888,8 @@ doDispMACOpt:
 
 		LDA	#$16
 
-		CLC				;Add this position to screen
-		ADC	ptrTempData		;RAM pointer
+		CLC						;Add this position to screen
+		ADC	ptrTempData			;RAM pointer
 		STA	ptrTempData
 		LDA	ptrTempData + 1
 		ADC	#$00
@@ -4452,7 +5898,6 @@ doDispMACOpt:
 ;**fixme This is horrible because we can't push .Y directly.  Can be
 ;	fixed on 4510.
 
-@breakDispMACOpt:
 		PLA
 		TAY
 		PHA
@@ -4463,10 +5908,14 @@ doDispMACOpt:
 @loop1:						;Display MAC value
 		LDA	(ptrOptsTemp), Y
 		STA	dispOptTemp0
+
 		JSR	convertValueToHex
+
 		INY
 		TYA
 		PHA
+
+
 		LDY	dispOptTemp1
 
 		LDA	dispOptTemp2
@@ -4482,14 +5931,7 @@ doDispMACOpt:
 		CPY	#$11
 		BEQ	@skip
 
-		lda	isRTCField
-		bne	@macColon
-		lda	rtcSeparators,y
-		jmp	@dispSeparator
-
-@macColon:
 		LDA	#':'
-@dispSeparator:
 		JSR	asciiToCharROM
 		ORA	#$80
 		STA	(ptrTempData), Y
@@ -4503,7 +5945,6 @@ doDispMACOpt:
 		LDA	dispOptTemp1
 		CMP	#$12
 		BNE	@loop1
-;***
 
 @cont:
 		LDX	optTempLine		;Set this line to be the option
@@ -4520,9 +5961,6 @@ doDispMACOpt:
 		CLC
 		RTS
 
-isRTCField:	.byte 0
-rtcSeparators:
-	.byte 0,0,':',0,0,'.',0,0,' ',0,0,'.',0,0,'.'
 
 ;-------------------------------------------------------------------------------
 convertValueToHex:
@@ -4563,6 +6001,736 @@ convertNybbleToHex:
 
 
 ;-------------------------------------------------------------------------------
+doDispRTCOpt:
+;-------------------------------------------------------------------------------
+		INY						;Skip past offset
+		INY
+
+		JSR	doDispOptHdrLbl		;Display the header label
+
+		LDA	optTempLine			;Get current line #
+		CLC
+		ADC	#optLineOffs		;Add 3 for our menu/header
+		TAX						;Store in .X
+		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
+		STA	ptrTempData
+		LDA	colourRowsHi, X
+		STA	ptrTempData + 1
+
+		LDA	#$1F				;Start pos on line
+		LDX	#$09				;Entry field length
+
+		CLC						;Add this position to colour
+		ADC	ptrTempData			;RAM pointer
+		STA	ptrTempData
+		LDA	ptrTempData + 1
+		ADC	#$00
+		STA	ptrTempData + 1
+
+		TYA
+		PHA
+
+		LDY	#$00				;Set colour for input field
+		LDA	clr_ctrlfc
+@loop0:
+		STA	(ptrTempData), Y
+		INY
+		DEX
+		BNE	@loop0
+
+		LDA	optTempLine			;Get current line #
+		CLC
+		ADC	#optLineOffs		;Add 3 for our menu/header
+		TAX						;Store in .X
+		LDA	screenRowsLo, X		;Get screen RAM ptr for line #
+		STA	ptrTempData
+		LDA	screenRowsHi, X
+		STA	ptrTempData + 1
+
+		LDA	#$1F				;Start pos on line
+
+		CLC						;Add this position to screen
+		ADC	ptrTempData			;RAM pointer
+		STA	ptrTempData
+		LDA	ptrTempData + 1
+		ADC	#$00
+		STA	ptrTempData + 1
+
+;**fixme This is horrible because we can't push .Y directly.  Can be
+;	fixed on 4510.
+
+		PLA
+		TAY
+		PHA
+
+;		SEI
+
+;		BRA	@cont
+
+		LDA	#$00
+		STA	dispOptTemp1
+
+		LDX	#$00
+
+@loop1:							;Display RTC value
+		LDA	dispRefresh
+		BEQ	@fetch
+
+		CPX	currMACByte
+		BEQ	@upd
+
+@fetch:
+		LDA	rtc_values, X		;Copy from auto update buffer
+		STA	(ptrOptsTemp), Y
+
+@upd:
+		INX
+
+		LDA	(ptrOptsTemp), Y
+		STA	dispOptTemp0
+		JSR	convertValueToHex
+
+		INY
+		TYA
+		PHA
+
+		LDY	dispOptTemp1
+
+		LDA	dispOptTemp2
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		LDA	dispOptTemp3
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		CPY	#$08
+		BEQ	@skip
+
+;		LDA	rtcSeparators, Y
+		LDA	#':'
+		JSR	asciiToCharROM
+		ORA	#$80
+		STA	(ptrTempData), Y
+
+@skip:
+		INC	dispOptTemp1
+
+		PLA
+		TAY
+
+		LDA	dispOptTemp1
+		CMP	#$09
+		BNE	@loop1
+
+@cont:
+;		CLI
+
+		LDX	optTempLine		;Set this line to be the option
+		LDA	optTempIndx
+		ORA	#$60
+		STA	pageOptions, X
+		INC	optTempLine		;and next line
+
+		PLA				;Move .Y past data storage
+		CLC
+		ADC	#$03
+		TAY
+
+		CLC
+		RTS
+
+
+;-----------------------------------------------------------
+timeValidateTime:
+;	s, m, h in dispOptTemp0...
+;-----------------------------------------------------------
+		LDX	dispOptTemp0
+		JSR	timeValid59
+
+		LDA	dispOptTemp4
+		STA	dispOptTemp0
+
+		LDX	dispOptTemp1
+		JSR	timeValid59
+
+		LDA	dispOptTemp4
+		STA	dispOptTemp1
+
+		LDX	dispOptTemp2
+		JSR	convertBCDIdx
+		CPX	#24
+		BCC	@done
+
+		LDA	#$24
+		STA	dispOptTemp2
+@done:
+		RTS
+
+
+;-----------------------------------------------------------
+timeValid59:
+;-----------------------------------------------------------
+		STX	dispOptTemp4
+
+		JSR	convertBCDIdx
+		CPX	#60
+		BCC	@done
+
+		LDA	#$59
+		STA	dispOptTemp4
+@done:
+		RTS
+
+
+
+dateMonths:
+		.byte	"apr", $04		;00		30
+		.byte	"aug", $08		;01		31
+		.byte	"dec", $12		;02		31
+		.byte	"feb", $02		;03		28
+		.byte	"jan", $01		;04		31
+		.byte	"jul", $07		;05		31
+		.byte	"jun", $06		;06		30
+		.byte	"mar", $03		;07		31
+		.byte	"may", $05		;08		31
+		.byte	"nov", $11		;09		30
+		.byte	"oct", $10		;0A		31
+		.byte	"sep", $09		;0B		30
+
+dateMnthIdx:
+		.byte	$FF, $04, $03, $07, $00, $08, $06, $05
+		.byte	$01, $0B, $0A, $09, $02
+
+dateMnthBuf:
+		.byte	$00, $00, $00, $00
+
+dateMnthDays:
+		.byte	$FF, 32, 30, 32, 31, 32, 31, 32
+		.byte	32, 31, 32, 31, 32
+dateMnthDBCD:
+		.byte	$FF, $31, $29, $31, $30, $31, $30, $31
+		.byte	$31, $30, $31, $30, $31
+
+
+
+;-----------------------------------------------------------
+dateValidateDate:
+;	d, m , y in dispOptTemp0, 1, 2
+;-----------------------------------------------------------
+		LDA	dispOptTemp2
+		AND	#$F0
+		CMP	#$A0
+		BCC	@tstyearlow
+
+		LDA	#$99
+		STA	dispOptTemp2
+		BRA	@months
+
+@tstyearlow:
+		LDA	dispOptTemp2
+		AND	#$0F
+		CMP	#$0A
+		BCC	@months
+
+		LDA	dispOptTemp2
+		AND	#$F0
+		ORA	#$09
+		STA	dispOptTemp2
+
+@months:
+		LDA	dispOptTemp1
+		CMP	#$02
+		BNE	@notfeb
+
+		LDX	dispOptTemp0
+		BNE	@febcont0
+
+		LDX	#$01
+		STX	dispOptTemp0
+
+@febcont0:
+		JSR	convertBCDIdx
+		STX	dispOptTemp3
+
+		LDX	dispOptTemp2
+		JSR	convertBCDIdx
+		TXA
+		AND	#$03
+		BEQ	@leap
+
+		LDA	dispOptTemp3
+		CMP	#29
+		BCC	@done
+
+		LDA	#$28
+		STA	dispOptTemp0
+@done:
+		RTS
+
+@leap:
+		LDA	dispOptTemp3
+		CMP	#30
+		BCC	@done
+
+		LDA	#$29
+		STA	dispOptTemp0
+		RTS
+
+@notfeb:
+		JSR	dateMaxMonth
+		LDA	dispOptTemp4
+		STA	dispOptTemp1
+
+		JSR	dateMaxDays
+		LDA	dispOptTemp4
+		STA	dispOptTemp0
+
+		RTS
+;-----------------------------------------------------------
+
+
+;-----------------------------------------------------------
+dateMaxMonth:
+;-----------------------------------------------------------
+		LDA	dispOptTemp1
+		BNE	@default
+
+		LDA	#$01
+@default:
+		STA	dispOptTemp4
+
+		TAX
+		JSR	convertBCDIdx
+		TXA
+		CMP	#13
+		BCC	@done
+
+		LDA	#$12
+		STA	dispOptTemp4
+
+@done:
+		RTS
+
+
+;-----------------------------------------------------------
+dateMaxDays:
+;	date in dispOptTemp0, 1, 2
+;		assumes good month
+;-----------------------------------------------------------
+		LDA	dispOptTemp0
+		BNE	@default
+
+		LDA	#$01
+
+@default:
+		STA	dispOptTemp4
+
+		LDX	dispOptTemp1
+		JSR	convertBCDIdx
+
+		LDA	dateMnthDays, X
+		STA	dispOptTemp3
+
+		LDX	dispOptTemp4
+		JSR	convertBCDIdx
+
+		TXA
+		CMP	dispOptTemp3
+		BCC	@done
+
+		LDX	dispOptTemp1
+		JSR	convertBCDIdx
+
+		LDA	dateMnthDBCD, X
+		STA	dispOptTemp4
+
+@done:
+		RTS
+
+
+;-----------------------------------------------------------
+convertBCDIdx:
+;-----------------------------------------------------------
+		TXA
+		AND	#$0F
+		STA	dispOptTemp5
+
+		TXA
+		LDX	#$00
+
+		AND	#$F0
+		BEQ	@calclow
+
+		CMP	#$A0
+		BCS	@oobhigh
+
+		LSR
+		LSR
+		LSR
+		LSR
+
+		TAX
+
+		LDA	#$00
+@loophigh:
+		CLC
+		ADC	#$0A
+
+		DEX
+		BNE	@loophigh
+
+		TAX
+		BRA	@calclow
+
+@oobhigh:
+		LDX	#90
+
+@calclow:
+		LDA	dispOptTemp5
+		CMP	#$0A
+		BCS	@ooblow
+
+@done:
+		TXA
+		CLC
+		ADC	dispOptTemp5
+		TAX
+		RTS
+
+@ooblow:
+		LDA	#$09
+		STA	dispOptTemp5
+		BRA	@done
+
+
+;-----------------------------------------------------------
+dateGetFirst:
+;
+;	currDATIndx		in	current month
+;	currMACNybb		in	current input position
+;	dispOptTemp0	in	character input
+;
+;	carry set		out	no month matched
+;	carry clear		out	month matched
+;	dispOptTemp1	out when carry clear month matched
+;-----------------------------------------------------------
+		LDX	#$03
+		LDA	#$00
+@clearbuf:
+		STA	dateMnthBuf, X
+		DEX
+		BPL	@clearbuf
+
+		LDX	currDATIndx
+		BEQ	@insert
+
+		JSR	convertBCDIdx
+
+		LDA	dateMnthIdx, X
+		ASL
+		ASL
+
+		LDZ	currMACNybb
+		BEQ	@insert
+
+		LDY	#$00
+		TAX
+@copycur:
+		LDA	dateMonths, X
+		STA	dateMnthBuf, Y
+		INX
+		INY
+		DEZ
+		BNE	@copycur
+
+@insert:
+		LDY	currMACNybb
+		LDA	dispOptTemp0
+		STA	dateMnthBuf, Y
+
+		LDZ	#$00
+		LDX	#$00
+		LDY	#$00
+
+@loopmnth:
+		LDA	#$00
+		STA	dispOptTemp2
+
+		PHX
+
+@loopbuf:
+		LDA	dateMonths, X
+		CMP	dateMnthBuf, Y
+		BEQ	@found
+
+		BRA	@nextmnth
+
+@found:
+		LDA	#$01
+		STA	dispOptTemp2
+
+@nextbuf:
+		INX
+		INY
+		CPY	#$03
+		BNE	@loopbuf
+
+@nextmnth:
+		PLX
+		INX
+		INX
+		INX
+		INX
+
+		DEY
+		CPY	currMACNybb
+		BNE	@donextm
+
+		LDA	dispOptTemp2
+		BEQ	@donextm
+
+		DEX
+		LDA	dateMonths, X
+		STA	dispOptTemp1
+
+		BRA	@matched
+
+@donextm:
+		LDY	#$00
+
+		INZ
+		CPZ	#$0C
+		BNE	@loopmnth
+
+@done:
+;		LDA	dispOptTemp2
+;		BNE	@matched
+
+		SEC
+		RTS
+
+@matched:
+
+;@halt:
+;		INC	$D020
+;		BRA	@halt
+
+		CLC
+		RTS
+
+
+;-----------------------------------------------------------
+doDispDateOpt:
+;-----------------------------------------------------------
+		INY						;Skip past offset
+		INY
+
+		JSR	doDispOptHdrLbl		;Display the header label
+
+		LDA	optTempLine			;Get current line #
+		CLC
+		ADC	#optLineOffs		;Add 3 for our menu/header
+		TAX						;Store in .X
+		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
+		STA	ptrTempData
+		LDA	colourRowsHi, X
+		STA	ptrTempData + 1
+
+		LDA	#$1C				;Start pos on line
+		LDX	#$0C				;Entry field length
+
+		CLC						;Add this position to colour
+		ADC	ptrTempData			;RAM pointer
+		STA	ptrTempData
+		LDA	ptrTempData + 1
+		ADC	#$00
+		STA	ptrTempData + 1
+
+		TYA
+		PHA
+
+		LDY	#$00				;Set colour for input field
+		LDA	clr_ctrlfc
+@loop0:
+		STA	(ptrTempData), Y
+		INY
+		DEX
+		BNE	@loop0
+
+		LDA	optTempLine			;Get current line #
+		CLC
+		ADC	#optLineOffs		;Add 3 for our menu/header
+		TAX						;Store in .X
+		LDA	screenRowsLo, X		;Get screen RAM ptr for line #
+		STA	ptrTempData
+		LDA	screenRowsHi, X
+		STA	ptrTempData + 1
+
+		LDA	#$1C				;Start pos on line
+
+		CLC						;Add this position to screen
+		ADC	ptrTempData			;RAM pointer
+		STA	ptrTempData
+		LDA	ptrTempData + 1
+		ADC	#$00
+		STA	ptrTempData + 1
+
+;**fixme This is horrible because we can't push .Y directly.  Can be
+;	fixed on 4510.
+
+		PLA
+		TAY
+		PHA
+
+;		SEI
+
+;		BRA	@cont
+
+		LDA	#$00
+		STA	dispOptTemp1
+
+		LDA	dispRefresh
+		BNE	@updd
+
+@fetchd:
+		LDA	rtc_values + 3
+		STA	(ptrOptsTemp), Y
+
+@updd:
+		LDA	(ptrOptsTemp), Y
+		STA	dispOptTemp0
+		JSR	convertValueToHex
+
+		INY
+		PHY
+
+		LDY	dispOptTemp1
+
+		LDA	dispOptTemp2
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		LDA	dispOptTemp3
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		LDA	#'-'
+		JSR	asciiToCharROM
+		ORA	#$80
+		STA	(ptrTempData), Y
+		INY
+
+		STY	dispOptTemp1
+
+		PLY
+
+		LDA	dispRefresh
+		BNE	@updm
+
+		LDA	rtc_values + 4
+		STA	(ptrOptsTemp), Y
+
+@updm:
+		LDA	(ptrOptsTemp), Y
+		TAX
+
+		JSR	convertBCDIdx
+
+		LDA	dateMnthIdx, X
+		ASL
+		ASL
+		TAX
+
+		INY
+		PHY
+
+		LDY	dispOptTemp1
+		LDZ	#$00
+@loopm:
+		LDA	dateMonths, X
+		JSR	asciiToCharROM
+		ORA	#$80
+		STA	(ptrTempData), Y
+		INY
+		INZ
+		INX
+		CPZ	#$03
+		BNE	@loopm
+
+		LDA	#'-'
+		JSR	asciiToCharROM
+		ORA	#$80
+		STA	(ptrTempData), Y
+		INY
+
+		STY	dispOptTemp1
+
+		LDA	#$20
+		STA	dispOptTemp0
+		JSR	convertValueToHex
+
+		LDY	dispOptTemp1
+
+		LDA	dispOptTemp2
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		LDA	dispOptTemp3
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		STY	dispOptTemp1
+
+		PLY
+
+		LDA	dispRefresh
+		BNE	@updy
+
+		LDA	rtc_values + 5
+		STA	(ptrOptsTemp), Y
+
+@updy:
+		LDA	(ptrOptsTemp), Y
+		STA	dispOptTemp0
+		JSR	convertValueToHex
+
+		LDY	dispOptTemp1
+
+		LDA	dispOptTemp2
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+		LDA	dispOptTemp3
+		STA	(ptrTempData), Y
+		INC	dispOptTemp1
+		INY
+
+;		CLI
+
+		LDX	optTempLine		;Set this line to be the option
+		LDA	optTempIndx
+		ORA	#$70
+		STA	pageOptions, X
+		INC	optTempLine		;and next line
+
+		PLA				;Move .Y past data storage
+		CLC
+		ADC	#$03
+		TAY
+
+		CLC
+		RTS
+
+
+;-------------------------------------------------------------------------------
 dispOptTemp0:
 	.byte		$00
 dispOptTemp1:
@@ -4571,7 +6739,10 @@ dispOptTemp2:
 	.byte		$00
 dispOptTemp3:
 	.byte		$00
-
+dispOptTemp4:
+	.byte		$00
+dispOptTemp5:
+	.byte		$00
 
 ;-------------------------------------------------------------------------------
 doDispOptHdrLbl:
@@ -5051,6 +7222,8 @@ doHighlightSelected:
 		BEQ	@cont0			;
 		CMP	#$60			;RTC type?
 		BEQ	@cont0			;
+		CMP	#$70			;Date type?
+		BEQ	@cont0
 
 		INY				;Skip past type, offset and
 						;data
@@ -5244,6 +7417,8 @@ mouseCheck:
 
 blinkCntr:
 	.byte		$10
+blinkStat:
+	.byte		$00
 
 infoCntr:
 	.word		$0000
@@ -5480,7 +7655,7 @@ MIRQ:
 
 ;Do help text switching
 		LDA	progTermint
-		BNE	@cont
+		LBNE	@cont
 
 		LDA	#$00
 		CMP	infoCntr + 1
@@ -5502,7 +7677,7 @@ MIRQ:
 		LDA	infoTexts + 1, X
 		STA	ptrIRQTemp0 + 1
 
-		LDY	#$1A
+		LDY	#$1D
 @loop:
 		LDA	(ptrIRQTemp0), Y
 		JSR	asciiToCharROM
@@ -5529,18 +7704,40 @@ MIRQ:
 		STA	infoCntr + 1
 
 ;Do cursor blinking
-		LDA	crsrIsDispl
-		BEQ	@cont
-
 		DEC	blinkCntr
 		BNE	@cont
 
 		LDA	#$10
 		STA	blinkCntr
 
+	.if .not C64_MODE
+		LDA	rtc_enable
+		BEQ	@crsrstat
+
+		JSR	readRealTimeClock
+
+		LDA	#$01
+		STA	rtc_dirty
+	.endif
+
+@crsrstat:
+		LDA	crsrIsDispl
+		BEQ	@cont
+
+		LDA	blinkStat
+		EOR	#$01
+		STA	blinkStat
+
 		LDY	#$00
 		LDA	(ptrCrsrSPos), Y
-		EOR	#$80
+		AND	#$7F
+
+		LDX	blinkStat
+		BEQ	@blinkupd
+
+		ORA	#$80
+
+@blinkupd:
 		STA	(ptrCrsrSPos), Y
 
 @cont:

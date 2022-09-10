@@ -113,28 +113,29 @@ inputPageIndex:
 chipsetPageCnt 	=	1
 
 chipsetOptions0:
-	; Dummy field for RTC values.
-  	; In reality, we read it from the RTC, and write the values
-	; back there.
 	.byte		$60
 	.word		$01f0
-	.defPStr	"real-time clock:"
-rtc_values:
-	.byte		$00, $00, $00, $00, $00, $00
+	.defPStr	"time (hh:mm:ss):"
+	.byte		$00, $00, $00
+
+	.byte		$70
+	.word		$01f3
+	.defPStr	"date (dd-mmm-yyyy):"
+	.byte		$00, $00, $00
 
 	.byte		$20			;option input type
 	.word		$0020			;offset into config table
 	.byte		$01			;bits for testing/setting
 	.defPStr	"dmagic revision:"	;label
-	.defPStr	'f018 (c65 roms < 910523)'		;option unset
+	.defPStr	'f018 (rom < 910523)'		;option unset
 	.defPStr	"f018b"	;option set
 
 	.byte		$20			;option input type
 	.word		$0004			;offset into config table
 	.byte		$01			;bits for testing/setting
 	.defPStr	"f011 disk controller:"	;label
-	.defPStr	"uses sdcard disk image";option unset
-	.defPStr	'uses 3.5" floppy drive';option set
+	.defPStr	"sdcard disk image";option unset
+	.defPStr	'3.5" floppy drive';option set
 
 	.byte		$30			;string input type
 	.word		$0010			;offset into config table
