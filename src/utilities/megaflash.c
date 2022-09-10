@@ -35,7 +35,7 @@ void display_version(void)
   uint8_t core_hash_4 = PEEK(0xD635);
 
   printf("%c%c%c", 0x93, 0x11, 0x11);
-  printf("  MEGAFLASH/Core hash:\n    %02x%02x%02x%02x%s\n\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
+  printf("  MEGAFLASH/Core hash:\n    %02X%02X%02X%02X%s\n\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
       reconfig_disabled ? " (booted via JTAG)" : "");
   printf("  Slot 0 Version:\n    %s\n\n", slot_core_version[0]);
   printf("  Hardware model id:\n    $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
@@ -76,6 +76,9 @@ void scan_bitstream_information(void)
       if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x57)
           || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x77))
         slot_core_name[i][j] ^= 0x20;
+      if ((slot_core_version[i][j] >= 0x41 && slot_core_version[i][j] <= 0x57)
+          || (slot_core_version[i][j] >= 0x61 && slot_core_version[i][j] <= 0x77))
+        slot_core_version[i][j] ^= 0x20;
     }
     slot_core_name[i][31] = 0;
     slot_core_version[i][31] = 0;
