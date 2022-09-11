@@ -21,11 +21,28 @@ void main(void)
   // White text
   POKE(0x286, 1);
 
+  // clear screen
+  printf("%c", 147);
+
   SEI();
 
-  // Probe flash with verbose output
-  probe_qpsi_flash(1);
+  // check if the bitstream was loaded via JTAG
+  // this does NOT work if the PRG was pushed by JTAG!
+  // reason is currently unknown
+  if (PEEK(0xD6C7) != 0xFF) {
+    printf("\nWARNING: You appear to have not started\n"
+           "this bitstream via JTAG!\n"
+           "\n"
+           "Without JTAG to rescue your system, it\n"
+           "is not recommended to flash slot 0!\n"
+           "\n"
+           "ABORT\n");
+  }
+  else {
+    // Probe flash with verbose output
+    probe_qpsi_flash(1);
 
-  // flash_inspector();
-  reflash_slot(0);
+    // flash_inspector();
+    reflash_slot(0);
+  }
 }
