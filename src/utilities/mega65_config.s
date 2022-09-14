@@ -20,6 +20,14 @@
 ;TODO
 ;
 ;HISTORY
+;		15SEP2022	dengland	01.00
+;			-	Fix bug in saving chipset values (handle date field)
+;			-	Try to handle the case where the FGPA is configured from JTAG,
+;				preventing normal reconfiguration
+;			-	Do not update the RTC value (hour, min, sec) after entering a
+;				value for that sub-field
+;			-	Auto-advance to the next RTC sub-field when entering data in
+;				the last column of a sub-field
 ;		27AUG2022	dengland	01.00
 ;			-	Date sub field movement
 ;			-	Fix potential concurrency issues
@@ -59,7 +67,6 @@
 ;
 ;	I'm enabling "loose_string_term" because I don't see a way of defining
 ;	a string with a double quote in it without it.
-
 	.feature	leading_dot_in_identifiers, loose_string_term
 
 ;	Set this define to 1 to run in "C64 mode" (uses the Kernal and will run
@@ -319,7 +326,6 @@ saveConfOnBoard0:
 saveConfOnBoard1:
 	.defPStr		"the onboarding utility?"
 
-
 saveConfSave0:
 	.defPStr	"are you sure you wish to save"
 saveConfFactory0:
@@ -332,7 +338,6 @@ saveConfRest0:
 
 errorLine:
 	.byte		"config data corrupt. press f14 to reset."
-
 
 helpText0:
 	.defPStr	"mega65 configuration help page!"
@@ -368,7 +373,6 @@ helpTextD:
 
 helpSpacer:
 	.defPStr	""
-
 
 helpTexts:
 	.word	helpText0,  helpSpacer
@@ -438,8 +442,9 @@ rtc_dirty:
 	.byte	$00
 rtc_values:
 	.byte	$00, $00, $00, $00, $00, $00
+rtc_temp0:
+	.byte	$00, $00, $00
 ;===============================================================================
-
 
 
 ;===============================================================================
@@ -2181,16 +2186,22 @@ doSaveOpt:
 		BNE	@isRTCOpt
 
 		CMP	#$70
+		BNE	@isRTCOpt
+
+		CMP	#$80
 		BNE	@unknownOpt
 
 @isRTCOpt:
 		INY
 		JSR	setOptBasePtr
 		JSR	doSkipString
-		TYA
-		CLC
-		ADC	#$03
-		TAY
+;		TYA
+;		CLC
+;		ADC	#$03
+;		TAY
+		INY
+		INY
+		INY
 
 		CLC
 		RTS
@@ -2858,8 +2869,11 @@ doInpNumRTC:
 		STA	(ptrNextInsP), Y
 
 @tstadv:
+		LDA	#$FF
+		STA	rtc_temp0, Y
+
 		LDA	currMACNybb
-		BNE	@done
+		BNE	@advbyte
 
 		CPY	#$02
 		BNE	@advnybb
@@ -2891,11 +2905,14 @@ doInpNumRTC:
 
 @advnybb:
 		JSR	doAdvNybbRTC
+		BRA	@done
 
-		LDX	#$01
-		STX	crsrIsDispl
+@advbyte:
+		CPY	#$02
+		BEQ	@done
 
-		RTS
+		JSR	doAdvByteRTC
+		BRA	@done
 
 
 ;-----------------------------------------------------------
@@ -3106,6 +3123,11 @@ doCommitRTC:
 		JSR	i2cwait
 
 		LDZ	#0
+
+		LDA	#$00
+		STA	rtc_temp0
+		STA	rtc_temp0 + 1
+		STA	rtc_temp0 + 2
 
 		RTS
 
@@ -3664,10 +3686,6 @@ doHandleSaveButton:
 		JMP	@update
 
 @switchReset:
-;; Hypervisor trap to reset machine
-;		LDA	#$7E
-;		STA	$D640
-;		NOP
 
 	.if	.not	C64_MODE
 		JSR	reconfigReset
@@ -3717,6 +3735,19 @@ usleep:
 ;-------------------------------------------------------------------------------
 reconfigReset:
 ;-------------------------------------------------------------------------------
+;	Check if from JTAG and can't reconfigure
+		LDA	$D6C7
+		CMP	#$FF
+		BNE	@begin
+
+;	Hypervisor trap to reset machine when can't reconfigure
+		LDA	#$7E
+		STA	$D640
+		NOP
+
+		RTS
+
+@begin:
 		LDA	#$00				;Blank, black screen
 		STA	$D020
 		STA	$D011
@@ -4889,6 +4920,11 @@ doUpdateRTC:
 		LDA	ptrOptsTemp + 1
 		ADC	#$00
 		STA	ptrNextInsP + 1
+
+		LDA	#$00
+		STA	rtc_temp0
+		STA	rtc_temp0 + 1
+		STA	rtc_temp0 + 2
 
 		CLC
 		LDA	selectedOpt
@@ -6067,8 +6103,22 @@ doDispRTCOpt:
 
 ;		BRA	@cont
 
+		LDA	dispRefresh
+		BNE	@noinit
+
+		LDA	#$00
+		STA	rtc_temp0
+		STA	rtc_temp0 + 1
+		STA	rtc_temp0 + 2
+
+@noinit:
 		LDA	#$00
 		STA	dispOptTemp1
+
+		LDX	selectedOpt
+		LDA	pageOptions, X
+		AND	#$F0
+		STA	dispOptTemp5
 
 		LDX	#$00
 
@@ -6076,10 +6126,18 @@ doDispRTCOpt:
 		LDA	dispRefresh
 		BEQ	@fetch
 
+		LDA	dispOptTemp5
+		CMP	#$60
+		BNE	@fetch1
+
 		CPX	currMACByte
 		BEQ	@upd
 
 @fetch:
+		LDA	rtc_temp0, X
+		BMI	@upd
+
+@fetch1:
 		LDA	rtc_values, X		;Copy from auto update buffer
 		STA	(ptrOptsTemp), Y
 
