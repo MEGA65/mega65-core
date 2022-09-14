@@ -10,7 +10,6 @@
 
 #include "qspicommon.h"
 #include "userwarning.c"
-unsigned char check_input(char *m, uint8_t case_sensitive);
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
@@ -42,7 +41,8 @@ void display_version(void)
 
   // wait for ESC or RUN/STOP
   do {
-    while (!(key = PEEK(0xD610)));
+    while (!(key = PEEK(0xD610)))
+      ;
     POKE(0xD610, 0);
   } while (key != 0x1b && key != 0x03);
 
@@ -117,7 +117,7 @@ void scan_bitstream_information(void)
 
 void main(void)
 {
-  unsigned char selected = 0, valid;
+  unsigned char selected = 0, valid, atticram_bad = 0;
   unsigned char selected_reflash_slot;
 
   mega65_io_enable();
@@ -130,7 +130,7 @@ void main(void)
   POKE(0xd021, 6);
   printf("%c", 0x93);
 
-  probe_qpsi_flash(0);
+  probe_qspi_flash(0);
 
   // We care about whether the IPROG bit is set.
   // If the IPROG bit is set, then we are post-config, and we
@@ -148,18 +148,17 @@ void main(void)
     asm(" jmp $cf7f ");
   }
 
-  //  while(PEEK(0xD610)) POKE(0xD610,0);
-
-  //  POKE(0x0400,PEEK(0xD610));
-  //  while(1) POKE(0xD020,PEEK(0xD020));
-
-  // TAB key or NO SCROLL bucky held forces menu to appear
-  POKE(0x0340, PEEK(0xD610));
-  POKE(0x0341, PEEK(0xD611));
+  // The following section starts a core, but only if certain keys
+  // are NOT pressed, depending on the system
+  // this is the non-interactive part, where megaflash just
+  // starts a core from slot 1 or 2
+  // if this failes, got to GUI anyway
 #ifdef A100T
-  if ((PEEK(0xD610) != 0x09) && (!(PEEK(0xD611) & 0x20))) { // TAB or NO-SCROLL on nexys and semilar
+  // TAB or NO-SCROLL on nexys and semilar
+  if ((PEEK(0xD610) != 0x09) && (!(PEEK(0xD611) & 0x20))) {
 #else
-  if (!(PEEK(0xD611) & 0x20)) { // only NO-SCROLL on mega65r2
+  // only NO-SCROLL on mega65r2/r3
+  if (!(PEEK(0xD611) & 0x20)) {
 #endif
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
@@ -262,10 +261,9 @@ void main(void)
       }
     }
   }
-  else {
-    // We have started by holding TAB down
-    // So just proceed with showing the menu
-  }
+
+  // We are now in interactive mode, do some tests,
+  // then start the GUI
 
   //  printf("BOOTSTS = $%02x%02x%02x%02x\n",
   //	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
@@ -275,12 +273,49 @@ void main(void)
     // started from a bitstream via JTAG, and the ECAPE2 thingy
     // isn't working. This means we can't successfully reconfigure
     // so we should probably display a warning.
-    printf("WARNING: You appear to have started this"
+    printf("%cWARNING:%c You appear to have started this"
            "bitstream via JTAG.  This means that you"
-           "can't use this menu to launch other\n"
-           "cores.  You will still be able to flash "
-           " new bitstreams, though.\n");
+           "%ccan't%c use this menu to launch other\n"
+           "cores.\n"
+           "You will still be able to flash new\n"
+           "bitstreams, though.\n\n", 158, 5, 158, 5);
     reconfig_disabled = 1;
+    // wait for key see below
+  }
+
+#if 0
+  POKE(0xD6C4,0x10);
+  printf("WBSTAR = $%02x%02x%02x%02x\n",
+      PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+#endif
+
+  // quick and dirty attic ram check
+  lpoke(0x8000000l, 0x55);
+  if (lpeek(0x8000000l) != 0x55)
+    atticram_bad = 1;
+  else {
+    lpoke(0x8000000l, 0xaa);
+    if (lpeek(0x8000000l) != 0xaa)
+      atticram_bad = 1;
+    else {
+      lpoke(0x8000000l, 0xff);
+      if (lpeek(0x8000000l) != 0xff)
+        atticram_bad = 1;
+      else {
+        lpoke(0x8000000l, 0x00);
+        if (lpeek(0x8000000l) != 0x00)
+          atticram_bad = 1;
+      }
+    }
+  }
+  if (atticram_bad)
+    printf("WARNING: Your system does not support\n"
+           "attic ram. Because the flasher in this\n"
+           "core does not support flashing without\n"
+           "attic ram, flashing has been disabled.\n\n");
+
+  // if we gave some warning, wait for a keypress before continuing
+  if (reconfig_disabled || atticram_bad) {
     printf("\nPress almost any key to continue...\n");
     while (PEEK(0xD610))
       POKE(0xD610, 0);
@@ -294,13 +329,7 @@ void main(void)
       POKE(0xD610, 0);
   }
 
-#if 0
-  POKE(0xD6C4,0x10);  
-  printf("WBSTAR = $%02x%02x%02x%02x\n",
-      PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
-#endif
-
-  // prepear menu
+  // prepare menu
   // sanity check for slot count, determined by probe_qspi_flash
   if (slot_count == 0 || slot_count > 8)
     slot_count = 8;
@@ -308,6 +337,7 @@ void main(void)
   // Scan for existing bitstreams
   scan_bitstream_information();
 
+  // clear screen
   printf("%c", 0x93);
   while (1) {
     // home cursor
@@ -338,6 +368,8 @@ void main(void)
       }
     }
     // Draw footer line with instructions
+    for (; i < 8; i++)
+      printf("%c%c%c", 17, 17, 17);
     printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count - 1, slot_count - 1, 0x92);
     POKE(1024 + 999, 0x14 + 0x80);
 
@@ -363,7 +395,7 @@ void main(void)
       }
     }
 
-    selected_reflash_slot = 0;
+    selected_reflash_slot = 0xff;
 
     switch (x) {
     case 0x03: // RUN-STOP
@@ -411,9 +443,9 @@ void main(void)
       printf("%c", 0x93);
       break;
     case 0x7e: // TILDE (MEGA-LT)
+      // first ask rediculous questions...
       if (user_has_been_warned()) {
-        reflash_slot(0);
-        scan_bitstream_information();
+        selected_reflash_slot = 0;
       }
       printf("%c", 0x93);
       break;
@@ -449,10 +481,19 @@ void main(void)
       break;
     }
 
-    if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
-      reflash_slot(selected_reflash_slot);
-      scan_bitstream_information();
-      printf("%c", 0x93);
+    if (selected_reflash_slot < slot_count) {
+      if (atticram_bad) {
+        POKE(0xd020, 2);
+        POKE(0xd021, 2);
+        usleep(150000L);
+        POKE(0xd020, 0);
+        POKE(0xd021, 6);
+      }
+      else {
+        reflash_slot(selected_reflash_slot);
+        scan_bitstream_information();
+        printf("%c", 0x93);
+      }
     }
 
     // restore black border

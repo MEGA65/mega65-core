@@ -19,6 +19,7 @@ src/utilities/*.prg
 src/utilities/userwarning.c
 src/utilities/mega65_config.lbl
 src/utilities/*.label
+src/utilities/version.h
 src/monitor/gen_dis
 src/tools/ftphelper.c
 src/hyppo/HICKUP.*
@@ -114,6 +115,7 @@ vivado/*.xpr
 # fetched by release-build
 release-build/mega65-release-prep
 release-build/mega65-tools
+reltest/
 
 # py tests
 tests/vunit_out

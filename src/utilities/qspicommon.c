@@ -26,7 +26,7 @@ unsigned char tries = 0;
 
 unsigned int num_4k_sectors = 0;
 
-unsigned char first, last;
+unsigned char first, last, verboseProgram = 0;
 
 unsigned char part[256];
 
@@ -67,27 +67,25 @@ unsigned char progress_chars[4] = { 32, 101, 97, 231 };
 
 void progress_bar(unsigned char onesixtieths)
 {
-#if 1
-  /* Draw a progress bar several chars high */
+  unsigned char fulls = onesixtieths >> 2;
 
-  if (onesixtieths > 3) {
-    for (i = 1; i <= (onesixtieths / 4); i++) {
-      POKE(0x0400 + (4 * 40) - 1 + i, 160);
-      POKE(0x0400 + (5 * 40) - 1 + i, 160);
-      POKE(0x0400 + (6 * 40) - 1 + i, 160);
+  /* Draw a progress bar several chars high */
+  for (i = 0; i < fulls; i++) {
+    POKE(0x0400 + (4 * 40) + i, 160);
+    POKE(0x0400 + (5 * 40) + i, 160);
+    POKE(0x0400 + (6 * 40) + i, 160);
+  }
+  if (i < 40) {
+    POKE(0x0400 + (4 * 40) + i, progress_chars[onesixtieths & 3]);
+    POKE(0x0400 + (5 * 40) + i, progress_chars[onesixtieths & 3]);
+    POKE(0x0400 + (6 * 40) + i, progress_chars[onesixtieths & 3]);
+    for (i++; i < 40; i++) {
+      POKE(0x400 + (4 * 40) + i, 0x20);
+      POKE(0x400 + (5 * 40) + i, 0x20);
+      POKE(0x400 + (6 * 40) + i, 0x20);
     }
   }
-  for (; i <= 39; i++) {
-    POKE(0x400 + (4 * 40) + i, 0x20);
-    POKE(0x400 + (5 * 40) + i, 0x20);
-    POKE(0x400 + (6 * 40) + i, 0x20);
-  }
-  if (onesixtieths < 160) {
-    POKE(0x0400 + (4 * 40) + (onesixtieths / 4), progress_chars[onesixtieths & 3]);
-    POKE(0x0400 + (5 * 40) + (onesixtieths / 4), progress_chars[onesixtieths & 3]);
-    POKE(0x0400 + (6 * 40) + (onesixtieths / 4), progress_chars[onesixtieths & 3]);
-  }
-#endif
+
   return;
 }
 
@@ -115,13 +113,16 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
   return 1;
 }
 
-void press_any_key(void)
+void press_any_key(unsigned char attention)
 {
   printf("\nPress any key to continue.\n");
   while (PEEK(0xD610))
     POKE(0xD610, 0);
   while (!PEEK(0xD610))
-    continue;
+    if (attention) // attention lets the border flash
+      POKE(0xD020, PEEK(0xD020) + 1);
+  if (attention)
+    POKE(0xD020, 0);
   while (PEEK(0xD610))
     POKE(0xD610, 0);
 }
@@ -646,7 +647,11 @@ char *select_bitstream_file(void)
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
     j = strlen(dirent->d_name) - 4;
     if (j >= 0) {
-      if ((!strncmp(&dirent->d_name[j], ".COR", 4)) || (!strncmp(&dirent->d_name[j], ".cor", 4))) {
+      // don't show filenames with _ or ~ as first char
+      // only select files ending in .COR
+      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f) &&
+          ((!strncmp(&dirent->d_name[j], ".COR", 4)) ||
+           (!strncmp(&dirent->d_name[j], ".cor", 4)))) {
         // File is a core
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
@@ -735,13 +740,12 @@ void reconfig_fpga(unsigned long addr)
 {
 
   if (reconfig_disabled) {
-    printf("%cERROR: Remember that warning about\n"
+    printf("%c%cERROR:%c Remember that warning about\n"
            "having started from JTAG?\n"
-           "I really did mean it, when I said that\n"
-           "it would stop you being able to launch\n"
-           "another core.\n",
-        0x93);
-    press_any_key();
+           "You %ccan't%c start a core from flash after\n"
+           "having started the system via JTAG.\n",
+        0x93, 158, 5, 158, 5);
+    press_any_key(0);
     printf("%c", 0x93);
     return;
   }
@@ -808,7 +812,7 @@ int check_model_id_field(void)
 
   if (!bytes_returned) {
     printf("Failed to read .cor file.\n");
-    press_any_key();
+    press_any_key(0);
     return 0;
   }
 
@@ -821,7 +825,7 @@ int check_model_id_field(void)
     printf("%cVerified .COR file matches hardware.\n"
            "Safe to flash.%c\n",
         0x1e, 0x05);
-    press_any_key();
+    press_any_key(0);
     return 1;
   }
 
@@ -834,14 +838,14 @@ int check_model_id_field(void)
       return 0;
 
     printf("Ok, will proceed to flash\n");
-    press_any_key();
+    press_any_key(0);
     return 1;
   }
 
   printf("%cVerification error!\n"
          "This .COR file is not intended for this hardware.%c\n",
       0x1c, 0x05);
-  press_any_key();
+  press_any_key(0);
   return 0;
 }
 
@@ -928,7 +932,7 @@ void flash_inspector(void)
       case 0x50:
       case 0x70:
         query_flash_protection(addr);
-        press_any_key();
+        press_any_key(0);
         break;
       case 0x54:
       case 0x74:
@@ -960,7 +964,7 @@ void flash_inspector(void)
         printf("About to call program_page()\n");
         //        program_page(addr,page_size);
         program_page(addr, 256);
-        press_any_key();
+        press_any_key(0);
       }
 
       read_data(addr);
@@ -1001,7 +1005,7 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
         //          if ((i&15)==15) printf("\n");
       }
       printf("%c", 5);
-      press_any_key();
+      press_any_key(0);
       for (i = 256; i < 512; i++) {
         if (!(i & 15))
           printf("%c%07lx:", 5, flash_addr + i);
@@ -1014,7 +1018,7 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
       }
       printf("%c", 5);
       printf("repeated verify yields %d\n", verify_data_in_place(flash_addr));
-      press_any_key();
+      press_any_key(0);
 #endif
       return 1;
     }
@@ -1089,7 +1093,7 @@ void reflash_slot(unsigned char slot)
       // Couldn't open the file.
       printf("ERROR: Could not open flash file '%s'\n", file);
 
-      press_any_key();
+      press_any_key(0);
 
       while (1)
         continue;
@@ -1172,7 +1176,7 @@ void reflash_slot(unsigned char slot)
       while (flash_region_differs(addr - SLOT_SIZE * slot, addr, size)) {
         tries++;
         if (tries == 10) {
-          printf("%c%c%cERROR: Could not write to flash after %d tries.\n", 0x11, 0x11, 0x11, tries);
+          printf("%c%c\nERROR: Could not write to flash after %d tries.\n", 0x11, 0x11, tries);
           printf("Please turn the system off!\n");
           // secret Ctrl-F (keycode 0x06) will launch flash inspector
           while (PEEK(0xD610))
@@ -1196,6 +1200,7 @@ void reflash_slot(unsigned char slot)
         printf("%cProgramming sector at $%08lX", 0x13, addr);
         for (waddr = addr; waddr < (addr + size); waddr += 256) {
           lcopy(0x8000000L + waddr - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
+          // display sector on screen
           //        lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
           POKE(0xD020, 3);
           program_page(waddr, 256);
@@ -1229,8 +1234,8 @@ void reflash_slot(unsigned char slot)
         unsigned long eta = (((SLOT_SIZE) * (slot + 1) - addr) / speed) >> 10;
         d_last = d;
         if (speed > 0)
-          printf("%c%c%c%c%c%c%c%c%c%cFlashing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11,
-              0x11, 0x11, 0x11, 0x11, 0x11, speed, eta);
+          printf("%c%c%c%c%c%c%c%c%c\nFlashing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11,
+              0x11, 0x11, 0x11, 0x11, speed, eta);
       }
     }
     flash_time = seconds_between(&tm_start, &tm_now);
@@ -1281,30 +1286,22 @@ void reflash_slot(unsigned char slot)
         unsigned long eta = (((SLOT_SIZE) * (slot + 1) - addr) / speed) >> 10;
         d_last = d;
         if (speed > 0)
-          printf("%c%c%c%c%c%c%c%c%c%cErasing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11, 0x11,
-              0x11, 0x11, 0x11, 0x11, speed, eta);
+          printf("%c%c%c%c%c%c%c%c%c\nErasing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11, 0x11,
+              0x11, 0x11, 0x11, speed, eta);
       }
     }
     flash_time = seconds_between(&tm_start, &tm_now);
   }
 
-  printf("%c%c%c%c%c%c%c%c\n"
-         "Flash slot successfully updated.     \n",
-      0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11);
+  printf("%c%c%c%c%c%c%c%c%c\n"
+         "Flash slot successfully updated.      \n\n", 0x13, 0x11, 0x11, 0x11, 0x11,
+              0x11, 0x11, 0x11, 0x11);
   if (load_time + flash_time > 0)
-    printf("    Load: %d sec\n"
-           "   Flash: %d sec\n"
-           "\n"
-           "Press any key to return to menu.\n",
-        load_time, flash_time);
-  // Coloured border to draw attention
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
-  while (!PEEK(0xD610))
-    POKE(0xD020, PEEK(0xD020) + 1);
-  POKE(0xD020, 0);
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
+    printf("    Load: %d sec \n"
+           "   Flash: %d sec \n"
+           "\n", load_time, flash_time);
+
+  press_any_key(1);
 
   hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
@@ -1317,13 +1314,13 @@ void reflash_slot(unsigned char slot)
 
  ***************************************************************************/
 
-void probe_qpsi_flash(unsigned char verboseP)
+void probe_qspi_flash(unsigned char verboseP)
 {
   spi_cs_high();
   usleep(50000L);
 
   if (verboseP)
-    printf("%cProbing flash...\n", 0x93);
+    printf("\nProbing flash...\n");
 
   // Put QSPI clock under bitbash control
   POKE(CLOCKCTL_PORT, 0x02);
@@ -1346,19 +1343,12 @@ void probe_qpsi_flash(unsigned char verboseP)
 
   fetch_rdid();
   read_registers();
-  if ((manufacturer == 0xff) && (device_id == 0xffff)) {
-    printf("ERROR: Cannot communicate with QSPI            flash device.\n");
-    while (1) {
-      spi_cs_high();
-      for (i = 0; i < 255; i++) {
-        spi_clock_low();
-        spi_clock_high();
-      }
+  while ((manufacturer == 0xff) && (device_id == 0xffff)) {
+    printf("%cERROR: Cannot communicate with QSPI\nflash device. Retry...%c\n\n", 28, 5);
 
-      flash_reset();
-      fetch_rdid();
-      read_registers();
-    }
+    flash_reset();
+    fetch_rdid();
+    read_registers();
   }
 
   if (verboseP) {
@@ -1369,61 +1359,64 @@ void probe_qpsi_flash(unsigned char verboseP)
       if ((i & 15) == 15)
         printf("\n");
     }
-    printf("\n");
-    press_any_key();
+    press_any_key(0);
+    printf("\nQSPI Information\n\n");
   }
 
-  if ((cfi_data[0x51] == 0x41) && (cfi_data[0x52] == 0x4C) && (cfi_data[0x53] == 0x54)) {
-    if (cfi_data[0x56] == 0x00) {
-      for (i = 0; i < cfi_data[0x57]; i++)
-        part[i] = cfi_data[0x57 + i];
-      part[cfi_data[0x57]] = 0;
-      if (verboseP)
-        printf("Part is %s\n", part);
-    }
+  // this looks for ALT?\00 at cfi_data pos 0x51
+  if (cfi_data[0x51] == 0x41 && cfi_data[0x52] == 0x4c && cfi_data[0x53] == 0x54 && cfi_data[0x56] == 0x00) {
+    for (i = 0; i < cfi_data[0x57]; i++)
+      part[i] = cfi_data[0x58 + i];
+    part[i] = 0;
+    if (verboseP)
+      printf("Part         = %s\n"
+             "Part Family  = %02x-%c%c\n", part, cfi_data[5], cfi_data[6], cfi_data[7]);
+  }
+  else {
+    part[0] = 0;
+    if (verboseP)
+      printf("%cPart         = unknown %02x %02x %02x\n"
+             "Part Family  = unknown%c\n", 28, cfi_data[0x51], cfi_data[0x52], cfi_data[0x53], 5);
   }
   if (verboseP) {
-    printf("QSPI Flash manufacturer = $%02x\n", manufacturer);
-    printf("QSPI Device ID = $%04x\n", device_id);
-    printf("RDID byte count = %d\n", cfi_length);
-    printf("Sector architecture is ");
+    printf("Manufacturer = $%02x\n", manufacturer);
+    printf("Device ID    = $%04x\n", device_id);
+    printf("RDID count   = %d\n", cfi_length);
+    printf("Sector Arch  = ");
   }
   if (cfi_data[4] == 0x00) {
     if (verboseP)
-      printf("uniform 256kb sectors.\n");
+      printf("uniform 256kb\n");
     num_4k_sectors = 0;
     flash_sector_bits = 18;
   }
   else if (cfi_data[4] == 0x01) {
-    if (verboseP) {
-      printf("\n  4kb parameter sectors\n  64kb data sectors.\n");
-      printf("  %d x 4KB sectors.\n", 1 + cfi_data[0x2d]);
-    }
     num_4k_sectors = 1 + cfi_data[0x2d];
     flash_sector_bits = 16;
+    if (verboseP)
+      printf("%dx4kb param/64kb data\n", num_4k_sectors);
   }
   else {
     if (verboseP)
-      printf("unknown ($%02x).\n", cfi_data[4]);
+      printf("%cunknown ($%02x)%c\n", 28, cfi_data[4], 5);
+    flash_sector_bits = 0;
   }
-  if (verboseP) {
-    printf("Part Family is %02x-%c%c\n", cfi_data[5], cfi_data[6], cfi_data[7]);
-    printf("2^%d byte page, program time is 2^%d usec.\n", cfi_data[0x2a], cfi_data[0x20]);
-  }
+  if (verboseP)
+    printf("Prgtime      = 2^%d us\n"
+           "Page size    = 2^%d bytes\n", cfi_data[0x20], cfi_data[0x2a]);
+
   if (cfi_data[0x2a] == 8)
     page_size = 256;
   if (cfi_data[0x2a] == 9)
     page_size = 512;
   if (!page_size) {
-    printf("WARNING: Unsupported page size\n");
-    page_size = 512;
+    printf("%cWARNING: Unsupported page size%c\n", 28, 5);
+    page_size = 0;
   }
   if (verboseP) {
-    printf("Page size = %d\n", page_size);
-
-    printf("Expected programing time = %d usec/byte.\n", cfi_data[0x20] / cfi_data[0x2a]);
-    printf("Erase time is 2^%d millisec/sector.\n", cfi_data[0x21]);
-    press_any_key();
+    printf("Est. prgtime = %d us/byte.\n", cfi_data[0x20] / cfi_data[0x2a]);
+    printf("Est. erasetm = 2^%d ms/sector.\n", cfi_data[0x21]);
+    press_any_key(0);
   }
 
   // Work out size of flash in MB
@@ -1436,14 +1429,17 @@ void probe_qpsi_flash(unsigned char verboseP)
       n--;
     }
   }
-  slot_count = mb / SLOT_MB;
-  if (verboseP)
-    printf("Flash size is %dmb (%d slots)\n", mb, slot_count);
 
-  latency_code = reg_cr1 >> 6;
+  slot_count = mb / SLOT_MB;
   // latency_code=3;
+  latency_code = reg_cr1 >> 6;
+
   if (verboseP) {
-    printf("  latency code = %d\n", latency_code);
+    printf("\n"
+           "Flash size   = %dMB\n"
+           "Flash slots  = %d slots of %dMB\n"
+           "Register SR1 = $%02x\n", mb, slot_count, SLOT_MB, reg_sr1);
+    printf("  latency code %d\n", latency_code);
     if (reg_sr1 & 0x80)
       printf("  flash is write protected.\n");
     if (reg_sr1 & 0x40)
@@ -1456,10 +1452,19 @@ void probe_qpsi_flash(unsigned char verboseP)
       printf("  write latch not (yet) enabled.\n");
     if (reg_sr1 & 0x01)
       printf("  device busy.\n");
-    printf("reg_sr1=$%02x\n", reg_sr1);
-    printf("reg_cr1=$%02x\n", reg_cr1);
-    press_any_key();
+    printf("Register CR1 = $%02x\n"
+           "", reg_cr1);
   }
+
+  // failed to detect, probably dip sw #3 = off
+  if (mb == 0 || page_size == 0 || flash_sector_bits == 0 || part[0] == 0) {
+    printf("\n%cERROR: Failed to probe flash\n       (dip #3 not on?)%c\n", 28, 5);
+    while (1)
+      POKE(0xD020, PEEK(0xD020) + 1);
+  }
+
+  if (verboseP)
+    press_any_key(0);
 
   /* The 64MB = 512Mbit flash in the MEGA65 R3A comes write-protected, and with
      quad-SPI mode disabled. So we have to fix both of those (which then persists),
@@ -1470,12 +1475,12 @@ void probe_qpsi_flash(unsigned char verboseP)
   read_registers();
 
   if (reg_sr1 & 0x80) {
-    printf("ERROR: Could not clear whole-of-flash write-protect flag.\n");
+    printf("\n%cERROR: Could not clear whole-of-flash write-protect flag.%c\n", 28, 5);
     while (1)
       POKE(0xD020, PEEK(0xD020) + 1);
   }
 
-  printf("Quad mode enabled, flash is write-enabled\n");
+  printf("\nQuad-mode enabled,\nflash is write-enabled.\n\n");
 
   // Finally make sure that there is no half-finished QSPI commands that will cause erroneous
   // reads of sectors.
@@ -1483,7 +1488,7 @@ void probe_qpsi_flash(unsigned char verboseP)
   read_data(0);
   read_data(0);
 
-  printf("Done probing flash\n");
+  printf("Done probing flash.\n\n");
 }
 
 void enable_quad_mode(void)
@@ -1527,7 +1532,7 @@ void enable_quad_mode(void)
   spi_cs_high();
   delay();
   printf("CR1=$%02x\n",c);
-  press_any_key();
+  press_any_key(0);
 #endif
 }
 
@@ -1748,11 +1753,11 @@ unsigned char verify_data(unsigned long start_address)
 
 void program_page(unsigned long start_address, unsigned int page_size)
 {
-  unsigned char b;
+  unsigned char b, pass = 0;
   unsigned char errs = 0;
 
 top:
-
+  pass++;
   //  printf("About to clear SR1\n");
 
   spi_clear_sr1();
@@ -1789,7 +1794,7 @@ top:
   }
 
   // We shouldn't need free-running clock, and it may in fact cause problems.
-  POKE(0xd6cd, 0x02);
+  POKE(0xd6cd, 0x02); // do we need to do this every block?
 
   spi_write_enable();
   spi_clock_high();
@@ -1817,8 +1822,10 @@ top:
   }
   else if (page_size == 512) {
     // Write 512 bytes
-
     //    printf("Hardware SPI write 512 (a)\n");
+    //
+    // ERROR: this should be 0xffd6e00L, 512
+    // but as it is never used... and it also does not work lydon@20220912
     lcopy((unsigned long)data_buffer, 0xffd6f00L, 256);
     POKE(0xD681, start_address >> 0);
     POKE(0xD682, start_address >> 8);
@@ -1827,12 +1834,12 @@ top:
     POKE(0xD680, 0x54);
     while (PEEK(0xD680) & 3)
       POKE(0xD020, PEEK(0xD020) + 1);
-    //    press_any_key();
+    //    press_any_key(0);
     spi_clock_high();
     spi_cs_high();
 
     //    printf("Hardware SPI write 512 done\n");
-    //    press_any_key();
+    //    press_any_key(0);
   }
 
   // XXX For some reason the busy flag is broken here.
@@ -1840,7 +1847,7 @@ top:
   for (b = 0; b < 180; b++)
     continue;
 
-  //  press_any_key();
+  //  press_any_key(0);
 
   // Revert lines to input after QSPI operation
   bash_bits |= 0x8f;
@@ -1851,22 +1858,24 @@ top:
   reg_sr1 = 0x01;
   while (reg_sr1 & 0x01) {
     if (reg_sr1 & 0x40) {
-      printf("Flash write error occurred @ $%08lx.\n", start_address);
-      //      query_flash_protection(start_address);
-      read_registers();
-      printf("reg_sr1=$%02x, reg_cr1=$%02x\n", reg_sr1, reg_cr1);
-      //      press_any_key();
+      if (verboseProgram || pass > 2) {
+        printf("%c%c%cwrite error occurred @$%08lx\n", 0x13, 0x11, 152, start_address);
+        //      query_flash_protection(start_address);
+        //      read_registers();
+        printf("reg_sr1=$%02x, reg_cr1=$%02x, pass=%d%c\n", reg_sr1, reg_cr1, pass, 5);
+        //      press_any_key(0);
+      }
       goto top;
     }
     read_registers();
   }
   POKE(0xD020, 0);
 
-  if (reg_sr1 & 0x03)
-    printf("error writing data @ $%08llx\n", start_address);
-  else {
-    //    printf("data at $%08llx written.\n",start_address);
-  }
+  // this can't happen, can it? the loop in front of this will catch the 0x01
+  //if (reg_sr1 & 0x03)
+  //  printf("error writing data @$%08llx\n", start_address);
+  //else
+  //  printf("data at $%08llx written.\n",start_address);
 
 #if 0
   // Now verify that it has written correctly using hardware acceleration
@@ -1882,14 +1891,14 @@ top:
         printf("%02x",data_buffer[i]);
         if ((i&15)==15) printf("\n");
       }
-    press_any_key();
+    press_any_key(0);
     for(i=256;i<512;i++)
       {
         if (!(i&15)) printf("+%03x : ",i);
         printf("%02x",data_buffer[i]);
         if ((i&15)==15) printf("\n");
       }
-    press_any_key();
+    press_any_key(0);
     lcopy(0x40000L,data_buffer,512);
     goto top;
   }
@@ -2058,7 +2067,7 @@ void spi_clear_sr1(void)
 
     read_sr1();
     //    printf("reg_sr1=$%02x\n",reg_sr1);
-    //    press_any_key();
+    //    press_any_key(0);
   }
 }
 

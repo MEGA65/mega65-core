@@ -70,6 +70,13 @@ end version;
 ENDTEMPLATE
 echo "wrote: src/vhdl/version.vhdl"
 
+cat > src/utilities/version.h <<ENDTEMPLATE
+#ifndef _VERSION_H
+#define _VERSION_H
+static char *utilVersion="${freezerout}";
+#endif
+ENDTEMPLATE
+echo "wrote: src/utilities/version.h"
 
 # ###############################
 # note that the following string should be no more than 40 chars [TBC]

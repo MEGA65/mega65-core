@@ -16,6 +16,8 @@ extern unsigned char latency_code;
 extern unsigned char reg_cr1;
 extern unsigned char reg_sr1;
 
+extern unsigned char verboseProgram;
+
 extern unsigned char manufacturer;
 extern unsigned short device_id;
 extern unsigned char cfi_data[512];
@@ -35,7 +37,7 @@ extern unsigned char buffer[512];
 
 extern short i, x, y, z;
 
-void probe_qpsi_flash(unsigned char verboseP);
+void probe_qspi_flash(unsigned char verboseP);
 void reflash_slot(unsigned char slot);
 void reconfig_fpga(unsigned long addr);
 void flash_inspector(void);
@@ -59,7 +61,7 @@ void spi_clock_low(void);
 void spi_clock_high(void);
 void spi_cs_low(void);
 void spi_cs_high(void);
-void press_any_key(void);
+void press_any_key(unsigned char attention);
 void delay(void);
 void spi_tx_byte(unsigned char b);
 unsigned char qspi_rx_byte(void);

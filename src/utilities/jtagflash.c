@@ -9,9 +9,11 @@
 #include <6502.h>
 
 #include "qspicommon.h"
+#include "version.h"
 
 void main(void)
 {
+  unsigned char atticram_bad = 0;
   mega65_io_enable();
 
   // Black screen for middle-of-the-night development
@@ -26,6 +28,33 @@ void main(void)
 
   SEI();
 
+  // quick and dirty attic ram check
+  lpoke(0x8000000l, 0x55);
+  if (lpeek(0x8000000l) != 0x55)
+    atticram_bad = 1;
+  else {
+    lpoke(0x8000000l, 0xaa);
+    if (lpeek(0x8000000l) != 0xaa)
+      atticram_bad = 1;
+    else {
+      lpoke(0x8000000l, 0xff);
+      if (lpeek(0x8000000l) != 0xff)
+        atticram_bad = 1;
+      else {
+        lpoke(0x8000000l, 0x00);
+        if (lpeek(0x8000000l) != 0x00)
+          atticram_bad = 1;
+      }
+    }
+  }
+  if (atticram_bad) {
+    printf("\nWARNING: could not detect working attic\n"
+           "RAM, which is required by this flasher.\n"
+           "\n"
+           "ABORT\n");
+    return;
+  }
+
   // check if the bitstream was loaded via JTAG
   // this does NOT work if the PRG was pushed by JTAG!
   // reason is currently unknown
@@ -37,12 +66,16 @@ void main(void)
            "is not recommended to flash slot 0!\n"
            "\n"
            "ABORT\n");
+    return;
   }
-  else {
-    // Probe flash with verbose output
-    probe_qpsi_flash(1);
 
-    // flash_inspector();
-    reflash_slot(0);
-  }
+  printf("%c\njtagflash Version\n  %s\n", 0x93, utilVersion);
+
+  // Probe flash with verbose output
+  probe_qspi_flash(1);
+
+  verboseProgram = 1;
+  reflash_slot(0l);
+
+  printf("%c", 0x93);
 }
