@@ -40,49 +40,20 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         flopled : out std_logic := '1';
          irled : out std_logic := '1';
-
-         wifi_uart_rx : inout std_logic := '1';
-         wifi_uart_tx : out std_logic := '1';
-
-         lora1_uart_rx : inout std_logic := '1';
-         lora1_uart_tx : out std_logic := '1';
-         lora2_uart_rx : inout std_logic := '1';
-         lora2_uart_tx : out std_logic := '1';
-
-         bluetooth_uart_rx : inout std_logic := '1';
-         bluetooth_uart_tx : out std_logic := '1';
-         bluetooth_pcm_clk_in : in std_logic;
-         bluetooth_pcm_sync_in : in std_logic;
-         bluetooth_pcm_data_in : in std_logic;
-         bluetooth_pcm_data_out : out std_logic;
 
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
-
-         smartcard_clk : inout std_logic;
-         smartcard_io : inout std_logic;
 
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
          modem1_pcm_data_out : out std_logic;
 
---         modem1_debug_uart_rx : inout std_logic;
---         modem1_debug_uart_tx : out std_logic;
-         modem1_uart_rx : inout std_logic;
-         modem1_uart_tx : out std_logic;
-
          modem2_pcm_clk_in : in std_logic;
          modem2_pcm_sync_in : in std_logic;
          modem2_pcm_data_in : in std_logic;
          modem2_pcm_data_out : out std_logic;
-
---         modem2_debug_uart_rx : inout std_logic;
---         modem2_debug_uart_tx : out std_logic;
-         modem2_uart_rx : inout std_logic;
-         modem2_uart_tx : out std_logic;
 
          ----------------------------------------------------------------------
          -- MEMS microphones
@@ -97,13 +68,15 @@ entity container is
          touch_scl : inout std_logic := '1';
 
          ----------------------------------------------------------------------
-         -- VGA output
+         -- LCD output
          ----------------------------------------------------------------------
-         vga_vsync : out STD_LOGIC;
-         vga_hsync : out  STD_LOGIC;
-         vga_red : out  UNSIGNED (3 downto 0);
-         vga_green : out  UNSIGNED (3 downto 0);
-         vga_blue : out  UNSIGNED (3 downto 0);
+         lcd_vsync : out STD_LOGIC;
+         lcd_hsync : out  STD_LOGIC;
+         lcd_display_enable : out STD_LOGIC;
+         lcd_dclk : out STD_LOGIC;
+         lcd_red : out  UNSIGNED (5 downto 0);
+         lcd_green : out  UNSIGNED (5 downto 0);
+         lcd_blue : out  UNSIGNED (5 downto 0);
 
          TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
@@ -270,11 +243,12 @@ begin
       blue_no => vgablue,      
 
       hsync => hdmi_hsync,
-      vsync => vsync,  -- for HDMI & VGA
-      vga_hsync => vga_hsync,      -- for VGA
+      vsync => vsync,  -- for HDMI & LCD
+      lcd_hsync => lcd_hsync,      -- for LCD
 --      vga_blank => vga_blank,
 
-      narrow_dataenable => hdmi_dataenable
+      narrow_dataenable => hdmi_dataenable,
+      fullwidth_dataenable => lcd_display_enable
       
       );     
   
@@ -351,11 +325,12 @@ begin
       end if;
     end if;
     
-    -- VGA direct output
-    vga_vsync <= vsync;
-    vga_red <= vgared(7 downto 4);
-    vga_green <= vgagreen(7 downto 4);
-    vga_blue <= vgablue(7 downto 4);
+    -- LCD direct output
+    lcd_dclk <= clock27;
+    lcd_vsync <= vsync;
+    lcd_red <= vgared(7 downto 2);
+    lcd_green <= vgagreen(7 downto 2);
+    lcd_blue <= vgablue(7 downto 2);
     
   end process;
 
