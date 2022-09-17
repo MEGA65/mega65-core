@@ -59,7 +59,7 @@ set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 
 # Line for shutting down VCC_FPGA, i.e., for the FPGA to turn itself off when phone is idle
-set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS18} [get_ports power_down]
+#set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS18} [get_ports power_down]
 
 # WiFi header UART
 set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS18} [get_ports wifi_uart_tx]
