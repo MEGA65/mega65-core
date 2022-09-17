@@ -251,7 +251,7 @@ begin
       -- Define the video signal we want
       hsync_invert => '0',
       vsync_invert => '0',
-      pal50_select => '0',
+      pal50_select => '1',
       vga60_select => '0',
       test_pattern_enable => '1',
       
