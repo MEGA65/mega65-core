@@ -131,11 +131,6 @@ entity container is
          sdMISO : in  std_logic;
 
          ----------------------------------------------------------------------
-         -- Allow the FPGA to turn itself off
-         ----------------------------------------------------------------------
-         power_down : out std_logic := '1';
-
-         ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
 --         QspiSCK : out std_logic;
@@ -181,12 +176,9 @@ architecture Behavioral of container is
   signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
-  signal clock81n : std_logic;
-  signal clock100 : std_logic;
-  signal clock135p : std_logic;
-  signal clock135n : std_logic;
   signal clock162 : std_logic;
   signal clock200 : std_logic;
+  signal clock270 : std_logic;
   signal clock325 : std_logic;
 
   signal dummy : std_logic_vector(2 downto 0);
@@ -221,8 +213,9 @@ architecture Behavioral of container is
   signal hdmi_dataenable : std_logic;
 
   signal tmds : slv_9_0_t(0 to 2);
-
+  
   signal reset_high : std_logic := '1';
+  signal dvi_reset : std_logic := '1';
 
   signal dvi_select : std_logic := '1';
 
@@ -242,12 +235,9 @@ begin
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
                clock81p  => pixelclock, --   81     MHz
-               clock81n  => clock81n,   --   81     MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135     MHz
-               clock135n => clock135n,  --  135     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
+               clock270 => clock270,
                clock325  => clock325    --  325     MHz
                );
 
@@ -324,30 +314,43 @@ begin
       tmds => tmds
       );
 
-  ddr1: ODDR2
-    generic map(DDR_ALIGNMENT=>"NONE",  --Setsoutputalignmentto"NONE","C0","C1"
-                INIT=>'0',--SetsinitialstateoftheQoutputto'0'or'1'
-                SRTYPE=>"SYNC")--Specifies"SYNC"or"ASYNC"set/reset
-    port map(Q=>TMDS_clk_q, --1-bitoutputdata
-             C0=>clock135p, --1-bitclockinput
-             C1=>clock135n, --1-bitclockinput
-             CE=>'1', --1-bitclockenableinput
-             D0=>'0', --1-bitdatainput(associatedwithC0)
-             D1=>'1', --1-bitdatainput(associatedwithC1)
-             R=>'0', --1-bitresetinput
-             S=>'0' --1-bitsetinput
-             );
+     -- serialiser: in this design we use TMDS SelectIO outputs
+    GEN_HDMI_DATA: for i in 0 to 2 generate
+    begin
+        HDMI_DATA: entity work.serialiser_10to1_selectio
+            port map (
+                rst     => dvi_reset,
+                clk     => clock27,
+                clk_x10  => clock270,
+                d       => tmds(i),
+                out_p   => TMDS_data_p(i),
+                out_n   => TMDS_data_n(i)
+            );
+    end generate GEN_HDMI_DATA;
+    HDMI_CLK: entity work.serialiser_10to1_selectio
+        port map (
+            rst     => dvi_reset,
+            clk     => clock27,
+            clk_x10  => clock270,
+            d       => "0000011111",
+            out_p   => TMDS_clk_p,
+            out_n   => TMDS_clk_n
+        );    
   
-  U_OBUF_CLK: obufds
-    port map (
-      i => TMDS_clk_q,
-      o => TMDS_clk_p,
-      ob => TMDS_clk_n
-      );    
-  
-  process (clock27,cpuclock,clock135p,clock135n)
+  process (clock27,cpuclock)
   begin
 
+    if rising_edge(cpuclock) then
+      -- Set active-high reset based on some method of input
+      -- MEGAphone R4 PCB doesn't have a reset button, though.
+      reset_high <= '0';
+      
+      -- Provide and clear single reset impulse to digital video output modules
+      if reset_high='0' then
+        dvi_reset <= '0';
+      end if;
+    end if;
+    
     -- VGA direct output
     vga_vsync <= vsync;
     vga_red <= vgared(7 downto 4);
