@@ -21,32 +21,32 @@ set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
 ############## HDMIOUT define##################
 
 set_property PACKAGE_PIN A3 [get_ports TMDS_clk_n]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports TMDS_clk_n]
+set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
 set_property PACKAGE_PIN A4 [get_ports TMDS_clk_p]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports TMDS_clk_p]
+set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_p]
 
 set_property PACKAGE_PIN B2 [get_ports {TMDS_data_n[0]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[0]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[0]}]
 set_property PACKAGE_PIN B3 [get_ports {TMDS_data_p[0]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[0]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[0]}]
 
 set_property PACKAGE_PIN A1 [get_ports {TMDS_data_n[1]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[1]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[1]}]
 set_property PACKAGE_PIN B1 [get_ports {TMDS_data_p[1]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[1]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[1]}]
 
 set_property PACKAGE_PIN C1 [get_ports {TMDS_data_n[2]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_n[2]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
 set_property PACKAGE_PIN C2 [get_ports {TMDS_data_p[2]}]
-set_property IOSTANDARD DIFF_SSTL18_I [get_ports {TMDS_data_p[2]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
 
 ## Flop/secure mode LED
-set_property -dict { PACKAGE_PIN T8 IOSTANDARD LVCMOS18 } [get_ports flopled]
+set_property -dict { PACKAGE_PIN T8 IOSTANDARD LVCMOS33 } [get_ports flopled]
 ## IR LED
-set_property -dict { PACKAGE_PIN R8 IOSTANDARD LVCMOS18 } [get_ports irled]
+set_property -dict { PACKAGE_PIN R8 IOSTANDARD LVCMOS33 } [get_ports irled]
 
 ## QSPI Flash on TE0725 has the same pinout as the Nexys4 boards
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports {QspiDB[0]}]
@@ -56,13 +56,14 @@ set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
-set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS18} [get_ports i2c1sda]
-set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS18} [get_ports i2c1scl]
+set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
+set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 
 # I2S Audio data for speakers
-#set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
+set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
 set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports i2s_lrclock]
+set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
 # MiniPCIe modem port 1
 set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
@@ -72,7 +73,7 @@ set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_da
 
 # MiniPCIe modem port 2
 set_property -dict {PACKAGE_PIN N1 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
-set_property -dict {PACKAGE_PIN M1 IOSTANDARD LVCMOS18} [get_ports modem2_pcm_sync_in]
+set_property -dict {PACKAGE_PIN M1 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
 set_property -dict {PACKAGE_PIN R2 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
 set_property -dict {PACKAGE_PIN M3 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 
@@ -85,7 +86,7 @@ set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports {lcd_red[0]}]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports {lcd_red[1]}]
 set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[2]}]
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[3]}]
-set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[4]}]
+set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[4]}]
 set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[5]}]
 set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[0]}]
 set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[1]}]
@@ -102,8 +103,8 @@ set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[5]}
 
 
 # Touch interface I2C bus
-set_property -dict {PACKAGE_PIN P2 IOSTANDARD LVCMOS18} [get_ports touch_sda]
-set_property -dict {PACKAGE_PIN N2 IOSTANDARD LVCMOS18} [get_ports touch_scl]
+set_property -dict {PACKAGE_PIN P2 IOSTANDARD LVCMOS33} [get_ports touch_sda]
+set_property -dict {PACKAGE_PIN N2 IOSTANDARD LVCMOS33} [get_ports touch_scl]
 set_property PULLUP true [get_ports touch_sda]
 set_property PULLUP true [get_ports touch_scl]
 
@@ -126,7 +127,7 @@ set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sdClock]
 set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports headphone_left]
 set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports headphone_right]
 # Headphone jack microphone input
-set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS18} [get_ports headphone_mic]
+set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports headphone_mic]
 
 # Bluetooth PCM audio interface
 # XXX - We forgot to add a header on the PCB
