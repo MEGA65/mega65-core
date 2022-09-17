@@ -184,6 +184,7 @@ architecture Behavioral of container is
   signal vgagreen : unsigned(7 downto 0);
   signal vgablue : unsigned(7 downto 0);
   signal hdmi_dataenable : std_logic;
+  signal lcd_dataenable : std_logic;
 
   signal tmds : slv_9_0_t(0 to 2);
   
@@ -248,7 +249,7 @@ begin
 --      vga_blank => vga_blank,
 
       narrow_dataenable => hdmi_dataenable,
-      fullwidth_dataenable => lcd_display_enable
+      fullwidth_dataenable => lcd_dataenable
       
       );     
   
@@ -314,6 +315,8 @@ begin
   process (clock27,cpuclock)
   begin
 
+    lcd_display_enable <= hdmi_dataenable;
+    
     if rising_edge(cpuclock) then
       -- Set active-high reset based on some method of input
       -- MEGAphone R4 PCB doesn't have a reset button, though.
