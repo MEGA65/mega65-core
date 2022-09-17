@@ -241,7 +241,7 @@ begin  -- behavioural
               fastio_rdata <= x"FF";
             end if;
           when x"6" =>
-            -- @IO:GS $D0E5 Buffered UART bit rate divisor MSB
+            -- @IO:GS $D0E6 Buffered UART bit rate divisor MSB
             if selected_uart < 8 then
               fastio_rdata <= uart_bit_rate_divisor_internal(selected_uart)(23 downto 16);
             else
