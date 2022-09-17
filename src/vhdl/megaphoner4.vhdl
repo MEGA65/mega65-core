@@ -311,12 +311,12 @@ begin
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
         );    
+
+  lcd_display_enable <= lcd_dataenable;
   
   process (clock27,cpuclock)
   begin
 
-    lcd_display_enable <= hdmi_dataenable;
-    
     if rising_edge(cpuclock) then
       -- Set active-high reset based on some method of input
       -- MEGAphone R4 PCB doesn't have a reset button, though.
