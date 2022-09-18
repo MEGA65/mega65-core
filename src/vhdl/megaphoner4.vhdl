@@ -313,8 +313,8 @@ architecture Behavioral of container is
   signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
   signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
 
-  signal vsync : std_logic;
-  signal hdmi_hsync : std_logic;
+  signal v_vsync : std_logic;
+  signal v_hdmi_hsync : std_logic;
   signal vgared : unsigned(7 downto 0);
   signal vgagreen : unsigned(7 downto 0);
   signal vgablue : unsigned(7 downto 0);
@@ -365,10 +365,10 @@ begin
       vs_pol => '1',  -- 1=active high
       hs_pol => '1',
 
-      vga_rst => reset_high, -- active high reset
+      vga_rst => dvi_reset, -- active high reset
       vga_clk => clock27, -- VGA pixel clock
-      vga_vs => vsync, -- active high vsync
-      vga_hs => hdmi_hsync, -- active high hsync
+      vga_vs => v_vsync, -- active high vsync
+      vga_hs => v_hdmi_hsync, -- active high hsync
       vga_de => hdmi_dataenable,   -- pixel enable
 
       vga_r => std_logic_vector(buffer_vgared),
@@ -630,11 +630,12 @@ begin
 
       no_hyppo => '0',
 
-      vsync           => vsync,
-      hdmi_hsync           => hdmi_hsync,
+      vsync           => v_vsync,
+      hdmi_hsync           => v_hdmi_hsync,      
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_dataenable => lcd_display_enable,
+      hdmi_dataenable => hdmi_dataenable,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
