@@ -69,7 +69,24 @@ entity container is
          ----------------------------------------------------------------------
          micData0 : in std_logic;
          micData1 : in std_logic;
+         micClk : out std_logic;
 
+         ----------------------------------------------------------------------
+         -- Analog headphone jack output
+         -- (amplifier enable is on an IO expander)
+         ----------------------------------------------------------------------
+         headphone_left : out std_logic;
+         headphone_right : out std_logic;
+         headphone_mic : in std_logic;
+
+         ----------------------------------------------------------------------
+         -- I2S speaker audio output
+         ----------------------------------------------------------------------
+         i2s_mclk : out std_logic;
+         i2s_sync : out std_logic;
+         i2s_speaker : out std_logic;
+         i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
+         
          ----------------------------------------------------------------------
          -- Touch screen interface
          ----------------------------------------------------------------------
@@ -120,20 +137,6 @@ entity container is
          QspiCSn : out std_logic;
 
          ----------------------------------------------------------------------
-         -- Analog headphone jack output
-         -- (amplifier enable is on an IO expander)
-         ----------------------------------------------------------------------
-         headphone_right : out std_logic;
-         headphone_mic : in std_logic;
-
-         ----------------------------------------------------------------------
-         -- I2S speaker audio output
-         ----------------------------------------------------------------------
-         i2s_speaker : out std_logic;
-         i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
-                                          -- instead of 32
-
-         ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
          ----------------------------------------------------------------------
          led : out std_logic;
@@ -175,6 +178,23 @@ architecture Behavioral of container is
   signal clock270 : std_logic;
   signal clock325 : std_logic;
 
+  signal modem1_uart_rx : std_logic;
+  signal modem1_uart_tx : std_logic;
+  signal modem1_debug_uart_rx : std_logic;
+  signal modem1_debug_uart_tx : std_logic;
+  signal modem2_uart_rx : std_logic;
+  signal modem2_uart_tx : std_logic;
+  signal modem2_debug_uart_rx : std_logic;
+  signal modem2_debug_uart_tx : std_logic;
+  signal wifi_uart_rx : std_logic;
+  signal wifi_uart_tx : std_logic;
+  signal bluetooth_uart_rx : std_logic;
+  signal bluetooth_uart_tx : std_logic;
+  signal lora1_uart_rx : std_logic;
+  signal lora1_uart_tx : std_logic;
+  signal lora2_uart_rx : std_logic;
+  signal lora2_uart_tx : std_logic;
+  
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
   signal slow_access_write : std_logic;
@@ -240,6 +260,9 @@ architecture Behavioral of container is
   signal c65uart_rx : std_logic := '1';
 
   signal qspi_clock : std_logic;
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic;
@@ -307,6 +330,7 @@ architecture Behavioral of container is
 
   signal TMDS_clk_q : std_logic := '0';
 
+  signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');  
   
 begin
 
@@ -387,6 +411,14 @@ begin
             out_n   => TMDS_clk_n
         );    
 
+  fpgatemp0: entity work.fpgatemp
+    generic map (DELAY_CYCLES => 480)
+    port map (
+      rst => '0',
+      clk => cpuclock,
+      temp => fpga_temperature);
+
+  
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
@@ -660,7 +692,9 @@ begin
       -- Touch screen
       touchSDA => touch_SDA,
       touchSCL => touch_scl,
-      lcdpwm =>  lcd_pwm,
+      -- XXX LCD PWM needs to be relayed to the OrangeCrab to set the backlight
+      -- brightness.
+--      lcdpwm =>  lcd_pwm,
 
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
@@ -725,6 +759,12 @@ begin
 
       fpga_temperature => fpga_temperature,
 
+      qspi_clock => qspi_clock,
+      qspicsn => qspicsn,
+      qspidb => qspidb_out,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,          
+      
       sw => (others => '0'),
       btn => (others => '0'),
 
@@ -736,6 +776,9 @@ begin
 
   
   lcd_display_enable <= lcd_dataenable;
+
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb;
   
   process (clock27,cpuclock)
   begin
@@ -743,7 +786,7 @@ begin
     if rising_edge(cpuclock) then
 
       fpga_mux1 <= monitor_rx;
-      monitor_tx <= fpga_mux2;
+--      monitor_tx <= fpga_mux2;
       
       -- Set active-high reset based on some method of input
       -- MEGAphone R4 PCB doesn't have a reset button, though.
@@ -762,7 +805,6 @@ begin
     
     -- LCD direct output
     lcd_dclk <= clock27;
-    lcd_vsync <= vsync;
     lcd_red <= buffer_vgared(7 downto 2);
     lcd_green <= buffer_vgagreen(7 downto 2);
     lcd_blue <= buffer_vgablue(7 downto 2);
