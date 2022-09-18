@@ -54,6 +54,10 @@ set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33} [get_ports {QspiDB[1]}]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[2]}]
 set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
+set_property PULLUP true [get_ports {Qspidb[0]}]
+set_property PULLUP true [get_ports {Qspidb[1]}]
+set_property PULLUP true [get_ports {Qspidb[2]}]
+set_property PULLUP true [get_ports {Qspidb[3]}]
 
 # Accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
