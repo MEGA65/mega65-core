@@ -1317,9 +1317,11 @@ begin
         std_logic_vector(fastio_rdata) => data_o
     );
   end generate;      
-  
+
+  -- XXX I2C bus of the MEGAphone R4 is currently disabled, as it is tied to
+  -- the OrangeCrab as well.  We need to separate these two.
   i2cperiph_megaphone:
-  if (target = megaphoner1) or (target = megaphoner4) generate
+  if (target = megaphoner1) generate
     i2c1: entity work.i2c_wrapper
       generic map ( clock_frequency => cpu_frequency )
       port map (

@@ -696,8 +696,10 @@ begin
       -- brightness.
 --      lcdpwm =>  lcd_pwm,
 
-      i2c1sda => i2c1sda,
-      i2c1scl => i2c1scl,
+      -- XXX I2C bus is currently joined to that of the OrangeCrab. So don't
+      -- drive it from ourside. 
+--      i2c1sda => i2c1sda,
+--      i2c1scl => i2c1scl,
 
       -- Bluetooth source, I2S slave
       -- XXX Connect when module has been designed

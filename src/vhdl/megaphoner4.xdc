@@ -55,7 +55,7 @@ set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[2]}]
 set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 
-# I2C bus for IO expanders, accelerometer and speaker amplifier controller
+# Accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
 set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 
