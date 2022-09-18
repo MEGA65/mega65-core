@@ -132,7 +132,6 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
---         QspiSCK : out std_logic;
          QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
          QspiCSn : out std_logic;
 
@@ -507,10 +506,6 @@ begin
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
-
-      qspidb => qspidb,
-      qspicsn => qspicsn,
-      qspisck => qspi_clock,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
