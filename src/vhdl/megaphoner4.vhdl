@@ -153,6 +153,18 @@ architecture Behavioral of container is
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
 
+  -- XXX Plumb to VCC_FPGA shutdown
+  signal power_down : std_logic;
+  
+  signal irq : std_logic := '1';
+  signal nmi : std_logic := '1';
+  signal restore_key : std_logic := '1';
+  signal osk_toggle_key : std_logic := '1';
+  signal joyswap_key : std_logic := '1';
+  signal reset_out : std_logic := '1';
+  signal cpu_game : std_logic := '1';
+  signal cpu_exrom : std_logic := '1';
+  
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -178,10 +190,6 @@ architecture Behavioral of container is
 
   signal kbd_datestamp : unsigned(13 downto 0)  := to_unsigned(0,14);
   signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
-
-  signal vgaredignore : unsigned(3 downto 0);
-  signal vgagreenignore : unsigned(3 downto 0);
-  signal vgablueignore : unsigned(3 downto 0);
 
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
@@ -224,6 +232,8 @@ architecture Behavioral of container is
   signal iec_atn : std_logic := 'Z';
   signal smartcard_io_read : std_logic := '1';
   signal smartcard_clk_read : std_logic := '1';
+
+  signal pal50_select : std_logic;
   
   -- Dummy signals for stub / not yet implemented interfaces
   signal eth_mdio : std_logic := '0';
@@ -269,6 +279,7 @@ architecture Behavioral of container is
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
   signal portp : unsigned(7 downto 0);
+  signal portp_drive : unsigned(7 downto 0);
   
   signal pcm_clk : std_logic := '0';
   signal pcm_rst : std_logic := '1';
@@ -296,7 +307,6 @@ architecture Behavioral of container is
 
   signal TMDS_clk_q : std_logic := '0';
 
-
   
 begin
 
@@ -318,44 +328,6 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
-  pixel0: entity work.pixel_driver
-    port map (
-      clock81 => pixelclock, -- 80MHz
-      clock27 => clock27,
-
-      cpuclock => cpuclock,
-      
-      -- Define the video signal we want
-      hsync_invert => '0',
-      vsync_invert => '0',
-      pal50_select => '1',
-      vga60_select => '0',
-      test_pattern_enable => '1',
-      
-      -- Pixel data from the video pipeline
-      -- (clocked at 81MHz pixel clock)
-      -- For now, just provide a blank blue screen.
-      -- Should never be displayed, anyway, as we are using test pattern mode
-      red_i => (others => '0'),
-      green_i => (others => '0'),
-      blue_i => (others => '1'),
-
-      -- The pixel for direct output to VGA pins
-      -- It is clocked at the correct pixel
-      red_no => vgared,
-      green_no => vgagreen,
-      blue_no => vgablue,      
-
-      hsync => hdmi_hsync,
-      vsync => vsync,  -- for HDMI & LCD
-      lcd_hsync => lcd_hsync,      -- for LCD
---      vga_blank => vga_blank,
-
-      narrow_dataenable => hdmi_dataenable,
-      fullwidth_dataenable => lcd_dataenable
-      
-      );     
-  
   hdmi0: entity work.vga_to_hdmi
     port map (
       select_44100 => '1',
@@ -375,9 +347,9 @@ begin
       vga_hs => hdmi_hsync, -- active high hsync
       vga_de => hdmi_dataenable,   -- pixel enable
 
-      vga_r => std_logic_vector(vgared),
-      vga_g => std_logic_vector(vgagreen),
-      vga_b => std_logic_vector(vgablue),
+      vga_r => std_logic_vector(buffer_vgared),
+      vga_g => std_logic_vector(buffer_vgagreen),
+      vga_b => std_logic_vector(buffer_vgablue),
 
       -- Feed in audio
       pcm_rst => pcm_rst, -- active high audio reset
@@ -472,8 +444,6 @@ begin
       qspicsn => qspicsn,
       qspisck => qspi_clock,
 
-      pin_number => pin_number,
-
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_write => slow_access_write,
@@ -540,7 +510,6 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
-      flopled => flopled,
       portp_out => portp,
 
       -- No IEC bus on this hardware, so no need to slow CPU down for it.
@@ -629,8 +598,8 @@ begin
 
       no_hyppo => '0',
 
-      vsync           => vga_vsync,
-      vga_hsync           => vga_hsync,
+      vsync           => vsync,
+      hdmi_hsync           => hdmi_hsync,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_dataenable => lcd_display_enable,
@@ -784,14 +753,19 @@ begin
       if reset_high='0' then
         dvi_reset <= '0';
       end if;
+
+      portp_drive <= portp;
+      
+      dvi_select <= portp_drive(1);
+      
     end if;
     
     -- LCD direct output
     lcd_dclk <= clock27;
     lcd_vsync <= vsync;
-    lcd_red <= vgared(7 downto 2);
-    lcd_green <= vgagreen(7 downto 2);
-    lcd_blue <= vgablue(7 downto 2);
+    lcd_red <= buffer_vgared(7 downto 2);
+    lcd_green <= buffer_vgagreen(7 downto 2);
+    lcd_blue <= buffer_vgablue(7 downto 2);
     
   end process;
 
