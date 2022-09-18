@@ -62,7 +62,7 @@ set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 # I2S Audio data for speakers
 set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
 set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
-set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports i2s_lrclock]
+set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
 # MiniPCIe modem port 1
