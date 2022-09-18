@@ -45,6 +45,15 @@ entity container is
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
 
+         -- Direct lines to OrangeCrab FPGA board.
+         -- NOTE: fpga_mux3 is also tied to EN_MIC/EN_5V by OrangeCrab. Thus we
+         -- should not drive it from here.  Later it will be freed up again for
+         -- us to use as a direct link between the FPGAs.
+         fpga_mux1 : out std_logic;
+         fpga_mux2 : in std_logic;
+         fpga_mux3 : in std_logic; -- MUST BE INPUT: See note above!
+         fpga_mux4 : in std_logic;
+         
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
@@ -316,8 +325,12 @@ begin
   
   process (clock27,cpuclock)
   begin
-
+    
     if rising_edge(cpuclock) then
+
+      fpga_mux1 <= monitor_rx;
+      monitor_tx <= fpga_mux2;
+      
       -- Set active-high reset based on some method of input
       -- MEGAphone R4 PCB doesn't have a reset button, though.
       reset_high <= '0';

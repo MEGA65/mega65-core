@@ -101,6 +101,11 @@ set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[3]}
 set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[4]}]
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[5]}]
 
+# Dedicated lines to OrangeCrab FPGA board
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports fpga_mux1]
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports fpga_mux2]
+set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports fpga_mux3]
+set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports fpga_mux4]
 
 # Touch interface I2C bus
 set_property -dict {PACKAGE_PIN P2 IOSTANDARD LVCMOS33} [get_ports touch_sda]
