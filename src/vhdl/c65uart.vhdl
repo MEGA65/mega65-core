@@ -305,6 +305,7 @@ begin  -- behavioural
       when mega65r3 => target_id <= x"03";
       -- $20-$3F = MEGAphone/handheld versions
       when megaphoner1 => target_id <= x"21";
+      when megaphoner4 => target_id <= x"22";
       -- $40-$5F = Nexys4 / Nexys4 DDR
       when nexys4 => target_id <= x"40";
       when nexys4ddr => target_id <= x"41";

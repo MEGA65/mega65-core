@@ -700,7 +700,7 @@ begin
   -- currently not porduce any problems, as it is not yet used
   -- anywhere in the design! But it might if this changes...
   drive1541_mega65r3:
-  if target /= mega65r2 generate
+  if target = mega65r3 generate
     drive1541: entity work.internal1541
       port map (
         clock => cpuclock,
@@ -1317,7 +1317,7 @@ begin
   end generate;      
   
   i2cperiph_megaphone:
-  if target = megaphoner1 generate
+  if (target = megaphoner1) or (target = megaphoner4) generate
     i2c1: entity work.i2c_wrapper
       generic map ( clock_frequency => cpu_frequency )
       port map (
