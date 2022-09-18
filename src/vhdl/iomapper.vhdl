@@ -1149,54 +1149,56 @@ begin
     end generate;
   
   
-  ethernet0 : entity work.ethernet
-    generic map (
-      num_buffers => num_eth_rx_buffers
-      )
-    port map (
-    clock50mhz => clock50mhz,
-    clock200 => clock200mhz,
-    clock => cpuclock,
-    reset => reset,
-    irq => ethernet_irq,
-    ethernet_cs => ethernet_cs,
+  eth0: if target /= megaphoner4 generate
+    ethernet0 : entity work.ethernet
+      generic map (
+        num_buffers => num_eth_rx_buffers
+        )
+      port map (
+        clock50mhz => clock50mhz,
+        clock200 => clock200mhz,
+        clock => cpuclock,
+        reset => reset,
+        irq => ethernet_irq,
+        ethernet_cs => ethernet_cs,
 
-    cpu_ethernet_stream => cpu_ethernet_stream,
+        cpu_ethernet_stream => cpu_ethernet_stream,
     
-    ---------------------------------------------------------------------------
-    -- IO lines to the ethernet controller
-    ---------------------------------------------------------------------------
-    eth_mdio => eth_mdio,
-    eth_mdc => eth_mdc,
-    eth_reset => eth_reset,
-    eth_rxd_in => eth_rxd,
-    eth_txd_out => eth_txd,
-    eth_txen_out => eth_txen,
-    eth_rxdv_in => eth_rxdv,
-    eth_rxer => eth_rxer,
-    eth_interrupt => eth_interrupt,
-
-    buffer_moby_toggle => buffer_moby_toggle,
-    buffer_offset => buffer_offset,
-    buffer_address => buffer_address,
-    buffer_rdata => buffer_rdata,
-    debug_vector => debug_vector,
-    raster_number => raster_number,
-    vicii_raster => vicii_raster,
-    badline_toggle => badline_toggle,
-    d031_write_toggle => d031_write_toggle,
-    instruction_strobe => monitor_instruction_strobe,
-    cpu_arrest => ethernet_cpu_arrest,
-    
-    eth_keycode_toggle => eth_keycode_toggle,
-    eth_keycode => eth_keycode,
-
-    fastio_addr => unsigned(address),
-    fastio_write => w,
-    fastio_read => r,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_wdata => unsigned(data_i)
-    );
+        ---------------------------------------------------------------------------
+        -- IO lines to the ethernet controller
+        ---------------------------------------------------------------------------
+        eth_mdio => eth_mdio,
+        eth_mdc => eth_mdc,
+        eth_reset => eth_reset,
+        eth_rxd_in => eth_rxd,
+        eth_txd_out => eth_txd,
+        eth_txen_out => eth_txen,
+        eth_rxdv_in => eth_rxdv,
+        eth_rxer => eth_rxer,
+        eth_interrupt => eth_interrupt,
+        
+        buffer_moby_toggle => buffer_moby_toggle,
+        buffer_offset => buffer_offset,
+        buffer_address => buffer_address,
+        buffer_rdata => buffer_rdata,
+        debug_vector => debug_vector,
+        raster_number => raster_number,
+        vicii_raster => vicii_raster,
+        badline_toggle => badline_toggle,
+        d031_write_toggle => d031_write_toggle,
+        instruction_strobe => monitor_instruction_strobe,
+        cpu_arrest => ethernet_cpu_arrest,
+        
+        eth_keycode_toggle => eth_keycode_toggle,
+        eth_keycode => eth_keycode,
+        
+        fastio_addr => unsigned(address),
+        fastio_write => w,
+        fastio_read => r,
+        std_logic_vector(fastio_rdata) => data_o,
+        fastio_wdata => unsigned(data_i)
+        );
+  end generate;
   
   buffered_uart0 : entity work.buffereduart port map (
     clock => cpuclock,
@@ -1888,7 +1890,7 @@ begin
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
       grove_cs <= '0';
-      if target = megaphoner1 then
+      if (target = megaphoner1) or (target = megaphoner4) then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGAphone asserted";
