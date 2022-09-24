@@ -411,7 +411,27 @@ syspart_configsector_apply:
 	;; And also write it into the instruction that sets the display mode on reset
 	sta pal_ntsc_minus_1+1
         stx $d058
-	
+
+        ;; set CIA TOD50 flag depending on PAL/NTSC
+        lda $de02
+        and #$80        ; extract flag (1 = NTSC)
+        bne @skiptod50  ; already cleared flags, done!
+        lda $dc0e
+        ora #$80
+        sta $dc0e       ; set CIA1:TOD50
+        lda $dd0e
+        ora #$80
+        sta $dd0e       ; set CIA2:TOD50
+        bra @skiptod50end
+@skiptod50:
+        lda $dc0e
+        and #$7f
+        sta $dc0e       ; clear CIA1:TOD50
+        lda $dd0e
+        and #$7f
+        sta $dd0e       ; clear CIA2:TOD50
+@skiptod50end:
+
         ;; Set audio and related options
 	lda $de0d
 	sta $d61a
