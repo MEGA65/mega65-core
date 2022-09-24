@@ -179,7 +179,11 @@ begin
       if rising_edge(clock5mhz) then
         -- Feed in 10mbit ethernet frame data
 
-        eth_dibit_counter <= eth_dibit_counter + 1;
+        if eth_dibit_counter /= 1000 then
+          eth_dibit_counter <= eth_dibit_counter + 1;
+        else
+          eth_dibit_counter <= 0;
+        end if;
 
 --        report "ethernet counter = " & integer'image(eth_dibit_counter)
 --          & ", eth_rxd = " & to_string(std_logic_vector(eth_rxd));
