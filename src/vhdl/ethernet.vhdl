@@ -937,7 +937,9 @@ begin  -- behavioural
 --          rxbuffer_wdata(6) <= eth_rxer;
 --          rxbuffer_wdata(5) <= eth_interrupt;
 --          rxbuffer_wdata(1 downto 0) <= eth_rxd;
-            eth_frame_len <= eth_frame_len + 1;
+            if eth_frame_len /= 2047 then
+              eth_frame_len <= eth_frame_len + 1;
+            end if;
             if eth_frame_len = 2047 then
               eth_state <= DebugRxFrameDone;
               rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
@@ -1026,13 +1028,13 @@ begin  -- behavioural
                     end if;
                     if (eth_rxd & eth_rxbits) /= eth_mac(47 downto 40) then
                       frame_is_for_me <= '0';
-                      report "ETHRX: Frame is not address to me ("
+                      report "ETHRX: Frame is not address to me (my MAC is "
                         & to_hstring(eth_mac(47 downto 40)) & ":"
                         & to_hstring(eth_mac(39 downto 32)) & ":"
                         & to_hstring(eth_mac(31 downto 24)) & ":"
                         & to_hstring(eth_mac(23 downto 16)) & ":"
                         & to_hstring(eth_mac(15 downto 8)) & ":"
-                        & to_hstring(eth_mac(7 downto 0)) & ").";
+                        & to_hstring(eth_mac(7 downto 0)) & "). But it might still be a broadcast frame.";
                     else
                       frame_is_for_me <= '1';
                     end if;

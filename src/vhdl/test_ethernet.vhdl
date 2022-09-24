@@ -161,10 +161,13 @@ begin
         case cpu_counter is
           -- Select 10mbit mode
           when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"10";
+                    report "Writing $10 to $FFD36E4 to select 10mbit mode";
           -- Release ethernet from reset
           when 1 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e0"; fastio_wdata <= x"03";
+                    report "Releasing ethernet controller from reset.";
           -- Enable debug mode
-          when 2 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"de";
+--          when 2 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"de";
+--                    report "Enable ETH RX debug mode";
           when others => null;
         end case;
         
@@ -178,8 +181,8 @@ begin
 
         eth_dibit_counter <= eth_dibit_counter + 1;
 
-        report "ethernet counter = " & integer'image(eth_dibit_counter)
-          & ", eth_rxd = " & to_string(std_logic_vector(eth_rxd));
+--        report "ethernet counter = " & integer'image(eth_dibit_counter)
+--          & ", eth_rxd = " & to_string(std_logic_vector(eth_rxd));
         
         case eth_dibit_counter is
           when 0   => eth_rxdv <= '0'; eth_rxd <= "00";
@@ -207,19 +210,19 @@ begin
           when 48  => eth_rxdv <= '1'; eth_rxd <= "00";
           when 49  => eth_rxdv <= '1'; eth_rxd <= "00";
                       
-          when 50  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 50  => eth_rxdv <= '1'; eth_rxd <= "10";
           when 51  => eth_rxdv <= '1'; eth_rxd <= "00";
-          when 52  => eth_rxdv <= '1'; eth_rxd <= "10";
+          when 52  => eth_rxdv <= '1'; eth_rxd <= "01";
           when 53  => eth_rxdv <= '1'; eth_rxd <= "00";
                       
-          when 54  => eth_rxdv <= '1'; eth_rxd <= "11";
-          when 55  => eth_rxdv <= '1'; eth_rxd <= "00";
-          when 56  => eth_rxdv <= '1'; eth_rxd <= "00";
-          when 57  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 54  => eth_rxdv <= '1'; eth_rxd <= "00";
+          when 55  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 56  => eth_rxdv <= '1'; eth_rxd <= "11";
+          when 57  => eth_rxdv <= '1'; eth_rxd <= "00";
                       
-          when 58  => eth_rxdv <= '1'; eth_rxd <= "01";
+          when 58  => eth_rxdv <= '1'; eth_rxd <= "10";
           when 59  => eth_rxdv <= '1'; eth_rxd <= "01";
-          when 60  => eth_rxdv <= '1'; eth_rxd <= "10";
+          when 60  => eth_rxdv <= '1'; eth_rxd <= "01";
           when 61  => eth_rxdv <= '1'; eth_rxd <= "01";
                       
           when others => eth_rxdv <= '0'; eth_rxd <= "00";
