@@ -3510,9 +3510,15 @@ file_pagesread:
         !16 0
 
         ;; Variables for testing of D81 boot image
+d81_lasttype:
+        !8 0
 d81_clusternumber:
         !32 0
 d81_clustersneeded:
+        !16 0
+d64_clustersneeded:
+        !16 0
+d71_clustersneeded:
         !16 0
 d81_clustercount:
         !16 0

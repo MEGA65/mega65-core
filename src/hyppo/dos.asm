@@ -3956,13 +3956,14 @@ l94d:   lda $d681,x		;; resolved sector number
         dex
         bpl l94d
 	
-        // disable real floppy 0
+        ;; disable real floppy 0
         lda $d6a1
         and #$fe
         sta $d6a1
         
-        // Set flags to indicate it is mounted (and read-write)
-        // But don't mess up the flags for the 2nd drive
+        ;; Set flags to indicate it is mounted (and read-write).
+        ;; clear D65 mega disk flag,
+        ;; But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%10111000
         ora #$07
@@ -3971,45 +3972,37 @@ l94d:   lda $d681,x		;; resolved sector number
 	lda #$40
 	trb $d68a
 
-	;; Set D64/D71 flag if size is 342 or 683 sectors = 43 or 86 clusters
-	lda d81_clustercount+1
-	bne not_d64_or_d71
-	lda d81_clustercount+0
-	cmp #43
+	;; Check what dos_d81check detected
+        lda d81_lasttype
+        cmp #64
 	bne not_d64
-
-	;; D61 disk image
 
 	;; Set D64 flag
 	lda #$40
 	tsb $d68a
-	jmp not_mega_floppy2
+	jmp d81attach0_typeset
 	
 not_d64:
-	cmp #86
-	bne not_d64_or_d71
+	cmp #71
+	bne not_d71
 
 	;; D71 disk image
 	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
-
-	;; Set D64 flag
 	lda #$40
 	tsb $d68a
 	tsb $d68b
-	jmp not_mega_floppy2
+	jmp d81attach0_typeset
 
-not_d64_or_d71:	
-	;; And set the MEGAfloppy flag if the file is ~5.5MiB long
-	lda d81_clustercount+1
-	cmp #$05
-	bne not_mega_floppy2
+not_d71:
+	cmp #65
+	bne d81attach0_typeset
 
-	lda $d68b
-	and #%10111000
-        ora #$47
-	sta $d68b
+        ;; D65 disk image
+        ;; Set megadisk flag
+	lda #$40
+	tsb $d68b
 
-not_mega_floppy2:	
+d81attach0_typeset:
 
         +Checkpoint "dos_d81attach0 <success>"
 
@@ -4070,18 +4063,19 @@ d81a1ab:
         ;; copy sector number from $D681 to $D690
         ;;
         ldx #$03
-l94db:   lda $d681,x		;; resolved sector number
+l94db:  lda $d681,x		;; resolved sector number
         sta $d690,x  		;; sector number of disk image #1
         dex
         bpl l94db
 		
-        // disable real floppy 1
+        ;; disable real floppy 1
         lda $d6a1
         and #$fb
         sta $d6a1
-
-        // Set flags to indicate it is mounted (and read-write)
-        // But don't mess up the flags for the 1st drive
+        
+        ;; Set flags to indicate it is mounted (and read-write).
+        ;; clear D65 mega disk flag,
+        ;; But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%01000111
         ora #$38
@@ -4090,46 +4084,38 @@ l94db:   lda $d681,x		;; resolved sector number
 	lda #$80
 	trb $d68a
 
-	;; Set D64/D71 flag if size is 342 or 683 sectors = 43 or 86 clusters
-	lda d81_clustercount+1
-	bne not_d64_or_d71b
-	lda d81_clustercount+0
-	cmp #43
+	;; Check what dos_d81check detected
+        lda d81_lasttype
+        cmp #64
 	bne not_d64b
-
-	;; D61 disk image
 
 	;; Set D64 flag
 	lda #$80
 	tsb $d68a
-	jmp not_mega_floppy2b
+	jmp d81attach1_typeset
 	
 not_d64b:
-	cmp #86
-	bne not_d64_or_d71b
+	cmp #71
+	bne not_d71b
 
 	;; D71 disk image
 	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
-
-	;; Set D64 flag
 	lda #$80
 	tsb $d68a
 	tsb $d68b
-	jmp not_mega_floppy2b
+	jmp d81attach1_typeset
 
-not_d64_or_d71b:	
-	
-	;; And set the MEGAfloppy flag if the file is 5500KB long
-	lda d81_clustercount+1
-	cmp #$05
-	bne not_mega_floppy2b
+not_d71b:
+	cmp #65
+	bne d81attach1_typeset
 
-	lda $d68b
-        ora #$80
-	sta $d68b
+        ;; D65 disk image
+        ;; Set megadisk flag
+	lda #$80
+	tsb $d68b
 
-not_mega_floppy2b:	
-	
+d81attach1_typeset:
+
         +Checkpoint "dos_d81attach1 <success>"
 
         ;; Save name and set mount flag for disk image in process descriptor block
@@ -4185,6 +4171,8 @@ dos_d81check:
         ;; bit in sectors per cluster.  we can do this because
         ;; clusters in FAT must be 2^n sectors.
         ;;
+        ;; TODO: D65 clusters are not calculated yet, but hardcoded below
+        ;;
         lda #$00
         sta d81_clustercount
         sta d81_clustercount+1
@@ -4192,6 +4180,16 @@ dos_d81check:
         sta d81_clustersneeded
         lda #>1600
         sta d81_clustersneeded+1
+        ;; 1541 - rounded up to 512b sectors 344*512 = 176128, D64 = 174848
+        lda #<344
+        sta d64_clustersneeded
+        lda #>344
+        sta d64_clustersneeded+1
+        ;; 1571 - rounded up to 512b sectors 688*512 = 352256, D71 = 349696
+        lda #<688
+        sta d71_clustersneeded
+        lda #>688
+        sta d71_clustersneeded+1
 
         ;; get sectors per cluster of disk
         ;;
@@ -4207,6 +4205,10 @@ l94:    tza
         taz
         lsr d81_clustersneeded+1
         ror d81_clustersneeded
+        lsr d64_clustersneeded+1
+        ror d64_clustersneeded
+        lsr d71_clustersneeded+1
+        ror d71_clustersneeded
         jmp l94
 
 d81firstcluster:
@@ -4281,54 +4283,68 @@ l96:
         ;; we have read to end of D81 file, and it is contiguous
         ;; now check that it is the right length
 
+        ;; that is to much!
+	lda d81_clustercount+2
+	ora d81_clustercount+3
+	bne d81wronglength
+
 	;; It might also be a D64 (1541) or D71 (1571) disk image,
 	;; so check for 683x256/4096 = 42.6875 = 43 clusters or
 	;; double that for D71
 	lda d81_clustercount+1
-	bne not_5quarter
-	cmp d81_clustercount+0
-	cmp #43
+        cmp d64_clustersneeded+1
 	bne not_1541
+	lda d81_clustercount
+	cmp d64_clustersneeded
+	bne not_1541_2
 
 	;;  IS a d64 sized file
-	jmp d81_is_good
+        lda #64
+	bra d81_is_good
+
+not_1541_2:
+        lda d81_clustercount+1
 not_1541:
-	cmp #86
-	bne not_5quarter
+        cmp d71_clustersneeded+1
+        bne not_1571
+        lda d81_clustercount
+	cmp d71_clustersneeded
+	bne not_1571_2
 
 	;; IS a d71 sized file
-	jmp d81_is_good
+        lda #71
+	bra d81_is_good
 
-not_5quarter:	
+not_1571_2:
+        lda d81_clustercount+1
+not_1571:
 	;; First check if we read enough for 85 tracks x 64 sectors x 2 sides = 5,570,560 bytes
 	;; = 1,360 clusters = $0550 clusters
 	;; XXX - This currently assumes 8 sectors per cluster = 4KB sectors
-	lda d81_clustercount
-	cmp #$50
-	bne not_mega_floppy
-	lda d81_clustercount+1
 	cmp #$05
 	bne not_mega_floppy
-	lda d81_clustercount+2
-	ora d81_clustercount+3
-	beq is_mega_floppy
+	lda d81_clustercount
+	cmp #$50
+	bne not_mega_floppy_2
 
+        lda #65
+        bra d81_is_good
+
+not_mega_floppy_2:
+        lda d81_clustersneeded+1
 not_mega_floppy:	
-	;; Is a 5.5MiB MEGA Floppy?
-	;; (These behave as double-sided 85-track 64-sector disks of 512 byte sectors,
-	;;  but with normal D81 directory format on side 0 of track 40.)
-	
+	;; D81 image?
+        cmp d81_clustercount+1
+        bne d81wronglength
         lda d81_clustersneeded
         cmp d81_clustercount
         bne d81wronglength
 
-        lda d81_clustersneeded+1
-        cmp d81_clustercount+1
-        bne d81wronglength
-is_mega_floppy:	
+        lda #81
 
-d81_is_good:	
-        ;; D81 is good.
+d81_is_good:
+        ;; disk image size is good. save type on stack for later
+        sta d81_lasttype
 
         ;; Get cluster number again, convert to sector, and copy to
         ;; SD controller FDC emulation disk image offset registers
