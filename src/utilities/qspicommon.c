@@ -16,8 +16,6 @@ struct m65_tm tm_now;
 unsigned char slot_count = 0;
 
 short i, x, y, z;
-short a1, a2, a3;
-unsigned char n = 0;
 
 unsigned long addr, vaddr;
 unsigned char progress = 0;
@@ -617,7 +615,20 @@ void draw_file_list(void)
   }
 }
 
-char *select_bitstream_file(void)
+/*
+ * uchar select_bitstream_file()
+ *
+ * displays a file selector with core files on SD
+ *
+ * returns
+ *   0 - nothing was selected, abort
+ *   1 - special erase entry was selected
+ *   2 - file was selected, filename in disk_name_return
+ *
+ * side-effects:
+ *  disk_name_return may be changed
+ */
+unsigned char select_bitstream_file(void)
 {
   unsigned char x;
   signed char j;
@@ -691,21 +702,21 @@ char *select_bitstream_file(void)
 
     switch (x) {
     case 0x03: // RUN-STOP = make no change
-      return NULL;
+      return 0;
     case 0x0d: // Return = select this disk.
+      // was erase (first entry) selected?
+      if (selection_number == 0) {
+        disk_name_return[0] = 0;
+        return 1;
+      }
+
       // Copy name out
       lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
       // Then null terminate it
-      for (x = 31; x; x--)
-        if (disk_name_return[x] == ' ') {
-          disk_name_return[x] = 0;
-        }
-        else {
-          break;
-        }
+      for (x = 31; x && disk_name_return[x] == ' '; x--)
+        disk_name_return[x] = 0;
+      return 2;
 
-      return disk_name_return;
-      break;
     case 0x11:
     case 0x9d: // Cursor down or left
       selection_number++;
@@ -733,7 +744,7 @@ char *select_bitstream_file(void)
     draw_file_list();
   }
 
-  return NULL;
+  return 0;
 }
 
 void reconfig_fpga(unsigned long addr)
@@ -1034,11 +1045,10 @@ void reflash_slot(unsigned char slot)
   unsigned long d, d_last, size, waddr;
   unsigned short bytes_returned;
   unsigned char fd, tries;
-  unsigned char *file = select_bitstream_file();
   unsigned char erase_mode = 0;
-  if (!file)
-    return;
-  if ((unsigned short)file == 0xffff)
+  unsigned char selected_file = select_bitstream_file();
+
+  if (selected_file == 0)
     return;
 
   printf("%cPreparing to reflash slot %d...\n\n", 0x93, slot);
@@ -1085,18 +1095,15 @@ void reflash_slot(unsigned char slot)
 
   lfill((unsigned long)buffer, 0, 512);
 
-  // magic filename for erasing a slot begins with "-"
-  if (file[0] != '-') {
+  // return code of select_bitstream_file > 1 means a file was selected
+  if (selected_file == 2) {
 
-    fd = hy_open(file);
+    fd = hy_open(disk_name_return);
     if (fd == 0xff) {
       // Couldn't open the file.
-      printf("ERROR: Could not open flash file '%s'\n", file);
+      printf("ERROR: Could not open flash file '%s'\n", disk_name_return);
 
       press_any_key(0);
-
-      while (1)
-        continue;
 
       return;
     }
@@ -1106,7 +1113,7 @@ void reflash_slot(unsigned char slot)
 
     // start reading file from beginning again
     // (as the model_id checking read the first 512 bytes already)
-    fd = hy_open(file);
+    fd = hy_open(disk_name_return);
 
     progress_acc = 0;
     progress = 0;
@@ -1905,10 +1912,9 @@ top:
 #endif
 }
 
-unsigned char b, *c, d;
-
 void read_data(unsigned long start_address)
 {
+  unsigned char b;
 
   // Full hardware-acceleration of reading, which is both faster
   // and more reliable.
@@ -2077,12 +2083,13 @@ void spi_clear_sr1(void)
 
  ***************************************************************************/
 
-unsigned int di;
+// TODO: replace this with a macro that calls usleep instead or does nothing
 void delay(void)
 {
   // Slow down signalling when debugging using JTAG monitoring.
   // Not needed for normal operation.
 
+  // unsigned int di;
   //   for(di=0;di<1000;di++) continue;
 }
 

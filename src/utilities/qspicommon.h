@@ -44,7 +44,6 @@ void flash_inspector(void);
 
 void read_registers(void);
 void query_flash_protection(unsigned long addr_in_sector);
-char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
