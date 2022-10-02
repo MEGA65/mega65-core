@@ -1581,7 +1581,7 @@ begin  -- behavioural
               eth_soft_reset <= fastio_wdata(1);
               if fastio_wdata(0) = '0' or fastio_wdata(1) = '0' then
                 -- Reset RX buffer state: CPU viewing buffer 0,
-                -- other three buffers free
+                -- other buffers free
                 rxbuff_id_ethside <= 2;
                 rxbuff_id_cpuside <= 0;
                 eth_rx_blocked <= '0';
@@ -1620,8 +1620,13 @@ begin  -- behavioural
 
                 -- Advance to next buffer, if there are any
                 if unsigned(eth_rx_buffer_inuse) = to_unsigned(0,num_buffers) then
-                  -- No more waiting packets
-                  null;
+                  -- No more waiting packets: Point the CPU to the buffer just
+                  -- before where the ethernet side is writing to.
+                  if rxbuff_id_ethside /= 0 then
+                    rxbuff_id_cpuside <= rxbuff_id_ethside - 1;
+                  else
+                    rxbuff_id_cpuside <= num_buffers - 1;
+                  end if;
                 else
                   if rxbuff_id_cpuside /= (num_buffers-1) then
                     rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
