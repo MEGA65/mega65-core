@@ -61,11 +61,13 @@ architecture foo of test_ethernet is
   signal d031_write_toggle : std_logic := '0';
   signal cpu_arrest : std_logic;    
 
+  signal tx_frame_id : unsigned(15 downto 0) := to_unsigned(0,16);
+  
 begin
 
     eth0: entity work.ethernet 
       generic map (
-        num_buffers => 4
+        num_buffers => 32
         )
     port map (
     clock => clock50mhz,
@@ -192,7 +194,7 @@ begin
                       -- Dest MAC: FF:FF:FF:FF:FF:FF
           when 14  => eth_rxdv <= '1'; eth_rxd <= "11";
           when 15 to 37 => eth_rxdv <= '1'; eth_rxd <= "11";
-                      -- SRC MAC: 10:05:01:12:34:56            
+                      -- SRC MAC: 10:05:01:12:34:56                      -- 
           when 38  => eth_rxdv <= '1'; eth_rxd <= "00";
           when 39  => eth_rxdv <= '1'; eth_rxd <= "00";
           when 40  => eth_rxdv <= '1'; eth_rxd <= "01";
@@ -222,7 +224,19 @@ begin
           when 59  => eth_rxdv <= '1'; eth_rxd <= "01";
           when 60  => eth_rxdv <= '1'; eth_rxd <= "01";
           when 61  => eth_rxdv <= '1'; eth_rxd <= "01";
-                      
+
+                      -- Unique frame identifier
+          when 62 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(1 downto 0);
+          when 63 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(3 downto 2);
+          when 64 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(5 downto 4);
+          when 65 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(7 downto 6);
+
+          when 66 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(9 downto 8);
+          when 67 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(11 downto 10);
+          when 68 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(13 downto 12);
+          when 69 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(15 downto 14);
+                     tx_frame_id <= tx_frame_id + 1;
+                     
           when others => eth_rxdv <= '0'; eth_rxd <= "00";
         end case;
         
