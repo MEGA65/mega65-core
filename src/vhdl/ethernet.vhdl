@@ -410,7 +410,7 @@ begin  -- behavioural
   -- have the right number of waitstates in the CPU.
   rxbuffers: for i in 0 to (num_buffers-1) generate
     rxbuffer0: entity work.ram8x2048 port map (
-      clkw => clock,
+      clkw => clock50mhz,
       clkr => clock,
       cs => rxbuffer_cs(i),
       w => rxbuffer_write(i),
@@ -569,7 +569,20 @@ begin  -- behavioural
         eth_10mbit_strobe(8 downto 0) <= eth_10mbit_strobe(9 downto 1);
         eth_10mbit_strobe(9) <= eth_10mbit_strobe(0);
       end if;
-      
+
+      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
+      if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
+        last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
+        rxbuffer_write_drive <= (others => '0');
+        rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
+        rxbuffer_wdata_l_drive <= rxbuffer_wdata;
+        rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
+        eth_rx_write_count <= eth_rx_write_count + 1;
+      -- Buffer gets marked as occupied when we finish receiving the frame.
+      -- so nothing to do here.
+      else
+        rxbuffer_write_drive <= (others => '0');
+      end if;     
       rxbuffer_write <= rxbuffer_write_drive;
       rxbuffer_wdata_l <= rxbuffer_wdata_l_drive;
       rxbuffer_writeaddress_l <= rxbuffer_writeaddress_l_drive;
@@ -1371,20 +1384,6 @@ begin  -- behavioural
         
       end if;
 
-      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
-      if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
-        last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
-        rxbuffer_write_drive <= (others => '0');
-        rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
-        rxbuffer_wdata_l_drive <= rxbuffer_wdata;
-        rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
-        eth_rx_write_count <= eth_rx_write_count + 1;
-      -- Buffer gets marked as occupied when we finish receiving the frame.
-      -- so nothing to do here.
-      else
-        rxbuffer_write_drive <= (others => '0');
-      end if;
-      
       -- Notice when we change raster lines
       if last_raster_number /= raster_number then
         last_raster_number <= raster_number;
