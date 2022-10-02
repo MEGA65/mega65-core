@@ -209,6 +209,7 @@ architecture behavioural of ethernet is
   signal eth_mac_counter : integer range 0 to 7;
 
   signal rxbuffer_cs : std_logic_vector((num_buffers-1) downto 0) := (others => '0');
+  signal rxbuffer_cs_vector : std_logic_vector((num_buffers-1) downto 0) := (others => '0');
   signal rxbuffer_end_of_packet_toggle : std_logic := '0';
   signal rxbuffer_end_of_packet_toggle_drive : std_logic := '0';
   signal last_rxbuffer_end_of_packet_toggle : std_logic := '0';
@@ -375,7 +376,7 @@ architecture behavioural of ethernet is
 
   signal eth_mode_100 : std_logic := '1';
   signal eth_dibit_strobe : std_logic := '1';
-  signal eth_10mbit_strobe : std_logic_vector(9 downto 0) := "1000000000";
+  signal eth_10mbit_strobe : std_logic_vector(9 downto 0) := "1000000000";  
   
   -- Reverse the input vector.
   function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -498,13 +499,7 @@ begin  -- behavioural
       or (fastio_addr(19 downto 12) = x"D2" and fastio_addr(11)='1')
       )
     then
-      for i in 0 to (num_buffers-1) loop
-        if rxbuff_id_cpuside = i then
-          rxbuffer_cs(i) <= '1';
-        else
-          rxbuffer_cs(i) <= '0';
-        end if;
-      end loop;
+      rxbuffer_cs <= rxbuffer_cs_vector;
     else
       rxbuffer_cs <= (others => '0');
     end if;
@@ -1324,6 +1319,10 @@ begin  -- behavioural
     end if;
 
     if rising_edge(clock) then
+
+      -- Compute Ethernet RX buffer CS line state for reads
+      rxbuffer_cs_vector <= (others => '0');
+      rxbuffer_cs_vector(rxbuff_id_cpuside) <= '1';
       
       -- Correctly compute the number of free RX buffers
       eth_rx_blocked <= '0';
