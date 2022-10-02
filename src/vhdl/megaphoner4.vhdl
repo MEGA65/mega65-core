@@ -499,6 +499,9 @@ begin
       );
 
   slow_devices0: entity work.slow_devices
+    generic map (
+      target => megaphoner4
+      )
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
