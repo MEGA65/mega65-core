@@ -229,10 +229,16 @@ architecture behavioural of ethernet is
 
   signal rxbuffer_readaddress : integer range 0 to 2047;
   signal eth_rx_buffer_inuse : unsigned((num_buffers-1) downto 0) := (others => '0');
+  -- CPU RX buff ID must start one behind Ethernet side.
+  -- 1. Eth side writes to buffer n, while CPU is on n-1.
+  -- 2. When frame received, Eth advances to n+1, and CPU notices newly
+  -- received frame that should be in n.
+  -- 3. CPU tells Eth controller to show next frame buffer and ack the frame, thus
+  -- incrementing from n-1 to n, allowing the CPU to see the newly received frame.
   signal rxbuff_id_cpuside : integer range 0 to (num_buffers-1) := 0;
-  signal rxbuff_id_ethside : integer range 0 to (num_buffers-1) := 0;
+  signal rxbuff_id_ethside : integer range 0 to (num_buffers-1) := 1;
   signal rxbuff_id_cpuside_last : integer range 0 to (num_buffers-1) := 0;
-  signal rxbuff_id_ethside_last : integer range 0 to (num_buffers-1) := 0;
+  signal rxbuff_id_ethside_last : integer range 0 to (num_buffers-1) := 1;
   signal eth_rx_buffers_free : integer range 0 to num_buffers := num_buffers;
   
   signal eth_tx_toggle_48mhz : std_logic := '1';
@@ -411,7 +417,11 @@ begin  -- behavioural
   -- We could use _sync, in which case we just need to make sure that we
   -- have the right number of waitstates in the CPU.
   rxbuffers: for i in 0 to (num_buffers-1) generate
-    rxbuffer0: entity work.ram8x2048 port map (
+    rxbuffer0: entity work.ram8x2048
+      generic map (
+        id => i
+        )
+      port map (
       clkw => clock50mhz,
       clkr => clock,
       cs => rxbuffer_cs(i),
@@ -422,7 +432,7 @@ begin  -- behavioural
       rdata => fastio_rdata);
   end generate;
 
-  txbuffer0: entity work.ram8x2048 port map (
+  txbuffer0: entity work.ram8x2048 generic map ( id => 1000 ) port map (
     clkr => clock50mhz,
     clkw => clock,
     cs => '1',
@@ -1223,7 +1233,7 @@ begin  -- behavioural
 --      report "MEMORY: Reading from fastio";
 
       if ethernet_cs='1' then
-        report "MEMORY: Reading from ethernet register block";
+--        report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
           -- @IO:GS ETH:$D6E0 Ethernet control
           when x"0" =>
@@ -1306,9 +1316,20 @@ begin  -- behavioural
           when x"9" => fastio_rdata <= eth_mac(47 downto 40);
           when x"A" => fastio_rdata <= eth_mac(39 downto 32);
           when x"B" => fastio_rdata <= eth_mac(31 downto 24);
-          when x"C" => fastio_rdata <= eth_mac(23 downto 16);
+          when x"C" =>
+            -- XXX Allow debug reading of rxbuff positions
+            if eth_disable_crc_check='0' then
+              fastio_rdata <= eth_mac(23 downto 16);
+            else
+              fastio_rdata <= to_unsigned(rxbuff_id_cpuside,8);
+            end if;
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
-          when x"E" => fastio_rdata <= eth_mac(7 downto 0);
+          when x"E" =>
+            if eth_disable_crc_check='0' then
+              fastio_rdata <= eth_mac(7 downto 0);
+            else
+              fastio_rdata <= to_unsigned(rxbuff_id_ethside,8);
+            end if;
           when x"f" =>
             case eth_debug_select is
               when x"00" =>
@@ -1591,8 +1612,8 @@ begin  -- behavioural
               eth_soft_reset <= fastio_wdata(1);
               if fastio_wdata(0) = '0' or fastio_wdata(1) = '0' then
                 -- Reset RX buffer state: CPU viewing buffer 0,
-                -- other buffers free
-                rxbuff_id_ethside <= 2;
+                -- other buffers free. Eth writing to n+1
+                rxbuff_id_ethside <= 1;
                 rxbuff_id_cpuside <= 0;
                 eth_rx_blocked <= '0';
               end if;

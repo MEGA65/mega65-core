@@ -16,7 +16,7 @@ architecture foo of test_ethernet is
   
   signal reset : std_logic;
   signal irq : std_logic := '1';
-  signal ethernet_cs : std_logic;
+  signal ethernet_cs : std_logic := '0';
 
   signal cpu_ethernet_stream : std_logic := '0';
 
@@ -44,7 +44,7 @@ architecture foo of test_ethernet is
   signal fastio_read : std_logic := '0';
   signal fastio_wdata : unsigned(7 downto 0) := x"42";
   signal fastio_rdata : unsigned(7 downto 0);
-
+  
     ---------------------------------------------------------------------------
     -- compressed video stream from the VIC-IV frame packer for autonomous dispatch
     ---------------------------------------------------------------------------    
@@ -75,7 +75,7 @@ begin
     clock200 => clock200mhz,
     reset => reset,
     irq => irq,
-    ethernet_cs => '1',
+    ethernet_cs => ethernet_cs,
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -162,8 +162,37 @@ begin
         fastio_read <= '0'; fastio_write <= '0';
         case cpu_counter is
           -- Accept frames with bad CRCs for ease of testing
-          when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e5"; fastio_wdata <= x"32";
-                    report "Writing $10 to $FFD36E4 to select 10mbit mode";
+          when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e5"; fastio_wdata <= x"32"; ethernet_cs <= '1';
+                    report "Writing $32 to $FFD36E4 to disable CRC check";
+          -- Then watch for when an ethernet frame arrives
+          when 1 => fastio_read <= '1'; fastio_write <= '0'; fastio_addr <= x"d36e1"; fastio_wdata <= x"00"; ethernet_cs <= '1';
+          when 2 => fastio_read <= '0'; fastio_write <= '0'; fastio_addr <= x"00000"; fastio_wdata <= x"00"; ethernet_cs <= '0';
+            if fastio_rdata(5) = '1' then
+              report "$D6E1=$" & to_hstring(fastio_rdata);
+              report "RXBUFF: Frame arrived";
+            else
+              -- No frame arrived, keep watching
+              cpu_counter <= 1;
+            end if;
+          -- Accept the frame
+          when 3 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e1"; fastio_wdata <= x"01"; ethernet_cs <= '1';
+          when 4 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e1"; fastio_wdata <= x"03"; ethernet_cs <= '1';
+          when 5 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e1"; fastio_wdata <= x"01"; ethernet_cs <= '1';
+          -- Then read frame ID from RX buffer
+          when 6 => fastio_read <= '1'; fastio_write <= '0'; fastio_addr <= x"de80e"; fastio_wdata <= x"00"; ethernet_cs <= '0';
+                     report "RXBUFF: rdata=$" & to_hstring(fastio_rdata);
+          when 7 => fastio_read <= '1'; fastio_write <= '0'; fastio_addr <= x"de80f"; fastio_wdata <= x"00"; ethernet_cs <= '0';
+                     report "RXBUFF: rdata=$" & to_hstring(fastio_rdata);
+                    rx_frame_id(7 downto 0) <= fastio_rdata;
+          when 8 => rx_frame_id(15 downto 8) <= fastio_rdata;
+          when 9 =>
+            report "Saw ethernet frame " & integer'image(to_integer(rx_frame_id)) & ", expected to see " & integer'image(tx_frame_id);
+            if to_integer(rx_frame_id) /= tx_frame_id then
+              assert false report "Saw incorrect Ethernet frame";
+            end if;
+            -- And then wait for the next frame
+            fastio_read <= '0'; fastio_write <= '0';
+            cpu_counter <= 1;
           when others => null;
         end case;
         
