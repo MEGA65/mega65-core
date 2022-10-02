@@ -160,11 +160,11 @@ begin
         fastio_read <= '0'; fastio_write <= '0';
         case cpu_counter is
           -- Select 10mbit mode
-          when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"10";
-                    report "Writing $10 to $FFD36E4 to select 10mbit mode";
+--          when 0 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"10";
+--                    report "Writing $10 to $FFD36E4 to select 10mbit mode";
           -- Release ethernet from reset
-          when 1 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e0"; fastio_wdata <= x"03";
-                    report "Releasing ethernet controller from reset.";
+--          when 1 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e0"; fastio_wdata <= x"03";
+--                    report "Releasing ethernet controller from reset.";
           -- Enable debug mode
 --          when 2 => fastio_read <= '0'; fastio_write <= '1'; fastio_addr <= x"d36e4"; fastio_wdata <= x"de";
 --                    report "Enable ETH RX debug mode";
@@ -174,9 +174,9 @@ begin
       end if;
     end process;
     
-    process (clock5mhz) is
+    process (clock50mhz) is
     begin
-      if rising_edge(clock5mhz) then
+      if rising_edge(clock50mhz) then
         -- Feed in 10mbit ethernet frame data
 
         if eth_dibit_counter /= 1000 then
