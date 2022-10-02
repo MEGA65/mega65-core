@@ -518,7 +518,7 @@ begin  -- behavioural
             ps2_enable_internal <= std_logic(fastio_wdata(1));
             physkey_enable_internal <= std_logic(fastio_wdata(2));
             virtual_enable_internal <= std_logic(fastio_wdata(3));
---            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            -- joykey_enable_internal <= std_logic(fastio_wdata(4));
             osk_debug_display <= fastio_wdata(4);
             joyswap <= fastio_wdata(5);
             joyswap_internal <= std_logic(fastio_wdata(5));
@@ -689,13 +689,14 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
+          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
           fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
           fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>
