@@ -231,6 +231,8 @@ architecture behavioural of ethernet is
   signal eth_rx_buffer_inuse : unsigned((num_buffers-1) downto 0) := (others => '0');
   signal rxbuff_id_cpuside : integer range 0 to (num_buffers-1) := 0;
   signal rxbuff_id_ethside : integer range 0 to (num_buffers-1) := 0;
+  signal rxbuff_id_cpuside_last : integer range 0 to (num_buffers-1) := 0;
+  signal rxbuff_id_ethside_last : integer range 0 to (num_buffers-1) := 0;
   signal eth_rx_buffers_free : integer range 0 to num_buffers := num_buffers;
   
   signal eth_tx_toggle_48mhz : std_logic := '1';
@@ -561,6 +563,15 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      if (rxbuff_id_ethside /= rxbuff_id_ethside_last)
+        or (rxbuff_id_cpuside /= rxbuff_id_cpuside_last) then
+        report "rxbuff_id_ethside=" & integer'image(rxbuff_id_ethside)
+          & ", rxbuff_id_cpuside=" & integer'image(rxbuff_id_cpuside);
+
+        rxbuff_id_ethside_last <= rxbuff_id_ethside;
+        rxbuff_id_cpuside_last <= rxbuff_id_cpuside;
+      end if;
+      
       if eth_mode_100='1' then
         eth_dibit_strobe <= '1';
       else
