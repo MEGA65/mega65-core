@@ -4163,7 +4163,7 @@ dos_d81check:
         jsr dos_openfile
         bcs @fileOpenedOk
 @fileNotOpenedOk:
-        jmp nod81
+        jmp not81
 @fileOpenedOk:
 
         ;; work out how many clusters we need
@@ -4380,6 +4380,9 @@ d81wronglength:
 d81isfragged:
         +Checkpoint "dos_d81attach <fragmented>"
 
+        ;; close dangeling open descriptor
+        jsr dos_closefile
+
         lda #dos_errorcode_image_fragmented
         sta dos_error_code
         clc
@@ -4387,7 +4390,7 @@ d81isfragged:
 
 ;;         ========================
 
-nod81:
+not81:
         +Checkpoint "dos_d81attach <file not found>"
 
         clc
