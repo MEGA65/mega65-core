@@ -28,26 +28,44 @@
 -- 8-bit read addresses:
 -- 0xD1
 
--- @IO:GS $FFD7400-12 RTC:EXTRTC Optional External Real-time Clock
--- @IO:GS $FFD7400 RTC:EXTRTCSEC External Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7401 RTC:EXTRTCMIN External Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7402 RTC:EXTRTCHOUR External Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7403 RTC:EXTRTCDOW External Real-time Clock day of week value (binary coded decimal)
--- @IO:GS $FFD7404 RTC:EXTRTCDAY External Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7405 RTC:EXTRTCMONTH External Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7406 RTC:EXTRTCYEAR External Real-time Clock year value (binary coded decimal)
--- @IO:GS $FFD7407 RTC:EXTRTCA1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
--- @IO:GS $FFD7408 RTC:EXTRTCA1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
--- @IO:GS $FFD7409 RTC:EXTRTCA1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
--- @IO:GS $FFD740A RTC:EXTRTCA1DAYDATE External Real-time Clock alarm 1 day of week / day of month value (binary coded decimal)
--- @IO:GS $FFD740B RTC:EXTRTCA2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
--- @IO:GS $FFD740C RTC:EXTRTCA2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
--- @IO:GS $FFD740D RTC:EXTRTCA2DAYDATE External Real-time Clock alarm 2 day of week / day of month value (binary coded decimal)
--- @IO:GS $FFD740E RTC:EXTRTCCTRL External Real-time Clock control
--- @IO:GS $FFD740F RTC:EXTRTCST External Real-time Clock control/status register
--- @IO:GS $FFD7410 RTC:EXTRTCAGINGOFS External Real-time Clock aging offset (do not modify)
--- @IO:GS $FFD7411 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (MSB)
--- @IO:GS $FFD7412 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (LSB)
+-- @IO:GS $FFD7400-12 RTC:EXTRTC Optional Grove DS3231 External Real-time Clock
+-- @IO:GS $FFD7400 RTC:EXTRTC!SEC External Real-time Clock seconds value (binary coded decimal)
+-- @IO:GS $FFD7401 RTC:EXTRTC!MIN External Real-time Clock minutes value (binary coded decimal)
+-- @IO:GS $FFD7402.0-5 RTC:EXTRTC!HOUR External Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7402.5 RTC:EXTRTC!HOURPM External Real-time Clock PM indicator (12h mode only)
+-- @IO:GS $FFD7402.6 RTC:EXTRTC!HOUR12EN External Real-time Clock 12 hour mode enabled
+-- @IO:GS $FFD7403 RTC:EXTRTC!DOW External Real-time Clock day of week value 1-7 (binary coded decimal)
+-- @IO:GS $FFD7404 RTC:EXTRTC!DAY External Real-time Clock day of month value (binary coded decimal)
+-- @IO:GS $FFD7405.0-4 RTC:EXTRTC!MONTH External Real-time Clock month value (binary coded decimal)
+-- @IO:GS $FFD7405.7 RTC:EXTRTC!CENTURY External Real-time Clock year "carry"
+-- @IO:GS $FFD7406 RTC:EXTRTC!YEAR External Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7407.0-6 RTC:EXTRTC!A1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
+-- @IO:GS $FFD7407.7 RTC:EXTRTC!A1M1 External Real-time Clock alarm 1 mask bits 1
+-- @IO:GS $FFD7408.0-6 RTC:EXTRTC!A1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
+-- @IO:GS $FFD7408.7 RTC:EXTRTC!A1M2 External Real-time Clock alarm 1 mask bits 2
+-- @IO:GS $FFD7409.0-5 RTC:EXTRTC!A1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
+-- @IO:GS $FFD7409.5 RTC:EXTRTC!A1HOURPM External Real-time Clock alarm 1 hours PM indicator
+-- @IO:GS $FFD7409.6 RTC:EXTRTC!A1HOUR12EN External Real-time Clock alarm 1 12 hour mode enabled
+-- @IO:GS $FFD7409.7 RTC:EXTRTC!A1M3 External Real-time Clock alarm 1 mask bits 3
+-- @IO:GS $FFD740A.0-2 RTC:EXTRTC!A1DOW External Real-time Clock alarm 1 day of week value (binary coded decimal)
+-- @IO:GS $FFD740A.0-5 RTC:EXTRTC!A1DATE External Real-time Clock alarm 1 date value (binary coded decimal)
+-- @IO:GS $FFD740A.6 RTC:EXTRTC!A1DOWSEL External Real-time Clock alarm 1 select day of week match
+-- @IO:GS $FFD740A.7 RTC:EXTRTC!A1M4 External Real-time Clock alarm 1 mask bits 4
+-- @IO:GS $FFD740B.0-6 RTC:EXTRTC!A2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
+-- @IO:GS $FFD740B.7 RTC:EXTRTC!A2M2 External Real-time Clock alarm 2 mask bits 2
+-- @IO:GS $FFD740C.0-5 RTC:EXTRTC!A2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
+-- @IO:GS $FFD740C.5 RTC:EXTRTC!A2HOURPM External Real-time Clock alarm 2 hours PM indicator
+-- @IO:GS $FFD740C.6 RTC:EXTRTC!A2HOUR12EN External Real-time Clock alarm 2 12 hour mode enabled
+-- @IO:GS $FFD740C.7 RTC:EXTRTC!A2M3 External Real-time Clock alarm 2 mask bits 3
+-- @IO:GS $FFD740D.0-2 RTC:EXTRTC!A2DOW External Real-time Clock alarm 2 day of week value (binary coded decimal)
+-- @IO:GS $FFD740D.0-5 RTC:EXTRTC!A2DATE External Real-time Clock alarm 2 date value (binary coded decimal)
+-- @IO:GS $FFD740D.6 RTC:EXTRTC!A2DOWSEL External Real-time Clock alarm 2 select day of week match
+-- @IO:GS $FFD740D.7 RTC:EXTRTC!A2M4 External Real-time Clock alarm 2 mask bits 4
+-- @IO:GS $FFD740E RTC:EXTRTC!CTRL External Real-time Clock control
+-- @IO:GS $FFD740F RTC:EXTRTC!ST External Real-time Clock control/status register
+-- @IO:GS $FFD7410 RTC:EXTRTC!AGINGOFS External Real-time Clock aging offset (do not modify!)
+-- @IO:GS $FFD7411 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (MSB)
+-- @IO:GS $FFD7412 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (LSB)
 
 
 
@@ -118,8 +136,8 @@ architecture behavioural of grove_i2c is
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
-  signal write_reg : unsigned(7 downto 0) := x"02";
-  signal write_val : unsigned(7 downto 0) := x"99";
+  signal write_reg : unsigned(7 downto 0) := x"0d"; -- HACK: don't write 99 to 02 (hour = 19) on startup, write to EXTRTCA2DAYDATE instead
+  signal write_val : unsigned(7 downto 0) := x"00"; -- initialize with 00...
 
   signal read_i2c_addr : unsigned(7 downto 0) := x"d1";
   signal write_i2c_addr : unsigned(7 downto 0) := x"d0";
@@ -230,8 +248,8 @@ begin
           when x"2" => -- RTC hour
             write_reg <= x"02"; write_job_pending <= '1';
             write_val(5 downto 0) <= fastio_wdata(5 downto 0);
+            write_val(6) <= not fastio_wdata(7); -- on DS3231 this is 12/^24 (high for 12h mode)
             write_val(7) <= '0';
-            write_val(6) <= fastio_wdata(7);
           when x"3" => -- RTC day of month
             write_reg <= x"04"; write_job_pending <= '1'; write_val <= fastio_wdata;
           when x"4" => -- RTC month
@@ -239,7 +257,9 @@ begin
           when x"5" => -- RTC year
             write_reg <= x"06"; write_job_pending <= '1'; write_val <= fastio_wdata;
           when x"6" => -- RTC day of week
-            write_reg <= x"03"; write_job_pending <= '1'; write_val <= fastio_wdata;
+            write_reg <= x"03"; write_job_pending <= '1';
+            write_val <= fastio_wdata + to_unsigned(1,8);
+            write_val(7 downto 3) <= (others => '0');
           when others =>
             null;
         end case;
@@ -316,8 +336,7 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
---          report "Read RTC registers";
-
+          -- report "Read RTC registers";
           -- Send write address and register 0
           command_en <= '1';
           i2c1_address <= write_i2c_addr(7 downto 1);

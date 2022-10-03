@@ -46,10 +46,14 @@
 -- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
 -- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
 -- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112.0-5 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112.5 RTC:RTC!HOURPM Real-time Clock PM indicator (12h mode only)
+-- @IO:GS $FFD7112.7 RTC:RTC!HOUR24EN Real-time Clock 24 hour mode enabled
 -- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 -- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 -- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7116 RTC:RTCDOW Real-time Clock day of week value 0-6 (binary coded decimal)
 
 
 -- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
@@ -182,9 +186,8 @@ begin
 
       -- If an external RTC is connected, use that in place of
       -- the internal one.
-      -- XXX external RTC is read-only from these registers for now.
-      -- Making it R/W will be the responsibility of the grove_i2c module
-      -- to sniff the bus for writes to the addresses here.
+      -- The grove_i2c will sniff the bus for writes to the
+      -- addresses here, making it R/W.
       if grove_rtc_present='1' then
         case reg_in is
           -- Convert between register layout of the two
@@ -192,8 +195,9 @@ begin
           when x"01" => bytes(16 + 1) <= val_in;
           when x"02" => bytes(16 + 2)(5 downto 0) <= val_in(5 downto 0);
                         bytes(16 + 2)(6) <= '0';
-                        bytes(16 + 2)(7) <= val_in(6);                        
-          when x"03" => bytes(16 + 6) <= val_in;
+                        bytes(16 + 2)(7) <= not val_in(6);
+          when x"03" => bytes(16 + 6) <= val_in - to_unsigned(1,8);
+                        bytes(16 + 6)(7 downto 3) <= (others => '0');
           when x"04" => bytes(16 + 3) <= val_in;
           when x"05" => bytes(16 + 4) <= val_in;
           when x"06" => bytes(16 + 5) <= val_in;
