@@ -214,7 +214,7 @@ GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
 GS $D052 VIC-IV:FNRASTERLSB Read physical raster position
 GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
 GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
-GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
 GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
@@ -274,12 +274,12 @@ GS $D075 VIC-IV:SPRALPHAVAL Sprite alpha-blend value
 GS $D076 VIC-IV:SPRENV400 Sprite V400 enables
 GS $D077 VIC-IV:SPRYMSBS Sprite V400 Y position MSBs
 GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
-GS $D079 VIC-IV:RASCMP Raster compare value
+GS $D079 VIC-IV:RASCMP Physical raster compare value to be used if FNRSTCMP is clear
 GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
 GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
 GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
 GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
-GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
 GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
 GS $D07C.0-2 VIC-IV:BIT!PBANK Set which 128KB bank bitplanes
 GS $D07C.3 VIC-IV:RESV @RESV
@@ -493,15 +493,16 @@ GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, s
 GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
 GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
 GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
-GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
+GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
-GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
+GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
 GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
-GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
-GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
-GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
-GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
-GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
+GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
+GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
+GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
+GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
+GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
+GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
 GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
@@ -824,7 +825,7 @@ GS $D6A1.1 SDFDC:TARGANY Read next sector under head if set, ignoring the reques
 GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
 GS $D6A1.2 SDFDC:USEREAL1 Use real floppy drive for drive 1 if set (read-only, except for from hypervisor)
 GS $D6A1.3 SDFDC:SILENT Disable floppy spinning and tracking for SD card operations.
-GS $D6A1.4-7 - FDC debug status flags
+GS $D6A1.4-7 F011:STATUS FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
 GS $D6A2 FDC:DATARATE Set number of bus cycles per floppy magnetic interval (decrease to increase data rate)
 GS $D6A3 - FDC track number of last matching sector header
@@ -1491,31 +1492,54 @@ GS $FFD7100-FF EDID:EDID E-EDID block (MEGA65 R3 and newer, only)
 GS $FFD7110-3F RTC:RTC Real-time Clock
 GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
 GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
+GS $FFD7112.0-5 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
+GS $FFD7112.5 RTC:RTC!HOURPM Real-time Clock PM indicator (12h mode only)
+GS $FFD7112.7 RTC:RTC!HOUR24EN Real-time Clock 24 hour mode enabled
+GS $FFD7112 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
 GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
 GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+GS $FFD7116 RTC:RTCDOW Real-time Clock day of week value 0-6 (binary coded decimal)
 GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
-GS $FFD7400-12 RTC:EXTRTC Optional External Real-time Clock
-GS $FFD7400 RTC:EXTRTCSEC External Real-time Clock seconds value (binary coded decimal)
-GS $FFD7401 RTC:EXTRTCMIN External Real-time Clock minutes value (binary coded decimal)
-GS $FFD7402 RTC:EXTRTCHOUR External Real-time Clock hours value (binary coded decimal)
-GS $FFD7403 RTC:EXTRTCDOW External Real-time Clock day of week value (binary coded decimal)
-GS $FFD7404 RTC:EXTRTCDAY External Real-time Clock day of month value (binary coded decimal)
-GS $FFD7405 RTC:EXTRTCMONTH External Real-time Clock month value (binary coded decimal)
-GS $FFD7406 RTC:EXTRTCYEAR External Real-time Clock year value (binary coded decimal)
-GS $FFD7407 RTC:EXTRTCA1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
-GS $FFD7408 RTC:EXTRTCA1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
-GS $FFD7409 RTC:EXTRTCA1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
-GS $FFD740A RTC:EXTRTCA1DAYDATE External Real-time Clock alarm 1 day of week / day of month value (binary coded decimal)
-GS $FFD740B RTC:EXTRTCA2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
-GS $FFD740C RTC:EXTRTCA2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
-GS $FFD740D RTC:EXTRTCA2DAYDATE External Real-time Clock alarm 2 day of week / day of month value (binary coded decimal)
-GS $FFD740E RTC:EXTRTCCTRL External Real-time Clock control
-GS $FFD740F RTC:EXTRTCST External Real-time Clock control/status register
-GS $FFD7410 RTC:EXTRTCAGINGOFS External Real-time Clock aging offset (do not modify)
-GS $FFD7411 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (MSB)
-GS $FFD7412 RTC:EXTRTCTEMPMSB External Real-time Clock temperature (LSB)
+GS $FFD7400-12 RTC:EXTRTC Optional Grove DS3231 External Real-time Clock
+GS $FFD7400 RTC:EXTRTC!SEC External Real-time Clock seconds value (binary coded decimal)
+GS $FFD7401 RTC:EXTRTC!MIN External Real-time Clock minutes value (binary coded decimal)
+GS $FFD7402.0-5 RTC:EXTRTC!HOUR External Real-time Clock hours value (binary coded decimal)
+GS $FFD7402.5 RTC:EXTRTC!HOURPM External Real-time Clock PM indicator (12h mode only)
+GS $FFD7402.6 RTC:EXTRTC!HOUR12EN External Real-time Clock 12 hour mode enabled
+GS $FFD7403 RTC:EXTRTC!DOW External Real-time Clock day of week value 1-7 (binary coded decimal)
+GS $FFD7404 RTC:EXTRTC!DAY External Real-time Clock day of month value (binary coded decimal)
+GS $FFD7405.0-4 RTC:EXTRTC!MONTH External Real-time Clock month value (binary coded decimal)
+GS $FFD7405.7 RTC:EXTRTC!CENTURY External Real-time Clock year "carry"
+GS $FFD7406 RTC:EXTRTC!YEAR External Real-time Clock year value (binary coded decimal)
+GS $FFD7407.0-6 RTC:EXTRTC!A1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
+GS $FFD7407.7 RTC:EXTRTC!A1M1 External Real-time Clock alarm 1 mask bits 1
+GS $FFD7408.0-6 RTC:EXTRTC!A1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
+GS $FFD7408.7 RTC:EXTRTC!A1M2 External Real-time Clock alarm 1 mask bits 2
+GS $FFD7409.0-5 RTC:EXTRTC!A1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
+GS $FFD7409.5 RTC:EXTRTC!A1HOURPM External Real-time Clock alarm 1 hours PM indicator
+GS $FFD7409.6 RTC:EXTRTC!A1HOUR12EN External Real-time Clock alarm 1 12 hour mode enabled
+GS $FFD7409.7 RTC:EXTRTC!A1M3 External Real-time Clock alarm 1 mask bits 3
+GS $FFD740A.0-2 RTC:EXTRTC!A1DOW External Real-time Clock alarm 1 day of week value (binary coded decimal)
+GS $FFD740A.0-5 RTC:EXTRTC!A1DATE External Real-time Clock alarm 1 date value (binary coded decimal)
+GS $FFD740A.6 RTC:EXTRTC!A1DOWSEL External Real-time Clock alarm 1 select day of week match
+GS $FFD740A.7 RTC:EXTRTC!A1M4 External Real-time Clock alarm 1 mask bits 4
+GS $FFD740B.0-6 RTC:EXTRTC!A2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
+GS $FFD740B.7 RTC:EXTRTC!A2M2 External Real-time Clock alarm 2 mask bits 2
+GS $FFD740C.0-5 RTC:EXTRTC!A2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
+GS $FFD740C.5 RTC:EXTRTC!A2HOURPM External Real-time Clock alarm 2 hours PM indicator
+GS $FFD740C.6 RTC:EXTRTC!A2HOUR12EN External Real-time Clock alarm 2 12 hour mode enabled
+GS $FFD740C.7 RTC:EXTRTC!A2M3 External Real-time Clock alarm 2 mask bits 3
+GS $FFD740D.0-2 RTC:EXTRTC!A2DOW External Real-time Clock alarm 2 day of week value (binary coded decimal)
+GS $FFD740D.0-5 RTC:EXTRTC!A2DATE External Real-time Clock alarm 2 date value (binary coded decimal)
+GS $FFD740D.6 RTC:EXTRTC!A2DOWSEL External Real-time Clock alarm 2 select day of week match
+GS $FFD740D.7 RTC:EXTRTC!A2M4 External Real-time Clock alarm 2 mask bits 4
+GS $FFD740E RTC:EXTRTC!CTRL External Real-time Clock control
+GS $FFD740F RTC:EXTRTC!ST External Real-time Clock control/status register
+GS $FFD7410 RTC:EXTRTC!AGINGOFS External Real-time Clock aging offset (do not modify!)
+GS $FFD7411 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (MSB)
+GS $FFD7412 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (LSB)
 GS $FFD7x00-xFF - I2C Peripherals for various targets
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)

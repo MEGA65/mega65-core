@@ -1391,7 +1391,7 @@ begin  -- behavioural
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
             fastio_rdata(3) <= silent_sdcard;
-            -- @IO:GS $D6A1.4-7 - FDC debug status flags
+            -- @IO:GS $D6A1.4-7 F011:STATUS FDC debug status flags
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
             fastio_rdata(6) <= fdc_byte_valid;
