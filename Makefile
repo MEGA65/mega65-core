@@ -962,7 +962,7 @@ $(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl
 	# Force consistent ordering of items according to natural byte values
-	LC_ALL=C egrep "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
+	LC_ALL=C grep -E "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 # Using special .DELETE_ON_ERROR target, so that it will force COLOURRAM.BIN to be deleted if its recipe fails
 # (e.g., if exomizer isn't installed yet)
