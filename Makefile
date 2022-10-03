@@ -1093,8 +1093,12 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILO
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 	# Make a copy named after the commit and datestamp, for easy going back to previous versions
 	cp $@ $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.bit
+	# Make a copy of the implementation log named after the commit and datestamp
+	cp vivado.log $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.log
+	# Run timing summary report
 	echo ./vivado_timing $(subst bin/,,$*)
 	./vivado_timing $(subst bin/,,$*)
+	# Make a copy of the timing report named after the commit and datestamp
 	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.timing.txt
 
 $(BINDIR)/%.mcs:	$(BINDIR)/%.bit freezer_files

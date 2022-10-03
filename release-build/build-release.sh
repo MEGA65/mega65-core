@@ -53,7 +53,8 @@ else
     usage "unknown model ${MODEL}"
 fi
 
-PKGPATH=${SCRIPTPATH}/${MODEL}-${BRANCH}
+PKGBASE=${SCRIPTPATH}/pkg
+PKGPATH=${PKGBASE}/${MODEL}-${BRANCH}
 REPOPATH=${SCRIPTPATH%/*}
 
 if [[ ${REPACK} -eq 0 ]]; then
@@ -90,7 +91,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
 
     cp ${BITPATH} ${PKGPATH}/
-    cat $( ls -1 --sort time ${REPOPATH}/vivado*.log | head -2 | tac ) > ${PKGPATH}/log/${BITBASE}.log
+    cp ${BITPATH%.bit}.log ${PKGPATH}/log/
     cp ${BITPATH%.bit}.timing.txt ${PKGPATH}/log/
     VIOLATIONS=$( grep -c VIOL ${BITPATH%.bit}.timing.txt )
     if [[ $VIOLATIONS -gt 0 ]]; then
@@ -114,7 +115,7 @@ echo
 if [[ $NOREG -eq 1 ]]; then
     echo "Skipping regression tests"
     if [[ ${REPACK} -eq 0 ]]; then
-        touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_MADE
+        touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED
     fi
 else
     echo "Starting regression tests"
@@ -126,7 +127,10 @@ else
 fi
 echo
 
-if [[ -e ${SCRIPTPATH}/${MODEL}-reltest-${HASH}.7z ]]; then
-    rm -f ${SCRIPTPATH}/${MODEL}-reltest-${HASH}.7z
+ARCFILE=${PKGBASE}/${MODEL}-${BRANCH}-${HASH}.7z
+if [[ -e ${ARCFILE} ]]; then
+    rm -f ${ARCFILE}
 fi
-7z a ${SCRIPTPATH}/${MODEL}-reltest-${HASH}.7z ${PKGPATH}
+
+# 7z will only put the relative paths between ARCFILE and PKGPATH inside the archive. smart!
+7z a ${ARCFILE} ${PKGPATH}
