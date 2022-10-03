@@ -239,7 +239,8 @@ architecture behavioural of ethernet is
   signal rxbuff_id_ethside : integer range 0 to (num_buffers-1) := 1;
   signal rxbuff_id_cpuside_last : integer range 0 to (num_buffers-1) := 0;
   signal rxbuff_id_ethside_last : integer range 0 to (num_buffers-1) := 1;
-  signal eth_rx_buffers_free : integer range 0 to num_buffers := num_buffers;
+  signal rxbuff_id_cpuside_plus1 : integer range 0 to (num_buffers-1) := 0;
+  signal eth_rx_buffers_free : integer range 0 to num_buffers := num_buffers - 1;
   
   signal eth_tx_toggle_48mhz : std_logic := '1';
   signal eth_tx_toggle : std_logic := '1';
@@ -1224,7 +1225,6 @@ begin  -- behavioural
            rxbuffer_wdata,rxbuffer_writeaddress
            ) is
     variable temp_cmd : unsigned(7 downto 0);
-    variable buffers_occupied : integer := 0;
   begin
 
     fastio_rdata <= (others => 'Z');
@@ -1369,25 +1369,37 @@ begin  -- behavioural
       rxbuffer_cs_vector <= (others => '0');
       rxbuffer_cs_vector(rxbuff_id_cpuside) <= '1';
       
-      -- Correctly compute the number of free RX buffers
-      eth_rx_blocked <= '0';
-      buffers_occupied := 0;
-      for i in 0 to (num_buffers-1) loop
-        if eth_rx_buffer_inuse(i)='1' then
-          buffers_occupied := buffers_occupied + 1;
-        end if;
-      end loop;
-
-      eth_rx_buffers_free <= num_buffers - buffers_occupied;
-
-      if buffers_occupied = num_buffers then
-        eth_rx_blocked <= '1';
-      end if;
-      
-      if eth_rx_buffers_free < num_buffers then
-        eth_irq_rx <= '1';
+      if rxbuff_id_cpuside /= (num_buffers-1) then
+        rxbuff_id_cpuside_plus1 <= rxbuff_id_cpuside + 1;
       else
-        eth_irq_rx <= eth_rx_blocked;
+        rxbuff_id_cpuside_plus1 <= 0;
+      end if;
+
+      -- Correctly compute the number of free RX buffers
+      if rxbuff_id_ethside = rxbuff_id_cpuside then
+        eth_rx_buffers_free <= 0;
+        eth_rx_blocked <= '1';
+      elsif rxbuff_id_cpuside > rxbuff_id_ethside then
+        eth_rx_buffers_free <= rxbuff_id_cpuside - rxbuff_id_ethside;
+        eth_rx_blocked <= '0';
+      else
+        eth_rx_buffers_free <= num_buffers + rxbuff_id_cpuside - rxbuff_id_ethside;
+        eth_rx_blocked <= '0';
+      end if;
+
+      report integer'image(eth_rx_buffers_free) & " free RX buffers, CPU="
+        & integer'image(rxbuff_id_cpuside)
+        & ", ETH=" & integer'image(rxbuff_id_ethside)
+        & ", CPU+1=" & integer'image(rxbuff_id_cpuside_plus1);
+        
+      
+      if rxbuff_id_cpuside_plus1 = rxbuff_id_ethside then
+        -- CPU has caught up, so there are no frames waiting, and thus we can
+        -- release the RX IRQ. 
+        eth_irq_rx <= '0';
+      else
+        -- Ethernet controller is ahead of the CPU, so assert RX IRQ
+        eth_irq_rx <= '1';
       end if;
       
       -- De-glitch eth_tx_trigger before we push it to the 50MHz side
@@ -1404,9 +1416,6 @@ begin  -- behavioural
         -- End of packet RX signalled
         last_rxbuffer_end_of_packet_toggle <= rxbuffer_end_of_packet_toggle;
 
-        -- Mark buffer in occupied, now that the frame has been received
-        eth_rx_buffer_inuse(rxbuff_id_ethside) <= '1';
-        
         -- Now work out the next RX buffer to use.
         if rxbuff_id_ethside /= (num_buffers-1) then
           rxbuff_id_ethside <= rxbuff_id_ethside + 1;
@@ -1646,11 +1655,8 @@ begin  -- behavioural
                 -- glitching, when M65 CPU sometimes writes to an address for 2
                 -- cycles instead of one.
 
-                -- Free up the RX buffer we were looking at
-                eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
-
                 -- Advance to next buffer, if there are any
-                if unsigned(eth_rx_buffer_inuse) = to_unsigned(0,num_buffers) then
+                if rxbuff_id_cpuside_plus1 = rxbuff_id_ethside then
                   -- No more waiting packets: Point the CPU to the buffer just
                   -- before where the ethernet side is writing to.
                   if rxbuff_id_ethside /= 0 then

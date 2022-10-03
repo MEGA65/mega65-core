@@ -62,6 +62,11 @@ architecture foo of test_ethernet is
   signal cpu_arrest : std_logic;    
 
   signal tx_frame_id : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal next_tx_frame_id : unsigned(15 downto 0) := to_unsigned(1,16);
+  signal rx_frame_id : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal cpu_countdown : integer := 0;
+  signal cpu_countdown_max : integer := 0;
+  
   
 begin
 
@@ -186,13 +191,26 @@ begin
                     rx_frame_id(7 downto 0) <= fastio_rdata;
           when 8 => rx_frame_id(15 downto 8) <= fastio_rdata;
           when 9 =>
-            report "Saw ethernet frame " & integer'image(to_integer(rx_frame_id)) & ", expected to see " & integer'image(tx_frame_id);
-            if to_integer(rx_frame_id) /= tx_frame_id then
-              assert false report "Saw incorrect Ethernet frame";
+            report "Saw ethernet frame " & integer'image(to_integer(rx_frame_id)) & ", expected to see " & integer'image(to_integer(next_tx_frame_id));
+            if to_integer(rx_frame_id) /= next_tx_frame_id then
+              report "Saw incorrect Ethernet frame -- aborting" severity failure;
             end if;
-            -- And then wait for the next frame
+            -- And then wait for the next frame, with increasing delay between
+            -- each frame so that we can test immediate clearing, as well as
+            -- waiting for things to bank up.
+            next_tx_frame_id <= next_tx_frame_id + 1;
             fastio_read <= '0'; fastio_write <= '0';
-            cpu_counter <= 1;
+            cpu_countdown <= cpu_countdown_max;
+            cpu_countdown_max <= cpu_countdown_max + 100;
+          when 10 =>
+            if cpu_countdown = 0 then
+              cpu_counter <= 1;
+            else
+              report "cpu_countdown = " & integer'image(cpu_countdown);
+              cpu_counter <= 10;
+              cpu_countdown <= cpu_countdown - 1;
+            end if;
+            
           when others => null;
         end case;
         
@@ -215,6 +233,8 @@ begin
         
         case eth_dibit_counter is
           when 0   => eth_rxdv <= '0'; eth_rxd <= "00";
+                     tx_frame_id <= tx_frame_id + 1;
+                      
                       -- Send 01010111 final preamble byte
           when 10  => eth_rxdv <= '1'; eth_rxd <= "01";  -- x3
           when 11  => eth_rxdv <= '1'; eth_rxd <= "01";
@@ -264,7 +284,6 @@ begin
           when 67 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(11 downto 10);
           when 68 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(13 downto 12);
           when 69 => eth_rxdv <= '1'; eth_rxd <= tx_frame_id(15 downto 14);
-                     tx_frame_id <= tx_frame_id + 1;
                      
           when others => eth_rxdv <= '0'; eth_rxd <= "00";
         end case;
