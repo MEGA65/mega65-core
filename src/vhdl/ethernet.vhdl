@@ -293,8 +293,8 @@ architecture behavioural of ethernet is
   -- IRQ flag handling stuff
   signal eth_irqenable_rx : std_logic := '0';
   signal eth_irqenable_tx : std_logic := '0';
-  signal eth_irq_rx : std_logic := '0';
-  signal eth_irq_tx : std_logic := '0'; 
+  signal eth_irq_rx : std_logic := '1';
+  signal eth_irq_tx : std_logic := '1'; 
 
   signal eth_videostream : std_logic := '0';
   signal eth_byte_100 : unsigned(7 downto 0) := x"bd";
