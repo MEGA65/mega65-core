@@ -5,10 +5,14 @@ SCRIPTPATH="$(dirname "${SCRIPT}")"
 SCRIPTNAME=${SCRIPT##*/}
 
 usage () {
-    echo "Usage: ${SCRIPTNAME} MODEL VERSION [noreg|repack]"
+    echo "Usage: ${SCRIPTNAME} [-noreg] [-repack] MODEL VERSION [EXTRA]"
     echo
-    echo "  noreg   skip regression testing"
-    echo "  repack  don't copy new stuff, redo cor and mcs, make new 7z"
+    echo "  -noreg   skip regression testing"
+    echo "  -repack  don't copy new stuff, redo cor and mcs, make new 7z"
+    echo "  MODEL    one of mega65r3, mega65r2, nexys4ddr-widget"
+    echo "  VERSION  version string to put before the hash into the core version"
+    echo "  EXTRA    file to put into the mega65r3 cor for fdisk population"
+    echo "           (default is everything in sdcard-files)"
     echo
     echo "Example: ${SCRIPTNAME} mega65r3 'Experimental Build'"
     echo
@@ -19,29 +23,37 @@ usage () {
     exit 1
 }
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
+REPACK=0
+NOREG=0
+while [[ $# -gt 2 && $1 =~ ^-.+ ]]; do
+    if [[ $1 == "-noreg" ]]; then
+        NOREG=1
+    elif [[ $1 == "-repack" ]]; then
+        NOREG=1
+        REPACK=1
+    else
+        usage "unknown option $1"
+    fi
+    shift
+done
+
+if [[ $# -lt 2 ]]; then
     usage
 fi
 
 MODEL=$1
 VERSION=$2
+shift 2
+EXTRA_FILES="$@"
+for file in ${EXTRA_FILES}; do
+    if [[ ! -r ${file} ]]; then
+        usage "extra file is unreadable: ${file}"
+    fi
+done
 
 # determine branch
 BRANCH=`git rev-parse --abbrev-ref HEAD`
 BRANCH=${BRANCH:0:6}
-
-REPACK=0
-NOREG=0
-if [[ $# -eq 3 ]]; then
-    if [[ $3 == "noreg" ]]; then
-        NOREG=1
-    elif [[ $3 == "repack" ]]; then
-        NOREG=1
-        REPACK=1
-    else
-        usage "unknown option $3"
-    fi
-fi
 
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
@@ -76,6 +88,7 @@ for txtfile in README.md Changelog.md; do
     envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile}
 done
 
+# we always pack the latest bitstream
 BITPATH=$( ls -1 --sort time ${REPOPATH}/bin/${MODEL}*.bit | head -1 )
 BITNAME=${BITPATH##*/}
 BITBASE=${BITNAME%.bit}
@@ -106,13 +119,13 @@ if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
 elif [[ ${MODEL} == "mega65r2" ]]; then
     bit2core mega65r2 ${PKGPATH}/${BITNAME} MEGA65 "${VERSION} ${HASH}" ${PKGPATH}/${BITBASE}.cor
 else
-    bit2core ${MODEL} ${PKGPATH}/${BITNAME} MEGA65 "${VERSION} ${HASH}" ${PKGPATH}/${BITBASE}.cor ${REPOPATH}/../mega65-release-prep/MEGA65.ROM ${PKGPATH}/sdcard-files/*
+    bit2core ${MODEL} ${PKGPATH}/${BITNAME} MEGA65 "${VERSION} ${HASH}" ${PKGPATH}/${BITBASE}.cor ${EXTRA_FILES} ${PKGPATH}/sdcard-files/*
 fi
 bit2mcs ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs 0
 
 # do regression tests
 echo
-if [[ $NOREG -eq 1 ]]; then
+if [[ ${NOREG} -eq 1 ]]; then
     echo "Skipping regression tests"
     if [[ ${REPACK} -eq 0 ]]; then
         touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED

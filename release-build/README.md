@@ -13,7 +13,7 @@ know the test results.
 - `*.cor`: MEGA COR file for flashing with the MEGA65 Flasher
 - `*.mcs`: Vivado Format for flashing via JTAG using Vivado
 - `sdcard-files`: all the basic files needed to add to your boot SD card
-- `extra`: contains files you don't need, like `HICKUP.M65`. Note: you **don't** need this!
+- `extra`: contains files you normally don't need, like `HICKUP.M65`. Note: you **don't** need this!
 - `log`: regression test logs
 
 ## How to use a core
