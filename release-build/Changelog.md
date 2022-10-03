@@ -23,12 +23,14 @@ complete changelog.
  - configure menu updates (date format, mac address)
    [#560](https://github.com/MEGA65/mega65-core/issues/560)
  - Hyppo improvements
+   [#620](https://github.com/MEGA65/mega65-core/issues/620)
    [#550](https://github.com/MEGA65/mega65-core/issues/550)
    [#568](https://github.com/MEGA65/mega65-core/issues/568)
    [#552](https://github.com/MEGA65/mega65-core/issues/552)
    [#578](https://github.com/MEGA65/mega65-core/issues/578)
    [#493](https://github.com/MEGA65/mega65-core/issues/493)
  - Grove RTC support (external RTC)
+   [#591](https://github.com/MEGA65/mega65-core/issues/591)
  - MAX10 FPGA communication fixes
  - Unify date/time display and entry between tools
    [#542](https://github.com/MEGA65/mega65-core/issues/542)
