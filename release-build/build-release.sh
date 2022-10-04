@@ -85,7 +85,7 @@ done
 echo "Creating info files from templates"
 for txtfile in README.md Changelog.md; do
     echo ".. ${txtfile}"
-    envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile}
+    ( RM_TARGET=${RM_TARGET} envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile} )
 done
 
 # we always pack the latest bitstream
@@ -94,6 +94,7 @@ BITNAME=${BITPATH##*/}
 BITBASE=${BITNAME%.bit}
 HASH=${BITBASE##*-}
 
+echo
 echo "Bitstream found: ${BITNAME}"
 echo
 

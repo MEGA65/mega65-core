@@ -1051,6 +1051,10 @@ void reflash_slot(unsigned char slot)
   if (selected_file == 0)
     return;
 
+  if (selected_file == 1 && slot == 0)
+    // we refuse to erase slot 0
+    return;
+
   printf("%cPreparing to reflash slot %d...\n\n", 0x93, slot);
 
   hy_closeall();
@@ -1096,7 +1100,7 @@ void reflash_slot(unsigned char slot)
   lfill((unsigned long)buffer, 0, 512);
 
   // return code of select_bitstream_file > 1 means a file was selected
-  if (selected_file == 2) {
+  if (selected_file > 1) {
 
     fd = hy_open(disk_name_return);
     if (fd == 0xff) {
@@ -1251,6 +1255,7 @@ void reflash_slot(unsigned char slot)
     lfill(0x0400 + 12 * 40, 0x20, 512);
   }
   else {
+    // TODO: add extra boilerplate before actually erasing?
     // Erase mode
     progress_acc = 0;
     progress = 0;
