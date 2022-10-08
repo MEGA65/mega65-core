@@ -3,6 +3,10 @@
 
 Target system: ${RM_TARGET}
 
+**WARNING**: This is an **unstable** and **experimental** test core. Please watch
+for files starting with `WARNING` in the archive and read the logs if you want to
+know the test results.
+
 ## Contents
 
 - `*.bit`: bistream file for use with the JTAG adapter (direct transfer to FPGA)
