@@ -48,6 +48,7 @@ unsigned char data_buffer[512];
 unsigned char bitstream_magic[16] =
     // "MEGA65BITSTREAM0";
     { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x42, 0x49, 0x54, 0x53, 0x54, 0x52, 0x45, 0x41, 0x4d, 0x30 };
+unsigned char mega65core_magic[7] = { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x00 };
 
 unsigned short mb = 0;
 
@@ -789,7 +790,7 @@ typedef struct {
   char *name;
 } models_type;
 
-// clang-format: off
+// clang-format off
 models_type models[] = {
   { 0x01, "MEGA65 R1" },
   { 0x02, "MEGA65 R2" },
@@ -818,11 +819,12 @@ char *get_model_name(uint8_t model_id)
   return model_unknown;
 }
 
-int check_model_id_field(void)
+int check_model_id_field(unsigned char megaonly)
 {
+  unsigned char x;
   unsigned short bytes_returned;
   uint8_t hardware_model_id = PEEK(0xD629);
-  uint8_t core_model_id;
+  uint8_t core_model_id = 0;
 
   bytes_returned = hy_read512();
 
@@ -832,8 +834,31 @@ int check_model_id_field(void)
     return 0;
   }
 
-  core_model_id = buffer[0x70];
+  // check for core bitstream signature
+  for (x = 0; x < 16; x++)
+    if (buffer[x] != bitstream_magic[x])
+      break;
+  if (x < 16) {
+    printf("\n%c.COR file has no COR signature!%c\n", 0x1c, 0x05);
+    press_any_key(0, 0);
+    return 0;
+  }
 
+  // only allow valid cores with MEGA65 as core name
+  if (megaonly) {
+    for (x = 0; x < 7; x++)
+      if (buffer[0x10 + x] != mega65core_magic[x])
+        break;
+    if (x < 7) {
+      printf("\n%cThis is no valid MEGA65 .COR file!\n\n"
+             "Refusing to flash!%c\n",
+          0x1c, 0x05);
+      press_any_key(0, 0);
+      return 0;
+    }
+  }
+
+  core_model_id = buffer[0x70];
   printf(".COR file model id: $%02X - %s\n", core_model_id, get_model_name(core_model_id));
   printf(" Hardware model id: $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
 
@@ -1123,7 +1148,7 @@ void reflash_slot(unsigned char slot)
       return;
     }
 
-    if (!check_model_id_field())
+    if (!check_model_id_field(slot == 0 ? 1 : 0))
       return;
 
     // start reading file from beginning again
