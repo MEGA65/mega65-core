@@ -9,7 +9,8 @@
 #include <6502.h>
 
 #include "qspicommon.h"
-#include "userwarning.c"
+// not needed, no slot 0 flashing in core flasher!
+// #include "userwarning.c"
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
@@ -73,11 +74,11 @@ void scan_bitstream_information(void)
       slot_core_name[i][j] = data_buffer[16 + j];
       slot_core_version[i][j] = data_buffer[48 + j];
       // ASCII to PETSCII conversion
-      if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x57)
-          || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x77))
+      if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x5f)
+          || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x7f))
         slot_core_name[i][j] ^= 0x20;
-      if ((slot_core_version[i][j] >= 0x41 && slot_core_version[i][j] <= 0x57)
-          || (slot_core_version[i][j] >= 0x61 && slot_core_version[i][j] <= 0x77))
+      if ((slot_core_version[i][j] >= 0x41 && slot_core_version[i][j] <= 0x5f)
+          || (slot_core_version[i][j] >= 0x61 && slot_core_version[i][j] <= 0x7f))
         slot_core_version[i][j] ^= 0x20;
     }
     slot_core_name[i][31] = 0;
@@ -130,7 +131,7 @@ void main(void)
   POKE(0xd021, 6);
   printf("%c", 0x93);
 
-  probe_qspi_flash(0);
+  probe_qspi_flash();
 
   // We care about whether the IPROG bit is set.
   // If the IPROG bit is set, then we are post-config, and we
@@ -232,7 +233,7 @@ void main(void)
         printf("Continuing booting with this bitstream (b)...\n");
         printf("Trying to return control to hypervisor...\n");
 
-        press_any_key();
+        press_any_key(0, 0);
 #endif
 
         POKE(0, 64);
@@ -436,12 +437,16 @@ void main(void)
         POKE(0xd021, 6);
       }
       break;
+#ifdef QSPI_FLASH_INSPECT
     case 0x06: // CTRL-F
       // Flash memory monitor
       printf("%c", 0x93);
       flash_inspector();
       printf("%c", 0x93);
       break;
+#endif
+// slot 0 flashing is only done with PRG and DIP 3!
+#if 0
     case 0x7e: // TILDE (MEGA-LT)
       // first ask rediculous questions...
       if (user_has_been_warned()) {
@@ -449,6 +454,7 @@ void main(void)
       }
       printf("%c", 0x93);
       break;
+#endif
     case 144: // CTRL-1
       if (y & 0x04)
         selected_reflash_slot = 1;
@@ -481,7 +487,8 @@ void main(void)
       break;
     }
 
-    if (selected_reflash_slot < slot_count) {
+    // extra security against slot 0 flashing
+    if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
       if (atticram_bad) {
         POKE(0xd020, 2);
         POKE(0xd021, 2);

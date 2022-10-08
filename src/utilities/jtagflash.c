@@ -72,10 +72,11 @@ void main(void)
   printf("%c\njtagflash Version\n  %s\n", 0x93, utilVersion);
 
   // Probe flash with verbose output
-  probe_qspi_flash(1);
+  probe_qspi_flash();
 
   verboseProgram = 1;
   reflash_slot(0l);
 
   printf("%c", 0x93);
+  POKE(0xD020, 0);
 }
