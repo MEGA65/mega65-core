@@ -4,7 +4,7 @@
 ;;     ---------------------------------------------------------------- */
 
          os_version = $0102
-         dos_version = $0102
+         dos_version = $0103
          constant_partition_type_fat32_chs = $0b
          constant_partition_type_fat32_lba = $0c
          constant_partition_type_megea65_sys = $41

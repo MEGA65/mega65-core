@@ -81,8 +81,8 @@ dos_and_process_trap_table:
         !16 trap_dos_d81write_en
         !16 trap_dos_d81attach1
         !16 trap_dos_get_proc_desc
-        !16 invalid_subfunction
-        !16 invalid_subfunction
+        !16 trap_dos_d81detach0
+        !16 trap_dos_d81detach1
         !16 invalid_subfunction
 
         ;; $50 - $5E
@@ -936,6 +936,24 @@ trap_dos_d81attach1:
 trap_dos_d81detach:
 
         jsr dos_d81detach
+
+        jmp return_from_trap_with_success
+
+;;         ========================
+
+trap_dos_d81detach0:
+
+        ldx hypervisor_x
+        jsr dos_d81detach0
+
+        jmp return_from_trap_with_success
+
+;;         ========================
+
+trap_dos_d81detach1:
+
+        ldx hypervisor_x
+        jsr dos_d81detach1
 
         jmp return_from_trap_with_success
 
@@ -3924,25 +3942,81 @@ dsn_eon:
 dos_d81detach:
 	;; Detaches both drive 0 and drive 1
 	
-        lda #$00
-        sta $d68b		; clear mount, d81/d65 flags
-	sta $d68a 		; clear d64/d71 flags
+        ldx #0
+        jsr dos_d81detach0
+        bra dos_d81detach1
 
-        ;; Mark it as unmounted (but preserve other flags for remounting, e.g., if it should be write-enabled)
+dos_d81detach0:
+        ;; Detaches drive 0 and optionally mounts real drive
+        ;; Inputs X = 1 mount real drive
+
+        lda #%01000111
+        trb $d68b		; clear mount, d81/d65 flags
+        lda #%01000000
+        trb $d68a               ; clear d64/d71 flags
+
+        cpx #$01
+        bne @nodrive0
+        lda #%00000001
+        tsb $d6a1               ; enable real drive 0
+@nodrive0:
+
         lda #d81_image_flag_mounted
         trb currenttask_d81_image0_flags
-        trb currenttask_d81_image1_flags
 
-        ;; But we leave the file name there, in case someone wants to re-mount the image.
-        ;; This is exactly what happens when a process is unfrozen: dos_d81detach is called,
-        ;; followed by dos_d81attach, after first retrieving the filename
         sec
         rts
 
-dos_d81attach0:
+dos_d81detach1:
+        ;; Detaches drive 0 and optionally mounts real drive
+        ;; Inputs X = 1 mount real drive
 
-	;;  Always works on drive 0
-	
+        lda #%10111000
+        trb $d68b		; clear mount, d81/d65 flags
+        lda #%10000000
+        trb $d68a               ; clear d64/d71 flags
+
+        cpx #$01
+        bne @nodrive0
+        lda #%00000100
+        tsb $d6a1               ; enable real drive 0
+@nodrive0:
+
+        lda #d81_image_flag_mounted
+        trb currenttask_d81_image1_flags
+
+        sec
+        rts
+
+d81attach_bits:
+        ;; imageena   typeflag   realdrive
+        ;; $d68b      $d68b/a    $d6a1
+        !8 %00000111, %01000000, %00000001   ; drive 0
+        ;; %00111000, %10000000, %00000100   ; drive 1
+
+dos_d81attach0:
+        ;; set flags for drive 0
+        lda #%00000111
+        sta d81attach_bits
+        lda #%01000000
+        sta d81attach_bits+1
+        lda #%00000001
+        sta d81attach_bits+2
+        bra dos_d81attach
+
+dos_d81attach1:
+        ;; set flags for drive 1
+        lda #%00111000
+        sta d81attach_bits
+        lda #%10000000
+        sta d81attach_bits+1
+        lda #%00000100
+        sta d81attach_bits+2
+        bra dos_d81attach
+
+dos_d81attach:
+	;; d81attach_bits determines on which drive it works
+        ;;
         ;; Assumes only that D81 file name has been set with dos_setname.
         ;;
         jsr dos_findfile
@@ -3966,25 +4040,23 @@ d81a1a:
         ;; copy sector number from $D681 to $D68c
         ;;
         ldx #$03
-l94d:   lda $d681,x		;; resolved sector number
+-       lda $d681,x		;; resolved sector number
         sta $d68c,x  		;; sector number of disk image #0
         dex
-        bpl l94d
-	
-        ;; disable real floppy 0
-        lda $d6a1
-        and #$fe
-        sta $d6a1
+        bpl -
+
+        ;; disable real floppy
+        lda d81attach_bits+2
+        trb $d6a1
         
         ;; Set flags to indicate it is mounted (and read-write).
         ;; clear D65 mega disk flag,
         ;; But don't mess up the flags for the 2nd drive
-	lda $d68b
-	and #%10111000
-        ora #$07
-        sta $d68b
+	lda d81attach_bits
+        tsb $d68b
 	;; Clear D64 flag
-	lda #$40
+	lda d81attach_bits+1
+        tax
 	trb $d68a
 
 	;; Check what dos_d81check detected
@@ -3993,9 +4065,9 @@ l94d:   lda $d681,x		;; resolved sector number
 	bne not_d64
 
 	;; Set D64 flag
-	lda #$40
+	txa
 	tsb $d68a
-	jmp d81attach0_typeset
+	bra d81attach_typeset
 	
 not_d64:
 	cmp #71
@@ -4003,21 +4075,23 @@ not_d64:
 
 	;; D71 disk image
 	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
-	lda #$40
+	txa
 	tsb $d68a
 	tsb $d68b
-	jmp d81attach0_typeset
+	bra d81attach_typeset
 
 not_d71:
 	cmp #65
-	bne d81attach0_typeset
+	bne d81attach_typeset
 
         ;; D65 disk image
         ;; Set megadisk flag
-	lda #$40
+	txa
 	tsb $d68b
 
-d81attach0_typeset:
+d81attach_typeset:
+        cpx #$80
+        beq d81attach1_typeset
 
         +Checkpoint "dos_d81attach0 <success>"
 
@@ -4052,82 +4126,6 @@ d81attach0_typeset:
 
         sec
         rts
-
-dos_d81attach1:
-
-        ;; Assumes only that D81 file name has been set with dos_setname.
-        ;;
-        jsr dos_findfile
-        bcs d81a1b
-
-        lda #dos_errorcode_file_not_found
-        clc
-        rts
-
-;;         ========================
-
-d81a1b: ;; Why do we call closefile here?
-        ;; -> because dos_findfile/first only closes on file_not_found
-        jsr dos_closefile
-
-        jsr dos_d81check
-        bcs d81a1ab
-        rts
-d81a1ab:	
-
-        ;; copy sector number from $D681 to $D690
-        ;;
-        ldx #$03
-l94db:  lda $d681,x		;; resolved sector number
-        sta $d690,x  		;; sector number of disk image #1
-        dex
-        bpl l94db
-		
-        ;; disable real floppy 1
-        lda $d6a1
-        and #$fb
-        sta $d6a1
-        
-        ;; Set flags to indicate it is mounted (and read-write).
-        ;; clear D65 mega disk flag,
-        ;; But don't mess up the flags for the 2nd drive
-	lda $d68b
-	and #%01000111
-        ora #$38
-        sta $d68b
-	;; Clear D64 flag
-	lda #$80
-	trb $d68a
-
-	;; Check what dos_d81check detected
-        lda d81_lasttype
-        cmp #64
-	bne not_d64b
-
-	;; Set D64 flag
-	lda #$80
-	tsb $d68a
-	jmp d81attach1_typeset
-	
-not_d64b:
-	cmp #71
-	bne not_d71b
-
-	;; D71 disk image
-	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
-	lda #$80
-	tsb $d68a
-	tsb $d68b
-	jmp d81attach1_typeset
-
-not_d71b:
-	cmp #65
-	bne d81attach1_typeset
-
-        ;; D65 disk image
-        ;; Set megadisk flag
-	lda #$80
-	tsb $d68b
 
 d81attach1_typeset:
 
