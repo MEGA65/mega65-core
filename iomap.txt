@@ -958,11 +958,11 @@ GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
-GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
 GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
 GS $D6E5.4 ETH:BCST Accept broadcast frames
 GS $D6E5.5 ETH:MCST Accept multicast frames
 GS $D6E5.6-7 Ethernet RX clock phase adjust
+GS $D6E5.6-7 ETH:RXPH Ethernet RX clock phase adjust
 GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
 GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
@@ -1379,7 +1379,7 @@ C64 $DC0E.0 CIA1:STRTA Timer A start
 C64 $DC0E.1 CIA1:PBONA Timer A PB6 out
 C64 $DC0E.2 CIA1:OMODA Timer A toggle or pulse
 C64 $DC0E.3 CIA1:RMODA Timer A one-shot mode
-C64 $DC0E.5 CIA1:IMODA Timer A Timer A tick source
+C64 $DC0E.5 CIA1:IMODA Timer A tick source
 C64 $DC0E.6 CIA1:SPMOD Serial port direction
 C64 $DC0E.7 CIA1:TOD50 50/60Hz select for TOD clock
 C64 $DC0F.0 CIA1:STRTB Timer B start
@@ -1387,7 +1387,7 @@ C64 $DC0F.1 CIA1:PBONB Timer B PB7 out
 C64 $DC0F.2 CIA1:OMODB Timer B toggle or pulse
 C64 $DC0F.3 CIA1:RMODB Timer B one-shot mode
 C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
-C64 $DC0F.5-6 CIA1:IMODB Timer B Timer A tick source
+C64 $DC0F.5-6 CIA1:IMODB Timer B tick source
 C64 $DC0F.7 CIA1:TODEDIT TOD alarm edit
 GS $DC10 CIA1:TALATCH Timer A latch value (16 bit)
 GS $DC11 CIA1:TALATCH Timer A latch value (16 bit)
@@ -1437,7 +1437,7 @@ C64 $DD0E.0 CIA2:STRTA Timer A start
 C64 $DD0E.1 CIA2:PBONA Timer A PB6 out
 C64 $DD0E.2 CIA2:OMODA Timer A toggle or pulse
 C64 $DD0E.3 CIA2:RMODA Timer A one-shot mode
-C64 $DD0E.5 CIA2:IMODA Timer A Timer A tick source
+C64 $DD0E.5 CIA2:IMODA Timer A tick source
 C64 $DD0E.6 CIA2:SPMOD Serial port direction
 C64 $DD0E.7 CIA2:TOD50 50/60Hz select for TOD clock
 C64 $DD0F.0 CIA2:STRTB Timer B start
@@ -1445,7 +1445,7 @@ C64 $DD0F.1 CIA2:PBONB Timer B PB7 out
 C64 $DD0F.2 CIA2:OMODB Timer B toggle or pulse
 C64 $DD0F.3 CIA2:RMODB Timer B one-shot mode
 C64 $DD0F.4 CIA2:LOAD Strobe input to force-load timers
-C64 $DD0F.5-6 CIA2:IMODB Timer B Timer A tick source
+C64 $DD0F.5-6 CIA2:IMODB Timer B tick source
 C64 $DD0F.7 CIA2:TODEDIT TOD alarm edit
 GS $DD10 CIA2:TALATCH Timer A latch value (16 bit)
 GS $DD11 CIA2:TALATCH Timer A latch value (16 bit)
