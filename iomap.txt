@@ -1388,7 +1388,7 @@ C64 $DC0F.2 CIA1:OMODB Timer B toggle or pulse
 C64 $DC0F.3 CIA1:RMODB Timer B one-shot mode
 C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
 C64 $DC0F.5-6 CIA1:IMODB Timer B tick source
-C64 $DC0F.7 CIA2:TODEDIT TOD alarm edit
+C64 $DC0F.7 CIA1:TODEDIT TOD alarm edit
 GS $DC10 CIA1:TALATCH Timer A latch value (16 bit)
 GS $DC11 CIA1:TALATCH Timer A latch value (16 bit)
 GS $DC12 CIA1:TALATCH Timer B latch value (16 bit)

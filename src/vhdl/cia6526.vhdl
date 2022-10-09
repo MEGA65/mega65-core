@@ -306,7 +306,7 @@ begin  -- behavioural
               -- @IO:C64 $DC0F.3 CIA1:RMODB Timer B one-shot mode
               -- @IO:C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
               -- @IO:C64 $DC0F.5-6 CIA1:IMODB Timer B tick source
-              -- @IO:C64 $DC0F.7 CIA2:TODEDIT TOD alarm edit
+              -- @IO:C64 $DC0F.7 CIA1:TODEDIT TOD alarm edit
               -- @IO:C64 $DD0F.0 CIA2:STRTB Timer B start
               -- @IO:C64 $DD0F.1 CIA2:PBONB Timer B PB7 out
               -- @IO:C64 $DD0F.2 CIA2:OMODB Timer B toggle or pulse
