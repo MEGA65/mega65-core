@@ -303,6 +303,9 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
+         grove_sda : inout std_logic;
+         grove_scl : inout std_logic;
+         
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := 'H';
          touchSCL : inout std_logic := '1';
@@ -467,10 +470,6 @@ architecture Behavioral of machine is
       );
   end component;
 
-  signal clock2mhz : std_logic := '0';
-  signal clock2mhz_i : std_logic := '0';
-  signal clock2mhz_counter : integer := 0;
-  
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
@@ -499,7 +498,7 @@ architecture Behavioral of machine is
 
   signal iomode_set : std_logic_vector(1 downto 0);
   signal iomode_set_toggle : std_logic;
-
+  
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
@@ -781,6 +780,8 @@ architecture Behavioral of machine is
 
   signal last_reset_source : unsigned(2 downto 0) := "000";
   signal btnCpuReset_counter : integer range 0 to 8191 := 0;
+
+  signal rightsid_audio : signed(17 downto 0);
   
 begin
 
@@ -1063,6 +1064,8 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      sid_audio => rightsid_audio,
+      
       f_read => f_rdata_switched,
       f_write => f_wdata_cpu,
       
@@ -1499,7 +1502,6 @@ begin
     port map (
       cpuclock => cpuclock,
       clock200mhz => clock200,
-      clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,
       pixelclk => pixelclock,
       clock50mhz => clock50mhz,
@@ -1704,6 +1706,8 @@ begin
       pota_y => pota_y,
       potb_x => potb_x,
       potb_y => potb_y,      
+
+      rightsid_audio_out => rightsid_audio,
       
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
@@ -1817,6 +1821,9 @@ begin
 
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
+
+      grove_sda => grove_sda,
+      grove_scl => grove_scl,
 
       lcdpwm => lcdpwm,
       touchSDA => touchSDA,
@@ -1945,15 +1952,6 @@ begin
       flopled2 <= drive_led2;
       flopledsd <= drive_ledsd;
       flopmotor <= motor;
-
-      -- Generate 2MHz for SIDs from CPUCLOCK / 20
-      if clock2mhz_counter = 19 then
-        clock2mhz_counter <= 0;
-        clock2mhz_i <= not clock2mhz_i;
-      else
-        clock2mhz_counter <= clock2mhz_counter + 1;
-      end if;
-      clock2mhz <= clock2mhz_i;
       
     end if;
   end process;

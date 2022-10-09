@@ -119,11 +119,13 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 
 FREEZER_FILES= \
 	$(SDCARD_DIR)/FREEZER.M65 \
+	$(SDCARD_DIR)/MEGAINFO.M65 \
 	$(SDCARD_DIR)/MAKEDISK.M65 \
 	$(SDCARD_DIR)/MONITOR.M65 \
 	$(SDCARD_DIR)/AUDIOMIX.M65 \
 	$(SDCARD_DIR)/C64THUMB.M65 \
 	$(SDCARD_DIR)/C65THUMB.M65 \
+	$(SDCARD_DIR)/M65THUMB.M65 \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
@@ -132,9 +134,18 @@ all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BI
 # phony target to force submodule builds
 FORCE:
 
-.PHONY: FORCE
+format:
+	submodules=""; for sm in `git submodule | awk '{ print "./" $$2 }'`; do \
+		submodules="$$submodules -o -path $$sm"; \
+	done; \
+	find . -type d \( -path ./release-build $$submodules \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print0 | xargs -0 clang-format --style=file -i --verbose
 
-freezer_files: $(FREEZER_FILES)
+.PHONY: FORCE format
+
+freezer_files: $(SDCARD_DIR) $(FREEZER_FILES)
+
+$(SDCARD_DIR):
+	mkdir $(SDCARD_DIR)
 
 SUBMODULEUPDATE= \
 	@if [ -z "$(DO_SMU)" ] || [ "$(DO_SMU)" -eq "1" ] ; then \
@@ -178,7 +189,7 @@ ghdl/ghdl_mcode: ghdl/build/bin/ghdl
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
-ghdl/build/bin/ghdl: FORCE
+ghdl/build/bin/ghdl: #FORCE
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
@@ -274,7 +285,9 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/rll27_bits_to_gaps.vhdl \
+			$(VHDLSRCDIR)/rll27_gaps_to_bits.vhdl \
 			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
@@ -593,6 +606,13 @@ i2csimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
 
+grovesimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
+	$(GHDL) -m test_grove
+	( ./test_grove || $(GHDL) -r test_grove )
+
 k2simulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
@@ -762,43 +782,55 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< -Ln $*.lbl -vm --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
+$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC65_DEPEND)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	mkdir -p $(SDCARD_DIR)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --mapfile $(UTILDIR)/ONBOARD.map $(UTILDIR)/version.s $< $(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
+	@test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
+
+# $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
+# 	$(UTILDIR)/userwarning.sh
+
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
-		--add-source --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a100t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a100t.prg)
+	@test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
-$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
-
-$(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
-	$(UTILDIR)/userwarning.sh
-
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/userwarning.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c  $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c $(UTILDIR)/qspicommon.c
-	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-	# it doesn't overlap with hypervisor
-	stat -c"%s" $(UTILDIR)/megaflash-a200t.prg
-	test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
+	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
-$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/qspicommon.c $(CC65_DEPEND)
+$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagflash.prg \
-		--add-source --listing $*.list --mapfile $*.map $< \
+		--add-source --listing $*.list --mapfile $*.map -DQSPI_VERBOSE $< \
+		$(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
+
+$(UTILDIR)/jtagdebug.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagdebug.prg \
+		--add-source --listing $*.list --mapfile $*.map -DQSPI_VERBOSE -DQSPI_FLASH_INSPECT -DQSPI_ERASE_ZERO $< \
 		$(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
 
 
@@ -937,7 +969,7 @@ $(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl
 	# Force consistent ordering of items according to natural byte values
-	LC_ALL=C egrep "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
+	LC_ALL=C grep -E "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
 
 # Using special .DELETE_ON_ERROR target, so that it will force COLOURRAM.BIN to be deleted if its recipe fails
 # (e.g., if exomizer isn't installed yet)
@@ -958,8 +990,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # NOTE that we should use make to build the ISE project so that the
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
-.PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm $(BINDIR)/matrix_banner.txt:	.git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm src/version.txt $(BINDIR)/matrix_banner.txt $(UTILDIR)/version.s $(UTILDIR)/version.h:	FORCE .git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
@@ -1050,7 +1081,7 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VER
 
 preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries $(SRCDIR)/version.txt
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -1068,10 +1099,14 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILO
 	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 	# Make a copy named after the commit and datestamp, for easy going back to previous versions
-	cp $@ $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.bit
+	cp $@ $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.bit
+	# Make a copy of the implementation log named after the commit and datestamp
+	cp vivado.log $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.log
+	# Run timing summary report
 	echo ./vivado_timing $(subst bin/,,$*)
 	./vivado_timing $(subst bin/,,$*)
-	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.timing.txt
+	# Make a copy of the timing report named after the commit and datestamp
+	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.timing.txt
 
 $(BINDIR)/%.mcs:	$(BINDIR)/%.bit freezer_files
 	mkdir -p $(SDCARD_DIR)
@@ -1090,7 +1125,7 @@ clean:
 	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
 	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
 	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
-	rm -f $(UTILDDIR)/mega65_keyboardtest.prg
+	rm -f $(UTILDIR)/mega65_keyboardtest.prg
 	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
 	rm -f $(TOOLDIR)/etherhyppo/etherhyppo
 	rm -f $(TOOLDIR)/etherload/etherload
@@ -1100,11 +1135,11 @@ clean:
 	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
 	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
 	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
-	rm -f iomap.txt
-	rm -f $(SDCARD_DIR)/utility.d81
+	## should not remove iomap.txt, as this is committed to repo!
+	#rm -f iomap.txt
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
+	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
 	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
@@ -1113,6 +1148,12 @@ clean:
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
+	rm -f $(TOOLS) $(UTILDIR)/version.s $(SRCDIR)/version.txt
+	rm -f FAIL.* PASS.*
+
+cleanall: clean
+	make -C src/mega65-fdisk clean
+	make -C src/mega65-freezemenu clean
 
 cleangen:
 	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65

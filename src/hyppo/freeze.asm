@@ -65,6 +65,12 @@ unfreeze_next_region:
         jsr unfreeze_load_region
 
         ;; Re-enable M65 IO in case we wrote over the key register during the region unfreeze
+        ;; NOTE: This usage was re-instated after deleting it cause exiting the freeze-menu to
+        ;; either stall in BASIC (in an endless loop awaiting for the sd-card to be ready) for
+        ;; some users, or causing DIR to return 'Drive not ready' for other users.
+        ;; The exact reason behind the impact of its removal isn't known and warrants further
+        ;; investigation at some stage. See this past Discord thread for more details:
+        ;; https://discord.com/channels/719326990221574164/791383472853614593/982994187681161278
         lda #$47
         sta $d02f
         lda #$53
@@ -144,7 +150,7 @@ copy1:  lda currenttask_d81_image1_name,x
         jsr dos_d81write_en
 
 noD81Image1ToRemount:
-	
+
         ;; Turn SID volume registers back on, as those registers
         ;; cannot be frozen.
         lda #$0f
@@ -591,14 +597,14 @@ unfreeze_region_dma_done:
         ;; Call postfix routine for the region just loaded
         phx
 	pha
-	
+
         lda freeze_mem_list+7,x
         tax
         jsr dispatch_unfreeze_post
 
 	pla
         plx
-	
+
 
         rts
 
@@ -832,7 +838,7 @@ do_unfreeze_post_scratch_to_sdcard_regs:
         ;; XXX - Not implemented
         rts
 
-do_unfreeze_post_hyperregs:	
+do_unfreeze_post_hyperregs:
 	;; XXX For reasons unknown, the DMA restoration of the hypervisor registers
 	;; messes up $D651.
 	;; At the point that this fix-up routine is called, the SD card sector
@@ -859,8 +865,8 @@ do_unfreeze_post_hyperregs:
 	rts
 
 
-	
-	
+
+
 copy_sdcard_regs_to_scratch:
         ;; Copy the main SD card access registers to a
         ;; scratch area, so that we can save them, and thus restore
@@ -970,7 +976,7 @@ syspart_read_freeze_region_list_trap:
 freeze_mem_list:
 	;; XXX - There must not be more than 32 of these, as the region list
 	;; has to fit within a single page.
-	
+
         ;; start address (4 bytes), length (3 bytes),
         ;; preparatory action required before reading/writing (1 byte)
         ;; Each segment will live in its own sector (or sectors if
@@ -1017,7 +1023,7 @@ freeze_mem_list:
         ;; XXX - These can't be read by DMA, so we need to have a
         ;; prep routine that copies them out first?
         !32 $ffd3640
-        !16 $003f
+        !16 $003e
         !8 0
         !8 freeze_prep_hyperregs
 

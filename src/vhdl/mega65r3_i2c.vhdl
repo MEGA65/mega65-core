@@ -46,10 +46,14 @@
 -- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
 -- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
 -- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112.0-5 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7112.5 RTC:RTC!HOURPM Real-time Clock PM indicator (12h mode only)
+-- @IO:GS $FFD7112.7 RTC:RTC!HOUR24EN Real-time Clock 24 hour mode enabled
 -- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 -- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 -- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7116 RTC:RTCDOW Real-time Clock day of week value 0-6 (binary coded decimal)
 
 
 -- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
@@ -72,6 +76,10 @@ entity mega65r3_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    grove_rtc_present : in std_logic;
+    reg_in : in unsigned(7 downto 0);
+    val_in : in unsigned(7 downto 0);
+    
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
@@ -121,6 +129,10 @@ architecture behavioural of mega65r3_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
+  type rtc_vals is array (0 to 5) of uint8;
+  signal rtc_prev1 : rtc_vals := (others => x"00");
+  signal rtc_prev2 : rtc_vals := (others => x"00");  
+  
 begin
 
   i2c1: entity work.i2c_master
@@ -172,6 +184,28 @@ begin
 
     if rising_edge(clock) then
 
+      -- If an external RTC is connected, use that in place of
+      -- the internal one.
+      -- The grove_i2c will sniff the bus for writes to the
+      -- addresses here, making it R/W.
+      if grove_rtc_present='1' then
+        case reg_in is
+          -- Convert between register layout of the two
+          when x"00" => bytes(16 + 0) <= val_in;
+          when x"01" => bytes(16 + 1) <= val_in;
+          when x"02" => bytes(16 + 2)(5 downto 0) <= val_in(5 downto 0);
+                        bytes(16 + 2)(6) <= '0';
+                        bytes(16 + 2)(7) <= not val_in(6);
+          when x"03" => bytes(16 + 6) <= val_in - to_unsigned(1,8);
+                        bytes(16 + 6)(7 downto 3) <= (others => '0');
+          when x"04" => bytes(16 + 3) <= val_in;
+          when x"05" => bytes(16 + 4) <= val_in;
+          when x"06" => bytes(16 + 5) <= val_in;
+          when others => null;
+        end case;
+      end if;
+      
+      
       -- Must come first, so state machines below can set delayed_en
       if delayed_en /= 0 then
         report "Waiting for delay to expire: " & integer'image(delayed_en);
@@ -292,8 +326,24 @@ begin
           -- Read the 48 bytes from the device
           i2c1_rw <= '1';
           command_en <= '1';
-          if busy_count > 11 then
-            bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
+          -- The first 6 registers are the RTC values.
+          -- To avoid glitching in I2C reading causing trouble, we
+          -- double-buffer the RTC values, and only update the user-visible values
+          -- if two successive reads are identical.
+          if grove_rtc_present='0' then
+            if busy_count = 11 then
+              rtc_prev2 <= rtc_prev1;
+            end if;
+            if busy_count > 11 and busy_count < (11+6+1) then
+              rtc_prev1(busy_count-12) <= i2c1_rdata;
+            elsif busy_count > 11 then
+              bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
+            end if;
+            if busy_count > 12 and busy_count < (12 + 6 + 1) then
+              if rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13) then
+                bytes(16 + busy_count - 13) <= rtc_prev1(busy_count - 13);
+              end if;
+            end if;
           end if;
         when 60 =>
           report "RTC SRAM (64 of 128 bytes)";

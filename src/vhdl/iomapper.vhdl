@@ -13,7 +13,6 @@ entity iomapper is
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
         clock50mhz : in std_logic;
-        clock2mhz : in std_logic;
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -125,7 +124,7 @@ entity iomapper is
         drive_led2 : out std_logic := '0';
         drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
-        porto_out : out unsigned(7 downto 0);
+        porto_out : out unsigned(7 downto 0) := x"00";
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
@@ -160,6 +159,8 @@ entity iomapper is
         pot_drain : in std_logic;
         pot_via_iec : buffer std_logic;
 
+        rightsid_audio_out : out signed(17 downto 0);
+        
         mouse_debug : in unsigned(7 downto 0);
         amiga_mouse_enable_a : out std_logic;
         amiga_mouse_enable_b : out std_logic;
@@ -355,6 +356,9 @@ entity iomapper is
 
     i2c1SDA : inout std_logic := '0';
     i2c1SCL : inout std_logic := '0';
+
+    grove_sda : inout std_logic;
+    grove_scl : inout std_logic;         
     
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
@@ -440,6 +444,7 @@ architecture behavioral of iomapper is
 
   signal i2cperipherals_cs : std_logic;
   signal i2chdmi_cs : std_logic;
+  signal grove_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -486,14 +491,22 @@ architecture behavioral of iomapper is
 
   signal ascii_key_valid : std_logic := '0';
   signal last_ascii_key_valid : std_logic := '0';
+  signal petscii_key_valid : std_logic := '0';
+  signal last_petscii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
+  signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal ascii_key_presenting : std_logic := '0';
+  signal petscii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal petscii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   signal ascii_key_buffer : key_buffer_t;
   signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
+  signal petscii_key_buffer : key_buffer_t;
+  signal petscii_key_buffer_count : integer range 0 to 4 := 0;
+  signal petscii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -586,7 +599,13 @@ architecture behavioral of iomapper is
 
   signal dd00_bits_out : std_logic_vector(1 downto 0);
   signal dd00_bits_ddr : std_logic_vector(1 downto 0);
-  
+
+  signal matrix_disable_modifiers : std_logic;
+
+  signal grove_rtc_present : std_logic;
+  signal rtc_reg : unsigned(7 downto 0);
+  signal rtc_val : unsigned(7 downto 0);
+
 begin
 
   block1: block
@@ -672,29 +691,39 @@ begin
     );
   end block;
 
-  drive1541: entity work.internal1541
-    port map (
-      clock => cpuclock,
-      fastio_read => r,
-      fastio_write => w,
-      fastio_address => unsigned(address(19 downto 0)),
-      fastio_wdata => unsigned(data_i),
-      std_logic_vector(fastio_rdata) => data_o,
-      cs_driverom => cs_driverom,
-      cs_driveram => cs_driveram,
-      drive_clock_cycle_strobe => drive_clock_cycle_strobe,
-      drive_reset => drive_reset,
-      drive_suspend => cpu_hypervisor_mode,
+  -- the Internal 1541 does use up lots of precious space and
+  -- this causes problems with the mega65r2 build. So we only
+  -- want the 1541 and it's 6502 CPU placed if we are not
+  -- building the mega65r2 target.
+  -- WARNING/TODO: drive1541 will be undefined. This does
+  -- currently not porduce any problems, as it is not yet used
+  -- anywhere in the design! But it might if this changes...
+  drive1541_mega65r3:
+  if target /= mega65r2 generate
+    drive1541: entity work.internal1541
+      port map (
+        clock => cpuclock,
+        fastio_read => r,
+        fastio_write => w,
+        fastio_address => unsigned(address(19 downto 0)),
+        fastio_wdata => unsigned(data_i),
+        std_logic_vector(fastio_rdata) => data_o,
+        cs_driverom => cs_driverom,
+        cs_driveram => cs_driveram,
+        drive_clock_cycle_strobe => drive_clock_cycle_strobe,
+        drive_reset => drive_reset,
+        drive_suspend => cpu_hypervisor_mode,
 
-      -- Debug output of 1541 CPU next address
-      address_next => address_next_1541,
-      
-      sd_data_byte => sd1541_data,
-      sd_data_ready_toggle => sd1541_ready_toggle,
-      sd_data_request_toggle => sd1541_request_toggle,
-      sd_1541_enable => sd1541_enable,
-      sd_1541_track => sd1541_track
-      );  
+        -- Debug output of 1541 CPU next address
+        address_next => address_next_1541,
+
+        sd_data_byte => sd1541_data,
+        sd_data_ready_toggle => sd1541_ready_toggle,
+        sd_data_request_toggle => sd1541_request_toggle,
+        sd_1541_enable => sd1541_enable,
+        sd_1541_track => sd1541_track
+      );
+  end generate drive1541_mega65r3;
   
   block3: block
   begin
@@ -855,6 +884,8 @@ begin
       portf(5 downto 0) => pmoda(5 downto 0),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
+      porto_write_strobe => petscii_key_next,
+      matrix_disable_modifiers => matrix_disable_modifiers,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
       portj_in => std_logic_vector(matrix_segment_out),
@@ -865,7 +896,7 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
-      porto_out => porto_out,
+      porto => petscii_key_buffered,
       portp_out => portp_out,
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
@@ -898,6 +929,7 @@ begin
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
       viciv_frame_indicate => viciv_frame_indicate,
+      matrix_disable_modifiers => matrix_disable_modifiers,      
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
@@ -997,6 +1029,8 @@ begin
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
+    petscii_key => petscii_key,
+    petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
     
     );
@@ -1020,9 +1054,7 @@ begin
   block6: block
   begin
     leftsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => leftsid_cs,
@@ -1042,9 +1074,7 @@ begin
   block7: block
   begin
   rightsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => rightsid_cs,
@@ -1064,9 +1094,7 @@ begin
  block6b: block
   begin
     frontsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => frontsid_cs,
@@ -1086,9 +1114,7 @@ begin
   block7b: block
   begin
   backsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
+    clk_1MHz => phi0_1mhz,
     cpuclock => cpuclock,
     reset => reset_high,
     cs => backsid_cs,
@@ -1258,6 +1284,33 @@ begin
 
     );
 
+  ----------------------------------------------------------------------------------
+  -- Grove I2C bus. Currently only used for allowing an external RTC
+  ----------------------------------------------------------------------------------
+  i2c_grove:
+  if target = mega65r3 generate
+    grove0: entity work.grove_i2c
+      generic map ( clock_frequency => cpu_frequency )
+      port map (
+        clock => cpuclock,
+ 
+        cs => grove_cs,
+       
+        sda => grove_sda,
+        scl => grove_scl,
+
+        grove_rtc_present => grove_rtc_present,
+        reg_out => rtc_reg,
+        val_out => rtc_val,
+        
+        fastio_addr => unsigned(address),
+        fastio_write => w,
+        fastio_read => r,
+        fastio_wdata => unsigned(data_i),
+        std_logic_vector(fastio_rdata) => data_o
+    );
+  end generate;      
+  
   i2cperiph_megaphone:
   if target = megaphoner1 generate
     i2c1: entity work.i2c_wrapper
@@ -1307,6 +1360,10 @@ begin
       clock => cpuclock,
       cs => i2cperipherals_cs,
 
+      grove_rtc_present => grove_rtc_present,
+      reg_in => rtc_reg,
+      val_in => rtc_val,
+      
       sda => i2c1SDA,
       scl => i2c1SCL,
     
@@ -1542,6 +1599,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      -- Direct export of SID audio for supporting SID debugging
+      rightsid_audio_out <= rightsid_audio;
+      
       for i in 0 to 1 loop
         if dd00_bits_out(i)='1' or dd00_bits_ddr(i)='0' then
           dd00_bits(i) <= '1';
@@ -1714,11 +1774,31 @@ begin
           end if;
         end if;
       end if;
-        
+
+      last_petscii_key_valid <= petscii_key_valid;
+      if petscii_key_valid='1' and last_petscii_key_valid='0' then
+        if protected_hardware_in(6)='0' then
+          -- Push char to $D619 accelerated keyboard reader
+          if petscii_key_presenting = '1' then
+            if petscii_key_buffer_count < 4 then
+              petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
+              petscii_key_buffer_count <= petscii_key_buffer_count + 1;
+            end if;
+          else
+            petscii_key_buffered <= petscii_key;
+            petscii_key_presenting <= '1';
+          end if;
+        end if;
+      end if;
+      
       if reset_high = '1' then
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
+
+        petscii_key_presenting <= '0';
+        petscii_key_buffered <= x"00";
+        petscii_key_buffer_count <= 0;
       elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
           ascii_key_presenting <= '1';
@@ -1730,6 +1810,23 @@ begin
         else
           ascii_key_presenting <= '0';
           ascii_key_buffered <= x"00";
+        end if;
+        if ascii_key_event_count /= x"FFFF" then
+          ascii_key_event_count <= ascii_key_event_count + 1;
+        else
+          ascii_key_event_count <= x"0000";
+        end if;
+      elsif petscii_key_next = '1' then
+        if petscii_key_buffer_count > 0 then
+          petscii_key_presenting <= '1';
+          petscii_key_buffered <= petscii_key_buffer(0);
+          petscii_key_buffer_count <= petscii_key_buffer_count - 1;
+          for i in 0 to 2 loop
+            petscii_key_buffer(i) <= petscii_key_buffer(i+1);
+          end loop;
+        else
+          petscii_key_presenting <= '0';
+          petscii_key_buffered <= x"00";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;
@@ -1785,6 +1882,7 @@ begin
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
+      grove_cs <= '0';
       if target = megaphoner1 then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
@@ -1812,6 +1910,10 @@ begin
           i2chdmi_cs <= '1';
           report "i2chdmi_cs for MEGA65R3 asserted";
         end if;
+        if address(19 downto 8) = x"D74" then
+          grove_cs <= '1';
+          report "grove_cs for MEGA65R3 asserted";
+        end if;        
       end if;      
 
       cs_driveram <= '0';

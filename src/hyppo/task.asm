@@ -171,6 +171,12 @@ task_asblankslate:
         jsr task_set_c64_memorymap
         rts
 
+task_set_as_system_task:
+	;; Task ID is reserved for the hypervisor and its helpers, and prevents freezing
+	lda #$ff
+	sta currenttask_id
+	rts
+	
 ;;         ========================
 
 unstable_illegal_opcode_trap:
@@ -184,6 +190,16 @@ kill_opcode_trap:
 	
 restore_press_trap:
 
+	;; Check if we are already in the freezer?
+	lda currenttask_id
+	cmp #$ff
+	bne non_hypervisor_task
+
+	;; Don't allow freezing if we are in a hypervisor task
+        sta hypervisor_enterexit_trigger
+
+non_hypervisor_task:	
+	
         ;; Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
@@ -196,6 +212,9 @@ restore_press_trap:
 	tay ;;   <- uses $00 in A from above
         jsr freeze_to_slot
 
+	;; Now mark that we are in a system task, so that the freezer can't be frozen
+	jsr task_set_as_system_task
+	
         ;; Load freeze program
         jsr attempt_loadcharrom
         jsr attempt_loadc65rom
@@ -203,6 +222,12 @@ restore_press_trap:
         ldx #<txt_FREEZER
         ldy #>txt_FREEZER
         jsr dos_setname
+
+        ;; TODO: preserve current directory, so that we can restore it later
+
+        ;; bring directory back to root, just in-case user loaded a .d81 from another directory
+        ldx dos_default_disk
+        jsr dos_cdroot
 
         ;; Prepare 32-bit pointer for loading freezer program ($000007FF)
         ;; (i.e. $0801 - 2 byte header, so we can use a normal PRG file)

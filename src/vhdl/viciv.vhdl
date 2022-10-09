@@ -357,6 +357,7 @@ architecture Behavioral of viciv is
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
   signal ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   signal ycounter_drive : unsigned(11 downto 0) := (others => '0');
+  signal last_ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   -- Virtual raster number for VIC-II
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
@@ -2314,7 +2315,7 @@ begin
         elsif register_number=17 then             -- $D011
           report "D011 WRITTEN" severity note;
           -- @IO:C64 $D011 VIC-II control register
-          -- @IO:C64 $D011.7 VIC-II:RC raster compare bit 8
+          -- @IO:C64 $D011.7 VIC-II:RC8 raster compare bit 8
           vicii_raster_compare(10 downto 8) <= "00" & fastio_wdata(7);
           vicii_is_raster_source <= '1';
           -- @IO:C64 $D011.6 VIC-II:ECM extended background mode
@@ -2669,7 +2670,7 @@ begin
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
           shadow_mask_enable <= fastio_wdata(6);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
@@ -2679,7 +2680,7 @@ begin
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
           pal_simulate <= fastio_wdata(5);
-          -- @IO:GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
+          -- @IO:GS $D054.4 VIC-IV:SPR!H640 Sprite H640 enable
           sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
@@ -2891,26 +2892,26 @@ begin
           -- @IO:GS $D076 VIC-IV:SPRENV400 Sprite V400 enables
           sprite_v400s <= fastio_wdata;
         elsif register_number=119 then  -- $D3077
-          -- @IO:GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
+          -- @IO:GS $D077 VIC-IV:SPRYMSBS Sprite V400 Y position MSBs
           sprite_v400_msbs <= fastio_wdata;
         elsif register_number=120 then  -- $D3078
           -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
           sprite_v400_super_msbs <= fastio_wdata;
         elsif register_number=121 then  -- $D3079
-          -- @IO:GS $D079 VIC-IV:RSTCOMP Raster compare value
+          -- @IO:GS $D079 VIC-IV:RASCMP Physical raster compare value to be used if FNRSTCMP is clear
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
-          -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
+          -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
-          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
         elsif register_number=123 then
-          -- @IO:GS $D07B VIC-IV:Number of text rows to display
+          -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C.0-2 VIC-IV:BIT!PBANK Set which 128KB bank bitplanes
@@ -3188,11 +3189,15 @@ begin
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
-        -- However, if a raster interrupt is being triggered from a VIC-IV
-        -- physical raster, then there is no need to make raster IRQs edge triggered
-        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) then
+        -- Make VIC-IV raster interrupts edge triggered, as well, to avoid re-triggering
+        -- of the raster interrupt at the end of the raster line (eg. if the raster
+        -- interrupt has already been acknowledged before the raster line reaches the end).
+        -- Retriggering would happen once external_frame_x_zero_latched = '1' but ycounter
+        -- not yet updated (it will get updated two clock cycles later).
+        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) and last_ycounter /= ycounter then
           irq_raster <= '1';
         end if;
+        last_ycounter <= ycounter;
 
         if last_external_frame_x_zero_latched='0' then
           -- ... update Y position, even during VSYNC, since frame timing is
@@ -4770,7 +4775,13 @@ begin
                   else
                     if viciii_extended_attributes='1' then
                       -- multi-colour text mode with full-colour VIC III/IV mode
-                      paint_foreground <= glyph_colour;
+                      -- Mask out bit 2, so that people used to the VIC-II behaviour
+                      -- don't get surprised -- but do allow the upper 4 bits
+                      -- to allow selection of more colours.
+                      -- See #571 for more discussion on this
+                      paint_foreground(7 downto 4) <= glyph_colour(7 downto 4);
+                      paint_foreground(3) <= '0';
+                      paint_foreground(2 downto 0) <= glyph_colour(2 downto 0);
                     else
                       -- multi-colour text mode masks bit 3 of the foreground
                       -- colour to select whether the character is multi-colour or

@@ -168,17 +168,17 @@ returnFeatureState:
 trap_dos_getversion:
 
         ;; Return OS and DOS version.
-        ;; A/X = OS Version major/minor
-        ;; Z/Y = DOS Version major/minor
+        ;; A.X = OS Version major/minor
+        ;; Y.Z = DOS Version major/minor
 
         lda #<os_version
         sta hypervisor_x
         lda #>os_version
         sta hypervisor_a
-        lda #<dos_version
-        sta hypervisor_z
         lda #>dos_version
         sta hypervisor_y
+        lda #<dos_version
+        sta hypervisor_z
         jmp return_from_trap_with_success
 
 ;;         ========================
@@ -732,9 +732,7 @@ trap_dos_opendir:
 tdod1:
         ;; Directory opened ok.
         ;;
-        lda dos_current_file_descriptor
-        sta hypervisor_a
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
 
 ;;         ========================
 
@@ -840,7 +838,7 @@ trap_dos_openfile:
 
         +Checkpoint "trap_dos_openfile <success>"
 
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
 
 tdof1:
         +Checkpoint "trap_dos_openfile <failure>"
@@ -882,9 +880,9 @@ trap_dos_findfile:
 trap_dos_findfirst:
 
         jsr dos_findfirst
-        lda dos_current_file_descriptor
-        sta hypervisor_a
-        jmp return_from_trap_with_carry_flag
+        bcc +
+        jmp return_from_trap_with_success_and_file_descriptor_in_a
++	jmp return_from_trap_with_failure
 
 ;;         ========================
 
@@ -2052,26 +2050,6 @@ multipliedclusternumber:
 
 ;;         ========================
 
-dos_requested_filename_to_uppercase:
-
-        ;; Convert filename to upper case for comparison
-        ;;
-        ldx dos_requested_filename_len
-        cpx #$3f
-        bcc drftu1
-        lda #dos_errorcode_name_too_long
-        jmp dos_return_error
-drftu1:
-        lda dos_requested_filename,x
-        jsr toupper
-        sta dos_requested_filename,x
-        dex
-        bpl drftu1
-        sec
-        rts
-
-;;         ========================
-
 dos_get_free_descriptor:
 
         ldx #$00
@@ -2295,8 +2273,8 @@ dos_findfirst:
 
         ;; Convert name to upper case for searching
         ;;
-        jsr dos_requested_filename_to_uppercase
-        bcc l3_dos_return_error_already_set
+        ;; GI. Avoiding uppercase for now, so we find matches on LFN files
+        ;; But later on, would rather enforce uppercase 'everywhere', even on the files we iterate over in the directory...
 
         jsr dos_opendir
         bcs +
@@ -2348,6 +2326,10 @@ dff_have_next_entry:
 ;;         ========================
 
 dos_opendir:
+
+        ;; assure we are using the sdcard buffer (not the fdc buffer)
+        lda #$80
+        tsb $d689
 
         ;; Open the current directory as a file
         ;;
@@ -2409,6 +2391,16 @@ dos_readdir:
         lda #0
         sta dos_dirent_longfilename_length
 
+        ;; assess the EOF marker very early, to catch case where last read direntry
+        ;; was the last direntry of the cluster
+        ldx dos_current_file_descriptor_offset
+        lda dos_file_descriptors + dos_filedescriptor_offset_mode,x
+        cmp #dos_filemode_end_of_directory
+        bne drd_continue
+        lda #dos_errorcode_eof
+        jmp dos_return_error
+
+drd_continue:
         jsr dos_file_read_current_sector
 
 !if DEBUG_HYPPO {
@@ -2564,7 +2556,7 @@ eight3char1:
         bne +
         jmp drd_deleted_or_invalid_entry
 +
-	cmp #$00
+	cmp #$00  ;; NOTE: In Windows, I've seen #$00 markers equating to the end of direntries (i.e., stop iterating over direntries at this point)
         bne +
 	;; Empty entry, so skip over it
 	jmp drd_deleted_or_invalid_entry
@@ -2628,9 +2620,6 @@ drce_longname:
 
 disable_lfn_byte:	
 	jmp drce_cont_next_part
-
-	inc $d020
-	jmp drce_longname
 	
         ;; make sure long entry type is "filename" (=$00)
         ;;
@@ -2653,7 +2642,15 @@ disable_lfn_byte:
         ;; long filenames as UTF-16, and then convert them to UTF-8.
 
         ldy #fs_fat32_dirent_offset_lfn_part_number
+
+        ;; assess if this is the first part in the list
         lda (<dos_scratch_vector),y
+        pha
+        and #$40  ;; bit4=1 means it's the first part in the list
+        sta dos_first_vfat_chunk_in_list_flag
+
+        ;; assess which part number it is
+        pla
         and #$3f ;; mask out end of LFN indicator
         dec ;; subtract one, since pieces are numbered from 1 upwards
 
@@ -2674,8 +2671,12 @@ disable_lfn_byte:
         ldz #fs_fat32_dirent_offset_lfn_part1_chars
 drce2:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2691,8 +2692,12 @@ drce2:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part2_chars
 drce3:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2708,8 +2713,12 @@ drce3:  lda (<dos_scratch_vector),y
         ldz #fs_fat32_dirent_offset_lfn_part3_chars
 drce4:  lda (<dos_scratch_vector),y
         beq drce_eot_in_filename
+        jsr toupper
         sta dos_dirent_longfilename,x
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
         stx dos_dirent_longfilename_length
++
         inx
         ;; protect against over-long LFNs
         cpx #$40
@@ -2725,17 +2734,19 @@ drce_eot_in_filename:
 
         ;; got all characters from this LFN piece
         ;;
-        cpx dos_dirent_longfilename_length
-        bcc drce_piece_didnt_grow_name_length
-        stx dos_dirent_longfilename_length
-        cpx #$3f
-        bcs drce_eot_in_filename2
-
+        lda dos_first_vfat_chunk_in_list_flag
+        beq +
+        cpx dos_dirent_longfilename_length      ;; GI_NOTE: I'm suspicious of this part
+        bcc drce_piece_didnt_grow_name_length   ;; We branch if x < dos_dirent_longfilename_length
+        stx dos_dirent_longfilename_length      ;; in my case x=19, dos_dirent_longerfilename=18. So why store this?
+        ;; cpx #$3f
+        ;; bcs drce_eot_in_filename2               ;; We branch if x >= #$3f (63). Should this be #$40?
++
         ;; null terminate if there is space, for convenience
-        ;;
-        lda #$00
-        sta dos_dirent_longfilename,x
-        stx dos_dirent_longfilename_length
+        ;; GI. Let's skip null terminator, as it is in the wrong place, and we wipe out dos_dirent_longfilename with zeroes each time anyway
+        ;; lda #$00
+        ;; sta dos_dirent_longfilename,x
+        ;; stx dos_dirent_longfilename_length
 
 drce_eot_in_filename2:
 
@@ -3076,8 +3087,9 @@ dos_dirent_compare_name_to_requested:
         ;;
         ldx dos_dirent_longfilename_length
         dex
-dff4:   lda dos_dirent_longfilename,x
-        cmp dos_requested_filename,x
+dff4:   lda dos_requested_filename,x
+        jsr toupper
+        cmp dos_dirent_longfilename,x
         bne dff3
         dex
         bpl dff4
@@ -3128,6 +3140,10 @@ drce_end_of_sector:
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,y
 
         jsr dos_file_advance_to_next_sector
+        ; since we've changed sectors, read in new sector data
+        bcc @skipreadsector
+        jsr dos_file_read_current_sector
+@skipreadsector:
         rts
 
 ;;         ========================
@@ -3337,6 +3353,7 @@ dfatns1:
         ;; and if necessary, advance to next cluster
         ;;
         beq dos_file_advance_to_next_cluster
+
         sec
         rts
 
@@ -3893,13 +3910,13 @@ dos_d81detach:
 	;; Detaches both drive 0 and drive 1
 	
         lda #$00
-        sta $d68b
+        sta $d68b		; clear mount, d81/d65 flags
+	sta $d68a 		; clear d64/d71 flags
 
         ;; Mark it as unmounted (but preserve other flags for remounting, e.g., if it should be write-enabled)
-        lda currenttask_d81_image0_flags
-        ora #d81_image_flag_mounted
-        eor #d81_image_flag_mounted
-        sta currenttask_d81_image0_flags
+        lda #d81_image_flag_mounted
+        trb currenttask_d81_image0_flags
+        trb currenttask_d81_image1_flags
 
         ;; But we leave the file name there, in case someone wants to re-mount the image.
         ;; This is exactly what happens when a process is unfrozen: dos_d81detach is called,
@@ -3939,29 +3956,53 @@ l94d:   lda $d681,x		;; resolved sector number
         dex
         bpl l94d
 	
-        // disable real floppy 0
+        ;; disable real floppy 0
         lda $d6a1
         and #$fe
         sta $d6a1
         
-        // Set flags to indicate it is mounted (and read-write)
-        // But don't mess up the flags for the 2nd drive
+        ;; Set flags to indicate it is mounted (and read-write).
+        ;; clear D65 mega disk flag,
+        ;; But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%10111000
         ora #$07
         sta $d68b
+	;; Clear D64 flag
+	lda #$40
+	trb $d68a
 
-	;; And set the MEGAfloppy flag if the file is ~5.5MiB long
-	lda d81_clustercount+1
-	cmp #$05
-	bne not_mega_floppy2
+	;; Check what dos_d81check detected
+        lda d81_lasttype
+        cmp #64
+	bne not_d64
 
-	lda $d68b
-	and #%10111000
-        ora #$47
-	sta $d68b
+	;; Set D64 flag
+	lda #$40
+	tsb $d68a
+	jmp d81attach0_typeset
+	
+not_d64:
+	cmp #71
+	bne not_d71
 
-not_mega_floppy2:	
+	;; D71 disk image
+	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
+	lda #$40
+	tsb $d68a
+	tsb $d68b
+	jmp d81attach0_typeset
+
+not_d71:
+	cmp #65
+	bne d81attach0_typeset
+
+        ;; D65 disk image
+        ;; Set megadisk flag
+	lda #$40
+	tsb $d68b
+
+d81attach0_typeset:
 
         +Checkpoint "dos_d81attach0 <success>"
 
@@ -4022,34 +4063,59 @@ d81a1ab:
         ;; copy sector number from $D681 to $D690
         ;;
         ldx #$03
-l94db:   lda $d681,x		;; resolved sector number
+l94db:  lda $d681,x		;; resolved sector number
         sta $d690,x  		;; sector number of disk image #1
         dex
         bpl l94db
 		
-        // disable real floppy 1
+        ;; disable real floppy 1
         lda $d6a1
         and #$fb
         sta $d6a1
-
-        // Set flags to indicate it is mounted (and read-write)
-        // But don't mess up the flags for the 1st drive
+        
+        ;; Set flags to indicate it is mounted (and read-write).
+        ;; clear D65 mega disk flag,
+        ;; But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%01000111
         ora #$38
         sta $d68b
+	;; Clear D64 flag
+	lda #$80
+	trb $d68a
 
-	;; And set the MEGAfloppy flag if the file is 5500KB long
-	lda d81_clustercount+1
-	cmp #$05
-	bne not_mega_floppy2b
+	;; Check what dos_d81check detected
+        lda d81_lasttype
+        cmp #64
+	bne not_d64b
 
-	lda $d68b
-        ora #$80
-	sta $d68b
-
-not_mega_floppy2b:	
+	;; Set D64 flag
+	lda #$80
+	tsb $d68a
+	jmp d81attach1_typeset
 	
+not_d64b:
+	cmp #71
+	bne not_d71b
+
+	;; D71 disk image
+	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
+	lda #$80
+	tsb $d68a
+	tsb $d68b
+	jmp d81attach1_typeset
+
+not_d71b:
+	cmp #65
+	bne d81attach1_typeset
+
+        ;; D65 disk image
+        ;; Set megadisk flag
+	lda #$80
+	tsb $d68b
+
+d81attach1_typeset:
+
         +Checkpoint "dos_d81attach1 <success>"
 
         ;; Save name and set mount flag for disk image in process descriptor block
@@ -4097,13 +4163,15 @@ dos_d81check:
         jsr dos_openfile
         bcs @fileOpenedOk
 @fileNotOpenedOk:
-        jmp nod81
+        jmp not81
 @fileOpenedOk:
 
         ;; work out how many clusters we need
         ;; We need 1600 sectors, so halve for every zero tail
         ;; bit in sectors per cluster.  we can do this because
         ;; clusters in FAT must be 2^n sectors.
+        ;;
+        ;; TODO: D65 clusters are not calculated yet, but hardcoded below
         ;;
         lda #$00
         sta d81_clustercount
@@ -4112,6 +4180,16 @@ dos_d81check:
         sta d81_clustersneeded
         lda #>1600
         sta d81_clustersneeded+1
+        ;; 1541 - rounded up to 512b sectors 344*512 = 176128, D64 = 174848
+        lda #<344
+        sta d64_clustersneeded
+        lda #>344
+        sta d64_clustersneeded+1
+        ;; 1571 - rounded up to 512b sectors 688*512 = 352256, D71 = 349696
+        lda #<688
+        sta d71_clustersneeded
+        lda #>688
+        sta d71_clustersneeded+1
 
         ;; get sectors per cluster of disk
         ;;
@@ -4127,6 +4205,10 @@ l94:    tza
         taz
         lsr d81_clustersneeded+1
         ror d81_clustersneeded
+        lsr d64_clustersneeded+1
+        ror d64_clustersneeded
+        lsr d71_clustersneeded+1
+        ror d71_clustersneeded
         jmp l94
 
 d81firstcluster:
@@ -4154,7 +4236,9 @@ d81nextcluster:
 
 l94a:   lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
         cmp d81_clusternumber,y
-        bne d81isfragged
+	beq not_a_frag
+        jmp d81isfragged
+not_a_frag:	
         inx
         iny
         cpy #4
@@ -4199,35 +4283,68 @@ l96:
         ;; we have read to end of D81 file, and it is contiguous
         ;; now check that it is the right length
 
+        ;; that is to much!
+	lda d81_clustercount+2
+	ora d81_clustercount+3
+	bne d81wronglength
+
+	;; It might also be a D64 (1541) or D71 (1571) disk image,
+	;; so check for 683x256/4096 = 42.6875 = 43 clusters or
+	;; double that for D71
+	lda d81_clustercount+1
+        cmp d64_clustersneeded+1
+	bne not_1541
+	lda d81_clustercount
+	cmp d64_clustersneeded
+	bne not_1541_2
+
+	;;  IS a d64 sized file
+        lda #64
+	bra d81_is_good
+
+not_1541_2:
+        lda d81_clustercount+1
+not_1541:
+        cmp d71_clustersneeded+1
+        bne not_1571
+        lda d81_clustercount
+	cmp d71_clustersneeded
+	bne not_1571_2
+
+	;; IS a d71 sized file
+        lda #71
+	bra d81_is_good
+
+not_1571_2:
+        lda d81_clustercount+1
+not_1571:
 	;; First check if we read enough for 85 tracks x 64 sectors x 2 sides = 5,570,560 bytes
 	;; = 1,360 clusters = $0550 clusters
 	;; XXX - This currently assumes 8 sectors per cluster = 4KB sectors
-	lda d81_clustercount
-	cmp #$50
-	bne not_mega_floppy
-	lda d81_clustercount+1
 	cmp #$05
 	bne not_mega_floppy
-	lda d81_clustercount+2
-	ora d81_clustercount+3
-	beq is_mega_floppy
+	lda d81_clustercount
+	cmp #$50
+	bne not_mega_floppy_2
 
+        lda #65
+        bra d81_is_good
+
+not_mega_floppy_2:
+        lda d81_clustersneeded+1
 not_mega_floppy:	
-	;; Is a 5.5MiB MEGA Floppy?
-	;; (These behave as double-sided 85-track 64-sector disks of 512 byte sectors,
-	;;  but with normal D81 directory format on side 0 of track 40.)
-	
+	;; D81 image?
+        cmp d81_clustercount+1
+        bne d81wronglength
         lda d81_clustersneeded
         cmp d81_clustercount
         bne d81wronglength
 
-        lda d81_clustersneeded+1
-        cmp d81_clustercount+1
-        bne d81wronglength
-is_mega_floppy:	
+        lda #81
 
-d81_is_good:	
-        ;; D81 is good.
+d81_is_good:
+        ;; disk image size is good. save type on stack for later
+        sta d81_lasttype
 
         ;; Get cluster number again, convert to sector, and copy to
         ;; SD controller FDC emulation disk image offset registers
@@ -4263,6 +4380,9 @@ d81wronglength:
 d81isfragged:
         +Checkpoint "dos_d81attach <fragmented>"
 
+        ;; close dangeling open descriptor
+        jsr dos_closefile
+
         lda #dos_errorcode_image_fragmented
         sta dos_error_code
         clc
@@ -4270,7 +4390,7 @@ d81isfragged:
 
 ;;         ========================
 
-nod81:
+not81:
         +Checkpoint "dos_d81attach <file not found>"
 
         clc

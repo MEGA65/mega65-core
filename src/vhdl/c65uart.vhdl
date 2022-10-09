@@ -84,6 +84,8 @@ entity c65uart is
     portg : inout std_logic_vector(7 downto 0) := (others => '0');
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
+    porto_write_strobe : out std_logic := '0';
+    matrix_disable_modifiers : inout std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
     portj_out : out std_logic_vector(7 downto 0) := (others => '0');
@@ -91,7 +93,7 @@ entity c65uart is
     portl_out : out  std_logic_vector(7 downto 0) := (others => '0');
     portm_out : out  std_logic_vector(7 downto 0) := (others => '0');
     portn_out : out unsigned(7 downto 0) := (others => '0');
-    porto_out : out unsigned(7 downto 0) := (others => '0');
+    porto : in unsigned(7 downto 0) := (others => '0');
     portp_out : out unsigned(7 downto 0) := (others => '0');
     portq_in : in unsigned(7 downto 0);
     j21in : in std_logic_vector(11 downto 0) := (others => '1');
@@ -234,8 +236,6 @@ architecture behavioural of c65uart is
   signal portl_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
-
-  signal porto_internal : std_logic_vector(7 downto 0) := x"14";
 
   -- Bit 1 = disable DVI audio
   -- Bit 7 = invert samples
@@ -401,7 +401,6 @@ begin  -- behavioural
       portl_out <= portl_internal;
       portm_out <= portm_internal;
       portn_out <= unsigned(portn_internal);
-      porto_out <= unsigned(porto_internal);
       portp_out <= unsigned(portp_internal);
       
       rx_clear_flags <= '0';
@@ -438,6 +437,7 @@ begin  -- behavioural
       reg_status7_xmit_on_drive <= reg_status7_xmit_on;      
       
       porth_write_strobe <= '0';
+      porto_write_strobe <= '0';
       
       -- Calculate read value for various ports
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
@@ -512,12 +512,13 @@ begin  -- behavioural
             pot_via_iec <= fastio_wdata(0);
             -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
             joyreal_enable_internal <= fastio_wdata(1);
+            matrix_disable_modifiers <= fastio_wdata(7);
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
             ps2_enable_internal <= std_logic(fastio_wdata(1));
             physkey_enable_internal <= std_logic(fastio_wdata(2));
             virtual_enable_internal <= std_logic(fastio_wdata(3));
---            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            -- joykey_enable_internal <= std_logic(fastio_wdata(4));
             osk_debug_display <= fastio_wdata(4);
             joyswap <= fastio_wdata(5);
             joyswap_internal <= std_logic(fastio_wdata(5));
@@ -536,7 +537,7 @@ begin  -- behavioural
           when x"18" =>
             portn_internal <= std_logic_vector(fastio_wdata);
           when x"19" =>
-            porto_internal <= std_logic_vector(fastio_wdata);
+            porto_write_strobe <= '1';
           when x"1A" =>
             portp_internal <= std_logic_vector(fastio_wdata);
           when x"1b" =>
@@ -688,14 +689,16 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
-          fastio_rdata(7 downto 0) <= unsigned(porti);
+          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
+          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
+          fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
+          fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>
           -- @   IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
           fastio_rdata(0) <= widget_enable_internal;
@@ -736,8 +739,8 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:UNUSED port o output value
-          fastio_rdata <= unsigned(porto_internal);
+          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          fastio_rdata <= unsigned(porto);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
           
@@ -753,9 +756,9 @@ begin  -- behavioural
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
-          -- @IO:GS $D61D.7 UARTMISC:Keyboard LED control enable
-          -- @IO:GS $D61D.0-6 UARTMISC:Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
-          -- @IO:GS $D61E UARTMISC:Keyboard register value (write only)
+          -- @IO:GS $D61D.7 UARTMISC:KEYLED!ENA Keyboard LED control enable
+          -- @IO:GS $D61D.0-6 UARTMISC:KEYLED!REG Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
+          -- @IO:GS $D61E UARTMISC:KEYLED!VAL Keyboard LED register value (write only)
           fastio_rdata(7) <= disco_led_en_int;
           fastio_rdata(6 downto 0) <= disco_led_id_int(6 downto 0);
         when x"1e" =>

@@ -442,6 +442,8 @@ architecture behavioural of sdcardio is
   signal f011_disk2_write_protected : std_logic := '0';
   signal f011_mega_disk : std_logic := '0';
   signal f011_mega_disk2 : std_logic := '0';
+  signal f011_d64_disk : std_logic := '0';
+  signal f011_d64_disk2 : std_logic := '0';
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
@@ -687,11 +689,17 @@ architecture behavioural of sdcardio is
   signal format_sector_number : integer range 0 to 255 := 0;
 
   -- Track info data from track info block
-  signal track_info_valid : std_logic := '0';
-  signal fdc_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal fdc_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
-  signal fdc_track_info_encoding : unsigned(7 downto 0) := x"00";
-  signal fdc_track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal dd_track_info_valid : std_logic := '0';
+  signal dd_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal dd_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal dd_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal dd_track_info_sectors : unsigned(7 downto 0) := x"00";
+  signal hd_track_info_valid : std_logic := '0';
+  signal hd_track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal hd_track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal hd_track_info_encoding : unsigned(7 downto 0) := x"00";
+  signal hd_track_info_sectors : unsigned(7 downto 0) := x"00";
+  
   signal track_info_rate : unsigned(7 downto 0) := to_unsigned(40,8);
   signal track_info_track : unsigned(7 downto 0) := to_unsigned(255,8);
   signal track_info_encoding : unsigned(7 downto 0) := x"00";
@@ -931,8 +939,9 @@ begin  -- behavioural
     );
   
   -- Reader for real floppy drive: single rate
-  -- Track info blocks are always witten for this speed, so we have a fixed decoder
-  -- for them, which also serves as the 1581 DD decoder
+  -- Track info blocks are written in either DD or HD speed.
+  -- so we have fixed decoders for both.  The DD speed one also
+  -- serves as the DD speed decoder.
   mfm0: entity work.mfm_decoder generic map ( unit_id => 2 )
     port map (
     clock40mhz => clock,
@@ -956,11 +965,11 @@ begin  -- behavioural
     target_side => target_side,
     target_any => target_any,
 
-    track_info_track => fdc_track_info_track,
-    track_info_rate => fdc_track_info_rate,
-    track_info_encoding => fdc_track_info_encoding,
-    track_info_sectors => fdc_track_info_sectors,
-    track_info_valid => track_info_valid,
+    track_info_track => dd_track_info_track,
+    track_info_rate => dd_track_info_rate,
+    track_info_encoding => dd_track_info_encoding,
+    track_info_sectors => dd_track_info_sectors,
+    track_info_valid => dd_track_info_valid,
 
     sector_data_gap => fdc_sector_data_gap,
     sector_found => fdc_sector_found,
@@ -975,14 +984,36 @@ begin  -- behavioural
     sector_end => fdc_sector_end    
     );
 
-  -- Double-rate MFM decoder, used so that we can easily
-  -- detect and use HD formatted disks, without having to
+  mfmhdonly: entity work.mfm_decoder generic map ( unit_id => 2 )
+    port map (
+    clock40mhz => clock,
+    f_rdata => f_rdata_drive,
+    encoding_mode => x"0", -- Always MFM for HD-rate TIB decoder
+    cycles_per_interval => to_unsigned(40,8),
+    invalidate => fdc_read_invalidate,
+
+    target_track => target_track,
+    target_sector => target_sector,
+    target_side => target_side,
+    target_any => target_any,
+    
+    track_info_track => hd_track_info_track,
+    track_info_rate => hd_track_info_rate,
+    track_info_encoding => hd_track_info_encoding,
+    track_info_sectors => hd_track_info_sectors,
+    track_info_valid => hd_track_info_valid
+
+    );
+
+
+  -- Variable-rate MFM decoder, used so that we can easily
+  -- detect and use HD and HD+ formatted disks, without having to
   -- have a program figure it out.
   -- Also, we ALWAYS enable variable recording rate for the
   -- HD decoder, as we are only going to make HD disks with
   -- it enabled.  We set the variable encoding rate based
   -- on what we read from the track info block.
-  mfm2x: entity work.mfm_decoder generic map ( unit_id => 3)
+  mfm_fast: entity work.mfm_decoder generic map ( unit_id => 3)
     port map (
     clock40mhz => clock,
     f_rdata => f_rdata_drive,
@@ -1275,6 +1306,9 @@ begin  -- behavioural
             fastio_rdata(1) <= viciii_iomode(1);
             fastio_rdata(2) <= virtualise_f011_drive0;
             fastio_rdata(3) <= virtualise_f011_drive1;
+
+            fastio_rdata(6) <= f011_d64_disk;
+            fastio_rdata(7) <= f011_d64_disk2;
             
           when x"8b" =>
             -- BG the description seems in conflict with the assignment in the write section (below)
@@ -1285,8 +1319,8 @@ begin  -- behavioural
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
-            -- @IO:GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
-            -- @IO:GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
+            -- @IO:GS $D68B.6 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 0
+            -- @IO:GS $D68B.7 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 1
             fastio_rdata(6) <= f011_mega_disk;
             fastio_rdata(7) <= f011_mega_disk2;
           when x"8c" =>
@@ -1357,7 +1391,7 @@ begin  -- behavioural
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
             fastio_rdata(3) <= silent_sdcard;
-            -- @IO:GS $D6A1.4-7 - FDC debug status flags
+            -- @IO:GS $D6A1.4-7 F011:STATUS FDC debug status flags
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
             fastio_rdata(6) <= fdc_byte_valid;
@@ -1778,19 +1812,32 @@ begin  -- behavioural
         end if;
       end if;
       
-      if track_info_valid='1' then
+      if dd_track_info_valid='1' then
         report "TRACKINFO: Saw track_info_valid";
-        track_info_track <= fdc_track_info_track;
-        track_info_rate <= fdc_track_info_rate;
-        track_info_encoding <= fdc_track_info_encoding;
-        track_info_sectors <= fdc_track_info_sectors;
+        track_info_track <= dd_track_info_track;
+        track_info_rate <= dd_track_info_rate;
+        track_info_encoding <= dd_track_info_encoding;
+        track_info_sectors <= dd_track_info_sectors;
         if use_tib_info='1' then
-          cycles_per_interval_from_track_info <= fdc_track_info_rate;
-          fdc_encoding_mode <= fdc_track_info_encoding(3 downto 0);
-          report "TRACKINFO: Setting encoding to $" & to_hstring(fdc_track_info_encoding(3 downto 0)) & " from track info block.";
+          cycles_per_interval_from_track_info <= dd_track_info_rate;
+          fdc_encoding_mode <= dd_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(dd_track_info_encoding(3 downto 0)) & " from track info block.";
         end if;
       end if; 
-            
+
+      if hd_track_info_valid='1' then
+        report "TRACKINFO: Saw track_info_valid";
+        track_info_track <= hd_track_info_track;
+        track_info_rate <= hd_track_info_rate;
+        track_info_encoding <= hd_track_info_encoding;
+        track_info_sectors <= hd_track_info_sectors;
+        if use_tib_info='1' then
+          cycles_per_interval_from_track_info <= hd_track_info_rate;
+          fdc_encoding_mode <= hd_track_info_encoding(3 downto 0);
+          report "TRACKINFO: Setting encoding to $" & to_hstring(hd_track_info_encoding(3 downto 0)) & " from track info block.";
+        end if;
+      end if; 
+      
       -- If using variable data rate, then set rate based on
       -- current selected rate, modified for track number
       if fdc_variable_data_rate='0' then
@@ -2107,7 +2154,7 @@ begin  -- behavioural
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
-      if f011_mega_disk='0' then
+      if f011_mega_disk='0' and f011_d64_disk='0' then
         diskimage1_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
@@ -2116,9 +2163,45 @@ begin  -- behavioural
             +to_integer("000" & physical_sector),17);
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
-          -- point to last sector if disk instead
+          -- point to first sector if disk instead
           diskimage1_offset <= to_unsigned(0,17);
         end if;
+      elsif f011_mega_disk='0' and f011_d64_disk='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to first sector if disk instead
+           diskimage1_offset <= to_unsigned(0,17);
+         end if;
+      elsif f011_mega_disk='1' and f011_d64_disk='1' then
+        -- XXX 1571 disk image
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(0,17);
+        end if;        
       else
         -- MEGA65 HD disks support 85 tracks and 64 sectors per track
         diskimage1_offset <=
@@ -2132,7 +2215,7 @@ begin  -- behavioural
         end if;
       end if;   
 
-      if f011_mega_disk2='0' then
+      if f011_mega_disk2='0' and f011_d64_disk2='0' then
         diskimage2_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")
@@ -2140,6 +2223,41 @@ begin  -- behavioural
             +to_integer("000" & physical_sector),17);
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
+      elsif f011_mega_disk2='0' and f011_d64_disk2='1' then
+        -- 1541 disk image
+        -- CBDOS ROM is responsible for implementing the 1541 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 256
+        -- byte sectors = 342 (rounded up to the whole sector, which must
+        -- be present due to the use of 4KB clusters).
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 18) or (physical_sector > 20))
+          or (f011_track = 17 and physical_sector > 1) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(0,17);
+        end if;
+      elsif f011_mega_disk2='1' and f011_d64_disk2='1' then
+        -- 1571 disk image
+        -- CBDOS ROM is responsible for implementing the 1571 geometry.
+        -- We just present 1581-like geometry, but truncated to 683 x 2 x 256
+        -- byte sectors = 683 x 512 byte sectors (exactly)
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if ((f011_track >= 35) or (physical_sector > 20))
+          or (f011_track = 34 and physical_sector > 2) then
           -- point to last sector if disk instead
           diskimage2_offset <= to_unsigned(0,17);
         end if;
@@ -3196,6 +3314,13 @@ begin  -- behavioural
               -- the section below is for OTHER I/O
               -- ==================================================================
 
+            when x"8a" =>
+              -- @IO:GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 image if set (otherwise 800KiB 1581 or D65 image)
+              -- @IO:GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 mega image if set (otherwise 800KiB 1581 or D65 image)
+              if hypervisor_mode='1' then
+                f011_d64_disk <= fastio_wdata(6);
+                f011_d64_disk2 <= fastio_wdata(7);
+              end if;
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               if hypervisor_mode='1' then
@@ -3210,8 +3335,8 @@ begin  -- behavioural
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
               end if;
-              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is 64MiB mega image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 image if set (otherwise 800KiB 1581 image)
               -- @IO:GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
               -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
@@ -3861,13 +3986,20 @@ begin  -- behavioural
             format_sector_number <= 0;
 
             -- Write track lead-in gaps at DD speed and using MFM to give
-            -- head enough time to switch to write.
+            -- head enough time to switch to write.            
             -- We then also write the track info block at
             -- DD speed, before switching to the higher speed
+            -- BUT if the speed indicates a HD disk, we write the TIB at HD
+            -- rate, because DD rate is too slow for the drive electronics when
+            -- in HD mode.
             saved_cycles_per_interval <= cycles_per_interval;
             saved_fdc_encoding_mode <= fdc_encoding_mode;
             fdc_encoding_mode <= x"0"; -- MFM for Track Info Blocks
-            cycles_per_interval <= to_unsigned(81,8);
+            if cycles_per_interval < 60 then
+              cycles_per_interval <= to_unsigned(40,8);
+            else
+              cycles_per_interval <= to_unsigned(81,8);
+            end if;
             
           end if;
 
@@ -3900,7 +4032,7 @@ begin  -- behavioural
                 crc_reset <= '1';
                 crc_feed <= '0';
                 if format_state = 12 then
-                  -- Jump to state for writing track header block
+                  -- Jump to state for writing track info block
                   format_state <= 1000;
                 end if;
               when 13 to 15 =>
@@ -4044,7 +4176,7 @@ begin  -- behavioural
                 crc_feed <= '0';
                 
               when 1000 to 1002 =>
-                -- Write Track Info Block sync bytes
+                -- Write Track Info Block sync bytes                
                 fw_byte_in <= x"A1";
                 f011_reg_clock <= x"FB";
                 fw_byte_valid <= '1';
@@ -4109,6 +4241,7 @@ begin  -- behavioural
                 -- Alow the CRC bytes to flush out before we change speed
                 fw_byte_in <= x"00";
                 fw_byte_valid <= '1';
+
               when 1014 =>
                 -- Now switch to actual speed and lead into first sector
                 format_state <= 598;

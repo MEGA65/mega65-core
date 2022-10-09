@@ -106,7 +106,7 @@ architecture behavioural of cia6526 is
   signal reg_alarm_dsecs : unsigned(7 downto 0) := (others => '0');
 
   -- BCD time of day clock
-  signal reg_60hz : std_logic := '0';
+  signal reg_50hz : std_logic := '0';
   signal tod_running : std_logic := '1';
   signal reg_tod_ampm : std_logic := '0';
   signal reg_tod_hours : unsigned(6 downto 0) := (others => '0');
@@ -163,7 +163,7 @@ begin  -- behavioural
           reg_porta_ddr,reg_portb_ddr,reg_porta_out,reg_portb_out,
           reg_timera,reg_timerb,read_tod_latched,read_tod_dsecs,
           reg_tod_secs,reg_tod_mins,reg_tod_hours,reg_tod_ampm,reg_read_sdr,
-          reg_isr,reg_60hz,reg_serialport_direction,
+          reg_isr,reg_50hz,reg_serialport_direction,
           reg_timera_tick_source,reg_timera_oneshot,
           reg_timera_toggle_or_pulse,reg_tod_alarm_edit,
           reg_timerb_tick_source,reg_timerb_oneshot,
@@ -250,9 +250,9 @@ begin  -- behavioural
                 fastio_rdata <= reg_tod_mins;
               end if;
             when x"0b" =>
-              -- @IO:C64 $DC0B.7 CIA1:TODAMPM TOD PM flag
+              -- @IO:C64 $DC0B.7 CIA1:TOD!AMPM TOD PM flag
               -- @IO:C64 $DC0B.0-4 CIA1:TODHOUR TOD hours
-              -- @IO:C64 $DD0B.7 CIA2:TODAMPM TOD PM flag
+              -- @IO:C64 $DD0B.7 CIA2:TOD!AMPM TOD PM flag
               -- @IO:C64 $DD0B.0-4 CIA2:TODHOUR TOD hours
               fastio_rdata <= reg_tod_ampm & reg_tod_hours;
             when x"0c" =>
@@ -265,14 +265,15 @@ begin  -- behavioural
               -- @IO:C64 $DC0D.2 CIA1:ALRM TOD alarm
               -- @IO:C64 $DC0D.3 CIA1:SP shift register full/empty
               -- @IO:C64 $DC0D.4 CIA1:FLG FLAG edge detected
+              -- @IO:C64 $DC0D.5-6 CIA1:ISRCLR Placeholder - Reading clears events
               -- @IO:C64 $DC0D.7 CIA1:IR Interrupt flag
               -- @IO:C64 $DD0D.0 CIA2:TA Timer A underflow
               -- @IO:C64 $DD0D.1 CIA2:TB Timer B underflow
               -- @IO:C64 $DD0D.2 CIA2:ALRM TOD alarm
               -- @IO:C64 $DD0D.3 CIA2:SP shift register full/empty
               -- @IO:C64 $DD0D.4 CIA2:FLG FLAG edge detected
-              -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
-              -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
+              -- @IO:C64 $DD0D.5-6 CIA2:ISRCLR Placeholder - Reading clears events
+              -- @IO:C64 $DD0D.7 CIA2:IR Interrupt flag
               fastio_rdata <= reg_isr;
             when x"0e" =>
               -- @IO:C64 $DC0E.0 CIA1:STRTA Timer A start
@@ -289,7 +290,7 @@ begin  -- behavioural
               -- @IO:C64 $DD0E.5 CIA2:IMODA Timer A tick source
               -- @IO:C64 $DD0E.6 CIA2:SPMOD Serial port direction
               -- @IO:C64 $DD0E.7 CIA2:TOD50 50/60Hz select for TOD clock
-              fastio_rdata <= reg_60hz
+              fastio_rdata <= reg_50hz
                               & reg_serialport_direction
                               & reg_timera_tick_source
                               & '0'
@@ -304,8 +305,8 @@ begin  -- behavioural
               -- @IO:C64 $DC0F.2 CIA1:OMODB Timer B toggle or pulse
               -- @IO:C64 $DC0F.3 CIA1:RMODB Timer B one-shot mode
               -- @IO:C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
-              -- @IO:C64 $DC0F.5-6 CIA1:IMODB Timer B tick source
-              -- @IO:C64 $DC0F.7 CIA2:TODEDIT TOD alarm edit
+              -- @IO:C64 $DC0F.5-6 CIA1:IMODB Timer B Timer A tick source
+              -- @IO:C64 $DC0F.7 CIA1:TODEDIT TOD alarm edit
               -- @IO:C64 $DD0F.0 CIA2:STRTB Timer B start
               -- @IO:C64 $DD0F.1 CIA2:PBONB Timer B PB7 out
               -- @IO:C64 $DD0F.2 CIA2:OMODB Timer B toggle or pulse
@@ -464,7 +465,9 @@ begin  -- behavioural
       
       prev_todclock <= todclock;
       if todclock='0' and prev_todclock='1' and hypervisor_mode='0' then
-        if todcounter = (5 - 1) then
+        if (todcounter >= (5 - 1) and reg_50hz='1')
+          or (todcounter = (6 - 1) and reg_50hz='0')
+        then
           todcounter <= 0;
           if( reg_tod_dsecs(3 downto 0) = 9) then
             reg_tod_dsecs(3 downto 0) <= "0000";
@@ -783,7 +786,7 @@ begin  -- behavioural
               imask_ta <= imask_ta and (not fastio_wdata(0));                 
             end if;
           when x"0e" =>
-            reg_60hz <= fastio_wdata(7);
+            reg_50hz <= fastio_wdata(7);
             reg_serialport_direction <= fastio_wdata(6);
             report "CIA" & to_hstring(unit) & " reg_serialport_direction = " & std_logic'image(fastio_wdata(6));
             reg_timera_tick_source <= fastio_wdata(5);
@@ -826,20 +829,21 @@ begin  -- behavioural
             -- @IO:GS $DC15 CIA1:TALATCH Timer A current value (16 bit)
             -- @IO:GS $DC16 CIA1:TALATCH Timer B current value (16 bit)
             -- @IO:GS $DC17 CIA1:TALATCH Timer B current value (16 bit)
-            -- @IO:GS $DC18.0-3 CIA1:TODJIF TOD 10ths of seconds value
+            -- @IO:GS $DC18.0-3 CIA1:TOD!JIF TOD 10ths of seconds value
             -- @IO:GS $DC18.4 CIA1:IMTB Interrupt mask for Timer B
-            -- @IO:GS $DC18.5 CIA1:IMALRM Interrupt mask for TOD alarm
+            -- @IO:GS $DC18.5 CIA1:IM!ALRM Interrupt mask for TOD alarm
             -- @IO:GS $DC18.6 CIA1:IMSP Interrupt mask for shift register (serial port)
             -- @IO:GS $DC18.7 CIA1:IMFLG Interrupt mask for FLAG line
             -- @IO:GS $DC19 CIA1:TODSEC TOD Alarm seconds value
             -- @IO:GS $DC1A CIA1:TODMIN TOD Alarm minutes value
-            -- @IO:GS $DC1B.0-6 CIA1:TODHOUR TOD hours value
-            -- @IO:GS $DC1B.7 CIA1:TODAMPM TOD AM/PM flag
-            -- @IO:GS $DC1C CIA1:ALRMJIF TOD Alarm 10ths of seconds value
+            -- @IO:GS $DC1B.0-6 CIA1:TOD!HOUR TOD hours value
+            -- @IO:GS $DC1B.7 CIA1:TOD!AMPM TOD AM/PM flag
+            -- @IO:GS $DC1C.0-6 CIA1:ALRMJIF TOD Alarm 10ths of seconds value (actually all 8 bits)
+            -- @IO:GS $DC1C.7 CIA1:DD00!DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
             -- @IO:GS $DC1D CIA1:ALRMSEC TOD Alarm seconds value
             -- @IO:GS $DC1E CIA1:ALRMMIN TOD Alarm minutes value
-            -- @IO:GS $DC1F.0-6 CIA1:ALRMHOUR TOD Alarm hours value
-            -- @IO:GS $DC1F.7 CIA1:ALRMAMPM TOD Alarm AM/PM flag
+            -- @IO:GS $DC1F.0-6 CIA1:ALRM!HOUR TOD Alarm hours value
+            -- @IO:GS $DC1F.7 CIA1:ALRM!AMPM TOD Alarm AM/PM flag
 
             -- @IO:GS $DD10 CIA2:TALATCH Timer A latch value (16 bit)
             -- @IO:GS $DD11 CIA2:TALATCH Timer A latch value (16 bit)
@@ -849,21 +853,21 @@ begin  -- behavioural
             -- @IO:GS $DD15 CIA2:TALATCH Timer A current value (16 bit)
             -- @IO:GS $DD16 CIA2:TALATCH Timer B current value (16 bit)
             -- @IO:GS $DD17 CIA2:TALATCH Timer B current value (16 bit)
-            -- @IO:GS $DD18.0-3 CIA2:TODJIF TOD 10ths of seconds value
+            -- @IO:GS $DD18.0-3 CIA2:TOD!JIF TOD 10ths of seconds value
             -- @IO:GS $DD18.4 CIA2:IMTB Interrupt mask for Timer B
-            -- @IO:GS $DD18.5 CIA2:IMALRM Interrupt mask for TOD alarm
+            -- @IO:GS $DD18.5 CIA2:IM!ALRM Interrupt mask for TOD alarm
             -- @IO:GS $DD18.6 CIA2:IMSP Interrupt mask for shift register (serial port)
             -- @IO:GS $DD18.7 CIA2:IMFLG Interrupt mask for FLAG line
             -- @IO:GS $DD19 CIA2:TODSEC TOD Alarm seconds value
             -- @IO:GS $DD1A CIA2:TODMIN TOD Alarm minutes value
-            -- @IO:GS $DD1B.0-6 CIA2:TODHOUR TOD hours value
-            -- @IO:GS $DD1B.7 CIA2:TODAMPM TOD AM/PM flag
-            -- @IO:GS $DD1C CIA2:ALRMJIF TOD Alarm 10ths of seconds value
-            -- @IO:GS $DD1C.7 CIA2:DD00DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
+            -- @IO:GS $DD1B.0-6 CIA2:TOD!HOUR TOD hours value
+            -- @IO:GS $DD1B.7 CIA2:TOD!AMPM TOD AM/PM flag
+            -- @IO:GS $DD1C.0-6 CIA2:ALRMJIF TOD Alarm 10ths of seconds value (actually all 8 bits)
+            -- @IO:GS $DD1C.7 CIA2:DD00!DELAY Enable delaying writes to $DD00 by 3 cycles to match real 6502 timing
             -- @IO:GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
             -- @IO:GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
-            -- @IO:GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
-            -- @IO:GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
+            -- @IO:GS $DD1F.0-6 CIA2:ALRM!HOUR TOD Alarm hours value
+            -- @IO:GS $DD1F.7 CIA2:ALRM!AMPM TOD Alarm AM/PM flag
             
           when x"10" => reg_timera_latch(7 downto 0) <= fastio_wdata;
           when x"11" => reg_timera_latch(15 downto 8) <= fastio_wdata;

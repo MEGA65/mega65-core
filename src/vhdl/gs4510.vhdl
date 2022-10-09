@@ -90,6 +90,8 @@ entity gs4510 is
     dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
     pixel_frame_toggle : in std_logic;
+
+    sid_audio : in signed(17 downto 0);
     
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0) := x"01";
@@ -536,6 +538,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_list_counter : integer range 0 to 12;
   signal dmagic_first_read : std_logic := '0';
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
+  signal dma_inline : std_logic := '0';
   signal reg_dmagic_withio : std_logic := '0';
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
@@ -558,6 +561,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_mode : std_logic := '0';
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
+  signal reg_dmagic_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
 
   signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
@@ -567,6 +571,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_s_line_mode : std_logic := '0';
   signal reg_dmagic_s_line_x_or_y : std_logic := '0';
   signal reg_dmagic_s_line_slope_negative : std_logic := '0';
+  signal reg_dmagic_s_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
   
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
@@ -575,6 +580,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_spiral_phase : unsigned(1 downto 0) := "00";
   signal reg_dmagic_floppy_mode : std_logic := '0';
   signal reg_dmagic_floppy_ignore_ff : std_logic := '0';
+  signal reg_dmagic_sid_mode : std_logic := '0';
   
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
@@ -875,6 +881,7 @@ architecture Behavioural of gs4510 is
     DMAgicFillPauseForAudioDMA,
     DMAgicFillPauseForFloppyWait,
     DMAgicCopyFloppyWrite,
+    DMAgicFillPauseForSIDWait,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
@@ -1456,7 +1463,11 @@ architecture Behavioural of gs4510 is
   signal floppy_gap_strobe : std_logic := '0';
   signal floppy_write_release_counter : integer range 0 to 8 := 0;
   signal floppy_write_counter : unsigned(8 downto 0) := to_unsigned(0,9);
-  
+
+  signal sid_sample_toggle : std_logic := '0';
+  signal last_sid_sample_toggle : std_logic := '0';
+  signal sid_sample_counter : integer range 0 to 1023 := 0;
+
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -3046,6 +3057,9 @@ begin
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
         -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3707") or (long_address = x"FFD1707") then
+        -- @IO:GS $D707 - Trigger Enhanced DMAgic job inline (i.e., beginning at PC value, and setting PC to end of job when done)
+        
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0   CPU:BADLEN Enable badline emulation
         -- @IO:GS $D710.1   CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
@@ -3438,6 +3452,7 @@ begin
       reg_dmagic_line_slope_negative <= '0';
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
+      reg_dmagic_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_line_x_or_y <= '0';
 
       reg_dmagic_s_x8_offset <= x"0000";
@@ -3447,10 +3462,12 @@ begin
       reg_dmagic_s_line_slope_negative <= '0';
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
+      reg_dmagic_s_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_s_line_x_or_y <= '0';
 
       reg_dmagic_floppy_mode <= '0';      
       reg_dmagic_draw_spiral <= '0';
+      reg_dmagic_sid_mode <= '0';      
     end procedure;
     
     procedure alu_op_cmp (
@@ -3684,6 +3701,13 @@ begin
 
     if rising_edge(clock) then
 
+      if sid_sample_counter /= 918 then
+        sid_sample_counter <= sid_sample_counter + 1;
+      else
+        sid_sample_counter <= 0;
+        sid_sample_toggle <= not sid_sample_toggle;
+      end if;
+      
       -- DMA-based floppy reading and writing support
       f_rdata <= f_read;
       f_rdata_last <= f_rdata;
@@ -4704,8 +4728,11 @@ begin
             & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
-                                        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
-        if last_write_address = x"FFD367E" and hypervisor_mode='1' then
+
+        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
+        -- But don't set it if written in a DMA copy, so that unfreezing
+        -- doesn't set the hypervisor upgraded flag. #530
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' and state /= DMAgicCopyWrite then
           hypervisor_upgraded <= '1';
         end if;
 
@@ -5347,6 +5374,7 @@ begin
                   when x"8d" => reg_dmagic_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"8e" => reg_dmagic_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
+                                reg_dmagic_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
@@ -5362,6 +5390,7 @@ begin
                   when x"9d" => reg_dmagic_s_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"9e" => reg_dmagic_s_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
+                                reg_dmagic_s_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_s_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_s_line_slope_negative <= memory_read_value(5);
                     
@@ -5399,6 +5428,7 @@ begin
                                   reg_dmagic_floppy_ignore_ff <= '1';
                     when x"0F" => reg_dmagic_floppy_mode <= '1';
                                   reg_dmagic_floppy_ignore_ff <= '0';
+                    when x"10" => reg_dmagic_sid_mode <= '1';                      
                     when x"53" => reg_dmagic_draw_spiral <= '1';
                                   reg_dmagic_spiral_phase <= "00";
                                   reg_dmagic_spiral_len <= 39;
@@ -5535,6 +5565,10 @@ begin
             when DMAgicFill =>
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
+              -- Clear first pixel of line flag
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+              
               -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               -- Update address and check for end of job.
@@ -5598,10 +5632,16 @@ begin
                   end if;
                 end if;
                 -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_line_x_or_y='0' then
-                  line_x_move := '1';
-                else
-                  line_y_move := '1';
+                -- But there is a delay of one pixel before the slope takes effect,
+                -- so handle this by not advancing the major axis on the first
+                -- pixel.  The first pixel will thus effectively be written to
+                -- twice.
+                if reg_dmagic_line_mode_skip_pixels="00" then
+                  if reg_dmagic_line_x_or_y='0' then
+                    line_x_move := '1';
+                  else
+                    line_y_move := '1';
+                  end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
@@ -5731,9 +5771,15 @@ begin
                   report "monitor_instruction_strobe assert (end of DMA job)";
                   monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
-                                        -- Reset DMAgic options to normal at the end of the last DMA job
-                                        -- in a chain.
+                  -- Reset DMAgic options to normal at the end of the last DMA job
+                  -- in a chain.                  
                   dmagic_reset_options;
+                  -- Continue after DMA job if it was an inline job
+                  if dma_inline='1' then
+                    reg_pc <= reg_dmagic_addr(15 downto 0);
+                    report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
+                    dma_inline <= '0';
+                  end if;
                 else
                                         -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -5745,8 +5791,15 @@ begin
                   state <= DMAgicFillPauseForAudioDMA;
                 end if;
 
+                -- XXX Note that floppy and SID handling modes override
+                -- background DMA audio.  These are the only DMA modes that
+                -- take priority.
                 if reg_dmagic_floppy_mode='1' and (floppy_gap_strobe='0' or (reg_dmagic_floppy_ignore_ff='1' and floppy_last_gap=x"ff")) then
                   state <= DMAgicFillPauseForFloppyWait;
+                end if;
+
+                if reg_dmagic_sid_mode='1' and sid_sample_toggle=last_sid_sample_toggle then
+                  state <= DMagicFillPauseForSidWait;
                 end if;
                 
               end if;
@@ -5768,6 +5821,9 @@ begin
                                         -- and can read or write on every cycle.
                                         -- so we need to read the first byte now.
 
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+            
                                         -- Do memory read
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               
@@ -5799,10 +5855,12 @@ begin
                   end if;
                 end if;
                 -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_s_line_x_or_y='0' then
-                  line_x_move := '1';
-                else
-                  line_y_move := '1';
+                if reg_dmagic_s_line_mode_skip_pixels="00" then
+                  if reg_dmagic_s_line_x_or_y='0' then
+                    line_x_move := '1';
+                  else
+                    line_y_move := '1';
+                  end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
@@ -5931,6 +5989,7 @@ begin
               cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
+
               -- Remember value just read
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
@@ -5984,10 +6043,12 @@ begin
                     end if;
                   end if;
                   -- Also move major axis (which is always in the forward direction)
-                  if reg_dmagic_line_x_or_y='0' then
-                    line_x_move := '1';
-                  else
-                    line_y_move := '1';
+                  if reg_dmagic_line_mode_skip_pixels= "00" then
+                    if reg_dmagic_line_x_or_y='0' then
+                      line_x_move := '1';
+                    else
+                      line_y_move := '1';
+                    end if;
                   end if;
                   if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- Y = Y + 1
@@ -6128,6 +6189,12 @@ begin
                                         -- Reset DMAgic options to normal at the end of the last DMA job
                                         -- in a chain.
                     dmagic_reset_options;
+                    -- Continue after DMA job if it was an inline job
+                    if dma_inline='1' then
+                      reg_pc <= reg_dmagic_addr(15 downto 0);
+                      report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
+                      dma_inline <= '0';
+                    end if;
                   else
                                         -- Chain to next DMA job
                     state <= DMAgicTrigger;
@@ -6161,6 +6228,12 @@ begin
                 -- Get updated floppy gap value into the spot that DMAgic will
                 -- use as the fill value.
                 dmagic_src_addr(15 downto 8) <= floppy_last_gap(8 downto 1);
+              end if;
+            when DMAgicFillPauseForSIDWait =>
+              if sid_sample_toggle /= last_sid_sample_toggle then
+                last_sid_sample_toggle <= sid_sample_toggle;
+                state <= DMAgicFill;
+                dmagic_src_addr(15 downto 8) <= unsigned(sid_audio(17 downto 10));
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
@@ -7766,6 +7839,8 @@ begin
                 axyz_phase <= axyz_phase + 1;
               end if;              
               if axyz_phase = 4 then
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 -- Go to next instruction by default
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
@@ -7805,6 +7880,8 @@ begin
                 reg_val32(7 downto 0) <= reg_x;
                 state <= StoreTarget32;
               else
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
                 else
@@ -8277,6 +8354,28 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3707"
+            or memory_access_address = x"FFD1707" then
+            report "DMAgic: Enhanced DMA pending, with MAP-honouring list reading, list inline at PC";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '1';
+            reg_dmagic_addr(15 downto 0) <= reg_pc;
+            dma_inline <= '1';
+
+            -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            -- (actually, we will over-write the PC with the next address after
+            -- running the DMA job, anyway)
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;          
           
           -- @IO:GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
           -- @IO:GS $D641 CPU:HTRAP01 @HTRAPXX
@@ -9380,7 +9479,7 @@ begin
         when MicrocodeInterpret =>
 
           report "BACKGROUNDDMA: in MicrocodeInterpret";
-          
+
           if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
           if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
           if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;

@@ -136,5 +136,3 @@
 !addr mult48_result5 = $d77d
 !addr mult48_result6 = $d77e
 !addr mult48_result7 = $d77f
-
-!addr viciv_magic = $d02f

@@ -24,42 +24,70 @@
 // #define USE_LOGGING
 #ifdef USE_LOGGING
 extern int log_depth;
-#define LOGDEPTHSPACE() { for(int i=0;i<log_depth;i++) fprintf(stderr," "); }
-#define LOGDEPTHADD() { log_depth++; LOGDEPTHSPACE(); }
-#define LOGDEPTHSUB() { LOGDEPTHSPACE(); log_depth--; }
+#define LOGDEPTHSPACE()                                                                                                     \
+  {                                                                                                                         \
+    for (int i = 0; i < log_depth; i++)                                                                                     \
+      fprintf(stderr, " ");                                                                                                 \
+  }
+#define LOGDEPTHADD()                                                                                                       \
+  {                                                                                                                         \
+    log_depth++;                                                                                                            \
+    LOGDEPTHSPACE();                                                                                                        \
+  }
+#define LOGDEPTHSUB()                                                                                                       \
+  {                                                                                                                         \
+    LOGDEPTHSPACE();                                                                                                        \
+    log_depth--;                                                                                                            \
+  }
 
-#define ENTER() { fflush(stdout); LOGDEPTHADD(); fprintf(stderr,"Entering %s()\n",__FUNCTION__); fflush(stderr); }
-#define EXIT() { fflush(stdout); LOGDEPTHSUB(); fprintf(stderr,"Exiting %s()\n",__FUNCTION__); fflush(stderr); }
-#define LOGNOTE(M) {fflush(stdout); LOGDEPTHSPACE(); fprintf(stderr,"%s:%d:%s():%s\n",__FILE__,__LINE__,__FUNCTION__,M); fflush(stderr); }
+#define ENTER()                                                                                                             \
+  {                                                                                                                         \
+    fflush(stdout);                                                                                                         \
+    LOGDEPTHADD();                                                                                                          \
+    fprintf(stderr, "Entering %s()\n", __FUNCTION__);                                                                       \
+    fflush(stderr);                                                                                                         \
+  }
+#define EXIT()                                                                                                              \
+  {                                                                                                                         \
+    fflush(stdout);                                                                                                         \
+    LOGDEPTHSUB();                                                                                                          \
+    fprintf(stderr, "Exiting %s()\n", __FUNCTION__);                                                                        \
+    fflush(stderr);                                                                                                         \
+  }
+#define LOGNOTE(M)                                                                                                          \
+  {                                                                                                                         \
+    fflush(stdout);                                                                                                         \
+    LOGDEPTHSPACE();                                                                                                        \
+    fprintf(stderr, "%s:%d:%s():%s\n", __FILE__, __LINE__, __FUNCTION__, M);                                                \
+    fflush(stderr);                                                                                                         \
+  }
 #else
 #define ENTER()
 #define EXIT()
 #endif
 
-
-
 #ifdef USE_LIBFTDI
 #include "ftdi.h"
 #else
-#define MPSSE_WRITE_NEG 0x01   /* Write TDI/DO on negative TCK/SK edge*/
-#define MPSSE_BITMODE   0x02   /* Write bits, not bytes */
-#define MPSSE_READ_NEG  0x04   /* Sample TDO/DI on negative TCK/SK edge */
-#define MPSSE_LSB       0x08   /* LSB first */
-#define MPSSE_DO_WRITE  0x10   /* Write TDI/DO */
-#define MPSSE_DO_READ   0x20   /* Read TDO/DI */
-#define MPSSE_WRITE_TMS 0x40   /* Write TMS/CS */
-#define SET_BITS_LOW    0x80
-#define SET_BITS_HIGH   0x82
-#define LOOPBACK_END    0x85
-#define TCK_DIVISOR     0x86
-#define DIS_DIV_5       0x8a
-#define CLK_BYTES       0x8f
-#define SEND_IMMEDIATE  0x87
+#define MPSSE_WRITE_NEG 0x01 /* Write TDI/DO on negative TCK/SK edge*/
+#define MPSSE_BITMODE 0x02   /* Write bits, not bytes */
+#define MPSSE_READ_NEG 0x04  /* Sample TDO/DI on negative TCK/SK edge */
+#define MPSSE_LSB 0x08       /* LSB first */
+#define MPSSE_DO_WRITE 0x10  /* Write TDI/DO */
+#define MPSSE_DO_READ 0x20   /* Read TDO/DI */
+#define MPSSE_WRITE_TMS 0x40 /* Write TMS/CS */
+#define SET_BITS_LOW 0x80
+#define SET_BITS_HIGH 0x82
+#define LOOPBACK_END 0x85
+#define TCK_DIVISOR 0x86
+#define DIS_DIV_5 0x8a
+#define CLK_BYTES 0x8f
+#define SEND_IMMEDIATE 0x87
 struct ftdi_context;
 #endif
 
-#define M(A)               ((A) & 0xff)
-#define USB_JTAG_ALTERA     0x9fb  /* idVendor */
+#define M(A) ((A)&0xff)
+#define USB_JTAG_ALTERA 0x9fb /* idVendor */
 
 extern FILE *logfile;
 extern int usb_bcddevice;
@@ -73,12 +101,12 @@ extern struct ftdi_context *global_ftdi;
 void memdump(const uint8_t *p, int len, char *title);
 
 typedef struct {
-    void          *dev;
-    int           idVendor;
-    int           idProduct;
-    int           bcdDevice;
-    int           bNumConfigurations;
-    unsigned char iSerialNumber[64], iManufacturer[64], iProduct[128];
+  void *dev;
+  int idVendor;
+  int idProduct;
+  int bcdDevice;
+  int bNumConfigurations;
+  unsigned char iSerialNumber[64], iManufacturer[64], iProduct[128];
 } USB_INFO;
 USB_INFO *fpgausb_init(void);
 void fpgausb_open(int device_index, int interface);

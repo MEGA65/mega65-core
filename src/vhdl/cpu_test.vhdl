@@ -396,7 +396,7 @@ begin
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
-      clock100 => clock100,
+--      clock100 => clock100,
       clock27 => clock27,
       clock162 => clock163,
       clock200 => clock200,
