@@ -1,9 +1,29 @@
+# Operating System detection and conditional compile options
+
+ifeq ($(OS),Windows_NT)
+    OSYSTEM := Windows
+else
+    OSYSTEM := $(shell sh -c 'uname 2>/dev/null || echo Unknown')
+endif
+
+ifeq ($(OSYSTEM),Windows) # MS Windows
+    COPT +=
+endif
+
+ifeq ($(OSYSTEM),Darwin) # Apple macOS
+    COPT += -Wall -g -std=gnu99 -I/opt/homebrew/include -L/opt/homebrew/lib
+endif
+
+ifeq ($(OSYSTEM),Linux) # Linux
+    COPT += -Wall -g -std=gnu99 -I/usr/local/include -L/usr/local/lib
+endif
+
 .SUFFIXES: .bin .prg
 .PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
 #COPT=	-Wall -g -std=gnu99 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope
 #CC=	clang
-COPT=	-Wall -g -std=gnu99
+#COPT=	-Wall -g -std=gnu99
 CC=	gcc
 
 
@@ -84,7 +104,13 @@ VERILOGSRCDIR=	$(SRCDIR)/verilog
 
 SDCARD_DIR=	sdcard-files
 
-CONVERT=	$(firstword $(wildcard /usr/bin/convert /usr/local/bin/convert))
+ifeq ($(OSYSTEM),Darwin) # Apple macOS
+        CONVERT=/opt/homebrew/bin/convert
+endif
+
+ifeq ($(OSYSTEM),Linux) # Linux
+        CONVERT=        $(firstword $(wildcard /usr/bin/convert /usr/local/bin/convert))
+endif
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -681,10 +707,10 @@ $(TOOLDIR)/vhdl-path-finder:	$(TOOLDIR)/vhdl-path-finder.c
 	$(CC) $(COPT) -o $(TOOLDIR)/vhdl-path-finder $(TOOLDIR)/vhdl-path-finder.c
 
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
+	$(CC) $(COPT) -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
 
 $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
+	$(CC) $(COPT) -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
 vfsimulate:	$(GHDL_DEPEND) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	$(info =============================================================)
@@ -956,10 +982,10 @@ $(BINDIR)/charrom.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.png
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
+	$(CC) $(COPT) -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
 
 $(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/giftotiles $(TOOLDIR)/pngprepare/giftotiles.c -lgif
+	$(CC) $(COPT) -o $(TOOLDIR)/pngprepare/giftotiles $(TOOLDIR)/pngprepare/giftotiles.c -lgif
 
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
@@ -1150,6 +1176,7 @@ clean:
 	rm -rf vivado/{mega65r1,megaphoner1,nexys4,nexys4ddr,nexys4ddr-widget,pixeltest,te0725}.{cache,runs,hw,ip_user_files,srcs,xpr}
 	rm -f $(TOOLS) $(UTILDIR)/version.s $(SRCDIR)/version.txt
 	rm -f FAIL.* PASS.*
+	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean
 	make -C src/mega65-fdisk clean
