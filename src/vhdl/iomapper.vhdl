@@ -1946,7 +1946,7 @@ begin
         sectorbuffercs_fast <= sbcs_en;
         report "selecting SD card sector buffer" severity note;
       end if;
-      -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
+      -- Also map SD card sector buffer at $FFD6000 - $FFD6FFF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
       -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
       -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
