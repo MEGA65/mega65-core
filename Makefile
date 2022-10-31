@@ -197,7 +197,8 @@ firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/ONBOARD.M65 \
-		$(SDCARD_DIR)/C000UTIL.BIN
+		$(SDCARD_DIR)/C000UTIL.BIN \
+		$(SDCARD_DIR)/ETHLOAD.M65
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
 		$(SDCARD_DIR)/MEGA65.ROM
@@ -800,6 +801,10 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(CC65_DEPEND)
 	# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
+
+$(SDCARD_DIR)/ETHLOAD.M65:	$(UTILDIR)/etherload.a65
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map
+
 
 $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
 	$(UTILDIR)/userwarning.sh
