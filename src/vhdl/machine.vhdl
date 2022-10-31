@@ -758,6 +758,8 @@ architecture Behavioral of machine is
 
   signal viciv_frame_indicate : std_logic;
 
+  signal eth_hyperrupt : std_logic;
+
   signal cpu_pcm_left : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_right : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_enable : std_logic := '0';
@@ -1056,6 +1058,7 @@ begin
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,      
       secure_mode_out => secure_mode_flag,
       secure_mode_from_monitor => secure_mode_from_monitor,
       clear_matrix_mode_toggle => clear_matrix_mode_toggle,
@@ -1524,6 +1527,7 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,
 
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,      

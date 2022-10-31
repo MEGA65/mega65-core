@@ -58,6 +58,7 @@ entity gs4510 is
     nmi : in std_logic;
     exrom : in std_logic;
     game : in std_logic;
+    eth_hyperrupt : in std_logic;
 
     all_pause : in std_logic;
     
@@ -699,6 +700,7 @@ architecture Behavioural of gs4510 is
   signal matrix_trap_pending : std_logic := '0';
   signal f011_read_trap_pending : std_logic := '0';
   signal f011_write_trap_pending : std_logic := '0';
+  signal eth_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -4444,7 +4446,7 @@ begin
         hyper_trap_edge <= '0';
       end if;
       hyper_trap_last <= hyper_trap;
-      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1')
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1' or eth_hyperrupt='1')
         and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
@@ -4454,6 +4456,8 @@ begin
           f011_read_trap_pending <='1';
         elsif hyper_trap_f011_write='1' then 
           f011_write_trap_pending <='1';
+        elsif eth_hyperrupt='1' then
+          eth_trap_pending <= '1';
         end if;
       else
         hyper_trap_state <= '1';
@@ -6300,6 +6304,10 @@ begin
                                         -- Trap #69 ($45) = SD/F011 write sector
                   hypervisor_trap_port <= "1000101";
                   f011_write_trap_pending <= '0';
+                elsif eth_trap_pending = '1' then
+                                        -- Trap #70 ($48) = Ethernet Hyperrupt
+                  hypervisor_trap_port <= "1001000";
+                  eth_trap_pending <= '0';
                 else
                                         -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     

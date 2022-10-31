@@ -53,6 +53,7 @@ entity iomapper is
         hyper_trap_f011_write : out std_logic;
         hyper_trap_count : out unsigned(7 downto 0);
         viciv_frame_indicate : in std_logic;
+        eth_hyperrupt : out std_logic;
 
         max10_fpga_date : in unsigned(15 downto 0);
         max10_fpga_commit : in unsigned(31 downto 0);
@@ -1025,7 +1026,8 @@ begin
 
     -- remote 
     eth_keycode_toggle => key_scancode_toggle,
-    eth_keycode => key_scancode,
+      eth_keycode => key_scancode,
+      eth_hyperrupt => eth_hyperrupt,
 
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
@@ -1163,7 +1165,11 @@ begin
         ethernet_cs => ethernet_cs,
 
         cpu_ethernet_stream => cpu_ethernet_stream,
-    
+
+        -- 2nd dipswitch enables remote keyboard input and remote control
+        -- of MEGA65 via ethernet
+        eth_remote_control => dipsw(1),
+        
         ---------------------------------------------------------------------------
         -- IO lines to the ethernet controller
         ---------------------------------------------------------------------------

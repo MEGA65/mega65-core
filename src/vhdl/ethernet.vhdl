@@ -53,6 +53,7 @@ entity ethernet is
     ethernet_cs : in std_logic;
 
     cpu_ethernet_stream : out std_logic := '0';
+    eth_remote_control : in std_logic;
     
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -1117,7 +1118,7 @@ begin  -- behavioural
                         &", but saw $" & to_hstring(eth_rxd & eth_rxbits);
                     end if;
                   end if;
-                  if rx_keyinput='1' and eth_videostream='1' and activity_dump='0' then
+                  if rx_keyinput='1' and ((eth_videostream='1' and activity_dump='0') or (eth_remote_control='1')) then
                     if to_integer(frame_length(10 downto 0)) = 110 then
                       eth_keycode(7 downto 0) <= eth_rxd & eth_rxbits;
                     end if;

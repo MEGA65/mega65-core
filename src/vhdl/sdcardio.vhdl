@@ -1885,7 +1885,7 @@ begin  -- behavioural
         write_sector_gate_open <= '0';
       end if;
       
-      -- XXX DEBUG toggle QSPI clock madly
+      -- Enable QSPI clock if in hypervisor mode, or 3rd dipswitch is enabled
       if qspi_clock_run = '1' and (hypervisor_mode='1' or dipsw(2)='1') then
         qspi_clock_int <= not qspi_clock_int;
       end if;

@@ -28,7 +28,8 @@ entity ps2_to_matrix is
     
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
+    eth_keycode : in unsigned(15 downto 0);
+    eth_hyperrupt_out : out std_logic := '0'
     );
 
 end entity ps2_to_matrix;
@@ -109,6 +110,8 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(cpuclock) then      
 
+      eth_hyperrupt_out <= '0';
+      
       joya <= joy1(4 downto 0);
       joyb <= joy2(4 downto 0);
       
@@ -153,14 +156,20 @@ begin  -- behavioural
 
       -- Allow injection of PS/2 scan codes via ethernet or other side channel
       if eth_keycode_toggle /= eth_keycode_toggle_last then
-        scan_code <= eth_keycode(7 downto 0);
-        break <= eth_keycode(12);
-        extended <= eth_keycode(8);        
-        eth_keycode_toggle_last <= eth_keycode_toggle;
+        if eth_keycode(12 downto 0) = to_unsigned(0,13) then
+          -- Trigger ethernet hyperrupt
+          eth_hyperrupt_out <= '1';
+        else
+          -- It's really a key, so process it
+          scan_code <= eth_keycode(7 downto 0);
+          break <= eth_keycode(12);
+          extended <= eth_keycode(8);        
+          eth_keycode_toggle_last <= eth_keycode_toggle;
         
-        -- now rig status so that next cycle the key event will be processed
-        ps2state <= Bit7;
-        ethernet_keyevent <= '1';        
+          -- now rig status so that next cycle the key event will be processed
+          ps2state <= Bit7;
+          ethernet_keyevent <= '1';
+        end if;
       elsif (ps2clock_debounced = '0' and ps2clock_prev = '1')
         or (ethernet_keyevent = '1') then
         ethernet_keyevent <= '0';

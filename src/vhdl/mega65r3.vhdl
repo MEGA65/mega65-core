@@ -549,9 +549,7 @@ begin
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
-        -- Disable HDMI-style audio if one
-        -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
-        -- this behaviour
+        -- Disable HDMI-style audio if one (from portp bit 1)
         dvi => dvi_select, 
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
@@ -1095,8 +1093,8 @@ begin
     if rising_edge(cpuclock) then      
 
       portp_drive <= portp;
-      
-      dvi_select <= portp_drive(1) xor dipsw(1);
+
+      dvi_select <= portp_drive(1);
       
       reset_high <= not btncpureset;
 
