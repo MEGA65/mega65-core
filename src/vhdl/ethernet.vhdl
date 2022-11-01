@@ -1257,9 +1257,8 @@ begin  -- behavioural
             fastio_rdata(7) <= eth_tx_idle_cpuside;
             -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers freed
             fastio_rdata(6) <= eth_rx_blocked;
-            -- @IO:GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
-            -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-            fastio_rdata(4) <= eth_keycode_toggle_internal;
+            -- @IO:GS $D6E0.4 ETH:RCENABLED (read only) Ethernet remote control enable status
+            fastio_rdata(4) <= eth_remote_control;
             -- @IO:GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
             fastio_rdata(3) <= eth_rxdv;
             -- @IO:GS $D6E0.2 ETH:DRXD Read ethernet RX bits currently on the wire

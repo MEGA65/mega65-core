@@ -426,6 +426,14 @@ architecture behavioral of iomapper is
 
   signal reset_high : std_logic;
 
+  signal combined_scancode_toggle : std_logic := '0';
+  signal internal_combined_scancode_toggle : std_logic := '0';
+  signal combined_scancode : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal last_key_scancode_toggle : std_logic := '0';
+  signal last_eth_scancode_toggle : std_logic := '0';
+  signal eth_scancode_toggle : std_logic := '0';
+  signal eth_scancode : unsigned(15 downto 0) := to_unsigned(0,16);
+  
   signal capslock_from_keymapper : std_logic := '1';
   signal key_debug : std_logic_vector(7 downto 0);
   signal widget_disable : std_logic;
@@ -485,9 +493,6 @@ architecture behavioral of iomapper is
   signal buffer_address : unsigned(11 downto 0);
   signal buffer_rdata : unsigned(7 downto 0);
   signal debug_vector : unsigned(63 downto 0);
-
-  signal eth_keycode_toggle : std_logic;
-  signal eth_keycode : unsigned(15 downto 0);
 
   signal keyboard_column8_select : std_logic;
 
@@ -1020,15 +1025,12 @@ begin
     widget_joyb => widget_joyb,
       
       
-    -- remote keyboard input via ethernet
---    eth_keycode_toggle => eth_keycode_toggle,
---    eth_keycode => eth_keycode
-
-    -- remote 
-    eth_keycode_toggle => key_scancode_toggle,
-      eth_keycode => key_scancode,
-      eth_hyperrupt => eth_hyperrupt,
-
+      -- remote keyboard input via ethernet / serial monitor
+      -- We combine ethernet and uart_monitor inputs together
+    eth_hyperrupt => eth_hyperrupt,
+    eth_keycode_toggle => combined_scancode_toggle,
+    eth_keycode => combined_scancode,
+      
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
@@ -1195,8 +1197,8 @@ begin
         instruction_strobe => monitor_instruction_strobe,
         cpu_arrest => ethernet_cpu_arrest,
         
-        eth_keycode_toggle => eth_keycode_toggle,
-        eth_keycode => eth_keycode,
+        eth_keycode_toggle => eth_scancode_toggle,
+        eth_keycode => eth_scancode,
         
         fastio_addr => unsigned(address),
         fastio_write => w,
@@ -1614,6 +1616,18 @@ begin
 
     if rising_edge(cpuclock) then
 
+      if key_scancode_toggle /= last_key_scancode_toggle then
+        last_key_scancode_toggle <= key_scancode_toggle;
+        combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        internal_combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        combined_scancode <= key_scancode;
+      elsif eth_scancode_toggle /= last_eth_scancode_toggle then
+        last_eth_scancode_toggle <= eth_scancode_toggle;
+        combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        internal_combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        combined_scancode <= eth_scancode;
+      end if;
+      
       -- Direct export of SID audio for supporting SID debugging
       rightsid_audio_out <= rightsid_audio;
       
@@ -1730,7 +1744,7 @@ begin
       iec_data_o <= iec_data_fromcia;
       iec_atn_o <= iec_atn_fromcia;
       
-      seg_led(12) <= eth_keycode_toggle;
+      seg_led(12) <= eth_scancode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
 
