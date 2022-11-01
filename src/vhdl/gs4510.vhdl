@@ -3265,7 +3265,7 @@ begin
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
         if long_address(19 downto 17)="001" then
-          shadow_write <= not rom_writeprotect;
+          shadow_write <= (not rom_writeprotect) or hypervisor_mode;
         else
           shadow_write <= '1';
         end if;
@@ -9702,7 +9702,9 @@ begin
         
         if long_address(27 downto 17)="00000000001" then
           report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
-          shadow_write_var := not rom_writeprotect;
+          -- allow hypervisor to always be able to write to ROM area.
+          -- (unfreezing requires it)
+          shadow_write_var := (not rom_writeprotect) or hypervisor_mode;
           shadow_address_var := to_integer(long_address(19 downto 0));
         elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
