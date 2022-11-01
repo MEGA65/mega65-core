@@ -50,6 +50,12 @@ unfreeze_load_from_sdcard_immediate:
         ;; (We will load it in as the very last thing)
         jsr sd_inc_sectornumber
 
+	;; Save ROM write protect state, before disabling it to enable unfreezing
+	lda hypervisor_feature_enables
+	pha
+	and #$fb
+	sta hypervisor_feature_enables
+	
         ;; Save each region in the list
         ldx #$00
 
@@ -78,6 +84,10 @@ unfreeze_next_region:
         cmp #$ff
         bne unfreeze_next_region
 
+	;; Finished unfreezing, so restore ROM protection status
+	pla
+	sta hypervisor_feature_enables
+	
         ;; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
         ;; 1. Detach
