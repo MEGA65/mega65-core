@@ -1141,6 +1141,21 @@ begin  -- behavioural
                     eth_key_debug(1) <= rx_keyinput;
                     eth_key_debug(0) <= eth_videostream;
                   end if;
+                  if to_integer(frame_length(10 downto 0)) = 101 then
+                    eth_key_debug(3) <= rx_keyinput;
+                  end if;
+                  if to_integer(frame_length(10 downto 0)) = 102 then
+                    eth_key_debug(4) <= rx_keyinput;
+                  end if;
+                  if to_integer(frame_length(10 downto 0)) = 103 then
+                    eth_key_debug(5) <= rx_keyinput;
+                  end if;
+                  if to_integer(frame_length(10 downto 0)) = 104 then
+                    eth_key_debug(6) <= rx_keyinput;
+                  end if;
+                  if to_integer(frame_length(10 downto 0)) = 110 then
+                    eth_key_debug(7) <= rx_keyinput;
+                  end if;
                   
                   -- update CRC calculation
                   rx_fcs_crc_data_in <= std_logic_vector(eth_rxd) & std_logic_vector(eth_rxbits);
