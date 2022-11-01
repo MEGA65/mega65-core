@@ -1134,12 +1134,14 @@ begin  -- behavioural
                         &", eth_videostream=" & std_logic'image(eth_videostream);
                     end if;
                   end if;
-                  -- help debug ethernet key reception by making 100th byte visible
-                  if to_integer(frame_length(10 downto 0)) = 100 then
+                  -- help debug ethernet key reception by making 111th byte visible
+                  -- also show whether we accepted the magic packet or not etc
+                  if to_integer(frame_length(10 downto 0)) = 111 then
                     eth_byte_100 <= eth_rxd & eth_rxbits;
                     eth_key_debug(2) <= eth_remote_control;
                     eth_key_debug(1) <= rx_keyinput;
                     eth_key_debug(0) <= eth_videostream;
+                    eth_key_debug(6) <= eth_keycode_toggle_internal;
                   end if;
                   if to_integer(frame_length(10 downto 0)) = 101 then
                     eth_key_debug(3) <= rx_keyinput;
@@ -1149,9 +1151,6 @@ begin  -- behavioural
                   end if;
                   if to_integer(frame_length(10 downto 0)) = 103 then
                     eth_key_debug(5) <= rx_keyinput;
-                  end if;
-                  if to_integer(frame_length(10 downto 0)) = 104 then
-                    eth_key_debug(6) <= rx_keyinput;
                   end if;
                   if to_integer(frame_length(10 downto 0)) = 110 then
                     eth_key_debug(7) <= rx_keyinput;
@@ -1330,7 +1329,12 @@ begin  -- behavioural
           -- @IO:GS $D6EC ETH:MACADDR4 @MACADDRX
           -- @IO:GS $D6ED ETH:MACADDR5 @MACADDRX
           -- @IO:GS $D6EE ETH:MACADDR6 @MACADDRX
-          when x"9" => fastio_rdata <= eth_mac(47 downto 40);
+          when x"9" =>
+            if eth_disable_crc_check='0' then
+              fastio_rdata <= eth_mac(47 downto 40);
+            else 
+              fastio_rdata <= eth_offset_fail;
+            end if;
           when x"A" =>
             if eth_disable_crc_check='0' then
               fastio_rdata <= eth_mac(39 downto 32);

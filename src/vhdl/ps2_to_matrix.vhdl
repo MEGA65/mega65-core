@@ -156,7 +156,7 @@ begin  -- behavioural
 
       -- Allow injection of PS/2 scan codes via ethernet or other side channel
       if eth_keycode_toggle /= eth_keycode_toggle_last then
-        if eth_keycode(12 downto 0) = to_unsigned(0,13) then
+        if eth_keycode(15 downto 0) = x"8000" then
           -- Trigger ethernet hyperrupt
           eth_hyperrupt_out <= '1';
         else
