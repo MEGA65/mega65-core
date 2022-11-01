@@ -157,6 +157,7 @@ begin  -- behavioural
       ps2clock_prev <= ps2clock_debounced;
 
       -- Allow injection of PS/2 scan codes via ethernet or other side channel
+      last_scan_code(10) <= eth_keycode_toggle;
       if eth_keycode_toggle /= eth_keycode_toggle_last then
         eth_keycode_toggle_last <= eth_keycode_toggle;
         if eth_keycode(15 downto 0) = x"8000" then
@@ -235,7 +236,6 @@ begin  -- behavioural
                          -- Let the CPU read the most recent scan code for
                          -- debugging keyboard layout.
                          last_scan_code(12) <= break;
-                         last_scan_code(10 downto 9) <= "00";
                          last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
 
                          case full_scan_code is
