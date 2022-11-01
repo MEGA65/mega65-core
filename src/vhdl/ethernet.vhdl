@@ -1320,7 +1320,7 @@ begin  -- behavioural
             if eth_disable_crc_check='0' then
               fastio_rdata <= eth_mac(39 downto 32);
             else
-              fastio_rdata <= eth_key_debug;
+              fastio_rdata <= eth_byte_100;
             end if;
           when x"B" =>
             if eth_disable_crc_check='0' then
