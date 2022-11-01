@@ -1137,6 +1137,7 @@ begin  -- behavioural
                   -- help debug ethernet key reception by making 100th byte visible
                   if to_integer(frame_length(10 downto 0)) = 100 then
                     eth_byte_100 <= eth_rxd & eth_rxbits;
+                    eth_key_debug(2) <= eth_remote_control;
                     eth_key_debug(1) <= rx_keyinput;
                     eth_key_debug(0) <= eth_videostream;
                   end if;
@@ -1315,14 +1316,25 @@ begin  -- behavioural
           -- @IO:GS $D6ED ETH:MACADDR5 @MACADDRX
           -- @IO:GS $D6EE ETH:MACADDR6 @MACADDRX
           when x"9" => fastio_rdata <= eth_mac(47 downto 40);
-          when x"A" => fastio_rdata <= eth_mac(39 downto 32);
-          when x"B" => fastio_rdata <= eth_mac(31 downto 24);
+          when x"A" =>
+            if eth_disable_crc_check='0' then
+              fastio_rdata <= eth_mac(39 downto 32);
+            else
+              fastio_rdata <= eth_key_debug;
+            end if;
+          when x"B" =>
+            if eth_disable_crc_check='0' then
+              fastio_rdata <= eth_mac(31 downto 24);
+            else
+              fastio_rdata <= eth_key_debug;
+            end if;
           when x"C" =>
             -- XXX Allow debug reading of rxbuff positions
             if eth_disable_crc_check='0' then
               fastio_rdata <= eth_mac(23 downto 16);
             else
               fastio_rdata <= to_unsigned(rxbuff_id_cpuside,8);
+              fastio_rdata(7) <= eth_remote_control;
             end if;
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" =>
