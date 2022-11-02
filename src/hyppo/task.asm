@@ -216,9 +216,9 @@ ethernet_remote_trap:
         jsr task_dummy_nmi_vector
 
         ;; set entry point and memory config
-        lda #<2061
+        lda #<$c000
         sta hypervisor_pcl
-        lda #>2061
+        lda #>$c000
         sta hypervisor_pch
 
 	jmp safe_exit_to_loaded_program

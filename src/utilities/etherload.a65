@@ -10,9 +10,6 @@
 
 programentrypoint:
 	sei
-	lda #$01
-	sta $0268
-	jsr $e544
 
 	; C65GS io
 	lda #$47
@@ -23,32 +20,6 @@ programentrypoint:
 	; Fast CPU
 	lda #65
 	sta 0
-
-	; Reset ethernet controller
-	lda #0
-	sta $d6e0
-	; Needs to stay low for ~100ms to be safe
-	lda $d7fa
-	clc
-	adc #$6
-frame_count_wait:
-	cmp $d7fa
-	bne frame_count_wait
-	lda #3
-	sta $d6e0
-
-emptyingqueue:
-	; Clear all RX buffers
-	lda $d6e1
-	and #$20
-	beq queueempty
-
-	lda #$01
-	sta $d6e1
-	lda #$03
-	sta $d6e3
-	jmp emptyingqueue
-queueempty:
 
 	; Set ethernet controller mode
 	lda #$31  ; Enable promiscuous mode, multicast and broadcast RX
