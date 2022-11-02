@@ -387,6 +387,9 @@ architecture behavioural of ethernet is
   signal eth_mode_100 : std_logic := '1';
   signal eth_dibit_strobe : std_logic := '1';
   signal eth_10mbit_strobe : std_logic_vector(9 downto 0) := "1000000000";  
+
+  signal ack_rx_frame_toggle : std_logic := '0';
+  signal last_ack_rx_frame_toggle : std_logic := '0';
   
   -- Reverse the input vector.
   function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1396,6 +1399,42 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- If all RX buffers are full and we have remote control enabled,
+      -- then ack the oldest frame to keep being able to receive remote
+      -- control frames.
+      if eth_rx_blocked='1' and eth_remote_control='1' then
+        ack_rx_frame_toggle <= not ack_rx_frame_toggle;        
+      end if;
+      
+      if last_ack_rx_frame_toggle /= ack_rx_frame_toggle then
+        last_ack_rx_frame_toggle <= ack_rx_frame_toggle;
+        rx_rotate_count <= rx_rotate_count + 1;
+        
+        -- Give time for signals to propagate between attempts.
+        -- This also helps to make sure we don't get successive write
+        -- glitching, when M65 CPU sometimes writes to an address for 2
+        -- cycles instead of one.
+        
+        -- Advance to next buffer, if there are any
+        if rxbuff_id_cpuside_plus1 = rxbuff_id_ethside then
+          -- No more waiting packets: Point the CPU to the buffer just
+          -- before where the ethernet side is writing to.
+          if rxbuff_id_ethside /= 0 then
+            rxbuff_id_cpuside <= rxbuff_id_ethside - 1;
+          else
+            rxbuff_id_cpuside <= num_buffers - 1;
+          end if;
+        else
+          if rxbuff_id_cpuside /= (num_buffers-1) then
+            rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
+          else
+            rxbuff_id_cpuside <= 0;
+          end if;
+        end if;
+
+      end if;
+
+      
       -- Compute Ethernet RX buffer CS line state for reads
       rxbuffer_cs_vector <= (others => '0');
       rxbuffer_cs_vector(rxbuff_id_cpuside) <= '1';
@@ -1678,31 +1717,8 @@ begin  -- behavioural
               last_rx_rotate_bit <= fastio_wdata(1);
               if fastio_wdata(1) = '1' and last_rx_rotate_bit = '0' then
                 -- Request next RX'd packet (if any)
+                ack_rx_frame_toggle <= not ack_rx_frame_toggle;
 
-                rx_rotate_count <= rx_rotate_count + 1;
-                
-                -- Give time for signals to propagate between attempts.
-                -- This also helps to make sure we don't get successive write
-                -- glitching, when M65 CPU sometimes writes to an address for 2
-                -- cycles instead of one.
-
-                -- Advance to next buffer, if there are any
-                if rxbuff_id_cpuside_plus1 = rxbuff_id_ethside then
-                  -- No more waiting packets: Point the CPU to the buffer just
-                  -- before where the ethernet side is writing to.
-                  if rxbuff_id_ethside /= 0 then
-                    rxbuff_id_cpuside <= rxbuff_id_ethside - 1;
-                  else
-                    rxbuff_id_cpuside <= num_buffers - 1;
-                  end if;
-                else
-                  if rxbuff_id_cpuside /= (num_buffers-1) then
-                    rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
-                  else
-                    rxbuff_id_cpuside <= 0;
-                  end if;
-                end if;
-                
               end if;
 
             -- @IO:GS $D6E1.0 RESERVED
