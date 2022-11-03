@@ -2128,7 +2128,6 @@ void read_ppbl(void)
   spi_cs_low();
   delay();
   spi_tx_byte(0xa7);
-  reg_ppbl=spi_rx_byte();
   spi_cs_high();
   delay();
 }
@@ -2145,7 +2144,6 @@ void read_ppb_for_sector(unsigned long sector_start)
   spi_tx_byte(sector_start>>16);
   spi_tx_byte(sector_start>> 8);
   spi_tx_byte(sector_start>> 0);
-  reg_ppb=spi_rx_byte();
   spi_cs_high();
   delay();  
 }
