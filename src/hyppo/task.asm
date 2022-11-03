@@ -216,6 +216,11 @@ ethernet_remote_trap:
         jsr task_dummy_nmi_vector
 
         ;; set entry point and memory config
+	;; after first saving PC for recovery
+	lda hypervisor_pcl
+	sta $c0fe
+	lda hypervisor_pch
+	sta $c0ff
         lda #<$c000
         sta hypervisor_pcl
         lda #>$c000
