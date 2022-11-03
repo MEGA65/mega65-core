@@ -55,7 +55,9 @@ use work.cputypes.all;
 entity machine is
   generic (cpu_frequency : integer;
            hyper_installed : boolean := false;
-           target : mega65_target_t );
+           target : mega65_target_t;
+           num_eth_rx_buffers : integer := 4
+           );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
@@ -756,6 +758,8 @@ architecture Behavioral of machine is
 
   signal viciv_frame_indicate : std_logic;
 
+  signal eth_hyperrupt : std_logic;
+
   signal cpu_pcm_left : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_right : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_enable : std_logic := '0';
@@ -1054,6 +1058,7 @@ begin
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,      
       secure_mode_out => secure_mode_flag,
       secure_mode_from_monitor => secure_mode_from_monitor,
       clear_matrix_mode_toggle => clear_matrix_mode_toggle,
@@ -1498,7 +1503,9 @@ begin
   
   iomapper0: entity work.iomapper
     generic map ( target => target,
-                  cpu_frequency => cpu_frequency)
+                  cpu_frequency => cpu_frequency,
+                  num_eth_rx_buffers => num_eth_rx_buffers
+)
     port map (
       cpuclock => cpuclock,
       clock200mhz => clock200,
@@ -1520,6 +1527,7 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,
 
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,      

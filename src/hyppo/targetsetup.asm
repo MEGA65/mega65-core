@@ -19,9 +19,8 @@ targetspecific_setup:
 	cmp #$03
 	beq mega65r3_i2c_setup
 	lda $d629
-	and #$e0
 	cmp #$20
-	beq megaphone_i2c_setup
+	beq megaphone_r1_i2c_setup
 	rts
 	
 mega65r3_i2c_setup:	
@@ -56,7 +55,7 @@ mps3_loop:
 
         jmp mps3_loop
 	
-megaphone_i2c_setup:
+megaphone_r1_i2c_setup:
 
         ;; Start with backscreen very dim, to avoid inrush current
         ;; causing FGPA power rail to sag.
@@ -67,7 +66,7 @@ megaphone_i2c_setup:
         sta $d020
         ldy #$00
 mps_loop:
-        lda megaphone_i2c_settings,y
+        lda megaphone_r1_i2c_settings,y
         cmp #$ff
         bne +
         ldz #$00
@@ -80,7 +79,7 @@ mps_loop:
 +
         taz
         iny
-        lda megaphone_i2c_settings,y
+        lda megaphone_r1_i2c_settings,y
         iny
 
 
@@ -99,7 +98,7 @@ mps_loop:
         jmp mps_loop
 
 
-megaphone_i2c_settings:
+megaphone_r1_i2c_settings:
         ;; LCD panel
         !8 $16,$40 ;; Port 0 to output, except LCD backlight line, that we now control via an FPGA pin
         !8 $17,$00 ;; Port 1 to output

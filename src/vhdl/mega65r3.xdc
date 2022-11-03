@@ -348,6 +348,10 @@ set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_p
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 #set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_crs_dv]
 
+create_clock –name eth_rx_clock –period  20 –waveform  {0 10} [get_ports {eth_clock}]
+set_input_delay -clock [get_clocks eth_rx_clock] -max 15[get_ports {eth_rxd[1] eth_rxd[0]}]
+set_input_delay -clock [get_clocks eth_rx_clock] -min 5[get_ports {eth_rxd[1] eth_rxd[0]}]
+
 ##USB-RS232 Interface
 #
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
@@ -447,3 +451,10 @@ set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
 set_clock_groups -asynchronous \
      -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
      -group { CLKOUT1 u_clock200}
+
+
+# NEOTRNG exceptions
+set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
+set_disable_timing cpu0i_10/trng0/i_1/i_6 -from B -to Z
+set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from A -to Z
+set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from B -to Z

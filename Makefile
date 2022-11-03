@@ -208,7 +208,8 @@ firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/ONBOARD.M65 \
-		$(SDCARD_DIR)/C000UTIL.BIN
+		$(SDCARD_DIR)/C000UTIL.BIN \
+		$(SDCARD_DIR)/ETHLOAD.M65
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
 		$(SDCARD_DIR)/MEGA65.ROM
@@ -653,6 +654,18 @@ miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
 	$(GHDL) -i $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
+
+ETHFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
+		$(VHDLSRCDIR)/test_ethernet.vhdl
+
+ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(ETHFILES)
+	$(GHDL) -m test_ethernet
+	( ./test_ethernet || $(GHDL) -r test_ethernet )
+
+
 
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl

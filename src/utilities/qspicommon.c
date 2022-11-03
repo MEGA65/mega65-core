@@ -1435,6 +1435,7 @@ void probe_qspi_flash(void)
     fetch_rdid();
     read_registers();
   }
+  
 
 #ifdef QSPI_VERBOSE
   for (i = 0; i < 0x80; i++) {
@@ -2116,6 +2117,37 @@ void read_sr1(void)
   reg_sr1 = spi_rx_byte();
   spi_cs_high();
   delay();
+}
+
+void read_ppbl(void)
+{
+  // PPB Lock Register
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xa7);
+  reg_ppbl=spi_rx_byte();
+  spi_cs_high();
+  delay();
+}
+
+void read_ppb_for_sector(unsigned long sector_start)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xe2);
+  spi_tx_byte(sector_start>>24);
+  spi_tx_byte(sector_start>>16);
+  spi_tx_byte(sector_start>> 8);
+  spi_tx_byte(sector_start>> 0);
+  reg_ppb=spi_rx_byte();
+  spi_cs_high();
+  delay();  
 }
 
 void spi_write_enable(void)

@@ -8,7 +8,8 @@ use work.cputypes.all;
 
 entity iomapper is
   generic ( target : mega65_target_t;
-            cpu_frequency : integer
+            cpu_frequency : integer;
+            num_eth_rx_buffers : integer := 4
              );
   port (cpuclock : in std_logic;
         clock200mhz : in std_logic;
@@ -52,6 +53,7 @@ entity iomapper is
         hyper_trap_f011_write : out std_logic;
         hyper_trap_count : out unsigned(7 downto 0);
         viciv_frame_indicate : in std_logic;
+        eth_hyperrupt : out std_logic;
 
         max10_fpga_date : in unsigned(15 downto 0);
         max10_fpga_commit : in unsigned(31 downto 0);
@@ -424,6 +426,14 @@ architecture behavioral of iomapper is
 
   signal reset_high : std_logic;
 
+  signal combined_scancode_toggle : std_logic := '0';
+  signal internal_combined_scancode_toggle : std_logic := '0';
+  signal combined_scancode : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal last_key_scancode_toggle : std_logic := '0';
+  signal last_eth_scancode_toggle : std_logic := '0';
+  signal eth_scancode_toggle : std_logic := '0';
+  signal eth_scancode : unsigned(15 downto 0) := to_unsigned(0,16);
+  
   signal capslock_from_keymapper : std_logic := '1';
   signal key_debug : std_logic_vector(7 downto 0);
   signal widget_disable : std_logic;
@@ -483,9 +493,6 @@ architecture behavioral of iomapper is
   signal buffer_address : unsigned(11 downto 0);
   signal buffer_rdata : unsigned(7 downto 0);
   signal debug_vector : unsigned(63 downto 0);
-
-  signal eth_keycode_toggle : std_logic;
-  signal eth_keycode : unsigned(15 downto 0);
 
   signal keyboard_column8_select : std_logic;
 
@@ -699,7 +706,7 @@ begin
   -- currently not porduce any problems, as it is not yet used
   -- anywhere in the design! But it might if this changes...
   drive1541_mega65r3:
-  if target /= mega65r2 generate
+  if target = mega65r3 generate
     drive1541: entity work.internal1541
       port map (
         clock => cpuclock,
@@ -1018,14 +1025,12 @@ begin
     widget_joyb => widget_joyb,
       
       
-    -- remote keyboard input via ethernet
---    eth_keycode_toggle => eth_keycode_toggle,
---    eth_keycode => eth_keycode
-
-    -- remote 
-    eth_keycode_toggle => key_scancode_toggle,
-    eth_keycode => key_scancode,
-
+      -- remote keyboard input via ethernet / serial monitor
+      -- We combine ethernet and uart_monitor inputs together
+    eth_hyperrupt => eth_hyperrupt,
+    eth_keycode_toggle => combined_scancode_toggle,
+    eth_keycode => combined_scancode,
+      
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
@@ -1148,50 +1153,60 @@ begin
     end generate;
   
   
-  ethernet0 : entity work.ethernet port map (
-    clock50mhz => clock50mhz,
-    clock200 => clock200mhz,
-    clock => cpuclock,
-    reset => reset,
-    irq => ethernet_irq,
-    ethernet_cs => ethernet_cs,
+  eth0: if target /= megaphoner4 generate
+    ethernet0 : entity work.ethernet
+      generic map (
+        num_buffers => num_eth_rx_buffers
+        )
+      port map (
+        clock50mhz => clock50mhz,
+        clock200 => clock200mhz,
+        clock => cpuclock,
+        reset => reset,
+        irq => ethernet_irq,
+        ethernet_cs => ethernet_cs,
 
-    cpu_ethernet_stream => cpu_ethernet_stream,
-    
-    ---------------------------------------------------------------------------
-    -- IO lines to the ethernet controller
-    ---------------------------------------------------------------------------
-    eth_mdio => eth_mdio,
-    eth_mdc => eth_mdc,
-    eth_reset => eth_reset,
-    eth_rxd_in => eth_rxd,
-    eth_txd_out => eth_txd,
-    eth_txen_out => eth_txen,
-    eth_rxdv_in => eth_rxdv,
-    eth_rxer => eth_rxer,
-    eth_interrupt => eth_interrupt,
+        cpu_ethernet_stream => cpu_ethernet_stream,
 
-    buffer_moby_toggle => buffer_moby_toggle,
-    buffer_offset => buffer_offset,
-    buffer_address => buffer_address,
-    buffer_rdata => buffer_rdata,
-    debug_vector => debug_vector,
-    raster_number => raster_number,
-    vicii_raster => vicii_raster,
-    badline_toggle => badline_toggle,
-    d031_write_toggle => d031_write_toggle,
-    instruction_strobe => monitor_instruction_strobe,
-    cpu_arrest => ethernet_cpu_arrest,
-    
-    eth_keycode_toggle => eth_keycode_toggle,
-    eth_keycode => eth_keycode,
-
-    fastio_addr => unsigned(address),
-    fastio_write => w,
-    fastio_read => r,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_wdata => unsigned(data_i)
-    );
+        -- 2nd dipswitch enables remote keyboard input and remote control
+        -- of MEGA65 via ethernet
+        eth_remote_control => dipsw(1),
+        
+        ---------------------------------------------------------------------------
+        -- IO lines to the ethernet controller
+        ---------------------------------------------------------------------------
+        eth_mdio => eth_mdio,
+        eth_mdc => eth_mdc,
+        eth_reset => eth_reset,
+        eth_rxd_in => eth_rxd,
+        eth_txd_out => eth_txd,
+        eth_txen_out => eth_txen,
+        eth_rxdv_in => eth_rxdv,
+        eth_rxer => eth_rxer,
+        eth_interrupt => eth_interrupt,
+        
+        buffer_moby_toggle => buffer_moby_toggle,
+        buffer_offset => buffer_offset,
+        buffer_address => buffer_address,
+        buffer_rdata => buffer_rdata,
+        debug_vector => debug_vector,
+        raster_number => raster_number,
+        vicii_raster => vicii_raster,
+        badline_toggle => badline_toggle,
+        d031_write_toggle => d031_write_toggle,
+        instruction_strobe => monitor_instruction_strobe,
+        cpu_arrest => ethernet_cpu_arrest,
+        
+        eth_keycode_toggle => eth_scancode_toggle,
+        eth_keycode => eth_scancode,
+        
+        fastio_addr => unsigned(address),
+        fastio_write => w,
+        fastio_read => r,
+        std_logic_vector(fastio_rdata) => data_o,
+        fastio_wdata => unsigned(data_i)
+        );
+  end generate;
   
   buffered_uart0 : entity work.buffereduart port map (
     clock => cpuclock,
@@ -1310,9 +1325,11 @@ begin
         std_logic_vector(fastio_rdata) => data_o
     );
   end generate;      
-  
+
+  -- XXX I2C bus of the MEGAphone R4 is currently disabled, as it is tied to
+  -- the OrangeCrab as well.  We need to separate these two.
   i2cperiph_megaphone:
-  if target = megaphoner1 generate
+  if (target = megaphoner1) generate
     i2c1: entity work.i2c_wrapper
       generic map ( clock_frequency => cpu_frequency )
       port map (
@@ -1599,6 +1616,18 @@ begin
 
     if rising_edge(cpuclock) then
 
+      if key_scancode_toggle /= last_key_scancode_toggle then
+        last_key_scancode_toggle <= key_scancode_toggle;
+        combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        internal_combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        combined_scancode <= key_scancode;
+      elsif eth_scancode_toggle /= last_eth_scancode_toggle then
+        last_eth_scancode_toggle <= eth_scancode_toggle;
+        combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        internal_combined_scancode_toggle <= not internal_combined_scancode_toggle;
+        combined_scancode <= eth_scancode;
+      end if;
+      
       -- Direct export of SID audio for supporting SID debugging
       rightsid_audio_out <= rightsid_audio;
       
@@ -1715,7 +1744,7 @@ begin
       iec_data_o <= iec_data_fromcia;
       iec_atn_o <= iec_atn_fromcia;
       
-      seg_led(12) <= eth_keycode_toggle;
+      seg_led(12) <= eth_scancode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
 
@@ -1883,7 +1912,7 @@ begin
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
       grove_cs <= '0';
-      if target = megaphoner1 then
+      if (target = megaphoner1) or (target = megaphoner4) then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGAphone asserted";
@@ -1937,7 +1966,7 @@ begin
         sectorbuffercs_fast <= sbcs_en;
         report "selecting SD card sector buffer" severity note;
       end if;
-      -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
+      -- Also map SD card sector buffer at $FFD6000 - $FFD6FFF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
       -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
       -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer

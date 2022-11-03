@@ -549,9 +549,7 @@ begin
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
-        -- Disable HDMI-style audio if one
-        -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
-        -- this behaviour
+        -- Disable HDMI-style audio if one (from portp bit 1)
         dvi => dvi_select, 
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
@@ -806,6 +804,13 @@ begin
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
                      target => mega65r3,
+                     -- MEGA65R3 has A200T which has plenty of spare BRAM.
+                     -- We can thus increase the number of eth RX buffers from
+                     -- 4x2KB to 32x2KB = 64KB.
+                     -- This will, inpractice, allow the reception of ~32x1.3K
+                     -- = ~40KB of data in a burst, before the RX buffers are
+                     -- filled.
+                     num_eth_rx_buffers => 32,
                      hyper_installed => true -- For VIC-IV to know it can use
                                              -- hyperram for full-colour glyphs
                      )                 
@@ -1048,10 +1053,12 @@ begin
           );
     end generate;  
       
-  -- BUFG on ethernet clock to keep the clock nice and strong
-  ethbufg0:
-  bufg port map ( I => ethclock,
-                  O => eth_clock);
+  -- Ethernet clock already has a bufg, so just propagate it out
+  eth_clock <= ethclock;
+
+--  ethbufg0:
+--  bufg port map ( I => ethclock,
+--                  O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
@@ -1086,8 +1093,8 @@ begin
     if rising_edge(cpuclock) then      
 
       portp_drive <= portp;
-      
-      dvi_select <= portp_drive(1) xor dipsw(1);
+
+      dvi_select <= portp_drive(1);
       
       reset_high <= not btncpureset;
 

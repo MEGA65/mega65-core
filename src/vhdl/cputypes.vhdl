@@ -8,7 +8,7 @@ package cputypes is
   type mega65_target_t is (
     simulation,
     mega65r1, mega65r2, mega65r3,
-    megaphoner1,
+    megaphoner1, megaphoner4,
     nexys4, nexys4ddr, nexys4ddr_widget,
     wukong
     );
