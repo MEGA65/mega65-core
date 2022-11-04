@@ -902,6 +902,11 @@ $(BINDIR)/monitor.m65:	$(OPHIS_DEPEND) $(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/m
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS_MON) -l $(SRCDIR)/monitor/monitor.list -m $(SRCDIR)/monitor/monitor.map -o $(BINDIR)/monitor.m65 $(SRCDIR)/monitor/monitor.a65
 
+$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(SRCDIR)/utilities/etherload.a65
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(OPHIS) $(OPHISOPT) -l $(SRCDIR)/utilities/etherload.list -m $(SRCDIR)/utilities/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(SRCDIR)/utilities/etherload.a65
+
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
 	$(info =============================================================)
