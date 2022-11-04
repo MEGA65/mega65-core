@@ -60,6 +60,13 @@ programentrypoint:
 loop:
 
 nextpacket:
+
+waitingforpacket:
+
+	lda $d6e1
+	and #$20
+	beq waitingforpacket
+
 	; we have detected that we have recieved a packet
 	; so, clear eth RX signal, and leave ethernet tranceiver on
 	; and make last used RX buffer visible
@@ -67,12 +74,6 @@ nextpacket:
 	sta $d6e1
 	lda #$03
 	sta $d6e1
-
-waitingforpacket:
-
-	lda $d6e1
-	and #$20
-	beq waitingforpacket
 
 ; show length of ethernet frame
 
