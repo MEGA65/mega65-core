@@ -1706,8 +1706,6 @@ begin  -- behavioural
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
 
-              eth_irq_tx <= '0';
-
               -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
               eth_videostream <= fastio_wdata(3);
               -- @IO:GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
@@ -1737,6 +1735,7 @@ begin  -- behavioural
                 when x"01" =>
                   -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
+                  eth_irq_tx <= '0';                  
                 when x"10" =>
                   eth_mode_100 <= '0';
                 when x"11" =>
