@@ -80,12 +80,6 @@ waitingforpacket:
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
 
-	; Make a visible indication that we have seen an ethernet frame
-	lda $d020
-	inc
-	and #$0f
-	sta $d020
-
 	; Is it an ARP request?
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
@@ -204,7 +198,11 @@ notarp:
 	; packet does begin with A9, so JSR there
 	; The code in the packet will end with an RTS, bringing us back here,
 	; allowing our loop to continue.
+	lda #$01
+	sta $d020
 	jsr $682C
+	lda #$00
+	sta $d020
 
 	jmp loop
 
