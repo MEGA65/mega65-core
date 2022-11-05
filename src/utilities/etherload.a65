@@ -27,6 +27,15 @@ programentrypoint:
 	ora #$40 ; Set RX phase offset to 1
 	sta $d6e5
 
+	; Clear all waiting frames
+	; (this is because the trigger frame gets processed _immediately_ on its reception,
+	;  even before the frame has finished being received).
+purgequeue:
+	jsr getnextframe
+	lda $d6e1
+	and #$20
+	bne purgequeue	
+
 	; Map ethernet registers at $6000 - $7FFF
 	
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
@@ -67,13 +76,7 @@ waitingforpacket:
 	and #$20
 	beq waitingforpacket
 
-	; we have detected that we have recieved a packet
-	; so, clear eth RX signal, and leave ethernet tranceiver on
-	; and make last used RX buffer visible
-	lda #$01
-	sta $d6e1
-	lda #$03
-	sta $d6e1
+	jsr getnextframe
 
 ; show length of ethernet frame
 
@@ -206,6 +209,16 @@ notarp:
 	sta $d020
 
 	jmp loop
+
+getnextframe:
+	; we have detected that we have recieved a packet
+	; so, clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda #$01
+	sta $d6e1
+	lda #$03
+	sta $d6e1
+	rts
 
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
