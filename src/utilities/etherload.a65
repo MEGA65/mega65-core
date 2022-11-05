@@ -210,7 +210,7 @@ notarp:
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
-	.checkpc $CFFF
+	.checkpc $C0FD
 	.scend
 
 	.outfile "sdcard-files/ETHLOAD.M65"
