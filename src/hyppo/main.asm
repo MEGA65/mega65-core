@@ -450,6 +450,12 @@ reset_machine_state:
         lda #$6b    ;; 01101011
         sta hypervisor_feature_enables
 
+	;; Reset ethernet to clear any queued packets from before reset
+	lda #$00
+	sta $d6e1
+	lda #$03
+	sta $d6e1
+	
 	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
 	lda #$02
 	tsb $d7fb
