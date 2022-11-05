@@ -8,8 +8,6 @@
 
 programentrypoint:
 	sei
-	inc $d020
-	jmp $8000
 
 	; C65GS io
 	lda #$47
