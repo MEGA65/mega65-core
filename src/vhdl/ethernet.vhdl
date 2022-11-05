@@ -148,7 +148,6 @@ architecture behavioural of ethernet is
   
   type ethernet_state is (Idle,
                           DebugRxFrameWait,DebugRxFrame,DebugRxFrameDone,
-                          SkippingFrame,
                           WaitingForPreamble,
                           ReceivingPreamble,
                           ReceivingFrame,
@@ -945,16 +944,6 @@ begin  -- behavioural
               eth_frame_len <= 2;
               eth_mac_counter <= 0;
               eth_bit_count <= 0;
-              -- Veto packet reception if no free RX buffers
-              if eth_rx_blocked_50mhz = '1' then
-                report "ETHRX: Skipping frame";
-                eth_state <= SkippingFrame;
-              end if;
-            end if;
-          when SkippingFrame =>
-            -- Wait until RX frame stops 
-            if eth_rxdv='0' then
-              eth_state <= Idle;
             end if;
           when DebugRxFrameWait =>
             if debug_rx = '0' then
@@ -1003,6 +992,7 @@ begin  -- behavioural
                 -- end of preamble
                 report "ETHRX: Found end of preamble, expecting data to follow";
                 eth_state <= ReceivingFrame;
+                
               when others =>
                 report "CRC: Rejecting frame due to junk in preamble";
                 eth_state <= BadFrame;
@@ -1024,11 +1014,14 @@ begin  -- behavioural
               eth_frame_len <= eth_frame_len - 2;
               eth_wait <= 20;
               eth_state <= ReceivedFrameWait;
-              -- put a marker at the end of the frame so we can see where it stops in
-              -- the RX buffer.
-              rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-              rxbuffer_wdata <= x"EA";
-              rxbuffer_writeaddress <= eth_frame_len;
+              -- Veto packet reception if no free RX buffers
+              if eth_rx_blocked_50mhz = '0' then              
+                -- put a marker at the end of the frame so we can see where it stops in
+                -- the RX buffer.
+                rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+                rxbuffer_wdata <= x"EA";
+                rxbuffer_writeaddress <= eth_frame_len;
+              end if;
             else
               -- got two more bits
 --            report "ETHRX: Received bits from RMII: "
@@ -1101,10 +1094,14 @@ begin  -- behavioural
                       & ", multicast=" & std_logic'image(frame_is_multicast);
                   end if;
                   eth_frame_len <= eth_frame_len + 1;
-                  rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-                  report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
-                  rxbuffer_wdata <= eth_rxd & eth_rxbits;
-                  rxbuffer_writeaddress <= eth_frame_len;
+
+                  -- Veto packet reception if no free RX buffers
+                  if eth_rx_blocked_50mhz = '0' then                  
+                    rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+                    report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
+                    rxbuffer_wdata <= eth_rxd & eth_rxbits;
+                    rxbuffer_writeaddress <= eth_frame_len;
+                  end if;
 
                   -- Look for magic keyboard input frames
                   report "PS2KEYBOARD: packet offset " & integer'image(to_integer(frame_length(10 downto 0)));
@@ -1180,10 +1177,14 @@ begin  -- behavioural
           when ReceivedFrame =>
             rx_fcs_crc_d_valid <= '0';
             rx_fcs_crc_calc_en <= '0';
-            -- write low byte of frame length
-            rxbuffer_writeaddress <= 0;
-            rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-            rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
+
+            -- Veto packet reception if no free RX buffers
+            if eth_rx_blocked_50mhz = '0' then
+              -- write low byte of frame length
+              rxbuffer_writeaddress <= 0;
+              rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+              rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
+            end if;
             report "ETHRX: writing eth_frame_len = " & integer'image(eth_frame_len);
             eth_wait <= 20;
             eth_state <= ReceivedFrame2Wait;
@@ -1198,14 +1199,17 @@ begin  -- behavioural
             -- bit 7 is high if CRC fails, else is low.
             report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
             report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
-            rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-            rxbuffer_writeaddress <= 1;
-            rxbuffer_wdata(7) <= not rx_crc_valid;
-            rxbuffer_wdata(6) <= frame_is_for_me;
-            rxbuffer_wdata(5) <= frame_is_broadcast;
-            rxbuffer_wdata(4) <= frame_is_multicast;
-            rxbuffer_wdata(3) <= '0';
-            rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
+            -- Veto packet reception if no free RX buffers
+            if eth_rx_blocked_50mhz = '0' then
+              rxbuffer_write_toggle <= not rxbuffer_write_toggle;
+              rxbuffer_writeaddress <= 1;
+              rxbuffer_wdata(7) <= not rx_crc_valid;
+              rxbuffer_wdata(6) <= frame_is_for_me;
+              rxbuffer_wdata(5) <= frame_is_broadcast;
+              rxbuffer_wdata(4) <= frame_is_multicast;
+              rxbuffer_wdata(3) <= '0';
+              rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
+            end if;
             if rx_crc_valid='1' or eth_disable_crc_check='1' then
               -- record that we have received a frame, but only if there was no
               -- CRC error.
@@ -1230,7 +1234,10 @@ begin  -- behavioural
               post_rx_countdown <= post_rx_countdown - 1;
             else
               -- Mark frame as finished, i.e., accepted
-              rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+              -- Veto packet reception if no free RX buffers
+              if eth_rx_blocked_50mhz = '0' then
+                rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+              end if;
               eth_state <= Idle;
             end if;
           when others =>
@@ -1399,13 +1406,6 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
-      -- If all RX buffers are full and we have remote control enabled,
-      -- then ack the oldest frame to keep being able to receive remote
-      -- control frames.
-      if eth_rx_blocked='1' and eth_remote_control='1' then
-        ack_rx_frame_toggle <= not ack_rx_frame_toggle;        
-      end if;
-      
       if last_ack_rx_frame_toggle /= ack_rx_frame_toggle then
         last_ack_rx_frame_toggle <= ack_rx_frame_toggle;
         rx_rotate_count <= rx_rotate_count + 1;
