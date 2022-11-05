@@ -3441,18 +3441,20 @@ begin
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
         reg_mb_low <= reg_a;
+      else
+        reg_offset_low <= reg_x(3 downto 0) & reg_a;
+        reg_map_low <= std_logic_vector(reg_x(7 downto 4));
       end if;
       if reg_z = x"0f" then
         reg_mb_high <= reg_y;
-      end if;
-      reg_offset_low <= reg_x(3 downto 0) & reg_a;
-      reg_map_low <= std_logic_vector(reg_x(7 downto 4));
-      -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
-      -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
-      -- with megaflash menu during boot (issue #156)
-      if hypervisor_mode='0' then
-        reg_offset_high <= reg_z(3 downto 0) & reg_y;
-        reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+      else
+        -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
+        -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
+        -- with megaflash menu during boot (issue #156)
+        if hypervisor_mode='0' then
+          reg_offset_high <= reg_z(3 downto 0) & reg_y;
+          reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+        end if;        
       end if;
 
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
