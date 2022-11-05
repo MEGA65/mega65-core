@@ -1416,6 +1416,9 @@ begin  -- behavioural
         -- cycles instead of one.
         
         -- Advance to next buffer, if there are any
+        -- It is vitally important that the cpu and eth side buffers
+        -- never be allowed to co-incide. Thus the extra safety straps
+        -- here.
         if rxbuff_id_cpuside_plus1 = rxbuff_id_ethside then
           -- No more waiting packets: Point the CPU to the buffer just
           -- before where the ethernet side is writing to.
@@ -1426,9 +1429,13 @@ begin  -- behavioural
           end if;
         else
           if rxbuff_id_cpuside /= (num_buffers-1) then
-            rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
+            if rxbuff_id_ethside /= (rxbuff_id_cpuside + 1) then
+              rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
+            end if;
           else
-            rxbuff_id_cpuside <= 0;
+            if rxbuff_id_ethside /= 0 then
+              rxbuff_id_cpuside <= 0;
+            end if;
           end if;
         end if;
 
