@@ -3,13 +3,13 @@
 ; This keeps the programme VERY small.
 ; Now supports ARP replies to make life easier.
 
-      ; make it start with SYS53000
-      .word $c000
-      .org $c000
+      .org $8000
       .scope
 
 programentrypoint:
 	sei
+	inc $d020
+	jmp $8000
 
 	; C65GS io
 	lda #$47
@@ -41,8 +41,9 @@ purgequeue:
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
 	lda #$ff
 	ldx #$0f
-	ldy #$00
-	ldz #$00
+	; Also for keeping ourselves mapped in the upper half of RAM
+	ldy #$ff
+	ldz #$0f
 	map
 	eom
 
@@ -51,8 +52,9 @@ purgequeue:
 	; $DE000 - $6000 = $D8000
 	lda #$80
 	ldx #$8d
-	ldy #$00
-	ldz #$00
+	; Keep ourselves mapped in upper half of RAM
+	ldy #$ff
+	ldz #$17
 	map
 	eom
 
