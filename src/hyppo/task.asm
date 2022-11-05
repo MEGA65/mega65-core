@@ -195,16 +195,19 @@ ethernet_remote_trap:
         ldx dos_default_disk
         jsr dos_cdroot
 
-        ;; Prepare 32-bit pointer for loading etherload at $C000
-        ;; (i.e. $C000 - 2 byte header, so we can use a normal PRG file)
+        ;; Prepare 32-bit pointer for loading etherload at $FF87F00,	
+	;; This location is the last 256 bytes of the 32KB colour RAM we
+	;; can assume all models possess, and should result in the code not
+	;; getting in the way of loading programs of almost any size.
         ;;
-        lda #$00
-        sta <dos_file_loadaddress+2
-        sta <dos_file_loadaddress+3
-	lda #$fe
+	lda #$00
         sta <dos_file_loadaddress+0
-        lda #$bf
+        lda #$7f
         sta <dos_file_loadaddress+1
+        lda #$f8
+        sta <dos_file_loadaddress+2
+	lda #$0f
+        sta <dos_file_loadaddress+3
 
 @tryAgain:
         jsr dos_readfileintomemory
@@ -215,15 +218,20 @@ ethernet_remote_trap:
         jsr task_set_c64_memorymap
         jsr task_dummy_nmi_vector
 
-        ;; set entry point and memory config
-	;; after first saving PC for recovery
-	lda hypervisor_pcl
-	sta $c0fe
-	lda hypervisor_pch
-	sta $c0ff
-        lda #<$c000
+	;; Now enable MAP of colour RAM at $8000-$9FFF
+	;; $FF87F00 - $8000 = $FF7FF00
+	lda #$ff
+	sta hypervisor_maphimb
+	sta hypervisor_maphilo
+	lda #$17
+	sta hypervisor_maphihi
+
+	
+        ;; set entry point to $8000, i.e, the start
+	;; of the 8KB block of colour RAM we map at $8000-$9fff
+        lda #<$8000
         sta hypervisor_pcl
-        lda #>$c000
+        lda #>$8000
         sta hypervisor_pch
 
 	jmp safe_exit_to_loaded_program
