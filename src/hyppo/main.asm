@@ -451,10 +451,15 @@ reset_machine_state:
         sta hypervisor_feature_enables
 
 	;; Reset ethernet to clear any queued packets from before reset
+	;; and ack 1 packet to get the controller into the right state
+	lda #$00
+	sta $d6e0
+	lda #$03
+	sta $d6e0
+	sta $d6e1
 	lda #$00
 	sta $d6e1
-	lda #$03
-	sta $d6e1
+	
 	
 	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
 	lda #$02
