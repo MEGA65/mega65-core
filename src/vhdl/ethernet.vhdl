@@ -599,7 +599,9 @@ begin  -- behavioural
       if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
         last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
         rxbuffer_write_drive <= (others => '0');
-        rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
+        if rxbuff_id_ethside /= rxbuff_id_cpuside then
+          rxbuffer_write_drive(rxbuff_id_ethside) <= '1';
+        end if;
         rxbuffer_wdata_l_drive <= rxbuffer_wdata;
         rxbuffer_writeaddress_l_drive <= rxbuffer_writeaddress;
         eth_rx_write_count <= eth_rx_write_count + 1;
