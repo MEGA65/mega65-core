@@ -450,6 +450,7 @@ architecture Behavioral of container is
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
   signal keyboard_type : unsigned(3 downto 0);
+  signal last_keyboard_type : unsigned(3 downto 0) := x"0";
 
   signal dvi_select : std_logic := '0';
 
@@ -466,6 +467,10 @@ architecture Behavioral of container is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal uart_txdata : unsigned(7 downto 0);
+  signal uart_txtrigger : std_logic := '0';
+  signal uart_txready : std_logic;
   
 begin
 
@@ -691,11 +696,11 @@ begin
 
   uart_tx0: entity work.UART_TX_CTRL
     port map (
-      send    => ascii_key_valid,
+      send    => uart_txtrigger,
       BIT_TMR_MAX => to_unsigned((40500000/2000000) - 1,24),
       clk     => cpuclock,
-      data    => ascii_key,
---      ready   => tx0_ready,
+      data    => uart_txdata,
+      ready   => uart_txready,
       uart_tx => UART_TXD);
 
   
@@ -713,6 +718,19 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
+      if ascii_key_valid='1' then
+        uart_txtrigger <= '1';
+        uart_txdata <= ascii_key;
+      else
+        if uart_txready='1' and keyboard_type /= last_keyboard_type then
+          last_keyboard_type <= keyboard_type;
+          uart_txtrigger <= '1';
+          uart_txdata(7 downto 4) <= x"3";
+          uart_txdata(3 downto 0) <= keyboard_type;
+        end if;
+        uart_txtrigger <= '0';
+      end if;
+      
 --      reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
