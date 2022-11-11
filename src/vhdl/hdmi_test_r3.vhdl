@@ -137,14 +137,6 @@ entity container is
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
 
-         TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
-         TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
-         TMDS_clk_p : out STD_LOGIC;
-         TMDS_clk_n : out STD_LOGIC;
-         
-         hdmi_scl : inout std_logic;
-         hdmi_sda : inout std_logic;
-
          hpd_a : inout std_logic;
          ct_hpd : out std_logic := '1';
          ls_oe : out std_logic := '1';
@@ -538,7 +530,9 @@ begin
       disco_led_val => disco_led_val,
       
       powerled => '1',
-      flopled => flopled_drive,
+      flopled0 => flopled_drive,
+      flopled2 => flopled_drive,
+      flopledsd => '0',
       flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
@@ -587,6 +581,8 @@ begin
       matrix_mode_in => '0',
       viciv_frame_indicate => '0',
 
+      matrix_disable_modifiers => '0',
+      
       matrix_segment_num => matrix_segment_num,
 --      matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => '0',
