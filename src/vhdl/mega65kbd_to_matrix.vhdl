@@ -14,6 +14,7 @@ entity mega65kbd_to_matrix is
     flopledsd : in std_logic;
     powerled : in std_logic;    
 
+    keyboard_type : out unsigned(3 downto 0);
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
     kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
     
@@ -95,11 +96,17 @@ begin  -- behavioural
       -- MK-II keyboard grounds KIO10, so if that stays low for a long
       -- time, then we can assume that it's a MK-II keyboard. But if it
       -- ever goes high, then it must be a MK-I
+      keyboard_type <= to_unsigned(keyboard_model,4);
       if kio10 = '1' then
         keyboard_model <= 1;
         model2_timeout <= 1000000;
       elsif model2_timeout = 0 then
         keyboard_model <= 2;
+        if keyboard_model = 1 then
+          -- Set commit to "KBDMK-II" if its a MK-II
+          kbd_commit <= x"49492a4b4d44424b";
+          kbd_datestamp <= to_unsigned(0,14);
+        end if;
       else
         model2_timeout <= model2_timeout - 1;
       end if;
@@ -239,6 +246,18 @@ begin  -- behavioural
               
             end if;
           elsif keyboard_model = 2 then
+            -- This keyboard uses I2C to talk to 6 I2C IO expanders
+            -- Each key on the keyboard is connected to a separate line,
+            -- so we just need to read the input ports of them, and build
+            -- the matrix data from that, and then export it.
+            -- For the LEDs, we just have to write to the correct I2C registers
+            -- to set those to output, and to write the appropriate values.
+
+            -- The main trade-offs of the MK-II keyboard is no "ambulance
+            -- lights" mode, and that the scanning will be at ~1KHz, rather than
+            -- the ~100KHz of the MK-I. But 1ms latency should be ok. It will likely
+            -- reduce the amount of PWM we can do on the LEDs for different brightness
+            -- levels.
           end if;
         end if;
       end if;

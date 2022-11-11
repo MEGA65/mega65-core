@@ -449,6 +449,7 @@ architecture Behavioral of container is
 
   signal kbd_datestamp : unsigned(13 downto 0);
   signal kbd_commit : unsigned(31 downto 0);
+  signal keyboard_type : unsigned(3 downto 0);
 
   signal dvi_select : std_logic := '0';
 
@@ -539,6 +540,7 @@ begin
       kio9 => kb_io1,
       kio10 => kb_io2,
 
+      keyboard_type => keyboard_type,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
       
