@@ -72,6 +72,7 @@ architecture behavioural of mega65kbd_to_matrix is
   -- invalidated if it turns out to be a MK-I keyboard, as KIO10
   -- will not be held low initially.
   signal keyboard_model : integer range 1 to 2 := 2;
+  signal model2_timeout : integer range 0 to 1000000 := 0;
   
 begin  -- behavioural
 
@@ -103,8 +104,8 @@ begin  -- behavioural
       elsif model2_timeout = 0 then
         keyboard_model <= 2;
         if keyboard_model = 1 then
-          -- Set commit to "KBDMK-II" if its a MK-II
-          kbd_commit <= x"49492a4b4d44424b";
+          -- Set commit to "MKII" if its a MK-II
+          kbd_commit <= x"49494b4d";
           kbd_datestamp <= to_unsigned(0,14);
         end if;
       else
