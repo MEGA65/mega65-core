@@ -45,7 +45,7 @@ entity container is
 
          -- Interface for physical keyboard
          kb_io0 : out std_logic;
-         kb_io1 : out std_logic;
+         kb_io1 : inout std_logic;
          kb_io2 : in std_logic;
 
          -- Direct joystick lines         
@@ -529,96 +529,6 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
-    -- Feed audio into digital video feed
-    AUDIO_TONE: entity work.audio_out_test_tone
-      generic map (
-        -- You have to update audio_clock if you change this
-        fref        => 100.0
-        )
-      port map (
-            select_44100 => portp(3),
-            ref_rst   => reset_high,
-            ref_clk   => CLK_IN,
-            pcm_rst   => pcm_rst,
-            pcm_clk   => pcm_clk,
-            pcm_clken => pcm_clken,
-
-            audio_left_slow => audio_left_slow,
-            audio_right_slow => audio_right_slow,
-            sample_ready_toggle => sample_ready_toggle,
-            
-            pcm_l     => pcm_l,
-            pcm_r     => pcm_r
-        );
-  
-    pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
-    pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
-    
-    hdmi0: entity work.vga_to_hdmi
-      port map (
-        select_44100 => portp(3),
-        -- Disable HDMI-style audio if one
-        -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
-        -- this behaviour
-        dvi => dvi_select, 
-        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
-        aspect => "01", -- 01=4:3, 10=16:9
-        pix_rep => '0', -- no pixel repetition
-        vs_pol => '1',  -- 1=active high
-        hs_pol => '1',
-
-        vga_rst => reset_high, -- active high reset
-        vga_clk => clock27, -- VGA pixel clock
-        vga_vs => pattern_vsync, -- active high vsync
-        vga_hs => pattern_hsync, -- active high hsync
-        vga_de => pattern_de,   -- pixel enable
-        vga_r => std_logic_vector(pattern_r),
-        vga_g => std_logic_vector(pattern_g),
-        vga_b => std_logic_vector(pattern_b),
-
-        -- Feed in audio
-        pcm_rst => pcm_rst, -- active high audio reset
-        pcm_clk => pcm_clk, -- audio clock at fs
-        pcm_clken => pcm_clken, -- audio clock enable
-        pcm_l => pcm_l,
-        pcm_r => pcm_r,
-        pcm_acr => pcm_acr, -- 1KHz
-        pcm_n => pcm_n, -- ACR N value
-        pcm_cts => pcm_cts, -- ACR CTS value
-
-        tmds => tmds
-        );
-    
-     -- serialiser: in this design we use TMDS SelectIO outputs
-    GEN_HDMI_DATA: for i in 0 to 2 generate
-    begin
-        HDMI_DATA: entity work.serialiser_10to1_selectio
-            port map (
-                rst     => reset_high,
-                clk     => clock27,
-                clk_x10  => clock270,
-                d       => tmds(i),
-                out_p   => TMDS_data_p(i),
-                out_n   => TMDS_data_n(i)
-            );
-    end generate GEN_HDMI_DATA;
-    HDMI_CLK: entity work.serialiser_10to1_selectio
-        port map (
-            rst     => reset_high,
-            clk     => clock27,
-            clk_x10  => clock270,
-            d       => "0000011111",
-            out_p   => TMDS_clk_p,
-            out_n   => TMDS_clk_n
-        );
-  
-  fpgatemp0: entity work.fpgatemp
-    generic map (DELAY_CYCLES => 480)
-    port map (
-      rst => '0',
-      clk => cpuclock,
-      temp => fpga_temperature); 
-  
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -791,56 +701,6 @@ begin
       uart_tx => UART_TXD);
 
   
-  pixel0: entity work.pixel_driver
-    port map (
-      clock81 => pixelclock, -- 80MHz
-      clock27 => clock27,
-
-      cpuclock => cpuclock,
-
-      pixel_strobe_out => pixel_strobe,
-      
-      -- Configuration information from the VIC-IV
-      hsync_invert => one,
-      vsync_invert => one,
-      pal50_select => one,
-      vga60_select => zero,
-      test_pattern_enable => dipsw(3),      
-      
-      -- Framing information for VIC-IV
-      x_zero => x_zero,     
-      y_zero => y_zero,     
-
-      -- Pixel data from the video pipeline
-      -- (clocked at 100MHz pixel clock)
-      red_i => to_unsigned(255,8),
-      green_i => to_unsigned(0,8),
-      blue_i => to_unsigned(255,8),
-
-      -- The pixel for direct output to VGA pins
-      -- It is clocked at the correct pixel
-      red_no => pattern_r,
-      green_no => pattern_g,
-      blue_no => pattern_b,      
-
---      red_o => panelred,
---      green_o => panelgreen,
---      blue_o => panelblue,
-      
-      hsync => pattern_hsync,
-      vsync => pattern_vsync,  -- for HDMI
---      vga_hsync => vga_hsync,      -- for VGA          
-
-      -- And the variations on those signals for the LCD display
---      lcd_hsync => lcd_hsync,               
---      lcd_vsync => lcd_vsync,
-      narrow_dataenable => pattern_de
---      lcd_inletterbox => lcd_inletterbox,
---      vga_inletterbox => vga_inletterbox
-
-      );
-
-  
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
   bufg port map ( I => ethclock,
@@ -851,155 +711,14 @@ begin
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
-    vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
-
-    -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
-
-    pattern_de_n <= not pattern_de;
-    
-    -- Use both real and cartridge IRQ and NMI signals
-    irq_combined <= irq and irq_out;
-    nmi_combined <= nmi and nmi_out;
-
-    if rising_edge(pcm_clk) then
-      -- Generate 1KHz ACR pulse train from 12.288MHz
-      if acr_counter /= (12288 - 1) then
-        acr_counter <= acr_counter + 1;
-        pcm_acr <= '0';
-      else
-        pcm_acr <= '1';
-        acr_counter <= 0;
-      end if;
-    end if;
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      dvi_select <= portp(1) xor dipsw(1);
-      
 --      reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
       
-      -- We need to pass audio to 12.288 MHz clock domain.
-      -- Easiest way is to hold samples constant for 16 ticks, and
-      -- have a slow toggle
-      -- At 40.5MHz and 48KHz sample rate, we have a ratio of 843.75
-      -- Thus we need to calculate the remainder, so that we can get the
-      -- sample rate EXACTLY 48KHz.
-      -- Otherwise we end up using 844, which gives a sample rate of
-      -- 40.5MHz / 844 = 47.986KHz, which might just be enough to throw
-      -- some monitors out, since it means that the CTS / N rates will
-      -- be wrong.
-      -- (Or am I just chasing my tail, because this is only used to set the
-      -- rate at which we LATCH the samples?)
-      if audio_counter < to_integer(audio_counter_interval) then
-        audio_counter <= audio_counter + 4;
-      else
-        audio_counter <= audio_counter - to_integer(audio_counter_interval);
-        sample_ready_toggle <= not sample_ready_toggle;
-        audio_left_slow <= h_audio_left;
-        audio_right_slow <= h_audio_right;
---        led <= not led;
-      end if;
-
---      reset_high <= not btncpureset;
-      
---      led <= cart_exrom;
---      led <= flopled_drive;
-      
-      fa_left_drive <= fa_left;
-      fa_right_drive <= fa_right;
-      fa_up_drive <= fa_up;
-      fa_down_drive <= fa_down;
-      fa_fire_drive <= fa_fire;  
-      fb_left_drive <= fb_left;
-      fb_right_drive <= fb_right;
-      fb_up_drive <= fb_up;
-      fb_down_drive <= fb_down;
-      fb_fire_drive <= fb_fire;  
-
-      -- The simple output-only IEC lines we just drive
-      iec_reset <= iec_reset_drive;
-      iec_atn <= not iec_atn_drive;
-      
-      -- The active-high EN lines enable the IEC output drivers.
-      -- We need to invert the signal, so that if a signal from CIA
-      -- is high, we drive the IEC pin low. Else we let the line
-      -- float high.  We have external pull-ups, so shouldn't use them
-      -- in the FPGA.  This also means we can leave the input line to
-      -- the output drivers set a 0, as we never "send" a 1 -- only relax
-      -- and let it float to 1.
-      iec_srq_o <= '0';
-      iec_clk_o <= '0';
-      iec_data_o <= '0';
-
-      -- Reading pins is simple
-      iec_srq_i_drive <= iec_srq_i;
-      iec_clk_i_drive <= iec_clk_i;
-      iec_data_i_drive <= iec_data_i;
-
---      last_iec_atn_drive <= iec_atn_drive;
---      if (iec_srq_i_drive /= iec_srq_i)
---        or (iec_clk_i_drive /= iec_clk_i)
---        or (iec_data_i_drive /= iec_data_i)
---        or (iec_atn_drive /= last_iec_atn_drive) then
-      if ((iec_srq_o_drive and iec_srq_en_drive) = '1')
-        or ((iec_clk_o_drive and iec_clk_en_drive) = '1')
-        or ((iec_data_o_drive and iec_data_en_drive) = '1') then
-        iec_bus_active <= '1';
-      else
-        iec_bus_active <= '0';
-      end if;
-      
-      
-      -- Finally, because we have the output value of 0 hard-wired
-      -- on the output drivers, we need only gate the EN line.
-      -- But we only do this if the DDR is set to output
-      iec_srq_en <= iec_srq_o_drive and iec_srq_en_drive;
-      iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
-      iec_data_en <= iec_data_o_drive and iec_data_en_drive;
-
-      -- Connect up real C64-compatible paddle ports
-      paddle_drain <= pot_drain;
-      fa_potx <= paddle(0);
-      fa_poty <= paddle(1);
-      fb_potx <= paddle(2);
-      fb_poty <= paddle(3);
-
-      pwm_l <= pwm_l_drive;
-      pwm_r <= pwm_r_drive;
-      
-    end if;
-
-    -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
-    -- @IO:GS $D61A.4 SYSCTL:LED Control LED next to U1 on mother board
-    -- @IO:GS $D61A.3 SYSCTL:AUD48K Select 48KHz or 44.1KHz digital video audio sample rate
-    -- @IO:GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
-    -- @IO:GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
-    -- @IO:GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
-
-
-    
-    h_audio_right <= audio_right;
-    h_audio_left <= audio_left;
-    -- toggle signed/unsigned audio flipping
-    if portp(7)='1' then
-      h_audio_right(19) <= not audio_right(19);
-      h_audio_left(19) <= not audio_left(19);
-    end if;
-    -- LED on main board 
---    led <= portp(4);
-    led <= dipsw(3);
-
-    if rising_edge(pixelclock) then
-      hsync <= pattern_hsync;
-      vsync <= pattern_vsync;
-      vgared <= pattern_r;
-      vgagreen <= pattern_g;
-      vgablue <= pattern_b;
     end if;
 
   end process;    
