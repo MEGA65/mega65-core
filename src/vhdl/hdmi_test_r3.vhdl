@@ -44,8 +44,8 @@ entity container is
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
-         kb_io0 : out std_logic;
-         kb_io1 : inout std_logic;
+         kb_io0 : inout std_logic;   -- SDA with MK-II keyboard
+         kb_io1 : out std_logic;     -- SCL with MK-II keyboard
          kb_io2 : in std_logic;
 
          -- Direct joystick lines         
@@ -731,7 +731,7 @@ begin
           uart_txtrigger <= '1';
           uart_txdata <= x"48";
           uart_txdata(2) <= kb_io2;
-          uart_txdata(1) <= kb_io1;
+          uart_txdata(0) <= kb_io0;
         end if;
         uart_txtrigger <= '0';
       end if;
