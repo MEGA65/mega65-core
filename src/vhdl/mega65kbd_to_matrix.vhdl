@@ -295,13 +295,15 @@ begin  -- behavioural
             -- MK-II keyboard PCB schematics have the key assignments there.
             if i2c_bit_valid='1' then
               case addr is
-                when "011" =>
+                when "011" => -- U2
                   case i2c_bit_num is
                     when 0 => current_keys(67) <= i2c_bit; -- HELP
                     when 1 => current_keys(70) <= i2c_bit;-- F13
                     when 2 => current_keys(69) <= i2c_bit;-- F11
                     when 3 => current_keys(68) <= i2c_bit;-- F9
                     when 4 => current_keys(0) <= i2c_bit; -- DEL
+                              -- XXX copied from MK-I keyboard behaviour. Why
+                              -- does DEL map to two positions in the vector?
                               current_keys(76) <= i2c_bit;
                     when 5 => current_keys(51) <= i2c_bit;-- HOME
                     when 6 => current_keys(48) <= i2c_bit;-- GBP
