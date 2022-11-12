@@ -471,6 +471,7 @@ architecture Behavioral of container is
   signal uart_txdata : unsigned(7 downto 0);
   signal uart_txtrigger : std_logic := '0';
   signal uart_txready : std_logic;
+  signal trigger_countdown : integer := 0;
   
 begin
 
@@ -721,18 +722,25 @@ begin
       if ascii_key_valid='1' then
         uart_txtrigger <= '1';
         uart_txdata <= ascii_key;
+        trigger_countdown <= 1000;
       else        
         uart_txtrigger <= '0';
-        if uart_txready='1' and keyboard_type /= last_keyboard_type then
-          last_keyboard_type <= keyboard_type;
-          uart_txtrigger <= '1';
-          uart_txdata(7 downto 4) <= x"3";
-          uart_txdata(3 downto 0) <= keyboard_type;
-        elsif uart_txready='1' then
-          uart_txtrigger <= '1';
-          uart_txdata <= x"48";
-          uart_txdata(2) <= kb_io2;
-          uart_txdata(0) <= kb_io0;
+        if trigger_countdown /= 0 then
+          trigger_countdown <= trigger_countdown - 1;
+        else
+          if uart_txready='1' and keyboard_type /= last_keyboard_type then
+            last_keyboard_type <= keyboard_type;
+            uart_txtrigger <= '1';
+            uart_txdata(7 downto 4) <= x"3";
+            uart_txdata(3 downto 0) <= keyboard_type;
+            trigger_countdown <= 1000;
+          elsif uart_txready='1' then
+            uart_txtrigger <= '1';
+            uart_txdata <= x"48";
+            uart_txdata(2) <= kb_io2;
+            uart_txdata(0) <= kb_io0;
+            trigger_countdown <= 1000;
+          end if;
         end if;
       end if;
       
