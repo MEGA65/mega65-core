@@ -77,7 +77,7 @@ architecture behavioural of mega65kbd_to_matrix is
   signal i2c_counter : integer range 0 to 50 := 0;
   signal i2c_tick : std_logic := '0';
   signal i2c_state : integer := 0;
-  signal addr : unsigned(2 downto 1) := to_unsigned(3,3);
+  signal addr : unsigned(2 downto 0) := to_unsigned(3,3);
 
   signal i2c_bit : std_logic := '0';
   signal i2c_bit_valid : std_logic := '0';
