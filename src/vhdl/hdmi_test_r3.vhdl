@@ -723,7 +723,7 @@ begin
         uart_txdata <= ascii_key;
       else        
         uart_txtrigger <= '0';
-        if uart_txready='1' then -- and keyboard_type /= last_keyboard_type then
+        if uart_txready='1' and keyboard_type /= last_keyboard_type then
           last_keyboard_type <= keyboard_type;
           uart_txtrigger <= '1';
           uart_txdata(7 downto 4) <= x"3";
