@@ -274,222 +274,225 @@ begin  -- behavioural
               output_vector(0) <= '0';
               
             end if;
-          elsif keyboard_model = 2 then
-            -- This keyboard uses I2C to talk to 6 I2C IO expanders
-            -- Each key on the keyboard is connected to a separate line,
-            -- so we just need to read the input ports of them, and build
-            -- the matrix data from that, and then export it.
-            -- For the LEDs, we just have to write to the correct I2C registers
-            -- to set those to output, and to write the appropriate values.
-
-            -- The main trade-offs of the MK-II keyboard is no "ambulance
-            -- lights" mode, and that the scanning will be at ~1KHz, rather than
-            -- the ~100KHz of the MK-I. But 1ms latency should be ok. It will likely
-            -- reduce the amount of PWM we can do on the LEDs for different brightness
-            -- levels.
-
-            -- We use a state machine for the simple I2C reads
-            -- KIO8 = SDA, KIO9 = SCL
-
-            -- Stash the bits into the key matrix
-            -- MK-II keyboard PCB schematics have the key assignments there.
-            if i2c_bit_valid='1' then
-              case addr is
-                when "011" => -- U2
-                  case i2c_bit_num is
-                    when 0 => current_keys(67) <= i2c_bit; -- HELP
-                    when 1 => current_keys(70) <= i2c_bit;-- F13
-                    when 2 => current_keys(69) <= i2c_bit;-- F11
-                    when 3 => current_keys(68) <= i2c_bit;-- F9
-                    when 4 => current_keys(0) <= i2c_bit; -- DEL
-                              -- XXX copied from MK-I keyboard behaviour. Why
-                              -- does DEL map to two positions in the vector?
-                              current_keys(76) <= i2c_bit;
-                    when 5 => current_keys(51) <= i2c_bit;-- HOME
-                    when 6 => current_keys(48) <= i2c_bit;-- GBP
-                    when 7 => current_keys(43) <= i2c_bit;-- MINUS
-                    when 8 => current_keys(41) <= i2c_bit;-- P
-                    when 9 => current_keys(38) <= i2c_bit;-- O
-                    when 10 => current_keys(33) <= i2c_bit;-- I
-                    when 11 => current_keys(30) <= i2c_bit;-- U
-                    when 12 => current_keys(40) <= i2c_bit;-- PLUS
-                    when 13 => current_keys(35) <= i2c_bit;-- ZERO
-                    when 14 => current_keys(6) <= i2c_bit;-- F5
-                    when 15 => current_keys(3) <= i2c_bit;-- F7
-                    when others => null;
-                  end case;
-                when others => null;
-              end case;
-            end if;
-            if next_matrix_ram_write /= 0 then
-              next_matrix_ram_write <= next_matrix_ram_write - 1;
-            else
-              done_writing_matrix <= '1';
-            end if;
-            if done_writing_matrix /= '1' then
-              matrix_dia <= export_keys((8*next_matrix_ram_write)+7 downto (8*next_matrix_ram_write)+0);
-              matrix_ram_offset <= next_matrix_ram_write;
-              keyram_wea <= (others => '1');
-            else
-              keyram_wea <= (others => '0');
-            end if;
-            if i2c_state = 0 then
-              if to_integer(addr) < 5 then
-                addr <= addr + 1;
-              else
-                addr <= "000";
-                -- We have read all IO expanders, so update exported key states
-                export_keys <= current_keys;
-                current_keys <= (others => '1');
-                -- This requires writing to each column of the matrix RAM
-                next_matrix_ram_write <= 9;
-                done_writing_matrix <= '0';
-              end if;
-              i2c_state <= 100;
-            end if;
-            
-            if i2c_tick='1' and i2c_state /= 0 then
-              i2c_state <= i2c_state + 1;
-            end if;
-            case i2c_state is
-              when 0 => null;
-              -- State 100 = read inputs from an IO expander
-                        -- Start condition
-              when 100 => kio8 <= '1'; kio9 <= '1';
-              when 101 => kio8 <= '0'; kio9 <= '1';
-                        -- Send address 0100xxx
-              when 102 => kio8 <= '0'; kio9 <= '0';
-              when 103 => kio8 <= '0'; kio9 <= '1';
-              when 104 => kio8 <= '1'; kio9 <= '0';
-              when 105 => kio8 <= '1'; kio9 <= '1';
-              when 106 => kio8 <= '0'; kio9 <= '0';
-              when 107 => kio8 <= '0'; kio9 <= '1';
-              when 108 => kio8 <= '0'; kio9 <= '0';
-              when 109 => kio8 <= '0'; kio9 <= '1';
-
-                        -- Write to set address to read from
-              when 110=> kio8 <= '0'; kio9 <= '0';
-              when 111 => kio8 <= addr(2); kio9 <= '0';
-              when 112 => kio8 <= addr(2); kio9 <= '1';
-              when 113 => kio8 <= addr(2); kio9 <= '0';
-              when 114 => kio8 <= addr(1); kio9 <= '0';
-              when 115 => kio8 <= addr(1); kio9 <= '1';
-              when 116 => kio8 <= addr(1); kio9 <= '0';
-              when 117 => kio8 <= addr(0); kio9 <= '0';
-              when 118 => kio8 <= addr(0); kio9 <= '1';
-              when 119 => kio8 <= addr(1); kio9 <= '0';
-              when 120 => kio8 <= '0'; kio9 <= '0';       -- select write
-              when 121 => kio8 <= '0'; kio9 <= '1';
-                          -- ACK bit
-              when 122 => kio8 <= '0'; kio9 <= '0';
-              when 123 => kio8 <= 'Z'; kio9 <= '0';
-              when 124 => kio8 <= 'Z'; kio9 <= '1';
-
-              -- Send $00 to indicate read will be of register 0
-              when 125 => kio8 <= '0'; kio9 <= '0';
-              when 126 => kio8 <= '0'; kio9 <= '1';                          
-              when 127 => kio8 <= '0'; kio9 <= '0';
-              when 128 => kio8 <= '0'; kio9 <= '1';
-              when 129 => kio8 <= '0'; kio9 <= '0';
-              when 130 => kio8 <= '0'; kio9 <= '1';
-              when 131 => kio8 <= '0'; kio9 <= '0';
-              when 132 => kio8 <= '0'; kio9 <= '1';
-              when 133 => kio8 <= '0'; kio9 <= '0';
-              when 134 => kio8 <= '0'; kio9 <= '1';
-              when 135 => kio8 <= '0'; kio9 <= '0';
-              when 136 => kio8 <= '0'; kio9 <= '1';
-              when 137 => kio8 <= '0'; kio9 <= '0';
-              when 138 => kio8 <= '0'; kio9 <= '1';
-              when 139 => kio8 <= '0'; kio9 <= '0';
-              when 140 => kio8 <= '0'; kio9 <= '1';
-                        -- Send ACK bit during write
-              when 141 => kio8 <= '0'; kio9 <= '0';
-              when 142 => kio8 <= '0'; kio9 <= '1';
-
-              -- Send repeated start
-              when 143 => kio8 <= '1'; kio9 <= '1';
-              when 144 => kio8 <= '0'; kio9 <= '1';
-                          
-                        -- Send address 0100xxx
-              when 145 => kio8 <= '0'; kio9 <= '0';
-              when 146 => kio8 <= '0'; kio9 <= '1';
-              when 147 => kio8 <= '1'; kio9 <= '0';
-              when 148 => kio8 <= '1'; kio9 <= '1';
-              when 149 => kio8 <= '0'; kio9 <= '0';
-              when 150 => kio8 <= '0'; kio9 <= '1';
-              when 151 => kio8 <= '0'; kio9 <= '0';
-              when 152 => kio8 <= '0'; kio9 <= '1';
-                     -- 
-              when 153 => kio8 <= '0'; kio9 <= '0';
-              when 154 => kio8 <= addr(2); kio9 <= '0';
-              when 155 => kio8 <= addr(2); kio9 <= '1';
-              when 156 => kio8 <= addr(2); kio9 <= '0';
-              when 157 => kio8 <= addr(1); kio9 <= '0';
-              when 158 => kio8 <= addr(1); kio9 <= '1';
-              when 159 => kio8 <= addr(1); kio9 <= '0';
-              when 160 => kio8 <= addr(0); kio9 <= '0';
-              when 161 => kio8 <= addr(0); kio9 <= '1';
-              when 162 => kio8 <= addr(1); kio9 <= '0';
-              when 163 => kio8 <= '1'; kio9 <= '0';      -- select read
-              when 164 => kio8 <= '1'; kio9 <= '1';
-                          -- ACK bit
-              when 165 => kio8 <= '0'; kio9 <= '0';
-              when 166 => kio8 <= 'Z'; kio9 <= '0';
-              when 167 => kio8 <= 'Z'; kio9 <= '1';
-
-                        -- Read 2 bytes of data
-              when 168 => kio8 <= 'Z'; kio9 <= '0';
-              when 169 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 7;
-              when 170 => kio8 <= 'Z'; kio9 <= '0';
-              when 171 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 6;
-              when 172 => kio8 <= 'Z'; kio9 <= '0';
-              when 173 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 5;
-              when 174 => kio8 <= 'Z'; kio9 <= '0';
-              when 175 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 4;
-              when 176 => kio8 <= 'Z'; kio9 <= '0';
-              when 177 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 3;
-              when 178 => kio8 <= 'Z'; kio9 <= '0';
-              when 179 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 2;
-              when 180 => kio8 <= 'Z'; kio9 <= '0';
-              when 181 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 1;
-              when 182 => kio8 <= 'Z'; kio9 <= '0';
-              when 183 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 0;
-              when 184 => kio8 <= '0'; kio9 <= '0';   -- ack byte read
-              when 185 => kio8 <= '0'; kio9 <= '1';
-
-              when 186 => kio8 <= 'Z'; kio9 <= '0';
-              when 187 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 15;
-              when 188 => kio8 <= 'Z'; kio9 <= '0';
-              when 189 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 14;
-              when 190 => kio8 <= 'Z'; kio9 <= '0';
-              when 191 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 13;
-              when 192 => kio8 <= 'Z'; kio9 <= '0';
-              when 193 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 12;
-              when 194 => kio8 <= 'Z'; kio9 <= '0';
-              when 195 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 11;
-              when 196 => kio8 <= 'Z'; kio9 <= '0';
-              when 197 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 10;
-              when 198 => kio8 <= 'Z'; kio9 <= '0';
-              when 199 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 9;
-              when 200 => kio8 <= 'Z'; kio9 <= '0';
-              when 201 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 8;
-              when 202 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-              when 203 => kio8 <= '1'; kio9 <= '1';
-                        
-                        -- Send STOP at end of read
-              when 204 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-              when 205 => kio8 <= '0'; kio9 <= '0';
-              when 206 => kio8 <= '0'; kio9 <= '1';
-              when 207 => kio8 <= '1'; kio9 <= '1';
-                        i2c_state <= 0;
-              when others => null;
-            end case;
-                
-            
           end if;
         end if;
+      elsif keyboard_model = 2 then
+        -- This keyboard uses I2C to talk to 6 I2C IO expanders
+        -- Each key on the keyboard is connected to a separate line,
+        -- so we just need to read the input ports of them, and build
+        -- the matrix data from that, and then export it.
+        -- For the LEDs, we just have to write to the correct I2C registers
+        -- to set those to output, and to write the appropriate values.
+        
+        -- The main trade-offs of the MK-II keyboard is no "ambulance
+        -- lights" mode, and that the scanning will be at ~1KHz, rather than
+        -- the ~100KHz of the MK-I. But 1ms latency should be ok. It will likely
+        -- reduce the amount of PWM we can do on the LEDs for different brightness
+        -- levels.
+        
+        -- We use a state machine for the simple I2C reads
+        -- KIO8 = SDA, KIO9 = SCL
+        
+        report "type 2 keyboard mode";
+        
+        -- Stash the bits into the key matrix
+        -- MK-II keyboard PCB schematics have the key assignments there.
+        if i2c_bit_valid='1' then
+          case addr is
+            when "011" => -- U2
+              case i2c_bit_num is
+                when 0 => current_keys(67) <= i2c_bit; -- HELP
+                when 1 => current_keys(70) <= i2c_bit;-- F13
+                when 2 => current_keys(69) <= i2c_bit;-- F11
+                when 3 => current_keys(68) <= i2c_bit;-- F9
+                when 4 => current_keys(0) <= i2c_bit; -- DEL
+                          -- XXX copied from MK-I keyboard behaviour. Why
+                          -- does DEL map to two positions in the vector?
+                          current_keys(76) <= i2c_bit;
+                when 5 => current_keys(51) <= i2c_bit;-- HOME
+                when 6 => current_keys(48) <= i2c_bit;-- GBP
+                when 7 => current_keys(43) <= i2c_bit;-- MINUS
+                when 8 => current_keys(41) <= i2c_bit;-- P
+                when 9 => current_keys(38) <= i2c_bit;-- O
+                when 10 => current_keys(33) <= i2c_bit;-- I
+                when 11 => current_keys(30) <= i2c_bit;-- U
+                when 12 => current_keys(40) <= i2c_bit;-- PLUS
+                when 13 => current_keys(35) <= i2c_bit;-- ZERO
+                when 14 => current_keys(6) <= i2c_bit;-- F5
+                when 15 => current_keys(3) <= i2c_bit;-- F7
+                when others => null;
+              end case;
+            when others => null;
+          end case;
+        end if;
+        
+        if next_matrix_ram_write /= 0 then
+          next_matrix_ram_write <= next_matrix_ram_write - 1;
+        else
+          done_writing_matrix <= '1';
+        end if;
+        if done_writing_matrix /= '1' then
+          matrix_dia <= export_keys((8*next_matrix_ram_write)+7 downto (8*next_matrix_ram_write)+0);
+          matrix_ram_offset <= next_matrix_ram_write;
+          keyram_wea <= (others => '1');
+        else
+          keyram_wea <= (others => '0');
+        end if;
+        
+        report "i2c_state = " & integer'image(i2c_state);
+        if i2c_state = 0 then
+          if to_integer(addr) < 5 then
+            addr <= addr + 1;
+          else
+            addr <= "000";
+            -- We have read all IO expanders, so update exported key states
+            export_keys <= current_keys;
+            current_keys <= (others => '1');
+            -- This requires writing to each column of the matrix RAM
+            next_matrix_ram_write <= 9;
+            done_writing_matrix <= '0';
+          end if;
+          i2c_state <= 100;
+        end if;
+        
+        if i2c_tick='1' and i2c_state /= 0 then
+          i2c_state <= i2c_state + 1;
+        end if;
+        case i2c_state is
+          when 0 => null;
+          -- State 100 = read inputs from an IO expander
+          -- Start condition
+          when 100 => kio8 <= '1'; kio9 <= '1';
+          when 101 => kio8 <= '0'; kio9 <= '1';
+          -- Send address 0100xxx
+          when 102 => kio8 <= '0'; kio9 <= '0';
+          when 103 => kio8 <= '0'; kio9 <= '1';
+          when 104 => kio8 <= '1'; kio9 <= '0';
+          when 105 => kio8 <= '1'; kio9 <= '1';
+          when 106 => kio8 <= '0'; kio9 <= '0';
+          when 107 => kio8 <= '0'; kio9 <= '1';
+          when 108 => kio8 <= '0'; kio9 <= '0';
+          when 109 => kio8 <= '0'; kio9 <= '1';
+                      
+          -- Write to set address to read from
+          when 110=> kio8 <= '0'; kio9 <= '0';
+          when 111 => kio8 <= addr(2); kio9 <= '0';
+          when 112 => kio8 <= addr(2); kio9 <= '1';
+          when 113 => kio8 <= addr(2); kio9 <= '0';
+          when 114 => kio8 <= addr(1); kio9 <= '0';
+          when 115 => kio8 <= addr(1); kio9 <= '1';
+          when 116 => kio8 <= addr(1); kio9 <= '0';
+          when 117 => kio8 <= addr(0); kio9 <= '0';
+          when 118 => kio8 <= addr(0); kio9 <= '1';
+          when 119 => kio8 <= addr(1); kio9 <= '0';
+          when 120 => kio8 <= '0'; kio9 <= '0';       -- select write
+          when 121 => kio8 <= '0'; kio9 <= '1';
+          -- ACK bit
+          when 122 => kio8 <= '0'; kio9 <= '0';
+          when 123 => kio8 <= 'Z'; kio9 <= '0';
+          when 124 => kio8 <= 'Z'; kio9 <= '1';
+                      
+          -- Send $00 to indicate read will be of register 0
+          when 125 => kio8 <= '0'; kio9 <= '0';
+          when 126 => kio8 <= '0'; kio9 <= '1';                          
+          when 127 => kio8 <= '0'; kio9 <= '0';
+          when 128 => kio8 <= '0'; kio9 <= '1';
+          when 129 => kio8 <= '0'; kio9 <= '0';
+          when 130 => kio8 <= '0'; kio9 <= '1';
+          when 131 => kio8 <= '0'; kio9 <= '0';
+          when 132 => kio8 <= '0'; kio9 <= '1';
+          when 133 => kio8 <= '0'; kio9 <= '0';
+          when 134 => kio8 <= '0'; kio9 <= '1';
+          when 135 => kio8 <= '0'; kio9 <= '0';
+          when 136 => kio8 <= '0'; kio9 <= '1';
+          when 137 => kio8 <= '0'; kio9 <= '0';
+          when 138 => kio8 <= '0'; kio9 <= '1';
+          when 139 => kio8 <= '0'; kio9 <= '0';
+          when 140 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 141 => kio8 <= '0'; kio9 <= '0';
+          when 142 => kio8 <= '0'; kio9 <= '1';
+                      
+          -- Send repeated start
+          when 143 => kio8 <= '1'; kio9 <= '1';
+          when 144 => kio8 <= '0'; kio9 <= '1';
+                      
+          -- Send address 0100xxx
+          when 145 => kio8 <= '0'; kio9 <= '0';
+          when 146 => kio8 <= '0'; kio9 <= '1';
+          when 147 => kio8 <= '1'; kio9 <= '0';
+          when 148 => kio8 <= '1'; kio9 <= '1';
+          when 149 => kio8 <= '0'; kio9 <= '0';
+          when 150 => kio8 <= '0'; kio9 <= '1';
+          when 151 => kio8 <= '0'; kio9 <= '0';
+          when 152 => kio8 <= '0'; kio9 <= '1';
+          -- 
+          when 153 => kio8 <= '0'; kio9 <= '0';
+          when 154 => kio8 <= addr(2); kio9 <= '0';
+          when 155 => kio8 <= addr(2); kio9 <= '1';
+          when 156 => kio8 <= addr(2); kio9 <= '0';
+          when 157 => kio8 <= addr(1); kio9 <= '0';
+          when 158 => kio8 <= addr(1); kio9 <= '1';
+          when 159 => kio8 <= addr(1); kio9 <= '0';
+          when 160 => kio8 <= addr(0); kio9 <= '0';
+          when 161 => kio8 <= addr(0); kio9 <= '1';
+          when 162 => kio8 <= addr(1); kio9 <= '0';
+          when 163 => kio8 <= '1'; kio9 <= '0';      -- select read
+          when 164 => kio8 <= '1'; kio9 <= '1';
+          -- ACK bit
+          when 165 => kio8 <= '0'; kio9 <= '0';
+          when 166 => kio8 <= 'Z'; kio9 <= '0';
+          when 167 => kio8 <= 'Z'; kio9 <= '1';
+                      
+          -- Read 2 bytes of data
+          when 168 => kio8 <= 'Z'; kio9 <= '0';
+          when 169 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 7;
+          when 170 => kio8 <= 'Z'; kio9 <= '0';
+          when 171 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 6;
+          when 172 => kio8 <= 'Z'; kio9 <= '0';
+          when 173 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 5;
+          when 174 => kio8 <= 'Z'; kio9 <= '0';
+          when 175 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 4;
+          when 176 => kio8 <= 'Z'; kio9 <= '0';
+          when 177 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 3;
+          when 178 => kio8 <= 'Z'; kio9 <= '0';
+          when 179 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 2;
+          when 180 => kio8 <= 'Z'; kio9 <= '0';
+          when 181 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 1;
+          when 182 => kio8 <= 'Z'; kio9 <= '0';
+          when 183 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 0;
+          when 184 => kio8 <= '0'; kio9 <= '0';   -- ack byte read
+          when 185 => kio8 <= '0'; kio9 <= '1';
+                      
+          when 186 => kio8 <= 'Z'; kio9 <= '0';
+          when 187 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 15;
+          when 188 => kio8 <= 'Z'; kio9 <= '0';
+          when 189 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 14;
+          when 190 => kio8 <= 'Z'; kio9 <= '0';
+          when 191 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 13;
+          when 192 => kio8 <= 'Z'; kio9 <= '0';
+          when 193 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 12;
+          when 194 => kio8 <= 'Z'; kio9 <= '0';
+          when 195 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 11;
+          when 196 => kio8 <= 'Z'; kio9 <= '0';
+          when 197 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 10;
+          when 198 => kio8 <= 'Z'; kio9 <= '0';
+          when 199 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 9;
+          when 200 => kio8 <= 'Z'; kio9 <= '0';
+          when 201 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 8;
+          when 202 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+          when 203 => kio8 <= '1'; kio9 <= '1';
+                      
+          -- Send STOP at end of read
+          when 204 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+          when 205 => kio8 <= '0'; kio9 <= '0';
+          when 206 => kio8 <= '0'; kio9 <= '1';
+          when 207 => kio8 <= '1'; kio9 <= '1';
+                      i2c_state <= 0;
+          when others => null;
+        end case;
       end if;
     end if;
   end process;
-
+  
 end behavioural;
