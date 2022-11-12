@@ -734,12 +734,12 @@ begin
             uart_txdata(7 downto 4) <= x"3";
             uart_txdata(3 downto 0) <= keyboard_type;
             trigger_countdown <= 1000;
-          elsif uart_txready='1' then
-            uart_txtrigger <= '1';
-            uart_txdata <= x"48";
-            uart_txdata(2) <= kb_io2;
-            uart_txdata(0) <= kb_io0;
-            trigger_countdown <= 1000;
+--          elsif uart_txready='1' then
+--            uart_txtrigger <= '1';
+--            uart_txdata <= x"48";
+--            uart_txdata(2) <= kb_io2;
+--            uart_txdata(0) <= kb_io0;
+--            trigger_countdown <= 1000;
           end if;
         end if;
       end if;
