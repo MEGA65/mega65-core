@@ -30,6 +30,11 @@ architecture tb of tb_example_many is
   signal return_out : std_logic;
   signal fastkey_out : std_logic;
   signal restore : std_logic;    
+
+  signal last_kio8 : std_logic := '0';
+  signal last_kio9 : std_logic := '0';
+  signal kio8_changes : integer := 0;
+  signal kio9_changes : integer := 0;
   
 begin
 
@@ -99,7 +104,27 @@ begin
               & " instead of $2";
           end if;
         end loop;
-
+      elsif run("MK-II keyboard mode results in I2C traffic") then
+        kio10 <= '0';
+        for i in 1 to 10000 loop
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          if kio8 /= last_kio8 then
+            last_kio8 <= kio8;
+            report "KIO8 <= " & std_logic'image(kio8);
+            kio8_changes <= kio8_changes + 1;
+          end if;
+          if kio9 /= last_kio9 then
+            last_kio9 <= kio9;
+            report "KIO9 <= " & std_logic'image(kio9);
+            kio9_changes <= kio9_changes + 1;
+          end if;
+        end loop;
+        if kio8_changes < 10 then
+          assert false report "KIO8 did not change at least 10 times in 10,000 cycles";
+        end if;
+        if kio9_changes < 10 then
+          assert false report "KIO9 did not change at least 10 times in 10,000 cycles";
+        end if;
       end if;
     end loop;
 
