@@ -49,7 +49,6 @@ architecture behavioural of mega65kbd_to_matrix is
 
   signal matrix_ram_offset : integer range 0 to 15 := 0;
   signal keyram_wea : std_logic_vector(7 downto 0);
-  signal keyram_dia : std_logic_vector(7 downto 0);
   signal matrix_dia : std_logic_vector(7 downto 0);
   
   signal enabled : std_logic := '0';
@@ -82,6 +81,13 @@ architecture behavioural of mega65kbd_to_matrix is
   signal i2c_bit : std_logic := '0';
   signal i2c_bit_valid : std_logic := '0';
   signal i2c_bit_num : integer range 0 to 15 := 0;
+
+  signal current_keys : std_logic_vector(79 downto 0) := (others => '1');
+  signal export_keys : std_logic_vector(79 downto 0) := (others => '1');
+  signal done_writing_matrix : std_logic := '1';
+  signal next_matrix_ram_write : integer range 9 downto 0 := 0;
+  
+
   
 begin  -- behavioural
 
@@ -103,6 +109,8 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
+      i2c_bit_valid <= '0';
+      
       -- Generate ~400KHz I2C clock
       -- We use 2 or 3 ticks per clock, so 40.5MHz/(400KHz*2) = 50.652
       if i2c_counter < 50 then
@@ -282,6 +290,62 @@ begin  -- behavioural
 
             -- We use a state machine for the simple I2C reads
             -- KIO8 = SDA, KIO9 = SCL
+
+            -- Stash the bits into the key matrix
+            -- MK-II keyboard PCB schematics have the key assignments there.
+            if i2c_bit_valid='1' then
+              case addr is
+                when "011" =>
+                  case i2c_bit_num is
+                    when 0 => current_keys(67) <= i2c_bit; -- HELP
+                    when 1 => current_keys(70) <= i2c_bit;-- F13
+                    when 2 => current_keys(69) <= i2c_bit;-- F11
+                    when 3 => current_keys(68) <= i2c_bit;-- F9
+                    when 4 => current_keys(0) <= i2c_bit; -- DEL
+                              current_keys(76) <= i2c_bit;
+                    when 5 => current_keys(51) <= i2c_bit;-- HOME
+                    when 6 => current_keys(48) <= i2c_bit;-- GBP
+                    when 7 => current_keys(43) <= i2c_bit;-- MINUS
+                    when 8 => current_keys(41) <= i2c_bit;-- P
+                    when 9 => current_keys(38) <= i2c_bit;-- O
+                    when 10 => current_keys(33) <= i2c_bit;-- I
+                    when 11 => current_keys(30) <= i2c_bit;-- U
+                    when 12 => current_keys(40) <= i2c_bit;-- PLUS
+                    when 13 => current_keys(35) <= i2c_bit;-- ZERO
+                    when 14 => current_keys(6) <= i2c_bit;-- F5
+                    when 15 => current_keys(3) <= i2c_bit;-- F7
+                    when others => null;
+                  end case;
+                when others => null;
+              end case;
+            end if;
+            if next_matrix_ram_write /= 0 then
+              next_matrix_ram_write <= next_matrix_ram_write - 1;
+            else
+              done_writing_matrix <= '1';
+            end if;
+            if done_writing_matrix /= '1' then
+              matrix_dia <= export_keys((8*next_matrix_ram_write)+7 downto (8*next_matrix_ram_write)+0);
+              matrix_ram_offset <= next_matrix_ram_write;
+              keyram_wea <= (others => '1');
+            else
+              keyram_wea <= (others => '0');
+            end if;
+            if i2c_state = 0 then
+              if to_integer(addr) < 5 then
+                addr <= addr + 1;
+              else
+                addr <= "000";
+                -- We have read all IO expanders, so update exported key states
+                export_keys <= current_keys;
+                current_keys <= (others => '1');
+                -- This requires writing to each column of the matrix RAM
+                next_matrix_ram_write <= 9;
+                done_writing_matrix <= '0';
+              end if;
+              i2c_state <= 100;
+            end if;
+            
             if i2c_tick='1' and i2c_state /= 0 then
               i2c_state <= i2c_state + 1;
             end if;
