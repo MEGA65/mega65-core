@@ -3,7 +3,6 @@ context vunit_lib.vunit_context;
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
-use work.debugtools.all;
 
 
 entity tb_example_many is
@@ -78,11 +77,28 @@ begin
 
     while test_suite loop
 
-      if run("test_pass") then
-        report "This will pass";
-
-      elsif run("test_fail") then
-        assert false report "It fails";
+      if run("Keyboard is detected as MK-I when kio10 is high") then
+        kio10 <= '1';
+        for i in 1 to 10000 loop
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          -- Allow a couple of cycles for initial keyboard type to be
+          -- determined and propagate
+          if (i > 2) and (keyboard_type /= x"1") then
+            assert false report "MK-I keyboard was detected as keyboard type $" & to_hstring(keyboard_type)
+              & " instead of $1";
+          end if;
+        end loop;
+      elsif run("Keyboard is detected as MK-II when kio10 is low") then
+        kio10 <= '0';
+        for i in 1 to 10000 loop
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          -- Allow a couple of cycles for initial keyboard type to be
+          -- determined and propagate
+          if (i > 2) and (keyboard_type /= x"2") then
+            assert false report "MK-II keyboard was detected as keyboard type $" & to_hstring(keyboard_type)
+              & " instead of $2";
+          end if;
+        end loop;
 
       end if;
     end loop;
