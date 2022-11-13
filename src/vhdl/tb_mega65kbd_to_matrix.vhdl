@@ -166,12 +166,12 @@ begin
           end if;
         end loop;
         if u2_saw_read /= "00000011" then
-          report "Expected to see registers 0 and 1 of U2 be read.  Instead saw this access pattern: " & to_string(u2_saw_read);
+          assert false report "Expected to see registers 0 and 1 of U2 be read.  Instead saw this access pattern: " & to_string(u2_saw_read);
         else
           report "Saw U2 reads to " & to_string(u2_saw_read);
         end if;
         if u2_saw_write /= "00000000" then
-          report "Expected to see no writes to U2.  Instead saw this access pattern: " & to_string(u2_saw_write);
+          assert false report "Expected to see no writes to U2.  Instead saw this access pattern: " & to_string(u2_saw_write);
         else
           report "Saw U2 writes to " & to_string(u2_saw_write);
         end if;
