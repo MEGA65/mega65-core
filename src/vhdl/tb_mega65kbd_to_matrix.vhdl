@@ -37,6 +37,15 @@ architecture tb of tb_mega65kbd_to_matrix is
   signal kio9_changes : integer := 0;
 
   signal reset : std_logic := '1';
+
+  signal u1port0 : unsigned(7 downto 0);
+  signal u1port1 : unsigned(7 downto 0);
+  signal u1_reg : integer;
+  signal u1_read : std_logic;
+  signal u1_write : std_logic;
+  signal u1_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u1_saw_write : unsigned(7 downto 0) := (others => '0');
+
   signal u2port0 : unsigned(7 downto 0);
   signal u2port1 : unsigned(7 downto 0);
   signal u2_reg : integer;
@@ -44,8 +53,55 @@ architecture tb of tb_mega65kbd_to_matrix is
   signal u2_write : std_logic;
   signal u2_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u2_saw_write : unsigned(7 downto 0) := (others => '0');
+
+  signal u3port0 : unsigned(7 downto 0);
+  signal u3port1 : unsigned(7 downto 0);
+  signal u3_reg : integer;
+  signal u3_read : std_logic;
+  signal u3_write : std_logic;
+  signal u3_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u3_saw_write : unsigned(7 downto 0) := (others => '0');
+
+  signal u4port0 : unsigned(7 downto 0);
+  signal u4port1 : unsigned(7 downto 0);
+  signal u4_reg : integer;
+  signal u4_read : std_logic;
+  signal u4_write : std_logic;
+  signal u4_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u4_saw_write : unsigned(7 downto 0) := (others => '0');
+
+  signal u5port0 : unsigned(7 downto 0);
+  signal u5port1 : unsigned(7 downto 0);
+  signal u5_reg : integer;
+  signal u5_read : std_logic;
+  signal u5_write : std_logic;
+  signal u5_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u5_saw_write : unsigned(7 downto 0) := (others => '0');
+
+  signal u6port0 : unsigned(7 downto 0);
+  signal u6port1 : unsigned(7 downto 0);
+  signal u6_reg : integer;
+  signal u6_read : std_logic;
+  signal u6_write : std_logic;
+  signal u6_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u6_saw_write : unsigned(7 downto 0) := (others => '0');
   
 begin
+
+  u1: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u1port0,
+              port1 => u1port1,
+              accessed_reg => u1_reg,
+              reg_write_strobe => u1_write,
+              reg_read_strobe => u1_read
+              );
 
   u2: entity work.pca9555
     generic map ( clock_frequency => 5e7,
@@ -60,6 +116,66 @@ begin
               accessed_reg => u2_reg,
               reg_write_strobe => u2_write,
               reg_read_strobe => u2_read
+              );
+
+  u3: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u3port0,
+              port1 => u3port1,
+              accessed_reg => u3_reg,
+              reg_write_strobe => u3_write,
+              reg_read_strobe => u3_read
+              );
+
+  u4: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u4port0,
+              port1 => u4port1,
+              accessed_reg => u4_reg,
+              reg_write_strobe => u4_write,
+              reg_read_strobe => u4_read
+              );
+
+  u5: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u5port0,
+              port1 => u5port1,
+              accessed_reg => u5_reg,
+              reg_write_strobe => u5_write,
+              reg_read_strobe => u5_read
+              );
+
+  u6: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u6port0,
+              port1 => u6port1,
+              accessed_reg => u6_reg,
+              reg_write_strobe => u6_write,
+              reg_read_strobe => u6_read
               );
   
   kbd0: entity work.mega65kbd_to_matrix
@@ -149,13 +265,21 @@ begin
         if kio9_changes < 10 then
           assert false report "KIO9 did not change at least 10 times in 10,000 cycles";
         end if;
-      elsif run("MK-II keyboard mode reads U2 ports") then
+      elsif run("MK-II keyboard mode reads U1-U6 ports") then
         kio10 <= '0';
-        for i in 1 to 10000 loop
+        for i in 1 to 100000 loop
           if (i=3) then
             reset <= '0';
           end if;
           clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          if u1_read='1' then
+            report "Detected read of U1 register " & integer'image(u1_reg);
+            u1_saw_read(u1_reg) <= '1';
+          end if;
+          if u1_write='1' then
+            report "Detected write of U1 register " & integer'image(u1_reg);
+            u1_saw_write(u1_reg) <= '1';
+          end if;
           if u2_read='1' then
             report "Detected read of U2 register " & integer'image(u2_reg);
             u2_saw_read(u2_reg) <= '1';
@@ -164,7 +288,49 @@ begin
             report "Detected write of U2 register " & integer'image(u2_reg);
             u2_saw_write(u2_reg) <= '1';
           end if;
+          if u3_read='1' then
+            report "Detected read of U3 register " & integer'image(u3_reg);
+            u3_saw_read(u3_reg) <= '1';
+          end if;
+          if u3_write='1' then
+            report "Detected write of U3 register " & integer'image(u3_reg);
+            u3_saw_write(u3_reg) <= '1';
+          end if;
+          if u4_read='1' then
+            report "Detected read of U4 register " & integer'image(u4_reg);
+            u4_saw_read(u4_reg) <= '1';
+          end if;
+          if u4_write='1' then
+            report "Detected write of U4 register " & integer'image(u4_reg);
+            u4_saw_write(u4_reg) <= '1';
+          end if;
+          if u5_read='1' then
+            report "Detected read of U5 register " & integer'image(u5_reg);
+            u5_saw_read(u5_reg) <= '1';
+          end if;
+          if u5_write='1' then
+            report "Detected write of U5 register " & integer'image(u5_reg);
+            u5_saw_write(u5_reg) <= '1';
+          end if;
+          if u6_read='1' then
+            report "Detected read of U6 register " & integer'image(u6_reg);
+            u6_saw_read(u6_reg) <= '1';
+          end if;
+          if u6_write='1' then
+            report "Detected write of U2 register " & integer'image(u6_reg);
+            u6_saw_write(u6_reg) <= '1';
+          end if;
         end loop;
+        if u1_saw_read /= "00000011" then
+          assert false report "Expected to see registers 0 and 1 of U1 be read.  Instead saw this access pattern: " & to_string(u1_saw_read);
+        else
+          report "Saw U1 reads to " & to_string(u1_saw_read);
+        end if;
+        if u1_saw_write /= "00000000" then
+          assert false report "Expected to see no writes to U1.  Instead saw this access pattern: " & to_string(u1_saw_write);
+        else
+          report "Saw U1 writes to " & to_string(u1_saw_write);
+        end if;
         if u2_saw_read /= "00000011" then
           assert false report "Expected to see registers 0 and 1 of U2 be read.  Instead saw this access pattern: " & to_string(u2_saw_read);
         else
@@ -174,6 +340,46 @@ begin
           assert false report "Expected to see no writes to U2.  Instead saw this access pattern: " & to_string(u2_saw_write);
         else
           report "Saw U2 writes to " & to_string(u2_saw_write);
+        end if;
+        if u3_saw_read /= "00000011" then
+          assert false report "Expected to see registers 0 and 1 of U3 be read.  Instead saw this access pattern: " & to_string(u3_saw_read);
+        else
+          report "Saw U3 reads to " & to_string(u3_saw_read);
+        end if;
+        if u3_saw_write /= "00000000" then
+          assert false report "Expected to see no writes to U3.  Instead saw this access pattern: " & to_string(u3_saw_write);
+        else
+          report "Saw U3 writes to " & to_string(u3_saw_write);
+        end if;
+        if u4_saw_read /= "00000011" then
+          assert false report "Expected to see registers 0 and 1 of U4 be read.  Instead saw this access pattern: " & to_string(u4_saw_read);
+        else
+          report "Saw U4 reads to " & to_string(u4_saw_read);
+        end if;
+        if u4_saw_write /= "00000000" then
+          assert false report "Expected to see no writes to U4.  Instead saw this access pattern: " & to_string(u4_saw_write);
+        else
+          report "Saw U4 writes to " & to_string(u4_saw_write);
+        end if;
+        if u5_saw_read /= "00000011" then
+          assert false report "Expected to see registers 0 and 1 of U5 be read.  Instead saw this access pattern: " & to_string(u5_saw_read);
+        else
+          report "Saw U5 reads to " & to_string(u5_saw_read);
+        end if;
+        if u5_saw_write /= "00000000" then
+          assert false report "Expected to see no writes to U5.  Instead saw this access pattern: " & to_string(u5_saw_write);
+        else
+          report "Saw U5 writes to " & to_string(u5_saw_write);
+        end if;
+        if u6_saw_read /= "00000011" then
+          assert false report "Expected to see registers 0 and 1 of U6 be read.  Instead saw this access pattern: " & to_string(u6_saw_read);
+        else
+          report "Saw U6 reads to " & to_string(u6_saw_read);
+        end if;
+        if u6_saw_write /= "00000000" then
+          assert false report "Expected to see no writes to U6.  Instead saw this access pattern: " & to_string(u6_saw_write);
+        else
+          report "Saw U6 writes to " & to_string(u6_saw_write);
         end if;
       end if;
     end loop;
