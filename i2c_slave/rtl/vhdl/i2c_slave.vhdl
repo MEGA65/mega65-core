@@ -262,7 +262,8 @@ begin
 						if scl_falling_edge then
 							write_state <= write_end;
 						end if;
-					when write_end =>
+                                  when write_end =>
+                                          report "write_end: releasing SDA";
 						sda_out <= '1';
 						if (not write_ack) and (not write_byte) then
 							write_state <= idle;

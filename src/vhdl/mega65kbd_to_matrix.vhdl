@@ -113,6 +113,8 @@ architecture behavioural of mega65kbd_to_matrix is
   signal kbd_gpio1 : std_logic;
   signal kbd_gpio2 : std_logic;
   signal shiftlock : std_logic := '0';
+
+  signal sda_assert : std_logic := '0';
   
 begin  -- behavioural
 
@@ -318,6 +320,11 @@ begin  -- behavioural
         -- We use a state machine for the simple I2C reads
         -- KIO8 = SDA, KIO9 = SCL
 
+        if sda_assert='1' then
+          sda_assert <= '0';
+          kio8 <= '0';
+        end if;
+        
         if disco_led_en = '1' then
           -- Allow simple RGB control of the LEDs
           if disco_led_id < 12 then
@@ -802,12 +809,16 @@ begin  -- behavioural
             when 201 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 2; kio8 <= 'Z'; kio9 <= '0';
             when 202 => kio9 <= '1';
             when 203 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 1; kio8 <= 'Z'; kio9 <= '0';
-            when 204 => kio9 <= '1'; kio8 <= '0';
-            when 205 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 0; kio8 <= '0'; kio9 <= '0';   -- ack byte read
+            when 204 => kio9 <= '1'; kio8 <= 'Z';
+            when 205 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 0; kio9 <= '0';   -- ack byte read
+                        -- Now we need to release SDA immediately, rather than
+                        -- waiting 1 bit time, but only after we have pulled
+                        -- SCL low.
+                        sda_assert <= '1';
             when 206 => kio8 <= '0'; kio9 <= '1';
                         
             when 207 => kio8 <= '0'; kio9 <= '0';
-            when 208 => kio9 <= '1'; 
+            when 208 => kio9 <= '1'; kio8 <= 'Z';
             when 209 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 15; kio8 <= 'Z'; kio9 <= '0';
             when 210 => kio9 <= '1'; 
             when 211 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 14; kio8 <= 'Z'; kio9 <= '0';
