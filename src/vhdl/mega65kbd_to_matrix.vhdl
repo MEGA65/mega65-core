@@ -86,8 +86,22 @@ architecture behavioural of mega65kbd_to_matrix is
   signal export_keys : std_logic_vector(79 downto 0) := (others => '1');
   signal done_writing_matrix : std_logic := '1';
   signal next_matrix_ram_write : integer range 9 downto 0 := 0;
-  
 
+  signal u1_initialised : std_logic := '0';
+  signal led0_r : std_logic := '0';
+  signal led0_g : std_logic := '0';
+  signal led0_b : std_logic := '0';
+  signal led1_r : std_logic := '0';
+  signal led1_g : std_logic := '0';
+  signal led1_b : std_logic := '0';
+  signal led2_r : std_logic := '0';
+  signal led2_g : std_logic := '0';
+  signal led2_b : std_logic := '0';
+  signal led3_r : std_logic := '0';
+  signal led3_g : std_logic := '0';
+  signal led3_b : std_logic := '0';
+  signal led_capslock : std_logic := '0';
+  signal led_shiftlock : std_logic := '0';
   
 begin  -- behavioural
 
@@ -341,17 +355,19 @@ begin  -- behavioural
           if to_integer(addr) < 5 then
             addr <= addr + 1;
             report "Reading I2C IO expander " & integer'image(to_integer(addr)+ 1);
+            i2c_state <= 100;
           else
             addr <= "000";
-            report "Reading I2C IO expander " & integer'image(0);
+            report "Writing to I2C IO expander " & integer'image(0);
             -- We have read all IO expanders, so update exported key states
             export_keys <= current_keys;
             current_keys <= (others => '1');
             -- This requires writing to each column of the matrix RAM
             next_matrix_ram_write <= 9;
             done_writing_matrix <= '0';
+            -- Update LEDs
+            i2c_state <= 500;
           end if;
-          i2c_state <= 100;
         end if;
         
         if i2c_tick='1' and i2c_state /= 0 then
@@ -359,6 +375,202 @@ begin  -- behavioural
         end if;
         case i2c_state is
           when 0 => null;
+
+          -- State 500 = write to output ports of IO expander
+          -- Start condition
+          when 500 => kio8 <= '1'; kio9 <= '1';
+          when 501 => kio8 <= '0'; kio9 <= '1';
+          -- Send address 0100xxx
+          when 502 => kio8 <= '0'; kio9 <= '0';
+          when 503 => kio8 <= '0'; kio9 <= '1';
+          when 504 => kio8 <= '1'; kio9 <= '0';
+          when 505 => kio8 <= '1'; kio9 <= '1';
+          when 506 => kio8 <= '0'; kio9 <= '0';
+          when 507 => kio8 <= '0'; kio9 <= '1';
+          when 508 => kio8 <= '0'; kio9 <= '0';
+          when 509 => kio8 <= '0'; kio9 <= '1';
+          when 510 => kio8 <= '0'; kio9 <= '0';
+          when 511 => kio8 <= addr(2); kio9 <= '0';
+          when 512 => kio8 <= addr(2); kio9 <= '1';
+          when 513 => kio8 <= addr(2); kio9 <= '0';
+          when 514 => kio8 <= addr(1); kio9 <= '0';
+          when 515 => kio8 <= addr(1); kio9 <= '1';
+          when 516 => kio8 <= addr(1); kio9 <= '0';
+          when 517 => kio8 <= addr(0); kio9 <= '0';
+          when 518 => kio8 <= addr(0); kio9 <= '1';
+          when 519 => kio8 <= addr(1); kio9 <= '0';
+          when 520 => kio8 <= '0'; kio9 <= '0';       -- select write
+          when 521 => kio8 <= '0'; kio9 <= '1';
+          -- ACK bit
+          when 522 => kio8 <= '0'; kio9 <= '0';
+          when 523 => kio8 <= 'Z'; kio9 <= '0';
+          when 524 => kio8 <= 'Z'; kio9 <= '1';
+
+          -- Write to set address to read from
+          -- Send $02 to indicate read will be of register 2
+          when 525 => kio8 <= '0'; kio9 <= '0';
+          when 526 => kio8 <= '0'; kio9 <= '1';                          
+          when 527 => kio8 <= '0'; kio9 <= '0';
+          when 528 => kio8 <= '0'; kio9 <= '1';
+          when 529 => kio8 <= '0'; kio9 <= '0';
+          when 530 => kio8 <= '0'; kio9 <= '1';
+          when 531 => kio8 <= '0'; kio9 <= '0';
+          when 532 => kio8 <= '0'; kio9 <= '1';
+          when 533 => kio8 <= '0'; kio9 <= '0';
+          when 534 => kio8 <= '0'; kio9 <= '1';
+          when 535 => kio8 <= '0'; kio9 <= '0';
+          when 536 => kio8 <= '0'; kio9 <= '1';
+          when 537 => kio8 <= '1'; kio9 <= '0';
+          when 538 => kio8 <= '1'; kio9 <= '1';
+          when 539 => kio8 <= '0'; kio9 <= '0';
+          when 540 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 541 => kio8 <= '0'; kio9 <= '0';
+          when 542 => kio8 <= '0'; kio9 <= '1';
+          when 543 => kio8 <= '0'; kio9 <= '0';
+                      
+          -- Write output port values in 2 bytes
+          when 544 => kio8 <= led_shiftlock; kio9 <= '0';
+          when 545 => kio8 <= led_shiftlock; kio9 <= '1';                          
+          when 546 => kio8 <= led1_b; kio9 <= '0';
+          when 547 => kio8 <= led1_b; kio9 <= '1';
+          when 548 => kio8 <= led1_g; kio9 <= '0';
+          when 549 => kio8 <= led1_g; kio9 <= '1';
+          when 550 => kio8 <= led1_r; kio9 <= '0';
+          when 551 => kio8 <= led1_r; kio9 <= '1';
+          when 552 => kio8 <= led_capslock; kio9 <= '0';
+          when 553 => kio8 <= led_capslock; kio9 <= '1';
+          when 554 => kio8 <= led0_b; kio9 <= '0';
+          when 555 => kio8 <= led0_b; kio9 <= '1';
+          when 556 => kio8 <= led0_g; kio9 <= '0';
+          when 557 => kio8 <= led0_g; kio9 <= '1';
+          when 558 => kio8 <= led0_r; kio9 <= '0';
+          when 559 => kio8 <= led0_r; kio9 <= '1';
+          -- Send ACK bit during write
+          when 560 => kio8 <= '0'; kio9 <= '0';
+          when 561 => kio8 <= '0'; kio9 <= '1';
+          when 562 => kio8 <= '0'; kio9 <= '0';
+
+
+          when 563 => kio8 <= '0'; kio9 <= '0';
+          when 564 => kio8 <= '0'; kio9 <= '1';                          
+          when 565 => kio8 <= led3_b; kio9 <= '0';
+          when 566 => kio8 <= led3_b; kio9 <= '1';
+          when 567 => kio8 <= led3_g; kio9 <= '0';
+          when 568 => kio8 <= led3_g; kio9 <= '1';
+          when 569 => kio8 <= led3_r; kio9 <= '0';
+          when 570 => kio8 <= led3_r; kio9 <= '1';
+          when 571 => kio8 <= '0'; kio9 <= '0';
+          when 572 => kio8 <= '0'; kio9 <= '1';
+          when 573 => kio8 <= led2_b; kio9 <= '0';
+          when 574 => kio8 <= led2_b; kio9 <= '1';
+          when 575 => kio8 <= led2_g; kio9 <= '0';
+          when 576 => kio8 <= led2_g; kio9 <= '1';
+          when 577 => kio8 <= led2_r; kio9 <= '0';
+          when 578 => kio8 <= led2_r; kio9 <= '1';
+          -- Send ACK bit during write
+          when 579 => kio8 <= '0'; kio9 <= '0';
+          when 580 => kio8 <= '0'; kio9 <= '1';
+          when 581 => kio8 <= '0'; kio9 <= '0';
+                      if u1_initialised='1' then
+                        -- Skip writing the other 4 registers after the first time
+                        i2c_state <= 658;
+                      end if;
+                      
+          -- Write polarity inversion value in 2 bytes
+          when 582 => kio8 <= '0'; kio9 <= '0';
+          when 583 => kio8 <= '0'; kio9 <= '1';                          
+          when 584 => kio8 <= '0'; kio9 <= '0';
+          when 585 => kio8 <= '0'; kio9 <= '1';
+          when 586 => kio8 <= '0'; kio9 <= '0';
+          when 587 => kio8 <= '0'; kio9 <= '1';
+          when 588 => kio8 <= '0'; kio9 <= '0';
+          when 589 => kio8 <= '0'; kio9 <= '1';
+          when 590 => kio8 <= '0'; kio9 <= '0';
+          when 591 => kio8 <= '0'; kio9 <= '1';
+          when 592 => kio8 <= '0'; kio9 <= '0';
+          when 593 => kio8 <= '0'; kio9 <= '1';
+          when 594 => kio8 <= '0'; kio9 <= '0';
+          when 595 => kio8 <= '0'; kio9 <= '1';
+          when 596 => kio8 <= '0'; kio9 <= '0';
+          when 597 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 598 => kio8 <= '0'; kio9 <= '0';
+          when 599 => kio8 <= '0'; kio9 <= '1';
+          when 600 => kio8 <= '0'; kio9 <= '0';
+
+          when 601 => kio8 <= '0'; kio9 <= '0';
+          when 602 => kio8 <= '0'; kio9 <= '1';                          
+          when 603 => kio8 <= '0'; kio9 <= '0';
+          when 604 => kio8 <= '0'; kio9 <= '1';
+          when 605 => kio8 <= '0'; kio9 <= '0';
+          when 606 => kio8 <= '0'; kio9 <= '1';
+          when 607 => kio8 <= '0'; kio9 <= '0';
+          when 608 => kio8 <= '0'; kio9 <= '1';
+          when 609 => kio8 <= '0'; kio9 <= '0';
+          when 610 => kio8 <= '0'; kio9 <= '1';
+          when 611 => kio8 <= '0'; kio9 <= '0';
+          when 612 => kio8 <= '0'; kio9 <= '1';
+          when 613 => kio8 <= '1'; kio9 <= '0';
+          when 614 => kio8 <= '1'; kio9 <= '1';
+          when 615 => kio8 <= '0'; kio9 <= '0';
+          when 616 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 617 => kio8 <= '0'; kio9 <= '0';
+          when 618 => kio8 <= '0'; kio9 <= '1';
+          when 619 => kio8 <= '0'; kio9 <= '0';
+
+          -- Clear read-enables in 2 bytes
+          when 620 => kio8 <= '0'; kio9 <= '0';
+          when 621 => kio8 <= '0'; kio9 <= '1';                          
+          when 622 => kio8 <= '0'; kio9 <= '0';
+          when 623 => kio8 <= '0'; kio9 <= '1';
+          when 624 => kio8 <= '0'; kio9 <= '0';
+          when 625 => kio8 <= '0'; kio9 <= '1';
+          when 626 => kio8 <= '0'; kio9 <= '0';
+          when 627 => kio8 <= '0'; kio9 <= '1';
+          when 628 => kio8 <= '0'; kio9 <= '0';
+          when 629 => kio8 <= '0'; kio9 <= '1';
+          when 630 => kio8 <= '0'; kio9 <= '0';
+          when 631 => kio8 <= '0'; kio9 <= '1';
+          when 632 => kio8 <= '0'; kio9 <= '0';
+          when 633 => kio8 <= '0'; kio9 <= '1';
+          when 634 => kio8 <= '0'; kio9 <= '0';
+          when 635 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 636 => kio8 <= '0'; kio9 <= '0';
+          when 637 => kio8 <= '0'; kio9 <= '1';
+          when 638 => kio8 <= '0'; kio9 <= '0';
+
+          when 639 => kio8 <= '0'; kio9 <= '0';
+          when 640 => kio8 <= '0'; kio9 <= '1';                          
+          when 641 => kio8 <= '0'; kio9 <= '0';
+          when 642 => kio8 <= '0'; kio9 <= '1';
+          when 643 => kio8 <= '0'; kio9 <= '0';
+          when 644 => kio8 <= '0'; kio9 <= '1';
+          when 645 => kio8 <= '0'; kio9 <= '0';
+          when 646 => kio8 <= '0'; kio9 <= '1';
+          when 647 => kio8 <= '0'; kio9 <= '0';
+          when 648 => kio8 <= '0'; kio9 <= '1';
+          when 649 => kio8 <= '0'; kio9 <= '0';
+          when 650 => kio8 <= '0'; kio9 <= '1';
+          when 651 => kio8 <= '1'; kio9 <= '0';
+          when 652 => kio8 <= '1'; kio9 <= '1';
+          when 653 => kio8 <= '0'; kio9 <= '0';
+          when 654 => kio8 <= '0'; kio9 <= '1';
+          -- Send ACK bit during write
+          when 655 => kio8 <= '0'; kio9 <= '0';
+          when 656 => kio8 <= '0'; kio9 <= '1';
+          when 657 => kio8 <= '0'; kio9 <= '0';
+                      
+          -- Send STOP at end of read
+          when 658 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+          when 659 => kio8 <= '0'; kio9 <= '0';
+          when 660 => kio8 <= '0'; kio9 <= '1';
+          when 661 => kio8 <= '1'; kio9 <= '1';
+                      i2c_state <= 0;
+                      u1_initialised <= '1';
+                    
           -- State 100 = read inputs from an IO expander
           -- Start condition
           when 100 => kio8 <= '1'; kio9 <= '1';

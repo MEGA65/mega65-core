@@ -155,8 +155,6 @@ begin
 							state <= wait_for_event_released;
 						end if;
                                             when wait_for_event_released =>
-                                            report "data_in_valid = " & boolean'image(data_in_valid)
-                                              & ", data_out_requested = " & boolean'image(data_out_requested);
                                             if (data_in_valid = false) and (data_out_requested = false) then
                                               report "selected register = " & integer'image(to_integer(selected_register_index))
                                                 & " xor 1";

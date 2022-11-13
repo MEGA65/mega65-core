@@ -155,7 +155,7 @@ begin
 				else
 					sample_cycles_counter <= sample_cycles_counter -1;
 				end if;
-			end if;
+                          end if;
 		end if;
 	end process;
 
@@ -243,7 +243,6 @@ begin
 						end if;
 					when wait_scl_rising =>
                                           if scl_rising_edge then
-                                            report "scl_rising_edge: output_shift_count=" & integer'image(output_shift_count);
 							if output_shift_count = 0 then
 								write_state <= wait_scl_falling;
 							else
@@ -299,8 +298,6 @@ begin
 						if read_state = read_end then
 							read_byte <= false;
 							read_mode_received <= input_shift(0) = '1';
-                                                        report "Saw address " & to_string(input_shift(7 downto 1))
-                                                          & ", my address is " & to_string(address);
 							if input_shift(7 downto 1) = address then
 								control_state <= start_write_ack;
 							else

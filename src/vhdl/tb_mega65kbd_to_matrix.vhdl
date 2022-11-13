@@ -90,7 +90,7 @@ begin
 
   u1: entity work.pca9555
     generic map ( clock_frequency => 5e7,
-                  address => "0100011"
+                  address => "0100000"
                   )
     port map (clock => clock,
               reset => reset,
@@ -120,7 +120,7 @@ begin
 
   u3: entity work.pca9555
     generic map ( clock_frequency => 5e7,
-                  address => "0100011"
+                  address => "0100001"
                   )
     port map (clock => clock,
               reset => reset,
@@ -135,7 +135,7 @@ begin
 
   u4: entity work.pca9555
     generic map ( clock_frequency => 5e7,
-                  address => "0100011"
+                  address => "0100100"
                   )
     port map (clock => clock,
               reset => reset,
@@ -150,7 +150,7 @@ begin
 
   u5: entity work.pca9555
     generic map ( clock_frequency => 5e7,
-                  address => "0100011"
+                  address => "0100010"
                   )
     port map (clock => clock,
               reset => reset,
@@ -165,7 +165,7 @@ begin
 
   u6: entity work.pca9555
     generic map ( clock_frequency => 5e7,
-                  address => "0100011"
+                  address => "0100101"
                   )
     port map (clock => clock,
               reset => reset,
@@ -265,7 +265,7 @@ begin
         if kio9_changes < 10 then
           assert false report "KIO9 did not change at least 10 times in 10,000 cycles";
         end if;
-      elsif run("MK-II keyboard mode reads U1-U6 ports") then
+      elsif run("MK-II keyboard mode reads U2-U6 ports, writes U1 ports") then
         kio10 <= '0';
         for i in 1 to 100000 loop
           if (i=3) then
@@ -321,13 +321,13 @@ begin
             u6_saw_write(u6_reg) <= '1';
           end if;
         end loop;
-        if u1_saw_read /= "00000011" then
-          assert false report "Expected to see registers 0 and 1 of U1 be read.  Instead saw this access pattern: " & to_string(u1_saw_read);
+        if u1_saw_read /= "00000000" then
+          assert false report "Expected to see no reads on U1.  Instead saw this access pattern: " & to_string(u1_saw_read);
         else
           report "Saw U1 reads to " & to_string(u1_saw_read);
         end if;
-        if u1_saw_write /= "00000000" then
-          assert false report "Expected to see no writes to U1.  Instead saw this access pattern: " & to_string(u1_saw_write);
+        if u1_saw_write /= "11111100" then
+          assert false report "Expected to see writes to U1 regs 2 through 7.  Instead saw this access pattern: " & to_string(u1_saw_write);
         else
           report "Saw U1 writes to " & to_string(u1_saw_write);
         end if;
