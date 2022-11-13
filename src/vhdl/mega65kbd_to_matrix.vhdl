@@ -106,6 +106,12 @@ architecture behavioural of mega65kbd_to_matrix is
   signal led3_b : std_logic := '0';
   signal led_capslock : std_logic := '0';
   signal led_shiftlock : std_logic := '0';
+  signal led_tick : std_logic := '0';
+  signal led_counter : integer range 0 to 15 := 0;
+  signal shiftlock_toggle : std_logic := '0';
+  signal kbd_gpio1 : std_logic;
+  signal kbd_gpio2 : std_logic;
+  signal shiftlock : std_logic := '0';
   
 begin  -- behavioural
 
@@ -157,6 +163,10 @@ begin  -- behavioural
       else
         model2_timeout <= model2_timeout - 1;
       end if;
+        
+      delete_out <= deletekey;
+      return_out <= returnkey;
+      fastkey_out <= fastkey;
       
       if keyboard_model = 1 then
         ------------------------------------------------------------------------
@@ -165,10 +175,6 @@ begin  -- behavioural
         -- Process is to run a clock at a modest rate, and periodically send
         -- a sync pulse, and clock in the key states, while clocking out the
         -- LED states.
-        
-        delete_out <= deletekey;
-        return_out <= returnkey;
-        fastkey_out <= fastkey;
         
         -- Counter is for working out drive LED blink phase
         counter <= counter + 1;
@@ -310,7 +316,59 @@ begin  -- behavioural
         
         -- We use a state machine for the simple I2C reads
         -- KIO8 = SDA, KIO9 = SCL
-        
+
+        if disco_led_en = '1' then
+          -- Allow simple RGB control of the LEDs
+          if disco_led_id < 12 then
+            disco_vector(7+to_integer(disco_led_id)*8 downto to_integer(disco_led_id)*8) <= std_logic_vector(disco_led_val);
+          end if;
+          output_vector(127 downto 96) <= (others => '0');
+          output_vector(95 downto 0) <= disco_vector;
+        else
+          if flopmotor='1' then
+            output_vector(23 downto 0) <= x"00FF00";
+            output_vector(47 downto 24) <= x"00FF00";
+          elsif (flopled0='1' and counter(24)='1') then
+            output_vector(23 downto 0) <= x"0000FF";
+            output_vector(47 downto 24) <= x"0000FF";
+          elsif (flopled2='1' and counter(24)='1') then
+            output_vector(23 downto 0) <= x"00FFFF";
+            output_vector(47 downto 24) <= x"00FFFF";
+          elsif (flopledsd='1' and counter(24)='1') then
+            output_vector(23 downto 0) <= x"00FF00";
+            output_vector(47 downto 24) <= x"00FF00";
+          end if;
+          if powerled='1' then
+            output_vector(71 downto 48) <= x"00FF00";
+            output_vector(95 downto 72) <= x"00FF00";
+          end if;
+        end if;
+        if led_tick='1' then
+          if led_counter < 15 then
+            led_counter <= led_counter + 1;
+          else
+            led_counter <= 0;
+          end if;
+          led0_r <= '0'; led0_g <= '0'; led0_b <= '0';
+          led1_r <= '0'; led1_g <= '0'; led1_b <= '0';
+          led2_r <= '0'; led2_g <= '0'; led2_b <= '0';
+          led3_r <= '0'; led3_g <= '0'; led3_b <= '0';
+          if to_integer(unsigned(output_vector(7 downto 4))) > led_counter then led0_r <= '1'; end if;
+          if to_integer(unsigned(output_vector(15 downto 12))) > led_counter then led0_g <= '1'; end if;
+          if to_integer(unsigned(output_vector(23 downto 20))) > led_counter then led0_b <= '1'; end if;
+          if to_integer(unsigned(output_vector(31 downto 24))) > led_counter then led1_r <= '1'; end if;
+          if to_integer(unsigned(output_vector(39 downto 36))) > led_counter then led1_g <= '1'; end if;
+          if to_integer(unsigned(output_vector(47 downto 44))) > led_counter then led1_b <= '1'; end if;
+          if to_integer(unsigned(output_vector(55 downto 52))) > led_counter then led2_r <= '1'; end if;
+          if to_integer(unsigned(output_vector(63 downto 60))) > led_counter then led2_g <= '1'; end if;
+          if to_integer(unsigned(output_vector(71 downto 68))) > led_counter then led2_b <= '1'; end if;
+          if to_integer(unsigned(output_vector(79 downto 76))) > led_counter then led3_r <= '1'; end if;
+          if to_integer(unsigned(output_vector(87 downto 84))) > led_counter then led3_g <= '1'; end if;
+          if to_integer(unsigned(output_vector(95 downto 92))) > led_counter then led3_b <= '1'; end if;
+
+          led_shiftlock <= not shiftlock_toggle;
+        end if;
+
         -- Stash the bits into the key matrix
         -- MK-II keyboard PCB schematics have the key assignments there.
         if i2c_bit_valid='1' then
@@ -338,6 +396,107 @@ begin  -- behavioural
                 when 15 => current_keys(3) <= i2c_bit;-- F7
                 when others => null;
               end case;
+
+            when "001" => -- U3
+              case i2c_bit_num is
+                when 0 => shiftlock <= i2c_bit;-- SHIFTLOCK
+                          if i2c_bit='0' and shiftlock='1' then
+                            shiftlock_toggle <= not shiftlock_toggle;
+                          end if;
+                when 1 => current_keys(10) <= i2c_bit;-- A
+                when 2 => current_keys(13) <= i2c_bit;-- S
+                when 3 => current_keys(18) <= i2c_bit;-- D
+                when 4 => current_keys(65) <= i2c_bit;-- TAB
+                when 5 => current_keys(62) <= i2c_bit;-- Q
+                when 6 => current_keys(9) <= i2c_bit;-- W
+                when 7 => current_keys(14) <= i2c_bit;-- E
+                when 8 => kbd_gpio1 <= i2c_bit;-- GPIO1
+                when 9 => kbd_gpio2 <= i2c_bit;-- GPIO2
+                when 10 => current_keys(58) <= i2c_bit;-- CTRL
+                when 11 => current_keys(61) <= i2c_bit;-- MEGA
+                when 12 => current_keys(15) <= i2c_bit and shiftlock_toggle;-- LSHIFT
+                when 13 => current_keys(12) <= i2c_bit;-- Z
+                when 14 => current_keys(23) <= i2c_bit;-- X
+                when 15 => current_keys(20) <= i2c_bit;-- C
+                when others => null;
+              end case;
+
+            when "100" => -- U4
+              case i2c_bit_num is
+                when 0 => current_keys(47) <= i2c_bit;-- <
+                when 1 => current_keys(44) <= i2c_bit;-- >
+                when 2 => current_keys(31) <= i2c_bit;-- V
+                when 3 => current_keys(28) <= i2c_bit;-- B
+                when 4 => current_keys(39) <= i2c_bit;-- N
+                when 5 => current_keys(37) <= i2c_bit;-- K
+                when 6 => current_keys(36) <= i2c_bit;-- M
+                when 7 => current_keys(42) <= i2c_bit;-- L
+                when 8 => current_keys(34) <= i2c_bit;-- J
+                when 9 => current_keys(25) <= i2c_bit;-- Y
+                when 10 => current_keys(29) <= i2c_bit;-- H
+                when 11 => current_keys(22) <= i2c_bit;-- T
+                when 12 => current_keys(26) <= i2c_bit;-- G
+                when 13 => current_keys(17) <= i2c_bit;-- R
+                when 14 => current_keys(21) <= i2c_bit;-- F
+                when 15 => current_keys(60) <= i2c_bit;-- SPACE
+                when others => null;
+                end case;
+
+            when "010" => -- U5
+              case i2c_bit_num is
+                when 0 => current_keys(52) <= i2c_bit;-- RSHIFT
+                when 1 => current_keys(55) <= i2c_bit;-- ?
+                when 2 => -- duplicate of >
+                when 3 => -- duplucate of <
+                when 4 => current_keys(74) <= i2c_bit;-- LEFT
+                          -- XXX need to be delayed until we have
+                          -- exported RSHIFT
+                          leftkey <= not i2c_bit;
+                when 5 => current_keys(73) <= i2c_bit;-- UP
+                          -- XXX need to be delayed until we have
+                          -- exported RSHIFT
+                          upkey <= not i2c_bit;
+                when 6 => current_keys(7) <= i2c_bit;-- DOWN
+                when 7 => current_keys(2) <= i2c_bit;-- RIGHT
+                when 8 => current_keys(45) <= i2c_bit;-- :
+                when 9 => current_keys(50) <= i2c_bit;-- ;
+                when 10 => current_keys(53) <= i2c_bit;-- =
+                when 11 => current_keys(1) <= i2c_bit;-- RETURN
+                           returnkey <= i2c_bit;
+                           -- Copied from MK-I keyboard behaviour
+                           current_keys(77) <= i2c_bit;
+                when 12 => current_keys(46) <= i2c_bit;-- @
+                when 13 => current_keys(49) <= i2c_bit;-- * 
+                when 14 => current_keys(54) <= i2c_bit;-- ^
+                when 15 => current_keys(75) <= i2c_bit;-- RESTORE
+                           restore <= i2c_bit;
+                when others => null;
+              end case;
+
+            when "101" => -- U6
+              case i2c_bit_num is
+                when 0 => current_keys(11) <= i2c_bit;-- 4
+                when 1 => current_keys(16) <= i2c_bit;-- 5
+                when 2 => current_keys(19) <= i2c_bit;-- 6
+                when 3 => current_keys(24) <= i2c_bit;-- 7
+                when 4 => current_keys(27) <= i2c_bit;-- 8
+                when 5 => current_keys(32) <= i2c_bit;-- 9
+                when 6 => current_keys(5) <= i2c_bit;-- F3
+                when 7 => current_keys(4) <= i2c_bit;-- F1
+                when 8 => current_keys(64) <= i2c_bit;-- NOSCROLL
+                when 9 => current_keys(72) <= i2c_bit;-- CAPSLOCK
+                          -- XXX need to cancel/toggle CAPSLOCK when held for
+                          -- fast-key behaviour
+                          led_capslock <= i2c_bit;
+                when 10 => current_keys(66) <= i2c_bit;-- ALT
+                when 11 => current_keys(71) <= i2c_bit;-- ESC
+                when 12 => current_keys(63) <= i2c_bit;-- RUNSTOP
+                when 13 => current_keys(56) <= i2c_bit;-- 1
+                when 14 => current_keys(59) <= i2c_bit;-- 2
+                when 15 => current_keys(8) <= i2c_bit;-- 3
+                when others => null;
+              end case;
+              
             when others => null;
           end case;
         end if;
@@ -355,6 +514,7 @@ begin  -- behavioural
           keyram_wea <= (others => '0');
         end if;
         
+        led_tick <= '0';
         if i2c_state = 0 then
           if to_integer(addr) < 5 then
             addr <= addr + 1;
@@ -362,6 +522,7 @@ begin  -- behavioural
             i2c_state <= 100;
           else
             addr <= "000";
+            led_tick <= '1';
             report "Writing to I2C IO expander " & integer'image(0);
             -- We have read all IO expanders, so update exported key states
             export_keys <= current_keys;
