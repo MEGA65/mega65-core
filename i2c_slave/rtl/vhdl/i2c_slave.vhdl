@@ -237,7 +237,8 @@ begin
 						end if;
 					when write_bit =>
 						if scl_falling_edge then
-							sda_out <= output_shift(7);
+                                                  sda_out <= output_shift(7);
+                                                  report "outputting bit = " & std_logic'image(output_shift(7));
 							write_timeout_counter <= write_timeout;
 							write_state <= wait_scl_rising;
 						end if;
