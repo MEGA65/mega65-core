@@ -570,7 +570,8 @@ begin  -- behavioural
             when 519 => kio8 <= addr(1); kio9 <= '0';
             when 520 => kio8 <= addr(0); kio9 <= '0';
             when 521 => kio8 <= addr(0); kio9 <= '1';
-            when 522 => kio8 <= addr(1); kio9 <= '0';
+            when 522 => kio8 <= addr(0); kio9 <= '0'; -- XXX delete superflous
+                                                      -- state
             when 523 => kio8 <= '0'; kio9 <= '0';       -- select write
             when 524 => kio8 <= '0'; kio9 <= '1';
             -- ACK bit
@@ -709,7 +710,8 @@ begin  -- behavioural
             when 121 => kio8 <= addr(0); kio9 <= '0';
             when 122 => kio8 <= addr(0); kio9 <= '1';
             when 123 => kio8 <= addr(0); kio9 <= '0';
-            when 124 => kio8 <= addr(1); kio9 <= '0';
+            when 124 => kio8 <= addr(0); kio9 <= '0';  -- XXX delete this
+                                                       -- superflous state
             when 125 => kio8 <= '0'; kio9 <= '0';       -- select write
             when 126 => kio8 <= '0'; kio9 <= '1';
             when 127 => kio8 <= '0'; kio9 <= '0';
@@ -800,11 +802,11 @@ begin  -- behavioural
             when 201 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 2; kio8 <= 'Z'; kio9 <= '0';
             when 202 => kio9 <= '1';
             when 203 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 1; kio8 <= 'Z'; kio9 <= '0';
-            when 204 => kio9 <= '1';
+            when 204 => kio9 <= '1'; kio8 <= '0';
             when 205 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 0; kio8 <= '0'; kio9 <= '0';   -- ack byte read
             when 206 => kio8 <= '0'; kio9 <= '1';
                         
-            when 207 => kio8 <= 'Z'; kio9 <= '0';
+            when 207 => kio8 <= '0'; kio9 <= '0';
             when 208 => kio9 <= '1'; 
             when 209 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 15; kio8 <= 'Z'; kio9 <= '0';
             when 210 => kio9 <= '1'; 
@@ -819,12 +821,12 @@ begin  -- behavioural
             when 219 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 10; kio8 <= 'Z'; kio9 <= '0';
             when 220 => kio9 <= '1'; 
             when 221 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 9; kio8 <= 'Z'; kio9 <= '0';
-            when 222 => kio9 <= '1'; 
-            when 223 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 8; kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-            when 224 => kio8 <= '1'; kio9 <= '1';
+            when 222 => kio9 <= '1'; kio8 <= 'Z'; -- don't ack last byte read
+            when 223 => i2c_bit <= kio8; i2c_bit_valid <= '1'; i2c_bit_num <= 8; kio8 <= 'Z'; kio9 <= '0'; 
+            when 224 => kio8 <= 'Z'; kio9 <= '1';
                         
             -- Send STOP at end of read
-            when 225 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+            when 225 => kio8 <= 'Z'; kio9 <= '0'; -- don't ack last byte read
             when 226 => kio8 <= '0'; kio9 <= '0';
             when 227 => kio8 <= '0'; kio9 <= '1';
             when 228 => kio8 <= '1'; kio9 <= '1';
