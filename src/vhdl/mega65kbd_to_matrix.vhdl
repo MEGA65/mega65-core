@@ -76,7 +76,9 @@ architecture behavioural of mega65kbd_to_matrix is
   signal i2c_counter : integer range 0 to 50 := 0;
   signal i2c_tick : std_logic := '0';
   signal i2c_state : integer := 0;
-  signal addr : unsigned(2 downto 0) := to_unsigned(3,3);
+  -- addr gets incremented before access, so if we want to test addr 3 first,
+  -- we need to set it to 2.
+  signal addr : unsigned(2 downto 0) := to_unsigned(3-1,3);
 
   signal i2c_bit : std_logic := '0';
   signal i2c_bit_valid : std_logic := '0';
@@ -293,8 +295,6 @@ begin  -- behavioural
         -- We use a state machine for the simple I2C reads
         -- KIO8 = SDA, KIO9 = SCL
         
-        report "type 2 keyboard mode";
-        
         -- Stash the bits into the key matrix
         -- MK-II keyboard PCB schematics have the key assignments there.
         if i2c_bit_valid='1' then
@@ -339,12 +339,13 @@ begin  -- behavioural
           keyram_wea <= (others => '0');
         end if;
         
-        report "i2c_state = " & integer'image(i2c_state);
         if i2c_state = 0 then
           if to_integer(addr) < 5 then
             addr <= addr + 1;
+            report "Reading I2C IO expander " & integer'image(to_integer(addr)+ 1);
           else
             addr <= "000";
+            report "Reading I2C IO expander " & integer'image(0);
             -- We have read all IO expanders, so update exported key states
             export_keys <= current_keys;
             current_keys <= (others => '1');

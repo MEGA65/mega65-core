@@ -13,6 +13,7 @@ lib.add_source_files("src/vhdl/tb_*.vhdl")
 lib.add_source_files("src/vhdl/kb_matrix_ram.vhdl")
 lib.add_source_files("src/vhdl/debugtools.vhdl")
 lib.add_source_files("src/vhdl/mega65kbd_to_matrix.vhdl")
+lib.add_source_files("i2c_slave/rtl/vhdl/*.vhdl")
 
 vu.set_compile_option("ghdl.a_flags", ["-frelaxed-rules"])
 vu.set_compile_option("ghdl.flags", ["-frelaxed-rules"])

@@ -5,11 +5,11 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
 
-entity tb_example_many is
+entity tb_mega65kbd_to_matrix is
   generic (runner_cfg : string);
 end entity;
 
-architecture tb of tb_example_many is
+architecture tb of tb_mega65kbd_to_matrix is
 
   signal clock : std_logic;
   signal keyboard_type : unsigned(3 downto 0);
@@ -35,9 +35,33 @@ architecture tb of tb_example_many is
   signal last_kio9 : std_logic := '0';
   signal kio8_changes : integer := 0;
   signal kio9_changes : integer := 0;
+
+  signal reset : std_logic := '1';
+  signal u2port0 : unsigned(7 downto 0);
+  signal u2port1 : unsigned(7 downto 0);
+  signal u2_reg : integer;
+  signal u2_read : std_logic;
+  signal u2_write : std_logic;
+  signal u2_saw_read : unsigned(7 downto 0) := (others => '0');
+  signal u2_saw_write : unsigned(7 downto 0) := (others => '0');
   
 begin
 
+  u2: entity work.pca9555
+    generic map ( clock_frequency => 5e7,
+                  address => "0100011"
+                  )
+    port map (clock => clock,
+              reset => reset,
+              scl => kio9,
+              sda => kio8,
+              port0 => u2port0,
+              port1 => u2port1,
+              accessed_reg => u2_reg,
+              reg_write_strobe => u2_write,
+              reg_read_strobe => u2_read
+              );
+  
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => clock,
@@ -125,6 +149,33 @@ begin
         if kio9_changes < 10 then
           assert false report "KIO9 did not change at least 10 times in 10,000 cycles";
         end if;
+      elsif run("MK-II keyboard mode reads U2 ports") then
+        kio10 <= '0';
+        for i in 1 to 10000 loop
+          if (i=3) then
+            reset <= '0';
+          end if;
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          if u2_read='1' then
+            report "Detected read of U2 register " & integer'image(u2_reg);
+            u2_saw_read(u2_reg) <= '1';
+          end if;
+          if u2_write='1' then
+            report "Detected write of U2 register " & integer'image(u2_reg);
+            u2_saw_write(u2_reg) <= '1';
+          end if;
+        end loop;
+        if u2_saw_read /= "00000011" then
+          report "Expected to see registers 0 and 1 of U2 be read.  Instead saw this access pattern: " & to_string(u2_saw_read);
+        else
+          report "Saw U2 reads to " & to_string(u2_saw_read);
+        end if;
+        if u2_saw_write /= "00000000" then
+          report "Expected to see no writes to U2.  Instead saw this access pattern: " & to_string(u2_saw_write);
+        else
+          report "Saw U2 writes to " & to_string(u2_saw_write);
+        end if;
+        assert false report "forced fail";
       end if;
     end loop;
 
