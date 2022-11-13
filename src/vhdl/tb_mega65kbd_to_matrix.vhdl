@@ -394,6 +394,9 @@ begin
         u5port0 <= (others => 'H'); u5port1 <= (others => 'H');
         u6port0 <= (others => 'H'); u6port1 <= (others => 'H');
         for i in 1 to 100000 loop
+          if (i=3) then
+            reset <= '0';
+          end if;
           clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
           matrix_col_idx <= col_num;
           -- Give time for first round of reading IO expanders to complete
@@ -410,6 +413,44 @@ begin
               if to_X01(matrix_col) /= x"ff" then
                 assert false report "Matrix column " & integer'image(col_num) & " = $" & to_hstring(matrix_col) & ", but should be $ff";
               end if;
+            end if;
+          end if;
+        end loop;
+      elsif run("MK-II keyboard outputs key when pressed") then
+        kio10 <= '0'; kio8 <= 'H'; kio9 <= 'H';
+        u2port0 <= (others => 'H'); u2port1 <= (others => 'H');
+        u3port0 <= (others => 'H'); u3port1 <= (others => 'H');
+        u4port0 <= (others => 'H'); u4port1 <= (others => 'H');
+        u5port0 <= (others => 'H'); u5port1 <= (others => 'H');
+        u6port0 <= (others => 'H'); u6port1 <= (others => 'H');
+        -- Press SPACE 
+        u4port1(7) <= '0'; 
+        for i in 1 to 100000 loop
+          if (i=3) then
+            reset <= '0';
+          end if;
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          matrix_col_idx <= col_num;
+          -- Give time for first round of reading IO expanders to complete
+          if i > 75000 then
+            if col_countdown /= 0 then
+              col_countdown <= col_countdown - 1;
+            else
+              col_countdown <= 5;
+              if col_num < 8 then
+                col_num <= col_num + 1;
+              else
+                col_num <= 0;
+              end if;
+              if col_num /=7 then
+                if to_X01(matrix_col) /= x"ff" then
+                  assert false report "Matrix column " & integer'image(col_num) & " = $" & to_hstring(matrix_col) & ", but should be $ff";
+                end if;
+              else
+                if to_X01(matrix_col) /= "11101111" then
+                  assert false report "Matrix column " & integer'image(col_num) & " = $" & to_hstring(matrix_col) & ", but should be $ef";
+                end if;
+              end if;                
             end if;
           end if;
         end loop;

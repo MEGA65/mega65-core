@@ -123,7 +123,8 @@ begin
 
 			state <= idle;
 		else
-			if rising_edge(clock) then
+                  if rising_edge(clock) then
+
                           reg_write_strobe <= '0';
                           reg_read_strobe <= '0';
 				-- I2C send/receive
@@ -171,7 +172,8 @@ begin
 				registers(0) <= port0;
 				registers(1) <= port1;
 				
-				-- update port by output registers or set to tri-state
+                          -- update port by output registers or set to tri-state
+                    
 				for i in 0 to 7 loop 
 					if registers(6)(i) = '1' then
 						port0(i) <= 'Z';

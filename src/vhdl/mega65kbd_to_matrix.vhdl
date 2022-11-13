@@ -440,6 +440,7 @@ begin  -- behavioural
                 when 13 => current_keys(17) <= i2c_bit;-- R
                 when 14 => current_keys(21) <= i2c_bit;-- F
                 when 15 => current_keys(60) <= i2c_bit;-- SPACE
+                           report "SPACE is " & std_logic'image(i2c_bit);
                 when others => null;
                 end case;
 
