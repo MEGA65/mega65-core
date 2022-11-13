@@ -413,82 +413,83 @@ begin  -- behavioural
           -- Send ACK bit during write
           when 141 => kio8 <= '0'; kio9 <= '0';
           when 142 => kio8 <= '0'; kio9 <= '1';
+          when 143 => kio8 <= '0'; kio9 <= '0';
                       
           -- Send repeated start
-          when 143 => kio8 <= '1'; kio9 <= '1';
-          when 144 => kio8 <= '0'; kio9 <= '1';
+          when 144 => kio8 <= 'Z'; kio9 <= '1';
+          when 145 => kio8 <= '0'; kio9 <= '1';
                       
           -- Send address 0100xxx
-          when 145 => kio8 <= '0'; kio9 <= '0';
-          when 146 => kio8 <= '0'; kio9 <= '1';
-          when 147 => kio8 <= '1'; kio9 <= '0';
-          when 148 => kio8 <= '1'; kio9 <= '1';
-          when 149 => kio8 <= '0'; kio9 <= '0';
-          when 150 => kio8 <= '0'; kio9 <= '1';
-          when 151 => kio8 <= '0'; kio9 <= '0';
-          when 152 => kio8 <= '0'; kio9 <= '1';
+          when 146 => kio8 <= '0'; kio9 <= '0';
+          when 147 => kio8 <= '0'; kio9 <= '1';
+          when 148 => kio8 <= '1'; kio9 <= '0';
+          when 149 => kio8 <= '1'; kio9 <= '1';
+          when 150 => kio8 <= '0'; kio9 <= '0';
+          when 151 => kio8 <= '0'; kio9 <= '1';
+          when 152 => kio8 <= '0'; kio9 <= '0';
+          when 153 => kio8 <= '0'; kio9 <= '1';
           -- 
-          when 153 => kio8 <= '0'; kio9 <= '0';
-          when 154 => kio8 <= addr(2); kio9 <= '0';
-          when 155 => kio8 <= addr(2); kio9 <= '1';
-          when 156 => kio8 <= addr(2); kio9 <= '0';
-          when 157 => kio8 <= addr(1); kio9 <= '0';
-          when 158 => kio8 <= addr(1); kio9 <= '1';
-          when 159 => kio8 <= addr(1); kio9 <= '0';
-          when 160 => kio8 <= addr(0); kio9 <= '0';
-          when 161 => kio8 <= addr(0); kio9 <= '1';
-          when 162 => kio8 <= addr(1); kio9 <= '0';
-          when 163 => kio8 <= '1'; kio9 <= '0';      -- select read
-          when 164 => kio8 <= '1'; kio9 <= '1';
+          when 154 => kio8 <= '0'; kio9 <= '0';
+          when 155 => kio8 <= addr(2); kio9 <= '0';
+          when 156 => kio8 <= addr(2); kio9 <= '1';
+          when 157 => kio8 <= addr(2); kio9 <= '0';
+          when 158 => kio8 <= addr(1); kio9 <= '0';
+          when 159 => kio8 <= addr(1); kio9 <= '1';
+          when 160 => kio8 <= addr(1); kio9 <= '0';
+          when 161 => kio8 <= addr(0); kio9 <= '0';
+          when 162 => kio8 <= addr(0); kio9 <= '1';
+          when 163 => kio8 <= addr(1); kio9 <= '0';
+          when 164 => kio8 <= '1'; kio9 <= '0';      -- select read
+          when 165 => kio8 <= '1'; kio9 <= '1';
           -- ACK bit
-          when 165 => kio8 <= '0'; kio9 <= '0';
-          when 166 => kio8 <= 'Z'; kio9 <= '0';
-          when 167 => kio8 <= 'Z'; kio9 <= '1';
+          when 166 => kio8 <= '0'; kio9 <= '0';
+          when 167 => kio8 <= 'Z'; kio9 <= '0';
+          when 168 => kio8 <= 'Z'; kio9 <= '1';
                       
           -- Read 2 bytes of data
-          when 168 => kio8 <= 'Z'; kio9 <= '0';
-          when 169 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 7;
-          when 170 => kio8 <= 'Z'; kio9 <= '0';
-          when 171 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 6;
-          when 172 => kio8 <= 'Z'; kio9 <= '0';
-          when 173 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 5;
-          when 174 => kio8 <= 'Z'; kio9 <= '0';
-          when 175 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 4;
-          when 176 => kio8 <= 'Z'; kio9 <= '0';
-          when 177 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 3;
-          when 178 => kio8 <= 'Z'; kio9 <= '0';
-          when 179 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 2;
-          when 180 => kio8 <= 'Z'; kio9 <= '0';
-          when 181 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 1;
-          when 182 => kio8 <= 'Z'; kio9 <= '0';
-          when 183 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 0;
-          when 184 => kio8 <= '0'; kio9 <= '0';   -- ack byte read
-          when 185 => kio8 <= '0'; kio9 <= '1';
+          when 169 => kio8 <= 'Z'; kio9 <= '0';
+          when 170 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 7;
+          when 171 => kio8 <= 'Z'; kio9 <= '0';
+          when 172 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 6;
+          when 173 => kio8 <= 'Z'; kio9 <= '0';
+          when 174 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 5;
+          when 175 => kio8 <= 'Z'; kio9 <= '0';
+          when 176 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 4;
+          when 177 => kio8 <= 'Z'; kio9 <= '0';
+          when 178 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 3;
+          when 179 => kio8 <= 'Z'; kio9 <= '0';
+          when 180 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 2;
+          when 181 => kio8 <= 'Z'; kio9 <= '0';
+          when 182 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 1;
+          when 183 => kio8 <= 'Z'; kio9 <= '0';
+          when 184 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 0;
+          when 185 => kio8 <= '0'; kio9 <= '0';   -- ack byte read
+          when 186 => kio8 <= '0'; kio9 <= '1';
                       
-          when 186 => kio8 <= 'Z'; kio9 <= '0';
-          when 187 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 15;
-          when 188 => kio8 <= 'Z'; kio9 <= '0';
-          when 189 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 14;
-          when 190 => kio8 <= 'Z'; kio9 <= '0';
-          when 191 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 13;
-          when 192 => kio8 <= 'Z'; kio9 <= '0';
-          when 193 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 12;
-          when 194 => kio8 <= 'Z'; kio9 <= '0';
-          when 195 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 11;
-          when 196 => kio8 <= 'Z'; kio9 <= '0';
-          when 197 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 10;
-          when 198 => kio8 <= 'Z'; kio9 <= '0';
-          when 199 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 9;
-          when 200 => kio8 <= 'Z'; kio9 <= '0';
-          when 201 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 8;
-          when 202 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-          when 203 => kio8 <= '1'; kio9 <= '1';
+          when 187 => kio8 <= 'Z'; kio9 <= '0';
+          when 188 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 15;
+          when 189 => kio8 <= 'Z'; kio9 <= '0';
+          when 190 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 14;
+          when 191 => kio8 <= 'Z'; kio9 <= '0';
+          when 192 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 13;
+          when 193 => kio8 <= 'Z'; kio9 <= '0';
+          when 194 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 12;
+          when 195 => kio8 <= 'Z'; kio9 <= '0';
+          when 196 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 11;
+          when 197 => kio8 <= 'Z'; kio9 <= '0';
+          when 198 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 10;
+          when 199 => kio8 <= 'Z'; kio9 <= '0';
+          when 200 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 9;
+          when 201 => kio8 <= 'Z'; kio9 <= '0';
+          when 202 => i2c_bit <= kio8; kio9 <= '1'; i2c_bit_valid <= '1'; i2c_bit_num <= 8;
+          when 203 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+          when 204 => kio8 <= '1'; kio9 <= '1';
                       
           -- Send STOP at end of read
-          when 204 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-          when 205 => kio8 <= '0'; kio9 <= '0';
-          when 206 => kio8 <= '0'; kio9 <= '1';
-          when 207 => kio8 <= '1'; kio9 <= '1';
+          when 205 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
+          when 206 => kio8 <= '0'; kio9 <= '0';
+          when 207 => kio8 <= '0'; kio9 <= '1';
+          when 208 => kio8 <= '1'; kio9 <= '1';
                       i2c_state <= 0;
           when others => null;
         end case;

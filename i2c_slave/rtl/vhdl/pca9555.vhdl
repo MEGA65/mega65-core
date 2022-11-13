@@ -144,16 +144,22 @@ begin
                                                   registers(to_integer(selected_register_index)) <= data_in;
                                                   accessed_reg <= to_integer(selected_register_index);
                                                   reg_write_strobe <= '1';
+                                                  report "Wrote to reg " & integer'image(to_integer(selected_register_index));
                                                   state <= wait_for_event_released;
 						end if;
 						if data_out_requested then
 							data_out <= registers(to_integer(selected_register_index));
                                                   accessed_reg <= to_integer(selected_register_index);
                                                   reg_read_strobe <= '1';
+                                                  report "Read from reg " & integer'image(to_integer(selected_register_index));
 							state <= wait_for_event_released;
 						end if;
-					when wait_for_event_released =>
-						if (data_in_valid = false) and (data_out_requested = false) then
+                                            when wait_for_event_released =>
+                                            report "data_in_valid = " & boolean'image(data_in_valid)
+                                              & ", data_out_requested = " & boolean'image(data_out_requested);
+                                            if (data_in_valid = false) and (data_out_requested = false) then
+                                              report "selected register = " & integer'image(to_integer(selected_register_index))
+                                                & " xor 1";
 							selected_register_index(0) <= not selected_register_index(0);
 							state <= wait_for_read_write;
 						end if;

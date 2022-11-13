@@ -148,7 +148,7 @@ begin
 			sample_cycles_counter <= 0;
 		else
 			if rising_edge(clock) then
-				if sample_cycles_counter = 0 then
+                          if sample_cycles_counter = 0 then
 					sample_cycles_counter <= sample_cycles - 1;
 					sda_sampled <= sda_sampled(2 downto 0) & sda_in;
 					scl_sampled <= scl_sampled(2 downto 0) & scl;
@@ -242,7 +242,8 @@ begin
 							write_state <= wait_scl_rising;
 						end if;
 					when wait_scl_rising =>
-						if scl_rising_edge then
+                                          if scl_rising_edge then
+                                            report "scl_rising_edge: output_shift_count=" & integer'image(output_shift_count);
 							if output_shift_count = 0 then
 								write_state <= wait_scl_falling;
 							else
@@ -250,7 +251,7 @@ begin
 								output_shift <= output_shift(6 downto 0) & '0';
 								write_state <= write_bit;
 							end if;
-						else
+                                          else
 							if write_timeout_counter = 0 then
 								write_state <= idle;
 							else
@@ -330,6 +331,7 @@ begin
 						if read_state = read_end then
 							data_in <= input_shift;
 							data_in_valid <= true;
+                                                        report "Saw a byte";
 							read_byte <= false;
 							control_state <= start_write_ack;
 						end if;

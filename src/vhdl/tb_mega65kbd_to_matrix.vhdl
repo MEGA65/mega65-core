@@ -175,7 +175,6 @@ begin
         else
           report "Saw U2 writes to " & to_string(u2_saw_write);
         end if;
-        assert false report "forced fail";
       end if;
     end loop;
 
