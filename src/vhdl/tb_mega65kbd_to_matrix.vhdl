@@ -21,8 +21,8 @@ architecture tb of tb_mega65kbd_to_matrix is
   signal disco_led_id : unsigned(7 downto 0);
   signal disco_led_val : unsigned(7 downto 0);
   signal disco_led_en : std_logic;
-  signal kio8 : std_logic; -- clock to keyboard / I2C DATA line
-  signal kio9 : std_logic; -- data output to keyboard / I2C CLK line
+  signal kio8 : std_logic := 'H'; -- clock to keyboard / I2C DATA line
+  signal kio9 : std_logic := 'H'; -- data output to keyboard / I2C CLK line
   signal kio10 : std_logic; -- data input from keyboard
   signal matrix_col : std_logic_vector(7 downto 0);
   signal matrix_col_idx : integer range 0 to 8;
@@ -38,53 +38,56 @@ architecture tb of tb_mega65kbd_to_matrix is
 
   signal reset : std_logic := '1';
 
-  signal u1port0 : unsigned(7 downto 0);
-  signal u1port1 : unsigned(7 downto 0);
+  signal u1port0 : unsigned(7 downto 0) := (others => '1');
+  signal u1port1 : unsigned(7 downto 0) := (others => '1');
   signal u1_reg : integer;
   signal u1_read : std_logic;
   signal u1_write : std_logic;
   signal u1_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u1_saw_write : unsigned(7 downto 0) := (others => '0');
 
-  signal u2port0 : unsigned(7 downto 0);
-  signal u2port1 : unsigned(7 downto 0);
+  signal u2port0 : unsigned(7 downto 0) := (others => '1');
+  signal u2port1 : unsigned(7 downto 0) := (others => '1');
   signal u2_reg : integer;
   signal u2_read : std_logic;
   signal u2_write : std_logic;
   signal u2_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u2_saw_write : unsigned(7 downto 0) := (others => '0');
 
-  signal u3port0 : unsigned(7 downto 0);
-  signal u3port1 : unsigned(7 downto 0);
+  signal u3port0 : unsigned(7 downto 0) := (others => '1');
+  signal u3port1 : unsigned(7 downto 0) := (others => '1');
   signal u3_reg : integer;
   signal u3_read : std_logic;
   signal u3_write : std_logic;
   signal u3_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u3_saw_write : unsigned(7 downto 0) := (others => '0');
 
-  signal u4port0 : unsigned(7 downto 0);
-  signal u4port1 : unsigned(7 downto 0);
+  signal u4port0 : unsigned(7 downto 0) := (others => '1');
+  signal u4port1 : unsigned(7 downto 0) := (others => '1');
   signal u4_reg : integer;
   signal u4_read : std_logic;
   signal u4_write : std_logic;
   signal u4_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u4_saw_write : unsigned(7 downto 0) := (others => '0');
 
-  signal u5port0 : unsigned(7 downto 0);
-  signal u5port1 : unsigned(7 downto 0);
+  signal u5port0 : unsigned(7 downto 0) := (others => '1');
+  signal u5port1 : unsigned(7 downto 0) := (others => '1');
   signal u5_reg : integer;
   signal u5_read : std_logic;
   signal u5_write : std_logic;
   signal u5_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u5_saw_write : unsigned(7 downto 0) := (others => '0');
 
-  signal u6port0 : unsigned(7 downto 0);
-  signal u6port1 : unsigned(7 downto 0);
+  signal u6port0 : unsigned(7 downto 0) := (others => '1');
+  signal u6port1 : unsigned(7 downto 0) := (others => '1');
   signal u6_reg : integer;
   signal u6_read : std_logic;
   signal u6_write : std_logic;
   signal u6_saw_read : unsigned(7 downto 0) := (others => '0');
   signal u6_saw_write : unsigned(7 downto 0) := (others => '0');
+
+  signal col_num : integer := 0;
+  signal col_countdown : integer := 0;  
   
 begin
 
@@ -220,6 +223,8 @@ begin
   begin
     test_runner_setup(runner, runner_cfg);
 
+    
+    
     while test_suite loop
 
       if run("Keyboard is detected as MK-I when kio10 is high") then
@@ -381,9 +386,35 @@ begin
         else
           report "Saw U6 writes to " & to_string(u6_saw_write);
         end if;
+      elsif run("MK-II keyboard outputs no key presses while idle") then
+        kio10 <= '0'; kio8 <= 'H'; kio9 <= 'H';
+        u2port0 <= (others => 'H'); u2port1 <= (others => 'H');
+        u3port0 <= (others => 'H'); u3port1 <= (others => 'H');
+        u4port0 <= (others => 'H'); u4port1 <= (others => 'H');
+        u5port0 <= (others => 'H'); u5port1 <= (others => 'H');
+        u6port0 <= (others => 'H'); u6port1 <= (others => 'H');
+        for i in 1 to 100000 loop
+          clock <= '0'; wait for 10 ns; clock <= '1'; wait for 10 ns;
+          matrix_col_idx <= col_num;
+          -- Give time for first round of reading IO expanders to complete
+          if i > 75000 then
+            if col_countdown /= 0 then
+              col_countdown <= col_countdown - 1;
+            else
+              col_countdown <= 5;
+              if col_num < 8 then
+                col_num <= col_num + 1;
+              else
+                col_num <= 0;
+              end if;
+              if to_X01(matrix_col) /= x"ff" then
+                assert false report "Matrix column " & integer'image(col_num) & " = $" & to_hstring(matrix_col) & ", but should be $ff";
+              end if;
+            end if;
+          end if;
+        end loop;
       end if;
     end loop;
-
     test_runner_cleanup(runner);
   end process;
 end architecture;

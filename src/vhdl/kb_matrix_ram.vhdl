@@ -28,7 +28,7 @@ begin
       for i in 0 to 7 loop
         if wea(i) = '1' then
           ram(addressa)(i) := dia(i);
---          report "Writing bit " & integer'image(i) & " of byte " & integer'image(addressa) & " with " & std_logic'image(dia(i));
+          report "Writing bit " & integer'image(i) & " of byte " & integer'image(addressa) & " with " & std_logic'image(dia(i));
         end if;
       end loop;
     end if;

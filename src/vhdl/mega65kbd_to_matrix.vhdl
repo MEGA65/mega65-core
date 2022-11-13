@@ -108,7 +108,8 @@ architecture behavioural of mega65kbd_to_matrix is
   signal led_shiftlock : std_logic := '0';
   signal led_tick : std_logic := '0';
   signal led_counter : integer range 0 to 15 := 0;
-  signal shiftlock_toggle : std_logic := '0';
+  -- shiftlock active low
+  signal shiftlock_toggle : std_logic := '1';
   signal kbd_gpio1 : std_logic;
   signal kbd_gpio2 : std_logic;
   signal shiftlock : std_logic := '0';
@@ -528,7 +529,7 @@ begin  -- behavioural
             export_keys <= current_keys;
             current_keys <= (others => '1');
             -- This requires writing to each column of the matrix RAM
-            next_matrix_ram_write <= 9;
+            next_matrix_ram_write <= 8;
             done_writing_matrix <= '0';
             -- Update LEDs
             i2c_state <= 500;
