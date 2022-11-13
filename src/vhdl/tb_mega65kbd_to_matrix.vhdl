@@ -326,8 +326,8 @@ begin
         else
           report "Saw U1 reads to " & to_string(u1_saw_read);
         end if;
-        if u1_saw_write /= "11111100" then
-          assert false report "Expected to see writes to U1 regs 2 through 7.  Instead saw this access pattern: " & to_string(u1_saw_write);
+        if u1_saw_write /= "11001100" then
+          assert false report "Expected to see writes to U1 regs 6,7 and 2,3.  Instead saw this access pattern: " & to_string(u1_saw_write);
         else
           report "Saw U1 writes to " & to_string(u1_saw_write);
         end if;
