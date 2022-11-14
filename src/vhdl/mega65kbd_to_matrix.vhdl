@@ -159,8 +159,8 @@ begin  -- behavioural
       keyboard_type <= to_unsigned(keyboard_model,4);
 
       if kbd_bitbash_mode='1' then
-        if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= 'H'; end if;
-        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= 'H'; end if;
+        if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= 'Z'; end if;
+        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= 'Z'; end if;
         keyboard_model <= 0;
       elsif kio10 = '1' then
         keyboard_model <= 1;
@@ -573,15 +573,15 @@ begin  -- behavioural
 
             -- State 500 = write to output ports of IO expander
             -- Start condition
-            when 500 => kio8 <= '1'; kio9 <= '1';
+            when 500 => kio8 <= 'Z'; kio9 <= '1';
             when 501 => kio8 <= '0'; kio9 <= '1';
             -- Send address 0100xxx
             when 502 => kio8 <= '0'; kio9 <= '0';
             when 503 => kio8 <= '0'; kio9 <= '1';
             when 504 => kio8 <= '0'; kio9 <= '0';
-            when 505 => kio8 <= '1'; kio9 <= '0';
-            when 506 => kio8 <= '1'; kio9 <= '1';
-            when 507 => kio8 <= '1'; kio9 <= '0';
+            when 505 => kio8 <= 'Z'; kio9 <= '0';
+            when 506 => kio8 <= 'Z'; kio9 <= '1';
+            when 507 => kio8 <= 'Z'; kio9 <= '0';
             when 508 => kio8 <= '0'; kio9 <= '0';
             when 509 => kio8 <= '0'; kio9 <= '1';
             when 510 => kio8 <= '0'; kio9 <= '0';
@@ -626,9 +626,9 @@ begin  -- behavioural
             when 544 => kio8 <= u1_reg6; kio9 <= '0';
             when 545 => kio8 <= u1_reg6; kio9 <= '1';
             when 546 => kio8 <= u1_reg6; kio9 <= '0';
-            when 547 => kio8 <= '1'; kio9 <= '0';
-            when 548 => kio8 <= '1'; kio9 <= '1';
-            when 549 => kio8 <= '1'; kio9 <= '0';
+            when 547 => kio8 <= 'Z'; kio9 <= '0';
+            when 548 => kio8 <= 'Z'; kio9 <= '1';
+            when 549 => kio8 <= 'Z'; kio9 <= '0';
             when 550 => kio8 <= '0'; kio9 <= '0';
             when 551 => kio8 <= '0'; kio9 <= '1';
             when 552 => kio8 <= '0'; kio9 <= '0';
@@ -698,9 +698,9 @@ begin  -- behavioural
             when 609 => kio8 <= '0'; kio9 <= '0';
                         
             -- Send STOP at end of read
-            when 610 => kio8 <= '1'; kio9 <= '0'; -- don't ack last byte read
-            when 611 => kio8 <= '1'; kio9 <= '0';
-            when 612 => kio8 <= '1'; kio9 <= '1';
+            when 610 => kio8 <= 'Z'; kio9 <= '0'; -- don't ack last byte read
+            when 611 => kio8 <= 'Z'; kio9 <= '0';
+            when 612 => kio8 <= 'Z'; kio9 <= '1';
                         i2c_state <= 0;
                         if u1_reg6='1' then
                           u1_reg6 <= '0';
@@ -709,15 +709,15 @@ begin  -- behavioural
                         
             -- State 100 = read inputs from an IO expander
             -- Start condition
-            when 100 => kio8 <= '1'; kio9 <= '1';
+            when 100 => kio8 <= 'Z'; kio9 <= '1';
             when 101 => kio8 <= '0'; kio9 <= '1';
             -- Send address 0100xxx
             when 102 => kio8 <= '0'; kio9 <= '0';
             when 103 => kio8 <= '0'; kio9 <= '1';
             when 104 => kio8 <= '0'; kio9 <= '0';
-            when 105 => kio8 <= '1'; kio9 <= '0';
-            when 106 => kio8 <= '1'; kio9 <= '1';
-            when 107 => kio8 <= '1'; kio9 <= '0';
+            when 105 => kio8 <= 'Z'; kio9 <= '0';
+            when 106 => kio8 <= 'Z'; kio9 <= '1';
+            when 107 => kio8 <= 'Z'; kio9 <= '0';
             when 108 => kio8 <= '0'; kio9 <= '0';
             when 109 => kio8 <= '0'; kio9 <= '1';
             when 110 => kio8 <= '0'; kio9 <= '0';
@@ -778,17 +778,17 @@ begin  -- behavioural
             when 158 => kio8 <= '0'; kio9 <= '0';
                         
             -- Send repeated start
-            when 159 => kio8 <= '1'; kio9 <= '1';
-            when 160 => kio8 <= '1'; kio9 <= '1';
+            when 159 => kio8 <= 'Z'; kio9 <= '1';
+            when 160 => kio8 <= 'Z'; kio9 <= '1';
             when 161 => kio8 <= '0'; kio9 <= '1';
                         
             -- Send address 0100xxx
             when 162 => kio8 <= '0'; kio9 <= '0';
             when 163 => kio8 <= '0'; kio9 <= '1';
             when 164 => kio8 <= '0'; kio9 <= '0';
-            when 165 => kio8 <= '1'; kio9 <= '0';
-            when 166 => kio8 <= '1'; kio9 <= '1';
-            when 167 => kio8 <= '1'; kio9 <= '0';
+            when 165 => kio8 <= 'Z'; kio9 <= '0';
+            when 166 => kio8 <= 'Z'; kio9 <= '1';
+            when 167 => kio8 <= 'Z'; kio9 <= '0';
             when 168 => kio8 <= '0'; kio9 <= '0';
             when 169 => kio8 <= '0'; kio9 <= '1';
             when 170 => kio8 <= '0'; kio9 <= '0';
@@ -805,10 +805,10 @@ begin  -- behavioural
             when 181 => kio8 <= addr(0); kio9 <= '0';
             when 182 => kio8 <= addr(0); kio9 <= '1';
             when 183 => kio8 <= addr(0); kio9 <= '0';
-            when 184 => kio8 <= '1'; kio9 <= '0';      -- select read
-            when 185 => kio8 <= '1'; kio9 <= '1';
+            when 184 => kio8 <= 'Z'; kio9 <= '0';      -- select read
+            when 185 => kio8 <= 'Z'; kio9 <= '1';
             -- ACK bit
-            when 186 => kio8 <= '1'; kio9 <= '0';
+            when 186 => kio8 <= 'Z'; kio9 <= '0';
             when 187 => kio8 <= 'Z'; kio9 <= '0';
             when 188 => kio8 <= 'Z'; kio9 <= '1';
             when 189 => kio8 <= 'Z'; kio9 <= '0';
@@ -859,7 +859,7 @@ begin  -- behavioural
             when 225 => kio8 <= 'Z'; kio9 <= '0'; -- don't ack last byte read
             when 226 => kio8 <= '0'; kio9 <= '0';
             when 227 => kio8 <= '0'; kio9 <= '1';
-            when 228 => kio8 <= '1'; kio9 <= '1';
+            when 228 => kio8 <= 'Z'; kio9 <= '1';
                         i2c_state <= 0;
             when others => null;
           end case;
