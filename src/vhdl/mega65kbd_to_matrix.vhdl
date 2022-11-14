@@ -161,6 +161,7 @@ begin  -- behavioural
       if kbd_bitbash_mode='1' then
         if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= 'H'; end if;
         if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= 'H'; end if;
+        keyboard_model <= 0;
       elsif kio10 = '1' then
         keyboard_model <= 1;
         model2_timeout <= 1000000;
@@ -178,8 +179,18 @@ begin  -- behavioural
       delete_out <= deletekey;
       return_out <= returnkey;
       fastkey_out <= fastkey;
-      
-      if keyboard_model = 1 then
+
+      if keyboard_model = 0 then
+        -- Clear keyboard matrix for no key presses while in bitbash mode
+        matrix_dia <= (others => '1');
+        keyram_wea <= (others => '1');
+        matrix_ram_offset <= next_matrix_ram_write;
+        if next_matrix_ram_write < 8 then
+          next_matrix_ram_write <= next_matrix_ram_write + 1;
+        else
+          next_matrix_ram_write <= 0;
+        end if;
+      elsif keyboard_model = 1 then
         ------------------------------------------------------------------------
         -- Read from MEGA65 MK-I keyboard 
         ------------------------------------------------------------------------
