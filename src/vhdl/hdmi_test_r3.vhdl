@@ -45,7 +45,7 @@ entity container is
 
          -- Interface for physical keyboard
          kb_io0 : inout std_logic;   -- SDA with MK-II keyboard
-         kb_io1 : out std_logic;     -- SCL with MK-II keyboard
+         kb_io1 : inout std_logic;     -- SCL with MK-II keyboard
          kb_io2 : in std_logic;
 
          -- Direct joystick lines         
@@ -555,8 +555,8 @@ begin
       kio10 => kb_io2,
 
       kbd_bitbash_mode => kbd_bitbash_mode,
-      kdb_bitbash_scl => kbd_bitbash_scl,
-      kdb_bitbash_sda => kbd_bitbash_sda,
+      kbd_bitbash_scl => kbd_bitbash_scl,
+      kbd_bitbash_sda => kbd_bitbash_sda,
       
       keyboard_type => keyboard_type,
       kbd_datestamp => kbd_datestamp,
@@ -748,9 +748,9 @@ begin
         kbd_bitbash_sda <= uart_rxdata(0);
         if uart_rxdata(2)='1' then
             uart_txtrigger <= '1';
-            uart_txdata <= x"8";
-            uart_rxdata(0) <= kb_io0;
-            uart_rxdata(1) <= kb_io1;
+            uart_txdata <= x"38";
+            uart_txdata(0) <= kb_io0;
+            uart_txdata(1) <= kb_io1;
         end if;
       elsif ascii_key_valid='1' then
         uart_txtrigger <= '1';
