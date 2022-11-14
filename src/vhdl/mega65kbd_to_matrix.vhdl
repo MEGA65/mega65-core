@@ -26,6 +26,10 @@ entity mega65kbd_to_matrix is
     kio9 : out std_logic; -- data output to keyboard / I2C CLK line
     kio10 : in std_logic; -- data input from keyboard
 
+    kbd_bitbash_mode : in std_logic := '0';
+    kbd_bitbash_scl : in std_logic := '0';
+    kbd_bitbash_sda : in std_logic := '0';
+    
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
 
@@ -70,7 +74,7 @@ architecture behavioural of mega65kbd_to_matrix is
   -- Initially assume MK-II keyboard, as this will be immediately
   -- invalidated if it turns out to be a MK-I keyboard, as KIO10
   -- will not be held low initially.
-  signal keyboard_model : integer range 1 to 2 := 2;
+  signal keyboard_model : integer range 0 to 2 := 2;
   signal model2_timeout : integer range 0 to 1000000 := 0;
 
   signal i2c_counter : integer range 0 to 50 := 0;
@@ -153,7 +157,11 @@ begin  -- behavioural
       -- time, then we can assume that it's a MK-II keyboard. But if it
       -- ever goes high, then it must be a MK-I
       keyboard_type <= to_unsigned(keyboard_model,4);
-      if kio10 = '1' then
+
+      if kbd_bitbash_mode='1' then
+        if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= 'H'; end if;
+        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= 'H'; end if;
+      elsif kio10 = '1' then
         keyboard_model <= 1;
         model2_timeout <= 1000000;
       elsif model2_timeout = 0 then

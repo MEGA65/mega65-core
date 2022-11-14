@@ -472,6 +472,14 @@ architecture Behavioral of container is
   signal uart_txtrigger : std_logic := '0';
   signal uart_txready : std_logic;
   signal trigger_countdown : integer := 0;
+
+  signal uart_rxdata : unsigned(7 downto 0);
+  signal uart_rxready : std_logic;
+  signal uart_rxack : std_logic := '0';
+
+  signal kbd_bitbash_mode : std_logic := '0';
+  signal kbd_bitbash_scl : std_logic := '0';
+  signal kbd_bitbash_sda : std_logic := '0';
   
 begin
 
@@ -546,6 +554,10 @@ begin
       kio9 => kb_io1,
       kio10 => kb_io2,
 
+      kbd_bitbash_mode => kbd_bitbash_mode,
+      kdb_bitbash_scl => kbd_bitbash_scl,
+      kdb_bitbash_sda => kbd_bitbash_sda,
+      
       keyboard_type => keyboard_type,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
@@ -695,6 +707,16 @@ begin
     );
   end block;
 
+  uart_rx0: entity work.uart_rx
+    port map (
+      clk => cpuclock,
+      bit_rate_divisor => to_unsigned((40500000/2000000) - 1,24),
+      uart_rx => RsRx,
+      data => uart_rxdata,
+      data_ready => uart_rxready,
+      data_acknowledge => uart_rxack
+      );
+
   uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => uart_txtrigger,
@@ -719,7 +741,18 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      if ascii_key_valid='1' then
+      uart_rxack <= uart_rxready;
+      if uart_rxready = '1' then
+        kbd_bitbash_mode <= uart_rxdata(2);
+        kbd_bitbash_scl <= uart_rxdata(1);
+        kbd_bitbash_sda <= uart_rxdata(0);
+        if uart_rxdata(2)='1' then
+            uart_txtrigger <= '1';
+            uart_txdata <= x"8";
+            uart_rxdata(0) <= kb_io0;
+            uart_rxdata(1) <= kb_io1;
+        end if;
+      elsif ascii_key_valid='1' then
         uart_txtrigger <= '1';
         uart_txdata <= ascii_key;
         trigger_countdown <= 1000;
