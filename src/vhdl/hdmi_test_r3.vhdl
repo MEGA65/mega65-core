@@ -45,7 +45,7 @@ entity container is
 
          -- Interface for physical keyboard
          kb_io0 : inout std_logic;   -- SDA with MK-II keyboard
-         kb_io1 : inout std_logic;     -- SCL with MK-II keyboard
+         kb_io1 : out std_logic;     -- SCL with MK-II keyboard
          kb_io2 : in std_logic;
 
          -- Direct joystick lines         
@@ -537,6 +537,6 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
-  kb_io1 <= '0' when cpuclock='0' else '1';
+  kb_io1 <= '0' when cpuclock='0' else 'Z';
   
 end Behavioral;
