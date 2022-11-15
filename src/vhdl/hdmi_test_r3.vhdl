@@ -45,7 +45,7 @@ entity container is
 
          -- Interface for physical keyboard
          kb_io0 : inout std_logic;   -- SDA with MK-II keyboard
-         kb_io1 : out std_logic;     -- SCL with MK-II keyboard
+         kb_io1 : inout std_logic;     -- SCL with MK-II keyboard
          kb_io2 : in std_logic;
 
          -- Direct joystick lines         
@@ -481,6 +481,10 @@ architecture Behavioral of container is
   signal kbd_bitbash_scl : std_logic := '0';
   signal kbd_bitbash_sda : std_logic := '0';
   signal kbd_bitbash_sdadrive : std_logic := '0';
+
+  signal kb_io1_o : std_logic;
+  signal kb_io1_i : std_logic;
+  signal kb_io1_t : std_logic;
   
 begin
 
@@ -537,6 +541,15 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
-  kb_io1 <= '0' when cpuclock='0' else 'Z';
+IOBUF_inst : IOBUF
+port map (
+   O => kb_io1_o,   -- 1-bit output: Buffer output
+   I => kb_io1_i,   -- 1-bit input: Buffer input
+   IO => kb_io1, -- 1-bit inout: Buffer inout (connect directly to top-level port)
+   T => kb_io1_t    -- 1-bit input: 3-state enable input
+);
+  
+  kb_io1_t <= '0' when cpuclock='0' else '1';
+  kb_io1_i <= cpuclock;
   
 end Behavioral;
