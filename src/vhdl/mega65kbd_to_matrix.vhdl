@@ -553,7 +553,9 @@ begin  -- behavioural
         led_tick <= '0';
         if i2c_state = 0 then
           if to_integer(addr) < 5 then
-            addr <= addr + 1;
+--            addr <= addr + 1;
+            -- XXX DEBUG - just keep on the same expander
+            addr <= "101";
             report "Reading I2C IO expander " & integer'image(to_integer(addr)+ 1);
             i2c_state <= 100;
           else
