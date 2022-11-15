@@ -159,8 +159,8 @@ begin  -- behavioural
       keyboard_type <= to_unsigned(keyboard_model,4);
 
       if kbd_bitbash_mode='1' then
-        if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= 'H'; end if;
-        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= 'H'; end if;
+        if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= '1'; end if;
+        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= '1'; end if;
         keyboard_model <= 0;
       elsif kio10 = '1' then
         keyboard_model <= 1;
