@@ -29,6 +29,7 @@ entity mega65kbd_to_matrix is
     kbd_bitbash_mode : in std_logic := '0';
     kbd_bitbash_scl : in std_logic := '0';
     kbd_bitbash_sda : in std_logic := '0';
+    kbd_bitbash_sdadrive : in std_logic := '0';
     
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
@@ -160,7 +161,12 @@ begin  -- behavioural
 
       if kbd_bitbash_mode='1' then
         if kbd_bitbash_scl='0' then kio9 <= '0'; else kio9 <= '1'; end if;
-        if kbd_bitbash_sda='0' then kio8 <= '0'; else kio8 <= '1'; end if;
+        if kbd_bitbash_sda='0' then kio8 <= '0';
+        elsif kbd_bitbash_sdadrive='1' then
+          kio8 <= '1';
+        else
+          kio8 <= 'Z';
+        end if;
         keyboard_model <= 0;
       elsif kio10 = '1' then
         keyboard_model <= 1;

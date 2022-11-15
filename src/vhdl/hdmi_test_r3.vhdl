@@ -480,6 +480,7 @@ architecture Behavioral of container is
   signal kbd_bitbash_mode : std_logic := '0';
   signal kbd_bitbash_scl : std_logic := '0';
   signal kbd_bitbash_sda : std_logic := '0';
+  signal kbd_bitbash_sdadrive : std_logic := '0';
   
 begin
 
@@ -557,6 +558,7 @@ begin
       kbd_bitbash_mode => kbd_bitbash_mode,
       kbd_bitbash_scl => kbd_bitbash_scl,
       kbd_bitbash_sda => kbd_bitbash_sda,
+      kbd_bitbash_sdadrive => kbd_bitbash_sdadrive,
       
       keyboard_type => keyboard_type,
       kbd_datestamp => kbd_datestamp,
@@ -746,6 +748,7 @@ begin
         kbd_bitbash_mode <= uart_rxdata(2);
         kbd_bitbash_scl <= uart_rxdata(1);
         kbd_bitbash_sda <= uart_rxdata(0);
+        kbd_bitbash_sdadrive <= uart_rxdata(3);
         if uart_rxdata(2)='1' then
             uart_txtrigger <= '1';
             uart_txdata <= x"38";
