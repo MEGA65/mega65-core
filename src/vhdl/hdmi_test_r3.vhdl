@@ -549,7 +549,15 @@ port map (
    T => kb_io1_t    -- 1-bit input: 3-state enable input
 );
   
-  kb_io1_t <= '0' when cpuclock='0' else '1';
-  kb_io1_i <= cpuclock;
+  kb_io1_t <= segled_counter(10);
+  kb_io1_i <= '0';
+
+  process (cpuclock) is
+  begin
+    if rising_edge(cpuclock) then
+      segled_counter <= segled_counter + 1;
+    end if;
+  end process;
+  
   
 end Behavioral;
