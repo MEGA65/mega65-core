@@ -537,6 +537,6 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
-  kb_io1 <= '0' when cpuclock='0' else 'Z';
+  kb_io1 <= '0' when cpuclock='0' else '1';
   
 end Behavioral;
