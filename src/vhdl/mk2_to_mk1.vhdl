@@ -6,7 +6,7 @@ use work.debugtools.all;
 
 entity mk2_to_mk1 is
   port (
-    clock50 : in std_logic;
+    cpuclock : in std_logic;
 
     mk2_xil_io1 : in std_logic;
     mk2_xil_io2 : in std_logic;
@@ -115,17 +115,17 @@ architecture behavioural of mk2_to_mk1 is
   
 begin  -- behavioural
 
-  process (clock50)
+  process (cpuclock)
     variable keyram_write_enable : std_logic_vector(7 downto 0);
     variable keyram_offset : integer range 0 to 15 := 0;
     variable keyram_offset_tmp : std_logic_vector(2 downto 0);
     variable v : unsigned(95 downto 0);
   begin
-    if rising_edge(clock50) then
+    if rising_edge(cpuclock) then
 
       -- Periodically re-initialise U1, so that if keyboard is hot-swapped,
       -- LEDs still work (really just to make my life easier during development)
-      if counter < 50_000_000 then
+      if counter < 40_500_000 then
         counter <= counter + 1;
       else
         counter <= 0;
@@ -181,7 +181,11 @@ begin  -- behavioural
       end if;
       
       -- Watch for Xilinx protocol clock
-      -- At 100MHz, we need ~8x the counter values of the MK-I CPLD clock.
+      -- At 40MHz, we need ~4x the counter values of the MK-I CPLD clock.
+      -- XXX This is almost certainly slower than it could be with 40.5MHz clock.
+      -- XXX This may stop MK-I keyboards working. If so, reduce the
+      -- 248 down appropriately. There may be enough slop in it, though, to
+      -- work unchanged.
       if mk2_xil_io1='0' then
         clock_duration <= 0;
         if clock_duration /= 0 then
@@ -228,7 +232,7 @@ begin  -- behavioural
             output_vector(95) <= mk2_xil_io2;
             v(95 downto 1) := unsigned(serial_data_in(94 downto 0));
             v(0) := mk2_xil_io2;
-            report "Setting output_vector to $" & string'(to_hexstring(unsigned'(v)));
+            report "Setting output_vector to $" & string'(to_hstring(unsigned'(v)));
             cnt_idle <= to_unsigned(0,32);
           end if;
 
@@ -275,7 +279,7 @@ begin  -- behavioural
       end if;
       
       if led_tick='1' then
-        report "LED tick, led_counter = " & integer'image(led_counter) & ", output_vector=$" & to_hexstring(output_vector);
+        report "LED tick, led_counter = " & integer'image(led_counter) & ", output_vector=$" & to_hstring(output_vector);
         if led_counter < 15 then
           led_counter <= led_counter + 1;
         else

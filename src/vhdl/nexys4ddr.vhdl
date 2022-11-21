@@ -123,7 +123,7 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
-         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
          
          ----------------------------------------------------------------------
@@ -192,13 +192,10 @@ architecture Behavioral of container is
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock240 : std_logic;
-  signal clock120 : std_logic;
-  signal ethclock : std_logic;
   signal clock200 : std_logic;
-  signal clock30 : std_logic;
-  signal clock30in : std_logic := '0';
-  signal clock30count : integer range 0 to 2 := 0;
+  signal clock27 : std_logic;
+  signal clock163 : std_logic;
+  signal ethclock : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -279,6 +276,9 @@ architecture Behavioral of container is
   -- in the file
   signal mk1_connected : std_logic := '0';
   signal mkii_counter : integer range 0 to 5000 := 5000;
+  signal xil_io1 : std_logic;
+  signal xil_io2 : std_logic;
+  signal xil_io3 : std_logic;
   signal mk2_xil_io1 : std_logic;
   signal mk2_xil_io2 : std_logic;
   signal mk2_xil_io3 : std_logic;
@@ -298,19 +298,32 @@ architecture Behavioral of container is
   
   signal qspi_clock : std_logic;
 
-  signal restore_key : std_logic := '1';
+  signal disco_led_en : std_logic := '0';
+  signal disco_led_val : unsigned(7 downto 0);
+  signal disco_led_id : unsigned(7 downto 0);
+
+  signal flopled0_drive : std_logic;
+  signal flopled2_drive : std_logic;
+  signal flopledsd_drive : std_logic;
+  signal flopmotor_drive : std_logic;
+  
   signal keyleft : std_logic := '0';
   signal keyup : std_logic := '0';
   -- On the R2 onwards, we don't use the "real" keyboard interface, but instead the
   -- widget board interface, so just have these as dummy all-high place holders
   signal column : std_logic_vector(8 downto 0) := (others => '1');
   signal row : std_logic_vector(7 downto 0) := (others => '1');
+
+  signal kbd_datestamp : unsigned(13 downto 0);
+  signal kbd_commit : unsigned(31 downto 0);
+
+  signal fastkey : std_logic;
   
 begin
 
   mk2: entity work.mk2_to_mk1 
   port map (
-    clock50 => clock50,
+    cpuclock => cpuclock,
 
     mk2_xil_io1 => mk2_xil_io1,
     mk2_xil_io2 => mk2_xil_io2,
@@ -340,17 +353,18 @@ begin
       flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
             
-      kio8 => jchi(7),
-      kio9 => jchi(8),
-      kio10 => jchi(9),
+      kio8 => xil_io1,
+      kio9 => xil_io2,
+      kio10 => xil_io3,
 
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
+
+      fastkey_out => fastkey,
       
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
-      fastkey_out => fastkey,
       capslock_out => widget_capslock,
       upkey => keyup,
       leftkey => keyleft
@@ -393,14 +407,14 @@ begin
 -- End of STARTUPE2_inst instantiation
 
   
-  dotclock1: entity work.dotclock100
-    port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
+  dotclock1: entity work.clocking
+    port map ( clk_in => CLK_IN,
+               clock81p => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock200 => clock200,
-               clock120 => clock120,
-               clock240 => clock240
+               clock163 => clock163,
+               clock27 => clock27,
+               clock200 => clock200
                );
 
   fpgatemp0: fpgatemp
@@ -434,6 +448,7 @@ begin
       slow_access_rdata => slow_access_rdata,
 
       expansionram_data_ready_strobe => '1',
+      expansionram_busy => '1',
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -465,18 +480,19 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40,
-                 target => nexys4ddr)
+    generic map (cpu_frequency => 40500000,
+                 target => nexys4ddr,
+                 num_eth_rx_buffers => 4,
+                 hyper_installed => false
+                 )
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      uartclock       => cpuclock, -- Match CPU clock
-      ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
       clock50mhz      => ethclock,
+      uartclock       => cpuclock, -- Match CPU clock
+      clock200 => clock200,
+      clock27 => clock27,
+      clock162 => clock163,
       btncpureset => btncpureset,
       reset_out => reset_out,
       irq => irq,
@@ -484,13 +500,20 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      qspidb_in => qspidb,
+      
+      max10_fpga_commit => (others => '1'),
+      max10_fpga_date => (others => '1'),
+      
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       joy3 => joy3,
       joy4 => joy4,
       
       pal50_select_out => pal50_select,
       
-      -- Wire up a dummy caps_lock key on switch 8
-      caps_lock_key => sw(8),
+      caps_lock_key => '1',
 
       fa_fire => '1',
       fa_up =>  '1',
@@ -527,14 +550,15 @@ begin
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
       iec_bus_active => '0', -- No IEC port on this target
+      iec_srq_external => '1',
       
       no_hyppo => '0',
       
       vsync           => vsync,
-      hsync           => hsync,
+      vga_hsync           => hsync,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
-      lcd_display_enable => lcd_display_enable,
+      lcd_dataenable => lcd_display_enable,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -542,9 +566,17 @@ begin
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
-      caps_lock_key => '1',
       keyleft => keyleft,
       keyup => keyup,
+
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,      
+
+      flopled0 => flopled0_drive,
+      flopled2 => flopled2_drive,
+      flopledsd => flopledsd_drive,
+      flopmotor => flopmotor_drive,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
@@ -630,9 +662,6 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
---      cpu_exrom => cpu_exrom,      
---      cpu_game => cpu_game,      
-      -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
       cpu_game => '1',
       cart_access_count => x"00",
@@ -656,32 +685,9 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  -- Push correct clock to LCD panel
-  jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
-
-
-  -- Create BUFG'd 30MHz clock for LCD panel
-  --------------------------------------
-  clkin30_buf : IBUFG
-  port map
-   (O => clock30,
-    I => clock30in);
-  
-  process (clock240)
+  process (cpuclock,clock27,pixelclock, pal50_select)
   begin
-    if rising_edge(clock240) then
-      if (clock30count /= 2 ) then
-        clock30count <= clock30count + 1;
-      else
-        clock30in <= not clock30in;
-        clock30count <= 0;
-      end if;
-    end if;
-  end process;
-  
-  process (cpuclock,clock120,clock30,cpuclock,pal50_select)
-  begin
-    if rising_edge(clock120) then
+    if rising_edge(clock27) then
       if sw(7)='0' then
         -- VGA direct output
         vgared <= buffer_vgared(7 downto 4);
@@ -704,67 +710,62 @@ begin
 
     if rising_edge(cpuclock) then
 
-    if mk1_connected='1' then
-      -- And connect keyboard to Xilinx FPGA, and turn off JTAG mode for it
-
-      -- Connect keyboard GPIO interface
---      report "Bridging Xilinx MK-I keyboard signals to keyboard: "
---         & std_logic'image(jchi(7))  & std_logic'image(jchi(8));
-      k_io1 <= jchi(7); k_io1_en <= '1';
-      k_io2 <= jchi(8); k_io2_en <= '1';
-      jchi(9) <= k_io3;
-    else
-      -- MK-II keyboard connected
-
-      -- Make tri-state link from keyboard connector to MK-II controller
-      mk2_io1_in <= k_io1;
-      if mk2_io1_en='1' then
-        k_io1 <= mk2_io1; k_io1_en <= '1';
+      -- Detect MK-I keyboard by looking for KIO10 going high, as MK-II keyboard
+      -- holds this line forever low.  As MK-I will start with KIO10 high, we can
+      -- assume MK-II keyboard, and correct our decision in 1 clock tick if it was
+      -- wrong.  Doing it the other way around would cause fake key presses during
+      -- the 5000 cycles while we wait to decide it really is a MK-II keyboard.
+      if to_X01(jchi(9)) = '1' then
+        mkii_counter <= 0;
+        mk1_connected <= '1';
+        if mk1_connected='0' then
+          report "Switching to MK-I keyboard protocol";
+        end if;
       else
-        k_io1 <= 'Z'; k_io1_en <= '0';
-      end if;
-      mk2_io2_in <= k_io2;
-      if mk2_io2_en='1' then
---        report "io2 drive : k_io2 <= " & std_logic'image(mk2_io2);
-        k_io2 <= mk2_io2; k_io2_en <= '1';
-      else
---        report "io2 Z";
-        k_io2 <= 'Z'; k_io2_en <= '0';
-      end if;
-
-      -- Connect Xilinx MK-I interface to MK-II controller
-      mk2_xil_io1 <= jchi(7);
-      mk2_xil_io2 <= jchi(8);
-      jchi(9) <= mk2_xil_io3;
-    else
-      
-      -- Debug audio output
-      if sw(7) = '0' then
-        ampPWM <= ampPWM_internal;
-        led(15) <= ampPWM_internal;
-      else
-        -- 1KHz sawtooth
-        if sawtooth_phase < 50000 then
-          sawtooth_phase <= sawtooth_phase + 1;
-          if sawtooth_counter < 256 then
-            sawtooth_counter <= sawtooth_counter + sawtooth_level;
-            ampPWM <= '0';
-            led(15) <= '0';
-          else
-            sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
-            ampPWM <= '1';
-            led(15) <= '1';
-          end if;
+        if mkii_counter < 5000 then
+          mkii_counter <= mkii_counter + 1;
         else
-          sawtooth_phase <= 0;
-          if sawtooth_level < 255 then
-            sawtooth_level <= sawtooth_level + 1;
-          else
-            sawtooth_level <= 0;
+          mk1_connected <= '0';
+          if mk1_connected='1' then
+            report "Switching to MK-II keyboard protocol";
           end if;
         end if;
       end if;
     end if;
+    
+    if mk1_connected='1' then
+      -- Connect MK-I keyboard to keyboard decoder
+      jchi(7) <= xil_io1;
+      jchi(8) <= xil_io2;
+      xil_io3 <= jchi(9);
+    else
+      -- MK-II keyboard connected
+
+      -- Make tri-state link from keyboard connector to MK-II controller
+      mk2_io1_in <= jchi(7);
+      if mk2_io1_en='1' then
+        jchi(7) <= mk2_io1; 
+      else
+        jchi(7) <= 'Z'; 
+      end if;
+      mk2_io2_in <= jchi(8);
+      if mk2_io2_en='1' then
+--        report "io2 drive : k_io2 <= " & std_logic'image(mk2_io2);
+        jchi(8) <= mk2_io2;
+      else
+--        report "io2 Z";
+        jchi(8) <= 'Z';
+      end if;
+      
+      -- Connect Xilinx MK-I interface to MK-II controller
+      mk2_xil_io1 <= xil_io1;
+      mk2_xil_io2 <= xil_io2;
+      xil_io3 <= mk2_xil_io3;
+    end if;
+      
+    ampPWM <= ampPWM_internal;
+    led(15) <= ampPWM_internal;
+
   end process;
 
   -- 50MHz clock to ethernet controller
