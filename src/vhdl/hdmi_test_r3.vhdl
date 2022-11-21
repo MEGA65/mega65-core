@@ -553,8 +553,8 @@ port map (
   begin
     if rising_edge(cpuclock) then
       segled_counter <= segled_counter + 1;
-      kb_io1_t <= segled_counter(10);
-      kb_io1_i <= '0';
+      kb_io1_t <= segled_counter(14);
+      kb_io1_i <= segled_counter(15) or segled_counter(16);
       kb_io0 <= segled_counter(9);
     end if;
   end process;

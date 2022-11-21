@@ -285,10 +285,7 @@ architecture Behavioral of container is
   signal clock270 : std_logic;
   signal clock325 : std_logic;
 
-  -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
-  -- XXX Note that left and up are active HIGH!
-  -- XXX Plumb these into the MEGA65R2 keyboard protocol receiver
   signal keyleft : std_logic := '0';
   signal keyup : std_logic := '0';
   -- On the R2, we don't use the "real" keyboard interface, but instead the

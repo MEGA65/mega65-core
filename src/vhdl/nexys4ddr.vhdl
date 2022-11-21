@@ -275,10 +275,89 @@ architecture Behavioral of container is
   signal joy3 : std_logic_vector(4 downto 0);
   signal joy4 : std_logic_vector(4 downto 0);
 
+  -- Assume MK-II keyboard on power on, for the reasons explained further down
+  -- in the file
+  signal mk1_connected : std_logic := '0';
+  signal mkii_counter : integer range 0 to 5000 := 5000;
+  signal mk2_xil_io1 : std_logic;
+  signal mk2_xil_io2 : std_logic;
+  signal mk2_xil_io3 : std_logic;
+  signal mk2_io1 : std_logic;
+  signal mk2_io2 : std_logic;
+  signal mk2_io1_in : std_logic;
+  signal mk2_io2_in : std_logic;
+  signal mk2_io1_en : std_logic;
+  signal mk2_io2_en : std_logic;
+  
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal widget_restore : std_logic := '1';
+  signal widget_capslock : std_logic := '0';
+  signal widget_joya : std_logic_vector(4 downto 0);
+  signal widget_joyb : std_logic_vector(4 downto 0);
+  
   signal qspi_clock : std_logic;
+
+  signal restore_key : std_logic := '1';
+  signal keyleft : std_logic := '0';
+  signal keyup : std_logic := '0';
+  -- On the R2 onwards, we don't use the "real" keyboard interface, but instead the
+  -- widget board interface, so just have these as dummy all-high place holders
+  signal column : std_logic_vector(8 downto 0) := (others => '1');
+  signal row : std_logic_vector(7 downto 0) := (others => '1');
   
 begin
 
+  mk2: entity work.mk2_to_mk1 
+  port map (
+    clock50 => clock50,
+
+    mk2_xil_io1 => mk2_xil_io1,
+    mk2_xil_io2 => mk2_xil_io2,
+    mk2_xil_io3 => mk2_xil_io3,
+    
+    mk2_io1_in => mk2_io1_in,
+    mk2_io1 => mk2_io1,
+    mk2_io1_en => mk2_io1_en,
+
+    mk2_io2_in => mk2_io2_in,
+    mk2_io2 => mk2_io2,
+    mk2_io2_en => mk2_io2_en
+
+    );
+  
+  kbd0: entity work.mega65kbd_to_matrix
+    port map (
+      cpuclock => cpuclock,
+
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,
+      
+      powerled => '1',
+      flopled0 => flopled0_drive,
+      flopled2 => flopled2_drive,
+      flopledsd => flopledsd_drive,
+      flopmotor => flopmotor_drive,
+            
+      kio8 => jchi(7),
+      kio9 => jchi(8),
+      kio10 => jchi(9),
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
+      matrix_col => widget_matrix_col,
+      matrix_col_idx => widget_matrix_col_idx,
+      restore => widget_restore,
+      fastkey_out => fastkey,
+      capslock_out => widget_capslock,
+      upkey => keyup,
+      leftkey => keyleft
+      
+      );
+
+  
 --STARTUPE2:STARTUPBlock--7Series
 
 --XilinxHDLLibrariesGuide,version2012.4
@@ -460,10 +539,12 @@ begin
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
 
-      porta_pins => porta_pins,
-      portb_pins => portb_pins,
-      keyleft => '0',
-      keyup => '0',
+      porta_pins => column(7 downto 0),
+      portb_pins => row(7 downto 0),
+      keyboard_column8 => column(8),
+      caps_lock_key => '1',
+      keyleft => keyleft,
+      keyup => keyup,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
@@ -526,11 +607,13 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      widget_matrix_col => "11111111",
-      widget_restore => '1',
-      widget_capslock => '0',
-      widget_joya => "11111",
-      widget_joyb => "11111",     
+      -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
       
       uart_rx => jclo(1),
       uart_tx => jclo(2),
@@ -621,8 +704,39 @@ begin
 
     if rising_edge(cpuclock) then
 
-      -- No physical keyboard
-      portb_pins <= (others => '1');
+    if mk1_connected='1' then
+      -- And connect keyboard to Xilinx FPGA, and turn off JTAG mode for it
+
+      -- Connect keyboard GPIO interface
+--      report "Bridging Xilinx MK-I keyboard signals to keyboard: "
+--         & std_logic'image(jchi(7))  & std_logic'image(jchi(8));
+      k_io1 <= jchi(7); k_io1_en <= '1';
+      k_io2 <= jchi(8); k_io2_en <= '1';
+      jchi(9) <= k_io3;
+    else
+      -- MK-II keyboard connected
+
+      -- Make tri-state link from keyboard connector to MK-II controller
+      mk2_io1_in <= k_io1;
+      if mk2_io1_en='1' then
+        k_io1 <= mk2_io1; k_io1_en <= '1';
+      else
+        k_io1 <= 'Z'; k_io1_en <= '0';
+      end if;
+      mk2_io2_in <= k_io2;
+      if mk2_io2_en='1' then
+--        report "io2 drive : k_io2 <= " & std_logic'image(mk2_io2);
+        k_io2 <= mk2_io2; k_io2_en <= '1';
+      else
+--        report "io2 Z";
+        k_io2 <= 'Z'; k_io2_en <= '0';
+      end if;
+
+      -- Connect Xilinx MK-I interface to MK-II controller
+      mk2_xil_io1 <= jchi(7);
+      mk2_xil_io2 <= jchi(8);
+      jchi(9) <= mk2_xil_io3;
+    else
       
       -- Debug audio output
       if sw(7) = '0' then
