@@ -131,8 +131,6 @@ void main(void)
   POKE(0xd021, 6);
   printf("%c", 0x93);
 
-  probe_qspi_flash();
-
   // We care about whether the IPROG bit is set.
   // If the IPROG bit is set, then we are post-config, and we
   // don't want to automatically change config. Rather, we just
@@ -149,6 +147,8 @@ void main(void)
     asm(" jmp $cf7f ");
   }
 
+  probe_qspi_flash();
+  
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
   // this is the non-interactive part, where megaflash just
