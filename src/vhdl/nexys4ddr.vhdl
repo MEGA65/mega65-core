@@ -297,6 +297,9 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
   
   signal qspi_clock : std_logic;
+  signal qspidb_oe : std_logic;
+  signal qspidb_out : unsigned(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
 
   signal disco_led_en : std_logic := '0';
   signal disco_led_val : unsigned(7 downto 0);
@@ -436,10 +439,6 @@ begin
       joya => joy3,
       joyb => joy4,
       
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-      qspisck => qspi_clock,
-
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_write => slow_access_write,
@@ -500,7 +499,11 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
-      qspidb_in => qspidb,
+      qspi_clock => qspi_clock,
+      qspicsn => qspicsn,
+      qspidb => qspidb_out,
+      qspidb_in => qspidb_in,
+      qspidb_oe => qspidb_oe,
       
       max10_fpga_commit => (others => '1'),
       max10_fpga_date => (others => '1'),
@@ -685,6 +688,9 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
+  qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
+  qspidb_in <= qspidb;
+  
   process (cpuclock,clock27,pixelclock, pal50_select)
   begin
     if rising_edge(clock27) then
