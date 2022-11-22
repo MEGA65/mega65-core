@@ -715,6 +715,7 @@ begin
       -- assume MK-II keyboard, and correct our decision in 1 clock tick if it was
       -- wrong.  Doing it the other way around would cause fake key presses during
       -- the 5000 cycles while we wait to decide it really is a MK-II keyboard.
+      led(13) <= mk1_connected;
       if to_X01(jchi(9)) = '1' then
         mkii_counter <= 0;
         mk1_connected <= '1';
