@@ -808,7 +808,7 @@ begin
       vsync_invert => one,
       pal50_select => one,
       vga60_select => zero,
-      test_pattern_enable => dipsw(3),      
+      test_pattern_enable => '1',
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
@@ -843,6 +843,26 @@ begin
 
       );
 
+  expansionboard0: entity work.r3_expansion
+    port map (
+      cpuclock => cpuclock,
+      clock27 => clock27,
+      clock81 => pixelclock,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
+
+      red => pattern_r,
+      green => pattern_g,
+      blue => pattern_b,
+      hsync => vga_hsync,
+      vsync => vga_vsync,
+      pal50 => pal50,
+      vga60 => vga60
+      
+      );
   
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
