@@ -58,8 +58,11 @@ begin
   begin
     if rising_edge(cpuclock) then
       counter <= counter + 1;
-      p2lo(3 downto 0) <= std_logic_vector(counter(20 downto 17));
-      p2hi(3 downto 0) <= std_logic_vector(counter(22 downto 19));
+      -- Bit order on PMODs is reversed
+      for i in 0 to 3 loop
+        p2lo(i) <= counter(8-i);
+        p2hi(i) <= counter(23-i);
+      end loop;
     end if;
   end process;
   
