@@ -844,6 +844,7 @@ begin
       cpuclock => cpuclock,
       clock27 => clock27,
       clock81 => pixelclock,
+      clock270 => clock270,
 
       p1lo => p1lo,
       p1hi => p1hi,

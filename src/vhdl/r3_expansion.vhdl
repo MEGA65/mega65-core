@@ -18,6 +18,7 @@ entity r3_expansion is
   Port ( cpuclock : STD_LOGIC;         
          clock27 : std_logic;
          clock81 : std_logic;
+         clock270 : std_logic;
 
          -- PMOD connectors on the MEGA65 main board
          -- We say R3 onwards, but in theory we can work with the R2 board
@@ -51,18 +52,69 @@ end r3_expansion;
 architecture gothic of r3_expansion is
 
   signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
+
+  constant seq_0 : unsigned(7 downto 0) := "00000000";
+  constant seq_1 : unsigned(7 downto 0) := "10000000";
+  constant seq_2 : unsigned(7 downto 0) := "10001000";
+  constant seq_3 : unsigned(7 downto 0) := "00100101";
+  constant seq_4 : unsigned(7 downto 0) := "01010101";
+  constant seq_5 : unsigned(7 downto 0) := "01011011";
+  constant seq_6 : unsigned(7 downto 0) := "01110111";
+  constant seq_7 : unsigned(7 downto 0) := "01111111";
+  constant seq_8 : unsigned(7 downto 0) := "11111111";
+
+  signal chroma_high : unsigned(5 downto 3) := (others => '0');
+  signal luma_high : unsigned(5 downto 3) := (others => '0');
+  signal chroma_low : unsigned(7 downto 0) := (others => '0');
+  signal luma_low : unsigned(7 downto 0) := (others => '0');
+
+  signal sub_clock : integer range 0 to 7 := 0;
+
+  function pick_sub_clock(n : unsigned(2 downto 0)) return unsigned(7 downto 0) is
+  begin
+    case n is
+      when "000" => return seq_1;
+      when "001" => return seq_2;
+      when "010" => return seq_3;
+      when "011" => return seq_4;
+      when "100" => return seq_5;
+      when "101" => return seq_6;
+      when "110" => return seq_7;
+      when "111" => return seq_8;
+      when others => return seq_0;
+    end case;
+  end pick_sub_clock;    
   
 begin
 
-  process (cpuclock) is
+  process (clock270,clock81,clock27) is
   begin
-    if rising_edge(cpuclock) then
+    if rising_edge(clock27) then
       counter <= counter + 1;
+      chroma_high <= counter(8 downto 6);
+      chroma_low <= pick_sub_clock(counter(5 downto 3));
+      luma_high <= counter(12 downto 10);
+      luma_low <= pick_sub_clock(counter(9 downto 7));
+    end if;
+    
+    if rising_edge(clock270) then
       -- Bit order on PMODs is reversed
-      for i in 0 to 3 loop
-        p2lo(i) <= counter(8-i);
-        p2hi(i) <= counter(23-i);
+      for i in 0 to 2 loop
+        p2lo(i) <= chroma_high(5-i);
+        p2hi(i) <= luma_high(5-i);
       end loop;
+      -- We want at least 8 bits of total resolution,
+      -- so we do PWM on lowest bit (and later on all
+      -- bits, with 4x or 8x step between resistors, instead
+      -- of just 2x).
+      p2lo(3) <= chroma_low(sub_clock);
+      p2hi(3) <= luma_low(sub_clock);
+      if sub_clock /= 7 then
+        sub_clock <= sub_clock + 1;
+      else
+        sub_clock <= 0;
+      end if;
+      
     end if;
   end process;
   
