@@ -41,8 +41,9 @@ entity r3_expansion is
          hsync : in std_logic;
          vsync : in std_logic;
          pal50 : in std_logic;
-         vga60 : in std_logic;
+         vga60 : in std_logic
 
+         
          );
 
 end r3_expansion;
@@ -50,6 +51,12 @@ end r3_expansion;
 architecture gothic of r3_expansion is
 
 begin
+
+  process (cpuclock) is
+  begin
+    if rising_edge(cpuclock) then
+    end if;
+  end process;
   
 end gothic;
 

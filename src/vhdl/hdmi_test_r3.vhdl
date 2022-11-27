@@ -386,6 +386,9 @@ architecture Behavioral of container is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
+  signal pal50 : std_logic := '1';
+  signal vga60 : std_logic := '0';
+    
   signal pattern_r : unsigned(7 downto 0);
   signal pattern_g : unsigned(7 downto 0);
   signal pattern_b: unsigned(7 downto 0);
@@ -473,7 +476,7 @@ architecture Behavioral of container is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
-  
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -806,8 +809,8 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
-      pal50_select => one,
-      vga60_select => zero,
+      pal50_select => pal50,
+      vga60_select => vga60,
       test_pattern_enable => '1',
       
       -- Framing information for VIC-IV
@@ -857,8 +860,8 @@ begin
       red => pattern_r,
       green => pattern_g,
       blue => pattern_b,
-      hsync => vga_hsync,
-      vsync => vga_vsync,
+      hsync => pattern_hsync,
+      vsync => pattern_vsync,
       pal50 => pal50,
       vga60 => vga60
       
