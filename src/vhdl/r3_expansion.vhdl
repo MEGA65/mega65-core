@@ -50,11 +50,16 @@ end r3_expansion;
 
 architecture gothic of r3_expansion is
 
+  signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
+  
 begin
 
   process (cpuclock) is
   begin
     if rising_edge(cpuclock) then
+      counter <= counter + 1;
+      p2lo(3 downto 0) <= std_logic_vector(counter(20 downto 17));
+      p2hi(3 downto 0) <= std_logic_vector(counter(22 downto 19));
     end if;
   end process;
   

@@ -103,13 +103,6 @@ entity container is
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
 
-         -- Optional 2nd hyperram in trap-door slot
-         hr2_d : inout unsigned(7 downto 0);
-         hr2_rwds : inout std_logic;
-         hr2_reset : out std_logic;
-         hr2_clk_p : out std_logic;
-         hr2_cs0 : out std_logic;
-         
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
