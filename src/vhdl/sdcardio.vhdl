@@ -2399,8 +2399,7 @@ begin  -- behavioural
               -- @IO:C65 $D081.6 FDC:RDCMD Command is a read operation if set
               -- @IO:C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
               -- @IO:C65 $D081.4 FDC:STEP Writing 1 causes the head to step in the indicated direction
-              -- @IO:C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs
-              -- outward)
+              -- @IO:C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs outward)
               -- @IO:C65 $D081.2 FDC:ALGO Selects reading and writing algorithm (currently ignored).
               -- @IO:C65 $D081.1 FDC:ALT Selects alternate DPLL read recovery method (not implemented)
               -- @IO:C65 $D081.0 FDC:NOBUF Reset the sector buffer read/write pointers
