@@ -350,8 +350,8 @@ begin  -- behavioural
               when 1 => current_keys(9) <= i2c_bit;-- W
               when 0 => -- NOT CONNECTED
               
-              when 15 => current_keys(14) <= i2c_bit;-- E
-              when 14 => current_keys(57) <= i2c_bit;-- <- / LEFT ARROW / LARR / _
+              when 15 => current_keys(57) <= i2c_bit;-- <- / LEFT ARROW / LARR / _
+              when 14 => current_keys(14) <= i2c_bit;-- E
               when 13 => current_keys(58) <= i2c_bit;-- CTRL
               when 12 => current_keys(61) <= i2c_bit;-- MEGA
               when 11 => current_keys(15) <= i2c_bit and shiftlock_toggle;-- LSHIFT
