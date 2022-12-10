@@ -905,6 +905,10 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/main.asm
 
+$(BINDIR)/BRICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
+	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/joyflash.asm
+
+
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
 
