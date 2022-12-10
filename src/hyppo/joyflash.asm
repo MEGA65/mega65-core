@@ -733,8 +733,6 @@ loadbannerfromsd:
 
         jsr dos_readfileintomemory
         bcs joyflashok
-
-        jmp run_util_in_hypervisor_context
 	
 ;;         ========================
 
@@ -759,9 +757,8 @@ nojoy:	inc $d020
 ;;         ========================
 
 joyflashok:
+	jmp run_util_in_hypervisor_context
 
-	inc $d021
-	jmp joyflashok
 ;;         ========================
 
 cdroot_and_complain_if_fails:
@@ -1692,7 +1689,6 @@ safe_video_mode:
 	sta $d06f
 	rts
 
-	;; FALL THROUGH
 run_util_in_hypervisor_context:
 	;; XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	;; Hypervisor memory map!
