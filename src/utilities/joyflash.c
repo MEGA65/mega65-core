@@ -247,7 +247,8 @@ void main(void)
     x = 0;
     if (!(PEEK(0xDC00)&16)) x=0x0d; // FIRE = return
     if (!(PEEK(0xDC00)&1)) x=0x91;  // UP = CRSR-UP
-    if (!(PEEK(0xDC00)&4)) x=0x1d;  // RIGHT = CRSR-RIGHT
+    if (!(PEEK(0xDC00)&8)) x=0x1d;  // RIGHT = CRSR-RIGHT
+    if (!(PEEK(0xDC00)&4)) x=0x9d;  // RIGHT = CRSR-LEFT
     if (!(PEEK(0xDC00)&2)) x=0x11;  // DOWN = CRSR-DOWN
     // Wait for joystick presses to be released before continuing
     if (x) {

@@ -830,13 +830,13 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
 	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
-$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
+$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/joyflash-a200t.prg \
 		--add-source -Ln $*.label --listing $*.list \
 		--mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspijoy.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 # it doesn't overlap with hypervisor
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> joyflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/joyflash-a200t.prg)
