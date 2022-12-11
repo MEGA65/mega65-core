@@ -546,18 +546,18 @@ begin
 
     if rising_edge(clock81) then
 
-  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
-    & std_logic'image(pixel_strobe_vga60) & ", " 
-    & std_logic'image(pixel_strobe_60);
+--  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
+--    & std_logic'image(pixel_strobe_vga60) & ", " 
+--    & std_logic'image(pixel_strobe_60);
   
 
       
       if pal50_select_internal='1' then
-        report "x_zero=" & std_logic'image(x_zero_pal50)
-          & ", y_zero=" & std_logic'image(y_zero_pal50);
+--        report "x_zero=" & std_logic'image(x_zero_pal50)
+--          & ", y_zero=" & std_logic'image(y_zero_pal50);
       else
-        report "x_zero = " & std_logic'image(x_zero_ntsc60)
-          & ", y_zero = " & std_logic'image(y_zero_ntsc60);
+--        report "x_zero = " & std_logic'image(x_zero_ntsc60)
+--          & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
       
       -- XXX Implement Chroma. We need higher frequency here, so that we can
@@ -570,7 +570,6 @@ begin
         chroma <= x"00";
         composite <= x"00";
       else
-        report "luma from $" & to_hexstring(px_luma);
         luma <= px_luma(15 downto 8);
         chroma <= to_unsigned(px_chroma ,8);
         composite <= to_unsigned(to_integer(px_luma(15 downto 8)) + px_chroma ,8);
@@ -579,8 +578,8 @@ begin
     
     if rising_edge(clock27) then
 
-      report "plotting = " & std_logic'image(plotting)
-        & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
+--      report "plotting = " & std_logic'image(plotting)
+--        & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
 
       -- Calculate luma value.
       -- Y = 0.3UR + 0.59UG + 0.11UB
@@ -596,7 +595,8 @@ begin
       -- Y = 52R + 103G + 19B
       -- This gets a maximum Y of 174, which is close enough to 175.
       px_luma <=
-          ("00" & cv_red&"000000") + ("000" & cv_red&"00000") + ("000000" & cv_red&"00")
+        to_unsigned(80*256,16) -- sync offset
+        + ("00" & cv_red&"000000") + ("000" & cv_red&"00000") + ("000000" & cv_red&"00")
         + ("0" & cv_green&"0000000") + ("00" & cv_green&"000000") + ("00000" & cv_green&"000") - ("00000000" & cv_green)
         + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue);
       
@@ -660,7 +660,7 @@ begin
         if raddr50 < 800 then
           plotting50 <= '1';
         else
-          report "clearing plotting50 due to end of line";
+--          report "clearing plotting50 due to end of line";
           plotting50 <= '0';
         end if;
         
@@ -688,7 +688,7 @@ begin
       if x_zero_vga60='1' then
         raddrvga60 <= 0;
         plottingvga60 <= '0';
-        report "raddr = ZERO";
+--        report "raddr = ZERO";
       else
         if raddrvga60 < 800 then
           plottingvga60 <= '1';
