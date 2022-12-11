@@ -570,6 +570,7 @@ begin
         chroma <= x"00";
         composite <= x"00";
       else
+        report "luma from $" & to_hexstring(px_luma);
         luma <= px_luma(15 downto 8);
         chroma <= to_unsigned(px_chroma ,8);
         composite <= to_unsigned(to_integer(px_luma(15 downto 8)) + px_chroma ,8);

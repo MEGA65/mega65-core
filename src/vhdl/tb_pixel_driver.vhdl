@@ -148,6 +148,28 @@ begin
         else
           assert false report "Expected to see HSYNC and VSYNC both toggle at some point";
         end if;
+      elsif run("component video signal has SYNC pulses") then
+        -- Allow all signals to begin propagating
+        for i in 1 to 10 loop
+          pixelclock <= '0'; wait for 6.172 ns; pixelclock <= '1'; wait for 6.172 ns;
+        end loop;
+        for i in 1 to 10000 loop
+          pixelclock <= '0'; wait for 6.172 ns; pixelclock <= '1'; wait for 6.172 ns;
+          if cv_luma = x"00" then
+            h0 <= '1';
+          end if;
+          if to_integer(cv_luma) > 77 then -- 256*0.3 is threshold for SYNC
+            h1 <= '1';
+          end if;
+          if (h0 and h1) = '1' then
+            exit;
+          end if;
+        end loop;
+        if (h0 and h1) = '1' then
+          report "Saw composite SYNC both low and high";
+        else
+          assert false report "Expected to see composite SYNC both low and high";
+        end if;
       end if;
     end loop;
     test_runner_cleanup(runner);
