@@ -229,6 +229,13 @@ architecture greco_roman of pixel_driver is
   signal raddr60 : integer := 0;
   signal raddrvga60 : integer := 0;
 
+  signal cv_sync : std_logic := '0';
+  signal px_chroma : integer range 0 to 255 := 0;
+  signal px_luma : unsigned(15 downto 0);
+  signal cv_red : unsigned(7 downto 0);
+  signal cv_green : unsigned(7 downto 0);
+  signal cv_blue : unsigned(7 downto 0);
+  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -287,6 +294,7 @@ begin
                clock41 => cpuclock,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
+               vsync_uninverted => vsync_pal50_uninverted,
                vsync => vsync_pal50,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
@@ -353,6 +361,7 @@ begin
                clock41 => cpuclock,
                hsync => hsync_ntsc60,
                hsync_uninverted => hsync_ntsc60_uninverted,
+               vsync_uninverted => vsync_ntsc60_uninverted,
                vsync => vsync_ntsc60,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
@@ -418,6 +427,7 @@ begin
                clock41 => cpuclock,
                hsync => hsync_vga60,
                hsync_uninverted => hsync_vga60_uninverted,
+               vsync_uninverted => vsync_vga60_uninverted,
                vsync => vsync_vga60,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
@@ -459,6 +469,18 @@ begin
   vsync <= vsync_pal50 when pal50_select_internal='1' else
            vsync_vga60 when vga60_select_internal='1'
            else vsync_ntsc60;
+
+  hsync_uninverted <= hsync_pal50_uninverted when pal50_select_internal='1' else
+           hsync_vga60_uninverted when vga60_select_internal='1'
+           else hsync_ntsc60_uninverted;
+  vsync_uninverted <= vsync_pal50_uninverted when pal50_select_internal='1' else
+           vsync_vga60_uninverted when vga60_select_internal='1'
+                      else vsync_ntsc60_uninverted;
+
+  cv_sync <= (hsync_pal50 xor vsync_pal50) when pal50_select_internal='1' else
+           (hsync_vga60 xor vsync_vga60) when vga60_select_internal='1'
+           else (hsync_ntsc60 xor vsync_ntsc60);
+
   vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
                vga_hsync_vga60 when vga60_select_internal='1'
                else vga_hsync_ntsc60;
@@ -538,13 +560,45 @@ begin
           & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
       
-    end if;        
+      -- XXX Implement Chroma. We need higher frequency here, so that we can
+      -- look up the colour burst frequency sine table
+      px_chroma <= 0;
 
+      -- Update component video signals
+      if cv_sync = '1' then
+        luma <= x"00";
+        chroma <= x"00";
+        composite <= x"00";
+      else
+        luma <= px_luma(15 downto 8);
+        chroma <= to_unsigned(px_chroma ,8);
+        composite <= to_unsigned(to_integer(px_luma(15 downto 8)) + px_chroma ,8);
+      end if;
+    end if;    
+    
     if rising_edge(clock27) then
 
       report "plotting = " & std_logic'image(plotting)
         & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
 
+      -- Calculate luma value.
+      -- Y = 0.3UR + 0.59UG + 0.11UB
+      -- Dynamic range for luma is 0.7 x 256 = 179.2. But as we must support
+      -- 4-bit DAC output, we need to reserve the full range from 0V to 0.3V for
+      -- the SYNC signal. This means that the bottom 80 values are used for that,
+      -- leaving 256 - 80 = 176 for the full dynamic range.
+      -- This means that we need the Y value to be in the range 0 to 175.
+      -- This means we scale the Y value by x0.686.  This results in revised Y
+      -- formula of:
+      -- Y = 0.21R + 0.40G + 0.08B
+      -- Scaled up x256, this means:
+      -- Y = 52R + 103G + 19B
+      -- This gets a maximum Y of 174, which is close enough to 175.
+      px_luma <=
+          ("00" & cv_red&"000000") + ("000" & cv_red&"00000") + ("000000" & cv_red&"00")
+        + ("0" & cv_green&"0000000") + ("00" & cv_green&"000000") + ("00000" & cv_green&"000") - ("00000000" & cv_green)
+        + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue);
+      
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
 
@@ -558,6 +612,9 @@ begin
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
+        cv_red <= x"00";
+        cv_green <= x"00";
+        cv_blue <= x"00";
       elsif test_pattern_enable120='1' then
 --        red_o <= to_unsigned(raddr50,8);
 --        green_o <= to_unsigned(raddr60,8);
@@ -565,10 +622,16 @@ begin
         red_o <= test_pattern_red50;
         green_o <= test_pattern_green50;
         blue_o <= test_pattern_blue50;
+        cv_red <= test_pattern_red50;
+        cv_green <= test_pattern_green50;
+        cv_blue <= test_pattern_blue50;
       else
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
+        cv_red <= red_i;
+        cv_green <= green_i;
+        cv_blue <= blue_i;
       end if;
 
       if plotting='0' or narrow_dataenable_internal='0' then        
