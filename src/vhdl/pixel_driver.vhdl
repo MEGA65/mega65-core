@@ -72,6 +72,11 @@ entity pixel_driver is
     red_no : out unsigned(7 downto 0) := x"FF";
     green_no : out unsigned(7 downto 0) := x"FF";
     blue_no : out unsigned(7 downto 0) := x"FF";
+
+    -- Component video output
+    luma : out unsigned(7 downto 0) := (others => '0');
+    chroma : out unsigned(7 downto 0) := (others => '0');
+    composite : out unsigned(7 downto 0) := (others => '0');
     
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening

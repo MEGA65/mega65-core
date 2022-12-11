@@ -1195,7 +1195,7 @@ begin
       rom_at_8000 => rom_at_8000
 
       );
-
+ 
   pixel0: entity work.pixel_driver
     port map (
                clock81 => pixelclock, -- 80MHz
@@ -1251,7 +1251,7 @@ begin
 
       );
       
-      
+     
   viciv0: entity work.viciv
     generic map ( hyper_installed => hyper_installed )
     port map (
