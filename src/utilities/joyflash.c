@@ -118,10 +118,17 @@ void scan_bitstream_information(void)
   }
 }
 
+unsigned char nybl_to_hex(unsigned char v)
+{
+  if (v<10) return '0'+v;
+  return v-9;
+}
+
 void main(void)
 {
   unsigned char selected = 0, valid, atticram_bad = 0;
   unsigned char selected_reflash_slot;
+  unsigned char v;
 
   mega65_io_enable();
 
@@ -240,19 +247,32 @@ void main(void)
     // Draw footer line with instructions
     for (; i < 8; i++)
       printf("%c%c%c", 17, 17, 17);
-    printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count - 1, slot_count - 1, 0x92);
-    POKE(1024 + 999, 0x14 + 0x80);
+    printf("%cUse Joystick in Port 2 to control      %c", 0x12, 0x92);
+    POKE(1024 + 999, ' ' + 0x80);
 
+    POKE(1024 + 994, 0x80+nybl_to_hex((PEEK(0xD6A0)>>4)&0x01));
+    POKE(1024 + 995, 0x80+nybl_to_hex((PEEK(0xD6A0)>>3)&0xf));
+    
+    POKE(1024 + 997, 0x80+nybl_to_hex((PEEK(0xDC00)>>4)&0x01));
+    POKE(1024 + 998, 0x80+nybl_to_hex(PEEK(0xDC00)&0xf));
+    POKE(1024 + 999, ' ' + 0x80);
+
+    
     // Simulate cursor and RETURN keys with joystick
     x = 0;
-    if (!(PEEK(0xDC00)&16)) x=0x0d; // FIRE = return
-    if (!(PEEK(0xDC00)&1)) x=0x91;  // UP = CRSR-UP
-    if (!(PEEK(0xDC00)&8)) x=0x1d;  // RIGHT = CRSR-RIGHT
-    if (!(PEEK(0xDC00)&4)) x=0x9d;  // RIGHT = CRSR-LEFT
-    if (!(PEEK(0xDC00)&2)) x=0x11;  // DOWN = CRSR-DOWN
+    v=PEEK(0xDC00)&0x1f;
+    //
+    if (!v) v=PEEK(0xD6A0)>>3;
+    
+    if (!(v&16)) x=0x0d; // FIRE/F_INDEX = return
+    if (!(v&1)) x=0x91;  // UP/F_DISKCHANGED = CRSR-UP
+    if (!(v&8)) x=0x1d;  // RIGHT/F_TRACK0 = CRSR-RIGHT
+    if (!(v&4)) x=0x9d;  // LEFT/F_WRITEPROTECT = CRSR-LEFT
+    if (!(v&2)) x=0x11;  // DOWN/F_RDATA = CRSR-DOWN
     // Wait for joystick presses to be released before continuing
-    if (x) {
-      while ((PEEK(0xDC00)&0x1f)!=0x1f) continue;
+    while (v!=0x1f) {
+      v=PEEK(0xDC00)&0x1f;
+      if (!v) v=PEEK(0xD6A0)>>3;
     }
     
     if (x >= '0' && x < slot_count + '0') {
