@@ -679,6 +679,7 @@ unsigned char select_bitstream_file(void)
     x = PEEK(0xD610U);
 
     if (!x) {
+      unsigned char v;
       v=PEEK(0xDC00)&0x1f;
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
       //
