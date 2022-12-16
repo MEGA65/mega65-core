@@ -166,15 +166,15 @@ entity container is
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
-         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
-         sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;      
-         sdMISO : in  std_logic;
+--         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
+--         sdClock : out std_logic;       -- (sclk_o)
+--         sdMOSI : out std_logic;      
+--         sdMISO : in  std_logic;
 
-         sd2reset : out std_logic;
-         sd2Clock : out std_logic;       -- (sclk_o)
-         sd2MOSI : out std_logic;
-         sd2MISO : in std_logic;
+--         sd2reset : out std_logic;
+--         sd2Clock : out std_logic;       -- (sclk_o)
+--         sd2MOSI : out std_logic;
+--         sd2MISO : in std_logic;
 
          -- Left and right headphone port audio
          pwm_l : out std_logic;
