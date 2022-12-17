@@ -27,8 +27,14 @@ char slot_core_version[MAX_SLOTS][32];
 
 void wait_for_fire(void)
 {
-  while ((PEEK(0xDC00)&0x10)) ;
-  while (!(PEEK(0xDC00)&0x10)) ;
+  if (PEEK(0xDC00)&0x1f) {
+    while ((PEEK(0xDC00)&0x10)) ;
+    while (!(PEEK(0xDC00)&0x10)) ;
+  } else {
+    // Wait for F_INDEX as FIRE
+    while ((PEEK(0xD6A0)&0x80)) ;
+    while (!(PEEK(0x6A0)&0x80)) ;
+  }
 }
 
 void display_version(void)
