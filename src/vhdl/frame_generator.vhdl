@@ -40,7 +40,7 @@ entity frame_generator is
     cycles_per_raster_1mhz : integer := 63;
     cycles_per_raster_2mhz : integer := 63 * 2;
     cycles_per_raster_3mhz : integer := 221; -- 63*3.5, rounded up to next integer;
-
+    
     vsync_start : integer;
     vsync_end : integer;
     hsync_start : integer;
@@ -106,6 +106,7 @@ entity frame_generator is
     
     -- ~80MHz oriented signals for VIC-IV
     pixel_strobe : out std_logic := '0';
+    cv_pixel_strobe : out std_logic := '0';
     x_zero : out std_logic := '0';
     y_zero : out std_logic := '0'    
     
@@ -145,7 +146,7 @@ architecture brutalist of frame_generator is
   signal last_phi2_toggle_3mhz : std_logic := '0';  
 
   signal cv_x : integer := 0;
-  signal cv_pixel_strobe : std_logic := '0';
+  signal cv_pixel_strobe_int : std_logic := '0';
   signal cv_pixel_toggle : std_logic := '0';
   
   signal x : integer := 0;  
@@ -221,7 +222,8 @@ begin
       -- chain.
 
       cv_pixel_strobe <= '0';
-      if cv_pixel_strobe='1' then
+      cv_pixel_strobe_int <= '0';
+      if cv_pixel_strobe_int='1' then
         if cv_x < (frame_width-1) then
           cv_x <= cv_x + 1;
         else
@@ -246,6 +248,7 @@ begin
         pixel_strobe_counter <= 0;
         -- Generate half-rate composite video pixel toggle
         cv_pixel_strobe <= cv_pixel_toggle;
+        cv_pixel_strobe_int <= cv_pixel_toggle;
         cv_pixel_toggle <= not cv_pixel_toggle;
        
         if x = x_zero_position then
