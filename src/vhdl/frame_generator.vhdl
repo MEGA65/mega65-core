@@ -72,6 +72,7 @@ entity frame_generator is
     vsync_polarity : in std_logic;
 
     -- Video output oriented signals
+    cv_hsync : out std_logic := '0';
     hsync : out std_logic := '0';
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
@@ -80,6 +81,7 @@ entity frame_generator is
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
 
+    cv_data_start : out std_logic := '0';
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
     vga_hsync : out std_logic := '0';

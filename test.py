@@ -20,6 +20,7 @@ lib.add_source_files("src/vhdl/frame_generator.vhdl")
 vu.set_compile_option("ghdl.a_flags", ["-frelaxed-rules"])
 vu.set_compile_option("ghdl.flags", ["-frelaxed-rules"])
 vu.set_sim_option("ghdl.elab_flags", ["-frelaxed-rules"])
+vu.set_sim_option("ghdl.sim_flags", ["--ieee-asserts=disable"])
 
 # Run vunit function
 vu.main()

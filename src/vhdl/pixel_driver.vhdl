@@ -120,6 +120,11 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
+  signal cv_data_start_pal50 : std_logic := '0';
+  signal cv_data_start_ntsc60 : std_logic := '0';
+  signal cv_data_start_vga60 : std_logic := '0';
+  
+  signal cv_hsync_pal50 : std_logic := '0';
   signal hsync_pal50 : std_logic := '0';
   signal hsync_pal50_uninverted : std_logic := '0';
   signal vsync_pal50 : std_logic := '0';
@@ -135,11 +140,13 @@ architecture greco_roman of pixel_driver is
   signal phi2_3mhz_ntsc60 : std_logic;
   signal phi2_3mhz_vga60 : std_logic;
   
+  signal cv_hsync_ntsc60 : std_logic := '0';
   signal hsync_ntsc60 : std_logic := '0';
   signal hsync_ntsc60_uninverted : std_logic := '0';
   signal vsync_ntsc60 : std_logic := '0';
   signal vsync_ntsc60_uninverted : std_logic := '0';
 
+  signal cv_hsync_vga60 : std_logic := '0';
   signal hsync_vga60 : std_logic := '0';
   signal hsync_vga60_uninverted : std_logic := '0';
   signal vsync_vga60 : std_logic := '0';
@@ -213,21 +220,9 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle_last60 : std_logic := '0';
   signal raster_toggle_lastvga60 : std_logic := '0';
 
-  signal plotting : std_logic := '0';
-  signal plotting50 : std_logic := '0';
-  signal plotting60 : std_logic := '0';
-  signal plottingvga60 : std_logic := '0';
-
   signal test_pattern_enable120 : std_logic := '0';
   
   signal y_zero_internal : std_logic := '0';
-
-  signal raddr : std_logic_vector(9 downto 0);
-  signal waddr : std_logic_vector(9 downto 0);
-
-  signal raddr50 : integer := 0;
-  signal raddr60 : integer := 0;
-  signal raddrvga60 : integer := 0;
 
   signal cv_sync : std_logic := '0';
   signal px_chroma : integer range 0 to 255 := 0;
@@ -235,6 +230,8 @@ architecture greco_roman of pixel_driver is
   signal cv_red : unsigned(7 downto 0);
   signal cv_green : unsigned(7 downto 0);
   signal cv_blue : unsigned(7 downto 0);
+
+--  signal blue_toggle : std_logic := '0';
   
 begin
 
@@ -299,6 +296,9 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               cv_hsync => cv_hsync_pal50,
+               cv_data_start => cv_data_start_pal50,
+               
                phi2_1mhz_out => phi2_1mhz_pal50,
                phi2_2mhz_out => phi2_2mhz_pal50,
                phi2_3mhz_out => phi2_3mhz_pal50,
@@ -366,6 +366,9 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               cv_hsync => cv_hsync_ntsc60,
+               cv_data_start => cv_data_start_ntsc60,
+               
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
                phi2_3mhz_out => phi2_3mhz_ntsc60,
@@ -432,6 +435,9 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               cv_hsync => cv_hsync_vga60,
+               cv_data_start => cv_data_start_vga60,
+
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
                phi2_3mhz_out => phi2_3mhz_vga60,
@@ -477,9 +483,10 @@ begin
            vsync_vga60_uninverted when vga60_select_internal='1'
                       else vsync_ntsc60_uninverted;
 
-  cv_sync <= (hsync_pal50 xor vsync_pal50) when pal50_select_internal='1' else
-           (hsync_vga60 xor vsync_vga60) when vga60_select_internal='1'
-           else (hsync_ntsc60 xor vsync_ntsc60);
+  -- Composite video HSYNC is at half-rate.
+  cv_sync <= (cv_hsync_pal50 xor vsync_pal50) when pal50_select_internal='1' else
+           (cv_hsync_vga60 xor vsync_vga60) when vga60_select_internal='1'
+           else (cv_hsync_ntsc60 xor vsync_ntsc60);
 
   vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
                vga_hsync_vga60 when vga60_select_internal='1'
@@ -531,15 +538,6 @@ begin
                       pixel_strobe_vga60 when vga60_select_internal='1'
                       else pixel_strobe_60;
 
-  raddr <= std_logic_vector(to_unsigned(raddr50,10)) when pal50_select_internal='1' else
-           std_logic_vector(to_unsigned(raddrvga60,10)) when vga60_select_internal='1'
-           else std_logic_vector(to_unsigned(raddr60,10));
-  
-  plotting <= '0' when y_zero_internal='1' else
-              plotting50 when pal50_select_internal='1' else
-              plottingvga60 when vga60_select_internal='1'
-              else plotting60;
-  
   
   process (clock81,clock27) is
   begin
@@ -562,6 +560,9 @@ begin
       
       -- XXX Implement Chroma. We need higher frequency here, so that we can
       -- look up the colour burst frequency sine table
+      -- 81MHz to regenerate a ~4MHz colour signal should be ok. We do have to
+      -- be able to encode both phase and amplitude for this. We'll see if it's
+      -- good enough
       px_chroma <= 0;
 
       -- Update component video signals
@@ -578,9 +579,6 @@ begin
     
     if rising_edge(clock27) then
 
---      report "plotting = " & std_logic'image(plotting)
---        & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
-
       -- Calculate luma value.
       -- Y = 0.3UR + 0.59UG + 0.11UB
       -- Dynamic range for luma is 0.7 x 256 = 179.2. But as we must support
@@ -596,9 +594,10 @@ begin
       -- This gets a maximum Y of 174, which is close enough to 175.
       px_luma <=
         to_unsigned(80*256,16) -- sync offset
-        + ("00" & cv_red&"000000") + ("000" & cv_red&"00000") + ("000000" & cv_red&"00")
-        + ("0" & cv_green&"0000000") + ("00" & cv_green&"000000") + ("00000" & cv_green&"000") - ("00000000" & cv_green)
-        + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue);
+        + ("0000" & cv_red&"0000") + ("000000" & cv_red&"00") + ("00000000" & cv_red)
+        + ("0" & cv_green&"0000000") - ("0000" & cv_green&"0000") - ("00000" & cv_green&"000")
+        + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
+        ;
       
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
@@ -609,97 +608,43 @@ begin
       test_pattern_enable120 <= test_pattern_enable;
       
       -- Output the pixels or else the test pattern
-      if plotting='0' or fullwidth_dataenable_internal='0' then        
+      if fullwidth_dataenable_internal='0' then        
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
-        cv_red <= x"00";
-        cv_green <= x"00";
-        cv_blue <= x"00";
       elsif test_pattern_enable120='1' then
---        red_o <= to_unsigned(raddr50,8);
---        green_o <= to_unsigned(raddr60,8);
---        blue_o <= to_unsigned(raddrvga60,8);
         red_o <= test_pattern_red50;
         green_o <= test_pattern_green50;
         blue_o <= test_pattern_blue50;
-        cv_red <= test_pattern_red50;
-        cv_green <= test_pattern_green50;
-        cv_blue <= test_pattern_blue50;
       else
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
-        cv_red <= red_i;
-        cv_green <= green_i;
-        cv_blue <= blue_i;
       end if;
 
-      if plotting='0' or narrow_dataenable_internal='0' then        
-        red_no <= x"00";
+      if  narrow_dataenable_internal='0' then        
+        red_no <= x"00"; 
         green_no <= x"00";
         blue_no <= x"00";
+        cv_red <= x"00";
+        cv_green <= x"00";
+        cv_blue <= x"00";
       elsif test_pattern_enable120='1' then
---        red_no <= to_unsigned(raddr50,8);
---        green_no <= to_unsigned(raddr60,8);
---        blue_no <= to_unsigned(raddrvga60,8);
         red_no <= test_pattern_red50;
         green_no <= test_pattern_green50;
         blue_no <= test_pattern_blue50;
+        cv_red <= test_pattern_red50;
+        cv_green <= test_pattern_green50;
+        cv_blue <= test_pattern_blue50;
       else
         red_no <= red_i;
         green_no <= green_i;
         blue_no <= blue_i;
+        cv_red <= red_i;
+        cv_green <= green_i;
+        cv_blue <= blue_i;
       end if;
       
-      if x_zero_pal50='1' then
-        raddr50 <= 0;
-        plotting50 <= '0';
-        report "raddr = ZERO, clearing plotting50";
-      else
-        if raddr50 < 800 then
-          plotting50 <= '1';
-        else
---          report "clearing plotting50 due to end of line";
-          plotting50 <= '0';
-        end if;
-        
-        if raddr50 < 1023 then
-          raddr50 <= raddr50 + 1;
-        end if;
-      end if;
-
-      if x_zero_ntsc60='1' then
-        raddr60 <= 0;
-        plotting60 <= '0';
-        report "raddr = ZERO";
-      else
-        if raddr60 < 800 then
-          plotting60 <= '1';
-        else
-          plotting60 <= '0';
-        end if;
-
-        if raddr60 < 1023 then
-          raddr60 <= raddr60 + 1;
-        end if;
-      end if;
-
-      if x_zero_vga60='1' then
-        raddrvga60 <= 0;
-        plottingvga60 <= '0';
---        report "raddr = ZERO";
-      else
-        if raddrvga60 < 800 then
-          plottingvga60 <= '1';
-        else
-          plottingvga60 <= '0';
-        end if;
-
-        if raddrvga60 < 1023 then
-          raddrvga60 <= raddrvga60 + 1;
-        end if;
-      end if;
     end if;
 
   end process;

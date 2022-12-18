@@ -170,6 +170,15 @@ begin
         else
           assert false report "Expected to see composite SYNC both low and high";
         end if;
+      elsif run("Simulation of two fields for one frame completes") then
+        -- 81MHz = 81M cycles for 1 second.  At 50Hz, we need 81M / 50 = 1.62M
+        -- cycles. We allow a bit of margin
+
+        test_pattern_enable <= '1';
+        
+        for i in 1 to 1_640_000 loop
+          pixelclock <= '0'; wait for 6.172 ns; pixelclock <= '1'; wait for 6.172 ns;
+        end loop;
       end if;
     end loop;
     test_runner_cleanup(runner);
