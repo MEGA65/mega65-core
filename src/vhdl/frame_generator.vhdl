@@ -143,12 +143,17 @@ architecture brutalist of frame_generator is
   signal last_phi2_toggle_1mhz : std_logic := '0';  
   signal last_phi2_toggle_2mhz : std_logic := '0';  
   signal last_phi2_toggle_3mhz : std_logic := '0';  
+
+  signal cv_x : integer := 0;
+  signal cv_pixel_strobe : std_logic := '0';
+  signal cv_pixel_toggle : std_logic := '0';
   
-  signal x : integer := 0;
+  signal x : integer := 0;  
   signal y : integer := frame_height - 3;
 
   signal vsync_driver : std_logic := '0';
   signal hsync_driver : std_logic := '0';
+  signal cv_hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
   signal vsync_uninverted_driver : std_logic := '0';
 
@@ -181,6 +186,7 @@ begin
       
       vsync <= vsync_driver;
       vsync_uninverted <= vsync_uninverted_driver;
+      cv_hsync <= cv_hsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
 
@@ -213,6 +219,24 @@ begin
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 27MHz driven
       -- chain.
+
+      cv_pixel_strobe <= '0';
+      if cv_pixel_strobe='1' then
+        if cv_x < (frame_width-1) then
+          cv_x <= cv_x + 1;
+        else
+          cv_x <= 0;
+        end if;
+
+        if cv_x = hsync_start then
+          cv_hsync_driver <= '1';
+        end if;
+        if cv_x = hsync_end then
+          cv_hsync_driver <= '0';
+        end if;
+        
+      end if;
+      
       if pixel_strobe_counter /= (cycles_per_pixel-1) then
         pixel_strobe <= '0';
         pixel_strobe_counter <= pixel_strobe_counter + 1;
@@ -220,6 +244,9 @@ begin
         
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
+        -- Generate half-rate composite video pixel toggle
+        cv_pixel_strobe <= cv_pixel_toggle;
+        cv_pixel_toggle <= not cv_pixel_toggle;
        
         if x = x_zero_position then
           x_zero_driver <= '1';
@@ -237,8 +264,17 @@ begin
         end if;
         if x < (frame_width-1) then
           x <= x + 1;
+          
         else
           x <= 0;
+
+          -- Reset composite video counter every 2nd raster line
+          -- XXX Support interlace by switching between odd and even lines
+          -- every frame.
+          if to_integer(to_unsigned(y,1)) = 1 then
+            cv_x <= 0;
+          end if;
+          
           if y < (frame_height-1) then
             y <= y + 1;
             y_zero_driver <= '0';
