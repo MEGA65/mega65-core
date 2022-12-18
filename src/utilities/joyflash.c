@@ -33,7 +33,7 @@ void wait_for_fire(void)
   } else {
     // Wait for F_INDEX as FIRE
     while ((PEEK(0xD6A0)&0x80)) ;
-    while (!(PEEK(0x6A0)&0x80)) ;
+    while (!(PEEK(0xD6A0)&0x80)) ;
   }
 }
 

@@ -675,9 +675,12 @@ unsigned char select_bitstream_file(void)
   draw_file_list();
   while (1) {
 
-
+#ifndef JOYFLASH
     x = PEEK(0xD610U);
-
+#else
+    x=0;
+#endif
+    
     if (!x) {
       unsigned char v;
       v=PEEK(0xDC00)&0x1f;
