@@ -120,10 +120,6 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
-  signal cv_data_start_pal50 : std_logic := '0';
-  signal cv_data_start_ntsc60 : std_logic := '0';
-  signal cv_data_start_vga60 : std_logic := '0';
-  
   signal cv_hsync_pal50 : std_logic := '0';
   signal hsync_pal50 : std_logic := '0';
   signal hsync_pal50_uninverted : std_logic := '0';
@@ -203,6 +199,11 @@ architecture greco_roman of pixel_driver is
   signal pixel_strobe_60 : std_logic := '0';
   signal pixel_strobe_vga60 : std_logic := '0';
 
+  signal cv_pixel_strobe : std_logic := '0';
+  signal cv_pixel_strobe_50 : std_logic := '0';
+  signal cv_pixel_strobe_60 : std_logic := '0';
+  signal cv_pixel_strobe_vga60 : std_logic := '0';
+  
   signal test_pattern_red50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue50 : unsigned(7 downto 0) := x"00";
@@ -231,7 +232,20 @@ architecture greco_roman of pixel_driver is
   signal cv_green : unsigned(7 downto 0);
   signal cv_blue : unsigned(7 downto 0);
 
---  signal blue_toggle : std_logic := '0';
+  -- Single raster memory buffer for generating 15KHz composite signal
+  signal raddr : integer range 0 to 2047 := 0;
+  signal rdata_red : unsigned(7 downto 0);
+  signal rdata_green : unsigned(7 downto 0);
+  signal rdata_blue : unsigned(7 downto 0);
+  signal waddr : integer range 0 to 2047 := 0;
+  signal wdata_red : unsigned(7 downto 0);
+  signal wdata_green : unsigned(7 downto 0);
+  signal wdata_blue : unsigned(7 downto 0);
+
+  signal cv_x : integer := 0;
+  signal cv_pixel_strobe_int : std_logic := '0';
+  signal cv_pixel_toggle : std_logic := '0';
+  
   
 begin
 
@@ -297,7 +311,6 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_pal50,
-               cv_data_start => cv_data_start_pal50,
                
                phi2_1mhz_out => phi2_1mhz_pal50,
                phi2_2mhz_out => phi2_2mhz_pal50,
@@ -320,7 +333,8 @@ begin
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
                y_zero => y_zero_pal50,
-               pixel_strobe => pixel_strobe_50
+               pixel_strobe => pixel_strobe_50,
+               cv_pixel_strobe => cv_pixel_strobe_50
 
                );
 
@@ -367,7 +381,6 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_ntsc60,
-               cv_data_start => cv_data_start_ntsc60,
                
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
@@ -386,7 +399,8 @@ begin
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_ntsc60,
                y_zero => y_zero_ntsc60,
-               pixel_strobe => pixel_strobe_60               
+               pixel_strobe => pixel_strobe_60,
+               cv_pixel_strobe => cv_pixel_strobe_60
                
                );               
 
@@ -436,7 +450,6 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_vga60,
-               cv_data_start => cv_data_start_vga60,
 
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
@@ -455,7 +468,8 @@ begin
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_vga60,
                y_zero => y_zero_vga60,
-               pixel_strobe => pixel_strobe_vga60               
+               pixel_strobe => pixel_strobe_vga60,
+               cv_pixel_strobe => cv_pixel_strobe_vga60               
                
                );               
   
@@ -538,6 +552,11 @@ begin
                       pixel_strobe_vga60 when vga60_select_internal='1'
                       else pixel_strobe_60;
 
+  -- Generate internal 15KHz pixel strobe
+  cv_pixel_strobe <= cv_pixel_strobe_50 when pal50_select_internal='1' else
+                      cv_pixel_strobe_vga60 when vga60_select_internal='1'
+                      else cv_pixel_strobe_60;
+  
   
   process (clock81,clock27) is
   begin
@@ -575,6 +594,7 @@ begin
         chroma <= to_unsigned(px_chroma ,8);
         composite <= to_unsigned(to_integer(px_luma(15 downto 8)) + px_chroma ,8);
       end if;
+
     end if;    
     
     if rising_edge(clock27) then
@@ -598,6 +618,10 @@ begin
         + ("0" & cv_green&"0000000") - ("0000" & cv_green&"0000") - ("00000" & cv_green&"000")
         + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
         ;
+
+      -- Generate half-rate composite video pixel toggle
+      cv_pixel_strobe <= cv_pixel_toggle;
+      cv_pixel_toggle <= not cv_pixel_toggle;
       
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
@@ -622,7 +646,7 @@ begin
         blue_o <= blue_i;
       end if;
 
-      if  narrow_dataenable_internal='0' then        
+      if narrow_dataenable_internal='0' then        
         red_no <= x"00"; 
         green_no <= x"00";
         blue_no <= x"00";
@@ -633,6 +657,7 @@ begin
         red_no <= test_pattern_red50;
         green_no <= test_pattern_green50;
         blue_no <= test_pattern_blue50;
+
         cv_red <= test_pattern_red50;
         cv_green <= test_pattern_green50;
         cv_blue <= test_pattern_blue50;
@@ -640,11 +665,12 @@ begin
         red_no <= red_i;
         green_no <= green_i;
         blue_no <= blue_i;
+
         cv_red <= red_i;
         cv_green <= green_i;
         cv_blue <= blue_i;
       end if;
-      
+
     end if;
 
   end process;

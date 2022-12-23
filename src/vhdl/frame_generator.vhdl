@@ -81,7 +81,6 @@ entity frame_generator is
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
 
-    cv_data_start : out std_logic := '0';
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
     vga_hsync : out std_logic := '0';
@@ -145,10 +144,6 @@ architecture brutalist of frame_generator is
   signal last_phi2_toggle_2mhz : std_logic := '0';  
   signal last_phi2_toggle_3mhz : std_logic := '0';  
 
-  signal cv_x : integer := 0;
-  signal cv_pixel_strobe_int : std_logic := '0';
-  signal cv_pixel_toggle : std_logic := '0';
-  
   signal x : integer := 0;  
   signal y : integer := frame_height - 3;
 
@@ -158,6 +153,10 @@ architecture brutalist of frame_generator is
   signal hsync_uninverted_driver : std_logic := '0';
   signal vsync_uninverted_driver : std_logic := '0';
 
+  signal cv_x : integer := 0;
+  signal cv_pixel_strobe_int : std_logic := '0';
+  signal cv_pixel_toggle : std_logic := '0';
+  
   signal narrow_dataenable_driver : std_logic := '0';
   signal fullwidth_dataenable_driver : std_logic := '0';
   
@@ -215,7 +214,7 @@ begin
           phi2_remaining_3mhz <= phi2_remaining_3mhz - 1;
         end if;
       end if;      
-      
+
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 27MHz driven
@@ -235,9 +234,9 @@ begin
         end if;
         if cv_x = hsync_end then
           cv_hsync_driver <= '0';
-        end if;
-        
+        end if;        
       end if;
+
       
       if pixel_strobe_counter /= (cycles_per_pixel-1) then
         pixel_strobe <= '0';
@@ -246,11 +245,12 @@ begin
         
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
+
         -- Generate half-rate composite video pixel toggle
         cv_pixel_strobe <= cv_pixel_toggle;
         cv_pixel_strobe_int <= cv_pixel_toggle;
         cv_pixel_toggle <= not cv_pixel_toggle;
-       
+        
         if x = x_zero_position then
           x_zero_driver <= '1';
           if phi2_remaining_1mhz = to_unsigned(0,8) then
@@ -271,7 +271,7 @@ begin
         else
           x <= 0;
 
-          -- Reset composite video counter every 2nd raster line
+         -- Reset composite video counter every 2nd raster line
           -- XXX Support interlace by switching between odd and even lines
           -- every frame.
           if to_integer(to_unsigned(y,1)) = 1 then
