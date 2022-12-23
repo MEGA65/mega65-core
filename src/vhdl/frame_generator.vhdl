@@ -28,7 +28,7 @@ entity frame_generator is
     frame_height : integer;
 
     x_zero_position : integer := 0;
-    
+
     fullwidth_start : integer;
     fullwidth_width : integer;
 
@@ -62,7 +62,7 @@ entity frame_generator is
     clock81 : in std_logic;
     -- CPU clock is used for exporting the PHI2 clock
     clock41 : in std_logic;
-
+    
     -- CPU clock oriented signal that strobes for each CPU tick
     phi2_1mhz_out : out std_logic;  
     phi2_2mhz_out : out std_logic;  
@@ -70,6 +70,7 @@ entity frame_generator is
     
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
+    frame_is_odd : integer range 0 to 1 := 0;    
 
     -- Video output oriented signals
     cv_hsync : out std_logic := '0';
@@ -274,7 +275,7 @@ begin
          -- Reset composite video counter every 2nd raster line
           -- XXX Support interlace by switching between odd and even lines
           -- every frame.
-          if to_integer(to_unsigned(y,1)) = 0 then
+          if to_integer(to_unsigned(y,1)) = frame_is_odd then
             cv_x <= 0;
           end if;
           

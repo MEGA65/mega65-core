@@ -43,6 +43,10 @@ entity pixel_driver is
     vga60_select : in std_logic := '0';
     -- Shows simple test pattern if '1', else shows normal video
     test_pattern_enable : in std_logic;
+
+    -- PAL/NTSC 15KHz video odd/even frame selection
+    frame_is_odd : in integer range 0 to 1 := 0;
+    
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
     vsync_invert : in std_logic;
@@ -314,6 +318,8 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               frame_is_odd => frame_is_odd,
+               
                cv_hsync => cv_hsync_pal50,
                
                phi2_1mhz_out => phi2_1mhz_pal50,
@@ -385,6 +391,7 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_ntsc60,
+               frame_is_odd => frame_is_odd,
                
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
@@ -418,7 +425,7 @@ begin
 
                   fullwidth_start => 16+62+60,
                   fullwidth_width => 800,
-
+                  
                   narrow_start => 16+62+60,
                   narrow_width => 720,
 
@@ -454,6 +461,7 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_vga60,
+               frame_is_odd => frame_is_odd,
 
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
