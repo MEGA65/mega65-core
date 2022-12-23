@@ -175,8 +175,10 @@ begin
         -- cycles. We allow a bit of margin
 
         test_pattern_enable <= '1';
+        pal50_select <= '1';
         
         for i in 1 to 1_640_000 loop
+--        for i in 1 to 2_500_000 loop
           pixelclock <= '0'; wait for 6.172 ns; pixelclock <= '1'; wait for 6.172 ns;
         end loop;
       end if;

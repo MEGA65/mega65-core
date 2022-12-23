@@ -79,7 +79,7 @@ entity frame_generator is
     vsync_uninverted : out std_logic := '0';
 
     lcd_hsync : out std_logic := '0';
-    lcd_vsync : out std_logic := '0';
+    lcd_vsync : out std_logic := '1';
 
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
@@ -274,7 +274,7 @@ begin
          -- Reset composite video counter every 2nd raster line
           -- XXX Support interlace by switching between odd and even lines
           -- every frame.
-          if to_integer(to_unsigned(y,1)) = 1 then
+          if to_integer(to_unsigned(y,1)) = 0 then
             cv_x <= 0;
           end if;
           

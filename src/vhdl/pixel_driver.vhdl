@@ -125,6 +125,8 @@ architecture greco_roman of pixel_driver is
   signal hsync_pal50_uninverted : std_logic := '0';
   signal vsync_pal50 : std_logic := '0';
   signal vsync_pal50_uninverted : std_logic := '0';
+  signal vsync_uninverted_int : std_logic := '0';
+  signal vsync_uninverted_last : std_logic := '0';
 
   signal phi2_1mhz_pal50 : std_logic;
   signal phi2_1mhz_ntsc60 : std_logic;
@@ -226,6 +228,8 @@ architecture greco_roman of pixel_driver is
   signal y_zero_internal : std_logic := '0';
 
   signal cv_sync : std_logic := '0';
+  signal cv_vsync : std_logic := '0';
+  signal cv_vsync_counter : integer := 0;
   signal px_chroma : integer range 0 to 255 := 0;
   signal px_luma : unsigned(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
@@ -493,14 +497,14 @@ begin
   hsync_uninverted <= hsync_pal50_uninverted when pal50_select_internal='1' else
            hsync_vga60_uninverted when vga60_select_internal='1'
            else hsync_ntsc60_uninverted;
-  vsync_uninverted <= vsync_pal50_uninverted when pal50_select_internal='1' else
+  vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
            vsync_vga60_uninverted when vga60_select_internal='1'
                       else vsync_ntsc60_uninverted;
 
   -- Composite video HSYNC is at half-rate.
-  cv_sync <= (cv_hsync_pal50 xor vsync_pal50) when pal50_select_internal='1' else
-           (cv_hsync_vga60 xor vsync_vga60) when vga60_select_internal='1'
-           else (cv_hsync_ntsc60 xor vsync_ntsc60);
+  cv_sync <= (cv_hsync_pal50 xor cv_vsync) when pal50_select_internal='1' else
+           (cv_hsync_vga60 xor cv_vsync) when vga60_select_internal='1'
+             else (cv_hsync_ntsc60 xor cv_vsync);
 
   vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
                vga_hsync_vga60 when vga60_select_internal='1'
@@ -566,7 +570,22 @@ begin
 --  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
 --    & std_logic'image(pixel_strobe_vga60) & ", " 
 --    & std_logic'image(pixel_strobe_60);
-  
+
+      vsync_uninverted_last <= vsync_uninverted_int;
+      if vsync_uninverted_int = '1' and vsync_uninverted_last='0' then
+        -- Start of VSYNC
+        cv_vsync_counter <= 0;
+      elsif vsync_uninverted_int = '1' then
+        cv_vsync_counter <= cv_vsync_counter + 1;
+      end if;
+      if vsync_uninverted_int = '0' and cv_vsync_counter /= 0 then
+        cv_vsync_counter <= cv_vsync_counter - 1;
+      end if;
+      if cv_vsync_counter /= 0 then
+        cv_vsync <= '1';
+      else
+        cv_vsync <= '0';
+      end if;
 
       
       if pal50_select_internal='1' then
