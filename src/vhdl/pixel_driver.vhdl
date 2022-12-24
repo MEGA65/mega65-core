@@ -254,14 +254,17 @@ architecture greco_roman of pixel_driver is
   signal cv_pixel_toggle : std_logic := '0';
 
   signal raster15khz_oddeven : std_logic := '0';
+  signal raster15khz_subpixel_counter : integer range 0 to 2 := 0;
+  signal raster15khz_active_raster : std_logic := '0';
+  signal raster15khz_wbuffer0 : std_logic := '1';
   
-  signal raster15khz_odd_cs : std_logic := '0';
-  signal raster15khz_even_cs : std_logic := '0';
-  signal raster15khz_odd_we : std_logic := '0';
-  signal raster15khz_even_we : std_logic := '0';
+  signal raster15khz_buf0_cs : std_logic := '0';
+  signal raster15khz_buf1_cs : std_logic := '0';
+  signal raster15khz_buf0_we : std_logic := '0';
+  signal raster15khz_buf1_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
   signal raster15khz_raddr : integer := 0;
-  signal raster15khz_wdata : unsigned(31 downto 0);
+  signal raster15khz_wdata : unsigned(31 downto 0) := (others => '0');
   signal raster15khz_rdata : unsigned(31 downto 0);
 
   -- PAL/NTSC 15KHz video odd/even field selection
@@ -538,21 +541,21 @@ begin
                
                );               
 
-  raster15khz_odd: entity work.ram32x1024_sync
+  raster15khz_buf0: entity work.ram32x1024_sync
     port map (
       clk => clock81,
-      cs => raster15khz_odd_cs,
-      w => raster15khz_odd_we,
+      cs => raster15khz_buf0_cs,
+      w => raster15khz_buf0_we,
       write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
       address => raster15khz_raddr,
       rdata => raster15khz_rdata
      );
-  raster15khz_even: entity work.ram32x1024_sync
+  raster15khz_buf1: entity work.ram32x1024_sync
     port map (
       clk => clock81,
-      cs => raster15khz_even_cs,
-      w => raster15khz_even_we,
+      cs => raster15khz_buf1_cs,
+      w => raster15khz_buf1_we,
       write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
       address => raster15khz_raddr,
@@ -646,7 +649,17 @@ begin
   cv_pixel_strobe <= cv_pixel_strobe_50 when pal50_select_internal='1' else
                       cv_pixel_strobe_vga60 when vga60_select_internal='1'
                       else cv_pixel_strobe_60;
-  
+
+  -- Generate test pattern image
+  test_pattern_red <= test_pattern_red50 when pal50_select_internal='1' else
+                      test_pattern_redvga60 when vga60_select_internal='1'
+                      else test_pattern_red60;
+  test_pattern_green <= test_pattern_green50 when pal50_select_internal='1' else
+                      test_pattern_greenvga60 when vga60_select_internal='1'
+                      else test_pattern_green60;
+  test_pattern_blue <= test_pattern_blue50 when pal50_select_internal='1' else
+                      test_pattern_bluevga60 when vga60_select_internal='1'
+                      else test_pattern_blue60;
   
   process (clock81,clock27) is
   begin
@@ -657,17 +670,39 @@ begin
 --    & std_logic'image(pixel_strobe_vga60) & ", " 
 --    & std_logic'image(pixel_strobe_60);
 
+      -- Update the write address into the 31KHz to 15KHz raster buffer
+      -- This has to come before the code that resets raster15khz_waddr when
+      -- HSYNC is active.
+      if narrow_dataenable_internal = '1' then
+        -- We are clocked at 81MHz, and the video stream is 27MHz, so every 3rd
+        -- cycle bump the write address into the 31KHz to 15KHz raster buffer.
+        -- But only write alternate rasters.
+        if raster15khz_subpixel_counter /= 2 then
+          raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
+        else
+          raster15khz_subpixel_counter <= 0;
+          raster15khz_waddr <= raster15khz_waddr + 1;
+        end if;
+      end if;      
+      
       -- Determine width of 31KHz HSYNC pulses to use as timing aid for
       -- 15KHz short and long sync pulses
       if hsync_uninverted_int = '1' then
         hsync_duration_counter <= hsync_duration_counter + 1;
+
+        -- Also reset write address for 31KHz to 15KHz pixel buffer
+        raster15khz_waddr <= 0;
+        if raster15khz_waddr /= 0 then
+          -- Also toggle whether we are recording this raster or not.
+          raster15khz_active_raster <= not raster15khz_active_raster;
+        end if;
       elsif hsync_duration_counter /= 0 then
         hsync_duration_counter <= 0;
         -- The minus 2 adjustment makes sure the last pulse isn't cut short.
         -- I haven't investigated why this is actually necessary.
         hsync_duration <= hsync_duration_counter - 2;
       end if;
-      
+
       cv_vsync_last <= cv_vsync;
       -- Determine where we are in the VSYNC line
       if cv_vsync = '1' then
@@ -806,15 +841,24 @@ begin
         green_o <= x"00";
         blue_o <= x"00";
       elsif test_pattern_enable120='1' then
-        red_o <= test_pattern_red50;
-        green_o <= test_pattern_green50;
-        blue_o <= test_pattern_blue50;
+        red_o <= test_pattern_red;
+        green_o <= test_pattern_green;
+        blue_o <= test_pattern_blue;
       else
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
       end if;
 
+      -- Determine if this raster line is being buffered or not
+      raster15khz_buf0_we <= '0';
+      raster15khz_buf1_we <= '0';
+      if raster15khz_wbuffer0='1' then
+        raster15khz_buf0_we <= '1';
+      else
+        raster15khz_buf1_we <= '1';
+      end if;
+      
       if narrow_dataenable_internal='0' then        
         red_no <= x"00"; 
         green_no <= x"00";
@@ -822,14 +866,21 @@ begin
         cv_red <= x"00";
         cv_green <= x"00";
         cv_blue <= x"00";
+        -- Don't buffer pixels that are not in the active part of the display
+        raster15khz_buf0_we <= '0';
+        raster15khz_buf1_we <= '0';
       elsif test_pattern_enable120='1' then
-        red_no <= test_pattern_red50;
-        green_no <= test_pattern_green50;
-        blue_no <= test_pattern_blue50;
+        red_no <= test_pattern_red;
+        green_no <= test_pattern_green;
+        blue_no <= test_pattern_blue;
 
         cv_red <= test_pattern_red50;
         cv_green <= test_pattern_green50;
         cv_blue <= test_pattern_blue50;
+
+        raster15khz_wdata(7 downto 0) <= test_pattern_red;
+        raster15khz_wdata(15 downto 8) <= test_pattern_green;
+        raster15khz_wdata(23 downto 16) <= test_pattern_blue;
       else
         red_no <= red_i;
         green_no <= green_i;
@@ -838,6 +889,10 @@ begin
         cv_red <= red_i;
         cv_green <= green_i;
         cv_blue <= blue_i;
+
+        raster15khz_wdata(7 downto 0) <= red_i;
+        raster15khz_wdata(15 downto 8) <= green_i;
+        raster15khz_wdata(23 downto 16) <= blue_i;
       end if;
 
     end if;
