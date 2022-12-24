@@ -70,7 +70,7 @@ entity frame_generator is
     
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
-    frame_is_odd : integer range 0 to 1 := 0;    
+    field_is_odd : integer range 0 to 1 := 0;    
 
     -- Video output oriented signals
     cv_hsync : out std_logic := '0';
@@ -274,8 +274,8 @@ begin
 
          -- Reset composite video counter every 2nd raster line
           -- XXX Support interlace by switching between odd and even lines
-          -- every frame.
-          if to_integer(to_unsigned(y,1)) = frame_is_odd then
+          -- every field.
+          if to_integer(to_unsigned(y,1)) = field_is_odd then
             cv_x <= 0;
           end if;
           

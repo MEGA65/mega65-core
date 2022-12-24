@@ -44,8 +44,8 @@ entity pixel_driver is
     -- Shows simple test pattern if '1', else shows normal video
     test_pattern_enable : in std_logic;
 
-    -- PAL/NTSC 15KHz video odd/even frame selection
-    frame_is_odd : in integer range 0 to 1 := 1;
+    -- PAL/NTSC 15KHz video odd/even field selection
+    field_is_odd : in integer range 0 to 1 := 1;
     
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
@@ -257,7 +257,17 @@ architecture greco_roman of pixel_driver is
   signal cv_x : integer := 0;
   signal cv_pixel_strobe_int : std_logic := '0';
   signal cv_pixel_toggle : std_logic := '0';
+
+  signal raster15khz_oddeven : std_logic := '0';
   
+  signal raster15khz_odd_cs : std_logic := '0';
+  signal raster15khz_even_cs : std_logic := '0';
+  signal raster15khz_odd_we : std_logic := '0';
+  signal raster15khz_even_we : std_logic := '0';
+  signal raster15khz_waddr : integer := '0';
+  signal raster15khz_raddr : integer := '0';
+  signal raster15khz_wdata : unsigned(31 downto 0);
+  signal raster15khz_rdata : unsigned(31 downto 0);
   
 begin
 
@@ -322,7 +332,7 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
-               frame_is_odd => frame_is_odd,
+               field_is_odd => field_is_odd,
                
                cv_hsync => cv_hsync_pal50,
                
@@ -395,7 +405,7 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_ntsc60,
-               frame_is_odd => frame_is_odd,
+               field_is_odd => field_is_odd,
                
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
@@ -465,7 +475,7 @@ begin
                vsync_polarity => vsync_invert,
 
                cv_hsync => cv_hsync_vga60,
-               frame_is_odd => frame_is_odd,
+               field_is_odd => field_is_odd,
 
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
@@ -488,6 +498,28 @@ begin
                cv_pixel_strobe => cv_pixel_strobe_vga60               
                
                );               
+
+  raster15khz_odd: entity work.ram32x1024_sync
+    port map (
+      clk => clock81,
+      cs => raster15khz_odd_cs,
+      w => raster15khz_odd_we;
+      write_addr => raster15khz_waddr,
+      wdata => raster15khz_wdata,
+      address => raster15khz_raddr,
+      rdata => raster15khz_rdata
+     );
+  raster15khz_even: entity work.ram32x1024_sync
+    port map (
+      clk => clock81,
+      cs => raster15khz_even_cs,
+      w => raster15khz_even_we;
+      write_addr => raster15khz_waddr,
+      wdata => raster15khz_wdata,
+      address => raster15khz_raddr,
+      rdata => raster15khz_rdata
+     );
+  
   
   phi_1mhz_out <= phi2_1mhz_pal50 when pal50_select_internal='1' else
                   phi2_1mhz_vga60 when vga60_select_internal='1'
