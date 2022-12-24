@@ -126,8 +126,8 @@ architecture greco_roman of pixel_driver is
   signal hsync_pal50_uninverted : std_logic := '0';
   signal vsync_pal50 : std_logic := '0';
   signal vsync_pal50_uninverted : std_logic := '0';
+  signal cv_vsync_last : std_logic := '0';
   signal vsync_uninverted_int : std_logic := '0';
-  signal vsync_uninverted_last : std_logic := '0';
 
   signal phi2_1mhz_pal50 : std_logic;
   signal phi2_1mhz_ntsc60 : std_logic;
@@ -581,15 +581,16 @@ begin
            vsync_vga60 when vga60_select_internal='1'
            else vsync_ntsc60;
 
+  vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
+                          vsync_vga60_uninverted when vga60_select_internal='1'
+                          else vsync_ntsc60_uninverted;
+  
   hsync_uninverted <= hsync_pal50_uninverted when pal50_select_internal='1' else
            hsync_vga60_uninverted when vga60_select_internal='1'
            else hsync_ntsc60_uninverted;
   hsync_uninverted_int <= hsync_pal50_uninverted when pal50_select_internal='1' else
            hsync_vga60_uninverted when vga60_select_internal='1'
            else hsync_ntsc60_uninverted;
-  vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
-           vsync_vga60_uninverted when vga60_select_internal='1'
-                      else vsync_ntsc60_uninverted;
 
   vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
                vga_hsync_vga60 when vga60_select_internal='1'
@@ -662,12 +663,12 @@ begin
         hsync_duration_counter <= hsync_duration_counter + 1;
       elsif hsync_duration_counter /= 0 then
         hsync_duration_counter <= 0;
-        hsync_duration <= hsync_duration_counter;
+        hsync_duration <= hsync_duration_counter - 1;
       end if;
       
-      vsync_uninverted_last <= vsync_uninverted_int;
+      cv_vsync_last <= cv_vsync;
       -- Determine where we are in the VSYNC line
-      if vsync_uninverted_int = '1' then
+      if cv_vsync = '1' then
         if vsync_xpos_sub < hsync_duration then
           vsync_xpos_sub <= vsync_xpos_sub + 1;
         else
@@ -685,7 +686,7 @@ begin
       else
         cv_sync <= cv_hsync;
       end if;
-      if vsync_uninverted_int = '1' and vsync_uninverted_last='0' then
+      if cv_vsync = '1' and cv_vsync_last ='0' then
         -- Start of VSYNC
         cv_vsync_counter <= 0;
         -- Begin the sequence of special VBLANK sync pulses
