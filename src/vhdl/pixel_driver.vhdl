@@ -45,7 +45,7 @@ entity pixel_driver is
     test_pattern_enable : in std_logic;
 
     -- PAL/NTSC 15KHz video odd/even frame selection
-    frame_is_odd : in integer range 0 to 1 := 0;
+    frame_is_odd : in integer range 0 to 1 := 1;
     
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
@@ -124,6 +124,8 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
+  signal cv_hsync : std_logic := '0';
+  
   signal cv_hsync_pal50 : std_logic := '0';
   signal hsync_pal50 : std_logic := '0';
   signal hsync_pal50_uninverted : std_logic := '0';
@@ -147,7 +149,7 @@ architecture greco_roman of pixel_driver is
   signal hsync_ntsc60_uninverted : std_logic := '0';
   signal vsync_ntsc60 : std_logic := '0';
   signal vsync_ntsc60_uninverted : std_logic := '0';
-
+  
   signal cv_hsync_vga60 : std_logic := '0';
   signal hsync_vga60 : std_logic := '0';
   signal hsync_vga60_uninverted : std_logic := '0';
@@ -233,7 +235,9 @@ architecture greco_roman of pixel_driver is
 
   signal cv_sync : std_logic := '0';
   signal cv_vsync : std_logic := '0';
+  constant cv_vsync_delay : integer := 5;
   signal cv_vsync_counter : integer := 0;
+  signal cv_vsync_extend : integer := 0;
   signal px_chroma : integer range 0 to 255 := 0;
   signal px_luma : unsigned(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
@@ -495,6 +499,12 @@ begin
                   phi2_3mhz_vga60 when vga60_select_internal='1'
                   else phi2_3mhz_ntsc60;
 
+  cv_hsync <= cv_hsync_pal50 when pal50_select_internal='1' else
+              cv_hsync_vga60 when vga60_select_internal='1'
+              else cv_hsync_ntsc60;
+  
+  cv_sync <= cv_hsync xor cv_vsync;
+  
   hsync <= hsync_pal50 when pal50_select_internal='1' else
            hsync_vga60 when vga60_select_internal='1'
            else hsync_ntsc60;
@@ -508,11 +518,6 @@ begin
   vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
            vsync_vga60_uninverted when vga60_select_internal='1'
                       else vsync_ntsc60_uninverted;
-
-  -- Composite video HSYNC is at half-rate.
-  cv_sync <= (cv_hsync_pal50 xor cv_vsync) when pal50_select_internal='1' else
-           (cv_hsync_vga60 xor cv_vsync) when vga60_select_internal='1'
-             else (cv_hsync_ntsc60 xor cv_vsync);
 
   vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
                vga_hsync_vga60 when vga60_select_internal='1'
@@ -589,8 +594,19 @@ begin
       if vsync_uninverted_int = '0' and cv_vsync_counter /= 0 then
         cv_vsync_counter <= cv_vsync_counter - 1;
       end if;
-      if cv_vsync_counter /= 0 then
+      -- Compute final composite VSYNC signal, applying a delay correction
+      -- to fix the difference in propoagation of the HSYNC and VSYNC signals
+      -- during 31KHz to 15KHz conversion.  The 6 cycle delay is exactly one
+      -- 15KHz pixel duration.
+      if cv_vsync_counter >= cv_vsync_delay then
         cv_vsync <= '1';
+        -- Extend the VSYNC signal by cv_vsync_delay cycles.
+        -- We need 2x that in the counter to also cover the lead-in to the
+        -- count down that happens as soon as cv_vsync_counter <= cv_vsync_delay
+        -- Then add one for the boundary case to get rid of the last cycle of glitch
+        cv_vsync_extend <= cv_vsync_delay + cv_vsync_delay + 1;
+      elsif cv_vsync_extend /= 0 then
+        cv_vsync_extend <= cv_vsync_extend - 1;
       else
         cv_vsync <= '0';
       end if;
