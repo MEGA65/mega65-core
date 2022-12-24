@@ -44,9 +44,6 @@ entity pixel_driver is
     -- Shows simple test pattern if '1', else shows normal video
     test_pattern_enable : in std_logic;
 
-    -- PAL/NTSC 15KHz video odd/even field selection
-    field_is_odd : in integer range 0 to 1 := 1;
-    
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
     vsync_invert : in std_logic;
@@ -124,8 +121,6 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
-  signal cv_hsync : std_logic := '0';
-  
   signal cv_hsync_pal50 : std_logic := '0';
   signal hsync_pal50 : std_logic := '0';
   signal hsync_pal50_uninverted : std_logic := '0';
@@ -264,10 +259,54 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_even_cs : std_logic := '0';
   signal raster15khz_odd_we : std_logic := '0';
   signal raster15khz_even_we : std_logic := '0';
-  signal raster15khz_waddr : integer := '0';
-  signal raster15khz_raddr : integer := '0';
+  signal raster15khz_waddr : integer := 0;
+  signal raster15khz_raddr : integer := 0;
   signal raster15khz_wdata : unsigned(31 downto 0);
   signal raster15khz_rdata : unsigned(31 downto 0);
+
+  -- PAL/NTSC 15KHz video odd/even field selection
+  signal field_is_odd : integer range 0 to 1 := 1;
+  signal cv_hsync : std_logic := '0';
+  signal cv_field : std_logic := '0';
+  signal hsync_uninverted_int : std_logic := '0';
+  signal hsync_uninverted_last : std_logic := '0';
+  signal hsync_duration : integer := 64*3;
+  signal hsync_duration_counter : integer := 0;
+  signal vsync_xpos : integer := 0;
+  signal vsync_xpos_sub : integer := 0;
+  signal cv_vsync_row : integer := 0;
+  
+  -- 15KHz video VBLANK SYNC formats
+  type vblank_format_t is array(0 to 14) of std_logic_vector(31 downto 0);
+  signal vblank_formats : vblank_format_t := (
+    -- 0 = sync active, i.e., signal low
+    -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
+    -- pieces, to allow easy assembly of complete rasters
+    -- (actually handled as 31KHz HSYNC width x1, x14, x1, x1, x14, 1,
+    -- so that the frame formats can be varied, and it will just follow suit)
+    -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
+    -- width, and then life is simple.
+    --  Top of field 1
+    "00000000000000010000000000000001",
+    "00000000000000010000000000000001",
+    "00000000000000010111111111111111",
+    "01111111111111110111111111111111",        
+    "01111111111111110111111111111111",
+    -- Bottom of field 1
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    -- Top of field 2
+    "01111111111111110000000000000001",
+    "00000000000000010000000000000001",
+    "00000000000000010000000000000001",
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    -- Bottom of field 2
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111"
+    );
+    
   
 begin
 
@@ -503,8 +542,8 @@ begin
     port map (
       clk => clock81,
       cs => raster15khz_odd_cs,
-      w => raster15khz_odd_we;
-      write_addr => raster15khz_waddr,
+      w => raster15khz_odd_we,
+      write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
       address => raster15khz_raddr,
       rdata => raster15khz_rdata
@@ -513,8 +552,8 @@ begin
     port map (
       clk => clock81,
       cs => raster15khz_even_cs,
-      w => raster15khz_even_we;
-      write_addr => raster15khz_waddr,
+      w => raster15khz_even_we,
+      write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
       address => raster15khz_raddr,
       rdata => raster15khz_rdata
@@ -535,8 +574,6 @@ begin
               cv_hsync_vga60 when vga60_select_internal='1'
               else cv_hsync_ntsc60;
   
-  cv_sync <= cv_hsync xor cv_vsync;
-  
   hsync <= hsync_pal50 when pal50_select_internal='1' else
            hsync_vga60 when vga60_select_internal='1'
            else hsync_ntsc60;
@@ -545,6 +582,9 @@ begin
            else vsync_ntsc60;
 
   hsync_uninverted <= hsync_pal50_uninverted when pal50_select_internal='1' else
+           hsync_vga60_uninverted when vga60_select_internal='1'
+           else hsync_ntsc60_uninverted;
+  hsync_uninverted_int <= hsync_pal50_uninverted when pal50_select_internal='1' else
            hsync_vga60_uninverted when vga60_select_internal='1'
            else hsync_ntsc60_uninverted;
   vsync_uninverted_int <= vsync_pal50_uninverted when pal50_select_internal='1' else
@@ -616,10 +656,49 @@ begin
 --    & std_logic'image(pixel_strobe_vga60) & ", " 
 --    & std_logic'image(pixel_strobe_60);
 
+      -- Determine width of 31KHz HSYNC pulses to use as timing aid for
+      -- 15KHz short and long sync pulses
+      if hsync_uninverted_int = '1' then
+        hsync_duration_counter <= hsync_duration_counter + 1;
+      elsif hsync_duration_counter /= 0 then
+        hsync_duration_counter <= 0;
+        hsync_duration <= hsync_duration_counter;
+      end if;
+      
       vsync_uninverted_last <= vsync_uninverted_int;
+      -- Determine where we are in the VSYNC line
+      if vsync_uninverted_int = '1' then
+        if vsync_xpos_sub < hsync_duration then
+          vsync_xpos_sub <= vsync_xpos_sub + 1;
+        else
+          vsync_xpos_sub <= 1;
+          if vsync_xpos /= 31 then
+            vsync_xpos <= vsync_xpos + 1;
+          else
+            vsync_xpos <= 0;
+            if cv_vsync_row < 14 then
+              cv_vsync_row <= cv_vsync_row + 1;
+            end if;
+          end if;
+        end if;
+        cv_sync <= vblank_formats(cv_vsync_row)(31 - vsync_xpos);
+      else
+        cv_sync <= cv_hsync;
+      end if;
       if vsync_uninverted_int = '1' and vsync_uninverted_last='0' then
         -- Start of VSYNC
         cv_vsync_counter <= 0;
+        -- Begin the sequence of special VBLANK sync pulses
+        if cv_field='0' then
+          cv_vsync_row <= 0;
+        else
+          cv_vsync_row <= 7;
+        end if;
+        -- And update whether we are in the odd or even field
+        cv_field <= not cv_field;
+        -- And note that we are at the start of a VSYNC raster
+        vsync_xpos <= 0;
+        vsync_xpos_sub <= 1;
       elsif vsync_uninverted_int = '1' then
         cv_vsync_counter <= cv_vsync_counter + 1;
       end if;

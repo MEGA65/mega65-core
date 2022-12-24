@@ -16,6 +16,7 @@ lib.add_source_files("src/vhdl/mega65kbd_to_matrix.vhdl")
 lib.add_source_files("i2c_slave/rtl/vhdl/*.vhdl")
 lib.add_source_files("src/vhdl/pixel_driver.vhdl")
 lib.add_source_files("src/vhdl/frame_generator.vhdl")
+lib.add_source_files("src/vhdl/ghdl_ram32x1024_sync.vhdl")
 
 vu.set_compile_option("ghdl.a_flags", ["-frelaxed-rules"])
 vu.set_compile_option("ghdl.flags", ["-frelaxed-rules"])
