@@ -230,7 +230,7 @@ architecture greco_roman of pixel_driver is
 
   signal cv_sync : std_logic := '0';
   signal cv_vsync : std_logic := '0';
-  constant cv_vsync_delay : integer := 5;
+  constant cv_vsync_delay : integer := 3;
   signal cv_vsync_counter : integer := 0;
   signal cv_vsync_extend : integer := 0;
   signal px_chroma : integer range 0 to 255 := 0;
@@ -688,15 +688,21 @@ begin
       else
         cv_sync <= cv_hsync;
       end if;
-      if cv_vsync = '1' and cv_vsync_last ='0' then
-        -- Start of VSYNC
-        cv_vsync_counter <= 0;
-        -- Begin the sequence of special VBLANK sync pulses
+      if cv_vsync = '0' and cv_vsync_last ='1' then
+        -- End of VSYNC
+        -- Get ready for the sequence of special VBLANK sync pulses
+        -- for the next VSYNC
         if cv_field='0' then
           cv_vsync_row <= 0;
         else
           cv_vsync_row <= 7;
         end if;
+        vsync_xpos <= 0;
+        vsync_xpos_sub <= 1;
+      end if;
+      if cv_vsync = '1' and cv_vsync_last ='0' then
+        -- Start of VSYNC
+        cv_vsync_counter <= 0;
         -- And update whether we are in the odd or even field
         cv_field <= not cv_field;
         -- And note that we are at the start of a VSYNC raster
