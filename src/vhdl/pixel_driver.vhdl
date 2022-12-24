@@ -663,7 +663,9 @@ begin
         hsync_duration_counter <= hsync_duration_counter + 1;
       elsif hsync_duration_counter /= 0 then
         hsync_duration_counter <= 0;
-        hsync_duration <= hsync_duration_counter - 1;
+        -- The minus 2 adjustment makes sure the last pulse isn't cut short.
+        -- I haven't investigated why this is actually necessary.
+        hsync_duration <= hsync_duration_counter - 2;
       end if;
       
       cv_vsync_last <= cv_vsync;
@@ -715,12 +717,18 @@ begin
         -- Extend the VSYNC signal by cv_vsync_delay cycles.
         -- We need 2x that in the counter to also cover the lead-in to the
         -- count down that happens as soon as cv_vsync_counter <= cv_vsync_delay
-        -- Then add one for the boundary case to get rid of the last cycle of glitch
-        cv_vsync_extend <= cv_vsync_delay + cv_vsync_delay + 1;
+        cv_vsync_extend <= cv_vsync_delay + cv_vsync_delay;
       elsif cv_vsync_extend /= 0 then
         cv_vsync_extend <= cv_vsync_extend - 1;
       else
-        cv_vsync <= '0';
+        -- Clear 15KHz VSYNC, not until cv_hsync is going (or already) low
+        -- (either can be the case, depending whether we are in the odd or
+        -- even field, and PAL or NTSC).
+        if ( (cv_hsync_pal50='0') and (pal50_select_internal='1') )
+          or ( (cv_hsync_vga60='0') and (vga60_select_internal='1') )
+          or ( (cv_hsync_ntsc60='0') and (pal50_select_internal='0')) then
+          cv_vsync <= '0';
+        end if;
       end if;
 
       
