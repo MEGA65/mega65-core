@@ -277,7 +277,8 @@ architecture greco_roman of pixel_driver is
   signal cv_vsync_row : integer := 0;
   
   -- 15KHz video VBLANK SYNC formats
-  type vblank_format_t is array(0 to 14) of std_logic_vector(31 downto 0);
+  constant vsync_xpos_max : integer := 26;
+  type vblank_format_t is array(0 to 14) of std_logic_vector(vsync_xpos_max downto 0);
   signal vblank_formats : vblank_format_t := (
     -- 0 = sync active, i.e., signal low
     -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
@@ -287,27 +288,26 @@ architecture greco_roman of pixel_driver is
     -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
     -- width, and then life is simple.
     --  Top of field 1
-    "00000000000000010000000000000001",
-    "00000000000000010000000000000001",
-    "00000000000000010111111111111111",
-    "01111111111111110111111111111111",        
-    "01111111111111110111111111111111",
+    "000000000000100000000000001",
+    "000000000000100000000000001",
+    "000000000000101111111111111",
+    "011111111111101111111111111",        
+    "011111111111101111111111111",
     -- Bottom of field 1
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111",
+    "011111111111101111111111111",
+    "011111111111101111111111111",
     -- Top of field 2
-    "01111111111111110000000000000001",
-    "00000000000000010000000000000001",
-    "00000000000000010000000000000001",
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111",
+    "011111111111100000000000001",
+    "000000000000100000000000001",
+    "000000000000100000000000001",
+    "011111111111101111111111111",
+    "011111111111101111111111111",
     -- Bottom of field 2
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111"
+    "011111111111101111111111111",
+    "011111111111101111111111111",
+    "011111111111101111111111111"
     );
     
-  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -672,7 +672,7 @@ begin
           vsync_xpos_sub <= vsync_xpos_sub + 1;
         else
           vsync_xpos_sub <= 1;
-          if vsync_xpos /= 31 then
+          if vsync_xpos /= vsync_xpos_max then
             vsync_xpos <= vsync_xpos + 1;
           else
             vsync_xpos <= 0;
@@ -681,7 +681,7 @@ begin
             end if;
           end if;
         end if;
-        cv_sync <= vblank_formats(cv_vsync_row)(31 - vsync_xpos);
+        cv_sync <= not vblank_formats(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
       else
         cv_sync <= cv_hsync;
       end if;
