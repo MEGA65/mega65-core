@@ -263,6 +263,7 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_buf0_we : std_logic := '0';
   signal raster15khz_buf1_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
+  signal raster15khz_waddr_inc : std_logic := '0';
   signal raster15khz_raddr : integer := 0;
   signal raster15khz_wdata : unsigned(31 downto 0) := (others => '0');
   signal raster15khz_rdata : unsigned(31 downto 0);
@@ -285,6 +286,8 @@ architecture greco_roman of pixel_driver is
   signal y_zero_int : std_logic;
   signal new_raster : std_logic := '0';
   signal raster_number : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal buffering_31khz : std_logic := '0';
+  signal buffer_target_31khz : std_logic := '0';
   
   -- 15KHz video VBLANK SYNC formats
   constant vsync_xpos_max : integer := 26;
@@ -696,6 +699,7 @@ begin
         raster_number <= to_unsigned(0,10);
       end if;
       new_raster <= '0';
+      x_zero_last <= x_zero_int;
       if x_zero_int = '1' and x_zero_last='0' then
 --        report "RASTER DETECT: number = " & integer'image(to_integer(raster_number)) & ", field_is_odd=" & integer'image(field_is_odd);
         -- Start of new raster in 31KHz domain
@@ -710,12 +714,19 @@ begin
           (raster_number(0)='0' and field_is_odd=0)  then
           report "Buffering 31KHz raster number " & integer'image(to_integer(raster_number));
           -- Work out which buffer to write to
-        else
---          report "not buffering raster: number = " & integer'image(to_integer(raster_number)) & ", field_is_odd=" & integer'image(field_is_odd);
+          buffering_31khz <= '1';
+          buffer_target_31khz <= not buffer_target_31khz;
+          raster15khz_waddr <= 0;
         end if;
         
       end if;
-      
+
+      if raster15khz_waddr_inc = '1' then
+        raster15khz_waddr_inc <= '0';
+        if raster15khz_waddr < 719 then
+          raster15khz_waddr <= raster15khz_waddr + 1;
+        end if;
+      end if;
       
       -- Update the write address into the 31KHz to 15KHz raster buffer
       -- This has to come before the code that resets raster15khz_waddr when
@@ -728,7 +739,21 @@ begin
           raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
         else
           raster15khz_subpixel_counter <= 0;
-          raster15khz_waddr <= raster15khz_waddr + 1;
+
+          if (raster15khz_waddr mod 72) = 71 then
+            report "PIXEL #" & integer'image(raster15khz_waddr);
+          end if;
+          
+          if buffering_31khz='1' then
+            -- Write it to the buffer
+            raster15khz_waddr_inc <= '1';
+            raster15khz_buf0_we <= not buffer_target_31khz;
+            raster15khz_buf1_we <= buffer_target_31khz;
+            if raster15khz_waddr = 719 then
+              report "Buffered 720 pixels for the raster";
+              buffering_31khz <= '0';
+            end if;
+          end if;
         end if;
       end if;      
       
