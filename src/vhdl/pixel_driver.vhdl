@@ -278,6 +278,13 @@ architecture greco_roman of pixel_driver is
   signal vsync_xpos : integer := 0;
   signal vsync_xpos_sub : integer := 0;
   signal cv_vsync_row : integer := 0;
+
+  signal x_zero_last : std_logic := '0';
+  signal y_zero_last : std_logic := '0';
+  signal x_zero_int : std_logic;
+  signal y_zero_int : std_logic;
+  signal new_raster : std_logic := '0';
+  signal raster_number : unsigned(9 downto 0) := to_unsigned(0,10);
   
   -- 15KHz video VBLANK SYNC formats
   constant vsync_xpos_max : integer := 26;
@@ -541,6 +548,11 @@ begin
                
                );               
 
+  -- We have two raster buffers for 31KHz to 15KHz video
+  -- down-conversion.  One is being read from while the other
+  -- is being populated.  We choose either odd or even rasters
+  -- to put in the buffer, based on which PAL/NTSC interlace
+  -- field we are in at any point in time.
   raster15khz_buf0: entity work.ram32x1024_sync
     port map (
       clk => clock81,
@@ -629,12 +641,14 @@ begin
                      vga_inletterbox_vga60 when vga60_select_internal='1'
                      else vga_inletterbox_ntsc60;
 
-  x_zero <= x_zero_pal50 when pal50_select_internal='1' else
-            x_zero_vga60 when vga60_select_internal='1'
-            else x_zero_ntsc60;
-  y_zero <= y_zero_pal50 when pal50_select_internal='1' else
-            y_zero_vga60 when vga60_select_internal='1'
-            else y_zero_ntsc60;
+  x_zero <= x_zero_int;
+  x_zero_int <= x_zero_pal50 when pal50_select_internal='1' else
+                x_zero_vga60 when vga60_select_internal='1'
+                else x_zero_ntsc60;
+  y_zero <= y_zero_int;
+  y_zero_int <= y_zero_pal50 when pal50_select_internal='1' else
+                y_zero_vga60 when vga60_select_internal='1'
+                else y_zero_ntsc60;
 
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
                      y_zero_vga60 when vga60_select_internal='1'
@@ -670,6 +684,39 @@ begin
 --    & std_logic'image(pixel_strobe_vga60) & ", " 
 --    & std_logic'image(pixel_strobe_60);
 
+      y_zero_last <= y_zero_int;
+      if y_zero_int = '1' and y_zero_last='0' then
+        report "Start of frame detected";
+        -- Start of new frame -- toggle field_is_odd
+        if field_is_odd = 0 then
+          field_is_odd <= 1;
+        else
+          field_is_odd <= 0;
+        end if;
+        raster_number <= to_unsigned(0,10);
+      end if;
+      new_raster <= '0';
+      if x_zero_int = '1' and x_zero_last='0' then
+--        report "RASTER DETECT: number = " & integer'image(to_integer(raster_number)) & ", field_is_odd=" & integer'image(field_is_odd);
+        -- Start of new raster in 31KHz domain
+        -- Work out if we need to start buffering this raster.
+        -- Also check if we need to flip raster buffers.
+        raster_number <= raster_number + 1;
+        new_raster <= '1';
+      end if;
+      if new_raster='1' then
+--        report "new_raster";
+        if (raster_number(0)='1' and field_is_odd=1) or
+          (raster_number(0)='0' and field_is_odd=0)  then
+          report "Buffering 31KHz raster number " & integer'image(to_integer(raster_number));
+          -- Work out which buffer to write to
+        else
+--          report "not buffering raster: number = " & integer'image(to_integer(raster_number)) & ", field_is_odd=" & integer'image(field_is_odd);
+        end if;
+        
+      end if;
+      
+      
       -- Update the write address into the 31KHz to 15KHz raster buffer
       -- This has to come before the code that resets raster15khz_waddr when
       -- HSYNC is active.
