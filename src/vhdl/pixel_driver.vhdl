@@ -28,7 +28,9 @@ use work.debugtools.all;
 
 
 entity pixel_driver is
-
+  generic (
+    initial_field : integer := 1
+    );
   port (
     -- The various clocks we need
     cpuclock : in std_logic;
@@ -254,9 +256,10 @@ architecture greco_roman of pixel_driver is
   signal cv_pixel_toggle : std_logic := '0';
 
   signal raster15khz_oddeven : std_logic := '0';
-  signal raster15khz_subpixel_counter : integer range 0 to 2 := 0;
+  signal raster31khz_subpixel_counter : integer range 0 to 2 := 0;
+  signal raster15khz_subpixel_counter : integer range 0 to 5 := 0;
+  signal raster15khz_skip : integer range 0 to 108 := 0;
   signal raster15khz_active_raster : std_logic := '0';
-  signal raster15khz_wbuffer0 : std_logic := '1';
   
   signal raster15khz_buf0_cs : std_logic := '0';
   signal raster15khz_buf1_cs : std_logic := '0';
@@ -269,8 +272,9 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_rdata : unsigned(31 downto 0);
 
   -- PAL/NTSC 15KHz video odd/even field selection
-  signal field_is_odd : integer range 0 to 1 := 1;
+  signal field_is_odd : integer range 0 to 1 := initial_field;
   signal cv_hsync : std_logic := '0';
+  signal cv_hsync_last : std_logic := '0';
   signal cv_field : std_logic := '0';
   signal hsync_uninverted_int : std_logic := '0';
   signal hsync_uninverted_last : std_logic := '0';
@@ -722,10 +726,55 @@ begin
         
       end if;
 
+      -- Update 15KHz composite raster buffer write and read addresses.
+      -- We update the read address only every other pixel, because the data
+      -- rate is half.
       if raster15khz_waddr_inc = '1' then
         raster15khz_waddr_inc <= '0';
         if raster15khz_waddr < 719 then
           raster15khz_waddr <= raster15khz_waddr + 1;
+        end if;        
+      end if;
+
+      cv_hsync_last <= cv_hsync;
+      if cv_hsync='0' and cv_hsync_last='1' then
+        raster15khz_subpixel_counter <= 0;
+        raster15khz_raddr <= 0;
+        -- Wait 8 usec from release of composite HSYNC
+        -- 8usec @ 81MHz = 648 cycles.
+        -- But then we divide by 6 to get 13.5MHz pixel clock ticks
+        -- 648 / 6 = 108
+        -- Sanity check: 108 + 720 = 828, which is just under the full width of
+        -- the raster.  If it turns out to be too late in the raster, we can easily
+        -- pull it back by reducing this value.
+        -- We can also use this counter to time when stop and start the colour
+        -- burst.
+        raster15khz_skip <= 108;
+        report "15KHZ RASTER: HSYNC. rbuffer = " & std_logic'image(buffer_target_31khz);
+        -- Select opposite raster buffer to that which is being written to
+        -- We now also start replaying the last buffered raster on the 15KHz
+        -- output. This is read from the opposite buffer
+        raster15khz_buf0_cs <= buffer_target_31khz;
+        raster15khz_buf1_cs <= not buffer_target_31khz;
+      else
+        if raster15khz_subpixel_counter /= 5 then
+          raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
+        else
+          raster15khz_subpixel_counter <= 0;
+          if raster15khz_skip /= 0 then
+            raster15khz_skip <= raster15khz_skip - 1;
+            raster15khz_raddr <= 0;
+            if raster15khz_skip = 1 then
+              report "15KHZ RASTER: Start of pixel data";
+            end if;
+          else
+            if raster15khz_raddr < 719 then
+              raster15khz_raddr <= raster15khz_raddr + 1;
+              if raster15khz_raddr = 718 then
+                report "15KHZ RASTER: end of raster reached";
+              end if;
+            end if;
+          end if;
         end if;
       end if;
       
@@ -736,10 +785,10 @@ begin
         -- We are clocked at 81MHz, and the video stream is 27MHz, so every 3rd
         -- cycle bump the write address into the 31KHz to 15KHz raster buffer.
         -- But only write alternate rasters.
-        if raster15khz_subpixel_counter /= 2 then
-          raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
+        if raster31khz_subpixel_counter /= 2 then
+          raster31khz_subpixel_counter <= raster31khz_subpixel_counter + 1;
         else
-          raster15khz_subpixel_counter <= 0;
+          raster31khz_subpixel_counter <= 0;
 
 --          if (raster15khz_waddr mod 72) = 71 then
 --            report "PIXEL #" & integer'image(raster15khz_waddr);
@@ -923,15 +972,6 @@ begin
         blue_o <= blue_i;
       end if;
 
-      -- Determine if this raster line is being buffered or not
-      raster15khz_buf0_we <= '0';
-      raster15khz_buf1_we <= '0';
-      if raster15khz_wbuffer0='1' then
-        raster15khz_buf0_we <= '1';
-      else
-        raster15khz_buf1_we <= '1';
-      end if;
-      
       if narrow_dataenable_internal='0' then        
         red_no <= x"00"; 
         green_no <= x"00";
@@ -939,9 +979,6 @@ begin
         cv_red <= x"00";
         cv_green <= x"00";
         cv_blue <= x"00";
-        -- Don't buffer pixels that are not in the active part of the display
-        raster15khz_buf0_we <= '0';
-        raster15khz_buf1_we <= '0';
       elsif test_pattern_enable120='1' then
         red_no <= test_pattern_red;
         green_no <= test_pattern_green;
@@ -959,10 +996,13 @@ begin
         green_no <= green_i;
         blue_no <= blue_i;
 
-        cv_red <= red_i;
-        cv_green <= green_i;
-        cv_blue <= blue_i;
+        -- Read 15KHz composute RGB data from buffer
+        cv_red <= raster15khz_rdata(7 downto 0);
+        cv_green <= raster15khz_rdata(15 downto 8);
+        cv_blue <= raster15khz_rdata(23 downto 16);
 
+        -- Write 31KHz RGB data into buffer for later playback on 15KHz
+        -- composite output
         raster15khz_wdata(7 downto 0) <= red_i;
         raster15khz_wdata(15 downto 8) <= green_i;
         raster15khz_wdata(23 downto 16) <= blue_i;
