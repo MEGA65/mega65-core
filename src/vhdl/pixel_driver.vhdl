@@ -712,7 +712,8 @@ begin
 --        report "new_raster";
         if (raster_number(0)='1' and field_is_odd=1) or
           (raster_number(0)='0' and field_is_odd=0)  then
-          report "Buffering 31KHz raster number " & integer'image(to_integer(raster_number));
+          report "Buffering 31KHz raster #" & integer'image(to_integer(raster_number))
+            & " in buf " & std_logic'image(not buffer_target_31khz);
           -- Work out which buffer to write to
           buffering_31khz <= '1';
           buffer_target_31khz <= not buffer_target_31khz;
@@ -740,9 +741,9 @@ begin
         else
           raster15khz_subpixel_counter <= 0;
 
-          if (raster15khz_waddr mod 72) = 71 then
-            report "PIXEL #" & integer'image(raster15khz_waddr);
-          end if;
+--          if (raster15khz_waddr mod 72) = 71 then
+--            report "PIXEL #" & integer'image(raster15khz_waddr);
+--          end if;
           
           if buffering_31khz='1' then
             -- Write it to the buffer
@@ -750,7 +751,7 @@ begin
             raster15khz_buf0_we <= not buffer_target_31khz;
             raster15khz_buf1_we <= buffer_target_31khz;
             if raster15khz_waddr = 719 then
-              report "Buffered 720 pixels for the raster";
+--              report "Buffered 720 pixels for the raster";
               buffering_31khz <= '0';
             end if;
           end if;
