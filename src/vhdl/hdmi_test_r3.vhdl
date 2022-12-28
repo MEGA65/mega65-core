@@ -859,12 +859,12 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      luma => luma,
-      chroma => chroma,
-      composite => composite,
       -- XXX The first revision of the R3 expansion board has the video
-      -- connector mis-wired.  Only the audio channel comes out to a normally
-      -- wired 8-pin video cable. Thus we put the luma on there for testing
+      -- connector mis-wired.  So we put luma out everywhere, so that
+      -- we can still pick it up on a normally wired video cable
+      luma => luma,
+      chroma => luma,
+      composite => luma,
       audio => luma
       
       );
