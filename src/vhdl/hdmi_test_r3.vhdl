@@ -390,6 +390,10 @@ architecture Behavioral of container is
   signal pattern_hsync : std_logic;
   signal pattern_vsync : std_logic;
 
+  signal luma : unsigned(7 downto 0);
+  signal chroma : unsigned(7 downto 0);
+  signal composite : unsigned(7 downto 0);
+  
   signal zero : std_logic := '0';
   signal one : std_logic := '1';  
 
@@ -825,6 +829,10 @@ begin
 --      red_o => panelred,
 --      green_o => panelgreen,
 --      blue_o => panelblue,
+
+      luma => luma,
+      chroma => chroma,
+      composite => composite,
       
       hsync => pattern_hsync,
       vsync => pattern_vsync,  -- for HDMI
@@ -851,13 +859,10 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      red => pattern_r,
-      green => pattern_g,
-      blue => pattern_b,
-      hsync => pattern_hsync,
-      vsync => pattern_vsync,
-      pal50 => pal50,
-      vga60 => vga60
+      luma => luma,
+      chroma => chroma,
+      composite => composite,
+      audio => to_unsigned(0,8)
       
       );
   

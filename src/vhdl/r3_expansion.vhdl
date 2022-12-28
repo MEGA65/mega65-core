@@ -36,22 +36,16 @@ entity r3_expansion is
          -- TAPE port XXX
 
          -- Video and Audio feed for composite video port
-         red : in unsigned(7 downto 0);
-         green : in unsigned(7 downto 0);
-         blue : in unsigned(7 downto 0);
-         hsync : in std_logic;
-         vsync : in std_logic;
-         pal50 : in std_logic;
-         vga60 : in std_logic
-
+         chroma : in unsigned(7 downto 0);
+         luma : in unsigned(7 downto 0);
+         composite : in unsigned(7 downto 0);
+         audio : in unsigned(7 downto 0)
          
          );
 
 end r3_expansion;
 
 architecture gothic of r3_expansion is
-
-  signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
 
   constant seq_0 : unsigned(7 downto 0) := "00000000";
   constant seq_1 : unsigned(7 downto 0) := "10000000";
@@ -90,11 +84,14 @@ begin
   process (clock270,clock81,clock27) is
   begin
     if rising_edge(clock27) then
-      counter <= counter + 1;
-      chroma_high <= counter(8 downto 6);
-      chroma_low <= pick_sub_clock(counter(5 downto 3));
-      luma_high <= counter(12 downto 10);
-      luma_low <= pick_sub_clock(counter(9 downto 7));
+      -- Toggle bottom bit of DAC really fast to simulate higher
+      -- resolution than the 4 bits we have.
+      -- With appropriate filtering of the resulting signal,
+      -- this should gain us 2 extra bits of resolution
+      chroma_high <= chroma(7 downto 5); 
+      chroma_low <= pick_sub_clock(chroma(4 downto 2));
+      luma_high <= luma(7 downto 5);
+      luma_low <= pick_sub_clock(luma(4 downto 2));
     end if;
     
     if rising_edge(clock270) then
