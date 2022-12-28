@@ -567,8 +567,8 @@ begin
       w => raster15khz_buf0_we,
       write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
-      address => raster15khz_raddr,
-      rdata => raster15khz_rdata
+      rdata => raster15khz_rdata,
+      address => raster15khz_raddr
      );
   raster15khz_buf1: entity work.ram32x1024_sync
     port map (
@@ -577,8 +577,8 @@ begin
       w => raster15khz_buf1_we,
       write_address => raster15khz_waddr,
       wdata => raster15khz_wdata,
-      address => raster15khz_raddr,
-      rdata => raster15khz_rdata
+      rdata => raster15khz_rdata,
+      address => raster15khz_raddr
      );
   
   
@@ -733,6 +733,11 @@ begin
         raster15khz_waddr_inc <= '0';
         if raster15khz_waddr < 719 then
           raster15khz_waddr <= raster15khz_waddr + 1;
+        end if;
+        if raster15khz_waddr = 719 then
+          -- Clear write enable lines once we have written the whole raster.
+          raster15khz_buf0_we <= '0';
+          raster15khz_buf1_we <= '0';
         end if;        
       end if;
 
@@ -972,21 +977,25 @@ begin
         blue_o <= blue_i;
       end if;
 
+      if cv_sync = '0' then
+        -- Read 15KHz composute RGB data from buffer
+        cv_red <= raster15khz_rdata(7 downto 0);
+        cv_green <= raster15khz_rdata(15 downto 8);
+        cv_blue <= raster15khz_rdata(23 downto 16);
+      else
+        cv_red <= x"00";
+        cv_green <= x"00";
+        cv_blue <= x"00";
+      end if;
+      
       if narrow_dataenable_internal='0' then        
         red_no <= x"00"; 
         green_no <= x"00";
         blue_no <= x"00";
-        cv_red <= x"00";
-        cv_green <= x"00";
-        cv_blue <= x"00";
       elsif test_pattern_enable120='1' then
         red_no <= test_pattern_red;
         green_no <= test_pattern_green;
         blue_no <= test_pattern_blue;
-
-        cv_red <= test_pattern_red50;
-        cv_green <= test_pattern_green50;
-        cv_blue <= test_pattern_blue50;
 
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
         raster15khz_wdata(15 downto 8) <= test_pattern_green;
@@ -995,11 +1004,6 @@ begin
         red_no <= red_i;
         green_no <= green_i;
         blue_no <= blue_i;
-
-        -- Read 15KHz composute RGB data from buffer
-        cv_red <= raster15khz_rdata(7 downto 0);
-        cv_green <= raster15khz_rdata(15 downto 8);
-        cv_blue <= raster15khz_rdata(23 downto 16);
 
         -- Write 31KHz RGB data into buffer for later playback on 15KHz
         -- composite output
