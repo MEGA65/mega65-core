@@ -262,9 +262,7 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_active_raster : std_logic := '0';
   
   signal raster15khz_buf0_cs : std_logic := '0';
-  signal raster15khz_buf1_cs : std_logic := '0';
   signal raster15khz_buf0_we : std_logic := '0';
-  signal raster15khz_buf1_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
   signal raster15khz_waddr_inc : std_logic := '0';
   signal raster15khz_raddr : integer := 0;
@@ -570,17 +568,6 @@ begin
       rdata => raster15khz_rdata,
       address => raster15khz_raddr
      );
-  raster15khz_buf1: entity work.ram32x1024_sync
-    port map (
-      clk => clock81,
-      cs => raster15khz_buf1_cs,
-      w => raster15khz_buf1_we,
-      write_address => raster15khz_waddr,
-      wdata => raster15khz_wdata,
-      rdata => raster15khz_rdata,
-      address => raster15khz_raddr
-     );
-  
   
   phi_1mhz_out <= phi2_1mhz_pal50 when pal50_select_internal='1' else
                   phi2_1mhz_vga60 when vga60_select_internal='1'
@@ -737,7 +724,6 @@ begin
         if raster15khz_waddr = 719 then
           -- Clear write enable lines once we have written the whole raster.
           raster15khz_buf0_we <= '0';
-          raster15khz_buf1_we <= '0';
         end if;        
       end if;
 
@@ -759,8 +745,7 @@ begin
         -- Select opposite raster buffer to that which is being written to
         -- We now also start replaying the last buffered raster on the 15KHz
         -- output. This is read from the opposite buffer
-        raster15khz_buf0_cs <= buffer_target_31khz;
-        raster15khz_buf1_cs <= not buffer_target_31khz;
+        raster15khz_buf0_cs <= '1';
       else
         if raster15khz_subpixel_counter /= 5 then
           raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
@@ -802,8 +787,7 @@ begin
           if buffering_31khz='1' then
             -- Write it to the buffer
             raster15khz_waddr_inc <= '1';
-            raster15khz_buf0_we <= not buffer_target_31khz;
-            raster15khz_buf1_we <= buffer_target_31khz;
+            raster15khz_buf0_we <= '1';
             if raster15khz_waddr = 719 then
 --              report "Buffered 720 pixels for the raster";
               buffering_31khz <= '0';
