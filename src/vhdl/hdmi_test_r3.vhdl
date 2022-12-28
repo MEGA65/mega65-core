@@ -862,7 +862,10 @@ begin
       luma => luma,
       chroma => chroma,
       composite => composite,
-      audio => to_unsigned(0,8)
+      -- XXX The first revision of the R3 expansion board has the video
+      -- connector mis-wired.  Only the audio channel comes out to a normally
+      -- wired 8-pin video cable. Thus we put the luma on there for testing
+      audio => luma
       
       );
   
