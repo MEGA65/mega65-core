@@ -326,7 +326,36 @@ architecture greco_roman of pixel_driver is
     "011111111111101111111111111",
     "011111111111101111111111111"
     );
-    
+
+  -- Use 32 element look-up table for producing sine curve
+  -- for colour signal.  We can only produce ~20 samples per
+  -- cycle of the colour burst frequency, as limited by our 81MHz
+  -- output rate.  However, because we keep track of the colour
+  -- burst phase with higher accuracy, and because the colour burst
+  -- phase is used to encode colour on PAL and NTSC (but not SECAM)
+  -- we need to be able to reproduce quite fine phases.
+  -- Thus we will use a 256 entry 
+  type us7_0to255 is array (0 to 255) of unsigned(7 downto 0);  
+  signal sine_table : us7_0to255 := (
+    x"80",x"83",x"86",x"89",x"8c",x"8f",x"92",x"95",x"98",x"9b",x"9e",x"a1",x"a4",x"a7",x"aa",x"ad",
+    x"b0",x"b3",x"b6",x"b9",x"bb",x"be",x"c1",x"c3",x"c6",x"c9",x"cb",x"ce",x"d0",x"d2",x"d5",x"d7",
+    x"d9",x"db",x"de",x"e0",x"e2",x"e4",x"e6",x"e7",x"e9",x"eb",x"ec",x"ee",x"f0",x"f1",x"f2",x"f4",
+    x"f5",x"f6",x"f7",x"f8",x"f9",x"fa",x"fb",x"fb",x"fc",x"fd",x"fd",x"fe",x"fe",x"fe",x"fe",x"fe",
+    x"ff",x"fe",x"fe",x"fe",x"fe",x"fe",x"fd",x"fd",x"fc",x"fb",x"fb",x"fa",x"f9",x"f8",x"f7",x"f6",
+    x"f5",x"f4",x"f2",x"f1",x"f0",x"ee",x"ec",x"eb",x"e9",x"e7",x"e6",x"e4",x"e2",x"e0",x"de",x"db",
+    x"d9",x"d7",x"d5",x"d2",x"d0",x"ce",x"cb",x"c9",x"c6",x"c3",x"c1",x"be",x"bb",x"b9",x"b6",x"b3",
+    x"b0",x"ad",x"aa",x"a7",x"a4",x"a1",x"9e",x"9b",x"98",x"95",x"92",x"8f",x"8c",x"89",x"86",x"83",
+    x"80",x"7c",x"79",x"76",x"73",x"70",x"6d",x"6a",x"67",x"64",x"61",x"5e",x"5b",x"58",x"55",x"52",
+    x"4f",x"4c",x"49",x"46",x"44",x"41",x"3e",x"3c",x"39",x"36",x"34",x"31",x"2f",x"2d",x"2a",x"28",
+    x"26",x"24",x"21",x"1f",x"1d",x"1b",x"1a",x"18",x"16",x"14",x"13",x"11",x"10",x"0e",x"0d",x"0b",
+    x"0a",x"09",x"08",x"07",x"06",x"05",x"04",x"04",x"03",x"02",x"02",x"01",x"01",x"01",x"01",x"01",
+    x"01",x"01",x"01",x"01",x"01",x"01",x"02",x"02",x"03",x"04",x"04",x"05",x"06",x"07",x"08",x"09",
+    x"0a",x"0b",x"0d",x"0e",x"0f",x"11",x"13",x"14",x"16",x"18",x"19",x"1b",x"1d",x"1f",x"21",x"24",
+    x"26",x"28",x"2a",x"2d",x"2f",x"31",x"34",x"36",x"39",x"3c",x"3e",x"41",x"44",x"46",x"49",x"4c",
+    x"4f",x"52",x"55",x"58",x"5b",x"5e",x"61",x"64",x"67",x"6a",x"6d",x"70",x"73",x"76",x"79",x"7c"    
+    );
+  
+  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
