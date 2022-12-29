@@ -966,6 +966,9 @@ begin
         cv_red <= raster15khz_rdata(7 downto 0);
         cv_green <= raster15khz_rdata(15 downto 8);
         cv_blue <= raster15khz_rdata(23 downto 16);
+
+        -- XXX debug if raddr is advancing correctly
+        cv_green <= to_unsigned(raster15khz_raddr,8);
       else
         cv_red <= x"00";
         cv_green <= x"00";
