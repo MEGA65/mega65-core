@@ -265,6 +265,7 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_buf0_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
   signal raster15khz_waddr_inc : std_logic := '0';
+  signal waddr_inc_toggle : std_logic := '0';
   signal raster15khz_raddr : integer := 0;
   signal raster15khz_wdata : unsigned(31 downto 0) := (others => '0');
   signal raster15khz_rdata : unsigned(31 downto 0);
@@ -287,6 +288,7 @@ architecture greco_roman of pixel_driver is
   signal x_zero_int : std_logic;
   signal y_zero_int : std_logic;
   signal new_raster : std_logic := '0';
+  signal new_raster_toggle : std_logic := '0';
   signal raster_number : unsigned(9 downto 0) := to_unsigned(0,10);
   signal buffering_31khz : std_logic := '0';
   signal buffer_target_31khz : std_logic := '0';
@@ -698,6 +700,7 @@ begin
         -- Also check if we need to flip raster buffers.
         raster_number <= raster_number + 1;
         new_raster <= '1';
+        new_raster_toggle <= not new_raster_toggle;
       end if;
       if new_raster='1' then
 --        report "new_raster";
@@ -786,6 +789,7 @@ begin
           
           if buffering_31khz='1' then
             -- Write it to the buffer
+            waddr_inc_toggle <= not waddr_inc_toggle;
             raster15khz_waddr_inc <= '1';
             raster15khz_buf0_we <= '1';
             if raster15khz_waddr = 719 then
@@ -982,8 +986,7 @@ begin
         blue_no <= test_pattern_blue;
 
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
-        -- raster15khz_wdata(15 downto 8) <= test_pattern_green;
-        raster15khz_wdata(15 downto 8) <= to_unsigned(raster15khz_waddr,8);
+        raster15khz_wdata(15 downto 8) <= test_pattern_green;
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
       else
         red_no <= red_i;
@@ -995,7 +998,6 @@ begin
         raster15khz_wdata(7 downto 0) <= red_i;
         raster15khz_wdata(15 downto 8) <= green_i;
 --              raster15khz_wdata(23 downto 16) <= blue_i;
-
         raster15khz_wdata(23 downto 16) <= to_unsigned(raster15khz_waddr,8);
         
       end if;
