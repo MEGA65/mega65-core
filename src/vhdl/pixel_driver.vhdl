@@ -261,7 +261,7 @@ architecture greco_roman of pixel_driver is
   signal raster15khz_skip : integer range 0 to 108 := 0;
   signal raster15khz_active_raster : std_logic := '0';
   
-  signal raster15khz_buf0_cs : std_logic := '0';
+  signal raster15khz_buf0_cs : std_logic := '1';
   signal raster15khz_buf0_we : std_logic := '0';
   signal raster15khz_waddr : integer := 0;
   signal raster15khz_waddr_inc : std_logic := '0';
@@ -744,11 +744,6 @@ begin
         -- We can also use this counter to time when stop and start the colour
         -- burst.
         raster15khz_skip <= 108;
-        report "15KHZ RASTER: HSYNC. rbuffer = " & std_logic'image(buffer_target_31khz);
-        -- Select opposite raster buffer to that which is being written to
-        -- We now also start replaying the last buffered raster on the 15KHz
-        -- output. This is read from the opposite buffer
-        raster15khz_buf0_cs <= '1';
       else
         if raster15khz_subpixel_counter /= 5 then
           raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
