@@ -735,8 +735,8 @@ begin
       end if;
       if new_raster='1' then
 --        report "new_raster";
-        if (raster_number(0)='1' and field_is_odd=1) or
-          (raster_number(0)='0' and field_is_odd=0)  then
+        if (raster_number(0)='1' and field_is_odd=0) or
+          (raster_number(0)='0' and field_is_odd=1)  then
           report "Buffering 31KHz raster #" & integer'image(to_integer(raster_number))
             & " in buf " & std_logic'image(not buffer_target_31khz);
           -- Work out which buffer to write to
