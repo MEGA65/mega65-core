@@ -292,6 +292,8 @@ architecture greco_roman of pixel_driver is
   signal raster_number : unsigned(9 downto 0) := to_unsigned(0,10);
   signal buffering_31khz : std_logic := '0';
   signal buffer_target_31khz : std_logic := '0';
+
+  signal time_since_last_pixel : integer range 0 to 1023 := 0;
   
   -- 15KHz video VBLANK SYNC formats
   constant vsync_xpos_max : integer := 26;
@@ -962,9 +964,17 @@ begin
 
       if cv_sync = '0' and cv_vsync='0' then
         -- Read 15KHz composute RGB data from buffer
-        cv_red <= raster15khz_rdata(7 downto 0);
-        cv_green <= raster15khz_rdata(15 downto 8);
-        cv_blue <= raster15khz_rdata(23 downto 16);
+        if time_since_last_pixel /= 1023 then
+          cv_red <= raster15khz_rdata(7 downto 0);
+          cv_green <= raster15khz_rdata(15 downto 8);
+          cv_blue <= raster15khz_rdata(23 downto 16);
+        else
+          -- Assume we are in VBLANK
+          -- XXX Teletext and closed captions go in these lines
+          cv_red <= x"00";
+          cv_green <= x"00";
+          cv_blue <= x"00";
+        end if;
       elsif cv_sync = '0' and cv_vsync='1' then
         -- Between SYNC pulses during vertical blank,
         -- relax to black level
@@ -981,6 +991,10 @@ begin
         red_no <= x"00"; 
         green_no <= x"00";
         blue_no <= x"00";
+
+        if time_since_last_pixel < 1023 then
+          time_since_last_pixel <= time_since_last_pixel + 1;
+        end if;        
       elsif test_pattern_enable120='1' then
         red_no <= test_pattern_red;
         green_no <= test_pattern_green;
@@ -989,6 +1003,8 @@ begin
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
         raster15khz_wdata(15 downto 8) <= test_pattern_green;
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
+
+        time_since_last_pixel <= 0;
       else
         red_no <= red_i;
         green_no <= green_i;
@@ -1000,7 +1016,8 @@ begin
         raster15khz_wdata(15 downto 8) <= green_i;
 --              raster15khz_wdata(23 downto 16) <= blue_i;
         raster15khz_wdata(23 downto 16) <= to_unsigned(raster15khz_waddr,8);
-        
+
+        time_since_last_pixel <= 0;        
       end if;
 
     end if;
