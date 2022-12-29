@@ -332,7 +332,7 @@ architecture greco_roman of pixel_driver is
   -- 6 cycles duration
   signal pixel_num : integer range 0 to 2 := 0;
   type px_timing_t is array (0 to 2) of integer;
-  signal pixel_widths : px_timing_t := ( 5, 5, 6);
+  signal pixel_widths : px_timing_t := ( 4, 4, 5);
   
   -- Use 32 element look-up table for producing sine curve
   -- for colour signal.  We can only produce ~20 samples per
