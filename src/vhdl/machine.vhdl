@@ -129,6 +129,13 @@ entity machine is
          qspidb_oe : out std_logic;
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
+
+         ----------------------------------------------------------------------
+         -- Composite/S-Video/Component out
+         ----------------------------------------------------------------------
+         luma : out unsigned(7 downto 0);
+         chroma : out unsigned(7 downto 0);
+         composite : out unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -1241,6 +1248,10 @@ begin
       vga_hsync => vga_hsync,      -- for VGA
       vga_blank => vga_blank,
 
+      luma => luma,
+      chroma => chroma,
+      composite => composite,
+               
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,               
       lcd_vsync => lcd_vsync,

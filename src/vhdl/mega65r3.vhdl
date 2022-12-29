@@ -462,6 +462,10 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
+
+  signal luma : unsigned(7 downto 0);
+  signal chroma : unsigned(7 downto 0);
+  signal composite : unsigned(7 downto 0);
   
 begin
 
@@ -575,7 +579,29 @@ begin
 
         tmds => tmds
         );
-    
+
+  expansionboard0: entity work.r3_expansion
+    port map (
+      cpuclock => cpuclock,
+      clock27 => clock27,
+      clock81 => pixelclock,
+      clock270 => clock270,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
+
+      -- XXX The first revision of the R3 expansion board has the video
+      -- connector mis-wired.  So we put luma out everywhere, so that
+      -- we can still pick it up on a normally wired video cable
+      luma => luma,
+      chroma => luma,
+      composite => luma,
+      audio => luma
+      
+      );
+  
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
@@ -858,6 +884,10 @@ begin
           fm_right => fm_right,
           
           no_hyppo => '0',
+
+          luma => luma,
+          chroma => luma,
+          composite => luma,
           
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
