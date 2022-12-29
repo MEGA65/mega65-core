@@ -327,6 +327,13 @@ architecture greco_roman of pixel_driver is
     "011111111111101111111111111"
     );
 
+  -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
+  -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
+  -- 6 cycles duration
+  signal pixel_num : integer range 0 to 2 := 0;
+  type px_timing_t is array (0 to 2) of integer;
+  signal pixel_widths : px_timing_t := ( 5, 5, 6);
+  
   -- Use 32 element look-up table for producing sine curve
   -- for colour signal.  We can only produce ~20 samples per
   -- cycle of the colour burst frequency, as limited by our 81MHz
@@ -765,6 +772,7 @@ begin
       if cv_hsync='0' and cv_hsync_last='1' then
         raster15khz_subpixel_counter <= 0;
         raster15khz_raddr <= 0;
+        pixel_num <= 0;
         -- Wait 8 usec from release of composite HSYNC
         -- 8usec @ 81MHz = 648 cycles.
         -- But then we divide by 6 to get 13.5MHz pixel clock ticks
@@ -776,18 +784,29 @@ begin
         -- burst.
         raster15khz_skip <= 108;
       else
-        if raster15khz_subpixel_counter /= 5 then
+        if raster15khz_subpixel_counter /= pixel_widths(pixel_num) then
           raster15khz_subpixel_counter <= raster15khz_subpixel_counter + 1;
         else
+          -- Update the pixel num for determining if the pixels are 5 or 6 clocks
+          -- wide. This is used to fit the 720H into 640H timing, so that we still
+          -- get a front-porch after the active part of the raster.
+          if pixel_num /= 2 then
+            pixel_num <= pixel_num + 1;
+          else
+            pixel_num <= 0;
+          end if;
           raster15khz_subpixel_counter <= 0;
           if raster15khz_skip /= 0 then
             raster15khz_skip <= raster15khz_skip - 1;
             raster15khz_raddr <= 0;
+            pixel_num <= 0;
             if raster15khz_skip = 1 then
               report "15KHZ RASTER: Start of pixel data";
             end if;
           else
-            if raster15khz_raddr < 719 then
+            -- Allow raddr to go to 720, so that we know when we are in the
+            -- front porch after the active part of the raster.
+            if raster15khz_raddr < 720 then
               raster15khz_raddr <= raster15khz_raddr + 1;
               if raster15khz_raddr = 718 then
                 report "15KHZ RASTER: end of raster reached";
@@ -1000,7 +1019,7 @@ begin
         -- This is not ideal, but so long as the skipped pixels are narrower than
         -- the border, in theory it should be ok -- provided that the monitor/TV
         -- doesn't eat the left columns of text.
-        if (time_since_last_pixel /= 1023) and (raster15khz_raddr > 2) then
+        if (time_since_last_pixel /= 1023) and (raster15khz_raddr > 2) and (raster15khz_raddr < 720) then
           cv_red <= raster15khz_rdata(7 downto 0);
           cv_green <= raster15khz_rdata(15 downto 8);
           cv_blue <= raster15khz_rdata(23 downto 16);
