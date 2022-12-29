@@ -960,11 +960,17 @@ begin
         blue_o <= blue_i;
       end if;
 
-      if cv_sync = '0' then
+      if cv_sync = '0' and cv_vsync='0' then
         -- Read 15KHz composute RGB data from buffer
         cv_red <= raster15khz_rdata(7 downto 0);
         cv_green <= raster15khz_rdata(15 downto 8);
         cv_blue <= raster15khz_rdata(23 downto 16);
+      elsif cv_sync = '0' and cv_vsync='1' then
+        -- Between SYNC pulses during vertical blank,
+        -- relax to black level
+        cv_red <= x"50";
+        cv_green <= x"50";
+        cv_blue <= x"50";
       else
         cv_red <= x"00";
         cv_green <= x"00";
