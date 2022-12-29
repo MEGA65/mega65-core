@@ -968,9 +968,9 @@ begin
       elsif cv_sync = '0' and cv_vsync='1' then
         -- Between SYNC pulses during vertical blank,
         -- relax to black level
-        cv_red <= x"50";
-        cv_green <= x"50";
-        cv_blue <= x"50";
+        cv_red <= x"00";
+        cv_green <= x"00";
+        cv_blue <= x"00";
       else
         cv_red <= x"00";
         cv_green <= x"00";
