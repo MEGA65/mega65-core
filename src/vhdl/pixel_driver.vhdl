@@ -992,8 +992,15 @@ begin
       end if;
 
       if cv_sync = '0' and cv_vsync='0' then
-        -- Read 15KHz composute RGB data from buffer
-        if time_since_last_pixel /= 1023 then
+        -- Read 15KHz composite RGB data from buffer
+        -- Some monitors / TVs can't handle 720 pixel clocks worth of image,
+        -- and use some of it to normalise the intensity of the raster, causing
+        -- rasters that have stuff in the left few pixels to appear darker.
+        -- To deal with this, we just skip the first few pixels on the raster.
+        -- This is not ideal, but so long as the skipped pixels are narrower than
+        -- the border, in theory it should be ok -- provided that the monitor/TV
+        -- doesn't eat the left columns of text.
+        if (time_since_last_pixel /= 1023) and (raster15khz_raddr > 15) then
           cv_red <= raster15khz_rdata(7 downto 0);
           cv_green <= raster15khz_rdata(15 downto 8);
           cv_blue <= raster15khz_rdata(23 downto 16);
