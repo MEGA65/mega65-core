@@ -966,9 +966,6 @@ begin
         cv_red <= raster15khz_rdata(7 downto 0);
         cv_green <= raster15khz_rdata(15 downto 8);
         cv_blue <= raster15khz_rdata(23 downto 16);
-
-        -- XXX debug if raddr is advancing correctly
-        cv_green <= to_unsigned(raster15khz_raddr,8);
       else
         cv_red <= x"00";
         cv_green <= x"00";
@@ -985,7 +982,8 @@ begin
         blue_no <= test_pattern_blue;
 
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
-        raster15khz_wdata(15 downto 8) <= test_pattern_green;
+        -- raster15khz_wdata(15 downto 8) <= test_pattern_green;
+        raster15khz_wdata(15 downto 8) <= to_unsigned(raster15khz_waddr,8);
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
       else
         red_no <= red_i;
@@ -996,7 +994,10 @@ begin
         -- composite output
         raster15khz_wdata(7 downto 0) <= red_i;
         raster15khz_wdata(15 downto 8) <= green_i;
-        raster15khz_wdata(23 downto 16) <= blue_i;
+--              raster15khz_wdata(23 downto 16) <= blue_i;
+
+        raster15khz_wdata(23 downto 16) <= to_unsigned(raster15khz_waddr,8);
+        
       end if;
 
     end if;
