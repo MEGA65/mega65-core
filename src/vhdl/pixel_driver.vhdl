@@ -333,9 +333,13 @@ architecture greco_roman of pixel_driver is
   -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
   -- 6 cycles duration
-  signal pixel_num : integer range 0 to 2 := 0;
-  type px_timing_t is array (0 to 2) of integer;
-  signal pixel_widths : px_timing_t := ( 4, 4, 5);
+  -- We cycle through the first 3 values in this array. The 4th value is used
+  -- to time constant-width pixels during the back porch of the HSYNC.
+  -- XXX Later add support for using constant width pixels always, if the user
+  -- prefers higher resolution, at the cost of no side borders.
+  signal pixel_num : integer range 0 to 3 := 0;
+  type px_timing_t is array (0 to 3) of integer;
+  signal pixel_widths : px_timing_t := ( 4, 4, 5, 5);
   
   -- Use 32 element look-up table for producing sine curve
   -- for colour signal.  We can only produce ~20 samples per
@@ -723,21 +727,25 @@ begin
 
       y_zero_last <= y_zero_int;
       if y_zero_int = '1' and y_zero_last='0' then
-        report "Start of frame detected";
+        report "Start of frame detected. field_is_odd was " & integer'image(field_is_odd);
         -- Start of new frame -- toggle field_is_odd
         -- Interlace mode controls if we always show the same field or alternate
         -- XXX mono_mode for debug currently selects which of those two fields
         -- will be shown in non-interlace mode
         if mono_mode='0' then
           if field_is_odd = 1 and interlace_mode='1' then
+            report "Setting field_is_odd to 0";
             field_is_odd <= 0;
           else
+            report "Setting field_is_odd to 1";
             field_is_odd <= 1;
           end if;
         else
           if field_is_odd = 0 and interlace_mode='1' then
+            report "Setting field_is_odd to 1";
             field_is_odd <= 1;
           else
+            report "Setting field_is_odd to 0";
             field_is_odd <= 0;
           end if;
         end if;
@@ -786,7 +794,7 @@ begin
       if cv_hsync='0' and cv_hsync_last='1' then
         raster15khz_subpixel_counter <= 0;
         raster15khz_raddr <= 0;
-        pixel_num <= 0;
+        pixel_num <= 3;
         -- Wait 8 usec from release of composite HSYNC
         -- 8usec @ 81MHz = 648 cycles.
         -- But then we divide by 6 to get 13.5MHz pixel clock ticks
@@ -811,11 +819,13 @@ begin
           end if;
           raster15khz_subpixel_counter <= 0;
           if raster15khz_skip /= 0 then
+            pixel_num <= 3;
             raster15khz_skip <= raster15khz_skip - 1;
             raster15khz_raddr <= 0;
             pixel_num <= 0;
             if raster15khz_skip = 1 then
               report "15KHZ RASTER: Start of pixel data";
+              pixel_num <= 0;
             end if;
           else
             -- Allow raddr to go to 720, so that we know when we are in the
