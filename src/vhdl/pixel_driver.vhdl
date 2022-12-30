@@ -29,7 +29,11 @@ use work.debugtools.all;
 
 entity pixel_driver is
   generic (
-    initial_field : integer := 1
+    initial_field : integer := 1;
+    -- Use this to speed up simulation by reducing frame height
+    -- reduction must be even, to avoid messing up HSYNC pulse train between
+    -- odd and even fields
+    debug_height_reduction : integer := 0
     );
   port (
     -- The various clocks we need
@@ -372,6 +376,9 @@ architecture greco_roman of pixel_driver is
   
 begin
 
+  assert ( (debug_height_reduction mod 2) = 0) report "debug_height_reduction must be even";
+  assert (debug_height_reduction <= 450) report "debug_height_reduction must be somewhat less than the shortest frame height";
+  
   -- Here we generate the frames and the pixel strobe references for everything
   -- that needs to produce pixels, and then buffer the pixels that arrive at pixelclock
   -- in a buffer, and then emit the pixels at the appropriate clock rate
@@ -392,7 +399,7 @@ begin
                   -- raster lines.  This reduces our CPU 1MHz frequency error
                   -- from -486 Hz to +139 Hz
                   frame_width => 864 - 1,        
-                  frame_height => 625,        -- 312 lines x 2 fields
+                  frame_height => 625 - debug_height_reduction,        -- 312 lines x 2 fields
 
                   x_zero_position => 864-45,
                   
@@ -405,11 +412,11 @@ begin
                   pipeline_delay => 0,
 
                   first_raster => 1+16,
-                  last_raster => 576+16,
+                  last_raster => 576+16 - debug_height_reduction,
 
                   -- VSYNC comes 5 lines after video area, and lasts 5 raster lines
-                  vsync_start => 576+16+5,
-                  vsync_end   => 576+16+5+4,
+                  vsync_start => 576+16+5 - debug_height_reduction,
+                  vsync_end   => 576+16+5+4 - debug_height_reduction,
 
                   -- Add 6 more clocks after the end of video lines before
                   -- asserting HSYNC (HDMI test 7-25)
@@ -420,8 +427,8 @@ begin
                   vga_hsync_end => 720+64,                 
                   
                   -- Centre letterbox slice for LCD panel
-                  lcd_first_raster => 1+(576-480)/2,
-                  lcd_last_raster => 1+576-(576-480)/2
+                  lcd_first_raster => 1+(576-480)/2 - debug_height_reduction,
+                  lcd_last_raster => 1+576-(576-480)/2 - debug_height_reduction
                   
                   )                  
     port map ( clock81 => clock81,
@@ -468,7 +475,7 @@ begin
   -- (This is the mode lines that the ADV7511 should want to see)
   frame60: entity work.frame_generator
     generic map ( frame_width => 858,   -- 65 cycles x 16 pixels
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  frame_height => 526 - debug_height_reduction,       -- NTSC frame is 263 lines x 2 frames
 
                   x_zero_position => 858-46,
 
@@ -481,8 +488,8 @@ begin
                   pipeline_delay => 0,
                   
                   -- Advance VSYNC 23 lines (HDMI test 7-25)
-                  vsync_start => 480+1+9,
-                  vsync_end => 480+1+5+9,
+                  vsync_start => 480+1+9 - debug_height_reduction,
+                  vsync_end => 480+1+5+9 - debug_height_reduction,
                   -- Delay HSYNC by 6 cycles (HDMI test 7-25)
                   hsync_start => 720+16+5,
                   hsync_end => 720+16+62+5,
@@ -491,10 +498,10 @@ begin
                   vga_hsync_end => 720+10+62,
                   
                   first_raster => 1,
-                  last_raster => 480,
+                  last_raster => 480 - debug_height_reduction,
 
                   lcd_first_raster => 1,
-                  lcd_last_raster => 480
+                  lcd_last_raster => 480 - debug_height_reduction
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -536,7 +543,7 @@ begin
   -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
   frame60vga: entity work.frame_generator
     generic map ( frame_width => 858,   -- 65 cycles x 16 pixels
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  frame_height => 526 - debug_height_reduction,       -- NTSC frame is 263 lines x 2 frames
 
                   fullwidth_start => 16+62+60,
                   fullwidth_width => 800,
@@ -559,7 +566,7 @@ begin
                   last_raster => 522,
 
                   lcd_first_raster => 42,
-                  lcd_last_raster => 522,
+                  lcd_last_raster => 522 - debug_height_reduction,
 
                   cycles_per_raster_1mhz => 65,
                   cycles_per_raster_2mhz => 65*2,
@@ -812,7 +819,7 @@ begin
           -- Update the pixel num for determining if the pixels are 5 or 6 clocks
           -- wide. This is used to fit the 720H into 640H timing, so that we still
           -- get a front-porch after the active part of the raster.
-          if pixel_num /= 2 then
+          if pixel_num < 2 then
             pixel_num <= pixel_num + 1;
           else
             pixel_num <= 0;

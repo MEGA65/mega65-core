@@ -57,6 +57,10 @@ architecture tb of tb_pixel_driver is
 begin
 
   pixel0: entity work.pixel_driver
+    generic map (
+      -- Greatly reduce frame height to speed up simulation
+      debug_height_reduction => 450
+      )
     port map (
                clock81 => pixelclock, -- 81MHz
                clock27 => pixelclock,
@@ -178,7 +182,7 @@ begin
         pal50_select <= '1';
         
 --        for i in 1 to 1_640_000 loop
-        for i in 1 to 3_280_000 loop
+        for i in 1 to 500_000 loop
           pixelclock <= '0'; wait for 6.172 ns; pixelclock <= '1'; wait for 6.172 ns;
         end loop;
       end if;
