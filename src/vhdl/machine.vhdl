@@ -793,6 +793,9 @@ architecture Behavioral of machine is
   signal btnCpuReset_counter : integer range 0 to 8191 := 0;
 
   signal rightsid_audio : signed(17 downto 0);
+
+  signal interlace_mode : std_logic;
+  signal mono_mode : std_logic;
   
 begin
 
@@ -1222,7 +1225,10 @@ begin
                pal50_select => pal50_select,
                vga60_select => vga60_select,
       test_pattern_enable => test_pattern_enable,      
-      
+
+               interlace_mode => interlace_mode,
+               mono_mode => mono_mode,
+               
       -- Framing information for VIC-IV
       x_zero => external_frame_x_zero,     
       y_zero => external_frame_y_zero,     
@@ -1273,6 +1279,9 @@ begin
       dd00_bits => dd00_bits,
       
       viciv_frame_indicate => viciv_frame_indicate,
+
+      interlace_mode => interlace_mode,
+      mono_mode => mono_mode,
       
       hypervisor_mode => cpu_hypervisor_mode,
       

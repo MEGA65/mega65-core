@@ -51,6 +51,9 @@ entity pixel_driver is
     vsync_invert : in std_logic;
     vga_blank : out std_logic;
 
+    interlace_mode : in std_logic := '1';
+    mono_mode : in std_logic := '0';
+    
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
     phi_1mhz_out : out std_logic;
     phi_2mhz_out : out std_logic;
@@ -722,7 +725,7 @@ begin
       if y_zero_int = '1' and y_zero_last='0' then
         report "Start of frame detected";
         -- Start of new frame -- toggle field_is_odd
-        if field_is_odd = 0 then
+        if field_is_odd = 0 and interlace_mode='1' then
           field_is_odd <= 1;
         else
           field_is_odd <= 0;
