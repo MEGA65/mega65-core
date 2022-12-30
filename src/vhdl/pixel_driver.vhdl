@@ -377,7 +377,7 @@ architecture greco_roman of pixel_driver is
 begin
 
   assert ( (debug_height_reduction mod 2) = 0) report "debug_height_reduction must be even";
-  assert (debug_height_reduction <= 450) report "debug_height_reduction must be somewhat less than the shortest frame height";
+  assert (debug_height_reduction <= 500) report "debug_height_reduction must be somewhat less than the shortest frame height";
   
   -- Here we generate the frames and the pixel strobe references for everything
   -- that needs to produce pixels, and then buffer the pixels that arrive at pixelclock
