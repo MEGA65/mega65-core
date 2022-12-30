@@ -70,7 +70,7 @@ entity frame_generator is
     
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
-    field_is_odd : integer range 0 to 1 := 0;    
+    field_is_odd : in integer range 0 to 1 := 0;    
 
     -- Video output oriented signals
     cv_hsync : out std_logic := '0';
@@ -273,10 +273,26 @@ begin
           x <= 0;
 
          -- Reset composite video counter every 2nd raster line
-          -- XXX Support interlace by switching between odd and even lines
+          -- Support interlace by switching between odd and even lines
           -- every field.
-          if to_integer(to_unsigned(y,1)) = field_is_odd then
-            cv_x <= 0;
+          -- Actually we don't need to know which field we are in, because
+          -- the frame is an odd number of rasters in length, and thus
+          -- it will naturally alternate. Only if the frame is an even number
+          -- of rasters do we need this correction -- like in NTSC.  But PAL
+          -- has an odd number, so we need to make a smart selection here
+          if (frame_height mod 1) = 1 then
+            -- Frame has odd number of rasters, so will toggle naturally.
+            if to_integer(to_unsigned(y,1)) = 0 then
+              report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
+              cv_x <= 0;
+            end if;
+          else
+            -- Frame has even number of rasters, so we need to do the toggle
+            -- ourselves
+            if to_integer(to_unsigned(y,1)) = field_is_odd then
+              report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
+              cv_x <= 0;
+            end if;
           end if;
           
           if y < (frame_height-1) then
