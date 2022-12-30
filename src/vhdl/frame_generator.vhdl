@@ -171,7 +171,8 @@ architecture brutalist of frame_generator is
 
   signal normal_y_active : std_logic := '0';
   signal lcd_y_active : std_logic := '0';
-  
+
+  signal line_odd_even : integer range 0 to 1 := 0;
   
 begin
 
@@ -279,20 +280,31 @@ begin
           -- the frame is an odd number of rasters in length, and thus
           -- it will naturally alternate. Only if the frame is an even number
           -- of rasters do we need this correction -- like in NTSC.  But PAL
-          -- has an odd number, so we need to make a smart selection here
+          -- has an odd number, so we need to make a smart selection here.
+          --
+          -- Then to make things more exciting, the switch needs to happen at the
+          -- start of VSYNC, which is not at the start of the frame.
+          -- (note that this formulation adds a 1 line delay to the odd/even switch
+          -- which we take account of in the y < vsync_start equation).
           if (frame_height mod 2) = 1 then
-            -- Frame has odd number of rasters, so will toggle naturally.
-            if to_integer(to_unsigned(y,1)) = 0 then
-              report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
-              cv_x <= 0;
+            -- eg. PAL
+            if y < vsync_start then
+              line_odd_even <= field_is_odd;
+            else
+              line_odd_even <= 1 - field_is_odd;
             end if;
           else
-            -- Frame has even number of rasters, so we need to do the toggle
-            -- ourselves
-            if to_integer(to_unsigned(y,1)) = field_is_odd then
-              report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
-              cv_x <= 0;
+            -- eg. NTSC
+            if y < vsync_start then
+              line_odd_even <= field_is_odd;
+            else
+              line_odd_even <= 1 - field_is_odd;
             end if;
+          end if;
+
+          if to_integer(to_unsigned(y,1)) = line_odd_even then
+            report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
+            cv_x <= 0;
           end if;
           
           if y < (frame_height-1) then
