@@ -280,7 +280,7 @@ begin
           -- it will naturally alternate. Only if the frame is an even number
           -- of rasters do we need this correction -- like in NTSC.  But PAL
           -- has an odd number, so we need to make a smart selection here
-          if (frame_height mod 1) = 1 then
+          if (frame_height mod 2) = 1 then
             -- Frame has odd number of rasters, so will toggle naturally.
             if to_integer(to_unsigned(y,1)) = 0 then
               report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
