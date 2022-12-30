@@ -288,7 +288,8 @@ architecture greco_roman of pixel_driver is
   signal hsync_duration_counter : integer := 0;
   signal vsync_xpos : integer := 0;
   signal vsync_xpos_sub : integer := 0;
-  signal cv_vsync_row : integer := 0;
+  signal cv_vsync_row : integer range 0 to 8 := 0;
+  signal cv_sync_hsrc : std_logic;
 
   signal x_zero_last : std_logic := '0';
   signal y_zero_last : std_logic := '0';
@@ -304,8 +305,8 @@ architecture greco_roman of pixel_driver is
   
   -- 15KHz video VBLANK SYNC formats
   constant vsync_xpos_max : integer := 26;
-  type vblank_format_t is array(0 to 14) of std_logic_vector(vsync_xpos_max downto 0);
-  signal vblank_formats : vblank_format_t := (
+  type vblank_format_t is array(0 to 8) of std_logic_vector(vsync_xpos_max downto 0);
+  signal pal_vblanks : vblank_format_t := (
     -- 0 = sync active, i.e., signal low
     -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
     -- pieces, to allow easy assembly of complete rasters
@@ -314,27 +315,20 @@ architecture greco_roman of pixel_driver is
     -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
     -- width, and then life is simple.
     --  Top of field 1
-    "000000000000100000000000001",
-    "000000000000100000000000001",
-    "000000000000101111111111111",
-    "011111111111101111111111111",        
-    "011111111111101111111111111",
-    -- Bottom of field 1
     "011111111111101111111111111",
     "011111111111101111111111111",
-    -- Top of field 2
     "011111111111100000000000001",
     "000000000000100000000000001",
     "000000000000100000000000001",
+    "011111111111101111111111111",        
     "011111111111101111111111111",
     "011111111111101111111111111",
-    -- Bottom of field 2
-    "011111111111101111111111111",
-    "011111111111101111111111111",
-    "011111111111101111111111111"
+    -- Last line is dummy. Only the very first bit will be used, for half
+    -- a period.
+    "011111111111111111111111111"
     );
 
-  -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
+-- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
   -- 6 cycles duration
   -- We cycle through the first 3 values in this array. The 4th value is used
@@ -896,7 +890,9 @@ begin
 
       cv_vsync_last <= cv_vsync;
       -- Determine where we are in the VSYNC line
-      if cv_vsync = '1' then
+      -- XXX cv_vsync needs to start a couple of rasters early
+      -- to allow for the pre- long sync lines
+      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= 8)) then
         if vsync_xpos_sub < hsync_duration then
           vsync_xpos_sub <= vsync_xpos_sub + 1;
         else
@@ -905,24 +901,27 @@ begin
             vsync_xpos <= vsync_xpos + 1;
           else
             vsync_xpos <= 0;
-            if cv_vsync_row < 14 then
+            if cv_vsync_row < 8 then
               cv_vsync_row <= cv_vsync_row + 1;
             end if;
           end if;
         end if;
-        cv_sync <= not vblank_formats(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
-      else
-        cv_sync <= cv_hsync;
-      end if;
-      if cv_vsync = '0' and cv_vsync_last ='1' then
-        -- End of VSYNC
-        -- Get ready for the sequence of special VBLANK sync pulses
-        -- for the next VSYNC
-        if cv_field='0' then
-          cv_vsync_row <= 0;
+        if pal50_select_internal='1' then
+          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+        elsif vga60_select_internal='1' then
+          -- XXX VGA60
+          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
         else
-          cv_vsync_row <= 7;
+          -- XXX NTSC
+          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
         end if;
+
+        cv_sync_hsrc <= '0';        
+      else
+        cv_sync_hsrc <= '1';
+        cv_sync <= cv_hsync;
+        cv_vsync_row <= 0;
+        -- End of VSYNC
         vsync_xpos <= 0;
         vsync_xpos_sub <= 1;
       end if;
@@ -931,9 +930,6 @@ begin
         cv_vsync_counter <= 0;
         -- And update whether we are in the odd or even field
         cv_field <= not cv_field;
-        -- And note that we are at the start of a VSYNC raster
-        vsync_xpos <= 0;
-        vsync_xpos_sub <= 1;
       elsif vsync_uninverted_int = '1' then
         cv_vsync_counter <= cv_vsync_counter + 1;
       end if;
