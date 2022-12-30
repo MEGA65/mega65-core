@@ -725,10 +725,21 @@ begin
       if y_zero_int = '1' and y_zero_last='0' then
         report "Start of frame detected";
         -- Start of new frame -- toggle field_is_odd
-        if field_is_odd = 1 and interlace_mode='1' then
-          field_is_odd <= 0;
+        -- Interlace mode controls if we always show the same field or alternate
+        -- XXX mono_mode for debug currently selects which of those two fields
+        -- will be shown in non-interlace mode
+        if mono_mode='0' then
+          if field_is_odd = 1 and interlace_mode='1' then
+            field_is_odd <= 0;
+          else
+            field_is_odd <= 1;
+          end if;
         else
-          field_is_odd <= 1;
+          if field_is_odd = 0 and interlace_mode='1' then
+            field_is_odd <= 1;
+          else
+            field_is_odd <= 0;
+          end if;
         end if;
         raster_number <= to_unsigned(0,10);
       end if;
