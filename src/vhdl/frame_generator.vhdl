@@ -286,20 +286,14 @@ begin
           -- start of VSYNC, which is not at the start of the frame.
           -- (note that this formulation adds a 1 line delay to the odd/even switch
           -- which we take account of in the y < vsync_start equation).
+          --
+          -- When we are lucky, it all cancels out for us to be super simple.
           if (frame_height mod 2) = 1 then
             -- eg. PAL
-            if y < vsync_start then
-              line_odd_even <= field_is_odd;
-            else
-              line_odd_even <= 1 - field_is_odd;
-            end if;
+            line_odd_even <= field_is_odd;
           else
             -- eg. NTSC
-            if y < vsync_start then
-              line_odd_even <= field_is_odd;
-            else
-              line_odd_even <= 1 - field_is_odd;
-            end if;
+            line_odd_even <= field_is_odd;
           end if;
 
           if to_integer(to_unsigned(y,1)) = line_odd_even then

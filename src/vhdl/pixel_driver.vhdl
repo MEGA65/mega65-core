@@ -393,7 +393,7 @@ begin
                   -- raster lines.  This reduces our CPU 1MHz frequency error
                   -- from -486 Hz to +139 Hz
                   frame_width => 864 - 1,        
-                  frame_height => 625 - debug_height_reduction,        -- 312 lines x 2 fields
+                  frame_height => 625 - debug_height_reduction,        -- 312.5 lines x 2 fields
 
                   x_zero_position => 864-45,
                   
@@ -892,7 +892,7 @@ begin
       -- Determine where we are in the VSYNC line
       -- XXX cv_vsync needs to start a couple of rasters early
       -- to allow for the pre- long sync lines
-      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= 8)) then
+      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= (8 - field_is_odd))) then
         if vsync_xpos_sub < hsync_duration then
           vsync_xpos_sub <= vsync_xpos_sub + 1;
         else
