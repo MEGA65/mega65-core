@@ -292,12 +292,8 @@ begin
             -- eg. PAL
             line_odd_even <= field_is_odd;
           else
-            -- eg. NTSC
-            if y < vsync_start then
-              line_odd_even <= field_is_odd;
-            else
-              line_odd_even <= 1 - field_is_odd;
-            end if;
+            -- eg. NTSC : There are no unequal length fields here.
+            line_odd_even <= 0;
           end if;
 
           if to_integer(to_unsigned(y,1)) = line_odd_even then
