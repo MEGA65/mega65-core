@@ -293,7 +293,11 @@ begin
             line_odd_even <= field_is_odd;
           else
             -- eg. NTSC
-            line_odd_even <= field_is_odd;
+            if y < vsync_start then
+              line_odd_even <= field_is_odd;
+            else
+              line_odd_even <= 1 - field_is_odd;
+            end if;
           end if;
 
           if to_integer(to_unsigned(y,1)) = line_odd_even then

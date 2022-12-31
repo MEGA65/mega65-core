@@ -288,7 +288,7 @@ architecture greco_roman of pixel_driver is
   signal hsync_duration_counter : integer := 0;
   signal vsync_xpos : integer := 0;
   signal vsync_xpos_sub : integer := 0;
-  signal cv_vsync_row : integer range 0 to 8 := 0;
+  signal cv_vsync_row : integer range 0 to 10 := 0;
   signal cv_sync_hsrc : std_logic;
 
   signal x_zero_last : std_logic := '0';
@@ -304,8 +304,9 @@ architecture greco_roman of pixel_driver is
   signal time_since_last_pixel : integer range 0 to 1023 := 0;
   
   -- 15KHz video VBLANK SYNC formats
-  constant vsync_xpos_max : integer := 26;
-  type vblank_format_t is array(0 to 8) of std_logic_vector(vsync_xpos_max downto 0);
+  constant vsync_xpos_max : integer := 31;
+  type vblank_format_t is array(0 to 10) of std_logic_vector(vsync_xpos_max downto 0);
+  -- See "Video Demystified", p294
   signal pal_vblanks : vblank_format_t := (
     -- 0 = sync active, i.e., signal low
     -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
@@ -315,19 +316,68 @@ architecture greco_roman of pixel_driver is
     -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
     -- width, and then life is simple.
     --  Top of field 1
-    "011111111111101111111111111",
-    "011111111111101111111111111",
-    "011111111111100000000000001",
-    "000000000000100000000000001",
-    "000000000000100000000000001",
-    "011111111111101111111111111",        
-    "011111111111101111111111111",
-    "011111111111101111111111111",
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    "01111111111111110000000000000001",
+    "00000000000000010000000000000001",
+    "00000000000000010000000000000001",
+    "01111111111111110111111111111111",        
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
     -- Last line is dummy. Only the very first bit will be used, for half
     -- a period.
-    "011111111111111111111111111"
+    "01111111111111111111111111111111",
+    -- Unused for PAL
+    "11111111111111111111111111111111",
+    "11111111111111111111111111111111"
     );
 
+  -- See "Video Demystified", p272
+  signal ntsc_even_vblanks : vblank_format_t := (
+    -- NTSC is simpler with a 6:6:6 pattern, that just gets the last
+    -- half cut off for the 2nd field
+
+    -- Remember that HSYNC in MEGA65 notation occurs at the _end_ rather than
+    -- start of a raster. This means we need to count off the rest of the
+    -- raster from HSYNC to end of active area of the following raster, to get
+    -- things lined up for how NTSC video thinks about it.
+    -- That means inserting 14x 1 at the start.
+
+    "11111111111111111111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111111",
+    "00000000000000100000000000000010",
+    "00000000000000100000000000000010",
+    "00000000000000100000000000000010",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    -- Last line is dummy. Only the very first bit will be used, for half
+    -- a period.
+    "11111111111111111111111111111111"
+    );
+
+  signal ntsc_odd_vblanks : vblank_format_t := (
+    -- NTSC is simpler with a 6:6:6 pattern, that just gets the last
+    -- half cut off for the 2nd field
+    "10000000000000000111111111111111",
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    "01111111111111110000000000000001",
+    "00000000000000010000000000000001",
+    "00000000000000010000000000000001",
+    "00000000000000010111111111111111",        
+    "01111111111111110111111111111111",
+    "01111111111111110111111111111111",
+    -- Last line is dummy. Only the very first bit will be used, for half
+    -- a period.
+    "11111111111111111111111111111111",
+    "11111111111111111111111111111111"
+    );
+
+  signal ntsc_adjust : integer range 0 to 2 := 0;
+  
 -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
   -- 6 cycles duration
@@ -722,6 +772,16 @@ begin
 
     if rising_edge(clock81) then
 
+      if pal50_select_internal='0' then
+        if field_is_odd=0 then
+          ntsc_adjust <= 2;
+        else
+          ntsc_adjust <= 2;
+        end if;
+      else
+        ntsc_adjust <= 0;
+      end if;
+      
 --  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
 --    & std_logic'image(pixel_strobe_vga60) & ", " 
 --    & std_logic'image(pixel_strobe_60);
@@ -873,36 +933,50 @@ begin
       -- Determine width of 31KHz HSYNC pulses to use as timing aid for
       -- 15KHz short and long sync pulses
       if hsync_uninverted_int = '1' then
-        hsync_duration_counter <= hsync_duration_counter + 1;
-
         -- Also reset write address for 31KHz to 15KHz pixel buffer
         raster15khz_waddr <= 0;
         if raster15khz_waddr /= 0 then
           -- Also toggle whether we are recording this raster or not.
           raster15khz_active_raster <= not raster15khz_active_raster;
         end if;
-      elsif hsync_duration_counter /= 0 then
-        hsync_duration_counter <= 0;
-        -- The minus 2 adjustment makes sure the last pulse isn't cut short.
-        -- I haven't investigated why this is actually necessary.
-        hsync_duration <= hsync_duration_counter - 2;
       end if;
 
       cv_vsync_last <= cv_vsync;
       -- Determine where we are in the VSYNC line
       -- XXX cv_vsync needs to start a couple of rasters early
       -- to allow for the pre- long sync lines
-      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= (8 - field_is_odd))) then
-        if vsync_xpos_sub < hsync_duration then
-          vsync_xpos_sub <= vsync_xpos_sub + 1;
-        else
-          vsync_xpos_sub <= 1;
-          if vsync_xpos /= vsync_xpos_max then
-            vsync_xpos <= vsync_xpos + 1;
+      -- PAL uses 8 rasters for the VSYNC train, while NTSC uses 9
+      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= (8 + ntsc_adjust - field_is_odd))) then
+        if pal50_select_internal='1' then
+          if vsync_xpos_sub < (54*3-1) then
+            vsync_xpos_sub <= vsync_xpos_sub + 1;
           else
-            vsync_xpos <= 0;
-            if cv_vsync_row < 8 then
-              cv_vsync_row <= cv_vsync_row + 1;
+            vsync_xpos_sub <= 0;
+            if vsync_xpos /= vsync_xpos_max then
+              vsync_xpos <= vsync_xpos + 1;
+            else
+              vsync_xpos <= 0;
+              if cv_vsync_row < 10 then
+                cv_vsync_row <= cv_vsync_row + 1;
+              end if;
+            end if;
+          end if;
+        else
+          -- NTSC : lines 858 cycles long. 858 / 16 = 53.625
+          -- We are clocked at 81 rather than 27MHz, so multiply
+          -- by 3.
+          -- Multiply by 8 to get 429
+          if vsync_xpos_sub < (429*3-8) then
+            vsync_xpos_sub <= vsync_xpos_sub + 8;
+          else
+            vsync_xpos_sub <= vsync_xpos_sub - (429*3 - 8);
+            if vsync_xpos /= vsync_xpos_max then
+              vsync_xpos <= vsync_xpos + 1;
+            else
+              vsync_xpos <= 0;
+              if cv_vsync_row < 10 then
+                cv_vsync_row <= cv_vsync_row + 1;
+              end if;
             end if;
           end if;
         end if;
@@ -913,7 +987,16 @@ begin
           cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
         else
           -- XXX NTSC
-          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          if field_is_odd=1 then
+            cv_sync <= not ntsc_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+            -- Abort last NTSC VSYNC line in odd field early, so that we get
+            -- the correct signal timing
+            if (cv_vsync_row = 8) and (vsync_xpos = 11) then
+              cv_vsync_row <= 0;
+            end if;
+          else
+            cv_sync <= not ntsc_even_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          end if;
         end if;
 
         cv_sync_hsrc <= '0';        
@@ -923,7 +1006,12 @@ begin
         cv_vsync_row <= 0;
         -- End of VSYNC
         vsync_xpos <= 0;
-        vsync_xpos_sub <= 1;
+        if pal50_select_internal='0' then
+          -- Correct phase difference of VSYNC pulse train
+          vsync_xpos_sub <= 288;
+        else
+          vsync_xpos_sub <= 0;
+        end if;
       end if;
       if cv_vsync = '1' and cv_vsync_last ='0' then
         -- Start of VSYNC
@@ -952,9 +1040,7 @@ begin
         -- Clear 15KHz VSYNC, not until cv_hsync is going (or already) low
         -- (either can be the case, depending whether we are in the odd or
         -- even field, and PAL or NTSC).
-        if ( (cv_hsync_pal50='0') and (pal50_select_internal='1') )
-          or ( (cv_hsync_vga60='0') and (vga60_select_internal='1') )
-          or ( (cv_hsync_ntsc60='0') and (pal50_select_internal='0')) then
+        if cv_hsync='0' then
           cv_vsync <= '0';
         end if;
       end if;
