@@ -379,7 +379,8 @@ architecture Behavioral of container is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
-  signal pal50 : std_logic := '0';
+  signal test_pattern_enable : std_logic := '1';
+  signal pal50 : std_logic := '1';
   signal vga60 : std_logic := '0';
     
   signal pattern_r : unsigned(7 downto 0);
@@ -808,14 +809,13 @@ begin
       vsync_invert => one,
       pal50_select => pal50,
       vga60_select => vga60,
-      test_pattern_enable => '1',
+      test_pattern_enable => test_pattern_enable,
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
       y_zero => y_zero,     
 
-      -- Pixel data from the video pipeline
-      -- (clocked at 100MHz pixel clock)
+      -- Show simple purple screen when test pattern is off
       red_i => to_unsigned(255,8),
       green_i => to_unsigned(0,8),
       blue_i => to_unsigned(255,8),
@@ -905,6 +905,16 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
+      if ascii_key_valid='1' then
+        case ascii_key is
+          when x"31" => pal50 <= '1';
+          when x"32" => pal50 <= '0';
+          when x"33" => test_pattern_enable <= '1';
+          when x"34" => test_pattern_enable <= '0';
+          when others => null;
+        end case;        
+      end if;                        
+      
       dvi_select <= portp(1) xor dipsw(1);
       
 --      reset_high <= not btncpureset;
