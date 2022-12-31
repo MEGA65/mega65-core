@@ -2567,7 +2567,7 @@ begin
           -- @IO:C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
           reg_h1280 <= fastio_wdata(2);
           -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO composite video output (colour if disabled)
-          reg_mono <= fastio_wdata(0);
+          reg_mono <= fastio_wdata(1);
           -- @IO:C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
           -- Auto-enable interlace mode when selecting V400 (unless in
           -- hypervisor, in which case we want to be able to unfreeze this
