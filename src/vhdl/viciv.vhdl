@@ -2569,7 +2569,14 @@ begin
           -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO composite video output (colour if disabled)
           reg_mono <= fastio_wdata(0);
           -- @IO:C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
-          reg_interlace <= fastio_wdata(0);
+          -- Auto-enable interlace mode when selecting V400 (unless in
+          -- hypervisor, in which case we want to be able to unfreeze this
+          -- register without side-effects)
+          if reg_v400='0' and fastio_wdata(3)='1' and hypervisor_mode='0' then
+            reg_interlace <= '1';
+          else
+            reg_interlace <= fastio_wdata(0);
+          end if;
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;
