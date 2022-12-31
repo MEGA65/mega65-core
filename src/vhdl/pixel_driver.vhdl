@@ -349,7 +349,21 @@ architecture greco_roman of pixel_driver is
     "01111111111111111111111111111111",
     "11111111111111111111111111111111"
     );
+  signal pal_progressive_vblanks : vblank_format_t := (
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111000000000000000001",
+    "00000000000001000000000000000100",
+    "00000000000001000000000000000101",
+    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111100",
+    "11111111111111111111111111111111",
+    "11111111111111111111111111111111",
+    "11111111111111111111111111111111"
+    );
 
+  
   -- See "Video Demystified", p272
   signal ntsc_even_vblanks : vblank_format_t := (
     -- NTSC is simpler with a 6:6:6 pattern, that just gets the last
@@ -394,7 +408,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111111111111111111111"
     );
 
-  signal vblank_train_len_adjust : integer range 0 to 2 := 0;
+  signal vblank_train_len_adjust : integer range 0 to 3 := 0;
   
 -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
@@ -460,7 +474,13 @@ begin
                   -- XXX To match C64 timing, we have to very slightly trim the
                   -- raster lines.  This reduces our CPU 1MHz frequency error
                   -- from -486 Hz to +139 Hz
-                  frame_width => 864 - 1,        
+--       frame_width => 864 - 1,
+      -- The frame_width trim is now handled in the frame generator:
+      -- In fake progressive mode, there is 624 rather than 625 rasters, which
+      -- are 864 wide. In interlace mode to keep timing when we add the single
+      -- extra raster, we trim the frame width by one tick
+      frame_width => 864,
+      
                   frame_height => 625 - debug_height_reduction,        -- 312.5 lines x 2 fields
 
                   x_zero_position => 864-45,
@@ -503,6 +523,8 @@ begin
                vsync_polarity => vsync_invert,
 
                field_is_odd => field_is_odd,
+
+               interlace_enable => interlace_mode,
                
                cv_hsync => cv_hsync_pal50,
                
@@ -576,6 +598,7 @@ begin
 
                cv_hsync => cv_hsync_ntsc60,
                field_is_odd => field_is_odd,
+               interlace_enable => interlace_mode,
                
                phi2_1mhz_out => phi2_1mhz_ntsc60,
                phi2_2mhz_out => phi2_2mhz_ntsc60,
@@ -650,6 +673,7 @@ begin
 
                cv_hsync => cv_hsync_vga60,
                field_is_odd => field_is_odd,
+               interlace_enable => interlace_mode,
 
                phi2_1mhz_out => phi2_1mhz_vga60,
                phi2_2mhz_out => phi2_2mhz_vga60,
@@ -796,13 +820,17 @@ begin
 
       if pal50_select_internal='0' then
         if field_is_odd=0 then
-          vblank_train_len_adjust <= 2;
+          vblank_train_len_adjust <= 3;
         else
-          vblank_train_len_adjust <= 2;
+          vblank_train_len_adjust <= 3;
         end if;
       else
-        if field_is_odd=0 then
-          vblank_train_len_adjust <= 1;
+        if interlace_mode='1' then
+          if field_is_odd=0 then
+            vblank_train_len_adjust <= 2;
+          else
+            vblank_train_len_adjust <= 1;
+          end if;
         else
           vblank_train_len_adjust <= 0;
         end if;
@@ -972,7 +1000,7 @@ begin
       -- XXX cv_vsync needs to start a couple of rasters early
       -- to allow for the pre- long sync lines
       -- PAL uses 8 rasters for the VSYNC train, while NTSC uses 9
-      if (cv_vsync = '1') or ( (cv_vsync_row > 0) and (cv_vsync_row /= (8 + vblank_train_len_adjust) ) ) then
+      if (cv_vsync = '1') or ( (cv_vsync_row > 0) and (cv_vsync_row /= (7 + vblank_train_len_adjust) ) ) then
         if pal50_select_internal='1' then
           -- PAL : Lines 863 cycles long. 863 / 16 = 56.something
           -- multiply by 16, since no lower common divisor
@@ -989,7 +1017,7 @@ begin
                 cv_vsync_row <= cv_vsync_row + 1;
               end if;
             end if;
-          end if;
+          end if;          
         else
           -- NTSC : lines 858 cycles long. 858 / 16 = 53.625
           -- We are clocked at 81 rather than 27MHz, so multiply
@@ -1011,10 +1039,14 @@ begin
         end if;
         if pal50_select_internal='1' then
           -- PAL
-          if field_is_odd=1 then
-            cv_sync <= not pal_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          if interlace_mode='0' then
+              cv_sync <= not pal_progressive_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
           else
-            cv_sync <= not pal_even_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+            if field_is_odd=1 then
+              cv_sync <= not pal_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+            else
+              cv_sync <= not pal_even_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+            end if;
           end if;
         elsif vga60_select_internal='1' then
           -- XXX VGA60 -- not tested

@@ -62,6 +62,8 @@ entity frame_generator is
     clock81 : in std_logic;
     -- CPU clock is used for exporting the PHI2 clock
     clock41 : in std_logic;
+
+    interlace_enable : in std_logic := '0';
     
     -- CPU clock oriented signal that strobes for each CPU tick
     phi2_1mhz_out : out std_logic;  
@@ -225,7 +227,12 @@ begin
       cv_pixel_strobe <= '0';
       cv_pixel_strobe_int <= '0';
       if cv_pixel_strobe_int='1' then
-        if cv_x < (frame_width-1) then
+      -- In fake progressive mode, there is 624 rather than 625 rasters, which
+      -- are 864 wide. In interlace mode to keep timing when we add the single
+      -- extra raster, we trim the frame width by one tick
+        if (interlace_enable='1') and cv_x < (frame_width-1) then
+          cv_x <= cv_x + 1;
+        elsif (interlace_enable='0') and cv_x < (frame_width-1-(frame_height mod 2)) then
           cv_x <= cv_x + 1;
         else
           cv_x <= 0;
@@ -288,7 +295,7 @@ begin
           -- which we take account of in the y < vsync_start equation).
           --
           -- When we are lucky, it all cancels out for us to be super simple.
-          if (frame_height mod 2) = 1 then
+          if ((frame_height mod 2) = 1) and (interlace_enable='1') then
             -- eg. PAL
             line_odd_even <= field_is_odd;
           else
@@ -301,7 +308,12 @@ begin
             cv_x <= 0;
           end if;
           
-          if y < (frame_height-1) then
+          if (y < (frame_height-1)) and interlace_enable='1' then
+            y <= y + 1;
+            y_zero_driver <= '0';
+          elsif (y < (frame_height-1-(frame_height mod 2))) and interlace_enable='0' then
+            -- Fake progressive mode requires that the frame be a whole number
+            -- of composite video rasters.
             y <= y + 1;
             y_zero_driver <= '0';
           else

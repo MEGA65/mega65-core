@@ -53,6 +53,9 @@ architecture tb of tb_pixel_driver is
   signal v0 : std_logic := '0';
   signal h1 : std_logic := '0';
   signal v1 : std_logic := '0';
+
+  signal interlace_mode : std_logic := '1';
+  signal mono_mode : std_logic := '0';
   
 begin
 
@@ -70,7 +73,10 @@ begin
                phi_2mhz_out => phi_2mhz,
                phi_3mhz_out => phi_3mhz,
 
-      pixel_strobe_out => external_pixel_strobe,
+               pixel_strobe_out => external_pixel_strobe,
+
+               interlace_mode => interlace_mode,
+               mono_mode => mono_mode,
       
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
@@ -180,6 +186,7 @@ begin
 
         test_pattern_enable <= '1';
         pal50_select <= '1';
+        interlace_mode <= '0';
         
 --        for i in 1 to 1_640_000 loop
         for i in 1 to 700_000 loop
