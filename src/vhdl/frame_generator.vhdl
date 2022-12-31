@@ -412,6 +412,24 @@ begin
             blue_o <= x"00";
             nblue_o <= x"00";
           end if;
+          -- Vertical grey and RGB transitions for checking DAC linearity
+          if x > 512 and x < 540 then
+            red_o <= to_unsigned(y,8);
+            green_o <= to_unsigned(y,8);
+            blue_o <= to_unsigned(y,8);
+          elsif x > 539 and x < 572 then
+            red_o <= to_unsigned(y,8);
+            green_o <= (others => '0');
+            blue_o <= (others => '0');
+          elsif x > 571 and x < 604 then
+            red_o <= (others => '0');
+            green_o <= to_unsigned(y,8);
+            blue_o <= (others => '0');
+          elsif x > 603 and x < 636 then
+            red_o <= (others => '0');
+            green_o <= (others => '0');
+            blue_o <= to_unsigned(y,8);
+          end if;
         end if;
         
         -- Draw white edge on frame
