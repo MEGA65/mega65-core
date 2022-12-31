@@ -186,7 +186,7 @@ begin
 
         test_pattern_enable <= '1';
         pal50_select <= '1';
-        interlace_mode <= '0';
+        interlace_mode <= '1';
         
 --        for i in 1 to 1_640_000 loop
         for i in 1 to 700_000 loop

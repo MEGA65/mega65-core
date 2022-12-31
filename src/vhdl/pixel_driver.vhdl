@@ -323,7 +323,7 @@ architecture greco_roman of pixel_driver is
     "00000000000001000000000000000100",
     "00000000000001000000000000000101",
     "11111111111111011111111111111101",        
-    "11111111111111011111111111111101",
+    "11111111111111011111111111111100",
     "11111111111111011111111111111111",
     "01111111111111111111111111111111",
     "11111111111111111111111111111111"
@@ -827,7 +827,7 @@ begin
       else
         if interlace_mode='1' then
           if field_is_odd=0 then
-            vblank_train_len_adjust <= 2;
+            vblank_train_len_adjust <= 1;
           else
             vblank_train_len_adjust <= 1;
           end if;
