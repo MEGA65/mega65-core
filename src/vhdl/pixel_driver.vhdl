@@ -284,8 +284,6 @@ architecture greco_roman of pixel_driver is
   signal cv_field : std_logic := '0';
   signal hsync_uninverted_int : std_logic := '0';
   signal hsync_uninverted_last : std_logic := '0';
-  signal hsync_duration : integer := 64*3;
-  signal hsync_duration_counter : integer := 0;
   signal vsync_xpos : integer := 0;
   signal vsync_xpos_sub : integer := 0;
   signal cv_vsync_row : integer range 0 to 10 := 0;
@@ -408,6 +406,16 @@ architecture greco_roman of pixel_driver is
     "11111111111111111111111111111111"
     );
 
+  constant pal_colour_phase_add_sub : unsigned(31 downto 0) := x"032E43BA";
+  constant pal_colour_phase_add : unsigned(7 downto 0) := x"0e";
+  constant ntsc_colour_phase_add_sub : unsigned(31 downto 0) := x"4D62D0F8";
+  constant ntsc_colour_phase_add : unsigned(7 downto 0) := x"0b";
+
+  signal pal_colour_phase : unsigned(7 downto 0) := x"00";
+  signal pal_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
+  signal ntsc_colour_phase : unsigned(7 downto 0) := x"00";
+  signal ntsc_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
+  
   signal vblank_train_len_adjust : integer range 0 to 3 := 0;
   
 -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
@@ -818,6 +826,12 @@ begin
 
     if rising_edge(clock81) then
 
+      -- Generate PAL and NTSC colour carrier phase
+      pal_colour_phase <= pal_colour_phase + pal_colour_phase_add + to_integer(pal_colour_phase_sub(32 downto 32));
+      pal_colour_phase_sub <= ("0"&pal_colour_phase_sub(31 downto 0)) + ("0"&pal_colour_phase_add_sub);
+      ntsc_colour_phase <= ntsc_colour_phase + ntsc_colour_phase_add + to_integer(ntsc_colour_phase_sub(32 downto 32));
+      ntsc_colour_phase_sub <= ("0"&ntsc_colour_phase_sub(31 downto 0)) + ("0"&ntsc_colour_phase_add_sub);
+      
       if pal50_select_internal='0' then
         if field_is_odd=0 then
           vblank_train_len_adjust <= 3;
@@ -1148,18 +1162,55 @@ begin
       -- the SYNC signal. This means that the bottom 80 values are used for that,
       -- leaving 256 - 80 = 176 for the full dynamic range.
       -- This means that we need the Y value to be in the range 0 to 175.
-      -- This means we scale the Y value by x0.686.  This results in revised Y
-      -- formula of:
-      -- Y = 0.21R + 0.40G + 0.08B
+      --
+      -- Actually, we also need to allow for headroom for colour modulation, too.
+      -- And NTSC has a higher black level, which trims it further for NTSC.
+      --
+      -- Allowing for +37 maximum colour amplitude, this reduces our available
+      -- range to 176 - 37 = 139 for PAL, and 176 - 14 (increased black level)
+      -- - 37 = 125 for NTSC.
+      --
+      -- This means we scale the Y value by x0.543 for PAL and x0.488 for NTSC.
+      -- This results in revised Y formulas of:
+      --
+      -- PAL:
+      -- Y = 0.163R + 0.32G + 0.06B
       -- Scaled up x256, this means:
-      -- Y = 52R + 103G + 19B
-      -- This gets a maximum Y of 174, which is close enough to 175.
-      px_luma <=
-        to_unsigned(80*256,16) -- sync offset
-        + ("0000" & cv_red&"0000") + ("000000" & cv_red&"00") + ("00000000" & cv_red)
-        + ("0" & cv_green&"0000000") - ("0000" & cv_green&"0000") - ("00000" & cv_green&"000")
-        + ("0000" & cv_blue&"0000") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
-        ;
+      -- Y = 42R + 82G + 15B
+      -- This gets a maximum Y of exactly 139.
+      --
+      -- NTSC:
+      -- Y = 0.146R + 0.288G + 0.05B
+      -- Scaled up x256, this means:
+      -- Y = 37R + 74G + 14B
+      -- This gets a maximum Y of exactly 125.
+      --
+      -- To save hardware, we calculate these values using shifts
+      if pal50_select_internal='1' then
+        -- Black level of PAL is at the sync level, which is ~30%
+        px_luma <=
+          to_unsigned(80*256,16) -- sync offset
+          -- 42 = 0101010
+          + ("000" & cv_red&"00000") + ("00000" & cv_red&"000") + ("0000000" & cv_red & "0")
+          -- 82 = 1010010
+          + ("00" & cv_green&"000000") + ("0000" & cv_green&"0000") + ("0000000" & cv_green&"0")
+          -- 15 = 0001111
+          + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
+          ;
+      else
+        -- Black level of NTSC is 7.5/140 = 5.4% above sync level
+        -- Thus we have to use a slightly compacted luminance range compared
+        -- with PAL, to keep below the limit.
+        px_luma <=
+          to_unsigned(93*256,16) -- sync offset
+          -- 37 = 0100101
+          + ("000" & cv_red&"00000") + ("000000" & cv_red&"00") + ("00000000" & cv_red)
+          -- 74 = 1001010
+          + ("0" & cv_green&"0000000") + ("00000" & cv_green&"000") + ("0000000" & cv_green&"0")
+          -- 14 = 0001110
+          + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0")
+          ;
+      end if;
 
       -- Generate half-rate composite video pixel toggle
       cv_pixel_strobe <= cv_pixel_toggle;
