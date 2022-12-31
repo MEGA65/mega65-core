@@ -379,6 +379,7 @@ architecture greco_roman of pixel_driver is
   signal ntsc_odd_vblanks : vblank_format_t := (
     -- NTSC is simpler with a 6:6:6 pattern, that just gets the last
     -- half cut off for the 2nd field
+    "11111111111111111111111111111100",
     "11111111111111011111111111111101",
     "11111111111111011111111111111101",
     "11111111111111011111111111111101",
@@ -390,7 +391,6 @@ architecture greco_roman of pixel_driver is
     "11111111111111011111111111111100",
     -- Last line is dummy. Only the very first bit will be used, for half
     -- a period.
-    "11111111111111111111111111111111",
     "11111111111111111111111111111111"
     );
 
@@ -588,6 +588,10 @@ begin
                narrow_dataenable => narrow_dataenable_ntsc60,
                lcd_inletterbox => lcd_inletterbox_ntsc60,
                vga_inletterbox => vga_inletterbox_ntsc60,
+
+               red_o => test_pattern_red60,
+               green_o => test_pattern_green60,
+               blue_o => test_pattern_blue60,
 
                vga_blank => vga_blank_ntsc60,
                
@@ -1206,8 +1210,7 @@ begin
         -- composite output
         raster15khz_wdata(7 downto 0) <= red_i;
         raster15khz_wdata(15 downto 8) <= green_i;
---              raster15khz_wdata(23 downto 16) <= blue_i;
-        raster15khz_wdata(23 downto 16) <= to_unsigned(raster15khz_waddr,8);
+        raster15khz_wdata(23 downto 16) <= blue_i;
 
         time_since_last_pixel <= 0;        
       end if;
