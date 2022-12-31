@@ -337,7 +337,7 @@ architecture greco_roman of pixel_driver is
     -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
     -- width, and then life is simple.
     --  Top of field 1
-    "11111111111111111111111111111101",
+    "11111111111111001111111111111101",
     "11111111111111011111111111111101",
     "11111111111111011111111111111101",
     "11111111111111000000000000000100",
@@ -974,12 +974,15 @@ begin
       -- PAL uses 8 rasters for the VSYNC train, while NTSC uses 9
       if (cv_vsync = '1') or ( (cv_vsync_row > 0) and (cv_vsync_row /= (8 + vblank_train_len_adjust) ) ) then
         if pal50_select_internal='1' then
-          if vsync_xpos_sub < (863*3*16-1) then
-            vsync_xpos_sub <= vsync_xpos_sub + 1;
+          -- PAL : Lines 863 cycles long. 863 / 16 = 56.something
+          -- multiply by 16, since no lower common divisor
+          -- But we need to fudge things a little for some reason, so use 868
+          if vsync_xpos_sub < (858*3-1) then
+            vsync_xpos_sub <= vsync_xpos_sub + 16;
           else
-            vsync_xpos_sub <= vsync_xpos_sub - (863*3*16);
+            vsync_xpos_sub <= vsync_xpos_sub - (858*3-1);
             if vsync_xpos /= vsync_xpos_max then
-              vsync_xpos <= vsync_xpos + 16;
+              vsync_xpos <= vsync_xpos + 1;
             else
               vsync_xpos <= 0;
               if cv_vsync_row < 10 then
@@ -1034,11 +1037,13 @@ begin
         cv_vsync_row <= 0;
         -- End of VSYNC
         vsync_xpos <= 0;
+        -- Correct phase difference of VSYNC pulse train
         if pal50_select_internal='0' then
-          -- Correct phase difference of VSYNC pulse train
+          -- NTSC
           vsync_xpos_sub <= 288;
         else
-          vsync_xpos_sub <= 1120;
+          -- PAL
+          vsync_xpos_sub <= 990;
         end if;
       end if;
       if cv_vsync = '1' and cv_vsync_last ='0' then
