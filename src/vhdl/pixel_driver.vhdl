@@ -307,7 +307,7 @@ architecture greco_roman of pixel_driver is
   constant vsync_xpos_max : integer := 31;
   type vblank_format_t is array(0 to 10) of std_logic_vector(vsync_xpos_max downto 0);
   -- See "Video Demystified", p294
-  signal pal_vblanks : vblank_format_t := (
+  signal pal_odd_vblanks : vblank_format_t := (
     -- 0 = sync active, i.e., signal low
     -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
     -- pieces, to allow easy assembly of complete rasters
@@ -316,19 +316,37 @@ architecture greco_roman of pixel_driver is
     -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
     -- width, and then life is simple.
     --  Top of field 1
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111",
-    "01111111111111110000000000000001",
-    "00000000000000010000000000000001",
-    "00000000000000010000000000000001",
-    "01111111111111110111111111111111",        
-    "01111111111111110111111111111111",
-    "01111111111111110111111111111111",
-    -- Last line is dummy. Only the very first bit will be used, for half
-    -- a period.
+    "11111111111111001111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111000000000000000100",
+    "00000000000001000000000000000100",
+    "00000000000001000000000000000101",
+    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111111",
     "01111111111111111111111111111111",
-    -- Unused for PAL
-    "11111111111111111111111111111111",
+    "11111111111111111111111111111111"
+    );
+  signal pal_even_vblanks : vblank_format_t := (
+    -- 0 = sync active, i.e., signal low
+    -- Divided into 2usec, 28usec, 2usec, 2usec, 28usec, 2usec
+    -- pieces, to allow easy assembly of complete rasters
+    -- (actually handled as 31KHz HSYNC width x1, x14, x1, x1, x14, 1,
+    -- so that the frame formats can be varied, and it will just follow suit)
+    -- In fact, why don't we just make the arrays 32 bits wide, 1 bit per HSYNC
+    -- width, and then life is simple.
+    --  Top of field 1
+    "11111111111111111111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111101",
+    "11111111111111000000000000000100",
+    "00000000000001000000000000000100",
+    "00000000000001000000000000000101",
+    "11111111111111011111111111111101",        
+    "11111111111111011111111111111101",
+    "11111111111111011111111111111111",
+    "01111111111111111111111111111111",
     "11111111111111111111111111111111"
     );
 
@@ -376,7 +394,7 @@ architecture greco_roman of pixel_driver is
     "11111111111111111111111111111111"
     );
 
-  signal ntsc_adjust : integer range 0 to 2 := 0;
+  signal vblank_train_len_adjust : integer range 0 to 2 := 0;
   
 -- Composite pixels have to be 5 1/3 cycles wide at 81MHz to fit the 720H into
   -- the time of 640 x 13.5MHz pixels. We do this by alternating between 5 and
@@ -774,12 +792,16 @@ begin
 
       if pal50_select_internal='0' then
         if field_is_odd=0 then
-          ntsc_adjust <= 2;
+          vblank_train_len_adjust <= 2;
         else
-          ntsc_adjust <= 2;
+          vblank_train_len_adjust <= 2;
         end if;
       else
-        ntsc_adjust <= 0;
+        if field_is_odd=0 then
+          vblank_train_len_adjust <= 1;
+        else
+          vblank_train_len_adjust <= 0;
+        end if;
       end if;
       
 --  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
@@ -946,14 +968,14 @@ begin
       -- XXX cv_vsync needs to start a couple of rasters early
       -- to allow for the pre- long sync lines
       -- PAL uses 8 rasters for the VSYNC train, while NTSC uses 9
-      if (cv_vsync = '1') or ((cv_vsync_row > 0) and (cv_vsync_row /= (8 + ntsc_adjust - field_is_odd))) then
+      if (cv_vsync = '1') or ( (cv_vsync_row > 0) and (cv_vsync_row /= (8 + vblank_train_len_adjust) ) ) then
         if pal50_select_internal='1' then
-          if vsync_xpos_sub < (54*3-1) then
+          if vsync_xpos_sub < (863*3*16-1) then
             vsync_xpos_sub <= vsync_xpos_sub + 1;
           else
-            vsync_xpos_sub <= 0;
+            vsync_xpos_sub <= vsync_xpos_sub - (863*3*16);
             if vsync_xpos /= vsync_xpos_max then
-              vsync_xpos <= vsync_xpos + 1;
+              vsync_xpos <= vsync_xpos + 16;
             else
               vsync_xpos <= 0;
               if cv_vsync_row < 10 then
@@ -981,12 +1003,17 @@ begin
           end if;
         end if;
         if pal50_select_internal='1' then
-          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          -- PAL
+          if field_is_odd=1 then
+            cv_sync <= not pal_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          else
+            cv_sync <= not pal_even_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          end if;
         elsif vga60_select_internal='1' then
-          -- XXX VGA60
-          cv_sync <= not pal_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
+          -- XXX VGA60 -- not tested
+          cv_sync <= not pal_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
         else
-          -- XXX NTSC
+          -- NTSC
           if field_is_odd=1 then
             cv_sync <= not ntsc_odd_vblanks(cv_vsync_row)(vsync_xpos_max - vsync_xpos);
             -- Abort last NTSC VSYNC line in odd field early, so that we get
@@ -1007,7 +1034,7 @@ begin
           -- Correct phase difference of VSYNC pulse train
           vsync_xpos_sub <= 288;
         else
-          vsync_xpos_sub <= 0;
+          vsync_xpos_sub <= 1120;
         end if;
       end if;
       if cv_vsync = '1' and cv_vsync_last ='0' then

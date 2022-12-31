@@ -379,7 +379,7 @@ architecture Behavioral of container is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
-  signal pal50 : std_logic := '1';
+  signal pal50 : std_logic := '0';
   signal vga60 : std_logic := '0';
     
   signal pattern_r : unsigned(7 downto 0);
