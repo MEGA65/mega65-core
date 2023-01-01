@@ -430,7 +430,7 @@ architecture greco_roman of pixel_driver is
   signal ntsc_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
 
   -- XXX Toggle between 135 and 225 each raster line
-  signal pal_phase_offset : integer range 0 to 255 := 135;
+  signal pal_phase_offset : integer range 0 to 255 := 225;
   signal pal_v_invert : integer range 0 to 128 := 0;
   
   signal colour_burst_mask : std_logic := '1';
@@ -973,11 +973,12 @@ begin
         pixel_num <= 3;
 
         -- Implement the Phase Alternation that gives PAL its name
-        if pal_phase_offset = 135 then
-          pal_phase_offset <= 225;
+        -- XXX Why do we need to add 64 to get the colour spaces right?
+        if pal_phase_offset = 135+64 then
+          pal_phase_offset <= (225+64) mod 256;
           pal_v_invert <= 0;
         else
-          pal_phase_offset <= 135;
+          pal_phase_offset <= 135+64;
           pal_v_invert <= 128;
         end if;
         
@@ -1228,7 +1229,7 @@ begin
       -- either 135 or 225 degress (96 or 160 hexadegrees).
       if pal50_select_internal='1' then
         colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset + debug_offset_u) mod 256;
-        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset + pal_v_invert + debug_offset_v) mod 256;
+        colour_phase_cosine := (to_integer(pal_colour_phase) + pal_phase_offset + 64 + pal_v_invert + debug_offset_v) mod 256;
       else
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
