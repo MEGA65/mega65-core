@@ -242,8 +242,11 @@ architecture greco_roman of pixel_driver is
   constant cv_vsync_delay : integer := 3;
   signal cv_vsync_counter : integer := 0;
   signal cv_vsync_extend : integer := 0;
-  signal px_chroma : integer range 0 to 255 := 0;
+  signal chroma_drive : unsigned(15 downto 0);
   signal px_luma : unsigned(15 downto 0);
+  signal luma_drive : unsigned(7 downto 0);
+  signal px_u : unsigned(15 downto 0);
+  signal px_v : unsigned(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
   signal cv_green : unsigned(7 downto 0);
   signal cv_blue : unsigned(7 downto 0);
@@ -415,6 +418,13 @@ architecture greco_roman of pixel_driver is
   signal pal_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
   signal ntsc_colour_phase : unsigned(7 downto 0) := x"00";
   signal ntsc_colour_phase_sub : unsigned(32 downto 0) := (others => '0');
+
+  -- XXX Toggle between 135 and 225 each raster line
+  signal pal_phase_offset : integer range 0 to 255 := 135;
+  
+  signal colour_burst_mask : std_logic := '1';
+  signal colour_burst_en : std_logic := '0';
+  signal colour_burst_start_neg : std_logic := '0';
   
   signal vblank_train_len_adjust : integer range 0 to 3 := 0;
   
@@ -822,6 +832,8 @@ begin
                       else test_pattern_blue60;
   
   process (clock81,clock27) is
+    variable colour_phase_sine : integer;
+    variable colour_phase_cosine : integer;
   begin
 
     if rising_edge(clock81) then
@@ -924,6 +936,14 @@ begin
         raster15khz_subpixel_counter <= 0;
         raster15khz_raddr <= 0;
         pixel_num <= 3;
+
+        -- Implement the Phase Alternation that gives PAL its name
+        if pal_phase_offset = 135 then
+          pal_phase_offset <= 225;
+        else
+          pal_phase_offset <= 135;
+        end if;
+        
         -- Wait 8 usec from release of composite HSYNC
         -- 8usec @ 81MHz = 648 cycles.
         -- But then we divide by 6 to get 13.5MHz pixel clock ticks
@@ -955,6 +975,22 @@ begin
             if raster15khz_skip = 1 then
               report "15KHZ RASTER: Start of pixel data";
               pixel_num <= 0;
+            end if;
+
+            if raster15khz_skip = 80 then
+              -- Begin colour burst
+              colour_burst_en <= '1';
+              -- Reset colour burst phase
+              pal_colour_phase <= x"00";
+              pal_colour_phase_sub <= (others => '0');
+              ntsc_colour_phase <= x"00";
+              ntsc_colour_phase_sub <= (others => '0');
+              pal_colour_phase(7) <= colour_burst_start_neg;
+              ntsc_colour_phase(7) <= colour_burst_start_neg;
+            end if;
+            if raster15khz_skip = 16 then
+              -- End colour burst
+              colour_burst_en <= '0';
             end if;
           else
             -- Allow raddr to go to 720, so that we know when we are in the
@@ -1133,23 +1169,50 @@ begin
 --          & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
       
-      -- XXX Implement Chroma. We need higher frequency here, so that we can
-      -- look up the colour burst frequency sine table
-      -- 81MHz to regenerate a ~4MHz colour signal should be ok. We do have to
-      -- be able to encode both phase and amplitude for this. We'll see if it's
-      -- good enough
-      px_chroma <= 0;
-
       -- Update component video signals
       if cv_sync = '1' then
-        luma <= x"00";
-        chroma <= x"00";
-        composite <= x"00";
+        luma_drive <= x"00";
       else
-        luma <= px_luma(15 downto 8);
-        chroma <= to_unsigned(px_chroma ,8);
-        composite <= to_unsigned(to_integer(px_luma(15 downto 8)) + px_chroma ,8);
+        if colour_burst_en='1' and colour_burst_mask='1' then
+          if pal50_select_internal='1' then
+            luma_drive <= px_luma(15 downto 8) + sine_table(to_integer(pal_colour_phase))(7 downto 2) - 32;
+          else
+            luma_drive <= px_luma(15 downto 8) + sine_table(to_integer(ntsc_colour_phase))(7 downto 2) - 32;
+          end if;
+        else
+          luma_drive <= px_luma(15 downto 8);
+        end if;
       end if;
+
+      -- Calculate chroma signal from px_u and px_v
+      -- Multiply px_u by sine(colour phase)
+      -- Multiply px_v by cosine(colour phase) = sine(colour phase + $40)
+      -- Our lookup table is unsigned, so we need to subtract $8000 from
+      -- the end result of each calculation. But because we are adding two
+      -- of the, each with a wrong bit 15, they will cancel out by themselves.
+      -- We also have to adjust the phase by the fixed line phase, which is
+      -- either 135 or 225 degress (96 or 160 hexadegrees).
+      if pal50_select_internal='1' then
+        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset) mod 256;
+        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset) mod 256;
+      else
+        colour_phase_sine := to_integer(ntsc_colour_phase);
+        colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
+      end if;
+      chroma_drive <= to_unsigned(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
+                      + to_unsigned(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16);
+                      
+      
+
+      -- Generate final composite signals
+      -- XXX Allow switching between composite and component video?
+      if mono_mode='1' then
+        luma <= luma_drive;
+      else
+        luma <= luma_drive + chroma_drive(15 downto 8);
+      end if;                              
+      chroma <= chroma_drive(15 downto 8);
+      composite <= luma_drive + chroma_drive(15 downto 8);
 
     end if;    
     
@@ -1186,6 +1249,8 @@ begin
       -- This gets a maximum Y of exactly 125.
       --
       -- To save hardware, we calculate these values using shifts
+      --
+      -- NTSC: scale by x0.488
       if pal50_select_internal='1' then
         -- Black level of PAL is at the sync level, which is ~30%
         px_luma <=
@@ -1211,6 +1276,35 @@ begin
           + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0")
           ;
       end if;
+
+      -- Then we do it all again for U and V.
+      -- U and V can be positive or negative, so we need an extra bit of
+      -- precision, and then just offset things, so that it stays in range
+      -- 
+      -- U = – 0.147R – 0.289G + 0.436B = 0.492 (B – Y)
+      -- V = 0.615R – 0.515G – 0.100B = 0.877(R´ – Y)
+      --
+      -- (why is a scaling factor of 75 required here to get the
+      --  correct levels?)
+      -- U = ( - 0.08R - 0.157G + 0.237B ) x 75 = - 6R - 12G + 18B
+      -- V = ( 0.334R - 0.280G - 0.0543B ) x 75 = 18R - 15G - 3B
+      -- 
+      px_u <= to_unsigned(256,9)
+              -- -6  R = 00110
+              - ("000000" & cv_red&"00") - ("0000000" & cv_red&"0") 
+              -- -12 G = 01100
+              - ("00000" & cv_green&"000") - ("000000" & cv_green&"00") 
+              -- +18 B = 10010
+              + ("000" & cv_blue & "0000") + ("0000000" & cv_blue&"0")
+              ;
+      px_v <= to_unsigned(256,9)
+              -- +18R = 10010
+              + ("0000" & cv_red & "0000") + ("0000000" & cv_red&"0")
+              -- -15G = 01111 = 10000 - 00001
+              - ("0000" & cv_green & "0000") + ("00000000" & cv_green)
+              -- -3B  = 00011
+              - ("0000000" & cv_blue & "0") - ("00000000" & cv_blue)
+              ;
 
       -- Generate half-rate composite video pixel toggle
       cv_pixel_strobe <= cv_pixel_toggle;
