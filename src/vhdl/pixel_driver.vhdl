@@ -1209,10 +1209,10 @@ begin
       if mono_mode='1' then
         luma <= luma_drive;
       else
-        luma <= luma_drive + chroma_drive(15 downto 9);
+        luma <= luma_drive + chroma_drive(15 downto 10);
       end if;                              
       chroma <= chroma_drive(15 downto 8);
-      composite <= luma_drive + chroma_drive(15 downto 9);
+      composite <= luma_drive + chroma_drive(15 downto 10);
 
     end if;    
     
