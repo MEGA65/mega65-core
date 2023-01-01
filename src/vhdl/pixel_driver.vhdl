@@ -255,7 +255,7 @@ architecture greco_roman of pixel_driver is
   constant cv_vsync_delay : integer := 3;
   signal cv_vsync_counter : integer := 0;
   signal cv_vsync_extend : integer := 0;
-  signal chroma_drive : signed(16 downto 0);
+  signal chroma_drive : signed(15 downto 0);
   signal px_luma : unsigned(15 downto 0);
   signal luma_drive : unsigned(9 downto 0);
   signal px_u : unsigned(15 downto 0);
@@ -1263,10 +1263,10 @@ begin
       debug_angle <= (colour_phase_sine - colour_phase_cosine) mod 256;
       debug_sine <= colour_phase_sine;
       debug_cosine <= colour_phase_cosine;
-      
+
       chroma_drive <= 0
-                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),17)
-                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),17)
+                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
+                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
                       ;
                       
       
@@ -1277,11 +1277,11 @@ begin
         -- No colour info if mono, or during sync pulses
         luma <= luma_drive(9 downto 2);
       else
-        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(16 downto 11)));
-      end if;                              
-      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(16 downto 11)));
+        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
+      end if;
+      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
       -- Dedicated chroma signal has full amplitude, for now at least.
-      chroma <= unsigned(chroma_drive(16 downto 9));
+      chroma <= unsigned(chroma_drive(15 downto 8));
 
     end if;    
     
