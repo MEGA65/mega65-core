@@ -125,6 +125,9 @@ architecture greco_roman of pixel_driver is
   signal last_debug_backward : std_logic := '0';
   signal debug_offset_u : integer := 0;
   signal debug_offset_v : integer := 0;
+  signal debug_angle : integer := 0;
+  signal debug_sine : integer := 0;
+  signal debug_cosine : integer := 0;
   
   signal last_interlace : std_logic := '0';
   
@@ -252,7 +255,7 @@ architecture greco_roman of pixel_driver is
   constant cv_vsync_delay : integer := 3;
   signal cv_vsync_counter : integer := 0;
   signal cv_vsync_extend : integer := 0;
-  signal chroma_drive : signed(15 downto 0);
+  signal chroma_drive : signed(16 downto 0);
   signal px_luma : unsigned(15 downto 0);
   signal luma_drive : unsigned(9 downto 0);
   signal px_u : unsigned(15 downto 0);
@@ -1234,9 +1237,14 @@ begin
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
       end if;
+
+      debug_angle <= (colour_phase_sine - colour_phase_cosine) mod 256;
+      debug_sine <= colour_phase_sine;
+      debug_cosine <= colour_phase_cosine;
+      
       chroma_drive <= 0
-                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
-                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
+                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),17)
+                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),17)
                       ;
                       
       
@@ -1247,11 +1255,11 @@ begin
         -- No colour info if mono, or during sync pulses
         luma <= luma_drive(9 downto 2);
       else
-        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
+        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(16 downto 11)));
       end if;                              
-      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
+      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(16 downto 11)));
       -- Dedicated chroma signal has full amplitude, for now at least.
-      chroma <= unsigned(chroma_drive(15 downto 8));
+      chroma <= unsigned(chroma_drive(16 downto 9));
 
     end if;    
     
@@ -1416,11 +1424,17 @@ begin
         red_no <= test_pattern_red;
         green_no <= test_pattern_green;
         blue_no <= test_pattern_blue;
-
+        
         raster15khz_wdata(7 downto 0) <= test_pattern_red;
         raster15khz_wdata(15 downto 8) <= test_pattern_green;
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
 
+        -- XXX DEbug colour subcarrier generation
+        raster15khz_wdata(7 downto 0) <= to_unsigned(0,8);
+        raster15khz_wdata(15 downto 8) <= to_unsigned(255,8);
+        raster15khz_wdata(23 downto 16) <= to_unsigned(0,8);
+        
+        
         time_since_last_pixel <= 0;
       else
         red_no <= red_i;
