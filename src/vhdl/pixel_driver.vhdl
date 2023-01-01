@@ -1430,9 +1430,9 @@ begin
         raster15khz_wdata(23 downto 16) <= test_pattern_blue;
 
         -- XXX DEbug colour subcarrier generation
-        raster15khz_wdata(7 downto 0) <= to_unsigned(0,8);
-        raster15khz_wdata(15 downto 8) <= to_unsigned(255,8);
-        raster15khz_wdata(23 downto 16) <= to_unsigned(0,8);
+--        raster15khz_wdata(7 downto 0) <= to_unsigned(0,8);
+--        raster15khz_wdata(15 downto 8) <= to_unsigned(255,8);
+--        raster15khz_wdata(23 downto 16) <= to_unsigned(0,8);
         
         
         time_since_last_pixel <= 0;
