@@ -242,9 +242,9 @@ architecture greco_roman of pixel_driver is
   constant cv_vsync_delay : integer := 3;
   signal cv_vsync_counter : integer := 0;
   signal cv_vsync_extend : integer := 0;
-  signal chroma_drive : unsigned(15 downto 0);
+  signal chroma_drive : signed(15 downto 0);
   signal px_luma : unsigned(15 downto 0);
-  signal luma_drive : unsigned(7 downto 0);
+  signal luma_drive : unsigned(7 downto 0) := x"80";
   signal px_u : unsigned(15 downto 0);
   signal px_v : unsigned(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
@@ -447,8 +447,8 @@ architecture greco_roman of pixel_driver is
   -- phase is used to encode colour on PAL and NTSC (but not SECAM)
   -- we need to be able to reproduce quite fine phases.
   -- Thus we will use a 256 entry 
-  type us7_0to255 is array (0 to 255) of unsigned(7 downto 0);  
-  signal sine_table : us7_0to255 := (
+  type s7_0to255 is array (0 to 255) of signed(7 downto 0);  
+  signal sine_table : s7_0to255 := (
     x"80",x"83",x"86",x"89",x"8c",x"8f",x"92",x"95",x"98",x"9b",x"9e",x"a1",x"a4",x"a7",x"aa",x"ad",
     x"b0",x"b3",x"b6",x"b9",x"bb",x"be",x"c1",x"c3",x"c6",x"c9",x"cb",x"ce",x"d0",x"d2",x"d5",x"d7",
     x"d9",x"db",x"de",x"e0",x"e2",x"e4",x"e6",x"e7",x"e9",x"eb",x"ec",x"ee",x"f0",x"f1",x"f2",x"f4",
@@ -1172,9 +1172,11 @@ begin
       else
         if colour_burst_en='1' and colour_burst_mask='1' then
           if pal50_select_internal='1' then
-            luma_drive <= px_luma(15 downto 8) + sine_table(to_integer(pal_colour_phase))(7 downto 2) - 32;
+            luma_drive <= unsigned(signed(px_luma(15 downto 8))
+                          + to_integer(sine_table(to_integer(pal_colour_phase))(7 downto 2))) ;
           else
-            luma_drive <= px_luma(15 downto 8) + sine_table(to_integer(ntsc_colour_phase))(7 downto 2) - 32;
+            luma_drive <= unsigned(signed(px_luma(15 downto 8))
+                          + to_integer(sine_table(to_integer(ntsc_colour_phase))(7 downto 2))) ;
           end if;
         else
           luma_drive <= px_luma(15 downto 8);
@@ -1184,9 +1186,6 @@ begin
       -- Calculate chroma signal from px_u and px_v
       -- Multiply px_u by sine(colour phase)
       -- Multiply px_v by cosine(colour phase) = sine(colour phase + $40)
-      -- Our lookup table is unsigned, so we need to subtract $8000 from
-      -- the end result of each calculation. But because we are adding two
-      -- of the, each with a wrong bit 15, they will cancel out by themselves.
       -- We also have to adjust the phase by the fixed line phase, which is
       -- either 135 or 225 degress (96 or 160 hexadegrees).
       if pal50_select_internal='1' then
@@ -1197,8 +1196,8 @@ begin
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
       end if;
       chroma_drive <= 0
-                      + to_unsigned(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
---                      + to_unsigned(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16)
+                      + to_signed(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
+                      + to_signed(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16)
                       ;
                       
       
@@ -1208,10 +1207,11 @@ begin
       if mono_mode='1' then
         luma <= luma_drive;
       else
-        luma <= luma_drive + chroma_drive(15 downto 10);
+        luma <= unsigned(signed(luma_drive) + to_integer(chroma_drive(15 downto 10)));
       end if;                              
-      chroma <= chroma_drive(15 downto 8);
-      composite <= luma_drive + chroma_drive(15 downto 10);
+      composite <= unsigned(signed(luma_drive) + to_integer(chroma_drive(15 downto 10)));
+      -- Dedicated chroma signal has full amplitude, for now at least.
+      chroma <= unsigned(chroma_drive(15 downto 8));
 
     end if;    
     
