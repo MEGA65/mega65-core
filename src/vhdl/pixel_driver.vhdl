@@ -435,6 +435,7 @@ architecture greco_roman of pixel_driver is
   -- XXX Toggle between 135 and 225 each raster line
   signal pal_phase_offset : integer range 0 to 255 := 225;
   signal pal_v_invert : integer range 0 to 128 := 0;
+  signal colour_burst_mask_count : integer range 0 to 15 := 0;
   
   signal colour_burst_mask : std_logic := '1';
   signal colour_burst_en : std_logic := '0';
@@ -975,6 +976,14 @@ begin
         raster15khz_raddr <= 0;
         pixel_num <= 3;
 
+        -- Suppress colour bursts for the indicated number of raster lines
+        if colour_burst_mask_count /= 0 then
+          colour_burst_mask_count <= colour_burst_mask_count - 1;
+          colour_burst_mask <= '0';
+        else
+          colour_burst_mask <= '1';
+        end if;
+        
         -- Implement the Phase Alternation that gives PAL its name
         -- XXX Why do we need to add 64 to get the colour spaces right?
         if pal_phase_offset = 96 then -- 96 hexadegrees = 135 degrees
@@ -1104,6 +1113,19 @@ begin
               if cv_vsync_row < 10 then
                 cv_vsync_row <= cv_vsync_row + 1;
               end if;
+
+              if cv_vsync_row = 1 then
+                -- Set PAL V invert based on which field we are in
+                if interlace_mode='0' then
+                  -- For non-interlaced mode, all fields are the same
+                  pal_phase_offset <= 160;
+                  pal_v_invert <= 128;
+                  -- Suppress colour burst on the first raster of the frame
+                  -- according to Demystifying Video 4th Ed Fig 8.18
+                  colour_burst_mask_count <= 5 + 1;
+                end if;
+              end if;
+              
             end if;
           end if;          
         else
