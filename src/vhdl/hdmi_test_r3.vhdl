@@ -478,6 +478,11 @@ architecture Behavioral of container is
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
 
+  signal debug_backward : std_logic := '0';
+  signal debug_backward_int : std_logic := '0';
+  signal debug_forward : std_logic := '0';
+  signal debug_forward_int : std_logic := '0';
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -805,6 +810,9 @@ begin
 
       cpuclock => cpuclock,
 
+      debug_forward => debug_forward,
+      debug_backward => debug_backward,
+      
       pixel_strobe_out => pixel_strobe,
       
       -- Configuration information from the VIC-IV
@@ -921,6 +929,12 @@ begin
           when x"36" => interlace <= '0';
           when x"37" => mono <= '1';
           when x"38" => mono <= '0';
+          when x"39" =>
+            debug_backward <= not debug_backward_int;
+            debug_backward_int <= not debug_backward_int;
+          when x"30" =>
+            debug_forward <= not debug_forward_int;
+            debug_forward_int <= not debug_forward_int;
           when others => null;
         end case;        
       end if;                        

@@ -97,6 +97,9 @@ entity pixel_driver is
     inframe : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
 
+    debug_forward : in std_logic := '0';
+    debug_backward : in std_logic := '0';
+  
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic := '0';
 
@@ -118,6 +121,12 @@ end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
+  signal last_debug_forward : std_logic := '0';
+  signal last_debug_backward : std_logic := '0';
+  signal debug_offset : integer := 0;
+  
+  signal last_interlace : std_logic := '0';
+  
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
   
@@ -839,6 +848,18 @@ begin
 
     if rising_edge(clock81) then
 
+      if debug_forward /= last_debug_forward then
+        last_debug_forward <= debug_forward;
+        if debug_offset < (256-32) then
+          debug_offset <= debug_offset + 32;
+        end if;
+      elsif debug_backward /= last_debug_backward then
+        last_debug_backward <= debug_backward;
+        if debug_offset > 0 then
+          debug_offset <= debug_offset - 32;
+        end if;
+      end if;
+      
       -- Generate PAL and NTSC colour carrier phase
       pal_colour_phase <= pal_colour_phase + pal_colour_phase_add + to_integer(pal_colour_phase_sub(32 downto 32));
       pal_colour_phase_sub <= ("0"&pal_colour_phase_sub(31 downto 0)) + ("0"&pal_colour_phase_add_sub);
@@ -1193,8 +1214,8 @@ begin
       -- We also have to adjust the phase by the fixed line phase, which is
       -- either 135 or 225 degress (96 or 160 hexadegrees).
       if pal50_select_internal='1' then
-        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset) mod 256;
-        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset + pal_v_invert) mod 256;
+        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset + debug_offset) mod 256;
+        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset + pal_v_invert + debug_offset) mod 256;
       else
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
