@@ -123,7 +123,8 @@ architecture greco_roman of pixel_driver is
 
   signal last_debug_forward : std_logic := '0';
   signal last_debug_backward : std_logic := '0';
-  signal debug_offset : integer := 0;
+  signal debug_offset_u : integer := 0;
+  signal debug_offset_v : integer := 0;
   
   signal last_interlace : std_logic := '0';
   
@@ -850,13 +851,25 @@ begin
 
       if debug_forward /= last_debug_forward then
         last_debug_forward <= debug_forward;
-        if debug_offset < (256-32) then
-          debug_offset <= debug_offset + 32;
+        if mono_mode='0' then
+          if debug_offset_v < (256-32) then
+            debug_offset_v <= debug_offset_v + 32;
+          end if;
+        else
+          if debug_offset_u < (256-32) then
+            debug_offset_u <= debug_offset_u + 32;
+          end if;
         end if;
       elsif debug_backward /= last_debug_backward then
         last_debug_backward <= debug_backward;
-        if debug_offset > 0 then
-          debug_offset <= debug_offset - 32;
+        if mono_mode='0' then
+          if debug_offset_v > 0 then
+            debug_offset_v <= debug_offset_v - 32;
+          end if;
+        else
+          if debug_offset_u > 0 then
+            debug_offset_u <= debug_offset_u - 32;
+          end if;
         end if;
       end if;
       
@@ -1214,8 +1227,8 @@ begin
       -- We also have to adjust the phase by the fixed line phase, which is
       -- either 135 or 225 degress (96 or 160 hexadegrees).
       if pal50_select_internal='1' then
-        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset + debug_offset) mod 256;
-        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset + pal_v_invert + debug_offset) mod 256;
+        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset + debug_offset_u) mod 256;
+        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_phase_offset + pal_v_invert + debug_offset_v) mod 256;
       else
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
