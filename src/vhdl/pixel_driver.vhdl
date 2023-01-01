@@ -1196,8 +1196,10 @@ begin
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
       end if;
-      chroma_drive <= to_unsigned(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
-                      + to_unsigned(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16);
+      chroma_drive <= 0
+                      + to_unsigned(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
+--                      + to_unsigned(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16)
+                      ;
                       
       
 
