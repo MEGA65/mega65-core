@@ -980,13 +980,10 @@ begin
             if raster15khz_skip = 80 then
               -- Begin colour burst
               colour_burst_en <= '1';
-              -- Reset colour burst phase
-              pal_colour_phase <= x"00";
-              pal_colour_phase_sub <= (others => '0');
-              ntsc_colour_phase <= x"00";
-              ntsc_colour_phase_sub <= (others => '0');
-              pal_colour_phase(7) <= colour_burst_start_neg;
-              ntsc_colour_phase(7) <= colour_burst_start_neg;
+              -- DO NOT Reset colour burst phase
+              -- Yes, all the documentation makes it sound like you have to,
+              -- but in fact you MUST NOT, or else the PLL in the receiver
+              -- will never keep track.
             end if;
             if raster15khz_skip = 16 then
               -- End colour burst
