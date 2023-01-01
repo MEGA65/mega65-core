@@ -977,11 +977,11 @@ begin
 
         -- Implement the Phase Alternation that gives PAL its name
         -- XXX Why do we need to add 64 to get the colour spaces right?
-        if pal_phase_offset = 135+64 then
-          pal_phase_offset <= (225+64) mod 256;
+        if pal_phase_offset = 96 then -- 96 hexadegrees = 135 degrees
+          pal_phase_offset <= 160; -- 160 hexadegrees = 225 degrees
           pal_v_invert <= 0;
         else
-          pal_phase_offset <= 135+64;
+          pal_phase_offset <= 96;
           pal_v_invert <= 128;
         end if;
         
