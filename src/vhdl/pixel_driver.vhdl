@@ -244,7 +244,7 @@ architecture greco_roman of pixel_driver is
   signal cv_vsync_extend : integer := 0;
   signal chroma_drive : signed(15 downto 0);
   signal px_luma : unsigned(15 downto 0);
-  signal luma_drive : unsigned(7 downto 0) := x"80";
+  signal luma_drive : unsigned(9 downto 0);
   signal px_u : unsigned(15 downto 0);
   signal px_v : unsigned(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
@@ -447,24 +447,24 @@ architecture greco_roman of pixel_driver is
   -- phase is used to encode colour on PAL and NTSC (but not SECAM)
   -- we need to be able to reproduce quite fine phases.
   -- Thus we will use a 256 entry 
-  type s7_0to255 is array (0 to 255) of signed(7 downto 0);  
+  type s7_0to255 is array (0 to 255) of integer range -128 to 127;  
   signal sine_table : s7_0to255 := (
-    x"80",x"83",x"86",x"89",x"8c",x"8f",x"92",x"95",x"98",x"9b",x"9e",x"a1",x"a4",x"a7",x"aa",x"ad",
-    x"b0",x"b3",x"b6",x"b9",x"bb",x"be",x"c1",x"c3",x"c6",x"c9",x"cb",x"ce",x"d0",x"d2",x"d5",x"d7",
-    x"d9",x"db",x"de",x"e0",x"e2",x"e4",x"e6",x"e7",x"e9",x"eb",x"ec",x"ee",x"f0",x"f1",x"f2",x"f4",
-    x"f5",x"f6",x"f7",x"f8",x"f9",x"fa",x"fb",x"fb",x"fc",x"fd",x"fd",x"fe",x"fe",x"fe",x"fe",x"fe",
-    x"ff",x"fe",x"fe",x"fe",x"fe",x"fe",x"fd",x"fd",x"fc",x"fb",x"fb",x"fa",x"f9",x"f8",x"f7",x"f6",
-    x"f5",x"f4",x"f2",x"f1",x"f0",x"ee",x"ec",x"eb",x"e9",x"e7",x"e6",x"e4",x"e2",x"e0",x"de",x"db",
-    x"d9",x"d7",x"d5",x"d2",x"d0",x"ce",x"cb",x"c9",x"c6",x"c3",x"c1",x"be",x"bb",x"b9",x"b6",x"b3",
-    x"b0",x"ad",x"aa",x"a7",x"a4",x"a1",x"9e",x"9b",x"98",x"95",x"92",x"8f",x"8c",x"89",x"86",x"83",
-    x"80",x"7c",x"79",x"76",x"73",x"70",x"6d",x"6a",x"67",x"64",x"61",x"5e",x"5b",x"58",x"55",x"52",
-    x"4f",x"4c",x"49",x"46",x"44",x"41",x"3e",x"3c",x"39",x"36",x"34",x"31",x"2f",x"2d",x"2a",x"28",
-    x"26",x"24",x"21",x"1f",x"1d",x"1b",x"1a",x"18",x"16",x"14",x"13",x"11",x"10",x"0e",x"0d",x"0b",
-    x"0a",x"09",x"08",x"07",x"06",x"05",x"04",x"04",x"03",x"02",x"02",x"01",x"01",x"01",x"01",x"01",
-    x"01",x"01",x"01",x"01",x"01",x"01",x"02",x"02",x"03",x"04",x"04",x"05",x"06",x"07",x"08",x"09",
-    x"0a",x"0b",x"0d",x"0e",x"0f",x"11",x"13",x"14",x"16",x"18",x"19",x"1b",x"1d",x"1f",x"21",x"24",
-    x"26",x"28",x"2a",x"2d",x"2f",x"31",x"34",x"36",x"39",x"3c",x"3e",x"41",x"44",x"46",x"49",x"4c",
-    x"4f",x"52",x"55",x"58",x"5b",x"5e",x"61",x"64",x"67",x"6a",x"6d",x"70",x"73",x"76",x"79",x"7c"    
+    0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,
+    48,51,54,57,59,62,65,67,70,73,75,78,80,82,85,87,
+    89,91,94,96,98,100,102,103,105,107,108,110,112,113,114,116,
+    117,118,119,120,121,122,123,123,124,125,125,126,126,126,126,126,
+    127,126,126,126,126,126,125,125,124,123,123,122,121,120,119,118,
+    117,116,114,113,112,110,108,107,105,103,102,100,98,96,94,91,
+    89,87,85,82,80,78,75,73,70,67,65,62,59,57,54,51,
+    48,45,42,39,36,33,30,27,24,21,18,15,12,9,6,3,
+    0,-3,-6,-9,-12,-15,-18,-21,-24,-27,-30,-33,-36,-39,-42,-45,
+    -48,-51,-54,-57,-59,-62,-65,-67,-70,-73,-75,-78,-80,-82,-85,-87,
+    -89,-91,-94,-96,-98,-100,-101,-103,-105,-107,-108,-110,-111,-113,-114,-116,
+    -117,-118,-119,-120,-121,-122,-123,-123,-124,-125,-125,-126,-126,-126,-126,-126,
+    -127,-126,-126,-126,-126,-126,-125,-125,-124,-123,-123,-122,-121,-120,-119,-118,
+    -117,-116,-114,-113,-112,-110,-108,-107,-105,-103,-102,-100,-98,-96,-94,-91,
+    -89,-87,-85,-82,-80,-78,-75,-73,-70,-67,-65,-62,-59,-57,-54,-51,
+    -48,-45,-42,-39,-36,-33,-30,-27,-24,-21,-18,-15,-12,-9,-6,-3
     );
   
   
@@ -1149,7 +1149,7 @@ begin
       elsif cv_vsync_extend /= 0 then
         cv_vsync_extend <= cv_vsync_extend - 1;
       else
-        -- Clear 15KHz VSYNC, not until cv_hsync is going (or already) low
+        -- Clear 15KHz VSYNC, but not until cv_hsync is going (or already) low
         -- (either can be the case, depending whether we are in the odd or
         -- even field, and PAL or NTSC).
         if cv_hsync='0' then
@@ -1168,18 +1168,19 @@ begin
       
       -- Update component video signals
       if cv_sync = '1' then
-        luma_drive <= x"00";
+        luma_drive <= to_unsigned(0,10);
       else
-        if colour_burst_en='1' and colour_burst_mask='1' then
+        -- Don't modulate colour over sync periods
+        if colour_burst_en='1' and colour_burst_mask='1' and mono_mode='0' then
           if pal50_select_internal='1' then
-            luma_drive <= unsigned(signed(px_luma(15 downto 8))
-                          + to_integer(sine_table(to_integer(pal_colour_phase))(7 downto 2))) ;
+            luma_drive <= unsigned(signed(px_luma(15 downto 6))
+                          + sine_table(to_integer(pal_colour_phase)));
           else
-            luma_drive <= unsigned(signed(px_luma(15 downto 8))
-                          + to_integer(sine_table(to_integer(ntsc_colour_phase))(7 downto 2))) ;
+            luma_drive <= unsigned(signed(px_luma(15 downto 6))
+                          + sine_table(to_integer(ntsc_colour_phase)));
           end if;
         else
-          luma_drive <= px_luma(15 downto 8);
+          luma_drive <= px_luma(15 downto 6);
         end if;
       end if;
 
@@ -1196,20 +1197,21 @@ begin
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
       end if;
       chroma_drive <= 0
-                      + to_signed(to_integer(px_u(15 downto 8)) * to_integer(sine_table(colour_phase_sine)),16)
-                      + to_signed(to_integer(px_v(15 downto 8)) * to_integer(sine_table(colour_phase_cosine)),16)
+                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
+                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
                       ;
                       
       
 
       -- Generate final composite signals
       -- XXX Allow switching between composite and component video?
-      if mono_mode='1' then
-        luma <= luma_drive;
+      if mono_mode='1' or cv_sync='1' then
+        -- No colour info if mono, or during sync pulses
+        luma <= luma_drive(9 downto 2);
       else
-        luma <= unsigned(signed(luma_drive) + to_integer(chroma_drive(15 downto 10)));
+        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
       end if;                              
-      composite <= unsigned(signed(luma_drive) + to_integer(chroma_drive(15 downto 10)));
+      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
       -- Dedicated chroma signal has full amplitude, for now at least.
       chroma <= unsigned(chroma_drive(15 downto 8));
 
