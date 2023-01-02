@@ -1033,14 +1033,14 @@ begin
         -- XXX Why do we need to add 64 to get the colour spaces right?
         if pal_phase_offset = 96 then -- 96 hexadegrees = 135 degrees
           pal_phase_offset <= 160; -- 160 hexadegrees = 225 degrees
-          if field_is_odd = '0' then
+          if field_is_odd = 0 then
             pal_v_invert <= 128;
           else
             pal_v_invert <= 0;
           end if;
         else
           pal_phase_offset <= 96;
-          if field_is_odd = '0' then
+          if field_is_odd = 0 then
             pal_v_invert <= 0;
           else
             pal_v_invert <= 128;
