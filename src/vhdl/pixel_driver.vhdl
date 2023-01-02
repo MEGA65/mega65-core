@@ -1294,10 +1294,14 @@ begin
         if colour_burst_en='1' and colour_burst_mask='1' and mono_mode='0' then
           if pal50_select_internal='1' then
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
-                          + sine_table(to_integer(pal_colour_phase)));
+                                   + sine_table(to_integer(pal_colour_phase))
+                                   - sine_table(to_integer(pal_colour_phase)) / 2
+                                   );
           else
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
-                          + sine_table(to_integer(ntsc_colour_phase)));
+                                   + sine_table(to_integer(ntsc_colour_phase))
+                                   - sine_table(to_integer(pal_colour_phase)) / 2
+                                   );
           end if;
         else
           luma_drive <= px_luma(15 downto 6);
