@@ -130,6 +130,7 @@ architecture greco_roman of pixel_driver is
   signal debug_cosine : integer := 0;
   
   signal last_interlace : std_logic := '0';
+  signal interlace_mode_integer : integer range 0 to 1 := 0;
   
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
@@ -304,6 +305,7 @@ architecture greco_roman of pixel_driver is
   signal vsync_xpos_sub : integer := 0;
   signal cv_vsync_row : integer range 0 to 10 := 0;
   signal cv_sync_hsrc : std_logic;
+  signal cv_active_area : std_logic := '0';
 
   signal x_zero_last : std_logic := '0';
   signal y_zero_last : std_logic := '0';
@@ -853,6 +855,12 @@ begin
 
     if rising_edge(clock81) then
 
+      if interlace_mode='1' then
+        interlace_mode_integer <= 1;
+      else
+        interlace_mode_integer <= 0;
+      end if;
+      
       if debug_forward /= last_debug_forward then
         last_debug_forward <= debug_forward;
         if mono_mode='0' then
@@ -1025,6 +1033,7 @@ begin
             if raster15khz_skip = 1 then
               report "15KHZ RASTER: Start of pixel data";
               pixel_num <= 0;
+              cv_active_area <= '1';
             end if;
 
             if raster15khz_skip = 80 then
@@ -1076,6 +1085,7 @@ begin
             if raster15khz_waddr = 719 then
 --              report "Buffered 720 pixels for the raster";
               buffering_31khz <= '0';
+              cv_active_area <= '0';
             end if;
           end if;
         end if;
@@ -1102,10 +1112,10 @@ begin
           -- PAL : Lines 863 cycles long. 863 / 16 = 56.something
           -- multiply by 16, since no lower common divisor
           -- But we need to fudge things a little for some reason, so use 868
-          if vsync_xpos_sub < (858*3-1) then
+          if vsync_xpos_sub < (859*3-1) then
             vsync_xpos_sub <= vsync_xpos_sub + 16;
           else
-            vsync_xpos_sub <= vsync_xpos_sub - (858*3-1);
+            vsync_xpos_sub <= vsync_xpos_sub - (859*3-1);
             if vsync_xpos /= vsync_xpos_max then
               vsync_xpos <= vsync_xpos + 1;
             else
@@ -1264,12 +1274,14 @@ begin
       debug_sine <= colour_phase_sine;
       debug_cosine <= colour_phase_cosine;
 
-      chroma_drive <= 0
-                      + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
-                      + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
-                      ;
-                      
-      
+      if cv_active_area = '1' then
+        chroma_drive <= 0
+                        + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
+                        + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
+                        ;
+      else
+        chroma_drive <= to_signed(0,16);
+      end if;                           
 
       -- Generate final composite signals
       -- XXX Allow switching between composite and component video?
@@ -1321,29 +1333,37 @@ begin
       --
       -- NTSC: scale by x0.488
       if pal50_select_internal='1' then
-        -- Black level of PAL is at the sync level, which is ~30%
-        px_luma <=
-          to_unsigned(80*256,16) -- sync offset
-          -- 42 = 0101010
-          + ("000" & cv_red&"00000") + ("00000" & cv_red&"000") + ("0000000" & cv_red & "0")
-          -- 82 = 1010010
-          + ("0" & cv_green&"000000") + ("0000" & cv_green&"0000") + ("0000000" & cv_green&"0")
-          -- 15 = 0001111
-          + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
-          ;
+        if cv_active_area='0' then
+          px_luma <= to_unsigned(80*256,16); -- sync offset
+        else
+          -- Black level of PAL is at the sync level, which is ~30%
+          px_luma <=
+            to_unsigned(80*256,16) -- sync offset
+            -- 42 = 0101010
+            + ("000" & cv_red&"00000") + ("00000" & cv_red&"000") + ("0000000" & cv_red & "0")
+            -- 82 = 1010010
+            + ("0" & cv_green&"000000") + ("0000" & cv_green&"0000") + ("0000000" & cv_green&"0")
+            -- 15 = 0001111
+            + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0") + ("00000000" & cv_blue)
+            ;
+        end if;
       else
+        if cv_active_area='0' then
+          px_luma <= to_unsigned(93*256,16); -- sync offset
+        else
         -- Black level of NTSC is 7.5/140 = 5.4% above sync level
         -- Thus we have to use a slightly compacted luminance range compared
         -- with PAL, to keep below the limit.
-        px_luma <=
-          to_unsigned(93*256,16) -- sync offset
-          -- 37 = 0100101
-          + ("000" & cv_red&"00000") + ("000000" & cv_red&"00") + ("00000000" & cv_red)
-          -- 74 = 1001010
-          + ("0" & cv_green&"000000") + ("00000" & cv_green&"000") + ("0000000" & cv_green&"0")
-          -- 14 = 0001110
-          + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0")
-          ;
+          px_luma <=
+            to_unsigned(93*256,16) -- sync offset
+            -- 37 = 0100101
+            + ("000" & cv_red&"00000") + ("000000" & cv_red&"00") + ("00000000" & cv_red)
+            -- 74 = 1001010
+            + ("0" & cv_green&"000000") + ("00000" & cv_green&"000") + ("0000000" & cv_green&"0")
+            -- 14 = 0001110
+            + ("00000" & cv_blue & "000") + ("000000" & cv_blue&"00") + ("0000000" & cv_blue&"0")
+            ;
+        end if;
       end if;
 
       -- Then we do it all again for U and V.
