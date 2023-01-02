@@ -1036,14 +1036,14 @@ begin
           if field_is_odd = 0 then
             pal_v_invert <= 128;
           else
-            pal_v_invert <= 0;
+            pal_v_invert <= 128;
           end if;
         else
           pal_phase_offset <= 96;
           if field_is_odd = 0 then
             pal_v_invert <= 0;
           else
-            pal_v_invert <= 128;
+            pal_v_invert <= 0;
           end if;
         end if;
         
@@ -1132,7 +1132,6 @@ begin
             if raster15khz_waddr = 719 then
 --              report "Buffered 720 pixels for the raster";
               buffering_31khz <= '0';
-              cv_active_area <= '0';
             end if;
           end if;
         end if;
