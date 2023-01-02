@@ -979,6 +979,9 @@ begin
       end if;
 
       cv_hsync_last <= cv_hsync;
+      if cv_hsync='1' then
+        cv_active_area <= '0';
+      end if;
       if cv_hsync='0' and cv_hsync_last='1' then
         raster15khz_subpixel_counter <= 0;
         raster15khz_raddr <= 0;
@@ -1033,7 +1036,9 @@ begin
             if raster15khz_skip = 1 then
               report "15KHZ RASTER: Start of pixel data";
               pixel_num <= 0;
-              cv_active_area <= '1';
+              if cv_vsync='0' and cv_vsync_row=0 then
+                cv_active_area <= '1';
+              end if;
             end if;
 
             if raster15khz_skip = 80 then
@@ -1226,7 +1231,7 @@ begin
         -- (either can be the case, depending whether we are in the odd or
         -- even field, and PAL or NTSC).
         if cv_hsync='0' then
-          cv_vsync <= '0';
+          cv_vsync <= '0';       
         end if;
       end if;
 
