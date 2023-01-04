@@ -1170,8 +1170,8 @@ begin
                   -- according to Demystifying Video 4th Ed Fig 8.18
                   colour_burst_mask_count <= 5 + 1;
                 else
---                  pal_phase_offset <= 160;
---                  pal_v_invert <= 128;
+                  pal_phase_offset <= 160;
+                  pal_v_invert <= 128;
                   colour_burst_mask_count <= 5 + 1;                  
                 end if;
               end if;
@@ -1323,7 +1323,7 @@ begin
       if cv_active_area = '1' then
         chroma_drive <= 0
                         + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
-                        + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
+                        + to_signed(to_integer(px_v(15 downto 9)) * sine_table(colour_phase_cosine),16)
                         ;
       else
         chroma_drive <= to_signed(0,16);
