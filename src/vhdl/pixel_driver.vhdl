@@ -131,6 +131,9 @@ architecture greco_roman of pixel_driver is
   
   signal last_interlace : std_logic := '0';
   signal interlace_mode_integer : integer range 0 to 1 := 0;
+
+  -- Set to 1 to enable gamma pre-correction of video
+  signal gamma_enabled : std_logic := '0';
   
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
@@ -1481,9 +1484,15 @@ begin
         if (time_since_last_pixel /= 1023) and (raster15khz_raddr > 2) and (raster15khz_raddr < 720) then
           -- Gamma correct RGB before processing
           -- PAL uses NTSC curves these days, too
-          cv_red <= ntsc_gamma(to_integer(raster15khz_rdata(7 downto 0)));
-          cv_green <= ntsc_gamma(to_integer(raster15khz_rdata(15 downto 8)));
-          cv_blue <= ntsc_gamma(to_integer(raster15khz_rdata(23 downto 16)));
+          if gamma_enabled='1' then
+            cv_red <= ntsc_gamma(to_integer(raster15khz_rdata(7 downto 0)));
+            cv_green <= ntsc_gamma(to_integer(raster15khz_rdata(15 downto 8)));
+            cv_blue <= ntsc_gamma(to_integer(raster15khz_rdata(23 downto 16)));
+          else
+            cv_red <= raster15khz_rdata(7 downto 0);
+            cv_green <= raster15khz_rdata(15 downto 8);
+            cv_blue <= raster15khz_rdata(23 downto 16);
+          end if;
         else
           -- Assume we are in VBLANK
           -- XXX Teletext and closed captions go in these lines
