@@ -1166,11 +1166,13 @@ begin
                 -- Set PAL V invert based on which field we are in
                 if interlace_mode='0' then
                   -- For non-interlaced mode, all fields are the same
---                  pal_phase_offset <= 160;
---                  pal_v_invert <= 128;
                   -- Suppress colour burst on the first raster of the frame
                   -- according to Demystifying Video 4th Ed Fig 8.18
                   colour_burst_mask_count <= 5 + 1;
+                else
+--                  pal_phase_offset <= 160;
+--                  pal_v_invert <= 128;
+                  colour_burst_mask_count <= 5 + 1;                  
                 end if;
               end if;
               
