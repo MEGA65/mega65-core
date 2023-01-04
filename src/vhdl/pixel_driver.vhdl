@@ -259,8 +259,8 @@ architecture greco_roman of pixel_driver is
   signal chroma_drive : signed(15 downto 0);
   signal px_luma : unsigned(15 downto 0);
   signal luma_drive : unsigned(9 downto 0);
-  signal px_u : unsigned(15 downto 0);
-  signal px_v : unsigned(15 downto 0);
+  signal px_u : signed(15 downto 0);
+  signal px_v : signed(15 downto 0);
   signal cv_red : unsigned(7 downto 0);
   signal cv_green : unsigned(7 downto 0);
   signal cv_blue : unsigned(7 downto 0);
@@ -1428,21 +1428,21 @@ begin
       -- U = ( - 0.08R - 0.157G + 0.237B ) x 75 = - 6R - 12G + 18B
       -- V = ( 0.334R - 0.280G - 0.0543B ) x 75 = 18R - 15G - 3B
       -- 
-      px_u <= to_unsigned(256,9)
+      px_u <= to_signed(0,16)
               -- -6  R = 00110
-              - ("000000" & cv_red&"00") - ("0000000" & cv_red&"0") 
+              - to_integer(cv_red&"00") - to_integer(cv_red&"0") 
               -- -12 G = 01100
-              - ("00000" & cv_green&"000") - ("000000" & cv_green&"00") 
+              - to_integer(cv_green&"000") - to_integer(cv_green&"00") 
               -- +18 B = 10010
-              + ("000" & cv_blue & "0000") + ("0000000" & cv_blue&"0")
+              + to_integer(cv_blue & "0000") + to_integer(cv_blue&"0")
               ;
-      px_v <= to_unsigned(256,9)
+      px_v <= to_signed(0,16)
               -- +18R = 10010
-              + ("0000" & cv_red & "0000") + ("0000000" & cv_red&"0")
+              + to_integer(cv_red & "0000") + to_integer(cv_red&"0")
               -- -15G = 01111 = 10000 - 00001
-              - ("0000" & cv_green & "0000") + ("00000000" & cv_green)
+              - to_integer(cv_green & "0000") + to_integer(cv_green)
               -- -3B  = 00011
-              - ("0000000" & cv_blue & "0") - ("00000000" & cv_blue)
+              - to_integer(cv_blue & "0") - to_integer(cv_blue)
               ;
 
       -- Generate half-rate composite video pixel toggle
