@@ -1289,20 +1289,22 @@ begin
       if cv_sync = '1' then
         luma_drive <= to_unsigned(0,10);
       else
-        -- Don't modulate colour over sync periods
         if colour_burst_en='1' and colour_burst_mask='1' and mono_mode='0' then
+          -- PAL colour burst should have amplitude 1/2 that of the sync level.
+          -- Sync = 80, so burst amplitude should be about +/- 40.
           if pal50_select_internal='1' then
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
-                                   + sine_table(to_integer(pal_colour_phase))
-                                   - sine_table(to_integer(pal_colour_phase)) / 2
+                                   + sine_table(to_integer(pal_colour_phase)) / 2
+                                   + sine_table(to_integer(pal_colour_phase)) / 4
                                    );
           else
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
-                                   + sine_table(to_integer(ntsc_colour_phase))
-                                   - sine_table(to_integer(pal_colour_phase)) / 2
+                                   + sine_table(to_integer(ntsc_colour_phase)) /2
+                                   + sine_table(to_integer(pal_colour_phase)) / 4
                                    );
           end if;
         else
+          -- Don't modulate colour over sync periods
           luma_drive <= px_luma(15 downto 6);
         end if;
       end if;
@@ -1339,9 +1341,9 @@ begin
         -- No colour info if mono, or during sync pulses
         luma <= luma_drive(9 downto 2);
       else
-        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
+        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
       end if;
-      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 10)));
+      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
       -- Dedicated chroma signal has full amplitude, for now at least.
       chroma <= unsigned(chroma_drive(15 downto 8));
 
@@ -1423,26 +1425,27 @@ begin
       -- U = – 0.147R – 0.289G + 0.436B = 0.492 (B – Y)
       -- V = 0.615R – 0.515G – 0.100B = 0.877(R´ – Y)
       --
-      -- (why is a scaling factor of 75 required here to get the
-      --  correct levels?)
-      -- U = ( - 0.08R - 0.157G + 0.237B ) x 75 = - 6R - 12G + 18B
-      -- V = ( 0.334R - 0.280G - 0.0543B ) x 75 = 18R - 15G - 3B
+      -- We want the full-amplitude to be +/- 24.
+      -- Experimentation yields a scaling factor of x100 to get this
+      -- about right
+      -- U = ( - 0.08R - 0.157G + 0.237B ) x 100 = - 8R - 15G + 24B
+      -- V = ( 0.334R - 0.280G - 0.0543B ) x 100 = 24R - 20G - 4B
       -- 
       px_u <= to_signed(0,16)
-              -- -6  R = 00110
-              - to_integer(cv_red&"00") - to_integer(cv_red&"0") 
-              -- -12 G = 01100
-              - to_integer(cv_green&"000") - to_integer(cv_green&"00") 
-              -- +18 B = 10010
-              + to_integer(cv_blue & "0000") + to_integer(cv_blue&"0")
+              -- -8  R = 01000
+              - to_integer(cv_red&"000")
+              -- -15 G = 01111
+              - to_integer(cv_green&"0000") - to_integer(cv_green) 
+              -- +24 B = 11000
+              + to_integer(cv_blue & "00000") + to_integer(cv_blue&"0000")
               ;
       px_v <= to_signed(0,16)
-              -- +18R = 10010
-              + to_integer(cv_red & "0000") + to_integer(cv_red&"0")
-              -- -15G = 01111 = 10000 - 00001
-              - to_integer(cv_green & "0000") + to_integer(cv_green)
-              -- -3B  = 00011
-              - to_integer(cv_blue & "0") - to_integer(cv_blue)
+              -- +24R = 11000
+              + to_integer(cv_red & "00000") + to_integer(cv_red&"0000")
+              -- -20G = 10100
+              - to_integer(cv_green & "0000") + to_integer(cv_green&"00")
+              -- -4B  = 00100
+              - to_integer(cv_blue & "00")
               ;
 
       -- Generate half-rate composite video pixel toggle
