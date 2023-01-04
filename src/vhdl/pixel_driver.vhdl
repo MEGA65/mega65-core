@@ -1033,18 +1033,10 @@ begin
         -- XXX Why do we need to add 64 to get the colour spaces right?
         if pal_phase_offset = 96 then -- 96 hexadegrees = 135 degrees
           pal_phase_offset <= 160; -- 160 hexadegrees = 225 degrees
-          if field_is_odd = 0 then
-            pal_v_invert <= 128;
-          else
-            pal_v_invert <= 128;
-          end if;
+          pal_v_invert <= 128;
         else
           pal_phase_offset <= 96;
-          if field_is_odd = 0 then
-            pal_v_invert <= 0;
-          else
-            pal_v_invert <= 0;
-          end if;
+          pal_v_invert <= 0;
         end if;
         
         -- Wait 8 usec from release of composite HSYNC
@@ -1294,8 +1286,8 @@ begin
           -- Sync = 80, so burst amplitude should be about +/- 40.
           if pal50_select_internal='1' then
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
-                                   + sine_table(to_integer(pal_colour_phase)) / 2
-                                   + sine_table(to_integer(pal_colour_phase)) / 4
+                                   + sine_table(to_integer((pal_colour_phase + pal_phase_offset) mod 256)) / 2
+                                   + sine_table(to_integer((pal_colour_phase + pal_phase_offset) mod 256)) / 4
                                    );
           else
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
@@ -1315,8 +1307,8 @@ begin
       -- We also have to adjust the phase by the fixed line phase, which is
       -- either 135 or 225 degress (96 or 160 hexadegrees).
       if pal50_select_internal='1' then
-        colour_phase_sine := (to_integer(pal_colour_phase) + pal_phase_offset + debug_offset_u) mod 256;
-        colour_phase_cosine := (to_integer(pal_colour_phase) + pal_phase_offset + 64 + pal_v_invert + debug_offset_v) mod 256;
+        colour_phase_sine := (to_integer(pal_colour_phase) + debug_offset_u) mod 256;
+        colour_phase_cosine := (to_integer(pal_colour_phase) + 64 + pal_v_invert + debug_offset_v) mod 256;
       else
         colour_phase_sine := to_integer(ntsc_colour_phase);
         colour_phase_cosine := (to_integer(ntsc_colour_phase) + 64) mod 256;
