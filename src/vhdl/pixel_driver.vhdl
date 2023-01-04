@@ -1323,7 +1323,7 @@ begin
       if cv_active_area = '1' then
         chroma_drive <= 0
                         + to_signed(to_integer(px_u(15 downto 8)) * sine_table(colour_phase_sine),16)
-                        + to_signed(to_integer(px_v(15 downto 9)) * sine_table(colour_phase_cosine),16)
+                        + to_signed(to_integer(px_v(15 downto 8)) * sine_table(colour_phase_cosine),16)
                         ;
       else
         chroma_drive <= to_signed(0,16);
@@ -1434,12 +1434,12 @@ begin
               + to_integer(cv_blue & "00000") + to_integer(cv_blue&"0000")
               ;
       px_v <= to_signed(0,16)
-              -- +24R = 11000
-              + to_integer(cv_red & "00000") + to_integer(cv_red&"0000")
-              -- -20G = 10100
-              - to_integer(cv_green & "0000") + to_integer(cv_green&"00")
-              -- -4B  = 00100
-              - to_integer(cv_blue & "00")
+              -- +18R = 10010
+              + to_integer(cv_red & "00000") + to_integer(cv_red&"0")
+              -- -15G = 01111
+              - to_integer(cv_green & "0000") - to_integer(cv_green)
+              -- -3B  = 00011
+              - to_integer(cv_blue & "0") - to_integer(cv_blue)
               ;
 
       -- Generate half-rate composite video pixel toggle
