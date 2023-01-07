@@ -2618,7 +2618,8 @@ dotdotshortname:
         bne drce_cont2b
         iny
         dex
-        beq drce_cont3
+        bne -
+        bra drce_cont3
 
 drce_cont2b:
 	;; Ignore hidden/system files for now
