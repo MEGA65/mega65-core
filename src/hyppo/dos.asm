@@ -2611,15 +2611,14 @@ drce_cont2:
         bra +
 dotdotshortname:
         !text "..         "
-+
--       ldy #fs_fat32_dirent_offset_shortname        ;; Y=0 (first char of entry)
-        lda (<dos_scratch_vector),y
++       ldx #11
+        ldy #fs_fat32_dirent_offset_shortname        ;; Y=0 (first char of entry)
+-       lda (<dos_scratch_vector),y
         cmp dotdotshortname,y
         bne drce_cont2b
         iny
         dex
-        bne -
-        bra drce_cont3
+        beq drce_cont3
 
 drce_cont2b:
 	;; Ignore hidden/system files for now
