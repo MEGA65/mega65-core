@@ -11,7 +11,7 @@
 
 ## Introduction
 
-Thanks for justburn for his contributions on getting this file started!
+*Thanks for justburn for his contributions on getting this file started!*
 
 The overall process from go-to-whoa takes about 60 minutes.
 
@@ -21,57 +21,47 @@ Basically you:
 1. compile the design into a bitstream (10 - 240 mins),
 1. copy bitstream onto fpga board (5 mins).
 
-Detailed instructions are below.
-
 ## Downloading Repository
 
 The following is assumed:
 
-1. you have linux, say, Ubuntu 18.04
+1. you have linux, say, Ubuntu 20.04
 1. you have git installed, if not, use the following:
 ```
 $> sudo apt-get install git
 ```
 
-Make a working directory for your project, we refer to that working directory as ```$GIT_ROOT```
+Make a working directory for your project, we refer to that working directory as `$GIT_ROOT`
 ```
 $> cd $GIT_ROOT
 ```
 Clone the following two git repositories into your working directory
 ```
 $GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
-$GIT_ROOT$>
 ```
-You should now have a directory in your working directory called ```mega65-core```.
+You should now have a directory in your working directory called `mega65-core`.
 
-If you have a github account, and use SSH keys to avoid being prompted for your github password,
-use the following command to tell git to always use SSH instead of HTTPS when comminicating with
-the github.com servers:
+(If you have a github account, and use SSH keys to avoid being prompted for your github password, use `git@github.com:MEGA65/mega65-core.git` instead of the https URL above. But if you have that we probably don't need to tell you...)
 
-```
-git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-```
-
-Change directory into the ```mega65-core``` working directory.
+Change directory into the `mega65-core` working directory.
 ```
 $GIT_ROOT$> cd mega65-core
 $GIT_ROOT$/mega65-core>
 ```
 
-Currently, the ```development``` branch is what you should compile.
-So, checkout that branch:
+The `master` branch is the latest release core. But you probably don't want to
+build that, as the release is always available on [filehost](https://files.mega65.org/) (search for `core release`).
+
+So you probably want to checkout the `development` branch.
 ```
 $GIT_ROOT$/mega65-core> git checkout development
-Branch px100mhz set up to track remote branch development from origin.
-Switched to a new branch 'development'
-$GIT_ROOT$/mega65-core>
 ```
 
-If you want to try a different (development) branch, do the following:
-e.g., to see/use the example ```banana``` branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```.
-To change to the ```MASTER``` branch, type ```git checkout master```.
+If it is a different branch you are interested in (perhaps someone on discord asked for a specific branch to test), just replace `development` with the respective branch name.
 
-You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.
+To get back to the release branch, use `master` as the branch name.
+
+You may want to type `git status` or `git branch` to check what branch you have checked out.
 
 To make sure that you have the latest files, if you wish to repeat this after the MEGA65 team have updated the source code, all you have to do is type:
 ```
@@ -82,43 +72,44 @@ $GIT_ROOT$/mega65-core> git pull
 
 Previously it was necessary to checkout several sub-modules before building. This is now taken care of by the make file (Makefile).
 
+Some of the submodules can be disabled by setting various `USE_LOCAL_` variables. Check the Makefile for them.
+
 ## 3rd-party programs
 
-You need ```fpgajtag``` installed to make use of the improved tool-chain.
-See below for info:
-```
-$ cd .. (to get out of the $git_root dir)
-$ git clone https://github.com/cambridgehackers/fpgajtag.git
-$ cd fpgajtag
-$ make
-```
-if the above fails, ```sudo apt-get install libusb-1.0-0-dev``` and ```make```.
-```
-$ sudo cp src/fpgajtag /usr/local/bin
-$ cd ..
-$ cd mega65-core
-```
+### exomizer
 
-If it is correct, you should get a meaningful response from the following command:
+You need `exomizer` installed to be able to pack programs for the
+MEGA65.
 
+Get the software or sourcecode from the
+[Exomizer Project Homepage](https://bitbucket.org/magli143/exomizer/wiki/Home).
+Follow the instructions on the project page how to build and/or install.
+
+### cbmconvert
+
+
+
+### cc65
+
+The Makefile can compile a `cc65` version automatically, but if you are planning
+to work on the core, it is recommended to install `cc65` into your system.
+
+You can then set the environment variable `USE_LOCAL_CC65` to 1 or call make with
 ```
-$ fpgajtag --version
+make USE_LOCAL_CC65=1 TARGETNAME
 ```
-
-See below for other dependencies.
-
-You are now ready to compile the design.
 
 ## Compiling
 
 The following is assumed:
 
-1. you have ```gcc``` installed (I have ver 5.2.1) (for compiling c.*)
-1. you have ```make``` installed (I have 4.0) (for the makefile)
-1. you have ```python``` installed (I have ver 2.7.10) (for some scripts)
-1. you have ```libpng12-dev``` installed (for the image manipulation) (alternatively use libpng-dev to install)
-1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
-1. you have ```gnat``` installed (for compiling the GHDL submodule)
+1. you have `gcc` installed (6.0+) (for compiling c.*)
+1. you have `make` installed (4.0+) (for the makefile)
+1. you have `python` installed (3.6+) (for some scripts)
+1. you have `libpng12-dev` installed (for the image manipulation) (alternatively use libpng-dev to install)
+1. you have `libusb-1.0-0-dev` installed (for communicationg with JTAG)
+1. you have `cbmconvert` installed (2.1.4+) (to make a D81 image) (refer to ./using.md)
+1. you have `gnat` installed (for compiling the GHDL submodule)
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence (recommended that you install to directory /opt/Xilinx to prevent issue with makefile)
 
 Overview of the compile process. Choose the specific make target to suit the device that you are targetting:
@@ -140,35 +131,20 @@ __Nexys4 boards__:
 1. Bitstream: `make bin/nexys4.bit`
 2. MCS file for Vivado: `make bin/nexys4.mcs`
 
-The following instructions are for running in the fpga.
+## Programming the FPGA JTAG and the m65 cli tool
 
-* As there are many end-use cases, i will not cover them all here, just the one that suits me.
-Someone else please document how the simulate function(s) work and what compile options etc.
+The `m65` program is part of the
+[mega65-tools](https://github.com/MEGA65/mega65-tools/)
+repository. Precompiled version are available.
 
-## Programming the FPGA using fpga-board and the monitor_load command
+With this tool and a JTAG adapter it is very easy to push the bitstream onto your device. Consult the [tutorial](https://files.mega65.org?ar=280a57a6-fb84-40fc-96ac-6da603302aa7) for more help.
 
-The monitor_load program is compiled as part of the build process. This can be used to
-load a bitstream and/or custom Hyppo/Hypervisor version, among other functions.
+The short version:
+```
+m65 --bit bin/nexys4ddr.bit
+```
+(This assumes that you have the mega65-tools in your search path)
 
-A command like the following will load and start the desired bitstream and Hyppo/Hypervisor
-files you provide. You must have the USB programming cable connected for this to work. This
-procedure works on Nexys4 as well as MEGA65 prototype main boards with the FPGA programming
-module attached.  It is much faster (~3 seconds versus ~13 - 30 seconds) than loading a bitstream
-from an SD card, and saves you the hassle of removing and inserting SD cards. monitor_load can
-also be used to auto-switch to C64 mode on start (-4 option), and/or to load and optionally run
-a user-supplied program on boot (see the usage text for monitor_load for details), providing a
-greatly simplified work-flow.
+## Programming the flash memory on the FPGA board
 
-```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/HICKUP.M65```
-
-(This assumes you are running the command from the ```mega65-core``` directory.
-
-## Programming the flash memory on the FPGA board to load the MEGA65 bitstream on power up
-
-XXX - To be completed.
-
-The general gist is to open vivado, and choose the menu item to program a device, and then
-choose the appropriate .mcs file from the ```bin/``` directory.  The process takes several
-minutes, but after that, if you have your FPGA board to start from [Q]SPI flash, it will
-almost immediately (<1 sec delay) begin starting up as a MEGA65 every time that power is
-provided or the "program FPGA" button is pressed on your FPGA board, if it has such a button.
+Please consult the [tutorial](https://files.mega65.org?ar=280a57a6-fb84-40fc-96ac-6da603302aa7) how to do this.
