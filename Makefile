@@ -258,7 +258,8 @@ CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
 			$(VHDLSRCDIR)/divider32.vhdl \
 			$(VHDLSRCDIR)/fast_divide.vhdl \
-			$(VHDLSRCDIR)/shifter32.vhdl
+			$(VHDLSRCDIR)/shifter32.vhdl \
+			$(VHDLSRCDIR)/neotrng.vhdl
 
 NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
 
