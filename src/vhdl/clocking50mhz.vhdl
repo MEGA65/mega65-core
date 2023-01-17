@@ -22,6 +22,7 @@ entity clocking50mhz is
       clock135n  : out std_logic;
       clock135n2  : out std_logic;
       clock162   : out std_logic;
+      clock200   : out std_logic;
       clock324   : out std_logic
    );
 end entity;
@@ -209,13 +210,13 @@ begin
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT2 = UNUSED
-    CLKOUT2_DIVIDE       => 30,
+    -- CLKOUT2 = CLKOUT3 = clock200 = 800MHz/4
+    CLKOUT2_DIVIDE       => 4,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
     
-    -- CLKOUT3 = UNUSESD
+    -- CLKOUT3 = UNUSED
     CLKOUT3_DIVIDE       => 20,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
@@ -246,6 +247,7 @@ begin
     CLKFBOUT            => clk_fb_eth,
     CLKOUT0             => clock100,
     CLKOUT1             => clock50,
+    CLKOUT2             => clock200,
     -- Input clock control
     CLKFBIN             => clk_fb_eth,
     CLKIN1              => clk_in,
