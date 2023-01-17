@@ -10,6 +10,7 @@ package cputypes is
     mega65r1, mega65r2, mega65r3,
     megaphoner1, megaphoner4,
     nexys4, nexys4ddr, nexys4ddr_widget,
+    qmtechzyjzgwa100t, qmtechzyjzgwa200t, qmtechzyjzgwk325t,
     wukong
     );
   
