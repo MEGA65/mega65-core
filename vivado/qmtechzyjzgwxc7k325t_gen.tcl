@@ -89,11 +89,37 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
   create_fileset -srcset sources_1
 }
 
+# CRITICAL WARNING: [HDL 9-3134] 'grove_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1307]
+# CRITICAL WARNING: [HDL 9-3134] 'mega65r3_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1374]
+# CRITICAL WARNING: [HDL 9-3134] 'edid_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1394]
+# CRITICAL WARNING: [HDL 9-3134] 'mega65r2_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1414]
+# CRITICAL WARNING: [HDL 9-3134] 'hdmi_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1430]
+#
+# CRITICAL WARNING: [HDL 9-3134] 'version' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:9]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_datestamp' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:822]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_datestamp' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:823]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_commit' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:828]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_commit' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:829]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_commit' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:830]
+# CRITICAL WARNING: [HDL 9-3136] 'fpga_commit' is not declared [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/c65uart.vhdl:831]
+# CRITICAL WARNING: [HDL 9-3134] 'ram8x32k' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/viciv.vhdl:1091]
+# CRITICAL WARNING: [HDL 9-3134] 'charrom' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/viciv.vhdl:1150]
+# CRITICAL WARNING: [HDL 9-3134] 'hyppo' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:620]
+# CRITICAL WARNING: [HDL 9-3134] 'grove_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1307]
+# CRITICAL WARNING: [HDL 9-3134] 'mega65r3_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1374]
+# CRITICAL WARNING: [HDL 9-3134] 'edid_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1394]
+# CRITICAL WARNING: [HDL 9-3134] 'mega65r2_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1414]
+# CRITICAL WARNING: [HDL 9-3134] 'hdmi_i2c' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/iomapper.vhdl:1430]
+# CRITICAL WARNING: [HDL 9-3134] 'shadowram' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/gs4510.vhdl:1576]
+# CRITICAL WARNING: [HDL 9-3134] 'termmem' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/rain.vhdl:211]
+# CRITICAL WARNING: [HDL 9-3134] 'oskmem' is not compiled in library 'xil_defaultlib' [/run/media/thierry/537d1a40-d5c1-4b5d-8709-c56bbb36454c/home/thierry/Work/Development/MEGA65/mega65-core.tdeval/src/vhdl/visual_keyboard.vhdl:219]
+#
+#
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- "[file normalize "$origin_dir/src/vhdl/clocking.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/clocking50mhz.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
@@ -209,6 +235,11 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/grove_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/edid_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hdmi_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r2_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r3_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/6502_alu.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_mux.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_reg.v"]"\
@@ -623,7 +654,7 @@ set file "vhdl/fpgatemp.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/clocking.vhdl"
+set file "vhdl/clocking50mhz.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -676,6 +707,26 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/kb_matrix_ram.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/grove_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/edid_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/hdmi_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mega65r2_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mega65r3_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
