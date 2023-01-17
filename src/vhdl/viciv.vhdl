@@ -98,6 +98,9 @@ entity viciv is
     viciv_fast : out std_logic;
 
     viciv_frame_indicate : out std_logic := '0';
+
+    interlace_mode : out std_logic := '0';
+    mono_mode : out std_logic := '0';
     
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
@@ -899,6 +902,7 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
+  signal reg_mono : std_logic := '0';
   signal reg_interlace : std_logic := '0';
   signal sprite_h640 : std_logic := '1';
   signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
@@ -1833,7 +1837,7 @@ begin
             & bitplane_mode                    -- BPM
             & reg_v400                         -- V400
             & reg_h1280                         -- H1280
-            & "0"                         -- MONO
+            & reg_mono                         -- Mono mode for composite output
             & reg_interlace;                   -- INT(erlaced?)
 
 
@@ -2114,6 +2118,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      interlace_mode <= reg_interlace;
+      mono_mode <= reg_mono;
+      
       last_dd00_bits <= dd00_bits;
       if last_dd00_bits /= dd00_bits then
         viciv_legacy_mode_registers_touched <= '1';
@@ -2559,9 +2566,17 @@ begin
           reg_v400 <= fastio_wdata(3);
           -- @IO:C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
           reg_h1280 <= fastio_wdata(2);
-          -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO video output (not implemented)
+          -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO composite video output (colour if disabled)
+          reg_mono <= fastio_wdata(1);
           -- @IO:C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
-          reg_interlace <= fastio_wdata(0);
+          -- Auto-enable interlace mode when selecting V400 (unless in
+          -- hypervisor, in which case we want to be able to unfreeze this
+          -- register without side-effects)
+          if reg_v400='0' and fastio_wdata(3)='1' and hypervisor_mode='0' then
+            reg_interlace <= '1';
+          else
+            reg_interlace <= fastio_wdata(0);
+          end if;
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;

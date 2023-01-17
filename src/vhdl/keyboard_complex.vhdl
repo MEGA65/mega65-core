@@ -12,6 +12,8 @@ entity keyboard_complex is
     matrix_disable_modifiers : in std_logic;
 
     viciv_frame_indicate : in std_logic;
+
+    eth_hyperrupt : out std_logic := '0';
     
     -- Physical interface pins
 
@@ -203,7 +205,9 @@ begin
     
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle => eth_keycode_toggle,
-    eth_keycode => eth_keycode
+    eth_keycode => eth_keycode,
+    -- And also ethernet triggered hypervisor trap for remote control
+    eth_hyperrupt_out => eth_hyperrupt
     );
 
   keymapper0:   entity work.keymapper port map(

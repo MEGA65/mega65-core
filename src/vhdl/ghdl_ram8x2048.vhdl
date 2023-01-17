@@ -7,6 +7,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 ENTITY ram8x2048 IS
+  generic (
+    id : in integer
+    );
   PORT (
     clkr : IN STD_LOGIC;
     clkw : IN STD_LOGIC;
@@ -31,6 +34,9 @@ begin  -- behavioural
   begin
     if cs='1' then
       rdata <= ram(address);
+      if (id < 1000) then
+        report integer'image(id) & ": reading $" & to_hstring(ram(address)) & " from address $" & to_hstring(to_unsigned(address,12));
+      end if;
     else
       rdata <= (others => 'Z');
     end if;
@@ -38,7 +44,7 @@ begin  -- behavioural
     if(rising_edge(Clkw)) then
       if w='1' then
         ram(write_address) <= wdata;
-        report "writing $" & to_hstring(wdata) & " to sector buffer offset $"
+        report integer'image(id) & ": writing $" & to_hstring(wdata) & " to sector buffer offset $"
           & to_hstring(to_unsigned(write_address,12)) severity note;
       end if;
     end if;    

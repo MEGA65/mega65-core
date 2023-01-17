@@ -2603,16 +2603,31 @@ drce_cont2:
         ;;
         and #$06                ;; %00000110
         beq drce_cont3        ;; branch if equal to zero (ie not Hidden OR System)
+
+        ;; macOS creates the `.` and `..` entries as hidden. Special case `..`
+        ;; so that it appears in listings. Some uses, like the Freezer, need it
+        ;; visible to know how to navigate to the parent directory.
+        ldx #11  ; length of dotdotshortname string
+        ldy #fs_fat32_dirent_offset_shortname        ;; Y=0 (first char of entry)
+-       lda (<dos_scratch_vector),y
+        cmp dotdotshortname,y
+        bne drce_ignore
+        iny
+        dex
+        bne -
+
+drce_cont3:
+        ;; was not hidden/system, or Vol-ID, or LFN, or was special case "..",
+        ;; so we process this entry regardless of if read-only (bit0) or not
+        jmp drce_normalrecord
+
+drce_ignore:
 	;; Ignore hidden/system files for now
 	;; XXX We should have a flag to enable/disable this behaviour
 	jmp drce_cont_next_part
 
-drce_cont3:
-
-        ;; was not hidden/system, or Vol-ID, or LFN,
-        ;; so we process this entry regardless of if read-only (bit0) or not
-
-        jmp drce_normalrecord
+dotdotshortname:
+        !text "..         "
 
 ;;         ========================
 

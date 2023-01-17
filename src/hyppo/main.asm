@@ -243,8 +243,8 @@ trap_entry_points:
         jmp unstable_illegal_opcode_trap        ;; Trap #$46 (6502 unstable illegal opcode)
         eom
         jmp kill_opcode_trap                    ;; Trap #$47 (6502 KIL instruction)
-        eom
-        jmp nosuchtrap
+        eom	
+        jmp ethernet_remote_trap                ;; Trap #$48 (Ethernet remote control trap) 
         eom
         jmp nosuchtrap
         eom
@@ -450,6 +450,17 @@ reset_machine_state:
         lda #$6b    ;; 01101011
         sta hypervisor_feature_enables
 
+	;; Reset ethernet to clear any queued packets from before reset
+	;; and ack 1 packet to get the controller into the right state
+	lda #$00
+	sta $d6e0
+	lda #$03
+	sta $d6e0
+	sta $d6e1
+	lda #$00
+	sta $d6e1
+	
+	
 	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
 	lda #$02
 	tsb $d7fb
@@ -3183,6 +3194,9 @@ txt_BOOTLOGOM65:        !text "BANNER.M65"
 txt_FREEZER:            !text "FREEZER.M65"
                         !8 0
 
+txt_ETHLOAD:		!text "ETHLOAD.M65"
+			!8 0
+	
             ;; If this file is present, then machine starts up with video
             ;; mode set to NTSC (60Hz), else as PAL (50Hz).
             ;; This is to allow us to boot in PAL by default, except for

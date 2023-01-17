@@ -674,14 +674,31 @@ unsigned char select_bitstream_file(void)
   // Okay, we have some disk images, now get the user to pick one!
   draw_file_list();
   while (1) {
-    x = PEEK(0xD610U);
 
+#ifndef JOYFLASH
+    x = PEEK(0xD610U);
+#else
+    x=0;
+#endif
+    
     if (!x) {
-      // We use a simple lookup table to do this
+      unsigned char v;
+      v=PEEK(0xDC00)&0x1f;
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
-      // Then wait for joystick to release
-      while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
-        continue;
+      //
+      if (!v) {
+	v=PEEK(0xD6A0)>>3;    
+	if (!(v&16)) x=0x0d; // FIRE/F_INDEX = return
+	if (!(v&1)) x=0x91;  // UP/F_DISKCHANGED = CRSR-UP
+	if (!(v&8)) x=0x1d;  // RIGHT/F_TRACK0 = CRSR-RIGHT
+	if (!(v&4)) x=0x9d;  // LEFT/F_WRITEPROTECT = CRSR-LEFT
+	if (!(v&2)) x=0x11;  // DOWN/F_RDATA = CRSR-DOWN
+	// Wait for joystick presses to be released before continuing
+      }
+      while (v!=0x1f) {
+	v=PEEK(0xDC00)&0x1f;
+	if (!v) v=PEEK(0xD6A0)>>3;
+      }            
     }
 
     if (!x) {
@@ -1435,6 +1452,7 @@ void probe_qspi_flash(void)
     fetch_rdid();
     read_registers();
   }
+  
 
 #ifdef QSPI_VERBOSE
   for (i = 0; i < 0x80; i++) {
@@ -2116,6 +2134,35 @@ void read_sr1(void)
   reg_sr1 = spi_rx_byte();
   spi_cs_high();
   delay();
+}
+
+void read_ppbl(void)
+{
+  // PPB Lock Register
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xa7);
+  spi_cs_high();
+  delay();
+}
+
+void read_ppb_for_sector(unsigned long sector_start)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xe2);
+  spi_tx_byte(sector_start>>24);
+  spi_tx_byte(sector_start>>16);
+  spi_tx_byte(sector_start>> 8);
+  spi_tx_byte(sector_start>> 0);
+  spi_cs_high();
+  delay();  
 }
 
 void spi_write_enable(void)

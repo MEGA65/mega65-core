@@ -124,7 +124,6 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/hdmi_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/soundSource.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/tb_spdif_out.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplanes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vicii_sprites.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhdl"]"\
@@ -180,6 +179,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/gs4510.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/neotrng.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fast_divide.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fakehyperram.vhdl"]"\
@@ -258,10 +258,6 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/soundSource.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/tb_spdif_out.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -614,6 +610,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/gs4510.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/neotrng.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

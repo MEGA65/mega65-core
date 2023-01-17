@@ -234,7 +234,8 @@ firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/ONBOARD.M65 \
-		$(SDCARD_DIR)/C000UTIL.BIN
+		$(SDCARD_DIR)/C000UTIL.BIN \
+		$(SDCARD_DIR)/ETHLOAD.M65
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
 		$(SDCARD_DIR)/MEGA65.ROM
@@ -680,6 +681,18 @@ miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
 
+ETHFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
+		$(VHDLSRCDIR)/test_ethernet.vhdl
+
+ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(ETHFILES)
+	$(GHDL) -m test_ethernet
+	( ./test_ethernet || $(GHDL) -r test_ethernet )
+
+
+
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
@@ -845,6 +858,19 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
 	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
+$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/joyflash-a200t.prg \
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspijoy.c
+# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
+# it doesn't overlap with hypervisor
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> joyflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/joyflash-a200t.prg)
+	@test -n "$$(find $(UTILDIR)/joyflash-a200t.prg -size -29000c)"
+
+
 $(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
@@ -907,6 +933,10 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/main.asm
 
+$(BINDIR)/BRICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
+	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/joyflash.asm
+
+
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
 
@@ -914,6 +944,11 @@ $(BINDIR)/monitor.m65:	$(OPHIS_DEPEND) $(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/m
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS_MON) -l $(SRCDIR)/monitor/monitor.list -m $(SRCDIR)/monitor/monitor.map -o $(BINDIR)/monitor.m65 $(SRCDIR)/monitor/monitor.a65
+
+$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(SRCDIR)/utilities/etherload.a65
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(OPHIS) $(OPHISOPT) -l $(SRCDIR)/utilities/etherload.list -m $(SRCDIR)/utilities/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(SRCDIR)/utilities/etherload.a65
 
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
@@ -1040,13 +1075,9 @@ $(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSR
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
 
 
-$(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
-ifndef CONVERT
-	$(error The convert command was not found. ImageMagick might not be installed.)
-endif
+$(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/mega65_320x64.png
 	mkdir -p $(SDCARD_DIR)
-	$(CONVERT) -colors 128 -depth 8 +dither assets/mega65_320x64.png $(BINDIR)/mega65_320x64_128colour.png
-	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
+	$(TOOLDIR)/pngprepare/pngprepare logo $(ASSETS)/mega65_320x64.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by hyppo
 $(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin

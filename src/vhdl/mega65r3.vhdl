@@ -44,7 +44,7 @@ entity container is
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
-         kb_io0 : out std_logic;
+         kb_io0 : inout std_logic;
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
 
@@ -104,11 +104,11 @@ entity container is
          hr_cs0 : out std_logic;
 
          -- Optional 2nd hyperram in trap-door slot
-         hr2_d : inout unsigned(7 downto 0);
-         hr2_rwds : inout std_logic;
-         hr2_reset : out std_logic;
-         hr2_clk_p : out std_logic;
-         hr2_cs0 : out std_logic;
+--         hr2_d : inout unsigned(7 downto 0);
+--         hr2_rwds : inout std_logic;
+--         hr2_reset : out std_logic;
+--         hr2_clk_p : out std_logic;
+--         hr2_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -285,10 +285,7 @@ architecture Behavioral of container is
   signal clock270 : std_logic;
   signal clock325 : std_logic;
 
-  -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
-  -- XXX Note that left and up are active HIGH!
-  -- XXX Plumb these into the MEGA65R2 keyboard protocol receiver
   signal keyleft : std_logic := '0';
   signal keyup : std_logic := '0';
   -- On the R2, we don't use the "real" keyboard interface, but instead the
@@ -465,6 +462,10 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal dvi_select : std_logic := '0';
+
+  signal luma : unsigned(7 downto 0);
+  signal chroma : unsigned(7 downto 0);
+  signal composite : unsigned(7 downto 0);
   
 begin
 
@@ -549,9 +550,7 @@ begin
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp_drive(3),
-        -- Disable HDMI-style audio if one
-        -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
-        -- this behaviour
+        -- Disable HDMI-style audio if one (from portp bit 1)
         dvi => dvi_select, 
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
@@ -580,7 +579,29 @@ begin
 
         tmds => tmds
         );
-    
+
+  expansionboard0: entity work.r3_expansion
+    port map (
+      cpuclock => cpuclock,
+      clock27 => clock27,
+      clock81 => pixelclock,
+      clock270 => clock270,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
+      
+      -- XXX The first revision of the R3 expansion board has the video
+      -- connector mis-wired.  So we put luma out everywhere, so that
+      -- we can still pick it up on a normally wired video cable
+      luma => luma,
+      chroma => luma,
+      composite => luma,
+      audio => luma
+      
+      );
+  
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
@@ -677,12 +698,12 @@ begin
 --      hr_clk_n => hr_clk_n,
 
       hr_cs0 => hr_cs0,
-      hr_cs1 => hr2_cs0,
+--      hr_cs1 => hr2_cs0,
 
-      hr2_d => hr2_d,
-      hr2_rwds => hr2_rwds,
-      hr2_reset => hr2_reset,
-      hr2_clk_p => hr2_clk_p
+      hr2_d => open,
+      hr2_rwds => open
+--      hr2_reset => hr2_reset,
+--      hr2_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
       );
 
@@ -806,6 +827,13 @@ begin
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
                      target => mega65r3,
+                     -- MEGA65R3 has A200T which has plenty of spare BRAM.
+                     -- We can thus increase the number of eth RX buffers from
+                     -- 4x2KB to 32x2KB = 64KB.
+                     -- This will, inpractice, allow the reception of ~32x1.3K
+                     -- = ~40KB of data in a burst, before the RX buffers are
+                     -- filled.
+                     num_eth_rx_buffers => 32,
                      hyper_installed => true -- For VIC-IV to know it can use
                                              -- hyperram for full-colour glyphs
                      )                 
@@ -856,6 +884,10 @@ begin
           fm_right => fm_right,
           
           no_hyppo => '0',
+
+          luma => luma,
+--          chroma => luma,
+--          composite => luma,
           
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
@@ -1048,10 +1080,12 @@ begin
           );
     end generate;  
       
-  -- BUFG on ethernet clock to keep the clock nice and strong
-  ethbufg0:
-  bufg port map ( I => ethclock,
-                  O => eth_clock);
+  -- Ethernet clock already has a bufg, so just propagate it out
+  eth_clock <= ethclock;
+
+--  ethbufg0:
+--  bufg port map ( I => ethclock,
+--                  O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
@@ -1086,8 +1120,8 @@ begin
     if rising_edge(cpuclock) then      
 
       portp_drive <= portp;
-      
-      dvi_select <= portp_drive(1) xor dipsw(1);
+
+      dvi_select <= portp_drive(1);
       
       reset_high <= not btncpureset;
 

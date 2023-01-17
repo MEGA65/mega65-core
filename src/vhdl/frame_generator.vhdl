@@ -28,7 +28,7 @@ entity frame_generator is
     frame_height : integer;
 
     x_zero_position : integer := 0;
-    
+
     fullwidth_start : integer;
     fullwidth_width : integer;
 
@@ -40,7 +40,7 @@ entity frame_generator is
     cycles_per_raster_1mhz : integer := 63;
     cycles_per_raster_2mhz : integer := 63 * 2;
     cycles_per_raster_3mhz : integer := 221; -- 63*3.5, rounded up to next integer;
-
+    
     vsync_start : integer;
     vsync_end : integer;
     hsync_start : integer;
@@ -63,6 +63,8 @@ entity frame_generator is
     -- CPU clock is used for exporting the PHI2 clock
     clock41 : in std_logic;
 
+    interlace_enable : in std_logic := '0';
+    
     -- CPU clock oriented signal that strobes for each CPU tick
     phi2_1mhz_out : out std_logic;  
     phi2_2mhz_out : out std_logic;  
@@ -70,15 +72,17 @@ entity frame_generator is
     
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
+    field_is_odd : in integer range 0 to 1 := 0;    
 
     -- Video output oriented signals
+    cv_hsync : out std_logic := '0';
     hsync : out std_logic := '0';
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
     vsync_uninverted : out std_logic := '0';
 
     lcd_hsync : out std_logic := '0';
-    lcd_vsync : out std_logic := '0';
+    lcd_vsync : out std_logic := '1';
 
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
@@ -104,6 +108,7 @@ entity frame_generator is
     
     -- ~80MHz oriented signals for VIC-IV
     pixel_strobe : out std_logic := '0';
+    cv_pixel_strobe : out std_logic := '0';
     x_zero : out std_logic := '0';
     y_zero : out std_logic := '0'    
     
@@ -141,15 +146,20 @@ architecture brutalist of frame_generator is
   signal last_phi2_toggle_1mhz : std_logic := '0';  
   signal last_phi2_toggle_2mhz : std_logic := '0';  
   signal last_phi2_toggle_3mhz : std_logic := '0';  
-  
-  signal x : integer := 0;
+
+  signal x : integer := 0;  
   signal y : integer := frame_height - 3;
 
   signal vsync_driver : std_logic := '0';
   signal hsync_driver : std_logic := '0';
+  signal cv_hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
   signal vsync_uninverted_driver : std_logic := '0';
 
+  signal cv_x : integer := 0;
+  signal cv_pixel_strobe_int : std_logic := '0';
+  signal cv_pixel_toggle : std_logic := '0';
+  
   signal narrow_dataenable_driver : std_logic := '0';
   signal fullwidth_dataenable_driver : std_logic := '0';
   
@@ -163,7 +173,8 @@ architecture brutalist of frame_generator is
 
   signal normal_y_active : std_logic := '0';
   signal lcd_y_active : std_logic := '0';
-  
+
+  signal line_odd_even : integer range 0 to 1 := 0;
   
 begin
 
@@ -179,6 +190,7 @@ begin
       
       vsync <= vsync_driver;
       vsync_uninverted <= vsync_uninverted_driver;
+      cv_hsync <= cv_hsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
 
@@ -206,11 +218,35 @@ begin
           phi2_remaining_3mhz <= phi2_remaining_3mhz - 1;
         end if;
       end if;      
-      
+
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 27MHz driven
       -- chain.
+
+      cv_pixel_strobe <= '0';
+      cv_pixel_strobe_int <= '0';
+      if cv_pixel_strobe_int='1' then
+      -- In fake progressive mode, there is 624 rather than 625 rasters, which
+      -- are 864 wide. In interlace mode to keep timing when we add the single
+      -- extra raster, we trim the frame width by one tick
+        if (interlace_enable='1') and cv_x < (frame_width-1) then
+          cv_x <= cv_x + 1;
+        elsif (interlace_enable='0') and cv_x < (frame_width-1-(frame_height mod 2)) then
+          cv_x <= cv_x + 1;
+        else
+          cv_x <= 0;
+        end if;
+
+        if cv_x = hsync_start then
+          cv_hsync_driver <= '1';
+        end if;
+        if cv_x = hsync_end then
+          cv_hsync_driver <= '0';
+        end if;        
+      end if;
+
+      
       if pixel_strobe_counter /= (cycles_per_pixel-1) then
         pixel_strobe <= '0';
         pixel_strobe_counter <= pixel_strobe_counter + 1;
@@ -218,7 +254,12 @@ begin
         
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
-       
+
+        -- Generate half-rate composite video pixel toggle
+        cv_pixel_strobe <= cv_pixel_toggle;
+        cv_pixel_strobe_int <= cv_pixel_toggle;
+        cv_pixel_toggle <= not cv_pixel_toggle;
+        
         if x = x_zero_position then
           x_zero_driver <= '1';
           if phi2_remaining_1mhz = to_unsigned(0,8) then
@@ -235,9 +276,44 @@ begin
         end if;
         if x < (frame_width-1) then
           x <= x + 1;
+          
         else
           x <= 0;
-          if y < (frame_height-1) then
+
+         -- Reset composite video counter every 2nd raster line
+          -- Support interlace by switching between odd and even lines
+          -- every field.
+          -- Actually we don't need to know which field we are in, because
+          -- the frame is an odd number of rasters in length, and thus
+          -- it will naturally alternate. Only if the frame is an even number
+          -- of rasters do we need this correction -- like in NTSC.  But PAL
+          -- has an odd number, so we need to make a smart selection here.
+          --
+          -- Then to make things more exciting, the switch needs to happen at the
+          -- start of VSYNC, which is not at the start of the frame.
+          -- (note that this formulation adds a 1 line delay to the odd/even switch
+          -- which we take account of in the y < vsync_start equation).
+          --
+          -- When we are lucky, it all cancels out for us to be super simple.
+          if ((frame_height mod 2) = 1) and (interlace_enable='1') then
+            -- eg. PAL
+            line_odd_even <= field_is_odd;
+          else
+            -- eg. NTSC : There are no unequal length fields here.
+            line_odd_even <= 0;
+          end if;
+
+          if to_integer(to_unsigned(y,1)) = line_odd_even then
+            report "Reset cv_x at y=" & integer'image(y) & ", field_is_odd=" & integer'image(field_is_odd);
+            cv_x <= 0;
+          end if;
+          
+          if (y < (frame_height-1)) and interlace_enable='1' then
+            y <= y + 1;
+            y_zero_driver <= '0';
+          elsif (y < (frame_height-1-(frame_height mod 2))) and interlace_enable='0' then
+            -- Fake progressive mode requires that the frame be a whole number
+            -- of composite video rasters.
             y <= y + 1;
             y_zero_driver <= '0';
           else
@@ -335,6 +411,24 @@ begin
           else
             blue_o <= x"00";
             nblue_o <= x"00";
+          end if;
+          -- Vertical grey and RGB transitions for checking DAC linearity
+          if x > 512 and x < 540 then
+            red_o <= to_unsigned(y,8);
+            green_o <= to_unsigned(y,8);
+            blue_o <= to_unsigned(y,8);
+          elsif x > 539 and x < 572 then
+            red_o <= to_unsigned(y,8);
+            green_o <= (others => '0');
+            blue_o <= (others => '0');
+          elsif x > 571 and x < 604 then
+            red_o <= (others => '0');
+            green_o <= to_unsigned(y,8);
+            blue_o <= (others => '0');
+          elsif x > 603 and x < 636 then
+            red_o <= (others => '0');
+            green_o <= (others => '0');
+            blue_o <= to_unsigned(y,8);
           end if;
         end if;
         

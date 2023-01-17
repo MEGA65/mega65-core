@@ -58,6 +58,7 @@ entity gs4510 is
     nmi : in std_logic;
     exrom : in std_logic;
     game : in std_logic;
+    eth_hyperrupt : in std_logic;
 
     all_pause : in std_logic;
     
@@ -699,6 +700,7 @@ architecture Behavioural of gs4510 is
   signal matrix_trap_pending : std_logic := '0';
   signal f011_read_trap_pending : std_logic := '0';
   signal f011_write_trap_pending : std_logic := '0';
+  signal eth_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -1468,6 +1470,13 @@ architecture Behavioural of gs4510 is
   signal last_sid_sample_toggle : std_logic := '0';
   signal sid_sample_counter : integer range 0 to 1023 := 0;
 
+  signal trng_consume_toggle : std_logic := '1';
+  signal trng_consume_toggle_last : std_logic := '0';
+  signal next_trng : unsigned(7 downto 0) := x"04"; -- a very random number initially
+  signal trng_valid : std_logic;
+  signal trng_enable : std_logic;
+  signal trng_out : unsigned(7 downto 0);
+  
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -1494,6 +1503,20 @@ begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
 
+  trng0: entity work.neoTRNG generic map (
+    NUM_CELLS => 3,
+    NUM_INV_START => 5,
+    NUM_INV_INC => 2,
+    NUM_INV_DELAY => 2,
+    POST_PROC_EN => true,
+    IS_SIM => false )
+    port map (
+      clk_i => clock,
+      enable_i => trng_enable,
+      unsigned(data_o) => trng_out,
+      valid_o => trng_valid
+      );
+  
   fd0: entity work.fast_divide
     port map (
       clock => clock,
@@ -2689,7 +2712,11 @@ begin
             when x"e9" => return reg_math_cycle_compare(15 downto 8);
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
-
+                          
+            when x"ef" =>
+              -- @IO:GS $D7EF CPU:RAND Hardware random number generator
+              trng_consume_toggle <= not trng_consume_toggle;
+              return next_trng;
             when x"f0" =>
               return reg_cycle_counter;
                           
@@ -2704,6 +2731,8 @@ begin
             when x"f4" => return last_cycles_per_frame(23 downto 16);
             when x"f5" => return last_cycles_per_frame(31 downto 24);
             --@IO:GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+            --@IO:GS $D7F7 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 2)              
+            --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 3)
             --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
             when x"f6" => return last_proceeds_per_frame(7 downto 0);
             when x"f7" => return last_proceeds_per_frame(15 downto 8);
@@ -3236,7 +3265,7 @@ begin
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
         if long_address(19 downto 17)="001" then
-          shadow_write <= not rom_writeprotect;
+          shadow_write <= (not rom_writeprotect) or hypervisor_mode;
         else
           shadow_write <= '1';
         end if;
@@ -3412,18 +3441,20 @@ begin
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
         reg_mb_low <= reg_a;
+      else
+        reg_offset_low <= reg_x(3 downto 0) & reg_a;
+        reg_map_low <= std_logic_vector(reg_x(7 downto 4));
       end if;
       if reg_z = x"0f" then
         reg_mb_high <= reg_y;
-      end if;
-      reg_offset_low <= reg_x(3 downto 0) & reg_a;
-      reg_map_low <= std_logic_vector(reg_x(7 downto 4));
-      -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
-      -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
-      -- with megaflash menu during boot (issue #156)
-      if hypervisor_mode='0' then
-        reg_offset_high <= reg_z(3 downto 0) & reg_y;
-        reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+      else
+        -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
+        -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
+        -- with megaflash menu during boot (issue #156)
+        if hypervisor_mode='0' then
+          reg_offset_high <= reg_z(3 downto 0) & reg_y;
+          reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+        end if;        
       end if;
 
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
@@ -3701,6 +3732,16 @@ begin
 
     if rising_edge(clock) then
 
+      -- Run TRNG to generate next byte when previous byte has been consumed
+      if trng_consume_toggle /= trng_consume_toggle_last then
+        trng_enable <= '1';
+        if trng_valid = '1' then
+          next_trng <= trng_out;
+          trng_consume_toggle_last <= trng_consume_toggle;
+          trng_enable <= '0';
+        end if;
+      end if;
+      
       if sid_sample_counter /= 918 then
         sid_sample_counter <= sid_sample_counter + 1;
       else
@@ -4407,7 +4448,7 @@ begin
         hyper_trap_edge <= '0';
       end if;
       hyper_trap_last <= hyper_trap;
-      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1')
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1' or eth_hyperrupt='1')
         and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
@@ -4417,6 +4458,8 @@ begin
           f011_read_trap_pending <='1';
         elsif hyper_trap_f011_write='1' then 
           f011_write_trap_pending <='1';
+        elsif eth_hyperrupt='1' then
+          eth_trap_pending <= '1';
         end if;
       else
         hyper_trap_state <= '1';
@@ -6263,6 +6306,10 @@ begin
                                         -- Trap #69 ($45) = SD/F011 write sector
                   hypervisor_trap_port <= "1000101";
                   f011_write_trap_pending <= '0';
+                elsif eth_trap_pending = '1' then
+                                        -- Trap #70 ($48) = Ethernet Hyperrupt
+                  hypervisor_trap_port <= "1001000";
+                  eth_trap_pending <= '0';
                 else
                                         -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     
@@ -9657,7 +9704,9 @@ begin
         
         if long_address(27 downto 17)="00000000001" then
           report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
-          shadow_write_var := not rom_writeprotect;
+          -- allow hypervisor to always be able to write to ROM area.
+          -- (unfreezing requires it)
+          shadow_write_var := (not rom_writeprotect) or hypervisor_mode;
           shadow_address_var := to_integer(long_address(19 downto 0));
         elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;

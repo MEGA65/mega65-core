@@ -47,7 +47,7 @@ begin
     if rising_edge(clock) then
       -- Update external interface
       if busy='0' then
-        report "exporting read_value";
+--        report "exporting read_value";
         miim_read_value <= read_value;
         miim_ready <= '1';
       else
@@ -58,7 +58,7 @@ begin
       -- Update MIIM clock. This should be no faster than 2.5MHz
       -- so 25 cycles per tick, so invert every 13 cycles @ 50MHz
       if miim_phase = 100 then  -- about 0.5MHz
-        report "miim half tick";
+--        report "miim half tick";
         miim_clock <= not miim_clock;
         miim_phase <= 0;
       else

@@ -20,7 +20,7 @@ entity ps2_to_matrix is
     joyb : out std_logic_vector(4 downto 0) := (others => '1');
 
     -- And also the last PS/2 key scan code in case someone wants it
-    last_scan_code : out std_logic_vector(12 downto 0);
+    last_scan_code : out std_logic_vector(12 downto 0) := (others => '0');
     
     -- PS2 keyboard interface
     ps2clock  : in  std_logic;
@@ -28,7 +28,8 @@ entity ps2_to_matrix is
     
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
+    eth_keycode : in unsigned(15 downto 0);
+    eth_hyperrupt_out : out std_logic := '0'
     );
 
 end entity ps2_to_matrix;
@@ -85,6 +86,8 @@ architecture behavioural of ps2_to_matrix is
   
   -- cursor update state machine
   signal cursor_update_state : integer range 0 to 2 := 0;
+
+  signal hyper_trap_toggle : std_logic := '0';
   
 begin  -- behavioural
 
@@ -109,6 +112,8 @@ begin  -- behavioural
   begin  -- process keyread
     if rising_edge(cpuclock) then      
 
+      eth_hyperrupt_out <= '0';
+      
       joya <= joy1(4 downto 0);
       joyb <= joy2(4 downto 0);
       
@@ -152,15 +157,24 @@ begin  -- behavioural
       ps2clock_prev <= ps2clock_debounced;
 
       -- Allow injection of PS/2 scan codes via ethernet or other side channel
+      last_scan_code(10) <= eth_keycode_toggle;
       if eth_keycode_toggle /= eth_keycode_toggle_last then
-        scan_code <= eth_keycode(7 downto 0);
-        break <= eth_keycode(12);
-        extended <= eth_keycode(8);        
         eth_keycode_toggle_last <= eth_keycode_toggle;
+        if eth_keycode(15 downto 0) = x"8000" then
+          -- Trigger ethernet hyperrupt
+          eth_hyperrupt_out <= '1';
+          last_scan_code(11) <= hyper_trap_toggle;
+          hyper_trap_toggle <= not hyper_trap_toggle;
+        else
+          -- It's really a key, so process it
+          scan_code <= eth_keycode(7 downto 0);
+          break <= eth_keycode(12);
+          extended <= eth_keycode(8);        
         
-        -- now rig status so that next cycle the key event will be processed
-        ps2state <= Bit7;
-        ethernet_keyevent <= '1';        
+          -- now rig status so that next cycle the key event will be processed
+          ps2state <= Bit7;
+          ethernet_keyevent <= '1';
+        end if;
       elsif (ps2clock_debounced = '0' and ps2clock_prev = '1')
         or (ethernet_keyevent = '1') then
         ethernet_keyevent <= '0';
@@ -222,7 +236,6 @@ begin  -- behavioural
                          -- Let the CPU read the most recent scan code for
                          -- debugging keyboard layout.
                          last_scan_code(12) <= break;
-                         last_scan_code(11 downto 9) <= "000";
                          last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
 
                          case full_scan_code is

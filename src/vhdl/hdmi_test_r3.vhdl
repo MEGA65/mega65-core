@@ -44,7 +44,7 @@ entity container is
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
-         kb_io0 : out std_logic;
+         kb_io0 : inout std_logic;
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
 
@@ -103,13 +103,6 @@ entity container is
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
 
-         -- Optional 2nd hyperram in trap-door slot
-         hr2_d : inout unsigned(7 downto 0);
-         hr2_rwds : inout std_logic;
-         hr2_reset : out std_logic;
-         hr2_clk_p : out std_logic;
-         hr2_cs0 : out std_logic;
-         
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
@@ -173,15 +166,15 @@ entity container is
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
-         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
-         sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;      
-         sdMISO : in  std_logic;
+--         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
+--         sdClock : out std_logic;       -- (sclk_o)
+--         sdMOSI : out std_logic;      
+--         sdMISO : in  std_logic;
 
-         sd2reset : out std_logic;
-         sd2Clock : out std_logic;       -- (sclk_o)
-         sd2MOSI : out std_logic;
-         sd2MISO : in std_logic;
+--         sd2reset : out std_logic;
+--         sd2Clock : out std_logic;       -- (sclk_o)
+--         sd2MOSI : out std_logic;
+--         sd2MISO : in std_logic;
 
          -- Left and right headphone port audio
          pwm_l : out std_logic;
@@ -386,6 +379,13 @@ architecture Behavioral of container is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
+  signal test_pattern_enable : std_logic := '1';
+  signal pal50 : std_logic := '1';
+  signal vga60 : std_logic := '0';
+
+  signal interlace : std_logic := '1';
+  signal mono : std_logic := '1';
+    
   signal pattern_r : unsigned(7 downto 0);
   signal pattern_g : unsigned(7 downto 0);
   signal pattern_b: unsigned(7 downto 0);
@@ -394,6 +394,10 @@ architecture Behavioral of container is
   signal pattern_hsync : std_logic;
   signal pattern_vsync : std_logic;
 
+  signal luma : unsigned(7 downto 0);
+  signal chroma : unsigned(7 downto 0);
+  signal composite : unsigned(7 downto 0);
+  
   signal zero : std_logic := '0';
   signal one : std_logic := '1';  
 
@@ -473,6 +477,11 @@ architecture Behavioral of container is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal debug_backward : std_logic := '0';
+  signal debug_backward_int : std_logic := '0';
+  signal debug_forward : std_logic := '0';
+  signal debug_forward_int : std_logic := '0';
   
 begin
 
@@ -628,7 +637,9 @@ begin
       disco_led_val => disco_led_val,
       
       powerled => '1',
-      flopled => flopled_drive,
+      flopled0 => flopled_drive,
+      flopled2 => flopled_drive,
+      flopledsd => flopled_drive,
       flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
@@ -677,6 +688,7 @@ begin
       matrix_mode_in => '0',
       viciv_frame_indicate => '0',
 
+      matrix_disable_modifiers => '0',
       matrix_segment_num => matrix_segment_num,
 --      matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => '0',
@@ -798,21 +810,26 @@ begin
 
       cpuclock => cpuclock,
 
+      debug_forward => debug_forward,
+      debug_backward => debug_backward,
+      
       pixel_strobe_out => pixel_strobe,
       
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
-      pal50_select => one,
-      vga60_select => zero,
-      test_pattern_enable => dipsw(3),      
+      pal50_select => pal50,
+      vga60_select => vga60,
+      test_pattern_enable => test_pattern_enable,
+
+      interlace_mode => interlace,
+      mono_mode => mono,
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
       y_zero => y_zero,     
 
-      -- Pixel data from the video pipeline
-      -- (clocked at 100MHz pixel clock)
+      -- Show simple purple screen when test pattern is off
       red_i => to_unsigned(255,8),
       green_i => to_unsigned(0,8),
       blue_i => to_unsigned(255,8),
@@ -826,6 +843,10 @@ begin
 --      red_o => panelred,
 --      green_o => panelgreen,
 --      blue_o => panelblue,
+
+      luma => luma,
+      chroma => chroma,
+      composite => composite,
       
       hsync => pattern_hsync,
       vsync => pattern_vsync,  -- for HDMI
@@ -840,6 +861,27 @@ begin
 
       );
 
+  expansionboard0: entity work.r3_expansion
+    port map (
+      cpuclock => cpuclock,
+      clock27 => clock27,
+      clock81 => pixelclock,
+      clock270 => clock270,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
+
+      -- XXX The first revision of the R3 expansion board has the video
+      -- connector mis-wired.  So we put luma out everywhere, so that
+      -- we can still pick it up on a normally wired video cable
+      luma => luma,
+      chroma => luma,
+      composite => luma,
+      audio => luma
+      
+      );
   
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
@@ -877,6 +919,26 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
+      if ascii_key_valid='1' then
+        case ascii_key is
+          when x"31" => pal50 <= '1';
+          when x"32" => pal50 <= '0';
+          when x"33" => test_pattern_enable <= '1';
+          when x"34" => test_pattern_enable <= '0';
+          when x"35" => interlace <= '1';
+          when x"36" => interlace <= '0';
+          when x"37" => mono <= '1';
+          when x"38" => mono <= '0';
+          when x"39" =>
+            debug_backward <= not debug_backward_int;
+            debug_backward_int <= not debug_backward_int;
+          when x"30" =>
+            debug_forward <= not debug_forward_int;
+            debug_forward_int <= not debug_forward_int;
+          when others => null;
+        end case;        
+      end if;                        
+      
       dvi_select <= portp(1) xor dipsw(1);
       
 --      reset_high <= not btncpureset;

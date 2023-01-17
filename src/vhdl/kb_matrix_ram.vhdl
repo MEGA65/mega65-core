@@ -15,10 +15,10 @@ entity kb_matrix_ram is
 end kb_matrix_ram;
 
 architecture Behavioral of kb_matrix_ram is
-
+  
   type ram_t is array (0 to 15) of std_logic_vector(7 downto 0);
   shared variable ram : ram_t := (others => x"FF");
-  
+
 begin
 
 --process for read and write operation.
@@ -28,7 +28,7 @@ begin
       for i in 0 to 7 loop
         if wea(i) = '1' then
           ram(addressa)(i) := dia(i);
---          report "Writing bit " & integer'image(i) & " of byte " & integer'image(addressa) & " with " & std_logic'image(dia(i));
+          report "Writing bit " & integer'image(i) & " of byte " & integer'image(addressa) & " with " & std_logic'image(dia(i));
         end if;
       end loop;
     end if;
