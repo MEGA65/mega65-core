@@ -1153,7 +1153,7 @@ begin
     end generate;
   
   
-  eth0: if target /= megaphoner4 and target /= qmtechzyjzgwa100t and target /= qmtechzyjzgwa200t and target /= qmtechzyjzgwk325t generate
+  eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t generate
     ethernet0 : entity work.ethernet
       generic map (
         num_buffers => num_eth_rx_buffers

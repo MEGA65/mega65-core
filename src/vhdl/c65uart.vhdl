@@ -311,9 +311,9 @@ begin  -- behavioural
       when nexys4ddr => target_id <= x"41";
       when nexys4ddr_widget => target_id <= x"42";
       -- $60-$7F = QMTech Artic / Kintex boards
-      when qmtechzyjzgwa100t => target_id <= x"60";
-      when qmtechzyjzgwa200t => target_id <= x"61";
-      when qmtechzyjzgwk325t => target_id <= x"70";
+      when qmtecha100t => target_id <= x"60";
+      when qmtecha200t => target_id <= x"61";
+      when qmtechk325t => target_id <= x"62";
       -- Misc other targets, that don't have common properties
       when wukong => target_id <= x"FD";                               
       when simulation => target_id <= x"FE";
