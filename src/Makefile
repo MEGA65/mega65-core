@@ -1,5 +1,24 @@
+# Operating System detection and conditional compile options
 
-COPT=	-Wall -g -std=c99
+ifeq ($(OS),Windows_NT)
+    OSYSTEM := Windows
+else
+    OSYSTEM := $(shell sh -c 'uname 2>/dev/null || echo Unknown')
+endif
+
+ifeq ($(OSYSTEM),Windows) # MS Windows
+    COPT +=
+endif
+
+ifeq ($(OSYSTEM),Darwin) # Apple macOS
+    COPT += -Wall -g -std=c99 -I/opt/homebrew/include -L/opt/homebrew/lib
+endif
+
+ifeq ($(OSYSTEM),Linux) # Linux
+    COPT += -Wall -g -std=c99 -I/usr/local/include -L/usr/local/lib
+endif
+
+#COPT=	-Wall -g -std=c99
 CC=	gcc
 
 VHDLSRCDIR=	vhdl
@@ -127,7 +146,7 @@ mmsimulate:	$(MMFILES) tools/osk_image
 	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | tools/osk_image matrix.png
 
 tools/osk_image:	tools/osk_image.c
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/osk_image tools/osk_image.c -lpng
+	$(CC) $(COPT) -o tools/osk_image tools/osk_image.c -lpng
 
 vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
 	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
@@ -354,7 +373,7 @@ tools/hotpatch/hotpatch:	tools/hotpatch/hotpatch.c Makefile
 tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/pngprepare/pngprepare)
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
+	$(CC) $(COPT) -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
