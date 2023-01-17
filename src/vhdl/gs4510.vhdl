@@ -1142,6 +1142,12 @@ architecture Behavioural of gs4510 is
   signal a_incremented : unsigned(7 downto 0);
   signal a_decremented : unsigned(7 downto 0);
   signal a_negated : unsigned(7 downto 0);
+  signal q_negated : unsigned(31 downto 0);
+  signal q_negated_a : unsigned(7 downto 0);
+  signal q_negated_x : unsigned(7 downto 0);
+  signal q_negated_y : unsigned(7 downto 0);
+  signal q_negated_z : unsigned(7 downto 0);
+  signal q_negated_nz : unsigned(7 downto 0);
   signal a_ror : unsigned(7 downto 0);
   signal a_rol : unsigned(7 downto 0);
   signal a_asl : unsigned(7 downto 0);
@@ -3698,6 +3704,7 @@ begin
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
     a_negated <= (not reg_a) + 1;
+    
     a_ror <= flag_c & reg_a(7 downto 1);
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
@@ -3732,6 +3739,22 @@ begin
 
     if rising_edge(clock) then
 
+      -- q_negated and friends have a total latency of at least 2 cycles,
+      -- so that a NEG NEG NEG sequence doesn't process the result of the
+      -- first NEG while executing the 3rd one which will act on the 32-bit
+      -- value.
+      q_negated <= (not reg_a&reg_x&reg_y&reg_z) + 1;
+      q_negated_a <= q_negated(31 downto 23);
+      q_negated_x <= q_negated(31 downto 23);
+      q_negated_y <= q_negated(31 downto 23);
+      q_negated_z <= q_negated(31 downto 23);
+      q_negated_nz(7) <= q_negated(31);
+      if q_negated = to_unsigned(0,32) then
+        q_negated_nz(0) <= '0';
+      else
+        q_negated_nz(0) <= '1';
+      end if;
+      
       -- Run TRNG to generate next byte when previous byte has been consumed
       if trng_consume_toggle /= trng_consume_toggle_last then
         trng_enable <= '1';
@@ -6534,7 +6557,7 @@ begin
                     else
                       report "Skipping straight to microcode interpret from fetch";
                       state <= MicrocodeInterpret;
-                    end if;
+                    end if;                    
                   else
                     next_is_axyz32_instruction <= next_is_axyz32_instruction;
                     state <= Cycle2;
@@ -7692,6 +7715,23 @@ begin
                     when others => null;
                   end case;
                   flag_c <= reg_q33(0);
+                when I_NEG =>
+                  -- NEG NEG NEG = 32-bit NEG
+                  -- This one is a bit interesting to implement,
+                  -- because we need the 32-bit negated value based
+                  -- on the not-yet negated register values. We then
+                  -- also need to have N and Z precalculated as well
+                  -- to reduce timing pressure.
+                  reg_a <= q_negated_a;
+                  reg_x <= q_negated_x;
+                  reg_y <= q_negated_y;
+                  reg_z <= q_negated_z;
+                  set_nz(q_negated_nz);
+                  -- Don't allow the last two NEGs in the sequence to cause
+                  -- the next instruction to be 32-bit
+                  value32_enabled <= '0';
+                  next_is_axyz32_instruction <= '0';
+                  state <= normal_fetch_state;                  
                 when others =>
                   -- Can't get here, in theory
                   report "monitor_instruction_strobe assert (unknown instruction in ExecuteQreg32)";
