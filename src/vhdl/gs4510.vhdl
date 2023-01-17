@@ -3744,10 +3744,10 @@ begin
       -- first NEG while executing the 3rd one which will act on the 32-bit
       -- value.
       q_negated <= (not reg_a&reg_x&reg_y&reg_z) + 1;
-      q_negated_a <= q_negated(31 downto 23);
-      q_negated_x <= q_negated(31 downto 23);
-      q_negated_y <= q_negated(31 downto 23);
-      q_negated_z <= q_negated(31 downto 23);
+      q_negated_a <= q_negated(31 downto 24);
+      q_negated_x <= q_negated(23 downto 16);
+      q_negated_y <= q_negated(15 downto 8);
+      q_negated_z <= q_negated(7 downto 0);
       q_negated_nz(7) <= q_negated(31);
       if q_negated = to_unsigned(0,32) then
         q_negated_nz(0) <= '0';
