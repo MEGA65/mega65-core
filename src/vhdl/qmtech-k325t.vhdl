@@ -126,7 +126,7 @@ entity container is
          ----------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
-         QspiSCK : out std_logic;
+--         QspiSCK : out std_logic;
          
          ----------------------------------------------------------------------
          -- Cellular RAM interface for Slow RAM
