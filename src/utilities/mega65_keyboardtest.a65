@@ -1,17 +1,17 @@
 	; Simple test program for GMK to test keyboards on manufacture
 
 	.word $0801
-	 .org $0801
-	 .scope
+	.org $0801
+	.scope
 
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $9e, "2062",0      ; SYS 2062
+	.word _next, 10                       ; Next line and current line number
+	.byte $9e, "2062",0      ; SYS 2062
 _next:	 .word 0
 
 iter1:	 .byte 0
 
-	 .checkpc 2062
-	 .advance 2062
+	.checkpc 2062
+	.advance 2062
 
 programentrypoint:
 
@@ -28,18 +28,52 @@ programentrypoint:
 	sta 0
 
 	lda #$00
-	sta $d011
 	sta $d020
 	sta $d021
-	lda #$80
-	sta $d06f
+
+	; clrscrn and set colourram to white
+	sta $d707
+	.byte $0a, $00
+	.byte $07
+	.word 40*25
+	.word $0020
+	.byte $00
+	.word $0400
+	.byte $00
+	.word $0000
+	.byte $0a, $81, $ff, $00
+	.byte $03
+	.word 40*25
+	.word $0001
+	.byte $00
+	.word $0000
+	.byte $08
+	.word $0000
+
+	; copy note to screen, just below OSK
+	ldx #79
+txtloop:
+	lda notetext,x
+	sta $0748,x
+	dex
+	bpl txtloop
+
+	; activate OSK
 	lda #$ff
 	sta $d615
 	sta $d616
-	
+
+	; do nothing...
 loop:
 	jmp loop
-	
+
+notetext:
+	; "NOTE: RESTORE WILL NOT WORK CORRECTLY,  RIGHT AND UP WILL ALSO LIGHT UP RSHIFT. "
+	.byte $0E, $0F, $14, $05, $3A, $20, $12, $05, $13, $14, $0F, $12, $05, $20, $17, $09, $0C, $0C, $20, $0E
+	.byte $0F, $14, $20, $17, $0F, $12, $0B, $20, $03, $0F, $12, $12, $05, $03, $14, $0C, $19, $2C, $20, $20
+	.byte $12, $09, $07, $08, $14, $20, $01, $0E, $04, $20, $15, $10, $20, $17, $09, $0C, $0C, $20, $01, $0C
+	.byte $13, $0F, $20, $0C, $09, $07, $08, $14, $20, $15, $10, $20, $12, $13, $08, $09, $06, $14, $2E, $20
+
 	.byte 	"PROP.M65U.NAME=KEYBOARD TEST"
 	.byte 0
 
