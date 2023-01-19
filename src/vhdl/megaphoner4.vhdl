@@ -709,7 +709,6 @@ begin
       sclk_o => sdClock,
       mosi_o => sdMOSI,
       miso_i => sdMISO,
-      miso2_i => '1',
 
       -- Bodged up microSD on PMOD on spare FPGA pins during development
       cs2_bo => sd2reset,
