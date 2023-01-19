@@ -126,11 +126,17 @@ set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports micClk]
 set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports monitor_rx]
 set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports monitor_tx]
 
-##Micro SD Connector
+##Micro SD Connector (connected to both SIM/uSD sockets)
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sdReset]
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sdMISO]
 set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sdClock]
+
+## 2nd SD card bus (connected to spare pins on FPGA for bring-up, since SIM/uSD sockets are mis-wired)
+set_property -dict {PACKAGE_PIN E1 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
+set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports sd2reset]
+set_property -dict {PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
+set_property -dict {PACKAGE_PIN E2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
 
 ##PWM Audio Amplifier
 set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports headphone_left]

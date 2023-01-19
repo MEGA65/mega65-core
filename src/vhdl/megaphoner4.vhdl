@@ -129,6 +129,11 @@ entity container is
          sdMOSI : out std_logic := 'Z';
          sdMISO : in  std_logic;
 
+         sd2reset : out std_logic;
+         sd2Clock : out std_logic;       -- (sclk_o)
+         sd2MOSI : out std_logic;
+         sd2MISO : in std_logic;
+         
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
@@ -706,6 +711,12 @@ begin
       miso_i => sdMISO,
       miso2_i => '1',
 
+      -- Bodged up microSD on PMOD on spare FPGA pins during development
+      cs2_bo => sd2reset,
+      sclk2_o => sd2Clock,
+      mosi2_o => sd2MOSI,
+      miso2_i => sd2MISO,
+      
       -- Accelerometer is connected via shared I2C bus, not a dedicated one
       -- so just dummy plumb this for now
       aclMISO => '1',
