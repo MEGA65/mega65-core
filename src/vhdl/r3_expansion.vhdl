@@ -64,7 +64,10 @@ architecture gothic of r3_expansion is
 
   signal sub_clock : integer range 0 to 7 := 0;
 
-  function pick_sub_clock(n : unsigned(2 downto 0)) return unsigned(7 downto 0) is
+  type unsigned2_0_t is unsigned(2 downto 0);
+  type unsigned7_0_t is unsigned(2 downto 0);
+  
+  function pick_sub_clock(n : unsigned2_0_t) return unsigned7_0_t is
   begin
     case n is
       when "000" => return seq_1;
