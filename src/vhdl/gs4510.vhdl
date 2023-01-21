@@ -370,6 +370,11 @@ architecture Behavioural of gs4510 is
   type u23_0to3 is array (0 to 3) of unsigned(23 downto 0);
   type u15_0to3 is array (0 to 3) of unsigned(15 downto 0);
   type s15_0to3 is array (0 to 3) of signed(15 downto 0);
+  
+  --dengland
+  type s16_0to3 is array (0 to 3) of signed(16 downto 0);
+  
+  
   type u7_0to3 is array (0 to 3) of unsigned(7 downto 0);
   type u1_0to3 is array (0 to 3) of unsigned(1 downto 0);
   type s7_0to31 is array (0 to 31) of signed(7 downto 0);
@@ -418,12 +423,29 @@ architecture Behavioural of gs4510 is
   signal audio_dma_sample_valid : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_latched_sample : s15_0to3 := (others => to_signed(0,16));
-  signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
-  signal audio_dma_pan_multed : s23_0to3 := (others => to_signed(0,24));
+  
+
+  --dengland
+  signal audio_dma_multed : s16_0to3 := (others => to_signed(0,17));
+  signal audio_dma_pan_multed : s16_0to3 := (others => to_signed(0,17));
+  
+--dengland Please fix the function for dma_saturated_add
+-- signal audio_dma_left_temp : signed(16 downto 0) := (others => '0');
+-- signal audio_dma_right_temp : signed(16 downto 0) := (others => '0');
+-- signal audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
+
+
+
   signal audio_dma_wait_state : std_logic := '1';
   signal audio_dma_left_saturated : std_logic := '0';
   signal audio_dma_right_saturated : std_logic := '0';  
+
+--dengland
+  signal audio_dma_left_vol_sat : std_logic := '0';
+  signal audio_dma_right_vol_sat : std_logic := '0';
+
   signal audio_dma_saturation_enable : std_logic := '1';
+  
   signal audio_dma_swap : std_logic := '0';
 
   signal pending_dma_busy : std_logic := '0';
@@ -2247,8 +2269,10 @@ begin
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
+--dengland
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
-                            "0000" & audio_dma_swap & audio_dma_saturation_enable;
+                            audio_dma_left_vol_sat & audio_dma_right_vol_sat & "00" & 
+                            audio_dma_swap & audio_dma_saturation_enable;
 
             -- @IO:GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
             -- @IO:GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
@@ -3627,25 +3651,57 @@ begin
       return tmp(11 downto 0);
     end function alu_op_sub;
 
+--dengland PLEASE FIXME
+    function audio_dma_saturated_add( value1 : signed(16 downto 0);
+                                      value2 : signed(16 downto 0))
+      return signed is
+
+      variable result : signed(16 downto 0);
+    begin
+      result := (value1(15) & value1(15 downto 0)) + (value2(15) & value2(15 downto 0));
+
+      if  value1(15) = value2(15) 
+      and result(16) /= value1(15) then
+        result(16) := '1';
+      else  
+        result(16):= '0';
+      end if;
+
+      return result(16 downto 0);
+    end function;
+--
+
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(7 downto 0))
       return signed is
-      variable value_unsigned : unsigned(23 downto 0);
-      variable result_unsigned : unsigned(31 downto 0);
-      variable result : signed(31 downto 0);
+
+      variable result_signed : signed(24 downto 0);
+      variable result : signed(16 downto 0);
+
+      variable vol_temp : unsigned(8 downto 0);
+      variable volume_signed : signed(8 downto 0);
+
     begin
+        vol_temp(8 downto 0) := "0" & volume(7 downto 0);
+        volume_signed(8 downto 0) := signed(vol_temp(8 downto 0));
 
-      value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
-      value_unsigned(23 downto 15) := (others => value(15));
+        result_signed := value * volume_signed;
 
-      result_unsigned := value_unsigned * volume;
-        
-      result := signed(result_unsigned);
-        
+        result(15 downto 0) := result_signed(23 downto 8);
+
+
+--dengland This shouldn't be happening!
+--  with only an actual 16 and 8 bits, we should never go beyond 24.
+
+        if  value(15) /= result_signed(24) then
+          result(16) := '1';
+        else
+          result(16) := '0';
+        end if;
+     
       report "VOLMULT: $" & to_hstring(value) & " x $" & to_hstring(volume) & " = $ " & to_hstring(result);
       
-      return result(23 downto 0);
-      
+      return result(16 downto 0);
     end function;   
 
     
@@ -3690,8 +3746,9 @@ begin
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
     variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
 
-    variable audio_dma_left_temp : signed(15 downto 0) := (others => '0');
-    variable audio_dma_right_temp : signed(15 downto 0) := (others => '0');
+    variable audio_dma_left_temp : signed(16 downto 0) := (others => '0');
+    variable audio_dma_right_temp : signed(16 downto 0) := (others => '0');
+    variable audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
 
     variable line_x_move : std_logic := '0';
     variable line_x_move_negative : std_logic := '0';
@@ -3809,41 +3866,163 @@ begin
         if audio_dma_sample_valid(i)='1' then
           audio_dma_latched_sample(i) <= audio_dma_current_value(i);
         end if;
-        audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
-        audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
-        if audio_dma_enables(i)='0' then
+
+
+--dengland
+        if audio_dma_enables(i)='1' then
+          audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
+          audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
+
+        else
+--      if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
+          audio_dma_pan_multed(i) <= (others => '0');
         end if;
+
       end loop;
+
+
+--dengland
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
-      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
-                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
-      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
+--      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
+--                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
+
+
+--        audio_dma_left_temp := audio_dma_saturated_add(audio_dma_multed(0), audio_dma_multed(1));
+
+      audio_dma_left_temp := (audio_dma_multed(0)(15) & audio_dma_multed(0)(15 downto 0)) + 
+                             (audio_dma_multed(1)(15) & audio_dma_multed(1)(15 downto 0));
+
+      if audio_dma_multed(0)(15) = audio_dma_multed(1)(15) 
+      and audio_dma_left_temp(16) /= audio_dma_multed(0)(15) then
+        audio_dma_left_temp(16) := '1';
+      else  
+        audio_dma_left_temp(16):= '0';
+      end if;
+
+--        audio_dma_right_temp := audio_dma_saturated_add(audio_dma_pan_multed(2), audio_dma_pan_multed(3));
+
+      audio_dma_right_temp := (audio_dma_pan_multed(2)(15) & audio_dma_pan_multed(2)(15 downto 0)) + 
+                              (audio_dma_pan_multed(3)(15) & audio_dma_pan_multed(3)(15 downto 0));
+      if audio_dma_pan_multed(2)(15) = audio_dma_pan_multed(3)(15) 
+      and audio_dma_right_temp(16) /= audio_dma_pan_multed(2)(15) then
+        audio_dma_right_temp(16) := '1';
+      else  
+        audio_dma_right_temp(16):= '0';
+      end if;
+
+
+--        audio_dma_mix_temp := audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+
+      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
+                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
+      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(16) /= audio_dma_mix_temp(16) then
+        audio_dma_mix_temp(16) := '1';
+      else  
+        audio_dma_mix_temp(16):= '0';
+      end if;
+
+-- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
+--  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
+
+      if  audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
+          audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' then
+        audio_dma_left_vol_sat <= '1';
+      else
+        audio_dma_left_vol_sat <= '0';
+      end if;
+
+      if -- audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
+          -- audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' or
+          audio_dma_left_temp(16) = '1' or
+          audio_dma_right_temp(16) = '1' or
+          audio_dma_mix_temp(16) = '1' then
+
+--      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
-          audio_dma_left <= (others => audio_dma_multed(1)(23));
+          if audio_dma_mix_temp(15) = '1' then
+            audio_dma_left <= (others => '0');
+          else
+            audio_dma_left <= (others => '1');
+          end if;
         else
-          audio_dma_left <= audio_dma_left_temp;
+          audio_dma_left <= audio_dma_mix_temp(15 downto 0);
         end if;
         audio_dma_left_saturated <= '1';
       else
-        audio_dma_left <= audio_dma_left_temp;
+        audio_dma_left <= audio_dma_mix_temp(15 downto 0);
         audio_dma_left_saturated <= '0';
       end if;
 
-      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
-                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
-      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+
+--      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
+--                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
+--      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+ 
+--        audio_dma_right_temp <= audio_dma_saturated_add(audio_dma_multed(2), audio_dma_multed(3));
+
+      audio_dma_right_temp := (audio_dma_multed(2)(15) & audio_dma_multed(2)(15 downto 0)) + 
+                              (audio_dma_multed(3)(15) & audio_dma_multed(3)(15 downto 0));
+      if audio_dma_multed(2)(15) = audio_dma_multed(3)(15) 
+      and audio_dma_right_temp(16) /= audio_dma_multed(2)(15) then
+        audio_dma_right_temp(16) := '1';
+      else  
+        audio_dma_right_temp(16):= '0';
+      end if;
+
+--        audio_dma_left_temp <= audio_dma_saturated_add(audio_dma_pan_multed(0), audio_dma_pan_multed(1));
+
+      audio_dma_left_temp :=  (audio_dma_pan_multed(0)(15) & audio_dma_pan_multed(0)(15 downto 0)) + 
+                              (audio_dma_pan_multed(1)(15) & audio_dma_pan_multed(1)(15 downto 0));
+      if audio_dma_pan_multed(0)(15) = audio_dma_pan_multed(1)(15) 
+      and audio_dma_left_temp(16) /= audio_dma_pan_multed(0)(15) then
+        audio_dma_left_temp(16) := '1';
+      else  
+        audio_dma_left_temp(16):= '0';
+      end if;
+
+--        audio_dma_mix_temp <= audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+
+      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
+                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
+      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(16) /= audio_dma_mix_temp(15) then
+        audio_dma_mix_temp(16) := '1';
+      else  
+        audio_dma_mix_temp(16):= '0';
+      end if;
+
+--  Warn but do not use
+
+      if  audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
+          audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' then
+        audio_dma_right_vol_sat <= '1';
+      else
+        audio_dma_right_vol_sat <= '0';
+      end if;
+
+      if -- audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
+          --  audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' or
+          audio_dma_left_temp(16) = '1' or
+          audio_dma_right_temp(16) = '1' or
+          audio_dma_mix_temp(16) = '1' then
+
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
-          audio_dma_right <= (others => audio_dma_multed(3)(23));
+          if audio_dma_mix_temp(15) = '1' then
+            audio_dma_right <= (others => '0');
+          else
+            audio_dma_right <= (others => '1');
+          end if;
         else
-          audio_dma_right <= audio_dma_right_temp;
+          audio_dma_right <= audio_dma_mix_temp(15 downto 0);
         end if;
         audio_dma_right_saturated <= '1';
       else
-        audio_dma_right <= audio_dma_right_temp;
+        audio_dma_right <= audio_dma_mix_temp(15 downto 0);
         audio_dma_right_saturated <= '0';
       end if;
       
