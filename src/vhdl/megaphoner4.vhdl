@@ -704,17 +704,18 @@ begin
 
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
+      -- sd is attached to both microSD slots of the SIM slots in parallel
+      -- sd2 is Bodged up microSD on PMOD on spare FPGA pins during development
       -------------------------------------------------------------------------
-      cs_bo => sdReset,
-      sclk_o => sdClock,
-      mosi_o => sdMOSI,
-      miso_i => sdMISO,
+      cs_bo => sd2Reset,
+      sclk_o => sd2Clock,
+      mosi_o => sd2MOSI,
+      miso_i => sd2MISO,
 
-      -- Bodged up microSD on PMOD on spare FPGA pins during development
-      cs2_bo => sd2reset,
-      sclk2_o => sd2Clock,
-      mosi2_o => sd2MOSI,
-      miso2_i => sd2MISO,
+      cs2_bo => sdreset,
+      sclk2_o => sdClock,
+      mosi2_o => sdMOSI,
+      miso2_i => sdMISO,
       
       -- Accelerometer is connected via shared I2C bus, not a dedicated one
       -- so just dummy plumb this for now
