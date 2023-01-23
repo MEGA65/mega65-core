@@ -625,9 +625,7 @@ begin  -- behavioural
       -- Double flip-flop latch the eth_tx_trigger
       eth_tx_trigger_50mhz_drive <= eth_tx_trigger_drive;
       eth_tx_trigger_50mhz <= eth_tx_trigger_50mhz_drive;
-      
-      eth_rx_blocked_50mhz <= eth_rx_blocked;
-      
+          
       eth_txd_phase_drive <= eth_txd_phase;
       eth_rx_latch_phase_drive <= eth_rx_latch_phase;
       
@@ -946,6 +944,10 @@ begin  -- behavioural
               eth_frame_len <= 2;
               eth_mac_counter <= 0;
               eth_bit_count <= 0;
+              -- Only decide on frame rejection at the beginning of the frame
+              -- to avoid starting writing half frames to the rx buffer in
+              -- case the cpu frees up a buffer in the middle of reception
+              eth_rx_blocked_50mhz <= eth_rx_blocked;
             end if;
           when DebugRxFrameWait =>
             if debug_rx = '0' then
