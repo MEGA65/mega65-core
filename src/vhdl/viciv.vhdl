@@ -2987,6 +2987,8 @@ begin
   begin
     if rising_edge(pixelclock) and all_pause='0' then
 
+      screenline_draw_mask <= screenline_draw_mask_drive;
+      
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
       vgared <= vgared_driver;
