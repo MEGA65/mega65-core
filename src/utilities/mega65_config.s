@@ -838,6 +838,8 @@ selectSDC:
 		DEX
 		BNE	@morewaiting
 
+    LDX #$03
+
 		LDA	#$C0
 		STA	$D680
 
@@ -847,11 +849,15 @@ selectSDC:
 		LDA	#$01
 		STA	$D680
 
+@morewaiting2:
 		JSR	sdwaitawhile
 
 		LDA	$D680
 		AND	#$03
 		BEQ	@select0
+
+    DEX
+    BNE @morewaiting2
 
 ;	No working SD card
 		LDA	#$FF
