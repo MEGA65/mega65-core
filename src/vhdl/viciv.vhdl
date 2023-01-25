@@ -2987,8 +2987,6 @@ begin
   begin
     if rising_edge(pixelclock) and all_pause='0' then
 
-      screenline_draw_mask <= screenline_draw_mask_drive;
-      
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
       vgared <= vgared_driver;
@@ -4722,7 +4720,7 @@ begin
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
 
               if glyph_4bit='1' then
-                screenline_draw_mask <= screenline_draw_mask;
+                screenline_draw_mask <= screenline_draw_mask_drive;
               else
                 screenline_draw_mask <= (others => '1');
               end if; 
