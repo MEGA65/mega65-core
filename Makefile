@@ -348,6 +348,7 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
 1541VHDL=		$(VHDLSRCDIR)/internal1541.vhdl \
 			$(VHDLSRCDIR)/driverom.vhdl \
 			$(VHDLSRCDIR)/dpram8x4096.vhdl \
+			$(VHDLSRCDIR)/dummy_cpu6502.vhdl \
 
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
@@ -375,8 +376,6 @@ SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 
 MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_farstack.vhdl \
-			$(VHDLSRCDIR)/shadowram-a100t.vhdl \
-			$(VHDLSRCDIR)/shadowram-a200t.vhdl \
 			$(VHDLSRCDIR)/colourram.vhdl \
 			$(VHDLSRCDIR)/charrom.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram128x1k.vhdl \
