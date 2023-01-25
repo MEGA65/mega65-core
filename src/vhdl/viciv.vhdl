@@ -4217,6 +4217,7 @@ begin
 
           -- By default, draw all pixel rows of each character
           screenline_draw_mask <= (others => '1');
+          report "DRAWMASK: Reset drawmask to $ff";
           
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
@@ -4352,6 +4353,7 @@ begin
             -- Enables chars to be 16x8, with 4 bits each using
             -- full-colour painting pipeline
             glyph_4bit <= colourramdata(3);
+            report "DRAWMASK: Reading glyph_4bit from bit 3 of $" & to_hstring(colourramdata);
             if colourramdata(3)='1' then
               glyph_full_colour <= '1';
             end if;
@@ -4401,6 +4403,10 @@ begin
 
           -- Work out if we are drawing this line of this char
           draw_mask_blank <= not screenline_draw_mask(to_integer(chargen_y_hold));
+          report "DRAWMASK: Y = " & integer'image(to_integer(chargen_y_hold))
+            & ": Setting draw_mask_blank to " & std_logic'image(not screenline_draw_mask(to_integer(chargen_y_hold)))
+            & ", glyph_4bit = " & std_logic'image(glyph_4bit)
+            & ", screenline_draw_mask = $" & to_hstring(screenline_draw_mask);
           
           if glyph_full_colour='1' then
             report "glyph is full colour";
@@ -4457,10 +4463,6 @@ begin
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
-          -- Also hold the 2nd colour RAM byte for use as the draw mask,
-          -- if its a GOTOX token with the appropriate bit set
-          screenline_draw_mask_drive <= colourramdata;
-          
           if viciii_extended_attributes='1' or glyph_full_colour='1' then
             -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
             -- full-colour text mode            
@@ -4503,6 +4505,15 @@ begin
           glyph_visible_drive <= '1';
           glyph_blink_drive <= '0';
 
+          report "DRAWMASK: goto=" & std_logic'image(glyph_goto);
+          if glyph_goto='1' then
+            -- Also hold the 2nd colour RAM byte for use as the draw mask,
+            -- if its a GOTOX token with the appropriate bit set
+            screenline_draw_mask_drive <= colourramdata;
+            report "DRAWMASK: Loading screenline_draw_mask_drive with $" & to_hstring(colourramdata)
+              & ", glyph_4bit = " & std_logic'image(glyph_4bit);
+          end if;      
+                    
           -- Get bold + reverse combination, even if not in VIC-III extended attribute
           -- mode, so that we can check for it in GOTOX tokens.
           glyph_bold_and_reverse <= colourramdata(5) and colourramdata(6);
@@ -4714,6 +4725,9 @@ begin
             paint_alternate_palette <= glyph_reverse and glyph_bold;
             
             if glyph_goto='1' then
+
+              report "DRAWMASK: PAINTING: is GOTOX";
+              
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
@@ -4721,8 +4735,10 @@ begin
 
               if glyph_4bit='1' then
                 screenline_draw_mask <= screenline_draw_mask_drive;
+                report "DRAWMASK: PAINTING: Setting screenline_draw_mask to $" & to_hstring(screenline_draw_mask_drive);
               else
                 screenline_draw_mask <= (others => '1');
+                report "DRAWMASK: PAINTING: Ignoring drawmask. Using $ff (glyph_4bit not set)";
               end if; 
               
               -- Allow setting of the glyph y offset in GOTO tokens
