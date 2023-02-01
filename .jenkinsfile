@@ -1,0 +1,55 @@
+pipeline {
+    agent {
+        docker {
+            image 'megabuild'
+            args '--init -v vivado_2022_2:/opt/Xilinx'
+        }
+    }
+    stages {
+        stage('Setup toolchain') {
+            steps {
+                sh 'release-build/prepare.sh prunepkg'
+            }
+        }
+        stage('Cleanup') {
+            steps {
+                sh 'make cleanall'
+            }
+        }
+        stage('Build Freezer') {
+            steps {
+                sh 'make freezer_files'
+            }
+        }
+        stage('Build MEGA65R3') {
+            steps {
+                sh 'make bin/mega65r3.bit'
+                sh 'release-build/build-release.sh mega65r3 JENKINSGEN'
+            }
+        }
+        stage('Build MEGA65R2') {
+            steps {
+                sh 'make bin/mega65r2.bit'
+                sh 'release-build/build-release.sh -noreg mega65r2 JENKINSGEN'
+            }
+        }
+        stage('Build Nexys4DDR-Widget') {
+            steps {
+                sh 'make bin/nexys4ddr-widget.bit'
+                sh 'release-build/build-release.sh nexys4ddr-widget JENKINSGEN'
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: "release-build/pkg/*.7z",
+                onlyIfSuccessful: true,
+                fingerprint: true
+        }
+    }
+    environment {
+        BRANCH_SHORT = sh (returnStdout: true, script: 'echo $BRANCH_NAME | sed -r \'s/^(.{5}).*$/\1/\'').trim()
+        USE_LOCAL_CC65 = "1"
+        VIVADO = "/opt/Xilinx/vivado_wrapper.sh"
+    }
+}

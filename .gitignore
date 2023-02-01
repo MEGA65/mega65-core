@@ -41,8 +41,6 @@ src/tools/*.list
 src/tools/*.map
 src/utilities/*.list
 src/utilities/*.map
-kickstart.list
-kickstart.map
 monitor.list
 monitor.map
 
@@ -51,9 +49,7 @@ src/verilog/monitor_mem.v
 src/vhdl/charrom.vhdl
 src/vhdl/colourram.vhdl
 src/vhdl/hyppo.vhdl
-src/vhdl/kickstart.vhdl
 src/vhdl/oskmem.vhdl
-src/vhdl/shadowram.vhdl
 src/vhdl/shadowram-a100t.vhdl
 src/vhdl/shadowram-a200t.vhdl
 src/vhdl/termmem.vhdl

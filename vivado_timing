@@ -1,6 +1,9 @@
 #!/bin/bash -x
 design=$1
-./vivado_wrapper -mode tcl << EOF > ${design}.timing.txt 
+if [[ -z $VIVADO ]]; then
+    VIVADO=./vivado_wrapper
+fi
+$VIVADO -mode tcl << EOF > ${design}.timing.txt
 
 open_project vivado/${design}.xpr
 open_run impl_1

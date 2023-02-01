@@ -3,7 +3,11 @@
 # ###############################
 # get branch name
 #
-branch=`git rev-parse --abbrev-ref HEAD`
+if [[ -n $JENKINS_SERVER_COOKIE ]]; then
+    branch=${BRANCH_NAME}
+else
+    branch=`git rev-parse --abbrev-ref HEAD`
+fi
 freeze_branch=${branch:0:6}
 #echo ${branch}
 #

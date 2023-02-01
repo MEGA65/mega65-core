@@ -389,7 +389,9 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_screen_ram_buffer.vhdl \
 			$(VHDLSRCDIR)/ghdl_videobuffer.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl \
-			$(VHDLSRCDIR)/asym_ram.vhdl
+			$(VHDLSRCDIR)/asym_ram.vhdl \
+			$(VHDLSRCDIR)/shadowram-a100t.vhdl \
+			$(VHDLSRCDIR)/shadowram-a200t.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 			$(VHDLSRCDIR)/sdcard.vhdl \
@@ -1127,8 +1129,11 @@ $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 
 #-----------------------------------------------------------------------------
 
+# Generated HDL files
+preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
+
 # Generate Vivado .xpr from .tcl
-vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v $(VERILOGSRCDIR)/monitor_mem.v
+vivado/%.xpr: 	vivado/%_gen.tcl | preliminaries $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 # Enable phys_opt_design to improve design timing
@@ -1136,9 +1141,7 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VER
 		-e 's,<Step Id="post_route_phys_opt_design"/>,<Step Id="post_route_phys_opt_design" EnableStepBool="1"/>,' >/tmp/xpr
 	mv /tmp/xpr $@
 
-preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
-
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries $(SRCDIR)/version.txt
+$(BINDIR)/%.bit: 	vivado/%.xpr preliminaries $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v $(SRCDIR)/version.txt
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -1161,7 +1164,8 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILO
 	cp vivado.log $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.log
 	# Run timing summary report
 	echo ./vivado_timing $(subst bin/,,$*)
-	./vivado_timing $(subst bin/,,$*)
+	# use vivado_wrapper to run timings
+	VIVADO=$(VIVADO) ./vivado_timing $(subst bin/,,$*)
 	# Make a copy of the timing report named after the commit and datestamp
 	cp $(subst bin/,,$*).timing.txt $(BINDIR)/$*-`cat $(SRCDIR)/version.txt`.timing.txt
 
@@ -1196,7 +1200,7 @@ clean:
 	#rm -f iomap.txt
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
+	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/colourram.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/shadowram-a100t.vhdl $(VHDLSRCDIR)/termmem.vhdl $(VHDLSRCDIR)/oskmem.vhdl
 	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
