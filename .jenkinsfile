@@ -1,4 +1,7 @@
 pipeline {
+    options {
+        disableConcurrentBuilds(abortPrevious: true)
+    }
     agent {
         docker {
             image 'megabuild'
@@ -43,7 +46,6 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: "release-build/pkg/*.7z",
-                onlyIfSuccessful: true,
                 fingerprint: true
         }
     }
