@@ -59,8 +59,10 @@ else
 endif
 
 
-VIVADO=	./vivado_wrapper
-
+# Give the option to override vivado_wrapper (needed by jenkins)
+ifndef VIVADO
+	VIVADO=./vivado_wrapper
+endif
 
 
 ifdef USE_LOCAL_CC65
