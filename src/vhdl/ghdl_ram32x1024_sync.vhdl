@@ -32,6 +32,8 @@ begin  -- behavioural
 
       if cs='1' then
         rdata <= ram(address);
+      else
+        rdata <= (others => 'Z');
       end if;
 
         if w='1' then

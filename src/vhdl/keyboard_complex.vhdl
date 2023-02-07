@@ -9,8 +9,11 @@ entity keyboard_complex is
     cpuclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : in std_logic;
+    matrix_disable_modifiers : in std_logic;
 
     viciv_frame_indicate : in std_logic;
+
+    eth_hyperrupt : out std_logic := '0';
     
     -- Physical interface pins
 
@@ -79,6 +82,8 @@ entity keyboard_complex is
 
     ascii_key : out unsigned(7 downto 0) := x"00";
     ascii_key_valid : out std_logic := '0';
+    petscii_key : out unsigned(7 downto 0) := x"00";
+    petscii_key_valid : out std_logic := '0';
     bucky_key : out std_logic_vector(6 downto 0) := "0000000"; 
     
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
@@ -200,7 +205,9 @@ begin
     
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle => eth_keycode_toggle,
-    eth_keycode => eth_keycode
+    eth_keycode => eth_keycode,
+    -- And also ethernet triggered hypervisor trap for remote control
+    eth_hyperrupt_out => eth_hyperrupt
     );
 
   keymapper0:   entity work.keymapper port map(
@@ -292,6 +299,8 @@ begin
 
       matrix_col => matrix_combined_col,
       matrix_col_idx => matrix_combined_col_idx,
+      matrix_mode_in => matrix_mode_in,
+      matrix_disable_modifiers => matrix_disable_modifiers,
 
       key_up => key_up,
       key_left => key_left,
@@ -300,6 +309,9 @@ begin
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
 
+      petscii_key => petscii_key,
+      petscii_key_valid => petscii_key_valid,
+      
       -- UART key stream
       ascii_key => ascii_key,
       bucky_key => bucky_key,

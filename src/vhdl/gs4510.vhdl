@@ -58,6 +58,7 @@ entity gs4510 is
     nmi : in std_logic;
     exrom : in std_logic;
     game : in std_logic;
+    eth_hyperrupt : in std_logic;
 
     all_pause : in std_logic;
     
@@ -369,6 +370,11 @@ architecture Behavioural of gs4510 is
   type u23_0to3 is array (0 to 3) of unsigned(23 downto 0);
   type u15_0to3 is array (0 to 3) of unsigned(15 downto 0);
   type s15_0to3 is array (0 to 3) of signed(15 downto 0);
+  
+  --dengland
+  type s16_0to3 is array (0 to 3) of signed(16 downto 0);
+  
+  
   type u7_0to3 is array (0 to 3) of unsigned(7 downto 0);
   type u1_0to3 is array (0 to 3) of unsigned(1 downto 0);
   type s7_0to31 is array (0 to 31) of signed(7 downto 0);
@@ -417,12 +423,29 @@ architecture Behavioural of gs4510 is
   signal audio_dma_sample_valid : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_latched_sample : s15_0to3 := (others => to_signed(0,16));
-  signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
-  signal audio_dma_pan_multed : s23_0to3 := (others => to_signed(0,24));
+  
+
+  --dengland
+  signal audio_dma_multed : s16_0to3 := (others => to_signed(0,17));
+  signal audio_dma_pan_multed : s16_0to3 := (others => to_signed(0,17));
+  
+--dengland Please fix the function for dma_saturated_add
+-- signal audio_dma_left_temp : signed(16 downto 0) := (others => '0');
+-- signal audio_dma_right_temp : signed(16 downto 0) := (others => '0');
+-- signal audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
+
+
+
   signal audio_dma_wait_state : std_logic := '1';
   signal audio_dma_left_saturated : std_logic := '0';
   signal audio_dma_right_saturated : std_logic := '0';  
+
+--dengland
+  signal audio_dma_left_vol_sat : std_logic := '0';
+  signal audio_dma_right_vol_sat : std_logic := '0';
+
   signal audio_dma_saturation_enable : std_logic := '1';
+  
   signal audio_dma_swap : std_logic := '0';
 
   signal pending_dma_busy : std_logic := '0';
@@ -538,6 +561,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_list_counter : integer range 0 to 12;
   signal dmagic_first_read : std_logic := '0';
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
+  signal dma_inline : std_logic := '0';
   signal reg_dmagic_withio : std_logic := '0';
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
@@ -560,6 +584,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_line_mode : std_logic := '0';
   signal reg_dmagic_line_x_or_y : std_logic := '0';
   signal reg_dmagic_line_slope_negative : std_logic := '0';
+  signal reg_dmagic_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
 
   signal reg_dmagic_s_x8_offset : unsigned(15 downto 0) := x"0000";
   signal reg_dmagic_s_y8_offset : unsigned(15 downto 0) := x"0000";
@@ -569,6 +594,7 @@ architecture Behavioural of gs4510 is
   signal reg_dmagic_s_line_mode : std_logic := '0';
   signal reg_dmagic_s_line_x_or_y : std_logic := '0';
   signal reg_dmagic_s_line_slope_negative : std_logic := '0';
+  signal reg_dmagic_s_line_mode_skip_pixels : std_logic_vector(1 downto 0) := "00";
   
   signal dmagic_option_id : unsigned(7 downto 0) := x"00";
   signal reg_dmagic_draw_spiral : std_logic := '0';
@@ -696,6 +722,7 @@ architecture Behavioural of gs4510 is
   signal matrix_trap_pending : std_logic := '0';
   signal f011_read_trap_pending : std_logic := '0';
   signal f011_write_trap_pending : std_logic := '0';
+  signal eth_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -1137,6 +1164,12 @@ architecture Behavioural of gs4510 is
   signal a_incremented : unsigned(7 downto 0);
   signal a_decremented : unsigned(7 downto 0);
   signal a_negated : unsigned(7 downto 0);
+  signal q_negated : unsigned(31 downto 0);
+  signal q_negated_a : unsigned(7 downto 0);
+  signal q_negated_x : unsigned(7 downto 0);
+  signal q_negated_y : unsigned(7 downto 0);
+  signal q_negated_z : unsigned(7 downto 0);
+  signal q_negated_nz : unsigned(7 downto 0);
   signal a_ror : unsigned(7 downto 0);
   signal a_rol : unsigned(7 downto 0);
   signal a_asl : unsigned(7 downto 0);
@@ -1465,6 +1498,13 @@ architecture Behavioural of gs4510 is
   signal last_sid_sample_toggle : std_logic := '0';
   signal sid_sample_counter : integer range 0 to 1023 := 0;
 
+  signal trng_consume_toggle : std_logic := '1';
+  signal trng_consume_toggle_last : std_logic := '0';
+  signal next_trng : unsigned(7 downto 0) := x"04"; -- a very random number initially
+  signal trng_valid : std_logic;
+  signal trng_enable : std_logic;
+  signal trng_out : unsigned(7 downto 0);
+  
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -1491,6 +1531,20 @@ begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
 
+  trng0: entity work.neoTRNG generic map (
+    NUM_CELLS => 3,
+    NUM_INV_START => 5,
+    NUM_INV_INC => 2,
+    NUM_INV_DELAY => 2,
+    POST_PROC_EN => true,
+    IS_SIM => false )
+    port map (
+      clk_i => clock,
+      enable_i => trng_enable,
+      unsigned(data_o) => trng_out,
+      valid_o => trng_valid
+      );
+  
   fd0: entity work.fast_divide
     port map (
       clock => clock,
@@ -2215,8 +2269,10 @@ begin
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
+--dengland
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
-                            "0000" & audio_dma_swap & audio_dma_saturation_enable;
+                            audio_dma_left_vol_sat & audio_dma_right_vol_sat & "00" & 
+                            audio_dma_swap & audio_dma_saturation_enable;
 
             -- @IO:GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
             -- @IO:GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
@@ -2686,7 +2742,11 @@ begin
             when x"e9" => return reg_math_cycle_compare(15 downto 8);
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
-
+                          
+            when x"ef" =>
+              -- @IO:GS $D7EF CPU:RAND Hardware random number generator
+              trng_consume_toggle <= not trng_consume_toggle;
+              return next_trng;
             when x"f0" =>
               return reg_cycle_counter;
                           
@@ -2701,6 +2761,8 @@ begin
             when x"f4" => return last_cycles_per_frame(23 downto 16);
             when x"f5" => return last_cycles_per_frame(31 downto 24);
             --@IO:GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+            --@IO:GS $D7F7 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 2)              
+            --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 3)
             --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
             when x"f6" => return last_proceeds_per_frame(7 downto 0);
             when x"f7" => return last_proceeds_per_frame(15 downto 8);
@@ -3054,6 +3116,9 @@ begin
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
         -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3707") or (long_address = x"FFD1707") then
+        -- @IO:GS $D707 - Trigger Enhanced DMAgic job inline (i.e., beginning at PC value, and setting PC to end of job when done)
+        
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0   CPU:BADLEN Enable badline emulation
         -- @IO:GS $D710.1   CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
@@ -3230,7 +3295,7 @@ begin
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
         if long_address(19 downto 17)="001" then
-          shadow_write <= not rom_writeprotect;
+          shadow_write <= (not rom_writeprotect) or hypervisor_mode;
         else
           shadow_write <= '1';
         end if;
@@ -3406,18 +3471,20 @@ begin
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
         reg_mb_low <= reg_a;
+      else
+        reg_offset_low <= reg_x(3 downto 0) & reg_a;
+        reg_map_low <= std_logic_vector(reg_x(7 downto 4));
       end if;
       if reg_z = x"0f" then
         reg_mb_high <= reg_y;
-      end if;
-      reg_offset_low <= reg_x(3 downto 0) & reg_a;
-      reg_map_low <= std_logic_vector(reg_x(7 downto 4));
-      -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
-      -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
-      -- with megaflash menu during boot (issue #156)
-      if hypervisor_mode='0' then
-        reg_offset_high <= reg_z(3 downto 0) & reg_y;
-        reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+      else
+        -- Lock the upper 32KB memory map when in hypervisor mode, so that nothing
+        -- can accidentally de-map it.  This will hopefully also fix using OpenROMs
+        -- with megaflash menu during boot (issue #156)
+        if hypervisor_mode='0' then
+          reg_offset_high <= reg_z(3 downto 0) & reg_y;
+          reg_map_high <= std_logic_vector(reg_z(7 downto 4));
+        end if;        
       end if;
 
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
@@ -3446,6 +3513,7 @@ begin
       reg_dmagic_line_slope_negative <= '0';
       dmagic_slope_overflow_toggle <= '0';
       reg_dmagic_line_mode <= '0';
+      reg_dmagic_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_line_x_or_y <= '0';
 
       reg_dmagic_s_x8_offset <= x"0000";
@@ -3455,6 +3523,7 @@ begin
       reg_dmagic_s_line_slope_negative <= '0';
       dmagic_s_slope_overflow_toggle <= '0';
       reg_dmagic_s_line_mode <= '0';
+      reg_dmagic_s_line_mode_skip_pixels <= (others => '0');
       reg_dmagic_s_line_x_or_y <= '0';
 
       reg_dmagic_floppy_mode <= '0';      
@@ -3582,25 +3651,57 @@ begin
       return tmp(11 downto 0);
     end function alu_op_sub;
 
+--dengland PLEASE FIXME
+    function audio_dma_saturated_add( value1 : signed(16 downto 0);
+                                      value2 : signed(16 downto 0))
+      return signed is
+
+      variable result : signed(16 downto 0);
+    begin
+      result := (value1(15) & value1(15 downto 0)) + (value2(15) & value2(15 downto 0));
+
+      if  value1(15) = value2(15) 
+      and result(16) /= value1(15) then
+        result(16) := '1';
+      else  
+        result(16):= '0';
+      end if;
+
+      return result(16 downto 0);
+    end function;
+--
+
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(7 downto 0))
       return signed is
-      variable value_unsigned : unsigned(23 downto 0);
-      variable result_unsigned : unsigned(31 downto 0);
-      variable result : signed(31 downto 0);
+
+      variable result_signed : signed(24 downto 0);
+      variable result : signed(16 downto 0);
+
+      variable vol_temp : unsigned(8 downto 0);
+      variable volume_signed : signed(8 downto 0);
+
     begin
+        vol_temp(8 downto 0) := "0" & volume(7 downto 0);
+        volume_signed(8 downto 0) := signed(vol_temp(8 downto 0));
 
-      value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
-      value_unsigned(23 downto 15) := (others => value(15));
+        result_signed := value * volume_signed;
 
-      result_unsigned := value_unsigned * volume;
-        
-      result := signed(result_unsigned);
-        
+        result(15 downto 0) := result_signed(23 downto 8);
+
+
+--dengland This shouldn't be happening!
+--  with only an actual 16 and 8 bits, we should never go beyond 24.
+
+        if  value(15) /= result_signed(24) then
+          result(16) := '1';
+        else
+          result(16) := '0';
+        end if;
+     
       report "VOLMULT: $" & to_hstring(value) & " x $" & to_hstring(volume) & " = $ " & to_hstring(result);
       
-      return result(23 downto 0);
-      
+      return result(16 downto 0);
     end function;   
 
     
@@ -3645,8 +3746,9 @@ begin
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
     variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
 
-    variable audio_dma_left_temp : signed(15 downto 0) := (others => '0');
-    variable audio_dma_right_temp : signed(15 downto 0) := (others => '0');
+    variable audio_dma_left_temp : signed(16 downto 0) := (others => '0');
+    variable audio_dma_right_temp : signed(16 downto 0) := (others => '0');
+    variable audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
 
     variable line_x_move : std_logic := '0';
     variable line_x_move_negative : std_logic := '0';
@@ -3659,6 +3761,7 @@ begin
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
     a_negated <= (not reg_a) + 1;
+    
     a_ror <= flag_c & reg_a(7 downto 1);
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
@@ -3693,6 +3796,32 @@ begin
 
     if rising_edge(clock) then
 
+      -- q_negated and friends have a total latency of at least 2 cycles,
+      -- so that a NEG NEG NEG sequence doesn't process the result of the
+      -- first NEG while executing the 3rd one which will act on the 32-bit
+      -- value.
+      q_negated <= (not reg_a&reg_x&reg_y&reg_z) + 1;
+      q_negated_a <= q_negated(31 downto 24);
+      q_negated_x <= q_negated(23 downto 16);
+      q_negated_y <= q_negated(15 downto 8);
+      q_negated_z <= q_negated(7 downto 0);
+      q_negated_nz(7) <= q_negated(31);
+      if q_negated = to_unsigned(0,32) then
+        q_negated_nz(0) <= '0';
+      else
+        q_negated_nz(0) <= '1';
+      end if;
+      
+      -- Run TRNG to generate next byte when previous byte has been consumed
+      if trng_consume_toggle /= trng_consume_toggle_last then
+        trng_enable <= '1';
+        if trng_valid = '1' then
+          next_trng <= trng_out;
+          trng_consume_toggle_last <= trng_consume_toggle;
+          trng_enable <= '0';
+        end if;
+      end if;
+      
       if sid_sample_counter /= 918 then
         sid_sample_counter <= sid_sample_counter + 1;
       else
@@ -3737,41 +3866,163 @@ begin
         if audio_dma_sample_valid(i)='1' then
           audio_dma_latched_sample(i) <= audio_dma_current_value(i);
         end if;
-        audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
-        audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
-        if audio_dma_enables(i)='0' then
+
+
+--dengland
+        if audio_dma_enables(i)='1' then
+          audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
+          audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
+
+        else
+--      if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
+          audio_dma_pan_multed(i) <= (others => '0');
         end if;
+
       end loop;
+
+
+--dengland
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
-      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
-                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
-      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
+--      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
+--                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
+
+
+--        audio_dma_left_temp := audio_dma_saturated_add(audio_dma_multed(0), audio_dma_multed(1));
+
+      audio_dma_left_temp := (audio_dma_multed(0)(15) & audio_dma_multed(0)(15 downto 0)) + 
+                             (audio_dma_multed(1)(15) & audio_dma_multed(1)(15 downto 0));
+
+      if audio_dma_multed(0)(15) = audio_dma_multed(1)(15) 
+      and audio_dma_left_temp(16) /= audio_dma_multed(0)(15) then
+        audio_dma_left_temp(16) := '1';
+      else  
+        audio_dma_left_temp(16):= '0';
+      end if;
+
+--        audio_dma_right_temp := audio_dma_saturated_add(audio_dma_pan_multed(2), audio_dma_pan_multed(3));
+
+      audio_dma_right_temp := (audio_dma_pan_multed(2)(15) & audio_dma_pan_multed(2)(15 downto 0)) + 
+                              (audio_dma_pan_multed(3)(15) & audio_dma_pan_multed(3)(15 downto 0));
+      if audio_dma_pan_multed(2)(15) = audio_dma_pan_multed(3)(15) 
+      and audio_dma_right_temp(16) /= audio_dma_pan_multed(2)(15) then
+        audio_dma_right_temp(16) := '1';
+      else  
+        audio_dma_right_temp(16):= '0';
+      end if;
+
+
+--        audio_dma_mix_temp := audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+
+      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
+                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
+      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(16) /= audio_dma_mix_temp(16) then
+        audio_dma_mix_temp(16) := '1';
+      else  
+        audio_dma_mix_temp(16):= '0';
+      end if;
+
+-- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
+--  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
+
+      if  audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
+          audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' then
+        audio_dma_left_vol_sat <= '1';
+      else
+        audio_dma_left_vol_sat <= '0';
+      end if;
+
+      if -- audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
+          -- audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' or
+          audio_dma_left_temp(16) = '1' or
+          audio_dma_right_temp(16) = '1' or
+          audio_dma_mix_temp(16) = '1' then
+
+--      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
-          audio_dma_left <= (others => audio_dma_multed(1)(23));
+          if audio_dma_mix_temp(15) = '1' then
+            audio_dma_left <= (others => '0');
+          else
+            audio_dma_left <= (others => '1');
+          end if;
         else
-          audio_dma_left <= audio_dma_left_temp;
+          audio_dma_left <= audio_dma_mix_temp(15 downto 0);
         end if;
         audio_dma_left_saturated <= '1';
       else
-        audio_dma_left <= audio_dma_left_temp;
+        audio_dma_left <= audio_dma_mix_temp(15 downto 0);
         audio_dma_left_saturated <= '0';
       end if;
 
-      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
-                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
-      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+
+--      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
+--                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
+--      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+ 
+--        audio_dma_right_temp <= audio_dma_saturated_add(audio_dma_multed(2), audio_dma_multed(3));
+
+      audio_dma_right_temp := (audio_dma_multed(2)(15) & audio_dma_multed(2)(15 downto 0)) + 
+                              (audio_dma_multed(3)(15) & audio_dma_multed(3)(15 downto 0));
+      if audio_dma_multed(2)(15) = audio_dma_multed(3)(15) 
+      and audio_dma_right_temp(16) /= audio_dma_multed(2)(15) then
+        audio_dma_right_temp(16) := '1';
+      else  
+        audio_dma_right_temp(16):= '0';
+      end if;
+
+--        audio_dma_left_temp <= audio_dma_saturated_add(audio_dma_pan_multed(0), audio_dma_pan_multed(1));
+
+      audio_dma_left_temp :=  (audio_dma_pan_multed(0)(15) & audio_dma_pan_multed(0)(15 downto 0)) + 
+                              (audio_dma_pan_multed(1)(15) & audio_dma_pan_multed(1)(15 downto 0));
+      if audio_dma_pan_multed(0)(15) = audio_dma_pan_multed(1)(15) 
+      and audio_dma_left_temp(16) /= audio_dma_pan_multed(0)(15) then
+        audio_dma_left_temp(16) := '1';
+      else  
+        audio_dma_left_temp(16):= '0';
+      end if;
+
+--        audio_dma_mix_temp <= audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+
+      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
+                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
+      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(16) /= audio_dma_mix_temp(15) then
+        audio_dma_mix_temp(16) := '1';
+      else  
+        audio_dma_mix_temp(16):= '0';
+      end if;
+
+--  Warn but do not use
+
+      if  audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
+          audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' then
+        audio_dma_right_vol_sat <= '1';
+      else
+        audio_dma_right_vol_sat <= '0';
+      end if;
+
+      if -- audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
+          --  audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' or
+          audio_dma_left_temp(16) = '1' or
+          audio_dma_right_temp(16) = '1' or
+          audio_dma_mix_temp(16) = '1' then
+
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
-          audio_dma_right <= (others => audio_dma_multed(3)(23));
+          if audio_dma_mix_temp(15) = '1' then
+            audio_dma_right <= (others => '0');
+          else
+            audio_dma_right <= (others => '1');
+          end if;
         else
-          audio_dma_right <= audio_dma_right_temp;
+          audio_dma_right <= audio_dma_mix_temp(15 downto 0);
         end if;
         audio_dma_right_saturated <= '1';
       else
-        audio_dma_right <= audio_dma_right_temp;
+        audio_dma_right <= audio_dma_mix_temp(15 downto 0);
         audio_dma_right_saturated <= '0';
       end if;
       
@@ -4399,7 +4650,7 @@ begin
         hyper_trap_edge <= '0';
       end if;
       hyper_trap_last <= hyper_trap;
-      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1')
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1' or eth_hyperrupt='1')
         and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
@@ -4409,6 +4660,8 @@ begin
           f011_read_trap_pending <='1';
         elsif hyper_trap_f011_write='1' then 
           f011_write_trap_pending <='1';
+        elsif eth_hyperrupt='1' then
+          eth_trap_pending <= '1';
         end if;
       else
         hyper_trap_state <= '1';
@@ -4720,8 +4973,11 @@ begin
             & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
-                                        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
-        if last_write_address = x"FFD367E" and hypervisor_mode='1' then
+
+        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
+        -- But don't set it if written in a DMA copy, so that unfreezing
+        -- doesn't set the hypervisor upgraded flag. #530
+        if last_write_address = x"FFD367E" and hypervisor_mode='1' and state /= DMAgicCopyWrite then
           hypervisor_upgraded <= '1';
         end if;
 
@@ -5363,6 +5619,7 @@ begin
                   when x"8d" => reg_dmagic_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"8e" => reg_dmagic_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"8f" => reg_dmagic_line_mode <= memory_read_value(7);
+                                reg_dmagic_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
@@ -5378,6 +5635,7 @@ begin
                   when x"9d" => reg_dmagic_s_slope_fraction_start(7 downto 0) <= memory_read_value;
                   when x"9e" => reg_dmagic_s_slope_fraction_start(15 downto 8) <= memory_read_value;
                   when x"9f" => reg_dmagic_s_line_mode <= memory_read_value(7);
+                                reg_dmagic_s_line_mode_skip_pixels <= (others => memory_read_value(7));
                                 reg_dmagic_s_line_x_or_y <= memory_read_value(6);
                                 reg_dmagic_s_line_slope_negative <= memory_read_value(5);
                     
@@ -5552,6 +5810,10 @@ begin
             when DMAgicFill =>
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto 0)
 
+              -- Clear first pixel of line flag
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+              
               -- Do memory write
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               -- Update address and check for end of job.
@@ -5615,10 +5877,16 @@ begin
                   end if;
                 end if;
                 -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_line_x_or_y='0' then
-                  line_x_move := '1';
-                else
-                  line_y_move := '1';
+                -- But there is a delay of one pixel before the slope takes effect,
+                -- so handle this by not advancing the major axis on the first
+                -- pixel.  The first pixel will thus effectively be written to
+                -- twice.
+                if reg_dmagic_line_mode_skip_pixels="00" then
+                  if reg_dmagic_line_x_or_y='0' then
+                    line_x_move := '1';
+                  else
+                    line_y_move := '1';
+                  end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
@@ -5748,9 +6016,15 @@ begin
                   report "monitor_instruction_strobe assert (end of DMA job)";
                   monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
-                                        -- Reset DMAgic options to normal at the end of the last DMA job
-                                        -- in a chain.
+                  -- Reset DMAgic options to normal at the end of the last DMA job
+                  -- in a chain.                  
                   dmagic_reset_options;
+                  -- Continue after DMA job if it was an inline job
+                  if dma_inline='1' then
+                    reg_pc <= reg_dmagic_addr(15 downto 0);
+                    report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
+                    dma_inline <= '0';
+                  end if;
                 else
                                         -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -5792,6 +6066,9 @@ begin
                                         -- and can read or write on every cycle.
                                         -- so we need to read the first byte now.
 
+              reg_dmagic_line_mode_skip_pixels <= reg_dmagic_line_mode_skip_pixels(0) & "0";
+              reg_dmagic_s_line_mode_skip_pixels <= reg_dmagic_s_line_mode_skip_pixels(0) & "0";
+            
                                         -- Do memory read
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               
@@ -5823,10 +6100,12 @@ begin
                   end if;
                 end if;
                 -- Also move major axis (which is always in the forward direction)
-                if reg_dmagic_s_line_x_or_y='0' then
-                  line_x_move := '1';
-                else
-                  line_y_move := '1';
+                if reg_dmagic_s_line_mode_skip_pixels="00" then
+                  if reg_dmagic_s_line_x_or_y='0' then
+                    line_x_move := '1';
+                  else
+                    line_y_move := '1';
+                  end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                   -- Y = Y + 1
@@ -5955,6 +6234,7 @@ begin
               cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
+
               -- Remember value just read
               report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
@@ -6008,10 +6288,12 @@ begin
                     end if;
                   end if;
                   -- Also move major axis (which is always in the forward direction)
-                  if reg_dmagic_line_x_or_y='0' then
-                    line_x_move := '1';
-                  else
-                    line_y_move := '1';
+                  if reg_dmagic_line_mode_skip_pixels= "00" then
+                    if reg_dmagic_line_x_or_y='0' then
+                      line_x_move := '1';
+                    else
+                      line_y_move := '1';
+                    end if;
                   end if;
                   if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
                     -- Y = Y + 1
@@ -6152,6 +6434,12 @@ begin
                                         -- Reset DMAgic options to normal at the end of the last DMA job
                                         -- in a chain.
                     dmagic_reset_options;
+                    -- Continue after DMA job if it was an inline job
+                    if dma_inline='1' then
+                      reg_pc <= reg_dmagic_addr(15 downto 0);
+                      report "DMAINLINE: Setting PC to $" & to_hstring(to_unsigned(to_integer(reg_dmagic_addr(15 downto 0)),16));
+                      dma_inline <= '0';
+                    end if;
                   else
                                         -- Chain to next DMA job
                     state <= DMAgicTrigger;
@@ -6220,6 +6508,10 @@ begin
                                         -- Trap #69 ($45) = SD/F011 write sector
                   hypervisor_trap_port <= "1000101";
                   f011_write_trap_pending <= '0';
+                elsif eth_trap_pending = '1' then
+                                        -- Trap #70 ($48) = Ethernet Hyperrupt
+                  hypervisor_trap_port <= "1001000";
+                  eth_trap_pending <= '0';
                 else
                                         -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     
@@ -6444,7 +6736,7 @@ begin
                     else
                       report "Skipping straight to microcode interpret from fetch";
                       state <= MicrocodeInterpret;
-                    end if;
+                    end if;                    
                   else
                     next_is_axyz32_instruction <= next_is_axyz32_instruction;
                     state <= Cycle2;
@@ -7602,6 +7894,23 @@ begin
                     when others => null;
                   end case;
                   flag_c <= reg_q33(0);
+                when I_NEG =>
+                  -- NEG NEG NEG = 32-bit NEG
+                  -- This one is a bit interesting to implement,
+                  -- because we need the 32-bit negated value based
+                  -- on the not-yet negated register values. We then
+                  -- also need to have N and Z precalculated as well
+                  -- to reduce timing pressure.
+                  reg_a <= q_negated_a;
+                  reg_x <= q_negated_x;
+                  reg_y <= q_negated_y;
+                  reg_z <= q_negated_z;
+                  set_nz(q_negated_nz);
+                  -- Don't allow the last two NEGs in the sequence to cause
+                  -- the next instruction to be 32-bit
+                  value32_enabled <= '0';
+                  next_is_axyz32_instruction <= '0';
+                  state <= normal_fetch_state;                  
                 when others =>
                   -- Can't get here, in theory
                   report "monitor_instruction_strobe assert (unknown instruction in ExecuteQreg32)";
@@ -7796,6 +8105,8 @@ begin
                 axyz_phase <= axyz_phase + 1;
               end if;              
               if axyz_phase = 4 then
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 -- Go to next instruction by default
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
@@ -7835,6 +8146,8 @@ begin
                 reg_val32(7 downto 0) <= reg_x;
                 state <= StoreTarget32;
               else
+                -- reset 32bit addressing for next instruction
+                absolute32_addressing_enabled <= '0';
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
                 else
@@ -8307,6 +8620,28 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3707"
+            or memory_access_address = x"FFD1707" then
+            report "DMAgic: Enhanced DMA pending, with MAP-honouring list reading, list inline at PC";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+            dmagic_job_mapped_list <= '1';
+            reg_dmagic_addr(15 downto 0) <= reg_pc;
+            dma_inline <= '1';
+
+            -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            -- (actually, we will over-write the PC with the next address after
+            -- running the DMA job, anyway)
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;          
           
           -- @IO:GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
           -- @IO:GS $D641 CPU:HTRAP01 @HTRAPXX
@@ -9410,7 +9745,7 @@ begin
         when MicrocodeInterpret =>
 
           report "BACKGROUNDDMA: in MicrocodeInterpret";
-          
+
           if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
           if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
           if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
@@ -9588,7 +9923,9 @@ begin
         
         if long_address(27 downto 17)="00000000001" then
           report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
-          shadow_write_var := not rom_writeprotect;
+          -- allow hypervisor to always be able to write to ROM area.
+          -- (unfreezing requires it)
+          shadow_write_var := (not rom_writeprotect) or hypervisor_mode;
           shadow_address_var := to_integer(long_address(19 downto 0));
         elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;

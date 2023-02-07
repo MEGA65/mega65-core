@@ -14,6 +14,7 @@ entity mega65kbd_to_matrix is
     flopledsd : in std_logic;
     powerled : in std_logic;    
 
+    keyboard_type : out unsigned(3 downto 0);
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
     kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
     
@@ -21,10 +22,15 @@ entity mega65kbd_to_matrix is
     disco_led_val : in unsigned(7 downto 0) := x"00";
     disco_led_en : in std_logic := '0';
     
-    kio8 : out std_logic; -- clock to keyboard
-    kio9 : out std_logic; -- data output to keyboard
+    kio8 : inout std_logic; -- clock to keyboard / I2C DATA line
+    kio9 : out std_logic; -- data output to keyboard / I2C CLK line
     kio10 : in std_logic; -- data input from keyboard
 
+    kbd_bitbash_mode : in std_logic := '0';
+    kbd_bitbash_scl : in std_logic := '0';
+    kbd_bitbash_sda : in std_logic := '0';
+    kbd_bitbash_sdadrive : in std_logic := '0';
+    
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
 
@@ -48,7 +54,6 @@ architecture behavioural of mega65kbd_to_matrix is
 
   signal matrix_ram_offset : integer range 0 to 15 := 0;
   signal keyram_wea : std_logic_vector(7 downto 0);
-  signal keyram_dia : std_logic_vector(7 downto 0);
   signal matrix_dia : std_logic_vector(7 downto 0);
   
   signal enabled : std_logic := '0';
@@ -66,6 +71,49 @@ architecture behavioural of mega65kbd_to_matrix is
   signal deletekey : std_logic := '1';
   signal returnkey : std_logic := '1';
   signal fastkey : std_logic := '1';
+
+  signal i2c_counter : integer range 0 to 50 := 0;
+  signal i2c_tick : std_logic := '0';
+  signal i2c_state : integer := 0;
+  signal addr : unsigned(2 downto 0) := to_unsigned(0,3);
+
+  signal i2c_bit : std_logic := '0';
+  signal i2c_bit_valid : std_logic := '0';
+  signal i2c_bit_num : integer range 0 to 15 := 0;
+
+  signal current_keys : std_logic_vector(79 downto 0) := (others => '1');
+  signal export_keys : std_logic_vector(79 downto 0) := (others => '1');
+  signal done_writing_matrix : std_logic := '1';
+  signal next_matrix_ram_write : integer range 9 downto 0 := 0;
+
+  -- These signals are used to cause the first write to U1 to instead set the
+  -- data direection register instead of writing to the port
+  signal u1_active : std_logic := '0';
+  signal u1_reg6 : std_logic := '1';
+  
+  signal led0_r : std_logic := '0';
+  signal led0_g : std_logic := '0';
+  signal led0_b : std_logic := '0';
+  signal led1_r : std_logic := '0';
+  signal led1_g : std_logic := '0';
+  signal led1_b : std_logic := '0';
+  signal led2_r : std_logic := '0';
+  signal led2_g : std_logic := '0';
+  signal led2_b : std_logic := '0';
+  signal led3_r : std_logic := '0';
+  signal led3_g : std_logic := '0';
+  signal led3_b : std_logic := '0';
+  signal led_capslock : std_logic := '0';
+  signal led_shiftlock : std_logic := '0';
+  signal led_tick : std_logic := '0';
+  signal led_counter : integer range 0 to 15 := 0;
+  -- shiftlock active low
+  signal shiftlock_toggle : std_logic := '1';
+  signal kbd_gpio1 : std_logic;
+  signal kbd_gpio2 : std_logic;
+  signal shiftlock : std_logic := '0';
+
+  signal sda_assert : std_logic := '0';
   
 begin  -- behavioural
 
@@ -86,35 +134,48 @@ begin  -- behavioural
     
   begin
     if rising_edge(cpuclock) then
+
+      i2c_bit_valid <= '0';
+      
+      -- Generate ~400KHz I2C clock
+      -- We use 2 or 3 ticks per clock, so 40.5MHz/(400KHz*2) = 50.652
+      if i2c_counter < 50 then
+        i2c_counter <= i2c_counter + 1;
+        i2c_tick <= '0';
+      else
+        i2c_counter <= 0;
+        i2c_tick <= '1';
+      end if;
+      
+      delete_out <= deletekey;
+      return_out <= returnkey;
+      fastkey_out <= fastkey;
+
       ------------------------------------------------------------------------
-      -- Read from MEGA65R2 keyboard
+      -- Read from MEGA65 MK-I keyboard 
       ------------------------------------------------------------------------
       -- Process is to run a clock at a modest rate, and periodically send
       -- a sync pulse, and clock in the key states, while clocking out the
       -- LED states.
-
-      delete_out <= deletekey;
-      return_out <= returnkey;
-      fastkey_out <= fastkey;
       
       -- Counter is for working out drive LED blink phase
       counter <= counter + 1;
-    
+      
       -- Default is no write nothing at offset zero into the matrix ram.
       keyram_write_enable := x"00";
       keyram_offset := 0;
-
+      
       if clock_divider /= 64 then
         clock_divider <= clock_divider + 1;
       else
         clock_divider <= 0;
-
+        
         kbd_clock <= not kbd_clock;
         kio8 <= kbd_clock or sync_pulse;
-
+        
         if kbd_clock='1' and phase < 128 then
           keyram_offset := phase/8;
-
+          
           -- Receive keys with dedicated lines
           if phase = 72 then
             capslock_out <= kio10;
@@ -153,9 +214,9 @@ begin  -- behavioural
           else
             matrix_dia <= (others => kio10); -- present byte of input bits to
                                              -- ram for writing
-          end if;
-          
-          
+          end if;     
+            
+            
           report "Writing received bit " & std_logic'image(kio10) & " to bit position " & integer'image(phase);
           
           case (phase mod 8) is
@@ -217,11 +278,11 @@ begin  -- behavioural
             kio9 <= output_vector(127);
             output_vector(127 downto 1) <= output_vector(126 downto 0);
             output_vector(0) <= '0';
-
+            
           end if;
         end if;
       end if;
     end if;
   end process;
-
+  
 end behavioural;

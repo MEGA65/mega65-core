@@ -55,7 +55,9 @@ use work.cputypes.all;
 entity machine is
   generic (cpu_frequency : integer;
            hyper_installed : boolean := false;
-           target : mega65_target_t );
+           target : mega65_target_t;
+           num_eth_rx_buffers : integer := 4
+           );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
@@ -127,6 +129,13 @@ entity machine is
          qspidb_oe : out std_logic;
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
+
+         ----------------------------------------------------------------------
+         -- Composite/S-Video/Component out
+         ----------------------------------------------------------------------
+         luma : out unsigned(7 downto 0);
+         chroma : out unsigned(7 downto 0);
+         composite : out unsigned(7 downto 0);
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -303,6 +312,9 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
+         grove_sda : inout std_logic;
+         grove_scl : inout std_logic;
+         
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := 'H';
          touchSCL : inout std_logic := '1';
@@ -753,6 +765,8 @@ architecture Behavioral of machine is
 
   signal viciv_frame_indicate : std_logic;
 
+  signal eth_hyperrupt : std_logic;
+
   signal cpu_pcm_left : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_right : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_enable : std_logic := '0';
@@ -779,6 +793,9 @@ architecture Behavioral of machine is
   signal btnCpuReset_counter : integer range 0 to 8191 := 0;
 
   signal rightsid_audio : signed(17 downto 0);
+
+  signal interlace_mode : std_logic;
+  signal mono_mode : std_logic;
   
 begin
 
@@ -1051,6 +1068,7 @@ begin
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,      
       secure_mode_out => secure_mode_flag,
       secure_mode_from_monitor => secure_mode_from_monitor,
       clear_matrix_mode_toggle => clear_matrix_mode_toggle,
@@ -1187,7 +1205,7 @@ begin
       rom_at_8000 => rom_at_8000
 
       );
-
+ 
   pixel0: entity work.pixel_driver
     port map (
                clock81 => pixelclock, -- 80MHz
@@ -1207,7 +1225,10 @@ begin
                pal50_select => pal50_select,
                vga60_select => vga60_select,
       test_pattern_enable => test_pattern_enable,      
-      
+
+               interlace_mode => interlace_mode,
+               mono_mode => mono_mode,
+               
       -- Framing information for VIC-IV
       x_zero => external_frame_x_zero,     
       y_zero => external_frame_y_zero,     
@@ -1233,6 +1254,10 @@ begin
       vga_hsync => vga_hsync,      -- for VGA
       vga_blank => vga_blank,
 
+      luma => luma,
+      chroma => chroma,
+      composite => composite,
+               
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,               
       lcd_vsync => lcd_vsync,
@@ -1243,7 +1268,7 @@ begin
 
       );
       
-      
+     
   viciv0: entity work.viciv
     generic map ( hyper_installed => hyper_installed )
     port map (
@@ -1254,6 +1279,9 @@ begin
       dd00_bits => dd00_bits,
       
       viciv_frame_indicate => viciv_frame_indicate,
+
+      interlace_mode => interlace_mode,
+      mono_mode => mono_mode,
       
       hypervisor_mode => cpu_hypervisor_mode,
       
@@ -1495,7 +1523,9 @@ begin
   
   iomapper0: entity work.iomapper
     generic map ( target => target,
-                  cpu_frequency => cpu_frequency)
+                  cpu_frequency => cpu_frequency,
+                  num_eth_rx_buffers => num_eth_rx_buffers
+)
     port map (
       cpuclock => cpuclock,
       clock200mhz => clock200,
@@ -1517,6 +1547,7 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
+      eth_hyperrupt => eth_hyperrupt,
 
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,      
@@ -1818,6 +1849,9 @@ begin
 
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
+
+      grove_sda => grove_sda,
+      grove_scl => grove_scl,
 
       lcdpwm => lcdpwm,
       touchSDA => touchSDA,

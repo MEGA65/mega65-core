@@ -1,0 +1,15 @@
+---
+Language:         Cpp
+BasedOnStyle:     Webkit
+ColumnLimit:      125
+IndentWidth:      2
+AlignTrailingComments: true
+BreakBeforeBraces: Stroustrup
+SortIncludes: false
+BreakBeforeBinaryOperators: All
+BreakBeforeTernaryOperators: true
+PenaltyBreakAssignment: 100
+PenaltyBreakComment: 100
+AlignOperands: AlignAfterOperator
+AllowShortFunctionsOnASingleLine: None
+PointerAlignment: Right

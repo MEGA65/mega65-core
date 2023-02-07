@@ -230,6 +230,7 @@ begin
       RD_BLK,    -- Read a block of data from the SD card.
       WR_BLK,    -- Write a block of data to the SD card.
       WR_WAIT,   -- Wait for SD card to finish writing the data block.
+      WR_STOP_TRANS,
       START_TX,                         -- Start sending command/data.
       TX_BITS,   -- Shift out remaining command/data bits.
       GET_CMD_RESPONSE,  -- Get the R1 response of the SD card to a command.
@@ -257,12 +258,13 @@ begin
     constant NUM_INIT_CLKS_C : natural := 160;  -- Number of initialization clocks to SD card.
     variable bitCnt_v        : natural range 0 to NUM_INIT_CLKS_C;  -- Tx/Rx bit counter.
 
-    constant CRC_SZ_C    : natural := 2;  -- Number of CRC bytes for read/write blocks.
+    constant CRC_SZ_C        : natural := 2;  -- Number of CRC bytes for read/write blocks.
     -- When reading blocks of data, get 0xFE + [DATA_BLOCK] + [CRC].
-    constant RD_BLK_SZ_C : natural := 1 + BLOCK_SIZE_G + CRC_SZ_C;
+    constant RD_BLK_SZ_C     : natural := 1 + BLOCK_SIZE_G + CRC_SZ_C;
     -- When writing blocks of data, send 0xFF + 0xFE + [DATA BLOCK] + [CRC] then receive response byte.
-    constant WR_BLK_SZ_C : natural := 1 + 1 + BLOCK_SIZE_G + CRC_SZ_C + 1;
-    variable byteCnt_v   : natural range 0 to WR_BLK_SZ_C;  -- Tx/Rx byte counter.
+    constant WR_BLK_SZ_C     : natural := 1 + 1 + BLOCK_SIZE_G + CRC_SZ_C + 1;
+    constant STOP_TRANS_SZ_C : natural := 2; 
+    variable byteCnt_v       : natural range 0 to WR_BLK_SZ_C;  -- Tx/Rx byte counter.
 
     -- Command bytes for various SD card operations.
     subtype Cmd_t is std_logic_vector(7 downto 0);
@@ -304,7 +306,8 @@ begin
     variable getCmdResponse_v : boolean;  -- When true, get R1 response to command sent to SD card.
     variable rtnData_v        : boolean;  -- When true, signal to host when a data byte arrives from SD card.
     variable doDeselect_v     : boolean;  -- When true, de-select SD card after a command is issued.
-    
+    variable doStopTrans_v    : boolean;
+
   begin
     if rising_edge(clk_i) then
 
@@ -464,6 +467,7 @@ begin
                 -- We are in a multi-block write.  So just go direct to WR_BLK
                 state_v    := WR_BLK;       -- Go to this FSM subroutine to send the command ...                
               end if;
+              doStopTrans_v := false;
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
               bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
               byteCnt_v  := WR_BLK_SZ_C;    -- Set number of bytes to write.
@@ -515,16 +519,11 @@ begin
             elsif byteCnt_v = WR_BLK_SZ_C - 1 then     -- Send start token.
               if write_multi = '0' then
                 txData_v := START_TOKEN_C;   -- Starting token for data block.
-              elsif write_multi_last = '1' then
-                txData_v := START_TOKEN_MULTIEND_C;   -- End of write token (we
-                                                      -- ignore the data that follows)
               else
                 txData_v := START_TOKEN_MULTI_C;   -- Starting token for all
                                                    -- but last block of
                                                    -- mult-sector write.
               end if;
-
-                
             elsif byteCnt_v >= 4 then   -- Now send bytes in the data block.
               hndShk_r <= '1';           -- Signal host to provide data.
             -- The transmit shift register is loaded with data from host in the handshaking section above.
@@ -533,13 +532,13 @@ begin
             elsif byteCnt_v = 1 then
               bitCnt_v   := rx_v'length - 1;
               state_v    := RX_BITS;  -- Get response of SD card to the write operation.
-              rtnState_v := WR_WAIT;
+              rtnState_v := WR_BLK;
             else                        -- Check received response byte.
               if std_match(rx_v, DATA_ACCEPTED_C) then  -- Data block was accepted.
                 state_v := WR_WAIT;  -- Wait for the SD card to finish writing the data into Flash.
               else                      -- Data block was rejected.
                 error_o(15 downto 8) <= rx_v;
-                state_v              := REPORT_ERROR;  -- Report the error.
+                state_v := REPORT_ERROR;  -- Report the error.
               end if;
             end if;
             byteCnt_v := byteCnt_v - 1;
@@ -549,11 +548,32 @@ begin
             sclk_r           <= not sclk_r;    -- Toggle the SPI clock...
             sclkPhaseTimer_v := clkDivider_v;  -- and set the duration of the next clock phase.
             if sclk_r = '1' and miso_i = '1' then  -- Data block has been written, so deselect the SD card.
-              bitCnt_v   := 2;
-              state_v    := DESELECT;
-              rtnState_v := WAIT_FOR_HOST_RW;
+              if write_multi_last = '1' and not doStopTrans_v then
+                state_v       := WR_STOP_TRANS;
+                byteCnt_v     := STOP_TRANS_SZ_C;
+                doStopTrans_v := true;
+              else
+                bitCnt_v   := 2;
+                state_v    := DESELECT;
+                rtnState_v := WAIT_FOR_HOST_RW;
+              end if;
             end if;
-            
+
+          when WR_STOP_TRANS =>
+            getCmdResponse_v := false;  -- Sending data bytes so there's no command response from SD card.
+            bitCnt_v         := txData_v'length;  -- Transmitting byte-sized data.
+            state_v          := START_TX;  -- Call the bit transmitter routine.
+            rtnState_v       := WR_STOP_TRANS;  -- Return here when done transmitting a byte.
+            if byteCnt_v = STOP_TRANS_SZ_C then
+              txData_v       := NO_TOKEN_C;  -- Hold MOSI high for one byte
+            elsif byteCnt_v = STOP_TRANS_SZ_C - 1 then
+              txData_v       := START_TOKEN_MULTIEND_C;
+            else
+              txData_v       := NO_TOKEN_C;  -- Hold MOSI high for one byte
+              rtnState_v     := WR_WAIT;
+            end if;
+            byteCnt_v := byteCnt_v - 1;
+
           when START_TX =>
             -- Start sending command/data by lowering SCLK and outputing MSB of command/data
             -- so it has plenty of setup before the rising edge of SCLK.

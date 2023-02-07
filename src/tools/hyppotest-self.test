@@ -1,0 +1,306 @@
+# These are tests for the hyppotest program itself.
+# Hyppo's tests are in src/hyppo.
+
+test "assemble with acme"
+  log on failure
+  assemble with acme
+    start:
+      jsr   ($3000)
+      jsr   ($3002)
+      lda   #$01
+      ldx   #$02
+      ldy   #$03
+      ldz   #$04
+    end:
+      rts
+    load:   !8  1,2,3,4
+  end assemble
+  assemble at $3000 with acme
+      !addr zp  = $02
+
+      !16   setdata
+      !16   save_zp_b
+
+    setdata:
+      lda #<data
+      sta zp
+      lda #>data
+      sta zp+1
+      ldz #$00
+      lda (zp),z
+      eor #$FF
+      sta (zp),z
+      rts
+    data:   !8  $55
+
+      !align $FF, 0, $24
+    save_zp_b:
+      tba
+      sta   bp
+      tsx
+      stx   spl
+      ;tsy
+      ;sty   sph
+      rts
+    bp:     !8  $c3
+    spl:    !8  $c3
+    sph:    !8  $c3
+  end assemble
+  jsr start
+  ignore reg sp
+  ignore reg pc
+  expect a = $01
+  expect x = $02
+  expect y = $03
+  expect z = $04
+  check regs
+  ignore from zp to zp+1
+  ignore from $100 to $1FF
+  expect $aa at data
+  expect $00 at bp
+  expect $fd at spl
+  #expect $01 at sph
+  check mem
+end test
+
+
+test "poke directive"
+  define data as $3800
+  define val as $8
+  poke $2000, $60
+  poke $2010, $12, $34
+  poke $2020, $56, $78, $9a
+  poke data, $12
+  poke data+5678, $34
+  poke data-1234, $56
+  poke data+$480, $78
+  poke data-$fed, $9a
+  poke data+1, val
+  poke data+2, $2, $3, $4, $5, $6, $7, val, $9
+  jsr $2000
+  expect $60 at $2000
+  expect $12 at $2010
+  expect $34 at $2011
+  expect $56 at $2020
+  expect $78 at $2021
+  expect $9a at $2022
+  expect $12 at $3800
+  expect $34 at $4e2e
+  expect $56 at $332e
+  expect $78 at $3c80
+  expect $9a at $2813
+  expect $08 at $3801
+  expect $02 at $3802
+  expect $03 at $3803
+  expect $04 at $3804
+  expect $05 at $3805
+  expect $06 at $3806
+  expect $07 at $3807
+  expect $08 at $3808
+  expect $09 at $3809
+  check mem
+end test
+
+
+test "check mem"
+  assemble with acme
+    lda #$12: sta $3000: lda $2500: sta $3001: lda #$34: sta $3500:  rts
+  end assemble
+  poke $2500, $ab
+  jsr $2000
+  expect $12 at $3000
+  expect $ab at $3001
+  ignore from $3500 to $35ff
+  check mem
+end test
+
+
+test "ignore reg directives"
+  assemble with acme
+    lda #$12: ldx #$23: rts
+  end assemble
+  jsr $2000
+  ignore reg sp
+  expect pc = $0001
+  expect a = $12
+  expect x = $23
+  check regs
+  jsr $2000
+  ignore all regs
+  check regs
+  jsr $2000
+  ignore all regs
+  expect a = $12
+  expect x = $23
+  check regs
+end test
+
+
+test "clear breakpoint directives"
+  assemble with acme
+    lda #$12: lda #$23: rts
+  end assemble
+  breakpoint $2000
+  breakpoint $2002
+  breakpoint $2004
+
+  jsr $2000
+  ignore reg sp
+  expect pc = $2000
+  expect a = $00
+  check regs
+  clear breakpoint $2000
+
+  jsr $2000
+  ignore all regs
+  expect pc = $2002
+  expect a = $12
+  check regs
+  clear all breakpoints
+
+  jsr $2000
+  ignore all regs
+  expect pc = $0001
+  expect a = $23
+  check regs
+end test
+
+
+test "step and run directives"
+  assemble with acme
+    lda #$12: inc: tax: clc: adc #$23: tay: ldz #$45: rts
+  end assemble
+
+  # Start the routine at $2000 but immediately stop at the first instruction
+  breakpoint $2000
+  jsr $2000
+  clear all breakpoints
+  expect pc = $2000
+  check regs
+
+  # Test stepping over a 2-byte instruction
+  # lda #$12
+  step
+  expect pc = $2002
+  expect a = $12
+  check regs
+
+  # Test stepping over a 1-byte instruction
+  # inc
+  step
+  expect pc = $2003
+  expect a = $13
+  check regs
+
+  # Test stepping over a 3 instructions
+  # tax: clc: adc #$23
+  step 3
+  expect pc = $2007
+  expect x = $13
+  expect a = $36
+  check regs
+
+  # Test running until the end of the routine
+  # tay: ldz #$45: rts
+  run until rts
+  ignore all regs
+  expect y = $36
+  expect z = $45
+  check regs
+end test
+
+
+test "let directive"
+  let a = $01
+  let x = $23
+  let Y = $45
+  let Z = $56
+  let b = $78
+  let sp = $1234
+  let pc = $2000
+  poke $2000, $00
+  run until brk
+  expect A = $01
+  expect X = $23
+  expect y = $45
+  expect z = $56
+  expect b = $78
+  expect sp = $1234
+  expect pc = $2000
+  check regs
+end test
+
+
+test "flag directives"
+  poke $2000, $60
+
+  let f = $a5
+  jsr $2000
+  ignore all regs
+  expect f = $a5
+  check regs
+
+  let f = $5a
+  jsr $2000
+  ignore all regs
+  expect f = $5a
+  check regs
+
+  let f = $4a
+  set flag c
+  clear flag z
+  set flag i
+  clear flag d
+  set flag b
+  clear flag e
+  set flag v
+  clear flag n
+  jsr $2000
+  ignore all regs
+  expect flag C is set
+  expect flag Z is clear
+  expect flag I is set
+  expect flag D is clear
+  expect flag B is set
+  expect flag E is clear
+  expect flag V is set
+  expect flag N is clear
+  check regs
+
+  let f = $b5
+  clear flag C
+  set flag Z
+  clear flag I
+  set flag D
+  clear flag B
+  set flag E
+  clear flag V
+  set flag N
+  jsr $2000
+  ignore all regs
+  expect flag c is clear
+  expect flag z is set
+  expect flag i is clear
+  expect flag d is set
+  expect flag b is clear
+  expect flag e is set
+  expect flag v is clear
+  expect flag n is set
+  check regs
+
+  let f = $00
+  set flag c
+  set flag d
+  set flag v
+  jsr $2000
+  ignore all regs
+  expect f = $49
+  check regs
+
+  let f = $dd
+  jsr $2000
+  ignore all regs
+  expect flag z is clear
+  expect flag e is clear
+  check regs
+end test

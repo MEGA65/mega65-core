@@ -58,6 +58,7 @@ architecture arch of I2C_slave is
                    read_ack_got_rising, read_stop);
   -- I2C state management
   signal state_reg          : state_t              := idle;
+  signal last_state_reg          : state_t              := idle;
   signal cmd_reg            : std_logic            := '0';
   signal bits_processed_reg : integer range 0 to 8 := 0;
   signal continue_reg       : std_logic            := '0';
@@ -168,7 +169,11 @@ begin
       read_req_reg   <= '0';
 
 --      report "scl_debounced=" & std_logic'image(scl_debounced) & ", sda_debounced=" & std_logic'image(sda_debounced);
-      
+
+      last_state_reg <= state_reg;
+      if (state_reg /= last_state_reg ) then
+        report "state_reg=" & state_t'image(state_reg);
+      end if;
       case state_reg is
 
         when idle =>

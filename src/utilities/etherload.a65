@@ -3,26 +3,11 @@
 ; This keeps the programme VERY small.
 ; Now supports ARP replies to make life easier.
 
-      ; make it start with SYS53000
-      .word $c000
-      .org $c000
+      .org $8000
       .scope
 
-;	 .word $0801
-;	 .org $0801
-;	 .scope
-;
-;	 .word _next, 10                       ; Next line and current line number
-;	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-;_next:	 .word 0
-;
-;iter1:	 .byte 0
-;
-;	 .checkpc 2079
-;	 .advance 2079
-
 programentrypoint:
-
+	sei
 
 	; C65GS io
 	lda #$47
@@ -34,19 +19,29 @@ programentrypoint:
 	lda #65
 	sta 0
 
-	; Reset ethernet controller
-	lda #0
-	sta $d6e0
-	lda #1
-	sta $d6e0
+	; Set ethernet controller mode
+	lda #$31  ; Enable promiscuous mode, multicast and broadcast RX
+	ora #$04 ; Set TX phase offset to 1
+	ora #$40 ; Set RX phase offset to 1
+	sta $d6e5
+
+	; Clear all waiting frames
+	; (this is because the trigger frame gets processed _immediately_ on its reception,
+	;  even before the frame has finished being received).
+purgequeue:
+	jsr getnextframe
+	lda $d6e1
+	and #$20
+	bne purgequeue	
 
 	; Map ethernet registers at $6000 - $7FFF
 	
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
 	lda #$ff
 	ldx #$0f
-	ldy #$00
-	ldz #$00
+	; Also for keeping ourselves mapped in the upper half of RAM
+	ldy #$ff
+	ldz #$0f
 	map
 	eom
 
@@ -55,15 +50,16 @@ programentrypoint:
 	; $DE000 - $6000 = $D8000
 	lda #$80
 	ldx #$8d
-	ldy #$00
-	ldz #$00
+	; Keep ourselves mapped in upper half of RAM
+	ldy #$ff
+	ldz #$17
 	map
 	eom
 
-	; Ethernet registers should now be visible from $6000 - $6FFF
+	; Ethernet memory mapped buffer access should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
-	; length of frame is in $6FFE / $6FFF in little-endian byte order
-	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
+	; length of frame is in $6800 / $6801 in little-endian byte order
+	; so LDA $6800 ; LDX $6801 ; jsr $BDCD should print packet length to screen
 
 	; make sure ethernet transceiver is on and not generating IRQs
 	; (we will poll it).
@@ -72,59 +68,23 @@ programentrypoint:
 
 loop:
 
+nextpacket:
+
 waitingforpacket:
-
-fliptest:
-	lda $d6e0
-	sta $0410
-	and #$40
-	sta $0410
-	beq noflip
-
-
-	; make sure ethernet transceiver is on and not generating IRQs
-	; (we will poll it).
-	; also make sure that we acknowledge the last received packet so that the
-	; ethernet controller knows it can receive.
-	lda $d6e1
-	lsr
-	and #$02
-	ora #$01
-	sta $d6e1
-	jmp fliptest
-
-noflip:
-
-	; do something so that we know it has not crashed
-	inc $0427
 
 	lda $d6e1
 	and #$20
 	beq waitingforpacket
 
-	; we have detected that we have recieved a packet
-	; so, clear eth RX signal, and leave ethernet tranceiver on
-	; and make last used RX buffer visible
-	lda $d6e1
-	and #$04
-	lsr
-	ora #$01
-	sta $d6e1
+	jsr getnextframe
+
+; show length of ethernet frame
 
 	; Got a packet.
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
 
-;	inc $d020 ; XXX for debug
-
-	; show packet on screen
-	ldx #0
-copyloop:
-	lda $6800,x
-	sta $0680,x
-	inx
-	bne copyloop
-
+	; Is it an ARP request?
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
 	;
@@ -132,9 +92,7 @@ copyloop:
 	ldx #9
 arpdloop:
 	lda arptemplate,x
-	sta $0450,x
 	lda $680e,x
-	sta $0428,x
 	dex
 	bpl arpdloop
 
@@ -157,8 +115,6 @@ arploop0:
 	; now we need to build the ARP reply and send it.
 	; We should copy the sender's 
 
-	inc $0426 ; XXX for debug
-
 	; set output packet size
 	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
 	lda #<42
@@ -180,7 +136,7 @@ arploop1:
 arploop2:
 	lda $6808,x    ; requestors mac from RX ethernet header
 	sta $6800,x    ; requestors mac into TX ethernet header
-	lda #$40
+	lda $d6e9,x
 	sta $6806,x    ; our mac in ethernet header
 	sta $6816,x    ; our mac in ARP payload
 	dex
@@ -214,26 +170,27 @@ arploop4:
 notarp:
 	; is it IPv4?
 	;
+
 	lda $6810
 	cmp #$45
-	bne waitingforpacket
+	bne nextpacket
 
 	; is it UDP?
 	;
 	lda $6819
 	cmp #$11
-	bne waitingforpacket
+	bne nextpacket
 
 	; UDP port #4510
 	;
 	lda $6826
 	cmp #>4510
-	bne waitingforpacket
+	bne nextpacket
 	lda $6827
 	cmp #<4510
-	bne waitingforpacket
+	bne nextpacket
 
-	; packet body begins at $0444 / $682C.
+	; packet body begins at $682C.
 	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
 	; packet body can do whatever is required to load data, keeping this
 	; programme very simple.
@@ -243,19 +200,30 @@ notarp:
 	bne loop
 
 	; packet does begin with A9, so JSR there
-	;
-	inc $d020
+	; The code in the packet will end with an RTS, bringing us back here,
+	; allowing our loop to continue.
+	lda #$01
+	sta $d020
 	jsr $682C
+	lda #$00
+	sta $d020
 
-	; BG i think the above should be a JMP,
-	; BG or the below an RTS
-	;
 	jmp loop
+
+getnextframe:
+	; we have detected that we have recieved a packet
+	; so, clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda #$01
+	sta $d6e1
+	lda #$03
+	sta $d6e1
+	rts
 
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
-	.checkpc $CFFF
+	.checkpc $C0FD
 	.scend
 
-	.outfile "bin/etherload.prg"
+	.outfile "sdcard-files/ETHLOAD.M65"

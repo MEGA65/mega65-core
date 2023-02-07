@@ -171,8 +171,71 @@ task_asblankslate:
         jsr task_set_c64_memorymap
         rts
 
+task_set_as_system_task:
+	;; Task ID is reserved for the hypervisor and its helpers, and prevents freezing
+	lda #$ff
+	sta currenttask_id
+	rts
+	
 ;;         ========================
 
+ethernet_remote_trap:
+	;; By sending a magic ethernet key press frame while the 4th dip switch is set
+	;; will cause this trap to occur, if the key code is 1111111111111 (which
+	;; corresponds to no real key.
+	;; In response to this, we setup C64 mode, load ETHLOAD.M65 and then exit to it,
+	;; effectively passing control to the contents of the following ethernet frames.
+	jsr task_asblankslate
+
+        ldx #<txt_ETHLOAD
+        ldy #>txt_ETHLOAD
+        jsr dos_setname
+
+        ;; bring directory back to root, just in-case user loaded a .d81 from another directory
+        ldx dos_default_disk
+        jsr dos_cdroot
+
+        ;; Prepare 32-bit pointer for loading etherload at $FF87F00,	
+	;; This location is the last 256 bytes of the 32KB colour RAM we
+	;; can assume all models possess, and should result in the code not
+	;; getting in the way of loading programs of almost any size.
+        ;;
+	lda #$00
+        sta <dos_file_loadaddress+0
+        lda #$7f
+        sta <dos_file_loadaddress+1
+        lda #$f8
+        sta <dos_file_loadaddress+2
+	lda #$0f
+        sta <dos_file_loadaddress+3
+
+@tryAgain:
+        jsr dos_readfileintomemory
+        inc $d020
+        bcc @tryAgain
+        dec $d020
+
+        jsr task_set_c64_memorymap
+        jsr task_dummy_nmi_vector
+
+	;; Now enable MAP of colour RAM at $8000-$9FFF
+	;; $FF87F00 - $8000 = $FF7FF00
+	lda #$ff
+	sta hypervisor_maphimb
+	sta hypervisor_maphilo
+	lda #$17
+	sta hypervisor_maphihi
+
+	
+        ;; set entry point to $8000, i.e, the start
+	;; of the 8KB block of colour RAM we map at $8000-$9fff
+        lda #<$8000
+        sta hypervisor_pcl
+        lda #>$8000
+        sta hypervisor_pch
+
+	jmp safe_exit_to_loaded_program
+	
 unstable_illegal_opcode_trap:
 kill_opcode_trap:
 	;; For now, just launch the freezer if an illegal opcode is hit that
@@ -184,6 +247,16 @@ kill_opcode_trap:
 	
 restore_press_trap:
 
+	;; Check if we are already in the freezer?
+	lda currenttask_id
+	cmp #$ff
+	bne non_hypervisor_task
+
+	;; Don't allow freezing if we are in a hypervisor task
+        sta hypervisor_enterexit_trigger
+
+non_hypervisor_task:	
+	
         ;; Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
@@ -196,6 +269,9 @@ restore_press_trap:
 	tay ;;   <- uses $00 in A from above
         jsr freeze_to_slot
 
+	;; Now mark that we are in a system task, so that the freezer can't be frozen
+	jsr task_set_as_system_task
+	
         ;; Load freeze program
         jsr attempt_loadcharrom
         jsr attempt_loadc65rom
@@ -203,6 +279,12 @@ restore_press_trap:
         ldx #<txt_FREEZER
         ldy #>txt_FREEZER
         jsr dos_setname
+
+        ;; TODO: preserve current directory, so that we can restore it later
+
+        ;; bring directory back to root, just in-case user loaded a .d81 from another directory
+        ldx dos_default_disk
+        jsr dos_cdroot
 
         ;; Prepare 32-bit pointer for loading freezer program ($000007FF)
         ;; (i.e. $0801 - 2 byte header, so we can use a normal PRG file)
@@ -230,6 +312,7 @@ restore_press_trap:
         lda #>2061
         sta hypervisor_pch
 
+safe_exit_to_loaded_program:	
         ;; Make $FFD2 vector at $0326 point to an RTS, so that if the freezer
         ;; is built using CC65's C64 profile, the call to $FFD2 to set lower-case mode
         ;; doesn't do something terrible.

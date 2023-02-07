@@ -1,4 +1,4 @@
-  ;; ------------------------------------------------------------------- 
+  ;; -------------------------------------------------------------------
   ;;   MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
   ;;   Paul Gardner-Stephen, 2014-2019.
   ;;   -------------------------------------------------------------------
@@ -23,7 +23,7 @@
 
   ;;   This included file defines many of the alias used throughout
   ;;   it also suggests some memory-map definitions
-  ;;   ---------------------------------------------------------------- 
+  ;;   ----------------------------------------------------------------
 
 !src "constants.asm"
 !src "macros.asm"
@@ -40,7 +40,7 @@
 !addr HyppoZP_Start                = $bf00
 !addr Hyppo_End                    = $bfff
 
-;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"] 
+;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
 	!to "bin/HICKUP.M65", plain
 
 ;; .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
@@ -74,8 +74,8 @@ trap_entry_points:
         jmp syspart_trap                        ;; Trap #$02
         eom                                     ;; refer: hyppo_syspart.asm
         jmp serialwrite                         ;; Trap #$03
-        eom                                     ;; refer serialwrite in this file	
-        jmp emulatortrap                        ;; Trap #$04	
+        eom                                     ;; refer serialwrite in this file
+        jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
         jmp nosuchtrap
         eom
@@ -241,10 +241,10 @@ trap_entry_points:
         eom
 
         jmp unstable_illegal_opcode_trap        ;; Trap #$46 (6502 unstable illegal opcode)
-        eom                                     
-        jmp kill_opcode_trap                    ;; Trap #$47 (6502 KIL instruction)
         eom
-        jmp nosuchtrap
+        jmp kill_opcode_trap                    ;; Trap #$47 (6502 KIL instruction)
+        eom	
+        jmp ethernet_remote_trap                ;; Trap #$48 (Ethernet remote control trap) 
         eom
         jmp nosuchtrap
         eom
@@ -276,7 +276,7 @@ trap_entry_points:
         !16 reset_entry    ;; RESET
         !16 hypervisor_irq ;; IRQ
 
-	
+
         ;; .segment Traps
         * = Traps_Start
 
@@ -316,6 +316,14 @@ nosuchtrap:
 
 ;;         ========================
 
+return_from_trap_with_success_and_file_descriptor_in_a:
+
+        lda dos_current_file_descriptor
+        sta hypervisor_a
+        ;; FALL THROUGH to return_from_trap_with_success
+
+;;         ========================
+
 return_from_trap_with_success:
 
         ;; Return from trap with C flag clear to indicate success
@@ -332,7 +340,7 @@ return_from_trap_with_success:
 
 	;; DO NOT Clear A on return
         ;; (else traps can't return anything in A register)
-	
+
         ;; return from hypervisor
         sta hypervisor_enterexit_trigger
 
@@ -366,7 +374,7 @@ invalid_subfunction:
 ;;     System Partition functions
 ;;     ---------------------------------------------------------------- */
 
-!src "syspart.asm"		
+!src "syspart.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     Freeze/Unfreeze functions
@@ -442,10 +450,21 @@ reset_machine_state:
         lda #$6b    ;; 01101011
         sta hypervisor_feature_enables
 
+	;; Reset ethernet to clear any queued packets from before reset
+	;; and ack 1 packet to get the controller into the right state
+	lda #$00
+	sta $d6e0
+	lda #$03
+	sta $d6e0
+	sta $d6e1
+	lda #$00
+	sta $d6e1
+	
+	
 	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
 	lda #$02
 	tsb $d7fb
-	
+
 	;; /EXROM and /GAME follow cartridge port
         lda #$3f
         sta $d7fd
@@ -468,10 +487,6 @@ reset_machine_state:
 	sta $d07f   		; Hide VIC-IV cross-hairs
         sta $DC0D
         sta $DD0D
-
-        sec
-        ;; determine VIC mode and set it accordingly in VICIV_MAGIC
-        jsr enhanced_io
 
         ;; clear UART interrupt status
         lda uart65_irq_flag
@@ -562,7 +577,7 @@ reset_entry:
 
 	;; If banner is in flash, load it _immediately_
 	jsr tryloadbootlogofromflash
-	
+
         ;; display welcome screen
         ;;
         ldx #<msg_hyppo
@@ -586,7 +601,7 @@ reset_entry:
         ;; SD-cardless operation
         bit go64
         bit $1234
-	
+
         ;; Display help text
 	lda first_boot_flag_instruction
 	cmp #$4c
@@ -595,40 +610,28 @@ reset_entry:
         ldy #>msg_hyppohelpfirst
         jsr printmessage
 	jmp first_boot_flag_instruction
-	
-not_first_boot_message:	
+
+not_first_boot_message:
         ldx #<msg_hyppohelpnotfirst
         ldy #>msg_hyppohelpnotfirst
         jsr printmessage
-	
+
 	;; Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 
-first_boot_flag_instruction:
-try_flash_menu:	
-	
+try_flash_menu:
 	;; Use first boot code path only once
 	;; WARNING: Self modifying code!
+first_boot_flag_instruction:
 	bit dont_launch_flash_menu
 
 	;; On first boot, we start the flash menu regardless
 	;; (The flash menu will work out whether to switch bitstream or not)
-	jmp launch_flash_menu
-	
-	;; On ALT or either joystick button, enter flash menu.
-	;; But only on first boot, while flash menu program can still be relied upon to be in memory.
-	lda $d610
-	cmp #$09
-	beq launch_flash_menu
-	lda $dc00
-	and $dc01
-	and #$10
-	bne dont_launch_flash_menu
-	
+
 launch_flash_menu:
 
 	;; Disable digital audio when launching flash menu
 	jsr safe_video_mode
-	
+
 	;; Store where the flash menu should jump to if it doesn't need to do anything.
 	lda #<return_from_flashmenu
 	sta $cf80
@@ -636,10 +639,11 @@ launch_flash_menu:
 	sta $cf81
 	;; Then actually start it.
 	;; NOTE: Flash menu runs in hypervisor mode, so can't use memory beyond $7FFF etc.
+	;; (and is immune to attempts to freeze it)
 
 	jmp flash_menu
 
-return_from_flashmenu:	
+return_from_flashmenu:
 
 	;; Here we have been given control back from the flash menu program.
 	;; So we have to put some things back to continue the kickstart boot process.
@@ -651,7 +655,7 @@ return_from_flashmenu:
 	tys
 	ldx #$ff
 	txs
-	
+
         lda #$ff
         sta $d702
         lda #$ff
@@ -668,7 +672,7 @@ return_from_flashmenu:
         sta $d705
 	lda #$01
 	trb $d030
-	
+
 	;; And finally, the screen data
         lda #>screenrestore_dmalist
         sta $d701
@@ -677,13 +681,16 @@ return_from_flashmenu:
         sta $d705
 
 	jsr resetdisplay
-		
+
 	jmp dont_launch_flash_menu
-	
+
 dont_launch_flash_menu:
 	lda ascii_key_in
 	cmp #$09
-	bne fpga_has_been_reconfigured
+	beq noflash_menu
+        lda buckykey_status
+        and #$20
+        beq fpga_has_been_reconfigured
 
 	;; Tell user what to do if they can't access the flash menu
 noflash_menu:
@@ -693,14 +700,14 @@ noflash_menu:
 	inc $d020
 nfm1:
 	jmp nfm1
-	
 
-fpga_has_been_reconfigured:	
+
+fpga_has_been_reconfigured:
 
 	;; We can't trust that the flash menu is still in memory by this point, so do nothing.
 	;; (This also means if you choose "safe mode" factory bitstream, and then reset, it
 	;; won't try to run upgraded bitstream again.)
-	
+
         ;; wait 0.1 msec for things to settle after power-up
         jsr sdwaitawhile
 
@@ -711,6 +718,35 @@ fpga_has_been_reconfigured:
 ;;         ========================
 
 normalboot:
+
+; add a test if the ESC key is held down
+; if so, make an endless loop so that a person debugging
+; and turn trace mode on, move the pc (with 'g<addr>') to skip
+; over the loop and then comfortably step through early
+; hypervisor code.
+        ldx #$ff    ;; make a few attempts are reading keyscan early
+
+@earlyscan:
+        jsr scankeyboard
+        bcc @earlycheckkey
+        ;; no key pressed yet
+        dex
+        bne @earlyscan
+        jmp @skipearlycheck  ;; no key was pressed, despite looping for a while to wait for it
+
+@earlycheckkey:
+        cmp #$1b    ;; was ESCAPE key pressed?
+        bne @skipearlycheck
+
+@loopendlessly
+        inc $d020
+        jmp @loopendlessly
+
+@skipearlycheck:
+
+        ;; Setup process control block and non-OS process ID upon entering the
+        ;; hypervisor.
+        jsr task_new_processcontrolblock
 
 !if DEBUG_HYPPO {
         jsr dump_disk_count        ;; debugging to Checkpoint
@@ -853,12 +889,12 @@ gotmbr:
         jsr cdroot_and_complain_if_fails
 
 mountsystemdiskok:
-	
-loadbannerfromsd:	
+
+loadbannerfromsd:
         ;; Load and display boot logo
 
 	jsr setup_banner_load_pointer
-	
+
         ldx #<txt_BOOTLOGOM65
         ldy #>txt_BOOTLOGOM65
         jsr dos_setname
@@ -1028,7 +1064,7 @@ hickupdmalist:
 ;;         ========================
 
 cdroot_and_complain_if_fails:
-	
+
         ldx dos_default_disk
         jsr dos_cdroot
         bcs @cdroot_ok
@@ -1048,7 +1084,7 @@ cdroot_and_complain_if_fails:
 @cdroot_ok:
         sec
         rts
-	
+
 couldntopenhickup:
 
 nohickup:
@@ -1093,7 +1129,7 @@ f011Virtualised:
 	lda $d6a1
 	and #$01
 	bne @dontMountD81
-	
+
         ;; set name of file we are looking for
         ;;
         ldx #<txt_MEGA65D81
@@ -1140,7 +1176,7 @@ d81attachfail:
         +Checkpoint "couldnt mount/attach MEGA65.D81"
 
 	jmp loadrom
-	
+
 ;;         ========================
 
 tryloadbootlogofromflash:
@@ -1149,7 +1185,7 @@ tryloadbootlogofromflash:
 	jsr sd_map_sectorbuffer
 
 	;;  Check if we have BANNER.M65 embedded in flash.
-	
+
 	;; Load first sector of flash to check for banner present
 	;; byte.
 	lda #$00
@@ -1161,7 +1197,7 @@ tryloadbootlogofromflash:
 	lda #$53
 	sta $d680
 	;; Wait a little while for flash to read
-@zoop2:	
+@zoop2:
 	dex
 	bne @zoop2
 	lda $de71
@@ -1183,8 +1219,8 @@ loadbannerfromflash:
 
         jsr sd_map_sectorbuffer
 
-nextflashbannersector:	
-	
+nextflashbannersector:
+
 	lda #$53
 	sta $d680
 	;; No need to wait long here, because our copy routine is so slow
@@ -1193,12 +1229,12 @@ nextflashbannersector:
 	dec
 	bpl @zzminus
 	;; Leaves A=$00 which we use below for TAx/z to save bytes
-	
-stashbannersector:	
+
+stashbannersector:
 
 	;;  Advance $100 bytes to next flash sector
 	inc $d682
-	
+
 	ldx #0
 	ldz #0
 
@@ -1214,13 +1250,13 @@ zdrfim_rr1:
 	bne nextflashbannersector
 
 	jsr sd_unmap_sectorbuffer
-	
+
 	;; Now display it
 	jmp setbannerpalette
 
-	
-setup_banner_load_pointer:	
-	
+
+setup_banner_load_pointer:
+
         ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
         ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
         lda #$00
@@ -1232,8 +1268,8 @@ setup_banner_load_pointer:
         lda #$00
         sta <dos_file_loadaddress+3
 	rts
-	
-	
+
+
 attempt_loadcharrom:
         ;; Load CHARROM.M65 into character ROM
         ;;
@@ -1466,12 +1502,8 @@ loaded1541rom:
 }
         ;; check for keyboard input to jump to utility menu
         jsr utility_menu_check
-        jsr scankeyboard
-        bcs nokey4
-        cmp #$20
-        bne nokey4
-        jmp utility_menu
-nokey4:
+
+        ;; start system
         jmp go64
 
 ;;         ========================
@@ -1550,7 +1582,7 @@ resetdisplay:
         ;; (Also required to make sure matrix mode pixels aren't ragged on first boot).
 	;; The label here is used so that the syspartition settings can be used to
 	;; change the default video mode on reset.
-pal_ntsc_minus_1:	
+pal_ntsc_minus_1:
         lda #$80
         sta $d06f
 
@@ -1614,116 +1646,26 @@ resetpalette:
         tsb $D030        ;; enable PAL bit in $D030
 
 	jsr setbannerpalette
-	
+
         ;; C64 colours designed to look like C65 colours on an
         ;; RGBI screen.
-        ;;
-        ;; formatted in ASM to help visualise what each code is for.
-        ;;
-        lda #$00
-            sta $D100
-            sta $D200
-            sta $D300
+	ldx #$0F
+-       lda c64_colours_table+$00,x     ; load & store red component
+        sta $D100,x
+        lda c64_colours_table+$10,x     ; load & store green component
+        sta $D200,x
+        lda c64_colours_table+$20,x     ; load & store blue component
+        sta $D300,x
+        dex
+        bpl -
 
-        lda #$ff
-            sta $D101
-            sta $D201
-            sta $D301
-
-        lda #$ba
-                    sta $D102
-                lda #$13
-                    sta $D202
-                lda #$62
-                    sta $D302
-
-                lda #$66
-                    sta $D103
-                lda #$ad
-                    sta $D203
-                lda #$ff
-                    sta $D303
-
-                lda #$bb
-                    sta $D104
-                lda #$f3
-                    sta $D204
-                lda #$8b
-                    sta $D304
-
-                lda #$55
-                    sta $D105
-                lda #$ec
-                    sta $D205
-                lda #$85
-                    sta $D305
-
-                lda #$d1
-                    sta $D106
-                lda #$e0
-                    sta $D206
-                lda #$79
-                    sta $D306
-
-                lda #$ae
-                    sta $D107
-                lda #$5f
-                    sta $D207
-                lda #$c7
-                    sta $D307
-
-                lda #$9b
-                    sta $D108
-                lda #$47
-                    sta $D208
-                lda #$81
-                    sta $D308
-
-                lda #$87
-                    sta $D109
-                lda #$37
-                    sta $D209
-                lda #$00
-                    sta $D309
-
-                lda #$dd
-                    sta $D10a
-                lda #$39
-                    sta $D20a
-                lda #$78
-                    sta $D30a
-
-                lda #$b5
-                    sta $D10b
-                    sta $D20b
-                    sta $D30b
-
-                lda #$b8
-                    sta $D10c
-                    sta $D20c
-                    sta $D30c
-
-                lda #$0b
-                    sta $D10d
-                lda #$4f
-                    sta $D20d
-                lda #$ca
-                    sta $D30d
-
-                lda #$aa
-                    sta $D10e
-                lda #$d9
-                    sta $D20e
-                lda #$fe
-                    sta $D30e
-
-                lda #$8b
-                    sta $D10f
-                    sta $D20f
-                    sta $D30f
-
-
-    rts
+	rts
+	
+c64_colours_table:
+        ;   0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C | D | E | F
+        !8 $00,$ff,$ba,$66,$bb,$55,$d1,$ae,$9b,$87,$dd,$b5,$b8,$0b,$aa,$8b  ; -- red
+        !8 $00,$ff,$13,$ad,$f3,$ec,$e0,$5f,$47,$37,$39,$b5,$b8,$4f,$d9,$8b  ; -- green
+        !8 $00,$ff,$62,$ff,$8b,$85,$79,$c7,$81,$00,$78,$b5,$b8,$ca,$fe,$8b  ; -- blue	
 
 ;;         ========================
 
@@ -1940,7 +1882,7 @@ pm22:
 pm2:
 	cpx #$00
         beq pm1
-	
+
         clc
         lda <zptempp2
         adc #$50          ;; 40 columns x 16 bit
@@ -2083,19 +2025,19 @@ go64:
         jsr printmessage
 l40a:
 	;; Wait for user to press RUN/STOP to continue booting
-	lda $d610
+	lda ascii_key_in
 	cmp #$03
 	beq l41
 	inc $d020
 	jmp l40a
 l41:
 	;; remove RUN/STOP from key queue
-	sta $d610
-	
+	sta ascii_key_in
+
         ;; Check if hold boot switch is set (control-key)
         ;;
 	lda buckykey_status
-        and #$14
+        and #$04
         beq l42      ;; no, so continue
 
         ;; yes, display message
@@ -2104,14 +2046,12 @@ l41:
         ldy #>msg_releasectrl
         jsr printmessage
 
-l41a:
-        ;; check for ALT key to jump to utility menu
-        jsr utility_menu_check
-
-        ;; and otherwise wait until CTRL is released
+        ;; wait until CTRL is released
+@holdControl:
         lda buckykey_status
         and #$04
-        bne l41a
+        bne @holdControl
+
 l42:
         ;; unmap sector buffer so C64 can see CIAs
         ;;
@@ -2155,7 +2095,7 @@ g61:    sta $0800,x
         ;; as 512 usec.
         jsr reset_cartridge
 
-go64_exit_hypervisor:	
+go64_exit_hypervisor:
         ;; exit from hypervisor to start machine
         sta hypervisor_enterexit_trigger
 
@@ -2304,39 +2244,15 @@ resetmemmap:
         rts
 
 ;;         ========================
-
-enhanced_io:
-
-        ;; If C=1, enable enhanced IO bank,
-        ;;   else, return to C64 standard IO map.
-        ;;
-
-        bcs l1
-        ;; Return to VIC-II / C64 IO
-        ;;
-        lda #$00
-        sta viciv_magic
-        rts
-
-l1:                ;; Enable VIC-IV / MEGA65 IO
-        ;;
-        lda #$47
-        sta viciv_magic
-        lda #$53
-        sta viciv_magic
-        rts
-
-
-;;         ========================
 !src "keyboard.asm"
 
 utility_menu_check:
         lda buckykey_status
-	cmp #$20
-	beq @startFlashMenu	
-        cmp #$03
+	cmp #$20 ;; NO-SCROLL
+	beq @startFlashMenu
+        cmp #$03 ;; both SHIFT
         beq @startUtilMenu
-        and #$10
+        and #$10 ;; ALT
         bne @startUtilMenu
 @menuCheckDone:
         rts
@@ -2357,7 +2273,7 @@ keyboardread:
 ;; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
         jsr utility_menu_check
-        
+
         ldx #$01
         lda $d629
         and #$40
@@ -2367,21 +2283,17 @@ keyboardread:
 @startscan:
         jsr scankeyboard
         bcc @checkkey
-        
-        dex     ;; no key pressed yet
+        ;; no key pressed yet
+        dex
         bne @startscan
         jmp kr2  ;; no key was pressed, despite looping for a while to wait for it
-        
+
 @checkkey:
-        cmp #$20
-        bne @notUtilMenu
-        jmp utility_menu
-@notUtilMenu:
         cmp #$30
         bcc kr2
         cmp #$39
         bcc kr1
-kr2:        lda #$20 ;; default to space
+kr2:    lda #$20 ;; default to space
 kr1:
         ;; put character into 6th byte position of ROM file name.
         ;; so no key looks for MEGA65.ROM, where as 0-9 will look
@@ -2659,20 +2571,20 @@ num1:
 
 safe_video_mode:
 	;; No digital audio, just pure DVI
-	lda #$00
+	lda #$02
 	sta $d61a
 	;; NTSC
 	lda #$80
 	sta $d06f
 	rts
-	
+
 utility_menu:
 	;; Gets self-modified to prevent entering utility menu except on first boot
 	bit noutility_menu
 
 	;; Disable digital audio when utility menu
 	jsr safe_video_mode
-	
+
         ;; Display GIT commit again, so that it's easy to check commit of a build
         ldx #<msg_gitcommit
         ldy #>msg_gitcommit
@@ -2692,7 +2604,7 @@ utility_menu:
 um1:
         jsr utillist_validity_check
         bcc utility_end_of_list
-	
+
         ;; Display utility and assign number
         ldy #39
         lda #$20
@@ -2771,7 +2683,7 @@ ueol1:
 
 	;; We have to call this before initialising OpenROM
 	jsr setup_for_openrom
-	
+
         ;; load address is always $07FF (to skip $0801 header)
         ;; start @ zptempv32 + 44
         ;; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
@@ -2818,7 +2730,7 @@ flash_menu:
 
 	;; Run the flash menu which is pre-loaded into memory on first boot
 	;; (in the FPGA BRAM).
-	;; Also DMA copy our current screen safely somewhere for later restoration	
+	;; Also DMA copy our current screen safely somewhere for later restoration
 
         lda #$ff
         sta $d702
@@ -2831,24 +2743,25 @@ flash_menu:
         sta $d705
 
 	;; FALL THROUGH
-run_util_in_hypervisor_context:	
+run_util_in_hypervisor_context:
 	;; XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	;; Hypervisor memory map!
 	lda #$00
 	!8 $5B ;; tab
 	ldy #$01
 	!8 $2B ;; tys
-		
+
 	jsr setup_for_openrom
 	;; XXX Work around bug in OpenROMs that erases our banner palette when we do this
 	;; by putting the palette back immediately.
         jsr setbannerpalette
 
-	;; Actually launch freeze menu
+	;; Actually launch the utility in the hypervisor context
+	;; (so must not use RAM > $7FFF, is immune to freezing etc)
 	jmp $080d
-	
+
 setup_for_openrom:
-	
+
 	;; Bank in KERNAL ROM space so megaflash can run
 	;; Writing to $01 when ZP is relocated is a bit tricky, as
 	;; we have to mess about with the Base Register, or force
@@ -2872,7 +2785,7 @@ setup_for_openrom:
 	lda #0
 	ldx #$0f
 	map
-	eom	
+	eom
 
 	;; Tell KERNAL screen is at $0400
 	lda #>$0400
@@ -2917,7 +2830,7 @@ setup_for_openrom:
 ;;	map
 ;;	lda #0    ;; to give time to effect clearing irq_pending in CPU
 ;;	eom
-	
+
 	;; And ignore any queued NMI (these don't get cleared by the MAP trick)
 
 	;;  Clear pending NMI flag
@@ -2931,7 +2844,7 @@ setup_for_openrom:
 	lda #<$0420
 	sta $0318
 	lda #>$0420
-	sta $0319	
+	sta $0319
 	rts
 
 flashmenu_dmalist:
@@ -2946,8 +2859,8 @@ flashmenu_dmalist:
         !8 $00 ;; no more options
         ;; F018A DMA list
         !8 $04 ;; copy + chained
-        !16 $0800 ;; size of copy 
-        !16 $0400 ;; starting addr 
+        !16 $0800 ;; size of copy
+        !16 $0400 ;; starting addr
         !8 $00   ;; of bank $0
         !16 $9000 ;; destination address is $8000
         !8 $00   ;; of bank $5
@@ -2957,8 +2870,8 @@ flashmenu_dmalist:
         !8 $00 ;; no more options
 	;; F018A DMA list
         !8 $00 ;; copy + not chained request
-        !16 $77FF ;; size of copy 
-        !16 $0000 ;; starting addr 
+        !16 $77FF ;; size of copy
+        !16 $0000 ;; starting addr
         !8 $05   ;; of bank $5
         !16 $07FF ;; destination address is $0801 - 2
         !8 $00   ;; of bank $0
@@ -2970,15 +2883,15 @@ screenrestore_dmalist:
         !8 $00 ;; no more options
         ;; F018A DMA list
         !8 $00 ;; copy + last in chain
-        !16 $0800 ;; size of copy 
+        !16 $0800 ;; size of copy
         !16 $9000 ;; destination address is $0000
         !8 $00   ;; of bank $0
-        !16 $0400 ;; starting addr 
+        !16 $0400 ;; starting addr
         !8 $00   ;; of bank $5
         !16 $0000 ;; modulo (unused)
 
 scroll_screen:
-	
+
         lda #$ff
         sta $d702
         sta $d704  ;; dma list is in top MB of address space
@@ -2992,7 +2905,7 @@ scroll_screen:
         sta $d705
 
 	rts
-	
+
 scrollscreen_dmalist:
         !8 $80,$00  ;; Copy from $00xxxxx
         !8 $81,$00  ;; Copy to $00xxxxx
@@ -3005,8 +2918,8 @@ scrollscreen_dmalist:
         !16 1664 ;; starting addr is line 8 of screen
         !8 $00   ;; of bank $0
         !16 $0000 ;; modulo (unused)
-	
-	
+
+
 utility_dmalist:
         ;; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
 
@@ -3106,7 +3019,7 @@ serialwrite:
 	;; First wait for it to go ready
 	ldx hypervisor_write_char_to_serial_monitor
 	bne serialwrite
-	
+
         ;; XXX - Have some kind of permission control on this
         ;; XXX - $D67C should not work when matrix mode is enabled at all?
         sta hypervisor_write_char_to_serial_monitor
@@ -3140,17 +3053,17 @@ msg_utilitymenu:
         !text "SELECT UTILITY TO LAUNCH"
         !8 0
 
-msg_noutilitymenu:	
+msg_noutilitymenu:
 		        !text "HOLD ALT + POWER CYCLE FOR UTILITY MENU"
 	                !8 0
-	
-msg_noflashmenu:	
+
+msg_noflashmenu:
 		        !text "HOLD NO SCROLL + POWER CYCLE FOR FLASH"
 	                !8 0
-	
+
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.16"
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
@@ -3239,7 +3152,7 @@ msg_dmagica:            !text "DMAGIC REV A MODE"
                         !8 0
 msg_dmagicb:            !text "DMAGIC REV B MODE"
                         !8 0
-	
+
 ;; Include the GIT Message as a string
 !src "../version.asm"
 
@@ -3281,6 +3194,9 @@ txt_BOOTLOGOM65:        !text "BANNER.M65"
 txt_FREEZER:            !text "FREEZER.M65"
                         !8 0
 
+txt_ETHLOAD:		!text "ETHLOAD.M65"
+			!8 0
+	
             ;; If this file is present, then machine starts up with video
             ;; mode set to NTSC (60Hz), else as PAL (50Hz).
             ;; This is to allow us to boot in PAL by default, except for
@@ -3418,7 +3334,7 @@ dos_opendir_entry:
 
         ;; Current long filename (max 64 bytes)
         ;;
-dos_dirent_struct_start:	
+dos_dirent_struct_start:
 dos_dirent_longfilename:
         !text "Venezualen casaba melon productio" ;; 33-chars
         !text "n statistics (2012-2015).txt  "    ;; 30-chars
@@ -3439,7 +3355,7 @@ dos_dirent_length:
 
 dos_dirent_type_and_attribs:
         !8 0
-dos_dirent_struct_end:	
+dos_dirent_struct_end:
 
 ;;         ========================
 
@@ -3499,6 +3415,9 @@ dos_current_file_descriptor:
     ;; Offset of current file descriptor
     ;;
 dos_current_file_descriptor_offset:
+        !8 0
+
+dos_first_vfat_chunk_in_list_flag:
         !8 0
 
 ;;         ========================
@@ -3605,9 +3524,15 @@ file_pagesread:
         !16 0
 
         ;; Variables for testing of D81 boot image
+d81_lasttype:
+        !8 0
 d81_clusternumber:
         !32 0
 d81_clustersneeded:
+        !16 0
+d64_clustersneeded:
+        !16 0
+d71_clustersneeded:
         !16 0
 d81_clustercount:
         !16 0

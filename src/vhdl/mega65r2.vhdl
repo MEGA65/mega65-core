@@ -43,7 +43,7 @@ entity container is
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
-         kb_io0 : out std_logic;
+         kb_io0 : inout std_logic;
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
 

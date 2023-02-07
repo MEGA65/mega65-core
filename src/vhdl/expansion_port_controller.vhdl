@@ -259,6 +259,7 @@ begin
           end if;
           cart_data_dir <= '1';
           cart_laddr_dir <= '1';
+          cart_d(7 downto 0) <= (others => '1');
           cart_a(7 downto 0) <= (others => '1');
         end if;
         if joy_counter = 5 then

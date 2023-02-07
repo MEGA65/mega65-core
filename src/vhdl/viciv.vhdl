@@ -98,6 +98,9 @@ entity viciv is
     viciv_fast : out std_logic;
 
     viciv_frame_indicate : out std_logic := '0';
+
+    interlace_mode : out std_logic := '0';
+    mono_mode : out std_logic := '0';
     
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
@@ -357,6 +360,7 @@ architecture Behavioral of viciv is
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
   signal ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   signal ycounter_drive : unsigned(11 downto 0) := (others => '0');
+  signal last_ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
   -- Virtual raster number for VIC-II
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
@@ -898,6 +902,7 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
+  signal reg_mono : std_logic := '0';
   signal reg_interlace : std_logic := '0';
   signal sprite_h640 : std_logic := '1';
   signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
@@ -1832,7 +1837,7 @@ begin
             & bitplane_mode                    -- BPM
             & reg_v400                         -- V400
             & reg_h1280                         -- H1280
-            & "0"                         -- MONO
+            & reg_mono                         -- Mono mode for composite output
             & reg_interlace;                   -- INT(erlaced?)
 
 
@@ -2113,6 +2118,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      interlace_mode <= reg_interlace;
+      mono_mode <= reg_mono;
+      
       last_dd00_bits <= dd00_bits;
       if last_dd00_bits /= dd00_bits then
         viciv_legacy_mode_registers_touched <= '1';
@@ -2558,9 +2566,17 @@ begin
           reg_v400 <= fastio_wdata(3);
           -- @IO:C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
           reg_h1280 <= fastio_wdata(2);
-          -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO video output (not implemented)
+          -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO composite video output (colour if disabled)
+          reg_mono <= fastio_wdata(1);
           -- @IO:C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
-          reg_interlace <= fastio_wdata(0);
+          -- Auto-enable interlace mode when selecting V400 (unless in
+          -- hypervisor, in which case we want to be able to unfreeze this
+          -- register without side-effects)
+          if reg_v400='0' and fastio_wdata(3)='1' and hypervisor_mode='0' then
+            reg_interlace <= '1';
+          else
+            reg_interlace <= fastio_wdata(0);
+          end if;
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;
@@ -2669,7 +2685,7 @@ begin
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
           shadow_mask_enable <= fastio_wdata(6);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
@@ -2897,14 +2913,14 @@ begin
           -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
           sprite_v400_super_msbs <= fastio_wdata;
         elsif register_number=121 then  -- $D3079
-          -- @IO:GS $D079 VIC-IV:RASCMP Raster compare value
+          -- @IO:GS $D079 VIC-IV:RASCMP Physical raster compare value to be used if FNRSTCMP is clear
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
-          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
@@ -3188,11 +3204,15 @@ begin
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
-        -- However, if a raster interrupt is being triggered from a VIC-IV
-        -- physical raster, then there is no need to make raster IRQs edge triggered
-        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) then
+        -- Make VIC-IV raster interrupts edge triggered, as well, to avoid re-triggering
+        -- of the raster interrupt at the end of the raster line (eg. if the raster
+        -- interrupt has already been acknowledged before the raster line reaches the end).
+        -- Retriggering would happen once external_frame_x_zero_latched = '1' but ycounter
+        -- not yet updated (it will get updated two clock cycles later).
+        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) and last_ycounter /= ycounter then
           irq_raster <= '1';
         end if;
+        last_ycounter <= ycounter;
 
         if last_external_frame_x_zero_latched='0' then
           -- ... update Y position, even during VSYNC, since frame timing is
@@ -4197,6 +4217,7 @@ begin
 
           -- By default, draw all pixel rows of each character
           screenline_draw_mask <= (others => '1');
+          report "DRAWMASK: Reset drawmask to $ff";
           
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
@@ -4332,6 +4353,7 @@ begin
             -- Enables chars to be 16x8, with 4 bits each using
             -- full-colour painting pipeline
             glyph_4bit <= colourramdata(3);
+            report "DRAWMASK: Reading glyph_4bit from bit 3 of $" & to_hstring(colourramdata);
             if colourramdata(3)='1' then
               glyph_full_colour <= '1';
             end if;
@@ -4381,6 +4403,10 @@ begin
 
           -- Work out if we are drawing this line of this char
           draw_mask_blank <= not screenline_draw_mask(to_integer(chargen_y_hold));
+          report "DRAWMASK: Y = " & integer'image(to_integer(chargen_y_hold))
+            & ": Setting draw_mask_blank to " & std_logic'image(not screenline_draw_mask(to_integer(chargen_y_hold)))
+            & ", glyph_4bit = " & std_logic'image(glyph_4bit)
+            & ", screenline_draw_mask = $" & to_hstring(screenline_draw_mask);
           
           if glyph_full_colour='1' then
             report "glyph is full colour";
@@ -4437,10 +4463,6 @@ begin
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
-          -- Also hold the 2nd colour RAM byte for use as the draw mask,
-          -- if its a GOTOX token with the appropriate bit set
-          screenline_draw_mask_drive <= colourramdata;
-          
           if viciii_extended_attributes='1' or glyph_full_colour='1' then
             -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
             -- full-colour text mode            
@@ -4483,6 +4505,15 @@ begin
           glyph_visible_drive <= '1';
           glyph_blink_drive <= '0';
 
+          report "DRAWMASK: goto=" & std_logic'image(glyph_goto);
+          if glyph_goto='1' then
+            -- Also hold the 2nd colour RAM byte for use as the draw mask,
+            -- if its a GOTOX token with the appropriate bit set
+            screenline_draw_mask_drive <= colourramdata;
+            report "DRAWMASK: Loading screenline_draw_mask_drive with $" & to_hstring(colourramdata)
+              & ", glyph_4bit = " & std_logic'image(glyph_4bit);
+          end if;      
+                    
           -- Get bold + reverse combination, even if not in VIC-III extended attribute
           -- mode, so that we can check for it in GOTOX tokens.
           glyph_bold_and_reverse <= colourramdata(5) and colourramdata(6);
@@ -4694,15 +4725,20 @@ begin
             paint_alternate_palette <= glyph_reverse and glyph_bold;
             
             if glyph_goto='1' then
+
+              report "DRAWMASK: PAINTING: is GOTOX";
+              
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
               raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
 
               if glyph_4bit='1' then
-                screenline_draw_mask <= screenline_draw_mask;
+                screenline_draw_mask <= screenline_draw_mask_drive;
+                report "DRAWMASK: PAINTING: Setting screenline_draw_mask to $" & to_hstring(screenline_draw_mask_drive);
               else
                 screenline_draw_mask <= (others => '1');
+                report "DRAWMASK: PAINTING: Ignoring drawmask. Using $ff (glyph_4bit not set)";
               end if; 
               
               -- Allow setting of the glyph y offset in GOTO tokens
@@ -4770,7 +4806,13 @@ begin
                   else
                     if viciii_extended_attributes='1' then
                       -- multi-colour text mode with full-colour VIC III/IV mode
-                      paint_foreground <= glyph_colour;
+                      -- Mask out bit 2, so that people used to the VIC-II behaviour
+                      -- don't get surprised -- but do allow the upper 4 bits
+                      -- to allow selection of more colours.
+                      -- See #571 for more discussion on this
+                      paint_foreground(7 downto 4) <= glyph_colour(7 downto 4);
+                      paint_foreground(3) <= '0';
+                      paint_foreground(2 downto 0) <= glyph_colour(2 downto 0);
                     else
                       -- multi-colour text mode masks bit 3 of the foreground
                       -- colour to select whether the character is multi-colour or
