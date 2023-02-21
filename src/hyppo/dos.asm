@@ -3649,42 +3649,19 @@ dos_readfileintomemory:
         ;;         jsr dos_print_current_cluster
 
         ;; Clear number of sectors read
-  lda #$00
-  sta $d021
-  jsr keypress
-	
         ldx #$00
         stx dos_sectorsread
         stx dos_sectorsread+1
 
-  inc $d021
-  jsr keypress
-
         jsr dos_findfirst
         bcc l_dos_return_error_already_set
         ;; close directory now that we have what we were looking for ...
-
-  inc $d021
-  jsr keypress
-
         jsr dos_closefile
-
-  inc $d021
-  jsr keypress
-
 
         jsr dos_openfile
         bcc l_dos_return_error_already_set
 
-  inc $d021
-  jsr keypress
-
-
         jsr sd_map_sectorbuffer
-
-  inc $d021
-  jsr keypress
-
 
         jmp drfim_sector_loop
 
@@ -3766,10 +3743,6 @@ drfim_eof_pop_pc:
         pla
 
 drfim_eof:
-
-
-  inc $d020
-  jsr keypress
 
         jsr dos_closefile
         jmp dos_return_success

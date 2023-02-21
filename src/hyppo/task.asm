@@ -179,13 +179,6 @@ task_set_as_system_task:
 	
 ;;         ========================
 
-keypress:
-        ;; XXX Get input from user (accept only numbers 1 - 9)
-        jsr scankeyboard
-        cmp #$ff
-        beq keypress
-        rts
-
 unstable_illegal_opcode_trap:
 kill_opcode_trap:
 	;; For now, just launch the freezer if an illegal opcode is hit that
