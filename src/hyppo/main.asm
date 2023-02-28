@@ -791,6 +791,8 @@ trybus0:
         dex
         bne morewaiting
 
+        ldx #$03
+
         lda #$c0
         sta $d680
 
@@ -804,11 +806,15 @@ trybus0:
         lda #$01
         sta $d680
 
+@morewaiting2:
         jsr sdwaitawhile
 
         lda $d680
         and #$03
         beq tryreadmbr
+
+        dex
+        bne @morewaiting2
 
         ;; No working SD card -- we can just try booting to BASIC, since we
         ;; now include our open-source ROM
