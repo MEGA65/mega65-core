@@ -466,6 +466,8 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
+
+  signal eth_load_enable : std_logic;
   
 begin
 
@@ -639,6 +641,8 @@ begin
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
+
+      eth_load_enable => eth_load_enable,
       
       powerled => '1',
       flopled0 => flopled0_drive,
@@ -845,6 +849,8 @@ begin
           clock200 => clock200,
           clock27 => clock27,
           clock50mhz      => ethclock,
+
+          eth_load_enabled => eth_load_enable,
           
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,

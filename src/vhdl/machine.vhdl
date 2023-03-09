@@ -75,6 +75,8 @@ entity machine is
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
+         eth_load_enabled : out std_logic;
+         
          fast_key : in std_logic := '1';
          iec_bus_active : in std_logic;      
          
@@ -695,6 +697,7 @@ architecture Behavioral of machine is
   signal shift_ready : std_logic := '0';
   signal shift_ack : std_logic := '0'; 
   signal matrix_trap : std_logic;  
+  signal eth_load_enable : std_logic;  
   signal uart_char : unsigned(7 downto 0);
   signal uart_char_valid : std_logic := '0';
   signal uart_monitor_char : unsigned(7 downto 0);
@@ -826,6 +829,10 @@ begin
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if rising_edge(cpuclock) then
 
+      -- LED indication for when eth remote control is enabled
+      -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
+      eth_load_enabled <= eth_load_enable and dipsw(1);
+      
       -- Latch reset from monitor interface to avoid tripping on glitches
       -- But requiring to be low so long causes monitor induced reset to be ignored.
       -- monitor asserts reset for 255 cycles, so looking for 8 in a row should
@@ -1047,6 +1054,7 @@ begin
       cpu_slow => cpu_slow,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
+      eth_load_enable => eth_load_enable,
       protected_hardware => protected_hardware_sig,
       virtualised_hardware => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
@@ -1538,6 +1546,7 @@ begin
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
       matrix_mode_trap => matrix_trap,
+      eth_load_enable => eth_load_enable,
       hyper_trap => hyper_trap,
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,

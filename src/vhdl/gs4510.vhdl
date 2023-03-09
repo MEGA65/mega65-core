@@ -66,6 +66,7 @@ entity gs4510 is
     cpu_hypervisor_mode : out std_logic := '0';
     privileged_access : out std_logic := '0';
     matrix_trap_in : in std_logic;
+    eth_load_enable : in std_logic;
     hyper_trap_f011_read : in std_logic;
     hyper_trap_f011_write : in std_logic;
     --Protected Hardware Bits
@@ -723,6 +724,7 @@ architecture Behavioural of gs4510 is
   signal f011_read_trap_pending : std_logic := '0';
   signal f011_write_trap_pending : std_logic := '0';
   signal eth_trap_pending : std_logic := '0';
+  signal eth_hyperrupt_masked : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -4189,6 +4191,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      eth_hyperrupt_masked <= eth_hyperrupt and eth_load_enable;
+      
       monitor_watch_match <= '0';       -- set if writing to watched address
       
       reg_q33 <= '0' & reg_z & reg_y & reg_x & reg_a;
@@ -4650,7 +4654,7 @@ begin
         hyper_trap_edge <= '0';
       end if;
       hyper_trap_last <= hyper_trap;
-      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1' or eth_hyperrupt='1')
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1' or eth_hyperrupt_masked='1')
         and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
@@ -4660,7 +4664,7 @@ begin
           f011_read_trap_pending <='1';
         elsif hyper_trap_f011_write='1' then 
           f011_write_trap_pending <='1';
-        elsif eth_hyperrupt='1' then
+        elsif eth_hyperrupt_masked='1' then
           eth_trap_pending <= '1';
         end if;
       else

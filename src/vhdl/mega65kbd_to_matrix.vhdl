@@ -14,6 +14,8 @@ entity mega65kbd_to_matrix is
     flopledsd : in std_logic;
     powerled : in std_logic;    
 
+    eth_load_enable : in std_logic;
+    
     keyboard_type : out unsigned(3 downto 0);
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
     kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
@@ -267,8 +269,13 @@ begin  -- behavioural
                 output_vector(47 downto 24) <= x"00FF00";
               end if;
               if powerled='1' then
-                output_vector(71 downto 48) <= x"00FF00";
-                output_vector(95 downto 72) <= x"00FF00";
+                if eth_load_enable='1' and counter(23)='1' then
+                  output_vector(71 downto 48) <= x"00FFFF";
+                  output_vector(95 downto 72) <= x"00FFFF";
+                else
+                  output_vector(71 downto 48) <= x"00FF00";
+                  output_vector(95 downto 72) <= x"00FF00";
+                end if;
               end if;
             end if;
           elsif phase = 140 then

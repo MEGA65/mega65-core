@@ -44,6 +44,7 @@ entity iomapper is
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
         matrix_mode_trap : out std_logic;
+        eth_load_enable : out std_logic;
         restore_key : in std_logic;
         osk_toggle_key : in std_logic;
         joyswap_key : in std_logic;
@@ -537,6 +538,9 @@ architecture behavioral of iomapper is
 
   signal ef_latch : std_logic := '0';
   signal ef_timeout : integer range 0 to 31 := 0;
+
+  signal e0_latch : std_logic := '0';
+  signal e0_timeout : integer range 0 to 31 := 0;
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0) := x"FF";
@@ -613,6 +617,8 @@ architecture behavioral of iomapper is
   signal rtc_reg : unsigned(7 downto 0);
   signal rtc_val : unsigned(7 downto 0);
 
+  signal eth_load_enable_int : std_logic := '0';
+  
 begin
 
   block1: block
@@ -1751,6 +1757,10 @@ begin
       -- Buffer ASCII keyboard input: Writing to the register causes
       -- the next key in the queue to be displayed.
       matrix_mode_trap <= '0';
+      if ascii_key_valid='1' and ascii_key = x"E0" and  ef_latch='0' then
+        eth_load_enable_int <= not eth_load_enable_int;
+        eth_load_enable <= not eth_load_enable_int;
+      end if;
       if ascii_key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
         -- C= + TAB
         -- This replaces the old ALT+TAB task switch combination
@@ -1764,6 +1774,16 @@ begin
         -- from occurring too quickly
         ef_timeout <= 20; -- x 1/100th of a second
       end if;
+      if (ascii_key_valid='0' or ascii_key /= x"e0") and e0_latch='1' then
+        if viciv_frame_indicate='1' then
+          if e0_timeout /= 0 then
+            e0_timeout <= e0_timeout - 1;
+          else
+            e0_latch <= '0';
+          end if;
+        end if;
+      end if;
+      
       if (ascii_key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
         if viciv_frame_indicate='1' then
           if ef_timeout /= 0 then
@@ -1821,6 +1841,10 @@ begin
       end if;
       
       if reset_high = '1' then
+
+        eth_load_enable_int <= '0';
+        eth_load_enable <= '0';
+      
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
