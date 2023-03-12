@@ -189,7 +189,8 @@ entity viciv is
     fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
     colour_ram_cs : in std_logic;
-    charrom_write_cs : in std_logic;
+    charrom_fastio_rdata : out std_logic_vector(7 downto 0);
+    charrom_cs : in std_logic;
 
     viciii_iomode : out std_logic_vector(1 downto 0) := "11";
 
@@ -1157,11 +1158,12 @@ begin
               cs => '1',  -- active
               data_o => chardata,
 
-              writeclk => cpuclock,
-              writecs => charrom_write_cs,
-              writeaddress => unsigned(fastio_addr(11 downto 0)),
+              cpuclk => cpuclock,
+              cpucs => charrom_cs,
+              cpuaddress => unsigned(fastio_addr(11 downto 0)),
               we => fastio_write,
-              data_i => fastio_wdata
+              data_i => fastio_wdata,
+              cpu_data_o => charrom_fastio_rdata
               );
 
   compositeblender: entity work.alpha_blend_top

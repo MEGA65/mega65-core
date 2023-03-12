@@ -103,6 +103,8 @@ entity iomapper is
         hyppo_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
+        charrom_cs : out std_logic;
+        
         key_scancode : in unsigned(15 downto 0);
         key_scancode_toggle : in std_logic;
 
@@ -1932,6 +1934,12 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
+      -- @IO:GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM area
+      charrom_cs <= '0';
+      if address(19 downto 12) = x"7E" then
+        charrom_cs <= '1';
+      end if;
+      
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';

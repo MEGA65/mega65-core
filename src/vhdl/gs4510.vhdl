@@ -242,7 +242,6 @@ entity gs4510 is
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic := '0';
-    charrom_write_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
     -- Slow device access 4GB address space
@@ -797,6 +796,7 @@ architecture Behavioural of gs4510 is
   signal accessing_vic_fastio : std_logic;
   signal accessing_hyppo_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
+  signal accessing_charrom_fastio : std_logic;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
@@ -882,7 +882,8 @@ architecture Behavioural of gs4510 is
     Hyppo,                  -- 0x07
     SlowRAM,                -- 0x08
     SlowRAMPreFetch,        -- 0x09
-    Unmapped                -- 0x0a
+    CharROM,                -- 0x0a
+    Unmapped                -- 0x0b
     );
 
   signal read_source : memory_source;
@@ -1942,9 +1943,9 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
+      accessing_charrom_fastio <= '0';
       slow_access_pending_write <= '0';
       slow_access_write_drive <= '0';
-      charrom_write_cs <= '0';
 
       wait_states <= io_read_wait_states;
       if io_read_wait_states /= x"00" then
@@ -2080,6 +2081,7 @@ begin
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
+        accessing_charrom_fastio <= '0';
         accessing_hyppo_fastio <= '0';
 
         fastio_addr <= fastio_addr_next;
@@ -2114,8 +2116,12 @@ begin
 
         report "Checking if address requires vfpga waitstates: $" & to_hstring(long_address);
 
+        if long_address(19 downto 12) = x"7E" then
+          accessing_charrom_fastio <= '1';
+          read_source <= CharROM;
+        end if;
         
-        -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
+        -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)        
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -2906,8 +2912,11 @@ begin
           report "reading from shadow RAM" severity note;
           return shadow_rdata;
         when ColourRAM =>
-          report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
+          report "reading colour RAM fastio byte $" & to_hstring(fastio_colour_ram_rdata) severity note;
           return unsigned(fastio_colour_ram_rdata);
+        when CharROM =>
+          report "reading char ROM fastio byte $" & to_hstring(fastio_charrom_rdata) severity note;
+          return unsigned(fastio_charrom_rdata);
         when VICIV =>
           report "reading VIC fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
           return unsigned(fastio_vic_rdata);
@@ -2941,10 +2950,9 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_shadow <= '0'; accessing_hyppo_fastio <= '0';
-      accessing_rom <= '0';
+      accessing_rom <= '0'; accessing_charrom_fastio <= '0';
       accessing_slowram <= '0';
       slow_access_write_drive <= '0';
-      charrom_write_cs <= '0';
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
       shadow_write <= '0';
@@ -3346,11 +3354,6 @@ begin
         -- hypervisor. If you do that, then you probably deserve to see problems.
         last_write_value <= value;
         last_write_pending <= '1';
-        
-        -- @IO:GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
-        if long_address(19 downto 12) = x"7E" then
-          charrom_write_cs <= '1';
-        end if;
         
         if long_address(19 downto 16) = x"8" then
           colour_ram_cs <= '1';

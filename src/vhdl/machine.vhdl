@@ -562,6 +562,7 @@ architecture Behavioral of machine is
   
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
+  signal charrom_fastio_rdata : std_logic_vector(7 downto 0);
 
   --signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(19 DOWNTO 0);
@@ -574,7 +575,7 @@ architecture Behavioral of machine is
 
   signal colourram_at_dc00 : std_logic := '0';
   signal colour_ram_cs : std_logic := '0';
-  signal charrom_write_cs : std_logic := '0';
+  signal charrom_cs : std_logic := '0';
 
   signal monitor_instruction_strobe : std_logic;
   signal monitor_pc : unsigned(15 downto 0);
@@ -1199,10 +1200,10 @@ begin
       sector_buffer_mapped => sector_buffer_mapped,
       fastio_vic_rdata => fastio_vic_rdata,
       fastio_colour_ram_rdata => colour_ram_fastio_rdata,
+      fastio_charrom_rdata => charrom_fastio_rdata,
       hyppo_rdata => hyppo_rdata,
       hyppo_address_out => hyppo_address,
       colour_ram_cs => colour_ram_cs,
-      charrom_write_cs => charrom_write_cs,
 
       viciii_iomode => viciii_iomode,
       
@@ -1357,7 +1358,7 @@ begin
       chipram_datain => chipram_data,
       colour_ram_fastio_rdata => colour_ram_fastio_rdata,
       colour_ram_cs => colour_ram_cs,
-      charrom_write_cs => charrom_write_cs,
+      charrom_cs => charrom_cs,      
 
       fastio_addr     => fastio_addr,
       fastio_read     => fastio_read,
@@ -1560,6 +1561,8 @@ begin
 
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,      
+
+      charrom_cs => charrom_cs,
       
       dd00_bits => dd00_bits,
 
