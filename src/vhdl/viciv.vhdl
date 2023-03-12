@@ -803,6 +803,10 @@ architecture Behavioral of viciv is
   signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0) := to_unsigned(0,4+1);
+  -- Allow double vertical resolution of chars in V200 mode
+  -- by multiplexing between normal and shifted charset
+  signal charrow_repeated : std_logic := '0';
+  signal reg_char_y16 : std_logic := '0';
 
   -- Common bitmap and character drawing info
   signal glyph_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
@@ -1038,7 +1042,7 @@ architecture Behavioral of viciv is
   signal next_token_is_goto : std_logic := '0';
 
   signal reg_alpha_delay : unsigned(3 downto 0) := x"1";
-
+  
   signal is_fetch_start : std_logic := '0';
   signal last_was_fetch_start : std_logic := '0';
 
@@ -2016,7 +2020,7 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number=114 then -- $D3072 UNUSED
+        elsif register_number=114 then -- $D3072
           fastio_rdata(7 downto 0) <= std_logic_vector(sprite_y_adjust);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
@@ -2036,7 +2040,8 @@ begin
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(3) <= sprite_continuous_pointer_monitoring;
-          fastio_rdata(6 downto 4) <= (others => '0');
+          fastio_rdata(4) <= reg_char_y16;
+          fastio_rdata(6 downto 5) <= (others => '0');
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
@@ -2918,10 +2923,12 @@ begin
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
-          -- @IO:GS $D07A.4-5 VIC-IV:RESV@RESV Reserved.
+          -- @IO:GS $D07A.5 VIC-IV:RESV@RESV Reserved.
+          -- @IO:GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
+          reg_char_y16 <= fastio_wdata(4);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
@@ -3402,6 +3409,13 @@ begin
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
         chargen_y_hold <= chargen_y;
+
+        if chargen_y_hold = chargen_y then
+          charrow_repeated <= '1';
+        else
+          charrow_repeated <= '0';
+        end if;
+        
         -- Work out colour ram address
         report "COLOURRAM: Setting colourramaddress via first_card_of_row."
           & " text_mode=" & std_logic'image(text_mode)
@@ -5524,7 +5538,15 @@ begin
   -- charaddress generation
   process(raster_fetch_state,glyph_data_address)
   begin
-    charaddress <= safe_to_integer(glyph_data_address(11 downto 0));
+    if reg_char_y16 = '0' then
+      charaddress <= safe_to_integer(glyph_data_address(11 downto 0));
+    else
+      if charrow_repeated='0' then
+        charaddress <= safe_to_integer(glyph_data_address(10 downto 0));
+      else
+        charaddress <= 2048 + safe_to_integer(glyph_data_address(10 downto 0));
+      end if;
+    end if;  
   --charaddress <= to_unsigned(0,12);
   --case raster_fetch_state is
   --  when FetchBitmapData =>

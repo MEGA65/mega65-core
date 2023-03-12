@@ -269,6 +269,7 @@ begin  -- behavioural
                 output_vector(47 downto 24) <= x"00FF00";
               end if;
               if powerled='1' then
+                -- Blink power LED yellow/green when ethload mode is active
                 if eth_load_enable='1' and counter(23)='1' then
                   output_vector(71 downto 48) <= x"00FFFF";
                   output_vector(95 downto 72) <= x"00FFFF";
