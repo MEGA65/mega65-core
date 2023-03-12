@@ -1113,6 +1113,12 @@ freeze_mem_list:
         !8 $80                              ;; bit 7 set in # banks tells unfreezer to ignore it.
         !8 freeze_prep_thumbnail
 
+        ;; Char "ROM"
+        !32 $ff7e000
+        !16 $1000
+        !8 0
+        !8 freeze_prep_none
+	
         ;; XXX - Other IO chips!
 
         ;; End of list
