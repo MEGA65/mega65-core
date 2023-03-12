@@ -2121,6 +2121,13 @@ begin
         if long_address(19 downto 12) = x"7E" then
           accessing_charrom_fastio <= '1';
           read_source <= CharROM;
+          -- 1 wait state when reading
+          wait_states <= colourram_read_wait_states;
+          if colourram_read_wait_states /= x"00" then
+            wait_states_non_zero <= '1';
+          else
+            wait_states_non_zero <= '0';
+          end if;
         end if;
         
         -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)        
