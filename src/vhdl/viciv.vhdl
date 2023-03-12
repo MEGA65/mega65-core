@@ -2145,6 +2145,7 @@ begin
         -- And raster re-write buffer delay also
         no_raster_buffer_delay <= '1';
         raster_buffer_double_line <= '0';
+        reg_char_y16 <= '0';
 
       end if;
       
