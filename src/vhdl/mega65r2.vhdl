@@ -417,6 +417,8 @@ architecture Behavioral of container is
   signal max10_fpga_date : unsigned(15 downto 0) := (others => '0');
   signal max10_reset_out : std_logic := '1';
   signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
+
+  signal eth_load_enable : std_logic;
   
 begin
 
@@ -502,6 +504,8 @@ begin
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
+
+      eth_load_enable => eth_load_enable,
       
       powerled => '1',
       flopled0 => flopled0_drive,
@@ -683,6 +687,8 @@ begin
       hyper_request_toggle => hyper_request_toggle,
       hyper_data => hyper_data,
       hyper_data_strobe => hyper_data_strobe,
+
+      eth_load_enable => eth_load_enable,
       
       fast_key => fastkey,
 

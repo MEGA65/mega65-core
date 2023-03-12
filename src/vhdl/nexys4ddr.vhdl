@@ -321,7 +321,9 @@ architecture Behavioral of container is
   signal kbd_commit : unsigned(31 downto 0);
 
   signal fastkey : std_logic;
-  
+
+  signal eth_load_enable : std_logic;
+
 begin
 
   mk2: entity work.mk2_to_mk1 
@@ -349,6 +351,8 @@ begin
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
+
+      eth_load_enable => eth_load_enable,
       
       powerled => '1',
       flopled0 => flopled0_drive,
@@ -499,6 +503,8 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      eth_load_enable => eth_load_enable,
+      
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb_out,
