@@ -211,7 +211,7 @@ architecture behavioral of matrix_to_ascii is
     45 => x"5b", -- [/:
     46 => x"00", -- NO KEY/@
     47 => x"3c", -- </,
-    48 => x"E0", -- SHIFT+POUND (used to enable etherload remote trigger)
+    48 => x"E0", -- MEGA+SHIFT+POUND
     49 => x"00", -- */NO KEY
     50 => x"5d", -- ]/;
     51 => x"93", -- CLR/HOM

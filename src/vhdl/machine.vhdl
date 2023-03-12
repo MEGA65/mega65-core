@@ -830,7 +830,7 @@ begin
     if rising_edge(cpuclock) then
 
       -- LED indication for when eth remote control is enabled
-      -- (requires DIPSW 2 and SHIFT+POUND)
+      -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
       eth_load_enabled <= eth_load_enable and dipsw(1);
       
       -- Latch reset from monitor interface to avoid tripping on glitches
