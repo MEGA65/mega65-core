@@ -1311,6 +1311,8 @@ begin
       hyper_request_toggle => hyper_request_toggle,
       hyper_data_in => hyper_data,
       hyper_data_strobe_in => hyper_data_strobe,
+
+      charrom_fastio_rdata => charrom_fastio_rdata,
       
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,

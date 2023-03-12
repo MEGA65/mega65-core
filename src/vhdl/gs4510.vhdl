@@ -2117,6 +2117,7 @@ begin
 
         report "Checking if address requires vfpga waitstates: $" & to_hstring(long_address);
 
+        -- @IO:GS $FF7E000-$FF7EFFF SUMMARY:CHARROM Simuated character ROM area (actually read/write)
         if long_address(19 downto 12) = x"7E" then
           accessing_charrom_fastio <= '1';
           read_source <= CharROM;
