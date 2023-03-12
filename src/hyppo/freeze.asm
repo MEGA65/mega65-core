@@ -789,6 +789,7 @@ freeze_prep_jump_table:
         !16 do_freeze_prep_stash_sd_buffer_and_regs
         !16 do_freeze_prep_thumbnail
         !16 do_freeze_prep_viciv
+	!16 do_freeze_prep_none
 
 ;; Jump table of routines to be called before restoring specific regions
 ;; (the same region list is used for freeze and unfreeze, so the jump
@@ -811,6 +812,8 @@ unfreeze_prep_jump_table:
         !16 do_unfreeze_prep_none
 	;; No prior preparation required for handling hyperregs
 	!16 do_unfreeze_prep_none
+	;; Nothing required before restoring CHAR ROM
+	!16 do_unfreeze_prep_none
 
 unfreeze_post_jump_table:
         !16 do_unfreeze_post_scratch_to_sdcard_regs
@@ -827,6 +830,8 @@ unfreeze_post_jump_table:
         !16 do_unfreeze_post_none
 	;; No prior preparation required for handling hyperregs
 	!16 do_unfreeze_post_hyperregs
+	;; Nothing required after restoring CHAR ROM
+	!16 do_unfreeze_post_none
 
 do_unfreeze_prep_none:
 do_unfreeze_post_none:
