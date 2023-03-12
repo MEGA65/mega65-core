@@ -241,6 +241,7 @@ entity gs4510 is
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
+    fastio_charrom_rdata : in std_logic_vector(7 downto 0);
     colour_ram_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
