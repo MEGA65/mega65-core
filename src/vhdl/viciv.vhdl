@@ -295,7 +295,7 @@ architecture Behavioral of viciv is
   -- (Sprite fetching should happen as soon as the border begins, so that we have
   -- maximum time to do the fetch.)
   constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(719,12);
-  constant display_height_pal : unsigned(11 downto 0) := to_unsigned(623-20,12);
+  constant display_height_pal : unsigned(11 downto 0) := to_unsigned(624-20,12);
   constant display_height_ntsc : unsigned(11 downto 0) := to_unsigned(526-20,12);
   signal display_height : unsigned(11 downto 0);
   signal raster_buffer_half_toggle : std_logic := '0';
@@ -1389,7 +1389,7 @@ begin
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2,12);
+            safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2-1,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             safe_to_integer(display_height)
@@ -1398,7 +1398,7 @@ begin
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_200)
                                       -safe_to_integer(vicii_first_raster)*2
-                                      +(4*2),12);
+                                      +(4*2)-1,12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +safe_to_integer(display_height)
                                          -safe_to_integer(vicii_first_raster)*2
@@ -1413,7 +1413,7 @@ begin
         y_chargen_start <= unsigned(to_signed(raster_correction
                                               +safe_to_integer(single_top_border_200)
                                               -safe_to_integer(vicii_first_raster)*2
-                                              -(3*2)
+                                              -(3*2)-1
                                               -- Display is always V400/600, so pixels
                                               -- are double height
                                               +safe_to_integer(vicii_y_smoothscroll)
@@ -1429,7 +1429,7 @@ begin
           border_y_top <= to_unsigned(
             raster_correction+
             safe_to_integer(single_top_border_400)
-            -safe_to_integer(vicii_first_raster)*2,12);
+            -safe_to_integer(vicii_first_raster)*2-1,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             safe_to_integer(display_height)
@@ -1438,7 +1438,7 @@ begin
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_400)
                                       -safe_to_integer(vicii_first_raster)*2
-                                      +(4*2),12);
+                                      +(4*2)-1,12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +safe_to_integer(display_height)
                                          -safe_to_integer(vicii_first_raster)*2
@@ -1449,7 +1449,7 @@ begin
         y_chargen_start <= to_unsigned(raster_correction
                                        +safe_to_integer(single_top_border_400)
                                        -safe_to_integer(vicii_first_raster)*2                                       
-                                       -(3*2)
+                                       -(3*2)-1
                                        -- Screen is always V400/600, so pixels
                                        -- are 2 physical pixels high
                                        +safe_to_integer(vicii_y_smoothscroll)
