@@ -918,8 +918,6 @@ architecture Behavioral of viciv is
   signal pixel_alt_palette : std_logic := '0';
   signal postsprite_inborder : std_logic := '0';
   signal inborder_drive : std_logic := '0';
-  signal inborder_t1 : std_logic := '0';
-  signal inborder_t2 : std_logic := '0';
   signal xfrontporch : std_logic := '0';
   signal xfrontporch_drive : std_logic := '0';
   signal xbackporch : std_logic := '0';
@@ -1351,75 +1349,27 @@ begin
     end procedure;
     procedure viciv_interpret_legacy_mode_registers is
     begin
-      -- set horizontal borders based on 40/38 columns
+      -- set x_chargen
       report "LEGACY register update";
-      if thirtyeightcolumns='0' then
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -2
-                           ,14);
-        end if;
+      if reg_h640='0' then
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          ,14);
       else
-        -- 38/40 col mode has one phyical pixel too few on the left (only one
-        -- physical pixel of left most pixel shows when $D016 = $00)
-        -- 78/80 col mode correctly has one physical pixel showing on the left
-
-        -- 78/80 col mode has right border one pixel too late
-        -- 38/40 col mode has right border one logical pixel too late
-        -- (rightmost pixel of last char is not truncated)
-        -- Thus +2 on both the border_x_right calculations has been reduced by
-        -- 1 or 2 for H640 and H320 modes
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -2
-                           ,14);
-        end if;
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          -2
+                          ,14);
       end if;
 
       if reg_h640='0' then
@@ -1564,15 +1514,6 @@ begin
                                         -safe_to_integer(single_side_border),14);
         end if;
       else
-        -- 38/40 col mode has one phyical pixel too few on the left (only one
-        -- physical pixel of left most pixel shows when $D016 = $00)
-        -- 78/80 col mode correctly has one physical pixel showing on the left
-
-        -- 78/80 col mode has right border one pixel too late
-        -- 38/40 col mode has right border one logical pixel too late
-        -- (rightmost pixel of last char is not truncated)
-        -- Thus +2 on both the border_x_right calculations has been reduced by
-        -- 1 or 2 for H640 and H320 modes
         if reg_h640='0' then
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
                                        +(7*2),14);
@@ -1581,7 +1522,7 @@ begin
                                         -(9*2),14);
         else
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2)+1,14);
+                                       +(7*2),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
                                         -safe_to_integer(single_side_border)
                                         -(9*2),14);
@@ -3505,8 +3446,6 @@ begin
       end if;
 
       -- Work out if the border is active
-      inborder_t1 <= inborder;
-      inborder_t2 <= inborder_t1;
       if displayy=border_y_bottom then
         vertical_border <= '1';
       end if;
@@ -3518,10 +3457,6 @@ begin
         vertical_border='1' then
         inborder<='1';
         viciv_flyback <= '1';
-        -- Fix 2 pixel gap at right of text display.
-        -- (presumably it was video pipeline interaction to blame)
-        inborder_t1 <= '1';
-        inborder_t2 <= '1';
       else
         inborder<=blank;
         viciv_flyback <= '0';
@@ -3649,7 +3584,7 @@ begin
       viciv_outofframe <= (not indisplay_t3);
 
 --      if indisplay_t3='1' then
-      if inborder_t2='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
+      if inborder='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
         pixel_colour <= border_colour;
         pixel_alpha <= x"FF";
         report "VICIV: Drawing border" severity note;
