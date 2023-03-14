@@ -1368,7 +1368,6 @@ begin
                           -- pixels are H640/800, so add double
                           +safe_to_integer(vicii_x_smoothscroll)
                           +safe_to_integer(vicii_x_smoothscroll)
-                          -2
                           ,14);
       end if;
 
