@@ -24,6 +24,7 @@ unsigned long autoboot_address = 0;
 unsigned char slot_core_valid[MAX_SLOTS];
 char slot_core_name[MAX_SLOTS][32];
 char slot_core_version[MAX_SLOTS][32];
+unsigned char slot_core_cartridge = 0xff;
 
 void display_version(void)
 {
@@ -39,6 +40,8 @@ void display_version(void)
       reconfig_disabled ? " (booted via JTAG)" : "");
   printf("  Slot 0 Version:\n    %s\n\n", slot_core_version[0]);
   printf("  Hardware model id:\n    $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
+  printf("  Default cartridge slot: %X\n", slot_core_cartridge);
+  printf("  D67E: %04X\n", PEEK(0xD67EU));
 
   // wait for ESC or RUN/STOP
   do {
@@ -51,10 +54,30 @@ void display_version(void)
   printf("%c", 0x93);
 }
 
-void scan_bitstream_information(void)
+unsigned char first_flash_read = 1;
+void do_first_flash_read(unsigned long addr)
+{
+  // XXX Work around weird flash thing where first read of a sector reads rubbish
+  read_data(addr);
+  for (x = 0; x < 256; x++) {
+    if (data_buffer[0] != 0xee)
+      break;
+    usleep(50000L);
+    read_data(addr);
+    read_data(addr);
+  }
+  first_flash_read = 0;
+}
+
+void scan_bitstream_information(unsigned char quick)
 {
   short i, j, x, y;
   unsigned char valid;
+
+  if (first_flash_read)
+    do_first_flash_read(0);
+
+  slot_core_cartridge = 0xff;
 
   for (i = 0; i < slot_count; i++) {
     read_data(i * SLOT_SIZE + 0 * 256);
@@ -68,6 +91,13 @@ void scan_bitstream_information(void)
         valid = 0;
         break;
       }
+
+    // save first cartridge slot (can't be slot 0!)
+    if (valid && y != 0xff && i > 0 && slot_core_cartridge == 0xff && (data_buffer[16 + 31] & 0xdf) == 0x43)
+      slot_core_cartridge = i;
+
+    if (quick)
+      continue;
 
     // extract names
     for (j = 0; j < 31; j++) {
@@ -120,6 +150,7 @@ void main(void)
 {
   unsigned char selected = 0, valid, atticram_bad = 0;
   unsigned char selected_reflash_slot;
+  char cart_id[11];
 
   mega65_io_enable();
 
@@ -147,7 +178,7 @@ void main(void)
     asm(" jmp $cf7f ");
   }
 
-  probe_qspi_flash();
+  probe_qspi_flash(); // sets slot_count
   
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
@@ -184,21 +215,42 @@ void main(void)
       // Else, just show the menu.
       // XXX - For now, we just always show the menu
 
-      // Check valid flag and empty state of the slot before launching it.
-
-      // Allow booting from slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
-      autoboot_address = SLOT_SIZE * (1 + ((PEEK(0xD69D) >> 3) & 1));
-
-      // XXX Work around weird flash thing where first read of a sector reads rubbish
-      read_data(autoboot_address + 0 * 256);
-      for (x = 0; x < 256; x++) {
-        if (data_buffer[0] != 0xee)
-          break;
-        usleep(50000L);
-        read_data(autoboot_address + 0 * 256);
-        read_data(autoboot_address + 0 * 256);
+      selected = 0xff;
+      // check for cartridge: if /EXROM or /GAME is not high, we might have a cart inserted
+      if ((PEEK(0xD67EU) & 0x60) != 0x60) {
+        // we got a cartridge, check if it has the MEGA65 signature
+        lcopy(0x4008009, (long)cart_id, 6);
+        if (memcmp(cart_id, "MEGA65", 6) != 0) {
+          // determine cart slot quickly
+          scan_bitstream_information(1);
+          if (slot_core_cartridge != 0xff)
+            selected = slot_core_cartridge;
+        }
       }
+      // if we don't have a cart slot, then we use slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
+      if (selected == 0xff)
+        selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
+#if 0
+      // debug
+      lcopy(0x4008004, (long)cart_id, 11);
+      printf("\n\nD67E=%02X,MATCH=%02X,SEL=%X\n", PEEK(0xD67EU), PEEK(0xD67EU) & 0x60, selected);
+      printf("\n  $8004: %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4]);
+      printf("\n  $8009: %02X %02X %02X %02X %02X %02X\n", cart_id[5], cart_id[6], cart_id[7], cart_id[8], cart_id[9], cart_id[10]);
+      while (PEEK(0xD610))
+        POKE(0xD610, 0);
+      while (!PEEK(0xD610))
+        usleep(5000);
+      POKE(0xD610, 0);
+#endif
+
+      // calculate slot address
+      autoboot_address = SLOT_SIZE * selected;
+
+      if (first_flash_read)
+        do_first_flash_read(autoboot_address);
+
+      // Check valid flag and empty state of the slot before launching it.
       read_data(autoboot_address + 0 * 256);
       y = 0xff;
       valid = 1;
@@ -336,9 +388,10 @@ void main(void)
     slot_count = 8;
 
   // Scan for existing bitstreams
-  scan_bitstream_information();
+  scan_bitstream_information(0);
 
   // clear screen
+  selected = 0;
   printf("%c", 0x93);
   while (1) {
     // home cursor
@@ -346,7 +399,11 @@ void main(void)
 
     for (i = 0; i < slot_count; i++) {
       // Display info about it
-      printf("\n    (%c) %s\n", '0' + i, slot_core_name[i]);
+      if (slot_core_cartridge == i)
+        printf("\n<C> ");
+      else
+        printf("\n    ");
+      printf("(%c) %s\n", '0' + i, slot_core_name[i]);
       if (i > 0 && slot_core_valid[i] == 1)
         printf("        %s\n", slot_core_version[i]);
       else
@@ -498,7 +555,7 @@ void main(void)
       }
       else {
         reflash_slot(selected_reflash_slot);
-        scan_bitstream_information();
+        scan_bitstream_information(0);
         printf("%c", 0x93);
       }
     }
