@@ -1506,7 +1506,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
+                                        -safe_to_integer(single_side_border),14);
         else
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
