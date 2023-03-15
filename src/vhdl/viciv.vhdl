@@ -3261,7 +3261,7 @@ begin
         raster_buffer_max_write_address_prev <= raster_buffer_max_write_address_hold;
         report "setting raster_buffer_max_write_address_prev to $" & to_hstring(raster_buffer_max_write_address_hold);
       end if;
-      if raster_buffer_read_address(9 downto 0) = raster_buffer_max_write_address_prev then
+      if raster_buffer_read_address_next(9 downto 0) > raster_buffer_max_write_address_prev then
         report "stopping character generator due to buffer exhaustion"
           severity note;
         chargen_active <= '0';
