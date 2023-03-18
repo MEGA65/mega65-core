@@ -687,17 +687,17 @@ unsigned char select_bitstream_file(void)
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
       //
       if (!v) {
-	v=PEEK(0xD6A0)>>3;    
-	if (!(v&16)) x=0x0d; // FIRE/F_INDEX = return
-	if (!(v&1)) x=0x91;  // UP/F_DISKCHANGED = CRSR-UP
-	if (!(v&8)) x=0x1d;  // RIGHT/F_TRACK0 = CRSR-RIGHT
-	if (!(v&4)) x=0x9d;  // LEFT/F_WRITEPROTECT = CRSR-LEFT
-	if (!(v&2)) x=0x11;  // DOWN/F_RDATA = CRSR-DOWN
-	// Wait for joystick presses to be released before continuing
+        v=PEEK(0xD6A0)>>3;
+        if (!(v&16)) x=0x0d; // FIRE/F_INDEX = return
+        if (!(v&1)) x=0x91;  // UP/F_DISKCHANGED = CRSR-UP
+        if (!(v&8)) x=0x1d;  // RIGHT/F_TRACK0 = CRSR-RIGHT
+        if (!(v&4)) x=0x9d;  // LEFT/F_WRITEPROTECT = CRSR-LEFT
+        if (!(v&2)) x=0x11;  // DOWN/F_RDATA = CRSR-DOWN
+        // Wait for joystick presses to be released before continuing
       }
       while (v!=0x1f) {
-	v=PEEK(0xDC00)&0x1f;
-	if (!v) v=PEEK(0xD6A0)>>3;
+        v=PEEK(0xDC00)&0x1f;
+        if (!v) v=PEEK(0xD6A0)>>3;
       }            
     }
 
@@ -747,7 +747,7 @@ unsigned char select_bitstream_file(void)
     // Adjust display position
     if (selection_number < display_offset)
       display_offset = selection_number;
-    if (selection_number > (display_offset + 23))
+    if (selection_number > (display_offset + 22))
       display_offset = selection_number - 22;
     if (display_offset > (file_count - 22))
       display_offset = file_count - 22;
