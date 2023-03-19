@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -o pipefail
+shopt -s lastpipe
+
+design=$1
+if [[ -z $VIVADO ]]; then
+    VIVADO=./vivado_wrapper
+fi
+
+declare -i criticals=0
+
+$VIVADO -mode tcl << EOF |
+
+open_project vivado/${design}.xpr
+check_syntax
+EOF
+
+while read line; do
+    if [[ ${line} =~ CRITICAL ]]; then
+        echo $line
+        criticals+=1
+    fi
+done
+
+if [[ $criticals -gt 0 ]]; then
+    exit 1;
+fi
+exit 0

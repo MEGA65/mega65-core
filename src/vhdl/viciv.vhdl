@@ -927,8 +927,6 @@ architecture Behavioral of viciv is
   signal pixel_alt_palette : std_logic := '0';
   signal postsprite_inborder : std_logic := '0';
   signal inborder_drive : std_logic := '0';
-  signal inborder_t1 : std_logic := '0';
-  signal inborder_t2 : std_logic := '0';
   signal xfrontporch : std_logic := '0';
   signal xfrontporch_drive : std_logic := '0';
   signal xbackporch : std_logic := '0';
@@ -1066,6 +1064,10 @@ architecture Behavioral of viciv is
   signal hyper_data_counter : unsigned(31 downto 0) := to_unsigned(0,32);
 
   signal sprite_continuous_pointer_monitoring : std_logic := '1';
+
+  -- Set to 0 to disable bug compatibility D016 positioning
+  signal bug_compat_mode : std_logic := '1';
+  signal bug_compat_vic_iii_d016_delta : integer := 2;
   
 begin
 
@@ -1335,9 +1337,21 @@ begin
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
           sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
           hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
-          debug_pixel_green,debug_pixel_blue,debug_x,debug_y
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode
           ) is
     variable bitplane_number : integer;
+
+    procedure enable_bug_compat is
+    begin
+      bug_compat_mode <= '1';
+      bug_compat_vic_iii_d016_delta <= 2;
+    end procedure;
+
+    procedure disable_bug_compat is
+    begin
+      bug_compat_mode <= '0';
+      bug_compat_vic_iii_d016_delta <= 0;
+    end procedure;
 
     procedure viciv_calculate_modeline_dimensions is
       constant w : integer := 400; -- was 320
@@ -1361,75 +1375,27 @@ begin
     end procedure;
     procedure viciv_interpret_legacy_mode_registers is
     begin
-      -- set horizontal borders based on 40/38 columns
+      -- set x_chargen
       report "LEGACY register update";
-      if thirtyeightcolumns='0' then
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -2
-                           ,14);
-        end if;
+      if reg_h640='0' then
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          ,14);
       else
-        -- 38/40 col mode has one phyical pixel too few on the left (only one
-        -- physical pixel of left most pixel shows when $D016 = $00)
-        -- 78/80 col mode correctly has one physical pixel showing on the left
-
-        -- 78/80 col mode has right border one pixel too late
-        -- 38/40 col mode has right border one logical pixel too late
-        -- (rightmost pixel of last char is not truncated)
-        -- Thus +2 on both the border_x_right calculations has been reduced by
-        -- 1 or 2 for H640 and H320 modes
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -2
-                           ,14);
-        end if;
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          -bug_compat_vic_iii_d016_delta
+                          ,14);
       end if;
 
       if reg_h640='0' then
@@ -1452,18 +1418,18 @@ begin
             safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            safe_to_integer(display_height)
-            -safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2-1,12);
+            safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2+
+            text_height_200,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_200)
                                       -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +safe_to_integer(display_height)
+                                         +safe_to_integer(single_top_border_200)
                                          -safe_to_integer(vicii_first_raster)*2
-                                         -safe_to_integer(single_top_border_200)
-                                         -(4*2)-1,12);
+                                         +text_height_200
+                                         -(4*2),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         report "XXX vicii_y_smoothscroll = " & to_string(std_logic_vector(vicii_y_smoothscroll));
@@ -1492,19 +1458,19 @@ begin
             -safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            safe_to_integer(display_height)
-            -safe_to_integer(single_top_border_400)-safe_to_integer(vicii_first_raster)*2-1,12);
+            safe_to_integer(single_top_border_400)-safe_to_integer(vicii_first_raster)*2+
+            text_height_400,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_400)
                                       -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +safe_to_integer(display_height)
-                                         -safe_to_integer(vicii_first_raster)*2
-                                         -safe_to_integer(single_top_border_400)
-                                         -(4*2)-1,12);
-        end if;
+                                      +safe_to_integer(single_top_border_400)
+                                      -safe_to_integer(vicii_first_raster)*2
+                                      +text_height_400
+                                      -(4*2),12);
+     end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +safe_to_integer(single_top_border_400)
@@ -1567,22 +1533,13 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
+                                        -safe_to_integer(single_side_border),14);
         else
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
                                         -safe_to_integer(single_side_border),14);
         end if;
       else
-        -- 38/40 col mode has one phyical pixel too few on the left (only one
-        -- physical pixel of left most pixel shows when $D016 = $00)
-        -- 78/80 col mode correctly has one physical pixel showing on the left
-
-        -- 78/80 col mode has right border one pixel too late
-        -- 38/40 col mode has right border one logical pixel too late
-        -- (rightmost pixel of last char is not truncated)
-        -- Thus +2 on both the border_x_right calculations has been reduced by
-        -- 1 or 2 for H640 and H320 modes
         if reg_h640='0' then
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
                                        +(7*2),14);
@@ -1591,7 +1548,7 @@ begin
                                         -(9*2),14);
         else
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2)+1,14);
+                                       +(7*2),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
                                         -safe_to_integer(single_side_border)
                                         -(9*2),14);
@@ -2043,7 +2000,8 @@ begin
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(3) <= sprite_continuous_pointer_monitoring;
           fastio_rdata(4) <= reg_char_y16;
-          fastio_rdata(6 downto 5) <= (others => '0');
+          fastio_rdata(5) <= not bug_compat_mode;
+          fastio_rdata(6) <= '0';
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
@@ -2205,6 +2163,9 @@ begin
 
       reset_drive <= reset;
       if reset_drive='0' then
+        -- Enable C65 bug compatibility mode on reset.
+        enable_bug_compat;
+
         -- Allow hyppo ROM to be visible on reset.
         rom_at_e000 <= '0';
 
@@ -2926,15 +2887,25 @@ begin
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
-          -- @IO:GS $D07A.5 VIC-IV:RESV@RESV Reserved.
           -- @IO:GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
+          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
-          reg_char_y16 <= fastio_wdata(4);
+          bug_compat_mode <= not fastio_wdata(5);
+          reg_char_y16 <= fastio_wdata(4);          
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
+
+          if fastio_wdata(5)=bug_compat_mode then
+            if fastio_wdata(5)='1' then
+              disable_bug_compat;
+            else
+              enable_bug_compat;
+            end if;
+            viciv_legacy_mode_registers_touched <= '1';
+          end if;
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
@@ -3346,7 +3317,7 @@ begin
         raster_buffer_max_write_address_prev <= raster_buffer_max_write_address_hold;
         report "setting raster_buffer_max_write_address_prev to $" & to_hstring(raster_buffer_max_write_address_hold);
       end if;
-      if raster_buffer_read_address(9 downto 0) = raster_buffer_max_write_address_prev then
+      if raster_buffer_read_address_next(9 downto 0) > raster_buffer_max_write_address_prev then
         report "stopping character generator due to buffer exhaustion"
           severity note;
         chargen_active <= '0';
@@ -3537,8 +3508,6 @@ begin
       end if;
 
       -- Work out if the border is active
-      inborder_t1 <= inborder;
-      inborder_t2 <= inborder_t1;
       if displayy=border_y_bottom then
         vertical_border <= '1';
       end if;
@@ -3550,10 +3519,6 @@ begin
         vertical_border='1' then
         inborder<='1';
         viciv_flyback <= '1';
-        -- Fix 2 pixel gap at right of text display.
-        -- (presumably it was video pipeline interaction to blame)
-        inborder_t1 <= '1';
-        inborder_t2 <= '1';
       else
         inborder<=blank;
         viciv_flyback <= '0';
@@ -3681,7 +3646,7 @@ begin
       viciv_outofframe <= (not indisplay_t3);
 
 --      if indisplay_t3='1' then
-      if inborder_t2='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
+      if inborder='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
         pixel_colour <= border_colour;
         pixel_alpha <= x"FF";
         report "VICIV: Drawing border" severity note;
@@ -4748,7 +4713,7 @@ begin
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
-              raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
+              raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0) - 1;
 
               if glyph_4bit='1' then
                 screenline_draw_mask <= screenline_draw_mask_drive;
