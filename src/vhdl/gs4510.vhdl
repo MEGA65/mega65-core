@@ -2130,7 +2130,7 @@ begin
           end if;
         end if;
         
-        -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)        
+        -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -2778,7 +2778,7 @@ begin
             when x"f4" => return last_cycles_per_frame(23 downto 16);
             when x"f5" => return last_cycles_per_frame(31 downto 24);
             --@IO:GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
-            --@IO:GS $D7F7 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 2)              
+            --@IO:GS $D7F7 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 2)
             --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (byte 3)
             --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
             when x"f6" => return last_proceeds_per_frame(7 downto 0);

@@ -1779,14 +1779,14 @@ begin  -- behavioural
             when x"5" =>
               -- @IO:GS $D6E5.0 Enable of filtering unicast frames if MAC address does not match.
               eth_mac_filter <= fastio_wdata(0);
-              -- @IO:GS $D6E5.1 Disable CRC checking of broadcast ethernet frames 
+              -- @IO:GS $D6E5.1 Disable CRC checking of broadcast ethernet frames
               eth_disable_crc_check <= fastio_wdata(1);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
               eth_txd_phase <= fastio_wdata(3 downto 2);
               -- @IO:GS $D6E5.6-7 Ethernet RX clock phase adjust
               eth_rx_latch_phase <= fastio_wdata(7 downto 6);
-              -- @IO:GS $D6E5.4 Enable accepting of broadcast ethernet frames 
-              -- @IO:GS $D6E5.5 Enable accepting of unicast ethernet frames 
+              -- @IO:GS $D6E5.4 Enable accepting of broadcast ethernet frames
+              -- @IO:GS $D6E5.5 Enable accepting of unicast ethernet frames
               eth_accept_broadcast <= fastio_wdata(4);
               eth_accept_multicast <= fastio_wdata(5);
             when x"6" =>
