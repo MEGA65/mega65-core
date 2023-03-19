@@ -1377,73 +1377,25 @@ begin
     begin
       -- set x_chargen
       report "LEGACY register update";
-      if thirtyeightcolumns='0' then
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -bug_compat_vic_iii_d016_delta
-                           ,14);
-        end if;
+      if reg_h640='0' then
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          ,14);
       else
-        -- 38/40 col mode has one phyical pixel too few on the left (only one
-        -- physical pixel of left most pixel shows when $D016 = $00)
-        -- 78/80 col mode correctly has one physical pixel showing on the left
-
-        -- 78/80 col mode has right border one pixel too late
-        -- 38/40 col mode has right border one logical pixel too late
-        -- (rightmost pixel of last char is not truncated)
-        -- Thus +2 on both the border_x_right calculations has been reduced by
-        -- 1 or 2 for H640 and H320 modes
-        if reg_h640='0' then
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           ,14);
-        else
-          border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border)
-                                       +(7*2),14);
-          border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)
-                                        -(9*2),14);
-          x_chargen_start
-            <= to_unsigned(safe_to_integer(frame_h_front)
-                           +safe_to_integer(single_side_border)
-                           -- VIC-II smooth scrolling is based on H320/400 and real
-                           -- pixels are H640/800, so add double
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           +safe_to_integer(vicii_x_smoothscroll)
-                           -bug_compat_vic_iii_d016_delta
-                           ,14);
-        end if;
+        x_chargen_start
+          <= to_unsigned(safe_to_integer(frame_h_front)
+                          +safe_to_integer(single_side_border)
+                          -- VIC-II smooth scrolling is based on H320/400 and real
+                          -- pixels are H640/800, so add double
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          +safe_to_integer(vicii_x_smoothscroll)
+                          -bug_compat_vic_iii_d016_delta
+                          ,14);
       end if;
 
       if reg_h640='0' then
@@ -1581,7 +1533,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
-                                        -safe_to_integer(single_side_border)-1,14);
+                                        -safe_to_integer(single_side_border),14);
         else
           border_x_left <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(single_side_border),14);
           border_x_right <= to_unsigned(safe_to_integer(frame_h_front)+safe_to_integer(display_width)
