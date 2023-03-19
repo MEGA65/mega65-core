@@ -143,8 +143,11 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/pcm_transceiver.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/touch.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_master.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/i2c_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_wrapper.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r3_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r2_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/grove_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_bytes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_gaps.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_decoder.vhdl"]"\
@@ -214,6 +217,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/termmem.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/internal1541.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/m6522.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
@@ -244,7 +248,6 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/syn_fifo.v"]"\
  "[file normalize "$origin_dir/src/verilog/tremolo.v"]"\
  "[file normalize "$origin_dir/src/verilog/vibrato.v"]"
-
 ]
 set imported_files [add_files -fileset sources_1 $files]
 
@@ -274,6 +277,18 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/hdmi_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mega65r3_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mega65r2_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/grove_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

@@ -157,6 +157,8 @@ FREEZER_FILES= \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
+CHECK_CURRENT_TARGETS=check-mega65r3 check-mega65r2 check-nexys4ddr-widget
+
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
 
 # phony target to force submodule builds
@@ -1142,6 +1144,11 @@ vivado/%.xpr: 	vivado/%_gen.tcl | preliminaries $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDI
 	cat $@ | sed -e 's,<Step Id="phys_opt_design"/>,<Step Id="phys_opt_design" EnableStepBool="1"/>,' \
 		-e 's,<Step Id="post_route_phys_opt_design"/>,<Step Id="post_route_phys_opt_design" EnableStepBool="1"/>,' >/tmp/xpr
 	mv /tmp/xpr $@
+
+check: $(CHECK_CURRENT_TARGETS)
+
+check-%:	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries $(SRCDIR)/version.txt
+	./vivado_check $*
 
 $(BINDIR)/%.bit: 	vivado/%.xpr preliminaries $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v $(SRCDIR)/version.txt
 	echo MOOSE $@ from $<
