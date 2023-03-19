@@ -1466,18 +1466,18 @@ begin
             safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            safe_to_integer(display_height)
-            -safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2-1,12);
+            safe_to_integer(single_top_border_200)-safe_to_integer(vicii_first_raster)*2+
+            text_height_200,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_200)
                                       -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +safe_to_integer(display_height)
+                                         +safe_to_integer(single_top_border_200)
                                          -safe_to_integer(vicii_first_raster)*2
-                                         -safe_to_integer(single_top_border_200)
-                                         -(4*2)-1,12);
+                                         +text_height_200
+                                         -(4*2),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         report "XXX vicii_y_smoothscroll = " & to_string(std_logic_vector(vicii_y_smoothscroll));
@@ -1506,19 +1506,19 @@ begin
             -safe_to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
-            safe_to_integer(display_height)
-            -safe_to_integer(single_top_border_400)-safe_to_integer(vicii_first_raster)*2-1,12);
+            safe_to_integer(single_top_border_400)-safe_to_integer(vicii_first_raster)*2+
+            text_height_400,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +safe_to_integer(single_top_border_400)
                                       -safe_to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
-                                         +safe_to_integer(display_height)
-                                         -safe_to_integer(vicii_first_raster)*2
-                                         -safe_to_integer(single_top_border_400)
-                                         -(4*2)-1,12);
-        end if;
+                                      +safe_to_integer(single_top_border_400)
+                                      -safe_to_integer(vicii_first_raster)*2
+                                      +text_height_400
+                                      -(4*2),12);
+     end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +safe_to_integer(single_top_border_400)
