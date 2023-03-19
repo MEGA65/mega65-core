@@ -1339,9 +1339,21 @@ begin
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
           sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
           hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
-          debug_pixel_green,debug_pixel_blue,debug_x,debug_y
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode
           ) is
     variable bitplane_number : integer;
+
+    procedure enable_bug_compat is
+    begin
+      bug_compat_mode <= '1';
+      bug_compat_vic_iii_d016_delta <= 2;
+    end procedure;
+
+    procedure disable_bug_compat is
+    begin
+      bug_compat_mode <= '0';
+      bug_compat_vic_iii_d016_delta <= 0;
+    end procedure;
 
     procedure viciv_calculate_modeline_dimensions is
       constant w : integer := 400; -- was 320
@@ -1431,7 +1443,7 @@ begin
                            -- pixels are H640/800, so add double
                            +safe_to_integer(vicii_x_smoothscroll)
                            +safe_to_integer(vicii_x_smoothscroll)
-                           -2
+                           -bug_compat_vic_iii_d016_delta
                            ,14);
         end if;
       end if;
@@ -2130,12 +2142,6 @@ begin
 
     if rising_edge(cpuclock) then
 
-      if bug_compat_mode = '1' then
-        bug_compat_vic_iii_d016_delta <= 2;
-      else
-        bug_compat_vic_iii_d016_delta <= 0;
-      end if;
-      
       interlace_mode <= reg_interlace;
       mono_mode <= reg_mono;
       
@@ -2216,6 +2222,9 @@ begin
 
       reset_drive <= reset;
       if reset_drive='0' then
+        -- Enable C65 bug compatibility mode on reset.
+        enable_bug_compat;
+
         -- Allow hyppo ROM to be visible on reset.
         rom_at_e000 <= '0';
 
@@ -2937,8 +2946,8 @@ begin
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
-          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set
           -- @IO:GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
+          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
@@ -2947,6 +2956,15 @@ begin
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
+
+          if fastio_wdata(5)=bug_compat_mode then
+            if fastio_wdata(5)='1' then
+              disable_bug_compat;
+            else
+              enable_bug_compat;
+            end if;
+            viciv_legacy_mode_registers_touched <= '1';
+          end if;
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
