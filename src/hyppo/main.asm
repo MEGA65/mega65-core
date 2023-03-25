@@ -632,6 +632,10 @@ launch_flash_menu:
 	;; Disable digital audio when launching flash menu
 	jsr safe_video_mode
 
+	;; Disable cartridge, the flash menu does not run with cart enabled!
+	lda #$02
+	trb $d7fb
+
 	;; Store where the flash menu should jump to if it doesn't need to do anything.
 	lda #<return_from_flashmenu
 	sta $cf80
@@ -2090,6 +2094,10 @@ g61:    sta $0800,x
         jsr task_set_c64_memorymap
         jsr task_set_pc_to_reset_vector
         jsr task_dummy_nmi_vector
+
+	;; Enable cartridge again
+	lda #$02
+	tsb $d7fb
 
         ;; This must happen last, so that the ultimax cartridge
         ;; reset vector is used, instead of the one in the loaded ROM
