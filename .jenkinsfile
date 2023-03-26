@@ -26,20 +26,40 @@ pipeline {
         }
         stage('Build MEGA65R3') {
             steps {
-                sh 'make bin/mega65r3.bit'
-                sh 'release-build/build-release.sh mega65r3 JENKINSGEN'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'make bin/mega65r3.bit'
+                    sh 'release-build/build-release.sh mega65r3 JENKINSGEN'
+                }
             }
         }
         stage('Build MEGA65R2') {
             steps {
-                sh 'make bin/mega65r2.bit'
-                sh 'release-build/build-release.sh -noreg mega65r2 JENKINSGEN'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'make bin/mega65r2.bit'
+                    sh 'release-build/build-release.sh -noreg mega65r2 JENKINSGEN'
+                }
             }
         }
         stage('Build Nexys4DDR-Widget') {
             steps {
-                sh 'make bin/nexys4ddr-widget.bit'
-                sh 'release-build/build-release.sh nexys4ddr-widget JENKINSGEN'
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'make bin/nexys4ddr-widget.bit'
+                    sh 'release-build/build-release.sh nexys4ddr-widget JENKINSGEN'
+                }
+            }
+        }
+        stage('Set build result') {
+            steps {
+                script {
+                    def files = findFiles(glob: 'release-build/pkg/*.7z')
+                    // number of total architectures needs to be changed in next line,
+                    // if we add or subtract build targets!
+                    if (files.length < 3) {
+                        currentBuild.result = 'UNSTABLE'
+                    } else if (files.length == 0) {
+                        currentBuild.result = 'FAILURE'
+                    }
+                }
             }
         }
     }

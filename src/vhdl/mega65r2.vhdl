@@ -688,7 +688,7 @@ begin
       hyper_data => hyper_data,
       hyper_data_strobe => hyper_data_strobe,
 
-      eth_load_enable => eth_load_enable,
+      eth_load_enabled => eth_load_enable,
       
       fast_key => fastkey,
 
