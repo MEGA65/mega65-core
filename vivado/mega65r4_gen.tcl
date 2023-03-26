@@ -7,7 +7,7 @@ if { [info exists ::origin_dir_loc] } {
 }
 
 # Set the project name
-set project_name "mega65r3"
+set project_name "mega65r4"
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {
@@ -15,7 +15,7 @@ if { [info exists ::user_project_name] } {
 }
 
 variable script_file
-set script_file "mega65r3.tcl"
+set script_file "mega65r4.tcl"
 
 # Help information for this script
 proc help {} {
@@ -205,7 +205,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ps2_to_uart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_charrom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/mega65r3.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r4.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/max10.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
@@ -689,7 +689,7 @@ set file "vhdl/clocking.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/mega65r3.vhdl"
+set file "vhdl/mega65r4.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -890,9 +890,9 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
-set file "[file normalize "$origin_dir/src/vhdl/mega65r3.xdc"]"
+set file "[file normalize "$origin_dir/src/vhdl/mega65r4.xdc"]"
 set file_imported [add_files -fileset constrs_1 $file]
-set file "vhdl/mega65r3.xdc"
+set file "vhdl/mega65r4.xdc"
 set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
 set_property -name "file_type" -value "XDC" -objects $file_obj
 
