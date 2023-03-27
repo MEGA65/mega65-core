@@ -185,10 +185,6 @@ entity container is
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
 
-         -- Left and right headphone port audio
-         pwm_l : out std_logic;
-         pwm_r : out std_logic;
-         
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
          p1hi : inout std_logic_vector(3 downto 0);
@@ -359,9 +355,6 @@ architecture Behavioral of container is
   signal iec_atn_drive : std_logic;
   signal last_iec_atn_drive : std_logic;
   signal iec_bus_active : std_logic := '0';
-
-  signal pwm_l_drive : std_logic;
-  signal pwm_r_drive : std_logic;
 
   signal flopled0_drive : std_logic;
   signal flopled2_drive : std_logic;
@@ -1010,8 +1003,6 @@ begin
           flopled2 => flopled2_drive,
           flopledsd => flopledsd_drive,
           flopmotor => flopmotor_drive,
-          ampPWM_l => pwm_l_drive,
-          ampPWM_r => pwm_r_drive,
           audio_left => audio_left,
           audio_right => audio_right,
           
@@ -1197,9 +1188,6 @@ begin
       fb_potx <= paddle(2);
       fb_poty <= paddle(3);
 
-      pwm_l <= pwm_l_drive;
-      pwm_r <= pwm_r_drive;
-      
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
