@@ -35,7 +35,9 @@ use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
-         reset_from_max10 : inout  STD_LOGIC;
+         reset_button : inout  STD_LOGIC;
+         dipsw : in std_logic_vector(3 downto 0);
+         
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
@@ -146,7 +148,7 @@ entity container is
          hdmi_sda : inout std_logic;
 
          hpd_a : inout std_logic;
-         ct_hpd : out std_logic := '1';
+         hdmi_hiz : out std_logic := '0';
          ls_oe : out std_logic := '1';
          -- (i.e., when hsync, vsync both low?)
 
@@ -215,13 +217,15 @@ entity container is
          led : inout std_logic;
 
          ----------------------------------------------------------------------
-         -- I2S speaker audio output
+         -- AK443 audio DAC output
          ----------------------------------------------------------------------
-         i2s_mclk : out std_logic;
-         i2s_sync : out std_logic;
-         i2s_speaker : out std_logic;
-         i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
-         i2s_sd : out std_logic;
+         audio_mclk : out std_logic;
+         audio_lrclk : out std_logic;
+         audio_sdata : out std_logic;
+         audio_powerdown_n : out std_logic := '1'; -- Force 16 cycles per sample,
+         audio_smute : out std_logic;
+         audio_acks : out std_logic;
+         audio_cdti : out std_logic;
          
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
@@ -273,7 +277,6 @@ architecture Behavioral of container is
   signal max10_reset_out : std_logic := '1';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
-  signal dipsw : std_logic_vector(4 downto 0) := (others => '0');
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
@@ -805,27 +808,6 @@ begin
       cart_a => cart_a
       );
 
-  max10: entity work.max10
-    port map (
-      pixelclock      => pixelclock,
-      cpuclock        => cpuclock,
-
---      led => led,
-      
-      max10_clkandsync => reset_from_max10,
-      max10_rx => max10_rx,
-      max10_tx => max10_tx,
-
-      max10_fpga_commit => max10_fpga_commit,
-      max10_fpga_date => max10_fpga_date,
-
-      reset_button => max10_reset_out,
-      dipsw => dipsw,
-      j21in => j21in,
-      j21out => j21out,
-      j21ddr => j21ddr
-      );
-
   m0:
     if true generate
       machine0: entity work.machine
@@ -1039,11 +1021,7 @@ begin
           audio_left => audio_left,
           audio_right => audio_right,
           
-          -- PC speakers left/right on main board
-          ampSD => i2s_sd,
-          i2s_master_clk => i2s_mclk,
-          i2s_master_sync => i2s_sync,
-          i2s_speaker_data_out => i2s_speaker,
+          -- XXX New onboard AK4432 Audio DAC on board
           
           -- Normal connection of I2C peripherals to dedicated address space
           i2c1sda => fpga_sda,
@@ -1079,7 +1057,8 @@ begin
           widget_joyb => (others => '1'),      
           
           sw => sw,
-          dipsw => dipsw,
+          dipsw(4) => '0',
+          dipsw(3 downto 0) => dipsw,
 --      uart_rx => '1',
           btn => (others => '1')
           
@@ -1131,7 +1110,7 @@ begin
       
       reset_high <= not btncpureset;
 
-      btncpureset <= max10_reset_out;
+      btncpureset <= reset_button;
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then

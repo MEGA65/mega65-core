@@ -37,7 +37,7 @@ set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports dipsw[2]]
 set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports dipsw[3]]
 
 # Reset button on the side of the machine(?) connected to main FPGA on R4, not via MAX10
-set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports testpoint[4]]
+set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports reset_button]
 
 # On board LEDs direct connected to main FPGA on R4, not via MAX10
 set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
@@ -255,13 +255,14 @@ set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl]
 set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda]
 
 # Audio DAC
+# R4 board hard-wires DAC to serial mode
 set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports audio_lrclk]
 set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports audio_sdata]
 set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports audio_mclk]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports nsd_audio]
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio[1]]
-set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio[2]]
-set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio[3]]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports audio_powerdown_n]
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute] # SMUTE/CSN/I2CFIL
+set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio_acks] # ACKS/CCLK/SCL
+set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti] # DIF/CDTI/SDA
 
 
 # PWM Audio
