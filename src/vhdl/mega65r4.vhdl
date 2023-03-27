@@ -219,13 +219,13 @@ entity container is
          ----------------------------------------------------------------------
          -- AK443 audio DAC output
          ----------------------------------------------------------------------
-         audio_mclk : out std_logic;
-         audio_lrclk : out std_logic;
-         audio_sdata : out std_logic;
+         audio_mclk : out std_logic := '1';
+         audio_lrclk : out std_logic := '1';
+         audio_sdata : out std_logic := '1';
          audio_powerdown_n : out std_logic := '1'; -- Force 16 cycles per sample,
-         audio_smute : out std_logic;
-         audio_acks : out std_logic;
-         audio_cdti : out std_logic;
+         audio_smute : out std_logic := '1';
+         audio_acks : out std_logic := '1';
+         audio_cdti : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
@@ -239,12 +239,6 @@ entity container is
          ----------------------------------------------------------------------
          grove_sda : inout std_logic;
          grove_scl : inout std_logic;         
-         
-         ----------------------------------------------------------------------
-         -- Comms link to MAX10 FPGA
-         ----------------------------------------------------------------------
-         max10_tx : in std_logic;
-         max10_rx : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- Serial monitor interface
