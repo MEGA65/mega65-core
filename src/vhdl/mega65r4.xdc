@@ -260,9 +260,12 @@ set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports audio_lrclk]
 set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports audio_sdata]
 set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports audio_mclk]
 set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports audio_powerdown_n]
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute] # SMUTE/CSN/I2CFIL
-set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio_acks] # ACKS/CCLK/SCL
-set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti] # DIF/CDTI/SDA
+# SMUTE/CSN/I2CFIL
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute]
+# ACKS/CCLK/SCL
+set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio_acks]
+# DIF/CDTI/SDA
+  set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti]
 
 
 # PWM Audio
@@ -351,24 +354,40 @@ resize_pblock pblock_hyperram -add {SLICE_X0Y186:SLICE_X35Y224}
 resize_pblock pblock_hyperram -add {SLICE_X8Y175:SLICE_X23Y186}
 
 ## Pmod Header P1
-set_property -dict { PACKAGE_PIN F1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}] # B35_L5_N
-set_property -dict { PACKAGE_PIN D1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}] # B35_L3_N
-set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}] # B35_L2_N
-set_property -dict { PACKAGE_PIN A1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}] # B35_L1_N
-set_property -dict { PACKAGE_PIN A18 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}] # B16_L17_P
-set_property -dict { PACKAGE_PIN E1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}] # B35_L3_P
-set_property -dict { PACKAGE_PIN C2 IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}] # B35_L2_P
-set_property -dict { PACKAGE_PIN B1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}] # B35_L1_P
+# B35_L5_N
+set_property -dict { PACKAGE_PIN F1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
+# B35_L3_N
+set_property -dict { PACKAGE_PIN D1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]
+# B35_L2_N
+set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}]
+# B35_L1_N
+set_property -dict { PACKAGE_PIN A1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}]
+# B16_L17_P
+set_property -dict { PACKAGE_PIN A18 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
+# B35_L3_P
+set_property -dict { PACKAGE_PIN E1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
+# B35_L2_P
+set_property -dict { PACKAGE_PIN C2 IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
+# B35_L1_P
+set_property -dict { PACKAGE_PIN B1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
 
 ## Pmod Header P2
-set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}] # B35_L6_P
-set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[1]}] # B35_L6_N
-set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {p2lo[2]}] # B35_L12_P
-set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports {p2lo[3]}] # B35_L10_N
-set_property -dict { PACKAGE_PIN E2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[0]}] # B35_L4_P
-set_property -dict { PACKAGE_PIN D2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[1]}] # B35_L4_N
-set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {p2hi[2]}] # B35_L12_N
-set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}] # B35_L10_P
+# B35_L6_P
+set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}]
+# B35_L6_N
+set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[1]}]
+# B35_L12_P
+set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {p2lo[2]}]
+# B35_L10_N
+set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports {p2lo[3]}]
+# B35_L4_P
+set_property -dict { PACKAGE_PIN E2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[0]}]
+# B35_L4_N
+set_property -dict { PACKAGE_PIN D2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[1]}]
+# B35_L12_N
+set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {p2hi[2]}]
+# B35_L10_P
+set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 
 
 ## Hyper RAM on trap-door PMOD
