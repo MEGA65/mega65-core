@@ -1093,7 +1093,7 @@ begin
 
       dvi_select <= portp_drive(1);
       
-      reset_high <= not btncpureset;
+      reset_high <= btncpureset;
 
       btncpureset <= reset_button;
 
