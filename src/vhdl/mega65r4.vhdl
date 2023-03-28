@@ -148,9 +148,11 @@ entity container is
          hdmi_sda : inout std_logic;
 
          hpd_a : inout std_logic;
+
+         -- PTN3363 enable/disable 50 Ohm internal termination (0 = disable)
          hdmi_hiz : out std_logic := '0';
-         ls_oe : out std_logic := '1';
-         -- (i.e., when hsync, vsync both low?)
+         -- PTN3363 requires /OE to be low for output
+         ls_oe_n : out std_logic := '0';
 
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
