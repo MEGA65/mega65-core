@@ -133,6 +133,7 @@ entity container is
          vdac_clk : out std_logic;
          vdac_sync_n : out std_logic; -- tie low
          vdac_blank_n : out std_logic; -- tie high
+         vdac_psave_n : out std_logic := '1'; -- tie high
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
          vgared : out  UNSIGNED (7 downto 0);
@@ -717,7 +718,7 @@ begin
   
   slow_devices0: entity work.slow_devices
     generic map (
-      target => mega65r3
+      target => mega65r4
       )
     port map (
       cpuclock => cpuclock,
@@ -801,7 +802,7 @@ begin
     if true generate
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
-                     target => mega65r3,
+                     target => mega65r4,
                      -- MEGA65R3 has A200T which has plenty of spare BRAM.
                      -- We can thus increase the number of eth RX buffers from
                      -- 4x2KB to 32x2KB = 64KB.
