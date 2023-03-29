@@ -1095,9 +1095,8 @@ begin
 
       dvi_select <= portp_drive(1);
       
-      reset_high <= btncpureset;
-
       btncpureset <= reset_button;
+      reset_high <= btncpureset;
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then
@@ -1126,8 +1125,6 @@ begin
 --        led <= not led;
       end if;
 
-      reset_high <= not btncpureset;
-      
 --      led <= cart_exrom;
 --      led <= flopled_drive;
       
