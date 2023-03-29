@@ -1094,9 +1094,12 @@ begin
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
+
+      -- btncpureset is active low
+      -- reset_high is active high
       
-      btncpureset <= reset_button;
-      reset_high <= btncpureset;
+      btncpureset <= not reset_button;
+      reset_high <= reset_button;
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then
