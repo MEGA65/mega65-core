@@ -16,10 +16,6 @@ create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
-# On board LEDs direct connected to main FPGA on R4, not via MAX10
-set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
-set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
-
 
 # CBM-488/IEC serial port
 set_property -dict {PACKAGE_PIN AB21 IOSTANDARD LVCMOS33} [get_ports iec_reset]
@@ -42,6 +38,10 @@ set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports dipsw[3]]
 
 # Reset button on the side of the machine(?) connected to main FPGA on R4, not via MAX10
 set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports reset_button]
+
+# On board LEDs direct connected to main FPGA on R4, not via MAX10
+set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
+set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
 
 # C64 Cartridge port control lines
 # *_dir=1 means FPGA->Port, =0 means Port->FPGA
@@ -204,28 +204,28 @@ set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports vsync]
 # HDMI output
 ############## HDMIOUT define##################
 set_property PACKAGE_PIN Y1 [get_ports TMDS_clk_n]
-set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
+set_property IOSTANDARD LVCMOS33 [get_ports TMDS_clk_n]
 set_property PACKAGE_PIN W1 [get_ports TMDS_clk_p]
-set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_p]
+set_property IOSTANDARD LVCMOS33 [get_ports TMDS_clk_p]
 
 set_property PACKAGE_PIN AB1 [get_ports {TMDS_data_n[0]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_n[0]}]
 set_property PACKAGE_PIN AA1 [get_ports {TMDS_data_p[0]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_p[0]}]
 
 set_property PACKAGE_PIN AB2 [get_ports {TMDS_data_n[1]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_n[1]}]
 set_property PACKAGE_PIN AB3 [get_ports {TMDS_data_p[1]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_p[1]}]
 
 set_property PACKAGE_PIN AB5 [get_ports {TMDS_data_n[2]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_n[2]}]
 set_property PACKAGE_PIN AA5 [get_ports {TMDS_data_p[2]}]
-set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {TMDS_data_p[2]}]
 
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
-set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable_n]
+set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
 set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 
