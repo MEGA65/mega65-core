@@ -146,7 +146,7 @@ entity container is
 
          hpd_a : inout std_logic;
          -- HDMI_HIZ should be low for accepting TMDS_33 signals
-         hdmi_hiz : out std_logic;
+         hdmi_hiz : out std_logic := '0';
          -- LS_OE_n should be low to activate the HDMI output
          ls_oe : out std_logic := '0';
 
@@ -593,16 +593,16 @@ begin
             port map (
                 clk_x10  => clock270,
                 d       => tmds(i),
-                out_u_p   => TMDS_data_p(i),
-                out_u_n   => TMDS_data_n(i)
+                out_p   => TMDS_data_p(i),
+                out_n   => TMDS_data_n(i)
             );
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
             clk_x10  => clock270,
             d       => "0000011111",
-            out_u_p   => TMDS_clk_p,
-            out_u_n   => TMDS_clk_n
+            out_p   => TMDS_clk_p,
+            out_n   => TMDS_clk_n
         );
 
   fpgatemp0: entity work.fpgatemp
@@ -869,8 +869,6 @@ begin
     led_g <= dipsw(2);
     led_r <= dipsw(3);    
 
-    hdmi_hiz <= dipsw(2);
-    
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;    
