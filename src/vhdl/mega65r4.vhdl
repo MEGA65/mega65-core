@@ -107,9 +107,9 @@ entity container is
          sdram_cs_n : out std_logic;
          sdram_ba : out unsigned(1 downto 0);
          sdram_a : out unsigned(12 downto 0);
-         sdram_dmql : out std_logic;
-         sdram_dmqh : out std_logic;
-         sdram_dq : out std_logic_vector(15 downto 0);
+         sdram_dqml : out std_logic;
+         sdram_dqmh : out std_logic;
+         sdram_dq : inout std_logic_vector(15 downto 0);
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -477,14 +477,14 @@ architecture Behavioral of container is
 
   signal eth_load_enable : std_logic;
 
-  signal sdram_address :t unsigned(23 downto 0);
-  signal sdram_wdata :t unsigned(15 downto 0);
+  signal sdram_address : unsigned(23 downto 0);
+  signal sdram_wdata : std_logic_vector(15 downto 0);
   signal sdram_we : std_logic;
   signal sdram_req : std_logic;
   signal sdram_ack : std_logic;
   signal sdram_valid : std_logic;
-  signal sdram_rdata : unsigned(15 downto 0);
-
+  signal sdram_rdata : std_logic_vector(15 downto 0);
+  signal sdram_reset : std_logic;
   
 begin
 
@@ -626,8 +626,6 @@ begin
     begin
         HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
-                rst     => dvi_reset,
-                clk     => clock27,
                 clk_x10  => clock270,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
@@ -636,8 +634,6 @@ begin
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
-            rst     => dvi_reset,
-            clk     => clock27,
             clk_x10  => clock270,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
@@ -687,7 +683,7 @@ begin
   sdram0: entity work.sdram
     port map (
       -- MEGA65 interface to SDRAM
-      reset => reset,
+      reset => sdram_reset,
       clk => clock162,
       addr => sdram_address,
       data => sdram_wdata,
@@ -695,7 +691,7 @@ begin
       req => sdram_req,
       ack => sdram_ack,
       valid => sdram_valid,
-      sdram_q => sdram_rdata,
+      q => sdram_rdata,
 
       sdram_a => sdram_a,
       sdram_ba => sdram_ba,
@@ -713,7 +709,6 @@ begin
     port map (
       pixelclock => pixelclock,
       clock163 => clock162,
-      clock325 => clock325,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
@@ -737,13 +732,13 @@ begin
       current_cache_line_valid => current_cache_line_valid,     
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
-         sdram_address : out unsigned(23 downto 0);
-         sdram_wdata : out unsigned(15 downto 0);
-         sdram_we : out std_logic;
-         sdram_req : out sdram_req;
-         sdram_ack : out sdram_ack;
-         sdram_valid : in sdram_valid;
-         sdram_rdata : in unsigned(15 downto 0)
+      sdram_address => sdram_address,
+      sdram_wdata => sdram_wdata,
+      sdram_we => sdram_we,
+      sdram_req => sdram_req,
+      sdram_ack => sdram_ack,
+      sdram_valid => sdram_valid,
+      sdram_rdata => sdram_rdata
       
       );
 

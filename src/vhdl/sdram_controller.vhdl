@@ -63,18 +63,18 @@ entity sdram_controller is
          viciv_data_strobe : out std_logic := '0';
 
          sdram_address : out unsigned(23 downto 0);
-         sdram_wdata : out unsigned(15 downto 0);
+         sdram_wdata : out std_logic_vector(15 downto 0);
          sdram_we : out std_logic;
          sdram_req : out std_logic;
          sdram_ack : out std_logic;
          sdram_valid : in std_logic;
-         sdram_rdata : in unsigned(15 downto 0)
+         sdram_rdata : in std_logic_vector(15 downto 0)
          
          );
 end sdram_controller;
 
 architecture tacoma_narrows of sdram_controller is
 
-  
+begin  
   
 end tacoma_narrows;

@@ -159,10 +159,13 @@ architecture arch of sdram is
   );
 
   -- calculate the clock period (in nanoseconds)
-  constant CLK_PERIOD : real := 1.0/CLK_FREQ*1000.0;
+--  constant CLK_PERIOD : real := 1.0/CLK_FREQ*1000.0;
+  constant CLK_PERIOD : real := 6.172839506;
 
   -- the number of clock cycles to wait before initialising the device
-  constant INIT_WAIT : natural := natural(ceil(T_DESL/CLK_PERIOD));
+  constant INIT_WAIT_R : real := (ceil(T_DESL/CLK_PERIOD));
+
+  constant INIT_WAIT : natural := natural(INIT_WAIT_R);
 
   -- the number of clock cycles to wait while a LOAD MODE command is being
   -- executed
@@ -178,7 +181,10 @@ architecture arch of sdram is
 
   -- the number of clock cycles to wait while a PRECHARGE command is being
   -- executed
-  constant PRECHARGE_WAIT : natural := natural(ceil(T_RP/CLK_PERIOD));
+--  constant PRECHARGE_WAIT : natural := natural(ceil(T_RP/CLK_PERIOD));
+  -- T_RP = 18, CLK_PERIOD=6.7...
+  -- ceil(18/6.7) = 3
+  constant PRECHARGE_WAIT : natural := 3;
 
   -- the number of clock cycles to wait while a READ command is being executed
   constant READ_WAIT : natural := CAS_LATENCY+BURST_LENGTH;
@@ -378,12 +384,13 @@ begin
       valid <= '0';
 
       if state = READ then
-        if first_word = '1' then
-          q_reg(31 downto 16) <= sdram_dq;
-        elsif read_done = '1' then
+        -- PGS: We are using only 16-bit accesses for MEGA65
+--        if first_word = '1' then
+--          q_reg(31 downto 16) <= sdram_dq;
+--        elsif read_done = '1' then
           q_reg(15 downto 0) <= sdram_dq;
           valid <= '1';
-        end if;
+--        end if;
       end if;
     end if;
   end process;
