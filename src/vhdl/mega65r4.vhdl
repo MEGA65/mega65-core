@@ -97,13 +97,28 @@ entity container is
          cart_a : inout unsigned(15 downto 0) := (others => 'Z');
 
          ----------------------------------------------------------------------
+         -- SDRAM as expansion RAM
+         ----------------------------------------------------------------------
+         sdram_clk : out std_logic;
+         sdram_cke : out std_logic;
+         sdram_ras_n : out std_logic;
+         sdram_cas_n : out std_logic;
+         sdram_we_n : out std_logic;
+         sdram_cs_n : out std_logic;
+         sdram_ba : out unsigned(1 downto 0);
+         sdram_a : out unsigned(12 downto 0);
+         sdram_dmql : out std_logic;
+         sdram_dmqh : out std_logic;
+         sdram_dq : out std_logic_vector(15 downto 0);
+         
+         ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
-         hr_d : inout unsigned(7 downto 0);
-         hr_rwds : inout std_logic;
-         hr_reset : out std_logic;
-         hr_clk_p : out std_logic;
-         hr_cs0 : out std_logic;
+--         hr_d : inout unsigned(7 downto 0);
+--         hr_rwds : inout std_logic;
+--         hr_reset : out std_logic;
+--         hr_clk_p : out std_logic;
+--         hr_cs0 : out std_logic;
 
          -- Optional 2nd hyperram in trap-door slot
 --         hr2_d : inout unsigned(7 downto 0);
@@ -461,6 +476,15 @@ architecture Behavioral of container is
   signal composite : unsigned(7 downto 0);
 
   signal eth_load_enable : std_logic;
+
+  signal sdram_address :t unsigned(23 downto 0);
+  signal sdram_wdata :t unsigned(15 downto 0);
+  signal sdram_we : std_logic;
+  signal sdram_req : std_logic;
+  signal sdram_ack : std_logic;
+  signal sdram_valid : std_logic;
+  signal sdram_rdata : unsigned(15 downto 0);
+
   
 begin
 
@@ -660,7 +684,32 @@ begin
       
       );
 
-  hyperram0: entity work.hyperram
+  sdram0: entity work.sdram
+    port map (
+      -- MEGA65 interface to SDRAM
+      reset => reset,
+      clk => clock162,
+      addr => sdram_address,
+      data => sdram_wdata,
+      we => sdram_we,
+      req => sdram_req,
+      ack => sdram_ack,
+      valid => sdram_valid,
+      sdram_q => sdram_rdata,
+
+      sdram_a => sdram_a,
+      sdram_ba => sdram_ba,
+      sdram_dq => sdram_dq,
+      sdram_cke => sdram_cke,
+      sdram_cs_n => sdram_cs_n,
+      sdram_ras_n => sdram_ras_n,
+      sdram_cas_n => sdram_cas_n,
+      sdram_we_n => sdram_we_n,
+      sdram_dqml => sdram_dqml,
+      sdram_dqmh => sdram_dqmh
+      );
+  
+  sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
       clock163 => clock162,
@@ -688,34 +737,16 @@ begin
       current_cache_line_valid => current_cache_line_valid,     
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
-      hr_d => hr_d,
-      hr_rwds => hr_rwds,
-      hr_reset => hr_reset,
-      hr_clk_p => hr_clk_p,
---      hr_clk_n => hr_clk_n,
-
-      hr_cs0 => hr_cs0,
---      hr_cs1 => hr2_cs0,
-
-      hr2_d => open,
-      hr2_rwds => open
---      hr2_reset => hr2_reset,
---      hr2_clk_p => hr2_clk_p
---      hr_clk_n => hr_clk_n,
+         sdram_address : out unsigned(23 downto 0);
+         sdram_wdata : out unsigned(15 downto 0);
+         sdram_we : out std_logic;
+         sdram_req : out sdram_req;
+         sdram_ack : out sdram_ack;
+         sdram_valid : in sdram_valid;
+         sdram_rdata : in unsigned(15 downto 0)
+      
       );
 
---  fakehyper0: entity work.fakehyperram
---    port map (
---      clock163 => clock163,
---      hr_d => hr_d,
---      hr_rwds => hr_rwds,
---      hr_reset => hr_reset,
---      hr_clk_n => hr_clk_n,
---      hr_clk_p => hr_clk_p,
---      hr_cs0 => hr_cs0
---      );
-    
-  
   slow_devices0: entity work.slow_devices
     generic map (
       target => mega65r4
@@ -811,7 +842,7 @@ begin
                      -- filled.
                      num_eth_rx_buffers => 32,
                      hyper_installed => true -- For VIC-IV to know it can use
-                                             -- hyperram for full-colour glyphs
+                                             -- hyperram/sdram for full-colour glyphs
                      )                 
         port map (
           pixelclock      => pixelclock,
