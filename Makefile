@@ -837,8 +837,8 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC6
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
 	@test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
 
-# $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
-# 	$(UTILDIR)/userwarning.sh
+$(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
+	$(UTILDIR)/userwarning.sh
 
 $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
 	$(info =============================================================)
