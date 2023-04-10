@@ -368,7 +368,7 @@ architecture Behavioral of container is
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
   signal test_pattern_enable : std_logic := '1';
-  signal pal50 : std_logic := '1';
+  signal pal50 : std_logic := '0';
   signal vga60 : std_logic := '0';
 
   signal interlace : std_logic := '1';
