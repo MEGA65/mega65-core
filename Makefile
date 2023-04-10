@@ -840,24 +840,24 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC6
 # $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
 # 	$(UTILDIR)/userwarning.sh
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
 		--add-source -Ln $*.label --listing $*.list \
-		--mapfile $*.map $< \
+		--mapfile $*.map -DQSPI_FLASH_SLOT0 $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 # it doesn't overlap with hypervisor
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a100t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a100t.prg)
 	@test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
 		--add-source -Ln $*.label --listing $*.list \
-		--mapfile $*.map $< \
+		--mapfile $*.map -DQSPI_FLASH_SLOT0 $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 # it doesn't overlap with hypervisor
@@ -876,6 +876,15 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c 
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> joyflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/joyflash-a200t.prg)
 	@test -n "$$(find $(UTILDIR)/joyflash-a200t.prg -size -29000c)"
 
+# The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
+$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $@ \
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map -DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> mflash200.prg size is %s" $(UTILDIR)/mflash200.prg)
 
 $(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
@@ -1223,6 +1232,7 @@ clean:
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean
+	rm -f $(UTILDIR)/*.prg $(UTILDIR)/*.list $(UTILDIR)/*.map $(UTILDIR)/*.label
 	make -C src/mega65-fdisk clean
 	make -C src/mega65-freezemenu clean
 

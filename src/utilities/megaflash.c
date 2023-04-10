@@ -10,7 +10,9 @@
 
 #include "qspicommon.h"
 // not needed, no slot 0 flashing in core flasher!
-// #include "userwarning.c"
+#ifdef QSPI_FLASH_SLOT0
+#include "userwarning.c"
+#endif
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
@@ -20,11 +22,36 @@ unsigned int base_addr;
 unsigned long autoboot_address = 0;
 
 // mega65r3 QSPI has the most space currently with 8x8MB
+// this is to much for r3 or r2, but we can handle...
 #define MAX_SLOTS 8
-unsigned char slot_core_valid[MAX_SLOTS];
-char slot_core_name[MAX_SLOTS][32];
-char slot_core_version[MAX_SLOTS][32];
-unsigned char slot_core_cartridge = 0xff;
+
+// core flags/caps
+#define CORECAP_USED         0b10000111
+#define CORECAP_CART         0b00000111
+#define CORECAP_CART_C64     0b00000001
+#define CORECAP_CART_C128    0b00000010
+#define CORECAP_CART_M65     0b00000100
+#define CORECAP_UNDEFINED    0b01111000 // free for further expansion
+#define CORECAP_SLOT_DEFAULT 0b10000000 // in capabilities 1 means: prohibited use as default
+
+#define SLOT_EMPTY   0x00
+#define SLOT_INVALID 0x01
+#define SLOT_VALID   0x80
+
+#define CARTCAP_NAME_MAX 3
+char cartcap_names[CARTCAP_NAME_MAX][5] = {"C64 ", "C128", "M65"};
+unsigned char cart_c128_magic[3] = { 0x43, 0x42, 0x4d };
+unsigned char cart_m65_magic[3] = { 0x4d, 0x36, 0x35 };
+
+typedef struct {
+  char name[32];
+  char version[32];
+  unsigned char capabilities;
+  unsigned char flags;
+  unsigned char valid;
+} slot_core_type;
+
+slot_core_type slot_core[MAX_SLOTS];
 
 void display_version(void)
 {
@@ -38,10 +65,37 @@ void display_version(void)
   printf("%c%c%c", 0x93, 0x11, 0x11);
   printf("  MEGAFLASH/Core hash:\n    %02x%02x%02x%02x%s\n\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
       reconfig_disabled ? " (booted via JTAG)" : "");
-  printf("  Slot 0 Version:\n    %s\n\n", slot_core_version[0]);
+  printf("  Slot 0 Version:\n    %s\n\n", slot_core[0].version);
   printf("  Hardware model id:\n    $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
-  printf("  Default cartridge slot: %X\n", slot_core_cartridge);
-  printf("  D67E: %04X\n", PEEK(0xD67EU));
+
+#if 0
+  {
+    unsigned char cart_id[6];
+    printf("  Cartridge debug:\n");
+    key = PEEK(0xD67EU);
+    printf("    $D67E: %02X ", key);
+    switch (key & 0x60) {
+    case 0x00:
+      printf("ROML/ROMH");
+      break;
+    case 0x20:
+      printf("ROML");
+      break;
+    case 0x40:
+      printf("Ultimax");
+      break;
+    case 0x60:
+      printf("no C64 cart");
+      break;
+    }
+    lcopy(0x4008004, (long)cart_id, 6);
+    printf("\n    $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
+        cart_id[5]);
+    lcopy(0x400C004, (long)cart_id, 6);
+    printf(
+        "    $C004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
+  }
+#endif
 
   // wait for ESC or RUN/STOP
   do {
@@ -69,88 +123,127 @@ void do_first_flash_read(unsigned long addr)
   first_flash_read = 0;
 }
 
-void scan_bitstream_information(unsigned char quick)
+/*
+ * uchar scan_bitstream_information(search_flags, slot)
+ *
+ * gathers core slot information from flash and looks
+ * for a slot to boot.
+ *
+ * if search_flags is not 0, then it is matched against the core flags
+ * to determine the first slot that has one of the flags. The slot number
+ * is returned. 0xff means not found. Searching for a slot will *not*
+ * copy any slot information, to be fast!
+ *
+ * if slot is non zero, only the slot with the specified slot number & 0xf
+ * is updated, otherwise all slots are updated (used after flash). Set high
+ * bit to update slot 0.
+ *
+ */
+unsigned char scan_bitstream_information(unsigned char search_flags, unsigned char update_slot)
 {
-  short i, j, x, y;
-  unsigned char valid;
+  short slot, j;
+  unsigned char found = 0xff, default_slot = 0xff, flagmask = CORECAP_USED;
 
   if (first_flash_read)
     do_first_flash_read(0);
 
-  slot_core_cartridge = 0xff;
+  for (slot = update_slot & 0x0f; slot < slot_count; slot++) {
+    // read first sector from flash slot
+    read_data(slot * SLOT_SIZE);
 
-  for (i = 0; i < slot_count; i++) {
-    read_data(i * SLOT_SIZE + 0 * 256);
-    //       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
-    y = 0xff;
-    valid = 1;
-    for (x = 0; x < 256; x++)
-      y &= data_buffer[x];
-    for (x = 0; x < 16; x++)
-      if (data_buffer[x] != bitstream_magic[x]) {
-        valid = 0;
+    // check for bitstream magic
+    slot_core[slot].valid = SLOT_VALID;
+    for (j = 0; j < 16; j++)
+      if (data_buffer[j] != bitstream_magic[j]) {
+        slot_core[slot].valid = SLOT_INVALID;
         break;
       }
 
-    // save first cartridge slot (can't be slot 0!)
-    if (valid && y != 0xff && i > 0 && slot_core_cartridge == 0xff && (data_buffer[16 + 31] & 0xdf) == 0x43)
-      slot_core_cartridge = i;
+    if (slot_core[slot].valid == SLOT_VALID) {
+      slot_core[slot].capabilities = data_buffer[0x7b] & CORECAP_USED;
+      // mask out flags from prior slots, slot 0 never has flags enabled!
+      slot_core[slot].flags = data_buffer[0x7c] & flagmask;
+      // remove flags from flagmask (we only find the first flag of a kind)
+      flagmask ^= slot_core[slot].flags;
+      if (search_flags && found == 0xff && (slot_core[slot].flags & search_flags))
+        found = slot;
+      if (default_slot == 0xff && (slot_core[slot].flags & CORECAP_SLOT_DEFAULT))
+        default_slot = slot;
+    }
+    else
+      slot_core[slot].capabilities = slot_core[slot].flags = 0;
 
-    if (quick)
+    // if we are searching for a slot, we can cut the process short...
+    if (search_flags)
       continue;
 
+#define FAST_PETSCII2ASCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
+
+    // check if slot is empty (all FF)
+    for (j = 0; j < 512 && (data_buffer[j] != 0xff); j++)
+      ;
+    if (j < 512)
+      slot_core[slot].valid = SLOT_EMPTY;
+
+    lfill((long)slot_core[slot].name, ' ', 64);
     // extract names
-    for (j = 0; j < 31; j++) {
-      slot_core_name[i][j] = data_buffer[16 + j];
-      slot_core_version[i][j] = data_buffer[48 + j];
-      // ASCII to PETSCII conversion
-      if ((slot_core_name[i][j] >= 0x41 && slot_core_name[i][j] <= 0x5f)
-          || (slot_core_name[i][j] >= 0x61 && slot_core_name[i][j] <= 0x7f))
-        slot_core_name[i][j] ^= 0x20;
-      if ((slot_core_version[i][j] >= 0x41 && slot_core_version[i][j] <= 0x5f)
-          || (slot_core_version[i][j] >= 0x61 && slot_core_version[i][j] <= 0x7f))
-        slot_core_version[i][j] ^= 0x20;
-    }
-    slot_core_name[i][31] = 0;
-    slot_core_version[i][31] = 0;
-    slot_core_valid[i] = 1;
-
-    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-    if (y == 0xff) {
-      read_data(i * SLOT_SIZE + 1 * 256);
-      for (x = 0; x < 256; x++)
-        y &= data_buffer[x];
+    if (slot_core[slot].valid == SLOT_VALID) {
+      for (j = 0; j < 31; j++) {
+        slot_core[slot].name[j] = FAST_PETSCII2ASCII(data_buffer[16 + j]);
+        slot_core[slot].version[j] = FAST_PETSCII2ASCII(data_buffer[48 + j]);
+      }
     }
 
-    if (i == 0) {
+    if (slot == 0)
       // slot 0 is always displayed as FACTORY CORE
-      strncpy(slot_core_name[i], "MEGA65 FACTORY CORE            ", 32);
-    }
-    else if (y == 0xff) {
+      memcpy(slot_core[slot].name, "MEGA65 FACTORY CORE", 19);
+    else if (slot_core[slot].valid == SLOT_EMPTY)
       // 0xff in the first 512 bytes, this is empty
-      strncpy(slot_core_name[i], "EMPTY SLOT                     ", 32);
-      memset(slot_core_version[i], ' ', 31);
-      slot_core_version[i][31] = 0;
-      slot_core_valid[i] = 0;
-    }
-    else if (!valid) {
+      memcpy(slot_core[slot].name, "EMPTY SLOT", 10);
+    else if (slot_core[slot].valid == SLOT_INVALID)
       // no bitstream magic at the start of the slot
-      strncpy(slot_core_name[i], "UNKNOWN CONTENT                ", 32);
-      memset(slot_core_version[i], ' ', 31);
-      slot_core_version[i][31] = 0;
-      slot_core_valid[i] = 2;
-    }
+      memcpy(slot_core[slot].name, "UNKNOWN CONTENT", 15);
+    slot_core[slot].name[31] = 0;
+    slot_core[slot].version[31] = 0;
 
-    // Check if entire slot is empty
-    //    if (slot_empty_check(i)) then do write it into slot info...
+    if (update_slot & 0x80)
+      break;
   }
+
+  return found != 0xff ? found : default_slot;
+}
+
+void write_text(unsigned char x, unsigned char y, char *text)
+{
+  while (*text) {
+    POKE(0x400 + y*40 + x++, *text);
+    text++;
+  }
+}
+
+void display_cartridge(short slot)
+{
+  unsigned char offset = 1;
+  // TODO: if we get more than 3 cartridge types, we need to change this!
+
+  // if all three bits are 1, write ALL... is that even possible?
+  if ((slot_core[slot].flags & CORECAP_CART) == CORECAP_CART) {
+    write_text(35, slot * 3 + offset, "\x1b" "ALL" "\x1d");
+    return;
+  }
+
+  if (slot_core[slot].flags & CORECAP_CART_C64)
+    write_text(35, slot * 3 + offset++, "\x1b" "C64" "\x1d");
+  if (slot_core[slot].flags & CORECAP_CART_C128)
+    write_text(35, slot * 3 + offset++, "\x1b" "128" "\x1d");
+  if (slot_core[slot].flags & CORECAP_CART_M65)
+    write_text(35, slot * 3 + offset++, "\x1b" "M65" "\x1d");
 }
 
 void main(void)
 {
-  unsigned char selected = 0, valid, atticram_bad = 0;
+  unsigned char selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT, i;
   unsigned char selected_reflash_slot;
-  char cart_id[11];
 
   mega65_io_enable();
 
@@ -161,6 +254,19 @@ void main(void)
   POKE(0xd020, 0);
   POKE(0xd021, 6);
   printf("%c", 0x93);
+
+#ifndef STANDALONE
+  /*
+   * This part is the *Startup Process* of the core,
+   * so we don't need this if we are in standalone mode.
+   *
+   * It determines if the user wants to see the flash menu,
+   * otherwise it will try to find out what core to start
+   * and fallback to the default 1/2 via DIPSW 4.
+   *
+   * If it can't find anything, it will return control to
+   * Hyppo without loading a different core.
+   */
 
   // We care about whether the IPROG bit is set.
   // If the IPROG bit is set, then we are post-config, and we
@@ -179,7 +285,7 @@ void main(void)
   }
 
   probe_qspi_flash(); // sets slot_count
-  
+
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
   // this is the non-interactive part, where megaflash just
@@ -192,6 +298,7 @@ void main(void)
   // only NO-SCROLL on mega65r2/r3
   if (!(PEEK(0xD611) & 0x20)) {
 #endif
+    char cart_id[6], valid;
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
     usleep(10);
@@ -209,34 +316,44 @@ void main(void)
       POKE(0xCF7f, 0x4C);
       asm(" jmp $cf7f ");
     }
-    else {
-      // FPGA has NOT been reconfigured
-      // So if we have a valid upgrade bitstream in slot 1, then run it.
-      // Else, just show the menu.
-      // XXX - For now, we just always show the menu
+    else { // FPGA has NOT been reconfigured
+      /*
+       * Determine which core should be started
+       */
 
-      selected = 0xff;
-      // check for cartridge: if /EXROM or /GAME is not high, we might have a cart inserted
-      if ((PEEK(0xD67EU) & 0x60) != 0x60) {
-        // we got a cartridge, check if it has the MEGA65 signature
-        lcopy(0x4008009, (long)cart_id, 6);
-        if (memcmp(cart_id, "MEGA65", 6) != 0) {
-          // determine cart slot quickly
-          scan_bitstream_information(1);
-          if (slot_core_cartridge != 0xff)
-            selected = slot_core_cartridge;
+      // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 cart
+      if ((PEEK(0xD67EU) & 0x60) != 0x60)
+        search_cart = CORECAP_CART_C64;
+      else {
+        // check for C128 or MEGA65 style cart by looking at signature at 8007 or C007
+        for (i = 0; i < 2; i++) {
+          lcopy(0x4008007UL + i * 0x4000UL, (long)cart_id, 3);
+          if (!memcmp(cart_id, cart_m65_magic, 3)) {
+            search_cart = CORECAP_CART_M65;
+            break;
+          }
+          else if (!memcmp(cart_id, cart_c128_magic, 3)) {
+            search_cart = CORECAP_CART_C128;
+            break;
+          }
         }
       }
+
+      // determine boot slot by flags (default search is for default slot)
+      selected = scan_bitstream_information(search_cart, 0);
+
       // if we don't have a cart slot, then we use slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
       if (selected == 0xff)
         selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
-#if 0
+#if 1
       // debug
-      lcopy(0x4008004, (long)cart_id, 11);
-      printf("\n\nD67E=%02X,MATCH=%02X,SEL=%X\n", PEEK(0xD67EU), PEEK(0xD67EU) & 0x60, selected);
-      printf("\n  $8004: %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4]);
-      printf("\n  $8009: %02X %02X %02X %02X %02X %02X\n", cart_id[5], cart_id[6], cart_id[7], cart_id[8], cart_id[9], cart_id[10]);
+      printf("\n\nD67E=%02X,MATCH=%02X,SEARCH=%X,SEL=%X,D7FD=%02X\n", PEEK(0xD67EU), PEEK(0xD67EU) & 0x60, search_cart, selected, PEEK(0xD7FDU));
+      lcopy(0x4008004, (long)cart_id, 6);
+      printf("\n  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
+      lcopy(0x400C004, (long)cart_id, 6);
+      printf("\n  $C004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
+      // wait for key
       while (PEEK(0xD610))
         POKE(0xD610, 0);
       while (!PEEK(0xD610))
@@ -280,14 +397,6 @@ void main(void)
       else if (y == 0xff) {
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
-
-#if 0
-        printf("Continuing booting with this bitstream (b)...\n");
-        printf("Trying to return control to hypervisor...\n");
-
-        press_any_key(0, 0);
-#endif
-
         POKE(0, 64);
         POKE(0xCF7f, 0x4C);
         asm(" jmp $cf7f ");
@@ -331,15 +440,15 @@ void main(void)
            "%ccan't%c use this menu to launch other\n"
            "cores.\n"
            "You will still be able to flash new\n"
-           "bitstreams, though.\n\n", 158, 5, 158, 5);
+           "bitstreams, though.\n\n",
+        158, 5, 158, 5);
     reconfig_disabled = 1;
     // wait for key see below
   }
+#else /* STANDALONE */
 
-#if 0
-  POKE(0xD6C4,0x10);
-  printf("WBSTAR = $%02x%02x%02x%02x\n",
-      PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+  probe_qspi_flash();
+
 #endif
 
   // quick and dirty attic ram check
@@ -388,7 +497,7 @@ void main(void)
     slot_count = 8;
 
   // Scan for existing bitstreams
-  scan_bitstream_information(0);
+  scan_bitstream_information(0, 0);
 
   // clear screen
   selected = 0;
@@ -398,16 +507,15 @@ void main(void)
     printf("%c%c", 0x13, 0x05);
 
     for (i = 0; i < slot_count; i++) {
-      // Display info about it
-      if (slot_core_cartridge == i)
-        printf("\n<C> ");
+      // Display slot information
+      printf("\n %c%c%c %s", slot_core[i].flags & CORECAP_SLOT_DEFAULT ? '>' : '(',
+        '0' + i, slot_core[i].flags & CORECAP_SLOT_DEFAULT ? '<' : ')', slot_core[i].name);
+      if (i > 0 && slot_core[i].valid == SLOT_VALID) {
+        printf("\n     %s\n", slot_core[i].version);
+        display_cartridge(i);
+      }
       else
-        printf("\n    ");
-      printf("(%c) %s\n", '0' + i, slot_core_name[i]);
-      if (i > 0 && slot_core_valid[i] == 1)
-        printf("        %s\n", slot_core_version[i]);
-      else
-        printf("\n");
+        printf("\n\n");
 
       // highlight slot
       base_addr = 0x0400 + i * (3 * 40);
@@ -415,7 +523,7 @@ void main(void)
         // Highlight selected item
         for (x = 0; x < (3 * 40); x++) {
           POKE(base_addr + x, PEEK(base_addr + x) | 0x80);
-          POKE(base_addr + 0xd400 + x, slot_core_valid[i] == 1 ? 1 : (slot_core_valid[i] == 0 ? 2 : 7));
+          POKE(base_addr + 0xd400 + x, slot_core[i].valid == SLOT_VALID ? 1 : (slot_core[i].valid == SLOT_INVALID ? 2 : 7));
         }
       }
       else {
@@ -429,7 +537,7 @@ void main(void)
     for (; i < 8; i++)
       printf("%c%c%c", 17, 17, 17);
     printf("%c0-%u = Launch Core.  CTRL 1-%u = Edit Slo%c", 0x12, slot_count - 1, slot_count - 1, 0x92);
-    POKE(1024 + 999, 0x14 + 0x80);
+    POKE(1024 + 999, 0x14 + 0x80); // the 't'
 
     x = 0;
     while (!x) {
@@ -442,7 +550,7 @@ void main(void)
       if (x == '0') {
         reconfig_fpga(0);
       }
-      else if (slot_core_valid[x - '0'] != 0) // only boot slot if not empty
+      else if (slot_core[x - '0'].valid != 0) // only boot slot if not empty
         reconfig_fpga((x - '0') * SLOT_SIZE + 4096);
       else {
         POKE(0xd020, 2);
@@ -484,7 +592,7 @@ void main(void)
         reconfig_fpga(0);
         printf("%c", 0x93);
       }
-      else if (slot_core_valid[selected] != 0)
+      else if (slot_core[selected].valid != SLOT_EMPTY)
         reconfig_fpga(selected * SLOT_SIZE + 4096);
       else {
         POKE(0xd020, 2);
@@ -503,7 +611,7 @@ void main(void)
       break;
 #endif
 // slot 0 flashing is only done with PRG and DIP 3!
-#if 0
+#if QSPI_FLASH_SLOT0
     case 0x7e: // TILDE (MEGA-LT)
       // first ask rediculous questions...
       if (user_has_been_warned()) {
@@ -545,7 +653,11 @@ void main(void)
     }
 
     // extra security against slot 0 flashing
+#if QSPI_FLASH_SLOT0
+    if (selected_reflash_slot < slot_count) {
+#else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
+#endif
       if (atticram_bad) {
         POKE(0xd020, 2);
         POKE(0xd021, 2);
@@ -555,7 +667,7 @@ void main(void)
       }
       else {
         reflash_slot(selected_reflash_slot);
-        scan_bitstream_information(0);
+        scan_bitstream_information(0, selected_reflash_slot | 0x80);
         printf("%c", 0x93);
       }
     }

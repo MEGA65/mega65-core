@@ -18,8 +18,6 @@ unsigned char slot_count = 0;
 short i, x, y, z;
 
 unsigned long addr, vaddr;
-unsigned char progress = 0;
-unsigned long progress_acc = 0;
 unsigned char tries = 0;
 
 unsigned int num_4k_sectors = 0;
@@ -62,28 +60,90 @@ const unsigned long sd_timeout_value = 100000;
 
  ***************************************************************************/
 
-unsigned char progress_chars[4] = { 32, 101, 97, 231 };
-
-void progress_bar(unsigned char onesixtieths)
+unsigned char debcd(unsigned char c)
 {
-  unsigned char fulls = onesixtieths >> 2;
+  return (c & 0xf) + (c >> 4) * 10;
+}
 
-  /* Draw a progress bar several chars high */
-  for (i = 0; i < fulls; i++) {
-    POKE(0x0400 + (4 * 40) + i, 160);
-    POKE(0x0400 + (5 * 40) + i, 160);
-    POKE(0x0400 + (6 * 40) + i, 160);
-  }
-  if (i < 40) {
-    POKE(0x0400 + (4 * 40) + i, progress_chars[onesixtieths & 3]);
-    POKE(0x0400 + (5 * 40) + i, progress_chars[onesixtieths & 3]);
-    POKE(0x0400 + (6 * 40) + i, progress_chars[onesixtieths & 3]);
-    for (i++; i < 40; i++) {
-      POKE(0x400 + (4 * 40) + i, 0x20);
-      POKE(0x400 + (5 * 40) + i, 0x20);
-      POKE(0x400 + (6 * 40) + i, 0x20);
+void getciartc(struct m65_tm *a)
+{
+  a->tm_hour = debcd(PEEK(0xDC0B));
+  a->tm_min = debcd(PEEK(0xDC0A));
+  a->tm_sec = debcd(PEEK(0xDC09));
+  a->tm_wday = PEEK(0xDC08); // to remove read latch, wday is not used here
+}
+
+// assumes that b is greater a
+unsigned long seconds_between(struct m65_tm *a, struct m65_tm *b)
+{
+  unsigned long d = 0;
+
+  d += 3600L * b->tm_hour;
+  d += 60L * b->tm_min;
+  d += b->tm_sec;
+
+  d -= 3600L * a->tm_hour;
+  d -= 60L * a->tm_min;
+  d -= a->tm_sec;
+
+  return d;
+}
+
+unsigned char progress_chars[4] = { 32, 101, 97, 231 };
+unsigned char progress = 0, progress_last = 0;
+unsigned int progress_total = 0;
+
+#define progress_start() \
+  getciartc(&tm_start); \
+  progress = progress_last = 0; \
+  progress_total = 0
+
+// this count 256 byte blocks and draws a 32 char wide progress bar with 128 divisions
+void progress_bar(unsigned int add_pages, char *action)
+{
+  unsigned char progress_small, bar;
+
+  progress_total += add_pages;
+  progress = progress_total >> 8;
+  if (progress != progress_last) {
+    progress_last = progress;
+
+    getciartc(&tm_now);
+    // This division is _really_ slow, which is why we do it only
+    // once per second.
+    if (tm_start.tm_sec != tm_now.tm_sec) {
+      unsigned int speed;
+      unsigned int eta, delta_t;
+
+      delta_t = seconds_between(&tm_start, &tm_now);
+      speed = (unsigned int)((progress_total / delta_t) >> 2);
+      if (speed > 0)
+        eta = ((SLOT_SIZE_PAGES - progress_total) / speed) >> 2;
+        printf("%c%c%c%c%c%c%c%c%c%s %uKB/sec, done in %u sec.     \n", 0x13, 0x11, 0x11, 0x11, 0x11,
+            0x11, 0x11, 0x11, 0x11, action, speed, eta);
     }
   }
+  // printf("%c%c   %u   %u  %u   ", 0x13, 0x11, progress, progress_total, progress_last);
+
+  /* Draw a progress bar several chars high */
+  POKE(0x0403 + (4 * 40), 93);
+  POKE(0x0403 + (5 * 40), 93);
+  POKE(0x0403 + (6 * 40), 93);
+  progress_small = progress >> 2;
+  for (i = 0; i < 32; i++) {
+    if (i < progress_small)
+      bar = 160;
+    else if (i == progress_small)
+      bar = progress_chars[progress & 3];
+    else
+      bar = 32;
+    POKE(0x0404 + (4 * 40) + i, bar);
+    POKE(0x0404 + (5 * 40) + i, bar);
+    POKE(0x0404 + (6 * 40) + i, bar);
+  }
+  POKE(0x0424 + (4 * 40), 93);
+  POKE(0x0424 + (5 * 40), 93);
+  POKE(0x0424 + (6 * 40), 93);
 
   return;
 }
@@ -100,7 +160,8 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
     if (*m == 0x0a)
       *m = 0x0d;
 
-    while (!(input_key = PEEK(0xD610)));
+    while (!(input_key = PEEK(0xD610)))
+      ;
     POKE(0xD610, 0);
     if (input_key != ((*m) & 0x7f)) {
       if (case_sensitive)
@@ -130,35 +191,6 @@ unsigned char press_any_key(unsigned char attention, unsigned char nomessage)
 
   POKE(0xD610, 0);
   return input_key;
-}
-
-unsigned char debcd(unsigned char c)
-{
-  return (c & 0xf) + (c >> 4) * 10;
-}
-
-void getciartc(struct m65_tm *a)
-{
-  a->tm_hour = debcd(PEEK(0xDC0B));
-  a->tm_min = debcd(PEEK(0xDC0A));
-  a->tm_sec = debcd(PEEK(0xDC09));
-  a->tm_wday = PEEK(0xDC08); // to remove read latch, wday is not used here
-}
-
-// assumes that b is greater equal a!
-unsigned long seconds_between(struct m65_tm *a, struct m65_tm *b)
-{
-  unsigned long d = 0;
-
-  d += 3600L * b->tm_hour;
-  d += 60L * b->tm_min;
-  d += b->tm_sec;
-
-  d -= 3600L * a->tm_hour;
-  d -= 60L * a->tm_min;
-  d -= a->tm_sec;
-
-  return d;
 }
 
 void wait_10ms(void)
@@ -555,18 +587,58 @@ short display_offset = 0;
 char *diskchooser_instructions = "  SELECT FLASH FILE, THEN PRESS RETURN  "
                                  "       OR PRESS RUN/STOP TO ABORT       ";
 
+#define SCREEN_ADDRESS 0x0400
+#define COLOUR_RAM_ADDRESS 0x1f800
 #define HIGHLIGHT_ATTR 0x21
 #define NORMAL_ATTR 0x01
 
 char disk_name_return[32];
 
-unsigned char joy_to_key_disk[32] = {
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0d,         // With fire pressed
-  0, 0, 0, 0, 0, 0, 0, 0x9d, 0, 0, 0, 0x1d, 0, 0x11, 0x91, 0 // without fire
-};
+unsigned char read_joystick_input(void)
+{
+#ifdef WITH_JOYSTICK
+  unsigned char x = 0, v;
 
-#define SCREEN_ADDRESS 0x0400
-#define COLOUR_RAM_ADDRESS 0x1f800
+  if ((v = PEEK(0xDC00) & 0x1f) == 0x1f)
+    v = PEEK(0xDC01) & 0x1f;
+
+/*
+ * This is a disaster recovery function that uses
+ * an adapter to wire an joystick to the floppy disk
+ * interface!
+ */
+#ifdef WITH_FLOPPYJOYSTICK
+  if (!v) // all is zero, not possible!
+    v = (PEEK(0xD6A0) >> 3) & 0x1f; // use floppy adapter for joystick input
+#endif /* WITH_FLOPPYJOYSTICK */
+
+  if (!(v & 16))
+    x = 0x0d; // FIRE/F_INDEX = return
+  else if (!(v & 1))
+    x = 0x91; // UP/F_DISKCHANGED = CRSR-UP
+  else if (!(v & 8))
+    x = 0x1d; // RIGHT/F_TRACK0 = CRSR-RIGHT
+  else if (!(v & 4))
+    x = 0x9d; // LEFT/F_WRITEPROTECT = CRSR-LEFT
+  else if (!(v & 2))
+    x = 0x11; // DOWN/F_RDATA = CRSR-DOWN
+
+  // wait for release of joystick
+  while (v != 0x1f) {
+    v = PEEK(0xDC00) & PEEK(0xDC01) & 0x1f;
+
+#ifdef WITH_FLOPPYJOYSTICK
+    if (!v) // all is zero, not possible!
+      v = (PEEK(0xD6A0) >> 3) & 0x1f; // use floppy adapter for joystick input
+#endif /* WITH_FLOPPYJOYSTICK */
+
+  }
+
+  return x;
+#else /* !WITH_JOYSTICK */
+  return 0;
+#endif
+}
 
 void draw_file_list(void)
 {
@@ -656,9 +728,8 @@ unsigned char select_bitstream_file(void)
     if (j >= 0) {
       // don't show filenames with _ or ~ as first char
       // only select files ending in .COR
-      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f) &&
-          ((!strncmp(&dirent->d_name[j], ".COR", 4)) ||
-           (!strncmp(&dirent->d_name[j], ".cor", 4)))) {
+      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f)
+          && ((!strncmp(&dirent->d_name[j], ".COR", 4)) || (!strncmp(&dirent->d_name[j], ".cor", 4)))) {
         // File is a core
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
@@ -675,31 +746,12 @@ unsigned char select_bitstream_file(void)
   draw_file_list();
   while (1) {
 
-#ifndef JOYFLASH
-    x = PEEK(0xD610U);
-#else
-    x=0;
-#endif
-    
-    if (!x) {
-      unsigned char v;
-      v=PEEK(0xDC00)&0x1f;
-      x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
-      //
-      if (!v) {
-        v=PEEK(0xD6A0)>>3;
-        if (!(v&16)) x=0x0d; // FIRE/F_INDEX = return
-        if (!(v&1)) x=0x91;  // UP/F_DISKCHANGED = CRSR-UP
-        if (!(v&8)) x=0x1d;  // RIGHT/F_TRACK0 = CRSR-RIGHT
-        if (!(v&4)) x=0x9d;  // LEFT/F_WRITEPROTECT = CRSR-LEFT
-        if (!(v&2)) x=0x11;  // DOWN/F_RDATA = CRSR-DOWN
-        // Wait for joystick presses to be released before continuing
-      }
-      while (v!=0x1f) {
-        v=PEEK(0xDC00)&0x1f;
-        if (!v) v=PEEK(0xD6A0)>>3;
-      }            
-    }
+    if ((x = PEEK(0xD610U)))
+      POKE(0xD610U, 0);
+#ifdef WITH_JOYSTICK
+    else
+      x = read_joystick_input();
+#endif /* WITH_JOYSTICK */
 
     if (!x) {
       idle_time++;
@@ -710,11 +762,9 @@ unsigned char select_bitstream_file(void)
     else
       idle_time = 0;
 
-    // Clear read key
-    POKE(0xD610U, 0);
-
     switch (x) {
     case 0x03: // RUN-STOP = make no change
+    case 0x1b: // ESC
       return 0;
     case 0x0d: // Return = select this disk.
       // was erase (first entry) selected?
@@ -731,13 +781,13 @@ unsigned char select_bitstream_file(void)
       return 2;
 
     case 0x11:
-    case 0x9d: // Cursor down or left
+    case 0x1d: // Cursor down or right
       selection_number++;
       if (selection_number >= file_count)
         selection_number = 0;
       break;
     case 0x91:
-    case 0x1d: // Cursor up or right
+    case 0x9d: // Cursor up or left
       selection_number--;
       if (selection_number < 0)
         selection_number = file_count - 1;
@@ -867,7 +917,7 @@ int check_model_id_field(unsigned char megaonly)
       if (buffer[0x10 + x] != mega65core_magic[x])
         break;
     if (x < 7) {
-      printf("\n%cThis is no valid MEGA65 .COR file!\n\n"
+      printf("\n%cThis is no valid MEGA65 COR file!\n\n"
              "Refusing to flash!%c\n",
           0x1c, 0x05);
       press_any_key(0, 0);
@@ -1050,7 +1100,7 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
 
     lcopy(0x8000000 + attic_addr, 0xffd6e00L, 512);
     if (!verify_data_in_place(flash_addr)) {
-      //#define SHOW_FLASH_DIFF
+      // #define SHOW_FLASH_DIFF
 #ifdef SHOW_FLASH_DIFF
       printf("attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
       read_data(flash_addr);
@@ -1092,7 +1142,7 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
 
 void reflash_slot(unsigned char slot)
 {
-  unsigned long d, d_last, size, waddr;
+  unsigned long size, waddr;
   unsigned short bytes_returned;
   unsigned char fd, tries;
   unsigned char erase_mode = 0;
@@ -1172,59 +1222,26 @@ void reflash_slot(unsigned char slot)
     // (as the model_id checking read the first 512 bytes already)
     fd = hy_open(disk_name_return);
 
-    progress_acc = 0;
-    progress = 0;
+    progress_start();
     printf("%cLoading COR file into Attic RAM...\n", 0x93);
 
-    d_last = 0;
-    getciartc(&tm_start);
     for (addr = 0; addr < SLOT_SIZE; addr += 512) {
-      progress_acc += 512;
-#ifdef A100T
-      if (progress_acc > 26214) {
-        progress_acc -= 26214;
-        progress++;
-        progress_bar(progress);
-      }
-#else
-      if (progress_acc > 52428UL) {
-        progress_acc -= 52428UL;
-        progress++;
-        progress_bar(progress);
-      }
-#endif
-
-      if (!(addr & 0xffff)) {
-        getciartc(&tm_now);
-        d = seconds_between(&tm_start, &tm_now);
-        // This division is _really_ slow, which is why we do it only
-        // once per second.
-        if (d != d_last) {
-          unsigned int speed = (unsigned int)(((addr - (SLOT_SIZE * slot)) / d) >> 10);
-          unsigned long eta = (((SLOT_SIZE) * (slot + 1) - addr) / speed) >> 10;
-          d_last = d;
-          if (speed > 0)
-            printf("%c%c%c%c%c%c%c%c%c%cLoading %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11, 0x11,
-                0x11, 0x11, 0x11, 0x11, speed, eta);
-        }
-      }
-
       bytes_returned = hy_read512();
-
       if (!bytes_returned)
         break;
       lcopy(0xffd6e00L, 0x8000000L + addr, 512);
+      progress_bar(2, "Loading");
     }
-    getciartc(&tm_now);
+    // fill rest of attic ram with emptiness
+    for (; addr < SLOT_SIZE; addr += 512) {
+      lfill(addr, 0xff, 512);
+      progress_bar(2, "Filling");
+    }
     load_time = seconds_between(&tm_start, &tm_now);
-    printf("%cLoaded COR file in %d seconds.\n", 0x93, load_time);
+    //printf("%c%cLoaded COR file in %u seconds.\n", 0x11, 0x11, load_time);
 
     // start flashing
-    progress_acc = 0;
-    progress = 0;
-    d_last = 0;
-    getciartc(&tm_start);
-
+    progress_start();
     addr = SLOT_SIZE * slot;
     while (addr < (SLOT_SIZE * (slot + 1))) {
       if (num_4k_sectors * 4096 > addr)
@@ -1297,35 +1314,8 @@ void reflash_slot(unsigned char slot)
         }
       } while (tries < 11);
 
-      progress_acc += size;
-#ifdef A100T
-      while (progress_acc > 26214UL) {
-        progress_acc -= 26214UL;
-        progress++;
-        progress_bar(progress);
-      }
-#else
-      while (progress_acc > 52428UL) {
-        progress_acc -= 52428UL;
-        progress++;
-        progress_bar(progress);
-      }
-#endif
-
       addr += size;
-
-      getciartc(&tm_now);
-      d = seconds_between(&tm_start, &tm_now);
-      // This division is _really_ slow, which is why we do it only
-      // once per second.
-      if (d != d_last) {
-        unsigned int speed = (unsigned int)(((addr - (SLOT_SIZE * slot)) / d) >> 10);
-        unsigned long eta = (((SLOT_SIZE) * (slot + 1) - addr) / speed) >> 10;
-        d_last = d;
-        if (speed > 0)
-          printf("%c%c%c%c%c%c%c%c%c\nFlashing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11,
-              0x11, 0x11, 0x11, 0x11, speed, eta);
-      }
+      progress_bar(size >> 8, "Flashing");
     }
     flash_time = seconds_between(&tm_start, &tm_now);
 
@@ -1336,16 +1326,13 @@ void reflash_slot(unsigned char slot)
     // extra question before erasing a slot
     printf("%c\nYou are about to erase slot %d!\n"
            "Are you sure you want to proceed? (y/n)%c\n\n",
-           0x81, slot, 0x05);
+        0x81, slot, 0x05);
     if (!check_input("y", CASE_INSENSITIVE))
       return;
     printf("%c", 0x93);
 
     // Erase mode
-    d_last = 0;
-    getciartc(&tm_start);
-    progress_acc = 0;
-    progress = 0;
+    progress_start();
     addr = SLOT_SIZE * slot;
     while (addr < (SLOT_SIZE * (slot + 1))) {
       if (num_4k_sectors * 4096 > addr)
@@ -1359,48 +1346,22 @@ void reflash_slot(unsigned char slot)
       read_data(0xffffffff);
       POKE(0xD020, 0);
 
-      progress_acc += size;
-#ifdef A100T
-      while (progress_acc > 26214UL) {
-        progress_acc -= 26214UL;
-        progress++;
-        progress_bar(progress);
-      }
-#else
-      while (progress_acc > 52428UL) {
-        progress_acc -= 52428UL;
-        progress++;
-        progress_bar(progress);
-      }
-#endif
-
       addr += size;
-
-      getciartc(&tm_now);
-      d = seconds_between(&tm_start, &tm_now);
-      // This division is _really_ slow, which is why we do it only
-      // once per second.
-      if (d != d_last) {
-        unsigned int speed = (unsigned int)(((addr - (SLOT_SIZE * slot)) / d) >> 10);
-        unsigned long eta = (((SLOT_SIZE) * (slot + 1) - addr) / speed) >> 10;
-        d_last = d;
-        if (speed > 0)
-          printf("%c%c%c%c%c%c%c%c%c\nErasing at %dKB/sec, done in %ld sec.          \n", 0x13, 0x11, 0x11, 0x11, 0x11, 0x11,
-              0x11, 0x11, 0x11, speed, eta);
-      }
+      progress_bar(size >> 8, "Erasing");
     }
     flash_time = seconds_between(&tm_start, &tm_now);
   }
 
   printf("%c%c%c%c%c%c%c%c%c\n"
-         "Flash slot successfully updated.      \n\n", 0x13, 0x11, 0x11, 0x11, 0x11,
-              0x11, 0x11, 0x11, 0x11);
+         "Flash slot successfully updated.      \n\n",
+      0x13, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11);
   if (selected_file == 1 && flash_time > 0)
     printf("   Erase: %d sec \n\n", flash_time);
   else if (load_time + flash_time > 0)
     printf("    Load: %d sec \n"
            "   Flash: %d sec \n"
-           "\n", load_time, flash_time);
+           "\n",
+        load_time, flash_time);
 
   press_any_key(1, 0);
 
@@ -1452,7 +1413,6 @@ void probe_qspi_flash(void)
     fetch_rdid();
     read_registers();
   }
-  
 
 #ifdef QSPI_VERBOSE
   for (i = 0; i < 0x80; i++) {
@@ -1473,14 +1433,16 @@ void probe_qspi_flash(void)
     part[i] = 0;
 #ifdef QSPI_VERBOSE
     printf("Part         = %s\n"
-           "Part Family  = %02x-%c%c\n", part, cfi_data[5], cfi_data[6], cfi_data[7]);
+           "Part Family  = %02x-%c%c\n",
+        part, cfi_data[5], cfi_data[6], cfi_data[7]);
 #endif
   }
   else {
     part[0] = 0;
 #ifdef QSPI_VERBOSE
     printf("%cPart         = unknown %02x %02x %02x\n"
-           "Part Family  = unknown%c\n", 28, cfi_data[0x51], cfi_data[0x52], cfi_data[0x53], 5);
+           "Part Family  = unknown%c\n",
+        28, cfi_data[0x51], cfi_data[0x52], cfi_data[0x53], 5);
 #endif
   }
 
@@ -1513,7 +1475,8 @@ void probe_qspi_flash(void)
   }
 #ifdef QSPI_VERBOSE
   printf("Prgtime      = 2^%d us\n"
-         "Page size    = 2^%d bytes\n", cfi_data[0x20], cfi_data[0x2a]);
+         "Page size    = 2^%d bytes\n",
+      cfi_data[0x20], cfi_data[0x2a]);
 #endif
 
   if (cfi_data[0x2a] == 8)
@@ -1547,9 +1510,10 @@ void probe_qspi_flash(void)
 
 #ifdef QSPI_VERBOSE
   printf("\n"
-          "Flash size   = %dMB\n"
-          "Flash slots  = %d slots of %dMB\n"
-          "Register SR1 = $%02x\n", mb, slot_count, SLOT_MB, reg_sr1);
+         "Flash size   = %dMB\n"
+         "Flash slots  = %d slots of %dMB\n"
+         "Register SR1 = $%02x\n",
+      mb, slot_count, SLOT_MB, reg_sr1);
   printf("  latency code %d\n", latency_code);
   if (reg_sr1 & 0x80)
     printf("  flash is write protected.\n");
@@ -1564,7 +1528,8 @@ void probe_qspi_flash(void)
   if (reg_sr1 & 0x01)
     printf("  device busy.\n");
   printf("Register CR1 = $%02x\n"
-          "", reg_cr1);
+         "",
+      reg_cr1);
 #endif
 
   // failed to detect, probably dip sw #3 = off
@@ -1984,9 +1949,9 @@ top:
   POKE(0xD020, 0);
 
   // this can't happen, can it? the loop in front of this will catch the 0x01
-  //if (reg_sr1 & 0x03)
+  // if (reg_sr1 & 0x03)
   //  printf("error writing data @$%08llx\n", start_address);
-  //else
+  // else
   //  printf("data at $%08llx written.\n",start_address);
 
 #if 0
@@ -2023,7 +1988,7 @@ void read_data(unsigned long start_address)
 
   // Full hardware-acceleration of reading, which is both faster
   // and more reliable.
-  POKE(0xd020, 1);
+  POKE(0xD020, 1);
   POKE(0xD681, start_address >> 0);
   POKE(0xD682, start_address >> 8);
   POKE(0xD683, start_address >> 16);
@@ -2034,8 +1999,6 @@ void read_data(unsigned long start_address)
   // So just wait a little while, but only a little while
   for (b = 0; b < 180; b++)
     continue;
-  POKE(0xd020, 0);
-  //  while(PEEK(0xD680)&3) POKE(0xD020,PEEK(0xD020)+1);
 
   // Tristate and release CS at the end
   POKE(BITBASH_PORT, 0xff);
@@ -2157,12 +2120,12 @@ void read_ppb_for_sector(unsigned long sector_start)
   spi_cs_low();
   delay();
   spi_tx_byte(0xe2);
-  spi_tx_byte(sector_start>>24);
-  spi_tx_byte(sector_start>>16);
-  spi_tx_byte(sector_start>> 8);
-  spi_tx_byte(sector_start>> 0);
+  spi_tx_byte(sector_start >> 24);
+  spi_tx_byte(sector_start >> 16);
+  spi_tx_byte(sector_start >> 8);
+  spi_tx_byte(sector_start >> 0);
   spi_cs_high();
-  delay();  
+  delay();
 }
 
 void spi_write_enable(void)

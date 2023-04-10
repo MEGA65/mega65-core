@@ -1,12 +1,16 @@
+#ifndef QSPICOMMON_H
+#define QSPICOMMON_H
 extern struct m65_tm tm_start;
 extern struct m65_tm tm_now;
 
 #ifdef A100T
 #define SLOT_SIZE (4L * 1048576L)
+#define SLOT_SIZE_PAGES (4L * 4096L)
 #define SLOT_MB 4
 #else
 #define SLOT_MB 8
 #define SLOT_SIZE (8L * 1048576L)
+#define SLOT_SIZE_PAGES (8L * 4096L)
 #endif
 
 extern unsigned char slot_count;
@@ -51,7 +55,7 @@ void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
 void unprotect_flash(unsigned long addr_in_sector);
 unsigned char verify_data_in_place(unsigned long start_address);
-void progress_bar(unsigned char onesixtieths);
+void progress_bar(unsigned int add_pages, char *action);
 void read_data(unsigned long start_address);
 void program_page(unsigned long start_address, unsigned int page_size);
 void erase_sector(unsigned long address_in_sector);
@@ -63,6 +67,7 @@ void spi_clock_high(void);
 void spi_cs_low(void);
 void spi_cs_high(void);
 unsigned char press_any_key(unsigned char attention, unsigned char nomessage);
+unsigned char read_joystick_input(void);
 void delay(void);
 void spi_tx_byte(unsigned char b);
 unsigned char qspi_rx_byte(void);
@@ -74,7 +79,7 @@ void spi_write_enable(void);
 void spi_clear_sr1(void);
 void spi_write_disable(void);
 
-//#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
+// #define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
 #define CASE_INSENSITIVE 0
@@ -116,3 +121,5 @@ void spi_write_disable(void);
 #define sd_addr 0xd681L
 
 extern const unsigned long sd_timeout_value;
+
+#endif /* QSPICOMMON_H */

@@ -1,3 +1,5 @@
+#include "qspicommon.h"
+
 unsigned char user_has_been_warned(void)
 {
   printf("%c"
