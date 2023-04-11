@@ -71,6 +71,7 @@ pipeline {
     }
     environment {
         BRANCH_SHORT = sh (returnStdout: true, script: 'echo $BRANCH_NAME | sed -r \'s/^(.{5}).*$/\1/\'').trim()
+        USE_LOCAL_CC65 = "1"
         VIVADO = "/opt/Xilinx/vivado_wrapper.sh"
     }
 }
