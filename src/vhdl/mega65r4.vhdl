@@ -680,6 +680,8 @@ begin
       
       );
 
+  sdram0:
+  if false generate
   sdram0: entity work.sdram
     port map (
       -- MEGA65 interface to SDRAM
@@ -704,6 +706,7 @@ begin
       sdram_dqml => sdram_dqml,
       sdram_dqmh => sdram_dqmh
       );
+  end generate;
   
   sdramctrl0: entity work.sdram_controller
     port map (
