@@ -76,5 +76,7 @@ end sdram_controller;
 architecture tacoma_narrows of sdram_controller is
 
 begin  
-  
+
+  rdata <= (others => 'Z');
+    
 end tacoma_narrows;

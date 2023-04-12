@@ -708,6 +708,8 @@ begin
       );
   end generate;
   
+  sdramctl0:
+  if false generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
@@ -744,6 +746,7 @@ begin
       sdram_rdata => sdram_rdata
       
       );
+  end generate;
 
   slow_devices0: entity work.slow_devices
     generic map (
