@@ -337,9 +337,31 @@ begin
             elsif busy_count > 11 then
               bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
             end if;
-            if busy_count > 12 and busy_count < (12 + 6 + 1) then
+            -- Remap RTC registers to match those on the R3
+            -- We only rearrange the first 7 registers
+            if busy_count >= 13 and busy_count < (13 + 8 ) then
               if rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13) then
-                bytes(16 + busy_count - 13) <= rtc_prev1(busy_count - 13);
+                case busy_count is
+                  when 13 + 0 => -- Read 100ths of seconds, write to reg 7
+                    bytes(16 + 7) <= rtc_prev1(busy_count - 13);
+                  when 13 + 1 => -- Read seconds, write to reg 0
+                    bytes(16 + 0) <= rtc_prev1(busy_count - 13);
+                  when 13 + 2 => -- Read minuntes, write to reg 1
+                    bytes(16 + 1) <= rtc_prev1(busy_count - 13);
+                  when 13 + 3 => -- Read 24-hour clock hours, write to reg 2,
+                    -- with bit 7 set
+                    bytes(16 + 7)(6 downto 0) <= rtc_prev1(busy_count - 13)(6 downto 0);
+                    bytes(16 + 7)(7) <= '1';
+                  when 13 + 4 => -- Read weekday, write to reg 6
+                    bytes(16 + 6) <= rtc_prev1(busy_count - 13);
+                  when 13 + 5 => -- Read day of month, write to reg 3
+                    bytes(16 + 3) <= rtc_prev1(busy_count - 13);
+                  when 13 + 6 => -- Read month, write to reg 4
+                    bytes(16 + 4) <= rtc_prev1(busy_count - 13);
+                  when 13 + 7 => -- Read year-2000, write to reg 5
+                    bytes(16 + 5) <= rtc_prev1(busy_count - 13);
+                  when others => null;
+                end case;
               end if;
             end if;
           end if;
