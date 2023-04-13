@@ -2002,7 +2002,7 @@ begin
         end if;
       end if;
       
-      if target = mega65r3 then
+      if target = mega65r3 or target = mega65r4 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGA65R3 asserted";
