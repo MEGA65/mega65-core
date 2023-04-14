@@ -350,8 +350,8 @@ begin
                     bytes(16 + 1) <= rtc_prev1(busy_count - 13);
                   when 13 + 3 => -- Read 24-hour clock hours, write to reg 2,
                     -- with bit 7 set
-                    bytes(16 + 7)(6 downto 0) <= rtc_prev1(busy_count - 13)(6 downto 0);
-                    bytes(16 + 7)(7) <= '1';
+                    bytes(16 + 2)(6 downto 0) <= rtc_prev1(busy_count - 13)(6 downto 0);
+                    bytes(16 + 2)(7) <= '1';
                   when 13 + 4 => -- Read weekday, write to reg 6
                     bytes(16 + 6) <= rtc_prev1(busy_count - 13);
                   when 13 + 5 => -- Read day of month, write to reg 3
