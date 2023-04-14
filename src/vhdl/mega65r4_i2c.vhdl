@@ -332,9 +332,9 @@ begin
             if busy_count = 11 then
               rtc_prev2 <= rtc_prev1;
             end if;
-            if busy_count > 11 and busy_count < (11+6+1) then
+            if busy_count >= 13 and busy_count < (13+8) then
               rtc_prev1(busy_count-12) <= i2c1_rdata;
-            elsif busy_count > 11 then
+            elsif busy_count >= (13 + 8) then
               bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
             end if;
             -- Remap RTC registers to match those on the R3
