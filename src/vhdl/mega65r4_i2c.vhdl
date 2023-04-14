@@ -235,9 +235,10 @@ begin
         elsif to_integer(fastio_addr(7 downto 0)) >= 64 and to_integer(fastio_addr(7 downto 0)) < 80 then
           -- RTC SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 64,8);
---          report "triggering write to $A2";
+--          report "triggering write to $A2 SRAM area";
           write_addr <= x"A2";            
           write_job_pending <= '1';
+          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)),8);
         elsif to_integer(fastio_addr(7 downto 0)) >= 220 and to_integer(fastio_addr(7 downto 0)) < 239 then
           -- Audio Amplifier for internal speakers
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 220,8);
@@ -340,7 +341,8 @@ begin
             -- Remap RTC registers to match those on the R3
             -- We only rearrange the first 7 registers
             if busy_count >= 13 and busy_count < (13 + 8 ) then
-              if rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13) then
+              -- debounce RTC registers, except for 100ths of a second
+              if (busy_count = 13) or (rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13)) then
                 case busy_count is
                   when 13 + 0 => -- Read 100ths of seconds, write to reg 7
                     bytes(16 + 7) <= rtc_prev1(busy_count - 13);
@@ -369,7 +371,7 @@ begin
           report "RTC SRAM (16 bytes)";
           command_en <= '1';
           i2c1_address <= "1010001"; -- 51 = I2C address of device;
-          i2c1_wdata <= x"00";
+          i2c1_wdata <= x"40"; -- NVRAM starts at offset $40
           i2c1_rw <= '0';
         when 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 =>
           -- Read the 64 bytes from the device
@@ -405,7 +407,22 @@ begin
           i2c1_rw <= '0';
           command_en <= '1';
           i2c1_address <= write_addr(7 downto 1);
-          i2c1_wdata <= write_reg;
+          -- If writing to RTC registers, remap them to look like the R3 RTC
+          if write_addr = x"a2" then
+            i2c1_wdata <= write_reg;
+            case write_reg is
+              when x"00" => i2c1_wdata <= x"01"; -- seconds
+              when x"01" => i2c1_wdata <= x"02"; -- minutes
+              when x"02" => i2c1_wdata <= x"03"; -- hours
+              when x"03" => i2c1_wdata <= x"05"; -- day of month
+              when x"04" => i2c1_wdata <= x"06"; -- month
+              when x"05" => i2c1_wdata <= x"07"; -- year - 2000
+              when x"06" => i2c1_wdata <= x"04"; -- day of week
+              when others => null;
+            end case;
+          else
+            i2c1_wdata <= write_reg;
+          end if;
         when 148 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
