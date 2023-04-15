@@ -7,32 +7,8 @@ use ieee.numeric_std.all;
 entity is42s16320f_model is
   generic (
     clock_frequency : integer := 162_000_000; -- in Hz
-    tREFI : real := 64.0; -- in us
-    tRP : real := 8.4; -- in ns
-    tRCD : real := 8.4; -- in ns
-    tWR : real := 8.4; -- in ns
-    tRFC : real := 66.0; -- in ns
-    tRC : real := 30.9; -- in ns
-    tRAS : real := 23.6; -- in ns
-    tRRD : real := 2.9; -- in ns
-    tCCD : real := 2.5; -- in ns
-    tWTR : real := 2.5; -- in ns
-    tMRD : real := 2.5; -- in ns
-    tXSNR : real := 200.0; -- in ns
-    tXSRD : real := 200.0; -- in ns
-    tXP : real := 2.5; -- in ns
-    tCKE : real := 3.75; -- in ns
-    tXS : real := 200.0; -- in ns
-    tXSDLL : real := 512.0; -- in ns
-    tZQCS : real := 64.0; -- in us
-    tZQCL : real := 128.0; -- in us
-    tZQINIT : real := 512.0; -- in ns
-    tMRW : real := 8.0; -- in ns
-    tMOD : real := 15.0; -- in ns
-    tCKESR : real := 10.0; -- in ns
-    tCKSRX : real := 10.0; -- in ns
-    tCKSRE : real := 10.0; -- in ns
-    tCKSRT : real := 10.0 -- in ns
+    tRP : real := 18; -- in ns
+    tRCD : real := 18 -- in ns
   );
   port (
     clk       : in  std_logic;
@@ -160,6 +136,11 @@ architecture rtl of is42s16320f_model is
     end if;
   end procedure;
 
+  procedure do_write is
+  begin
+    write_queue_masks(0) <= udqm & ldqm;
+    write_queue_data(0) <= dq;
+  end procedure;  
   
 begin
 
@@ -197,6 +178,21 @@ begin
       cas_read(1) <= cas_read(0);
       cas_read(2) <= cas_read(1);
       cas_read(3) <= cas_read(2);
+
+      write_queue_data(0) <= (others => '0');
+      write_queue_data(1) <= write_queue_data(0);
+      write_queue_data(2) <= write_queue_data(1);
+      write_queue_data(3) <= write_queue_data(2);
+      write_queue_masks(0) <= (others => '1');
+      write_queue_masks(1) <= write_queue_masks(0);
+      write_queue_masks(2) <= write_queue_masks(1);
+      write_queue_masks(3) <= write_queue_masks(2);
+      if write_queue_masks(3)(0)='0' then
+        ram_array(to_integer(unsigned(row_addr & col_addr)))(7 downto 0) <= write_queue_data(0)(7 downto 0);
+      end if;
+      if write_queue_masks(3)(1)='0' then
+        ram_array(to_integer(unsigned(row_addr & col_addr)))(15 downto 8) <= write_queue_data(0)(15 downto 8);
+      end if;
       
       -- Export read data whenever xDQM are low EXCEPT when we might be
       -- asked to do a WRITE, as we need to avoid bus contention with that
@@ -211,12 +207,10 @@ begin
         end if;
       end if;
       
-      if state = READ_ or state = READ_WITH_AUTO_PRECHARGE then
-        if delay_cnt /= 0 then
-          -- wait for CAS delay to expire before presenting data
-          delay_cnt <= delay_cnt - 1;
-        end if;
+      if delay_cnt /= 0 then
+        delay_cnt <= delay_cnt - 1;
       end if;
+      
       if burst_remaining = 1 then
         -- End of burst
         burst_remaining <= 0;
@@ -230,11 +224,7 @@ begin
       else
         burst_remaining <= burst_remaining - 1;
       end if;
-      
-      if (delay_cnt > 0) then
-        delay_cnt <= delay_cnt - 1;
-      end if;
-      
+            
       if enforce_100usec_init then
         if cycles_elapsed < cycles_100usec then
           cycles_elapsed <= cycles_elapsed + 1;
@@ -346,19 +336,28 @@ begin
                         -- Self-Refresh                  
                         else
                       -- CBR Auto-Refresh
-                      end if;                
+                      end if;
+                      delay_cnt <= integer(((tRAS + tXSR) / clk_period) + 0.5);    
                     when "0100" => -- Precharge select bank
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "0101" => -- Precharge all banks
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "0110" | "0111" => -- Bank+row activate
                       -- Select bank and row, and cause wait for tRCD before ready
                       do_bank_and_row_select();
                       state <= ROW_ACTIVE;
                     when "1000" => -- Write
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1001" => -- Write with auto-precharge
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1010" => -- Read
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1011" => -- Read with auto-precharge
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1100" | "1101" => -- Burst stop
+                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1110" | "1111" => -- No-Operation (NOP)
+                      null;
                     when others => null;
                   end case;
                 when ROW_ACTIVE =>
@@ -371,8 +370,11 @@ begin
                         else
                       -- CBR Auto-Refresh
                       end if;                
+                      assert failure report "Attempted to trigger refresh from " & state_t'image(state) & " state";
                     when "0100" => -- Precharge select bank
+                      delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
                     when "0101" => -- Precharge all banks
+                      delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
                     when "0110" | "0111" => -- Bank + row activate
                       assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
@@ -380,15 +382,23 @@ begin
                         assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
                       end if;
                       col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length + cas_latency - 1;
-                      state <= WRITE_;
+                      burst_remaining <= burst_length - 1;
+                      do_write();
+                      if burst_length > 1 then
+                        state <= WRITE_;
+                      end if;
                     when "1001" => -- Write with auto-precharge
                       if delay_cnt /= 0 then
                         assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
                       end if;
                       col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length + cas_latency - 1;
-                      state <= WRITE_WITH_AUTO_PRECHARGE;
+                      burst_remaining <= burst_length - 1;
+                      do_write();
+                      if burst_length > 1 then
+                        state <= WRITE_WITH_AUTO_PRECHARGE;
+                      else
+                        state <= PRECHARGING;
+                      end if;
                     when "1010" => -- Read
                       if delay_cnt /= 0 then
                         assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
@@ -408,6 +418,7 @@ begin
                     when "1100" | "1101" => -- Burst stop
                       assert failure report "Burst stop requested in state " & state_t'image(state);
                     when "1110" | "1111" => -- No-Operation (NOP)
+                      null;
                     when others => null;
                   end case;
                 when READ_ =>
