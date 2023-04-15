@@ -1,6 +1,9 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use Std.TextIO.all;
+use work.debugtools.all;
+use work.cputypes.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
@@ -11,19 +14,24 @@ end entity;
 
 architecture test_arch of tb_sdram_controller is
 
-signal pixelclock : std_logic := '0';
-  signal clock163 : std_logic := '0';
-  signal request_counter : std_logic;
-  signal read_request : std_logic;
-  signal write_request : std_logic;
-  signal address : unsigned(26 downto 0);
-  signal wdata : unsigned(7 downto 0);
-  signal wdata_hi : unsigned(7 downto 0) := x"00";
-  signal wen_hi : std_logic := '0';
-  signal wen_lo : std_logic := '1';
-  signal rdata_hi : unsigned(7 downto 0);
-  signal rdata_16en : std_logic := '0';
-  signal rdata : unsigned(7 downto 0);
+  constant SDRAM_BANK_WIDTH : integer := 2;
+  constant SDRAM_ROW_WIDTH : integer := 13;
+  constant SDRAM_COL_WIDTH : integer := 10;
+  constant SDRAM_DATA_WIDTH : integer := 16;
+  constant SDRAM_ADDR_WIDTH : integer := sdram_row_width + sdram_col_width + sdram_bank_width;
+  
+  signal pixelclock : std_logic := '0';
+  signal clock162 : std_logic := '0';
+  signal slow_read : std_logic;
+  signal slow_write : std_logic;
+  signal slow_address : unsigned(26 downto 0);
+  signal slow_wdata : unsigned(7 downto 0);
+  signal slow_wdata_hi : unsigned(7 downto 0) := x"00";
+  signal slow_wen_hi : std_logic := '0';
+  signal slow_wen_lo : std_logic := '1';
+  signal slow_rdata_hi : unsigned(7 downto 0);
+  signal slow_rdata_16en : std_logic := '0';
+  signal slow_rdata : unsigned(7 downto 0);
   signal data_ready_strobe : std_logic := '0';
   signal busy : std_logic := '0';
   signal current_cache_line : cache_row_t := (others => (others => '0'));
@@ -34,69 +42,68 @@ signal pixelclock : std_logic := '0';
   signal viciv_request_toggle : std_logic := '0';
   signal viciv_data_out : unsigned(7 downto 0) := x"00";
   signal viciv_data_strobe : std_logic := '0';
-  signal sdram_address : unsigned(23 downto 0);
-  signal sdram_wdata : std_logic_vector(15 downto 0);
-  signal sdram_we : std_logic;
-  signal sdram_req : std_logic;
-  signal sdram_ack : std_logic;
-  signal sdram_valid : std_logic;
-  signal sdram_rdata : std_logic_vector(15 downto 0);
 
-signal sdram_a : unsigned(SDRAM_ADDR_WIDTH-1 downto 0);
-signal sdram_ba : unsigned(SDRAM_BANK_WIDTH-1 downto 0);
-signal sdram_dq : std_logic_vector(SDRAM_DATA_WIDTH-1 downto 0);
-signal sdram_cke : std_logic;
-signal sdram_cs_n : std_logic;
-signal sdram_ras_n : std_logic;
-signal sdram_cas_n : std_logic;
-signal sdram_we_n : std_logic;
-signal sdram_dqml : std_logic;
-signal sdram_dqmh : std_logic;
-signal ack : std_logic;
-signal valid : std_logic;
+  -- Interface between M65 SDRAM controller and SDRAM chip
+  signal if_address : unsigned(23 downto 0);
+  signal if_wdata : std_logic_vector(15 downto 0);
+  signal if_we : std_logic;
+  signal if_req : std_logic;
+  signal if_ack : std_logic;
+  signal if_valid : std_logic;
+  signal if_rdata : std_logic_vector(15 downto 0);
 
+  -- SDRAM chip pins
+  signal sdram_a : unsigned(SDRAM_ROW_WIDTH-1 downto 0);
+  signal sdram_ba : unsigned(SDRAM_BANK_WIDTH-1 downto 0);
+  signal sdram_dq : unsigned(SDRAM_DATA_WIDTH-1 downto 0);
+  signal sdram_cke : std_logic;
+  signal sdram_cs_n : std_logic;
+  signal sdram_ras_n : std_logic;
+  signal sdram_cas_n : std_logic;
+  signal sdram_we_n : std_logic;
+  signal sdram_dqml : std_logic;
+  signal sdram_dqmh : std_logic;
+  signal ack : std_logic;
+  signal valid : std_logic;
+
+  signal req : std_logic;
+  signal reset : std_logic;
+
+  signal enforce_100usec_init : boolean := false;
+ 
 begin
 
-  sdram_model0: entity is42s16320f_model
+  sdram_model0: entity work.is42s16320f_model
   generic map (
-    CLK_FREQ => 50_000_000.0,
-    SDRAM_COL_WIDTH => 9,
-    SDRAM_ROW_WIDTH => 13,
-    SDRAM_BANK_WIDTH => 2,
-    SDRAM_DATA_WIDTH => 16
+    clock_frequency => 162_000_000
   )
   port map (
-    clk => clk,
+    clk => clock162,
     reset => reset,
-    addr_in => addr,
-    data => data,
-    we_in => we,
-    req_in => req,
-    ack_out => ack,
-    valid_out => valid,
-    sdram_a => sdram_a,
-    sdram_ba => sdram_ba,
-    sdram_dq => sdram_dq,
-    sdram_cke => sdram_cke,
-    sdram_cs_n => sdram_cs_n,
-    sdram_ras_n => sdram_ras_n,
-    sdram_cas_n => sdram_cas_n,
-    sdram_we_n => sdram_we_n,
-    sdram_dqml => sdram_dqml,
-    sdram_dqmh => sdram_dqmh
+    addr => sdram_a,
+    ba => sdram_ba,
+    dq => sdram_dq,
+    clk_en => sdram_cke,
+    cs => sdram_cs_n,
+    ras => sdram_ras_n,
+    cas => sdram_cas_n,
+    we => sdram_we_n,
+    ldqm => sdram_dqml,
+    udqm => sdram_dqmh,
+    enforce_100usec_init => enforce_100usec_init
   );
 
   
   sdram_interface0 : entity work.sdram
   generic map (
     CLK_FREQ => 162_000_000.0,
-    ADDR_WIDTH => 24,
-    DATA_WIDTH => 16,
-    SDRAM_ADDR_WIDTH => 13,
-    SDRAM_DATA_WIDTH => 16,
-    SDRAM_COL_WIDTH => 9,
-    SDRAM_ROW_WIDTH => 13,
-    SDRAM_BANK_WIDTH => 2,
+    ADDR_WIDTH => sdram_addr_width,
+    DATA_WIDTH => sdram_data_width,
+    SDRAM_ADDR_WIDTH => sdram_addr_width,
+    SDRAM_DATA_WIDTH => sdram_data_width,
+    SDRAM_COL_WIDTH => sdram_col_width,
+    SDRAM_ROW_WIDTH => sdram_row_width,
+    SDRAM_BANK_WIDTH => sdram_bank_width,
     CAS_LATENCY => 2,
     BURST_LENGTH => 1,
     T_DESL => 200000.0,
@@ -109,14 +116,14 @@ begin
   )
   port map (
     reset => reset,
-    clk => clk,
-    addr => sdram_address,
-    data => sdram_wdata,
-    we => we,
-    req => req,
-    ack => ack,
-    valid => valid,
-    q => sdram_rdata,
+    clk => clock162,
+    addr => if_address,
+    data => if_wdata,
+    we => if_we,
+    req => if_req,
+    ack => if_ack,
+    valid => if_valid,
+    q => if_rdata,
     
     sdram_a => sdram_a,
     sdram_ba => sdram_ba,
@@ -136,18 +143,18 @@ begin
     )
     port map (
         pixelclock => pixelclock,
-        clock163 => clock163,
+        clock162 => clock162,
         request_counter => open,
-        read_request => read_request,
-        write_request => write_request,
-        address => address,
-        wdata => wdata,
-        wdata_hi => wdata_hi,
-        wen_hi => wen_hi,
-        wen_lo => wen_lo,
-        rdata_hi => rdata_hi,
-        rdata_16en => rdata_16en,
-        rdata => rdata,
+        read_request => slow_read,
+        write_request => slow_write,
+        address => slow_address,
+        wdata => slow_wdata,
+        wdata_hi => slow_wdata_hi,
+        wen_hi => slow_wen_hi,
+        wen_lo => slow_wen_lo,
+        rdata_hi => slow_rdata_hi,
+        rdata_16en => slow_rdata_16en,
+        rdata => slow_rdata,
         data_ready_strobe => data_ready_strobe,
         busy => busy,
         current_cache_line => current_cache_line,
@@ -158,13 +165,14 @@ begin
         viciv_request_toggle => viciv_request_toggle,
         viciv_data_out => viciv_data_out,
         viciv_data_strobe => viciv_data_strobe,
-        sdram_address => sdram_address,
-        sdram_wdata => sdram_wdata,
-        sdram_we => sdram_we,
-        sdram_req => sdram_req,
-        sdram_ack => sdram_ack,
-        sdram_valid => sdram_valid,
-        sdram_rdata => sdram_rdata
+
+        sdram_address => if_address,
+        sdram_wdata => if_wdata,
+        sdram_we => if_we,
+        sdram_req => if_req,
+        sdram_ack => if_ack,
+        sdram_valid => if_valid,
+        sdram_rdata => if_rdata
     );
   
   main : process

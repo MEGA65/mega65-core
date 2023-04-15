@@ -112,7 +112,7 @@ entity sdram is
     -- SDRAM interface (e.g. AS4C16M16SA-6TCN, IS42S16400F, etc.)
     sdram_a     : out unsigned(SDRAM_ADDR_WIDTH-1 downto 0);
     sdram_ba    : out unsigned(SDRAM_BANK_WIDTH-1 downto 0);
-    sdram_dq    : inout std_logic_vector(SDRAM_DATA_WIDTH-1 downto 0);
+    sdram_dq    : inout unsigned(SDRAM_DATA_WIDTH-1 downto 0);
     sdram_cke   : out std_logic;
     sdram_cs_n  : out std_logic;
     sdram_ras_n : out std_logic;
@@ -388,7 +388,7 @@ begin
 --        if first_word = '1' then
 --          q_reg(31 downto 16) <= sdram_dq;
 --        elsif read_done = '1' then
-          q_reg(15 downto 0) <= sdram_dq;
+          q_reg(15 downto 0) <= std_logic_vector(sdram_dq);
           valid <= '1';
 --        end if;
       end if;
@@ -444,7 +444,7 @@ begin
       (others => '0') when others;
 
   -- decode the next 16-bit word from the write buffer
-  sdram_dq <= data_reg((BURST_LENGTH-wait_counter)*SDRAM_DATA_WIDTH-1 downto (BURST_LENGTH-wait_counter-1)*SDRAM_DATA_WIDTH) when state = WRITE else (others => 'Z');
+  sdram_dq <= unsigned(data_reg((BURST_LENGTH-wait_counter)*SDRAM_DATA_WIDTH-1 downto (BURST_LENGTH-wait_counter-1)*SDRAM_DATA_WIDTH)) when state = WRITE else (others => 'Z');
 
   -- set SDRAM data mask
   sdram_dqmh <= '0';

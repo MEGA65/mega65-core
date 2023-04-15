@@ -20,7 +20,7 @@ entity sdram_controller is
   Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
          -- actually on pixelclock to reduce latencies
          -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
-         clock163 : in std_logic; -- Used for fast clock for HyperRAM
+         clock162 : in std_logic; -- Used for fast clock for HyperRAM
 
          -- Simple counter for number of requests received
          request_counter : out std_logic := '0';

@@ -19,9 +19,9 @@ entity is42s16320f_model is
     ras       : in  std_logic;
     cas       : in  std_logic;
     we        : in  std_logic;
-    ba        : in  std_logic_vector(1 downto 0);
-    addr      : in  std_logic_vector(12 downto 0);
-    dq        : inout std_logic_vector(15 downto 0);
+    ba        : in  unsigned(1 downto 0);
+    addr      : in  unsigned(12 downto 0);
+    dq        : inout unsigned(15 downto 0);
     ldqm      : in  std_logic;
     udqm      : in  std_logic;
     clk_en    : in  std_logic;
@@ -35,7 +35,7 @@ entity is42s16320f_model is
 end entity is42s16320f_model;
 
 architecture rtl of is42s16320f_model is
-  type ram_t  is array(0 to 32*1024*1024) of std_logic_vector(15 downto 0);
+  type ram_t  is array(0 to 32*1024*1024) of unsigned(15 downto 0);
   signal ram_array : ram_t := (others => (others => '0'));
 
   type state_t is (IDLE,
@@ -52,11 +52,10 @@ architecture rtl of is42s16320f_model is
                    MODE_REGISTER_ACCESSING
                    );
   signal state : state_t;
-  signal bank : std_logic_vector(1 downto 0);
-  signal row_addr : std_logic_vector(12 downto 0);
-  signal col_addr : std_logic_vector(8 downto 0);
-  signal data : std_logic_vector(15 downto 0);
-  signal read_data_reg : std_logic_vector(15 downto 0);
+  signal bank : unsigned(1 downto 0);
+  signal row_addr : unsigned(12 downto 0);
+  signal col_addr : unsigned(8 downto 0);
+  signal data : unsigned(15 downto 0);
  
   signal clk_period : real := (1_000_000_000.0/real(clock_frequency));
 
@@ -84,12 +83,12 @@ architecture rtl of is42s16320f_model is
   signal burst_length : integer := 1;
   signal burst_remaining : integer := 0;
   signal cas_read : std_logic_vector(3 downto 0) := (others => '0');
-  type cas_pipe_t is array (0 to 3) of std_logic_vector(15 downto 0);
+  type cas_pipe_t is array (0 to 3) of unsigned(15 downto 0);
   signal cas_pipeline : cas_pipe_t;
   signal write_queue_data : cas_pipe_t;
-  type masks_pipe_t is array (0 to 3) of std_logic_vector(1 downto 0);
+  type masks_pipe_t is array (0 to 3) of unsigned(1 downto 0);
   signal write_queue_masks : masks_pipe_t;
-  type addr_pipe_t is array (0 to 3) of std_logic_vector(22 downto 0);
+  type addr_pipe_t is array (0 to 3) of unsigned(22 downto 0);
   signal write_queue_addr : addr_pipe_t;
   
   signal clk_en_prev : std_logic := '1';
@@ -99,7 +98,7 @@ begin
   process (clk, reset)
     variable cmd : std_logic_vector(3 downto 0) := "0000";
 
-  procedure update_mode_register(bits : in std_logic_vector(12 downto 0)) is
+  procedure update_mode_register(bits : in unsigned(12 downto 0)) is
   begin
     case bits(2 downto 0) is
       when "000" => burst_length <= 1;
@@ -193,12 +192,12 @@ begin
 
       -- XXX Does col_addr increment while clock is suspended or not?      
       if col_addr /= "1111111111" then
-        col_addr <= std_logic_vector(unsigned(col_addr) + 1);
+        col_addr <= col_addr + 1;
       else
         col_addr <= (others => '0');
       end if;
       -- Simulate CAS latency pipeline
-      cas_pipeline(0) <= ram_array(to_integer(unsigned(row_addr) & unsigned(col_addr)));
+      cas_pipeline(0) <= ram_array(to_integer(row_addr & col_addr));
       cas_pipeline(1) <= cas_pipeline(0);
       cas_pipeline(2) <= cas_pipeline(1);
       cas_pipeline(3) <= cas_pipeline(2);
@@ -216,10 +215,10 @@ begin
       write_queue_masks(2) <= write_queue_masks(1);
       write_queue_masks(3) <= write_queue_masks(2);
       if write_queue_masks(3)(0)='0' then
-        ram_array(to_integer(unsigned(row_addr) & unsigned(col_addr)))(7 downto 0) <= write_queue_data(0)(7 downto 0);
+        ram_array(to_integer(row_addr & col_addr))(7 downto 0) <= write_queue_data(0)(7 downto 0);
       end if;
       if write_queue_masks(3)(1)='0' then
-        ram_array(to_integer(unsigned(row_addr) & unsigned(col_addr)))(15 downto 8) <= write_queue_data(0)(15 downto 8);
+        ram_array(to_integer(row_addr & col_addr))(15 downto 8) <= write_queue_data(0)(15 downto 8);
       end if;
       
       -- Export read data whenever xDQM are low EXCEPT when we might be
