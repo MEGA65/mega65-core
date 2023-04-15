@@ -7,8 +7,8 @@ use ieee.numeric_std.all;
 entity is42s16320f_model is
   generic (
     clock_frequency : integer := 162_000_000; -- in Hz
-    tRP : real := 18; -- in ns
-    tRCD : real := 18 -- in ns
+    tRP : real := 18.0; -- in ns
+    tRCD : real := 18.0 -- in ns
   );
   port (
     clk       : in  std_logic;
@@ -26,17 +26,20 @@ entity is42s16320f_model is
 
     -- This is a port rather than a generic, so that we can change it during
     -- the execution of tests
-    enforce_100usec_init : in boolean := true; -- Require 100usec delay on power
+    enforce_100usec_init : in boolean := true -- Require 100usec delay on power
                                                -- on before init?
     
   );
 end entity is42s16320f_model;
 
 architecture rtl of is42s16320f_model is
+  type ram_t  is array(0 to 32*1024*1024) of std_logic_vector(15 downto 0);
+  signal ram_array : ram_t := (others => (others => '0'));
+
   type state_t is (IDLE,
                    ROW_ACTIVE,
-                   READ_,
-                   WRITE_,
+                   READ_PLAIN,
+                   WRITE_PLAIN,
                    READ_WITH_AUTO_PRECHARGE,
                    WRITE_WITH_AUTO_PRECHARGE,
                    PRECHARGING,
@@ -55,8 +58,9 @@ architecture rtl of is42s16320f_model is
  
   signal clk_period : real := (1_000_000_000.0/real(clock_frequency));
 
-  constant cycles_100usec = clock_frequency / 10.0;
+  constant cycles_100usec : integer := clock_frequency / 10.0;
   signal cycles_elapsed : integer := 0;
+  signal elapsed_100usec : std_logic := '0';
   
   type init_state_t is (WAIT_FOR_NOP_01,
                         WAIT_FOR_PRECHARGE_02,
@@ -76,9 +80,15 @@ architecture rtl of is42s16320f_model is
 
   signal cas_latency : integer := 3;
   signal burst_length : integer := 1;
+  signal burst_remaining : integer := 0;
   signal cas_read : std_logic_vector(3 downto 0) := (others => '0');
-  type cas_pipe_t : array 0 to 3 of std_logic_vector(15 downto 0);
-  signal cas_pipeline : cas_pipe_t;  
+  type cas_pipe_t is array (0 to 3) of std_logic_vector(15 downto 0);
+  signal cas_pipeline : cas_pipe_t;
+  signal write_queue_data : cas_pipe_t;
+  type masks_pipe_t is array (0 to 3) of std_logic_vector(1 downto 0);
+  signal write_queue_masks : masks_pipe_t;
+
+  signal clk_en_prev : std_logic := '1';
   
   procedure update_mode_register(bits : in std_logic_vector(12 downto 0)) is
   begin
@@ -87,42 +97,42 @@ architecture rtl of is42s16320f_model is
       when "000" => burst_length <= 2;
       when "000" => burst_length <= 4;
       when "000" => burst_length <= 8;
-      when "000" => assert failure report "Illegal burst length selected";
-      when "000" => assert failure report "Illegal burst length selected";
-      when "000" => assert failure report "Illegal burst length selected";
+      when "000" => assert false report "Illegal burst length selected";
+      when "000" => assert false report "Illegal burst length selected";
+      when "000" => assert false report "Illegal burst length selected";
       when "111" => burst_length <= 512;  -- full page
     end case;
     interleaved_mode <= bits(3);
     if bits(3)='1' then
-      assert failure report "interleaved mode not supported";
+      assert false report "interleaved mode not supported";
     end if;
     case bits(6 downto 4) is
-      when "000" => assert failure report "Illegal CAS recovery selected";
-      when "001" => assert failure report "Illegal CAS recovery selected";
+      when "000" => assert false report "Illegal CAS recovery selected";
+      when "001" => assert false report "Illegal CAS recovery selected";
       when "010" => cas_latency <= 2;
                     -- Assumes speed grade -5 or better
                     if clock_frequency > 100_000_000 then
-                      assert failure report "CAS=2 requires clock frequency not exceeding 100MHz";
+                      assert false report "CAS=2 requires clock frequency not exceeding 100MHz";
                     end if;
       when "011" => cas_latency <= 3;                    
                     -- Assumes speed grade -6 or better
                     if clock_frequency > 167_000_000 then
-                      assert failure report "CAS=3 requires clock frequency not exceeding 167MHz";
+                      assert false report "CAS=3 requires clock frequency not exceeding 167MHz";
                     end if;
-      when "100" => assert failure report "Illegal CAS recovery selected";
-      when "100" => assert failure report "Illegal CAS recovery selected";
-      when "100" => assert failure report "Illegal CAS recovery selected";
-      when "100" => assert failure report "Illegal CAS recovery selected";
+      when "100" => assert false report "Illegal CAS recovery selected";
+      when "100" => assert false report "Illegal CAS recovery selected";
+      when "100" => assert false report "Illegal CAS recovery selected";
+      when "100" => assert false report "Illegal CAS recovery selected";
     end case;
     if bits(8 downto 7) /= "00" then
-      assert failure "Illegal operating mode selected";
+      assert false report "Illegal operating mode selected";
     end if;
     -- Disable burst flag: Just make burst length = 1
     if bits(9)='1' then
       burst_length <= 1;
     end if;
     if bits(12 downto 10) /= "000" then
-      assert failure "A10--A12 must be zero when setting operating mode register";
+      assert false report "A10--A12 must be zero when setting operating mode register";
     end if;
   end procedure;
 
@@ -132,7 +142,7 @@ architecture rtl of is42s16320f_model is
     row_addr <= addr;
     delay_cnt <= integer((tRCD / clk_period) + 0.5);    
     if init_state /= INIT_COMPLETE then
-      assert failure report "Attempted to activate a row before initialisation sequence complete";
+      assert false report "Attempted to activate a row before initialisation sequence complete";
     end if;
   end procedure;
 
@@ -210,10 +220,10 @@ begin
       -- be written.
       if cas_read(cas_latency-1)='1' then
         if udqm='0' then
-          dq(15 downto 8) <= cas_pipeline(cas_latency - 1);
+          dq(15 downto 8) <= cas_pipeline(cas_latency - 1)(15 downto 8);
         end if;
         if ldqm='0' then
-          dq(7 downto 0) <= cas_pipeline(cas_latency - 1);
+          dq(7 downto 0) <= cas_pipeline(cas_latency - 1)(7 downto 0);
         end if;
       end if;
       
@@ -225,8 +235,8 @@ begin
         -- End of burst
         burst_remaining <= 0;
         case state is
-          when READ_ => state <= ROW_ACTIVE;
-          when WRITE_ <= state <= WRITE_RECOVERING;
+          when READ_PLAIN => state <= ROW_ACTIVE;
+          when WRITE_PLAIN => state <= WRITE_RECOVERING;
           when READ_WITH_AUTO_PRECHARGE => state <= PRECHARGING;
           when WRITE_WITH_AUTO_PRECHARGE => state <= WRITE_RECOVERING_WITH_AUTO_PRECHARGE;
           when others => null;
@@ -260,7 +270,7 @@ begin
             else
               -- CBR Auto-Refresh
               if init_state = WAIT_FOR_AUTOREFRESH_05 then
-                init_state <= WAIT_FOR_MODE_PROG_06;
+                init_state <= WAIT_FOR_NOP_06;
               end if;                
               if init_state = WAIT_FOR_AUTOREFRESH_07 then
                 init_state <= WAIT_FOR_MODE_PROG_08;
@@ -282,10 +292,10 @@ begin
               init_state <= WAIT_FOR_PRECHARGE_02;
             end if;
             if init_state = WAIT_FOR_NOP_04 then
-              init_state <= WAIT_FOR_PRECHARGE_05;
+              init_state <= WAIT_FOR_AUTOREFRESH_05;
             end if;
             if init_state = WAIT_FOR_NOP_06 then
-              init_state <= WAIT_FOR_PRECHARGE_07;
+              init_state <= WAIT_FOR_AUTOREFRESH_07;
             end if;
             if init_state = WAIT_FOR_NOP_09 then
               init_state <= INIT_COMPLETE;
@@ -306,9 +316,9 @@ begin
                 -- Nothing to do
               when ROW_ACTIVE =>
                 -- Nothing to do. Switch to IDLE ???
-              when READ_ =>
+              when READ_PLAIN =>
                 -- Continue read burst to end
-              when WRITE_ =>
+              when WRITE_PLAIN =>
                 -- Continue write burst to end
               when READ_WITH_AUTO_PRECHARGE =>
                 -- Continue read burst to end, then precharge
@@ -320,11 +330,11 @@ begin
                 -- Enter BANK_ACTIVE after tRCD
               when WRITE_RECOVERING =>
                 -- Enter ROW_ACTIVE after tDPL
-              when WRITE_RECOVERING_WITH_PRECHARGE =>
+              when WRITE_RECOVERING_WITH_AUTO_PRECHARGE =>
                 -- Enter PRECHARGING after tDPL
               when REFRESH =>
                 -- Enter IDLE after tRC
-              when MODE_REGISTER_ACCESS
+              when MODE_REGISTER_ACCESSING =>
                 -- Enter IDLE after 2 clocks
               when others => null;                
             end case;
@@ -349,23 +359,23 @@ begin
                       end if;
                       delay_cnt <= integer(((tRAS + tXSR) / clk_period) + 0.5);    
                     when "0100" => -- Precharge select bank
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "0101" => -- Precharge all banks
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "0110" | "0111" => -- Bank+row activate
                       -- Select bank and row, and cause wait for tRCD before ready
-                      do_bank_and_row_select();
+                      do_bank_and_row_select;
                       state <= ROW_ACTIVE;
                     when "1000" => -- Write
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1001" => -- Write with auto-precharge
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1010" => -- Read
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1011" => -- Read with auto-precharge
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1100" | "1101" => -- Burst stop
-                      assert failure report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                      assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
                     when "1110" | "1111" => -- No-Operation (NOP)
                       null;
                     when others => null;
@@ -380,26 +390,26 @@ begin
                         else
                       -- CBR Auto-Refresh
                       end if;                
-                      assert failure report "Attempted to trigger refresh from " & state_t'image(state) & " state";
+                      assert false report "Attempted to trigger refresh from " & state_t'image(state) & " state";
                     when "0100" => -- Precharge select bank
                       delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
                     when "0101" => -- Precharge all banks
                       delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write before tRCD had elapsed following " & state_t'image(state) & " command";
+                        assert false report "Attempted to write before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
-                        state <= WRITE_;
+                        state <= WRITE_PLAIN;
                       end if;
                     when "1001" => -- Write with auto-precharge
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write with precharge before tRCD had elapsed following " & state_t'image(state) & " command";
+                        assert false report "Attempted to write with precharge before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
                         state <= WRITE_WITH_AUTO_PRECHARGE;
                       else
@@ -407,53 +417,53 @@ begin
                       end if;
                     when "1010" => -- Read
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to read before tRCD had elapsed following " & state_t'image(state) & " command";
+                        assert false report "Attempted to read before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
                       delay_cnt <= cas_latency - 1;
                       col_addr <= addr(8 downto 0);
                       burst_remaining <= burst_length + cas_latency - 1;
-                      state <= READ_;
+                      state <= READ_PLAIN;
                     when "1011" => -- Read with auto-precharge
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
                       end if;
                       delay_cnt <= cas_latency - 1;
                       col_addr <= addr(8 downto 0);
                       burst_remaining <= burst_length + cas_latency - 1;
                       state <= READ_WITH_AUTO_PRECHARGE;
                     when "1100" | "1101" => -- Burst stop
-                      assert failure report "Burst stop requested in state " & state_t'image(state);
+                      assert false report "Burst stop requested in state " & state_t'image(state);
                     when "1110" | "1111" => -- No-Operation (NOP)
                       null;
                     when others => null;
                   end case;
-                when READ_ =>
+                when READ_PLAIN =>
                   cas_read(0) <= '1';
                   case cmd is
                     when "0000" | "0001" => -- Mode Register Set (MRS)
-                      assert failure report "Attempted to access mode register during READ";
+                      assert false report "Attempted to access mode register during READ";
                     when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
-                      assert failure report "Attempted to trigger refresh during READ";
+                      assert false report "Attempted to trigger refresh during READ";
                     when "0100" => -- Precharge select bank
                       -- Terminate burst, begin precharging                      
                       delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
-                      state <= ROW_ACTIVATE;
+                      state <= ROW_ACTIVE;
                     when "0101" => -- Precharge all banks
                       -- Terminate burst, begin precharging
                       delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
-                      state <= ROW_ACTIVATE;
+                      state <= ROW_ACTIVE;
                     when "0110" | "0111" => -- Bank + row activate
                       -- Terminate burst, begin selecting new row
-                      do_bank_and_row_select();                      
+                      do_bank_and_row_select;                      
                     when "1000" => -- Write
                       -- Terminate burst, begin write
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
-                        state <= WRITE_;
+                        state <= WRITE_PLAIN;
                       end if;
                     when "1001" => -- Write with auto-precharge
                       -- Terminate burst, begin write
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
                         state <= WRITE_WITH_AUTO_PRECHARGE;
                       end if;
@@ -461,7 +471,7 @@ begin
                       -- Terminate burst, begin new read
                       col_addr <= addr(8 downto 0);
                       burst_remaining <= burst_length + cas_latency - 1;
-                      state <= READ_;
+                      state <= READ_PLAIN;
                     when "1011" => -- Read with auto-precharge
                       -- Terminate burst, begin new read
                       col_addr <= addr(8 downto 0);
@@ -475,29 +485,29 @@ begin
                       null;
                     when others => null;
                   end case;
-                when WRITE_ =>
+                when WRITE_PLAIN =>
                   case cmd is
                     when "0000" | "0001" => -- Mode Register Set (MRS)
                       update_mode_register(addr);
                     when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
-                      assert failure report "Attempted to trigger refresh during READ";
+                      assert false report "Attempted to trigger refresh during READ";
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert false report "Attempted to write before tRCD had elapsed following ROW_ACTIVE command";
                       end if;
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
-                        state <= WRITE_;
+                        state <= WRITE_PLAIN;
                       end if;
                     when "1001" => -- Write with auto-precharge
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert false report "Attempted to write before tRCD had elapsed following ROW_ACTIVE command";
                       end if;
-                      do_write_start();
+                      do_write_start;
                       if burst_length > 1 then
                         state <= WRITE_WITH_AUTO_PRECHARGE;
                       else
@@ -505,15 +515,15 @@ begin
                       end if;
                     when "1010" => -- Read
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
                       end if;
                       delay_cnt <= cas_latency - 1;
                       col_addr <= addr(8 downto 0);
                       burst_remaining <= burst_length + cas_latency - 1;
-                      state <= READ_;
+                      state <= READ_PLAIN;
                     when "1011" => -- Read with auto-precharge
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
                       end if;
                       delay_cnt <= cas_latency - 1;
                       col_addr <= addr(8 downto 0);
@@ -522,7 +532,7 @@ begin
                     when "1100" | "1101" => -- Burst stop
                       state <= ROW_ACTIVE;
                     when "1110" | "1111" => -- No-Operation (NOP)
-                      do_write();
+                      do_write;
                     when others => null;
                   end case;
                 when READ_WITH_AUTO_PRECHARGE =>
@@ -539,14 +549,14 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
                       -- Terminate burst, begin new read
                       col_addr <= addr(8 downto 0);
                       burst_remaining <= burst_length + cas_latency;
-                      state <= READ_;
+                      state <= READ_PLAIN;
                     when "1011" => -- Read with auto-precharge
                       -- Terminate burst, begin new read
                       col_addr <= addr(8 downto 0);
@@ -571,7 +581,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -594,7 +604,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -617,7 +627,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -640,7 +650,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -649,7 +659,7 @@ begin
                     when "1110" | "1111" => -- No-Operation (NOP)
                     when others => null;
                   end case;
-                when WRITE_RECOVERING_WITH_PRECHARGE =>
+                when WRITE_RECOVERING_WITH_AUTO_PRECHARGE =>
                   case cmd is
                     when "0000" => -- Mode Register Set (MRS)
                       update_mode_register(addr);
@@ -663,7 +673,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -686,7 +696,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -695,7 +705,7 @@ begin
                     when "1110" | "1111" => -- No-Operation (NOP)
                     when others => null;
                   end case;
-                when MODE_REGISTER_ACCESS =>
+                when MODE_REGISTER_ACCESSING =>
                   case cmd is
                     when "0000" => -- Mode Register Set (MRS)
                       update_mode_register(addr);
@@ -709,7 +719,7 @@ begin
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
-                      assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
+                      assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                     when "1001" => -- Write with auto-precharge
                     when "1010" => -- Read
@@ -718,89 +728,12 @@ begin
                     when "1110" | "1111" => -- No-Operation (NOP)
                     when others => null;
                   end case;
-              end if;
+              end case;
+            end if;
+          end if;
+          
+      end case;          
                 
-                
-            if (ras = '1' and cas = '0') then
-              row_addr <= addr;
-              state <= ROW_ACTIVE;
-              delay_cnt := integer((tRAS / clk_period) + 0.5);
-            elsif (ras = '0' and cas = '1') then
-              col_addr <= addr(8 downto 0);
-              state <= COLUMN_ACCESS;
-              if (we = '1') then
-                data <= dq;
-              end if;
-              delay_cnt := integer((tRP /clk_period) + 0.5);
-            end if;
-          end if;
-
-        when ROW_ACTIVE =>
-          if (cs = '0') then
-            if (cas = '1') then
-              col_addr <= addr(8 downto 0);
-              state <= COLUMN_ACCESS;
-              if (we = '1') then
-                data <= dq;
-              end if;
-              delay_cnt := integer((tRCD / clk_period) + 0.5);
-            end if;
-          else
-            state <= PRECHARGE;
-            delay_cnt := integer((tRFC / clk_period) + 0.5);
-          end if;
-
-        when COLUMN_ACCESS =>
-          if (cs = '0') then
-            if (we = '1') then
-              dq <= data;
-            elsif (we = '0') then
-              read_data_reg <= dq;
-            end if;
-            state <= IDLE;
-            delay_cnt := integer((tCCD / clk_period) + 0.5);
-          else
-            state <= PRECHARGE;
-            delay_cnt := integer((tRRD / clk_period) + 0.5);
-          end if;
-
-        when WRITE_DATA =>
-          if (cs = '0') then
-            data <= dq;
-            state <= COLUMN_ACCESS;
-            delay_cnt := integer((tWTR / clk_period) + 0.5);
-          else
-            state <= PRECHARGE;
-            delay_cnt := integer((tWR / clk_period) + 0.5);
-          end if;
-
-        when READ_DATA =>
-          if (cs = '0') then
-            state <= PRECHARGE;
-            dq <= read_data_reg;
-            delay_cnt := integer((tCCD / clk_period) + 0.5);
-          else
-            state <= PRECHARGE;
-            delay_cnt := integer((tRCD / clk_period) + 0.5);
-          end if;
-
-        when PRECHARGE =>
-          if (cs = '1') then
-            state <= POWER_DOWN;
-            delay_cnt := integer((tCKE / clk_period) + 0.5);
-          else
-            state <= IDLE;
-            delay_cnt := integer((tRP / clk_period) + 0.5);
-          end if;
-
-        when POWER_DOWN =>
-          if (power = "10") then
-            state <= IDLE;
-          else
-            state <= POWER_DOWN;
-          end if;
-          delay_cnt := integer((tCKESR / clk_period) + 0.5);
-      end case;
     end if;
 
   end process;
