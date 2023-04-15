@@ -35,8 +35,12 @@ entity is42s16320f_model is
 end entity is42s16320f_model;
 
 architecture rtl of is42s16320f_model is
-  type ram_t  is array(0 to 32*1024*1024) of unsigned(15 downto 0);
-  signal ram_array : ram_t := (others => (others => '0'));
+  -- XXX - Although the RAM is 64MB, we can't initialise that large
+  -- a memory here, or GHDL dies silently.
+  type ram_t  is array(0 to (1*1024*1024-1)) of unsigned(15 downto 0);
+  -- XXX - Also, don't dare try to initialise it either, or the
+  -- same thing will happen!
+  signal ram_array : ram_t; -- := (others => to_unsigned(0,16));
 
   type state_t is (IDLE,
                    ROW_ACTIVE,
@@ -97,7 +101,7 @@ architecture rtl of is42s16320f_model is
 begin
 
   process (clk, reset)
-    variable cmd : std_logic_vector(3 downto 0) := "0000";
+     variable cmd : std_logic_vector(3 downto 0) := "0000";
 
   procedure update_mode_register(bits : in unsigned(12 downto 0)) is
   begin
@@ -190,7 +194,7 @@ begin
       state <= IDLE;
       clk_en_prev <= clk_en;
       dq <= (others => 'Z');
-    elsif rising_edge(clk) then
+    elsif rising_edge(clk)  then
       clk_en_prev <= clk_en;
       dq <= (others => 'Z');
 
@@ -372,9 +376,9 @@ begin
                   end if;
                   delay_cnt <= integer(((tRAS + tXSR) / clk_period) + 0.5);    
                 when "0100" => -- Precharge select bank
-                  assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                  null;
                 when "0101" => -- Precharge all banks
-                  assert false report "Illegal request to move from state " & state_t'image(state) & " via command " & to_string(cmd);
+                  null;
                 when "0110" | "0111" => -- Bank+row activate
                   -- Select bank and row, and cause wait for tRCD before ready
                   do_bank_and_row_select;

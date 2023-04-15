@@ -34,7 +34,7 @@ architecture test_arch of tb_sdram_controller is
   signal slow_rdata_16en : std_logic := '0';
   signal slow_rdata : unsigned(7 downto 0);
   signal data_ready_strobe : std_logic := '0';
-  signal busy : std_logic := '0';
+  signal busy : std_logic;
   signal current_cache_line : cache_row_t := (others => (others => '0'));
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
@@ -130,6 +130,7 @@ begin
 
     );
   
+  
   main : process
     procedure clock_tick is
     begin
@@ -157,10 +158,28 @@ begin
     
     while test_suite loop
 
-      if run("Simple read test") then
-        clock_tick;
+      if run("SDRAM starts busy, and becomes ready") then
+        report "Make sure busy stays asserted for ~16,200 cycles";
+        for i in 1 to (16_200/4) loop
+          clock_tick;
+          if busy='0' then
+            assert false report "SDRAM controller busy flag should start set, but was clear after " & integer'image(i) & " cycles.";
+          end if;
+        end loop;
+        report "Make sure busy clears soon after 16,200 cycles";
+        for i in 1 to (100*2)/4 loop
+          clock_tick;
+        end loop;
+        if busy='1' then
+          assert false report "SDRAM controller does not come ready.";
+        end if;
+      elsif run("Test to confirm failure can happen") then
+        assert false report "force failue";
+      elsif run("Test to confirm success can happen") then
+
       end if;
     end loop;    
+    test_runner_cleanup(runner);
   end process;
     
 end architecture;
