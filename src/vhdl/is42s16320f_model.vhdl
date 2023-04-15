@@ -59,7 +59,7 @@ architecture rtl of is42s16320f_model is
  
   signal clk_period : real := (1_000_000_000.0/real(clock_frequency));
 
-  constant cycles_100usec : integer := integer(real(clock_frequency) / 10.0);
+  constant cycles_100usec : integer := integer(real(clock_frequency) / 10_000.0);
   signal cycles_elapsed : integer := 0;
   signal elapsed_100usec : std_logic := '0';
   
@@ -80,7 +80,8 @@ architecture rtl of is42s16320f_model is
   signal delay_cnt : integer := 0;
 
   signal cas_latency : integer := 3;
-  signal burst_length : integer := 1;
+  signal read_burst_length : integer := 1;
+  signal write_burst_length : integer := 1;
   signal burst_remaining : integer := 0;
   signal cas_read : std_logic_vector(3 downto 0) := (others => '0');
   type cas_pipe_t is array (0 to 3) of unsigned(15 downto 0);
@@ -101,15 +102,15 @@ begin
   procedure update_mode_register(bits : in unsigned(12 downto 0)) is
   begin
     case bits(2 downto 0) is
-      when "000" => burst_length <= 1;
-      when "001" => burst_length <= 2;
-      when "010" => burst_length <= 4;
-      when "011" => burst_length <= 8;
-      when "100" => assert false report "Illegal burst length selected";
-      when "101" => assert false report "Illegal burst length selected";
-      when "110" => assert false report "Illegal burst length selected";
-      when "111" => burst_length <= 512;  -- full page
-      when others => assert false report "Non-resolved value in burst length field";
+      when "000" => read_burst_length <= 1;
+      when "001" => read_burst_length <= 2;
+      when "010" => read_burst_length <= 4;
+      when "011" => read_burst_length <= 8;
+      when "100" => assert false report "Illegal read burst length selected";
+      when "101" => assert false report "Illegal read burst length selected";
+      when "110" => assert false report "Illegal read burst length selected";
+      when "111" => read_burst_length <= 512;  -- full page
+      when others => assert false report "Non-resolved value in read burst length field";
     end case;
     if bits(3)='1' then
       assert false report "interleaved mode not supported";
@@ -138,7 +139,10 @@ begin
     end if;
     -- Disable burst flag: Just make burst length = 1
     if bits(9)='1' then
-      burst_length <= 1;
+      write_burst_length <= 1;
+    else
+      -- i.e., use read_burst_length (gets copied in main process)
+      write_burst_length <= 0;
     end if;
     if bits(12 downto 10) /= "000" then
       assert false report "A10--A12 must be zero when setting operating mode register";
@@ -164,7 +168,7 @@ begin
 
   procedure do_write_start is
   begin
-    burst_remaining <= burst_length - 1;
+    burst_remaining <= write_burst_length - 1;
     write_queue_masks(0) <= udqm & ldqm;
     write_queue_data(0) <= dq;
     write_queue_addr(0) <= row_addr & addr(8 downto 0);
@@ -190,6 +194,10 @@ begin
       clk_en_prev <= clk_en;
       dq <= (others => 'Z');
 
+      if write_burst_length=0 then
+        write_burst_length <= read_burst_length;
+      end if;
+      
       -- XXX Does col_addr increment while clock is suspended or not?      
       if col_addr /= "1111111111" then
         col_addr <= col_addr + 1;
@@ -407,7 +415,7 @@ begin
                     assert false report "Attempted to write before tRCD had elapsed following " & state_t'image(state) & " command";
                   end if;
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_PLAIN;
                   end if;
                 when "1001" => -- Write with auto-precharge
@@ -415,7 +423,7 @@ begin
                     assert false report "Attempted to write with precharge before tRCD had elapsed following " & state_t'image(state) & " command";
                   end if;
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_WITH_AUTO_PRECHARGE;
                   else
                     state <= PRECHARGING;
@@ -426,7 +434,7 @@ begin
                   end if;
                   delay_cnt <= cas_latency - 1;
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   if delay_cnt /= 0 then
@@ -434,7 +442,7 @@ begin
                   end if;
                   delay_cnt <= cas_latency - 1;
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
                   assert false report "Burst stop requested in state " & state_t'image(state);
@@ -463,24 +471,24 @@ begin
                 when "1000" => -- Write
                   -- Terminate burst, begin write
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_PLAIN;
                   end if;
                 when "1001" => -- Write with auto-precharge
                   -- Terminate burst, begin write
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_WITH_AUTO_PRECHARGE;
                   end if;
                 when "1010" => -- Read
                   -- Terminate burst, begin new read
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   -- Terminate burst, begin new read
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
                   -- Terminate burst, return to ROW_ACTIVE state
@@ -505,7 +513,7 @@ begin
                     assert false report "Attempted to write before tRCD had elapsed following ROW_ACTIVE command";
                   end if;
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_PLAIN;
                   end if;
                 when "1001" => -- Write with auto-precharge
@@ -513,7 +521,7 @@ begin
                     assert false report "Attempted to write before tRCD had elapsed following ROW_ACTIVE command";
                   end if;
                   do_write_start;
-                  if burst_length > 1 then
+                  if write_burst_length > 1 then
                     state <= WRITE_WITH_AUTO_PRECHARGE;
                   else
                     state <= PRECHARGING;
@@ -524,7 +532,7 @@ begin
                   end if;
                   delay_cnt <= cas_latency - 1;
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   if delay_cnt /= 0 then
@@ -532,7 +540,7 @@ begin
                   end if;
                   delay_cnt <= cas_latency - 1;
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency - 1;
+                  burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
                   state <= ROW_ACTIVE;
@@ -560,12 +568,12 @@ begin
                 when "1010" => -- Read
                   -- Terminate burst, begin new read
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency;
+                  burst_remaining <= read_burst_length + cas_latency;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   -- Terminate burst, begin new read
                   col_addr <= addr(8 downto 0);
-                  burst_remaining <= burst_length + cas_latency;
+                  burst_remaining <= read_burst_length + cas_latency;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
                   -- Terminate burst, return to ROW_ACTIVE state

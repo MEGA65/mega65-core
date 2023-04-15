@@ -20,7 +20,6 @@ lib = vu.add_library("lib")
 
 lib.add_source_files("src/vhdl/tb_sdram.vhdl");
 lib.add_source_files("src/vhdl/sdram_controller.vhdl");
-lib.add_source_files("src/vhdl/sdram.vhdl");
 lib.add_source_files("src/vhdl/debugtools.vhdl")
 lib.add_source_files("src/vhdl/cputypes.vhdl")
 lib.add_source_files("src/vhdl/is42s16320f_model.vhdl")

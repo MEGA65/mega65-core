@@ -22,6 +22,10 @@ entity sdram_controller is
          -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
          clock162 : in std_logic; -- Used for fast clock for HyperRAM
 
+         -- Option to ignore 100usec initialisation sequence for SDRAM (to
+         -- speed up simulation)
+         enforce_100us_delay : in boolean := true;
+         
          -- Simple counter for number of requests received
          request_counter : out std_logic := '0';
          
@@ -45,7 +49,9 @@ entity sdram_controller is
          rdata : out unsigned(7 downto 0);
          
          data_ready_strobe : out std_logic := '0';
-         busy : out std_logic := '0';
+
+         -- Starts busy until SDRAM is initialised
+         busy : out std_logic := '1';
 
          -- Export current cache line for speeding up reads from slow_devices controller
          -- by skipping the need to hand us the request and get the response back.
@@ -62,21 +68,141 @@ entity sdram_controller is
          viciv_data_out : out unsigned(7 downto 0) := x"00";
          viciv_data_strobe : out std_logic := '0';
 
-         sdram_address : out unsigned(23 downto 0);
-         sdram_wdata : out std_logic_vector(15 downto 0);
-         sdram_we : out std_logic;
-         sdram_req : out std_logic;
-         sdram_ack : out std_logic;
-         sdram_valid : in std_logic;
-         sdram_rdata : in std_logic_vector(15 downto 0)
+         -- SDRAM interface (e.g. AS4C16M16SA-6TCN, IS42S16400F, etc.)
+         sdram_a     : out unsigned(12 downto 0);
+         sdram_ba    : out unsigned(1 downto 0);
+         sdram_dq    : inout unsigned(15 downto 0);
+         sdram_cke   : out std_logic := '1';
+         sdram_cs_n  : out std_logic := '0';
+         sdram_ras_n : out std_logic;
+         sdram_cas_n : out std_logic;
+         sdram_we_n  : out std_logic;
+         sdram_dqml  : out std_logic;
+         sdram_dqmh  : out std_logic
          
          );
 end sdram_controller;
 
 architecture tacoma_narrows of sdram_controller is
 
+  -- The SDRAM requires a 100us setup time
+  signal sdram_prepped : std_logic := '0';  
+  signal sdram_100us_countdown : integer := 16_200;
+  signal sdram_do_init : std_logic := '0';
+  signal sdram_init_phase : integer range 0 to 63 := 0;
+
+  type sdram_cmd_t is (CMD_NOP, CMD_SET_MODE_REG,
+                       CMD_PRECHARGE,
+                       CMD_AUTO_REFRESH,
+                       CMD_ACTIVATE_ROW,
+                       CMD_READ,
+                       CMD_WRITE,
+                       CMD_STOP
+                       );
+
+  -- Initialisation sequence required for SDRAM according to
+  -- the "INITIALIZE AND LOAD MODE REGISTER" section of the
+  -- datasheet.
+  type sdram_init_t is array (0 to 31) of sdram_cmd_t;
+  signal init_cmds : sdram_init_t := (
+    2 => CMD_PRECHARGE,
+    6 => CMD_AUTO_REFRESH,
+    16 => CMD_AUTO_REFRESH,
+    26 => CMD_SET_MODE_REG,
+    others => CMD_NOP);
+  
 begin  
 
   rdata <= (others => 'Z');
+
+  process(clock162,pixelclock) is
+    procedure sdram_emit_command(cmd : sdram_cmd_t) is
+    begin
+      case cmd is
+        when CMD_SET_MODE_REG =>
+          sdram_ras_n <= '0';
+          sdram_cas_n <= '0';
+          sdram_we_n <= '0';
+        when CMD_PRECHARGE =>
+          sdram_ras_n <= '0';
+          sdram_cas_n <= '1';
+          sdram_we_n <= '0';
+          sdram_a(10) <= '1';
+        when CMD_AUTO_REFRESH =>
+          sdram_ras_n <= '0';
+          sdram_cas_n <= '0';
+          sdram_we_n <= '1';
+        when CMD_ACTIVATE_ROW =>
+          -- sdram_ba=BANK and sdram_a=ROW
+          sdram_ras_n <= '0';
+          sdram_cas_n <= '1';
+          sdram_we_n <= '1';
+        when CMD_READ =>
+          sdram_ras_n <= '1';
+          sdram_cas_n <= '0';
+          sdram_we_n <= '1';
+        when CMD_WRITE =>
+          sdram_ras_n <= '1';
+          sdram_cas_n <= '0';
+          sdram_we_n <= '0';
+        when CMD_STOP =>
+          sdram_ras_n <= '1';
+          sdram_cas_n <= '1';
+          sdram_we_n <= '0';
+        when CMD_NOP =>
+          sdram_ras_n <= '1';
+          sdram_cas_n <= '1';
+          sdram_we_n <= '1';
+        when others =>
+          sdram_ras_n <= '1';
+          sdram_cas_n <= '1';
+          sdram_we_n <= '1';
+      end case;
+    end procedure;
     
+  begin
+    if rising_edge(clock162) then
+
+      -- Manage the 100usec SDRAM initialisation delay, if enabled
+      if sdram_100us_countdown /= 0 then
+        sdram_100us_countdown <= sdram_100us_countdown - 1;
+      else
+        sdram_do_init <= not sdram_prepped;
+      end if;
+      if enforce_100us_delay = false then
+        sdram_do_init <= not sdram_prepped;
+      end if;
+      -- And the complete SDRAM initialisation sequence
+      if sdram_init_phase = 0 and sdram_do_init='1' then
+        sdram_init_phase <= 1;
+      end if;
+      if sdram_prepped='0' then
+        -- Emit the sequence of commands
+        sdram_emit_command(init_cmds(sdram_init_phase));
+        -- Clear reserved bits for mode register
+        sdram_ba <= (others => '0');
+        sdram_a(12 downto 10) <= (others => '0');
+        -- write burst length = 1
+        sdram_a(9) <= '1';
+        -- Normal mode of operation
+        sdram_a(8 downto 7) <= (others => '0');
+        -- CAS latency = 3, for 167MHz operation
+        sdram_a(6 downto 4) <= to_unsigned(3,3);
+        -- Non-interleaved burst order
+        sdram_a(3) <= '0';
+        -- Read burst length = 8
+        sdram_a(2 downto 0) <= to_unsigned(3,3);        
+        
+        if sdram_init_phase = 31 then
+          sdram_prepped <= '1';
+          busy <= '0';
+        else
+          sdram_init_phase <= sdram_init_phase + 1;
+        end if;
+      else
+      end if;
+      
+    end if;
+  end process;
+  
 end tacoma_narrows;
