@@ -140,6 +140,16 @@ architecture rtl of is42s16320f_model is
   begin
     write_queue_masks(0) <= udqm & ldqm;
     write_queue_data(0) <= dq;
+    write_queue_addr(0) <= row_addr & col_addr;
+  end procedure;  
+
+  procedure do_write_start is
+  begin
+    burst_remaining <= burst_length - 1;
+    write_queue_masks(0) <= udqm & ldqm;
+    write_queue_data(0) <= dq;
+    write_queue_addr(0) <= row_addr & addr(8 downto 0);
+    col_addr <= addr(8 downto 0);
   end procedure;  
   
 begin
@@ -379,21 +389,17 @@ begin
                       assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert failure report "Attempted to write before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
-                      col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length - 1;
-                      do_write();
+                      do_write_start();
                       if burst_length > 1 then
                         state <= WRITE_;
                       end if;
                     when "1001" => -- Write with auto-precharge
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert failure report "Attempted to write with precharge before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
-                      col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length - 1;
-                      do_write();
+                      do_write_start();
                       if burst_length > 1 then
                         state <= WRITE_WITH_AUTO_PRECHARGE;
                       else
@@ -401,7 +407,7 @@ begin
                       end if;
                     when "1010" => -- Read
                       if delay_cnt /= 0 then
-                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                        assert failure report "Attempted to read before tRCD had elapsed following " & state_t'image(state) & " command";
                       end if;
                       delay_cnt <= cas_latency - 1;
                       col_addr <= addr(8 downto 0);
@@ -430,21 +436,27 @@ begin
                       assert failure report "Attempted to trigger refresh during READ";
                     when "0100" => -- Precharge select bank
                       -- Terminate burst, begin precharging                      
+                      delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
+                      state <= ROW_ACTIVATE;
                     when "0101" => -- Precharge all banks
                       -- Terminate burst, begin precharging
+                      delay_cnt <= integer(((tRQL) / clk_period) + 0.5);
+                      state <= ROW_ACTIVATE;
                     when "0110" | "0111" => -- Bank + row activate
                       -- Terminate burst, begin selecting new row
                       do_bank_and_row_select();                      
                     when "1000" => -- Write
                       -- Terminate burst, begin write
-                      col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length + cas_latency - 1;
-                      state <= WRITE_;
+                      do_write_start();
+                      if burst_length > 1 then
+                        state <= WRITE_;
+                      end if;
                     when "1001" => -- Write with auto-precharge
                       -- Terminate burst, begin write
-                      col_addr <= addr(8 downto 0);
-                      burst_remaining <= burst_length + cas_latency - 1;
-                      state <= WRITE_WITH_AUTO_PRECHARGE;
+                      do_write_start();
+                      if burst_length > 1 then
+                        state <= WRITE_WITH_AUTO_PRECHARGE;
+                      end if;
                     when "1010" => -- Read
                       -- Terminate burst, begin new read
                       col_addr <= addr(8 downto 0);
@@ -460,6 +472,7 @@ begin
                       state <= ROW_ACTIVE;
                       delay_cnt <= 0;
                     when "1110" | "1111" => -- No-Operation (NOP)
+                      null;
                     when others => null;
                   end case;
                 when WRITE_ =>
@@ -467,21 +480,49 @@ begin
                     when "0000" | "0001" => -- Mode Register Set (MRS)
                       update_mode_register(addr);
                     when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
-                      if clk_en='0' then
-                        -- Self-Refresh                  
-                        else
-                      -- CBR Auto-Refresh
-                      end if;                
+                      assert failure report "Attempted to trigger refresh during READ";
                     when "0100" => -- Precharge select bank
                     when "0101" => -- Precharge all banks
                     when "0110" | "0111" => -- Bank + row activate
                       assert failure report "Attempted to activate row from " & state_t'image(state) & " state";
                     when "1000" => -- Write
+                      if delay_cnt /= 0 then
+                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                      end if;
+                      do_write_start();
+                      if burst_length > 1 then
+                        state <= WRITE_;
+                      end if;
                     when "1001" => -- Write with auto-precharge
+                      if delay_cnt /= 0 then
+                        assert failure report "Attempted to write before tRCD had elapsed following ROW_ACTIVATE command";
+                      end if;
+                      do_write_start();
+                      if burst_length > 1 then
+                        state <= WRITE_WITH_AUTO_PRECHARGE;
+                      else
+                        state <= PRECHARGING;
+                      end if;
                     when "1010" => -- Read
+                      if delay_cnt /= 0 then
+                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                      end if;
+                      delay_cnt <= cas_latency - 1;
+                      col_addr <= addr(8 downto 0);
+                      burst_remaining <= burst_length + cas_latency - 1;
+                      state <= READ_;
                     when "1011" => -- Read with auto-precharge
+                      if delay_cnt /= 0 then
+                        assert failure report "Attempted to read before tRCD had elapsed following ROW_ACTIVATE command";
+                      end if;
+                      delay_cnt <= cas_latency - 1;
+                      col_addr <= addr(8 downto 0);
+                      burst_remaining <= burst_length + cas_latency - 1;
+                      state <= READ_WITH_AUTO_PRECHARGE;
                     when "1100" | "1101" => -- Burst stop
+                      state <= ROW_ACTIVE;
                     when "1110" | "1111" => -- No-Operation (NOP)
+                      do_write();
                     when others => null;
                   end case;
                 when READ_WITH_AUTO_PRECHARGE =>
