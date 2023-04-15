@@ -166,19 +166,26 @@ begin
       -- Manage the 100usec SDRAM initialisation delay, if enabled
       if sdram_100us_countdown /= 0 then
         sdram_100us_countdown <= sdram_100us_countdown - 1;
-      else
+      end if;
+      if sdram_100us_countdown = 1 then
+        report "SDRAM: Starting init sequence after 100usec delay";
         sdram_do_init <= not sdram_prepped;
       end if;
       if enforce_100us_delay = false then
+        report "SDRAM: Skipping 100usec init delay";
         sdram_do_init <= not sdram_prepped;
       end if;
       -- And the complete SDRAM initialisation sequence
       if sdram_init_phase = 0 and sdram_do_init='1' then
+        report "SDRAM: Starting SDRAM initialisation sequence";
         sdram_init_phase <= 1;
       end if;
       if sdram_prepped='0' then
-        -- Emit the sequence of commands
-        sdram_emit_command(init_cmds(sdram_init_phase));
+        if sdram_init_phase /= 0 then
+          report "EMIT init phase " & integer'image(sdram_init_phase) & " command "
+            & sdram_cmd_t'image(init_cmds(sdram_init_phase));
+        end if;
+
         -- Clear reserved bits for mode register
         sdram_ba <= (others => '0');
         sdram_a(12 downto 10) <= (others => '0');
@@ -192,11 +199,18 @@ begin
         sdram_a(3) <= '0';
         -- Read burst length = 8
         sdram_a(2 downto 0) <= to_unsigned(3,3);        
+
+        -- Emit the sequence of commands
+        -- MUST BE DONE AFTER SETTING sdram_a
+        -- (so that A10 can be set for the PRECHARGE_ALL command,
+        --  but stay clear for all the rest)
+        sdram_emit_command(init_cmds(sdram_init_phase));
         
         if sdram_init_phase = 31 then
           sdram_prepped <= '1';
           busy <= '0';
-        else
+          report "SDRAM: Clearing BUSY at end of initialisation sequence";
+        elsif sdram_init_phase /= 0 then
           sdram_init_phase <= sdram_init_phase + 1;
         end if;
       else

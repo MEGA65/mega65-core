@@ -26,6 +26,8 @@ entity is42s16320f_model is
     udqm      : in  std_logic;
     clk_en    : in  std_logic;
 
+    init_sequence_done : out std_logic := '0';
+    
     -- This is a port rather than a generic, so that we can change it during
     -- the execution of tests
     enforce_100usec_init : in boolean := true -- Require 100usec delay on power
@@ -69,11 +71,11 @@ architecture rtl of is42s16320f_model is
   
   type init_state_t is (WAIT_FOR_NOP_01,
                         WAIT_FOR_PRECHARGE_02,
-                        WAIT_FOR_AUTOREFRESH_03,
-                        WAIT_FOR_NOP_04,
-                        WAIT_FOR_AUTOREFRESH_05,
-                        WAIT_FOR_NOP_06,
-                        WAIT_FOR_AUTOREFRESH_07,
+                        WAIT_FOR_NOP_03,
+                        WAIT_FOR_AUTOREFRESH_04,
+                        WAIT_FOR_NOP_05,
+                        WAIT_FOR_AUTOREFRESH_06,
+                        WAIT_FOR_NOP_07,
                         WAIT_FOR_MODE_PROG_08,
                         WAIT_FOR_NOP_09,
                         INIT_COMPLETE
@@ -277,9 +279,18 @@ begin
       -- Enforce initialisation sequence
       if clk_en_prev='1' then
 
+      if cmd(3 downto 1) /= "111" then
+        report "RAS=" & std_logic'image(ras)
+          & ", CAS=" & std_logic'image(cas)
+          & ", WE=" & std_logic'image(we)
+          & ", ADDR=" & to_string(addr)
+          ;
+      end if;
+              
         case cmd is
           when "0000" => -- Mode Register Set (MRS)
             if init_state = WAIT_FOR_MODE_PROG_08 then
+              report "leaving init_state = " & init_state_t'image(init_state);
               init_state <= WAIT_FOR_NOP_09;
             end if;
           when "0001" => -- UNDEFINED
@@ -288,17 +299,22 @@ begin
               -- Self-Refresh                  
             else
               -- CBR Auto-Refresh
-              if init_state = WAIT_FOR_AUTOREFRESH_05 then
-                init_state <= WAIT_FOR_NOP_06;
+              if init_state = WAIT_FOR_AUTOREFRESH_04 then
+                report "leaving init_state = " & init_state_t'image(init_state);
+                init_state <= WAIT_FOR_NOP_05;
               end if;                
-              if init_state = WAIT_FOR_AUTOREFRESH_07 then
-                init_state <= WAIT_FOR_MODE_PROG_08;
+              if init_state = WAIT_FOR_AUTOREFRESH_06 then
+                report "leaving init_state = " & init_state_t'image(init_state);
+                init_state <= WAIT_FOR_NOP_07;
               end if;
             end if;
-          when "0100" => -- Precharge select bank            
+          when "0100" => -- Precharge select bank
+            report "SDRAM: Saw precharge select bank";
           when "0101" => -- Precharge all banks
-            if init_state = WAIT_FOR_PRECHARGE_02 and elapsed_100usec='1' then
-              init_state <= WAIT_FOR_AUTOREFRESH_03;
+            report "SDRAM: Saw precharge all banks";
+            if (init_state = WAIT_FOR_PRECHARGE_02) and (elapsed_100usec='1') then
+              report "leaving init_state = " & init_state_t'image(init_state);
+              init_state <= WAIT_FOR_NOP_03;
             end if;
           when "0110" | "0111" => -- Bank + row activate
           when "1000" => -- Write
@@ -308,16 +324,25 @@ begin
           when "1100" | "1101" => -- Burst stop
           when "1110" | "1111" => -- No-Operation (NOP)
             if init_state = WAIT_FOR_NOP_01 then
+              report "leaving init_state = " & init_state_t'image(init_state);
               init_state <= WAIT_FOR_PRECHARGE_02;
             end if;
-            if init_state = WAIT_FOR_NOP_04 then
-              init_state <= WAIT_FOR_AUTOREFRESH_05;
+            if init_state = WAIT_FOR_NOP_03 then
+              report "leaving init_state = " & init_state_t'image(init_state);
+              init_state <= WAIT_FOR_AUTOREFRESH_04;
             end if;
-            if init_state = WAIT_FOR_NOP_06 then
-              init_state <= WAIT_FOR_AUTOREFRESH_07;
+            if init_state = WAIT_FOR_NOP_05 then
+              report "leaving init_state = " & init_state_t'image(init_state);
+              init_state <= WAIT_FOR_AUTOREFRESH_06;
+            end if;
+            if init_state = WAIT_FOR_NOP_07 then
+              report "leaving init_state = " & init_state_t'image(init_state);
+              init_state <= WAIT_FOR_MODE_PROG_08;
             end if;
             if init_state = WAIT_FOR_NOP_09 then
+              report "leaving init_state = " & init_state_t'image(init_state);
               init_state <= INIT_COMPLETE;
+              init_sequence_done <= '1';
             end if;
             
           when others => null;

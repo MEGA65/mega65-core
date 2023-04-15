@@ -62,7 +62,9 @@ architecture test_arch of tb_sdram_controller is
   signal reset : std_logic;
 
   signal enforce_100usec_init : boolean := false;
- 
+  signal init_sequence_done : std_logic;
+
+  
 begin
 
   sdram_model0: entity work.is42s16320f_model
@@ -82,7 +84,8 @@ begin
     we => sdram_we_n,
     ldqm => sdram_dqml,
     udqm => sdram_dqmh,
-    enforce_100usec_init => enforce_100usec_init
+    enforce_100usec_init => enforce_100usec_init,
+    init_sequence_done => init_sequence_done
   );  
 
   sdram_controller0 : entity work.sdram_controller
@@ -160,6 +163,7 @@ begin
 
       if run("SDRAM starts busy, and becomes ready") then
         report "Make sure busy stays asserted for ~16,200 cycles";
+        enforce_100usec_init <= true;
         for i in 1 to (16_200/4) loop
           clock_tick;
           if busy='0' then
@@ -173,9 +177,11 @@ begin
         if busy='1' then
           assert false report "SDRAM controller does not come ready.";
         end if;
-      elsif run("Test to confirm failure can happen") then
-        assert false report "force failue";
-      elsif run("Test to confirm success can happen") then
+        if init_sequence_done='0' then
+          assert false report "SDRAM model did not see complete init sequence";
+        end if;
+      elsif run("Write and read back single bytes") then
+        assert false report "not implemented";
 
       end if;
     end loop;    
