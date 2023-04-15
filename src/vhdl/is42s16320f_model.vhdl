@@ -100,8 +100,10 @@ architecture rtl of is42s16320f_model is
 
   signal cas_latency : integer := 3;
   signal burst_length : integer := 1;
-  signal terminating_read : std_logic := '0';  
-    
+  signal cas_read : std_logic_vector(3 downto 0) := (others => '0');
+  type cas_pipe_t : array 0 to 3 of std_logic_vector(15 downto 0);
+  signal cas_pipeline : cas_pipe_t;  
+  
   procedure update_mode_register(bits : in std_logic_vector(12 downto 0)) is
   begin
     case bits(2 downto 0) is
@@ -176,11 +178,9 @@ begin
       state <= IDLE;
       clk_en_prev <= clk_en;
       dq <= (others => 'Z');
-      terminating_read <= '0';
     elsif rising_edge(clk) then
       clk_en_prev <= clk_en;
       dq <= (others => 'Z');
-      terminating_read <= '0';
 
       -- XXX Does col_addr increment while clock is suspended or not?      
       if col_addr /= "1111111111" then
@@ -193,14 +193,22 @@ begin
       cas_pipeline(1) <= cas_pipeline(0);
       cas_pipeline(2) <= cas_pipeline(1);
       cas_pipeline(3) <= cas_pipeline(2);
-
-      -- Export read data whenever xDQM are low
-      -- (or only during reads, and when changing from read to something else?)
-      if udqm='0' then
-        dq(15 downto 8) <= cas_pipeline(cas_latency);
-      end if;
-      if ldqm='0' then
-        dq(7 downto 0) <= cas_pipeline(cas_latency);
+      cas_read(0) <= '0';
+      cas_read(1) <= cas_read(0);
+      cas_read(2) <= cas_read(1);
+      cas_read(3) <= cas_read(2);
+      
+      -- Export read data whenever xDQM are low EXCEPT when we might be
+      -- asked to do a WRITE, as we need to avoid bus contention with that
+      -- case, as the xDQM bits are used to indicate which byte(s) should
+      -- be written.
+      if cas_read(cas_latency-1)='1' then
+        if udqm='0' then
+          dq(15 downto 8) <= cas_pipeline(cas_latency - 1);
+        end if;
+        if ldqm='0' then
+          dq(7 downto 0) <= cas_pipeline(cas_latency - 1);
+        end if;
       end if;
       
       if state = READ_ or state = READ_WITH_AUTO_PRECHARGE then
@@ -222,13 +230,6 @@ begin
       else
         burst_remaining <= burst_remaining - 1;
       end if;
-      if terminating_read='1' then
-        if state = READ_ then
-          state <= ROW_ACTIVE;
-        else
-          state <= PRECHARGING;
-        end if;
-      end if;                      
       
       if (delay_cnt > 0) then
         delay_cnt <= delay_cnt - 1;
@@ -410,6 +411,7 @@ begin
                     when others => null;
                   end case;
                 when READ_ =>
+                  cas_read(0) <= '1';
                   case cmd is
                     when "0000" | "0001" => -- Mode Register Set (MRS)
                       assert failure report "Attempted to access mode register during READ";
@@ -444,12 +446,7 @@ begin
                       state <= READ_WITH_AUTO_PRECHARGE;
                     when "1100" | "1101" => -- Burst stop
                       -- Terminate burst, return to ROW_ACTIVE state
-                      -- But still output one more word if cas_latency = 3
-                      if cas_latency /= 3 then
-                        state <= ROW_ACTIVE;
-                      else
-                        terminating_read <= '1';
-                      end if;
+                      state <= ROW_ACTIVE;
                       delay_cnt <= 0;
                     when "1110" | "1111" => -- No-Operation (NOP)
                     when others => null;
@@ -477,6 +474,7 @@ begin
                     when others => null;
                   end case;
                 when READ_WITH_AUTO_PRECHARGE =>
+                  cas_read(0) <= '1';
                   case cmd is
                     when "0000" | "0001" => -- Mode Register Set (MRS)
                       update_mode_register(addr);
