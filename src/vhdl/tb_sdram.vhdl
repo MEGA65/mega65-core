@@ -203,7 +203,7 @@ begin
       
     end procedure;
 
-    procedure sdram_read( addr : integer) is
+    procedure sdram_read( addr : integer; expected_val : unsigned(15 downto 0)) is
     begin
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
@@ -212,6 +212,9 @@ begin
       for i in 1 to 100 loop
         clock_tick;
         if data_seen='1' then
+          if data_val /= expected_val then
+            assert false report "SDRAM: Read $" & to_hexstring(data_val) & ", but expected $" & to_hexstring(expected_val);
+          end if;
           return;
         end if;
       end loop;
@@ -258,7 +261,7 @@ begin
       elsif run("Write and read back single bytes") then
         wait_for_sdram_ready;
         sdram_write(0,x"12");
-        sdram_read(0);
+        sdram_read(0,x"0012");
         
       end if;
     end loop;    
