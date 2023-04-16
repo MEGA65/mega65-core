@@ -3,6 +3,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 entity is42s16320f_model is
   generic (
@@ -60,7 +61,7 @@ architecture rtl of is42s16320f_model is
   signal state : state_t;
   signal bank : unsigned(1 downto 0);
   signal row_addr : unsigned(12 downto 0);
-  signal col_addr : unsigned(8 downto 0);
+  signal col_addr : unsigned(9 downto 0);
   signal data : unsigned(15 downto 0);
  
   signal clk_period : real := (1_000_000_000.0/real(clock_frequency));
@@ -169,16 +170,19 @@ begin
   begin
     write_queue_masks(0) <= udqm & ldqm;
     write_queue_data(0) <= dq;
-    write_queue_addr(0) <= row_addr & col_addr;
+    write_queue_addr(0)(22 downto 10) <= row_addr;
+    write_queue_addr(0)(9 downto 0) <= col_addr;
   end procedure;  
 
   procedure do_write_start is
   begin
     burst_remaining <= write_burst_length - 1;
+    report "SDRAMWRITE: Queuing write $" & to_hexstring(row_addr & addr(8 downto 0)) & " <= $" & to_hexstring(dq);
     write_queue_masks(0) <= udqm & ldqm;
     write_queue_data(0) <= dq;
-    write_queue_addr(0) <= row_addr & addr(8 downto 0);
-    col_addr <= addr(8 downto 0);
+    write_queue_addr(0)(22 downto 10) <= row_addr;
+    write_queue_addr(0)(9 downto 0) <= addr(9 downto 0);
+    col_addr <= addr(9 downto 0);
   end procedure;
   
 
@@ -467,7 +471,7 @@ begin
                     assert false report "Attempted to read before tRCD had elapsed following " & state_t'image(state) & " command";
                   end if;
                   delay_cnt <= cas_latency - 1;
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
@@ -475,7 +479,7 @@ begin
                     assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command (delay_cnt=" & integer'image(delay_cnt) & ").";
                   end if;
                   delay_cnt <= cas_latency - 1;
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
@@ -516,12 +520,12 @@ begin
                   end if;
                 when "1010" => -- Read
                   -- Terminate burst, begin new read
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   -- Terminate burst, begin new read
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
@@ -566,7 +570,7 @@ begin
                     assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
                   end if;
                   delay_cnt <= cas_latency - 1;
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
@@ -574,7 +578,7 @@ begin
                     assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
                   end if;
                   delay_cnt <= cas_latency - 1;
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency - 1;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
@@ -602,12 +606,12 @@ begin
                 when "1001" => -- Write with auto-precharge
                 when "1010" => -- Read
                   -- Terminate burst, begin new read
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency;
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   -- Terminate burst, begin new read
-                  col_addr <= addr(8 downto 0);
+                  col_addr <= addr(9 downto 0);
                   burst_remaining <= read_burst_length + cas_latency;
                   state <= READ_WITH_AUTO_PRECHARGE;
                 when "1100" | "1101" => -- Burst stop
