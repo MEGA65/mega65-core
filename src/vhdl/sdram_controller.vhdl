@@ -237,7 +237,7 @@ begin
       if read_request='0' and write_request='1' and write_latched='0' and read_latched='0' then
         report "Latching write request";
         busy <= '1';
-        read_latched <= '1';
+        write_latched <= '1';
         latched_addr <= address;
         wdata_latched <= wdata;
         wdata_hi_latched <= wdata_hi;
@@ -320,6 +320,7 @@ begin
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
             if read_latched='1' then
+              report "SDRAM: Issuing READ command after ROW_ACTIVATE";
               sdram_emit_command(CMD_READ);
               -- Select address of start of 8-byte block
               -- Each word is 2 bytes, which takes one bit
@@ -332,6 +333,7 @@ begin
               sdram_state <= READ_WAIT;
             end if;
             if write_latched='1' then
+              report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
               sdram_emit_command(CMD_WRITE);
               sdram_a(12) <= '0';
               sdram_a(11) <= '0';
@@ -365,6 +367,9 @@ begin
             rdata <= rdata_buf;
             rdata_hi <= rdata_hi_buf;
             data_ready_strobe <= '1';
+            read_latched <= '0';
+            write_latched <= '0';
+            busy <= '0';
           when READ_PRECHARGE_3 =>
             sdram_state <= IDLE;                        
           when others =>
