@@ -9,7 +9,7 @@ entity is42s16320f_model is
     clock_frequency : integer := 162_000_000; -- in Hz
     tXSR : real := 70.0; -- in ns
     tRAS : real := 42.0; -- in ns
-    tRP : real := 18.0; -- in ns
+    tRP : integer := 3; -- in cycles, including trigger
     tRCD : integer := 3 -- in cycles, including trigger
   );
   port (
@@ -258,8 +258,12 @@ begin
         case state is
           when READ_PLAIN => state <= ROW_ACTIVE;
           when WRITE_PLAIN => state <= WRITE_RECOVERING;
-          when READ_WITH_AUTO_PRECHARGE => state <= PRECHARGING;
-          when WRITE_WITH_AUTO_PRECHARGE => state <= WRITE_RECOVERING_WITH_AUTO_PRECHARGE;
+          when READ_WITH_AUTO_PRECHARGE =>
+            delay_cnt <= tRP - 1;
+            state <= PRECHARGING;
+          when WRITE_WITH_AUTO_PRECHARGE =>
+            delay_cnt <= tRP - 1;
+            state <= WRITE_RECOVERING_WITH_AUTO_PRECHARGE;
           when others => null;
         end case;
       else
@@ -456,6 +460,7 @@ begin
                     state <= WRITE_WITH_AUTO_PRECHARGE;
                   else
                     state <= PRECHARGING;
+                    delay_cnt <= tRP - 1;
                   end if;
                 when "1010" => -- Read
                   if delay_cnt /= 0 then
@@ -554,6 +559,7 @@ begin
                     state <= WRITE_WITH_AUTO_PRECHARGE;
                   else
                     state <= PRECHARGING;
+                    delay_cnt <= tRP - 1;
                   end if;
                 when "1010" => -- Read
                   if delay_cnt /= 0 then
@@ -633,6 +639,9 @@ begin
                 when others => null;
               end case;
             when PRECHARGING =>
+              if delay_cnt = 0 then
+                state <= IDLE;
+              end if;
               case cmd is
                 when "0000" => -- Mode Register Set (MRS)
                   update_mode_register(addr);
@@ -702,6 +711,9 @@ begin
                 when others => null;
               end case;
             when WRITE_RECOVERING_WITH_AUTO_PRECHARGE =>
+              if delay_cnt = 0 then
+                state <= IDLE;
+              end if;
               case cmd is
                 when "0000" => -- Mode Register Set (MRS)
                   update_mode_register(addr);
