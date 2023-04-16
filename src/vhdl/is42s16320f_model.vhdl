@@ -232,11 +232,20 @@ begin
       write_queue_masks(1) <= write_queue_masks(0);
       write_queue_masks(2) <= write_queue_masks(1);
       write_queue_masks(3) <= write_queue_masks(2);
-      if write_queue_masks(3)(0)='0' then
-        ram_array(to_integer(row_addr & col_addr))(7 downto 0) <= write_queue_data(0)(7 downto 0);
+      write_queue_addr(0) <= (others => '1');
+      write_queue_addr(1) <= write_queue_addr(0);
+      write_queue_addr(2) <= write_queue_addr(1);
+      write_queue_addr(3) <= write_queue_addr(2);
+
+
+      -- XXX RAM timing seems to not include cycles of latency on the write direction.
+      if write_queue_masks(0)(0)='0' then
+        report "SDRAMWRITE: Committing write $" & to_hexstring(write_queue_addr(0)) & " <- $xx" & to_hexstring(write_queue_data(0)(7 downto 0));
+        ram_array(to_integer(write_queue_addr(0)))(7 downto 0) <= write_queue_data(0)(7 downto 0);
       end if;
-      if write_queue_masks(3)(1)='0' then
-        ram_array(to_integer(row_addr & col_addr))(15 downto 8) <= write_queue_data(0)(15 downto 8);
+      if write_queue_masks(0)(1)='0' then
+        report "SDRAMWRITE: Committing write $" & to_hexstring(write_queue_addr(0)) & " <- $" & to_hexstring(write_queue_data(0)(15 downto 8)) & "xx";
+        ram_array(to_integer(write_queue_addr(0)))(15 downto 8) <= write_queue_data(0)(15 downto 8);
       end if;
       
       -- Export read data whenever xDQM are low EXCEPT when we might be
@@ -490,6 +499,8 @@ begin
               end case;
             when READ_PLAIN =>
               cas_read(0) <= '1';
+              dq <= cas_pipeline(3);
+              report "SDRAMREAD: cas_pipeline(3)=$" & to_hexstring(cas_pipeline(3));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   assert false report "Attempted to access mode register during READ";
@@ -589,6 +600,8 @@ begin
               end case;
             when READ_WITH_AUTO_PRECHARGE =>
               cas_read(0) <= '1';
+              dq <= cas_pipeline(3);
+              report "SDRAMREAD: cas_pipeline(3)=$" & to_hexstring(cas_pipeline(3));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   update_mode_register(addr);
