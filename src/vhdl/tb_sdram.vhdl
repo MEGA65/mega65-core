@@ -201,11 +201,24 @@ begin
         slow_wen_lo <= '1';
       end if;
       clock_tick;
+      for i in 1 to 100 loop
+        if busy='0' then
+          report "SDRAMWRITE: BUSY released after " & integer'image(i) & " cycles.";
+          return;
+        end if;
+        clock_tick;
+      end loop;
+      assert false report "SDRAMWRITE: SDRAM BUSY flag did not clear after writing";
       
     end procedure;
 
     procedure sdram_read( addr : integer; expected_val : unsigned(15 downto 0)) is
     begin
+
+      if busy='1' then
+        assert false report "Attempted to read from SDRAM while BUSY";
+      end if;
+      
       report "SDRAMREAD: $" & to_hexstring(to_unsigned(addr,28)) & " (looking for $" & to_hexstring(expected_val) & ").";
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
