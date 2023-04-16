@@ -346,8 +346,8 @@ void main(void)
       if (selected == 0xff)
         selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
-#if 1
-      // debug
+#if 0
+      // debug -- do not use in official builds, may mess things up
       printf("\n\nD67E=%02X,MATCH=%02X,SEARCH=%X,SEL=%X,D7FD=%02X\n", PEEK(0xD67EU), PEEK(0xD67EU) & 0x60, search_cart, selected, PEEK(0xD7FDU));
       lcopy(0x4008004, (long)cart_id, 6);
       printf("\n  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
