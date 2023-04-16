@@ -10,7 +10,7 @@ entity is42s16320f_model is
     tXSR : real := 70.0; -- in ns
     tRAS : real := 42.0; -- in ns
     tRP : real := 18.0; -- in ns
-    tRCD : real := 18.0 -- in ns
+    tRCD : integer := 3 -- in cycles, including trigger
   );
   port (
     clk       : in  std_logic;
@@ -159,7 +159,7 @@ begin
   begin
     bank <= ba;
     row_addr <= addr;
-    delay_cnt <= integer((tRCD / clk_period) + 0.5);    
+    delay_cnt <= tRCD - 1;
     if init_state /= INIT_COMPLETE then
       assert false report "Attempted to activate a row before initialisation sequence complete";
     end if;
@@ -467,7 +467,7 @@ begin
                   state <= READ_PLAIN;
                 when "1011" => -- Read with auto-precharge
                   if delay_cnt /= 0 then
-                    assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command";
+                    assert false report "Attempted to read before tRCD had elapsed following ROW_ACTIVE command (delay_cnt=" & integer'image(delay_cnt) & ").";
                   end if;
                   delay_cnt <= cas_latency - 1;
                   col_addr <= addr(8 downto 0);

@@ -114,10 +114,8 @@ architecture tacoma_narrows of sdram_controller is
   -- SDRAM state machine.  IDLE must be the last in the list,
   -- so that the shallow auto-progression logic can progress
   -- through.
-  type sdram_state_t is (PRECHARGE_WAIT,
-                         PRECHARGE_WAIT_2,
-                         PRECHARGE_WAIT_3,
-                         ACTIVATE_WAIT,
+  type sdram_state_t is (ACTIVATE_WAIT,
+                         ACTIVATE_WAIT_1,
                          ACTIVATE_WAIT_2,
                          READ_WAIT,
                          READ_WAIT_2,
@@ -229,6 +227,7 @@ begin
       
       -- Latch incoming requests (those come in on the 81MHz pixel clock)
       if read_request='1' and write_request='0' and write_latched='0' and read_latched='0' then
+        report "Latching read request";
         busy <= '1';
         read_latched <= '1';
         latched_addr <= address;
@@ -236,6 +235,7 @@ begin
         wdata_hi_latched <= wdata_hi;
       end if;
       if read_request='0' and write_request='1' and write_latched='0' and read_latched='0' then
+        report "Latching write request";
         busy <= '1';
         read_latched <= '1';
         latched_addr <= address;
@@ -252,7 +252,9 @@ begin
         sdram_do_init <= not sdram_prepped;
       end if;
       if enforce_100us_delay = false then
-        report "SDRAM: Skipping 100usec init delay";
+        if sdram_prepped = '0' then
+          report "SDRAM: Skipping 100usec init delay";
+        end if;
         sdram_do_init <= not sdram_prepped;
       end if;
       -- And the complete SDRAM initialisation sequence
@@ -295,6 +297,7 @@ begin
         end if;
       else
         -- SDRAM is ready
+        report "SDRAMSTATE: " & sdram_state_t'image(sdram_state);
         if sdram_state /= IDLE then
           sdram_state <= sdram_state_t'succ(sdram_state);
         end if;
@@ -302,20 +305,17 @@ begin
           when IDLE =>
             data_ready_strobe <= '0';
             if read_latched='1' or write_latched='1' then
-              -- Request ACTIVATE
-              sdram_emit_command(CMD_PRECHARGE);              
-            end if;
-          when PRECHARGE_WAIT =>
-            null;
-          when PRECHARGE_WAIT_2 =>
-            null;
-          when PRECHARGE_WAIT_3 =>
+              -- Activate the row
               sdram_emit_command(CMD_ACTIVATE_ROW);
               sdram_ba <= latched_addr(25 downto 24);
               sdram_a <= latched_addr(23 downto 11);
               sdram_state <= ACTIVATE_WAIT;
-            
+            else
+              sdram_emit_command(CMD_NOP);              
+            end if;
           when ACTIVATE_WAIT =>
+            sdram_emit_command(CMD_NOP);
+          when ACTIVATE_WAIT_1 =>
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
@@ -366,10 +366,9 @@ begin
             rdata_hi <= rdata_hi_buf;
             data_ready_strobe <= '1';
           when READ_PRECHARGE_3 =>
-            sdram_state <= IDLE;
-                        
+            sdram_state <= IDLE;                        
           when others =>
-            null;
+            sdram_emit_command(CMD_NOP);
         end case;
       end if;
       

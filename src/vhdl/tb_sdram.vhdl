@@ -189,6 +189,7 @@ begin
       if busy='1' then
         assert false report "SDRAM controller is busy";
       end if;
+      report "SDRAMWRITE: $" & to_hexstring(to_unsigned(addr,28)) & " <- $" & to_hexstring(val);
       slow_read <= '0'; slow_write <= '1';
       slow_address <= to_unsigned(addr,27);
       slow_wdata <= val;
@@ -205,6 +206,7 @@ begin
 
     procedure sdram_read( addr : integer; expected_val : unsigned(15 downto 0)) is
     begin
+      report "SDRAMREAD: $" & to_hexstring(to_unsigned(addr,28)) & " (looking for $" & to_hexstring(expected_val) & ").";
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
       slow_rdata_16en <= '1';
