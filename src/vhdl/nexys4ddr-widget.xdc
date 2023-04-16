@@ -97,34 +97,82 @@ set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports {btn[2]}]
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports {btn[3]}]
 set_property -dict {PACKAGE_PIN P18 IOSTANDARD LVCMOS33} [get_ports {btn[1]}]
 
-##Pmod Header JA
-set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports {jalo[1]}]
-set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS33} [get_ports {jalo[2]}]
-set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports {jalo[3]}]
-set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS33} [get_ports {jalo[4]}]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports {jahi[7]}]
-set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports {jahi[8]}]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports {jahi[9]}]
-set_property -dict {PACKAGE_PIN G18 IOSTANDARD LVCMOS33} [get_ports {jahi[10]}]
+
+## Hyper RAM on PMOD Header JXADC and JA
+set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr_cs0}]
+set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr_cs1}]
+set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr_cs2}]
+set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr_cs3}]
+set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr_reset}]
+set_property -dict {PACKAGE_PIN A18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_rwds}]
+set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_clk_p}]
+set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_clk_n}]
+set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN G18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports {hr_d[7]}]
+# Place HyperRAM close to I/O pins
+create_pblock pblock_hyperram
+add_cells_to_pblock pblock_hyperram [get_cells [list hyperram0]]
+resize_pblock pblock_hyperram -add {SLICE_X0Y100:SLICE_X31Y149}
+
+# 80 MHz Hyperram bus
+set hbus_freq_ns   12
+# Set allowable clock drift
+set dqs_in_min_dly -0.5
+set dqs_in_max_dly  0.5
+
+# Set 6ns max delay to/from various HyperRAM pins
+# (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
+set hr0_dq_ports    [get_ports hr_d[*]]
+set_max_delay -from [get_clocks clock163] -to ${hr0_dq_ports} 23
+set_max_delay -to [get_clocks clock163] -from ${hr0_dq_ports} 23
+set_max_delay -from [get_clocks clock163] -to hr_rwds 23
+set_max_delay -to [get_clocks clock163] -from hr_rwds 23
+# set hr2_dq_ports    [get_ports hr2_d[*]]
+# set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
+# set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
+# set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
+# set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
+
+
+# ##Pmod Header JA
+# set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports {jalo[1]}]
+# set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS33} [get_ports {jalo[2]}]
+# set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports {jalo[3]}]
+# set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS33} [get_ports {jalo[4]}]
+# set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports {jahi[7]}]
+# set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports {jahi[8]}]
+# set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports {jahi[9]}]
+# set_property -dict {PACKAGE_PIN G18 IOSTANDARD LVCMOS33} [get_ports {jahi[10]}]
 
 ##Pmod Header JB
 set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports {jblo[1]}]
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports {jblo[2]}]
 set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports {jblo[3]}]
 set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports {jblo[4]}]
-set_property PACKAGE_PIN E16 [get_ports {jbhi[7]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {jbhi[7]}]
+
+# MKII Keyboard connected to jbhi
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports {jbhi[7]}]
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports {jbhi[8]}]
 set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports {jbhi[9]}]
 set_property -dict {PACKAGE_PIN H16 IOSTANDARD LVCMOS33} [get_ports {jbhi[10]}]
+# Place Keyboard close to I/O pins
+create_pblock pblock_kbd0
+add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0 mk2]]
+resize_pblock pblock_kbd0 -add {SLICE_X0Y100:SLICE_X31Y149}
 
 ##Pmod Header JC
 set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports {jclo[1]}]
 set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports {jclo[2]}]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {jclo[3]}]
 set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports {jclo[4]}]
-set_property -dict { PACKAGE_PIN E7 IOSTANDARD LVCMOS33 } [get_ports {jchi[7]}]
-set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
+set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS33} [get_ports {jchi[7]}]
+set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports {jchi[8]}]
 set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33} [get_ports {jchi[9]}]
 set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports {jchi[10]}]
 
@@ -139,7 +187,15 @@ set_property -dict {PACKAGE_PIN G4 IOSTANDARD LVCMOS33} [get_ports {jdhi[8]}]
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports {jdhi[9]}]
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports {jdhi[10]}]
 
-##Pmod Header JXADC
+# ##Pmod Header JXADC
+# set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports {jxadc[0]}]
+# set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports {jxadc[1]}]
+# set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports {jxadc[2]}]
+# set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33} [get_ports {jxadc[3]}]
+# set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports {jxadc[4]}]
+# set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports {jxadc[5]}]
+# set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33} [get_ports {jxadc[6]}]
+# set_property -dict {PACKAGE_PIN A18 IOSTANDARD LVCMOS33} [get_ports {jxadc[7]}]
 
 ##VGA Connector
 set_property -dict {PACKAGE_PIN A3 IOSTANDARD LVCMOS33} [get_ports {vgared[0]}]
@@ -197,12 +253,8 @@ set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 #set_property -dict { PACKAGE_PIN E5 IOSTANDARD LVCMOS33 } [get_ports RsRts]
 
 ##USB HID (PS/2)
-set_property PACKAGE_PIN F4 [get_ports ps2clk]
-set_property IOSTANDARD LVCMOS33 [get_ports ps2clk]
-set_property PULLUP true [get_ports ps2clk]
-set_property PACKAGE_PIN B2 [get_ports ps2data]
-set_property IOSTANDARD LVCMOS33 [get_ports ps2data]
-set_property PULLUP true [get_ports ps2data]
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true} [get_ports ps2clk]
+set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true} [get_ports ps2data]
 
 ##SMSC Ethernet PHY
 set_property -dict {PACKAGE_PIN C9 IOSTANDARD LVCMOS33} [get_ports eth_mdc]
@@ -220,16 +272,49 @@ set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports eth_clock]
 set_property -dict {PACKAGE_PIN B8 IOSTANDARD LVCMOS33} [get_ports eth_interrupt]
 
 ##Quad SPI Flash
- #set_property  -dict { PACKAGE_PIN E9  IOSTANDARD LVCMOS33 } [get_ports {QspiSCK}]
-set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports {QspiDB[0]}]
-set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33} [get_ports {QspiDB[1]}]
-set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[2]}]
-set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33} [get_ports {QspiDB[3]}]
-set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
-set_property PULLUP true [get_ports {qspidb[0]}]
-set_property PULLUP true [get_ports {qspidb[1]}]
-set_property PULLUP true [get_ports {qspidb[2]}]
-set_property PULLUP true [get_ports {qspidb[3]}]
+# set_property  -dict { PACKAGE_PIN E9  IOSTANDARD LVCMOS33 } [get_ports {QspiSCK}]
+set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33 PULLUP true} [get_ports {QspiDB[0]}]
+set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33 PULLUP true} [get_ports {QspiDB[1]}]
+set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33 PULLUP true} [get_ports {QspiDB[2]}]
+set_property -dict {PACKAGE_PIN M14 IOSTANDARD LVCMOS33 PULLUP true} [get_ports {QspiDB[3]}]
+set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33 PULLUP true} [get_ports QspiCSn]
+# Place QSPI controller close to I/O pins
+create_pblock pblock_qspi
+add_cells_to_pblock pblock_qspi [get_cells [list core0.machine0/iomapper0/sdcard0/QspiCSn_i_1
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_10
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_11
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_2
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_3
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_4
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_5
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_6
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_7
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_8
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_i_9
+                                                 core0.machine0/iomapper0/sdcard0/QspiCSn_reg
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_10
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_11
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_12
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_13
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_14
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_3
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_4
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_5
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_6
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_8
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[0]_i_9
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_3
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_4
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_5
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_6
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_7
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB[3]_i_8
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB_reg[0]
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB_reg[1]
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB_reg[2]
+                                                 core0.machine0/iomapper0/sdcard0/QspiDB_reg[3]]]
+# add_cells_to_pblock pblock_qspi [get_cells [list machine0/iomapper0/sdcard0]]
+resize_pblock pblock_qspi -add {SLICE_X0Y50:SLICE_X31Y99}
 
 
 #set_false_path -from [get_clocks -of_objects [get_pins dotclock1/mmcm_adv_inst/CLKOUT2]] -to [get_clocks -of_objects [get_pins dotclock1/mmcm_adv_inst/CLKOUT3]]
@@ -263,13 +348,6 @@ set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_mob
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/tx_preamble_count_reg[3]/S}]
 set_false_path -from [get_pins machine0/iomapper0/ethernet0/eth_tx_viciv_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_trigger_reg/D]
 set_false_path -from [get_pins machine0/iomapper0/ethernet0/eth_rx_buffer_last_used_50mhz_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_rx_buffer_last_used_int1_reg/D]
-set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
-set_property BITSTREAM.CONFIG.CONFIGRATE 26 [current_design]
-set_property CONFIG_VOLTAGE 3.3 [current_design]
-set_property CFGBVS VCCO [current_design]
-set_property CONFIG_MODE SPIx4 [current_design]
-set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
-set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
 
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[4]/CE}]
@@ -282,3 +360,12 @@ set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_mob
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/eth_txd_int_reg[0]/D}]
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_txen_int_reg/D]
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_viciv_reg/D]
+
+
+set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 26 [current_design]
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+set_property CFGBVS VCCO [current_design]
+set_property CONFIG_MODE SPIx4 [current_design]
+set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR YES [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
