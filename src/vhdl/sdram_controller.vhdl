@@ -163,6 +163,10 @@ begin
   begin
     if rising_edge(clock162) then
 
+      if read_request='1' or write_request='1' then
+        busy <= '1';
+      end if;
+      
       -- Manage the 100usec SDRAM initialisation delay, if enabled
       if sdram_100us_countdown /= 0 then
         sdram_100us_countdown <= sdram_100us_countdown - 1;

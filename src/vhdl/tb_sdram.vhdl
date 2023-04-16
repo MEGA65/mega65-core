@@ -64,6 +64,8 @@ architecture test_arch of tb_sdram_controller is
   signal enforce_100usec_init : boolean := false;
   signal init_sequence_done : std_logic;
 
+  signal data_seen : std_logic := '0';
+  signal data_val : unsigned(15 downto 0);
   
 begin
 
@@ -135,6 +137,19 @@ begin
   
   
   main : process
+
+    variable v : unsigned(15 downto 0);
+    
+    procedure check_sdram_read_strobe is
+    begin
+      if data_ready_strobe='1' then
+        report "SDRAM read $" & to_hexstring(slow_rdata_hi) & to_hexstring(slow_rdata);
+        data_seen <= '1';
+        data_val(7 downto 0) <= slow_rdata;
+        data_val(15 downto 8) <= slow_rdata_hi;
+      end if;
+    end procedure;
+    
     procedure clock_tick is
     begin
       clock41 <= '0';
@@ -142,19 +157,79 @@ begin
       clock162 <= '0'; wait for 6.173 ns;
       clock162 <= '1'; wait for 6.173 ns;
 
+      check_sdram_read_strobe;
+      
       pixelclock <= '1';
       clock162 <= '0'; wait for 6.173 ns;
       clock162 <= '1'; wait for 6.173 ns;
 
+      check_sdram_read_strobe;
+      
+      -- Clear any read or write request so that it doesn't get
+      -- double scheduled
+      slow_read <= '0'; slow_write <= '0';
+      
       clock41 <= '1';
       pixelclock <= '0';
       clock162 <= '0'; wait for 6.173 ns;
       clock162 <= '1'; wait for 6.173 ns;
 
+      check_sdram_read_strobe;
+      
       pixelclock <= '1';
       clock162 <= '0'; wait for 6.173 ns;
       clock162 <= '1'; wait for 6.173 ns;      
+
+      check_sdram_read_strobe;
+
     end procedure;
+
+    procedure sdram_write( addr : integer; val : unsigned(7 downto 0)) is
+    begin
+      if busy='1' then
+        assert false report "SDRAM controller is busy";
+      end if;
+      slow_read <= '0'; slow_write <= '1';
+      slow_address <= to_unsigned(addr,27);
+      slow_wdata <= val;
+      slow_wdata_hi <= val;
+      slow_wen_lo <= '0'; slow_wen_hi <= '0';
+      if to_integer(to_unsigned(addr,1)) = 1 then
+        slow_wen_hi <= '1';
+      else
+        slow_wen_lo <= '1';
+      end if;
+      clock_tick;
+      
+    end procedure;
+
+    procedure sdram_read( addr : integer) is
+    begin
+      slow_address <= to_unsigned(addr,27);
+      slow_read <= '1'; slow_write <= '0';
+      slow_rdata_16en <= '1';
+
+      for i in 1 to 100 loop
+        clock_tick;
+        if data_seen='1' then
+          return;
+        end if;
+      end loop;
+      assert false report "SDRAM: Failed to read value after 400 cycles.";
+    end procedure;
+
+    procedure wait_for_sdram_ready is
+    begin
+      clock_tick;
+      for i in 1 to 1000 loop
+        clock_tick;
+        if busy='0' then
+          report "SDRAM ready after " & integer'image(i) & " cycles.";
+          return;
+        end if;
+      end loop;
+      assert false report "SDRAM did not become ready";
+      end procedure;
     
   begin
     test_runner_setup(runner, runner_cfg);    
@@ -181,8 +256,10 @@ begin
           assert false report "SDRAM model did not see complete init sequence";
         end if;
       elsif run("Write and read back single bytes") then
-        assert false report "not implemented";
-
+        wait_for_sdram_ready;
+        sdram_write(0,x"12");
+        sdram_read(0);
+        
       end if;
     end loop;    
     test_runner_cleanup(runner);
