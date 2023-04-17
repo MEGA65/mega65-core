@@ -119,6 +119,7 @@ architecture tacoma_narrows of sdram_controller is
                          ACTIVATE_WAIT_2,
                          READ_WAIT,
                          READ_WAIT_2,
+                         READ_WAIT_3,
                          READ_0,
                          READ_1,
                          READ_2,
@@ -230,7 +231,7 @@ begin
       
       -- Latch incoming requests (those come in on the 81MHz pixel clock)
       if read_request='1' and write_request='0' and write_latched='0' and read_latched='0' then
-        report "Latching read request";
+        report "Latching read request for $" & to_hexstring(address);
         busy <= '1';
         read_latched <= '1';
         latched_addr <= address;
@@ -354,6 +355,8 @@ begin
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
+          when READ_WAIT_3 =>
+            sdram_emit_command(CMD_NOP);
           when READ_0 =>
             sdram_emit_command(CMD_NOP);
             rdata_line(15 downto 0) <= sdram_dq;
@@ -370,6 +373,7 @@ begin
             -- Drive stage to allow selection of buffer output
           when READ_PRECHARGE_2 =>
             report "rdata_line = $" & to_hexstring(rdata_line);
+            report "latched_addr bits = " & to_string(latched_addr(2 downto 0));
             rdata <= rdata_buf;
             rdata_hi <= rdata_hi_buf;
             data_ready_strobe <= '1';
