@@ -506,8 +506,8 @@ begin
               end case;
             when READ_PLAIN =>
               cas_read(0) <= '1';
-              dq <= cas_pipeline(2);
-              report "SDRAMREAD: cas_pipeline(2)=$" & to_hexstring(cas_pipeline(2));
+              dq <= cas_pipeline(0);
+              report "SDRAMREAD: cas_pipeline(2)=$" & to_hexstring(cas_pipeline(0));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   assert false report "Attempted to access mode register during READ";
@@ -607,8 +607,8 @@ begin
               end case;
             when READ_WITH_AUTO_PRECHARGE =>
               cas_read(0) <= '1';
-              dq <= cas_pipeline(3);
-              report "SDRAMREAD: cas_pipeline(3)=$" & to_hexstring(cas_pipeline(3));
+              dq <= cas_pipeline(0);
+              report "SDRAMREAD: cas_pipeline(2)=$" & to_hexstring(cas_pipeline(0));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   update_mode_register(addr);
