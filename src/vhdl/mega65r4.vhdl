@@ -477,15 +477,6 @@ architecture Behavioral of container is
 
   signal eth_load_enable : std_logic;
 
-  signal sdram_address : unsigned(23 downto 0);
-  signal sdram_wdata : std_logic_vector(15 downto 0);
-  signal sdram_we : std_logic;
-  signal sdram_req : std_logic;
-  signal sdram_ack : std_logic;
-  signal sdram_valid : std_logic;
-  signal sdram_rdata : std_logic_vector(15 downto 0);
-  signal sdram_reset : std_logic;
-  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -680,34 +671,6 @@ begin
       
       );
 
-  sdram0:
-  if false generate
-  sdram0: entity work.sdram
-    port map (
-      -- MEGA65 interface to SDRAM
-      reset => sdram_reset,
-      clk => clock162,
-      addr => sdram_address,
-      data => sdram_wdata,
-      we => sdram_we,
-      req => sdram_req,
-      ack => sdram_ack,
-      valid => sdram_valid,
-      q => sdram_rdata,
-
-      sdram_a => sdram_a,
-      sdram_ba => sdram_ba,
-      sdram_dq => sdram_dq,
-      sdram_cke => sdram_cke,
-      sdram_cs_n => sdram_cs_n,
-      sdram_ras_n => sdram_ras_n,
-      sdram_cas_n => sdram_cas_n,
-      sdram_we_n => sdram_we_n,
-      sdram_dqml => sdram_dqml,
-      sdram_dqmh => sdram_dqmh
-      );
-  end generate;
-  
   sdramctl0:
   if false generate
   sdramctrl0: entity work.sdram_controller
@@ -736,14 +699,17 @@ begin
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,     
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-      
-      sdram_address => sdram_address,
-      sdram_wdata => sdram_wdata,
-      sdram_we => sdram_we,
-      sdram_req => sdram_req,
-      sdram_ack => sdram_ack,
-      sdram_valid => sdram_valid,
-      sdram_rdata => sdram_rdata
+
+      sdram_a => sdram_a,
+      sdram_ba => sdram_ba,
+      sdram_dq => sdram_dq,
+      sdram_cke => sdram_cke,
+      sdram_cs_n => sdram_cs_n,
+      sdram_ras_n => sdram_ras_n,
+      sdram_cas_n => sdram_cas_n,
+      sdram_we_n => sdram_we_n,
+      sdram_dqml => sdram_dqml,
+      sdram_dqmh => sdram_dqmh
       
       );
   end generate;
