@@ -276,6 +276,13 @@ begin
       elsif run("Write and read back single bytes") then
         wait_for_sdram_ready;
         sdram_write(0,x"12");
+        sdram_write(1,x"34");
+        sdram_write(2,x"56");
+        sdram_write(3,x"78");
+        sdram_write(4,x"9a");
+        sdram_write(5,x"bc");
+        sdram_write(6,x"de");
+        sdram_write(7,x"f0");
         sdram_read(0,x"0012");
         
       end if;

@@ -126,6 +126,9 @@ architecture tacoma_narrows of sdram_controller is
                          READ_PRECHARGE,
                          READ_PRECHARGE_2,
                          READ_PRECHARGE_3,
+                         WRITE_PRECHARGE,
+                         WRITE_PRECHARGE_2,
+                         WRITE_PRECHARGE_3,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
 
@@ -241,6 +244,8 @@ begin
         latched_addr <= address;
         wdata_latched <= wdata;
         wdata_hi_latched <= wdata_hi;
+        latched_wen_lo <= address(0);
+        latched_wen_hi <= not address(0);
       end if;
 
       -- Manage the 100usec SDRAM initialisation delay, if enabled
@@ -339,7 +344,7 @@ begin
               sdram_a(11) <= '0';
               sdram_a(10) <= '1'; -- Enable auto precharge
               sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-              sdram_state <= READ_PRECHARGE; -- wait for 
+              sdram_state <= WRITE_PRECHARGE; -- wait for 
               sdram_dqmh <= latched_wen_hi;
               sdram_dqml <= latched_wen_lo;
             end if;
@@ -363,7 +368,8 @@ begin
             rdata_line(63 downto 48) <= sdram_dq;
           when READ_PRECHARGE => 
             -- Drive stage to allow selection of buffer output
-          when READ_PRECHARGE_2 => 
+          when READ_PRECHARGE_2 =>
+            report "rdata_line = $" & to_hexstring(rdata_line);
             rdata <= rdata_buf;
             rdata_hi <= rdata_hi_buf;
             data_ready_strobe <= '1';
@@ -371,7 +377,14 @@ begin
             write_latched <= '0';
             busy <= '0';
           when READ_PRECHARGE_3 =>
-            sdram_state <= IDLE;                        
+            sdram_state <= IDLE;
+          when WRITE_PRECHARGE => null;
+          when WRITE_PRECHARGE_2 => null;
+          when WRITE_PRECHARGE_3 => 
+            read_latched <= '0';
+            write_latched <= '0';
+            busy <= '0';
+            sdram_state <= IDLE;
           when others =>
             sdram_emit_command(CMD_NOP);
         end case;
