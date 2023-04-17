@@ -558,8 +558,8 @@ begin
       -- hr_cs2 => hr_cs2,
       -- hr_cs3 => hr_cs3,
 
-      hr2_d => hr_d,
-      hr2_rwds => hr_rwds
+      hr2_d => open,
+      hr2_rwds => open
 --      hr2_reset => hr2_reset,
 --      hr2_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
