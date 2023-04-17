@@ -109,7 +109,7 @@ entity container is
          sdram_a : out unsigned(12 downto 0);
          sdram_dqml : out std_logic;
          sdram_dqmh : out std_logic;
-         sdram_dq : inout std_logic_vector(15 downto 0);
+         sdram_dq : inout unsigned(15 downto 0);
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -672,11 +672,11 @@ begin
       );
 
   sdramctl0:
-  if false generate
+  if true generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
-      clock163 => clock162,
+      clock162 => clock162,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
