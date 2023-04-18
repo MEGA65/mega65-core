@@ -200,17 +200,17 @@ entity machine is
          pot_drain : buffer std_logic := '1';
          pot_via_iec : buffer std_logic := '1';
 
-        fa_left_out : out std_logic;
-        fa_right_out : out std_logic;
-        fa_down_out : out std_logic;
-        fa_up_out : out std_logic;
-        fa_fire_out : out std_logic;
+        fa_left_o : out std_logic;
+        fa_right_o : out std_logic;
+        fa_down_o : out std_logic;
+        fa_up_o : out std_logic;
+        fa_fire_o : out std_logic;
         
-        fb_left_out : out std_logic;
-        fb_right_out : out std_logic;
-        fb_down_out : out std_logic;
-        fb_up_out : out std_logic;
-        fb_fire_out : out std_logic;
+        fb_left_o : out std_logic;
+        fb_right_o : out std_logic;
+        fb_down_o : out std_logic;
+        fb_up_o : out std_logic;
+        fb_fire_o : out std_logic;
          
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
@@ -1758,17 +1758,17 @@ begin
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 
-      fa_fire_out => fa_fire_out,
-      fa_up_out => fa_up_out,
-      fa_left_out => fa_left_out,
-      fa_right_out => fa_right_out,
-      fa_down_out => fa_down_out,
+      fa_fire_out => fa_fire_o,
+      fa_up_out => fa_up_o,
+      fa_left_out => fa_left_o,
+      fa_right_out => fa_right_o,
+      fa_down_out => fa_down_o,
 
-      fb_fire_out => fb_fire_out,
-      fb_up_out => fb_up_out,
-      fb_left_out => fb_left_out,
-      fb_right_out => fb_right_out,
-      fb_down_out => fb_down_out,
+      fb_fire_out => fb_fire_o,
+      fb_up_out => fb_up_o,
+      fb_left_out => fb_left_o,
+      fb_right_out => fb_right_o,
+      fb_down_out => fb_down_o,
       
       pota_x => pota_x,
       pota_y => pota_y,

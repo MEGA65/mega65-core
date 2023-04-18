@@ -914,6 +914,18 @@ begin
           caps_lock_key => '1',
           keyleft => keyleft,
           keyup => keyup,
+
+          fa_fire_o => fa_fire_out,
+          fa_up_o => fa_up_out,
+          fa_down_o => fa_down_out,
+          fa_left_o => fa_left_out,
+          fa_right_o => fa_right_out,
+          
+          fb_fire_o => fb_fire_out,
+          fb_up_o => fb_up_out,
+          fb_down_o => fb_down_out,
+          fb_left_o => fb_left_out,
+          fb_right_o => fb_right_out,
           
           fa_fire => fa_fire_drive,
           fa_up => fa_up_drive,
