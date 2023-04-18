@@ -200,6 +200,18 @@ entity machine is
          pot_drain : buffer std_logic := '1';
          pot_via_iec : buffer std_logic := '1';
 
+        fa_left_out : out std_logic;
+        fa_right_out : out std_logic;
+        fa_down_out : out std_logic;
+        fa_up_out : out std_logic;
+        fa_fire_out : out std_logic;
+        
+        fb_left_out : out std_logic;
+        fb_right_out : out std_logic;
+        fb_down_out : out std_logic;
+        fb_up_out : out std_logic;
+        fb_fire_out : out std_logic;
+         
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
         i2c_joya_down : out std_logic := '1';
@@ -1519,11 +1531,13 @@ begin
       fa_down_out => fa_down_out,
       fa_left_out => fa_left_out,
       fa_right_out => fa_right_out,
+      fa_fire_out => fa_fire_out,
 
       fb_up_out => fb_up_out,
       fb_down_out => fb_down_out,
       fb_left_out => fb_left_out,
       fb_right_out => fb_right_out,
+      fb_fire_out => fb_fire_out,
       
       -- We output the four sampled pot values
       pota_x => pota_x,
@@ -1744,6 +1758,18 @@ begin
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 
+      fa_fire_out => fa_fire_out,
+      fa_up_out => fa_up_out,
+      fa_left_out => fa_left_out,
+      fa_right_out => fa_right_out,
+      fa_down_out => fa_down_out,
+
+      fb_fire_out => fb_fire_out,
+      fb_up_out => fb_up_out,
+      fb_left_out => fb_left_out,
+      fb_right_out => fb_right_out,
+      fb_down_out => fb_down_out,
+      
       pota_x => pota_x,
       pota_y => pota_y,
       potb_x => potb_x,
