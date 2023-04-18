@@ -337,6 +337,7 @@ begin
               sdram_a(9 downto 2) <= latched_addr(10 downto 3);
               sdram_a(1 downto 0) <= "00";
               sdram_state <= READ_WAIT;
+              sdram_dqml <= '0'; sdram_dqmh <= '0';
             end if;
             if write_latched='1' then
               report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
@@ -345,22 +346,30 @@ begin
               sdram_a(11) <= '0';
               sdram_a(10) <= '1'; -- Enable auto precharge
               sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-              sdram_state <= WRITE_PRECHARGE; -- wait for 
+              sdram_state <= WRITE_PRECHARGE; -- wait for precharge after
+                                              -- single-word write                                             
+
+              -- DQM lines are high to ignore a byte, and low to accept one
               sdram_dqmh <= latched_wen_hi;
               sdram_dqml <= latched_wen_lo;
             end if;
             sdram_dq(7 downto 0) <= wdata_latched;
             sdram_dq(15 downto 8) <= wdata_hi_latched;
           when READ_WAIT =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_2 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_3 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_0 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
             rdata_line(15 downto 0) <= sdram_dq;
           when READ_1 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
             rdata_line(31 downto 16) <= sdram_dq;
           when READ_2 =>
