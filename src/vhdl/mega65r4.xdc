@@ -113,10 +113,6 @@ create_pblock pblock_kbd0
 add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0]]
 resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X7Y243}
 
-# Test points
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports testpoint[6]]
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports testpoint[7]]
-
 # Paddles
 set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
 set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports paddle[1]]
@@ -140,16 +136,16 @@ set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
 set_property -dict {PACKAGE_PIN K14 IOSTANDARD LVCMOS33} [get_ports fa_down_out]
 set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports fa_up]
 # DBG1
-set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports fa_up_out] 
+set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports fa_up_out]
 set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33} [get_ports fa_left]
 # DBG2
-set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33} [get_ports fa_left_out] 
+set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33} [get_ports fa_left_out]
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports fa_right]
 # DBG5
 set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports fa_right_out]
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports fa_fire]
 # DBG0
-set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_out] 
+set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_out]
 
 # Joystick port B
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
