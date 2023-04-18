@@ -1531,13 +1531,11 @@ begin
       fa_down_out => fa_down_out,
       fa_left_out => fa_left_out,
       fa_right_out => fa_right_out,
-      fa_fire_out => fa_fire_out,
 
       fb_up_out => fb_up_out,
       fb_down_out => fb_down_out,
       fb_left_out => fb_left_out,
       fb_right_out => fb_right_out,
-      fb_fire_out => fb_fire_out,
       
       -- We output the four sampled pot values
       pota_x => pota_x,
