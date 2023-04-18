@@ -136,27 +136,37 @@ set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_
 
 # Joystick port A
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
-set_property -dict {PACKAGE_PIN K14 IOSTANDARD LVCMOS33} [get_ports fa_down_out]  # DBG3
+# DBG3
+set_property -dict {PACKAGE_PIN K14 IOSTANDARD LVCMOS33} [get_ports fa_down_out]
 set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports fa_up]
-set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports fa_up_out] # DBG1
+# DBG1
+set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports fa_up_out] 
 set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33} [get_ports fa_left]
-set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33} [get_ports fa_left_out] # DBG2
+# DBG2
+set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33} [get_ports fa_left_out] 
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports fa_right]
-set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports fa_right_out] # DBG5
+# DBG5
+set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports fa_right_out]
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports fa_fire]
-set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_out] # DBG0
+# DBG0
+set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_out] 
 
 # Joystick port B
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
-set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports fb_down_out] # DBG6
+# DBG6
+set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports fb_down_out] 
 set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVCMOS33} [get_ports fb_up]
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports fb_up_out] # DBG4
+# DBG4
+set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports fb_up_out] 
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33} [get_ports fb_left]
-set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports fb_left_out] # DBG9
+# DBG9
+set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports fb_left_out] 
 set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_right]
-set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports fb_right_out] # DBG8
+# DBG8
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports fb_right_out] 
 set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_out] # DBG7
+# DBG7
+set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_out] 
 
 ##VGA Connector
 
