@@ -64,17 +64,17 @@ entity container is
          paddle : in std_logic_vector(3 downto 0);
          paddle_drain : out std_logic := '0';
 
-        fa_left_out : out std_logic;
-        fa_right_out : out std_logic;
-        fa_down_out : out std_logic;
-        fa_up_out : out std_logic;
-        fa_fire_out : out std_logic;
+         fa_left_out : out std_logic;
+         fa_right_out : out std_logic;
+         fa_down_out : out std_logic;
+         fa_up_out : out std_logic;
+         fa_fire_out : out std_logic;
         
-        fb_left_out : out std_logic;
-        fb_right_out : out std_logic;
-        fb_down_out : out std_logic;
-        fb_up_out : out std_logic;
-        fb_fire_out : out std_logic;
+         fb_left_out : out std_logic;
+         fb_right_out : out std_logic;
+         fb_down_out : out std_logic;
+         fb_up_out : out std_logic;
+         fb_fire_out : out std_logic;
          
          -- 8 test points on the motherboard
          testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
@@ -1202,9 +1202,9 @@ begin
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
-      iec_srq_en <= iec_srq_o_drive and iec_srq_en_drive;
-      iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
-      iec_data_en <= iec_data_o_drive and iec_data_en_drive;
+      iec_srq_en <= not (iec_srq_o_drive and iec_srq_en_drive);
+      iec_clk_en <= not (iec_clk_o_drive and iec_clk_en_drive);
+      iec_data_en <= not (iec_data_o_drive and iec_data_en_drive);
 
       -- Connect up real C64-compatible paddle ports
       paddle_drain <= pot_drain;
