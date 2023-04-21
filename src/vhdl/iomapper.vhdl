@@ -2026,6 +2026,7 @@ begin
       
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
+        and address(13 downto 12) /= "10"
         and address(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= sbcs_en;
@@ -2070,15 +2071,15 @@ begin
       if target = mega65r3 or target = mega65r4 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
-          report "i2cperipherals_cs for MEGA65R3 asserted";
+          report "i2cperipherals_cs for MEGA65R3/R4 asserted";
         end if;
         if address(19 downto 8) = x"D73" then
           i2chdmi_cs <= '1';
-          report "i2chdmi_cs for MEGA65R3 asserted";
+          report "i2chdmi_cs for MEGA65R3/R4 asserted";
         end if;
         if address(19 downto 8) = x"D74" then
           grove_cs <= '1';
-          report "grove_cs for MEGA65R3 asserted";
+          report "grove_cs for MEGA65R3/R4 asserted";
         end if;        
       end if;      
 
@@ -2098,6 +2099,7 @@ begin
       -- Same thing as above, but for the addr_fast bus, which is usually one clock ahead.
       if addr_fast(19 downto 16) = x"D"
         and addr_fast(15 downto 14) = "00"
+        and address(13 downto 12) /= "10"
         and addr_fast(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs_fast <= sbcs_en;
@@ -2139,7 +2141,6 @@ begin
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
-          when x"D260" => c65uart_cs <= c65uart_en;
           when x"D360" => c65uart_cs <= c65uart_en;
           when others => c65uart_cs <= '0';
         end case;
@@ -2147,8 +2148,7 @@ begin
         c65uart_cs <= '0';
         report "THUMB: CS consideration for $FFD364x";
         -- $D640-$D64F is thumbnail generator
-        if address(19 downto 4) = x"D264" 
-          or address(19 downto 4) = x"D364" then
+        if address(19 downto 4) = x"D364" then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else
@@ -2170,7 +2170,6 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs <= sdcardio_en;
-        when x"D268" => sdcardio_cs <= sdcardio_en;
         when x"D368" => sdcardio_cs <= sdcardio_en;
         when others => sdcardio_cs <= '0';
       end case;
@@ -2179,7 +2178,6 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs_fast <= sdcardio_en;
-        when x"D268" => sdcardio_cs_fast <= sdcardio_en;
         when x"D368" => sdcardio_cs_fast <= sdcardio_en;
         when others => sdcardio_cs_fast <= '0';
       end case;
@@ -2189,7 +2187,6 @@ begin
       temp(0) := '0';
       case temp(15 downto 0) is
         when x"D108" => f011_cs <= sdcardio_en;
-        when x"D208" => f011_cs <= sdcardio_en;
         when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
       end case;
@@ -2198,7 +2195,6 @@ begin
       temp(15 downto 0) := unsigned(address(19 downto 4));
       case temp(15 downto 0) is
         when x"D10E" => buffereduart_cs <= sdcardio_en;
-        when x"D20E" => buffereduart_cs <= sdcardio_en;
         when x"D30E" => buffereduart_cs <= sdcardio_en;
         when others => buffereduart_cs <= '0';
       end case;
@@ -2207,7 +2203,6 @@ begin
       -- XXX is resolved in CPU
 --      case address(19 downto 8) is
 --        when x"D17" => cpuregs_cs <= '1';
---        when x"D27" => cpuregs_cs <= '1';
 --        when x"D37" => cpuregs_cs <= '1';
 --        when others => cpuregs_cs <= '0';
 --      end case;
