@@ -67,6 +67,18 @@ entity container is
          paddle : in std_logic_vector(3 downto 0);
          paddle_drain : out std_logic := '0';
 
+         fa_left_out : out std_logic;
+         fa_right_out : out std_logic;
+         fa_down_out : out std_logic;
+         fa_up_out : out std_logic;
+         fa_fire_out : out std_logic;
+        
+         fb_left_out : out std_logic;
+         fb_right_out : out std_logic;
+         fb_down_out : out std_logic;
+         fb_up_out : out std_logic;
+         fb_fire_out : out std_logic;
+         
          -- 8 test points on the motherboard
          testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
          
