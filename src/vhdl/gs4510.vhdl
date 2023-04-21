@@ -2153,8 +2153,8 @@ begin
           hyppo_address <= hyppo_address_next;          
         end if;
         if long_address(19 downto 16) = x"D" then
-          if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
-            if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
+          if long_address(15 downto 14) = "00" and long_address(15 downto 2) /= x"2" then    --   $D{0,1,3}XXX
+            if long_address(11 downto 10) = "00" then  --   $D{0,1,3}{0,1,2,3}XX
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
                 accessing_vic_fastio <= '1';
@@ -3368,7 +3368,7 @@ begin
           colour_ram_cs <= '1';
         end if;
         if long_address(19 downto 16) = x"D" and (long_address(15 downto 12) /= x"2") then
-          if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
+          if long_address(15 downto 14) = "00" then    --   $D{0,1,3}XXX
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
@@ -3385,7 +3385,7 @@ begin
                 
               end if;
             end if;
-          end if;                         -- $D{0,1,2,3}XXX
+          end if;                         -- $D{0,1,3}XXX
         end if;                           -- $DXXXX
         
         wait_states <= io_write_wait_states;
