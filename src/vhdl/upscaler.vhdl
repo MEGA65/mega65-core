@@ -127,10 +127,6 @@ begin
       -- frames or so we will skip/insert a raster. If the number of rasters from
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
-      if frame_start_toggle /= last_frame_start_toggle then
-        -- Sync to input frame boundaries
-        y_count <= 724;
-      end if;
       if y_count = 725 then
         vsync_up <= '1';
       end if;
@@ -178,6 +174,10 @@ begin
       else
         pixelvalid_up <= '0';
       end if;
+      if frame_start_toggle /= last_frame_start_toggle then
+        -- Sync to input frame boundaries
+        y_count <= 724;
+      end if;
       if x_count < 280 then
         -- Left shoulder
         red_up <= (others => pal50_int); -- XXX DEBUG
@@ -203,9 +203,6 @@ begin
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
-        if x_count < 1280 then
-          red_up <= (others => frame_start_toggle);
-        end if;
       end if;        
     end if;
   end process;
