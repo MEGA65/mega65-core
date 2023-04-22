@@ -102,6 +102,7 @@ begin
         write_raster <= 0;
       end if;
       if hsync_in='0' and hsync_in_prev='1' then
+        hsync_in_prev <= hsync_in;
         write_addr <= to_unsigned(0,10);
         if write_raster /= 2 then
           write_raster <= write_raster + 1;
