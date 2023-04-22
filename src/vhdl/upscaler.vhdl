@@ -94,6 +94,7 @@ begin
     if rising_edge(clock27) then
       -- Tell fast side when a new frame starts
       write_en <= (others => '0');
+      vsync_in_prev <= vsync_in;
       if vsync_in='0' and vsync_in_prev='1' then
         frame_start_toggle <= not frame_start_toggle;
         write_raster <= 0;
@@ -198,10 +199,13 @@ begin
                   + to_unsigned(to_integer(rdata(2)(23 downto 16)) * coeff2,16)(15 downto 8);
                   
       else
-        -- Right shoulder / fly back
+        -- Right shoulder / fly back        
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
+        if x_count < 1280 then
+          red_up <= (others => frame_start_toggle);
+        end if;
       end if;        
     end if;
   end process;
