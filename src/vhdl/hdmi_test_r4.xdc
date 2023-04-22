@@ -113,10 +113,6 @@ create_pblock pblock_kbd0
 add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0]]
 resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X7Y243}
 
-# Test points
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports testpoint[6]]
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports testpoint[7]]
-
 # Paddles
 set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
 set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports paddle[1]]

@@ -15,6 +15,7 @@ entity clocking is
       clock27    : out std_logic;
       clock41    : out std_logic;
       clock50    : out std_logic;
+      clock74p22 : out std_logic;
       clock81p   : out std_logic;
       clock163   : out std_logic;
       clock200   : out std_logic;
@@ -33,6 +34,7 @@ architecture RTL of clocking is
   signal clk_fb_eth : std_logic := '0';
   signal clock69mhz : std_logic := '0';
   signal u_clock69mhz : std_logic := '0';
+  signal u_clock74p22mhz : std_logic := '0';
   signal clock124mhz : std_logic := '0';
   signal u_clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
@@ -70,10 +72,16 @@ begin
     CLKFBOUT_USE_FINE_PS => FALSE,
 
     -- CLKOUT0 = CLK_OUT1 = 900/13 = 69.23MHz = clock69mhz
-    CLKOUT0_DIVIDE_F     => 13.0,
+    CLKOUT0_DIVIDE_F     => 12.125,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
-    CLKOUT0_USE_FINE_PS  => FALSE
+    CLKOUT0_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT1 = CLK_OUT1 = 900/13 = 69.23MHz = clock69mhz
+    CLKOUT1_DIVIDE     => 13,
+    CLKOUT1_PHASE        => 0.000,
+    CLKOUT1_DUTY_CYCLE   => 0.500,
+    CLKOUT1_USE_FINE_PS  => FALSE
 
     )
 
@@ -81,7 +89,8 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust0,
-     CLKOUT0             => u_clock69mhz,
+     CLKOUT0             => u_clock74p22mhz,
+     CLKOUT1             => u_clock69mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust0,
      CLKIN1              => clk_in,
@@ -199,6 +208,10 @@ begin
   bufg_inter_connect69:
   bufg port map ( I => u_clock69mhz,
                   O => clock69mhz);  
+
+  bufg_inter_connect74p22:
+  bufg port map ( I => u_clock74p22mhz,
+                  O => clock74p22);  
   
   bufg_inter_connect124:
   bufg port map ( I => u_clock124mhz,
