@@ -54,7 +54,6 @@ architecture hundertwasser of upscaler is
   signal vsync_in_prev : std_logic := '0';
   signal hsync_in_prev : std_logic := '0';
 
-  signal frame_start_toggle : std_logic := '0';
 
   signal coeff0 : integer range 0 to 256 := 256;
   signal coeff1 : integer range 0 to 256 := 0;
@@ -63,6 +62,7 @@ architecture hundertwasser of upscaler is
   signal x_count : integer := 0;
   signal y_count : integer := 0;
   signal pal50_int : std_logic := '1';
+  signal frame_start_toggle : std_logic := '0';
   signal last_frame_start_toggle : std_logic := '0';
   
 begin
@@ -176,6 +176,7 @@ begin
       end if;
       if frame_start_toggle /= last_frame_start_toggle then
         -- Sync to input frame boundaries
+        last_frame_start_toggle <= frame_start_toggle;
         y_count <= 724;
       end if;
       if x_count < 280 then
