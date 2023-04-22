@@ -66,6 +66,8 @@ architecture hundertwasser of upscaler is
   signal pal50_int : std_logic := '1';
   signal frame_start_toggle : std_logic := '0';
   signal last_frame_start_toggle : std_logic := '0';
+
+  signal hbias : integer range 0 to 2 := 1;
   
 begin
 
@@ -131,17 +133,17 @@ begin
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
       if y_count = 725 then
-        vsync_up <= '0';
+        vsync_up <= '1';
       end if;
       if y_count = 730 then
-        vsync_up <= '1';
+        vsync_up <= '0';
         pal50_int <= pal50_select;
       end if;
       if pal50_int='1' then
-        if x_count < 1980 then
+        if x_count < (1980-1+hbias) then
           x_count <= x_count + 1;
         else
-          x_count <= 0;
+          x_count <= 1;
           if y_count < 750 then
             y_count <= y_count + 1;
           else
@@ -155,7 +157,7 @@ begin
           hsync_up <= '0';
         end if;
       else
-        if x_count < 1650 then
+        if x_count < (1650-1+ hbias) then
           x_count <= x_count + 1;
         else
           x_count <= 0;
@@ -179,9 +181,20 @@ begin
       end if;
       if frame_start_toggle /= last_frame_start_toggle then
         -- Sync to input frame boundaries
+        -- We can't add/remove rasters, as monitors don't like that.
+        -- So instead we slightly adjust the duration of all raster lines
+        -- to keep the synchronisation within one raster line.
+        -- Ideally we would add the extra cycle to the rasters on a
+        -- probabilistic basis.
         last_frame_start_toggle <= frame_start_toggle;
         if vlock_en='1' then
-          y_count <= 747;
+          if y_count < 747 then
+            hbias <= 0;
+          elsif y_count > 747 then
+            hbias <= 2;
+          else
+            hbias <= 1;
+          end if;
         end if;
       end if;
       if x_count < 280 then
