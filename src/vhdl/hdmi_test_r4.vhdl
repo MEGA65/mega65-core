@@ -385,6 +385,7 @@ architecture Behavioral of container is
   signal vga60 : std_logic := '0';
 
   signal upscale_en : std_logic := '0';
+  signal vlock_en : std_logic := '0';
   
   signal interlace : std_logic := '1';
   signal mono : std_logic := '1';
@@ -856,6 +857,7 @@ begin
 
       pal50_select => pal50,
       upscale_en => upscale_en,
+      vlock_en => vlock_en,
       
       red_in => pattern_r,
       green_in => pattern_g,
@@ -938,6 +940,8 @@ begin
         case ascii_key is
           when x"21" => upscale_en <= '1';
           when x"22" => upscale_en <= '0';
+          when x"23" => vlock_en <= '1';
+          when x"24" => vlock_en <= '0';
           when x"31" => pal50 <= '1';
           when x"32" => pal50 <= '0';
           when x"33" => test_pattern_enable <= '1';

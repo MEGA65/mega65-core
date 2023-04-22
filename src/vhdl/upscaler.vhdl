@@ -17,6 +17,8 @@ entity upscaler is
 
     -- Upscale enable/disable
     upscale_en : in std_logic;
+    -- XXX DEBUG: Allow disabling VBLANK locking of output to input
+    vlock_en : in std_logic := '1';
 
     pixelvalid_in : std_logic;
     red_in : in unsigned(7 downto 0);
@@ -177,7 +179,9 @@ begin
       if frame_start_toggle /= last_frame_start_toggle then
         -- Sync to input frame boundaries
         last_frame_start_toggle <= frame_start_toggle;
-        y_count <= 724;
+        if vlock_en='1' then
+          y_count <= 724;
+        end if;
       end if;
       if x_count < 280 then
         -- Left shoulder
