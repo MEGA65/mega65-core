@@ -131,10 +131,10 @@ begin
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
       if y_count = 725 then
-        vsync_up <= '1';
+        vsync_up <= '0';
       end if;
       if y_count = 730 then
-        vsync_up <= '0';
+        vsync_up <= '1';
         pal50_int <= pal50_select;
       end if;
       if pal50_int='1' then
