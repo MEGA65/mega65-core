@@ -130,6 +130,13 @@ begin
         -- Sync to input frame boundaries
         y_count <= 724;
       end if;
+      if y_count = 725 then
+        vsync_up <= '1';
+      end if;
+      if y_count = 730 then
+        vsync_up <= '0';
+        pal50_int <= pal50_select;
+      end if;
       if pal50_int='1' then
         if x_count < 1980 then
           x_count <= x_count + 1;
@@ -165,25 +172,18 @@ begin
           hsync_up <= '0';
         end if;
       end if;
-      if y_count = 725 then
-        vsync_up <= '1';
-      end if;
-      if y_count = 730 then
-        vsync_up <= '0';
-        pal50_int <= pal50_select;
-      end if;
       if x_count < 1280 then
         pixelvalid_up <= '1';
       else
         pixelvalid_up <= '0';
       end if;
-      if x_count < ((1280 - 720) / 2) then
+      if x_count < 280 then
         -- Left shoulder
-        red_up <= (others => '0');
+        red_up <= (others => pal50_int); -- XXX DEBUG
         green_up <= (others => '0');
         blue_up <= (others => '0');
         read_addr <= to_unsigned(0,10);
-      elsif x_count < (1280 - ((1280 - 720)/2)) then
+      elsif (x_count < 1000) and (y_count < 720) then
         -- Work out which X position we need to read from the raster buffers
         read_addr <= to_unsigned(x_count - ((1280 - 720)/2),10);
         -- Active pixel: Do mix of the rasters
@@ -196,7 +196,6 @@ begin
         blue_up <= to_unsigned(to_integer(rdata(0)(23 downto 16)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata(1)(23 downto 16)) * coeff1,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata(2)(23 downto 16)) * coeff2,16)(15 downto 8);
-        blue_up <= x"ff";
                   
       else
         -- Right shoulder / fly back
