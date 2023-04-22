@@ -384,6 +384,8 @@ architecture Behavioral of container is
   signal pal50 : std_logic := '0';
   signal vga60 : std_logic := '0';
 
+  signal upscale_en : std_logic := '0';
+  
   signal interlace : std_logic := '1';
   signal mono : std_logic := '1';
     
@@ -394,6 +396,13 @@ architecture Behavioral of container is
   signal pattern_de_n : std_logic;
   signal pattern_hsync : std_logic;
   signal pattern_vsync : std_logic;
+
+  signal upscale_r : unsigned(7 downto 0);
+  signal upscale_g : unsigned(7 downto 0);
+  signal upscale_b: unsigned(7 downto 0);
+  signal upscale_de : std_logic;
+  signal upscale_hsync : std_logic;
+  signal upscale_vsync : std_logic;
 
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
@@ -840,6 +849,30 @@ begin
 
       );
 
+  upscaler0: entity work.upscaler
+    port map (
+      clock27 => clock27,
+      clock74p22 => clock74p22,
+
+      pal50_select => pal50,
+      upscale_en => upscale_en,
+      
+      red_in => pattern_r,
+      green_in => pattern_g,
+      blue_in => pattern_b,
+      hsync_in => pattern_hsync,
+      vsync_in => pattern_vsync,
+      pixelvalid_in => pattern_de,
+
+      red_out => upscale_r,
+      green_out => upscale_g,
+      blue_out => upscale_b,
+      hsync_out => upscale_hsync,
+      vsync_out => upscale_vsync,
+      pixelvalid_out => upscale_de
+
+      );
+  
   expansionboard0: entity work.r3_expansion
     port map (
       cpuclock => cpuclock,
@@ -903,6 +936,8 @@ begin
 
       if ascii_key_valid='1' then
         case ascii_key is
+          when x"21" => upscale_en <= '1';
+          when x"22" => upscale_en <= '0';
           when x"31" => pal50 <= '1';
           when x"32" => pal50 <= '0';
           when x"33" => test_pattern_enable <= '1';
@@ -917,7 +952,7 @@ begin
           when x"30" =>
             debug_forward <= not debug_forward_int;
             debug_forward_int <= not debug_forward_int;
-          when others => null;
+          when others => null;                         
         end case;        
       end if;                        
       
@@ -1035,14 +1070,18 @@ begin
 --    led <= portp(4);
 --    led <= dipsw(3);
 
-    if rising_edge(pixelclock) then
-      hsync <= pattern_hsync;
-      vsync <= pattern_vsync;
-      vgared <= pattern_r;
-      vgagreen <= pattern_g;
-      vgablue <= pattern_b;
-    end if;
-
   end process;    
+
+  process (upscale_en, upscale_r, upscale_g, upscale_b,
+           upscale_hsync, upscale_vsync, upscale_de) is
+  begin
+
+      hsync <= upscale_hsync;
+      vsync <= upscale_vsync;
+      vgared <= upscale_r;
+      vgagreen <= upscale_g;
+      vgablue <= upscale_b;
+    
+  end process;
   
 end Behavioral;
