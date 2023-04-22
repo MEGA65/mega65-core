@@ -144,7 +144,7 @@ begin
           x_count <= x_count + 1;
         else
           x_count <= 1;
-          if y_count < 750 then
+          if y_count < (750-1) then
             y_count <= y_count + 1;
           else
             y_count <= 0;
@@ -157,11 +157,11 @@ begin
           hsync_up <= '0';
         end if;
       else
-        if x_count < (1650-1+ hbias) then
+        if x_count < (1650-1+hbias) then
           x_count <= x_count + 1;
         else
           x_count <= 0;
-          if y_count < 750 then
+          if y_count < (750-1) then
             y_count <= y_count + 1;
           else
             y_count <= 0;
@@ -181,20 +181,11 @@ begin
       end if;
       if frame_start_toggle /= last_frame_start_toggle then
         -- Sync to input frame boundaries
-        -- We can't add/remove rasters, as monitors don't like that.
-        -- So instead we slightly adjust the duration of all raster lines
-        -- to keep the synchronisation within one raster line.
-        -- Ideally we would add the extra cycle to the rasters on a
-        -- probabilistic basis.
         last_frame_start_toggle <= frame_start_toggle;
-        if vlock_en='1' then
-          if y_count < 747 then
-            hbias <= 0;
-          elsif y_count > 747 then
-            hbias <= 2;
-          else
-            hbias <= 1;
-          end if;
+        if vlock_en = '1' then
+          hbias <= 1;
+        else
+          hbias <= 0;
         end if;
       end if;
       if x_count < 280 then
