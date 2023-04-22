@@ -181,7 +181,7 @@ begin
         -- Sync to input frame boundaries
         last_frame_start_toggle <= frame_start_toggle;
         if vlock_en='1' then
-          y_count <= 724;
+          y_count <= 747;
         end if;
       end if;
       if x_count < 280 then
