@@ -44,6 +44,9 @@ architecture hundertwasser of upscaler is
   signal read_addr : unsigned(9 downto 0);
   type u32_array_t is array(0 to 2) of unsigned(31 downto 0);
   signal rdata : u32_array_t;
+  signal rdata_buf0 : unsigned(31 downto 0);
+  signal rdata_buf1 : unsigned(31 downto 0);
+  signal rdata_buf2 : unsigned(31 downto 0);
 
   signal red_up : unsigned(7 downto 0);
   signal green_up : unsigned(7 downto 0);
@@ -162,6 +165,10 @@ begin
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
 
+      rdata_buf0 <= rdata(0);
+      rdata_buf1 <= rdata(1);
+      rdata_buf2 <= rdata(2);
+      
       -- Work out the mixture of the raster lines required
       -- Sum of coefficients should always = 256
       case target_raster is
@@ -341,15 +348,15 @@ begin
         -- Work out which X position we need to read from the raster buffers
         read_addr <= to_unsigned(x_count - ((1280 - 720)/2),10);
         -- Active pixel: Do mix of the rasters
-        red_up <= to_unsigned(to_integer(rdata(0)(7 downto 0)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(1)(7 downto 0)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(2)(7 downto 0)) * coeff2,16)(15 downto 8);
-        green_up <= to_unsigned(to_integer(rdata(0)(15 downto 8)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(1)(15 downto 8)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(2)(15 downto 8)) * coeff2,16)(15 downto 8);
-        blue_up <= to_unsigned(to_integer(rdata(0)(23 downto 16)) * coeff0,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(1)(23 downto 16)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata(2)(23 downto 16)) * coeff2,16)(15 downto 8);
+        red_up <= to_unsigned(to_integer(rdata_buf0(7 downto 0)) * coeff0,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf1(7 downto 0)) * coeff1,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf2(7 downto 0)) * coeff2,16)(15 downto 8);
+        green_up <= to_unsigned(to_integer(rdata_buf0(15 downto 8)) * coeff0,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf1(15 downto 8)) * coeff1,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf2(15 downto 8)) * coeff2,16)(15 downto 8);
+        blue_up <= to_unsigned(to_integer(rdata_buf0(23 downto 16)) * coeff0,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf1(23 downto 16)) * coeff1,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8);
                   
       else
         -- Right shoulder / fly back        
