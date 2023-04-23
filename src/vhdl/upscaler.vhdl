@@ -67,7 +67,7 @@ architecture hundertwasser of upscaler is
   signal frame_start_toggle : std_logic := '0';
   signal last_frame_start_toggle : std_logic := '0';
 
-  signal hbias : integer range 0 to 2 := 1;
+  signal hbias : integer := 1;
   
 begin
 
@@ -140,10 +140,10 @@ begin
         pal50_int <= pal50_select;
       end if;
       if pal50_int='1' then
-        if x_count < (1980-1+hbias) then
+        if x_count < (1980-2+hbias) then
           x_count <= x_count + 1;
         else
-          x_count <= 1;
+          x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
           else
@@ -183,7 +183,11 @@ begin
         -- Sync to input frame boundaries
         last_frame_start_toggle <= frame_start_toggle;
         if vlock_en = '1' then
-          hbias <= 1;
+          if pal50_int ='1' then
+            hbias <= 1;
+          else
+            hbias <= 2;
+          end if;
         else
           hbias <= 0;
         end if;
