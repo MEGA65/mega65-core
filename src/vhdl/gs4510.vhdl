@@ -2153,7 +2153,7 @@ begin
           hyppo_address <= hyppo_address_next;          
         end if;
         if long_address(19 downto 16) = x"D" then
-          if long_address(15 downto 14) = "00" and long_address(15 downto 12) /= x"2" then    --   $D{0,1,3}XXX
+          if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
             if long_address(11 downto 10) = "00" then  --   $D{0,1,3}{0,1,2,3}XX
               if long_address(11 downto 7) /= "00001" then  -- ! $D.0{8-F}X (FDC, RAM EX)
                 report "VIC register from VIC fastio" severity note;
@@ -2177,7 +2177,7 @@ begin
             end if;
             
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
-            if long_address(11)='1' then
+            if long_address(11)='1' and long_address(15 downto 12) /= x"2" then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "RAM: D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 accessing_colour_ram_fastio <= '1';
@@ -2191,6 +2191,8 @@ begin
                   wait_states_non_zero <= '0';
                 end if;
               end if;
+            else
+              -- Should read from eth buffer
             end if;
           elsif long_address(19 downto 12) = x"DF" then
             -- VFPGA interface
