@@ -79,8 +79,10 @@ architecture hundertwasser of upscaler is
 
   -- NTSC frame synchronisation counters
   signal ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
-  signal last_ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
-  signal ntsc_frame_counter : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal last_ntsc_raster_counter : std_logic := '0';
+  signal ntsc_frame_counter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal ntsc_frame_counter_1141 : unsigned(12 downto 0) := to_unsigned(0,13);
+  signal last_ntsc_frame_counter : std_logic := '0';
   
 begin
 
@@ -198,14 +200,45 @@ begin
           hsync_up <= '0';
         end if;
       else
-        if x_count < (1650-1+raster_leap_cycle) then
+        -- NTSC
+        if x_count < (1645-1+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
+          -- Add one cycle to every 209/750 rasters = 143/512 rasters,
+          -- provided we reset the ntsc_raster_counter every frame
+          if vlock_en='1' then
+            ntsc_raster_counter <= ntsc_raster_counter + 143;
+            if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
+              raster_leap_cycle <= 1;
+              last_ntsc_raster_counter <= ntsc_raster_counter(9);
+            else
+              raster_leap_cycle <= frame_leap_cycle;
+              frame_leap_cycle <= 0;
+            end if;
+          else
+            raster_leap_cycle <= 0;
+            frame_leap_cycle <= 0;
+          end if;
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
           else
             y_count <= 0;
+            ntsc_raster_counter <= to_unsigned(0,11);
+            if vlock_en='1' then
+              -- Add one cycle for every 1,141 / 4,096 frames
+              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 1141;
+              if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
+                frame_leap_cycle <= 1;
+                last_ntsc_frame_counter <= last_ntsc_frame_counter;
+              end if;
+              if ntsc_frame_counter < 2619 then
+                ntsc_frame_counter <= ntsc_frame_counter + 1;                
+              else
+                ntsc_frame_counter <= to_unsigned(0,12);
+                ntsc_frame_counter_1141 <= to_unsigned(0,13);
+              end if;
+            end if;
           end if;
         end if;
         if x_count = 1390 then
@@ -235,7 +268,7 @@ begin
       end if;
       if x_count < 280 then
         -- Left shoulder
-        red_up <= (others => pal50_int); -- XXX DEBUG
+        red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
         read_addr <= to_unsigned(0,10);

@@ -385,7 +385,7 @@ architecture Behavioral of container is
   signal vga60 : std_logic := '0';
 
   signal upscale_en : std_logic := '0';
-  signal vlock_en : std_logic := '0';
+  signal vlock_en : std_logic := '1';
   
   signal interlace : std_logic := '1';
   signal mono : std_logic := '1';
