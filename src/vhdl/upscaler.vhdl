@@ -230,7 +230,7 @@ begin
           -- the input source.
           pal50_int <= pal50_select;
           x_count <= 0;
-          y_count <= 0;
+          y_count <= 720; -- so that VBLANK periods align
         end if;
       end if;
       if x_count < 280 then
