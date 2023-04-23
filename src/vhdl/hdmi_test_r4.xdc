@@ -557,8 +557,10 @@ set_clock_groups -asynchronous \
      -group { CLKOUT1 u_clock200}
 
 # Relax timing in upscaler
-set_false_path -from [get_cells pal50_reg_replica_1/C] -to [get_cells upscaler0/y_count_reg[*]/CE]
-set_false_path -from [get_cells frame_start_toggle_reg_replica/C] -to [get_cells upscaler0/y_count_reg[*]/CE]
+set_false_path -from [get_cells -hierarchical *frame_start_toggle_replica/C] -to [get_cells -hierarchical *upscaler0/y_count_reg[*]/CE]
+set_false_path -from [get_cells -hierarchical *pal50_reg_replica_1/C] -to [get_cells -hierarchical *upscaler0/y_count_reg[*]/CE]
+set_false_path -from [get_cells -hierarchical *frame_start_toggle_replica/C] -to [get_cells -hierarchical *upscaler0/x_count_reg[*]/CE]
+set_false_path -from [get_cells -hierarchical *pal50_reg_replica_1/C] -to [get_cells -hierarchical *upscaler0/x_count_reg[*]/CE]
 
 
 
