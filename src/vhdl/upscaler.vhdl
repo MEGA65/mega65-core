@@ -201,7 +201,7 @@ begin
         end if;
       else
         -- NTSC
-        if x_count < (1645-1+raster_leap_cycle) then
+        if x_count < (1654-1+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
           -- Add one cycle to every 209/750 rasters = 143/512 rasters,
