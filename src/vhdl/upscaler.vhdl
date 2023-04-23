@@ -94,6 +94,12 @@ architecture hundertwasser of upscaler is
   signal target_raster : integer range 0 to 2 := 0;
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
+
+  signal ntsc_coarse : unsigned(7 downto 0) := 142;
+  signal ntsc_fine : unsigned(11 downto 0) := 1141;
+
+  signal pal_coarse : unsigned(9 downto 0) := 391;
+  signal pal_fine : unsigned(7 downto 0) := 21;
   
 begin
 
@@ -201,7 +207,7 @@ begin
           -- Add one cycle to every 286/750 rasters = 391/1024 rasters,
           -- provided we reset the pal_raster_counter every frame
           if vlock_en='1' then
-            pal_raster_counter <= pal_raster_counter + 391;
+            pal_raster_counter <= pal_raster_counter + to_integer(pal_coarse);
             if pal_raster_counter(10) /= last_pal_raster_counter then
               raster_leap_cycle <= 1;
               last_pal_raster_counter <= pal_raster_counter(10);
@@ -217,11 +223,7 @@ begin
           if y_count < (750-1) then
             y_count <= y_count + 1;
 
-            if pal50_int='1' then
-              raster_phase <= raster_phase + 52429;
-            else
-              raster_phase <= raster_phase + 45990;
-            end if;
+            raster_phase <= raster_phase + 52429;
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
               if target_raster /= 2 then
@@ -246,13 +248,14 @@ begin
               -- Add one cycle for every 8/97 frames
               if pal_frame_counter < 96 then
                 pal_frame_counter <= pal_frame_counter + 1;
+                pal_frame_counter_8 <= pal_frame_counter_8 + to_integer(pal_fine);
+                if pal_frame_counter_8(8) /= last_pal_frame_counter then
+                  frame_leap_cycle <= 1;
+                  last_pal_frame_counter <= pal_frame_counter_8(8);
+                end if;
               else
                 pal_frame_counter <= to_unsigned(0,8);
-              end if;
-              if pal_frame_counter(2 downto 0) = "000" then
-                frame_leap_cycle <= 1;
-              else
-                frame_leap_cycle <= 0;
+                pal_frame_counter_8 <= to_unsigned(0,8);
               end if;
             end if;
           end if;
@@ -276,8 +279,8 @@ begin
             -- 1 per 30 seconds (line draws right to left)
             -- With 143 the line draws left to right at a similar rate.
             -- So we might need to add ~1/2 pixel per frame in the frame 1141/4096
-            -- to make it ~1141+2048/4096 = 3189/4096
-            ntsc_raster_counter <= ntsc_raster_counter + 142;
+            -- to make it ~1141+2048/4096 = 3189/4096.
+            ntsc_raster_counter <= ntsc_raster_counter + to_integer(ntsc_coarse);
             if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
               last_ntsc_raster_counter <= ntsc_raster_counter(9);
@@ -292,13 +295,22 @@ begin
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
+            raster_phase <= raster_phase + 45990;
+            if raster_phase(16) /= last_raster_phase then
+              last_raster_phase <= raster_phase(16);
+              if target_raster /= 2 then
+                target_raster <= target_raster + 1;
+              else
+                target_raster <= 0;
+              end if;
+            end if;
           else
             y_count <= 0;
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
               -- See above: Trying 3189/4096 instead
-              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 3189;
+              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
               if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                 frame_leap_cycle <= 1;
                 last_ntsc_frame_counter <= last_ntsc_frame_counter;
