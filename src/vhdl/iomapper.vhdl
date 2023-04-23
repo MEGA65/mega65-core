@@ -2017,7 +2017,7 @@ begin
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D34" | x"D05" =>
+        when x"D04" | x"D14" | x"D24" | x"D34" | x"D05" =>
           leftsid_cs <= ((address(6) and not address(5)) xor address(8)) and lscs_en;
           rightsid_cs <= (((not address(6)) and not address(5)) xor address(8)) and rscs_en;
           frontsid_cs <= ((address(6) and address(5)) xor address(8)) and lscs_en;
@@ -2036,6 +2036,7 @@ begin
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
+          when x"D260" => c65uart_cs <= c65uart_en;
           when x"D360" => c65uart_cs <= c65uart_en;
           when others => c65uart_cs <= '0';
         end case;
@@ -2043,14 +2044,14 @@ begin
         c65uart_cs <= '0';
         report "THUMB: CS consideration for $FFD364x";
         -- $D640-$D64F is thumbnail generator
-        if address(19 downto 4) = x"D364" then
+        if (address(19 downto 4) = x"D364") or (address(19 downto 4) = x"D264") then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else
           thumbnail_cs <= '0';
         end if;
       end if;
-      if address(19 downto 4) = x"D36E" then
+      if (address(19 downto 4) = x"D36E") or (address(19 downto 4) = x"D26E") then
         ethernet_cs <= ethernetcs_en;
       else
         ethernet_cs <= '0';
@@ -2065,6 +2066,7 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs <= sdcardio_en;
+        when x"D268" => sdcardio_cs <= sdcardio_en;
         when x"D368" => sdcardio_cs <= sdcardio_en;
         when others => sdcardio_cs <= '0';
       end case;
@@ -2073,6 +2075,7 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs_fast <= sdcardio_en;
+        when x"D268" => sdcardio_cs_fast <= sdcardio_en;
         when x"D368" => sdcardio_cs_fast <= sdcardio_en;
         when others => sdcardio_cs_fast <= '0';
       end case;
@@ -2082,6 +2085,7 @@ begin
       temp(0) := '0';
       case temp(15 downto 0) is
         when x"D108" => f011_cs <= sdcardio_en;
+        when x"D208" => f011_cs <= sdcardio_en;
         when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
       end case;
@@ -2090,6 +2094,7 @@ begin
       temp(15 downto 0) := unsigned(address(19 downto 4));
       case temp(15 downto 0) is
         when x"D10E" => buffereduart_cs <= sdcardio_en;
+        when x"D20E" => buffereduart_cs <= sdcardio_en;
         when x"D30E" => buffereduart_cs <= sdcardio_en;
         when others => buffereduart_cs <= '0';
       end case;

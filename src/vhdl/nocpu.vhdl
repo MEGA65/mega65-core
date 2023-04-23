@@ -684,7 +684,7 @@ begin
       fastio_addr <= x"FFFFF"; fastio_write <= '0'; fastio_read <= '0';
       
       the_read_address <= long_address;
-      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD27") or (long_address(27 downto 8) = x"FFD37") then
         report "Preparing to read from a DMAgicRegister";
         read_source <= DMAgicRegister;
       end if;      
@@ -692,7 +692,7 @@ begin
       report "MEMORY long_address = $" & to_hstring(long_address);
       -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
       -- @IO:C64 $0000001 6510/45GS10 CPU port data
-      if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
+      if (long_address(27 downto 6)&"00" = x"FFD364" or long_address(27 downto 6)&"00" = x"FFD264") and hypervisor_mode='1' then
         report "Preparing for reading hypervisor register";
         read_source <= HypervisorRegister;
         accessing_hypervisor <= '1';
