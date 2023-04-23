@@ -79,6 +79,8 @@ architecture hundertwasser of upscaler is
   signal pal_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
   signal last_pal_raster_counter : std_logic := '0';
   signal pal_frame_counter : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal pal_frame_counter_8 : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal last_pal_frame_counter : std_logic := '0';
 
   -- NTSC frame synchronisation counters
   signal ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
@@ -95,11 +97,11 @@ architecture hundertwasser of upscaler is
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
-  signal ntsc_coarse : unsigned(7 downto 0) := 142;
-  signal ntsc_fine : unsigned(11 downto 0) := 1141;
+  signal ntsc_coarse : unsigned(7 downto 0) := to_unsigned(142,8);
+  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(1141,12);
 
-  signal pal_coarse : unsigned(9 downto 0) := 391;
-  signal pal_fine : unsigned(7 downto 0) := 21;
+  signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
+  signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
   
 begin
 
@@ -255,7 +257,7 @@ begin
                 end if;
               else
                 pal_frame_counter <= to_unsigned(0,8);
-                pal_frame_counter_8 <= to_unsigned(0,8);
+                pal_frame_counter_8 <= to_unsigned(0,9);
               end if;
             end if;
           end if;
