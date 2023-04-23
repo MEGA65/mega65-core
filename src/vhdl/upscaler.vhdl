@@ -207,7 +207,10 @@ begin
           -- Add one cycle to every 209/750 rasters = 143/512 rasters,
           -- provided we reset the ntsc_raster_counter every frame
           if vlock_en='1' then
-            ntsc_raster_counter <= ntsc_raster_counter + 143;
+            -- XXX Except it is too many cycles per frame.
+            -- Too high: 143
+            -- Too low: 
+            ntsc_raster_counter <= ntsc_raster_counter + 72;
             if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
               last_ntsc_raster_counter <= ntsc_raster_counter(9);
@@ -227,7 +230,7 @@ begin
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
-              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 500;
+              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 1141;
               if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                 frame_leap_cycle <= 1;
                 last_ntsc_frame_counter <= last_ntsc_frame_counter;
@@ -263,7 +266,12 @@ begin
           -- the input source.
           pal50_int <= pal50_select;
           x_count <= 0;
-          y_count <= 720; -- so that VBLANK periods align
+          -- so that VBLANK periods align
+          if pal50_select='1' then
+            y_count <= 720;
+          else
+            y_count <= 710;
+          end if;
         end if;
       end if;
       if x_count < 280 then
@@ -291,7 +299,19 @@ begin
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
-      end if;        
+      end if;
+
+      -- Blank above and below active area of image
+      if pal50_int='1' and ((y_count < 15) or (y_count > (720 - 15))) then
+        red_up <= (others => '0');
+        green_up <= (others => '0');
+        blue_up <= (others => '0');
+      end if;
+      if pal50_int='0' and ((y_count < 18) or (y_count > (720 - 18))) then
+        red_up <= (others => '0');
+        green_up <= (others => '0');
+        blue_up <= (others => '0');
+      end if;
     end if;
   end process;
 
