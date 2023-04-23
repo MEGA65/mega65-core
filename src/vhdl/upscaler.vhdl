@@ -272,9 +272,12 @@ begin
           -- provided we reset the ntsc_raster_counter every frame
           if vlock_en='1' then
             -- XXX Except it is too many cycles per frame.
-            -- Too high: 143,
-            -- Too low: 73, 110, 126, 135, 140 
-            ntsc_raster_counter <= ntsc_raster_counter + 141;
+            -- 142 gets us much closer, with upper rasters creeping down about
+            -- 1 per 30 seconds (line draws right to left)
+            -- With 143 the line draws left to right at a similar rate.
+            -- So we might need to add ~1/2 pixel per frame in the frame 1141/4096
+            -- to make it ~1141+2048/4096 = 3189/4096
+            ntsc_raster_counter <= ntsc_raster_counter + 142;
             if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
               last_ntsc_raster_counter <= ntsc_raster_counter(9);
@@ -294,7 +297,8 @@ begin
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
-              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 1141;
+              -- See above: Trying 3189/4096 instead
+              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 3189;
               if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                 frame_leap_cycle <= 1;
                 last_ntsc_frame_counter <= last_ntsc_frame_counter;
