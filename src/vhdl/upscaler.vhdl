@@ -265,9 +265,9 @@ begin
           -- provided we reset the ntsc_raster_counter every frame
           if vlock_en='1' then
             -- XXX Except it is too many cycles per frame.
-            -- Too high: 143
-            -- Too low: 73
-            ntsc_raster_counter <= ntsc_raster_counter + 110;
+            -- Too high: 143,
+            -- Too low: 73, 110, 126, 135, 140 
+            ntsc_raster_counter <= ntsc_raster_counter + 141;
             if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
               last_ntsc_raster_counter <= ntsc_raster_counter(9);
@@ -327,7 +327,7 @@ begin
           if pal50_select='1' then
             y_count <= 720;
           else
-            y_count <= 710;
+            y_count <= 725;
           end if;
         end if;
       end if;
@@ -359,12 +359,12 @@ begin
       end if;      
       
       -- Blank above and below active area of image
-      if pal50_int='1' and ((y_count < 15) or (y_count > (720 - 15))) then
+      if pal50_int='1' and ((y_count < 20) or (y_count > (720 - 15))) then
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
       end if;
-      if pal50_int='0' and ((y_count < 18) or (y_count > (720 - 18))) then
+      if pal50_int='0' and ((y_count < 22) or (y_count > (720 - 22))) then
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');

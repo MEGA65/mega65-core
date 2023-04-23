@@ -556,6 +556,11 @@ set_clock_groups -asynchronous \
      -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
      -group { CLKOUT1 u_clock200}
 
+# Relax timing in upscaler
+set_false_path -from [get_cells pal50_reg_replica_1/C] -to [get_cells upscaler0/y_count_reg[*]/CE]
+set_false_path -from [get_cells frame_start_toggle_reg_replica/C] -to [get_cells upscaler0/y_count_reg[*]/CE]
+
+
 
 # NEOTRNG exceptions
 set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
