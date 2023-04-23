@@ -3369,10 +3369,10 @@ begin
         if long_address(19 downto 16) = x"8" then
           colour_ram_cs <= '1';
         end if;
-        if long_address(19 downto 16) = x"D" and (long_address(15 downto 12) /= x"2") then
+        if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,3}XXX
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
-            if long_address(11)='1' then
+            if long_address(11)='1' and (long_address(15 downto 12) /= x"2") then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 colour_ram_cs <= '1';
