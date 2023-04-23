@@ -83,6 +83,14 @@ architecture hundertwasser of upscaler is
   signal ntsc_frame_counter : unsigned(11 downto 0) := to_unsigned(0,12);
   signal ntsc_frame_counter_1141 : unsigned(12 downto 0) := to_unsigned(0,13);
   signal last_ntsc_frame_counter : std_logic := '0';
+
+  signal raster_in_toggle : std_logic := '0';
+  signal last_raster_in_toggle : std_logic := '0';
+  signal raster_0_ready : std_logic := '0';
+
+  signal target_raster : integer range 0 to 2 := 0;
+  signal last_raster_phase : std_logic := '0';
+  signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
   
 begin
 
@@ -121,6 +129,12 @@ begin
       hsync_in_prev <= hsync_in;
       if hsync_in='0' and hsync_in_prev='1' then
         write_addr <= to_unsigned(0,10);
+        raster_in_toggle <= not raster_in_toggle;
+        if write_raster = 0 then
+          raster_0_ready <= '1';
+        else
+          raster_0_ready <= '0';
+        end if;
         if write_raster /= 2 then
           write_raster <= write_raster + 1;
         else
@@ -147,6 +161,26 @@ begin
       -- frames or so we will skip/insert a raster. If the number of rasters from
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
+
+      -- Work out the mixture of the raster lines required
+      -- Sum of coefficients should always = 256
+      case target_raster is
+        when 0 =>
+          coeff2 <= 0;
+          coeff0 <= 256 - to_integer(raster_phase(15 downto 8));
+          coeff1 <= to_integer(raster_phase(15 downto 8));
+        when 1 =>
+          coeff0 <= 0;
+          coeff1 <= 256 - to_integer(raster_phase(15 downto 8));
+          coeff2 <= to_integer(raster_phase(15 downto 8));
+        when 2 =>
+          coeff1 <= 0;
+          coeff2 <= 256 - to_integer(raster_phase(15 downto 8));
+          coeff0 <= to_integer(raster_phase(15 downto 8));
+        when others => null;
+      end case;
+      
+      
       if y_count = 725 then
         vsync_up <= '1';
       end if;
@@ -175,8 +209,31 @@ begin
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
+
+            if pal50_int='1' then
+              raster_phase <= raster_phase + 52429;
+            else
+              raster_phase <= raster_phase + 45990;
+            end if;
+            if raster_phase(16) /= last_raster_phase then
+              last_raster_phase <= raster_phase(16);
+              if target_raster /= 2 then
+                target_raster <= target_raster + 1;
+              else
+                target_raster <= 0;
+              end if;
+            end if;
           else
             y_count <= 0;
+
+            -- Reset buffered raster selection at top of frame
+            coeff0 <= 256;
+            coeff1 <= 0;
+            coeff2 <= 0;
+            raster_phase <= to_unsigned(0,17);
+            last_raster_phase <= '0';
+            target_raster <= 0;
+            
             pal_raster_counter <= to_unsigned(0,11);
             if vlock_en='1' then
               -- Add one cycle for every 8/97 frames
@@ -209,8 +266,8 @@ begin
           if vlock_en='1' then
             -- XXX Except it is too many cycles per frame.
             -- Too high: 143
-            -- Too low: 
-            ntsc_raster_counter <= ntsc_raster_counter + 72;
+            -- Too low: 73
+            ntsc_raster_counter <= ntsc_raster_counter + 110;
             if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
               last_ntsc_raster_counter <= ntsc_raster_counter(9);
@@ -299,8 +356,8 @@ begin
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
-      end if;
-
+      end if;      
+      
       -- Blank above and below active area of image
       if pal50_int='1' and ((y_count < 15) or (y_count > (720 - 15))) then
         red_up <= (others => '0');
