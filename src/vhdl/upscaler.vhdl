@@ -61,13 +61,26 @@ architecture hundertwasser of upscaler is
   signal coeff1 : integer range 0 to 256 := 0;
   signal coeff2 : integer range 0 to 256 := 0;
 
+  signal upscale_en_int : std_logic := '0';
+  
   signal x_count : integer := 0;
   signal y_count : integer := 0;
   signal pal50_int : std_logic := '1';
   signal frame_start_toggle : std_logic := '0';
   signal last_frame_start_toggle : std_logic := '0';
 
-  signal hbias : integer := 1;
+  signal raster_leap_cycle : integer range 0 to 1 := 0;
+  signal frame_leap_cycle : integer range 0 to 1 := 0;
+
+  -- PAL frame synchronisation counters
+  signal pal_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
+  signal last_pal_raster_counter : std_logic := '0';
+  signal pal_frame_counter : unsigned(7 downto 0) := to_unsigned(0,8);
+
+  -- NTSC frame synchronisation counters
+  signal ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
+  signal last_ntsc_raster_counter : unsigned(10 downto 0) := to_unsigned(0,11);
+  signal ntsc_frame_counter : unsigned(7 downto 0) := to_unsigned(0,8);
   
 begin
 
@@ -137,17 +150,45 @@ begin
       end if;
       if y_count = 730 then
         vsync_up <= '0';
-        pal50_int <= pal50_select;
       end if;
       if pal50_int='1' then
-        if x_count < (1980-2+hbias) then
+        if x_count < (1980-2+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
+          -- Add one cycle to every 286/750 rasters = 391/1024 rasters,
+          -- provided we reset the pal_raster_counter every frame
+          if vlock_en='1' then
+            pal_raster_counter <= pal_raster_counter + 391;
+            if pal_raster_counter(10) /= last_pal_raster_counter then
+              raster_leap_cycle <= 1;
+              last_pal_raster_counter <= pal_raster_counter(10);
+            else
+              raster_leap_cycle <= frame_leap_cycle;
+              frame_leap_cycle <= 0;
+            end if;
+          else
+            raster_leap_cycle <= 0;
+            frame_leap_cycle <= 0;
+          end if;
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
           else
             y_count <= 0;
+            pal_raster_counter <= to_unsigned(0,11);
+            if vlock_en='1' then
+              -- Add one cycle for every 8/97 frames
+              if pal_frame_counter < 96 then
+                pal_frame_counter <= pal_frame_counter + 1;
+              else
+                pal_frame_counter <= to_unsigned(0,8);
+              end if;
+              if pal_frame_counter(2 downto 0) = "000" then
+                frame_leap_cycle <= 1;
+              else
+                frame_leap_cycle <= 0;
+              end if;
+            end if;
           end if;
         end if;
         if x_count = 1720 then
@@ -157,7 +198,7 @@ begin
           hsync_up <= '0';
         end if;
       else
-        if x_count < (1650-1+hbias) then
+        if x_count < (1650-1+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
           x_count <= 0;
@@ -180,16 +221,16 @@ begin
         pixelvalid_up <= '0';
       end if;
       if frame_start_toggle /= last_frame_start_toggle then
-        -- Sync to input frame boundaries
         last_frame_start_toggle <= frame_start_toggle;
-        if vlock_en = '1' then
-          if pal50_int ='1' then
-            hbias <= 1;
-          else
-            hbias <= 2;
-          end if;
-        else
-          hbias <= 0;
+        upscale_en_int <= upscale_en;
+        if upscale_en_int = '0' or pal50_int /= pal50_select then
+          -- Until upscaler is enabled, we keep resetting the frame start.
+          -- This is so that if PAL and NTSC are switched, we don't have
+          -- big problems with the synchronisation getting out of step with
+          -- the input source.
+          pal50_int <= pal50_select;
+          x_count <= 0;
+          y_count <= 0;
         end if;
       end if;
       if x_count < 280 then
@@ -226,14 +267,14 @@ begin
            hsync_in, vsync_in, pixelvalid_in,
            red_up, green_up, blue_up,
            hsync_up, vsync_up, pixelvalid_up,
-           upscale_en) is
+           upscale_en_int) is
   begin
-    if upscale_en='1' then red_out <= red_up; else red_out <= red_in; end if;
-    if upscale_en='1' then green_out <= green_up; else green_out <= green_in; end if;
-    if upscale_en='1' then blue_out <= blue_up; else blue_out <= blue_in; end if;
-    if upscale_en='1' then hsync_out <= hsync_up; else hsync_out <= hsync_in; end if;
-    if upscale_en='1' then vsync_out <= vsync_up; else vsync_out <= vsync_in; end if;
-    if upscale_en='1' then pixelvalid_out <= pixelvalid_up; else pixelvalid_out <= pixelvalid_in; end if;
+    if upscale_en_int='1' then red_out <= red_up; else red_out <= red_in; end if;
+    if upscale_en_int='1' then green_out <= green_up; else green_out <= green_in; end if;
+    if upscale_en_int='1' then blue_out <= blue_up; else blue_out <= blue_in; end if;
+    if upscale_en_int='1' then hsync_out <= hsync_up; else hsync_out <= hsync_in; end if;
+    if upscale_en_int='1' then vsync_out <= vsync_up; else vsync_out <= vsync_in; end if;
+    if upscale_en_int='1' then pixelvalid_out <= pixelvalid_up; else pixelvalid_out <= pixelvalid_in; end if;
     
   end process;
   
