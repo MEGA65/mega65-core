@@ -201,7 +201,7 @@ begin
         end if;
       else
         -- NTSC
-        if x_count < (1654-2+raster_leap_cycle) then
+        if x_count < (1654-1+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
           -- Add one cycle to every 209/750 rasters = 143/512 rasters,
@@ -227,7 +227,7 @@ begin
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
-              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 1141;
+              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + 500;
               if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                 frame_leap_cycle <= 1;
                 last_ntsc_frame_counter <= last_ntsc_frame_counter;
