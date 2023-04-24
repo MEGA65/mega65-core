@@ -102,7 +102,7 @@ architecture hundertwasser of upscaler is
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
-  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(284,9);
+  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(286,9);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(0,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
