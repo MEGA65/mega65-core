@@ -42,10 +42,10 @@ end entity;
 
 architecture hundertwasser of upscaler is
 
-  signal write_en : std_logic_vector(2 downto 0) := "000";
+  signal write_en : std_logic_vector(3 downto 0) := "0000";
   signal write_addr : unsigned(9 downto 0);
   signal read_addr : unsigned(9 downto 0);
-  type u32_array_t is array(0 to 2) of unsigned(31 downto 0);
+  type u32_array_t is array(0 to 3) of unsigned(31 downto 0);
   signal rdata : u32_array_t;
   signal rdata_buf0 : unsigned(31 downto 0);
   signal rdata_buf1 : unsigned(31 downto 0);
@@ -59,7 +59,7 @@ architecture hundertwasser of upscaler is
   signal vsync_up : std_logic;
   signal pixelvalid_up : std_logic;
   
-  signal write_raster : integer range 0 to 2 := 0;
+  signal write_raster : integer range 0 to 3 := 0;
   signal vsync_in_prev : std_logic := '0';
   signal hsync_in_prev : std_logic := '0';
 
@@ -67,6 +67,7 @@ architecture hundertwasser of upscaler is
   signal coeff0 : integer range 0 to 256 := 256;
   signal coeff1 : integer range 0 to 256 := 0;
   signal coeff2 : integer range 0 to 256 := 0;
+  signal coeff3 : integer range 0 to 256 := 0;
 
   signal upscale_en_int : std_logic := '0';
   
@@ -97,11 +98,11 @@ architecture hundertwasser of upscaler is
   signal last_raster_in_toggle : std_logic := '0';
   signal raster_0_ready : std_logic := '0';
 
-  signal target_raster : integer range 0 to 2 := 0;
+  signal target_raster : integer range 0 to 3 := 0;
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
-  signal ntsc_coarse : unsigned(7 downto 0) := to_unsigned(285,9);
+  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(285,9);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(1141,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
@@ -109,39 +110,26 @@ architecture hundertwasser of upscaler is
 
   signal upscale_en_74 : std_logic;
   signal pal50_select_74 : std_logic;
+
+  signal zero : std_logic := '0';
+  signal zerov : std_logic_vector(0 downto 0) := (others => '0');
   
 begin
 
-`xpm_cdc_simple_inst : xpm_cdc_simple
-    generic map (
-        DEST_DATA_WIDTH => 1,
-        INIT_VAL => "0",
-        PIPE_STAGES => 2,
-        SRC_DATA_WIDTH => 1
-    )
+  xpm_cdc_single_inst1 : xpm_cdc_single
     port map (
         src_in => pal50_select,
         src_clk => clock27,
-        src_rst => '0',
         dest_clk => clock74p22,
-        dest_out => pal50_select_74,
-        dest_rst => '0'
+        dest_out => pal50_select_74
     );
   
-`xpm_cdc_simple_inst : xpm_cdc_simple
-    generic map (
-        DEST_DATA_WIDTH => 1,
-        INIT_VAL => "0",
-        PIPE_STAGES => 2,
-        SRC_DATA_WIDTH => 1
-    )
+  xpm_cdc_single_inst2 : xpm_cdc_single
     port map (
         src_in => upscale_en,
         src_clk => clock27,
-        src_rst => '0',
         dest_clk => clock74p22,
-        dest_out => upscale_en_74,
-        dest_rst => '0'
+        dest_out => upscale_en_74
     );
   
   rasterbufs: for i in 0 to 3 generate
@@ -235,7 +223,7 @@ begin
           coeff1 <= 0;
           coeff2 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff3 <= to_integer(raster_phase(15 downto 8));
-        when 2 =>
+        when 3 =>
           coeff0 <= to_integer(raster_phase(15 downto 8));
           coeff1 <= 0;
           coeff2 <= 0;
@@ -417,7 +405,7 @@ begin
         -- Active pixel: Do mix of the rasters
         red_up <= to_unsigned(to_integer(rdata_buf0(7 downto 0)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(7 downto 0)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(7 downto 0)) * coeff2,16)(15 downto 8);
+                  + to_unsigned(to_integer(rdata_buf2(7 downto 0)) * coeff2,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf3(7 downto 0)) * coeff3,16)(15 downto 8);
         green_up <= to_unsigned(to_integer(rdata_buf0(15 downto 8)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(15 downto 8)) * coeff1,16)(15 downto 8)
