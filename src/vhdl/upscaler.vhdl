@@ -47,6 +47,7 @@ architecture hundertwasser of upscaler is
   signal rdata_buf0 : unsigned(31 downto 0);
   signal rdata_buf1 : unsigned(31 downto 0);
   signal rdata_buf2 : unsigned(31 downto 0);
+  signal rdata_buf3 : unsigned(31 downto 0);
 
   signal red_up : unsigned(7 downto 0);
   signal green_up : unsigned(7 downto 0);
@@ -97,7 +98,7 @@ architecture hundertwasser of upscaler is
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
-  signal ntsc_coarse : unsigned(7 downto 0) := to_unsigned(142,8);
+  signal ntsc_coarse : unsigned(7 downto 0) := to_unsigned(285,9);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(1141,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
@@ -105,7 +106,7 @@ architecture hundertwasser of upscaler is
   
 begin
 
-  rasterbufs: for i in 0 to 2 generate
+  rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.ram32x1024 port map (
       clka => clock27,
       ena => '1',
@@ -146,7 +147,7 @@ begin
         else
           raster_0_ready <= '0';
         end if;
-        if write_raster /= 2 then
+        if write_raster /= 3 then
           write_raster <= write_raster + 1;
         else
           write_raster <= 0;
@@ -176,22 +177,31 @@ begin
       rdata_buf0 <= rdata(0);
       rdata_buf1 <= rdata(1);
       rdata_buf2 <= rdata(2);
+      rdata_buf3 <= rdata(3);
       
       -- Work out the mixture of the raster lines required
       -- Sum of coefficients should always = 256
       case target_raster is
         when 0 =>
-          coeff2 <= 0;
           coeff0 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff1 <= to_integer(raster_phase(15 downto 8));
+          coeff2 <= 0;
+          coeff3 <= 0;
         when 1 =>
           coeff0 <= 0;
           coeff1 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff2 <= to_integer(raster_phase(15 downto 8));
+          coeff3 <= 0;
         when 2 =>
+          coeff0 <= 0;
           coeff1 <= 0;
           coeff2 <= 256 - to_integer(raster_phase(15 downto 8));
+          coeff3 <= to_integer(raster_phase(15 downto 8));
+        when 2 =>
           coeff0 <= to_integer(raster_phase(15 downto 8));
+          coeff1 <= 0;
+          coeff2 <= 0;
+          coeff3 <= 256 - to_integer(raster_phase(15 downto 8));
         when others => null;
       end case;
       
@@ -228,7 +238,7 @@ begin
             raster_phase <= raster_phase + 52429;
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
-              if target_raster /= 2 then
+              if target_raster /= 3 then
                 target_raster <= target_raster + 1;
               else
                 target_raster <= 0;
@@ -241,6 +251,7 @@ begin
             coeff0 <= 256;
             coeff1 <= 0;
             coeff2 <= 0;
+            coeff3 <= 0;
             raster_phase <= to_unsigned(0,17);
             last_raster_phase <= '0';
             target_raster <= 0;
@@ -262,10 +273,10 @@ begin
             end if;
           end if;
         end if;
-        if x_count = 1720 then
+        if x_count = (1720 + raster_leap_cycle) then
           hsync_up <= '1';
         end if;
-        if x_count = 1760 then
+        if x_count = (1760 + raster_leap_cycle) then
           hsync_up <= '0';
         end if;
       else
@@ -283,9 +294,9 @@ begin
             -- So we might need to add ~1/2 pixel per frame in the frame 1141/4096
             -- to make it ~1141+2048/4096 = 3189/4096.
             ntsc_raster_counter <= ntsc_raster_counter + to_integer(ntsc_coarse);
-            if ntsc_raster_counter(9) /= last_ntsc_raster_counter then
+            if ntsc_raster_counter(10) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
-              last_ntsc_raster_counter <= ntsc_raster_counter(9);
+              last_ntsc_raster_counter <= ntsc_raster_counter(10);
             else
               raster_leap_cycle <= frame_leap_cycle;
               frame_leap_cycle <= 0;
@@ -326,10 +337,10 @@ begin
             end if;
           end if;
         end if;
-        if x_count = 1390 then
+        if x_count = (1390 + raster_leap_cycle) then
           hsync_up <= '1';
         end if;
-        if x_count = 1430 then
+        if x_count = (1430 + raster_leap_cycle) then
           hsync_up <= '0';
         end if;
       end if;
@@ -369,12 +380,15 @@ begin
         red_up <= to_unsigned(to_integer(rdata_buf0(7 downto 0)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(7 downto 0)) * coeff1,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf2(7 downto 0)) * coeff2,16)(15 downto 8);
+                  + to_unsigned(to_integer(rdata_buf3(7 downto 0)) * coeff3,16)(15 downto 8);
         green_up <= to_unsigned(to_integer(rdata_buf0(15 downto 8)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(15 downto 8)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(15 downto 8)) * coeff2,16)(15 downto 8);
+                  + to_unsigned(to_integer(rdata_buf2(15 downto 8)) * coeff2,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf3(15 downto 8)) * coeff3,16)(15 downto 8);
         blue_up <= to_unsigned(to_integer(rdata_buf0(23 downto 16)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(23 downto 16)) * coeff1,16)(15 downto 8)
-                  + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8);
+                  + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8)
+                  + to_unsigned(to_integer(rdata_buf3(23 downto 16)) * coeff3,16)(15 downto 8);
                   
       else
         -- Right shoulder / fly back        
