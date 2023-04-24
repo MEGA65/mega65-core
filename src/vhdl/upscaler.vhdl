@@ -110,13 +110,15 @@ architecture hundertwasser of upscaler is
 
   signal upscale_en_74 : std_logic;
   signal pal50_select_74 : std_logic;
+  signal vlock_en_74 : std_logic;
+  signal frame_start_toggle_74 : std_logic;
 
   signal zero : std_logic := '0';
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
   
 begin
 
-  xpm_cdc_single_inst1 : xpm_cdc_single
+  xpm_cdc_single_inst0 : xpm_cdc_single
     port map (
         src_in => pal50_select,
         src_clk => clock27,
@@ -131,6 +133,23 @@ begin
         dest_clk => clock74p22,
         dest_out => upscale_en_74
     );
+
+  xpm_cdc_single_inst1 : xpm_cdc_single
+    port map (
+        src_in => vlock_en,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => vlock_en_74
+    );
+
+  xpm_cdc_single_inst3 : xpm_cdc_single
+    port map (
+        src_in => frame_start_toggle,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => frame_start_toggle_74
+    );
+  
   
   rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.ram32x1024 port map (
@@ -244,7 +263,7 @@ begin
         else
           -- Add one cycle to every 286/750 rasters = 391/1024 rasters,
           -- provided we reset the pal_raster_counter every frame
-          if vlock_en='1' then
+          if vlock_en_74='1' then
             pal_raster_counter <= pal_raster_counter + to_integer(pal_coarse);
             if pal_raster_counter(10) /= last_pal_raster_counter then
               raster_leap_cycle <= 1;
@@ -283,7 +302,7 @@ begin
             target_raster <= 0;
             
             pal_raster_counter <= to_unsigned(0,11);
-            if vlock_en='1' then
+            if vlock_en_74='1' then
               -- Add one cycle for every 8/97 frames
               if pal_frame_counter < 96 then
                 pal_frame_counter <= pal_frame_counter + 1;
@@ -312,7 +331,7 @@ begin
         else
           -- Add one cycle to every 209/750 rasters = 143/512 rasters,
           -- provided we reset the ntsc_raster_counter every frame
-          if vlock_en='1' then
+          if vlock_en_74='1' then
             -- XXX Except it is too many cycles per frame.
             -- 142 gets us much closer, with upper rasters creeping down about
             -- 1 per 30 seconds (line draws right to left)
@@ -346,7 +365,7 @@ begin
           else
             y_count <= 0;
             ntsc_raster_counter <= to_unsigned(0,11);
-            if vlock_en='1' then
+            if vlock_en_74='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
               -- See above: Trying 3189/4096 instead
               ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
@@ -375,8 +394,8 @@ begin
       else
         pixelvalid_up <= '0';
       end if;
-      if frame_start_toggle /= last_frame_start_toggle then
-        last_frame_start_toggle <= frame_start_toggle;
+      if frame_start_toggle_74 /= last_frame_start_toggle then
+        last_frame_start_toggle <= frame_start_toggle_74;
         upscale_en_int <= upscale_en_74;
         if upscale_en_int = '0' or pal50_int /= pal50_select_74 then
           -- Until upscaler is enabled, we keep resetting the frame start.
