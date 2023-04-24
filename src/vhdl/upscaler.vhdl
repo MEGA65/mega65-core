@@ -356,7 +356,7 @@ begin
             raster_phase <= raster_phase + 45990;
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
-              if target_raster /= 2 then
+              if target_raster /= 3 then
                 target_raster <= target_raster + 1;
               else
                 target_raster <= 0;
