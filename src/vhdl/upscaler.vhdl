@@ -3,6 +3,9 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use IEEE.numeric_std.ALL;
 
+library xpm;
+use xpm.vcomponents.ALL;
+
 library unisim;
 use unisim.vcomponents.all;
 
@@ -103,9 +106,44 @@ architecture hundertwasser of upscaler is
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
   signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
+
+  signal upscale_en_74 : std_logic;
+  signal pal50_select_74 : std_logic;
   
 begin
 
+`xpm_cdc_simple_inst : xpm_cdc_simple
+    generic map (
+        DEST_DATA_WIDTH => 1,
+        INIT_VAL => "0",
+        PIPE_STAGES => 2,
+        SRC_DATA_WIDTH => 1
+    )
+    port map (
+        src_in => pal50_select,
+        src_clk => clock27,
+        src_rst => '0',
+        dest_clk => clock74p22,
+        dest_out => pal50_select_74,
+        dest_rst => '0'
+    );
+  
+`xpm_cdc_simple_inst : xpm_cdc_simple
+    generic map (
+        DEST_DATA_WIDTH => 1,
+        INIT_VAL => "0",
+        PIPE_STAGES => 2,
+        SRC_DATA_WIDTH => 1
+    )
+    port map (
+        src_in => upscale_en,
+        src_clk => clock27,
+        src_rst => '0',
+        dest_clk => clock74p22,
+        dest_out => upscale_en_74,
+        dest_rst => '0'
+    );
+  
   rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.ram32x1024 port map (
       clka => clock27,
@@ -351,16 +389,16 @@ begin
       end if;
       if frame_start_toggle /= last_frame_start_toggle then
         last_frame_start_toggle <= frame_start_toggle;
-        upscale_en_int <= upscale_en;
-        if upscale_en_int = '0' or pal50_int /= pal50_select then
+        upscale_en_int <= upscale_en_74;
+        if upscale_en_int = '0' or pal50_int /= pal50_select_74 then
           -- Until upscaler is enabled, we keep resetting the frame start.
           -- This is so that if PAL and NTSC are switched, we don't have
           -- big problems with the synchronisation getting out of step with
           -- the input source.
-          pal50_int <= pal50_select;
+          pal50_int <= pal50_select_74;
           x_count <= 0;
           -- so that VBLANK periods align
-          if pal50_select='1' then
+          if pal50_select_74='1' then
             y_count <= 720;
           else
             y_count <= 725;
