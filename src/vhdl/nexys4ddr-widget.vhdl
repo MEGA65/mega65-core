@@ -337,7 +337,7 @@ architecture Behavioral of container is
   signal kbd_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
   signal kbd_restore : std_logic;
   signal kbd_capslock : std_logic;
-  signal kbd_disable : std_logic := '0';
+  signal kbd_disable : std_logic := '1';
 
   signal widget_matrix_col_idx : integer range 0 to 8 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
@@ -345,7 +345,7 @@ architecture Behavioral of container is
   signal widget_capslock : std_logic;
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
-  signal widget_disable : std_logic := '0';
+  signal widget_disable : std_logic := '1';
 
   signal com_matrix_col_idx : integer range 0 to 8 := 0;
   signal com_matrix_col : std_logic_vector(7 downto 0);
@@ -554,16 +554,16 @@ begin
       hr_clk_n => hr_clk_n,
 
       hr_cs0 => hr_cs0,
-      hr_cs1 => hr_cs1,
+      -- hr_cs1 => hr_cs1,
       -- hr_cs2 => hr_cs2,
       -- hr_cs3 => hr_cs3,
 
       hr2_d => open,
       hr2_rwds => open
---      hr2_reset => hr2_reset,
---      hr2_clk_p => hr2_clk_p
---      hr_clk_n => hr_clk_n,
---      hr_cs1 => hr2_cs0
+      -- hr2_reset => hr2_reset,
+      -- hr2_clk_p => hr2_clk_p
+      -- hr_clk_n => hr_clk_n,
+      -- hr_cs1 => hr2_cs0
       );
 
   slow_devices0: entity work.slow_devices
@@ -697,11 +697,17 @@ begin
         --   fa_down => jchi(7),
         --   fa_right => jchi(8),
 
-          fb_fire => '1',
-          fb_up =>   '1',
-          fb_left => '1',
-          fb_down => '1',
-          fb_right =>'1',
+        --   fb_fire => '1',
+        --   fb_up =>   '1',
+        --   fb_left => '1',
+        --   fb_down => '1',
+        --   fb_right =>'1',
+
+          fb_fire => widget_joyb(4),
+          fb_up =>   widget_joyb(0),
+          fb_left => widget_joyb(1),
+          fb_down => widget_joyb(2),
+          fb_right =>widget_joyb(3),
 
           fa_potx => '0',
           fa_poty => '0',
@@ -900,9 +906,9 @@ begin
   com_matrix_col <=
                     "11111111"
                     and (widget_matrix_col or (7 downto 0 => widget_disable))
-                    and (kbd_matrix_col or (7 downto 0 => kbd_disable));
-  com_restore <= '1' and (kbd_restore or kbd_disable) and (widget_restore or widget_disable);
-  com_capslock <= '1'and (kbd_capslock or kbd_disable) and (widget_capslock or widget_disable);
+                    and (kbd_matrix_col    or (7 downto 0 => kbd_disable));
+  com_restore  <= '1' and (kbd_restore  or kbd_disable) and (widget_restore  or widget_disable);
+  com_capslock <= '1' and (kbd_capslock or kbd_disable) and (widget_capslock or widget_disable);
 
   process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
@@ -956,11 +962,20 @@ begin
         end if;
       end if;
 
-      if widget_matrix_col = x"FF" then
-        widget_disable <= '1';
-      elsif kbd_matrix_col = x"FF" then
-        kbd_disable <= '1';
+    end if;
+
+    if rising_edge(cpuclock) then
+
+      if (widget_matrix_col/=x"FF" and widget_disable='1') then
+        widget_disable <= '0';
       end if;
+      if (kbd_matrix_col/=x"FF" and kbd_disable='1') then
+        kbd_disable <= '0';
+      end if;
+
+    end if;
+
+    if rising_edge(cpuclock) then
 
       -- Detect MK-I keyboard by looking for KIO10 going high, as MK-II keyboard
       -- holds this line forever low.  As MK-I will start with KIO10 high, we can
@@ -984,6 +999,7 @@ begin
           end if;
         end if;
       end if;
+
     end if;
 
     if mk1_connected='1' then
@@ -1014,6 +1030,7 @@ begin
       mk2_xil_io2 <= xil_io2;
       xil_io3 <= mk2_xil_io3;
     end if;
+
   end process;
 
 end Behavioral;
