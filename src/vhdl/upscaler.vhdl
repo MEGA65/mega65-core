@@ -112,7 +112,10 @@ architecture hundertwasser of upscaler is
   signal pal50_select_74 : std_logic;
   signal vlock_en_74 : std_logic;
   signal frame_start_toggle_74 : std_logic;
+  signal raster_0_ready_74 : std_logic;
 
+  signal reading_raster_0 : std_logic;
+  
   signal zero : std_logic := '0';
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
   
@@ -150,6 +153,14 @@ begin
         dest_out => frame_start_toggle_74
     );
   
+  xpm_cdc_single_inst4 : xpm_cdc_single
+    port map (
+        src_in => raster_0_ready,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => raster_0_ready_74
+    );
+  
   
   rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.ram32x1024 port map (
@@ -182,16 +193,12 @@ begin
       if vsync_in='0' and vsync_in_prev='1' then
         frame_start_toggle <= not frame_start_toggle;
         write_raster <= 0;
+        write_addr <= to_unsigned(0,10);
       end if;
       hsync_in_prev <= hsync_in;
       if hsync_in='0' and hsync_in_prev='1' then
         write_addr <= to_unsigned(0,10);
         raster_in_toggle <= not raster_in_toggle;
-        if write_raster = 0 then
-          raster_0_ready <= '1';
-        else
-          raster_0_ready <= '0';
-        end if;
         if write_raster /= 3 then
           write_raster <= write_raster + 1;
         else
@@ -201,6 +208,13 @@ begin
         write_addr <= write_addr + 1;
         write_en(write_raster) <= '1';
       end if;
+
+      if write_raster = 0 then
+        raster_0_ready <= '1';
+      else
+        raster_0_ready <= '0';
+      end if;
+      
     end if;
 
     if rising_edge(clock74p22) then
@@ -223,6 +237,12 @@ begin
       rdata_buf1 <= rdata(1);
       rdata_buf2 <= rdata(2);
       rdata_buf3 <= rdata(3);
+
+      if target_raster = 0 then
+        reading_raster_0 <= '1';
+      else
+        reading_raster_0 <= '0';
+      end if;
       
       -- Work out the mixture of the raster lines required
       -- Sum of coefficients should always = 256
@@ -364,6 +384,16 @@ begin
             end if;
           else
             y_count <= 0;
+
+            -- Reset buffered raster selection at top of frame
+            coeff0 <= 256;
+            coeff1 <= 0;
+            coeff2 <= 0;
+            coeff3 <= 0;
+            raster_phase <= to_unsigned(0,17);
+            last_raster_phase <= '0';
+            target_raster <= 0;
+                        
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en_74='1' then
               -- Add one cycle for every 1,141 / 4,096 frames
@@ -414,8 +444,8 @@ begin
       end if;
       if x_count < 280 then
         -- Left shoulder
-        red_up <= (others => '0');
-        green_up <= (others => '0');
+        red_up <= (others => raster_0_ready_74);
+        green_up <= (others => reading_raster_0);
         blue_up <= (others => '0');
         read_addr <= to_unsigned(0,10);
       elsif (x_count < 1000) and (y_count < 720) then
