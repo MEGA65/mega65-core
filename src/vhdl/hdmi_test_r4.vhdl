@@ -465,6 +465,8 @@ architecture Behavioral of container is
 
   signal vga_blank : std_logic := '0';
 
+  signal vdac_clk_i : std_logic := '0';
+
   signal tmds : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '0';
@@ -946,6 +948,17 @@ begin
       audio => luma
       
       );
+
+  ODDR_inst : ODDR
+    port map (
+      Q => vdac_clk,   -- 1-bit DDR output
+      C => vdac_clk_i,    -- 1-bit clock input
+      CE => '1',  -- 1-bit clock enable input
+      D1 => '0',  -- 1-bit data input (positive edge)
+      D2 => '1',  -- 1-bit data input (negative edge)
+      R => '0',    -- 1-bit reset input
+      S => '0'     -- 1-bit set input
+      );
   
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
@@ -992,9 +1005,9 @@ begin
 
     -- VGA output at full pixel clock
     if upscale_en = '0' then
-      vdac_clk <= pixelclock;
+      vdac_clk_i <= pixelclock;
     else
-      vdac_clk <= clock74p22;
+      vdac_clk_i <= clock74p22;
     end if;
 
     pattern_de_n <= not pattern_de;
