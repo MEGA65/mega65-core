@@ -44,7 +44,8 @@ architecture hundertwasser of upscaler is
 
   signal write_en : std_logic_vector(3 downto 0) := "0000";
   signal write_addr : unsigned(9 downto 0);
-  signal read_addr : unsigned(9 downto 0);
+  type u10_array_t is array(0 to 3) of unsigned(9 downto 0);
+  signal read_addr : u10_array_t;
   type u32_array_t is array(0 to 3) of unsigned(31 downto 0);
   signal rdata : u32_array_t;
   signal rdata_buf0 : unsigned(31 downto 0);
@@ -180,7 +181,7 @@ begin
 
       clkb => clock74p22,
       web => "0000",
-      addrb => std_logic_vector(read_addr),
+      addrb => std_logic_vector(read_addr(i)),
       dinb => (others => '0'),
       unsigned(doutb) => rdata(i)
       );
@@ -449,10 +450,16 @@ begin
         red_up <= (others => raster_0_ready_74);
         green_up <= (others => reading_raster_0);
         blue_up <= (others => '0');
-        read_addr <= to_unsigned(0,10);
+        -- Avoid simultaneous read/write glitches on the raster buffer BRAMs
+        -- by pointing only the ones we are reading from to the correct cell.
+        -- Idle ones point to end of BRAM, which we don't ever write to.
+        read_addr <= (others => (others => '1'));        
+        read_addr(target_raster) <= to_unsigned(0,10);
+        read_addr((target_raster + 1) mod 4) <= to_unsigned(0,10);
       elsif (x_count < 1000) and (y_count < 720) then
         -- Work out which X position we need to read from the raster buffers
-        read_addr <= to_unsigned(x_count - ((1280 - 720)/2),10);
+        read_addr(target_raster) <= to_unsigned(x_count - ((1280 - 720)/2),10);
+        read_addr((target_raster +1) mod 4) <= to_unsigned(x_count - ((1280 - 720)/2),10);
         -- Active pixel: Do mix of the rasters
         red_up <= to_unsigned(to_integer(rdata_buf0(7 downto 0)) * coeff0,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf1(7 downto 0)) * coeff1,16)(15 downto 8)
