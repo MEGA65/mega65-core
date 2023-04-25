@@ -116,8 +116,12 @@ architecture hundertwasser of upscaler is
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
   signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
 
-  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(52429,16);
-  signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45990,16);
+  -- 2^16 x rasters in / rasters out
+  -- PAL in = 625, NTSC in = 526, rasters out = 750
+  -- 625/750 x 2^16 = 54613.333
+  -- 526/750 x 2^16 = 45962.581
+  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54613,16);
+  signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45962,16);
 
   constant config_width : integer := 2+2+9+12+10+8+16+16;
   signal config_vector : unsigned(config_width downto 0) := (others => '0');
