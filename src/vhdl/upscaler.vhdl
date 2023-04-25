@@ -17,6 +17,7 @@ entity upscaler is
 
     -- Change behaviour
     reg_in : in unsigned(7 downto 0) := x"00";
+    hold_image : in std_logic;
     
     -- PAL or NTSC mode
     pal50_select : in std_logic;
@@ -110,7 +111,7 @@ architecture hundertwasser of upscaler is
   signal first_read_raster_pal : integer range 0 to 3 := 0;
   signal first_read_raster_ntsc : integer range 0 to 3 := 1;
 
-  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(286,9);
+  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(285,9);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(3180,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
@@ -231,7 +232,7 @@ begin
         end if;
       elsif pixelvalid_in='1' then
         write_addr <= write_addr + 1;
-        write_en(write_raster) <= '1';
+        write_en(write_raster) <= not hold_image;
       end if;
       if vsync_in='0' and vsync_in_prev='1' then
         frame_start_toggle <= not frame_start_toggle;
