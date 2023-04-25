@@ -141,6 +141,7 @@ architecture hundertwasser of upscaler is
   signal zero : std_logic := '0';
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
 
+  signal raster_buf_active : std_logic_vector(3 downto 0) := "0000";
   
 begin
 
@@ -196,13 +197,10 @@ begin
   
   
   rasterbufs: for i in 0 to 3 generate
-    rastbuf0: entity work.ram32x1024 port map (
+    rastbuf0: entity work.upscaler_ram32x1024 port map (
       clka => clock27,
-      ena => '1',
-      wea(0) => write_en(i),
-      wea(1) => write_en(i),
-      wea(2) => write_en(i),
-      wea(3) => write_en(i),
+      ena => write_en(i),
+      wea => write_en(i),
       addra => std_logic_vector(write_addr),
       dina(7 downto 0) => std_logic_vector(red_in),
       dina(15 downto 8) => std_logic_vector(green_in),
@@ -210,9 +208,8 @@ begin
       dina(31 downto 24) => (others => '0'),
 
       clkb => clock74p22,
-      web => "0000",
+      enb => raster_buf_active(i),
       addrb => std_logic_vector(read_addr(i)),
-      dinb => (others => '0'),
       unsigned(doutb) => rdata(i)
       );
   end generate;
@@ -270,7 +267,7 @@ begin
       rdata_buf1 <= rdata(1);
       rdata_buf2 <= rdata(2);
       rdata_buf3 <= rdata(3);
-
+      
       if (target_raster = 0) or (target_raster = 3) then
         reading_raster_0 <= '1';
       else
@@ -281,21 +278,37 @@ begin
       -- Sum of coefficients should always = 256
       case target_raster is
         when 0 =>
+          raster_buf_active(0) <= '1';
+          raster_buf_active(1) <= '1';
+          raster_buf_active(2) <= '0';
+          raster_buf_active(3) <= '0';
           coeff0 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff1 <= to_integer(raster_phase(15 downto 8));
           coeff2 <= 0;
           coeff3 <= 0;
         when 1 =>
+          raster_buf_active(0) <= '0';
+          raster_buf_active(1) <= '1';
+          raster_buf_active(2) <= '1';
+          raster_buf_active(3) <= '0';
           coeff0 <= 0;
           coeff1 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff2 <= to_integer(raster_phase(15 downto 8));
           coeff3 <= 0;
         when 2 =>
+          raster_buf_active(0) <= '0';
+          raster_buf_active(1) <= '0';
+          raster_buf_active(2) <= '1';
+          raster_buf_active(3) <= '1';
           coeff0 <= 0;
           coeff1 <= 0;
           coeff2 <= 256 - to_integer(raster_phase(15 downto 8));
           coeff3 <= to_integer(raster_phase(15 downto 8));
         when 3 =>
+          raster_buf_active(0) <= '1';
+          raster_buf_active(1) <= '0';
+          raster_buf_active(2) <= '0';
+          raster_buf_active(3) <= '1';
           coeff0 <= to_integer(raster_phase(15 downto 8));
           coeff1 <= 0;
           coeff2 <= 0;
