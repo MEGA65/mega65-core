@@ -447,13 +447,6 @@ architecture Behavioral of container is
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
 
-  constant clock_frequency : integer := 40500000;
-  constant target_sample_rate : integer := 48000;
-  signal audio_counter : integer := 0;
-  signal sample_ready_toggle : std_logic := '0';
-  signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
-  signal acr_counter : integer range 0 to 12288 := 0;
-  
   signal pcm_clk : std_logic := '0';
   signal pcm_rst : std_logic := '1';
   signal pcm_clken : std_logic := '0';
@@ -506,6 +499,42 @@ architecture Behavioral of container is
 
   signal upscaler_reg : unsigned(7 downto 0) := x"00";
   signal reg_sel : unsigned(5 downto 0) := "010010";
+
+
+  signal audio_l : std_logic_vector(15 downto 0) := x"0000";
+  signal audio_r : std_logic_vector(15 downto 0) := x"0000";
+  
+  signal counter : integer := 0;
+  
+  constant clock_frequency : integer := 12_228_000;
+  constant target_sample_rate : integer := 48000;
+  constant tone_frequency : integer := 200;
+  signal audio_counter : integer := 0;
+  signal sine_update_counter : integer := 0;
+  signal audio_address : integer := 0;
+  signal audio_data : std_logic_vector(7 downto 0) := x"00";
+  constant sine_table_length : integer := 36;
+  -- Frequency of tone will be clock / sine_update_interval / sine_table_length
+  signal sine_update_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency / sine_table_length / tone_frequency,24);
+
+  signal sample_ready_toggle : std_logic := '0';
+  signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
+  signal acr_counter : integer range 0 to 12288 := 0;
+  
+  
+   type sine_t is array (0 to 8) of unsigned(7 downto 0);
+   signal sine_table : sine_t := (
+     0 => to_unsigned(0,8),
+     1 => to_unsigned(22,8),
+     2 => to_unsigned(43,8),
+     3 => to_unsigned(64,8),
+     4 => to_unsigned(82,8),
+     5 => to_unsigned(98,8),
+     6 => to_unsigned(110,8),
+     7 => to_unsigned(120,8),
+     8 => to_unsigned(126,8)
+     );
+
   
 begin
 
@@ -925,8 +954,37 @@ begin
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
   
-  process (pixelclock,cpuclock,pcm_clk,clock270,dipsw) is
+  process (pixelclock,cpuclock,pcm_clk,clock270,dipsw,clock27) is
   begin
+
+    if rising_edge(pcm_clk) then
+      if audio_address < 9 then
+        audio_data <= std_logic_vector(sine_table(audio_address) + 128);
+      elsif audio_address < 18 then
+        audio_data <= std_logic_vector(sine_table(8 - (audio_address - 9)) + 128);
+      elsif audio_address < 27 then
+        audio_data <= std_logic_vector(128 - sine_table(audio_address - 18));
+      elsif audio_address < 36 then
+        audio_data <= std_logic_vector(128 - sine_table(8 - (audio_address - 27)));
+      else
+        audio_data <= x"80";
+      end if;
+
+      if sine_update_counter /= to_integer(sine_update_interval) then
+        sine_update_counter <= sine_update_counter + 1;
+      else
+        sine_update_counter <= 0;
+        if audio_address /= 35 then
+          audio_address <= audio_address + 1;          
+        else
+          audio_address <= 0;
+        end if;
+      end if;
+
+      audio_left(19 downto 12) <= audio_data;
+      audio_right(19 downto 12) <= audio_data;
+      
+    end if;
     
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
