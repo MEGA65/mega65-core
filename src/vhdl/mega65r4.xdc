@@ -265,6 +265,7 @@ set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda]
 set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports audio_lrclk]
 set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports audio_sdata]
 set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports audio_mclk]
+# DAC power down
 set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports audio_powerdown_n]
 # SMUTE/CSN/I2CFIL
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute]
