@@ -526,7 +526,7 @@ begin
         if (x_count < 1280 and y_count < 720) then
           red_up <= (others => config_bit);
         end if;        
-        if config_bit_num = to_integer(to_unsigned(to_integer(reg_in_74(7 downto 2)),6)(5 downto 1)) then
+        if config_bit_num = to_integer(reg_in_74(7 downto 1)) then
           if (y_count > 95 and y_count < 101) or (y_count >107 and y_count < 115) then
             green_up <= (others => '1');
           end if;
