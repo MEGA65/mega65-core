@@ -509,7 +509,9 @@ begin
         green_up <= (others => '0');
         blue_up <= (others => '0');
 
-        red_up <= (others => config_bit);
+        if (x_count < 1280 and y_count < 720) then
+          red_up <= (others => config_bit);
+        end if;
       end if;      
 
       -- Show current config in right shoulder for debugging
