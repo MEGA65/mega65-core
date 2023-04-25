@@ -99,13 +99,13 @@ architecture hundertwasser of upscaler is
   signal raster_0_ready : std_logic := '0';
 
   signal target_raster : integer range 0 to 3 := 0;
-  constant first_read_raster_pal : integer := 1;
+  constant first_read_raster_pal : integer := 3;
   constant first_read_raster_ntsc : integer := 1;
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
   signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(286,9);
-  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(3180,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
   signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
@@ -340,7 +340,7 @@ begin
             end if;
           end if;
         end if;
-        if x_count = (1720) then
+        if x_count = (1720 + raster_leap_cycle) then
           hsync_up <= '1';
         end if;
         if x_count = (1760 + raster_leap_cycle) then
