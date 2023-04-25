@@ -100,7 +100,7 @@ architecture hundertwasser of upscaler is
 
   signal raster_in_toggle : std_logic := '0';
   signal last_raster_in_toggle : std_logic := '0';
-  signal raster_0_ready : std_logic := '0';
+  signal raster_0_writing : std_logic := '0';
 
   signal target_raster : integer range 0 to 3 := 0;
   signal last_raster_phase : std_logic := '0';
@@ -132,7 +132,7 @@ architecture hundertwasser of upscaler is
   signal pal50_select_74 : std_logic;
   signal vlock_en_74 : std_logic;
   signal frame_start_toggle_74 : std_logic;
-  signal raster_0_ready_74 : std_logic;
+  signal raster_0_writing_74 : std_logic;
   signal reg_in_74 : unsigned(7 downto 0) := x"00";
   signal last_reg_in_74 : unsigned(7 downto 0) := x"00";
 
@@ -188,10 +188,10 @@ begin
   
   xpm_cdc_single_inst4 : xpm_cdc_single
     port map (
-        src_in => raster_0_ready,
+        src_in => raster_0_writing,
         src_clk => clock27,
         dest_clk => clock74p22,
-        dest_out => raster_0_ready_74
+        dest_out => raster_0_writing_74
     );
   
   
@@ -243,9 +243,9 @@ begin
       end if;
 
       if write_raster = 0 then
-        raster_0_ready <= '1';
+        raster_0_writing <= '1';
       else
-        raster_0_ready <= '0';
+        raster_0_writing <= '0';
       end if;
       
     end if;
@@ -271,7 +271,7 @@ begin
       rdata_buf2 <= rdata(2);
       rdata_buf3 <= rdata(3);
 
-      if target_raster = 0 then
+      if (target_raster = 0) or (target_raster = 3) then
         reading_raster_0 <= '1';
       else
         reading_raster_0 <= '0';
@@ -476,7 +476,7 @@ begin
       end if;
       if x_count < 280 then
         -- Left shoulder
-        red_up <= (others => raster_0_ready_74);
+        red_up <= (others => raster_0_writing_74);
         green_up <= (others => reading_raster_0);
         blue_up <= (others => '0');
         -- Avoid simultaneous read/write glitches on the raster buffer BRAMs
