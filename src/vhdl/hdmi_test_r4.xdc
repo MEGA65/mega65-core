@@ -254,6 +254,7 @@ set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda]
 # R4 board hard-wires DAC to serial mode
 set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports audio_lrclk]
 set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports audio_sdata]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports audio_bick]
 set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports audio_mclk]
 set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports audio_powerdown_n]
 # SMUTE/CSN/I2CFIL
@@ -261,16 +262,7 @@ set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute]
 # ACKS/CCLK/SCL
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio_acks]
 # DIF/CDTI/SDA
-  set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti]
-
-
-# PWM Audio
-#
-# XXX - Are the following still used?
-set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
-set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports i2s_sd]
-set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
+set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti]
 
 
 ##USB HID (PS/2)

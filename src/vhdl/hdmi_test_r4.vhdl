@@ -162,6 +162,12 @@ entity container is
          -- LS_OE_n should be low to activate the HDMI output
          ls_oe : out std_logic := '0';
 
+         audio_powerdown_n : out std_logic := '1';
+         audio_lrclk : out std_logic;
+         audio_mclk : out std_logic;
+         audio_bick : out std_logic;
+         audio_sdata : out std_logic;
+         audio_smute : out std_logic := '0';
 
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
@@ -570,6 +576,11 @@ begin
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
+            
+            i2s_data_out => audio_sdata,
+            i2s_lrclk => audio_lrclk,
+            i2s_bick => audio_bick,
+            
 
             audio_left_slow => audio_left_slow,
             audio_right_slow => audio_right_slow,
@@ -916,6 +927,7 @@ begin
   
   process (pixelclock,cpuclock,pcm_clk,clock270,dipsw) is
   begin
+    
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
@@ -931,6 +943,7 @@ begin
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;    
     
+    audio_mclk <= pcm_clk;
     if rising_edge(pcm_clk) then
       -- Generate 1KHz ACR pulse train from 12.288MHz
       if acr_counter /= (12288 - 1) then
