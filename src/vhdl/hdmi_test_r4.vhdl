@@ -955,7 +955,7 @@ begin
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
 --  led <= pcm_acr;  
   
-  process (pixelclock,cpuclock,pcm_clk,clock270,dipsw,clock27) is
+  process (pixelclock,cpuclock,pcm_clk,clock270,dipsw,clock27,clock74p22) is
   begin
 
     if rising_edge(pcm_clk) then
@@ -991,7 +991,11 @@ begin
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
+    if upscale_en = '0' then
+      vdac_clk <= pixelclock;
+    else
+      vdac_clk <= clock74p22;
+    end if;
 
     pattern_de_n <= not pattern_de;
 
