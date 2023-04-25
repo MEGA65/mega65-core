@@ -15,6 +15,9 @@ entity upscaler is
     clock27 : in std_logic;
     clock74p22 : in std_logic;
 
+    -- Change behaviour
+    reg_in : in unsigned(7 downto 0) := x"00";
+    
     -- PAL or NTSC mode
     pal50_select : in std_logic;
 
@@ -100,10 +103,12 @@ architecture hundertwasser of upscaler is
   signal raster_0_ready : std_logic := '0';
 
   signal target_raster : integer range 0 to 3 := 0;
-  constant first_read_raster_pal : integer := 3;
-  constant first_read_raster_ntsc : integer := 1;
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
+
+  -- Configurable parameters:
+  signal first_read_raster_pal : integer range 0 to 3 := 0;
+  signal first_read_raster_ntsc : integer range 0 to 3 := 1;
 
   signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(286,9);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(3180,12);
@@ -111,19 +116,40 @@ architecture hundertwasser of upscaler is
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
   signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
 
+  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(52429,16);
+  signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45990,16);
+
+  constant config_width : integer := 2+2+9+12+10+8+16+16;
+  signal config_vector : unsigned(config_width downto 0) := (others => '0');
+  signal config_bit : std_logic := '0';
+  signal config_bit_num : integer := 0;
+  
   signal upscale_en_74 : std_logic;
   signal pal50_select_74 : std_logic;
   signal vlock_en_74 : std_logic;
   signal frame_start_toggle_74 : std_logic;
   signal raster_0_ready_74 : std_logic;
+  signal reg_in_74 : unsigned(7 downto 0) := x"00";
+  signal last_reg_in_74 : unsigned(7 downto 0) := x"00";
 
   signal reading_raster_0 : std_logic;
   
   signal zero : std_logic := '0';
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
+
   
 begin
 
+  reg_in_cdc: for i in 0 to 7 generate
+    regcdc0: xpm_cdc_single
+    port map (
+        src_in => reg_in(i),
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => reg_in_74(i)
+    );
+  end generate;
+  
   xpm_cdc_single_inst0 : xpm_cdc_single
     port map (
         src_in => pal50_select,
@@ -270,7 +296,6 @@ begin
           coeff1 <= 0;
           coeff2 <= 0;
           coeff3 <= 256 - to_integer(raster_phase(15 downto 8));
-        when others => null;
       end case;
       
       
@@ -302,8 +327,8 @@ begin
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
-
-            raster_phase <= raster_phase + 52429;
+            
+            raster_phase <= raster_phase + to_integer(raster_phase_add_pal);
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
               if target_raster /= 3 then
@@ -376,7 +401,7 @@ begin
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
-            raster_phase <= raster_phase + 45990;
+            raster_phase <= raster_phase + to_integer(raster_phase_add_ntsc);
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
               if target_raster /= 3 then
@@ -479,7 +504,27 @@ begin
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
+
+        red_up <= (others => config_bit);
       end if;      
+
+      -- Show current config in right shoulder for debugging
+      config_vector(1 downto 0) <= to_unsigned(first_read_raster_pal,2);
+      config_vector(3 downto 2) <= to_unsigned(first_read_raster_ntsc,2);
+      config_vector(12 downto 4) <= ntsc_coarse;
+      config_vector(24 downto 13) <= ntsc_fine;
+      config_vector(34 downto 25) <= pal_coarse;
+      config_vector(42 downto 35) <= pal_fine;
+      config_vector(58 downto 43) <= raster_phase_add_ntsc;
+      config_vector(74 downto 59) <= raster_phase_add_pal;
+      if (y_count >100 and y_count < 108) and (x_count>1000 and x_count < (1000 + (config_width*4))) then
+        -- config_bit_num advances every 2 X pixels
+        config_bit_num <= to_integer(to_unsigned((x_count - 1010),12)(11 downto 1));
+      else
+        config_bit_num <= config_width - 1;
+      end if;
+      config_bit <= config_vector(config_bit_num);
+      
       
       -- Blank above and below active area of image
       if pal50_int='1' and ((y_count < 20) or (y_count > (720 - 15))) then
@@ -492,6 +537,52 @@ begin
         green_up <= (others => '0');
         blue_up <= (others => '0');
       end if;
+
+      last_reg_in_74 <= reg_in_74;
+      if last_reg_in_74 = reg_in_74 then
+        -- Stable value on reg_in_74 after CDC
+        case reg_in_74(7 downto 2) is
+          when "000001" => first_read_raster_pal <= to_integer(reg_in_74(1 downto 0));
+          when "000010" => first_read_raster_ntsc <= to_integer(reg_in_74(1 downto 0));
+          when "000011" => ntsc_coarse(1 downto 0) <= reg_in_74(1 downto 0);
+          when "000100" => ntsc_coarse(3 downto 2) <= reg_in_74(1 downto 0);
+          when "000101" => ntsc_coarse(5 downto 4) <= reg_in_74(1 downto 0);
+          when "000110" => ntsc_coarse(7 downto 6) <= reg_in_74(1 downto 0);
+          when "000111" => ntsc_coarse(8) <= reg_in_74(0);
+          when "001000" => pal_coarse(1 downto 0) <= reg_in_74(1 downto 0);
+          when "001001" => pal_coarse(3 downto 2) <= reg_in_74(1 downto 0);
+          when "001010" => pal_coarse(5 downto 4) <= reg_in_74(1 downto 0);
+          when "001011" => pal_coarse(7 downto 6) <= reg_in_74(1 downto 0);
+          when "001100" => pal_coarse(9 downto 8) <= reg_in_74(1 downto 0);
+          when "001101" => ntsc_fine(1 downto 0) <= reg_in_74(1 downto 0);
+          when "001110" => ntsc_fine(3 downto 2) <= reg_in_74(1 downto 0);
+          when "001111" => ntsc_fine(5 downto 4) <= reg_in_74(1 downto 0);
+          when "010000" => ntsc_fine(7 downto 6) <= reg_in_74(1 downto 0);
+          when "010010" => ntsc_fine(11 downto 10) <= reg_in_74(1 downto 0);
+          when "010011" => pal_fine(1 downto 0) <= reg_in_74(1 downto 0);
+          when "010100" => pal_fine(3 downto 2) <= reg_in_74(1 downto 0);
+          when "010101" => pal_fine(5 downto 4) <= reg_in_74(1 downto 0);
+          when "010110" => pal_fine(7 downto 6) <= reg_in_74(1 downto 0);
+          when "011001" => raster_phase_add_pal(1 downto 0) <= reg_in_74(1 downto 0);
+          when "011010" => raster_phase_add_pal(3 downto 2) <= reg_in_74(1 downto 0);
+          when "011011" => raster_phase_add_pal(5 downto 4) <= reg_in_74(1 downto 0);
+          when "011100" => raster_phase_add_pal(7 downto 6) <= reg_in_74(1 downto 0);
+          when "011101" => raster_phase_add_pal(9 downto 8) <= reg_in_74(1 downto 0);
+          when "011110" => raster_phase_add_pal(11 downto 10) <= reg_in_74(1 downto 0);
+          when "011111" => raster_phase_add_pal(13 downto 12) <= reg_in_74(1 downto 0);
+          when "100000" => raster_phase_add_pal(15 downto 14) <= reg_in_74(1 downto 0);
+          when "100001" => raster_phase_add_ntsc(1 downto 0) <= reg_in_74(1 downto 0);
+          when "100010" => raster_phase_add_ntsc(3 downto 2) <= reg_in_74(1 downto 0);
+          when "100011" => raster_phase_add_ntsc(5 downto 4) <= reg_in_74(1 downto 0);
+          when "100100" => raster_phase_add_ntsc(7 downto 6) <= reg_in_74(1 downto 0);
+          when "100101" => raster_phase_add_ntsc(9 downto 8) <= reg_in_74(1 downto 0);
+          when "100110" => raster_phase_add_ntsc(11 downto 10) <= reg_in_74(1 downto 0);
+          when "100111" => raster_phase_add_ntsc(13 downto 12) <= reg_in_74(1 downto 0);
+          when "101000" => raster_phase_add_ntsc(15 downto 14) <= reg_in_74(1 downto 0);
+          when others => null;
+        end case;
+      end if;
+      
     end if;
   end process;
 

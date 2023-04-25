@@ -493,6 +493,12 @@ architecture Behavioral of container is
   signal debug_backward_int : std_logic := '0';
   signal debug_forward : std_logic := '0';
   signal debug_forward_int : std_logic := '0';
+
+  signal upscale_reg : unsigned(7 downto 0);
+  signal first_buffer_pal : unsigned(1 downto 0) := to_unsigned(0,2);
+  signal first_buffer_ntsc : unsigned(1 downto 0) := to_unsigned(0,2);
+
+  signal upscaler_reg : unsigned(7 downto 0) := x"00";
   
 begin
 
@@ -855,6 +861,8 @@ begin
       clock27 => clock27,
       clock74p22 => clock74p22,
 
+      reg_in => upscaler_reg,
+      
       pal50_select => pal50,
       upscale_en => upscale_en,
       vlock_en => vlock_en,
@@ -942,6 +950,8 @@ begin
           when x"22" => upscale_en <= '0';
           when x"23" => vlock_en <= '1';
           when x"24" => vlock_en <= '0';
+          when x"25" => first_buffer_pal <= first_buffer_pal + 1; upscaler_reg(7 downto 2) <= "000001"; upscaler_reg(1 downto 0) <= first_buffer_pal;
+          when x"26" => first_buffer_ntsc <= first_buffer_ntsc + 1; upscaler_reg(7 downto 2) <= "000010"; upscaler_reg(1 downto 0) <= first_buffer_ntsc;
           when x"31" => pal50 <= '1';
           when x"32" => pal50 <= '0';
           when x"33" => test_pattern_enable <= '1';
