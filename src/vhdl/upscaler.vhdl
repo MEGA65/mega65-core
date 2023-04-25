@@ -99,6 +99,8 @@ architecture hundertwasser of upscaler is
   signal raster_0_ready : std_logic := '0';
 
   signal target_raster : integer range 0 to 3 := 0;
+  constant first_read_raster_pal : integer := 1;
+  constant first_read_raster_ntsc : integer := 1;
   signal last_raster_phase : std_logic := '0';
   signal raster_phase : unsigned(16 downto 0) := to_unsigned(0,17);
 
@@ -190,11 +192,6 @@ begin
       -- Tell fast side when a new frame starts
       write_en <= (others => '0');
       vsync_in_prev <= vsync_in;
-      if vsync_in='0' and vsync_in_prev='1' then
-        frame_start_toggle <= not frame_start_toggle;
-        write_raster <= 0;
-        write_addr <= to_unsigned(0,10);
-      end if;
       hsync_in_prev <= hsync_in;
       if hsync_in='0' and hsync_in_prev='1' then
         write_addr <= to_unsigned(0,10);
@@ -207,6 +204,11 @@ begin
       elsif pixelvalid_in='1' then
         write_addr <= write_addr + 1;
         write_en(write_raster) <= '1';
+      end if;
+      if vsync_in='0' and vsync_in_prev='1' then
+        frame_start_toggle <= not frame_start_toggle;
+        write_raster <= 0;
+        write_addr <= to_unsigned(0,10);
       end if;
 
       if write_raster = 0 then
@@ -319,7 +321,7 @@ begin
             coeff3 <= 0;
             raster_phase <= to_unsigned(0,17);
             last_raster_phase <= '0';
-            target_raster <= 0;
+            target_raster <= first_read_raster_pal;
             
             pal_raster_counter <= to_unsigned(0,11);
             if vlock_en_74='1' then
@@ -392,7 +394,7 @@ begin
             coeff3 <= 0;
             raster_phase <= to_unsigned(0,17);
             last_raster_phase <= '0';
-            target_raster <= 0;
+            target_raster <= first_read_raster_ntsc;
                         
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en_74='1' then
