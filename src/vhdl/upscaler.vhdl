@@ -522,8 +522,14 @@ begin
         green_up <= (others => '0');
         blue_up <= (others => '0');
 
+        -- Show config bits and currently selected config register
         if (x_count < 1280 and y_count < 720) then
           red_up <= (others => config_bit);
+        end if;        
+        if config_bit_num = to_integer(to_unsigned(to_integer(reg_in_74(7 downto 2)),6)(5 downto 1)) then
+          if (y_count > 95 and y_count < 101) or (y_count >107 and y_count < 115) then
+            green_up <= (others => '1');
+          end if;
         end if;
       end if;      
 
@@ -541,6 +547,7 @@ begin
         config_bit_num <= to_integer(to_unsigned((x_count - 1010),12)(11 downto 1));
       else
         config_bit_num <= config_width - 1;
+        config_vector(config_width - 1) <= '0';
       end if;
       config_bit <= config_vector(config_bit_num);
       
