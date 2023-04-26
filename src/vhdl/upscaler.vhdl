@@ -88,7 +88,7 @@ architecture hundertwasser of upscaler is
   signal frame_start_toggle : std_logic := '0';
   signal last_frame_start_toggle : std_logic := '0';
 
-  signal raster_leap_cycle : integer range 0 to 1 := 0;
+  signal raster_leap_cycle : integer range 0 to 2 := 0;
   signal frame_leap_cycle : integer range 0 to 2 := 0;
 
   -- PAL frame synchronisation counters
