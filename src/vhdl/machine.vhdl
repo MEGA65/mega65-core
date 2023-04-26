@@ -81,6 +81,8 @@ entity machine is
          iec_bus_active : in std_logic;      
          
          power_down : out std_logic := '1';
+
+         upscale_enable : out std_logic := '0';
          
          no_hyppo : in std_logic;
 
@@ -1298,6 +1300,7 @@ begin
       all_pause => all_pause,
 
       dd00_bits => dd00_bits,
+      upscale_enable => upscale_enable,
       
       viciv_frame_indicate => viciv_frame_indicate,
 

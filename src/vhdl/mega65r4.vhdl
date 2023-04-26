@@ -303,6 +303,7 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
+  signal clock74p22 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock162 : std_logic;
   signal clock200 : std_logic;
@@ -344,6 +345,13 @@ architecture Behavioral of container is
   signal lcd_dataenable : std_logic;
   signal hdmi_dataenable : std_logic;
 
+  signal up_vga_hsync : std_logic;
+  signal up_vsync : std_logic;
+  signal up_red : unsigned(7 downto 0);
+  signal up_green : unsigned(7 downto 0);
+  signal up_blue : unsigned(7 downto 0);
+  signal up_datavalid : std_logic;
+  
   signal hdmired : UNSIGNED (7 downto 0);
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
@@ -490,6 +498,10 @@ architecture Behavioral of container is
 
   signal eth_load_enable : std_logic;
 
+  signal upscale_enable : std_logic;
+  signal pal50 : std_logic;
+  signal vdac_clk_i : std_logic;
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -538,6 +550,7 @@ begin
                clock27   => clock27,    --   27     MHz
                clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
+               clock74p22 => clock74p22,
                clock81p  => pixelclock, --   81     MHz
                clock163  => clock162,   --  162.5   MHz
                clock200  => clock200,   --  200     MHz
@@ -545,6 +558,38 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
+  upscaler0: entity work.upscaler
+    port map (
+      clock27 => clock27,
+      clock74p22 => clock74p22,
+
+      hold_image => '0',
+
+      ntsc_inc_fine => '0',
+      ntsc_dec_fine => '0',
+      ntsc_inc_coarse => '0',
+      ntsc_dec_coarse => '0',
+      
+      pal50_select => pal50,
+      upscale_en => upscale_enable,
+      vlock_en => '1',
+      
+      red_in => v_red,
+      green_in => v_green,
+      blue_in => v_blue,
+      hsync_in => v_vga_hsync,
+      vsync_in => v_vsync,
+      pixelvalid_in => hdmi_dataenable,
+
+      red_out => up_red,
+      green_out => up_green,
+      blue_out => up_blue,
+      hsync_out => up_hsync,
+      vsync_out => up_vsync,
+      pixelvalid_out => up_datavalid
+
+      );  
+  
     -- Feed audio into digital video feed
     AUDIO_TONE: entity work.audio_out_test_tone
       generic map (
@@ -627,6 +672,17 @@ begin
       composite => luma,
       audio => luma
       
+      );
+
+  ODDR_inst : ODDR
+    port map (
+      Q => vdac_clk,   -- 1-bit DDR output
+      C => vdac_clk_i,    -- 1-bit clock input
+      CE => '1',  -- 1-bit clock enable input
+      D1 => '0',  -- 1-bit data input (positive edge)
+      D2 => '1',  -- 1-bit data input (negative edge)
+      R => '0',    -- 1-bit reset input
+      S => '0'     -- 1-bit set input
       );
   
      -- serialiser: in this design we use TMDS SelectIO outputs
@@ -838,6 +894,9 @@ begin
           clock50mhz      => ethclock,
 
           eth_load_enabled => eth_load_enable,
+
+          pal50_select_out => pal50,          
+          upscale_enable => upscale_enable,
           
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,
@@ -1099,7 +1158,11 @@ begin
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
+    if upscale_en = '0' then
+      vdac_clk_i <= pixelclock;
+    else
+      vdac_clk_i <= clock74p22;
+    end if;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
@@ -1241,11 +1304,11 @@ begin
     led <= portp_drive(4);
 
     if rising_edge(pixelclock) then
-      hsync <= v_vga_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
+      hsync <= up_vga_hsync;
+      vsync <= up_vsync;
+      vgared <= up_red;
+      vgagreen <= up_green;
+      vgablue <= up_blue;
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
