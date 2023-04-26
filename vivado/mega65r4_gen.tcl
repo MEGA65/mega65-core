@@ -182,6 +182,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/gs4510.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/upscaler.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/r3_expansion.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/neotrng.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fast_divide.vhdl"]"\
@@ -218,6 +219,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/termmem.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/upscaler_ram32x1024.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/internal1541.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/m6522.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
@@ -638,6 +640,10 @@ set file "vhdl/gs4510.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/upscaler.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/r3_expansion.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -743,6 +749,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/ram32x1024.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/upscaler_ram32x1024.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

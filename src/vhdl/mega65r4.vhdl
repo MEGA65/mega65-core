@@ -584,7 +584,7 @@ begin
       red_out => up_red,
       green_out => up_green,
       blue_out => up_blue,
-      hsync_out => up_hsync,
+      hsync_out => up_vga_hsync,
       vsync_out => up_vsync,
       pixelvalid_out => up_datavalid
 
@@ -1158,7 +1158,7 @@ begin
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    if upscale_en = '0' then
+    if upscale_enable = '0' then
       vdac_clk_i <= pixelclock;
     else
       vdac_clk_i <= clock74p22;
