@@ -117,8 +117,8 @@ architecture hundertwasser of upscaler is
   signal first_read_raster_pal : integer range 0 to 3 := 0;
   signal first_read_raster_ntsc : integer range 0 to 3 := 1;
 
-  signal ntsc_coarse : unsigned(9 downto 0) := to_unsigned(285,10);
-  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(3180,12);
+  signal ntsc_coarse : unsigned(9 downto 0) := to_unsigned(288,10); -- / 1024ths
+  signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(0,12); --
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
   signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
@@ -317,14 +317,18 @@ begin
 
       if ntsc_inc_fine_74 /= last_ntsc_inc_fine_74 then
         last_ntsc_inc_fine_74 <= ntsc_inc_fine_74;
-        if ntsc_fine < 2618 then
-          ntsc_fine <= ntsc_fine + 1;
+        if ntsc_fine < (4095-100) then
+          ntsc_fine <= ntsc_fine + 100;
+        else
+          ntsc_fine <= to_unsigned(4095,12);
         end if;
       end if;
       if ntsc_dec_fine_74 /= last_ntsc_dec_fine_74 then
         last_ntsc_dec_fine_74 <= ntsc_dec_fine_74;
-        if ntsc_fine > 0 then
-          ntsc_fine <= ntsc_fine - 1;
+        if ntsc_fine > 100 then
+          ntsc_fine <= ntsc_fine - 100;
+        else
+          ntsc_fine <= to_unsigned(0,12);
         end if;
       end if;
 
@@ -509,17 +513,20 @@ begin
             raster_phase <= to_unsigned(0,17);
             last_raster_phase <= '0';
             target_raster <= first_read_raster_ntsc;
-                        
-            ntsc_raster_counter <= to_unsigned(0,11);
+
+            -- XXX tweak NTSC VLOCK timing to have one more raster with a leap
+            -- cycle, because for somereason we can't get coarse+fine adjustment
+            -- to otherwise get this exactly right.
+            ntsc_raster_counter <= (others => '1');
             if vlock_en_74='1' then
               -- Add one cycle for every 1,141 / 2,619 frames
-              ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
-              if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
-                frame_leap_cycle <= 1;
-                last_ntsc_frame_counter <= last_ntsc_frame_counter;
-              end if;
               if ntsc_frame_counter < 2619 then
                 ntsc_frame_counter <= ntsc_frame_counter + 1;                
+                ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
+                if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
+                  frame_leap_cycle <= 1;
+                  last_ntsc_frame_counter <= ntsc_frame_counter_1141(12);
+                end if;
               else
                 ntsc_frame_counter <= to_unsigned(0,12);
                 ntsc_frame_counter_1141 <= to_unsigned(0,13);
@@ -644,7 +651,7 @@ begin
       end if;
 
       last_reg_in_74 <= reg_in_74;
-      if last_reg_in_74 = reg_in_74 then
+      if false and ( last_reg_in_74 = reg_in_74) then
         -- Stable value on reg_in_74 after CDC
         case reg_in_74(7 downto 2) is
           when "000001" => first_read_raster_pal <= to_integer(reg_in_74(1 downto 0));
