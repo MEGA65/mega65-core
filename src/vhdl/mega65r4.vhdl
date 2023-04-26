@@ -1303,16 +1303,14 @@ begin
     -- LED on main board 
     led <= portp_drive(4);
 
-    if rising_edge(pixelclock) then
-      hsync <= up_vga_hsync;
-      vsync <= up_vsync;
-      vgared <= up_red;
-      vgagreen <= up_green;
-      vgablue <= up_blue;
-      hdmired <= v_red;
-      hdmigreen <= v_green;
-      hdmiblue <= v_blue;
-    end if;
+    hsync <= up_vga_hsync;
+    vsync <= up_vsync;
+    vgared <= up_red;
+    vgagreen <= up_green;
+    vgablue <= up_blue;
+    hdmired <= v_red;
+    hdmigreen <= v_green;
+    hdmiblue <= v_blue;
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
