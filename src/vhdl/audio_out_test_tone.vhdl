@@ -94,8 +94,10 @@ begin
             if sample_stable_cycles = 8 then
               pcm_l <= audio_left_slow(19 downto 4);
               pcm_r <= audio_right_slow(19 downto 4);
-              pcm_l_int <= audio_left_slow;
-              pcm_r_int <= audio_right_slow;
+              pcm_l_int(19) <= not audio_left_slow(19);
+              pcm_l_int(18 downto 0) <= audio_left_slow(18 downto 0);
+              pcm_r_int(19) <= not audio_right_slow(19);
+              pcm_r_int(18 downto 0) <= audio_right_slow(18 downto 0);
             end if;
           end if;
 
