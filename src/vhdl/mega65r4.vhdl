@@ -558,6 +558,10 @@ begin
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
 
+            i2s_data_out => audio_sdata,
+            i2s_lrclk => audio_lrclk,
+            i2s_bick => audio_bick,
+            
             audio_left_slow => audio_left_slow,
             audio_right_slow => audio_right_slow,
             sample_ready_toggle => sample_ready_toggle,
@@ -1100,6 +1104,7 @@ begin
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
 
+    audio_mclk <= pcm_clk;
     if rising_edge(pcm_clk) then
       -- Generate 1KHz ACR pulse train from 12.288MHz
       if acr_counter /= (12288 - 1) then

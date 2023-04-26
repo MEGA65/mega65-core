@@ -522,7 +522,16 @@ architecture Behavioral of container is
   signal sample_ready_toggle : std_logic := '0';
   signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
   signal acr_counter : integer range 0 to 12288 := 0;
-  
+
+  signal ntsc_inc_fine : std_logic := '0';
+  signal ntsc_dec_fine : std_logic := '0';
+  signal ntsc_inc_coarse : std_logic := '0';
+  signal ntsc_dec_coarse : std_logic := '0';
+
+  signal ntsc_inc_fine_int : std_logic := '0';
+  signal ntsc_dec_fine_int : std_logic := '0';
+  signal ntsc_inc_coarse_int : std_logic := '0';
+  signal ntsc_dec_coarse_int : std_logic := '0';
   
    type sine_t is array (0 to 8) of unsigned(7 downto 0);
    signal sine_table : sine_t := (
@@ -906,6 +915,11 @@ begin
 
       reg_in => upscaler_reg,
       hold_image => hold_image,
+
+      ntsc_inc_fine => ntsc_inc_fine,
+      ntsc_dec_fine => ntsc_dec_fine,
+      ntsc_inc_coarse => ntsc_inc_coarse,
+      ntsc_dec_coarse => ntsc_dec_coarse,
       
       pal50_select => pal50,
       upscale_en => upscale_en,
@@ -1034,6 +1048,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
+      upscaler_reg(7 downto 2) <= reg_sel; upscaler_reg(1 downto 0) <= first_buffer_pal;
+      
       if ascii_key_valid='1' then
         case ascii_key is
           when x"21" => upscale_en <= '1';
@@ -1042,15 +1058,15 @@ begin
           when x"24" => vlock_en <= '0';
           when x"25" =>
             -- Adjust register to upscaler config
-            first_buffer_pal <= first_buffer_pal + 1; upscaler_reg(7 downto 2) <= reg_sel; upscaler_reg(1 downto 0) <= first_buffer_pal;
+            first_buffer_pal <= first_buffer_pal + 1; 
           when x"26" =>
+            if reg_sel /= "001101" then
+              reg_sel <= reg_sel - 1;
+            end if;
+          when x"27" =>
             if reg_sel /= "010010" then
               reg_sel <= reg_sel + 1;
-            else
-              reg_sel <= "001101";
             end if;
-          when x"27" => hold_image <= '1';
-          when x"28" => hold_image <= '0';
           when x"31" => pal50 <= '1';
           when x"32" => pal50 <= '0';
           when x"33" => test_pattern_enable <= '1';
@@ -1065,6 +1081,12 @@ begin
           when x"30" =>
             debug_forward <= not debug_forward_int;
             debug_forward_int <= not debug_forward_int;
+
+          when x"41" | x"61" => ntsc_dec_fine <= not ntsc_dec_fine_int; ntsc_dec_fine_int <= not ntsc_dec_fine_int;
+          when x"53" | x"73" => ntsc_inc_fine <= not ntsc_dec_fine_int; ntsc_dec_fine_int <= not ntsc_dec_fine_int;
+          when x"44" | x"64" => ntsc_dec_coarse <= not ntsc_dec_coarse_int; ntsc_dec_coarse_int <= not ntsc_dec_coarse_int;
+          when x"66" | x"66" => ntsc_inc_coarse <= not ntsc_inc_coarse_int; ntsc_inc_coarse_int <= not ntsc_inc_coarse_int;
+                                
           when others => null;                         
         end case;        
       end if;                        

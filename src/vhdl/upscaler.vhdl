@@ -18,6 +18,12 @@ entity upscaler is
     -- Change behaviour
     reg_in : in unsigned(7 downto 0) := x"00";
     hold_image : in std_logic;
+
+    ntsc_inc_coarse : in std_logic;
+    ntsc_dec_coarse : in std_logic;
+    ntsc_inc_fine : in std_logic;
+    ntsc_dec_fine : in std_logic;
+
     
     -- PAL or NTSC mode
     pal50_select : in std_logic;
@@ -111,7 +117,7 @@ architecture hundertwasser of upscaler is
   signal first_read_raster_pal : integer range 0 to 3 := 0;
   signal first_read_raster_ntsc : integer range 0 to 3 := 1;
 
-  signal ntsc_coarse : unsigned(8 downto 0) := to_unsigned(285,9);
+  signal ntsc_coarse : unsigned(9 downto 0) := to_unsigned(285,10);
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(3180,12);
 
   signal pal_coarse : unsigned(9 downto 0) := to_unsigneD(391,10);
@@ -124,7 +130,7 @@ architecture hundertwasser of upscaler is
   signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54613,16);
   signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45962,16);
 
-  constant config_width : integer := 2+2+9+12+10+8+16+16;
+  constant config_width : integer := 2+2+10+12+10+8+16+16;
   signal config_vector : unsigned(config_width downto 0) := (others => '0');
   signal config_bit : std_logic := '0';
   signal config_bit_num : integer := 0;
@@ -143,9 +149,54 @@ architecture hundertwasser of upscaler is
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
 
   signal raster_buf_active : std_logic_vector(3 downto 0) := "0000";
+
+  signal cursor_start : integer := 0;
+  signal cursor_end : integer := 0;
+
+  signal ntsc_inc_fine_74 : std_logic := '0';
+  signal ntsc_dec_fine_74 : std_logic := '0';
+  signal ntsc_inc_coarse_74 : std_logic := '0';
+  signal ntsc_dec_coarse_74 : std_logic := '0';
+
+  signal last_ntsc_inc_fine_74 : std_logic := '0';
+  signal last_ntsc_dec_fine_74 : std_logic := '0';
+  signal last_ntsc_inc_coarse_74 : std_logic := '0';
+  signal last_ntsc_dec_coarse_74 : std_logic := '0';
   
 begin
 
+  cdcntsc0 : xpm_cdc_single
+    port map (
+        src_in => ntsc_inc_fine,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => ntsc_inc_fine_74
+    );
+  cdcntsc1 : xpm_cdc_single
+    port map (
+        src_in => ntsc_dec_fine,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => ntsc_dec_fine_74
+    );
+  
+  cdcntsc2 : xpm_cdc_single
+    port map (
+        src_in => ntsc_inc_coarse,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => ntsc_inc_coarse_74
+    );
+  cdcntsc3 : xpm_cdc_single
+    port map (
+        src_in => ntsc_dec_coarse,
+        src_clk => clock27,
+        dest_clk => clock74p22,
+        dest_out => ntsc_dec_coarse_74
+    );
+  
+
+  
   reg_in_cdc: for i in 0 to 7 generate
     regcdc0: xpm_cdc_single
     port map (
@@ -264,6 +315,32 @@ begin
       -- the VSYNC pulse in the output to the start of video is constant, it should
       -- look fine. We'll try that.
 
+      if ntsc_inc_fine_74 /= last_ntsc_inc_fine_74 then
+        last_ntsc_inc_fine_74 <= ntsc_inc_fine_74;
+        if ntsc_fine < 2618 then
+          ntsc_fine <= ntsc_fine + 1;
+        end if;
+      end if;
+      if ntsc_dec_fine_74 /= last_ntsc_dec_fine_74 then
+        last_ntsc_dec_fine_74 <= ntsc_dec_fine_74;
+        if ntsc_fine > 0 then
+          ntsc_fine <= ntsc_fine - 1;
+        end if;
+      end if;
+
+      if ntsc_inc_coarse_74 /= last_ntsc_inc_coarse_74 then
+        last_ntsc_inc_coarse_74 <= ntsc_inc_coarse_74;
+        if ntsc_coarse < 510 then
+          ntsc_coarse <= ntsc_coarse + 1;
+        end if;
+      end if;
+      if ntsc_dec_coarse_74 /= last_ntsc_dec_coarse_74 then
+        last_ntsc_dec_coarse_74 <= ntsc_dec_coarse_74;
+        if ntsc_coarse > 0 then
+          ntsc_coarse <= ntsc_coarse - 1;
+        end if;
+      end if;
+      
       rdata_buf0 <= rdata(0);
       rdata_buf1 <= rdata(1);
       rdata_buf2 <= rdata(2);
@@ -395,15 +472,8 @@ begin
         if x_count < (1654-1+raster_leap_cycle) then
           x_count <= x_count + 1;
         else
-          -- Add one cycle to every 209/750 rasters = 143/512 rasters,
-          -- provided we reset the ntsc_raster_counter every frame
+          -- Add leap cycles to fix NTSC frame VLOCK
           if vlock_en_74='1' then
-            -- XXX Except it is too many cycles per frame.
-            -- 142 gets us much closer, with upper rasters creeping down about
-            -- 1 per 30 seconds (line draws right to left)
-            -- With 143 the line draws left to right at a similar rate.
-            -- So we might need to add ~1/2 pixel per frame in the frame 1141/4096
-            -- to make it ~1141+2048/4096 = 3189/4096.
             ntsc_raster_counter <= ntsc_raster_counter + to_integer(ntsc_coarse);
             if ntsc_raster_counter(10) /= last_ntsc_raster_counter then
               raster_leap_cycle <= 1;
@@ -442,8 +512,7 @@ begin
                         
             ntsc_raster_counter <= to_unsigned(0,11);
             if vlock_en_74='1' then
-              -- Add one cycle for every 1,141 / 4,096 frames
-              -- See above: Trying 3189/4096 instead
+              -- Add one cycle for every 1,141 / 2,619 frames
               ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
               if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                 frame_leap_cycle <= 1;
@@ -516,7 +585,6 @@ begin
                   + to_unsigned(to_integer(rdata_buf1(23 downto 16)) * coeff1,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf3(23 downto 16)) * coeff3,16)(15 downto 8);
-                  
       else
         -- Right shoulder / fly back        
         red_up <= (others => '0');
@@ -524,25 +592,35 @@ begin
         blue_up <= (others => '0');
 
         -- Show config bits and currently selected config register
+        -- Why do we need -12 fudge factor to make it line up?
+        cursor_start <= 280 + 720 - 12 + (to_integer(reg_in_74(7 downto 2))*4);
+        cursor_end <= cursor_start + 4;
         if (x_count < 1280 and y_count < 720) then
           red_up <= (others => config_bit);
-        end if;        
-        if config_bit_num = to_integer(reg_in_74(7 downto 1)) then
-          if (y_count > 95 and y_count < 101) or (y_count >107 and y_count < 115) then
-            green_up <= (others => '1');
+          if ((y_count > 95) and (y_count < 101)) or ((y_count > 107) and (y_count < 115)) then
+            if x_count >=cursor_start and x_count < cursor_end then
+              green_up <= (others => '1');
+            else
+              blue_up <= (others => '1');
+            end if;
           end if;
-        end if;
+          if y_count >200 and y_count<300 then
+            if x_count = (720+280+to_integer(reg_in_74(7 downto 1))) then
+              green_up <= (others => '1');
+            end if;
+          end if;
+        end if;        
       end if;      
 
       -- Show current config in right shoulder for debugging
       config_vector(1 downto 0) <= to_unsigned(first_read_raster_pal,2);
       config_vector(3 downto 2) <= to_unsigned(first_read_raster_ntsc,2);
-      config_vector(12 downto 4) <= ntsc_coarse;
-      config_vector(24 downto 13) <= ntsc_fine;
-      config_vector(34 downto 25) <= pal_coarse;
-      config_vector(42 downto 35) <= pal_fine;
-      config_vector(58 downto 43) <= raster_phase_add_ntsc;
-      config_vector(74 downto 59) <= raster_phase_add_pal;
+      config_vector(13 downto 4) <= ntsc_coarse;
+      config_vector(25 downto 14) <= ntsc_fine;
+      config_vector(35 downto 26) <= pal_coarse;
+      config_vector(43 downto 36) <= pal_fine;
+      config_vector(59 downto 44) <= raster_phase_add_ntsc;
+      config_vector(75 downto 60) <= raster_phase_add_pal;
       if (y_count >100 and y_count < 108) and (x_count>1000 and x_count < (1000 + (config_width*4))) then
         -- config_bit_num advances every 2 X pixels
         config_bit_num <= to_integer(to_unsigned((x_count - 1010),12)(11 downto 1));
@@ -575,7 +653,7 @@ begin
           when "000100" => ntsc_coarse(3 downto 2) <= reg_in_74(1 downto 0);
           when "000101" => ntsc_coarse(5 downto 4) <= reg_in_74(1 downto 0);
           when "000110" => ntsc_coarse(7 downto 6) <= reg_in_74(1 downto 0);
-          when "000111" => ntsc_coarse(8) <= reg_in_74(0);
+          when "000111" => ntsc_coarse(9 downto 8) <= reg_in_74(1 downto 0);
           when "001000" => pal_coarse(1 downto 0) <= reg_in_74(1 downto 0);
           when "001001" => pal_coarse(3 downto 2) <= reg_in_74(1 downto 0);
           when "001010" => pal_coarse(5 downto 4) <= reg_in_74(1 downto 0);
