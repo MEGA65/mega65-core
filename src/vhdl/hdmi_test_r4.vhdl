@@ -499,8 +499,6 @@ architecture Behavioral of container is
   signal first_buffer_pal : unsigned(1 downto 0) := to_unsigned(0,2);
   signal first_buffer_ntsc : unsigned(1 downto 0) := to_unsigned(0,2);
 
-  signal upscaler_reg : unsigned(7 downto 0) := x"00";
-  signal reg_sel : unsigned(5 downto 0) := "010010";
   signal hold_image : std_logic := '0';
 
   signal audio_l : std_logic_vector(15 downto 0) := x"0000";
@@ -913,7 +911,6 @@ begin
       clock27 => clock27,
       clock74p22 => clock74p22,
 
-      reg_in => upscaler_reg,
       hold_image => hold_image,
 
       ntsc_inc_fine => ntsc_inc_fine,
@@ -1048,25 +1045,12 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
 
-      upscaler_reg(7 downto 2) <= reg_sel; upscaler_reg(1 downto 0) <= first_buffer_pal;
-      
       if ascii_key_valid='1' then
         case ascii_key is
           when x"21" => upscale_en <= '1';
           when x"22" => upscale_en <= '0';
           when x"23" => vlock_en <= '1';
           when x"24" => vlock_en <= '0';
-          when x"25" =>
-            -- Adjust register to upscaler config
-            first_buffer_pal <= first_buffer_pal + 1; 
-          when x"26" =>
-            if reg_sel /= "001101" then
-              reg_sel <= reg_sel - 1;
-            end if;
-          when x"27" =>
-            if reg_sel /= "010010" then
-              reg_sel <= reg_sel + 1;
-            end if;
           when x"31" => pal50 <= '1';
           when x"32" => pal50 <= '0';
           when x"33" => test_pattern_enable <= '1';
