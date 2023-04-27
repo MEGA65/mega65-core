@@ -551,11 +551,8 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 # seem to have the prefixes on them anymore
 
 # Relax between ethernet and CPU
-set_false_path -from [get_clocks CLKOUT3] -to [get_clocks CLKOUT1]
-set_false_path -from [get_clocks CLKOUT1] -to [get_clocks CLKOUT3]
-# Relax between clock domains of HyperRAM
-set_false_path -from [get_clocks CLKOUT0] -to [get_clocks CLKOUT5]
-set_false_path -from [get_clocks CLKOUT5] -to [get_clocks CLKOUT0]
+set_false_path -from [get_clocks CLKOUT3] -to [get_clocks u_clock50]
+set_false_path -from [get_clocks u_clock50] -to [get_clocks CLKOUT3]
 
 #set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
 #set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
