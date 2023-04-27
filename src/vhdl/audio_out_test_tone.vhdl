@@ -33,6 +33,9 @@ entity audio_out_test_tone is
         ref_rst     : in    std_logic;                      -- reference clock reset
         ref_clk     : in    std_logic;                      -- reference clock (100MHz)
 
+        invert_sign : in std_logic := '0'; -- switch samples between signed and
+                                           -- unsigned for I2S output
+        
         pcm_rst     : inout   std_logic;                      -- audio clock reset
         pcm_clk     : inout   std_logic;                      -- audio clock (256Fs = 12.288MHz)
         pcm_clken   : inout   std_logic;                      -- audio clock enable (Fs = 48kHz)
@@ -94,9 +97,9 @@ begin
             if sample_stable_cycles = 8 then
               pcm_l <= audio_left_slow(19 downto 4);
               pcm_r <= audio_right_slow(19 downto 4);
-              pcm_l_int(19) <= not audio_left_slow(19);
+              pcm_l_int(19) <= audio_left_slow(19) xor invert_sign ;
               pcm_l_int(18 downto 0) <= audio_left_slow(18 downto 0);
-              pcm_r_int(19) <= not audio_right_slow(19);
+              pcm_r_int(19) <= audio_right_slow(19) xor invert_sign;
               pcm_r_int(18 downto 0) <= audio_right_slow(18 downto 0);
             end if;
           end if;
