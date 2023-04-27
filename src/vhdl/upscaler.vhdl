@@ -124,9 +124,11 @@ architecture hundertwasser of upscaler is
 
   -- 2^16 x rasters in / rasters out
   -- PAL in = 625, NTSC in = 526, rasters out = 750
-  -- 625/750 x 2^16 = 54613.333
+  -- 625/750 x 2^16 = 54613.333 (but is one raster too many for reality in
+  -- MEGA65 core, even though in hdmi_test_r4 it is ok!!!???)
+  -- 624/750 x 2^16 = 54525.952
   -- 526/750 x 2^16 = 45962.581
-  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54613,16);
+  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54525,16);
   signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45962,16);
 
   signal upscale_en_74 : std_logic;
