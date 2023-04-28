@@ -23,6 +23,11 @@ entity upscaler is
     ntsc_inc_fine : in std_logic;
     ntsc_dec_fine : in std_logic;
 
+    pal_inc_coarse : in std_logic := '0';
+    pal_dec_coarse : in std_logic := '0';
+    pal_inc_fine : in std_logic := '0';
+    pal_dec_fine : in std_logic := '0';
+    
     
     -- PAL or NTSC mode
     pal50_select : in std_logic;
@@ -119,16 +124,25 @@ architecture hundertwasser of upscaler is
   signal ntsc_coarse : unsigned(9 downto 0) := to_unsigned(284,10); -- / 1024ths
   signal ntsc_fine : unsigned(11 downto 0) := to_unsigned(2623,12); --
 
-  signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
-  signal pal_fine : unsigned(7 downto 0) := to_unsigned(21,8);
+  -- PAL FUDGE FACTORS PART 1:
+  -- (See PAL FUDGE FACTORS PART 2 to explanation as to what's going on here)
+  -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
+  -- We have 104.48 or so cycles per frame too many
+  -- Well, reducing it by 104 got it to one excess frame 10 minutes, i.e.,
+  -- 1/3000.  That means 
+  -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
+  -- signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal pal_coarse : unsigned(9 downto 0) := to_unsigned(200       -- This is
+                                                                  -- the fudge
+                                                                  -- factor
+                                                          ,10);
+  signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8); -- And this, too
 
   -- 2^16 x rasters in / rasters out
   -- PAL in = 625, NTSC in = 526, rasters out = 750
-  -- 625/750 x 2^16 = 54613.333 (but is one raster too many for reality in
-  -- MEGA65 core, even though in hdmi_test_r4 it is ok!!!???)
-  -- 624/750 x 2^16 = 54525.952
+  -- 625/750 x 2^16 = 54613.333
   -- 526/750 x 2^16 = 45962.581
-  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54525,16);
+  signal raster_phase_add_pal : unsigned(15 downto 0) := to_unsigned(54613,16);
   signal raster_phase_add_ntsc : unsigned(15 downto 0) := to_unsigned(45962,16);
 
   signal upscale_en_74 : std_logic;
@@ -157,6 +171,17 @@ architecture hundertwasser of upscaler is
   signal last_ntsc_inc_coarse_74 : std_logic := '0';
   signal last_ntsc_dec_coarse_74 : std_logic := '0';
   
+  signal pal_inc_fine_74 : std_logic := '0';
+  signal pal_dec_fine_74 : std_logic := '0';
+  signal pal_inc_coarse_74 : std_logic := '0';
+  signal pal_dec_coarse_74 : std_logic := '0';
+
+  signal last_pal_inc_fine_74 : std_logic := '0';
+  signal last_pal_dec_fine_74 : std_logic := '0';
+  signal last_pal_inc_coarse_74 : std_logic := '0';
+  signal last_pal_dec_coarse_74 : std_logic := '0';
+  
+
 begin
 
   cdcntsc0 : xpm_cdc_single
@@ -326,6 +351,36 @@ begin
           ntsc_coarse <= ntsc_coarse - 1;
         end if;
       end if;
+
+      if pal_inc_fine_74 /= last_pal_inc_fine_74 then
+        last_pal_inc_fine_74 <= pal_inc_fine_74;
+        if pal_fine < (255) then
+          pal_fine <= pal_fine + 1;
+        else
+          pal_fine <= to_unsigned(255,8);
+        end if;
+      end if;
+      if pal_dec_fine_74 /= last_pal_dec_fine_74 then
+        last_pal_dec_fine_74 <= pal_dec_fine_74;
+        if pal_fine > 0 then
+          pal_fine <= pal_fine - 1;
+        else
+          pal_fine <= to_unsigned(0,8);
+        end if;
+      end if;
+
+      if pal_inc_coarse_74 /= last_pal_inc_coarse_74 then
+        last_pal_inc_coarse_74 <= pal_inc_coarse_74;
+        if pal_coarse < 510 then
+          pal_coarse <= pal_coarse + 1;
+        end if;
+      end if;
+      if pal_dec_coarse_74 /= pal_dec_coarse_74 then
+        pal_dec_coarse_74 <= pal_dec_coarse_74;
+        if pal_coarse > 0 then
+          pal_coarse <= pal_coarse - 1;
+        end if;
+      end if;
       
       rdata_buf0 <= rdata(0);
       rdata_buf1 <= rdata(1);
@@ -387,7 +442,37 @@ begin
         vsync_up <= '0';
       end if;
       if pal50_int='1' then
-        if x_count < (1980-2+raster_leap_cycle) then
+        if x_count < (1980-2
+
+                      -- PAL FUDGE FACTORS PART 2:
+                      -- On MEGA65 core PAL 720p frame is almost exactly 1 576p raster line
+                      -- too long (even though in hdmi_test_r4 target that uses the same
+                      -- pixeldriver.vhdl frame generator this doesn't happen).  Why is a mystery.
+                      -- That we need to compensate a certainty. Thus the extra fudge factor
+                      -- here.
+                      -- With no fudge factor, one whole frame was slipped in
+                      -- ~12.5 seconds (~1 raster per frame)
+                      -- With -2, one whole frame is slipped in about 33.5 seconds
+                      -- (~ 0.37 rasters per frame).
+                      -- That is, each -1 here is reducing the rasters per
+                      -- frame by about 0.315.
+                      -- Thus a fudge factor of -3 should get it as close as possible
+                      -- at around (1-.945)x625 = 0.05 rasters per second, or slipping
+                      -- one whole frame every ~250 seconds.
+                      -- That's still not accurate
+                      -- enough. But we need to measure that in practice first,
+                      -- to confirm these measurements. If correct, then we can
+                      -- tweak how often we add leap cycles to rasters to trim
+                      -- it back to perfect alignment.
+                      -- Ok, with -3, it now takes 236 seconds to slip a whole
+                      -- frame.  That's a lot more slip still compared to what
+                      -- we expected, but as doing the timing for the higher
+                      -- speeds of frame slip is a bit tricky, that's okay.
+                      -- Anyway, 236 seconds / frame = 2.65 rasters per second
+                      -- = 0.0529 rasters per frame.
+                      -3 -- This is the extra fudge factor
+
+                      +raster_leap_cycle) then
           x_count <= x_count + 1;
         else
           -- Add one cycle to every 286/750 rasters = 391/1024 rasters,

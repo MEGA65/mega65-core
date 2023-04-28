@@ -569,6 +569,11 @@ begin
       ntsc_dec_fine => '0',
       ntsc_inc_coarse => '0',
       ntsc_dec_coarse => '0',
+
+      pal_inc_fine => portp_drive(7),
+      pal_dec_fine => portp_drive(6),
+      pal_inc_coarse => portp_drive(5),
+      pal_dec_coarse => portp_drive(4),
       
       pal50_select => pal50,
       upscale_en => upscale_enable,
@@ -1314,12 +1319,12 @@ begin
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp_drive(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
-    end if;
+--    if portp_drive(2)='1' then
+--      vgagreen <= unsigned(audio_left(15 downto 8));
+--      vgared <= unsigned(audio_right(15 downto 8));
+--      hdmigreen <= unsigned(audio_left(15 downto 8));
+--      hdmired <= unsigned(audio_right(15 downto 8));
+--    end if;
     
   end process;    
   
