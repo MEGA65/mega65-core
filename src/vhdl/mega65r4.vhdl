@@ -64,17 +64,17 @@ entity container is
          paddle : in std_logic_vector(3 downto 0);
          paddle_drain : out std_logic := '0';
 
-         fa_left_out : out std_logic;
-         fa_right_out : out std_logic;
-         fa_down_out : out std_logic;
-         fa_up_out : out std_logic;
-         fa_fire_out : out std_logic;
+         fa_left_drain_n : out std_logic;
+         fa_right_drain_n : out std_logic;
+         fa_down_drain_n : out std_logic;
+         fa_up_drain_n : out std_logic;
+         fa_fire_drain_n : out std_logic;
         
-         fb_left_out : out std_logic;
-         fb_right_out : out std_logic;
-         fb_down_out : out std_logic;
-         fb_up_out : out std_logic;
-         fb_fire_out : out std_logic;
+         fb_left_drain_n : out std_logic;
+         fb_right_drain_n : out std_logic;
+         fb_down_drain_n : out std_logic;
+         fb_up_drain_n : out std_logic;
+         fb_fire_drain_n : out std_logic;
          
          -- 8 test points on the motherboard
          testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
@@ -570,10 +570,10 @@ begin
       ntsc_inc_coarse => '0',
       ntsc_dec_coarse => '0',
 
-      pal_inc_fine => portp_drive(7),
-      pal_dec_fine => portp_drive(6),
-      pal_inc_coarse => portp_drive(5),
-      pal_dec_coarse => portp_drive(4),
+      pal_inc_fine => '0',
+      pal_dec_fine => '0',
+      pal_inc_coarse => '0',
+      pal_dec_coarse => '0',
       
       pal50_select => pal50,
       upscale_en => upscale_enable,
@@ -984,17 +984,17 @@ begin
           keyleft => keyleft,
           keyup => keyup,
 
-          fa_fire_o => fa_fire_out,
-          fa_up_o => fa_up_out,
-          fa_down_o => fa_down_out,
-          fa_left_o => fa_left_out,
-          fa_right_o => fa_right_out,
+          fa_fire_drain_n => fa_fire_drain_n,
+          fa_up_drain_n => fa_up_drain_n,
+          fa_down_drain_n => fa_down_drain_n,
+          fa_left_drain_n => fa_left_drain_n,
+          fa_right_drain_n => fa_right_drain_n,
           
-          fb_fire_o => fb_fire_out,
-          fb_up_o => fb_up_out,
-          fb_down_o => fb_down_out,
-          fb_left_o => fb_left_out,
-          fb_right_o => fb_right_out,
+          fb_fire_drain_n => fb_fire_drain_n,
+          fb_up_drain_n => fb_up_drain_n,
+          fb_down_drain_n => fb_down_drain_n,
+          fb_left_drain_n => fb_left_drain_n,
+          fb_right_drain_n => fb_right_drain_n,
           
           fa_fire => fa_fire_drive,
           fa_up => fa_up_drive,

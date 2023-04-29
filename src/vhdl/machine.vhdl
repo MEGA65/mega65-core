@@ -202,17 +202,17 @@ entity machine is
          pot_drain : buffer std_logic := '1';
          pot_via_iec : buffer std_logic := '1';
 
-        fa_left_o : out std_logic;
-        fa_right_o : out std_logic;
-        fa_down_o : out std_logic;
-        fa_up_o : out std_logic;
-        fa_fire_o : out std_logic;
+        fa_left_drain_n : out std_logic;
+        fa_right_drain_n : out std_logic;
+        fa_down_drain_n : out std_logic;
+        fa_up_drain_n : out std_logic;
+        fa_fire_drain_n : out std_logic;
         
-        fb_left_o : out std_logic;
-        fb_right_o : out std_logic;
-        fb_down_o : out std_logic;
-        fb_up_o : out std_logic;
-        fb_fire_o : out std_logic;
+        fb_left_drain_n : out std_logic;
+        fb_right_drain_n : out std_logic;
+        fb_down_drain_n : out std_logic;
+        fb_up_drain_n : out std_logic;
+        fb_fire_drain_n : out std_logic;
          
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
@@ -498,14 +498,15 @@ architecture Behavioral of machine is
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
-  signal fa_up_out : std_logic;
-  signal fa_down_out : std_logic;
-  signal fa_left_out : std_logic;
-  signal fa_right_out : std_logic;
-  signal fb_up_out : std_logic;
-  signal fb_down_out : std_logic;
-  signal fb_left_out : std_logic;
-  signal fb_right_out : std_logic;
+  -- Outputs from 1351/Amiga mouse handler
+  signal fa_up_mout : std_logic;
+  signal fa_down_mout : std_logic;
+  signal fa_left_mout : std_logic;
+  signal fa_right_mout : std_logic;
+  signal fb_up_mout : std_logic;
+  signal fb_down_mout : std_logic;
+  signal fb_left_mout : std_logic;
+  signal fb_right_mout : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
@@ -1530,15 +1531,15 @@ begin
       fb_up => fb_up,
       fb_down => fb_down,
 
-      fa_up_out => fa_up_out,
-      fa_down_out => fa_down_out,
-      fa_left_out => fa_left_out,
-      fa_right_out => fa_right_out,
+      fa_up_out => fa_up_mout,
+      fa_down_out => fa_down_mout,
+      fa_left_out => fa_left_mout,
+      fa_right_out => fa_right_mout,
 
-      fb_up_out => fb_up_out,
-      fb_down_out => fb_down_out,
-      fb_left_out => fb_left_out,
-      fb_right_out => fb_right_out,
+      fb_up_out => fb_up_mout,
+      fb_down_out => fb_down_mout,
+      fb_left_out => fb_left_mout,
+      fb_right_out => fb_right_mout,
       
       -- We output the four sampled pot values
       pota_x => pota_x,
@@ -1744,32 +1745,32 @@ begin
       key_up => keyup,
 
       fa_fire => fa_fire,
-      fa_up => fa_up_out,
-      fa_left => fa_left_out,
-      fa_down => fa_down_out,
-      fa_right => fa_right_out,
+      fa_up => fa_up,
+      fa_left => fa_left,
+      fa_down => fa_down,
+      fa_right => fa_right,
       fa_potx => fa_potx,
       fa_poty => fa_poty,
       
       fb_fire => fb_fire,
-      fb_up => fb_up_out,
-      fb_left => fb_left_out,
-      fb_down => fb_down_out,
-      fb_right => fb_right_out,
+      fb_up => fb_up,
+      fb_left => fb_left,
+      fb_down => fb_down,
+      fb_right => fb_right,
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 
-      fa_fire_out => fa_fire_o,
-      fa_up_out => fa_up_o,
-      fa_left_out => fa_left_o,
-      fa_right_out => fa_right_o,
-      fa_down_out => fa_down_o,
+      fa_fire_drain_n => fa_fire_drain_n,
+      fa_up_drain_n => fa_up_drain_n,
+      fa_left_drain_n => fa_left_drain_n,
+      fa_right_drain_n => fa_right_drain_n,
+      fa_down_drain_n => fa_down_drain_n,
 
-      fb_fire_out => fb_fire_o,
-      fb_up_out => fb_up_o,
-      fb_left_out => fb_left_o,
-      fb_right_out => fb_right_o,
-      fb_down_out => fb_down_o,
+      fb_fire_drain_n => fb_fire_drain_n,
+      fb_up_drain_n => fb_up_drain_n,
+      fb_left_drain_n => fb_left_drain_n,
+      fb_right_drain_n => fb_right_drain_n,
+      fb_down_drain_n => fb_down_drain_n,
       
       pota_x => pota_x,
       pota_y => pota_y,

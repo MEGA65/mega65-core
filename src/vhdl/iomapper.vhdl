@@ -141,17 +141,17 @@ entity iomapper is
         key_left : in std_logic;
         key_up : in std_logic;
 
-        fa_left_out : out std_logic;
-        fa_right_out : out std_logic;
-        fa_down_out : out std_logic;
-        fa_up_out : out std_logic;
-        fa_fire_out : out std_logic;
+        fa_left_drain_n : out std_logic;
+        fa_right_drain_n : out std_logic;
+        fa_down_drain_n : out std_logic;
+        fa_up_drain_n : out std_logic;
+        fa_fire_drain_n : out std_logic;
         
-        fb_left_out : out std_logic;
-        fb_right_out : out std_logic;
-        fb_down_out : out std_logic;
-        fb_up_out : out std_logic;
-        fb_fire_out : out std_logic;
+        fb_left_drain_n : out std_logic;
+        fb_right_drain_n : out std_logic;
+        fb_down_drain_n : out std_logic;
+        fb_up_drain_n : out std_logic;
+        fb_fire_drain_n : out std_logic;
         
         fa_left : in std_logic;
         fa_right : in std_logic;
@@ -1677,55 +1677,55 @@ begin
     if rising_edge(cpuclock) then
 
       if cia1porta_out(0)='0' and cia1porta_ddr(0)='1' then
-        fb_up_out <= '0';
+        fb_up_drain_n <= '0';
       else
-        fb_up_out <= '1';
+        fb_up_drain_n <= '1';
       end if;
       if cia1porta_out(1)='0' and cia1porta_ddr(1)='1' then
-        fb_down_out <= '0';
+        fb_down_drain_n <= '0';
       else
-        fb_down_out <= '1';
+        fb_down_drain_n <= '1';
       end if;
       if cia1porta_out(2)='0' and cia1porta_ddr(2)='1' then
-        fb_left_out <= '0';
+        fb_left_drain_n <= '0';
       else
-        fb_left_out <= '1';
+        fb_left_drain_n <= '1';
       end if;
       if cia1porta_out(3)='0' and cia1porta_ddr(3)='1' then
-        fb_right_out <= '0';
+        fb_right_drain_n <= '0';
       else
-        fb_right_out <= '1';
+        fb_right_drain_n <= '1';
       end if;
       if cia1porta_out(4)='0' and cia1porta_ddr(4)='1' then
-        fb_fire_out <= '0';
+        fb_fire_drain_n <= '0';
       else
-        fb_fire_out <= '1';
+        fb_fire_drain_n <= '1';
       end if;
 
       if cia1portb_out(0)='0' and cia1portb_ddr(0)='1' then
-        fa_up_out <= '0';
+        fa_up_drain_n <= '0';
       else
-        fa_up_out <= '1';
+        fa_up_drain_n <= '1';
       end if;
       if cia1portb_out(1)='0' and cia1portb_ddr(1)='1' then
-        fa_down_out <= '0';
+        fa_down_drain_n <= '0';
       else
-        fa_down_out <= '1';
+        fa_down_drain_n <= '1';
       end if;
       if cia1portb_out(2)='0' and cia1portb_ddr(2)='1' then
-        fa_left_out <= '0';
+        fa_left_drain_n <= '0';
       else
-        fa_left_out <= '1';
+        fa_left_drain_n <= '1';
       end if;
       if cia1portb_out(3)='0' and cia1portb_ddr(3)='1' then
-        fa_right_out <= '0';
+        fa_right_drain_n <= '0';
       else
-        fa_right_out <= '1';
+        fa_right_drain_n <= '1';
       end if;
       if cia1portb_out(4)='0' and cia1portb_ddr(4)='1' then
-        fa_fire_out <= '0';
+        fa_fire_drain_n <= '0';
       else
-        fa_fire_out <= '1';
+        fa_fire_drain_n <= '1';
       end if;
       
       
