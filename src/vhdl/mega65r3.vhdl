@@ -609,8 +609,6 @@ begin
     begin
         HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
-                rst     => dvi_reset,
-                clk     => clock27,
                 clk_x10  => clock270,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
@@ -619,8 +617,6 @@ begin
     end generate GEN_HDMI_DATA;
     HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
-            rst     => dvi_reset,
-            clk     => clock27,
             clk_x10  => clock270,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
