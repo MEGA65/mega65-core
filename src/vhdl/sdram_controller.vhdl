@@ -149,6 +149,8 @@ architecture tacoma_narrows of sdram_controller is
   signal write_jobs : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal nonram_val : unsigned(7 downto 0);
+
+  signal data_ready_strobe_queue : std_logic := '0';
   
 begin  
 
@@ -200,12 +202,12 @@ begin
   begin
     if rising_edge(clock162) then
 
-      rdata <= (others => 'Z');
-      
       sdram_dq <= (others => 'Z');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
 
+      data_ready_strobe <= data_ready_strobe_queue;
+      
       -- Keep logic flat by pre-extracting read data
       case latched_addr(2 downto 0) is
         when "000" =>
@@ -335,7 +337,7 @@ begin
         end if;
         case sdram_state is
           when IDLE =>
-            data_ready_strobe <= '0';
+            data_ready_strobe_queue <= '0';
             if latched_addr(26)='1' then
               sdram_state <= NON_RAM_READ;
             else
@@ -353,7 +355,7 @@ begin
             busy <= '0';
             read_latched <= '0';
             write_latched <= '0';
-            data_ready_strobe <= '1';
+            data_ready_strobe_queue <= '1';
             rdata <= nonram_val;
             rdata_hi <= nonram_val;
             sdram_state <= IDLE;
@@ -424,7 +426,7 @@ begin
             report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
             rdata <= rdata_buf;
             rdata_hi <= rdata_hi_buf;
-            data_ready_strobe <= '1';
+            data_ready_strobe_queue <= '1';
             read_latched <= '0';
             write_latched <= '0';
             busy <= '0';
