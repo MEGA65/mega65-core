@@ -3,6 +3,12 @@
 extern struct m65_tm tm_start;
 extern struct m65_tm tm_now;
 
+#ifdef QSPI_DEBUG
+#ifndef QSPI_VERBOSE
+#define QSPI_VERBOSE 1
+#endif
+#endif
+
 #ifdef A100T
 #define SLOT_SIZE (4L * 1048576L)
 #define SLOT_SIZE_PAGES (4L * 4096L)

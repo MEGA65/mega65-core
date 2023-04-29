@@ -1795,12 +1795,16 @@ void erase_sector(unsigned long address_in_sector)
     read_registers();
   }
 
-#if 0
-  if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
-  else {
-    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
+#ifndef QSPI_VERBOSE
+  if (reg_sr1&0x20) {
+    printf("error erasing sector @ $%08x\n",address_in_sector);
+    press_any_key(0, 0);
   }
-#endif
+#ifdef QSPI_DEBUG
+  else
+    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
+#endif /* QSPI_DEBUG */
+#endif /* QSPI_VERBOSE */
 }
 
 unsigned char verify_data_in_place(unsigned long start_address)
@@ -1957,9 +1961,11 @@ top:
   if (reg_sr1 & 0x03) {
     printf("error writing data @$%08llx\n", start_address);
   }
+#ifdef QSPI_DEBUG
   else
     printf("data at $%08llx written.\n",start_address);
-#endif
+#endif /* QSPI_DEBUG */
+#endif /* QSPI_VERBOSE */
 
 }
 
