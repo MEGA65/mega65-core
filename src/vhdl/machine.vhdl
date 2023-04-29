@@ -1505,6 +1505,8 @@ begin
     port map (
       clk => cpuclock,
 
+      phi_in => phi_1mhz,
+    
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,
