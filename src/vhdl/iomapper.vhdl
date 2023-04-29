@@ -1674,8 +1674,6 @@ begin
       end if;
       
 
-    if rising_edge(cpuclock) then
-
       if cia1porta_out(0)='0' and cia1porta_ddr(0)='1' then
         fb_up_drain_n <= '0';
       else
@@ -1729,6 +1727,9 @@ begin
       end if;
       
       
+      
+    if rising_edge(cpuclock) then
+
       if key_scancode_toggle /= last_key_scancode_toggle then
         last_key_scancode_toggle <= key_scancode_toggle;
         combined_scancode_toggle <= not internal_combined_scancode_toggle;
