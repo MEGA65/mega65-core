@@ -130,6 +130,7 @@ architecture tacoma_narrows of sdram_controller is
                          WRITE_PRECHARGE,
                          WRITE_PRECHARGE_2,
                          WRITE_PRECHARGE_3,
+                         NON_RAM_READ,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
 
@@ -143,6 +144,11 @@ architecture tacoma_narrows of sdram_controller is
   signal wdata_hi_latched : unsigned(7 downto 0);
   signal latched_wen_lo : std_logic := '0';
   signal latched_wen_hi : std_logic := '0';
+
+  signal read_jobs : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal write_jobs : unsigned(7 downto 0) := to_unsigned(0,8);
+
+  signal nonram_val : unsigned(7 downto 0);
   
 begin  
 
@@ -227,7 +233,27 @@ begin
           rdata_buf <= rdata_line(63 downto 56);
           rdata_hi_buf <= rdata_line(7 downto 0);
       end case;
-      
+
+      case latched_addr(7 downto 0) is
+        -- "SDRAM" at $C000000
+        when x"00" =>
+          nonram_val <= x"53";
+        when x"01" =>
+          nonram_val <= x"44";
+        when x"02" =>
+          nonram_val <= x"52";
+        when x"03" =>
+          nonram_val <= x"41";
+        when x"04" =>
+          nonram_val <= x"4d";
+        -- Number of reads and writes done
+        when x"05" =>
+          nonram_val <= read_jobs;              
+        when x"06" =>
+          nonram_val <= write_jobs;
+        when others => nonram_val <= x"42";
+      end case;
+          
       
       -- Latch incoming requests (those come in on the 81MHz pixel clock)
       if read_request='1' and write_request='0' and write_latched='0' and read_latched='0' then
@@ -310,15 +336,27 @@ begin
         case sdram_state is
           when IDLE =>
             data_ready_strobe <= '0';
-            if read_latched='1' or write_latched='1' then
-              -- Activate the row
-              sdram_emit_command(CMD_ACTIVATE_ROW);
-              sdram_ba <= latched_addr(25 downto 24);
-              sdram_a <= latched_addr(23 downto 11);
-              sdram_state <= ACTIVATE_WAIT;
+            if latched_addr(26)='1' then
+              sdram_state <= NON_RAM_READ;
             else
-              sdram_emit_command(CMD_NOP);              
+              if read_latched='1' or write_latched='1' then
+                -- Activate the row
+                sdram_emit_command(CMD_ACTIVATE_ROW);
+                sdram_ba <= latched_addr(25 downto 24);
+                sdram_a <= latched_addr(23 downto 11);
+                sdram_state <= ACTIVATE_WAIT;
+              else
+                sdram_emit_command(CMD_NOP);              
+              end if;
             end if;
+          when NON_RAM_READ =>
+            busy <= '0';
+            read_latched <= '0';
+            write_latched <= '0';
+            data_ready_strobe <= '1';
+            rdata <= nonram_val;
+            rdata_hi <= nonram_val;
+            sdram_state <= IDLE;
           when ACTIVATE_WAIT =>
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_1 =>
@@ -356,6 +394,7 @@ begin
             sdram_dq(7 downto 0) <= wdata_latched;
             sdram_dq(15 downto 8) <= wdata_hi_latched;
           when READ_WAIT =>
+            read_jobs <= read_jobs + 1;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_2 =>
@@ -391,7 +430,8 @@ begin
             busy <= '0';
           when READ_PRECHARGE_3 =>
             sdram_state <= IDLE;
-          when WRITE_PRECHARGE => null;
+          when WRITE_PRECHARGE =>
+            write_jobs <= write_jobs + 1;
           when WRITE_PRECHARGE_2 => null;
           when WRITE_PRECHARGE_3 => 
             read_latched <= '0';

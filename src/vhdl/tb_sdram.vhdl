@@ -273,6 +273,19 @@ begin
         if init_sequence_done='0' then
           assert false report "SDRAM model did not see complete init sequence";
         end if;
+      elsif run("Can read config registers") then
+        wait_for_sdram_ready;
+        -- Read "SDRAM" signature
+        sdram_read(64*1024*1024+0,x"5353");
+        sdram_read(64*1024*1024+1,x"4444");
+        sdram_read(64*1024*1024+2,x"5252");
+        sdram_read(64*1024*1024+3,x"4141");
+        sdram_read(64*1024*1024+4,x"4d4d");
+        -- Read jumber of read and write jobs
+        sdram_read(64*1024*1024+5,x"0000");
+        sdram_read(64*1024*1024+6,x"0000");
+        -- Read unmapped register
+        sdram_read(64*1024*1024+255,x"4242");                
       elsif run("Write and read back single bytes") then
         wait_for_sdram_ready;
         sdram_write(0,x"12");
