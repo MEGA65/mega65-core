@@ -132,7 +132,12 @@ architecture hundertwasser of upscaler is
   -- 1/3000.  That means 
   -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
   -- signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal pal_coarse : unsigned(9 downto 0) := to_unsigned(200       -- This is
+
+  -- 200 is too little.
+  -- 250 too much.
+  -- 225 is very slightly too much
+  -- 220 is even more slightly too little
+  signal pal_coarse : unsigned(9 downto 0) := to_unsigned(222       -- This is
                                                                   -- the fudge
                                                                   -- factor
                                                           ,10);
