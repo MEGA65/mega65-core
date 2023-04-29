@@ -1100,9 +1100,10 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
 
     lcopy(0x8000000 + attic_addr, 0xffd6e00L, 512);
     if (!verify_data_in_place(flash_addr)) {
-      // #define SHOW_FLASH_DIFF
 #ifdef SHOW_FLASH_DIFF
-      printf("attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
+      printf("\nVerify error  ");
+      press_any_key(0, 0);
+      printf("%cattic_addr=$%08lX, flash_addr=$%08lX\n", 0x93, attic_addr, flash_addr);
       read_data(flash_addr);
       printf("repeated verify yields %d\n", verify_data_in_place(flash_addr));
       for (i = 0; i < 256; i++) {
@@ -1127,9 +1128,9 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
         printf("%02x", data_buffer[i]);
         //          if ((i&15)==15) printf("\n");
       }
-      printf("%c", 5);
-      printf("repeated verify yields %d\n", verify_data_in_place(flash_addr));
+      printf("%crepeated verify yields %d\n", 5, verify_data_in_place(flash_addr));
       press_any_key(0, 0);
+      printf("%c", 0x93);
 #endif
       return 1;
     }
@@ -1248,6 +1249,11 @@ void reflash_slot(unsigned char slot)
         size = 4096;
       else
         size = 1L << ((long)flash_sector_bits);
+#if 0
+      printf("\n%d %08lX %08lX", num_4k_sectors, (unsigned long)num_4k_sectors << 12, addr);
+      printf("\nsize = %ld", size);
+      press_any_key(0, 0);
+#endif
 
       // Do a dummy read to clear any pending stuck QSPI commands
       // (else we get incorrect return value from QSPI verify command)
@@ -1264,7 +1270,7 @@ void reflash_slot(unsigned char slot)
 
         // if we failed 10 times, we abort with the option for the flash inspector
         if (tries == 10) {
-          printf("%c%c\nERROR: Could not write to flash after %d tries.\n", 0x11, 0x11, tries);
+          printf("\n\n\n\n\n\n\n\n\n\nERROR: Could not write to flash after\n%d tries.\n", tries);
 
           // secret Ctrl-F (keycode 0x06) will launch flash inspector,
           // but only if QSPI_FLASH_INSPECTOR is defined!
@@ -1280,7 +1286,7 @@ void reflash_slot(unsigned char slot)
             POKE(0xD610, 0);
           flash_inspector();
 #else
-          printf("Please turn the system off!\n");
+          printf("\nPlease turn the system off!\n");
           // don't let the user do anything else
           while (1)
             POKE(0xD020, PEEK(0xD020) & 0xf);
@@ -1900,10 +1906,9 @@ top:
   else if (page_size == 512) {
     // Write 512 bytes
     //    printf("Hardware SPI write 512 (a)\n");
-    //
-    // ERROR: this should be 0xffd6e00L, 512
-    // but as it is never used... and it also does not work lydon@20220912
-    lcopy((unsigned long)data_buffer, 0xffd6f00L, 256);
+
+    // is this broken? at least it is not used
+    lcopy((unsigned long)data_buffer, 0xffd6e00L, 512);
     POKE(0xD681, start_address >> 0);
     POKE(0xD682, start_address >> 8);
     POKE(0xD683, start_address >> 16);
@@ -1948,38 +1953,14 @@ top:
   }
   POKE(0xD020, 0);
 
-  // this can't happen, can it? the loop in front of this will catch the 0x01
-  // if (reg_sr1 & 0x03)
-  //  printf("error writing data @$%08llx\n", start_address);
-  // else
-  //  printf("data at $%08llx written.\n",start_address);
-
-#if 0
-  // Now verify that it has written correctly using hardware acceleration
-  // XXX Only makes sense for 512 byte page_size, as verify _always_ verifies
-  // 512 bytes.
-  if (!verify_data(start_address)) {
-    printf("verify error:\n");
-    lcopy(data_buffer,0x40000L,512);
-    read_data(start_address);
-    for(i=0;i<256;i++)
-      {
-        if (!(i&15)) printf("+%03x : ",i);
-        printf("%02x",data_buffer[i]);
-        if ((i&15)==15) printf("\n");
-      }
-    press_any_key(0, 0);
-    for(i=256;i<512;i++)
-      {
-        if (!(i&15)) printf("+%03x : ",i);
-        printf("%02x",data_buffer[i]);
-        if ((i&15)==15) printf("\n");
-      }
-    press_any_key(0, 0);
-    lcopy(0x40000L,data_buffer,512);
-    goto top;
+#ifdef QSPI_VERBOSE
+  if (reg_sr1 & 0x03) {
+    printf("error writing data @$%08llx\n", start_address);
   }
+  else
+    printf("data at $%08llx written.\n",start_address);
 #endif
+
 }
 
 void read_data(unsigned long start_address)
