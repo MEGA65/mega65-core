@@ -1245,7 +1245,7 @@ void reflash_slot(unsigned char slot)
     progress_start();
     addr = SLOT_SIZE * slot;
     while (addr < (SLOT_SIZE * (slot + 1))) {
-      if (num_4k_sectors * 4096 > addr)
+      if (addr < (unsigned long)num_4k_sectors << 12)
         size = 4096;
       else
         size = 1L << ((long)flash_sector_bits);
@@ -1341,7 +1341,7 @@ void reflash_slot(unsigned char slot)
     progress_start();
     addr = SLOT_SIZE * slot;
     while (addr < (SLOT_SIZE * (slot + 1))) {
-      if (num_4k_sectors * 4096 > addr)
+      if (addr < (unsigned long)num_4k_sectors << 12)
         size = 4096;
       else
         size = 1L << ((long)flash_sector_bits);
