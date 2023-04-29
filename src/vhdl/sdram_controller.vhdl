@@ -152,8 +152,6 @@ architecture tacoma_narrows of sdram_controller is
   
 begin  
 
-  rdata <= (others => 'Z');
-
   process(clock162,pixelclock) is
     procedure sdram_emit_command(cmd : sdram_cmd_t) is
     begin
@@ -202,6 +200,8 @@ begin
   begin
     if rising_edge(clock162) then
 
+      rdata <= (others => 'Z');
+      
       sdram_dq <= (others => 'Z');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';

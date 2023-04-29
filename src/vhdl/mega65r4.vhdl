@@ -1156,7 +1156,9 @@ begin
 
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
-  
+
+  sdram_clk <= clock162;
+
   process (pixelclock,cpuclock,pcm_clk) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
