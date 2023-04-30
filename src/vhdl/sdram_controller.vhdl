@@ -156,6 +156,7 @@ architecture tacoma_narrows of sdram_controller is
   signal reactive_cache_line_if_safe : std_logic := '0';
   signal write_targets_cache_line : std_logic := '0';
   signal current_cache_line_valid_int : std_logic := '0';
+  signal sdram_dq_latched : unsigned(15 downto 0);
 
 begin
 
@@ -207,6 +208,8 @@ begin
   begin
     if rising_edge(clock162) then
 
+      sdram_dq_latched <= sdram_dq;
+      
       sdram_dq   <= (others => 'Z');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
@@ -343,6 +346,9 @@ begin
         sdram_a(3)            <= '0';
         -- Read burst length = 4 x 16 bit words = 8 bytes
         sdram_a(2 downto 0)   <= to_unsigned(2, 3);
+        -- XXX DEBUG: read 8 x words so that we can check if missing bits is
+        -- due to first word of burst or not.
+--        sdram_a(2 downto 0)   <= to_unsigned(3, 3);
 
         -- Emit the sequence of commands
         -- MUST BE DONE AFTER SETTING sdram_a
@@ -455,8 +461,15 @@ begin
           when READ_0 =>
             sdram_dqml              <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
-            rdata_line(15 downto 0) <= sdram_dq;
+            -- First word comes from transparent latch of SDRAM and has worse
+            -- setup time properties as a result.  As a result we use
+            -- sdram_dq_latched in the next cycle to capture it.
+            -- DONT DO rdata_line(15 downto 0) <= sdram_dq;
           when READ_1 =>
+            -- DO THIS INSTEAD: (see above)
+            -- i.e., capture first word that has marginal timing
+            rdata_line(15 downto 0) <= sdram_dq_latched;
+            
             sdram_dqml               <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
             rdata_line(31 downto 16) <= sdram_dq;
