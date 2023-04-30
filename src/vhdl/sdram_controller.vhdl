@@ -153,6 +153,9 @@ architecture tacoma_narrows of sdram_controller is
 
   signal data_ready_strobe_queue : std_logic := '0';
 
+  signal reactive_cache_line_if_safe : std_logic := '0';
+  signal write_targets_cache_line : std_logic := '0';
+
 begin
 
   process(clock162, pixelclock) is
@@ -207,6 +210,17 @@ begin
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
 
+      if current_cache_line_address(26 downto 3) /= latched_addr(26 downto 3) then
+        write_targets_cache_line <= '0';
+      else
+        write_targets_cache_line <= '1';
+      end if;
+      
+      if reactive_cache_line_if_safe='1' and write_targets_cache_line='0' then
+        current_cache_line_valid <= '1';
+        reactive_cache_line_if_safe <= '0';
+      end if;
+      
       data_ready_strobe <= data_ready_strobe_queue;
       if data_ready_strobe_queue = '1' then
         report "STROBEQUEUE: Asserted. Asserting data_ready_strobe";
@@ -359,6 +373,18 @@ begin
                 sdram_ba    <= latched_addr(25 downto 24);
                 sdram_a     <= latched_addr(23 downto 11);
                 sdram_state <= ACTIVATE_WAIT;
+
+                -- XXX For now we invalidate the cache line on _any_ write
+                -- For the common case of DMA copy to or from slow RAM, this
+                -- will be ok. Copying slow to slow will, however be bad.
+                -- So to remedy that, we set a signal to check if the cache
+                -- line can be re-instated.
+                if write_latched='1' then
+                  current_cache_line_valid <= '0';
+                  if current_cache_line_valid='1' then
+                    reactive_cache_line_if_safe <= '1';
+                  end if;
+                end if;
               end if;
             else
               sdram_emit_command(CMD_NOP);                  
@@ -435,7 +461,13 @@ begin
             sdram_emit_command(CMD_NOP);
             rdata_line(63 downto 48) <= sdram_dq;
           when READ_PRECHARGE =>
-          -- Drive stage to allow selection of buffer output
+            -- Drive stage to allow selection of buffer output
+            -- We also update the read cache line here
+            for b in 0 to 7 loop
+              current_cache_line(b) <= rdata_line((b*8+7) downto (b*8));
+            end loop;
+            current_cache_line_address(26 downto 3) <= latched_addr(26 downto 3);
+            current_cache_line_valid <= '1';
           when READ_PRECHARGE_2 =>
             report "rdata_line = $" & to_hexstring(rdata_line);
             report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
