@@ -86,17 +86,18 @@ architecture rtl of is42s16320f_model is
 
   signal delay_cnt : integer := 0;
 
-  signal cas_latency : integer := 3+1;
+  constant max_cas_latency : integer := 7;
+  signal cas_latency : integer := 4+1;
   signal read_burst_length : integer := 1;
   signal write_burst_length : integer := 1;
   signal burst_remaining : integer := 0;
-  signal cas_read : std_logic_vector(3 downto 0) := (others => '0');
-  type cas_pipe_t is array (0 to 3) of unsigned(15 downto 0);
+  signal cas_read : std_logic_vector((max_cas_latency+1) downto 0) := (others => '0');
+  type cas_pipe_t is array (0 to (max_cas_latency+1)) of unsigned(15 downto 0);
   signal cas_pipeline : cas_pipe_t;
   signal write_queue_data : cas_pipe_t;
-  type masks_pipe_t is array (0 to 3) of unsigned(1 downto 0);
+  type masks_pipe_t is array (0 to (max_cas_latency+1)) of unsigned(1 downto 0);
   signal write_queue_masks : masks_pipe_t;
-  type addr_pipe_t is array (0 to 3) of unsigned(22 downto 0);
+  type addr_pipe_t is array (0 to (max_cas_latency+1)) of unsigned(22 downto 0);
   signal write_queue_addr : addr_pipe_t;
   
   signal clk_en_prev : std_logic := '1';
