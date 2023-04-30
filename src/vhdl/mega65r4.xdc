@@ -542,7 +542,7 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 #    CLKOUT2             => u_clock81p,
 #    CLKOUT3             => u_clock41,
 #    CLKOUT4             => u_clock27,
-#    CLKOUT5             => u_clock163,
+#    CLKOUT5             => u_clock162,
 #    CLKOUT6             => u_clock270,
 # mmcm_adv1_eth:
 #    CLKOUT1             => u_clock50,
@@ -554,17 +554,8 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 set_false_path -from [get_clocks CLKOUT3] -to [get_clocks u_clock50]
 set_false_path -from [get_clocks u_clock50] -to [get_clocks CLKOUT3]
 
-#set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
-#set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
 ## Fix 12.288MHz clock generation clock domain crossing
 set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
-
-## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
-## violations, and hopefully make everything synthesise faster.
-set_clock_groups -asynchronous \
-     -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
-     -group { CLKOUT1 u_clock200}
-
 
 # NEOTRNG exceptions
 set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
