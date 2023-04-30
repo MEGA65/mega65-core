@@ -2039,6 +2039,7 @@ l40a:
 	cmp #$03
 	beq l41
 	inc $d020
+	sta ascii_key_in
 	jmp l40a
 l41:
 	;; remove RUN/STOP from key queue
