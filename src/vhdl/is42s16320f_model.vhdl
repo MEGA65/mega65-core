@@ -86,7 +86,7 @@ architecture rtl of is42s16320f_model is
 
   signal delay_cnt : integer := 0;
 
-  signal cas_latency : integer := 3;
+  signal cas_latency : integer := 3+1;
   signal read_burst_length : integer := 1;
   signal write_burst_length : integer := 1;
   signal burst_remaining : integer := 0;
@@ -125,12 +125,12 @@ begin
     case bits(6 downto 4) is
       when "000" => assert false report "Illegal CAS recovery selected";
       when "001" => assert false report "Illegal CAS recovery selected";
-      when "010" => cas_latency <= 2;
+      when "010" => cas_latency <= 2+1;
                     -- Assumes speed grade -5 or better
                     if clock_frequency > 100_000_000 then
                       assert false report "CAS=2 requires clock frequency not exceeding 100MHz";
                     end if;
-      when "011" => cas_latency <= 3;                    
+      when "011" => cas_latency <= 3+1;                    
                     -- Assumes speed grade -6 or better
                     if clock_frequency > 167_000_000 then
                       assert false report "CAS=3 requires clock frequency not exceeding 167MHz";
@@ -260,6 +260,7 @@ begin
       -- case, as the xDQM bits are used to indicate which byte(s) should
       -- be written.
       if cas_read(cas_latency-1)='1' then
+        report "CAS_READ: Exporting data $" & to_hexstring(cas_pipeline(cas_latency - 1));
         if udqm='0' then
           dq(15 downto 8) <= cas_pipeline(cas_latency - 1)(15 downto 8);
         end if;
