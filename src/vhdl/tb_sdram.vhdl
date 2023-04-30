@@ -143,7 +143,7 @@ begin
     procedure check_sdram_read_strobe is
     begin
       if data_ready_strobe='1' then
-        report "SDRAM read $" & to_hexstring(slow_rdata_hi) & to_hexstring(slow_rdata);
+        report "SDRAM data ready strobe seen: read value $" & to_hexstring(slow_rdata_hi) & to_hexstring(slow_rdata);
         data_seen <= '1';
         data_val(7 downto 0) <= slow_rdata;
         data_val(15 downto 8) <= slow_rdata_hi;
@@ -215,6 +215,8 @@ begin
     procedure sdram_read( addr : integer; expected_val : unsigned(15 downto 0)) is
     begin
 
+      report "SDRAM_READ: Starting test to read from $" & to_hexstring(to_unsigned(addr,28)) & ", expecting value $" & to_hexstring(expected_val);
+      
       if busy='1' then
         assert false report "Attempted to read from SDRAM while BUSY";
       end if;
@@ -223,15 +225,30 @@ begin
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
       slow_rdata_16en <= '1';
+      clock_tick;
+      slow_read <= '0'; slow_write <= '0';
 
       for i in 1 to 100 loop
-        clock_tick;
         if data_seen='1' then
           if data_val /= expected_val then
             assert false report "SDRAM: Read $" & to_hexstring(data_val) & ", but expected $" & to_hexstring(expected_val);
+          else
+            report "SDRAM: Read correct value. Now waiting for data strobe to release";
           end if;
-          return;
+
+          for j in 1 to 4 loop
+            data_seen <= '0';
+            clock_tick;
+            if data_seen='0' then
+              report "SDRAM: data strobe cleared after " & integer'image(j) & " cycles.";
+              report "SDRAM_READ: Read complete.";
+              return;
+            end if;
+          end loop;
+          assert false report "SDRAM: data strobe did not clear after 4 cycles";
+          
         end if;
+        clock_tick;        
       end loop;
       assert false report "SDRAM: Failed to read value after 400 cycles.";
     end procedure;

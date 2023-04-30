@@ -207,6 +207,11 @@ begin
       sdram_dqmh <= '1';
 
       data_ready_strobe <= data_ready_strobe_queue;
+      if data_ready_strobe_queue = '1' then
+        report "STROBEQUEUE: Asserted. Asserting data_ready_strobe";
+        data_ready_strobe_queue <= '0';
+        busy <= '0';
+      end if;
 
       -- Keep logic flat by pre-extracting read data
       case latched_addr(2 downto 0) is
@@ -338,27 +343,29 @@ begin
         case sdram_state is
           when IDLE =>
             data_ready_strobe_queue <= '0';
-            if latched_addr(26) = '1' then
-              sdram_state <= NON_RAM_READ;
-            else
-              if read_latched = '1' or write_latched = '1' then
+            if read_latched = '1' or write_latched = '1' then
+              if latched_addr(26) = '1' then
+                report "NONRAMACCESS: Non-RAM access detected";
+                sdram_state <= NON_RAM_READ;
+                sdram_emit_command(CMD_NOP);
+              else
                 -- Activate the row
                 sdram_emit_command(CMD_ACTIVATE_ROW);
                 sdram_ba    <= latched_addr(25 downto 24);
                 sdram_a     <= latched_addr(23 downto 11);
                 sdram_state <= ACTIVATE_WAIT;
-              else
-                sdram_emit_command(CMD_NOP);
               end if;
+            else
+              sdram_emit_command(CMD_NOP);                  
             end if;
           when NON_RAM_READ =>
-            busy                    <= '0';
             read_latched            <= '0';
             write_latched           <= '0';
             data_ready_strobe_queue <= '1';
             rdata                   <= nonram_val;
             rdata_hi                <= nonram_val;
             sdram_state             <= IDLE;
+            report "NONRAMACCESS: Presenting value $" & to_hexstring(nonram_val);
           when ACTIVATE_WAIT =>
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_1 =>
@@ -429,7 +436,6 @@ begin
             data_ready_strobe_queue <= '1';
             read_latched            <= '0';
             write_latched           <= '0';
-            busy                    <= '0';
           when READ_PRECHARGE_3 =>
             sdram_state <= IDLE;
           when WRITE_PRECHARGE =>
