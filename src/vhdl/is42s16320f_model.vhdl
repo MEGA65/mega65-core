@@ -87,7 +87,7 @@ architecture rtl of is42s16320f_model is
   signal delay_cnt : integer := 0;
 
   constant max_cas_latency : integer := 7;
-  signal cas_latency : integer := 4+1;
+  signal cas_latency : integer := 2;
   signal read_burst_length : integer := 1;
   signal write_burst_length : integer := 1;
   signal burst_remaining : integer := 0;
@@ -126,12 +126,12 @@ begin
     case bits(6 downto 4) is
       when "000" => assert false report "Illegal CAS recovery selected";
       when "001" => assert false report "Illegal CAS recovery selected";
-      when "010" => cas_latency <= 2+1;
+      when "010" => cas_latency <= 2 - 2;
                     -- Assumes speed grade -5 or better
                     if clock_frequency > 100_000_000 then
                       assert false report "CAS=2 requires clock frequency not exceeding 100MHz";
                     end if;
-      when "011" => cas_latency <= 3+1;                    
+      when "011" => cas_latency <= 3 - 2;                    
                     -- Assumes speed grade -6 or better
                     if clock_frequency > 167_000_000 then
                       assert false report "CAS=3 requires clock frequency not exceeding 167MHz";
@@ -220,14 +220,12 @@ begin
         report "Reading from RAM cell $" & to_hexstring(row_addr & col_addr)
           & " -> $" & to_hexstring(ram_array(to_integer(row_addr & col_addr)));
       end if;
-      cas_pipeline(0) <= ram_array(to_integer(row_addr & col_addr));
-      cas_pipeline(1) <= cas_pipeline(0);
-      cas_pipeline(2) <= cas_pipeline(1);
-      cas_pipeline(3) <= cas_pipeline(2);
       cas_read(0) <= '0';
-      cas_read(1) <= cas_read(0);
-      cas_read(2) <= cas_read(1);
-      cas_read(3) <= cas_read(2);
+      cas_pipeline(0) <= ram_array(to_integer(row_addr & col_addr));
+      for i in 1 to max_cas_latency loop
+        cas_pipeline(i) <= cas_pipeline(i-1);
+        cas_read(i) <= cas_read(i-1);
+      end loop;
 
 --      write_queue_data(0) <= (others => '0');
 --      write_queue_data(1) <= write_queue_data(0);
@@ -261,7 +259,7 @@ begin
       -- case, as the xDQM bits are used to indicate which byte(s) should
       -- be written.
       if cas_read(cas_latency-1)='1' then
-        report "CAS_READ: Exporting data $" & to_hexstring(cas_pipeline(cas_latency - 1));
+        report "CAS_READ: Exporting data $" & to_hexstring(cas_pipeline(cas_latency - 1)) & ", cas_latency=" & integer'image(cas_latency);
         if udqm='0' then
           dq(15 downto 8) <= cas_pipeline(cas_latency - 1)(15 downto 8);
         end if;
@@ -508,8 +506,8 @@ begin
               end case;
             when READ_PLAIN =>
               cas_read(0) <= '1';
-              dq <= cas_pipeline(0);
-              report "SDRAMREAD: cas_pipeline(2)=$" & to_hexstring(cas_pipeline(0));
+              dq <= cas_pipeline(cas_latency);
+              report "SDRAMREAD: cas_pipeline(cas_latency)=$" & to_hexstring(cas_pipeline(cas_latency));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   assert false report "Attempted to access mode register during READ";
@@ -609,8 +607,8 @@ begin
               end case;
             when READ_WITH_AUTO_PRECHARGE =>
               cas_read(0) <= '1';
-              dq <= cas_pipeline(0);
-              report "SDRAMREAD: cas_pipeline(2)=$" & to_hexstring(cas_pipeline(0));
+              dq <= cas_pipeline(cas_latency);
+              report "SDRAMREAD: cas_pipeline(cas_latency)=$" & to_hexstring(cas_pipeline(cas_latency));
               case cmd is
                 when "0000" | "0001" => -- Mode Register Set (MRS)
                   update_mode_register(addr);
