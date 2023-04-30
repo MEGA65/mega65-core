@@ -397,6 +397,7 @@ begin
           when NON_RAM_READ =>
             read_latched            <= '0';
             write_latched           <= '0';
+            data_ready_strobe       <= '1';
             data_ready_strobe_queue <= '1';
             rdata                   <= nonram_val;
             rdata_hi                <= nonram_val;
@@ -479,6 +480,7 @@ begin
             report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
             rdata                   <= rdata_buf;
             rdata_hi                <= rdata_hi_buf;
+            data_ready_strobe       <= '1';
             data_ready_strobe_queue <= '1';
             read_latched            <= '0';
             write_latched           <= '0';
