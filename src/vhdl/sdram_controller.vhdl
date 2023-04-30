@@ -120,6 +120,7 @@ architecture tacoma_narrows of sdram_controller is
                          READ_WAIT,
                          READ_WAIT_2,
                          READ_WAIT_3,
+                         READ_WAIT_4,
                          READ_0,
                          READ_1,
                          READ_2,
@@ -268,8 +269,6 @@ begin
         busy             <= '1';
         read_latched     <= '1';
         latched_addr     <= address;
-        wdata_latched    <= wdata;
-        wdata_hi_latched <= wdata_hi;
       end if;
       if read_request = '0' and write_request = '1' and write_latched = '0' and read_latched = '0' then
         report "Latching write request";
@@ -277,9 +276,15 @@ begin
         write_latched    <= '1';
         latched_addr     <= address;
         wdata_latched    <= wdata;
-        wdata_hi_latched <= wdata_hi;
-        latched_wen_lo   <= address(0);
-        latched_wen_hi   <= not address(0);
+        if rdata_16en='1' then
+          wdata_hi_latched <= wdata_hi;
+          latched_wen_lo <= wen_lo;
+          latched_wen_hi <= wen_hi;
+        else
+          wdata_hi_latched <= wdata;
+          latched_wen_lo   <= address(0);
+          latched_wen_hi   <= not address(0);
+        end if;
       end if;
 
       -- Manage the 100usec SDRAM initialisation delay, if enabled
@@ -410,6 +415,9 @@ begin
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_3 =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            sdram_emit_command(CMD_NOP);
+          when READ_WAIT_4 =>
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_0 =>
