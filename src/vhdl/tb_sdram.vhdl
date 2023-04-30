@@ -315,7 +315,7 @@ begin
         sdram_write(7,x"f0");
         sdram_read(0,x"3412");
         sdram_read(2,x"7856");
-        sdram_read(4,x"ab89");
+        sdram_read(4,x"bc9a");
         sdram_read(6,x"f0de");
         
       end if;
