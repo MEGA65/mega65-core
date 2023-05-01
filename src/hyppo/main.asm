@@ -2036,11 +2036,13 @@ go64:
 l40a:
 	;; Wait for user to press RUN/STOP to continue booting
 	lda ascii_key_in
+	beq l40b
 	cmp #$03
 	beq l41
-	inc $d020
 	sta ascii_key_in
-	jmp l40a
+l40b:
+	inc $d020
+	bra l40a
 l41:
 	;; remove RUN/STOP from key queue
 	sta ascii_key_in
