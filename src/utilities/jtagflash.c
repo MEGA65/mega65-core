@@ -72,10 +72,13 @@ void main(void)
   printf("%c\njtagflash Version\n  %s\n", 0x93, utilVersion);
 
   // Probe flash with verbose output
-  probe_qspi_flash();
-
-  verboseProgram = 1;
-  reflash_slot(0l);
+  if (!probe_qspi_flash()) {
+    unsigned char selected_file = select_bitstream_file();
+    if (selected_file) {
+      verboseProgram = 1;
+      reflash_slot(0l, selected_file);
+    }
+  }
 
   printf("%c", 0x93);
   POKE(0xD020, 0);

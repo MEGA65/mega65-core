@@ -42,6 +42,7 @@ extern unsigned char reconfig_disabled;
 
 extern unsigned char data_buffer[512];
 extern unsigned char bitstream_magic[16];
+extern char disk_name_return[32];
 
 extern unsigned short mb;
 
@@ -49,8 +50,9 @@ extern unsigned char buffer[512];
 
 extern short i, x, y, z;
 
-void probe_qspi_flash(void);
-void reflash_slot(unsigned char slot);
+unsigned char probe_qspi_flash(void);
+unsigned char select_bitstream_file(void);
+void reflash_slot(unsigned char slot, unsigned char selected_file);
 void reconfig_fpga(unsigned long addr);
 void flash_inspector(void);
 
@@ -64,6 +66,7 @@ unsigned char verify_data_in_place(unsigned long start_address);
 void progress_bar(unsigned int add_pages, char *action);
 void read_data(unsigned long start_address);
 void program_page(unsigned long start_address, unsigned int page_size);
+void erase_some_sectors(unsigned long end_addr, unsigned char progress);
 void erase_sector(unsigned long address_in_sector);
 void enable_quad_mode(void);
 char *get_model_name(uint8_t model_id);
@@ -88,8 +91,13 @@ void spi_write_disable(void);
 // #define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
+#define SELECTED_FILE_INVALID 0
+#define SELECTED_FILE_ERASE 1
+#define SELECTED_FILE_VALID 2
+
 #define CASE_INSENSITIVE 0
 #define CASE_SENSITIVE 1
+#define CASE_PRINT 2
 
 /*
   $D6C8-B = address for FPGA to boot from in flash

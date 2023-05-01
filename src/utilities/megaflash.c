@@ -14,6 +14,10 @@
 #include "userwarning.c"
 #endif
 
+#ifdef STANDALONE
+#include "version.h"
+#endif
+
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
 
@@ -424,11 +428,19 @@ void main(void)
     }
   }
 
+#else /* STANDALONE */
+  printf("\njtagflash Version\n  %s\n", utilVersion);
+
+  if (probe_qspi_flash()) {
+    // print it a second time, screen has scrolled!
+    printf("\njtagflash Version\n  %s\n", utilVersion);
+    goto do_exit;
+  }
+
+#endif
+
   // We are now in interactive mode, do some tests,
   // then start the GUI
-
-  //  printf("BOOTSTS = $%02x%02x%02x%02x\n",
-  //	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
 
   if (PEEK(0xD6C7) == 0xFF) {
     // BOOTSTS not reading properly.  This usually means we have
@@ -445,11 +457,6 @@ void main(void)
     reconfig_disabled = 1;
     // wait for key see below
   }
-#else /* STANDALONE */
-
-  probe_qspi_flash();
-
-#endif
 
   // quick and dirty attic ram check
   lpoke(0x8000000l, 0x55);
@@ -471,14 +478,15 @@ void main(void)
     }
   }
   if (atticram_bad)
-    printf("WARNING: Your system does not support\n"
+    printf("%cWARNING:%c Your system does not support\n"
            "attic ram. Because the flasher in this\n"
            "core does not support flashing without\n"
-           "attic ram, flashing has been disabled.\n\n");
+           "attic ram, flashing has been %cdisabled%c.\n\n",
+        150, 5, 150, 5);
 
   // if we gave some warning, wait for a keypress before continuing
   if (reconfig_disabled || atticram_bad) {
-    printf("\nPress almost any key to continue...\n");
+    printf("Press almost any key to continue...\n");
     while (PEEK(0xD610))
       POKE(0xD610, 0);
     // Ignore TAB, since they might still be holding it
@@ -489,8 +497,13 @@ void main(void)
     }
     while (PEEK(0xD610))
       POKE(0xD610, 0);
+#ifdef STANDALONE
+    // in standalone mode we want to be able to flash, so this does not work...
+    goto do_exit;
+#endif
   }
 
+#ifndef FIRMWARE_UPGRADE
   // prepare menu
   // sanity check for slot count, determined by probe_qspi_flash
   if (slot_count == 0 || slot_count > 8)
@@ -666,8 +679,11 @@ void main(void)
         POKE(0xd021, 6);
       }
       else {
-        reflash_slot(selected_reflash_slot);
-        scan_bitstream_information(0, selected_reflash_slot | 0x80);
+        unsigned char selected_file = select_bitstream_file();
+        if (selected_file) {
+          reflash_slot(selected_reflash_slot, selected_file);
+          scan_bitstream_information(0, selected_reflash_slot | 0x80);
+        }
         printf("%c", 0x93);
       }
     }
@@ -675,4 +691,34 @@ void main(void)
     // restore black border
     POKE(0xD020, 0);
   }
+#else /* FIRMWARE_UPGRADE */
+  printf("%c\n"
+         "%c ** You are about to replace core 0 **%c\n\n"
+         "If this process fails or is interrupted,"
+         "core 0 will fail to boot and MEGA65 will"
+         "blink blue lights.\n\n"
+         "If this happens, hold the NO SCROLL key "
+         "for 30 seconds to restart this process. "
+         "This requires a working MEGA65 core in\n"
+         "slot 1!\n\n"
+         "Be sure to confirm that core 1 works\n"
+         "before proceeding!\n\n"
+         " * I have read and understand this\n"
+         "   message.\n\n"
+         " * I have tried booting with core 1\n"
+         "   and it works.\n\n"
+         "Type CONFIRM to proceed, or press\n"
+         "<RETURN> key to abort: ", 0x93, 129, 5);
+  if (!check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT)) {
+    printf("\n\nABORTED!\n");
+    goto do_exit;
+  }
+
+  strncpy(disk_name_return, "upgrade0.cor", 32);
+  reflash_slot(0, SELECTED_FILE_VALID);
+#endif
+
+do_exit:
+  // clear keybuffer
+  *(unsigned char *)0xc6 = 0;
 }

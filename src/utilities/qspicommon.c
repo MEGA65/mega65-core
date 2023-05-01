@@ -10,6 +10,10 @@
 
 #include "qspicommon.h"
 
+#if defined(STANDALONE) && defined(QSPI_FLASH_SLOT0)
+#include "crc32accl.h"
+#endif
+
 struct m65_tm tm_start;
 struct m65_tm tm_now;
 
@@ -17,7 +21,7 @@ unsigned char slot_count = 0;
 
 short i, x, y, z;
 
-unsigned long addr, vaddr;
+unsigned long addr, addr_len;
 unsigned char tries = 0;
 
 unsigned int num_4k_sectors = 0;
@@ -91,12 +95,23 @@ unsigned long seconds_between(struct m65_tm *a, struct m65_tm *b)
 
 unsigned char progress_chars[4] = { 32, 101, 97, 231 };
 unsigned char progress = 0, progress_last = 0;
-unsigned int progress_total = 0;
+unsigned int progress_total = 0, progress_goal = 0;
 
-#define progress_start() \
+#ifdef STANDALONE
+#define progress_start(PAGES, LABEL) \
   getciartc(&tm_start); \
   progress = progress_last = 0; \
-  progress_total = 0
+  progress_total = 0; \
+  progress_goal = PAGES; \
+  printf("%c%c%c%c%c%c%c%c%c%s ?KB/sec, done in ? sec.     \n", 0x13, 0x11, 0x11, 0x11, 0x11, \
+            0x11, 0x11, 0x11, 0x11, LABEL)
+#else
+#define progress_start(PAGES, LABEL) \
+  getciartc(&tm_start); \
+  progress = progress_last = 0; \
+  progress_total = 0; \
+  progress_goal = PAGES
+#endif
 
 // this count 256 byte blocks and draws a 32 char wide progress bar with 128 divisions
 void progress_bar(unsigned int add_pages, char *action)
@@ -118,7 +133,7 @@ void progress_bar(unsigned int add_pages, char *action)
       delta_t = seconds_between(&tm_start, &tm_now);
       speed = (unsigned int)((progress_total / delta_t) >> 2);
       if (speed > 0)
-        eta = ((SLOT_SIZE_PAGES - progress_total) / speed) >> 2;
+        eta = ((progress_goal - progress_total) / speed) >> 2;
         printf("%c%c%c%c%c%c%c%c%c%s %uKB/sec, done in %u sec.     \n", 0x13, 0x11, 0x11, 0x11, 0x11,
             0x11, 0x11, 0x11, 0x11, action, speed, eta);
     }
@@ -164,11 +179,13 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
       ;
     POKE(0xD610, 0);
     if (input_key != ((*m) & 0x7f)) {
-      if (case_sensitive)
+      if (case_sensitive & CASE_SENSITIVE)
         return 0;
       if (input_key != ((*m ^ 0x20) & 0x7f))
         return 0;
     }
+    if (case_sensitive & CASE_PRINT)
+      printf("%c", input_key ^ 0x20);
     m++;
   }
 
@@ -181,13 +198,13 @@ unsigned char press_any_key(unsigned char attention, unsigned char nomessage)
     printf("\nPress any key to continue.\n");
 
   // clear key buffer
+  POKE(0xD020, 0);
   while (PEEK(0xD610))
     POKE(0xD610, 0);
   while (!(input_key = PEEK(0xD610)))
     if (attention) // attention lets the border flash
       POKE(0xD020, PEEK(0xD020) + 1);
-  if (attention)
-    POKE(0xD020, 0);
+  POKE(0xD020, 0);
 
   POKE(0xD610, 0);
   return input_key;
@@ -241,7 +258,7 @@ void sdcard_reset(void)
 
   // Now wait for SD card reset to complete
   while (PEEK(sd_ctl) & 3) {
-    POKE(0xd020, (PEEK(0xd020) + 1) & 15);
+    POKE(0xD020, (PEEK(0xD020) + 1) & 0x0F);
     sdcard_timeout--;
     if (!sdcard_timeout) {
       if (sdbus == 0) {
@@ -325,7 +342,7 @@ void sdcard_readsector(const uint32_t sector_number)
       return;
     }
 
-    POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
+    POKE(0xD020, (PEEK(0xd020) + 1) & 0x0F);
 
     // Reset SD card
     sdcard_reset();
@@ -513,9 +530,8 @@ unsigned char hy_open(char *filename)
     setup_sdcard();
   hy_opendir();
   while (de = hy_readdir()) {
+    // printf("file '%s' at cluster $%lx\n", de->d_name, de->d_ino);
     if (!strcmp(de->d_name, filename)) {
-      //      printf("Found file '%s' at cluster $%08lx\n",
-      //             filename,de->d_ino);
       file_cluster = de->d_ino;
       file_sector_in_cluster = 0;
       file_sector = (file_cluster - 2) * fat32_sectors_per_cluster + fat32_cluster2_sector;
@@ -770,7 +786,7 @@ unsigned char select_bitstream_file(void)
       // was erase (first entry) selected?
       if (selection_number == 0) {
         disk_name_return[0] = 0;
-        return 1;
+        return SELECTED_FILE_ERASE;
       }
 
       // Copy name out
@@ -778,7 +794,7 @@ unsigned char select_bitstream_file(void)
       // Then null terminate it
       for (x = 31; x && disk_name_return[x] == ' '; x--)
         disk_name_return[x] = 0;
-      return 2;
+      return SELECTED_FILE_VALID;
 
     case 0x11:
     case 0x1d: // Cursor down or right
@@ -807,7 +823,7 @@ unsigned char select_bitstream_file(void)
     draw_file_list();
   }
 
-  return 0;
+  return SELECTED_FILE_INVALID;
 }
 
 void reconfig_fpga(unsigned long addr)
@@ -825,8 +841,8 @@ void reconfig_fpga(unsigned long addr)
   }
 
   // Black screen when reconfiguring
-  POKE(0xd020, 0);
-  POKE(0xd011, 0);
+  POKE(0xD020, 0);
+  POKE(0xD011, 0);
 
   mega65_io_enable();
 
@@ -836,20 +852,21 @@ void reconfig_fpga(unsigned long addr)
   POKE(0xD6CAU, (addr >> 24) & 0xff);
   POKE(0xD6CBU, 0x00);
 
-  // Wait a little while, to make sure that the WBSTAR slot in
-  // the reconfig sequence gets set before we instruct the FPGA
-  // to reconfigure.
-  usleep(255);
+  // Try to reconfigure for some time
+  for (i = 0; i < 200; i++) {
+    // Wait a little while, to make sure that the WBSTAR slot in
+    // the reconfig sequence gets set before we instruct the FPGA
+    // to reconfigure.
+    usleep(255);
 
-  // Try to reconfigure
-  POKE(0xD6CFU, 0x42);
-  while (1) {
-    POKE(0xD020, PEEK(0xD012));
+    // Trigger reconfigure
     POKE(0xD6CFU, 0x42);
-
-    // Grey screen if reconfig failing
-    POKE(0xd020, 0x0d);
+    // visual feedback
+    POKE(0xD020, PEEK(0xD012) & 0x0F);
   }
+  // reconfig failed!
+  POKE(0xD020, 0x0C);
+  while (1);
 }
 
 typedef struct {
@@ -1141,15 +1158,17 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
   return 0;
 }
 
-void reflash_slot(unsigned char slot)
+void reflash_slot(unsigned char slot, unsigned char selected_file)
 {
-  unsigned long size, waddr;
+  unsigned long size, waddr, end_addr;
   unsigned short bytes_returned;
   unsigned char fd, tries;
   unsigned char erase_mode = 0;
-  unsigned char selected_file = select_bitstream_file();
+#if defined(STANDALONE) && defined(QSPI_FLASH_SLOT0)
+  uint32_t core_crc;
+#endif
 
-  if (selected_file == 0)
+  if (selected_file == SELECTED_FILE_INVALID)
     return;
 
 #ifndef QSPI_ERASE_ZERO
@@ -1199,32 +1218,41 @@ void reflash_slot(unsigned char slot)
     both of which we have seen happen.
   */
 
-  printf("%cChecking COR file...\n", 0x93);
+  printf("%cChecking COR file...\n   '%s'\n", 0x93, disk_name_return);
 
   lfill((unsigned long)buffer, 0, 512);
 
   // return code of select_bitstream_file > 1 means a file was selected
-  if (selected_file > 1) {
+  if (selected_file == SELECTED_FILE_VALID) {
 
     fd = hy_open(disk_name_return);
     if (fd == 0xff) {
       // Couldn't open the file.
-      printf("ERROR: Could not open flash file '%s'\n", disk_name_return);
-
+      printf("\n%cERROR: Could not open flash file!%c\n", 25, 3);
       press_any_key(0, 0);
-
       return;
     }
 
+    printf("\n");
+
     if (!check_model_id_field(slot == 0 ? 1 : 0))
       return;
+
+#if defined(STANDALONE) && defined(QSPI_DEBUG)
+    printf("%c", 0x93);
+    make_crc32_tables();
+    init_crc32();
+    update_crc32(11, "hello world");
+    printf("\n\nhello world CRC32 = %08lX\n", get_crc32());
+    press_any_key(0, 0);
+#endif
 
     // start reading file from beginning again
     // (as the model_id checking read the first 512 bytes already)
     fd = hy_open(disk_name_return);
 
-    progress_start();
     printf("%cLoading COR file into Attic RAM...\n", 0x93);
+    progress_start(SLOT_SIZE_PAGES, "Loading");
 
     for (addr = 0; addr < SLOT_SIZE; addr += 512) {
       bytes_returned = hy_read512();
@@ -1233,6 +1261,7 @@ void reflash_slot(unsigned char slot)
       lcopy(0xffd6e00L, 0x8000000L + addr, 512);
       progress_bar(2, "Loading");
     }
+    addr_len = addr; // save last sector
     // fill rest of attic ram with emptiness
     for (; addr < SLOT_SIZE; addr += 512) {
       lfill(addr, 0xff, 512);
@@ -1241,10 +1270,52 @@ void reflash_slot(unsigned char slot)
     load_time = seconds_between(&tm_start, &tm_now);
     //printf("%c%cLoaded COR file in %u seconds.\n", 0x11, 0x11, load_time);
 
+#if defined(STANDALONE) && (defined(FIRMWARE_UPGRADE) || defined(QSPI_FLASH_SLOT0))
+    // do crc32
+    if (slot == 0) {
+      printf("%cGenerating CRC32 checksum...\n", 0x93);
+      progress_start(addr_len >> 8, "Checksum");
+      make_crc32_tables();
+      init_crc32();
+      for (y = 1, addr = 0; addr < addr_len; addr += 256) {
+        lcopy(0x8000000L + addr, (unsigned long)data_buffer, 256);
+        if (y) {
+          addr_len = *(uint32_t *)(data_buffer + 0x80);
+          progress_goal = addr_len >> 8;
+          core_crc = *(uint32_t *)(data_buffer + 0x84);
+          *(uint32_t *)(data_buffer + 0x84) = 0xf0f0f0f0L;
+
+          printf("\nCORE Length = %08lx\n", addr_len);
+          printf("CORE CRC32  = %08lx\n", core_crc);
+
+          y = 0;
+        }
+        update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, data_buffer);
+        progress_bar(1, "Checksum");
+      }
+      printf("\n\nCALC CRC32  = %08lx\n", get_crc32());
+
+      if (addr_len < 4096 || core_crc != get_crc32()) {
+        printf("\n%cCHECKSUM MISMATCH, REFUSING TO FLASH!%c\n", 28, 5);
+        return;
+      }
+      else
+        printf("\n%cChecksum matches, good to flash.%c\n", 30, 5);
+
+      press_any_key(0, 0);
+    }
+#endif
+
     // start flashing
-    progress_start();
+    printf("%c", 0x93);
+    progress_start(SLOT_SIZE_PAGES, "Flashing");
+    // erase first 256k first
     addr = SLOT_SIZE * slot;
-    while (addr < (SLOT_SIZE * (slot + 1))) {
+    erase_some_sectors(256L * 1024L, 0);
+    // start at the end...
+    addr = SLOT_SIZE * (slot + 1) - (1L << ((long)flash_sector_bits));
+    end_addr = SLOT_SIZE * slot;
+    while (addr >= end_addr) {
       if (addr < (unsigned long)num_4k_sectors << 12)
         size = 4096;
       else
@@ -1320,8 +1391,12 @@ void reflash_slot(unsigned char slot)
         }
       } while (tries < 11);
 
-      addr += size;
       progress_bar(size >> 8, "Flashing");
+
+      // need to break out before overflow!
+      if (addr == 0)
+        break;
+      addr -= size;
     }
     flash_time = seconds_between(&tm_start, &tm_now);
 
@@ -1338,23 +1413,9 @@ void reflash_slot(unsigned char slot)
     printf("%c", 0x93);
 
     // Erase mode
-    progress_start();
+    progress_start(SLOT_SIZE_PAGES, "Erasing");
     addr = SLOT_SIZE * slot;
-    while (addr < (SLOT_SIZE * (slot + 1))) {
-      if (addr < (unsigned long)num_4k_sectors << 12)
-        size = 4096;
-      else
-        size = 1L << ((long)flash_sector_bits);
-
-      printf("%c    Erasing sector at $%08lX", 0x13, addr);
-      POKE(0xD020, 2);
-      erase_sector(addr);
-      read_data(0xffffffff);
-      POKE(0xD020, 0);
-
-      addr += size;
-      progress_bar(size >> 8, "Erasing");
-    }
+    erase_some_sectors(SLOT_SIZE * (slot + 1), 1);
     flash_time = seconds_between(&tm_start, &tm_now);
   }
 
@@ -1382,7 +1443,7 @@ void reflash_slot(unsigned char slot)
 
  ***************************************************************************/
 
-void probe_qspi_flash(void)
+unsigned char probe_qspi_flash(void)
 {
   spi_cs_high();
   usleep(50000L);
@@ -1420,7 +1481,8 @@ void probe_qspi_flash(void)
     read_registers();
   }
 
-#ifdef QSPI_VERBOSE
+#ifdef QSPI_DEBUG
+  // hexdump info block
   for (i = 0; i < 0x80; i++) {
     if (!(i & 15))
       printf("+%03x : ", i);
@@ -1429,6 +1491,8 @@ void probe_qspi_flash(void)
       printf("\n");
   }
   press_any_key(0, 0);
+#endif
+#ifdef QSPI_VERBOSE
   printf("\nQSPI Information\n\n");
 #endif
 
@@ -1496,7 +1560,6 @@ void probe_qspi_flash(void)
 #ifdef QSPI_VERBOSE
   printf("Est. prgtime = %d us/byte.\n", cfi_data[0x20] / cfi_data[0x2a]);
   printf("Est. erasetm = 2^%d ms/sector.\n", cfi_data[0x21]);
-  press_any_key(0, 0);
 #endif
 
   // Work out size of flash in MB
@@ -1515,34 +1578,36 @@ void probe_qspi_flash(void)
   latency_code = reg_cr1 >> 6;
 
 #ifdef QSPI_VERBOSE
-  printf("\n"
-         "Flash size   = %dMB\n"
-         "Flash slots  = %d slots of %dMB\n"
-         "Register SR1 = $%02x\n",
-      mb, slot_count, SLOT_MB, reg_sr1);
-  printf("  latency code %d\n", latency_code);
+  printf("Flash size   = %d MB\n"
+         "Flash slots  = %d slots of %d MB\n"
+         "Register SR1 = %c$%02x%c\n",
+      mb, slot_count, SLOT_MB, reg_sr1 == 0xff ? 28 : 5, reg_sr1, 5);
+  // show flags
   if (reg_sr1 & 0x80)
-    printf("  flash is write protected.\n");
+    printf(" WRPROT");
   if (reg_sr1 & 0x40)
-    printf("  programming error occurred.\n");
+    printf(" PRGERR");
   if (reg_sr1 & 0x20)
-    printf("  erase error occurred.\n");
+    printf(" ERAERR");
   if (reg_sr1 & 0x02)
-    printf("  write latch enabled.\n");
-  else
-    printf("  write latch not (yet) enabled.\n");
+    printf(" WRLENA");
   if (reg_sr1 & 0x01)
-    printf("  device busy.\n");
-  printf("Register CR1 = $%02x\n"
-         "",
-      reg_cr1);
+    printf(" DEVBSY");
+  if (reg_sr1 & 0xe3)
+    printf("\n");
+  printf("Register CR1 = %c$%02x%c (latency code %d)\n",
+         reg_cr1 == 0xff ? 28 : 5, reg_cr1, 5, latency_code);
 #endif
 
   // failed to detect, probably dip sw #3 = off
   if (mb == 0 || page_size == 0 || flash_sector_bits == 0 || part[0] == 0) {
     printf("\n%cERROR: Failed to probe flash\n       (dip #3 not on?)%c\n", 28, 5);
+#ifndef STANDALONE
+    // never return
     while (1)
       POKE(0xD020, PEEK(0xD020) + 1);
+#endif
+    return -1;
   }
 
 #ifdef QSPI_VERBOSE
@@ -1572,6 +1637,8 @@ void probe_qspi_flash(void)
   read_data(0);
 
   printf("Done probing flash.\n\n");
+
+  return 0;
 }
 
 void enable_quad_mode(void)
@@ -1722,6 +1789,28 @@ void query_flash_protection(unsigned long addr)
   spi_cs_high();
   delay();
   printf("\n");
+}
+
+void erase_some_sectors(unsigned long end_addr, unsigned char progress)
+{
+  unsigned long size;
+
+  while (addr < end_addr) {
+    if (addr < (unsigned long)num_4k_sectors << 12)
+      size = 4096;
+    else
+      size = 1L << ((long)flash_sector_bits);
+
+    printf("%c    Erasing sector at $%08lX", 0x13, addr);
+    POKE(0xD020, 2);
+    erase_sector(addr);
+    read_data(0xffffffff);
+    POKE(0xD020, 0);
+
+    addr += size;
+    if (progress)
+      progress_bar(size >> 8, "Erasing");
+  }
 }
 
 void erase_sector(unsigned long address_in_sector)

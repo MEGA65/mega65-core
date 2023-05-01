@@ -937,13 +937,12 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
   return 0;
 }
 
-void reflash_slot(unsigned char slot)
+void reflash_slot(unsigned char slot, unsigned char selected_file)
 {
   unsigned long d, d_last, size, waddr;
   unsigned short bytes_returned;
   unsigned char fd, tries;
   unsigned char erase_mode = 0;
-  unsigned char selected_file = select_bitstream_file();
 
   if (selected_file == 0)
     return;

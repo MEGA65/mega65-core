@@ -876,14 +876,26 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c 
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> joyflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/joyflash-a200t.prg)
 	@test -n "$$(find $(UTILDIR)/joyflash-a200t.prg -size -29000c)"
 
+$(UTILDIR)/crc32accl.o: $(UTILDIR)/crc32accl.s
+	$(CA65) $(UTILDIR)/crc32accl.s -o $(UTILDIR)/crc32accl.o --listing $(UTILDIR)/crc32accl.list
+
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
+$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c $(UTILDIR)/crc32accl.o
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list \
 		--mapfile $*.map -DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> mflash200.prg size is %s" $(UTILDIR)/mflash200.prg)
+
+$(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c $(UTILDIR)/crc32accl.o
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $@ \
+		--add-source -Ln $*.label --listing $*.list \
+		--mapfile $*.map -DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE $< \
+		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> mflash200.prg size is %s" $(UTILDIR)/mflash200.prg)
 
 $(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
@@ -1210,10 +1222,7 @@ clean:
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch
 	rm -f $(TOOLDIR)/pngprepare/pngprepare
-	rm -f $(UTILDIR)/etherload.prg $(UTILDIR)/etherload.list $(UTILDIR)/etherload.map
-	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
-	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
-	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
+	rm -f $(UTILDIR)/*.prg $(UTILDIR)/*.o
 	## should not remove iomap.txt, as this is committed to repo!
 	#rm -f iomap.txt
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
@@ -1232,7 +1241,7 @@ clean:
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean
-	rm -f $(UTILDIR)/*.prg $(UTILDIR)/*.list $(UTILDIR)/*.map $(UTILDIR)/*.label
+	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.map $(UTILDIR)/*.label
 	make -C src/mega65-fdisk clean
 	make -C src/mega65-freezemenu clean
 
