@@ -364,8 +364,20 @@ set Toh3    2.5  ; # output hold time for CAS latency 3
 #create_clock -name clki -period $Trefclk [get_ports clki]
 create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDCLK/I] [get_ports sdram_clk]
 
+# As we setup dq a cycle before, and hold it a cycle after, we can actually
+# relax sdram_dq output quite a bit, instead of constraining it
+# This is what we would need if we didn't do that:
+#   set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+#   set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+# Instead we can do something like this:
+#  set_output_delay -max [expr -(6.17-$Tpcb+$Tsu)]   -clock sdram_clk [get_ports sdram_dq]
+#  set_output_delay -min [expr 6.17-($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+# or just use a multi-cycle path (and keeping the first correct delays)
 set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
 set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+
 set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
 set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
 
