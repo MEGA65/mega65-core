@@ -245,7 +245,7 @@ entity gs4510 is
     colour_ram_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
-    -- Slow device access 4GB address space
+    -- Slow device access 256MB address space
     ---------------------------------------------------------------------------
     slow_access_request_toggle : out std_logic := '0';
     slow_access_ready_toggle : in std_logic;
@@ -256,10 +256,19 @@ entity gs4510 is
     slow_access_rdata : in unsigned(7 downto 0);
 
     -- Fast read interface for slow devices linear reading
-    -- (only hyperram)
+    -- (presents only the next available byte)
     slow_prefetched_request_toggle : inout std_logic := '0';
     slow_prefetched_data : in unsigned(7 downto 0) := x"00";
     slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+
+    -- Interface for lower latency reading from slow RAM
+    -- (presents a whole cache line of 8 bytes)
+    slowram_cache_line : in cache_row_t := (others => (others => '0'));
+    slowram_cache_line_valid : in std_logic := '0';
+    slowram_cache_line_addr : in unsigned(26 downto 2) := (others => '0');
+    slowram_cache_line_inc_toggle : out std_logic := '0';
+    slowram_cache_line_dec_toggle : out std_logic := '0';
+    
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -551,6 +560,11 @@ architecture Behavioural of gs4510 is
 
   signal slow_prefetch_enable : std_logic := '0';
   signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
+  signal slow_cache_enable : std_logic := '0';
+  signal slow_cache_advance_enable : std_logic := '0';
+  signal prev_cache_read : unsigned(2 downto 0) := "000";
+  signal slowram_cache_line_inc_toggle_int : std_logic := '0';
+  signal slowram_cache_line_dec_toggle_int : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -2217,17 +2231,41 @@ begin
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
-        if long_address(26 downto 0) = slow_prefetched_address and slow_prefetch_enable='1' then
-          -- If the slow device interface has correctly guessed the next address
-          -- we want to read from, then use the presented value, and tell the slow
-          -- RAM that we used it, so that it can get the next one ready for us.
-          -- This allows MUCH faster linear reading of the slow device address
-          -- space, which is particularly helpful for accessing the HyperRAM.
-          slow_prefetch_data <= slow_prefetched_data;
+        if long_address(26 downto 2) = slowram_cache_line_addr(26 downto 2)
+          and slowram_cache_line_valid = '1'
+          and slow_cache_enable='1' then
+          slow_prefetch_data <= slowram_cache_line(to_integer(long_address(2 downto 0)));
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
           read_source <= SlowRAMPreFetch;
+          prev_cache_read <= long_address(2 downto 0);
+          if slow_cache_advance_enable = '1' then
+            if prev_cache_read="110" and long_address(2 downto 0) = "111" then
+              -- Ask for next cache line if reading the last and in asending order
+              slowram_cache_line_inc_toggle <= not slowram_cache_line_inc_toggle_int;
+              slowram_cache_line_inc_toggle_int <= not slowram_cache_line_inc_toggle_int;
+            end if;
+            if prev_cache_read="001" and long_address(2 downto 0) = "000" then
+              -- Ask for next cache line if reading the first byte in descending
+              -- order
+              slowram_cache_line_dec_toggle <= not slowram_cache_line_dec_toggle_int;
+              slowram_cache_line_dec_toggle_int <= not slowram_cache_line_dec_toggle_int;
+            end if;
+          end if;
+        elsif long_address(26 downto 0) = slow_prefetched_address and slow_prefetch_enable='1' then
+          -- If the slow device interface has correctly guessed the next address
+          -- we want to read from, then use the presented value, and tell the slow
+          -- RAM that we used it, so that it can get the next one ready for us.
+          -- This allows faster linear reading of the slow device address
+          -- space, which is particularly helpful for accessing the HyperRAM.
+          -- XXX - On R4 at least, this just returns $FC for any pre-fetched byte???
+          -- (basically its a poor-man's version of the full line cache above)
+          slow_prefetch_data <= slow_prefetched_data;
+          wait_states <= x"00";
+          wait_states_non_zero <= '0';
+          proceed <= '1';
+          read_source <= SlowRAMPreFetch;          
         else
           slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
           slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
@@ -2805,7 +2843,9 @@ begin
             when x"fe" =>
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
-              value(7 downto 2) := (others => '0');
+              value(2) := slow_cache_enable;
+              value(3) := slow_advance_enable;
+              value(7 downto 3) := (others => '0');
               return value;
             when others => return x"ff";
           end case;
@@ -3296,10 +3336,14 @@ begin
         force_game <= value(6);
         power_down <= value(0);
       elsif (long_address = x"FFD37FE") then
-        -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+        -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM single-byte pre-fetch logic UNRELIABLE
         slow_prefetch_enable <= value(0);
         -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
-        ocean_cart_mode <= value(1);        
+        ocean_cart_mode <= value(1);
+        -- @IO:GS $D7FE.2 CPU:CACHEEN Enable expansion RAM cache logic
+        slow_cache_enable <= value(2);
+        -- @IO:GS $D7FE.3 CPU:CACHEADV Enable expansion RAM cache pre-fetch logic
+        slow_advance_enable <= value(2);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;

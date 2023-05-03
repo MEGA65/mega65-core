@@ -426,6 +426,7 @@ architecture Behavioral of container is
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+  signal expansionram_current_cache_line_prev_toggle : std_logic := '0';
 
   
   signal audio_left : std_logic_vector(19 downto 0);
@@ -777,7 +778,9 @@ begin
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,     
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
-
+      expansionram_current_cache_line_prev_toggle  => expansionram_current_cache_line_prev_toggle,
+      
+      
       sdram_a => sdram_a,
       sdram_ba => sdram_ba,
       sdram_dq => sdram_dq,
@@ -826,6 +829,7 @@ begin
       slow_prefetched_address => slow_prefetched_address,
       slow_prefetched_data => slow_prefetched_data,
       slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+
       
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
@@ -841,7 +845,6 @@ begin
       expansionram_current_cache_line => current_cache_line,
       expansionram_current_cache_line_address => current_cache_line_address,
       expansionram_current_cache_line_valid => current_cache_line_valid,
-      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -1069,6 +1072,12 @@ begin
           slow_prefetched_address => slow_prefetched_address,
           slow_prefetched_data => slow_prefetched_data,
           slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+
+          slowram_cache_line => expansionram_current_cache_line,
+          slowram_cache_line_valid => expansionram_current_cache_line_valid,
+          slowram_cache_line_addr => expansionram_current_cache_line_address,
+          slowram_cache_line_inc_toggle => expansionram_current_cache_line_next_toggle,
+          slowram_cache_line_dec_toggle => expansionram_current_cache_line_prev_toggle,
           
           cpu_exrom => cpu_exrom,      
           cpu_game => cpu_game,

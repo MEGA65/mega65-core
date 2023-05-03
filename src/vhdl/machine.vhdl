@@ -116,6 +116,14 @@ entity machine is
          slow_prefetched_request_toggle : inout std_logic := '0';
          slow_prefetched_data : in unsigned(7 downto 0) := x"00";
          slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+
+         -- Interface for lower latency reading from slow RAM
+         -- (presents a whole cache line of 8 bytes)
+         slowram_cache_line : in cache_row_t := (others => (others => '0'));
+         slowram_cache_line_valid : in std_logic := '0';
+         slowram_cache_line_addr : in unsigned(26 downto 2) := (others => '0');
+         slowram_cache_line_inc_toggle : out std_logic := '0';
+         slowram_cache_line_dec_toggle : out std_logic := '0';
          
          sector_buffer_mapped : inout std_logic;
 
@@ -1199,6 +1207,12 @@ begin
       slow_prefetched_address => slow_prefetched_address,
       slow_prefetched_data => slow_prefetched_data,
       slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+
+      slowram_cache_line => slowram_cache_line,
+      slowram_cache_line_valid => slowram_cache_line_valid,
+      slowram_cache_line_addr => slowram_cache_line_addr,
+      slowram_cache_line_inc_toggle => slowram_cache_line_inc_toggle,
+      slowram_cache_line_dec_toggle => slowram_cache_line_dec_toggle,
       
       chipram_clk => pixelclock,
       chipram_address => chipram_address,
