@@ -59,6 +59,7 @@ entity sdram_controller is
         current_cache_line_address                  : inout unsigned(26 downto 3) := (others => '0');
         current_cache_line_valid                    : out   std_logic             := '0';
         expansionram_current_cache_line_next_toggle : in    std_logic             := '0';
+        expansionram_current_cache_line_prev_toggle : in    std_logic             := '0';
 
         -- Allow VIC-IV to request lines of data also.
         -- We then pump it out byte-by-byte when ready
@@ -158,6 +159,12 @@ architecture tacoma_narrows of sdram_controller is
   signal current_cache_line_valid_int : std_logic := '0';
   signal sdram_dq_latched : unsigned(15 downto 0);
 
+  signal prev_current_cache_line_next_toggle : std_logic := '0';
+  signal prev_current_cache_line_prev_toggle : std_logic := '0';
+  signal cache_line_prev_address : unsigned(26 downto 3);
+  signal cache_line_next_address : unsigned(26 downto 3);
+  signal silent_read : std_logic := '0';
+  
 begin
 
   process(clock162, pixelclock) is
@@ -219,6 +226,9 @@ begin
       else
         write_targets_cache_line <= '1';
       end if;
+
+      cache_line_prev_address <= current_cache_line_address(26 downto 3) - 1;
+      cache_line_next_address <= current_cache_line_address(26 downto 3) + 1;
       
       if reactive_cache_line_if_safe='1' and write_targets_cache_line='0' then
         current_cache_line_valid <= '1';
@@ -290,6 +300,7 @@ begin
         busy             <= '1';
         read_latched     <= '1';
         latched_addr     <= address;
+        silent_read      <= '0';
       end if;
       if read_request = '0' and write_request = '1' and write_latched = '0' and read_latched = '0' then
         report "Latching write request";
@@ -306,6 +317,24 @@ begin
           latched_wen_lo   <= address(0);
           latched_wen_hi   <= not address(0);
         end if;
+      end if;
+      if read_request = '0' and write_request='0' and write_latched='0' and read_latched='0' and
+        (expansionram_current_cache_line_prev_toggle /= prev_current_cache_line_prev_toggle) then
+        -- Read previous cache line
+        busy             <= '1';
+        read_latched     <= '1';
+        latched_addr(26 downto 3)     <= cache_line_prev_address;
+        latched_addr(2 downto 0) <= "000";
+        silent_read      <= '1';
+      end if;
+      if read_request = '0' and write_request='0' and write_latched='0' and read_latched='0' and
+        (expansionram_current_cache_line_next_toggle /= prev_current_cache_line_next_toggle) then
+        -- Read next cache line
+        busy             <= '1';
+        read_latched     <= '1';
+        latched_addr(26 downto 3)     <= cache_line_next_address;
+        latched_addr(2 downto 0) <= "000";
+        silent_read      <= '1';
       end if;
 
       -- Manage the 100usec SDRAM initialisation delay, if enabled
@@ -491,10 +520,14 @@ begin
           when READ_PRECHARGE_2 =>
             report "rdata_line = $" & to_hexstring(rdata_line);
             report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
-            rdata                   <= rdata_buf;
-            rdata_hi                <= rdata_hi_buf;
-            data_ready_strobe       <= '1';
-            data_ready_strobe_queue <= '1';
+            -- When prefetching cache lines, we don't present the output.
+            -- I.E., the read is "silent"
+            if silent_read='0' then
+              rdata                   <= rdata_buf;
+              rdata_hi                <= rdata_hi_buf;
+              data_ready_strobe       <= '1';
+              data_ready_strobe_queue <= '1';
+            end if;
             read_latched            <= '0';
             write_latched           <= '0';
           when READ_PRECHARGE_3 =>
