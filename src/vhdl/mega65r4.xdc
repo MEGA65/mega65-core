@@ -345,10 +345,13 @@ set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DR
 # DQ pins must have an input delay in a fairly narrow range from about 2.9ns to 5.8ns.
 # We are being quite conservative here, and requiring it to be much more precisely near
 # the middle of this range.
+# Clock duration is 6.17 ns
 set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
 set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
-set_output_delay  -min [expr -0.8] [get_clocks sdram_clk] [get_ports sdram_[*]]
-set_output_delay  -max [expr 1.5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+# Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) = 
+set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+# Min = - (trace delay + Th) = ~1ns 
+set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
 
 
 ## Hyper RAM
