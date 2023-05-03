@@ -184,9 +184,9 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
 #define FAST_PETSCII2ASCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
 
     // check if slot is empty (all FF)
-    for (j = 0; j < 512 && (data_buffer[j] != 0xff); j++)
+    for (j = 0; j < 512 && data_buffer[j] == 0xff; j++)
       ;
-    if (j < 512)
+    if (j == 512)
       slot_core[slot].valid = SLOT_EMPTY;
 
     lfill((long)slot_core[slot].name, ' ', 64);
