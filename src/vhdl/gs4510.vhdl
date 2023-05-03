@@ -265,7 +265,7 @@ entity gs4510 is
     -- (presents a whole cache line of 8 bytes)
     slowram_cache_line : in cache_row_t := (others => (others => '0'));
     slowram_cache_line_valid : in std_logic := '0';
-    slowram_cache_line_addr : in unsigned(26 downto 2) := (others => '0');
+    slowram_cache_line_addr : in unsigned(26 downto 3) := (others => '0');
     slowram_cache_line_inc_toggle : out std_logic := '0';
     slowram_cache_line_dec_toggle : out std_logic := '0';
     
@@ -2231,7 +2231,7 @@ begin
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
-        if long_address(26 downto 2) = slowram_cache_line_addr(26 downto 2)
+        if long_address(26 downto 3) = slowram_cache_line_addr(26 downto 3)
           and slowram_cache_line_valid = '1'
           and slow_cache_enable='1' then
           slow_prefetch_data <= slowram_cache_line(to_integer(long_address(2 downto 0)));

@@ -121,7 +121,7 @@ entity machine is
          -- (presents a whole cache line of 8 bytes)
          slowram_cache_line : in cache_row_t := (others => (others => '0'));
          slowram_cache_line_valid : in std_logic := '0';
-         slowram_cache_line_addr : in unsigned(26 downto 2) := (others => '0');
+         slowram_cache_line_addr : in unsigned(26 downto 3) := (others => '0');
          slowram_cache_line_inc_toggle : out std_logic := '0';
          slowram_cache_line_dec_toggle : out std_logic := '0';
          
