@@ -2844,7 +2844,7 @@ begin
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
               value(2) := slow_cache_enable;
-              value(3) := slow_advance_enable;
+              value(3) := slow_cache_advance_enable;
               value(7 downto 3) := (others => '0');
               return value;
             when others => return x"ff";
@@ -3343,7 +3343,7 @@ begin
         -- @IO:GS $D7FE.2 CPU:CACHEEN Enable expansion RAM cache logic
         slow_cache_enable <= value(2);
         -- @IO:GS $D7FE.3 CPU:CACHEADV Enable expansion RAM cache pre-fetch logic
-        slow_advance_enable <= value(2);
+        slow_cache_advance_enable <= value(2);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;
