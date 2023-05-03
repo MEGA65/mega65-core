@@ -442,6 +442,12 @@ begin
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_1 =>
             sdram_emit_command(CMD_NOP);
+            if write_latched='1' then
+              -- Setup write data early, to handle marginal timing
+              -- more safely (saves us needing separate read latch clock)
+              sdram_dq(7 downto 0)  <= wdata_latched;
+              sdram_dq(15 downto 8) <= wdata_hi_latched;
+            end if;
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
             if read_latched = '1' then
@@ -535,8 +541,15 @@ begin
             read_latched            <= '0';
             write_latched           <= '0';
             sdram_state <= IDLE;
-          when WRITE_PRECHARGE =>
+          when WRITE_PRECHARGE =>            
             write_jobs <= write_jobs + 1;
+
+            -- Keep written word a cycle longer to help with latching write
+            -- data without needing separate read/write clock timing to account
+            -- for skew.
+            sdram_dq(7 downto 0)  <= wdata_latched;
+            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            
           when WRITE_PRECHARGE_2 => null;
           when WRITE_PRECHARGE_3 =>
             read_latched  <= '0';
