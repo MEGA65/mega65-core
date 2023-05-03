@@ -457,6 +457,8 @@ begin
               -- more safely (saves us needing separate read latch clock)
               sdram_dq(7 downto 0)  <= wdata_latched;
               sdram_dq(15 downto 8) <= wdata_hi_latched;
+              sdram_dqmh <= latched_wen_hi;
+              sdram_dqml <= latched_wen_lo;
             end if;
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
@@ -559,6 +561,8 @@ begin
             -- for skew.
             sdram_dq(7 downto 0)  <= wdata_latched;
             sdram_dq(15 downto 8) <= wdata_hi_latched;
+            sdram_dqmh <= latched_wen_hi;
+            sdram_dqml <= latched_wen_lo;
             
           when WRITE_PRECHARGE_2 => null;
           when WRITE_PRECHARGE_3 =>
