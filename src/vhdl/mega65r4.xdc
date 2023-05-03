@@ -341,6 +341,15 @@ set_property -dict {PACKAGE_PIN W5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DR
 set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[14]]
 set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[15]]
 
+# Constrain input and output times for SDRAM pins
+# DQ pins must have an input delay in a fairly narrow range from about 2.9ns to 5.8ns.
+# We are being quite conservative here, and requiring it to be much more precisely near
+# the middle of this range.
+set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+set_output_delay  -min [expr -0.8] [get_clocks sdram_clk] [get_ports sdram_[*]]
+set_output_delay  -max [expr 1.5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]
