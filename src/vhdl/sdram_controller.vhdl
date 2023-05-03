@@ -438,6 +438,7 @@ begin
             if refresh_due='1' then
               sdram_emit_command(CMD_AUTO_REFRESH);
               sdram_state <= REFRESH_1;
+              busy             <= '1';
             elsif read_latched = '1' or write_latched = '1' then
               if latched_addr(26) = '1' then
                 report "NONRAMACCESS: Non-RAM access detected";
@@ -601,14 +602,16 @@ begin
             sdram_state   <= IDLE;
           when REFRESH_1 =>
             refresh_due_countdown <= refresh_interval - 1;
-          when REFRESH_2 => null;
-          when REFRESH_3 => null;
-          when REFRESH_4 => null;
-          when REFRESH_5 => null;
-          when REFRESH_6 => null;
-          when REFRESH_7 => null;
-          when REFRESH_8 => null;
+          when REFRESH_2 => sdram_emit_command(CMD_NOP);
+          when REFRESH_3 => sdram_emit_command(CMD_NOP);
+          when REFRESH_4 => sdram_emit_command(CMD_NOP);
+          when REFRESH_5 => sdram_emit_command(CMD_NOP);
+          when REFRESH_6 => sdram_emit_command(CMD_NOP);
+          when REFRESH_7 => sdram_emit_command(CMD_NOP);
+          when REFRESH_8 => sdram_emit_command(CMD_NOP);
           when REFRESH_9 =>
+            sdram_emit_command(CMD_NOP);
+            busy             <= '0';
             sdram_state <= IDLE;
           when others =>
             sdram_emit_command(CMD_NOP);
