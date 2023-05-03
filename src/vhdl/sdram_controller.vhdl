@@ -501,14 +501,18 @@ begin
             
             sdram_dqml               <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
-            rdata_line(31 downto 16) <= sdram_dq;
+            -- rdata_line(31 downto 16) <= sdram_dq;
           when READ_2 =>
             sdram_emit_command(CMD_NOP);
-            rdata_line(47 downto 32) <= sdram_dq;
+            -- rdata_line(47 downto 32) <= sdram_dq;
+            rdata_line(31 downto 16) <= sdram_dq_latched;
           when READ_3 =>
             sdram_emit_command(CMD_NOP);
-            rdata_line(63 downto 48) <= sdram_dq;
+            rdata_line(47 downto 32) <= sdram_dq_latched;
+            -- rdata_line(63 downto 48) <= sdram_dq;
           when READ_PRECHARGE =>
+            rdata_line(63 downto 48) <= sdram_dq_latched;
+          when READ_PRECHARGE_2 =>
             -- Drive stage to allow selection of buffer output
             -- We also update the read cache line here
             for b in 0 to 7 loop
@@ -517,7 +521,7 @@ begin
             current_cache_line_address(26 downto 3) <= latched_addr(26 downto 3);
             current_cache_line_valid <= '1';
             current_cache_line_valid_int <= '1';
-          when READ_PRECHARGE_2 =>
+          when READ_PRECHARGE_3 =>
             report "rdata_line = $" & to_hexstring(rdata_line);
             report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
             -- When prefetching cache lines, we don't present the output.
@@ -530,7 +534,6 @@ begin
             end if;
             read_latched            <= '0';
             write_latched           <= '0';
-          when READ_PRECHARGE_3 =>
             sdram_state <= IDLE;
           when WRITE_PRECHARGE =>
             write_jobs <= write_jobs + 1;
