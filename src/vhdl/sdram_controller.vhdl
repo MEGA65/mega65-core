@@ -132,6 +132,15 @@ architecture tacoma_narrows of sdram_controller is
                          WRITE_PRECHARGE,
                          WRITE_PRECHARGE_2,
                          WRITE_PRECHARGE_3,
+                         REFRESH_1,
+                         REFRESH_2,
+                         REFRESH_3,
+                         REFRESH_4,
+                         REFRESH_5,
+                         REFRESH_6,
+                         REFRESH_7,
+                         REFRESH_8,
+                         REFRESH_9,
                          NON_RAM_READ,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
@@ -167,6 +176,14 @@ architecture tacoma_narrows of sdram_controller is
   signal cache_line_prev_address : unsigned(26 downto 3);
   signal cache_line_next_address : unsigned(26 downto 3);
   signal silent_read : std_logic := '0';
+
+  -- 8K refreshes required every 64ms.
+  -- ie one every 7.812 usec
+  -- We have 162 clock cycles per usec, so one refresh every
+  -- 1,265 cycles is required.
+  constant refresh_interval : integer := 1265;
+  signal refresh_due : std_logic := '0';
+  signal refresh_due_countdown : integer := refresh_interval - 1;
   
 begin
 
@@ -224,6 +241,13 @@ begin
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
 
+      if refresh_due_countdown /= 0 then
+        refresh_due_countdown <= refresh_due_countdown - 1;
+        refresh_due <= '0';
+      else
+        refresh_due <= '1';
+      end if;
+      
       if current_cache_line_address(26 downto 3) /= latched_addr(26 downto 3) then
         write_targets_cache_line <= '0';
       else
@@ -411,7 +435,10 @@ begin
         case sdram_state is
           when IDLE =>
             data_ready_strobe_queue <= '0';
-            if read_latched = '1' or write_latched = '1' then
+            if refresh_due='1' then
+              sdram_emit_command(CMD_AUTO_REFRESH);
+              sdram_state <= REFRESH_1;
+            elsif read_latched = '1' or write_latched = '1' then
               if latched_addr(26) = '1' then
                 report "NONRAMACCESS: Non-RAM access detected";
                 sdram_state <= NON_RAM_READ;
@@ -570,6 +597,17 @@ begin
             write_latched <= '0';
             busy          <= '0';
             sdram_state   <= IDLE;
+          when REFRESH_1 =>
+            refresh_due_countdown <= refresh_interval - 1;
+          when REFRESH_2 => null;
+          when REFRESH_3 => null;
+          when REFRESH_4 => null;
+          when REFRESH_5 => null;
+          when REFRESH_6 => null;
+          when REFRESH_7 => null;
+          when REFRESH_8 => null;
+          when REFRESH_9 =>
+            sdram_state <= IDLE;
           when others =>
             sdram_emit_command(CMD_NOP);
         end case;
