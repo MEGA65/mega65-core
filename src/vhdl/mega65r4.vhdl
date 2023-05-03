@@ -1166,7 +1166,12 @@ begin
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
 
-  sdram_clk <= clock162;
+  -- simple buffer, let tools use internal delay
+  OBUF_SDCLK: obuf
+    port map (
+        i => clock162,
+        o => sdram_clk
+    );
 
   process (pixelclock,cpuclock,pcm_clk) is
   begin

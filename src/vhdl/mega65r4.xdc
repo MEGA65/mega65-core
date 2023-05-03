@@ -346,12 +346,29 @@ set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DR
 # We are being quite conservative here, and requiring it to be much more precisely near
 # the middle of this range.
 # Clock duration is 6.17 ns
-set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
-set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+#set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+#set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
 # Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) = 
-set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+#set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
 # Min = - (trace delay + Th) = ~1ns 
-set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+#set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+
+# Adam's better way:
+set Trefclk 10.0 ; # 100 MHz reference clock input to MMCM
+set Tpcb    0.2  ; # assume 30mm @ 150mm/ns, assume traces all matched
+set Tsu     1.5  ; # input setup time
+set Th      0.8  ; # input hold time
+set Tac3    5.4  ; # access (clock to output) time for CAS latency 3
+set Toh3    2.5  ; # output hold time for CAS latency 3
+
+#create_clock -name clki -period $Trefclk [get_ports clki]
+create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDCLK/I] [get_ports sdram_clk]
+
+set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
+set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
+
 
 
 ## Hyper RAM
