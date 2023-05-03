@@ -1310,17 +1310,17 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     printf("%c", 0x93);
     progress_start(SLOT_SIZE_PAGES, "Flashing");
     // erase first 256k first
-    addr = SLOT_SIZE * slot;
+    end_addr = addr = SLOT_SIZE * slot;
     // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
-    erase_some_sectors(1024L * 1024L, 0);
+    erase_some_sectors(addr + 1024L * 1024L, 0);
     // start at the end...
-    addr = SLOT_SIZE * (slot + 1) - (1L << ((long)flash_sector_bits));
-    end_addr = SLOT_SIZE * slot;
-    while (addr >= end_addr) {
-      if (addr < (unsigned long)num_4k_sectors << 12)
+    addr = end_addr + SLOT_SIZE;
+    while (addr > end_addr) {
+      if (addr <= (unsigned long)num_4k_sectors << 12)
         size = 4096;
       else
         size = 1L << ((long)flash_sector_bits);
+      addr -= size;
 #if 0
       printf("\n%d %08lX %08lX", num_4k_sectors, (unsigned long)num_4k_sectors << 12, addr);
       printf("\nsize = %ld", size);
@@ -1393,11 +1393,6 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
       } while (tries < 11);
 
       progress_bar(size >> 8, "Flashing");
-
-      // need to break out before overflow!
-      if (addr == 0)
-        break;
-      addr -= size;
     }
     flash_time = seconds_between(&tm_start, &tm_now);
 
@@ -1416,7 +1411,7 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     // Erase mode
     progress_start(SLOT_SIZE_PAGES, "Erasing");
     addr = SLOT_SIZE * slot;
-    erase_some_sectors(SLOT_SIZE * (slot + 1), 1);
+    erase_some_sectors(addr + SLOT_SIZE, 1);
     flash_time = seconds_between(&tm_start, &tm_now);
   }
 
