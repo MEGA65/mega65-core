@@ -1311,7 +1311,8 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     progress_start(SLOT_SIZE_PAGES, "Flashing");
     // erase first 256k first
     addr = SLOT_SIZE * slot;
-    erase_some_sectors(256L * 1024L, 0);
+    // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
+    erase_some_sectors(1024L * 1024L, 0);
     // start at the end...
     addr = SLOT_SIZE * (slot + 1) - (1L << ((long)flash_sector_bits));
     end_addr = SLOT_SIZE * slot;
