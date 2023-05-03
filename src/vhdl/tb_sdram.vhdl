@@ -39,6 +39,7 @@ architecture test_arch of tb_sdram_controller is
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+  signal expansionram_current_cache_line_prev_toggle : std_logic := '0';
   signal viciv_addr : unsigned(18 downto 3) := (others => '0');
   signal viciv_request_toggle : std_logic := '0';
   signal viciv_data_out : unsigned(7 downto 0) := x"00";
@@ -117,6 +118,7 @@ begin
         current_cache_line_address => current_cache_line_address,
         current_cache_line_valid => current_cache_line_valid,
         expansionram_current_cache_line_next_toggle => expansionram_current_cache_line_next_toggle,
+        expansionram_current_cache_line_next_toggle => expansionram_current_cache_line_prev_toggle,
         viciv_addr => viciv_addr,
         viciv_request_toggle => viciv_request_toggle,
         viciv_data_out => viciv_data_out,

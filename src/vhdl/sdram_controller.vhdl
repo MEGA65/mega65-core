@@ -159,6 +159,9 @@ architecture tacoma_narrows of sdram_controller is
   signal current_cache_line_valid_int : std_logic := '0';
   signal sdram_dq_latched : unsigned(15 downto 0);
 
+  signal next_toggle_drive : std_logic;
+  signal prev_toggle_drive : std_logic;
+  
   signal prev_current_cache_line_next_toggle : std_logic := '0';
   signal prev_current_cache_line_prev_toggle : std_logic := '0';
   signal cache_line_prev_address : unsigned(26 downto 3);
@@ -318,23 +321,30 @@ begin
           latched_wen_hi   <= not address(0);
         end if;
       end if;
+
+      next_toggle_drive <= expansionram_current_cache_line_next_toggle;
+      prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
+      
       if read_request = '0' and write_request='0' and write_latched='0' and read_latched='0' and
-        (expansionram_current_cache_line_prev_toggle /= prev_current_cache_line_prev_toggle) then
+        (prev_toggle_drive /= prev_current_cache_line_prev_toggle) then
         -- Read previous cache line
         busy             <= '1';
         read_latched     <= '1';
         latched_addr(26 downto 3)     <= cache_line_prev_address;
         latched_addr(2 downto 0) <= "000";
         silent_read      <= '1';
+        prev_current_cache_line_prev_toggle <= prev_toggle_drive;
       end if;
+
       if read_request = '0' and write_request='0' and write_latched='0' and read_latched='0' and
-        (expansionram_current_cache_line_next_toggle /= prev_current_cache_line_next_toggle) then
+        (next_toggle_drive /= prev_current_cache_line_next_toggle) then
         -- Read next cache line
         busy             <= '1';
         read_latched     <= '1';
         latched_addr(26 downto 3)     <= cache_line_next_address;
         latched_addr(2 downto 0) <= "000";
         silent_read      <= '1';
+        prev_current_cache_line_next_toggle <= next_toggle_drive;
       end if;
 
       -- Manage the 100usec SDRAM initialisation delay, if enabled

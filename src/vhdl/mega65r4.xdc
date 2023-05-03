@@ -381,6 +381,12 @@ set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_p
 set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
 set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
 
+# Relax timing of cache lines between 162MHz SDRAM and 40.5MHz CPU:
+set ratio 4; # ratio of launch to latch clock
+set n_setup [expr $ratio]
+set n_hold  [expr $ratio-1]
+set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
+set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
 
 
 ## Hyper RAM
