@@ -327,7 +327,7 @@ begin
         busy             <= '1';
         read_latched     <= '1';
         latched_addr     <= address;
-        silent_read      <= '0';
+       silent_read      <= '0';
       end if;
       if read_request = '0' and write_request = '1' and write_latched = '0' and read_latched = '0' then
         report "Latching write request";
@@ -576,6 +576,8 @@ begin
               rdata_hi                <= rdata_hi_buf;
               data_ready_strobe       <= '1';
               data_ready_strobe_queue <= '1';
+            else
+              busy          <= '0';              
             end if;
             read_latched            <= '0';
             write_latched           <= '0';
