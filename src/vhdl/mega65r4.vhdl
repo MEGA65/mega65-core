@@ -1073,9 +1073,9 @@ begin
           slow_prefetched_data => slow_prefetched_data,
           slow_prefetched_request_toggle => slow_prefetched_request_toggle,
 
-          slowram_cache_line => expansionram_current_cache_line,
-          slowram_cache_line_valid => expansionram_current_cache_line_valid,
-          slowram_cache_line_addr => expansionram_current_cache_line_address,
+          slowram_cache_line => current_cache_line,
+          slowram_cache_line_valid => current_cache_line_valid,
+          slowram_cache_line_addr => current_cache_line_address,
           slowram_cache_line_inc_toggle => expansionram_current_cache_line_next_toggle,
           slowram_cache_line_dec_toggle => expansionram_current_cache_line_prev_toggle,
           
