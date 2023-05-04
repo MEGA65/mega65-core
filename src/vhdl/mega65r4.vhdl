@@ -844,7 +844,7 @@ begin
 
       expansionram_current_cache_line => current_cache_line,
       expansionram_current_cache_line_address => current_cache_line_address,
-      expansionram_current_cache_line_valid => current_cache_line_valid,
+--      expansionram_current_cache_line_valid => current_cache_line_valid,
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
