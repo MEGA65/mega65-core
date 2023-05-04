@@ -110,7 +110,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     rm -rvf ${PKGPATH}
 fi
 
-for dir in ${PKGPATH}/log ${PKGPATH}/sdcard-files ${PKGPATH}/extra; do
+for dir in ${PKGPATH}/log ${PKGPATH}/sdcard-files ${PKGPATH}/extra ${PKGPATH}/flasher; do
     if [[ ! -d ${dir} ]]; then
         mkdir -p ${dir}
     fi
@@ -131,6 +131,8 @@ if [[ ${REPACK} -eq 0 ]]; then
     echo
     cp ${REPOPATH}/bin/HICKUP.M65 ${PKGPATH}/extra/
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
+    cp ${REPOPATH}/src/utilities/mflash200.prg ${PKGPATH}/flasher
+    cp ${REPOPATH}/src/utilities/upgrade0.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/
     cp ${BITPATH%.bit}.log ${PKGPATH}/log/

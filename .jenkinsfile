@@ -19,9 +19,10 @@ pipeline {
                 sh 'make cleanall'
             }
         }
-        stage('Build Freezer') {
+        stage('Build Freezer & Flasher') {
             steps {
                 sh 'make freezer_files'
+                sh 'make src/utilities/mflash200.prg src/utilities/upgrade0.prg'
             }
         }
         stage('Build MEGA65R3') {
