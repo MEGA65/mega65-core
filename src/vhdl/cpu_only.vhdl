@@ -256,6 +256,12 @@ architecture simulation_top_level of cpu_only is
   signal rom_at_8000       : std_logic := '0';
 
 
+
+  signal last_slow_access_request_toggle : std_logic := '0';
+
+  type ram_t is array (0 to 255) of unsigned(7 downto 0);
+  signal sdram_array : ram_t := (others => x"00");
+  
 begin
 
   cpu0 : entity work.gs4510
@@ -429,6 +435,20 @@ begin
         clock81 <= not clock81;
         if clock81 = '1' then
           clock41 <= not clock41;
+          if clock41 = '0' then
+            if slow_access_request_toggle /= last_slow_access_request_toggle then
+              report "SLOWRAM: Saw request for $" & to_hexstring(slow_access_address)
+                & ", write=" & std_logic'image(slow_access_write)
+                & ", wdata=$" & to_hexstring(slow_access_wdata);
+              last_slow_access_request_toggle <= slow_access_request_toggle;
+              slow_access_ready_toggle <= not slow_access_ready_toggle;
+              if slow_access_write='1' then
+                sdram_array(to_integer(slow_access_address(7 downto 0))) <= slow_access_wdata;
+              else
+                slow_access_rdata <= sdram_array(to_integer(slow_access_address(7 downto 0)));
+              end if;
+            end if;
+          end if;
         end if;
       end if;
       wait for 3.0864 ns;
