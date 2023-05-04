@@ -1522,6 +1522,11 @@ architecture Behavioural of gs4510 is
   signal trng_valid : std_logic;
   signal trng_enable : std_logic;
   signal trng_out : unsigned(7 downto 0);
+
+  signal cache_readback_sel : integer := 0;
+  signal cache_line_reads : integer := 0;
+  signal cache_line_last_data_read : unsigned(7 downto 0);
+  signal prefetch_read_count : integer := 0;
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2232,12 +2237,15 @@ begin
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
         if long_address(26 downto 3) = slowram_cache_line_addr(26 downto 3)
-          and slowram_cache_line_valid = '1'
-          and slow_cache_enable='1' then
+          and (slowram_cache_line_valid = '1')
+          and (slow_cache_enable='1') then
           slow_prefetch_data <= slowram_cache_line(to_integer(long_address(2 downto 0)));
+          cache_line_last_data_read <= slowram_cache_line(to_integer(long_address(2 downto 0)));
+          cache_line_reads <= cache_line_reads + 1;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
+          accessing_slowram <= '0';
           read_source <= SlowRAMPreFetch;
           prev_cache_read <= long_address(2 downto 0);
           if slow_cache_advance_enable = '1' then
@@ -2261,7 +2269,9 @@ begin
           -- space, which is particularly helpful for accessing the HyperRAM.
           -- XXX - On R4 at least, this just returns $FC for any pre-fetched byte???
           -- (basically its a poor-man's version of the full line cache above)
+          accessing_slowram <= '0';
           slow_prefetch_data <= slow_prefetched_data;
+          prefetch_read_count <= prefetch_read_count + 1;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
@@ -2847,6 +2857,34 @@ begin
               value(3) := slow_cache_advance_enable;
               value(7 downto 3) := (others => '0');
               return value;
+            when x"ff" =>
+              if cache_readback_sel < 8 then
+                return slowram_cache_line(cache_readback_sel);
+              elsif cache_readback_sel = 8 then
+                value(0) := slowram_cache_line_valid;
+                value(3 downto 1) := prev_cache_read;
+                return value;
+              elsif cache_readback_sel = 9 then
+                value(7 downto 3) := slowram_cache_line_addr(7 downto 3);
+                value(2 downto 0) := "000";
+                return value;
+              elsif cache_readback_sel = 10 then
+                return slowram_cache_line_addr(15 downto 8);
+              elsif cache_readback_sel = 11 then
+                return slowram_cache_line_addr(23 downto 16);
+              elsif cache_readback_sel = 12 then
+                value(2 downto 0) := slowram_cache_line_addr(26 downto 24);
+                value(7 downto 3) := "00001";
+                return value;
+              elsif cache_readback_sel = 13 then
+                return to_unsigned(cache_line_reads,8);
+              elsif cache_readback_sel = 14 then
+                return cache_line_last_data_read;
+              elsif cache_readback_sel = 15 then
+                return to_unsigned(prefetch_read_count,8);
+              else
+                return x"ff";
+              end if;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -3345,7 +3383,7 @@ begin
         -- @IO:GS $D7FE.3 CPU:CACHEADV Enable expansion RAM cache pre-fetch logic
         slow_cache_advance_enable <= value(2);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
-        null;
+        cache_readback_sel <= to_integer(value);
       end if;
       
       -- Always write to shadow ram if in scope, even if we also write elsewhere.
@@ -5275,7 +5313,7 @@ begin
             end if;           
           else
             report "Waitstate countdown. wait_states=$" & to_hstring(wait_states);
-            if wait_states /= x"01" then
+            if wait_states /= x"01" and wait_states /= x"00" then
               wait_states <= wait_states - 1;
               wait_states_non_zero <= '1';
             else
