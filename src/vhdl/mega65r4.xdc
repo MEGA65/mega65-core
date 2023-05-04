@@ -375,11 +375,12 @@ create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDC
 # or just use a multi-cycle path (and keeping the first correct delays)
 set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
 set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
-set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
-set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
 
-set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
-set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
+# One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
+#set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
+#set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
 
 # Relax timing of cache lines between 162MHz SDRAM and 40.5MHz CPU:
 set ratio 4; # ratio of launch to latch clock
