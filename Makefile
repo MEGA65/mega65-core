@@ -466,10 +466,10 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 	$(GHDL) -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g cpu_test
 
-simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-a200t.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-a200t.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
 	$(GHDL) -m -g cpu_only
 	$(GHDL) -r -g cpu_only
 
@@ -952,6 +952,9 @@ $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)
 $(BINDIR)/BRICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/joyflash.asm
 
+$(UTILDIR)/cpusim.prg:	$(ACME_DEPEND) $(UTILDIR)/cpusim.asm
+	$(ACME) --cpu m65 --setpc 0x8100 -l cpusim.sym -r cpusim.rep $(UTILDIR)/cpusim.asm
+
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -1008,6 +1011,10 @@ $(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_
 $(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg $(SDCARD_DIR)/ONBOARD.M65
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a200t.prg@50000
+
+$(VHDLSRCDIR)/shadowram-cpusim.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(UTILDIR)/cpusim.prg
+	mkdir -p $(SDCARD_DIR)
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-cpusim.vhdl $(UTILDIR)/cpusim.prg@8100
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000

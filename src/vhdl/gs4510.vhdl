@@ -3564,7 +3564,7 @@ begin
       --| BLK7  | BLK6  | BLK5  | BLK4  | OFF19 | OFF18 | OFF17 | OFF16 |
       --+-------+-------+-------+-------+-------+-------+-------+-------+
       --
-      
+
       -- C65GS extension: Set the MegaByte register for low and high mobies
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
@@ -4727,6 +4727,7 @@ begin
           end if;
         end if;
       else
+
                                         -- Full speed - never pause
         phi_backlog <= 0;
 
@@ -5267,7 +5268,7 @@ begin
       monitor_instruction_strobe <= '0';
 --      report "monitor_instruction_strobe CLEARED";    
 
-                                        -- report "reset = " & std_logic'image(reset) severity note;
+      -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
       if reset_drive='0' or watchdog_reset='1' then
         reset_out <= '0';
@@ -5377,7 +5378,11 @@ begin
                                         -- by triggering the hypervisor.
                                         -- XXX indicate source of hypervisor entry
               reset_cpu_state;
-              state <= TrapToHypervisor;
+              if no_hyppo='0' then
+                state <= TrapToHypervisor;
+              else
+                state <= normal_fetch_state;
+              end if;
             when VectorRead =>
               vector <= vector + 1;
               state <= VectorRead;
@@ -9055,7 +9060,7 @@ begin
             temp_address(27 downto 21) := (others => '0');
             temp_address(20 downto 13) := ocean_cart_lo_bank;
           else
-             temp_address(27 downto 16) := x"7FF";
+            temp_address(27 downto 16) := x"7FF";
           end if;            
         end if;
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
@@ -9304,7 +9309,7 @@ begin
       memory_access_resolve_address := '1';
 
       fastio_addr_var := x"FFFFF";      
-      
+
       case state is
         when VectorRead =>
           report "MEMORY Setting memory_access_address interrupt/trap vector";
