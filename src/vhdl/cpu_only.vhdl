@@ -436,7 +436,7 @@ begin
     end procedure;
 
   begin
-    for i in 1 to 1024 loop
+    for i in 1 to 16384 loop
       if i=16 then
         reset <= '1';
       end if;
