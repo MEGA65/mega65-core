@@ -471,6 +471,7 @@ simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-a200t.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
 	$(GHDL) -m -g cpu_only
+	$(GHDL) -r -g cpu_only
 
 
 # GHDL with mcode backend for backtraces (PGS special debug version)

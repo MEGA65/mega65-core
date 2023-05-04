@@ -13,11 +13,12 @@ end cpu_only;
 
 architecture simulation_top_level of cpu_only is
 
-  signal mathclock : std_logic;
-  signal Clock     : std_logic;
-  signal phi_1mhz  : std_logic;
-  signal phi_2mhz  : std_logic;
-  signal phi_3mhz  : std_logic;
+  signal clock41  : std_logic := '0';
+  signal clock81  : std_logic := '0';
+  signal clock162 : std_logic := '0';
+  signal phi_1mhz : std_logic := '0';
+  signal phi_2mhz : std_logic := '0';
+  signal phi_3mhz : std_logic := '0';
 
   signal cpu_slow : std_logic := '0';
 
@@ -263,8 +264,8 @@ begin
       target           => mega65r4
       )
     port map (
-      mathclock                     => mathclock,
-      Clock                         => Clock,
+      mathclock                     => clock41,
+      Clock                         => clock41,
       phi_1mhz                      => phi_1mhz,
       phi_2mhz                      => phi_2mhz,
       phi_3mhz                      => phi_3mhz,
@@ -418,5 +419,29 @@ begin
       rom_at_a000                    => rom_at_a000,
       rom_at_8000                    => rom_at_8000
       );
+
+  main : process is
+    procedure clock_tick is
+    begin
+      clock162 <= not clock162;
+      if clock162 = '1' then
+        clock81 <= not clock81;
+        if clock81 = '1' then
+          clock41 <= not clock41;
+        end if;
+      end if;
+      wait for 3.0864 ns;
+
+    end procedure;
+
+  begin
+    for i in 1 to 16 loop
+      clock_tick;
+      report "clock162=" & std_logic'image(clock162)
+        & ", clock81=" & std_logic'image(clock81)
+        & ", clock41=" & std_logic'image(clock41);
+    end loop;
+    report "Done." severity failure;
+  end process;
 
 end simulation_top_level;
