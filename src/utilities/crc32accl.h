@@ -8,7 +8,7 @@
 extern void cdecl make_crc32_tables(void);
 extern void cdecl update_crc32(unsigned char len, unsigned char *buf);
 
-#define init_crc32() *(uint32_t *)CRC32_ZP = 0xffffffffL
+#define init_crc32() *(uint32_t *)CRC32_ZP = 0xffffffffUL
 #define get_crc32() ~(*(uint32_t *)CRC32_ZP)
 
 #endif /* CRC32ACCL_H */

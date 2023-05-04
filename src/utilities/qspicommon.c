@@ -1283,7 +1283,7 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
           addr_len = *(uint32_t *)(data_buffer + 0x80);
           progress_goal = addr_len >> 8;
           core_crc = *(uint32_t *)(data_buffer + 0x84);
-          *(uint32_t *)(data_buffer + 0x84) = 0xf0f0f0f0L;
+          *(uint32_t *)(data_buffer + 0x84) = 0xf0f0f0f0UL;
 
           printf("\nCORE Length = %08lx\n", addr_len);
           printf("CORE CRC32  = %08lx\n", core_crc);
