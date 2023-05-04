@@ -559,7 +559,6 @@ architecture Behavioural of gs4510 is
   signal slow_access_data_ready : std_logic := '0';
 
   signal slow_prefetch_enable : std_logic := '0';
-  signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
   signal slow_cache_enable : std_logic := '0';
   signal slow_cache_advance_enable : std_logic := '0';
   signal prev_cache_read : unsigned(2 downto 0) := "000";
@@ -1527,6 +1526,7 @@ architecture Behavioural of gs4510 is
   signal cache_line_reads : integer := 0;
   signal cache_line_last_data_read : unsigned(7 downto 0);
   signal prefetch_read_count : integer := 0;
+  signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2239,14 +2239,21 @@ begin
         if long_address(26 downto 3) = slowram_cache_line_addr(26 downto 3)
           and (slowram_cache_line_valid = '1')
           and (slow_cache_enable='1') then
+          report "CACHE: Cache line valid and hit: Offset = " & integer'image(to_integer(long_address(2 downto 0)));
+          for i in 0 to 7 loop
+            report "CACHE BYTE " & integer'image(i) & " = $" & to_hexstring(slowram_cache_line(i));
+          end loop;
+          report "slow_prefetch_data set";
           slow_prefetch_data <= slowram_cache_line(to_integer(long_address(2 downto 0)));
           cache_line_last_data_read <= slowram_cache_line(to_integer(long_address(2 downto 0)));
+          report "CACHE: Read byte is $" & to_hexstring(slowram_cache_line(to_integer(long_address(2 downto 0))));
           cache_line_reads <= cache_line_reads + 1;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
           accessing_slowram <= '0';
           read_source <= SlowRAMPreFetch;
+          mem_reading <= '1';
           prev_cache_read <= long_address(2 downto 0);
           if slow_cache_advance_enable = '1' then
             if prev_cache_read="110" and long_address(2 downto 0) = "111" then
@@ -2270,12 +2277,14 @@ begin
           -- XXX - On R4 at least, this just returns $FC for any pre-fetched byte???
           -- (basically its a poor-man's version of the full line cache above)
           accessing_slowram <= '0';
+          report "slow_prefetch_data set";
           slow_prefetch_data <= slow_prefetched_data;
           prefetch_read_count <= prefetch_read_count + 1;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
           read_source <= SlowRAMPreFetch;          
+          mem_reading <= '1';
         else
           slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
           slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
@@ -3019,7 +3028,8 @@ begin
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
         when SlowRAMPreFetch =>
-          report "reading slow prefetched RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
+          report "reading slow prefetched RAM data. byte is $" & to_hstring(slow_prefetch_data) severity note;
+          report "(last CACHE byte read is $" & to_hexstring(cache_line_last_data_read) & ")";
           return unsigned(slow_prefetch_data);          
         when Unmapped =>
           report "accessing unmapped memory" severity note;
@@ -5332,8 +5342,13 @@ begin
           slow_access_write_drive <= '0';
 
           if mem_reading='1' then
---            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
-            mem_reading <= '0';
+
+            if read_source /= SlowRAMPreFetch then
+              report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
+              mem_reading <= '0';
+            else
+              report "preserving mem_reading for SlowRAMPrefetch fast access";
+            end if;
             monitor_mem_reading <= '0';
           end if;
 
@@ -8289,6 +8304,7 @@ begin
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
               if reg_microcode.mcSetA='1' then
+                report "Setting A from memory_read_value = $" & to_hexstring(memory_read_value);
                 reg_a <= memory_read_value;
               end if;
               if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
@@ -10174,8 +10190,13 @@ begin
   process (read_source, shadow_rdata, read_data_copy)
   begin
     if(read_source = Shadow) then
+      report "read_data from shadow";
       read_data <= shadow_rdata;
+    elsif read_source = SlowRAMPrefetch then
+      report "read_data from SlowRAMPrefetch";
+      read_data <= slow_prefetch_data;
     else
+      report "read_data from read_data_copy";
       read_data <= read_data_copy;
     end if;
   end process;
