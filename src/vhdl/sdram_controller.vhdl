@@ -118,7 +118,6 @@ architecture tacoma_narrows of sdram_controller is
   type sdram_state_t is (ACTIVATE_WAIT,
                          ACTIVATE_WAIT_1,
                          ACTIVATE_WAIT_2,
-                         ACTIVATE_WAIT_3,
                          READ_WAIT,
                          READ_WAIT_2,
                          READ_WAIT_3,
@@ -130,9 +129,11 @@ architecture tacoma_narrows of sdram_controller is
                          READ_PRECHARGE,
                          READ_PRECHARGE_2,
                          READ_PRECHARGE_3,
+                         READ_PRECHARGE_4,
                          WRITE_PRECHARGE,
                          WRITE_PRECHARGE_2,
                          WRITE_PRECHARGE_3,
+                         WRITE_PRECHARGE_4,
                          REFRESH_1,
                          REFRESH_2,
                          REFRESH_3,
@@ -479,8 +480,6 @@ begin
             report "NONRAMACCESS: Presenting value $" & to_hexstring(nonram_val);
           when ACTIVATE_WAIT =>
             sdram_emit_command(CMD_NOP);
-          when ACTIVATE_WAIT_1 =>
-            sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
             if write_latched='1' then
@@ -583,6 +582,7 @@ begin
             else
               busy          <= '0';              
             end if;
+          when READ_PRECHARGE_4 =>
             read_latched            <= '0';
             write_latched           <= '0';
             sdram_state <= IDLE;
@@ -598,7 +598,8 @@ begin
             sdram_dqml <= latched_wen_lo;
             
           when WRITE_PRECHARGE_2 => null;
-          when WRITE_PRECHARGE_3 =>
+          when WRITE_PRECHARGE_3 => null;
+          when WRITE_PRECHARGE_4 =>
             read_latched  <= '0';
             write_latched <= '0';
             busy          <= '0';
