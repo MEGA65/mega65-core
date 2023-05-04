@@ -364,6 +364,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VHDLSRCDIR)/hyppo.vhdl \
 			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
 			$(VHDLSRCDIR)/mega65r3_i2c.vhdl \
+			$(VHDLSRCDIR)/mega65r4_i2c.vhdl \
 			$(VHDLSRCDIR)/edid_i2c.vhdl \
 			$(VHDLSRCDIR)/version.vhdl \
 			$(C65VHDL) \
@@ -411,6 +412,7 @@ SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_opl2.vhdl \
 			$(VHDLSRCDIR)/gen_utils.vhdl \
 			$(VHDLSRCDIR)/conversions.vhdl \
+			$(VHDLSRCDIR)/vital.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
@@ -464,8 +466,15 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 	$(GHDL) -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g cpu_test
 
+simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-a200t.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-a200t.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+	$(GHDL) -m -g cpu_only
+
+
 # GHDL with mcode backend for backtraces (PGS special debug version)
-GHDLGCC = /usr/local/bin/ghdl
+GHDLGCC = ghdl
 simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
