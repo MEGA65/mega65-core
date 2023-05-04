@@ -118,7 +118,7 @@ begin
         current_cache_line_address => current_cache_line_address,
         current_cache_line_valid => current_cache_line_valid,
         expansionram_current_cache_line_next_toggle => expansionram_current_cache_line_next_toggle,
-        expansionram_current_cache_line_next_toggle => expansionram_current_cache_line_prev_toggle,
+        expansionram_current_cache_line_prev_toggle => expansionram_current_cache_line_prev_toggle,
         viciv_addr => viciv_addr,
         viciv_request_toggle => viciv_request_toggle,
         viciv_data_out => viciv_data_out,
@@ -266,8 +266,36 @@ begin
         end if;
       end loop;
       assert false report "SDRAM did not become ready";
-      end procedure;
-    
+    end procedure;
+
+    procedure cache_line_check(addr : unsigned(27 downto 0); d : unsigned(63 downto 0)) is
+    begin
+      if current_cache_line_valid = '0' then
+        assert false report "Cache line is not marked valid.";
+      end if;
+      if addr(2 downto 0) /= "000" then
+        assert false report "TEST DEFINITION ERROR: Cache check addresses must be cache-line aligned";
+      end if;
+      if current_cache_line_address /= addr(26 downto 3) then
+        assert false report "Cache line address was $" & to_hexstring(current_cache_line_address) & ", but expected $" & to_hexstring(addr);
+      end if;
+      for i in 0 to 7 loop
+        if d((7-i)*8+7 downto (7-i)*8) /= current_cache_line(i) then
+          report "Current cache line is $" & to_hexstring(current_cache_line_address) & " : "
+            & to_hexstring(current_cache_line(0)) & " "
+            & to_hexstring(current_cache_line(1)) & " "
+            & to_hexstring(current_cache_line(2)) & " "
+            & to_hexstring(current_cache_line(3)) & " "
+            & to_hexstring(current_cache_line(4)) & " "
+            & to_hexstring(current_cache_line(5)) & " "
+            & to_hexstring(current_cache_line(6)) & " "
+            & to_hexstring(current_cache_line(7));
+          assert false report "Cache line byte " & integer'image(i) & " = $" & to_hexstring(current_cache_line(i))
+            &", but expected $" & to_hexstring(d((7-i)*8+7 downto (7-i)*8));
+        end if;
+      end loop;
+    end procedure;
+      
   begin
     test_runner_setup(runner, runner_cfg);    
     
@@ -319,6 +347,31 @@ begin
         sdram_read(2,x"7856");
         sdram_read(4,x"bc9a");
         sdram_read(6,x"f0de");
+      elsif run("Cache line correctly populated") then
+        wait_for_sdram_ready;
+
+        sdram_write(0,x"00");
+        sdram_write(1,x"01");
+        sdram_write(2,x"02");
+        sdram_write(3,x"03");
+        sdram_write(4,x"04");
+        sdram_write(5,x"05");
+        sdram_write(6,x"06");
+        sdram_write(7,x"07");
+
+        sdram_write(8,x"88");
+        sdram_write(9,x"89");
+        sdram_write(10,x"8a");
+        sdram_write(11,x"8b");
+        sdram_write(12,x"8c");
+        sdram_write(13,x"8d");
+        sdram_write(14,x"8e");
+        sdram_write(15,x"8f");
+        
+        sdram_read(0,x"0100");
+        cache_line_check(x"8000000",x"0001020304050607");
+        sdram_read(8,x"8988");
+        cache_line_check(x"8000008",x"88898a8b8c8d8e8f");
         
       end if;
     end loop;    
