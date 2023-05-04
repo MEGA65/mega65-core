@@ -491,11 +491,12 @@ begin
             report "Preparing to access HyperRAM";
             -- Prepare request to HyperRAM
             report "CACHE: remembering write to $" & to_hstring(slow_access_address);
-            last_expansionram_write_address <= slow_access_address;
-            last_expansionram_write_data <= slow_access_wdata;
+            if slow_access_write = '1' then
+              last_expansionram_write_address <= slow_access_address;
+              last_expansionram_write_data <= slow_access_wdata;
+            end if;
             expansionram_wdata <= slow_access_wdata;
             expansionram_address <= slow_access_address(26 downto 0);
-            expansionram_wdata <= slow_access_wdata;
             expansionram_read <= not slow_access_write;
             report "setting expansionram_read to " & std_logic'image(not slow_access_write)
               & " ( = not " & std_logic'image(slow_access_write) & ")";
