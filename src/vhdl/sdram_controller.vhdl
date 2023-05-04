@@ -118,6 +118,7 @@ architecture tacoma_narrows of sdram_controller is
   type sdram_state_t is (ACTIVATE_WAIT,
                          ACTIVATE_WAIT_1,
                          ACTIVATE_WAIT_2,
+                         ACTIVATE_WAIT_3,
                          READ_WAIT,
                          READ_WAIT_2,
                          READ_WAIT_3,
@@ -480,6 +481,8 @@ begin
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_1 =>
             sdram_emit_command(CMD_NOP);
+          when ACTIVATE_WAIT_2 =>
+            sdram_emit_command(CMD_NOP);
             if write_latched='1' then
               -- Setup write data early, to handle marginal timing
               -- more safely (saves us needing separate read latch clock)
@@ -488,7 +491,7 @@ begin
               sdram_dqmh <= latched_wen_hi;
               sdram_dqml <= latched_wen_lo;
             end if;
-          when ACTIVATE_WAIT_2 =>
+          when ACTIVATE_WAIT_3 =>
             sdram_emit_command(CMD_NOP);
             if read_latched = '1' then
               report "SDRAM: Issuing READ command after ROW_ACTIVATE";
