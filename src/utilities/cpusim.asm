@@ -12,6 +12,10 @@ foop:
 	ldz #$00
 	MAP
 
+	;; Enable SDRAM cache line use
+	lda #$04
+	sta $d7fe
+	
 	;; Now do some simple accesses
 	ldx #$0f
 loop:	

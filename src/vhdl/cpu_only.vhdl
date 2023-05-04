@@ -446,12 +446,22 @@ begin
                 sdram_array(to_integer(slow_access_address(7 downto 0))) <= slow_access_wdata;
               else
                 slow_access_rdata <= sdram_array(to_integer(slow_access_address(7 downto 0)));
+                -- And prepare cache line
+                for i in 0 to 7 loop
+                  slowram_cache_line(i) <= sdram_array(to_integer(slow_access_address(7 downto 2))*8+i);
+                  report "Loading CACHE line byte " & integer'image(i) & " with $"
+                    & to_hexstring(sdram_array(to_integer(slow_access_address(7 downto 2))*8+i));
+                end loop;
+                slowram_cache_line_valid <= '1';
+                slowram_cache_line_addr <= slow_access_address(26 downto 3);
               end if;
             end if;
           end if;
         end if;
       end if;
-      wait for 3.0864 ns;
+--      wait for 3.0864 ns;
+      -- Make it easier to see where we are upto
+      wait for 1 ns;
 
     end procedure;
 
