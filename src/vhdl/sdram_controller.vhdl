@@ -143,6 +143,7 @@ architecture tacoma_narrows of sdram_controller is
                          REFRESH_7,
                          REFRESH_8,
                          REFRESH_9,
+                         REFRESH_10,
                          NON_RAM_READ,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
@@ -480,7 +481,7 @@ begin
             report "NONRAMACCESS: Presenting value $" & to_hexstring(nonram_val);
           when ACTIVATE_WAIT =>
             sdram_emit_command(CMD_NOP);
-          when ACTIVATE_WAIT_2 =>
+          when ACTIVATE_WAIT_1 =>
             sdram_emit_command(CMD_NOP);
             if write_latched='1' then
               -- Setup write data early, to handle marginal timing
@@ -490,7 +491,7 @@ begin
               sdram_dqmh <= latched_wen_hi;
               sdram_dqml <= latched_wen_lo;
             end if;
-          when ACTIVATE_WAIT_3 =>
+          when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
             if read_latched = '1' then
               report "SDRAM: Issuing READ command after ROW_ACTIVATE";
@@ -587,6 +588,7 @@ begin
             write_latched           <= '0';
             sdram_state <= IDLE;
           when WRITE_PRECHARGE =>            
+            sdram_emit_command(CMD_NOP);
             write_jobs <= write_jobs + 1;
 
             -- Keep written word a cycle longer to help with latching write
@@ -597,9 +599,10 @@ begin
             sdram_dqmh <= latched_wen_hi;
             sdram_dqml <= latched_wen_lo;
             
-          when WRITE_PRECHARGE_2 => null;
-          when WRITE_PRECHARGE_3 => null;
+          when WRITE_PRECHARGE_2 => sdram_emit_command(CMD_NOP);
+          when WRITE_PRECHARGE_3 => sdram_emit_command(CMD_NOP);
           when WRITE_PRECHARGE_4 =>
+            sdram_emit_command(CMD_NOP);
             read_latched  <= '0';
             write_latched <= '0';
             busy          <= '0';
@@ -613,7 +616,8 @@ begin
           when REFRESH_6 => sdram_emit_command(CMD_NOP);
           when REFRESH_7 => sdram_emit_command(CMD_NOP);
           when REFRESH_8 => sdram_emit_command(CMD_NOP);
-          when REFRESH_9 =>
+          when REFRESH_9 => sdram_emit_command(CMD_NOP);
+          when REFRESH_10 =>
             sdram_emit_command(CMD_NOP);
             busy             <= '0';
             sdram_state <= IDLE;
