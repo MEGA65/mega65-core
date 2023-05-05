@@ -476,7 +476,7 @@ begin
               sdram_emit_command(CMD_AUTO_REFRESH);
               sdram_state <= REFRESH_1;
               busy             <= '1';
-            elsif refresh_due='1' and active_row='0' then
+            elsif refresh_due='1' and active_row='1' then
               report "REFRESH is DUE (a row is open, so precharging first)";
               sdram_emit_command(CMD_PRECHARGE);
               sdram_state <= CLOSE_FOR_REFRESH;
