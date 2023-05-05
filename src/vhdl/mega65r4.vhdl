@@ -279,7 +279,7 @@ end container;
 architecture Behavioral of container is
 
   -- Use to select SDRAM or hyperram
-  constant sdram_t_or_hyperram_f : boolean := false;
+  constant sdram_t_or_hyperram_f : boolean := true;
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
