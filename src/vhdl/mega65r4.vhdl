@@ -126,11 +126,11 @@ entity container is
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
---         hr_d : inout unsigned(7 downto 0);
---         hr_rwds : inout std_logic;
---         hr_reset : out std_logic;
---         hr_clk_p : out std_logic;
---         hr_cs0 : out std_logic;
+         hr_d : inout unsigned(7 downto 0);
+         hr_rwds : inout std_logic;
+         hr_reset : out std_logic;
+         hr_clk_p : out std_logic;
+         hr_cs0 : out std_logic;
 
          -- Optional 2nd hyperram in trap-door slot
 --         hr2_d : inout unsigned(7 downto 0);
@@ -278,6 +278,9 @@ end container;
 
 architecture Behavioral of container is
 
+  -- Use to select SDRAM or hyperram
+  constant sdram_t_or_hyperram_f : boolean := true;
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -751,8 +754,55 @@ begin
       
       );
 
+  hyperram0:
+  if not sdram_t_or_hyperram_f generate
+  hr0: entity work.hyperram
+    port map (
+      pixelclock => pixelclock,
+      clock163 => clock162,
+      clock325 => clock325,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+--      request_counter => led,
+
+      viciv_addr => hyper_addr,
+      viciv_request_toggle => hyper_request_toggle,
+      viciv_data_out => hyper_data,
+      viciv_data_strobe => hyper_data_strobe,
+      
+      -- reset => reset_out,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+
+      current_cache_line => current_cache_line,
+      current_cache_line_address => current_cache_line_address,
+      current_cache_line_valid => current_cache_line_valid,     
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
+      
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_p => hr_clk_p,
+--      hr_clk_n => hr_clk_n,
+
+      hr_cs0 => hr_cs0,
+--      hr_cs1 => hr2_cs0,
+
+      hr2_d => open,
+      hr2_rwds => open
+--      hr2_reset => hr2_reset,
+--      hr2_clk_p => hr2_clk_p
+--      hr_clk_n => hr_clk_n,
+      );
+
+  
   sdramctl0:
-  if true generate
+  if sdram_t_or_hyperram_f generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,

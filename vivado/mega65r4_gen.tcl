@@ -188,6 +188,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/fast_divide.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdram_controller.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/hyper_xface.v"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/overlay_IP.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/vfpga_clock_controller_pausable.vhdl"]"\
@@ -661,6 +662,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sdram_controller.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/hyperram.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
