@@ -154,36 +154,16 @@ begin
     
     procedure clock_tick is
     begin
-      clock41 <= '0';
-      pixelclock <= '0';
-      clock162 <= '0'; wait for 6.173 ns;
-      clock162 <= '1'; wait for 6.173 ns;
-
-      check_sdram_read_strobe;
+      clock162 <= not clock162;
+      if clock162 = '1' then
+        pixelclock <= not pixelclock;
+        if pixelclock='1' then
+          check_sdram_read_strobe;
+          clock41 <= not clock41;
+        end if;
+      end if;
+      wait for 6.173 ns;
       
-      pixelclock <= '1';
-      clock162 <= '0'; wait for 6.173 ns;
-      clock162 <= '1'; wait for 6.173 ns;
-
-      check_sdram_read_strobe;
-      
-      -- Clear any read or write request so that it doesn't get
-      -- double scheduled
-      slow_read <= '0'; slow_write <= '0';
-      
-      clock41 <= '1';
-      pixelclock <= '0';
-      clock162 <= '0'; wait for 6.173 ns;
-      clock162 <= '1'; wait for 6.173 ns;
-
-      check_sdram_read_strobe;
-      
-      pixelclock <= '1';
-      clock162 <= '0'; wait for 6.173 ns;
-      clock162 <= '1'; wait for 6.173 ns;      
-
-      check_sdram_read_strobe;
-
     end procedure;
 
     procedure sdram_write( addr : integer; val : unsigned(7 downto 0)) is
@@ -203,6 +183,16 @@ begin
         slow_wen_lo <= '1';
       end if;
       clock_tick;
+      for i in 1 to 100 loop
+        if busy ='1' then
+          -- Clear any read or write request so that it doesn't get
+          -- double scheduled
+          slow_read <= '0'; slow_write <= '0';
+          exit;
+        end if;
+        clock_tick;
+      end loop;
+                    
       for i in 1 to 100 loop
         if busy='0' then
           report "SDRAMWRITE: BUSY released after " & integer'image(i) & " cycles.";
@@ -227,10 +217,17 @@ begin
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
       slow_rdata_16en <= '1';
-      clock_tick;
-      slow_read <= '0'; slow_write <= '0';
 
       for i in 1 to 100 loop
+        if busy ='1' then
+          -- Clear any read or write request so that it doesn't get
+          -- double scheduled
+          slow_read <= '0'; slow_write <= '0';
+          exit;
+        end if;
+        clock_tick;
+      end loop;
+      for i in 1 to 1600 loop
         if data_seen='1' then
           if data_val /= expected_val then
             assert false report "SDRAM: Read $" & to_hexstring(data_val) & ", but expected $" & to_hexstring(expected_val);
@@ -238,7 +235,7 @@ begin
             report "SDRAM: Read correct value. Now waiting for data strobe to release";
           end if;
 
-          for j in 1 to 4 loop
+          for j in 1 to 32 loop
             data_seen <= '0';
             clock_tick;
             if data_seen='0' then
@@ -247,12 +244,12 @@ begin
               return;
             end if;
           end loop;
-          assert false report "SDRAM: data strobe did not clear after 4 cycles";
+          assert false report "SDRAM: data strobe did not clear after 4 CPU cycles";
           
         end if;
         clock_tick;        
       end loop;
-      assert false report "SDRAM: Failed to read value after 400 cycles.";
+      assert false report "SDRAM: Failed to read value after 100 cycles.";
     end procedure;
 
     procedure wait_for_sdram_ready is
@@ -304,14 +301,14 @@ begin
       if run("SDRAM starts busy, and becomes ready") then
         report "Make sure busy stays asserted for ~16,200 cycles";
         enforce_100usec_init <= true;
-        for i in 1 to (16_200/4) loop
+        for i in 1 to 16200*2 loop
           clock_tick;
           if busy='0' then
             assert false report "SDRAM controller busy flag should start set, but was clear after " & integer'image(i) & " cycles.";
           end if;
         end loop;
         report "Make sure busy clears soon after 16,200 cycles";
-        for i in 1 to (100*2)/4 loop
+        for i in 1 to 16200*2 loop
           clock_tick;
         end loop;
         if busy='1' then

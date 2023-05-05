@@ -358,7 +358,7 @@ begin
         read_publish_strobe <= '0';
         report "rdata_line = $" & to_hexstring(rdata_line);
         report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
-        report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf);
+        report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf) & ", silent=" & std_logic'image(silent_read);
         -- When prefetching cache lines, we don't present the output.
         -- I.E., the read is "silent"
         if silent_read='0' then
@@ -469,7 +469,6 @@ begin
         end if;
         case sdram_state is
           when IDLE =>
-            data_ready_strobe_queue <= '0';
             if refresh_due='1' and active_row='0' then
               report "REFRESH is DUE (and no row was open, so triggering immediately)";
               sdram_emit_command(CMD_AUTO_REFRESH);
@@ -546,7 +545,8 @@ begin
                 -- For the common case of DMA copy to or from slow RAM, this
                 -- will be ok. Copying slow to slow will, however be bad.
                 -- So to remedy that, we set a signal to check if the cache
-                -- line can be re-instated.
+                -- line can be re-instated. This prevents use of the cache while
+                -- we are figuring out if the line is still valid.
                 if write_latched='1' then
                   current_cache_line_valid <= '0';
                   current_cache_line_valid_int <= '0';
@@ -560,7 +560,6 @@ begin
             end if;
           when NON_RAM_READ =>
             read_latched            <= '0';
-            write_latched           <= '0';
             data_ready_strobe       <= '1';
             data_ready_strobe_queue <= '1';
             rdata                   <= nonram_val;
