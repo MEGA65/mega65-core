@@ -143,7 +143,6 @@ architecture tacoma_narrows of sdram_controller is
                          REFRESH_7,
                          REFRESH_8,
                          REFRESH_9,
-                         REFRESH_10,
                          NON_RAM_READ,
                          IDLE);
   signal sdram_state : sdram_state_t := IDLE;
@@ -616,8 +615,7 @@ begin
           when REFRESH_6 => sdram_emit_command(CMD_NOP);
           when REFRESH_7 => sdram_emit_command(CMD_NOP);
           when REFRESH_8 => sdram_emit_command(CMD_NOP);
-          when REFRESH_9 => sdram_emit_command(CMD_NOP);
-          when REFRESH_10 =>
+          when REFRESH_9 =>
             sdram_emit_command(CMD_NOP);
             busy             <= '0';
             sdram_state <= IDLE;
