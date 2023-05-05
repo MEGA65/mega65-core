@@ -129,11 +129,9 @@ architecture tacoma_narrows of sdram_controller is
                          READ_PRECHARGE,
                          READ_PRECHARGE_2,
                          READ_PRECHARGE_3,
-                         READ_PRECHARGE_4,
                          WRITE_PRECHARGE,
                          WRITE_PRECHARGE_2,
                          WRITE_PRECHARGE_3,
-                         WRITE_PRECHARGE_4,
                          REFRESH_1,
                          REFRESH_2,
                          REFRESH_3,
@@ -582,7 +580,6 @@ begin
             else
               busy          <= '0';              
             end if;
-          when READ_PRECHARGE_4 =>
             read_latched            <= '0';
             write_latched           <= '0';
             sdram_state <= IDLE;
@@ -599,8 +596,7 @@ begin
             sdram_dqml <= latched_wen_lo;
             
           when WRITE_PRECHARGE_2 => sdram_emit_command(CMD_NOP);
-          when WRITE_PRECHARGE_3 => sdram_emit_command(CMD_NOP);
-          when WRITE_PRECHARGE_4 =>
+          when WRITE_PRECHARGE_3 =>
             sdram_emit_command(CMD_NOP);
             read_latched  <= '0';
             write_latched <= '0';
