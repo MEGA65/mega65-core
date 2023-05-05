@@ -279,7 +279,7 @@ end container;
 architecture Behavioral of container is
 
   -- Use to select SDRAM or hyperram
-  constant sdram_t_or_hyperram_f : boolean := true;
+  constant sdram_t_or_hyperram_f : boolean := false;
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -755,8 +755,8 @@ begin
       );
 
   hyperram0:
-  if not sdram_t_or_hyperram_f generate
-  hr0: entity work.hyperram
+  if (not sdram_t_or_hyperram_f) generate
+  hram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
       clock163 => clock162,
@@ -799,7 +799,7 @@ begin
 --      hr2_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
       );
-
+  end generate;
   
   sdramctl0:
   if sdram_t_or_hyperram_f generate
