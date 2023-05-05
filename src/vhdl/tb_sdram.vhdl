@@ -347,6 +347,36 @@ begin
         sdram_read(2,x"7856");
         sdram_read(4,x"bc9a");
         sdram_read(6,x"f0de");
+      elsif run("Write and read back single bytes from different rows") then
+        wait_for_sdram_ready;
+        sdram_write(0,x"12");
+        sdram_write(1,x"34");
+        sdram_write(2,x"56");
+        sdram_write(3,x"78");
+        sdram_write(4,x"9a");
+        sdram_write(5,x"bc");
+        sdram_write(6,x"de");
+        sdram_write(7,x"f0");
+
+        sdram_write(65536+0,x"80");
+        sdram_write(65536+1,x"81");
+        sdram_write(65536+2,x"82");
+        sdram_write(65536+3,x"83");
+        sdram_write(65536+4,x"84");
+        sdram_write(65536+5,x"85");
+        sdram_write(65536+6,x"86");
+        sdram_write(65536+7,x"87");
+
+        sdram_read(0,x"3412");
+        sdram_read(2,x"7856");
+        sdram_read(4,x"bc9a");
+        sdram_read(6,x"f0de");
+
+        sdram_read(65536+0,x"8180");
+        sdram_read(65536+2,x"8382");
+        sdram_read(65536+4,x"8584");
+        sdram_read(65536+6,x"8786");
+
       elsif run("Cache line correctly populated") then
         wait_for_sdram_ready;
 

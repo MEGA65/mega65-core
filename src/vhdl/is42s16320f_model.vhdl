@@ -459,8 +459,10 @@ begin
                   assert false report "Attempted to trigger refresh from " & state_t'image(state) & " state";
                 when "0100" => -- Precharge select bank
                   delay_cnt <= cas_latency;
+                  state <= IDLE;                  
                 when "0101" => -- Precharge all banks
                   delay_cnt <= cas_latency;
+                  state <= IDLE;                  
                 when "0110" | "0111" => -- Bank + row activate
                   assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                 when "1000" => -- Write

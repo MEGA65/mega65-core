@@ -358,6 +358,7 @@ begin
         read_publish_strobe <= '0';
         report "rdata_line = $" & to_hexstring(rdata_line);
         report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
+        report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf);
         -- When prefetching cache lines, we don't present the output.
         -- I.E., the read is "silent"
         if silent_read='0' then
@@ -365,12 +366,7 @@ begin
           rdata_hi                <= rdata_hi_buf;
           data_ready_strobe       <= '1';
           data_ready_strobe_queue <= '1';
-        else
-          busy          <= '0';              
         end if;
-        read_latched            <= '0';
-        write_latched           <= '0';
-        sdram_state <= IDLE;
       end if;
       if read_complete_strobe='1' then
         read_complete_strobe <= '0';
@@ -475,10 +471,12 @@ begin
           when IDLE =>
             data_ready_strobe_queue <= '0';
             if refresh_due='1' and active_row='0' then
+              report "REFRESH is DUE (and no row was open, so triggering immediately)";
               sdram_emit_command(CMD_AUTO_REFRESH);
               sdram_state <= REFRESH_1;
               busy             <= '1';
             elsif refresh_due='1' and active_row='0' then
+              report "REFRESH is DUE (a row is open, so precharging first)";
               sdram_emit_command(CMD_PRECHARGE);
               sdram_state <= CLOSE_FOR_REFRESH;
               busy             <= '1';
@@ -490,12 +488,14 @@ begin
               else
                 -- Activate the row
                 if active_row='0' then
-                  -- If no active row, then activate one
+                  report "ACTIVATEROW: No row open yet, so opening before read or write";
+                  -- If no active row, then activate one                  
                   sdram_emit_command(CMD_ACTIVATE_ROW);
                   sdram_ba    <= latched_addr(25 downto 24);
                   sdram_a     <= latched_addr(23 downto 11);
                   sdram_state <= ACTIVATE_WAIT;
                 elsif latched_addr(25 downto 11) /= active_row_addr(25 downto 11) then
+                  report "ACTIVATEROW: Closing old row before opening new one required for read or write";
                   -- Different row activated
                   -- Precharge row, then activate the correct row
                   sdram_emit_command(CMD_PRECHARGE);
@@ -504,6 +504,7 @@ begin
                   sdram_state <= CLOSE_AND_SWITCH_ROW;
                 else
                   -- Correct row already activated
+                  report "ACTIVEROW: Correct row is already active";
                   if read_latched = '1' then
                     report "SDRAM: Issuing READ command after ROW_ACTIVATE";
                     sdram_emit_command(CMD_READ);
@@ -662,6 +663,8 @@ begin
           when READ_4 =>
             rdata_line(63 downto 48) <= sdram_dq_latched;
             read_complete_strobe <= '1';
+            read_latched <= '0';
+            busy <= '0';
             sdram_state <= IDLE;
           when CLOSE_FOR_REFRESH => sdram_emit_command(CMD_NOP);            
           when CLOSE_FOR_REFRESH_2 => sdram_emit_command(CMD_NOP);            
