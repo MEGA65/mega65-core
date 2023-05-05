@@ -131,6 +131,8 @@ architecture tacoma_narrows of sdram_controller is
                          READ_2,
                          READ_3,
                          READ_4,
+                         WRITE_1,
+                         WRITE_2,
                          CLOSE_FOR_REFRESH,
                          CLOSE_FOR_REFRESH_2,
                          CLOSE_FOR_REFRESH_3,
@@ -520,21 +522,7 @@ begin
                   end if;
                   if write_latched = '1' then
                     report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
-                    sdram_emit_command(CMD_WRITE);
-                    sdram_a(12)         <= '0';
-                    sdram_a(11)         <= '0';
-                    sdram_a(10)         <= '0';              -- Disable auto precharge
-                    sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-                    sdram_state         <= IDLE;                                         
-                    
-                    -- DQM lines are high to ignore a byte, and low to accept one
-                    sdram_dqmh <= latched_wen_hi;
-                    sdram_dqml <= latched_wen_lo;
-
-                    -- Immediately complete write request if the correct row is
-                    -- already open
-                    busy <= '0';
-                    write_latched <= '0';
+                    sdram_state <= WRITE_1;
                   end if;
                   sdram_dq(7 downto 0)  <= wdata_latched;
                   sdram_dq(15 downto 8) <= wdata_hi_latched;
@@ -609,17 +597,7 @@ begin
             end if;
             if write_latched = '1' then
               report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
-              sdram_emit_command(CMD_WRITE);
-              sdram_a(12)         <= '0';
-              sdram_a(11)         <= '0';
-              sdram_a(10)         <= '0';              -- Disable auto precharge
-              sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-              sdram_state         <= IDLE;  -- wait for precharge after
-                                                       -- single-word write                                             
-
-              -- DQM lines are high to ignore a byte, and low to accept one
-              sdram_dqmh <= latched_wen_hi;
-              sdram_dqml <= latched_wen_lo;
+              sdram_state <= WRITE_1;
             end if;
             sdram_dq(7 downto 0)  <= wdata_latched;
             sdram_dq(15 downto 8) <= wdata_hi_latched;
@@ -665,6 +643,28 @@ begin
             read_latched <= '0';
             busy <= '0';
             sdram_state <= IDLE;
+          when WRITE_1 =>
+            sdram_emit_command(CMD_WRITE);
+            sdram_a(12)         <= '0';
+            sdram_a(11)         <= '0';
+            sdram_a(10)         <= '0';              -- Disable auto precharge
+            sdram_a(9 downto 0) <= latched_addr(10 downto 1);
+
+            sdram_dq(7 downto 0)  <= wdata_latched;
+            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            
+            -- DQM lines are high to ignore a byte, and low to accept one
+            sdram_dqmh <= latched_wen_hi;
+            sdram_dqml <= latched_wen_lo;
+            
+            -- Immediately complete write request if the correct row is
+            -- already open
+            busy <= '0';
+            write_latched <= '0';
+          when WRITE_2 =>
+            sdram_dq(7 downto 0)  <= wdata_latched;
+            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            sdram_state         <= IDLE;                                                     
           when CLOSE_FOR_REFRESH => sdram_emit_command(CMD_NOP);            
           when CLOSE_FOR_REFRESH_2 => sdram_emit_command(CMD_NOP);            
           when CLOSE_FOR_REFRESH_3 => sdram_emit_command(CMD_NOP);            
