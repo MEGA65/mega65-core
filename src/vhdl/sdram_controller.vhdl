@@ -115,7 +115,11 @@ architecture tacoma_narrows of sdram_controller is
   -- SDRAM state machine.  IDLE must be the last in the list,
   -- so that the shallow auto-progression logic can progress
   -- through.
-  type sdram_state_t is (ACTIVATE_WAIT,
+  type sdram_state_t is (CLOSE_AND_SWITCH_ROW,
+                         CLOSE_AND_SWITCH_ROW_2,
+                         CLOSE_AND_SWITCH_ROW_3,
+                         CLOSE_AND_SWITCH_ROW_4,
+                         ACTIVATE_WAIT,
                          ACTIVATE_WAIT_1,
                          ACTIVATE_WAIT_2,
                          READ_WAIT,
@@ -126,12 +130,11 @@ architecture tacoma_narrows of sdram_controller is
                          READ_1,
                          READ_2,
                          READ_3,
-                         READ_PRECHARGE,
-                         READ_PRECHARGE_2,
-                         READ_PRECHARGE_3,
-                         WRITE_PRECHARGE,
-                         WRITE_PRECHARGE_2,
-                         WRITE_PRECHARGE_3,
+                         READ_4,
+                         CLOSE_FOR_REFRESH,
+                         CLOSE_FOR_REFRESH_2,
+                         CLOSE_FOR_REFRESH_3,
+                         CLOSE_FOR_REFRESH_4,
                          REFRESH_1,
                          REFRESH_2,
                          REFRESH_3,
@@ -184,6 +187,11 @@ architecture tacoma_narrows of sdram_controller is
   constant refresh_interval : integer := 1265;
   signal refresh_due : std_logic := '0';
   signal refresh_due_countdown : integer := refresh_interval - 1;
+
+  signal read_complete_strobe : std_logic := '0';
+  signal read_publish_strobe : std_logic := '0';
+  signal active_row : std_logic := '0';
+  signal active_row_addr : unsigned(25 downto 11) := (others => '0');
   
 begin
 
@@ -346,6 +354,37 @@ begin
         end if;
       end if;
 
+      if read_publish_strobe = '1' then
+        read_publish_strobe <= '0';
+        report "rdata_line = $" & to_hexstring(rdata_line);
+        report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
+        -- When prefetching cache lines, we don't present the output.
+        -- I.E., the read is "silent"
+        if silent_read='0' then
+          rdata                   <= rdata_buf;
+          rdata_hi                <= rdata_hi_buf;
+          data_ready_strobe       <= '1';
+          data_ready_strobe_queue <= '1';
+        else
+          busy          <= '0';              
+        end if;
+        read_latched            <= '0';
+        write_latched           <= '0';
+        sdram_state <= IDLE;
+      end if;
+      if read_complete_strobe='1' then
+        read_complete_strobe <= '0';
+        -- We also update the read cache line here
+        for b in 0 to 7 loop
+          current_cache_line(b) <= rdata_line((b*8+7) downto (b*8));
+        end loop;
+        current_cache_line_address(26 downto 3) <= latched_addr(26 downto 3);
+        current_cache_line_valid <= '1';
+        current_cache_line_valid_int <= '1';
+
+        read_publish_strobe <= '1';
+      end if;
+      
       next_toggle_drive <= expansionram_current_cache_line_next_toggle;
       prev_toggle_drive <= expansionram_current_cache_line_prev_toggle;
       
@@ -435,9 +474,13 @@ begin
         case sdram_state is
           when IDLE =>
             data_ready_strobe_queue <= '0';
-            if refresh_due='1' then
+            if refresh_due='1' and active_row='0' then
               sdram_emit_command(CMD_AUTO_REFRESH);
               sdram_state <= REFRESH_1;
+              busy             <= '1';
+            elsif refresh_due='1' and active_row='0' then
+              sdram_emit_command(CMD_PRECHARGE);
+              sdram_state <= CLOSE_FOR_REFRESH;
               busy             <= '1';
             elsif read_latched = '1' or write_latched = '1' then
               if latched_addr(26) = '1' then
@@ -446,10 +489,57 @@ begin
                 sdram_emit_command(CMD_NOP);
               else
                 -- Activate the row
-                sdram_emit_command(CMD_ACTIVATE_ROW);
-                sdram_ba    <= latched_addr(25 downto 24);
-                sdram_a     <= latched_addr(23 downto 11);
-                sdram_state <= ACTIVATE_WAIT;
+                if active_row='0' then
+                  -- If no active row, then activate one
+                  sdram_emit_command(CMD_ACTIVATE_ROW);
+                  sdram_ba    <= latched_addr(25 downto 24);
+                  sdram_a     <= latched_addr(23 downto 11);
+                  sdram_state <= ACTIVATE_WAIT;
+                elsif latched_addr(25 downto 11) /= active_row_addr(25 downto 11) then
+                  -- Different row activated
+                  -- Precharge row, then activate the correct row
+                  sdram_emit_command(CMD_PRECHARGE);
+                  sdram_ba    <= latched_addr(25 downto 24);
+                  sdram_a     <= latched_addr(23 downto 11);
+                  sdram_state <= CLOSE_AND_SWITCH_ROW;
+                else
+                  -- Correct row already activated
+                  if read_latched = '1' then
+                    report "SDRAM: Issuing READ command after ROW_ACTIVATE";
+                    sdram_emit_command(CMD_READ);
+                    -- Select address of start of 8-byte block
+                    -- Each word is 2 bytes, which takes one bit
+                    -- off, and then the bottom two bits must be zero.
+                    sdram_a(12)         <= '0';
+                    sdram_a(11)         <= '0';
+                    sdram_a(10)         <= '0';              -- Disable auto precharge
+                    sdram_a(9 downto 2) <= latched_addr(10 downto 3);
+                    sdram_a(1 downto 0) <= "00";
+                    sdram_state         <= READ_WAIT;
+                    sdram_dqml          <= '0'; sdram_dqmh <= '0';
+                  end if;
+                  if write_latched = '1' then
+                    report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
+                    sdram_emit_command(CMD_WRITE);
+                    sdram_a(12)         <= '0';
+                    sdram_a(11)         <= '0';
+                    sdram_a(10)         <= '0';              -- Disable auto precharge
+                    sdram_a(9 downto 0) <= latched_addr(10 downto 1);
+                    sdram_state         <= IDLE;                                         
+                    
+                    -- DQM lines are high to ignore a byte, and low to accept one
+                    sdram_dqmh <= latched_wen_hi;
+                    sdram_dqml <= latched_wen_lo;
+
+                    -- Immediately complete write request if the correct row is
+                    -- already open
+                    busy <= '0';
+                    write_latched <= '0';
+                  end if;
+                  sdram_dq(7 downto 0)  <= wdata_latched;
+                  sdram_dq(15 downto 8) <= wdata_hi_latched;
+                  
+                end if;
 
                 -- XXX For now we invalidate the cache line on _any_ write
                 -- For the common case of DMA copy to or from slow RAM, this
@@ -476,6 +566,17 @@ begin
             rdata_hi                <= nonram_val;
             sdram_state             <= IDLE;
             report "NONRAMACCESS: Presenting value $" & to_hexstring(nonram_val);
+          when CLOSE_AND_SWITCH_ROW =>
+            -- PRECHARGE has already been issued, so just NOP until precharge
+            -- time expired
+            sdram_emit_command(CMD_NOP);
+          when CLOSE_AND_SWITCH_ROW_2 => sdram_emit_command(CMD_NOP);
+          when CLOSE_AND_SWITCH_ROW_3 => sdram_emit_command(CMD_NOP);
+          when CLOSE_AND_SWITCH_ROW_4 => 
+            -- Now open the new row
+            sdram_emit_command(CMD_ACTIVATE_ROW);
+            sdram_ba    <= latched_addr(25 downto 24);
+            sdram_a     <= latched_addr(23 downto 11);            
           when ACTIVATE_WAIT =>
             sdram_emit_command(CMD_NOP);
           when ACTIVATE_WAIT_1 =>
@@ -490,6 +591,8 @@ begin
             end if;
           when ACTIVATE_WAIT_2 =>
             sdram_emit_command(CMD_NOP);
+            active_row <= '1';
+            active_row_addr(25 downto 11) <= latched_addr(25 downto 11);
             if read_latched = '1' then
               report "SDRAM: Issuing READ command after ROW_ACTIVATE";
               sdram_emit_command(CMD_READ);
@@ -498,7 +601,7 @@ begin
               -- off, and then the bottom two bits must be zero.
               sdram_a(12)         <= '0';
               sdram_a(11)         <= '0';
-              sdram_a(10)         <= '1';              -- Enable auto precharge
+              sdram_a(10)         <= '0';              -- Disable auto precharge
               sdram_a(9 downto 2) <= latched_addr(10 downto 3);
               sdram_a(1 downto 0) <= "00";
               sdram_state         <= READ_WAIT;
@@ -509,9 +612,9 @@ begin
               sdram_emit_command(CMD_WRITE);
               sdram_a(12)         <= '0';
               sdram_a(11)         <= '0';
-              sdram_a(10)         <= '1';              -- Enable auto precharge
+              sdram_a(10)         <= '0';              -- Disable auto precharge
               sdram_a(9 downto 0) <= latched_addr(10 downto 1);
-              sdram_state         <= WRITE_PRECHARGE;  -- wait for precharge after
+              sdram_state         <= IDLE;  -- wait for precharge after
                                                        -- single-word write                                             
 
               -- DQM lines are high to ignore a byte, and low to accept one
@@ -556,53 +659,16 @@ begin
             sdram_emit_command(CMD_NOP);
             rdata_line(47 downto 32) <= sdram_dq_latched;
             -- rdata_line(63 downto 48) <= sdram_dq;
-          when READ_PRECHARGE =>
+          when READ_4 =>
             rdata_line(63 downto 48) <= sdram_dq_latched;
-          when READ_PRECHARGE_2 =>
-            -- Drive stage to allow selection of buffer output
-            -- We also update the read cache line here
-            for b in 0 to 7 loop
-              current_cache_line(b) <= rdata_line((b*8+7) downto (b*8));
-            end loop;
-            current_cache_line_address(26 downto 3) <= latched_addr(26 downto 3);
-            current_cache_line_valid <= '1';
-            current_cache_line_valid_int <= '1';
-          when READ_PRECHARGE_3 =>
-            report "rdata_line = $" & to_hexstring(rdata_line);
-            report "latched_addr bits = " & to_string(std_logic_vector(latched_addr(2 downto 0)));
-            -- When prefetching cache lines, we don't present the output.
-            -- I.E., the read is "silent"
-            if silent_read='0' then
-              rdata                   <= rdata_buf;
-              rdata_hi                <= rdata_hi_buf;
-              data_ready_strobe       <= '1';
-              data_ready_strobe_queue <= '1';
-            else
-              busy          <= '0';              
-            end if;
-            read_latched            <= '0';
-            write_latched           <= '0';
+            read_complete_strobe <= '1';
             sdram_state <= IDLE;
-          when WRITE_PRECHARGE =>            
-            sdram_emit_command(CMD_NOP);
-            write_jobs <= write_jobs + 1;
-
-            -- Keep written word a cycle longer to help with latching write
-            -- data without needing separate read/write clock timing to account
-            -- for skew.
-            sdram_dq(7 downto 0)  <= wdata_latched;
-            sdram_dq(15 downto 8) <= wdata_hi_latched;
-            sdram_dqmh <= latched_wen_hi;
-            sdram_dqml <= latched_wen_lo;
-            
-          when WRITE_PRECHARGE_2 => sdram_emit_command(CMD_NOP);
-          when WRITE_PRECHARGE_3 =>
-            sdram_emit_command(CMD_NOP);
-            read_latched  <= '0';
-            write_latched <= '0';
-            busy          <= '0';
-            sdram_state   <= IDLE;
+          when CLOSE_FOR_REFRESH => sdram_emit_command(CMD_NOP);            
+          when CLOSE_FOR_REFRESH_2 => sdram_emit_command(CMD_NOP);            
+          when CLOSE_FOR_REFRESH_3 => sdram_emit_command(CMD_NOP);            
+          when CLOSE_FOR_REFRESH_4 => sdram_emit_command(CMD_NOP);            
           when REFRESH_1 =>
+            active_row <= '0';
             refresh_due_countdown <= refresh_interval - 1;
           when REFRESH_2 => sdram_emit_command(CMD_NOP);
           when REFRESH_3 => sdram_emit_command(CMD_NOP);
