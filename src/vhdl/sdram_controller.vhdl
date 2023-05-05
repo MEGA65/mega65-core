@@ -167,6 +167,7 @@ architecture tacoma_narrows of sdram_controller is
   signal nonram_val : unsigned(7 downto 0);
 
   signal data_ready_strobe_queue : std_logic := '0';
+  signal data_ready_strobe_queue_2 : std_logic := '0';
 
   signal reactive_cache_line_if_safe : std_logic := '0';
   signal write_targets_cache_line : std_logic := '0';
@@ -276,7 +277,8 @@ begin
       data_ready_strobe <= data_ready_strobe_queue;
       if data_ready_strobe_queue = '1' then
         report "STROBEQUEUE: Asserted. Asserting data_ready_strobe";
-        data_ready_strobe_queue <= '0';
+        data_ready_strobe_queue <= data_ready_strobe_queue_2;
+        data_ready_strobe_queue_2 <= '0';
         busy <= '0';
       end if;
 
@@ -368,6 +370,7 @@ begin
           rdata_hi                <= rdata_hi_buf;
           data_ready_strobe       <= '1';
           data_ready_strobe_queue <= '1';
+          data_ready_strobe_queue_2 <= '1';
         end if;
       end if;
       if read_complete_strobe='1' then
@@ -550,6 +553,7 @@ begin
             read_latched            <= '0';
             data_ready_strobe       <= '1';
             data_ready_strobe_queue <= '1';
+            data_ready_strobe_queue_2 <= '1';
             rdata                   <= nonram_val;
             rdata_hi                <= nonram_val;
             sdram_state             <= IDLE;
