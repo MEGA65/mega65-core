@@ -61,7 +61,8 @@ ENTITY slow_devices IS
     expansionram_rdata : in unsigned(7 downto 0) := x"FF";
     expansionram_wdata : out unsigned(7 downto 0) := x"FF";
     expansionram_address : out unsigned(26 downto 0);
-    expansionram_data_ready_strobe : in std_logic;
+    expansionram_data_ready_strobe : in std_logic := '0';
+    expansionram_data_ready_toggle : in std_logic := '0';
     expansionram_busy : in std_logic;
 
     -- Improve read speed by saving us from having to even enquire of
@@ -168,6 +169,7 @@ architecture behavioural of slow_devices is
 
   signal last_expansionram_write_address : unsigned(27 downto 0) := (others => '1');
   signal last_expansionram_write_data : unsigned(7 downto 0) := x"00";
+  signal last_expansionram_data_ready_toggle : std_logic := '0';
 
   signal opl_we : std_logic := '0';
   signal opl_data : unsigned(7 downto 0) := x"00";
@@ -176,6 +178,7 @@ architecture behavioural of slow_devices is
   signal opl_sc : std_logic;
   signal opl_sc_128 : std_logic;
   
+
   
 begin
 
@@ -285,8 +288,8 @@ begin
         expansionram_eternally_busy <= '0';
       end if;
       
-      report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
-        & std_logic'image(expansionram_data_ready_strobe)
+      report "State = " & slow_state'image(state) & " expansionram_data_ready_toggle = "
+        & std_logic'image(expansionram_data_ready_toggle)
         & ", expansionram_busy = " & std_logic'image(expansionram_busy);
       case state is
         when Idle =>
@@ -524,10 +527,11 @@ begin
           end if;
       when ExpansionRAMReadWait =>
         -- Clear request flags
-        report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_strobe = " & std_logic'image(expansionram_data_ready_strobe) & ").";
+        report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_toggle = " & std_logic'image(expansionram_data_ready_toggle) & ").";
         expansionram_read <= '0';
         expansionram_write <= '0';
-        if expansionram_data_ready_strobe = '1' then
+      if (expansionram_data_ready_strobe='1') or (expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle) then
+          last_expansionram_data_ready_toggle <= expansionram_data_ready_toggle;
           report "Saw data. Switching back to Idle state. byte = $" & to_hstring(expansionram_rdata);
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
@@ -585,7 +589,7 @@ begin
           -- XXX Debug reading from HyperRAM
           slow_access_rdata(5 downto 0) <= expansionram_rdata(5 downto 0);
           slow_access_rdata(6) <= expansionram_busy;
-          slow_access_rdata(7) <= expansionram_data_ready_strobe;
+          slow_access_rdata(7) <= expansionram_data_ready_toggle;
           slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
       end if;

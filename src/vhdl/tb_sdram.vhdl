@@ -33,7 +33,8 @@ architecture test_arch of tb_sdram_controller is
   signal slow_rdata_hi : unsigned(7 downto 0);
   signal slow_rdata_16en : std_logic := '0';
   signal slow_rdata : unsigned(7 downto 0);
-  signal data_ready_strobe : std_logic := '0';
+  signal data_ready_toggle : std_logic := '0';
+  signal last_data_ready_toggle : std_logic := '0';
   signal busy : std_logic;
   signal current_cache_line : cache_row_t := (others => (others => '0'));
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
@@ -112,7 +113,7 @@ begin
         rdata_hi => slow_rdata_hi,
         rdata_16en => slow_rdata_16en,
         rdata => slow_rdata,
-        data_ready_strobe => data_ready_strobe,
+        data_ready_toggle => data_ready_toggle,
         busy => busy,
         current_cache_line => current_cache_line,
         current_cache_line_address => current_cache_line_address,
@@ -144,7 +145,8 @@ begin
     
     procedure check_sdram_read_strobe is
     begin
-      if data_ready_strobe='1' then
+      if data_ready_toggle /= last_data_ready_toggle then
+        last_data_ready_toggle <= data_ready_toggle;
         report "SDRAM data ready strobe seen: read value $" & to_hexstring(slow_rdata_hi) & to_hexstring(slow_rdata);
         data_seen <= '1';
         data_val(7 downto 0) <= slow_rdata;
