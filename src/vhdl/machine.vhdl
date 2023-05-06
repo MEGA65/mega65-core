@@ -1685,7 +1685,6 @@ begin
       
       uartclock => uartclock,
       phi0_1mhz => phi_1mhz,
-      phi0_1mhz_ntsc => phi_1mhz_ntsc,
       reset => reset_combined,
       reset_out => reset_io,
       irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
