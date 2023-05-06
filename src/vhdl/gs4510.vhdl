@@ -1527,6 +1527,8 @@ architecture Behavioural of gs4510 is
   signal cache_line_last_data_read : unsigned(7 downto 0);
   signal prefetch_read_count : integer := 0;
   signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
+
+  signal eth_arrest_count : unsigned(7 downto 0) := x"00";
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2867,33 +2869,7 @@ begin
               value(7 downto 3) := (others => '0');
               return value;
             when x"ff" =>
-              if cache_readback_sel < 8 then
-                return slowram_cache_line(cache_readback_sel);
-              elsif cache_readback_sel = 8 then
-                value(0) := slowram_cache_line_valid;
-                value(3 downto 1) := prev_cache_read;
-                return value;
-              elsif cache_readback_sel = 9 then
-                value(7 downto 3) := slowram_cache_line_addr(7 downto 3);
-                value(2 downto 0) := "000";
-                return value;
-              elsif cache_readback_sel = 10 then
-                return slowram_cache_line_addr(15 downto 8);
-              elsif cache_readback_sel = 11 then
-                return slowram_cache_line_addr(23 downto 16);
-              elsif cache_readback_sel = 12 then
-                value(2 downto 0) := slowram_cache_line_addr(26 downto 24);
-                value(7 downto 3) := "00001";
-                return value;
-              elsif cache_readback_sel = 13 then
-                return to_unsigned(cache_line_reads,8);
-              elsif cache_readback_sel = 14 then
-                return cache_line_last_data_read;
-              elsif cache_readback_sel = 15 then
-                return to_unsigned(prefetch_read_count,8);
-              else
-                return x"ff";
-              end if;
+              return eth_arrest_count;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -9252,6 +9228,10 @@ begin
     if rising_edge(clock) then
 
       report "RISING EDGE CLOCK";
+
+      if ethernet_cpu_arrest='1' then
+        eth_arrest_count <= eth_arrest_count + 1;
+      end if;
       
       report "fastio_rdata = $" & to_hstring(fastio_rdata);
 
