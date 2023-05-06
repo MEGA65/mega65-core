@@ -48,7 +48,7 @@ unsigned char data_buffer[512];
 unsigned char bitstream_magic[16] =
     // "MEGA65BITSTREAM0";
     { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x42, 0x49, 0x54, 0x53, 0x54, 0x52, 0x45, 0x41, 0x4d, 0x30 };
-unsigned char mega65core_magic[7] = { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x00 };
+unsigned char mega65core_magic[6] = { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35 };
 
 unsigned short mb = 0;
 
@@ -812,6 +812,12 @@ models_type models[] = {
   { 0x01, "MEGA65 R1" },
   { 0x02, "MEGA65 R2" },
   { 0x03, "MEGA65 R3" },
+  { 0x04, "MEGA65 R4" },
+  { 0x05, "MEGA65 R5" },
+  { 0x06, "MEGA65 R6" },
+  { 0x07, "MEGA65 R7" },
+  { 0x08, "MEGA65 R8" },
+  { 0x09, "MEGA65 R9" },
   { 0x21, "MEGAphone R1" },
   { 0x22, "MEGAphone R4" },
   { 0x40, "Nexys4" },
@@ -863,10 +869,10 @@ int check_model_id_field(unsigned char megaonly)
 
   // only allow valid cores with MEGA65 as core name
   if (megaonly) {
-    for (x = 0; x < 7; x++)
+    for (x = 0; x < 6; x++)
       if (buffer[0x10 + x] != mega65core_magic[x])
         break;
-    if (x < 7) {
+    if (x < 6) {
       printf("\n%cThis is no valid MEGA65 .COR file!\n\n"
              "Refusing to flash!%c\n",
           0x1c, 0x05);
