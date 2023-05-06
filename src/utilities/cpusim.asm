@@ -1,5 +1,11 @@
 	!to "src/utilities/cpusim.prg", plain
-foop:	
+foop:
+	lda #$00
+	clc
+	adc #$01
+	sec
+	sbc #$02
+	
 	;; MAP some SDRAM to $6000-$7FFF : $8000000+$6000 @ $6000
 	lda #$00
 	ldx #$80

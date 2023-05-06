@@ -1197,8 +1197,6 @@ architecture Behavioural of gs4510 is
   signal a_neg : unsigned(7 downto 0);
 
   signal a_neg_z : std_logic;
-  signal a_add : unsigned(11 downto 0); -- has NVZC flags and result
-  signal a_sub : unsigned(11 downto 0); -- has NVZC flags and result
   
   signal x_incremented : unsigned(7 downto 0);
   signal x_decremented : unsigned(7 downto 0);
@@ -1529,6 +1527,8 @@ architecture Behavioural of gs4510 is
   signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
 
   signal eth_arrest_count : unsigned(7 downto 0) := x"00";
+
+  signal update_add_or_subtract_value : std_logic := '0';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -3838,6 +3838,8 @@ begin
     variable line_x_move_negative : std_logic := '0';
     variable line_y_move : std_logic := '0';
     variable line_y_move_negative : std_logic := '0';
+
+    variable add_result : unsigned(11 downto 0); -- has NVZC flags and result
     
   begin    
     -- Begin calculating results for operations immediately to help timing.
@@ -3859,8 +3861,6 @@ begin
     else
       a_neg_z <= '0';
     end if;
-    a_add <= alu_op_add(reg_a,read_data);
-    a_sub <= alu_op_sub(reg_a,read_data);
 
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
@@ -4273,6 +4273,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      update_add_or_subtract_value <= '0';
+    
       eth_hyperrupt_masked <= eth_hyperrupt and eth_load_enable;
       
       monitor_watch_match <= '0';       -- set if writing to watched address
@@ -6877,8 +6879,8 @@ begin
                   when I_AND => is_load <= '1';
                   when I_ORA => is_load <= '1';
                   when I_EOR => is_load <= '1';
-                  when I_ADC => is_load <= '1';
-                  when I_SBC => is_load <= '1';
+                  when I_ADC => is_load <= '1'; update_add_or_subtract_value <= '1';
+                  when I_SBC => is_load <= '1'; update_add_or_subtract_value <= '1';
                   when I_CMP => is_load <= '1';
                   when I_CPX => is_load <= '1';
                   when I_CPY => is_load <= '1';
@@ -8305,14 +8307,16 @@ begin
                 alu_op_cmp(reg_z,memory_read_value);
               end if;
               if reg_microcode.mcADC='1' and (is_rmw='0') then
-                reg_a <= a_add(7 downto 0);
-                flag_c <= a_add(8);  flag_z <= a_add(9);
-                flag_v <= a_add(10); flag_n <= a_add(11);
+                add_result := alu_op_add(reg_a,memory_read_value);
+                reg_a <= add_result(7 downto 0);
+                flag_c <= add_result(8);  flag_z <= add_result(9);
+                flag_v <= add_result(10); flag_n <= add_result(11);
               end if;
               if reg_microcode.mcSBC='1' and (is_rmw='0') then
-                reg_a <= a_sub(7 downto 0);
-                flag_c <= a_sub(8);  flag_z <= a_sub(9);
-                flag_v <= a_sub(10); flag_n <= a_sub(11);
+                add_result := alu_op_sub(reg_a,memory_read_value);
+                reg_a <= add_result(7 downto 0);
+                flag_c <= add_result(8);  flag_z <= add_result(9);
+                flag_v <= add_result(10); flag_n <= add_result(11);
               end if;
               if reg_microcode.mcAND='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a and memory_read_value);
@@ -9252,7 +9256,7 @@ begin
           & ", but monitorsecure=" & std_logic'image(secure_mode_from_monitor);
         io_settle_delay <= '1';
         -- Stop any active memory writes, so that we don't, for example, keep
-        -- writing to the $D02F key register if we happen to pausse on opening
+        -- writing to the $D02F key register if we happen to pause on opening
         -- VIC-III/IV IO
         memory_access_write := '0';
       elsif io_settle_counter = x"00" then
