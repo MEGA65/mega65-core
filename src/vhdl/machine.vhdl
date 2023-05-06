@@ -654,6 +654,7 @@ architecture Behavioral of machine is
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
   signal phi_1mhz : std_logic := '0';
+  signal phi_1mhz_ntsc : std_logic := '0';
   signal phi_2mhz : std_logic := '0';
   signal phi_3mhz : std_logic := '0';
 
@@ -1252,6 +1253,7 @@ begin
                cpuclock => cpuclock,
 
                phi_1mhz_out => phi_1mhz,
+               phi_1mhz_ntsc_out => phi_1mhz_ntsc,
                phi_2mhz_out => phi_2mhz,
                phi_3mhz_out => phi_3mhz,
 
@@ -1519,7 +1521,7 @@ begin
     port map (
       clk => cpuclock,
 
-      phi_in => phi_1mhz,
+      phi_in_ntsc => phi_1mhz_ntsc,
     
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
@@ -1683,6 +1685,7 @@ begin
       
       uartclock => uartclock,
       phi0_1mhz => phi_1mhz,
+      phi0_1mhz_ntsc => phi_1mhz_ntsc,
       reset => reset_combined,
       reset_out => reset_io,
       irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
