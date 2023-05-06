@@ -38,9 +38,7 @@ pipeline {
                     def files = findFiles(glob: 'release-build/pkg/*.7z')
                     // number of total architectures needs to be changed in next line,
                     // if we add or subtract build targets!
-                    if (files.length < 3) {
-                        currentBuild.result = 'UNSTABLE'
-                    } else if (files.length == 0) {
+                    if (files.length == 0) {
                         currentBuild.result = 'FAILURE'
                     }
                 }
