@@ -70,6 +70,8 @@ done
 
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
+elif [[ ${MODEL} = "mega65r4" ]]; then
+    RM_TARGET="MEGA65R4 boards -- MEGA65 R4 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r2" ]]; then
     RM_TARGET="MEGA65R2 boards -- Limited Testkit (Artix A7 100T FPGA)"
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
