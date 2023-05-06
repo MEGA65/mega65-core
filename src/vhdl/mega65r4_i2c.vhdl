@@ -127,7 +127,7 @@ architecture behavioural of mega65r4_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  type rtc_vals is array (0 to 5) of uint8;
+  type rtc_vals is array (0 to 7) of uint8;
   signal rtc_prev1 : rtc_vals := (others => x"00");
   signal rtc_prev2 : rtc_vals := (others => x"00");  
   
