@@ -59,6 +59,7 @@ entity pixel_driver is
     mono_mode : in std_logic := '0';
     
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
+    phi_1mhz_ntsc_out : out std_logic;
     phi_1mhz_out : out std_logic;
     phi_2mhz_out : out std_logic;
     phi_3mhz_out : out std_logic;
