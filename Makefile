@@ -157,7 +157,7 @@ FREEZER_FILES= \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
-CHECK_CURRENT_TARGETS=check-mega65r3 check-mega65r2 check-nexys4ddr-widget
+CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
 
