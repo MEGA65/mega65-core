@@ -499,7 +499,8 @@ void main(void)
       POKE(0xD610, 0);
 #ifdef STANDALONE
     // in standalone mode we want to be able to flash, so this does not work...
-    goto do_exit;
+    if (atticram_bad)
+      goto do_exit;
 #endif
   }
 
