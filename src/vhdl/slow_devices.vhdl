@@ -61,7 +61,8 @@ ENTITY slow_devices IS
     expansionram_rdata : in unsigned(7 downto 0) := x"FF";
     expansionram_wdata : out unsigned(7 downto 0) := x"FF";
     expansionram_address : out unsigned(26 downto 0);
-    expansionram_data_ready_strobe : in std_logic;
+    expansionram_data_ready_strobe : in std_logic := '0';
+    expansionram_data_ready_toggle : in std_logic := '0';
     expansionram_busy : in std_logic;
 
     -- Improve read speed by saving us from having to even enquire of
@@ -168,6 +169,7 @@ architecture behavioural of slow_devices is
 
   signal last_expansionram_write_address : unsigned(27 downto 0) := (others => '1');
   signal last_expansionram_write_data : unsigned(7 downto 0) := x"00";
+  signal last_expansionram_data_ready_toggle : std_logic := '0';
 
   signal opl_we : std_logic := '0';
   signal opl_data : unsigned(7 downto 0) := x"00";
@@ -176,6 +178,7 @@ architecture behavioural of slow_devices is
   signal opl_sc : std_logic;
   signal opl_sc_128 : std_logic;
   
+
   
 begin
 
@@ -285,8 +288,8 @@ begin
         expansionram_eternally_busy <= '0';
       end if;
       
-      report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
-        & std_logic'image(expansionram_data_ready_strobe)
+      report "State = " & slow_state'image(state) & " expansionram_data_ready_toggle = "
+        & std_logic'image(expansionram_data_ready_toggle)
         & ", expansionram_busy = " & std_logic'image(expansionram_busy);
       case state is
         when Idle =>
@@ -434,7 +437,11 @@ begin
               end if;
               
             else
-              expansionram_read_timeout <= (others => '1');
+              -- Neither HyperRAM nor SDRAM should take longer than this to
+              -- complete a transaction.
+              -- There is a bug in the SDRAM controller at least, that can
+              -- result in a timeout occurring, which has yet to be tracked down.
+              expansionram_read_timeout <= to_unsigned(32,24);
               state <= ExpansionRAMRequest;
             end if;
           elsif slow_access_address(26)='1' then
@@ -491,11 +498,12 @@ begin
             report "Preparing to access HyperRAM";
             -- Prepare request to HyperRAM
             report "CACHE: remembering write to $" & to_hstring(slow_access_address);
-            last_expansionram_write_address <= slow_access_address;
-            last_expansionram_write_data <= slow_access_wdata;
+            if slow_access_write = '1' then
+              last_expansionram_write_address <= slow_access_address;
+              last_expansionram_write_data <= slow_access_wdata;
+            end if;
             expansionram_wdata <= slow_access_wdata;
             expansionram_address <= slow_access_address(26 downto 0);
-            expansionram_wdata <= slow_access_wdata;
             expansionram_read <= not slow_access_write;
             report "setting expansionram_read to " & std_logic'image(not slow_access_write)
               & " ( = not " & std_logic'image(slow_access_write) & ")";
@@ -523,26 +531,34 @@ begin
           end if;
       when ExpansionRAMReadWait =>
         -- Clear request flags
-        report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_strobe = " & std_logic'image(expansionram_data_ready_strobe) & ").";
+      report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_toggle = "
+        & std_logic'image(expansionram_data_ready_toggle) & ").";
         expansionram_read <= '0';
         expansionram_write <= '0';
-        if expansionram_data_ready_strobe = '1' then
-          report "Saw data. Switching back to Idle state. byte = $" & to_hstring(expansionram_rdata);
-          state <= Idle;
-          slow_access_rdata <= expansionram_rdata;
-          slow_access_ready_toggle <= slow_access_request_toggle;
-
-          if slow_access_address(2 downto 0) /= "111" then
-            -- Present the NEXT byte via the fast interface to the CPU
-            report "PREFETCH: Presenting $" & to_hstring(slow_access_address(26 downto 0) + 1)
-              & " = $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1))
-              & " due to slow access read that had to ask HyperRAM for data.";
-            slow_prefetched_address(26 downto 3) <= expansionram_current_cache_line_address;
-            slow_prefetched_address(2 downto 0) <= slow_access_address(2 downto 0)+1;
-            slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1);
-          end if;
-          
+      if (expansionram_data_ready_strobe='1') or (expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle) then
+        last_expansionram_data_ready_toggle <= expansionram_data_ready_toggle;
+        report "Saw data. Switching back to Idle state. byte = $" & to_hstring(expansionram_rdata);
+        state <= Idle;
+        slow_access_rdata <= expansionram_rdata;
+        slow_access_ready_toggle <= slow_access_request_toggle;
+        
+        if slow_access_address(2 downto 0) /= "111" then
+          -- Present the NEXT byte via the fast interface to the CPU
+          report "PREFETCH: Presenting $" & to_hstring(slow_access_address(26 downto 0) + 1)
+            & " = $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1))
+            & " due to slow access read that had to ask HyperRAM for data.";
+          slow_prefetched_address(26 downto 3) <= expansionram_current_cache_line_address;
+          slow_prefetched_address(2 downto 0) <= slow_access_address(2 downto 0)+1;
+          slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1);
         end if;
+      elsif expansionram_read_timeout = to_unsigned(1,24) then
+        -- Read about to timeout from expansion RAM
+        -- So try re-issuing the request
+        expansionram_read <= '1';
+        report "Retrying expansion RAM read";
+        expansionram_write <= '0';
+        expansionram_read_timeout <= to_unsigned(32,24);        
+      end if;
         
       when CartridgePortRequest =>
           report "Starting cartridge port access request, w="
@@ -584,7 +600,7 @@ begin
           -- XXX Debug reading from HyperRAM
           slow_access_rdata(5 downto 0) <= expansionram_rdata(5 downto 0);
           slow_access_rdata(6) <= expansionram_busy;
-          slow_access_rdata(7) <= expansionram_data_ready_strobe;
+          slow_access_rdata(7) <= expansionram_data_ready_toggle;
           slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
       end if;

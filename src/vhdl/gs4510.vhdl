@@ -245,7 +245,7 @@ entity gs4510 is
     colour_ram_cs : out std_logic := '0';
 
     ---------------------------------------------------------------------------
-    -- Slow device access 4GB address space
+    -- Slow device access 256MB address space
     ---------------------------------------------------------------------------
     slow_access_request_toggle : out std_logic := '0';
     slow_access_ready_toggle : in std_logic;
@@ -256,10 +256,18 @@ entity gs4510 is
     slow_access_rdata : in unsigned(7 downto 0);
 
     -- Fast read interface for slow devices linear reading
-    -- (only hyperram)
+    -- (presents only the next available byte)
     slow_prefetched_request_toggle : inout std_logic := '0';
     slow_prefetched_data : in unsigned(7 downto 0) := x"00";
     slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+
+    -- Interface for lower latency reading from slow RAM
+    -- (presents a whole cache line of 8 bytes)
+    slowram_cache_line : in cache_row_t := (others => (others => '0'));
+    slowram_cache_line_valid : in std_logic := '0';
+    slowram_cache_line_addr : in unsigned(26 downto 3) := (others => '0');
+    slowram_cache_line_inc_toggle : out std_logic := '0';
+    slowram_cache_line_dec_toggle : out std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -549,8 +557,12 @@ architecture Behavioural of gs4510 is
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
 
-  signal slow_prefetch_enable : std_logic := '0';
-  signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
+  signal slow_prefetch_enable : std_logic := '1';
+  signal slow_cache_enable : std_logic := '0';
+  signal slow_cache_advance_enable : std_logic := '0';
+  signal prev_cache_read : unsigned(2 downto 0) := "000";
+  signal slowram_cache_line_inc_toggle_int : std_logic := '0';
+  signal slowram_cache_line_dec_toggle_int : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -1184,8 +1196,6 @@ architecture Behavioural of gs4510 is
   signal a_neg : unsigned(7 downto 0);
 
   signal a_neg_z : std_logic;
-  signal a_add : unsigned(11 downto 0); -- has NVZC flags and result
-  signal a_sub : unsigned(11 downto 0); -- has NVZC flags and result
   
   signal x_incremented : unsigned(7 downto 0);
   signal x_decremented : unsigned(7 downto 0);
@@ -1508,6 +1518,16 @@ architecture Behavioural of gs4510 is
   signal trng_valid : std_logic;
   signal trng_enable : std_logic;
   signal trng_out : unsigned(7 downto 0);
+
+  signal cache_readback_sel : integer := 0;
+  signal cache_line_reads : integer := 0;
+  signal cache_line_last_data_read : unsigned(7 downto 0);
+  signal prefetch_read_count : integer := 0;
+  signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
+
+  signal eth_arrest_count : unsigned(7 downto 0) := x"00";
+
+  signal update_add_or_subtract_value : std_logic := '0';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2217,17 +2237,55 @@ begin
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
-        if long_address(26 downto 0) = slow_prefetched_address and slow_prefetch_enable='1' then
-          -- If the slow device interface has correctly guessed the next address
-          -- we want to read from, then use the presented value, and tell the slow
-          -- RAM that we used it, so that it can get the next one ready for us.
-          -- This allows MUCH faster linear reading of the slow device address
-          -- space, which is particularly helpful for accessing the HyperRAM.
-          slow_prefetch_data <= slow_prefetched_data;
+        if long_address(26 downto 3) = slowram_cache_line_addr(26 downto 3)
+          and (slowram_cache_line_valid = '1')
+          and (slow_cache_enable='1') then
+          report "CACHE: Cache line valid and hit: Offset = " & integer'image(to_integer(long_address(2 downto 0)));
+          for i in 0 to 7 loop
+            report "CACHE BYTE " & integer'image(i) & " = $" & to_hexstring(slowram_cache_line(i));
+          end loop;
+          report "slow_prefetch_data set";
+          slow_prefetch_data <= slowram_cache_line(to_integer(long_address(2 downto 0)));
+          cache_line_last_data_read <= slowram_cache_line(to_integer(long_address(2 downto 0)));
+          report "CACHE: Read byte is $" & to_hexstring(slowram_cache_line(to_integer(long_address(2 downto 0))));
+          cache_line_reads <= cache_line_reads + 1;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
           proceed <= '1';
+          accessing_slowram <= '0';
           read_source <= SlowRAMPreFetch;
+          mem_reading <= '1';
+          prev_cache_read <= long_address(2 downto 0);
+          if slow_cache_advance_enable = '1' then
+            if prev_cache_read="110" and long_address(2 downto 0) = "111" then
+              -- Ask for next cache line if reading the last and in asending order
+              slowram_cache_line_inc_toggle <= not slowram_cache_line_inc_toggle_int;
+              slowram_cache_line_inc_toggle_int <= not slowram_cache_line_inc_toggle_int;
+            end if;
+            if prev_cache_read="001" and long_address(2 downto 0) = "000" then
+              -- Ask for next cache line if reading the first byte in descending
+              -- order
+              slowram_cache_line_dec_toggle <= not slowram_cache_line_dec_toggle_int;
+              slowram_cache_line_dec_toggle_int <= not slowram_cache_line_dec_toggle_int;
+            end if;
+          end if;
+        elsif long_address(26 downto 0) = slow_prefetched_address and slow_prefetch_enable='1' then
+          -- If the slow device interface has correctly guessed the next address
+          -- we want to read from, then use the presented value, and tell the slow
+          -- RAM that we used it, so that it can get the next one ready for us.
+          -- This allows faster linear reading of the slow device address
+          -- space, which is particularly helpful for accessing the HyperRAM.
+          -- XXX - On R4 at least, this just returns $FC for any pre-fetched byte???
+          -- (basically its a poor-man's version of the full line cache above)
+          accessing_slowram <= '0';
+          report "slow_prefetch_data set";
+          slow_prefetch_data <= slow_prefetched_data;
+          prefetch_read_count <= prefetch_read_count + 1;
+          wait_states <= x"00";
+          wait_states_non_zero <= '0';
+          proceed <= '1';
+          read_source <= SlowRAMPreFetch;          
+          mem_reading <= '1';
         else
           slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
           slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
@@ -2805,8 +2863,12 @@ begin
             when x"fe" =>
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
-              value(7 downto 2) := (others => '0');
+              value(2) := slow_cache_enable;
+              value(3) := slow_cache_advance_enable;
+              value(7 downto 3) := (others => '0');
               return value;
+            when x"ff" =>
+              return eth_arrest_count;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -2941,7 +3003,8 @@ begin
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
         when SlowRAMPreFetch =>
-          report "reading slow prefetched RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
+          report "reading slow prefetched RAM data. byte is $" & to_hstring(slow_prefetch_data) severity note;
+          report "(last CACHE byte read is $" & to_hexstring(cache_line_last_data_read) & ")";
           return unsigned(slow_prefetch_data);          
         when Unmapped =>
           report "accessing unmapped memory" severity note;
@@ -3486,7 +3549,7 @@ begin
       --| BLK7  | BLK6  | BLK5  | BLK4  | OFF19 | OFF18 | OFF17 | OFF16 |
       --+-------+-------+-------+-------+-------+-------+-------+-------+
       --
-      
+
       -- C65GS extension: Set the MegaByte register for low and high mobies
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
@@ -3774,6 +3837,8 @@ begin
     variable line_x_move_negative : std_logic := '0';
     variable line_y_move : std_logic := '0';
     variable line_y_move_negative : std_logic := '0';
+
+    variable add_result : unsigned(11 downto 0); -- has NVZC flags and result
     
   begin    
     -- Begin calculating results for operations immediately to help timing.
@@ -3795,8 +3860,6 @@ begin
     else
       a_neg_z <= '0';
     end if;
-    a_add <= alu_op_add(reg_a,read_data);
-    a_sub <= alu_op_sub(reg_a,read_data);
 
     x_incremented <= reg_x + 1;
     x_decremented <= reg_x - 1;
@@ -4208,6 +4271,8 @@ begin
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
+
+      update_add_or_subtract_value <= '0';
 
       eth_hyperrupt_masked <= eth_hyperrupt and eth_load_enable;
       
@@ -4649,6 +4714,7 @@ begin
           end if;
         end if;
       else
+
                                         -- Full speed - never pause
         phi_backlog <= 0;
 
@@ -5194,7 +5260,7 @@ begin
       monitor_instruction_strobe <= '0';
 --      report "monitor_instruction_strobe CLEARED";    
 
-                                        -- report "reset = " & std_logic'image(reset) severity note;
+      -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
       if reset_drive='0' or watchdog_reset='1' then
         reset_out <= '0';
@@ -5240,7 +5306,7 @@ begin
             end if;           
           else
             report "Waitstate countdown. wait_states=$" & to_hstring(wait_states);
-            if wait_states /= x"01" then
+            if wait_states /= x"01" and wait_states /= x"00" then
               wait_states <= wait_states - 1;
               wait_states_non_zero <= '1';
             else
@@ -5258,8 +5324,13 @@ begin
           slow_access_write_drive <= '0';
 
           if mem_reading='1' then
---            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
-            mem_reading <= '0';
+
+            if read_source /= SlowRAMPreFetch then
+              report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
+              mem_reading <= '0';
+            else
+              report "preserving mem_reading for SlowRAMPrefetch fast access";
+            end if;
             monitor_mem_reading <= '0';
           end if;
 
@@ -5304,7 +5375,11 @@ begin
                                         -- by triggering the hypervisor.
                                         -- XXX indicate source of hypervisor entry
               reset_cpu_state;
-              state <= TrapToHypervisor;
+              if no_hyppo='0' then
+                state <= TrapToHypervisor;
+              else
+                state <= normal_fetch_state;
+              end if;
             when VectorRead =>
               vector <= vector + 1;
               state <= VectorRead;
@@ -6808,8 +6883,8 @@ begin
                   when I_AND => is_load <= '1';
                   when I_ORA => is_load <= '1';
                   when I_EOR => is_load <= '1';
-                  when I_ADC => is_load <= '1';
-                  when I_SBC => is_load <= '1';
+                  when I_ADC => is_load <= '1'; update_add_or_subtract_value <= '1';
+                  when I_SBC => is_load <= '1'; update_add_or_subtract_value <= '1';
                   when I_CMP => is_load <= '1';
                   when I_CPX => is_load <= '1';
                   when I_CPY => is_load <= '1';
@@ -8211,6 +8286,7 @@ begin
 
               if reg_microcode.mcSetNZ='1' then set_nz(memory_read_value); end if;
               if reg_microcode.mcSetA='1' then
+                report "Setting A from memory_read_value = $" & to_hexstring(memory_read_value);
                 reg_a <= memory_read_value;
               end if;
               if reg_microcode.mcSetX='1' then reg_x <= memory_read_value; end if;
@@ -8235,14 +8311,16 @@ begin
                 alu_op_cmp(reg_z,memory_read_value);
               end if;
               if reg_microcode.mcADC='1' and (is_rmw='0') then
-                reg_a <= a_add(7 downto 0);
-                flag_c <= a_add(8);  flag_z <= a_add(9);
-                flag_v <= a_add(10); flag_n <= a_add(11);
+                add_result := alu_op_add(reg_a,memory_read_value);
+                reg_a <= add_result(7 downto 0);
+                flag_c <= add_result(8);  flag_z <= add_result(9);
+                flag_v <= add_result(10); flag_n <= add_result(11);
               end if;
               if reg_microcode.mcSBC='1' and (is_rmw='0') then
-                reg_a <= a_sub(7 downto 0);
-                flag_c <= a_sub(8);  flag_z <= a_sub(9);
-                flag_v <= a_sub(10); flag_n <= a_sub(11);
+                add_result := alu_op_sub(reg_a,memory_read_value);
+                reg_a <= add_result(7 downto 0);
+                flag_c <= add_result(8);  flag_z <= add_result(9);
+                flag_v <= add_result(10); flag_n <= add_result(11);
               end if;
               if reg_microcode.mcAND='1' and (is_rmw='0') then
                 reg_a <= with_nz(reg_a and memory_read_value);
@@ -8987,7 +9065,7 @@ begin
             temp_address(27 downto 21) := (others => '0');
             temp_address(20 downto 13) := ocean_cart_lo_bank;
           else
-             temp_address(27 downto 16) := x"7FF";
+            temp_address(27 downto 16) := x"7FF";
           end if;            
         end if;
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
@@ -9164,6 +9242,10 @@ begin
     if rising_edge(clock) then
 
       report "RISING EDGE CLOCK";
+
+      if ethernet_cpu_arrest='1' then
+        eth_arrest_count <= eth_arrest_count + 1;
+      end if;
       
       report "fastio_rdata = $" & to_hstring(fastio_rdata);
 
@@ -9184,7 +9266,7 @@ begin
           & ", but monitorsecure=" & std_logic'image(secure_mode_from_monitor);
         io_settle_delay <= '1';
         -- Stop any active memory writes, so that we don't, for example, keep
-        -- writing to the $D02F key register if we happen to pausse on opening
+        -- writing to the $D02F key register if we happen to pause on opening
         -- VIC-III/IV IO
         memory_access_write := '0';
       elsif io_settle_counter = x"00" then
@@ -9237,7 +9319,7 @@ begin
       memory_access_resolve_address := '1';
 
       fastio_addr_var := x"FFFFF";      
-      
+
       case state is
         when VectorRead =>
           report "MEMORY Setting memory_access_address interrupt/trap vector";
@@ -10102,8 +10184,13 @@ begin
   process (read_source, shadow_rdata, read_data_copy)
   begin
     if(read_source = Shadow) then
+      report "read_data from shadow";
       read_data <= shadow_rdata;
+    elsif read_source = SlowRAMPrefetch then
+      report "read_data from SlowRAMPrefetch";
+      read_data <= slow_prefetch_data;
     else
+      report "read_data from read_data_copy";
       read_data <= read_data_copy;
     end if;
   end process;

@@ -412,6 +412,12 @@ begin
             blue_o <= x"00";
             nblue_o <= x"00";
           end if;
+          -- diagonal white line to confirm raster order
+          if x = y then
+            red_o <= x"ff";
+            green_o <= x"ff";
+            blue_o <= x"ff";
+          end if;
           -- Vertical grey and RGB transitions for checking DAC linearity
           if x > 512 and x < 540 then
             red_o <= to_unsigned(y,8);

@@ -79,6 +79,8 @@ entity viciv is
     reset : in std_logic;
 
     dd00_bits : in unsigned(1 downto 0);
+
+    upscale_enable : out std_logic := '0';
     
     -- Touch event to simulate light pen
     touch_x : in unsigned(13 downto 0);
@@ -503,6 +505,7 @@ architecture Behavioral of viciv is
   signal horizontal_filter : std_logic := '1';
   signal pal_simulate : std_logic := '0';
   signal shadow_mask_enable : std_logic := '0';
+  signal upscale_enable_int : std_logic := '0';
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1902,7 +1905,8 @@ begin
           -- Read physical raster MSB and raster compare source flag
 	  fastio_rdata(7) <= vicii_is_raster_source;
           fastio_rdata(6) <= shadow_mask_enable;
-          fastio_rdata(5 downto 4) <= "00";
+          fastio_rdata(5) <= upscale_enable_int;
+          fastio_rdata(4) <= '0';
           fastio_rdata(3 downto 0) <= std_logic_vector(ycounter_drive(11 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
@@ -2085,6 +2089,8 @@ begin
 
     if rising_edge(cpuclock) then
 
+      upscale_enable <= upscale_enable_int;
+      
       interlace_mode <= reg_interlace;
       mono_mode <= reg_mono;
       
@@ -2653,11 +2659,14 @@ begin
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
         -- @IO:GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
+        -- @IO:GS $D053.4 VIC-IV:RESERVED Reserved
+        -- @IO:GS $D053.5 VIC-IV:UPSCALE Enable integrated low-latency (130usec) 720p upscaler
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           -- @IO:GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
           shadow_mask_enable <= fastio_wdata(6);
+          upscale_enable_int <= fastio_wdata(5);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable

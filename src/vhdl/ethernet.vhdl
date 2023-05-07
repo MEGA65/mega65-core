@@ -1552,7 +1552,7 @@ begin  -- behavioural
           end if;
         end if;
 
-      elsif instruction_strobe='1' then
+      elsif instruction_strobe='1' and activity_dump='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
         dumpram_wdata(63 downto 0) <= std_logic_vector(debug_vector(63 downto 0));
         -- dumpram_wdata(63) <= d031_write_toggle; -- find out which instructions
@@ -1578,7 +1578,7 @@ begin  -- behavioural
             end if;
           end if;
         end if;
-      elsif (raster_toggle /= last_raster_toggle) or (badline_toggle /= last_badline_toggle) then
+      elsif ((raster_toggle /= last_raster_toggle) or (badline_toggle /= last_badline_toggle)) and (eth_videostream='1') then
         report "ETHERDUMP: Indicating rasterline advance";
         dumpram_wdata(23 downto 0) <= x"FFFFFF";   -- special marker for raster
                                                    -- information

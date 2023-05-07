@@ -812,6 +812,12 @@ models_type models[] = {
   { 0x01, "MEGA65 R1" },
   { 0x02, "MEGA65 R2" },
   { 0x03, "MEGA65 R3" },
+  { 0x04, "MEGA65 R4" },
+  { 0x05, "MEGA65 R5" },
+  { 0x06, "MEGA65 R6" },
+  { 0x07, "MEGA65 R7" },
+  { 0x08, "MEGA65 R8" },
+  { 0x09, "MEGA65 R9" },
   { 0x21, "MEGAphone R1" },
   { 0x22, "MEGAphone R4" },
   { 0x40, "Nexys4" },
@@ -867,7 +873,7 @@ int check_model_id_field(unsigned char megaonly)
       if (buffer[0x10 + x] != mega65core_magic[x])
         break;
     if (x < 7) {
-      printf("\n%cThis is no valid MEGA65 .COR file!\n\n"
+      printf("\n%cOnly COR with core name 'MEGA65' can be\nflashed into slot 0!\n\n"
              "Refusing to flash!%c\n",
           0x1c, 0x05);
       press_any_key(0, 0);

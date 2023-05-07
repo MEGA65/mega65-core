@@ -157,7 +157,7 @@ FREEZER_FILES= \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
-CHECK_CURRENT_TARGETS=check-mega65r3 check-mega65r2 check-nexys4ddr-widget
+CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
 
@@ -364,6 +364,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VHDLSRCDIR)/hyppo.vhdl \
 			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
 			$(VHDLSRCDIR)/mega65r3_i2c.vhdl \
+			$(VHDLSRCDIR)/mega65r4_i2c.vhdl \
 			$(VHDLSRCDIR)/edid_i2c.vhdl \
 			$(VHDLSRCDIR)/version.vhdl \
 			$(C65VHDL) \
@@ -411,6 +412,7 @@ SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_opl2.vhdl \
 			$(VHDLSRCDIR)/gen_utils.vhdl \
 			$(VHDLSRCDIR)/conversions.vhdl \
+			$(VHDLSRCDIR)/vital.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
@@ -464,8 +466,16 @@ simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VH
 	$(GHDL) -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g cpu_test
 
+simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
+	$(GHDL) -m -g cpu_only
+	$(GHDL) -r -g cpu_only
+
+
 # GHDL with mcode backend for backtraces (PGS special debug version)
-GHDLGCC = /usr/local/bin/ghdl
+GHDLGCC = ghdl
 simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
@@ -942,6 +952,9 @@ $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)
 $(BINDIR)/BRICKUP.M65: $(ACME_DEPEND) $(wildcard $(SRCDIR)/hyppo/*.asm) $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -l src/hyppo/HICKUP.sym -r src/hyppo/HICKUP.rep -I $(SRCDIR)/hyppo -DDEBUG_HYPPO=$(DEBUG_HYPPO) $(SRCDIR)/hyppo/joyflash.asm
 
+$(UTILDIR)/cpusim.prg:	$(ACME_DEPEND) $(UTILDIR)/cpusim.asm
+	$(ACME) --cpu m65 --setpc 0x8100 -l cpusim.sym -r cpusim.rep $(UTILDIR)/cpusim.asm
+
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -998,6 +1011,10 @@ $(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_
 $(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg $(SDCARD_DIR)/ONBOARD.M65
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a200t.prg@50000
+
+$(VHDLSRCDIR)/shadowram-cpusim.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(UTILDIR)/cpusim.prg
+	mkdir -p $(SDCARD_DIR)
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-cpusim.vhdl $(UTILDIR)/cpusim.prg@8100
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000
