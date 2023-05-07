@@ -213,6 +213,8 @@ GS $D051.6 VIC-IV:DBLRR When set, the Raster Rewrite Buffer is only updated ever
 GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
 GS $D052 VIC-IV:FNRASTERLSB Read physical raster position
 GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
+GS $D053.4 VIC-IV:RESERVED Reserved
+GS $D053.5 VIC-IV:UPSCALE Enable integrated low-latency (130usec) 720p upscaler
 GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
 GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
@@ -477,7 +479,7 @@ GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch poi
 GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
 GS $D60C.0-5 UARTMISC:PORTFDDR PMOD port A on FPGA board (DDR)
 GS $D60C.6-7 UARTMISC:PORTFDDR On Screen Keyboard (OSK) Zoom Control Data Direction Register (DDR). Must be set to output to control these features.
-GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
+GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)
 GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)                        
 GS $D60D.1 - Internal 1541 drive reset
 GS $D60D.1 UARTMISC:RST41 Internal 1541 drive reset (1=reset, 0=operate)
