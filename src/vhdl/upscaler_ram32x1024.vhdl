@@ -37,7 +37,7 @@ begin  -- behavioural
       if ena='1' then
         if wea='1' then
           ram(to_integer(unsigned(addra))) <= dina;
-        end if;        
+        end if;
       end if;
     end if;
     if (rising_edge(clkb)) then

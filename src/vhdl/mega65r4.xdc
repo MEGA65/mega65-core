@@ -122,11 +122,11 @@ set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_drain
 
 # Output lines on joysticks allow pulling the joystick lines low on R4
 # However, these pins are also shared with the new DBG header, except for DBG10-11
-set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports dbg[10]] 
-set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]] 
+set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports dbg[10]]
+set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
 
 # Joystick port power control/sensing
-set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable] 
+set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
 set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
 
 
@@ -150,19 +150,19 @@ set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_drai
 # Joystick port B
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
 # DBG6
-set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports fb_down_drain_n] 
+set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports fb_down_drain_n]
 set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVCMOS33} [get_ports fb_up]
 # DBG4
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports fb_up_drain_n] 
+set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports fb_up_drain_n]
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33} [get_ports fb_left]
 # DBG9
-set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports fb_left_drain_n] 
+set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports fb_left_drain_n]
 set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_right]
 # DBG8
-set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports fb_right_drain_n] 
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports fb_right_drain_n]
 set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
 # DBG7
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_drain_n] 
+set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_drain_n]
 
 ##VGA Connector
 
@@ -348,9 +348,9 @@ set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DR
 # Clock duration is 6.17 ns
 #set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
 #set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
-# Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) = 
+# Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) =
 #set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
-# Min = - (trace delay + Th) = ~1ns 
+# Min = - (trace delay + Th) = ~1ns
 #set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
 
 # Adam's better way:
@@ -449,7 +449,7 @@ set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 ## Hyper RAM on trap-door PMOD
 ## Pinout is for one of these: https://github.com/blackmesalabs/hyperram
 ## If no SLEW or DRIVE directive, then reading external hyperram sometimes results in two
-## dummy bytes being read at the start of a read transfer. 
+## dummy bytes being read at the start of a read transfer.
 #set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_clk_p]
 #set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_clk_n]
 #set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr2_d[0]}]
@@ -466,10 +466,10 @@ set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 
 # 80 MHz Hyperram bus
 set hbus_freq_ns   12
-# Set allowable clock drift 
+# Set allowable clock drift
 set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
- 
+
 set hr0_dq_ports    [get_ports hr_d[*]]
 set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins

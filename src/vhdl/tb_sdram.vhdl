@@ -19,7 +19,7 @@ architecture test_arch of tb_sdram_controller is
   constant SDRAM_COL_WIDTH : integer := 10;
   constant SDRAM_DATA_WIDTH : integer := 16;
   constant SDRAM_ADDR_WIDTH : integer := sdram_row_width + sdram_col_width + sdram_bank_width;
-  
+
   signal pixelclock : std_logic := '0';
   signal clock41 : std_logic := '0';
   signal clock162 : std_logic := '0';
@@ -68,7 +68,7 @@ architecture test_arch of tb_sdram_controller is
 
   signal data_seen : std_logic := '0';
   signal data_val : unsigned(15 downto 0);
-  
+
 begin
 
   sdram_model0: entity work.is42s16320f_model
@@ -90,7 +90,7 @@ begin
     udqm => sdram_dqmh,
     enforce_100usec_init => enforce_100usec_init,
     init_sequence_done => init_sequence_done
-  );  
+  );
 
   sdram_controller0 : entity work.sdram_controller
     generic map (
@@ -101,7 +101,7 @@ begin
         clock162 => clock162,
 
         enforce_100us_delay => enforce_100usec_init,
-        
+
         request_counter => open,
         read_request => slow_read,
         write_request => slow_write,
@@ -137,12 +137,12 @@ begin
         sdram_dqmh => sdram_dqmh
 
     );
-  
-  
+
+
   main : process
 
     variable v : unsigned(15 downto 0);
-    
+
     procedure check_sdram_read_strobe is
     begin
       if data_ready_toggle /= last_data_ready_toggle then
@@ -153,7 +153,7 @@ begin
         data_val(15 downto 8) <= slow_rdata_hi;
       end if;
     end procedure;
-    
+
     procedure clock_tick is
     begin
       clock162 <= not clock162;
@@ -165,7 +165,7 @@ begin
         end if;
       end if;
       wait for 6.173 ns;
-      
+
     end procedure;
 
     procedure sdram_write( addr : integer; val : unsigned(7 downto 0)) is
@@ -194,7 +194,7 @@ begin
         end if;
         clock_tick;
       end loop;
-                    
+
       for i in 1 to 100 loop
         if busy='0' then
           report "SDRAMWRITE: BUSY released after " & integer'image(i) & " cycles.";
@@ -203,18 +203,18 @@ begin
         clock_tick;
       end loop;
       assert false report "SDRAMWRITE: SDRAM BUSY flag did not clear after writing";
-      
+
     end procedure;
 
     procedure sdram_read( addr : integer; expected_val : unsigned(15 downto 0)) is
     begin
 
       report "SDRAM_READ: Starting test to read from $" & to_hexstring(to_unsigned(addr,28)) & ", expecting value $" & to_hexstring(expected_val);
-      
+
       if busy='1' then
         assert false report "Attempted to read from SDRAM while BUSY";
       end if;
-      
+
       report "SDRAMREAD: $" & to_hexstring(to_unsigned(addr,28)) & " (looking for $" & to_hexstring(expected_val) & ").";
       slow_address <= to_unsigned(addr,27);
       slow_read <= '1'; slow_write <= '0';
@@ -247,9 +247,9 @@ begin
             end if;
           end loop;
           assert false report "SDRAM: data strobe did not clear after 4 CPU cycles";
-          
+
         end if;
-        clock_tick;        
+        clock_tick;
       end loop;
       assert false report "SDRAM: Failed to read value after 100 cycles.";
     end procedure;
@@ -294,10 +294,10 @@ begin
         end if;
       end loop;
     end procedure;
-      
+
   begin
-    test_runner_setup(runner, runner_cfg);    
-    
+    test_runner_setup(runner, runner_cfg);
+
     while test_suite loop
 
       if run("SDRAM starts busy, and becomes ready") then
@@ -331,7 +331,7 @@ begin
         sdram_read(64*1024*1024+5,x"0000");
         sdram_read(64*1024*1024+6,x"0000");
         -- Read unmapped register
-        sdram_read(64*1024*1024+255,x"4242");                
+        sdram_read(64*1024*1024+255,x"4242");
       elsif run("Write and read back single bytes") then
         wait_for_sdram_ready;
         sdram_write(0,x"12");
@@ -396,15 +396,15 @@ begin
         sdram_write(13,x"8d");
         sdram_write(14,x"8e");
         sdram_write(15,x"8f");
-        
+
         sdram_read(0,x"0100");
         cache_line_check(x"8000000",x"0001020304050607");
         sdram_read(8,x"8988");
         cache_line_check(x"8000008",x"88898a8b8c8d8e8f");
-        
+
       end if;
-    end loop;    
+    end loop;
     test_runner_cleanup(runner);
   end process;
-    
+
 end architecture;

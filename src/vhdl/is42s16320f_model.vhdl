@@ -28,12 +28,12 @@ entity is42s16320f_model is
     clk_en    : in  std_logic;
 
     init_sequence_done : out std_logic := '0';
-    
+
     -- This is a port rather than a generic, so that we can change it during
     -- the execution of tests
     enforce_100usec_init : in boolean := true -- Require 100usec delay on power
                                                -- on before init?
-    
+
   );
 end entity is42s16320f_model;
 
@@ -63,13 +63,13 @@ architecture rtl of is42s16320f_model is
   signal row_addr : unsigned(12 downto 0);
   signal col_addr : unsigned(9 downto 0);
   signal data : unsigned(15 downto 0);
- 
+
   signal clk_period : real := (1_000_000_000.0/real(clock_frequency));
 
   constant cycles_100usec : integer := integer(real(clock_frequency) / 10_000.0);
   signal cycles_elapsed : integer := 0;
   signal elapsed_100usec : std_logic := '0';
-  
+
   type init_state_t is (WAIT_FOR_NOP_01,
                         WAIT_FOR_PRECHARGE_02,
                         WAIT_FOR_NOP_03,
@@ -81,7 +81,7 @@ architecture rtl of is42s16320f_model is
                         WAIT_FOR_NOP_09,
                         INIT_COMPLETE
                         );
-                        
+
   signal init_state : init_state_t := WAIT_FOR_NOP_01;
 
   signal delay_cnt : integer := 0;
@@ -99,9 +99,9 @@ architecture rtl of is42s16320f_model is
   signal write_queue_masks : masks_pipe_t;
   type addr_pipe_t is array (0 to (max_cas_latency+1)) of unsigned(22 downto 0);
   signal write_queue_addr : addr_pipe_t;
-  
+
   signal clk_en_prev : std_logic := '1';
-  
+
 begin
 
   process (clk, reset)
@@ -131,7 +131,7 @@ begin
                     if clock_frequency > 100_000_000 then
                       assert false report "CAS=2 requires clock frequency not exceeding 100MHz";
                     end if;
-      when "011" => cas_latency <= 3 - 1;                    
+      when "011" => cas_latency <= 3 - 1;
                     -- Assumes speed grade -6 or better
                     if clock_frequency > 167_000_000 then
                       assert false report "CAS=3 requires clock frequency not exceeding 167MHz";
@@ -173,7 +173,7 @@ begin
     write_queue_data(0) <= dq;
     write_queue_addr(0)(22 downto 10) <= row_addr;
     write_queue_addr(0)(9 downto 0) <= col_addr;
-  end procedure;  
+  end procedure;
 
   procedure do_write_start is
   begin
@@ -185,9 +185,9 @@ begin
     write_queue_addr(0)(9 downto 0) <= addr(9 downto 0);
     col_addr <= addr(9 downto 0);
   end procedure;
-  
 
-    
+
+
   begin
 
     -- SDRAM command is formed from these four signals
@@ -196,7 +196,7 @@ begin
     cmd(2) := cas;
     cmd(1) := we;
     cmd(0) := addr(10);
-    
+
     if (reset = '1') then
       state <= IDLE;
       clk_en_prev <= clk_en;
@@ -208,8 +208,8 @@ begin
       if write_burst_length=0 then
         write_burst_length <= read_burst_length;
       end if;
-      
-      -- XXX Does col_addr increment while clock is suspended or not?      
+
+      -- XXX Does col_addr increment while clock is suspended or not?
       if col_addr /= "1111111111" then
         col_addr <= col_addr + 1;
       else
@@ -253,7 +253,7 @@ begin
         ram_array(to_integer(write_queue_addr(0)))(15 downto 8) <= write_queue_data(0)(15 downto 8);
         write_queue_masks(0)(1) <= '1';
       end if;
-      
+
       -- Export read data whenever xDQM are low EXCEPT when we might be
       -- asked to do a WRITE, as we need to avoid bus contention with that
       -- case, as the xDQM bits are used to indicate which byte(s) should
@@ -267,11 +267,11 @@ begin
           dq(7 downto 0) <= cas_pipeline(cas_latency - 1)(7 downto 0);
         end if;
       end if;
-      
+
       if delay_cnt /= 0 then
         delay_cnt <= delay_cnt - 1;
       end if;
-      
+
       if burst_remaining = 1 then
         -- End of burst
         burst_remaining <= 0;
@@ -289,7 +289,7 @@ begin
       else
         burst_remaining <= burst_remaining - 1;
       end if;
-            
+
       if enforce_100usec_init then
         if cycles_elapsed < cycles_100usec then
           cycles_elapsed <= cycles_elapsed + 1;
@@ -299,7 +299,7 @@ begin
       else
         elapsed_100usec <= '1';
       end if;
-      
+
       -- Enforce initialisation sequence
       if clk_en_prev='1' then
 
@@ -310,7 +310,7 @@ begin
           & ", ADDR=" & to_string(addr)
           ;
       end if;
-              
+
         case cmd is
           when "0000" => -- Mode Register Set (MRS)
             if init_state = WAIT_FOR_MODE_PROG_08 then
@@ -320,13 +320,13 @@ begin
           when "0001" => -- UNDEFINED
           when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
             if clk_en='0' then
-              -- Self-Refresh                  
+              -- Self-Refresh
             else
               -- CBR Auto-Refresh
               if init_state = WAIT_FOR_AUTOREFRESH_04 then
                 report "leaving init_state = " & init_state_t'image(init_state);
                 init_state <= WAIT_FOR_NOP_05;
-              end if;                
+              end if;
               if init_state = WAIT_FOR_AUTOREFRESH_06 then
                 report "leaving init_state = " & init_state_t'image(init_state);
                 init_state <= WAIT_FOR_NOP_07;
@@ -368,12 +368,12 @@ begin
               init_state <= INIT_COMPLETE;
               init_sequence_done <= '1';
             end if;
-            
+
           when others => null;
         end case;
       end if;
-      
-      
+
+
       if (cs = '1') then
         -- CS is inactive. DSEL command
         -- NOTE that depending on existing state, bursts may continue
@@ -402,9 +402,9 @@ begin
           -- Enter IDLE after tRC
           when MODE_REGISTER_ACCESSING =>
           -- Enter IDLE after 2 clocks
-          when others => null;                
+          when others => null;
         end case;
-        
+
       else
         -- CS is active
         if clk_en_prev='0' then
@@ -419,11 +419,11 @@ begin
                   update_mode_register(addr);
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
                   end if;
-                  delay_cnt <= integer(((tRAS + tXSR) / clk_period) + 0.5);    
+                  delay_cnt <= integer(((tRAS + tXSR) / clk_period) + 0.5);
                 when "0100" => -- Precharge select bank
                   null;
                 when "0101" => -- Precharge all banks
@@ -452,17 +452,17 @@ begin
                   update_mode_register(addr);
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                   assert false report "Attempted to trigger refresh from " & state_t'image(state) & " state";
                 when "0100" => -- Precharge select bank
                   delay_cnt <= cas_latency;
-                  state <= IDLE;                  
+                  state <= IDLE;
                 when "0101" => -- Precharge all banks
                   delay_cnt <= cas_latency;
-                  state <= IDLE;                  
+                  state <= IDLE;
                 when "0110" | "0111" => -- Bank + row activate
                   assert false report "Attempted to activate row from " & state_t'image(state) & " state";
                 when "1000" => -- Write
@@ -516,7 +516,7 @@ begin
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   assert false report "Attempted to trigger refresh during READ";
                 when "0100" => -- Precharge select bank
-                  -- Terminate burst, begin precharging                      
+                  -- Terminate burst, begin precharging
                   delay_cnt <= cas_latency;
                   state <= ROW_ACTIVE;
                 when "0101" => -- Precharge all banks
@@ -525,7 +525,7 @@ begin
                   state <= ROW_ACTIVE;
                 when "0110" | "0111" => -- Bank + row activate
                   -- Terminate burst, begin selecting new row
-                  do_bank_and_row_select;                      
+                  do_bank_and_row_select;
                 when "1000" => -- Write
                   -- Terminate burst, begin write
                   do_write_start;
@@ -616,10 +616,10 @@ begin
                   update_mode_register(addr);
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -648,10 +648,10 @@ begin
                   update_mode_register(addr);
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -674,10 +674,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -697,10 +697,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -720,10 +720,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -746,10 +746,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -769,10 +769,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate
@@ -792,10 +792,10 @@ begin
                 when "0001" => -- UNDEFINED
                 when "0010" | "0011" => -- Self-Refresh ONLY IF CKE has just gone low
                   if clk_en='0' then
-                    -- Self-Refresh                  
+                    -- Self-Refresh
                     else
                   -- CBR Auto-Refresh
-                  end if;                
+                  end if;
                 when "0100" => -- Precharge select bank
                 when "0101" => -- Precharge all banks
                 when "0110" | "0111" => -- Bank + row activate

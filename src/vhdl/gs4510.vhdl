@@ -269,7 +269,6 @@ entity gs4510 is
     slowram_cache_line_inc_toggle : out std_logic := '0';
     slowram_cache_line_dec_toggle : out std_logic := '0';
     
-    
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
     ---------------------------------------------------------------------------
@@ -4274,7 +4273,7 @@ begin
     if rising_edge(clock) and all_pause='0' then
 
       update_add_or_subtract_value <= '0';
-    
+
       eth_hyperrupt_masked <= eth_hyperrupt and eth_load_enable;
       
       monitor_watch_match <= '0';       -- set if writing to watched address

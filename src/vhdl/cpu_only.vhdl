@@ -27,7 +27,7 @@ architecture simulation_top_level of cpu_only is
   signal irq           : std_logic := '1';
   signal nmi           : std_logic := '1';
   signal exrom         : std_logic := '1';
-  signal game          : std_logic := '1'; 
+  signal game          : std_logic := '1';
   signal eth_hyperrupt : std_logic := '1';
 
   signal all_pause : std_logic := '0';
@@ -261,7 +261,7 @@ architecture simulation_top_level of cpu_only is
 
   type ram_t is array (0 to 255) of unsigned(7 downto 0);
   signal sdram_array : ram_t := (others => x"00");
-  
+
 begin
 
   cpu0 : entity work.gs4510
@@ -470,7 +470,7 @@ begin
       if i=16 then
         reset <= '1';
       end if;
-      
+
       clock_tick;
       report "clock162=" & std_logic'image(clock162)
         & ", clock81=" & std_logic'image(clock81)

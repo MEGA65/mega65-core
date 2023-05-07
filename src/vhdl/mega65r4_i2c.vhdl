@@ -28,7 +28,7 @@
 --   0x34 = SSM2518          = Audio amplifier for internal speakers
 --   0x54 = 24LC128-I/ST     = 16KB FLASH
 --                           Uses 16-bit addressing.  We might have to have a
---                           banking regsiter for this.                   
+--                           banking regsiter for this.
 --   0x50 = 24AA025E48T-I/OT = 2Kbit serial EEPROM + UUID for ethernet MAC?
 --                             (lower 128 bytes read/write, upper 128 bytes random values and read-only)
 --                             (last 8 bytes are UUID64, which can be used to derive a 48bit unique MAC address)
@@ -69,7 +69,7 @@ entity mega65r4_i2c is
   generic ( clock_frequency : integer);
   port (
     clock : in std_logic;
-    
+
     -- I2C bus
     sda : inout std_logic;
     scl : inout std_logic;
@@ -77,15 +77,15 @@ entity mega65r4_i2c is
     grove_rtc_present : in std_logic;
     reg_in : in unsigned(7 downto 0);
     val_in : in unsigned(7 downto 0);
-    
+
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
     fastio_write : in std_logic;
     fastio_rdata : out unsigned(7 downto 0);
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_addr : in unsigned(19 downto 0)    
-    
+    fastio_addr : in unsigned(19 downto 0)
+
     );
 end mega65r4_i2c;
 
@@ -100,9 +100,9 @@ architecture behavioural of mega65r4_i2c is
   signal i2c1_busy_last : std_logic := '0';
   signal i2c1_rw : std_logic := '0';
   signal i2c1_rw_internal : std_logic := '0';
-  signal i2c1_error : std_logic := '0';  
+  signal i2c1_error : std_logic := '0';
   signal i2c1_reset : std_logic := '1';
-  signal i2c1_command_en : std_logic := '0';  
+  signal i2c1_command_en : std_logic := '0';
   signal command_en : std_logic := '0';
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -110,7 +110,7 @@ architecture behavioural of mega65r4_i2c is
   signal busy_count : integer range 0 to 255 := 150;
   signal last_busy_count : integer range 0 to 255 := 150;
   signal last_busy : std_logic := '1';
-  
+
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 255) of uint8;
   signal bytes : byte_array := (others => x"00");
@@ -129,8 +129,8 @@ architecture behavioural of mega65r4_i2c is
 
   type rtc_vals is array (0 to 7) of uint8;
   signal rtc_prev1 : rtc_vals := (others => x"00");
-  signal rtc_prev2 : rtc_vals := (others => x"00");  
-  
+  signal rtc_prev2 : rtc_vals := (others => x"00");
+
 begin
 
   i2c1: entity work.i2c_master
@@ -152,9 +152,9 @@ begin
       scl => scl,
       swap => i2c1_swap,
       debug_sda => i2c1_debug_sda,
-      debug_scl => i2c1_debug_scl      
-      ); 
-  
+      debug_scl => i2c1_debug_scl
+      );
+
   process (clock,cs,fastio_read,fastio_addr) is
   begin
 
@@ -178,7 +178,7 @@ begin
 --      end if;
     else
       fastio_rdata <= (others => 'Z');
-    end if; 
+    end if;
 
     if rising_edge(clock) then
 
@@ -202,8 +202,8 @@ begin
           when others => null;
         end case;
       end if;
-      
-      
+
+
       -- Must come first, so state machines below can set delayed_en
       if delayed_en /= 0 then
         report "Waiting for delay to expire: " & integer'image(delayed_en);
@@ -222,8 +222,8 @@ begin
           report "Command latched.";
           command_en <= '0';
         end if;
-      end if;           
-      
+      end if;
+
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         if to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 64 then
@@ -236,31 +236,31 @@ begin
           -- RTC SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 64,8);
 --          report "triggering write to $A2 SRAM area";
-          write_addr <= x"A2";            
+          write_addr <= x"A2";
           write_job_pending <= '1';
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)),8);
         elsif to_integer(fastio_addr(7 downto 0)) >= 220 and to_integer(fastio_addr(7 downto 0)) < 239 then
           -- Audio Amplifier for internal speakers
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 220,8);
           write_addr <= x"68";
-          write_job_pending <= '1';            
+          write_job_pending <= '1';
         elsif fastio_addr(7 downto 0) = x"F0" then
           i2c1_debug_scl <= '0';
           debug_status(0) <= '0';
         elsif fastio_addr(7 downto 0) = x"F1" then
-          i2c1_debug_scl <= '1';          
+          i2c1_debug_scl <= '1';
           debug_status(0) <= '1';
         elsif fastio_addr(7 downto 0) = x"F2" then
           i2c1_debug_sda <= '0';
           debug_status(1) <= '0';
         elsif fastio_addr(7 downto 0) = x"F3" then
-          i2c1_debug_sda <= '1';          
+          i2c1_debug_sda <= '1';
           debug_status(1) <= '1';
         elsif fastio_addr(7 downto 0) = x"F4" then
           i2c1_swap <= '0';
           debug_status(2) <= '0';
         elsif fastio_addr(7 downto 0) = x"F5" then
-          i2c1_swap <= '1';          
+          i2c1_swap <= '1';
           debug_status(2) <= '1';
         elsif fastio_addr(7 downto 0) = x"FE" then
           i2c1_reset <= '0';
@@ -271,7 +271,7 @@ begin
         end if;
         write_val <= fastio_wdata;
       end if;
-      
+
       -- State machine for reading registers from the various
       -- devices.
       last_busy <= i2c1_busy;
@@ -291,17 +291,17 @@ begin
           -- Make sure we really start the job a new each round
           delayed_en <= 1024;
         report "busy_count = " & integer'image(0);
-        end if;        
+        end if;
       end if;
       last_busy_count <= busy_count;
-      
+
       case busy_count is
         -- The body for this case statement can be automatically generated
         -- using src/tools/i2cstatemapper.c
 
         --------------------------------------------------------------------
         -- Start of Auto-Generated Content
-        --------------------------------------------------------------------        
+        --------------------------------------------------------------------
         when 0 =>
 --          report "Serial EEPROM UUID";
           command_en <= '1';
@@ -397,7 +397,7 @@ begin
           end if;
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
-        --------------------------------------------------------------------        
+        --------------------------------------------------------------------
         when 147 =>
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.

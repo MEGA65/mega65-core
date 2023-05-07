@@ -27,8 +27,8 @@ entity upscaler is
     pal_dec_coarse : in std_logic := '0';
     pal_inc_fine : in std_logic := '0';
     pal_dec_fine : in std_logic := '0';
-    
-    
+
+
     -- PAL or NTSC mode
     pal50_select : in std_logic;
 
@@ -73,7 +73,7 @@ architecture hundertwasser of upscaler is
   signal hsync_up : std_logic;
   signal vsync_up : std_logic;
   signal pixelvalid_up : std_logic;
-  
+
   signal write_raster : integer range 0 to 3 := 0;
   signal vsync_in_prev : std_logic := '0';
   signal hsync_in_prev : std_logic := '0';
@@ -85,7 +85,7 @@ architecture hundertwasser of upscaler is
   signal coeff3 : integer range 0 to 256 := 0;
 
   signal upscale_en_int : std_logic := '0';
-  
+
   signal x_count : integer := 0;
   signal y_count : integer := 0;
   signal pal50_int : std_logic := '1';
@@ -129,7 +129,7 @@ architecture hundertwasser of upscaler is
   -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
   -- We have 104.48 or so cycles per frame too many
   -- Well, reducing it by 104 got it to one excess frame 10 minutes, i.e.,
-  -- 1/3000.  That means 
+  -- 1/3000.  That means
   -- signal pal_coarse : unsigned(9 downto 0) := to_unsigned(391,10);
   -- signal pal_fine : unsigned(7 downto 0) := to_unsigned(0,8);
 
@@ -157,7 +157,7 @@ architecture hundertwasser of upscaler is
   signal raster_0_writing_74 : std_logic;
 
   signal reading_raster_0 : std_logic;
-  
+
   signal zero : std_logic := '0';
   signal zerov : std_logic_vector(0 downto 0) := (others => '0');
 
@@ -175,7 +175,7 @@ architecture hundertwasser of upscaler is
   signal last_ntsc_dec_fine_74 : std_logic := '0';
   signal last_ntsc_inc_coarse_74 : std_logic := '0';
   signal last_ntsc_dec_coarse_74 : std_logic := '0';
-  
+
   signal pal_inc_fine_74 : std_logic := '0';
   signal pal_dec_fine_74 : std_logic := '0';
   signal pal_inc_coarse_74 : std_logic := '0';
@@ -185,7 +185,7 @@ architecture hundertwasser of upscaler is
   signal last_pal_dec_fine_74 : std_logic := '0';
   signal last_pal_inc_coarse_74 : std_logic := '0';
   signal last_pal_dec_coarse_74 : std_logic := '0';
-  
+
 
 begin
 
@@ -203,7 +203,7 @@ begin
         dest_clk => clock74p22,
         dest_out => ntsc_dec_fine_74
     );
-  
+
   cdcntsc2 : xpm_cdc_single
     port map (
         src_in => ntsc_inc_coarse,
@@ -218,7 +218,7 @@ begin
         dest_clk => clock74p22,
         dest_out => ntsc_dec_coarse_74
     );
-    
+
   xpm_cdc_single_inst0 : xpm_cdc_single
     port map (
         src_in => pal50_select,
@@ -226,7 +226,7 @@ begin
         dest_clk => clock74p22,
         dest_out => pal50_select_74
     );
-  
+
   xpm_cdc_single_inst2 : xpm_cdc_single
     port map (
         src_in => upscale_en,
@@ -250,7 +250,7 @@ begin
         dest_clk => clock74p22,
         dest_out => frame_start_toggle_74
     );
-  
+
   xpm_cdc_single_inst4 : xpm_cdc_single
     port map (
         src_in => raster_0_writing,
@@ -258,8 +258,8 @@ begin
         dest_clk => clock74p22,
         dest_out => raster_0_writing_74
     );
-  
-  
+
+
   rasterbufs: for i in 0 to 3 generate
     rastbuf0: entity work.upscaler_ram32x1024 port map (
       clka => clock27,
@@ -277,7 +277,7 @@ begin
       unsigned(doutb) => rdata(i)
       );
   end generate;
-  
+
   process (clock27, clock74p22) is
   begin
     if rising_edge(clock27) then
@@ -308,7 +308,7 @@ begin
       else
         raster_0_writing <= '0';
       end if;
-      
+
     end if;
 
     if rising_edge(clock74p22) then
@@ -386,18 +386,18 @@ begin
           pal_coarse <= pal_coarse - 1;
         end if;
       end if;
-      
+
       rdata_buf0 <= rdata(0);
       rdata_buf1 <= rdata(1);
       rdata_buf2 <= rdata(2);
       rdata_buf3 <= rdata(3);
-      
+
       if (target_raster = 0) or (target_raster = 3) then
         reading_raster_0 <= '1';
       else
         reading_raster_0 <= '0';
       end if;
-      
+
       -- Work out the mixture of the raster lines required
       -- Sum of coefficients should always = 256
       case target_raster is
@@ -438,8 +438,8 @@ begin
           coeff2 <= 0;
           coeff3 <= 256 - to_integer(raster_phase(15 downto 8));
       end case;
-      
-      
+
+
       if y_count = 725 then
         vsync_up <= '1';
       end if;
@@ -498,7 +498,7 @@ begin
           x_count <= 0;
           if y_count < (750-1) then
             y_count <= y_count + 1;
-            
+
             raster_phase <= raster_phase + to_integer(raster_phase_add_pal);
             if raster_phase(16) /= last_raster_phase then
               last_raster_phase <= raster_phase(16);
@@ -519,7 +519,7 @@ begin
             raster_phase <= to_unsigned(0,17);
             last_raster_phase <= '0';
             target_raster <= first_read_raster_pal;
-            
+
             pal_raster_counter <= to_unsigned(0,11);
             if vlock_en_74='1' then
               -- Add one cycle for every 8/97 frames
@@ -593,7 +593,7 @@ begin
             if vlock_en_74='1' then
               -- Add one cycle for every 1,141 / 2,619 frames
               if ntsc_frame_counter < 2619 then
-                ntsc_frame_counter <= ntsc_frame_counter + 1;                
+                ntsc_frame_counter <= ntsc_frame_counter + 1;
                 ntsc_frame_counter_1141 <= ntsc_frame_counter_1141 + to_integer(ntsc_fine);
                 if ntsc_frame_counter_1141(12) /= last_ntsc_frame_counter then
                   frame_leap_cycle <= 2;
@@ -644,7 +644,7 @@ begin
         -- Avoid simultaneous read/write glitches on the raster buffer BRAMs
         -- by pointing only the ones we are reading from to the correct cell.
         -- Idle ones point to end of BRAM, which we don't ever write to.
-        read_addr <= (others => (others => '1'));        
+        read_addr <= (others => (others => '1'));
         read_addr(target_raster) <= to_unsigned(0,10);
         read_addr((target_raster + 1) mod 4) <= to_unsigned(0,10);
       elsif (x_count < 1000) and (y_count < 720) then
@@ -665,12 +665,12 @@ begin
                   + to_unsigned(to_integer(rdata_buf2(23 downto 16)) * coeff2,16)(15 downto 8)
                   + to_unsigned(to_integer(rdata_buf3(23 downto 16)) * coeff3,16)(15 downto 8);
       else
-        -- Right shoulder / fly back        
+        -- Right shoulder / fly back
         red_up <= (others => '0');
         green_up <= (others => '0');
         blue_up <= (others => '0');
 
-      end if;      
+      end if;
 
       -- Blank above and below active area of image
       if pal50_int='1' and ((y_count < 20) or (y_count > (720 - 15))) then
@@ -700,11 +700,8 @@ begin
     if upscale_en_int='1' then hsync_out <= hsync_up; else hsync_out <= hsync_in; end if;
     if upscale_en_int='1' then vsync_out <= vsync_up; else vsync_out <= vsync_in; end if;
     if upscale_en_int='1' then pixelvalid_out <= pixelvalid_up; else pixelvalid_out <= pixelvalid_in; end if;
-    
+
   end process;
-  
+
 end hundertwasser;
-  
-    
-    
-    
+

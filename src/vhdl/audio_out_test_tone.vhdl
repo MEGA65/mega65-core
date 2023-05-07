@@ -35,7 +35,7 @@ entity audio_out_test_tone is
 
         invert_sign : in std_logic := '0'; -- switch samples between signed and
                                            -- unsigned for I2S output
-        
+
         pcm_rst     : inout   std_logic;                      -- audio clock reset
         pcm_clk     : inout   std_logic;                      -- audio clock (256Fs = 12.288MHz)
         pcm_clken   : inout   std_logic;                      -- audio clock enable (Fs = 48kHz)
@@ -43,7 +43,7 @@ entity audio_out_test_tone is
         i2s_data_out : out std_logic;
         i2s_bick : out std_logic;
         i2s_lrclk : out std_logic;
-        
+
         audio_left_slow : in std_logic_vector(19 downto 0);
         audio_right_slow : in std_logic_vector(19 downto 0);
         sample_ready_toggle : inout std_logic;
@@ -64,7 +64,7 @@ architecture synth of audio_out_test_tone is
 
   signal pcm_l_int : std_logic_vector(19 downto 0) := (others => '0');
   signal pcm_r_int : std_logic_vector(19 downto 0) := (others => '0');
-  
+
 begin
 
     CLOCK: entity work.audio_clock

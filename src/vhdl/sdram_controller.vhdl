@@ -484,7 +484,7 @@ begin
                 -- Activate the row
                 if active_row = '0' then
                   report "ACTIVATEROW: No row open yet, so opening before read or write";
-                  -- If no active row, then activate one                  
+                  -- If no active row, then activate one
                   sdram_emit_command(CMD_ACTIVATE_ROW);
                   sdram_ba    <= latched_addr(25 downto 24);
                   sdram_a     <= latched_addr(23 downto 11);

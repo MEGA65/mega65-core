@@ -207,7 +207,7 @@ begin
 
   bufg_inter_connect69:
   bufg port map ( I => u_clock69mhz,
-                  O => clock69mhz);  
+                  O => clock69mhz);
 
   bufg_inter_connect74p22:
   bufg port map ( I => u_clock74p22mhz,

@@ -303,7 +303,7 @@ begin  -- behavioural
       when mega65r1 => target_id <= x"01";
       when mega65r2 => target_id <= x"02";
       when mega65r3 => target_id <= x"03";
-      when mega65r4 => target_id <= x"04";                       
+      when mega65r4 => target_id <= x"04";
       -- $20-$3F = MEGAphone/handheld versions
       when megaphoner1 => target_id <= x"21";
       when megaphoner4 => target_id <= x"22";
