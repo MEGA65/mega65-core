@@ -157,6 +157,9 @@ FREEZER_FILES= \
 	$(SDCARD_DIR)/SPRITED.M65 \
 	$(SDCARD_DIR)/ROMLOAD.M65
 
+SDCARD_FILES= \
+	$(SDCARD_DIR)/ETHLOAD.M65
+
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
@@ -172,7 +175,7 @@ format:
 
 .PHONY: FORCE format
 
-freezer_files: $(SDCARD_DIR) $(FREEZER_FILES)
+freezer_files: $(SDCARD_DIR) $(FREEZER_FILES) $(SDCARD_FILES)
 
 $(SDCARD_DIR):
 	mkdir $(SDCARD_DIR)
@@ -238,8 +241,7 @@ firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/ONBOARD.M65 \
-		$(SDCARD_DIR)/C000UTIL.BIN \
-		$(SDCARD_DIR)/ETHLOAD.M65
+		$(SDCARD_DIR)/C000UTIL.BIN
 
 roms:		$(SDCARD_DIR)/CHARROM.M65 \
 		$(SDCARD_DIR)/MEGA65.ROM
