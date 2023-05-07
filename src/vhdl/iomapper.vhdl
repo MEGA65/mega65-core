@@ -2123,7 +2123,7 @@ begin
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D34" | x"D05" =>
+        when x"D04" | x"D14" | x"D24" | x"D34" | x"D05" =>
           leftsid_cs <= ((address(6) and not address(5)) xor address(8)) and lscs_en;
           rightsid_cs <= (((not address(6)) and not address(5)) xor address(8)) and rscs_en;
           frontsid_cs <= ((address(6) and address(5)) xor address(8)) and lscs_en;
@@ -2149,14 +2149,14 @@ begin
         c65uart_cs <= '0';
         report "THUMB: CS consideration for $FFD364x";
         -- $D640-$D64F is thumbnail generator
-        if address(19 downto 4) = x"D364" then
+        if (address(19 downto 4) = x"D364") or (address(19 downto 4) = x"D264") then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else
           thumbnail_cs <= '0';
         end if;
       end if;
-      if address(19 downto 4) = x"D36E" then
+      if (address(19 downto 4) = x"D36E") or (address(19 downto 4) = x"D26E") then
         ethernet_cs <= ethernetcs_en;
       else
         ethernet_cs <= '0';

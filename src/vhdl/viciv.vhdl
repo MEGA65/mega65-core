@@ -589,6 +589,8 @@ architecture Behavioral of viciv is
   signal text_mode : std_logic := '1';
   -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
+  -- -- Enable 256 colours in multicolour text mode
+  signal fullcolour_mcm : std_logic := '0';
   -- -- Extended background colour mode (reduces charset to 64 entries)
   signal extended_background_mode : std_logic := '0';
 
@@ -1334,7 +1336,7 @@ begin
           vicii_ycounter_minus_one,lightpen_x_latch,lightpen_y_latch,irq_rasterx,irq_lightpen,
           mask_rasterx,mask_lightpen,no_raster_buffer_delay,raster_buffer_double_line,
           vicii_is_raster_source,shadow_mask_enable,sprite_h640,vicii_hot_regs_enable,
-          display_row_width,sprite_h640_msbs,glyphs_from_hyperram,
+          display_row_width,sprite_h640_msbs,glyphs_from_hyperram,fullcolour_mcm,
           reg_xcounter_delay,show_render_activity,test_pattern_enable,vga60_select_internal,
           sprite_y_adjust,reg_alpha_delay,sprite_alpha_blend_value,sprite_alpha_blend_enables,
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
@@ -1948,7 +1950,7 @@ begin
           fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
         elsif register_number=99 then
           fastio_rdata(7) <= glyphs_from_hyperram;
-          fastio_rdata(6) <= '0';
+          fastio_rdata(6) <= fullcolour_mcm;
           fastio_rdata(5 downto 4) <= std_logic_vector(display_row_width(9 downto 8));
           fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 24));
         elsif register_number=100 then
@@ -2737,6 +2739,8 @@ begin
           -- @IO:GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
           -- row (MSBs)
           display_row_width(9 downto 8) <= unsigned(fastio_wdata(5 downto 4));
+          -- @IO:GS $D063.6 VIC-IV:FCOLMCM enable 256 colours in multicolour text mode
+          fullcolour_mcm <= fastio_wdata(6);
           -- @IO:GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
           glyphs_from_hyperram <= fastio_wdata(7);
         elsif register_number=100 then
@@ -4795,15 +4799,10 @@ begin
                     paint_mc2 <= x"00";
                     paint_foreground <= x"00";
                   else
-                    if viciii_extended_attributes='1' then
-                      -- multi-colour text mode with full-colour VIC III/IV mode
-                      -- Mask out bit 2, so that people used to the VIC-II behaviour
-                      -- don't get surprised -- but do allow the upper 4 bits
-                      -- to allow selection of more colours.
+                    if fullcolour_mcm='1' then
+                      -- multi-colour text mode with full-colour VIC III/IV feature
                       -- See #571 for more discussion on this
-                      paint_foreground(7 downto 4) <= glyph_colour(7 downto 4);
-                      paint_foreground(3) <= '0';
-                      paint_foreground(2 downto 0) <= glyph_colour(2 downto 0);
+					  paint_foreground <= glyph_colour;
                     else
                       -- multi-colour text mode masks bit 3 of the foreground
                       -- colour to select whether the character is multi-colour or
