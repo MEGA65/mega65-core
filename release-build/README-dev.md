@@ -3,9 +3,14 @@
 
 Target system: ${RM_TARGET}
 
-**WARNING**: This is an **unstable** and **experimental** test core. Please watch
+**WARNING:** This is an **unstable** and **experimental** test core. Please watch
 for files starting with `WARNING` in the archive and read the logs if you want to
 know the test results.
+
+**NOTE:** The `#UNSAFE` tag in the version and the `ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65`
+warning file in the archive refers to the possibility that a untested core *might*
+have a temporary negative effect on your system. But using a JTAG interface you
+are always able to restore your system to a working state.
 
 ## Contents
 
