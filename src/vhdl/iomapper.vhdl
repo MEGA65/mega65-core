@@ -2141,6 +2141,7 @@ begin
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
+          when x"D260" => c65uart_cs <= c65uart_en;
           when x"D360" => c65uart_cs <= c65uart_en;
           when others => c65uart_cs <= '0';
         end case;
@@ -2170,6 +2171,7 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs <= sdcardio_en;
+        when x"D268" => sdcardio_cs <= sdcardio_en;
         when x"D368" => sdcardio_cs <= sdcardio_en;
         when others => sdcardio_cs <= '0';
       end case;
@@ -2178,6 +2180,7 @@ begin
       temp(2 downto 0) := "000";
       case temp(15 downto 0) is
         when x"D168" => sdcardio_cs_fast <= sdcardio_en;
+        when x"D268" => sdcardio_cs_fast <= sdcardio_en;
         when x"D368" => sdcardio_cs_fast <= sdcardio_en;
         when others => sdcardio_cs_fast <= '0';
       end case;
@@ -2187,6 +2190,7 @@ begin
       temp(0) := '0';
       case temp(15 downto 0) is
         when x"D108" => f011_cs <= sdcardio_en;
+        when x"D208" => f011_cs <= sdcardio_en;
         when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
       end case;
@@ -2195,6 +2199,7 @@ begin
       temp(15 downto 0) := unsigned(address(19 downto 4));
       case temp(15 downto 0) is
         when x"D10E" => buffereduart_cs <= sdcardio_en;
+        when x"D20E" => buffereduart_cs <= sdcardio_en;
         when x"D30E" => buffereduart_cs <= sdcardio_en;
         when others => buffereduart_cs <= '0';
       end case;
