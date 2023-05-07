@@ -4,9 +4,15 @@
 # get branch name
 #
 if [[ -n $JENKINS_SERVER_COOKIE ]]; then
-    branch=${BRANCH_NAME}
+  LAST_BUILD=$(cat JENKINS_BUILD_ID)
+  if [[ $BUILD_ID = $LAST_BUILD ]]; then
+    echo "(JENKINS) version for this build already created:"
+    cat JENKINS_BUILD_VERSION
+    exit
+  fi
+  branch=${BRANCH_NAME}
 else
-    branch=`git rev-parse --abbrev-ref HEAD`
+  branch=`git rev-parse --abbrev-ref HEAD`
 fi
 freeze_branch=${branch:0:6}
 #echo ${branch}
@@ -22,8 +28,6 @@ if [ ${branchlen} -gt 13 ] ; then
   echo "${branch_abcde} ${branch_v_pos} ${branch_vwxyz}"
   branch="${branch_abcde}...${branch_vwxyz}"
 fi
-echo ${branch}
-
 
 # ###############################
 # get git-commit and the dirty-flag
@@ -102,3 +106,12 @@ echo "wrote: src/utilities/version.s"
 
 cat assets/matrix_banner.txt | sed -e 's/GITCOMMITID/'"${stringout}"'/g' | src/tools/format_banner bin/matrix_banner.txt 50
 echo "wrote: bin/matrix_banner.txt"
+
+if [[ -n $JENKINS_SERVER_COOKIE ]]; then
+  echo $BUILD_ID > JENKINS_BUILD_ID
+  echo "-------------------------" > JENKINS_BUILD_VERSION
+  echo "internal: ${stringout}" >> JENKINS_BUILD_VERSION
+  echo "freezer:  ${freezerout}" >> JENKINS_BUILD_VERSION
+  echo "file:     ${fileout}" >> JENKINS_BUILD_VERSION
+  echo "-------------------------" >> JENKINS_BUILD_VERSION
+fi
