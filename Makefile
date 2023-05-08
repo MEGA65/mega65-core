@@ -856,7 +856,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
-		--add-source -Ln $*.label --listing $*.list \
+		--add-source -Ln $*.lbl --listing $*.list \
 		--mapfile $*.map $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
@@ -868,7 +868,7 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source -Ln $*.label --listing $*.list \
+		--add-source -Ln $*.lbl --listing $*.list \
 		--mapfile $*.map $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that

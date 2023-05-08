@@ -412,6 +412,10 @@ void hy_opendir(void)
   hy_opendir_sector = fat32_cluster2_sector;
   hy_opendir_sector_in_cluster = 0;
   hy_opendir_offset_in_sector = 0;
+
+  // bring it back by one direntry, so that first advance will increment to correct location
+  hy_opendir_offset_in_sector -= 0x20;
+
 }
 
 struct m65_dirent hy_dirent;
@@ -463,6 +467,7 @@ void copy_vfat_chars_into_dname(unsigned char* dirent, char* dname, int seqnumbe
 
 struct m65_dirent *hy_readdir(void)
 {
+  int k;
   int retVal = 0;
   int vfatEntry = 0;
   int firstTime;
@@ -471,9 +476,6 @@ struct m65_dirent *hy_readdir(void)
   unsigned char *dirent;
   unsigned char j;
   unsigned char found = 0;
-
-  // bring it back by one direntry, so that first advance will increment to correct location
-  hy_opendir_offset_in_sector -= 0x20;
 
   while (!found) {
     retVal = advance_to_next_entry();
@@ -505,10 +507,15 @@ struct m65_dirent *hy_readdir(void)
         copy_vfat_chars_into_dname(dirent, hy_dirent.d_name, seqnumber);
         advance_to_next_entry();
 
+        // Get DOS directory entry and populate
+        dirent = &buffer[hy_opendir_offset_in_sector];
+
         // if next dirent is not a vfat entry, break out
         if (dirent[0x0b] != 0x0f)
           break;
       } while (seqnumber != 1);
+      // printf("vfat = '%s'\n", hy_dirent.d_name);
+      // press_any_key(0,0);
     }
 
     // ignore any vfat files starting with '.' (such as mac osx '._*' metadata files)
@@ -522,6 +529,7 @@ struct m65_dirent *hy_readdir(void)
     if (deletedEntry) {
       hy_dirent.d_name[0] = 0;
       vfatEntry = 0;
+      deletedEntry = 0;
       continue;
     }
 
@@ -546,10 +554,16 @@ struct m65_dirent *hy_readdir(void)
         hy_dirent.d_name[9 + j] = dirent[8 + j];
       hy_dirent.d_name[12] = 0;
     }
+    else {
+      found = 1;  // if vfat, let this dos8.3 dirent equate to the vfat item
+    }
 
     if (hy_dirent.d_name[0] && hy_dirent.d_name[0] != 0xe5)
       found = 1;
 
+    // for (k = 0; k < 16; k++)
+    //   printf("%02x ", dirent[k]);
+    // printf("\n\n");
   }
 
   if (found)
@@ -745,13 +759,33 @@ unsigned char select_bitstream_file(void)
   dirent = hy_readdir();
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
     j = strlen(dirent->d_name) - 4;
+    printf("found = %s\n", dirent->d_name);
+    if (j >=0 ) {
+      printf("right = '%s'\n", &dirent->d_name[j]);
+        for (z = 0; z < 4; z++)
+          printf("%02x ", dirent->d_name[j+z]);
+        printf("\n");
+      if (!strncmp(&dirent->d_name[j], ".cor", 4) ||
+          (*&dirent->d_name[j] == 0x2e &&
+           *&dirent->d_name[j+1] == 0x63 &&
+           *&dirent->d_name[j+2] == 0x6f &&
+           *&dirent->d_name[j+3] == 0x72)) {
+        printf("IS A CORE!\n");
+      }
+    }
+    //press_any_key(0,0);
     if (j >= 0) {
       // don't show filenames with _ or ~ as first char
       // only select files ending in .COR
       if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f) &&
-          ((!strncmp(&dirent->d_name[j], ".COR", 4)) ||
-           (!strncmp(&dirent->d_name[j], ".cor", 4)))) {
+          ((!strncmp(&dirent->d_name[j], ".cor", 4)) ||
+            (*&dirent->d_name[j] == 0x2e &&
+             *&dirent->d_name[j+1] == 0x63 &&
+             *&dirent->d_name[j+2] == 0x6f &&
+             *&dirent->d_name[j+3] == 0x72))) {
         // File is a core
+        printf("is a core!\n");
+        press_any_key(0,0);
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
         file_count++;
