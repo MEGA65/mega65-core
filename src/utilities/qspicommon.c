@@ -664,7 +664,7 @@ char *diskchooser_instructions = "  SELECT FLASH FILE, THEN PRESS RETURN  "
 #define HIGHLIGHT_ATTR 0x21
 #define NORMAL_ATTR 0x01
 
-char disk_name_return[32];
+char disk_name_return[64];
 
 unsigned char joy_to_key_disk[32] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0d,         // With fire pressed
@@ -697,8 +697,8 @@ void draw_file_list(void)
       // Real line
       lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 64);
 
-      for (x = 0; x < 20; x++) {
-        if ((name[x] >= 'A' && name[x] <= 'Z') || (name[x] >= 'a' && name[x] <= 'z'))
+      for (x = 0; x < 40; x++) {
+        if ((name[x] >= 0x61 && name[x] <= 0x7a) || (name[x] >= 'a' && name[x] <= 'z'))
           POKE(addr + x, name[x] & 0x1f);
         else
           POKE(addr + x, name[x]);
@@ -711,7 +711,7 @@ void draw_file_list(void)
     }
     if ((display_offset + i) == selection_number) {
       // Highlight the row
-      lfill(COLOUR_RAM_ADDRESS + (i * 40), HIGHLIGHT_ATTR, 20);
+      lfill(COLOUR_RAM_ADDRESS + (i * 40), HIGHLIGHT_ATTR, 40);
     }
     addr += (40 * 1);
   }
@@ -759,20 +759,6 @@ unsigned char select_bitstream_file(void)
   dirent = hy_readdir();
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
     j = strlen(dirent->d_name) - 4;
-    printf("found = %s\n", dirent->d_name);
-    if (j >=0 ) {
-      printf("right = '%s'\n", &dirent->d_name[j]);
-        for (z = 0; z < 4; z++)
-          printf("%02x ", dirent->d_name[j+z]);
-        printf("\n");
-      if (!strncmp(&dirent->d_name[j], ".cor", 4) ||
-          (*&dirent->d_name[j] == 0x2e &&
-           *&dirent->d_name[j+1] == 0x63 &&
-           *&dirent->d_name[j+2] == 0x6f &&
-           *&dirent->d_name[j+3] == 0x72)) {
-        printf("IS A CORE!\n");
-      }
-    }
     //press_any_key(0,0);
     if (j >= 0) {
       // don't show filenames with _ or ~ as first char
@@ -784,8 +770,6 @@ unsigned char select_bitstream_file(void)
              *&dirent->d_name[j+2] == 0x6f &&
              *&dirent->d_name[j+3] == 0x72))) {
         // File is a core
-        printf("is a core!\n");
-        press_any_key(0,0);
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
         file_count++;
@@ -850,9 +834,9 @@ unsigned char select_bitstream_file(void)
       }
 
       // Copy name out
-      lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
+      lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 64);
       // Then null terminate it
-      for (x = 31; x && disk_name_return[x] == ' '; x--)
+      for (x = 63; x && disk_name_return[x] == ' '; x--)
         disk_name_return[x] = 0;
       return 2;
 
