@@ -2822,7 +2822,9 @@ begin
                           
             when x"ef" =>
               -- @IO:GS $D7EF CPU:RAND Hardware random number generator
-              trng_consume_toggle <= not trng_consume_toggle;
+              if trng_consume_toggle = trng_consume_toggle_last then
+                trng_consume_toggle <= not trng_consume_toggle;
+              end if;
               return next_trng;
             when x"f0" =>
               return reg_cycle_counter;
