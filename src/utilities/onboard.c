@@ -633,6 +633,9 @@ void main(void)
         else
           lpoke(0xffd6e21, 0x00);
 
+        // Enforce lfn support now
+        lpoke (0xffd6e0f, 0x80);
+
         // Write onboarding complete byte
         lpoke(0xffd6e0e, 0x80);
 
