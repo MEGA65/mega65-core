@@ -1,4 +1,4 @@
-open_hw
+open_hw_manager
 connect_hw_server
 open_hw_target
 create_hw_cfgmem -hw_device [lindex [get_hw_devices xc7a100t_0] 0] [lindex [get_cfgmem_parts {s25fl128sxxxxxx0-spi-x1_x2_x4}] 0]
