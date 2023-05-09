@@ -451,10 +451,3 @@ set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
 set_clock_groups -asynchronous \
      -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
      -group { u_clock50 u_clock200}
-
-
-# NEOTRNG exceptions
-set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
-set_disable_timing cpu0i_10/trng0/i_1/i_6 -from B -to Z
-set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from A -to Z
-set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from B -to Z
