@@ -32,10 +32,11 @@ use unisim.vcomponents.all;
 
 entity serialiser_10to1_selectio is
     port (
-        rst     : in    std_logic;                      -- reset
-        clk     : in    std_logic;                      -- parallel data clcok
         clk_x10 : in    std_logic;                      -- serialiser DDR clock
         d       : in    std_logic_vector(9 downto 0);   -- input parallel data
+        out_u_p   : out   std_logic;                    -- output serial data
+                                                        -- unbuffered
+        out_u_n   : out   std_logic;                    -- "
         out_p   : out   std_logic;                      -- output serial data
         out_n   : out   std_logic                       -- "
     );
@@ -51,7 +52,7 @@ architecture synth of serialiser_10to1_selectio is
   
 begin
 
-  process (clk_x10,d,clk)
+  process (clk_x10,d)
   begin
     if rising_edge(clk_x10) then
       if TMDS_shift_load='1' then
@@ -71,7 +72,10 @@ begin
       end if;
     end if;
   end process;
-      
+
+  out_u_p <= q;
+  out_u_n <= not q;
+  
   -- differential output buffer
   U_OBUF: obufds
     port map (

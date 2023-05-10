@@ -1,11 +1,70 @@
 
 # Changelog
 
-## Release 0.95 (commit hash tbd)
+Please look into [mega65-core](https://github.com/MEGA65/mega65-core/)
+for a complete changelog.
 
-This is the Batch 2 Release (October 2022). Please look into
-[mega65-core](https://github.com/MEGA65/mega65-core/issues) for a
-complete changelog.
+## Release 0.96 (commit hash tbd)
+
+This is the Batch 3 Release (August 2023). All issues with a star '*'
+are not yet finished.
+
+ - MEGAFLASH - more secure Slot 0 flashing
+   [#625](https://github.com/MEGA65/mega65-core/issues/625)*
+ - Cartridge handling (fix Ultimax mode)
+   [#684](https://github.com/MEGA65/mega65-core/issues/684)*
+   [#683](https://github.com/MEGA65/mega65-core/issues/683)*
+ - Mouse 1351 jumps
+   [#694](https://github.com/MEGA65/mega65-core/issues/694)
+ - wrong VIC-II multicolour colours
+   [#571](https://github.com/MEGA65/mega65-core/issues/571)
+   [PR#657](https://github.com/MEGA65/mega65-core/issues/657)
+ - missing pixel lines
+   [#671](https://github.com/MEGA65/mega65-core/issues/671)
+   [#681](https://github.com/MEGA65/mega65-core/issues/681)
+   [#682](https://github.com/MEGA65/mega65-core/issues/682)
+ - C65 VIC bug compability flag
+   [#685](https://github.com/MEGA65/mega65-core/issues/685)
+ - double vertical resolution for fonts in Y200 mode
+   [#678](https://github.com/MEGA65/mega65-core/issues/678)
+ - RRB row masking
+   [#340](https://github.com/MEGA65/mega65-core/issues/340)
+ - Audio DMA distortion fixes
+   [#651](https://github.com/MEGA65/mega65-core/issues/651)*
+ - Keyboard test info about cursor key behaviour
+   [#649](https://github.com/MEGA65/mega65-core/issues/649)
+ - new Development setup using Jenkins and Dockers
+ - upgrade to Vivado 2022.2
+ - new target MEGAphone R4 (WiP)
+ - new target MEGA65R4 (WiP)
+ - new target QMTech (WiP)
+   [PR#650](https://github.com/MEGA65/mega65-core/pull/650)
+   [#642](https://github.com/MEGA65/mega65-core/issues/642)*
+ - SD-Card related fixes
+   [#643](https://github.com/MEGA65/mega65-core/issues/643)
+   [#646](https://github.com/MEGA65/mega65-core/issues/646)
+   [PR#647](https://github.com/MEGA65/mega65-core/pull/647)
+   [#669](https://github.com/MEGA65/mega65-core/issues/669)
+ - Documentation
+   [#639](https://github.com/MEGA65/mega65-core/issues/639)
+ - Plumbing for Composite Video board
+   [#638](https://github.com/MEGA65/mega65-core/issues/638)*
+ - MK-II Keyboard support for 100T boards and Nexys
+   [#637](https://github.com/MEGA65/mega65-core/issues/637)
+ - Hyppo All-RAM access (ROMLOAD, fonts)
+   [#634](https://github.com/MEGA65/mega65-core/issues/634)
+   [#676](https://github.com/MEGA65/mega65-core/issues/676)
+ - Ethernet changes -  EtherLoad capability
+   [#565](https://github.com/MEGA65/mega65-core/issues/565)
+   [#633](https://github.com/MEGA65/mega65-core/issues/633)*
+   [#636](https://github.com/MEGA65/mega65-core/issues/636)*
+   [#673](https://github.com/MEGA65/mega65-core/issues/673)*
+   [#693](https://github.com/MEGA65/mega65-core/issues/693)*
+   [#696](https://github.com/MEGA65/mega65-core/issues/696)*
+
+## Release 0.95 (commit hash 93d55f0)
+
+This is the Batch 2 Release (October 2022).
 
  - MEGAFLASH/jtagflash security fixes
    [#589](https://github.com/MEGA65/mega65-core/issues/589)

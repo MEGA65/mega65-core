@@ -9,6 +9,7 @@ use work.debugtools.all;
 entity mouse_input is
   port (
     clk : in std_logic;
+    phi_in_ntsc : in std_logic;
 
     amiga_mouse_enable_a : in std_logic;
     amiga_mouse_enable_b : in std_logic;
@@ -342,10 +343,8 @@ begin
         potb_y <= potb_y_internal;
       end if;
 
-      -- Assumes 50MHz clock
-      if phi_counter < 49 then
-        phi_counter <= phi_counter + 1;
-      else
+      -- At ~1MHz C64 bus clock
+      if phi_in_ntsc='1' then
         phi_counter <= 0;
         if pot_counter < 513 then
           pot_counter <= pot_counter + 1;

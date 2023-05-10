@@ -18,11 +18,17 @@ targetspecific_setup:
 	lda $d629
 	cmp #$03
 	beq mega65r3_i2c_setup
+	cmp #$04
+	beq mega65r4_i2c_setup
 	lda $d629
 	cmp #$20
 	beq megaphone_r1_i2c_setup
 	rts
-	
+
+mega65r4_i2c_setup:
+	;; XXX - Add setup for MEGA65R4 board here
+	rts
+
 mega65r3_i2c_setup:	
 
         lda #>$7100

@@ -64,9 +64,8 @@ void main(void)
            "\n"
            "Without JTAG to rescue your system, it\n"
            "is not recommended to flash slot 0!\n"
-           "\n"
-           "ABORT\n");
-    return;
+           "\n");
+    press_any_key(1,0);
   }
 
   printf("%c\njtagflash Version\n  %s\n", 0x93, utilVersion);

@@ -213,6 +213,8 @@ GS $D051.6 VIC-IV:DBLRR When set, the Raster Rewrite Buffer is only updated ever
 GS $D051.7 VIC-IV:NORRDEL When clear, raster rewrite double buffering is used
 GS $D052 VIC-IV:FNRASTERLSB Read physical raster position
 GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
+GS $D053.4 VIC-IV:RESERVED Reserved
+GS $D053.5 VIC-IV:UPSCALE Enable integrated low-latency (130usec) 720p upscaler
 GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
 GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
@@ -242,6 +244,7 @@ GS $D061 VIC-IV:SCRNPTRMSB screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV:SCRNPTRBNK screen RAM precise base address (bits 23 - 16)
 GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 31 - 24)
 GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
+GS $D063.6 VIC-IV:FCOLMCM enable 256 colours in multicolour text mode
 GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
 GS $D064 VIC-IV:COLPTRLSB colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV:COLPTRMSB colour RAM base address (bits 15 - 8)
@@ -476,7 +479,7 @@ GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch poi
 GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
 GS $D60C.0-5 UARTMISC:PORTFDDR PMOD port A on FPGA board (DDR)
 GS $D60C.6-7 UARTMISC:PORTFDDR On Screen Keyboard (OSK) Zoom Control Data Direction Register (DDR). Must be set to output to control these features.
-GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
+GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)
 GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)                        
 GS $D60D.1 - Internal 1541 drive reset
 GS $D60D.1 UARTMISC:RST41 Internal 1541 drive reset (1=reset, 0=operate)
@@ -1344,7 +1347,7 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
-GS $D7EF CPU:RAND Hardware random number generator
+GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
 GS $D7F1.0 CPU:IECBUSACT IEC bus is active
 GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
 GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
@@ -1360,6 +1363,7 @@ GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
 GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
 C64 $DC02 CIA1:DDRA Port A DDR

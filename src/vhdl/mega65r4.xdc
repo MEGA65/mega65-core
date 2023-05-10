@@ -16,6 +16,10 @@ create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
+# On board LEDs direct connected to main FPGA on R4, not via MAX10
+set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
+set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
+
 
 # CBM-488/IEC serial port
 set_property -dict {PACKAGE_PIN AB21 IOSTANDARD LVCMOS33} [get_ports iec_reset]
@@ -30,6 +34,14 @@ set_property -dict {PACKAGE_PIN U20 IOSTANDARD LVCMOS33} [get_ports iec_srq_o]
 set_property -dict {PACKAGE_PIN AA18 IOSTANDARD LVCMOS33} [get_ports iec_srq_i]
 set_property -dict {PACKAGE_PIN AB20 IOSTANDARD LVCMOS33} [get_ports iec_srq_en]
 
+# DIP Switches direct connected to main FPGA on R4, not via MAX10
+set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVCMOS33} [get_ports dipsw[0]]
+set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports dipsw[1]]
+set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports dipsw[2]]
+set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports dipsw[3]]
+
+# Reset button on the side of the machine(?) connected to main FPGA on R4, not via MAX10
+set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports reset_button]
 
 # C64 Cartridge port control lines
 # *_dir=1 means FPGA->Port, =0 means Port->FPGA
@@ -101,16 +113,6 @@ create_pblock pblock_kbd0
 add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0]]
 resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X7Y243}
 
-# Test points
-set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports testpoint[1]]
-set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports testpoint[2]]
-set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVCMOS33} [get_ports testpoint[3]]
-set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports testpoint[4]]
-set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports testpoint[5]]
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports testpoint[6]]
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports testpoint[7]]
-set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports testpoint[8]]
-
 # Paddles
 set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
 set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports paddle[1]]
@@ -118,26 +120,61 @@ set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports paddle[2]]
 set_property -dict {PACKAGE_PIN J22 IOSTANDARD LVCMOS33} [get_ports paddle[3]]
 set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_drain]
 
+# Output lines on joysticks allow pulling the joystick lines low on R4
+# However, these pins are also shared with the new DBG header, except for DBG10-11
+set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports dbg[10]]
+set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
+
+# Joystick port power control/sensing
+set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
+set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
+
+
 # Joystick port A
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
+# DBG3
+set_property -dict {PACKAGE_PIN K14 IOSTANDARD LVCMOS33} [get_ports fa_down_drain_n]
 set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports fa_up]
+# DBG1
+set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports fa_up_drain_n]
 set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33} [get_ports fa_left]
+# DBG2
+set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33} [get_ports fa_left_drain_n]
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports fa_right]
+# DBG5
+set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports fa_right_drain_n]
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports fa_fire]
+# DBG0
+set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS33} [get_ports fa_fire_drain_n]
 
 # Joystick port B
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
+# DBG6
+set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports fb_down_drain_n]
 set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVCMOS33} [get_ports fb_up]
+# DBG4
+set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports fb_up_drain_n]
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33} [get_ports fb_left]
+# DBG9
+set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports fb_left_drain_n]
 set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_right]
+# DBG8
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS33} [get_ports fb_right_drain_n]
 set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
+# DBG7
+set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports fb_fire_drain_n]
 
 ##VGA Connector
+
+# VGA I2C bus
+# set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports vga_sda]
+# set_property -dict {PACKAGE_PIN W15 IOSTANDARD LVCMOS33} [get_ports vga_scl]
 
 # XXX - Is this needed?
 set_property -dict {PACKAGE_PIN AA9 IOSTANDARD LVCMOS33} [get_ports vdac_clk]
 set_property -dict {PACKAGE_PIN V10 IOSTANDARD LVCMOS33} [get_ports vdac_sync_n]
 set_property -dict {PACKAGE_PIN W11 IOSTANDARD LVCMOS33} [get_ports vdac_blank_n]
+set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVCMOS33} [get_ports vdac_psave_n]
 
 #
 set_property -dict {PACKAGE_PIN U15 IOSTANDARD LVCMOS33} [get_ports {vgared[0]}]
@@ -194,7 +231,7 @@ set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
-set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable]
+set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable_n]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
 set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 
@@ -202,11 +239,12 @@ set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
 set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
 
+# HDMI buffer things
 #set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports scl_a]
 #set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports sda_a]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports cec_a]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
-set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports ct_hpd]
+set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports hdmi_hiz]
 set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # Other things I don't yet know
@@ -222,15 +260,29 @@ set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl]
 set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda]
 
+# Audio DAC
+# R4 board hard-wires DAC to serial mode
+set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports audio_lrclk]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports audio_sdata]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports audio_bick]
+set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports audio_mclk]
+# DAC power down
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports audio_powerdown_n]
+# SMUTE/CSN/I2CFIL
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports audio_smute]
+# ACKS/CCLK/SCL
+set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports audio_acks]
+# DIF/CDTI/SDA
+  set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_cdti]
+
+
 # PWM Audio
 #
+# XXX - Are the following still used?
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports i2s_sd]
-set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
-set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
+set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports i2s_sd]
 set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
-set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 
 
 ##USB HID (PS/2)
@@ -244,6 +296,99 @@ set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_por
 set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[2]}]
 set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {QspiDB[3]}]
 set_property  -dict { PACKAGE_PIN T19 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
+
+## SDRAM - 32M x 16 bit, 3.3V VCC
+set_property -dict {PACKAGE_PIN V8 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_clk]
+set_property -dict {PACKAGE_PIN U5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_cke]
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_ras_n]
+set_property -dict {PACKAGE_PIN V3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_cas_n]
+set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_we_n]
+set_property -dict {PACKAGE_PIN G3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_cs_n]
+
+set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_ba[0]]
+set_property -dict {PACKAGE_PIN R4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_ba[1]]
+
+set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[0]]
+set_property -dict {PACKAGE_PIN R2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[1]]
+set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[2]]
+set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[3]]
+set_property -dict {PACKAGE_PIN Y4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[4]]
+set_property -dict {PACKAGE_PIN W6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[5]]
+set_property -dict {PACKAGE_PIN W4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[6]]
+set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[7]]
+set_property -dict {PACKAGE_PIN AA8 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[8]]
+set_property -dict {PACKAGE_PIN Y2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[9]]
+set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[10]]
+set_property -dict {PACKAGE_PIN Y7 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[11]]
+set_property -dict {PACKAGE_PIN Y9 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_a[12]]
+
+set_property -dict {PACKAGE_PIN W2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dqml]
+set_property -dict {PACKAGE_PIN Y6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dqmh]
+set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[0]]
+set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[1]]
+set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[2]]
+set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[3]]
+set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[4]]
+set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[5]]
+set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[6]]
+set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[7]]
+set_property -dict {PACKAGE_PIN W7 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[8]]
+set_property -dict {PACKAGE_PIN AA3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[9]]
+set_property -dict {PACKAGE_PIN AA4 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[10]]
+set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[11]]
+set_property -dict {PACKAGE_PIN AA6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[12]]
+set_property -dict {PACKAGE_PIN W5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[13]]
+set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[14]]
+set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[15]]
+
+# Constrain input and output times for SDRAM pins
+# DQ pins must have an input delay in a fairly narrow range from about 2.9ns to 5.8ns.
+# We are being quite conservative here, and requiring it to be much more precisely near
+# the middle of this range.
+# Clock duration is 6.17 ns
+#set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+#set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+# Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) =
+#set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+# Min = - (trace delay + Th) = ~1ns
+#set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+
+# Adam's better way:
+set Trefclk 10.0 ; # 100 MHz reference clock input to MMCM
+set Tpcb    0.2  ; # assume 30mm @ 150mm/ns, assume traces all matched
+set Tsu     1.5  ; # input setup time
+set Th      0.8  ; # input hold time
+set Tac3    5.4  ; # access (clock to output) time for CAS latency 3
+set Toh3    2.5  ; # output hold time for CAS latency 3
+
+#create_clock -name clki -period $Trefclk [get_ports clki]
+create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDCLK/I] [get_ports sdram_clk]
+
+# As we setup dq a cycle before, and hold it a cycle after, we can actually
+# relax sdram_dq output quite a bit, instead of constraining it
+# This is what we would need if we didn't do that:
+#   set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+#   set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+# Instead we can do something like this:
+#  set_output_delay -max [expr -(6.17-$Tpcb+$Tsu)]   -clock sdram_clk [get_ports sdram_dq]
+#  set_output_delay -min [expr 6.17-($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+# or just use a multi-cycle path (and keeping the first correct delays)
+set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+
+# One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
+#set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
+#set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
+
+# Relax timing of cache lines between 162MHz SDRAM and 40.5MHz CPU:
+set ratio 4; # ratio of launch to latch clock
+set n_setup [expr $ratio]
+set n_hold  [expr $ratio-1]
+set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
+set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
+
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports hr_clk_p]
@@ -265,30 +410,46 @@ resize_pblock pblock_hyperram -add {SLICE_X0Y186:SLICE_X35Y224}
 resize_pblock pblock_hyperram -add {SLICE_X8Y175:SLICE_X23Y186}
 
 ## Pmod Header P1
+# B35_L5_N
 set_property -dict { PACKAGE_PIN F1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
+# B35_L3_N
 set_property -dict { PACKAGE_PIN D1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]
+# B35_L2_N
 set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}]
+# B35_L1_N
 set_property -dict { PACKAGE_PIN A1 IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}]
-set_property -dict { PACKAGE_PIN G1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
+# B16_L17_P
+set_property -dict { PACKAGE_PIN A18 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
+# B35_L3_P
 set_property -dict { PACKAGE_PIN E1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
+# B35_L2_P
 set_property -dict { PACKAGE_PIN C2 IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
+# B35_L1_P
 set_property -dict { PACKAGE_PIN B1 IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
 
 ## Pmod Header P2
+# B35_L6_P
 set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}]
+# B35_L6_N
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports {p2lo[1]}]
+# B35_L12_P
 set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {p2lo[2]}]
+# B35_L10_N
 set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports {p2lo[3]}]
+# B35_L4_P
 set_property -dict { PACKAGE_PIN E2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[0]}]
+# B35_L4_N
 set_property -dict { PACKAGE_PIN D2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[1]}]
+# B35_L12_N
 set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {p2hi[2]}]
+# B35_L10_P
 set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 
 
 ## Hyper RAM on trap-door PMOD
 ## Pinout is for one of these: https://github.com/blackmesalabs/hyperram
 ## If no SLEW or DRIVE directive, then reading external hyperram sometimes results in two
-## dummy bytes being read at the start of a read transfer. 
+## dummy bytes being read at the start of a read transfer.
 #set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_clk_p]
 #set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_clk_n]
 #set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports {hr2_d[0]}]
@@ -305,10 +466,10 @@ set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 
 # 80 MHz Hyperram bus
 set hbus_freq_ns   12
-# Set allowable clock drift 
+# Set allowable clock drift
 set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
- 
+
 set hr0_dq_ports    [get_ports hr_d[*]]
 set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
@@ -357,14 +518,17 @@ set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] e
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
-##Interface to MAX10
-set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports max10_tx]
-set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports max10_rx]
-set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports reset_from_max10]
-# Place MAX10 close to I/O pins
-create_pblock pblock_max10
-add_cells_to_pblock pblock_max10 [get_cells [list max10]]
-resize_pblock pblock_max10 -add {SLICE_X0Y150:SLICE_X10Y162}
+set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports pmod2_en]
+set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
+set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
+set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
+
+# MEGA65 board revision pins = 0100 = 0x4 for R4
+set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33} [get_ports board_rev[0]]
+set_property -dict {PACKAGE_PIN M16 IOSTANDARD LVCMOS33} [get_ports board_rev[1]]
+set_property -dict {PACKAGE_PIN F20 IOSTANDARD LVCMOS33} [get_ports board_rev[2]]
+set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports board_rev[3]]
+
 
 ##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
@@ -426,7 +590,7 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 #    CLKOUT2             => u_clock81p,
 #    CLKOUT3             => u_clock41,
 #    CLKOUT4             => u_clock27,
-#    CLKOUT5             => u_clock163,
+#    CLKOUT5             => u_clock162,
 #    CLKOUT6             => u_clock270,
 # mmcm_adv1_eth:
 #    CLKOUT1             => u_clock50,
@@ -435,19 +599,8 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 # seem to have the prefixes on them anymore
 
 # Relax between ethernet and CPU
-set_false_path -from [get_clocks CLKOUT3] -to [get_clocks CLKOUT1]
-set_false_path -from [get_clocks CLKOUT1] -to [get_clocks CLKOUT3]
-# Relax between clock domains of HyperRAM
-set_false_path -from [get_clocks CLKOUT0] -to [get_clocks CLKOUT5]
-set_false_path -from [get_clocks CLKOUT5] -to [get_clocks CLKOUT0]
+set_false_path -from [get_clocks CLKOUT3] -to [get_clocks u_clock50]
+set_false_path -from [get_clocks u_clock50] -to [get_clocks CLKOUT3]
 
-#set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
-#set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
 ## Fix 12.288MHz clock generation clock domain crossing
 set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
-
-## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
-## violations, and hopefully make everything synthesise faster.
-set_clock_groups -asynchronous \
-     -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
-     -group { u_clock50 u_clock200}

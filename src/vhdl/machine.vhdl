@@ -81,6 +81,8 @@ entity machine is
          iec_bus_active : in std_logic;      
          
          power_down : out std_logic := '1';
+
+         upscale_enable : out std_logic := '0';
          
          no_hyppo : in std_logic;
 
@@ -114,6 +116,14 @@ entity machine is
          slow_prefetched_request_toggle : inout std_logic := '0';
          slow_prefetched_data : in unsigned(7 downto 0) := x"00";
          slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+
+         -- Interface for lower latency reading from slow RAM
+         -- (presents a whole cache line of 8 bytes)
+         slowram_cache_line : in cache_row_t := (others => (others => '0'));
+         slowram_cache_line_valid : in std_logic := '0';
+         slowram_cache_line_addr : in unsigned(26 downto 3) := (others => '0');
+         slowram_cache_line_inc_toggle : out std_logic := '0';
+         slowram_cache_line_dec_toggle : out std_logic := '0';
          
          sector_buffer_mapped : inout std_logic;
 
@@ -200,6 +210,18 @@ entity machine is
          pot_drain : buffer std_logic := '1';
          pot_via_iec : buffer std_logic := '1';
 
+        fa_left_drain_n : out std_logic;
+        fa_right_drain_n : out std_logic;
+        fa_down_drain_n : out std_logic;
+        fa_up_drain_n : out std_logic;
+        fa_fire_drain_n : out std_logic;
+        
+        fb_left_drain_n : out std_logic;
+        fb_right_drain_n : out std_logic;
+        fb_down_drain_n : out std_logic;
+        fb_up_drain_n : out std_logic;
+        fb_fire_drain_n : out std_logic;
+         
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
         i2c_joya_down : out std_logic := '1';
@@ -484,14 +506,15 @@ architecture Behavioral of machine is
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
-  signal fa_up_out : std_logic;
-  signal fa_down_out : std_logic;
-  signal fa_left_out : std_logic;
-  signal fa_right_out : std_logic;
-  signal fb_up_out : std_logic;
-  signal fb_down_out : std_logic;
-  signal fb_left_out : std_logic;
-  signal fb_right_out : std_logic;
+  -- Outputs from 1351/Amiga mouse handler
+  signal fa_up_mout : std_logic;
+  signal fa_down_mout : std_logic;
+  signal fa_left_mout : std_logic;
+  signal fa_right_mout : std_logic;
+  signal fb_up_mout : std_logic;
+  signal fb_down_mout : std_logic;
+  signal fb_left_mout : std_logic;
+  signal fb_right_mout : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
@@ -631,6 +654,7 @@ architecture Behavioral of machine is
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
   signal phi_1mhz : std_logic := '0';
+  signal phi_1mhz_ntsc : std_logic := '0';
   signal phi_2mhz : std_logic := '0';
   signal phi_3mhz : std_logic := '0';
 
@@ -1184,6 +1208,12 @@ begin
       slow_prefetched_address => slow_prefetched_address,
       slow_prefetched_data => slow_prefetched_data,
       slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+
+      slowram_cache_line => slowram_cache_line,
+      slowram_cache_line_valid => slowram_cache_line_valid,
+      slowram_cache_line_addr => slowram_cache_line_addr,
+      slowram_cache_line_inc_toggle => slowram_cache_line_inc_toggle,
+      slowram_cache_line_dec_toggle => slowram_cache_line_dec_toggle,
       
       chipram_clk => pixelclock,
       chipram_address => chipram_address,
@@ -1223,6 +1253,7 @@ begin
                cpuclock => cpuclock,
 
                phi_1mhz_out => phi_1mhz,
+               phi_1mhz_ntsc_out => phi_1mhz_ntsc,
                phi_2mhz_out => phi_2mhz,
                phi_3mhz_out => phi_3mhz,
 
@@ -1286,6 +1317,7 @@ begin
       all_pause => all_pause,
 
       dd00_bits => dd00_bits,
+      upscale_enable => upscale_enable,
       
       viciv_frame_indicate => viciv_frame_indicate,
 
@@ -1489,6 +1521,8 @@ begin
     port map (
       clk => cpuclock,
 
+      phi_in_ntsc => phi_1mhz_ntsc,
+    
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,
@@ -1515,15 +1549,15 @@ begin
       fb_up => fb_up,
       fb_down => fb_down,
 
-      fa_up_out => fa_up_out,
-      fa_down_out => fa_down_out,
-      fa_left_out => fa_left_out,
-      fa_right_out => fa_right_out,
+      fa_up_out => fa_up_mout,
+      fa_down_out => fa_down_mout,
+      fa_left_out => fa_left_mout,
+      fa_right_out => fa_right_mout,
 
-      fb_up_out => fb_up_out,
-      fb_down_out => fb_down_out,
-      fb_left_out => fb_left_out,
-      fb_right_out => fb_right_out,
+      fb_up_out => fb_up_mout,
+      fb_down_out => fb_down_mout,
+      fb_left_out => fb_left_mout,
+      fb_right_out => fb_right_mout,
       
       -- We output the four sampled pot values
       pota_x => pota_x,
@@ -1729,21 +1763,33 @@ begin
       key_up => keyup,
 
       fa_fire => fa_fire,
-      fa_up => fa_up_out,
-      fa_left => fa_left_out,
-      fa_down => fa_down_out,
-      fa_right => fa_right_out,
+      fa_up => fa_up,
+      fa_left => fa_left,
+      fa_down => fa_down,
+      fa_right => fa_right,
       fa_potx => fa_potx,
       fa_poty => fa_poty,
       
       fb_fire => fb_fire,
-      fb_up => fb_up_out,
-      fb_left => fb_left_out,
-      fb_down => fb_down_out,
-      fb_right => fb_right_out,
+      fb_up => fb_up,
+      fb_left => fb_left,
+      fb_down => fb_down,
+      fb_right => fb_right,
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 
+      fa_fire_drain_n => fa_fire_drain_n,
+      fa_up_drain_n => fa_up_drain_n,
+      fa_left_drain_n => fa_left_drain_n,
+      fa_right_drain_n => fa_right_drain_n,
+      fa_down_drain_n => fa_down_drain_n,
+
+      fb_fire_drain_n => fb_fire_drain_n,
+      fb_up_drain_n => fb_up_drain_n,
+      fb_left_drain_n => fb_left_drain_n,
+      fb_right_drain_n => fb_right_drain_n,
+      fb_down_drain_n => fb_down_drain_n,
+      
       pota_x => pota_x,
       pota_y => pota_y,
       potb_x => potb_x,

@@ -25,6 +25,14 @@ pipeline {
                 sh 'make src/utilities/mflash200.prg src/utilities/upgrade0.prg'
             }
         }
+        stage('Build MEGA65R4') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'make bin/mega65r4.bit'
+                    sh 'release-build/build-release.sh mega65r4 JENKINSGEN'
+                }
+            }
+        }
         stage('Build MEGA65R3') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {

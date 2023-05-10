@@ -1105,6 +1105,9 @@ getDefaultSettings:
 		STA	optDfltBase + 6
 		STA	$D6E9
 
+		LDA	#$80
+		STA	optDfltBase + $f	; enable LFN support by default
+
 		JSR	readRealTimeClock
 		JSR	copyRealTimeClock
 

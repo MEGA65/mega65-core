@@ -150,7 +150,7 @@ chipsetOptions0:
 	.byte		$20			;option input type
 	.word		$000F			;offset into config table
 	.byte		$80			;bits for testing/setting
-	.defPStr	"long fn support (experimental):"	;label
+	.defPStr	"long fn support:"	;label
 	.defPStr	"disable";option unset
 	.defPStr	'enable';option set
 

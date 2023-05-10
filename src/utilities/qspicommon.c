@@ -461,52 +461,158 @@ void hy_opendir(void)
   hy_opendir_sector = fat32_cluster2_sector;
   hy_opendir_sector_in_cluster = 0;
   hy_opendir_offset_in_sector = 0;
+
+  // bring it back by one direntry, so that first advance will increment to correct location
+  hy_opendir_offset_in_sector -= 0x20;
+
 }
 
 struct m65_dirent hy_dirent;
 
+int advance_to_next_entry(void)
+{
+  hy_opendir_offset_in_sector += 0x20;
+  
+  // Chain through directory as required
+  if (hy_opendir_offset_in_sector == 512) {
+    hy_opendir_offset_in_sector = 0;
+    hy_opendir_sector_in_cluster++;
+    hy_opendir_sector++;
+  }
+  if (hy_opendir_sector_in_cluster >= fat32_sectors_per_cluster) {
+    hy_opendir_sector_in_cluster = 0;
+    hy_opendir_cluster = fat32_nextclusterinchain(hy_opendir_cluster);
+    if (hy_opendir_cluster >= 0x0ffffff0) {
+      // end of directory reached
+      return -2;
+    }
+    hy_opendir_sector = (hy_opendir_cluster - 2) * fat32_sectors_per_cluster + fat32_cluster2_sector;
+  }
+  if (!hy_opendir_cluster)
+    return -2;
+
+  sdcard_readsector(hy_opendir_sector);
+  return 0;
+}
+
+void copy_to_dnamechunk_from_offset(unsigned char* dirent, char* dnamechunk, int offset, int numuc2chars)
+{
+  int k;
+  for (k = 0; k < numuc2chars; k++) {
+    dnamechunk[k] = dirent[offset + k * 2];
+  }
+}
+
+void copy_vfat_chars_into_dname(unsigned char* dirent, char* dname, int seqnumber)
+{
+  // increment char-pointer to the seqnumber string chunk we'll copy across
+  dname = dname + 13 * (seqnumber - 1);
+  copy_to_dnamechunk_from_offset(dirent, dname, 0x01, 5);
+  dname += 5;
+  copy_to_dnamechunk_from_offset(dirent, dname, 0x0e, 6);
+  dname += 6;
+  copy_to_dnamechunk_from_offset(dirent, dname, 0x1c, 2);
+}
+
 struct m65_dirent *hy_readdir(void)
 {
+  int k;
+  int retVal = 0;
+  int vfatEntry = 0;
+  int firstTime;
+  int seqnumber;
+  int deletedEntry = 0;
   unsigned char *dirent;
   unsigned char j;
   unsigned char found = 0;
 
   while (!found) {
-    // Chain through directory as required
-    if (hy_opendir_offset_in_sector == 512) {
-      hy_opendir_offset_in_sector = 0;
-      hy_opendir_sector_in_cluster++;
-      hy_opendir_sector++;
-    }
-    if (hy_opendir_sector_in_cluster >= fat32_sectors_per_cluster) {
-      hy_opendir_sector_in_cluster = 0;
-      hy_opendir_cluster = fat32_nextclusterinchain(hy_opendir_cluster);
-      if (hy_opendir_cluster >= 0x0ffffff0)
-        return NULL;
-      hy_opendir_sector = (hy_opendir_cluster - 2) * fat32_sectors_per_cluster + fat32_cluster2_sector;
-    }
-    if (!hy_opendir_cluster)
-      return NULL;
+    retVal = advance_to_next_entry();
 
-    sdcard_readsector(hy_opendir_sector);
+    if (retVal == -2) // exiting due to end-of-directory>
+      return NULL;
 
     // Get DOS directory entry and populate
     dirent = &buffer[hy_opendir_offset_in_sector];
+
+    // Read in all FAT32-VFAT entries to extract out long filenames
+    if (dirent[0x0b] == 0x0f) {
+      vfatEntry = 1;
+      firstTime = 1;
+      do {
+        int seq = dirent[0x00];
+        if (seq == 0xe5) { // if deleted-entry, then ignore
+          deletedEntry = 1;
+        }
+        seqnumber = seq & 0x1f;
+
+        // assure there is a null-terminator
+        if (firstTime) {
+          hy_dirent.d_name[seqnumber * 13] = 0;
+          firstTime = 0;
+        }
+
+        // vfat seqnumbers will be parsed from high to low, each containing up to 13 UCS-2 characters
+        copy_vfat_chars_into_dname(dirent, hy_dirent.d_name, seqnumber);
+        advance_to_next_entry();
+
+        // Get DOS directory entry and populate
+        dirent = &buffer[hy_opendir_offset_in_sector];
+
+        // if next dirent is not a vfat entry, break out
+        if (dirent[0x0b] != 0x0f)
+          break;
+      } while (seqnumber != 1);
+      // printf("vfat = '%s'\n", hy_dirent.d_name);
+      // press_any_key(0,0);
+    }
+
+    // ignore any vfat files starting with '.' (such as mac osx '._*' metadata files)
+    if (vfatEntry && hy_dirent.d_name[0] == '.') {
+      hy_dirent.d_name[0] = 0;
+      vfatEntry = 0;
+      continue;
+    }
+
+    // ignored deleted vfat entries too (mac osx '._*' files are marked as deleted entries)
+    if (deletedEntry) {
+      hy_dirent.d_name[0] = 0;
+      vfatEntry = 0;
+      deletedEntry = 0;
+      continue;
+    }
+
+    // if the DOS 8.3 entry is a deleted-entry, then ignore
+    if (dirent[0x00] == 0xe5) {
+      hy_dirent.d_name[0] = 0;
+      vfatEntry = 0;
+      continue;
+    }
+
     ((unsigned char *)&hy_dirent.d_ino)[0] = dirent[0x1a];
     ((unsigned char *)&hy_dirent.d_ino)[1] = dirent[0x1b];
     ((unsigned char *)&hy_dirent.d_ino)[2] = dirent[0x14];
     ((unsigned char *)&hy_dirent.d_ino)[3] = dirent[0x15];
-    for (j = 0; j < 8; j++)
-      hy_dirent.d_name[j] = dirent[0 + j];
-    hy_dirent.d_name[8] = '.';
-    for (j = 0; j < 8; j++)
-      hy_dirent.d_name[9 + j] = dirent[8 + j];
-    hy_dirent.d_name[12] = 0;
+
+    // if not vfat-longname, then extract out old 8.3 name
+    if (!vfatEntry) {
+      for (j = 0; j < 8; j++)
+        hy_dirent.d_name[j] = dirent[0 + j];
+      hy_dirent.d_name[8] = '.';
+      for (j = 0; j < 8; j++)
+        hy_dirent.d_name[9 + j] = dirent[8 + j];
+      hy_dirent.d_name[12] = 0;
+    }
+    else {
+      found = 1;  // if vfat, let this dos8.3 dirent equate to the vfat item
+    }
 
     if (hy_dirent.d_name[0] && hy_dirent.d_name[0] != 0xe5)
       found = 1;
 
-    hy_opendir_offset_in_sector += 0x20;
+    // for (k = 0; k < 16; k++)
+    //   printf("%02x ", dirent[k]);
+    // printf("\n\n");
   }
 
   if (found)
@@ -608,7 +714,7 @@ char *diskchooser_instructions = "  SELECT FLASH FILE, THEN PRESS RETURN  "
 #define HIGHLIGHT_ATTR 0x21
 #define NORMAL_ATTR 0x01
 
-char disk_name_return[32];
+char disk_name_return[64];
 
 unsigned char read_joystick_input(void)
 {
@@ -679,8 +785,8 @@ void draw_file_list(void)
       // Real line
       lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 64);
 
-      for (x = 0; x < 20; x++) {
-        if ((name[x] >= 'A' && name[x] <= 'Z') || (name[x] >= 'a' && name[x] <= 'z'))
+      for (x = 0; x < 40; x++) {
+        if ((name[x] >= 0x61 && name[x] <= 0x7a) || (name[x] >= 'a' && name[x] <= 'z'))
           POKE(addr + x, name[x] & 0x1f);
         else
           POKE(addr + x, name[x]);
@@ -693,7 +799,7 @@ void draw_file_list(void)
     }
     if ((display_offset + i) == selection_number) {
       // Highlight the row
-      lfill(COLOUR_RAM_ADDRESS + (i * 40), HIGHLIGHT_ATTR, 20);
+      lfill(COLOUR_RAM_ADDRESS + (i * 40), HIGHLIGHT_ATTR, 40);
     }
     addr += (40 * 1);
   }
@@ -741,11 +847,16 @@ unsigned char select_bitstream_file(void)
   dirent = hy_readdir();
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
     j = strlen(dirent->d_name) - 4;
+    //press_any_key(0,0);
     if (j >= 0) {
       // don't show filenames with _ or ~ as first char
       // only select files ending in .COR
-      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f)
-          && ((!strncmp(&dirent->d_name[j], ".COR", 4)) || (!strncmp(&dirent->d_name[j], ".cor", 4)))) {
+      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f) &&
+          ((!strncmp(&dirent->d_name[j], ".cor", 4)) ||
+            (*&dirent->d_name[j] == 0x2e &&
+             *&dirent->d_name[j+1] == 0x63 &&
+             *&dirent->d_name[j+2] == 0x6f &&
+             *&dirent->d_name[j+3] == 0x72))) {
         // File is a core
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
@@ -790,9 +901,9 @@ unsigned char select_bitstream_file(void)
       }
 
       // Copy name out
-      lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
+      lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 64);
       // Then null terminate it
-      for (x = 31; x && disk_name_return[x] == ' '; x--)
+      for (x = 63; x && disk_name_return[x] == ' '; x--)
         disk_name_return[x] = 0;
       return SELECTED_FILE_VALID;
 
@@ -879,6 +990,12 @@ models_type models[] = {
   { 0x01, "MEGA65 R1" },
   { 0x02, "MEGA65 R2" },
   { 0x03, "MEGA65 R3" },
+  { 0x04, "MEGA65 R4" },
+  { 0x05, "MEGA65 R5" },
+  { 0x06, "MEGA65 R6" },
+  { 0x07, "MEGA65 R7" },
+  { 0x08, "MEGA65 R8" },
+  { 0x09, "MEGA65 R9" },
   { 0x21, "MEGAphone R1" },
   { 0x22, "MEGAphone R4" },
   { 0x40, "Nexys4" },
@@ -934,7 +1051,7 @@ int check_model_id_field(unsigned char megaonly)
       if (buffer[0x10 + x] != mega65core_magic[x])
         break;
     if (x < 7) {
-      printf("\n%cThis is no valid MEGA65 COR file!\n\n"
+      printf("\n%cOnly COR with core name 'MEGA65' can be\nflashed into slot 0!\n\n"
              "Refusing to flash!%c\n",
           0x1c, 0x05);
       press_any_key(0, 0);

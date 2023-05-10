@@ -19,15 +19,15 @@ entity iomapper is
         uartclock : in std_logic;
 
         floppy_last_gap : out unsigned(7 downto 0) := x"00";
-        floppy_gap_strobe : out std_logic := '0';        
-        
+        floppy_gap_strobe : out std_logic := '0';
+
         dd00_bits : out unsigned(1 downto 0) := "11";
         cpu_slow : in std_logic;
-        
+
         accessible_row : out integer range 0 to 255 := 255;
         accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
         dim_shift : inout std_logic := '0';
-        
+
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
         pal_mode : in std_logic;
@@ -61,14 +61,14 @@ entity iomapper is
 
         kbd_datestamp : in unsigned(13 downto 0);
         kbd_commit : in unsigned(31 downto 0);
-        
+
         joy3 : in std_logic_vector(4 downto 0);
         joy4 : in std_logic_vector(4 downto 0);
 
         j21in : in std_logic_vector(11 downto 0);
         j21out : inout std_logic_vector(11 downto 0);
         j21ddr : inout std_logic_vector(11 downto 0);
-        
+
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
         uart_monitor_char : out unsigned(7 downto 0);
@@ -80,19 +80,19 @@ entity iomapper is
 
         fm_left : in signed(15 downto 0) := x"0000";
         fm_right : in signed(15 downto 0) := x"0000";
-        
+
         cpu_pcm_left : in signed(15 downto 0) := x"FFFF";
         cpu_pcm_right : in signed(15 downto 0) := x"FFFF";
         cpu_pcm_enable : in std_logic := '0';
         cpu_pcm_bypass : in std_logic := '0';
         pwm_mode_select : in std_logic := '1';
-        
+
         disco_led_id : out unsigned(7 downto 0) := x"00";
         disco_led_val : out unsigned(7 downto 0) := x"00";
         disco_led_en : out std_logic := '0';
-        
+
         cart_access_count : in unsigned(7 downto 0);
-        
+
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
         addr_fast : in std_logic_vector(19 downto 0);
@@ -104,7 +104,7 @@ entity iomapper is
         sector_buffer_mapped : out std_logic;
 
         charrom_cs : out std_logic;
-        
+
         key_scancode : in unsigned(15 downto 0);
         key_scancode_toggle : in std_logic;
 
@@ -121,7 +121,7 @@ entity iomapper is
 
         touch_key1 : in unsigned(7 downto 0);
         touch_key2 : in unsigned(7 downto 0);
-        
+
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
@@ -134,12 +134,24 @@ entity iomapper is
 
         last_reset_source : in unsigned(2 downto 0);
         reset_monitor_count : in unsigned(11 downto 0);
-        
+
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
         key_left : in std_logic;
         key_up : in std_logic;
+
+        fa_left_drain_n : out std_logic;
+        fa_right_drain_n : out std_logic;
+        fa_down_drain_n : out std_logic;
+        fa_up_drain_n : out std_logic;
+        fa_fire_drain_n : out std_logic;
+
+        fb_left_drain_n : out std_logic;
+        fb_right_drain_n : out std_logic;
+        fb_down_drain_n : out std_logic;
+        fb_up_drain_n : out std_logic;
+        fb_fire_drain_n : out std_logic;
 
         fa_left : in std_logic;
         fa_right : in std_logic;
@@ -155,7 +167,7 @@ entity iomapper is
         fa_poty : in std_logic;
         fb_potx : in std_logic;
         fb_poty : in std_logic;
-        
+
         pota_x : in unsigned(7 downto 0);
         pota_y : in unsigned(7 downto 0);
         potb_x : in unsigned(7 downto 0);
@@ -165,7 +177,7 @@ entity iomapper is
         pot_via_iec : buffer std_logic;
 
         rightsid_audio_out : out signed(17 downto 0);
-        
+
         mouse_debug : in unsigned(7 downto 0);
         amiga_mouse_enable_a : out std_logic;
         amiga_mouse_enable_b : out std_logic;
@@ -188,7 +200,7 @@ entity iomapper is
         i2c_black2 : out std_logic;
         i2c_black3 : out std_logic;
         i2c_black4 : out std_logic;
-        
+
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
@@ -234,10 +246,9 @@ entity iomapper is
          f_rdata_loopback : out std_logic;
 
 
-        
         ps2data : in std_logic;
         ps2clock : in std_logic;
-        scancode_out : out std_logic_vector(12 downto 0); 												  
+        scancode_out : out std_logic_vector(12 downto 0);
         -- Widget board / MEGA65R2 keyboard
         widget_matrix_col_idx : out integer range 0 to 8 := 0;
         widget_matrix_col : in std_logic_vector(7 downto 0);
@@ -271,18 +282,18 @@ entity iomapper is
 
         monitor_instruction_strobe : in std_logic;
         monitor_pc : in unsigned(15 downto 0);
-        monitor_opcode : in unsigned(7 downto 0);        
-        monitor_arg1 : in unsigned(7 downto 0);        
-        monitor_arg2 : in unsigned(7 downto 0);        
-        monitor_a : in unsigned(7 downto 0);        
-        monitor_b : in unsigned(7 downto 0);        
-        monitor_x : in unsigned(7 downto 0);        
-        monitor_y : in unsigned(7 downto 0);        
-        monitor_z : in unsigned(7 downto 0);        
-        monitor_sp : in unsigned(15 downto 0);        
+        monitor_opcode : in unsigned(7 downto 0);
+        monitor_arg1 : in unsigned(7 downto 0);
+        monitor_arg2 : in unsigned(7 downto 0);
+        monitor_a : in unsigned(7 downto 0);
+        monitor_b : in unsigned(7 downto 0);
+        monitor_x : in unsigned(7 downto 0);
+        monitor_y : in unsigned(7 downto 0);
+        monitor_z : in unsigned(7 downto 0);
+        monitor_sp : in unsigned(15 downto 0);
         monitor_p : in unsigned(7 downto 0);
         d031_write_toggle : in std_logic;
-        
+
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
@@ -297,7 +308,7 @@ entity iomapper is
     eth_interrupt : in std_logic;
 
     ethernet_cpu_arrest : out std_logic;
-    
+
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
@@ -350,10 +361,10 @@ entity iomapper is
     pcm_modem1_data_out : out std_logic := '0';
     pcm_modem2_data_out : out std_logic := '0';
     pcm_bluetooth_data_in : in std_logic := '0';
-    pcm_bluetooth_data_out : out std_logic := '0';    
+    pcm_bluetooth_data_out : out std_logic := '0';
     pcm_bluetooth_clk_in : in std_logic := '0';
     pcm_bluetooth_sync_in : in std_logic := '0';
-    
+
     tmpSDA : inout std_logic := '0';
     tmpSCL : inout std_logic := '0';
     tmpInt : in std_logic;
@@ -363,17 +374,17 @@ entity iomapper is
     i2c1SCL : inout std_logic := '0';
 
     grove_sda : inout std_logic;
-    grove_scl : inout std_logic;         
-    
+    grove_scl : inout std_logic;
+
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
-    
+
     dipsw : in std_logic_vector(4 downto 0);
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
     seg_led : out unsigned(31 downto 0) := (others => '0');
-    
+
     -- Touch interface
     touch1_valid : out std_logic;
     touch1_x : out unsigned(13 downto 0) := (others => '0');
@@ -381,20 +392,20 @@ entity iomapper is
     touch2_valid : out std_logic;
     touch2_x : out unsigned(13 downto 0) := (others => '0');
     touch2_y : out unsigned(11 downto 0) := (others => '0');
-    
+
     viciii_iomode : in std_logic_vector(1 downto 0);
-    
+
     hyppo_address : in std_logic_vector(13 downto 0);
-        
+
     colourram_at_dc00 : in std_logic
-    
+
     );
 end iomapper;
 
 architecture behavioral of iomapper is
 
   signal sid_mode : unsigned(3 downto 0); -- 1=8580, 0=6581
-  
+
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
 
@@ -408,7 +419,7 @@ architecture behavioral of iomapper is
   signal c65uart_en : std_logic := '1';
   signal sdcardio_en : std_logic := '1';
   signal ethernetcs_en : std_logic := '1';
-  
+
   signal potl_x : unsigned(7 downto 0);
   signal potl_y : unsigned(7 downto 0);
   signal potr_x : unsigned(7 downto 0);
@@ -424,7 +435,7 @@ architecture behavioral of iomapper is
   signal sd1541_request_toggle : std_logic;
   signal sd1541_enable : std_logic;
   signal sd1541_track : unsigned(5 downto 0);
-  
+
   signal hyppocs : std_logic;
 
   signal reset_high : std_logic;
@@ -436,7 +447,7 @@ architecture behavioral of iomapper is
   signal last_eth_scancode_toggle : std_logic := '0';
   signal eth_scancode_toggle : std_logic := '0';
   signal eth_scancode : unsigned(15 downto 0) := to_unsigned(0,16);
-  
+
   signal capslock_from_keymapper : std_logic := '1';
   signal key_debug : std_logic_vector(7 downto 0);
   signal widget_disable : std_logic;
@@ -449,9 +460,9 @@ architecture behavioral of iomapper is
 
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
-  
+
   signal vfpga_cs : std_logic;
-  
+
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
@@ -463,7 +474,7 @@ architecture behavioral of iomapper is
   signal sector_buffer_mapped_read : std_logic;
 
   signal last_scan_code : std_logic_vector(12 downto 0);
-  
+
   signal cia1porta_ddr : std_logic_vector(7 downto 0);
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
@@ -488,7 +499,7 @@ architecture behavioral of iomapper is
   signal cpuregs_cs : std_logic := '0';
   signal thumbnail_cs : std_logic := '0';
   signal ethernet_cs : std_logic := '0';
-  
+
   signal spare_bits : unsigned(4 downto 0);
 
   signal buffer_moby_toggle : std_logic;
@@ -526,8 +537,8 @@ architecture behavioral of iomapper is
   signal sd_bitbash_miso_i : std_logic;
   signal cs_bo_sd : std_logic;
   signal sclk_o_sd : std_logic;
-  signal mosi_o_sd : std_logic;  
-  signal miso_i_sd : std_logic;  
+  signal mosi_o_sd : std_logic;
+  signal miso_i_sd : std_logic;
 
   signal matrix_segment_num : std_logic_vector(7 downto 0) := (others => '0');
   signal matrix_segment_out : std_logic_vector(7 downto 0);
@@ -543,7 +554,7 @@ architecture behavioral of iomapper is
 
   signal e0_latch : std_logic := '0';
   signal e0_timeout : integer range 0 to 31 := 0;
-  
+
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0) := x"FF";
   signal dummy : std_logic_vector(10 downto 0);
@@ -561,7 +572,7 @@ architecture behavioral of iomapper is
   signal suppress_key_glitches : std_logic;
   signal suppress_key_retrigger : std_logic;
   signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
-  
+
   signal cia1_irq : std_logic;
   signal ethernet_irq : std_logic;
   signal uart_irq : std_logic;
@@ -620,7 +631,7 @@ architecture behavioral of iomapper is
   signal rtc_val : unsigned(7 downto 0);
 
   signal eth_load_enable_int : std_logic := '0';
-  
+
 begin
 
   block1: block
@@ -648,14 +659,14 @@ begin
       accessible_key => accessible_key,
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable
-      
+
       );
   end block;
-  
-  
+
+
   -- IRQ line is wire-anded together as if it had a pullup.
   irq <= cia1_irq and ethernet_irq and uart_irq;
-  
+
   block2: block
   begin
   framepacker0: entity work.framepacker port map (
@@ -667,7 +678,7 @@ begin
     thumbnail_cs => thumbnail_cs,
 
     video_or_cpu => cpu_ethernet_stream,
-    
+
     -- Video stream for beaming via ethernet
     pixel_stream_in => pixel_stream_in,
     pixel_red_in => pixel_red_in,
@@ -691,7 +702,7 @@ begin
     monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
-    
+
     buffer_moby_toggle => buffer_moby_toggle,
     buffer_offset => buffer_offset,
     buffer_address => buffer_address,
@@ -739,7 +750,7 @@ begin
         sd_1541_track => sd1541_track
       );
   end generate drive1541_mega65r3;
-  
+
   block3: block
   begin
     cia1: entity work.cia6526
@@ -749,7 +760,7 @@ begin
     phi0_1mhz => phi0_1mhz,
     todclock => viciv_frame_indicate,
     cpu_slow => cpu_slow,
-    reset => reset,    
+    reset => reset,
     irq => cia1_irq,
     hypervisor_mode => cpu_hypervisor_mode,
     reg_isr_out => reg_isr_out,
@@ -791,7 +802,7 @@ begin
 
     -- CIA port a (VIC-II bank select + IEC serial port)
     -- XXX Implement connection to internal 1541 drive if drive_connect is asserted
-    portain(2 downto 0) => (others => '1'),   
+    portain(2 downto 0) => (others => '1'),
     portain(3) => iec_atn_reflect, -- IEC serial ATN
     -- We reflect the output values for CLK and DATA straight back in,
     -- as they are needed to be visible for the DOS routines to work.
@@ -810,12 +821,12 @@ begin
     portaddr(5) => iec_data_en,
     portaddr(7 downto 6) => dummy(10 downto 9),
     portaddr(1 downto 0) => dd00_bits_ddr,
-    
+
     -- CIA port b (user port)
     -- As the MEGA65 has no user port, we don't connect this normally
     -- Instead, we support a cartridge that emulates one of those joy3/4
     -- adapters
-    
+
     portbin => userport_in,
     portbout => userport_out,
     flagin => '1',
@@ -858,7 +869,7 @@ begin
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
       -- @IO:GS $D60D.1 - Internal 1541 drive reset
-      -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
+      -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)
       portg(1) => drive_reset,
       portg(0) => drive_connect,
 
@@ -868,7 +879,7 @@ begin
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable,
       accessible_key_extradim => dim_shift,
-      
+
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
@@ -877,7 +888,7 @@ begin
       max10_fpga_commit => max10_fpga_commit,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
-      
+
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -936,7 +947,7 @@ begin
       potb_y => potb_y
       );
   end block;
-  
+
   block5: block
   begin
     kc0 : entity work.keyboard_complex
@@ -944,7 +955,7 @@ begin
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
       viciv_frame_indicate => viciv_frame_indicate,
-      matrix_disable_modifiers => matrix_disable_modifiers,      
+      matrix_disable_modifiers => matrix_disable_modifiers,
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
@@ -953,7 +964,7 @@ begin
 
       scan_mode => keyboard_scan_mode,
       scan_rate => keyboard_scan_rate,
-      
+
     widget_disable => widget_disable,
     ps2_disable => ps2_disable,
     joyreal_disable => joyreal_disable,
@@ -962,10 +973,10 @@ begin
     virtual_disable => virtual_disable,
 
       joyswap => joyswap,
-      
+
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
-      
+
       cpuclock       => cpuclock,
     restore_out => restore_nmi,
     keyboard_restore => restore_key,
@@ -977,14 +988,14 @@ begin
     key2 => unsigned(virtual_key2),
     key3 => unsigned(virtual_key3),
 
-    touch_key1 => touch_key1_driver,  
-    touch_key2 => touch_key2_driver,  
+    touch_key1 => touch_key1_driver,
+    touch_key2 => touch_key2_driver,
 
     keydown1 => osk_key1,
     keydown2 => osk_key2,
     keydown3 => osk_key3,
     keydown4 => osk_key4,
-      
+
     hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,
@@ -995,7 +1006,7 @@ begin
     last_scan_code => last_scan_code,
 --    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
-    portb_in       => cia1portb_out,    
+    portb_in       => cia1portb_out,
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
     porta_ddr      => cia1porta_ddr,
@@ -1006,15 +1017,15 @@ begin
     joya(2) => fa_left,
     joya(1) => fa_down,
     joya(3) => fa_right,
-    
+
     joyb(4) => fb_fire,
     joyb(0) => fb_up,
     joyb(2) => fb_left,
     joyb(1) => fb_down,
     joyb(3) => fb_right,
-    
+
     key_debug_out => key_debug,
-  
+
     porta_pins => porta_pins,
     portb_pins => portb_pins,
 
@@ -1031,21 +1042,21 @@ begin
     widget_capslock => widget_capslock,
     widget_joya => widget_joya,
     widget_joyb => widget_joyb,
-      
-      
+
+
       -- remote keyboard input via ethernet / serial monitor
       -- We combine ethernet and uart_monitor inputs together
     eth_hyperrupt => eth_hyperrupt,
     eth_keycode_toggle => combined_scancode_toggle,
     eth_keycode => combined_scancode,
-      
+
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
     ascii_key_valid => ascii_key_valid,
     petscii_key => petscii_key,
     petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
-    
+
     );
   end block;
 
@@ -1063,7 +1074,7 @@ begin
       val3 => filter_table_val3
       );
     end block;
-  
+
   block6: block
   begin
     leftsid: entity work.sid6581 port map (
@@ -1142,8 +1153,8 @@ begin
     filter_table_addr => filter_table_addr3,
     filter_table_val => filter_table_val3
     );
-  end block;  
-  
+  end block;
+
   vfpga:
     if false generate
       vfpga0:        entity work.vfpga_wrapper_8bit port map (
@@ -1151,16 +1162,16 @@ begin
         clock => cpuclock,
         cs_vfpga => vfpga_cs,
         hypervisor_mode_in => cpu_hypervisor_mode,
-        
+
         fastio_address => unsigned(address(19 downto 0)),
         fastio_write => w,
         std_logic_vector(fastio_rdata) => data_o,
         fastio_read => r,
-        fastio_wdata => unsigned(data_i)        
+        fastio_wdata => unsigned(data_i)
         );
     end generate;
-  
-  
+
+
   eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t generate
     ethernet0 : entity work.ethernet
       generic map (
@@ -1179,7 +1190,7 @@ begin
         -- 2nd dipswitch enables remote keyboard input and remote control
         -- of MEGA65 via ethernet
         eth_remote_control => dipsw(1),
-        
+
         ---------------------------------------------------------------------------
         -- IO lines to the ethernet controller
         ---------------------------------------------------------------------------
@@ -1192,7 +1203,7 @@ begin
         eth_rxdv_in => eth_rxdv,
         eth_rxer => eth_rxer,
         eth_interrupt => eth_interrupt,
-        
+
         buffer_moby_toggle => buffer_moby_toggle,
         buffer_offset => buffer_offset,
         buffer_address => buffer_address,
@@ -1204,10 +1215,10 @@ begin
         d031_write_toggle => d031_write_toggle,
         instruction_strobe => monitor_instruction_strobe,
         cpu_arrest => ethernet_cpu_arrest,
-        
+
         eth_keycode_toggle => eth_scancode_toggle,
         eth_keycode => eth_scancode,
-        
+
         fastio_addr => unsigned(address),
         fastio_write => w,
         fastio_read => r,
@@ -1215,7 +1226,7 @@ begin
         fastio_wdata => unsigned(data_i)
         );
   end generate;
-  
+
   buffered_uart0 : entity work.buffereduart port map (
     clock => cpuclock,
     reset => reset,
@@ -1240,15 +1251,15 @@ begin
     generic map ( clock_frequency => cpu_frequency )
     port map (
     cpuclock => cpuclock,
-    
+
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,
     volume_knob3_target => volume_knob3_target,
-    
+
     volume_knob1 => volume_knob1,
     volume_knob2 => volume_knob2,
     volume_knob3 => volume_knob3,
-    
+
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
     audio_mix_wdata => audio_mix_wdata,
@@ -1257,7 +1268,7 @@ begin
 
     fm_left => fm_left,
     fm_right => fm_right,
-    
+
     pcm_left => pcm_left,
     pcm_right => pcm_right,
     cpu_pcm_left => cpu_pcm_left,
@@ -1265,7 +1276,7 @@ begin
     cpu_pcm_enable => cpu_pcm_enable,
     cpu_pcm_bypass => cpu_pcm_bypass,
     pwm_mode_select => pwm_mode_select,
-    
+
     -- MEMS microphone inputs (2 x strings of 2)
     micData0 => micData0,
     micData1 => micData1,
@@ -1316,23 +1327,23 @@ begin
       generic map ( clock_frequency => cpu_frequency )
       port map (
         clock => cpuclock,
- 
+
         cs => grove_cs,
-       
+
         sda => grove_sda,
         scl => grove_scl,
 
         grove_rtc_present => grove_rtc_present,
         reg_out => rtc_reg,
         val_out => rtc_val,
-        
+
         fastio_addr => unsigned(address),
         fastio_write => w,
         fastio_read => r,
         fastio_wdata => unsigned(data_i),
         std_logic_vector(fastio_rdata) => data_o
     );
-  end generate;      
+  end generate;
 
   -- XXX I2C bus of the MEGAphone R4 is currently disabled, as it is tied to
   -- the OrangeCrab as well.  We need to separate these two.
@@ -1350,7 +1361,7 @@ begin
       adc1_out => volume_knob1,
       adc2_out => volume_knob2,
       adc3_out => volume_knob3,
-      
+
       i2c_joya_fire => i2c_joya_fire_int,
       i2c_joya_up => i2c_joya_up,
       i2c_joya_down => i2c_joya_down,
@@ -1367,7 +1378,7 @@ begin
       i2c_black2 => i2c_black2,
       i2c_black3 => i2c_black3,
       i2c_black4 => i2c_black4,
-    
+
       fastio_addr => unsigned(address),
       fastio_write => w,
       fastio_read => r,
@@ -1376,10 +1387,10 @@ begin
 
     );
   end generate i2cperiph_megaphone;
-  
-  i2cperiph_mega65r3:
-  if target = mega65r3 generate
-    i2c1: entity work.mega65r3_i2c
+
+  i2cperiph_mega65r4:
+  if target = mega65r4 generate
+    i2c1: entity work.mega65r4_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
       clock => cpuclock,
@@ -1388,10 +1399,10 @@ begin
       grove_rtc_present => grove_rtc_present,
       reg_in => rtc_reg,
       val_in => rtc_val,
-      
+
       sda => i2c1SDA,
       scl => i2c1SCL,
-    
+
       fastio_addr => unsigned(address),
       fastio_write => w,
       fastio_read => r,
@@ -1407,7 +1418,47 @@ begin
 
       sda => hdmi_sda,
       scl => hdmi_scl,
-    
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate i2cperiph_mega65r4;
+
+  i2cperiph_mega65r3:
+  if target = mega65r3 generate
+    i2c1: entity work.mega65r3_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2cperipherals_cs,
+
+      grove_rtc_present => grove_rtc_present,
+      reg_in => rtc_reg,
+      val_in => rtc_val,
+
+      sda => i2c1SDA,
+      scl => i2c1SCL,
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+      );
+    i2c2: entity work.edid_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2chdmi_cs,
+
+      sda => hdmi_sda,
+      scl => hdmi_scl,
+
       fastio_addr => unsigned(address),
       fastio_write => w,
       fastio_read => r,
@@ -1416,7 +1467,7 @@ begin
 
     );
   end generate i2cperiph_mega65r3;
-  
+
   i2cperiph_mega65r2:
   if target = mega65r2 generate
     i2c1: entity work.mega65r2_i2c
@@ -1427,7 +1478,7 @@ begin
 
       sda => i2c1SDA,
       scl => i2c1SCL,
-    
+
       fastio_addr => unsigned(address),
       fastio_write => w,
       fastio_read => r,
@@ -1442,10 +1493,10 @@ begin
       cs => i2chdmi_cs,
 
       hdmi_int => hdmi_int,
-      
+
       sda => hdmi_sda,
       scl => hdmi_scl,
-    
+
       fastio_addr => unsigned(address),
       fastio_write => w,
       fastio_read => r,
@@ -1454,8 +1505,8 @@ begin
 
     );
   end generate i2cperiph_mega65r2;
-  
-  
+
+
   sdcard0 : entity work.sdcardio
     generic map (
       cpu_frequency => cpu_frequency,
@@ -1475,7 +1526,7 @@ begin
 
     floppy_last_gap => floppy_last_gap,
     floppy_gap_strobe => floppy_gap_strobe,
-    
+
     fpga_temperature => fpga_temperature,
 
     fastio_addr => unsigned(address),
@@ -1496,7 +1547,7 @@ begin
     qspidb_in => qspidb_in,
     qspidb_oe => qspidb_oe,
     qspi_clock => qspi_clock,
-    
+
     drive_led0 => drive_led0,
     drive_led2 => drive_led2,
     drive_ledsd => drive_ledsd,
@@ -1506,7 +1557,7 @@ begin
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,
     volume_knob3_target => volume_knob3_target,
-    
+
     f_density => f_density,
     f_motora => f_motora,
     f_selecta => f_selecta,
@@ -1535,7 +1586,7 @@ begin
     sd1541_request_toggle => sd1541_request_toggle,
     sd1541_enable => sd1541_enable,
     sd1541_track => sd1541_track,
-    
+
     -- SD card interface
     sd_interface_select => sd_interface_select,
     cs_bo => cs_bo_sd,
@@ -1549,7 +1600,7 @@ begin
     aclSCK => aclSCK,
     aclInt1 => aclInt1,
     aclInt2 => aclInt2,
-    
+
     tmpSDA => tmpSDA,
     tmpSCL => tmpSCL,
     tmpInt => tmpInt,
@@ -1562,10 +1613,10 @@ begin
     audio_mix_write => audio_mix_write,
     audio_mix_wdata => audio_mix_wdata,
     audio_mix_rdata => audio_mix_rdata,
-    audio_loopback => audio_loopback,    
+    audio_loopback => audio_loopback,
     pcm_left => pcm_left,
     pcm_right => pcm_right,
-    
+
     lcdpwm => lcdpwm,
     touchSDA => touchSDA,
     touchSCL => touchSCL,
@@ -1575,7 +1626,7 @@ begin
     touch2_valid => touch2_valid,
     touch2_x => touch2_x,
     touch2_y => touch2_y,
-    
+
     last_scan_code => last_scan_code
 
     );
@@ -1583,13 +1634,13 @@ begin
   process(reset)
   begin
     reset_high <= not reset;
-    iec_reset <= reset;    
+    iec_reset <= reset;
   end process;
 
   -- Allow taking over of SD interface for bitbashing and debugging
   cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
   cs2_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
-  
+
   scancode_out<=last_scan_code;
   process(cpuclock,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
           cia1cs_en,cia2cs_en,sd_interface_select_internal,sd_interface_select,sd_interface_select_internal,
@@ -1620,7 +1671,61 @@ begin
           sclk2_o <= sd_bitbash_sclk_o;
         end if;
       end if;
-      
+
+
+      if cia1porta_out(0)='0' and cia1porta_ddr(0)='1' then
+        fb_up_drain_n <= '0';
+      else
+        fb_up_drain_n <= '1';
+      end if;
+      if cia1porta_out(1)='0' and cia1porta_ddr(1)='1' then
+        fb_down_drain_n <= '0';
+      else
+        fb_down_drain_n <= '1';
+      end if;
+      if cia1porta_out(2)='0' and cia1porta_ddr(2)='1' then
+        fb_left_drain_n <= '0';
+      else
+        fb_left_drain_n <= '1';
+      end if;
+      if cia1porta_out(3)='0' and cia1porta_ddr(3)='1' then
+        fb_right_drain_n <= '0';
+      else
+        fb_right_drain_n <= '1';
+      end if;
+      if cia1porta_out(4)='0' and cia1porta_ddr(4)='1' then
+        fb_fire_drain_n <= '0';
+      else
+        fb_fire_drain_n <= '1';
+      end if;
+
+      if cia1portb_out(0)='0' and cia1portb_ddr(0)='1' then
+        fa_up_drain_n <= '0';
+      else
+        fa_up_drain_n <= '1';
+      end if;
+      if cia1portb_out(1)='0' and cia1portb_ddr(1)='1' then
+        fa_down_drain_n <= '0';
+      else
+        fa_down_drain_n <= '1';
+      end if;
+      if cia1portb_out(2)='0' and cia1portb_ddr(2)='1' then
+        fa_left_drain_n <= '0';
+      else
+        fa_left_drain_n <= '1';
+      end if;
+      if cia1portb_out(3)='0' and cia1portb_ddr(3)='1' then
+        fa_right_drain_n <= '0';
+      else
+        fa_right_drain_n <= '1';
+      end if;
+      if cia1portb_out(4)='0' and cia1portb_ddr(4)='1' then
+        fa_fire_drain_n <= '0';
+      else
+        fa_fire_drain_n <= '1';
+      end if;
+
+
 
     if rising_edge(cpuclock) then
 
@@ -1635,23 +1740,23 @@ begin
         internal_combined_scancode_toggle <= not internal_combined_scancode_toggle;
         combined_scancode <= eth_scancode;
       end if;
-      
+
       -- Direct export of SID audio for supporting SID debugging
       rightsid_audio_out <= rightsid_audio;
-      
+
       for i in 0 to 1 loop
         if dd00_bits_out(i)='1' or dd00_bits_ddr(i)='0' then
           dd00_bits(i) <= '1';
         else
           dd00_bits(i) <= '0';
         end if;
-      end loop;      
-      
+      end loop;
+
       the_button <= fb_fire and i2c_joya_fire_int;
       i2c_joya_fire <= i2c_joya_fire_int;
-                  
+
       touch1_valid <= touch1_valid_int;
-      
+
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,
       -- depending on CPU speed setting.
       -- This allows fastloading at fast CPU speeds, without (hopefully) messing
@@ -1676,11 +1781,11 @@ begin
         drive_clock_cycle_strobe <= '0';
         drive_cycle_countdown <= drive_cycle_countdown - 1;
       end if;
-      
+
       report "1541 address_next = $" & to_hstring(address_next_1541);
-      
+
       sd_interface_select_internal <= sd_interface_select;
-      
+
       -- User port is only emulated to provide joy3 and joy4 as though a
       -- CGA/Protovision joystick adapter were connected.
       -- This is implemented by a special cartridge (since MEGA65 has no
@@ -1694,7 +1799,7 @@ begin
       end if;
       userport_in(4) <= joy3(4);
       userport_in(5) <= joy4(4);
-      
+
       touch_key1_driver <= touch_key1;
       touch_key2_driver <= touch_key2;
 
@@ -1707,7 +1812,7 @@ begin
       sbcs_en <= chipselect_enables(5);
       c65uart_en <= chipselect_enables(6);
       sdcardio_en <= chipselect_enables(7);
-      
+
       -- Switch POTs between the two SIDs, based on the CIA port A upper
       -- bits.
       case cia1portb_out(7 downto 6) is
@@ -1727,7 +1832,7 @@ begin
           potl_x <= potb_x;
           potl_y <= potb_y;
       end case;
-      
+
       -- Reflect CIA lines for IEC bus driverse so that they
       -- can be read by the CIA
       if iec_clk_reflect /= iec_clk_fromcia then
@@ -1751,7 +1856,7 @@ begin
       iec_clk_o <= iec_clk_fromcia;
       iec_data_o <= iec_data_fromcia;
       iec_atn_o <= iec_atn_fromcia;
-      
+
       seg_led(12) <= eth_scancode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
@@ -1785,7 +1890,7 @@ begin
           end if;
         end if;
       end if;
-      
+
       if (ascii_key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
         if viciv_frame_indicate='1' then
           if ef_timeout /= 0 then
@@ -1802,9 +1907,9 @@ begin
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
       else
-        uart_monitor_char_valid <= '0';      
+        uart_monitor_char_valid <= '0';
       end if;
-      
+
       -- UART char for user mode
       uart_char_valid <= '0';
       if ascii_key_valid='1' and last_ascii_key_valid='0' then
@@ -1841,12 +1946,12 @@ begin
           end if;
         end if;
       end if;
-      
+
       if reset_high = '1' then
 
         eth_load_enable_int <= '0';
         eth_load_enable <= '0';
-      
+
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";
         ascii_key_buffer_count <= 0;
@@ -1889,10 +1994,10 @@ begin
           ascii_key_event_count <= x"0000";
         end if;
       end if;
-      
+
     end if;
   end process;
-  
+
   process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
            sector_buffer_mapped_read)
     variable temp : unsigned(19 downto 0);
@@ -1906,7 +2011,7 @@ begin
       -- @IO:GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
       -- @IO:GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
-      
+
       if address(19 downto 14)&"00" = x"F8" then
         hyppocs <= cpu_hypervisor_mode;
       else
@@ -1918,9 +2023,10 @@ begin
       sectorbuffercs <= '0';
       sectorbuffercs_fast <= '0';
       report "fastio address = $" & to_hstring(address) severity note;
-      
+
       if address(19 downto 16) = x"D"
         and address(15 downto 14) = "00"
+        and address(13 downto 12) /= "10"
         and address(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs <= sbcs_en;
@@ -1939,7 +2045,7 @@ begin
       if address(19 downto 12) = x"7E" then
         charrom_cs <= '1';
       end if;
-      
+
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
@@ -1961,21 +2067,21 @@ begin
           report "i2cperipherals_cs for MEGA65R2 asserted";
         end if;
       end if;
-      
-      if target = mega65r3 then
+
+      if target = mega65r3 or target = mega65r4 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
-          report "i2cperipherals_cs for MEGA65R3 asserted";
+          report "i2cperipherals_cs for MEGA65R3/R4 asserted";
         end if;
         if address(19 downto 8) = x"D73" then
           i2chdmi_cs <= '1';
-          report "i2chdmi_cs for MEGA65R3 asserted";
+          report "i2chdmi_cs for MEGA65R3/R4 asserted";
         end if;
         if address(19 downto 8) = x"D74" then
           grove_cs <= '1';
-          report "grove_cs for MEGA65R3 asserted";
-        end if;        
-      end if;      
+          report "grove_cs for MEGA65R3/R4 asserted";
+        end if;
+      end if;
 
       cs_driveram <= '0';
       cs_driverom <= '0';
@@ -1989,10 +2095,11 @@ begin
           cs_driveram <= '1';
         end if;
       end if;
-      
+
       -- Same thing as above, but for the addr_fast bus, which is usually one clock ahead.
       if addr_fast(19 downto 16) = x"D"
         and addr_fast(15 downto 14) = "00"
+        and address(13 downto 12) /= "10"
         and addr_fast(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
         sectorbuffercs_fast <= sbcs_en;
@@ -2015,7 +2122,7 @@ begin
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D34" | x"D05" =>
+        when x"D04" | x"D14" | x"D24" | x"D34" | x"D05" =>
           leftsid_cs <= ((address(6) and not address(5)) xor address(8)) and lscs_en;
           rightsid_cs <= (((not address(6)) and not address(5)) xor address(8)) and rscs_en;
           frontsid_cs <= ((address(6) and address(5)) xor address(8)) and lscs_en;
@@ -2024,7 +2131,7 @@ begin
       end case;
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
-      
+
       -- $D600 - $D63F is reserved for C65 serial UART emulation for C65
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
@@ -2042,15 +2149,14 @@ begin
         c65uart_cs <= '0';
         report "THUMB: CS consideration for $FFD364x";
         -- $D640-$D64F is thumbnail generator
-        if address(19 downto 4) = x"D264" 
-          or address(19 downto 4) = x"D364" then
+        if (address(19 downto 4) = x"D364") or (address(19 downto 4) = x"D264") then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else
           thumbnail_cs <= '0';
         end if;
       end if;
-      if address(19 downto 4) = x"D36E" then
+      if (address(19 downto 4) = x"D36E") or (address(19 downto 4) = x"D26E") then
         ethernet_cs <= ethernetcs_en;
       else
         ethernet_cs <= '0';
@@ -2058,7 +2164,7 @@ begin
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
-      
+
       -- SD controller and miscellaneous hardware (microphone, accelerometer etc)
       -- uses $D680 - $D6FF
       temp(15 downto 3) := unsigned(address(19 downto 7));
@@ -2097,16 +2203,15 @@ begin
         when x"D30E" => buffereduart_cs <= sdcardio_en;
         when others => buffereduart_cs <= '0';
       end case;
-            
+
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
       -- XXX is resolved in CPU
 --      case address(19 downto 8) is
 --        when x"D17" => cpuregs_cs <= '1';
---        when x"D27" => cpuregs_cs <= '1';
 --        when x"D37" => cpuregs_cs <= '1';
 --        when others => cpuregs_cs <= '0';
 --      end case;
-      
+
       -- Now map the CIAs.
 
       -- These are a bit fun, because they only get mapped if colour RAM isn't
@@ -2130,7 +2235,7 @@ begin
       else
         vfpga_cs <= '0';
       end if;
-      
+
     report "CS lines: "
       & to_string(cia1cs&cia2cs&hyppocs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs&vfpga_cs);
   end process;

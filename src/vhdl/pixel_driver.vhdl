@@ -59,6 +59,7 @@ entity pixel_driver is
     mono_mode : in std_logic := '0';
     
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
+    phi_1mhz_ntsc_out : out std_logic;
     phi_1mhz_out : out std_logic;
     phi_2mhz_out : out std_logic;
     phi_3mhz_out : out std_logic;
@@ -784,7 +785,8 @@ begin
       rdata => raster15khz_rdata,
       address => raster15khz_raddr
      );
-  
+
+  phi_1mhz_ntsc_out <= phi2_1mhz_ntsc60;
   phi_1mhz_out <= phi2_1mhz_pal50 when pal50_select_internal='1' else
                   phi2_1mhz_vga60 when vga60_select_internal='1'
                   else phi2_1mhz_ntsc60;

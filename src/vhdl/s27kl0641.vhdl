@@ -39,13 +39,15 @@
 --------------------------------------------------------------------------------
 LIBRARY IEEE;
     USE IEEE.std_logic_1164.ALL;
-    USE IEEE.VITAL_timing.ALL;
-    USE IEEE.VITAL_primitives.ALL;
+--    USE IEEE.VITAL_timing.ALL;
+--    USE IEEE.VITAL_primitives.ALL;
     USE STD.textio.ALL;
 
 LIBRARY work;
     USE work.gen_utils.all;
     USE work.conversions.all;
+    USE work.VITAL_timing.ALL;
+    USE work.VITAL_primitives.ALL;
 
 -------------------------------------------------------------------------------
 -- ENTITY DECLARATION

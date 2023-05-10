@@ -4635,11 +4635,11 @@ unsigned short resolve_value16(char *in)
 void assemble_with_acme(FILE *f, struct cpu *cpu, unsigned short pc)
 {
   FILE *src_file = NULL;
-  char *bin_file_name = mktemp(strdup(P_tmpdir "acme.bin.XXXXXX"));
+  char *bin_file_name = mktemp(strdup(P_tmpdir "/acme.bin.XXXXXX"));
   assert(bin_file_name != NULL);
-  char *src_file_name = mktemp(strdup(P_tmpdir "acme.src.XXXXXX"));
+  char *src_file_name = mktemp(strdup(P_tmpdir "/acme.src.XXXXXX"));
   assert(src_file_name != NULL);
-  char *sym_file_name = mktemp(strdup(P_tmpdir "acme.sym.XXXXXX"));
+  char *sym_file_name = mktemp(strdup(P_tmpdir "/acme.sym.XXXXXX"));
   assert(sym_file_name != NULL);
   //
   // Read the lines between the assemble and end assemble directives into a memory buffer file
