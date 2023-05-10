@@ -837,13 +837,13 @@ $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(LD65) $< -Ln $*.lbl -vm --mapfile $*.map -o $*.prg
+	$(LD65) $< -Ln $*.label -vm --mapfile $*.map -o $*.prg
 
 $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	mkdir -p $(SDCARD_DIR)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --add-source -Ln $(UTILDIR)/ONBOARD.lbl --listing $(UTILDIR)/ONBOARD.list --mapfile $(UTILDIR)/ONBOARD.map $(UTILDIR)/version.s $< $(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
+	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --add-source -Ln $(UTILDIR)/ONBOARD.label --listing $(UTILDIR)/ONBOARD.list --mapfile $(UTILDIR)/ONBOARD.map $(UTILDIR)/version.s $< $(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
 # it doesn't overlap with hypervisor
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
@@ -856,7 +856,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
-		--add-source -Ln $*.lbl --listing $*.list \
+		--add-source -Ln $*.label --listing $*.list \
 		--mapfile $*.map $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
@@ -868,7 +868,7 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source -Ln $*.lbl --listing $*.list \
+		--add-source -Ln $*.label --listing $*.list \
 		--mapfile $*.map $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
 # Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
@@ -1212,24 +1212,14 @@ $(BINDIR)/vncserver:	$(TOOLDIR)/vncserver.c
 
 clean:
 	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
-	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
-	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
-	rm -f $(UTILDIR)/mega65_keyboardtest.prg
-	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
-	rm -f $(TOOLDIR)/etherhyppo/etherhyppo
-	rm -f $(TOOLDIR)/etherload/etherload
-	rm -f $(TOOLDIR)/hotpatch/hotpatch
-	rm -f $(TOOLDIR)/pngprepare/pngprepare
-	rm -f $(UTILDIR)/etherload.prg $(UTILDIR)/etherload.list $(UTILDIR)/etherload.map
-	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
-	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
-	rm -f $(UTILDIR)/c65test02prg.prg $(UTILDIR)/c65test02prg.list $(UTILDIR)/c65test02prg.map
+	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.label $(UTILDIR)/*.map $(UTILDIR)/*.bin $(UTILDIR)/*.o
 	## should not remove iomap.txt, as this is committed to repo!
 	#rm -f iomap.txt
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/colourram.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl $(SRCDIR)/version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/shadowram-a100t.vhdl $(VHDLSRCDIR)/termmem.vhdl $(VHDLSRCDIR)/oskmem.vhdl
-	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
+	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/colourram.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/uart_monitor.vhdl
+	rm -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/shadowram-a100t.vhdl $(VHDLSRCDIR)/termmem.vhdl $(VHDLSRCDIR)/oskmem.vhdl
+	rm -f $(BINDIR)/monitor.m65 src/monitor/monitor.list src/monitor/monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
@@ -1237,13 +1227,28 @@ clean:
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/*.{cache,runs,hw,ip_user_files,srcs,xpr}
-	rm -f $(TOOLS) $(UTILDIR)/version.s $(SRCDIR)/version.txt
+	rm -f $(TOOLS)
+	rm -f bin/matrix_banner.txt \
+		src/version.txt \
+		src/version.a65 \
+		src/version.asm \
+		src/monitor/version.a65 \
+		src/utilities/version.h \
+		src/utilities/version.s \
+		src/vhdl/version.vhdl
 	rm -f FAIL.* PASS.*
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean
-	make -C src/mega65-fdisk clean
-	make -C src/mega65-freezemenu clean
+	for path in `git submodule | awk '{ print "./" $$2 }'`; do \
+		if [[ -e $$path/Makefile ]]; then \
+			if [[ $$path =~ src/mega65-libc ]]; then \
+				make -C $$path cleanall; \
+			else \
+				make -C $$path clean; \
+			fi; \
+		fi; \
+	done
 
 cleangen:
-	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
+	rm -f $(UTILDIR)/*.prg $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl sdcard-files/*

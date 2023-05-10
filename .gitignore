@@ -20,9 +20,6 @@ src/tests/*.prg
 src/tools/*.prg
 src/utilities/*.prg
 src/utilities/userwarning.c
-src/utilities/mega65_config.lbl
-src/utilities/*.label
-src/utilities/version.h
 src/monitor/gen_dis
 src/tools/ftphelper.c
 src/hyppo/HICKUP.*
@@ -35,14 +32,29 @@ exomized.prg
 # ophis
 src/*.list
 src/*.map
+src/*.label
 src/tests/*.list
 src/tests/*.map
+src/tests/*.label
 src/tools/*.list
 src/tools/*.map
+src/tools/*.label
 src/utilities/*.list
 src/utilities/*.map
+src/utilities/*.label
 monitor.list
 monitor.map
+monitor.label
+
+# generated version files (by src/version.sh)
+bin/matrix_banner.txt
+src/version.txt
+src/version.a65
+src/version.asm
+src/monitor/version.a65
+src/utilities/version.h
+src/utilities/version.s
+src/vhdl/version.vhdl
 
 # generated vhdl
 src/verilog/monitor_mem.v
@@ -55,16 +67,9 @@ src/vhdl/shadowram-a200t.vhdl
 src/vhdl/termmem.vhdl
 src/vhdl/uart_monitor.vhdl
 src/vhdl/uart_monitor.vhdl.tmp
-src/vhdl/version.vhdl
-
 
 # generated ASM
-src/version.txt
-src/version.a65
-src/version.asm
 src/monitor/monitor_dis.a65
-src/monitor/version.a65
-src/utilities/version.s
 
 # executables
 src/tools/bin2c
