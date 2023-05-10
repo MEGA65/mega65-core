@@ -12,6 +12,18 @@ set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
 create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
+create_generated_clock -name clock325 [get_pins clocks1/mmcm_adv0/CLKOUT0]
+create_generated_clock -name clock81p [get_pins clocks1/mmcm_adv0/CLKOUT2]
+create_generated_clock -name clock41  [get_pins clocks1/mmcm_adv0/CLKOUT3]
+create_generated_clock -name clock27  [get_pins clocks1/mmcm_adv0/CLKOUT4]
+create_generated_clock -name clock163 [get_pins clocks1/mmcm_adv0/CLKOUT5]
+create_generated_clock -name clock270 [get_pins clocks1/mmcm_adv0/CLKOUT6]
+
+create_generated_clock -name clock50  [get_pins clocks1/mmcm_adv1_eth/CLKOUT1]
+create_generated_clock -name clock200 [get_pins clocks1/mmcm_adv1_eth/CLKOUT2]
+
+create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
+
 #set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
 # General purpose LED on mother board
@@ -435,19 +447,20 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 # seem to have the prefixes on them anymore
 
 # Relax between ethernet and CPU
-set_false_path -from [get_clocks CLKOUT3] -to [get_clocks CLKOUT1]
-set_false_path -from [get_clocks CLKOUT1] -to [get_clocks CLKOUT3]
+set_false_path -from [get_clocks clock41] -to [get_clocks clock50]
+set_false_path -from [get_clocks clock50] -to [get_clocks clock41]
 # Relax between clock domains of HyperRAM
-set_false_path -from [get_clocks CLKOUT0] -to [get_clocks CLKOUT5]
-set_false_path -from [get_clocks CLKOUT5] -to [get_clocks CLKOUT0]
+set_false_path -from [get_clocks clock325] -to [get_clocks clock163]
+set_false_path -from [get_clocks clock163] -to [get_clocks clock325]
 
 #set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
 #set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
 ## Fix 12.288MHz clock generation clock domain crossing
-set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
+set_false_path -from [get_clocks clock41] -to [get_clocks clock60]
 
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
-     -group { CLKOUT3 CLKOUT2 CLKOUT4 CLKOUT5 u_clock325 } \
-     -group { u_clock50 u_clock200}
+     -group { clock41 clock81p clock27 clock163 clock325 } \
+     -group { clock50 clock200}
+
