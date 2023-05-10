@@ -1347,7 +1347,7 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
-GS $D7EF CPU:RAND Hardware random number generator
+GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
 GS $D7F1.0 CPU:IECBUSACT IEC bus is active
 GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
 GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
@@ -1363,6 +1363,7 @@ GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
 GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
 C64 $DC02 CIA1:DDRA Port A DDR
