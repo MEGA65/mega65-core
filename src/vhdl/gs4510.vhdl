@@ -2821,7 +2821,7 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
                           
             when x"ef" =>
-              -- @IO:GS $D7EF CPU:RAND Hardware random number generator
+              -- @IO:GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
               if trng_consume_toggle = trng_consume_toggle_last then
                 trng_consume_toggle <= not trng_consume_toggle;
               end if;
@@ -2863,11 +2863,13 @@ begin
               value(0) := '1'; -- Set if power is on, clear if power is off
               return value;
             when x"fe" =>
+              -- @IO:GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
               value(2) := slow_cache_enable;
               value(3) := slow_cache_advance_enable;
-              value(7 downto 3) := (others => '0');
+              value(6 downto 3) := (others => '0');
+              value(7) := trng_enable;
               return value;
             when x"ff" =>
               return eth_arrest_count;
