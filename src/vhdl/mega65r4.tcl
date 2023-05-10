@@ -424,9 +424,3 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
 ## Fix 12.288MHz clock generation clock domain crossing
 #set_false_path -from [get_clocks CLKOUT3] -to [get_clocks clk_60]
-
-# NEOTRNG exceptions
-set_disable_timing cpu0i_10/trng0/i_1/i_6 -from A -to Z
-set_disable_timing cpu0i_10/trng0/i_1/i_6 -from B -to Z
-set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from A -to Z
-set_disable_timing cpu0i_10/\m0.machine0/cpu0/trng0 /i_1/i_6 -from B -to Z
