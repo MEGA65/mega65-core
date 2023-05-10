@@ -22,7 +22,7 @@ pipeline {
         stage('Build Freezer & Flasher') {
             steps {
                 sh 'make freezer_files'
-                sh 'make src/utilities/mflash200.prg src/utilities/upgrade0.prg'
+                sh 'make flasher_files'
             }
         }
         stage('Build MEGA65R4') {
@@ -41,6 +41,7 @@ pipeline {
                 }
             }
         }
+        /*
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -49,7 +50,6 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Build Nexys4DDR-Widget') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
