@@ -469,7 +469,7 @@ void hy_opendir(void)
 
 struct m65_dirent hy_dirent;
 
-int advance_to_next_entry(void)
+int8_t advance_to_next_entry(void)
 {
   hy_opendir_offset_in_sector += 0x20;
   
@@ -516,15 +516,10 @@ void copy_vfat_chars_into_dname(unsigned char* dirent, char* dname, int seqnumbe
 
 struct m65_dirent *hy_readdir(void)
 {
-  int k;
-  int retVal = 0;
-  int vfatEntry = 0;
-  int firstTime;
+  int8_t retVal = 0;
+  unsigned char vfatEntry = 0, firstTime, deletedEntry = 0, j, found = 0;
   int seqnumber;
-  int deletedEntry = 0;
   unsigned char *dirent;
-  unsigned char j;
-  unsigned char found = 0;
 
   while (!found) {
     retVal = advance_to_next_entry();
@@ -844,8 +839,7 @@ unsigned char select_bitstream_file(void)
   hy_closeall();
   hy_opendir();
   printf("%cScanning directory...\n", 0x93);
-  dirent = hy_readdir();
-  while (dirent && ((unsigned short)dirent != 0xffffU)) {
+  while (dirent = hy_readdir()) {
     j = strlen(dirent->d_name) - 4;
     //press_any_key(0,0);
     if (j >= 0) {
@@ -863,8 +857,6 @@ unsigned char select_bitstream_file(void)
         file_count++;
       }
     }
-
-    dirent = hy_readdir();
   }
 
   hy_closedir();
@@ -1228,6 +1220,23 @@ void flash_inspector(void)
 #endif
 }
 
+#ifdef SHOW_FLASH_DIFF
+void debug_memory_block(int offset, unsigned long dbg_addr)
+{
+  for (i = 0; i < 256; i++) {
+    if (!(i & 15))
+      printf("%c%07lx:", 5, dbg_addr + i);
+    if (data_buffer[offset + i] != buffer[offset + i])
+      printf("%c", 28);
+    else
+      printf("%c", 153);
+    printf("%02x", data_buffer[offset + i]);
+  }
+  printf("%c", 5);
+  press_any_key(0, 0);
+}
+#endif
+
 unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash_addr, long size)
 {
   while (size > 0) {
@@ -1239,30 +1248,10 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
       press_any_key(0, 0);
       printf("%cattic_addr=$%08lX, flash_addr=$%08lX\n", 0x93, attic_addr, flash_addr);
       read_data(flash_addr);
-      printf("repeated verify yields %d\n", verify_data_in_place(flash_addr));
-      for (i = 0; i < 256; i++) {
-        if (!(i & 15))
-          printf("%c%07lx:", 5, flash_addr + i);
-        if (data_buffer[i] != lpeek(0x8000000L + attic_addr + i))
-          printf("%c", 28);
-        else
-          printf("%c", 153);
-        printf("%02x", data_buffer[i]);
-        //          if ((i&15)==15) printf("\n");
-      }
-      printf("%c", 5);
-      press_any_key(0, 0);
-      for (i = 256; i < 512; i++) {
-        if (!(i & 15))
-          printf("%c%07lx:", 5, flash_addr + i);
-        if (data_buffer[i] != lpeek(0x8000000L + attic_addr + i))
-          printf("%c", 28);
-        else
-          printf("%c", 153);
-        printf("%02x", data_buffer[i]);
-        //          if ((i&15)==15) printf("\n");
-      }
-      printf("%crepeated verify yields %d\n", 5, verify_data_in_place(flash_addr));
+      lcopy(0x8000000L + attic_addr, (long)buffer, 512);
+      debug_memory_block(0, flash_addr);
+      debug_memory_block(256, flash_addr);
+      printf("comparing read data against reread yields %d\n", verify_data_in_place(flash_addr));
       press_any_key(0, 0);
       printf("%c", 0x93);
 #endif
@@ -1502,7 +1491,7 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
         for (waddr = addr; waddr < (addr + size); waddr += 256) {
           lcopy(0x8000000L + waddr - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
           // display sector on screen
-          //        lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
+          // lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
           POKE(0xD020, 3);
           program_page(waddr, 256);
           POKE(0xD020, 0);

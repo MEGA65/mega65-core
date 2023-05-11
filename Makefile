@@ -160,6 +160,10 @@ FREEZER_FILES= \
 SDCARD_FILES= \
 	$(SDCARD_DIR)/ETHLOAD.M65
 
+FLASHER_FILES= \
+	$(UTILDIR)/mflash200.prg \
+	$(UTILDIR)/upgrade0.prg
+
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
@@ -173,9 +177,11 @@ format:
 	done; \
 	find . -type d \( -path ./release-build $$submodules \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print0 | xargs -0 clang-format --style=file -i --verbose
 
-.PHONY: FORCE format
+.PHONY: all FORCE format freezer_files flasher_files
 
 freezer_files: $(SDCARD_DIR) $(FREEZER_FILES) $(SDCARD_FILES)
+
+flasher_files: $(FLASHER_FILES)
 
 $(SDCARD_DIR):
 	mkdir $(SDCARD_DIR)
@@ -849,10 +855,7 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC6
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
 	@test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
 
-$(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
-	$(UTILDIR)/userwarning.sh
-
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
@@ -864,7 +867,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a100t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a100t.prg)
 	@test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
@@ -876,7 +879,7 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicomm
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
 	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
-$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
+$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/joyflash-a200t.prg \
@@ -892,7 +895,7 @@ $(UTILDIR)/crc32accl.o: $(UTILDIR)/crc32accl.s
 	$(CA65) $(UTILDIR)/crc32accl.s -o $(UTILDIR)/crc32accl.o --listing $(UTILDIR)/crc32accl.list
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c $(UTILDIR)/crc32accl.o
+$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/crc32accl.o
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $@ \
@@ -901,14 +904,14 @@ $(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
 	@echo $$(stat -c"~~~~~~~~~~~~~~~~> mflash200.prg size is %s" $(UTILDIR)/mflash200.prg)
 
-$(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/userwarning.c $(UTILDIR)/crc32accl.o
+$(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) $(UTILDIR)/crc32accl.o
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list \
 		--mapfile $*.map -DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE $< \
 		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
-	@echo $$(stat -c"~~~~~~~~~~~~~~~~> mflash200.prg size is %s" $(UTILDIR)/mflash200.prg)
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> upgrade0.prg size is %s" $(UTILDIR)/upgrade0.prg)
 
 $(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
 	$(info =============================================================)
@@ -1262,8 +1265,8 @@ clean:
 
 cleanall: clean
 	for path in `git submodule | awk '{ print "./" $$2 }'`; do \
-		if [[ -e $$path/Makefile ]]; then \
-			if [[ $$path =~ src/mega65-libc ]]; then \
+		if [ -e $$path/Makefile ]; then \
+			if [ $$path = ./src/mega65-libc ]; then \
 				make -C $$path cleanall; \
 			else \
 				make -C $$path clean; \

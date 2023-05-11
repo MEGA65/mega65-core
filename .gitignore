@@ -33,18 +33,23 @@ exomized.prg
 src/*.list
 src/*.map
 src/*.label
+src/*.lbl
 src/tests/*.list
 src/tests/*.map
 src/tests/*.label
+src/tests/*.lbl
 src/tools/*.list
 src/tools/*.map
 src/tools/*.label
+src/tools/*.lbl
 src/utilities/*.list
 src/utilities/*.map
 src/utilities/*.label
+src/utilities/*.lbl
 monitor.list
 monitor.map
 monitor.label
+monitor.lbl
 
 # generated version files (by src/version.sh)
 bin/matrix_banner.txt

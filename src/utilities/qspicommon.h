@@ -42,7 +42,7 @@ extern unsigned char reconfig_disabled;
 
 extern unsigned char data_buffer[512];
 extern unsigned char bitstream_magic[16];
-extern char disk_name_return[32];
+extern char disk_name_return[64];
 
 extern unsigned short mb;
 

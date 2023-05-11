@@ -9,10 +9,6 @@
 #include <6502.h>
 
 #include "qspicommon.h"
-// not needed, no slot 0 flashing in core flasher!
-#ifdef QSPI_FLASH_SLOT0
-#include "userwarning.c"
-#endif
 
 #ifdef STANDALONE
 #include "version.h"
@@ -22,8 +18,6 @@ unsigned char joy_x = 100;
 unsigned char joy_y = 100;
 
 unsigned int base_addr;
-
-unsigned long autoboot_address = 0;
 
 // mega65r3 QSPI has the most space currently with 8x8MB
 // this is to much for r3 or r2, but we can handle...
@@ -174,20 +168,20 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
       if (default_slot == 0xff && (slot_core[slot].flags & CORECAP_SLOT_DEFAULT))
         default_slot = slot;
     }
-    else
+    else {
       slot_core[slot].capabilities = slot_core[slot].flags = 0;
+      // check if slot is empty (all FF)
+      for (j = 0; j < 512 && data_buffer[j] == 0xff; j++)
+        ;
+      if (j == 512)
+        slot_core[slot].valid = SLOT_EMPTY;
+    }
 
     // if we are searching for a slot, we can cut the process short...
     if (search_flags)
       continue;
 
 #define FAST_PETSCII2ASCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
-
-    // check if slot is empty (all FF)
-    for (j = 0; j < 512 && data_buffer[j] == 0xff; j++)
-      ;
-    if (j == 512)
-      slot_core[slot].valid = SLOT_EMPTY;
 
     lfill((long)slot_core[slot].name, ' ', 64);
     // extract names
@@ -223,6 +217,41 @@ void write_text(unsigned char x, unsigned char y, char *text)
     POKE(0x400 + y*40 + x++, *text);
     text++;
   }
+}
+
+unsigned char confirm_slot0_flash()
+{
+  printf("%c\n"
+         " %c** You are about to replace slot 0! **%c\n\n"
+         "If this process fails or is interrupted,"
+         "slot 0 will fail to boot. Then you can\n"
+         "either use a JTAG to boot again or wait "
+         "30 sec until slot 1 hopefully starts.\n\n"
+         "For this you need to make sure that your"
+         "slot 1 MEGA65 core works correctly and\n"
+         "that you can send the %cupgrade0.prg%c from\n"
+         "your PC to your MEGA65!\n\n"
+         "If you are unsure about any of this,\n"
+         "please contact us first!\n\n%c"
+         " * I confirm that I am aware of the\n"
+         "   risks involved and like to proceed.\n\n"
+         " * I confirm that I can start my MEGA65 "
+         "   without the need of slot 0 and can\n"
+         "   send the flasher to my MEGA65.%c\n\n"
+         "Type CONFIRM to proceed, or press\n"
+         "<RUN/STOP> to abort: ",
+         0x93, 129, 5, 155, 5, 158, 5);
+#if 0
+  printf("%c\n"
+         "An error while replacing slot 0 can\n"
+         "temporary brick your MEGA65, which can\n"
+         "ONLY be reverted using a JTAG adapter or"
+         "a MEGA65 core in slot 1.\n\n"
+         "Please confirm that you know the risks\n"
+         "and the recovery procedure by typing\n"
+         "CONFIRM: ", 0x93);
+#endif
+  return check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT);
 }
 
 void display_cartridge(short slot)
@@ -302,7 +331,7 @@ void main(void)
   // only NO-SCROLL on mega65r2/r3
   if (!(PEEK(0xD611) & 0x20)) {
 #endif
-    char cart_id[6], valid;
+    char cart_id[6];
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
     usleep(10);
@@ -365,40 +394,11 @@ void main(void)
       POKE(0xD610, 0);
 #endif
 
-      // calculate slot address
-      autoboot_address = SLOT_SIZE * selected;
-
-      if (first_flash_read)
-        do_first_flash_read(autoboot_address);
-
-      // Check valid flag and empty state of the slot before launching it.
-      read_data(autoboot_address + 0 * 256);
-      y = 0xff;
-      valid = 1;
-      for (x = 0; x < 256; x++)
-        y &= data_buffer[x];
-      for (x = 0; x < 16; x++)
-        if (data_buffer[x] != bitstream_magic[x]) {
-          valid = 0;
-          break;
-        }
-      // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-      if (y == 0xff) {
-        read_data(autoboot_address + 1 * 256);
-        for (x = 0; x < 256; x++)
-          y &= data_buffer[x];
-      }
-      else {
-        //      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
-        //      printf("\n");
-        printf("(First sector not empty. Code $%02x FOO!)\n", y);
-      }
-
-      if (valid) {
+      if (slot_core[selected].valid == SLOT_VALID) {
         // Valid bitstream -- so start it
-        reconfig_fpga(autoboot_address + 4096);
+        reconfig_fpga(SLOT_SIZE * selected + 4096);
       }
-      else if (y == 0xff) {
+      else if (slot_core[selected].valid == SLOT_EMPTY) {
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
         POKE(0, 64);
@@ -407,11 +407,10 @@ void main(void)
       }
       else {
         printf("WARNING: Flash slot %d seems to be\n"
-               "messed up (code $%02X).\n",
-            1 + ((PEEK(0xD69D) >> 3) & 1), y);
-        printf("To avoid seeing this message every time,either "
-               "erase or re-flash the slot.\n");
-        printf("\nPress almost any key to continue...\n");
+               "messed up.\n"
+               "To avoid seeing this message every time,"
+               "either erase or re-flash the slot.\n\n"
+               "Press almost any key to continue...\n", selected);
         while (PEEK(0xD610))
           POKE(0xD610, 0);
         // Ignore TAB, since they might still be holding it
@@ -628,7 +627,7 @@ void main(void)
 #if QSPI_FLASH_SLOT0
     case 0x7e: // TILDE (MEGA-LT)
       // first ask rediculous questions...
-      if (user_has_been_warned()) {
+      if (confirm_slot0_flash()) {
         selected_reflash_slot = 0;
       }
       printf("%c", 0x93);
@@ -693,24 +692,7 @@ void main(void)
     POKE(0xD020, 0);
   }
 #else /* FIRMWARE_UPGRADE */
-  printf("%c\n"
-         "%c ** You are about to replace core 0 **%c\n\n"
-         "If this process fails or is interrupted,"
-         "core 0 will fail to boot and MEGA65 will"
-         "blink blue lights.\n\n"
-         "If this happens, hold the NO SCROLL key "
-         "for 30 seconds to restart this process. "
-         "This requires a working MEGA65 core in\n"
-         "slot 1!\n\n"
-         "Be sure to confirm that core 1 works\n"
-         "before proceeding!\n\n"
-         " * I have read and understand this\n"
-         "   message.\n\n"
-         " * I have tried booting with core 1\n"
-         "   and it works.\n\n"
-         "Type CONFIRM to proceed, or press\n"
-         "<RETURN> key to abort: ", 0x93, 129, 5);
-  if (!check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT)) {
+  if (!confirm_slot0_flash())
     printf("\n\nABORTED!\n");
     goto do_exit;
   }
@@ -719,7 +701,9 @@ void main(void)
   reflash_slot(0, SELECTED_FILE_VALID);
 #endif
 
+#ifdef STANDALONE
 do_exit:
+#endif
   // clear keybuffer
   *(unsigned char *)0xc6 = 0;
 }
