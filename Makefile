@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 # Operating System detection and conditional compile options
 
 ifeq ($(OS),Windows_NT)
