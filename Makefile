@@ -1,4 +1,3 @@
-SHELL := /bin/bash
 # Operating System detection and conditional compile options
 
 ifeq ($(OS),Windows_NT)
@@ -1246,8 +1245,8 @@ clean:
 
 cleanall: clean
 	for path in `git submodule | awk '{ print "./" $$2 }'`; do \
-		if [[ -e $$path/Makefile ]]; then \
-			if [[ $$path =~ src/mega65-libc ]]; then \
+		if [ -e $$path/Makefile ]; then \
+			if [ $$path = ./src/mega65-libc ]; then \
 				make -C $$path cleanall; \
 			else \
 				make -C $$path clean; \
