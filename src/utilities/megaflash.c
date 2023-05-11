@@ -692,7 +692,7 @@ void main(void)
     POKE(0xD020, 0);
   }
 #else /* FIRMWARE_UPGRADE */
-  if (!confirm_slot0_flash())
+  if (!confirm_slot0_flash()) {
     printf("\n\nABORTED!\n");
     goto do_exit;
   }
