@@ -28,8 +28,9 @@ create_generated_clock -name clock200 [get_pins clocks1/mmcm_adv1_eth/CLKOUT2]
 
 create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
 
-set_input_delay -clock [get_clocks clock50] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
-set_input_delay -clock [get_clocks clock50] -min 5  [get_ports {eth_rxd[1] eth_rxd[0]}]
+# TODO: These cause massive timing errors.
+#set_input_delay -clock [get_clocks clock50] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
+#set_input_delay -clock [get_clocks clock50] -min 5  [get_ports {eth_rxd[1] eth_rxd[0]}]
 
 #set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
