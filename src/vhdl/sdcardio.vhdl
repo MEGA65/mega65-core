@@ -1090,7 +1090,28 @@ begin  -- behavioural
            sd_interface_select_internal,sdcard_busy,sd_handshake,sd_data_ready,
            f011_swap_drives,qspi_bytes_differ,virtualise_f011_drive0,
            virtualise_f011_drive1,f011_d64_disk,f011_d64_disk2,f011_mega_disk,
-           f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw
+           f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw,
+           latched_disk_change_event,fdc_sector_found_2x,fdc_sector_end_2x,
+           silent_sdcard,fdc_crc_error,fdc_2x_select,found_track_2x,
+           found_sector_2x,found_side_2x,track_info_track,track_info_rate,
+           track_info_encoding,track_info_sectors,volume_knob3_target,
+           pwm_knob_en,volume_knob1_target,volume_knob2_target,
+           auto_fdc_2x_select,fdc_variable_data_rate,use_tib_info,
+           touch1_active,touch2_active,touch1_status,touch2_status,
+           touch_flip_x_internal,touch_flip_y_internal,touch_scale_x_internal,
+           touch_scale_y_internal,touch_delta_x_internal,touch_delta_y_internal,
+           touch_x1,touch_y1,touch_x2,touch_y2,touch_enabled_internal,
+           touch_byte,gesture_event,gesture_event_id,flash_boot_address,
+           reconfigure_address_int,qspidb_tristate,qspi_csn_int,qspi_clock_int,
+           QspiDB_in,qspi_clock_run,f_wdata_minimum,i2c_bus_id,i2c0_reset_internal,
+           i2c0_command_en_internal,i2c0_rw_internal,i2c0_busy,i2c0_error,
+           i2c1_reset_internal,i2c1_command_en_internal,i2c1_rw_internal,i2c1_busy,
+           i2c1_error,i2c0_address_internal,i2c1_address_internal,i2c0_wdata_internal,
+           i2c1_wdata_internal,i2c0_rdata,i2c1_rdata,debug_track_format_counter,
+           debug_track_format_sync_wait_counter,last_sd_error,lcdpwm_value,
+           audio_mix_reg_int,audio_mix_rdata,pcm_right,audio_loopback,
+           sectorbuffercs_fast,fastio_rdata,fastio_rdata_ram,f011_sector_fetch,
+           sd_buffer_offset
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin

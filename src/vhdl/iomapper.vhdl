@@ -1644,7 +1644,7 @@ begin
   scancode_out<=last_scan_code;
   process(cpuclock,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
           cia1cs_en,cia2cs_en,sd_interface_select_internal,sd_interface_select,sd_interface_select_internal,
-          miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i)
+          miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i,sd_bitbash,sclk_o_sd,cia1porta_out,cia1porta_ddr)
   begin
       -- Implement SD card switching
       sclk_o <= '1'; -- This avoids a latch
