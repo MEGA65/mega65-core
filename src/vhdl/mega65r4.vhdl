@@ -279,7 +279,7 @@ end container;
 architecture Behavioral of container is
 
   -- Use to select SDRAM or hyperram
-  constant sdram_t_or_hyperram_f : boolean := true;
+  signal sdram_t_or_hyperram_f : boolean;
 
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -420,15 +420,29 @@ architecture Behavioral of container is
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic;
   signal expansionram_rdata : unsigned(7 downto 0);
+  signal hyperram_rdata : unsigned(7 downto 0);
+  signal sdram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_data_ready_toggle : std_logic;
   signal expansionram_busy : std_logic;
+  signal hyperram_data_ready_strobe : std_logic;
+  signal hyperram_data_ready_toggle : std_logic;
+  signal hyperram_busy : std_logic;
+  signal sdram_data_ready_strobe : std_logic;
+  signal sdram_data_ready_toggle : std_logic;
+  signal sdram_busy : std_logic;
 
-  signal current_cache_line : cache_row_t := (others => (others => '0'));
-  signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
-  signal current_cache_line_valid : std_logic := '0';
+  signal expansionram_current_cache_line : cache_row_t := (others => (others => '0'));
+  signal expansionram_current_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal expansionram_current_cache_line_valid : std_logic := '0';
+  signal hyperram_cache_line : cache_row_t := (others => (others => '0'));
+  signal hyperram_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal hyperram_cache_line_valid : std_logic := '0';
+  signal sdram_cache_line : cache_row_t := (others => (others => '0'));
+  signal sdram_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal sdram_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
   signal expansionram_current_cache_line_prev_toggle : std_logic := '0';
 
@@ -457,7 +471,11 @@ architecture Behavioral of container is
   signal hyper_addr : unsigned(18 downto 3) := (others => '0');
   signal hyper_request_toggle : std_logic := '0';
   signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal sdram_data : unsigned(7 downto 0) := x"00";
+  signal viciv_attic_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
+  signal sdram_data_strobe : std_logic := '0';
+  signal viciv_attic_data_strobe : std_logic := '0';
 
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
@@ -755,7 +773,7 @@ begin
       );
 
   hyperram0:
-  if (not sdram_t_or_hyperram_f) generate
+  if true generate
   hram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
@@ -775,13 +793,13 @@ begin
       wdata => expansionram_wdata,
       read_request => expansionram_read,
       write_request => expansionram_write,
-      rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
-      busy => expansionram_busy,
+      rdata => hyperram_rdata,
+      data_ready_strobe => hyperram_data_ready_strobe,
+      busy => hyperram_busy,
 
-      current_cache_line => current_cache_line,
-      current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,
+      current_cache_line => hyperram_cache_line,
+      current_cache_line_address => hyperram_cache_line_address,
+      current_cache_line_valid => hyperram_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
 
       hr_d => hr_d,
@@ -802,7 +820,7 @@ begin
   end generate;
 
   sdramctl0:
-  if sdram_t_or_hyperram_f generate
+  if true generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
@@ -813,21 +831,21 @@ begin
 
       viciv_addr => hyper_addr,
       viciv_request_toggle => hyper_request_toggle,
-      viciv_data_out => hyper_data,
-      viciv_data_strobe => hyper_data_strobe,
+      viciv_data_out => sdram_data,
+      viciv_data_strobe => sdram_data_strobe,
 
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
       write_request => expansionram_write,
-      rdata => expansionram_rdata,
-      data_ready_toggle => expansionram_data_ready_toggle,
-      busy => expansionram_busy,
+      rdata => sdram_rdata,
+      data_ready_toggle => sdram_data_ready_toggle,
+      busy => sdram_busy,
 
-      current_cache_line => current_cache_line,
-      current_cache_line_address => current_cache_line_address,
-      current_cache_line_valid => current_cache_line_valid,
+      current_cache_line => sdram_cache_line,
+      current_cache_line_address => sdram_cache_line_address,
+      current_cache_line_valid => sdram_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       expansionram_current_cache_line_prev_toggle  => expansionram_current_cache_line_prev_toggle,
 
@@ -894,8 +912,8 @@ begin
       expansionram_rdata => expansionram_rdata,
       expansionram_wdata => expansionram_wdata,
 
-      expansionram_current_cache_line => current_cache_line,
-      expansionram_current_cache_line_address => current_cache_line_address,
+      expansionram_current_cache_line => expansionram_current_cache_line,
+      expansionram_current_cache_line_address => expansionram_current_cache_line_address,
 --      expansionram_current_cache_line_valid => current_cache_line_valid,
 
       ----------------------------------------------------------------------
@@ -953,6 +971,8 @@ begin
           clock27 => clock27,
           clock50mhz      => ethclock,
 
+          sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+          
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
@@ -960,8 +980,8 @@ begin
 
           hyper_addr => hyper_addr,
           hyper_request_toggle => hyper_request_toggle,
-          hyper_data => hyper_data,
-          hyper_data_strobe => hyper_data_strobe,
+          hyper_data => viciv_attic_data,
+          hyper_data_strobe => viciv_attic_data_strobe,
 
           fast_key => fastkey,
 
@@ -1125,9 +1145,9 @@ begin
           slow_prefetched_data => slow_prefetched_data,
           slow_prefetched_request_toggle => slow_prefetched_request_toggle,
 
-          slowram_cache_line => current_cache_line,
-          slowram_cache_line_valid => current_cache_line_valid,
-          slowram_cache_line_addr => current_cache_line_address,
+          slowram_cache_line => expansionram_current_cache_line,
+          slowram_cache_line_valid => expansionram_current_cache_line_valid,
+          slowram_cache_line_addr => expansionram_current_cache_line_address,
           slowram_cache_line_inc_toggle => expansionram_current_cache_line_next_toggle,
           slowram_cache_line_dec_toggle => expansionram_current_cache_line_prev_toggle,
 
@@ -1225,11 +1245,33 @@ begin
         o => sdram_clk
     );
 
-  process (pixelclock,cpuclock,pcm_clk) is
+  process (pixelclock,cpuclock,pcm_clk, sdram_t_or_hyperram_f) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
+    if sdram_t_or_hyperram_f = true then
+      expansionram_current_cache_line <= sdram_cache_line;
+      expansionram_current_cache_line_valid <= sdram_cache_line_valid;
+      expansionram_current_cache_line_address <= sdram_cache_line_address;
+      expansionram_busy <= sdram_busy;
+      expansionram_data_ready_toggle <= sdram_data_ready_toggle;
+      expansionram_data_ready_strobe <= sdram_data_ready_strobe;
+      expansionram_rdata <= sdram_rdata;
+      viciv_attic_data_strobe <= sdram_data_strobe;
+      viciv_attic_data <= sdram_data;
+    else
+      expansionram_current_cache_line <= hyperram_cache_line;
+      expansionram_current_cache_line_valid <= hyperram_cache_line_valid;
+      expansionram_current_cache_line_address <= hyperram_cache_line_address;
+      expansionram_busy <= hyperram_busy;
+      expansionram_data_ready_toggle <= hyperram_data_ready_toggle;
+      expansionram_data_ready_strobe <= hyperram_data_ready_strobe;
+      expansionram_rdata <= hyperram_rdata;
+      viciv_attic_data_strobe <= hyper_data_strobe;
+      viciv_attic_data <= hyper_data;
+    end if;
+    
     -- VGA output at full pixel clock
     if upscale_enable = '0' then
       vdac_clk_i <= pixelclock;

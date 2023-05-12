@@ -76,6 +76,8 @@ entity machine is
          cpu_game : in std_logic;
 
          eth_load_enabled : out std_logic;
+
+         sdram_t_or_hyperram_f : out boolean;
          
          fast_key : in std_logic := '1';
          iec_bus_active : in std_logic;      
@@ -1145,6 +1147,8 @@ begin
       iomode_set_toggle => iomode_set_toggle,
       
       no_hyppo => no_hyppo,
+
+      sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,
