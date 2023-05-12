@@ -180,7 +180,9 @@ begin
       scl => scl
       ); 
   
-  process (clock,cs,fastio_read,fastio_addr) is
+  process (clock,cs,fastio_read,fastio_addr,grove_detect_neg_counter,
+           grove_detect_counter,grove_rtc_present_drive,write_i2c_addr,
+           read_i2c_addr) is
   begin
 
     if cs='1' and fastio_read='1' then

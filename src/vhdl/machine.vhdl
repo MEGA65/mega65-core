@@ -388,12 +388,12 @@ entity machine is
          debug_wdata_dbg_out : out std_logic_vector(7 downto 0);
          debug_write_dbg_out : out std_logic;
          debug_read_dbg_out : out std_logic;
-         rom_address_i_dbg_out : out std_logic_vector(16 downto 0);
-         rom_address_o_dbg_out : out std_logic_vector(16 downto 0);
-         rom_address_rdata_dbg_out : out std_logic_vector(7 downto 0);
-         rom_address_wdata_dbg_out : out std_logic_vector(7 downto 0);
-         rom_address_write_dbg_out : out std_logic;
-         rom_address_read_dbg_out : out std_logic;
+         rom_address_i_dbg_out : out std_logic_vector(16 downto 0) := (others => '0');
+         rom_address_o_dbg_out : out std_logic_vector(16 downto 0) := (others => '0');
+         rom_address_rdata_dbg_out : out std_logic_vector(7 downto 0) := (others => '0');
+         rom_address_wdata_dbg_out : out std_logic_vector(7 downto 0) := (others => '0');
+         rom_address_write_dbg_out : out std_logic := '0';
+         rom_address_read_dbg_out : out std_logic := '0';
          debug8_state_out : out std_logic_vector(7 downto 0);
          debug4_state_out : out std_logic_vector(3 downto 0);
          proceed_dbg_out : out std_logic;
@@ -604,7 +604,7 @@ architecture Behavioral of machine is
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
   signal monitor_state : unsigned(15 downto 0);
-  signal monitor_instruction : unsigned(7 downto 0);
+  signal monitor_instruction : unsigned(7 downto 0) := (others => '0');
   signal monitor_instructionpc : unsigned(15 downto 0);
   signal monitor_watch : unsigned(27 downto 0);
 --  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
@@ -637,7 +637,7 @@ architecture Behavioral of machine is
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
-  signal monitor_interrupt_inhibit : std_logic;
+  signal monitor_interrupt_inhibit : std_logic := '0';
   signal monitor_x : unsigned(7 downto 0);
   signal monitor_y : unsigned(7 downto 0);
   signal monitor_z : unsigned(7 downto 0);
@@ -712,8 +712,8 @@ architecture Behavioral of machine is
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   
-  signal xcounter_viciv : integer;
-  signal ycounter_viciv : integer;
+  signal xcounter_viciv : integer range 0 to 4095;
+  signal ycounter_viciv : integer range 0 to 2047;
   signal xcounter_viciv_u : unsigned(11 downto 0);
   signal ycounter_viciv_u : unsigned(11 downto 0);
   

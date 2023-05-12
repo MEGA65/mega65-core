@@ -156,7 +156,14 @@ begin  -- behavioural
     end generate uarts;
 
   
-  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
+  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
+           loopback_mode,uart_tx_drive,uart_rx,buffereduart_cs,selected_uart,
+           master_irq_enable,master_tx_irq_enable,master_rx_irq_enable,
+           uart_irq_status,uart_rx_empty,uart_tx_empty,uart_rx_full,
+           uart_tx_full,uart_irq_on_rx_byte,uart_irq_on_rx_highwater,
+           uart_irq_on_tx_lowwater,uart_rx_buffer_pointer_write,
+           uart_rx_buffer_pointer_read,uart_tx_buffer_pointer_write,
+           uart_tx_buffer_pointer_read
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
