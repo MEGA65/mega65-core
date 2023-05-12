@@ -259,7 +259,20 @@ begin
   end generate;
 
   
-  process (pixelclock,reset) is
+  process (pixelclock,reset)
+    function cond_uint(c: boolean; t, f: unsigned)
+      return unsigned is
+    begin
+      if c then
+        return t;
+      else
+        return f;
+      end if;
+    end function;
+
+    -- TODO: better determine timeout at runtime, depending if hyperram is activated (mega65r4: switchable sdram/hyperram?)
+    constant expansionram_read_timeout_default : unsigned := cond_uint(target = mega65r4, to_unsigned(32,24), to_unsigned(64, 24));
+
   begin
 
     reset_inverted <= not reset;
@@ -441,7 +454,7 @@ begin
               -- complete a transaction.
               -- There is a bug in the SDRAM controller at least, that can
               -- result in a timeout occurring, which has yet to be tracked down.
-              expansionram_read_timeout <= to_unsigned(32,24);
+              expansionram_read_timeout <= expansionram_read_timeout_default;
               state <= ExpansionRAMRequest;
             end if;
           elsif slow_access_address(26)='1' then
@@ -557,7 +570,7 @@ begin
         expansionram_read <= '1';
         report "Retrying expansion RAM read";
         expansionram_write <= '0';
-        expansionram_read_timeout <= to_unsigned(32,24);        
+        expansionram_read_timeout <= expansionram_read_timeout_default;
       end if;
         
       when CartridgePortRequest =>
