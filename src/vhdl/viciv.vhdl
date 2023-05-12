@@ -1342,7 +1342,8 @@ begin
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
           sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
           hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
-          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode,
+          reg_mono,upscale_enable_int,enable_raster_delay,reg_char_y16
           ) is
     variable bitplane_number : integer;
 
@@ -1903,7 +1904,7 @@ begin
           fastio_rdata <= std_logic_vector(ycounter_drive(7 downto 0));
         elsif register_number=83 then
           -- Read physical raster MSB and raster compare source flag
-	  fastio_rdata(7) <= vicii_is_raster_source;
+	        fastio_rdata(7) <= vicii_is_raster_source;
           fastio_rdata(6) <= shadow_mask_enable;
           fastio_rdata(5) <= upscale_enable_int;
           fastio_rdata(4) <= '0';
@@ -5512,7 +5513,7 @@ begin
   end process;
 
   -- charaddress generation
-  process(raster_fetch_state,glyph_data_address)
+  process(raster_fetch_state,glyph_data_address,reg_char_y16,charrow_repeated)
   begin
     if reg_char_y16 = '0' then
       charaddress <= safe_to_integer(glyph_data_address(11 downto 0));

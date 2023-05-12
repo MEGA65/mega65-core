@@ -3339,7 +3339,7 @@ begin
           -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
           -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
           math_unit_flags <= value;
-          reg_math_cycle_counter <= to_unsigned(0,32);        
+          reg_math_cycle_counter <= to_unsigned(0,32); -- TODO: results in Synth 8-5787 because clocked by mainclock and mathclock!
         elsif long_address(7 downto 0) = x"E8" then
           reg_math_cycle_compare(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"E9" then
@@ -4158,6 +4158,7 @@ begin
       
     end if;
 
+    -- this is essentially another process, so it should go into one
     if rising_edge(mathclock) and math_unit_enable then
       -- For the plumbed math units, we want to avoid having two huge 16x32x32
       -- MUXes to pick the inputs and outputs to and from the register file.
@@ -4237,6 +4238,8 @@ begin
         end if;
       end if;
 
+      -- TODO: if this all is in a separate process, add reg_math_cycle_counter_reset signal to control
+      --       reset from main cpu process
       -- Implement writing to math registers
       if reg_math_write_toggle /= last_reg_math_write_toggle then
         last_reg_math_write_toggle <= reg_math_write_toggle;
@@ -8902,7 +8905,9 @@ begin
            gated_exrom,gated_game,cpuport_value,cpuport_ddr,hyper_iomode,sector_buffer_mapped,colourram_at_dc00,reg_map_high,
            reg_map_low,reg_mb_high,reg_mb_low,reg_offset_high,reg_offset_low,rom_at_e000,rom_at_c000,rom_at_a000,rom_at_8000,
            dat_even,dat_bitplane_addresses,dat_offset_drive,georam_blockmask,vdc_reg_num,vdc_enabled,shadow_address_next,
-           read_source,fastio_addr_next
+           read_source,fastio_addr_next,
+           pending_dma_address,dmagic_job_mapped_list,dat_bitplane_bank,
+           ocean_cart_mode,ocean_cart_lo_bank,ocean_cart_hi_bank
            )
     variable is_pending_dma_access_lower : std_logic := '1';
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
@@ -10185,7 +10190,7 @@ begin
   end process;
 
   -- read_data input mux
-  process (read_source, shadow_rdata, read_data_copy)
+  process (read_source, shadow_rdata, slow_prefetch_data, read_data_copy)
   begin
     if(read_source = Shadow) then
       report "read_data from shadow";

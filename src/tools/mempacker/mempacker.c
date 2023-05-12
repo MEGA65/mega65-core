@@ -130,7 +130,7 @@ int main(int argc, char **argv)
   fprintf(o, "begin\n"
              "\n"
              "--process for read and write operation.\n"
-             "  PROCESS(Clk,write_count,no_write_count)\n"
+             "  PROCESS(Clk,write_count,no_write_count,address)\n"
              "  BEGIN\n"
              "    writes <= write_count;\n"
              "    no_writes <= no_write_count;\n"

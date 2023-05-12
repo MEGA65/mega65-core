@@ -71,7 +71,7 @@ begin
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = 900/13 = 69.23MHz = clock69mhz
+    -- CLKOUT0 = CLK_OUT1 = 900/12.125 = 74.22MHz = clock74p22mhz
     CLKOUT0_DIVIDE_F     => 12.125,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,

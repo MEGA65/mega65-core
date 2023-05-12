@@ -185,21 +185,21 @@ entity iomapper is
         amiga_mouse_assume_b : out std_logic;
 
         i2c_joya_fire : out std_logic;
-        i2c_joya_up : out std_logic;
-        i2c_joya_down : out std_logic;
-        i2c_joya_left : out std_logic;
-        i2c_joya_right : out std_logic;
-        i2c_joyb_fire : out std_logic;
-        i2c_joyb_up : out std_logic;
-        i2c_joyb_down : out std_logic;
-        i2c_joyb_left : out std_logic;
-        i2c_joyb_right : out std_logic;
-        i2c_button2 : out std_logic;
-        i2c_button3 : out std_logic;
-        i2c_button4 : out std_logic;
-        i2c_black2 : out std_logic;
-        i2c_black3 : out std_logic;
-        i2c_black4 : out std_logic;
+        i2c_joya_up : out std_logic := '0';
+        i2c_joya_down : out std_logic := '0';
+        i2c_joya_left : out std_logic := '0';
+        i2c_joya_right : out std_logic := '0';
+        i2c_joyb_fire : out std_logic := '0';
+        i2c_joyb_up : out std_logic := '0';
+        i2c_joyb_down : out std_logic := '0';
+        i2c_joyb_left : out std_logic := '0';
+        i2c_joyb_right : out std_logic := '0';
+        i2c_button2 : out std_logic := '0';
+        i2c_button3 : out std_logic := '0';
+        i2c_button4 : out std_logic := '0';
+        i2c_black2 : out std_logic := '0';
+        i2c_black3 : out std_logic := '0';
+        i2c_black4 : out std_logic := '0';
 
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
@@ -602,7 +602,7 @@ architecture behavioral of iomapper is
   signal drive_cycle_interval : integer range 0 to 40 := 40;
   signal drive_cycle_countdown : integer range 0 to 40 := 0;
 
-  signal volume_knob1 : unsigned(15 downto 0);
+  signal volume_knob1 : unsigned(15 downto 0) := (others => '0');
   signal volume_knob2 : unsigned(15 downto 0);
   signal volume_knob3 : unsigned(15 downto 0);
   signal volume_knob1_target : unsigned(3 downto 0);

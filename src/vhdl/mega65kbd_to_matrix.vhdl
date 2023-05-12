@@ -16,7 +16,7 @@ entity mega65kbd_to_matrix is
 
     eth_load_enable : in std_logic;
     
-    keyboard_type : out unsigned(3 downto 0);
+    keyboard_type : out unsigned(3 downto 0) := to_unsigned(2,4); -- MK-II Keyboard is the current thing
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
     kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
     

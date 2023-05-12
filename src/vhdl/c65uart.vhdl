@@ -268,8 +268,28 @@ architecture behavioural of c65uart is
   
 begin  -- behavioural
   
-  process(pixelclock,cpuclock,fastio_address,fastio_write
-          ) is
+  process(pixelclock,cpuclock,fastio_address,fastio_write,fastio_read,
+          c65uart_cs,reg_data_rx_drive,reg_status0_rx_full_drive,
+          reg_status1_rx_overrun_drive,reg_status2_rx_parity_error_drive,
+          reg_status3_rx_framing_error_drive,reg_status4_rx_idle_mode_drive,
+          reg_status5_tx_eot_drive,reg_status6_tx_empty_drive,
+          reg_status7_xmit_on_drive,reg_ctrl0_parity_even,
+          reg_ctrl1_parity_enable,reg_ctrl23_char_length_deduct,
+          reg_ctrl45_sync_mode_flags,reg_ctrl6_rx_enable,reg_ctrl7_tx_enable,
+          reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
+          clock709375,reg_portf_read,reg_portf_ddr,reg_portg_read,reg_portg_ddr,
+          key_left,key_up,real_hardware,accessible_key_extradim,
+          accessible_key_enable,porth,porti,matrix_disable_modifiers,
+          widget_enable_internal,ps2_enable_internal,physkey_enable_internal,
+          virtual_enable_internal,joykey_enable_internal,joyswap_internal,
+          joya_rotate_internal,joyb_rotate_internal,
+          portj_in,portj_internal,portk_internal,portl_internal,portm_internal,
+          portn_internal,porto,portp_internal,mouse_debug,portq_in,
+          disco_led_en_int,disco_led_id_int,disco_led_val_int,
+          pota_x,pota_y,potb_x,potb_y,pot_via_iec,pot_drain,cia1portb_out,
+          fa_potx,fa_poty,fb_potx,fb_poty,j21in,j21ddr,target_id,
+          kbd_datestamp,kbd_commit,max10_fpga_date,max10_fpga_commit,sid_mode_int,
+          dc_track_enable_int,last_reset_source,dc_track_rate_int,reset_monitor_count) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
       ddr                            : in std_logic_vector(7 downto 0);

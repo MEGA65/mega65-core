@@ -317,7 +317,7 @@ begin
     end
     if(address == `MON_WRITE_IDX_HI)
     begin
-      history_write_index[9:8] = di[1:0];
+      history_write_index[9:8] <= di[1:0];
       mem_trace_reg[2] <= 0;
     end
     if(address == `MON_UART_STATUS)

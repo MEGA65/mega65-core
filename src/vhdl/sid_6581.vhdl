@@ -365,7 +365,7 @@ begin
   
 -- SID filters
   
-  process (do_buf,cs)
+  process (do_buf,cs,addr,pot_x,pot_y)
   begin
     -- Tristate data lines
     if cs='1' then
