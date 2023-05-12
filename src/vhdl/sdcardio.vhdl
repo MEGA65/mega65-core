@@ -269,7 +269,7 @@ architecture behavioural of sdcardio is
   -- Signals to communicate with SD controller core
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
 
-  signal sd_datatoken    : unsigned(7 downto 0);
+  signal sd_datatoken    : unsigned(7 downto 0) := (others => '0');
   signal sd_rdata        : unsigned(7 downto 0);
   signal sd_wdata        : unsigned(7 downto 0) := (others => '0');
   signal sd_error        : std_logic;
@@ -1083,7 +1083,14 @@ begin  -- behavioural
            fdc_encoding_mode,
            f_wdata_rll,fw_no_data_rll,fw_ready_for_next_rll,
            f_wdata_mfm,fw_no_data_mfm,fw_ready_for_next_mfm,
-           f_wdata_raw,fw_no_data_raw,fw_ready_for_next_raw
+           f_wdata_raw,fw_no_data_raw,fw_ready_for_next_raw,
+           hypervisor_mode,f011sd_buffer_select,fastio_addr_fast,secure_mode,
+           f011_motor,f011_swap,f011_rnf,f011_write_protected,f011_disk_present,
+           f011_disk_changed,sb_cpu_rdata,last_sd_rxbyte,f011_eq_inhibit,
+           sd_interface_select_internal,sdcard_busy,sd_handshake,sd_data_ready,
+           f011_swap_drives,qspi_bytes_differ,virtualise_f011_drive0,
+           virtualise_f011_drive1,f011_d64_disk,f011_d64_disk2,f011_mega_disk,
+           f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin

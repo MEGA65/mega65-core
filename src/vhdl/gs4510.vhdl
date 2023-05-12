@@ -1193,7 +1193,7 @@ architecture Behavioural of gs4510 is
   signal a_lsr : unsigned(7 downto 0);
   signal a_xor : unsigned(7 downto 0);
   signal a_and : unsigned(7 downto 0);
-  signal a_neg : unsigned(7 downto 0);
+--  signal a_neg : unsigned(7 downto 0); -- TODO: This is apparently not used. Perhaps remote it ?
 
   signal a_neg_z : std_logic;
   
@@ -3979,7 +3979,7 @@ begin
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      
-    a_neg <= (not reg_a) + 1;
+--    a_neg <= (not reg_a) + 1;
     if (reg_a = x"00") then 
       a_neg_z <= '1';
     else

@@ -603,8 +603,8 @@ architecture behavioral of iomapper is
   signal drive_cycle_countdown : integer range 0 to 40 := 0;
 
   signal volume_knob1 : unsigned(15 downto 0) := (others => '0');
-  signal volume_knob2 : unsigned(15 downto 0);
-  signal volume_knob3 : unsigned(15 downto 0);
+  signal volume_knob2 : unsigned(15 downto 0) := (others => '0');
+  signal volume_knob3 : unsigned(15 downto 0) := (others => '0');
   signal volume_knob1_target : unsigned(3 downto 0);
   signal volume_knob2_target : unsigned(3 downto 0);
   signal volume_knob3_target : unsigned(3 downto 0);
@@ -1647,6 +1647,9 @@ begin
           miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i)
   begin
       -- Implement SD card switching
+      sclk_o <= '1'; -- This avoids a latch
+      sclk2_o <= '1'; -- This avoids a latch
+      miso_i_sd <= '1'; -- This avoids a latch
       if sd_bitbash='1' then
         mosi_o <= sd_bitbash_mosi_o;
         mosi2_o <= sd_bitbash_mosi_o;
@@ -2138,6 +2141,7 @@ begin
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
+      thumbnail_cs <= '0'; -- This avoids a latch
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;

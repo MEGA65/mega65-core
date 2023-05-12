@@ -507,7 +507,7 @@ begin  -- behavioural
     );
 
   -- Look after CPU side of mapping of RX buffer
-  process(fastio_addr,fastio_read) is
+  process(fastio_addr,fastio_read,rxbuffer_cs_vector) is
   begin    
     rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
     if fastio_read='1' and (
@@ -1250,9 +1250,17 @@ begin  -- behavioural
       end if;
     end if;
   end process;
+
   
   process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,rxbuffer_write_toggle,
-           rxbuffer_wdata,rxbuffer_writeaddress
+           rxbuffer_wdata,rxbuffer_writeaddress,ethernet_cs,
+           eth_tx_idle_cpuside,eth_rx_blocked,eth_remote_control,eth_rxdv,eth_rxd,eth_reset_int,
+           eth_irqenable_rx,eth_irqenable_tx,eth_irq_rx,eth_irq_tx,eth_videostream,eth_rx_buffers_free,
+           eth_tx_size,eth_rx_buffer_inuse,eth_mac_filter,eth_disable_crc_check,eth_txd_phase,
+           eth_accept_broadcast,eth_accept_multicast,eth_rx_latch_phase,miim_register,miim_phyid,
+           miim_read_value,eth_mac,eth_offset_fail,eth_byte_100,eth_key_debug,rxbuff_id_cpuside,
+           rxbuff_id_ethside,eth_debug_select,rx_rotate_count,rxbuffer_end_of_packet_toggle_drive,
+           last_rxbuffer_end_of_packet_toggle,eth_tx_state,tx_frame_count
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin

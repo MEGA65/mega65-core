@@ -92,7 +92,7 @@ entity framepacker is
     buffer_moby_toggle : out std_logic := '0';
     buffer_offset : out unsigned(11 downto 0);
     buffer_address : in unsigned(11 downto 0);
-    buffer_rdata : out unsigned(7 downto 0);    
+    buffer_rdata : out unsigned(7 downto 0) := (others => '0');
 
     debug_vector : out unsigned(63 downto 0);
   

@@ -365,7 +365,7 @@ begin
   
 -- SID filters
   
-  process (do_buf,cs,addr,pot_x,pot_y)
+  process (do_buf,cs,addr,pot_x,pot_y,Misc_Osc3_Random,Misc_Env3)
   begin
     -- Tristate data lines
     if cs='1' then
@@ -390,7 +390,7 @@ begin
   end process;
   
   
-  process (cpuclock,reset)
+  process (cpuclock,reset_drive)
   begin
     if reset_drive='1' then
       ff1<='0';
