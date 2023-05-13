@@ -2873,7 +2873,7 @@ begin
               value(2) := slow_cache_enable;
               value(3) := slow_cache_advance_enable;
               value(4) := sdram_t_or_hyperram_f_int;
-              value(6 downto 4) := (others => '0');
+              value(6 downto 5) := (others => '0');
               value(7) := trng_enable;
               return value;
             when x"ff" =>
