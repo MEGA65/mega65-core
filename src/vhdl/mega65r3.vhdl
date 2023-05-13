@@ -47,6 +47,11 @@ entity container is
          kb_io0 : inout std_logic;
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
+         kb_tck : out std_logic := '0';
+         kb_tdo : in std_logic;
+         kb_tms : out std_logic := '0';
+         kb_tdi : out std_logic := '0';
+         kb_jtagen : out std_logic := '0';
 
          -- Direct joystick lines         
          fa_left : in std_logic;
@@ -69,6 +74,7 @@ entity container is
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
          cart_ctrl_dir : out std_logic;
+         cart_ctrl_en : out std_logic := '0';
          cart_haddr_dir : out std_logic;
          cart_laddr_dir : out std_logic;
          cart_data_en : out std_logic;
@@ -144,6 +150,7 @@ entity container is
          
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
+         hdmi_cec_a : inout std_logic := 'Z';
 
          hpd_a : inout std_logic;
          ct_hpd : out std_logic := '1';
@@ -169,6 +176,7 @@ entity container is
          eth_rxdv : in std_logic;
 --         eth_interrupt : in std_logic;
          eth_clock : out std_logic;
+         eth_led : out std_logic_vector(1 downto 1) := "0";
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -177,7 +185,10 @@ entity container is
          sdClock : out std_logic;       -- (sclk_o)
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
+         sdCD : in std_logic;
+         sdWP : in std_logic;
 
+         sd2CD : in std_logic;
          sd2reset : out std_logic;
          sd2Clock : out std_logic;       -- (sclk_o)
          sd2MOSI : out std_logic;
@@ -1095,7 +1106,9 @@ begin
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
   
-  process (pixelclock,cpuclock,pcm_clk) is
+  process (pixelclock,cpuclock,pcm_clk,
+           irq,irq_out,nmi,nmi_out,
+           audio_right,audio_left,portp_drive) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 

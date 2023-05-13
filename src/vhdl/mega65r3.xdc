@@ -28,6 +28,11 @@ create_generated_clock -name clock200 [get_pins clocks1/mmcm_adv1_eth/CLKOUT2]
 
 create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
 
+# For timing analysis, we approximate the audio clock with a frequency of 60/4 = 15 MHz.
+# This is slightly over-constraining the design, but the difference is small enough to
+# not cause timing violations.
+create_generated_clock -name clock12p228 -source [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1] -divide_by 4 [get_pins AUDIO_TONE/CLOCK/clk_u_reg/Q]
+
 # TODO: These cause massive timing errors.
 #set_input_delay -clock [get_clocks clock50] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
 #set_input_delay -clock [get_clocks clock50] -min 5  [get_ports {eth_rxd[1] eth_rxd[0]}]
@@ -45,6 +50,7 @@ set_false_path -from [get_clocks clock163] -to [get_clocks clock325]
 #set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
 ## Fix 12.288MHz clock generation clock domain crossing
 set_false_path -from [get_clocks clock41] -to [get_clocks clock60]
+set_false_path -from [get_clocks clock41] -to [get_clocks clock12p228]
 
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
@@ -59,17 +65,12 @@ set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
  
 set hr0_dq_ports    [get_ports hr_d[*]]
-set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
 # (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
 set_max_delay -from [get_clocks clock163] -to ${hr0_dq_ports} 23
-set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
 set_max_delay -to [get_clocks clock163] -from ${hr0_dq_ports} 23
-set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
 set_max_delay -from [get_clocks clock163] -to [get_ports hr_rwds] 23
-set_max_delay -from [get_clocks clock163] -to [get_ports hr2_rwds] 23
 set_max_delay -to [get_clocks clock163] -from [get_ports hr_rwds] 23
-set_max_delay -to [get_clocks clock163] -from [get_ports hr2_rwds] 23
 
 #set_input_delay -clock [get_clocks clock163]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
 #set_input_delay -clock [get_clocks clock163] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
@@ -270,8 +271,6 @@ set_property -dict {PACKAGE_PIN AA5  IOSTANDARD TMDS_33}  [get_ports TMDS_data_p
 
 set_property -dict {PACKAGE_PIN AB7  IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9   IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
-set_property -dict {PACKAGE_PIN AB8  IOSTANDARD LVCMOS33} [get_ports hdmi_enable]
-set_property -dict {PACKAGE_PIN Y8   IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
 set_property -dict {PACKAGE_PIN W9   IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 
 # I2C bus for on-board peripherals
