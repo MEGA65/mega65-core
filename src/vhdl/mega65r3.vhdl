@@ -1266,15 +1266,15 @@ begin
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
-    end if;
 
-    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
-    -- getting through
-    if portp_drive(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
+      -- XXX DEBUG: Allow showing audio samples on video to make sure they are
+      -- getting through
+      if portp_drive(2)='1' then
+        vgagreen <= unsigned(audio_left(15 downto 8));
+        vgared <= unsigned(audio_right(15 downto 8));
+        hdmigreen <= unsigned(audio_left(15 downto 8));
+        hdmired <= unsigned(audio_right(15 downto 8));
+      end if;
     end if;
     
   end process;    
