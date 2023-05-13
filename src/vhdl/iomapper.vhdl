@@ -2005,7 +2005,10 @@ begin
   end process;
 
   process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
-           sector_buffer_mapped_read)
+           sector_buffer_mapped_read,
+           cpu_hypervisor_mode,sbcs_en,addr_fast,lscs_en,
+           rscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
+           cia1cs_en,cia2cs_en)
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
