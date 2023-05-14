@@ -99,7 +99,7 @@ entity machine is
          j21out : inout std_logic_vector(11 downto 0) := (others => '1');
          j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
          
-         buffereduart_rx : inout std_logic_vector(7 downto 0);
+         buffereduart_rx : in std_logic_vector(7 downto 0) := (others => '1');
          buffereduart_tx : out std_logic_vector(7 downto 0);
          buffereduart_ringindicate : in std_logic_vector(7 downto 0);
          
