@@ -37,7 +37,7 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     -- IO lines to the UARTs
     ---------------------------------------------------------------------------
-    uart_rx : inout std_logic_vector(7 downto 0) := (others => 'H');
+    uart_rx : in std_logic_vector(7 downto 0) := (others => '1');
     uart_tx : out std_logic_vector(7 downto 0) := (others => '1');
     uart_ringindicate : in std_logic_vector(7 downto 0);    
     
