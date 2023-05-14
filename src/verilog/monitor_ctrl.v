@@ -50,7 +50,7 @@
 `define MON_CHAR_STATUS       5'h1F
 
 module monitor_ctrl(input clk, input reset, output reg reset_out, 
-                    `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
+                    `MARK_DEBUG input 		   write, `MARK_DEBUG input read,
 						   `MARK_DEBUG input [4:0] address, 
 						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
 				output reg [9:0]   history_write_index, output wire history_write, output reg [9:0] history_read_index,
