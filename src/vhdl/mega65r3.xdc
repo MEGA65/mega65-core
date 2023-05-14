@@ -66,10 +66,10 @@ set_clock_groups -asynchronous \
 
 # 80 MHz Hyperram bus
 set hbus_freq_ns   12
-# Set allowable clock drift 
+# Set allowable clock drift
 set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
- 
+
 set hr0_dq_ports    [get_ports hr_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
 # (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)

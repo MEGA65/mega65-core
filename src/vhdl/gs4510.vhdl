@@ -1752,6 +1752,7 @@ begin
       -- Latch counter counts "math cycles", which is the time it takes for an
       -- output to appear on the inputs again, i.e., once per lap of the input
       -- and output propagation.
+      -- TODO: implement reg_math_cycle_counter_reset signal, see D7E1
       reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
       if math_output_counter = 1 then
         -- Decrement latch counter
