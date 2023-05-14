@@ -33,6 +33,12 @@ create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
 # not cause timing violations.
 create_generated_clock -name clock12p228 -source [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1] -divide_by 4 [get_pins AUDIO_TONE/CLOCK/clk_u_reg/Q]
 
+create_generated_clock -name clock1      -source [get_pins clocks1/mmcm_adv0/CLKOUT3]     -divide_by 41 [get_pins m0.machine0/pixel0/phi_1mhz_ubuf_reg/Q]
+create_generated_clock -name clock2      -source [get_pins clocks1/mmcm_adv0/CLKOUT3]     -divide_by 20 [get_pins m0.machine0/pixel0/phi_2mhz_ubuf_reg/Q]
+create_generated_clock -name clock3p5    -source [get_pins clocks1/mmcm_adv0/CLKOUT3]     -divide_by 10 [get_pins m0.machine0/pixel0/phi_3mhz_ubuf_reg/Q]
+
+set_false_path -from [get_clocks clock41] -to [get_clocks clock1]
+
 # TODO: These cause massive timing errors.
 #set_input_delay -clock [get_clocks clock50] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
 #set_input_delay -clock [get_clocks clock50] -min 5  [get_ports {eth_rxd[1] eth_rxd[0]}]
