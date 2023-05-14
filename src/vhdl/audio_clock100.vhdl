@@ -43,6 +43,7 @@ end entity audio_clock;
 architecture synth of audio_clock is
 
   signal locked   : std_logic;     -- MMCM lock status
+  signal clk_60_u : stD_logic;       -- 60MHz unbuffered clock
   signal clk_60 : stD_logic;       -- 60MHz intermediate clock
   signal clk_u    : std_logic;     -- unbuffered output clock
   signal clko_fb  : std_logic;     -- unbuffered feedback clock
@@ -137,7 +138,7 @@ begin
         clkfbstopped    => open,
 --        clkout0         => clk_u,
         clkout0b        => open,
-        clkout1         => clk_60,
+        clkout1         => clk_60_u,
         clkout1b        => open,
         clkout2         => open,
         clkout2b        => open,
@@ -169,6 +170,12 @@ begin
         port map (
             I   => clko_fb,
             O   => clki_fb
+        );
+
+    BUFG_50: unisim.vcomponents.bufg
+        port map (
+            I   => clk_60_u,
+            O   => clk_60
         );
 
     rsto <= not locked;
