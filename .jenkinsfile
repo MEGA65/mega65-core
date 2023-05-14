@@ -40,7 +40,6 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -49,6 +48,7 @@ pipeline {
                 }
             }
         }
+        /*
         stage('Build Nexys4DDR-Widget') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -64,7 +64,7 @@ pipeline {
                     def files = findFiles(glob: 'release-build/pkg/*.7z')
                     // number of total architectures needs to be changed in next line,
                     // if we add or subtract build targets!
-                    if (files.length < 2) {
+                    if (files.length < 3) {
                         currentBuild.result = 'UNSTABLE'
                     } else if (files.length == 0) {
                         currentBuild.result = 'FAILURE'
