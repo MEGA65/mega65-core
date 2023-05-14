@@ -430,11 +430,11 @@ architecture behavioral of iomapper is
   signal drive_clock_cycle_strobe : std_logic := '1';
   signal drive_reset : std_logic := '1';
   signal drive_connect : std_logic := '1';
-  signal sd1541_data : unsigned(7 downto 0);
+  signal sd1541_data : unsigned(7 downto 0) := (others => '0');
   signal sd1541_ready_toggle : std_logic := '0';
-  signal sd1541_request_toggle : std_logic;
-  signal sd1541_enable : std_logic;
-  signal sd1541_track : unsigned(5 downto 0);
+  signal sd1541_request_toggle : std_logic := '0';
+  signal sd1541_enable : std_logic := '0';
+  signal sd1541_track : unsigned(5 downto 0) := (others => '0');
 
   signal hyppocs : std_logic;
 

@@ -14,7 +14,7 @@
 ## Clock signal (100MHz)
 set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
-create_clock -period 10.000 -name CLK_IN       [get_ports CLK_IN]
+create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
 create_generated_clock -name clock325 [get_pins clocks1/mmcm_adv0/CLKOUT0]
 create_generated_clock -name clock81p [get_pins clocks1/mmcm_adv0/CLKOUT2]
@@ -62,7 +62,7 @@ set_false_path -from [get_clocks clock41] -to [get_clocks clock12p228]
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
      -group { clock41 clock81p clock27 clock163 clock325 } \
-     -group { clock50 clock200}
+     -group { clock50 clock200 }
 
 # 80 MHz Hyperram bus
 set hbus_freq_ns   12
@@ -265,7 +265,7 @@ set_property -dict {PACKAGE_PIN W12  IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN V14  IOSTANDARD LVCMOS33} [get_ports vsync]
 
 # HDMI output
-############## HDMIOUT define##################
+############## HDMIOUT define ##################
 set_property -dict {PACKAGE_PIN Y1   IOSTANDARD TMDS_33}  [get_ports TMDS_clk_n]
 set_property -dict {PACKAGE_PIN W1   IOSTANDARD TMDS_33}  [get_ports TMDS_clk_p]
 set_property -dict {PACKAGE_PIN AB1  IOSTANDARD TMDS_33}  [get_ports TMDS_data_n[0]]
