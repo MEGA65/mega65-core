@@ -377,7 +377,7 @@ entity machine is
         widget_joya : in std_logic_vector(4 downto 0);
         widget_joyb : in std_logic_vector(4 downto 0);
 
-         uart_rx : inout std_logic;
+         uart_rx : in std_logic := '1';
          uart_tx : out std_logic := '1';
          
          -- CPU block ram debug

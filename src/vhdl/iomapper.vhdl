@@ -265,7 +265,7 @@ entity iomapper is
         hdmi_sda : inout std_logic;
         hpd_a : inout std_logic;
 
-        uart_rx : inout std_logic := 'H';
+        uart_rx : in std_logic := '0';
         uart_tx : out std_logic;
 
         raster_number : in unsigned(11 downto 0);

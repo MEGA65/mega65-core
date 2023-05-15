@@ -44,7 +44,7 @@ ENTITY slow_devices IS
     -- (only hyperram)
     slow_prefetched_request_toggle : in std_logic := '0';
     slow_prefetched_data : out unsigned(7 downto 0) := x"00";
-    slow_prefetched_address : inout unsigned(26 downto 0) := (others => '1');
+    slow_prefetched_address : buffer unsigned(26 downto 0) := (others => '1');
     
     -- Indicate if expansion port is busy with access
     cart_busy : out std_logic;
@@ -70,7 +70,7 @@ ENTITY slow_devices IS
     expansionram_current_cache_line : in cache_row_t := (others => (others => '0'));
     expansionram_current_cache_line_address : in unsigned(26 downto 3) := (others => '0');
     expansionram_current_cache_line_valid : in std_logic := '0';
-    expansionram_current_cache_line_next_toggle : inout std_logic := '0';
+    expansionram_current_cache_line_next_toggle : buffer std_logic := '0';
     
     
     ----------------------------------------------------------------------

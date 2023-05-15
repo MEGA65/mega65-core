@@ -43,7 +43,7 @@ entity c65uart is
     disco_led_id : out unsigned(7 downto 0) := x"00";
     disco_led_val : out unsigned(7 downto 0) := x"00";
     
-    uart_rx : inout std_logic := 'H';
+    uart_rx : in std_logic := '0';
     uart_tx : out std_logic;
 
     key_debug : in std_logic_vector(7 downto 0);
