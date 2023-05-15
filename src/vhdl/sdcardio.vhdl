@@ -76,8 +76,8 @@ entity sdcardio is
     audio_mix_rdata : in unsigned(15 downto 0) := x"FFFF";
     audio_loopback : in signed(15 downto 0) := x"FFFF";
     -- PCM digital audio output (to give to the mixer)
-    pcm_left : inout signed(15 downto 0) := x"0000";
-    pcm_right : inout signed(15 downto 0) := x"0000";
+    pcm_left : buffer signed(15 downto 0) := x"0000";
+    pcm_right : buffer signed(15 downto 0) := x"0000";
           
     hypervisor_mode : in std_logic;
     hyper_trap_f011_read : out std_logic := '0';
@@ -87,9 +87,9 @@ entity sdcardio is
     fpga_temperature : in std_logic_vector(11 downto 0);
 
     pwm_knob : in unsigned(15 downto 0);
-    volume_knob1_target : inout unsigned(3 downto 0) := x"F";
-    volume_knob2_target : inout unsigned(3 downto 0) := x"F";
-    volume_knob3_target : inout unsigned(3 downto 0) := x"F";
+    volume_knob1_target : buffer unsigned(3 downto 0) := x"F";
+    volume_knob2_target : buffer unsigned(3 downto 0) := x"F";
+    volume_knob3_target : buffer unsigned(3 downto 0) := x"F";
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space

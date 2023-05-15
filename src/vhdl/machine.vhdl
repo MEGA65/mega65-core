@@ -97,7 +97,7 @@ entity machine is
 
          j21in : in std_logic_vector(11 downto 0) := (others => '1');
          j21out : inout std_logic_vector(11 downto 0) := (others => '1');
-         j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
+         j21ddr : out std_logic_vector(11 downto 0) := (others => '0');
          
          buffereduart_rx : in std_logic_vector(7 downto 0) := (others => '1');
          buffereduart_tx : out std_logic_vector(7 downto 0);
@@ -377,7 +377,7 @@ entity machine is
         widget_joya : in std_logic_vector(4 downto 0);
         widget_joyb : in std_logic_vector(4 downto 0);
 
-         uart_rx : inout std_logic;
+         uart_rx : in std_logic := '1';
          uart_tx : out std_logic := '1';
          
          -- CPU block ram debug

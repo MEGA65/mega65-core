@@ -51,7 +51,7 @@ entity hyperram is
          -- Export current cache line for speeding up reads from slow_devices controller
          -- by skipping the need to hand us the request and get the response back.
          current_cache_line : out cache_row_t := (others => (others => '0'));
-         current_cache_line_address : inout unsigned(26 downto 3) := (others => '0');
+         current_cache_line_address : buffer unsigned(26 downto 3) := (others => '0');
          current_cache_line_valid : out std_logic := '0';
          expansionram_current_cache_line_next_toggle : in std_logic := '0';
 

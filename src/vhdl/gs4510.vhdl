@@ -229,11 +229,11 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_addr : inout std_logic_vector(19 downto 0) := (others => '0');
+    fastio_addr : buffer std_logic_vector(19 downto 0) := (others => '0');
     fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
-    fastio_read : inout std_logic := '0';
-    fastio_write : inout std_logic := '0';
-    fastio_wdata : inout std_logic_vector(7 downto 0) := (others => '0');
+    fastio_read : buffer std_logic := '0';
+    fastio_write : buffer std_logic := '0';
+    fastio_wdata : buffer std_logic_vector(7 downto 0) := (others => '0');
     fastio_rdata : in std_logic_vector(7 downto 0);
     hyppo_rdata : in std_logic_vector(7 downto 0);
     hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
@@ -1752,6 +1752,7 @@ begin
       -- Latch counter counts "math cycles", which is the time it takes for an
       -- output to appear on the inputs again, i.e., once per lap of the input
       -- and output propagation.
+      -- TODO: implement reg_math_cycle_counter_reset signal, see D7E1
       reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
       if math_output_counter = 1 then
         -- Decrement latch counter

@@ -1904,7 +1904,7 @@ begin
           fastio_rdata <= std_logic_vector(ycounter_drive(7 downto 0));
         elsif register_number=83 then
           -- Read physical raster MSB and raster compare source flag
-	        fastio_rdata(7) <= vicii_is_raster_source;
+          fastio_rdata(7) <= vicii_is_raster_source;
           fastio_rdata(6) <= shadow_mask_enable;
           fastio_rdata(5) <= upscale_enable_int;
           fastio_rdata(4) <= '0';

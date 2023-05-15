@@ -43,8 +43,8 @@ end entity audio_clock;
 architecture synth of audio_clock is
 
   signal locked   : std_logic;     -- MMCM lock status
-  signal clk_60_u : stD_logic;       -- 60MHz unbuffered clock
-  signal clk_60 : stD_logic;       -- 60MHz intermediate clock
+  signal clk_60_u : std_logic;     -- 60MHz unbuffered clock
+  signal clk_60   : std_logic;     -- 60MHz intermediate clock
   signal clk_u    : std_logic;     -- unbuffered output clock
   signal clko_fb  : std_logic;     -- unbuffered feedback clock
   signal clki_fb  : std_logic;    -- feedback clock

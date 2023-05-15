@@ -24,7 +24,7 @@ entity mega65kbd_to_matrix is
     disco_led_val : in unsigned(7 downto 0) := x"00";
     disco_led_en : in std_logic := '0';
     
-    kio8 : inout std_logic; -- clock to keyboard / I2C DATA line
+    kio8 : out std_logic; -- clock to keyboard / I2C DATA line
     kio9 : out std_logic; -- data output to keyboard / I2C CLK line
     kio10 : in std_logic; -- data input from keyboard
 
