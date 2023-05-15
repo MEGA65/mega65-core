@@ -67,7 +67,7 @@ entity iomapper is
 
         j21in : in std_logic_vector(11 downto 0);
         j21out : inout std_logic_vector(11 downto 0);
-        j21ddr : inout std_logic_vector(11 downto 0);
+        j21ddr : out std_logic_vector(11 downto 0) := (others => '0');
 
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
