@@ -38,8 +38,8 @@ entity touch is
     gesture_timeout_out : out unsigned(7 downto 0) := x"00";
     
     -- The touch events we have received
-    touch1_active : inout std_logic := '0';
-    touch1_status : inout std_logic_vector(1 downto 0) := "11";
+    touch1_active : buffer std_logic := '0';
+    touch1_status : out std_logic_vector(1 downto 0) := "11";
     x1 : out unsigned(9 downto 0) := to_unsigned(0,10);
     y1 : out unsigned(9 downto 0) := to_unsigned(0,10);
     

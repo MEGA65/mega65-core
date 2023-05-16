@@ -85,7 +85,7 @@ entity c65uart is
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porto_write_strobe : out std_logic := '0';
-    matrix_disable_modifiers : inout std_logic := '0';
+    matrix_disable_modifiers : buffer std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
     portj_out : out std_logic_vector(7 downto 0) := (others => '0');
@@ -104,8 +104,8 @@ entity c65uart is
     reset_monitor_count : in unsigned(11 downto 0);
     
     accessible_key_event : in unsigned(7 downto 0);
-    accessible_key_enable : inout std_logic := '0';
-    accessible_key_extradim : inout std_logic := '0';
+    accessible_key_enable : buffer std_logic := '0';
+    accessible_key_extradim : buffer std_logic := '0';
     
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';

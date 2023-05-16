@@ -110,7 +110,7 @@ entity viciv is
 
     d031_written : out std_logic;
     xray_mode : in std_logic;
-    test_pattern_enable : inout std_logic := '0';
+    test_pattern_enable : buffer std_logic := '0';
 
     dat_even : out std_logic;
     dat_offset : out unsigned(15 downto 0);
@@ -149,7 +149,7 @@ entity viciv is
     pixel_x_out : out integer := 0;
     pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
-    pixel_frame_toggle : inout std_logic;
+    pixel_frame_toggle : buffer std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;

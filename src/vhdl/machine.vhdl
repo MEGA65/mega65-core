@@ -125,7 +125,7 @@ entity machine is
          slowram_cache_line_inc_toggle : out std_logic := '0';
          slowram_cache_line_dec_toggle : out std_logic := '0';
          
-         sector_buffer_mapped : inout std_logic;
+         sector_buffer_mapped : buffer std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";

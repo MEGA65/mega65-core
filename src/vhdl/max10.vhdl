@@ -21,7 +21,7 @@ entity max10 is
          ----------------------------------------------------------------------
          max10_rx : out std_logic := '1';
          max10_tx : in std_logic;
-         max10_clkandsync : inout std_logic;
+         max10_clkandsync : out std_logic;
 
          ----------------------------------------------------------------------
          -- Data to/from MAX10
