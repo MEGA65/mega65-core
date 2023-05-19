@@ -820,6 +820,17 @@ begin
       );
   end generate;
 
+  ODDR_SDCLK: oddr
+    port map (
+      c  => clock162m,
+      ce => '1',
+      d1 => '1',
+      d2 => '0',
+      s  =>  '0',
+      r  =>  '0',
+      q  => sdram_clk
+    );
+  
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
@@ -1238,13 +1249,6 @@ begin
 
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
-
-  -- simple buffer, let tools use internal delay
-  OBUF_SDCLK: obuf
-    port map (
-        i => clock162,
-        o => sdram_clk
-    );
 
   process (pixelclock,cpuclock,pcm_clk, sdram_t_or_hyperram_f) is
   begin
