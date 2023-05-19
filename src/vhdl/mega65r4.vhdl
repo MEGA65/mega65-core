@@ -575,7 +575,8 @@ begin
                clock50   => ethclock,   --   50     MHz
                clock74p22 => clock74p22,
                clock81p  => pixelclock, --   81     MHz
-               clock163  => clock162,   --  162.5   MHz
+               clock163  => clock162,   --  162     MHz
+               clock163m => clock162m,  --  162     MHz, phase shifted by -207 degrees for SDRAM read timing
                clock200  => clock200,   --  200     MHz
                clock270  => clock270,   --  270     MHz
                clock325  => clock325    --  325     MHz
