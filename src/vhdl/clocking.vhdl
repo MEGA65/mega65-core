@@ -29,6 +29,7 @@ end entity;
 architecture RTL of clocking is
 
   signal clk_fb     : std_logic := '0';
+  signal clk_fb_sdram       : std_logic := '0';
   signal clk_fb_adjust0     : std_logic := '0';
   signal clk_fb_adjust1     : std_logic := '0';
   signal clk_fb_adjust2     : std_logic := '0';
