@@ -838,7 +838,7 @@ begin
     port map (
       pixelclock => pixelclock,
       clock162 => clock162,
-      clock162r => clock162m,
+      clock162r => clock162,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
