@@ -821,24 +821,25 @@ begin
       );
   end generate;
 
-  ODDR_SDCLK: oddr
-    port map (
-      c  => clock162m,
-      ce => '1',
-      d1 => '1',
-      d2 => '0',
-      s  =>  '0',
-      r  =>  '0',
-      q  => sdram_clk
-    );
+--  ODDR_SDCLK: oddr
+--    port map (
+--      c  => clock162m,
+--      ce => '1',
+--      d1 => '1',
+--      d2 => '0',
+--      s  =>  '0',
+--      r  =>  '0',
+--      q  => sdram_clk
+--    );
+  sdram_clk <= pixelclock;
   
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
-      clock162 => clock162,
-      clock162r => clock162,
+      clock162 => pixelclock,
+      clock162r => pixelclock,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
