@@ -526,6 +526,10 @@ architecture Behavioral of container is
   signal pal50 : std_logic;
   signal vdac_clk_i : std_logic;
 
+  signal sdram_slow_clock : std_logic;
+  signal sdram_clk_m : std_logic;
+  signal sdram_clk_p : std_logic;
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -821,26 +825,25 @@ begin
       );
   end generate;
 
---  ODDR_SDCLK: oddr
---    port map (
---      c  => clock162m,
---      ce => '1',
---      d1 => '1',
---      d2 => '0',
---      s  =>  '0',
---      r  =>  '0',
---      q  => sdram_clk
---    );
-  sdram_clk <= pixelclock;
+  ODDR_SDCLK: oddr
+    port map (
+      c  => sdram_clk_m,
+      ce => '1',
+      d1 => '1',
+      d2 => '0',
+      s  =>  '0',
+      r  =>  '0',
+      q  => sdram_clk
+      );
   
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
-      identical_clocks => '1',
-      clock162 => pixelclock,
-      clock162r => pixelclock,
+      identical_clocks => sdram_slow_clock,
+      clock162 => sdram_clk_p,
+      clock162r => sdram_clk_m,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
@@ -988,6 +991,7 @@ begin
           clock50mhz      => ethclock,
 
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+          sdram_slow_clock => sdram_slow_clock,
           
           eth_load_enabled => eth_load_enable,
 
@@ -1254,6 +1258,18 @@ begin
   qspidb <= qspidb_out when qspidb_oe='1' else "ZZZZ";
   qspidb_in <= qspidb;
 
+
+  process (sdram_slow_clock, pixelclock, clock162, clock162m) is
+  begin
+    if sdram_slow_clock = '1' then
+      sdram_clk_m <= pixelclock;
+      sdram_clk_p <= pixelclock;
+    else
+      sdram_clk_m <= clock162m;
+      sdram_clk_p <= clock162;
+    end if;
+  end process;
+  
   process (pixelclock,cpuclock,pcm_clk, sdram_t_or_hyperram_f) is
   begin
     vdac_sync_n <= '0';  -- no sync on green

@@ -78,6 +78,7 @@ entity machine is
          eth_load_enabled : out std_logic;
 
          sdram_t_or_hyperram_f : out boolean;
+         sdram_slow_clock : out std_logic;
          
          fast_key : in std_logic := '1';
          iec_bus_active : in std_logic;      
@@ -1149,6 +1150,7 @@ begin
       no_hyppo => no_hyppo,
 
       sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+      sdram_slow_clock => sdram_slow_clock,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,

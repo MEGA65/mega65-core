@@ -125,6 +125,7 @@ entity gs4510 is
     no_hyppo : in std_logic;
 
     sdram_t_or_hyperram_f : out boolean;
+    sdram_slow_clock : out std_logic := '1';
     
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
@@ -288,6 +289,7 @@ end entity gs4510;
 architecture Behavioural of gs4510 is
 
   signal sdram_t_or_hyperram_f_int : std_logic := '1';
+  signal sdram_slow_clock_int : std_logic := '1';
   
   signal f_rdata : std_logic := '1';
   signal f_rdata_last : std_logic := '1';
@@ -2873,7 +2875,8 @@ begin
               value(2) := slow_cache_enable;
               value(3) := slow_cache_advance_enable;
               value(4) := sdram_t_or_hyperram_f_int;
-              value(6 downto 5) := (others => '0');
+              value(5) := sdram_slow_clock_int;
+              value(6) := '0';
               value(7) := trng_enable;
               return value;
             when x"ff" =>
@@ -3373,10 +3376,13 @@ begin
         elsif (long_address = x"FFD27FE") or (long_address = x"FFD37FE") then
           -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
           -- @IO:GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
+          -- @IO:GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
           slow_prefetch_enable <= value(0);
           slow_cache_enable <= value(2);
           slow_cache_advance_enable <= value(3);
           sdram_t_or_hyperram_f_int <= value(4);
+          sdram_slow_clock_int <= value(5);
+          sdram_slow_clock <= value(5);
           
           -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
           ocean_cart_mode <= value(1);        
