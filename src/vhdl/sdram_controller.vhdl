@@ -24,6 +24,8 @@ entity sdram_controller is
         
         clock162r  : in std_logic;      -- read register clock
 
+        identical_clocks : in std_logic;
+        
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
         -- speed up simulation)
         enforce_100us_delay : in boolean := true;
@@ -201,7 +203,7 @@ begin
 
   process(clock162r) is
   begin
-    if rising_edge(clock162r) then
+    if rising_edge(clock162r) or identical_clocks='1' then
       sdram_dq_latched <= sdram_dq;
     end if;
   end process;

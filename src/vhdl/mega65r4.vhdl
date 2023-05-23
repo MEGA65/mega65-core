@@ -838,6 +838,7 @@ begin
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
+      identical_clocks => '1',
       clock162 => pixelclock,
       clock162r => pixelclock,
 
