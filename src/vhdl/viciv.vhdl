@@ -5200,9 +5200,6 @@ begin
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
           else
-            paint_fsm_state <= PaintFullColourDone;
-          end if;
-          if paint_bits_remaining = 0 then
             -- All done
             paint_fsm_state <= Idle;
           end if;
