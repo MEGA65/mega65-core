@@ -49,7 +49,7 @@ entity audio_mixer is
     -- Audio inputs
     sources : in sample_vector_t := (others => x"0000");
     -- Audio outputs
-    outputs : inout sample_vector_t := (others => x"0000")
+    outputs : buffer sample_vector_t := (others => x"0000")
     );
 
 end entity;

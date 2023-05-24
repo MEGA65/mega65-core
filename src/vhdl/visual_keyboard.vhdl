@@ -35,8 +35,8 @@ entity visual_keyboard is
     instant_at_top : in std_logic;
     -- Flags to enable zoomed display of what is under (the first)
     -- touch point.
-    zoom_en_osk : inout std_logic := '1';
-    zoom_en_always : inout std_logic := '1';
+    zoom_en_osk : in std_logic := '1';
+    zoom_en_always : in std_logic := '1';
 
     -- Current Y position of the OSK
     osk_ystart : out unsigned(11 downto 0) := (others => '1');

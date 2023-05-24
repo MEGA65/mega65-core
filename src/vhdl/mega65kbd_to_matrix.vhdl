@@ -16,7 +16,7 @@ entity mega65kbd_to_matrix is
 
     eth_load_enable : in std_logic;
     
-    keyboard_type : out unsigned(3 downto 0);
+    keyboard_type : out unsigned(3 downto 0) := to_unsigned(2,4); -- MK-II Keyboard is the current thing
     kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
     kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
     
@@ -24,7 +24,7 @@ entity mega65kbd_to_matrix is
     disco_led_val : in unsigned(7 downto 0) := x"00";
     disco_led_en : in std_logic := '0';
     
-    kio8 : inout std_logic; -- clock to keyboard / I2C DATA line
+    kio8 : out std_logic; -- clock to keyboard / I2C DATA line
     kio9 : out std_logic; -- data output to keyboard / I2C CLK line
     kio10 : in std_logic; -- data input from keyboard
 

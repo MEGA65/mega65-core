@@ -71,7 +71,7 @@ endmodule
 always @(*)
 begin
   reg_p[`PF_B] = ~intg;
-  reg_p[`PF_U] <= 1;
+  reg_p[`PF_U] = 1;
 end
 
 always @(posedge clk)

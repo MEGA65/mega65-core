@@ -46,7 +46,7 @@ entity matrix_rain_compositor is
     pixel_y_scale_400 : in unsigned(3 downto 0);
     -- Physical raster line number
     ycounter_in : in unsigned(11 downto 0);
-    ycounter_out : out unsigned(11 downto 0);
+    ycounter_out : out unsigned(11 downto 0) := (others => '0');
     -- Scaled horizontal position (for virtual 640H
     -- operation, regardless of physical video mode)
     xcounter_in : in integer;

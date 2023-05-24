@@ -36,9 +36,9 @@ entity audio_out_test_tone is
         invert_sign : in std_logic := '0'; -- switch samples between signed and
                                            -- unsigned for I2S output
 
-        pcm_rst     : inout   std_logic;                      -- audio clock reset
-        pcm_clk     : inout   std_logic;                      -- audio clock (256Fs = 12.288MHz)
-        pcm_clken   : inout   std_logic;                      -- audio clock enable (Fs = 48kHz)
+        pcm_rst     : buffer   std_logic;                      -- audio clock reset
+        pcm_clk     : buffer   std_logic;                      -- audio clock (256Fs = 12.288MHz)
+        pcm_clken   : buffer   std_logic;                      -- audio clock enable (Fs = 48kHz)
 
         i2s_data_out : out std_logic;
         i2s_bick : out std_logic;
@@ -46,7 +46,7 @@ entity audio_out_test_tone is
 
         audio_left_slow : in std_logic_vector(19 downto 0);
         audio_right_slow : in std_logic_vector(19 downto 0);
-        sample_ready_toggle : inout std_logic;
+        sample_ready_toggle : in std_logic;
         
         pcm_l       : out   std_logic_vector(15 downto 0);  -- } synchronous to pcm_clk
         pcm_r       : out   std_logic_vector(15 downto 0)   -- } valid on pcm_clken

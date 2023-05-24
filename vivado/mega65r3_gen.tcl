@@ -935,7 +935,7 @@ set_property report_strategy {Vivado Synthesis Default Reports} $obj
 set_property set_report_strategy_name 0 $obj
 # It could be advantageous for debugging to disable flatten_hierarchy.
 # However, at the present moment, this causes a weird build failure.
-# set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none $obj
+set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none $obj
 
 # Create 'synth_1_synth_report_utilization_0' report (if not found)
 if { [ string equal [get_report_configs -of_objects [get_runs synth_1] synth_1_synth_report_utilization_0] "" ] } {

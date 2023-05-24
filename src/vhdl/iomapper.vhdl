@@ -26,7 +26,7 @@ entity iomapper is
 
         accessible_row : out integer range 0 to 255 := 255;
         accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
-        dim_shift : inout std_logic := '0';
+        dim_shift : out std_logic := '0';
 
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
@@ -67,14 +67,14 @@ entity iomapper is
 
         j21in : in std_logic_vector(11 downto 0);
         j21out : inout std_logic_vector(11 downto 0);
-        j21ddr : inout std_logic_vector(11 downto 0);
+        j21ddr : out std_logic_vector(11 downto 0) := (others => '0');
 
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
 
-        buffereduart_rx : inout std_logic_vector(7 downto 0) := (others => 'H');
+        buffereduart_rx : in std_logic_vector(7 downto 0) := (others => '1');
         buffereduart_tx : out std_logic_vector(7 downto 0) := (others => '1');
         buffereduart_ringindicate : in std_logic_vector(7 downto 0);
 
@@ -185,21 +185,21 @@ entity iomapper is
         amiga_mouse_assume_b : out std_logic;
 
         i2c_joya_fire : out std_logic;
-        i2c_joya_up : out std_logic;
-        i2c_joya_down : out std_logic;
-        i2c_joya_left : out std_logic;
-        i2c_joya_right : out std_logic;
-        i2c_joyb_fire : out std_logic;
-        i2c_joyb_up : out std_logic;
-        i2c_joyb_down : out std_logic;
-        i2c_joyb_left : out std_logic;
-        i2c_joyb_right : out std_logic;
-        i2c_button2 : out std_logic;
-        i2c_button3 : out std_logic;
-        i2c_button4 : out std_logic;
-        i2c_black2 : out std_logic;
-        i2c_black3 : out std_logic;
-        i2c_black4 : out std_logic;
+        i2c_joya_up : out std_logic := '0';
+        i2c_joya_down : out std_logic := '0';
+        i2c_joya_left : out std_logic := '0';
+        i2c_joya_right : out std_logic := '0';
+        i2c_joyb_fire : out std_logic := '0';
+        i2c_joyb_up : out std_logic := '0';
+        i2c_joyb_down : out std_logic := '0';
+        i2c_joyb_left : out std_logic := '0';
+        i2c_joyb_right : out std_logic := '0';
+        i2c_button2 : out std_logic := '0';
+        i2c_button3 : out std_logic := '0';
+        i2c_button4 : out std_logic := '0';
+        i2c_black2 : out std_logic := '0';
+        i2c_black3 : out std_logic := '0';
+        i2c_black4 : out std_logic := '0';
 
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
@@ -265,7 +265,7 @@ entity iomapper is
         hdmi_sda : inout std_logic;
         hpd_a : inout std_logic;
 
-        uart_rx : inout std_logic := 'H';
+        uart_rx : in std_logic := '0';
         uart_tx : out std_logic;
 
         raster_number : in unsigned(11 downto 0);
@@ -430,11 +430,11 @@ architecture behavioral of iomapper is
   signal drive_clock_cycle_strobe : std_logic := '1';
   signal drive_reset : std_logic := '1';
   signal drive_connect : std_logic := '1';
-  signal sd1541_data : unsigned(7 downto 0);
+  signal sd1541_data : unsigned(7 downto 0) := (others => '0');
   signal sd1541_ready_toggle : std_logic := '0';
-  signal sd1541_request_toggle : std_logic;
-  signal sd1541_enable : std_logic;
-  signal sd1541_track : unsigned(5 downto 0);
+  signal sd1541_request_toggle : std_logic := '0';
+  signal sd1541_enable : std_logic := '0';
+  signal sd1541_track : unsigned(5 downto 0) := (others => '0');
 
   signal hyppocs : std_logic;
 
@@ -602,9 +602,9 @@ architecture behavioral of iomapper is
   signal drive_cycle_interval : integer range 0 to 40 := 40;
   signal drive_cycle_countdown : integer range 0 to 40 := 0;
 
-  signal volume_knob1 : unsigned(15 downto 0);
-  signal volume_knob2 : unsigned(15 downto 0);
-  signal volume_knob3 : unsigned(15 downto 0);
+  signal volume_knob1 : unsigned(15 downto 0) := (others => '0');
+  signal volume_knob2 : unsigned(15 downto 0) := (others => '0');
+  signal volume_knob3 : unsigned(15 downto 0) := (others => '0');
   signal volume_knob1_target : unsigned(3 downto 0);
   signal volume_knob2_target : unsigned(3 downto 0);
   signal volume_knob3_target : unsigned(3 downto 0);
@@ -1644,9 +1644,15 @@ begin
   scancode_out<=last_scan_code;
   process(cpuclock,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
           cia1cs_en,cia2cs_en,sd_interface_select_internal,sd_interface_select,sd_interface_select_internal,
-          miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i)
+          miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i,sd_bitbash,sclk_o_sd,cia1porta_out,cia1porta_ddr,
+          cia1portb_out,cia1portb_ddr,cpu_hypervisor_mode,sbcs_en,
+          addr_fast,lscs_en,rscs_en,c65uart_en,
+          ethernetcs_en,sdcardio_en,cia1cs_en,cia2cs_en)
   begin
       -- Implement SD card switching
+      sclk_o <= '1'; -- This avoids a latch
+      sclk2_o <= '1'; -- This avoids a latch
+      miso_i_sd <= '1'; -- This avoids a latch
       if sd_bitbash='1' then
         mosi_o <= sd_bitbash_mosi_o;
         mosi2_o <= sd_bitbash_mosi_o;
@@ -1999,7 +2005,10 @@ begin
   end process;
 
   process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
-           sector_buffer_mapped_read)
+           sector_buffer_mapped_read,
+           cpu_hypervisor_mode,sbcs_en,addr_fast,lscs_en,
+           rscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
+           cia1cs_en,cia2cs_en)
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
@@ -2138,6 +2147,7 @@ begin
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
+      thumbnail_cs <= '0'; -- This avoids a latch
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
