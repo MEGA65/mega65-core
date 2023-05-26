@@ -203,7 +203,8 @@ begin
 
   process(clock162r) is
   begin
-    if rising_edge(clock162r) or identical_clocks='1' then
+    
+    if rising_edge(clock162r) then
       sdram_dq_latched <= sdram_dq;
     end if;
   end process;
@@ -613,6 +614,9 @@ begin
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_3 =>
+            if identical_clocks='1' then
+              sdram_state <= READ_0;
+            end if;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
           when READ_WAIT_4 =>
