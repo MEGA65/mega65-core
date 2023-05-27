@@ -841,7 +841,7 @@ begin
       pixelclock => pixelclock,
       identical_clocks => sdram_slow_clock,
       clock162 => clock162,
-      clock162r => clock162,
+      clock162r => clock162m,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
 --      request_counter => led,
