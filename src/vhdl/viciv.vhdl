@@ -110,7 +110,7 @@ entity viciv is
 
     d031_written : out std_logic;
     xray_mode : in std_logic;
-    test_pattern_enable : inout std_logic := '0';
+    test_pattern_enable : buffer std_logic := '0';
 
     dat_even : out std_logic;
     dat_offset : out unsigned(15 downto 0);
@@ -149,7 +149,7 @@ entity viciv is
     pixel_x_out : out integer := 0;
     pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
-    pixel_frame_toggle : inout std_logic;
+    pixel_frame_toggle : buffer std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;
@@ -1342,7 +1342,8 @@ begin
           sprite_v400s,sprite_v400_msbs,sprite_v400_super_msbs,vicii_raster_compare,
           sprite_continuous_pointer_monitoring,display_row_count,bitplane_bank_select,
           hypervisor_mode,debug_channel_select,hyper_data_counter,debug_pixel_red,
-          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode
+          debug_pixel_green,debug_pixel_blue,debug_x,debug_y,bug_compat_mode,
+          reg_mono,upscale_enable_int,enable_raster_delay,reg_char_y16
           ) is
     variable bitplane_number : integer;
 
@@ -1903,7 +1904,7 @@ begin
           fastio_rdata <= std_logic_vector(ycounter_drive(7 downto 0));
         elsif register_number=83 then
           -- Read physical raster MSB and raster compare source flag
-	  fastio_rdata(7) <= vicii_is_raster_source;
+          fastio_rdata(7) <= vicii_is_raster_source;
           fastio_rdata(6) <= shadow_mask_enable;
           fastio_rdata(5) <= upscale_enable_int;
           fastio_rdata(4) <= '0';
@@ -5200,9 +5201,6 @@ begin
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
           else
-            paint_fsm_state <= PaintFullColourDone;
-          end if;
-          if paint_bits_remaining = 0 then
             -- All done
             paint_fsm_state <= Idle;
           end if;
@@ -5512,7 +5510,7 @@ begin
   end process;
 
   -- charaddress generation
-  process(raster_fetch_state,glyph_data_address)
+  process(raster_fetch_state,glyph_data_address,reg_char_y16,charrow_repeated)
   begin
     if reg_char_y16 = '0' then
       charaddress <= safe_to_integer(glyph_data_address(11 downto 0));

@@ -215,6 +215,7 @@
                             
   cpu6502 monitorcpu(.clk(clock), .reset(reset_internal), .nmi(0), .irq(0), .ready(1), 
                       .write_next(cpu_write_next), .address_next(cpu_address_next), 
-                      .data_i(cpu_di), .data_o_next(cpu_do));
+                      .data_i(cpu_di), .data_o_next(cpu_do),
+                      .write(), .sync(), .address(), .data_o(), .cpu_state(), .t(), .cpu_int());
   
 endmodule

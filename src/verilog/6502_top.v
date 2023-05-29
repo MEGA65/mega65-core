@@ -176,7 +176,7 @@ wire [7:0] vector_lo;
   sb_mux sb_mux(sb_sel, reg_a, reg_x, reg_y, reg_s, alu_out, pch, db_in, sb);
 
   // ADH units
-  adh_pch_reg adh_pch_reg(.clk(clk), .ready(ready_i), .pchs_sel(pchs_sel), .pcl_carry(pcl_carry), .adh_sel(adh_sel), .data_i(data_i), .alu(alu_out), .pchs(pchs), .pch(pch));
+  adh_pch_reg adh_pch_reg(.clk(clk), .ready(ready_i), .pchs_sel(pchs_sel), .pcl_carry(pcl_carry), .adh_sel(adh_sel), .data_i(data_i), .alu(alu_out), .pchs(pchs), .pch(pch), .pch_carry());
   adh_abh_reg adh_abh_reg(.clk(clk), .ready(ready_i), .load_abh(load_abh), .adh_sel(adh_sel), .data_i(data_i), .pchs(pchs), .alu(alu_out), .abh_next(abh_next), .abh(abh));
 
 wire [7:0] ir_dec;

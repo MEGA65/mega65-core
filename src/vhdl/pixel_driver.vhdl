@@ -23,8 +23,8 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
---library UNISIM;
---use UNISIM.vcomponents.all;
+library UNISIM;
+use UNISIM.vcomponents.all;
 
 
 entity pixel_driver is
@@ -523,6 +523,14 @@ architecture greco_roman of pixel_driver is
     x"f7",x"f8",x"f8",x"f9",x"f9",x"fa",x"fb",x"fb",x"fc",x"fc",x"fd",x"fd",x"fe",x"fe",x"ff",x"ff"
     );
   
+  signal phi_1mhz_int : std_logic;
+  signal phi_2mhz_int : std_logic;
+  signal phi_3mhz_int : std_logic;
+
+  signal phi_1mhz_ubuf : std_logic;
+  signal phi_2mhz_ubuf : std_logic;
+  signal phi_3mhz_ubuf : std_logic;
+
 begin
 
   assert ( (debug_height_reduction mod 2) = 0) report "debug_height_reduction must be even";
@@ -787,15 +795,27 @@ begin
      );
 
   phi_1mhz_ntsc_out <= phi2_1mhz_ntsc60;
-  phi_1mhz_out <= phi2_1mhz_pal50 when pal50_select_internal='1' else
+  phi_1mhz_int <= phi2_1mhz_pal50 when pal50_select_internal='1' else
                   phi2_1mhz_vga60 when vga60_select_internal='1'
                   else phi2_1mhz_ntsc60;
-  phi_2mhz_out <= phi2_2mhz_pal50 when pal50_select_internal='1' else
+  phi_2mhz_int <= phi2_2mhz_pal50 when pal50_select_internal='1' else
                   phi2_2mhz_vga60 when vga60_select_internal='1'
                   else phi2_2mhz_ntsc60;
-  phi_3mhz_out <= phi2_3mhz_pal50 when pal50_select_internal='1' else
+  phi_3mhz_int <= phi2_3mhz_pal50 when pal50_select_internal='1' else
                   phi2_3mhz_vga60 when vga60_select_internal='1'
                   else phi2_3mhz_ntsc60;
+  process (cpuclock)
+  begin
+     if rising_edge(cpuclock) then
+        phi_1mhz_ubuf <= phi_1mhz_int;
+        phi_2mhz_ubuf <= phi_2mhz_int;
+        phi_3mhz_ubuf <= phi_3mhz_int;
+     end if;
+  end process;
+
+  BUFG_1: unisim.vcomponents.bufg port map (I => phi_1mhz_ubuf, O => phi_1mhz_out);
+  BUFG_2: unisim.vcomponents.bufg port map (I => phi_2mhz_ubuf, O => phi_2mhz_out);
+  BUFG_3: unisim.vcomponents.bufg port map (I => phi_3mhz_ubuf, O => phi_3mhz_out);
 
   cv_hsync <= cv_hsync_pal50 when pal50_select_internal='1' else
               cv_hsync_vga60 when vga60_select_internal='1'

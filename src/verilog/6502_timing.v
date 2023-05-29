@@ -115,7 +115,7 @@ endmodule
 `SCHEM_KEEP_HIER module predecode(input [7:0] ir_next, input active, output reg onecycle, output reg twocycle);
 
 // This detects single-cycle instructions
-always @(ir_next)
+always @(ir_next,active)
 begin
 `ifdef CMOS
   if((ir_next & 8'b00000111) == 8'b00000011)

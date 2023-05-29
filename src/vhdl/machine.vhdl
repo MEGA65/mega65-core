@@ -76,6 +76,9 @@ entity machine is
          cpu_game : in std_logic;
 
          eth_load_enabled : out std_logic;
+
+         sdram_t_or_hyperram_f : out boolean;
+         sdram_slow_clock : out std_logic;
          
          fast_key : in std_logic := '1';
          iec_bus_active : in std_logic;      
@@ -97,9 +100,9 @@ entity machine is
 
          j21in : in std_logic_vector(11 downto 0) := (others => '1');
          j21out : inout std_logic_vector(11 downto 0) := (others => '1');
-         j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
+         j21ddr : out std_logic_vector(11 downto 0) := (others => '0');
          
-         buffereduart_rx : inout std_logic_vector(7 downto 0);
+         buffereduart_rx : in std_logic_vector(7 downto 0) := (others => '1');
          buffereduart_tx : out std_logic_vector(7 downto 0);
          buffereduart_ringindicate : in std_logic_vector(7 downto 0);
          
@@ -125,7 +128,7 @@ entity machine is
          slowram_cache_line_inc_toggle : out std_logic := '0';
          slowram_cache_line_dec_toggle : out std_logic := '0';
          
-         sector_buffer_mapped : inout std_logic;
+         sector_buffer_mapped : buffer std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";
@@ -377,7 +380,7 @@ entity machine is
         widget_joya : in std_logic_vector(4 downto 0);
         widget_joyb : in std_logic_vector(4 downto 0);
 
-         uart_rx : inout std_logic;
+         uart_rx : in std_logic := '1';
          uart_tx : out std_logic := '1';
          
          -- CPU block ram debug
@@ -388,12 +391,12 @@ entity machine is
          debug_wdata_dbg_out : out std_logic_vector(7 downto 0);
          debug_write_dbg_out : out std_logic;
          debug_read_dbg_out : out std_logic;
-         rom_address_i_dbg_out : out std_logic_vector(16 downto 0);
-         rom_address_o_dbg_out : out std_logic_vector(16 downto 0);
-         rom_address_rdata_dbg_out : out std_logic_vector(7 downto 0);
-         rom_address_wdata_dbg_out : out std_logic_vector(7 downto 0);
-         rom_address_write_dbg_out : out std_logic;
-         rom_address_read_dbg_out : out std_logic;
+         rom_address_i_dbg_out : out std_logic_vector(16 downto 0) := (others => '0');
+         rom_address_o_dbg_out : out std_logic_vector(16 downto 0) := (others => '0');
+         rom_address_rdata_dbg_out : out std_logic_vector(7 downto 0) := (others => '0');
+         rom_address_wdata_dbg_out : out std_logic_vector(7 downto 0) := (others => '0');
+         rom_address_write_dbg_out : out std_logic := '0';
+         rom_address_read_dbg_out : out std_logic := '0';
          debug8_state_out : out std_logic_vector(7 downto 0);
          debug4_state_out : out std_logic_vector(3 downto 0);
          proceed_dbg_out : out std_logic;
@@ -604,7 +607,7 @@ architecture Behavioral of machine is
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
   signal monitor_state : unsigned(15 downto 0);
-  signal monitor_instruction : unsigned(7 downto 0);
+  signal monitor_instruction : unsigned(7 downto 0) := (others => '0');
   signal monitor_instructionpc : unsigned(15 downto 0);
   signal monitor_watch : unsigned(27 downto 0);
 --  signal monitor_debug_memory_access : std_logic_vector(31 downto 0);
@@ -637,7 +640,7 @@ architecture Behavioral of machine is
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
-  signal monitor_interrupt_inhibit : std_logic;
+  signal monitor_interrupt_inhibit : std_logic := '0';
   signal monitor_x : unsigned(7 downto 0);
   signal monitor_y : unsigned(7 downto 0);
   signal monitor_z : unsigned(7 downto 0);
@@ -712,8 +715,8 @@ architecture Behavioral of machine is
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   
-  signal xcounter_viciv : integer;
-  signal ycounter_viciv : integer;
+  signal xcounter_viciv : integer range 0 to 4095;
+  signal ycounter_viciv : integer range 0 to 2047;
   signal xcounter_viciv_u : unsigned(11 downto 0);
   signal ycounter_viciv_u : unsigned(11 downto 0);
   
@@ -1145,6 +1148,9 @@ begin
       iomode_set_toggle => iomode_set_toggle,
       
       no_hyppo => no_hyppo,
+
+      sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+      sdram_slow_clock => sdram_slow_clock,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,

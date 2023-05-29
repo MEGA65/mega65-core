@@ -18,6 +18,7 @@ entity clocking is
       clock74p22 : out std_logic;
       clock81p   : out std_logic;
       clock163   : out std_logic;
+      clock163m  : out std_logic;
       clock200   : out std_logic;
       clock270   : out std_logic;
       clock325   : out std_logic
@@ -28,6 +29,7 @@ end entity;
 architecture RTL of clocking is
 
   signal clk_fb     : std_logic := '0';
+  signal clk_fb_sdram       : std_logic := '0';
   signal clk_fb_adjust0     : std_logic := '0';
   signal clk_fb_adjust1     : std_logic := '0';
   signal clk_fb_adjust2     : std_logic := '0';
@@ -45,6 +47,7 @@ architecture RTL of clocking is
   signal u_clock50 : std_logic := '0';
   signal u_clock81p : std_logic := '0';
   signal u_clock163 : std_logic := '0';
+  signal u_clock163m : std_logic := '0';
   signal u_clock200 : std_logic := '0';
   signal u_clock270 : std_logic := '0';
   signal u_clock325 : std_logic := '0';
@@ -71,7 +74,7 @@ begin
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = 900/13 = 69.23MHz = clock69mhz
+    -- CLKOUT0 = CLK_OUT1 = 900/12.125 = 74.22MHz = clock74p22mhz
     CLKOUT0_DIVIDE_F     => 12.125,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
@@ -241,6 +244,10 @@ begin
   bufg port map ( I => u_clock163,
                   O => clock163);  
 
+  bufg163m:
+  bufg port map ( I => u_clock163m,
+                  O => clock163m);  
+
   bufg200:
   bufg port map ( I => u_clock200,
                   O => clock200);  
@@ -340,6 +347,91 @@ begin
     PWRDWN              => '0',
     RST                 => '0');
   
+  mmcm_adv0sdram : MMCM_ADV
+  generic map
+   (BANDWIDTH            => "HIGH",
+    CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
+    COMPENSATION         => "ZHOLD",
+    STARTUP_WAIT         => FALSE,
+
+    -- Create 812.5MHz clock from 8.125x100MHz/1
+    DIVCLK_DIVIDE        => 1,
+    CLKFBOUT_MULT_F      => 8.125,
+    CLKFBOUT_PHASE       => 0.000,
+    CLKFBOUT_USE_FINE_PS => FALSE,
+
+    -- CLKOUT0 = clock325 = 812.5MHz/2.5
+    CLKOUT0_DIVIDE_F     => 2.50,
+    CLKOUT0_PHASE        => 0.000,
+    CLKOUT0_DUTY_CYCLE   => 0.500,
+    CLKOUT0_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT1 = clock135 = 812.5MHz/6
+    CLKOUT1_DIVIDE       => 6,
+    CLKOUT1_PHASE        => 0.000,
+    CLKOUT1_DUTY_CYCLE   => 0.500,
+    CLKOUT1_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT2 = clock81 = 812.5MHz/10
+    CLKOUT2_DIVIDE       => 10,
+    CLKOUT2_PHASE        => 0.000,
+    CLKOUT2_DUTY_CYCLE   => 0.500,
+    CLKOUT2_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT3 = clock41 = 812.5MHz/20
+    CLKOUT3_DIVIDE       => 20,
+    CLKOUT3_PHASE        => 0.000,
+    CLKOUT3_DUTY_CYCLE   => 0.500,
+    CLKOUT3_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT4 = clock27 = 812.5MHz/30 = 27.083
+    CLKOUT4_DIVIDE       => 30,
+    CLKOUT4_PHASE        => 0.000,
+    CLKOUT4_DUTY_CYCLE   => 0.500,
+    CLKOUT4_USE_FINE_PS  => FALSE,
+    
+    -- CLKOUT5 = clock163 = 812.5MHz/5 = 162.5 MHz
+    -- Phase adjusted by -207 degrees
+    CLKOUT5_DIVIDE       => 5,
+    CLKOUT5_PHASE        => -207.0,
+    CLKOUT5_DUTY_CYCLE   => 0.500,
+    CLKOUT5_USE_FINE_PS  => FALSE,
+
+    -- CLKOUT6 = clock270 = 270MHz
+    CLKOUT6_DIVIDE       => 3,
+    CLKOUT6_PHASE        => 0.000,
+    CLKOUT6_DUTY_CYCLE   => 0.500,
+    CLKOUT6_USE_FINE_PS  => FALSE,
+    
+    CLKIN1_PERIOD        => 10.000,
+    REF_JITTER1          => 0.010)
+  port map
+    -- Output clocks
+   (CLKFBOUT            => clk_fb_sdram,
+    CLKOUT5             => u_clock163m,
+    -- Input clock control
+    CLKFBIN             => clk_fb_sdram,
+    CLKIN1              => clock9969mhz,
+    CLKIN2              => '0',
+    -- Tied to always select the primary input clock
+    CLKINSEL            => '1',
+    -- Ports for dynamic reconfiguration
+    DADDR               => (others => '0'),
+    DCLK                => '0',
+    DEN                 => '0',
+    DI                  => (others => '0'),
+    DWE                 => '0',
+    -- Ports for dynamic phase shift
+    PSCLK               => '0',
+    PSEN                => '0',
+    PSINCDEC            => '0',
+    -- Other control and status signals
+    PWRDWN              => '0',
+    RST                 => '0');
+  
+
+
   mmcm_adv1_eth : MMCM_ADV
   generic map
    (BANDWIDTH            => "HIGH",

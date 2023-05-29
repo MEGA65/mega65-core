@@ -177,6 +177,7 @@ begin
       end case;
     end if;
 
+    rdata <= (others => '0'); -- This avoids a latch
     if cs_ram='1' then
       rdata <= ram_rdata;
     elsif cs_rom='1' then

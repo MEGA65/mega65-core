@@ -24,7 +24,7 @@ entity cia6526 is
     
     hypervisor_mode : in std_logic;
     
-    seg_led : out unsigned(31 downto 0);
+    seg_led : out unsigned(31 downto 0) := (others => '0');
 
     reg_isr_out : out unsigned(7 downto 0);
     imask_ta_out : out std_logic;

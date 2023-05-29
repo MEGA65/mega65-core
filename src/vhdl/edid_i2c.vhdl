@@ -137,10 +137,11 @@ begin
       debug_scl => '0'      
       ); 
   
-  process (clock,cs,fastio_read,fastio_addr) is
+  process (clock,cs,fastio_read,fastio_addr,i2c1_busy,last_busy,busy_count,i2c1_error) is
   begin
 
     if cs='1' and fastio_read='1' then
+      fastio_rdata <= (others => '0'); -- This avoids a latch
       if fastio_addr(7 downto 0) = "11111111" then
         -- Show various status flags @ $FF
         fastio_rdata(0) <= '0';

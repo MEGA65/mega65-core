@@ -963,7 +963,11 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE
+# Assure tests build and pass
+$(SRCDIR)/mega65-fdisk/gtest/bin/m65fdisk.test:
+	make -C $(SRCDIR)/mega65-fdisk/ test
+
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg: $(SRCDIR)/mega65-fdisk/gtest/bin/m65fdisk.test FORCE
 	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg)  
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)

@@ -21,7 +21,11 @@ entity sdram_controller is
         -- actually on pixelclock to reduce latencies
         -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
         clock162   : in std_logic;      -- Used for fast clock for HyperRAM
+        
+        clock162r  : in std_logic;      -- read register clock
 
+        identical_clocks : in std_logic;
+        
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
         -- speed up simulation)
         enforce_100us_delay : in boolean := true;
@@ -197,6 +201,13 @@ architecture tacoma_narrows of sdram_controller is
 
 begin
 
+  process(clock162r) is
+  begin
+    if rising_edge(clock162r) or identical_clocks='1' then
+      sdram_dq_latched <= sdram_dq;
+    end if;
+  end process;
+
   process(clock162, pixelclock) is
     procedure sdram_emit_command(cmd : sdram_cmd_t) is
     begin
@@ -244,8 +255,6 @@ begin
 
   begin
     if rising_edge(clock162) then
-
-      sdram_dq_latched <= sdram_dq;
 
       sdram_dq   <= (others => 'Z');
       sdram_dqml <= '1';

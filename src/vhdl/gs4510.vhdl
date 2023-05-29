@@ -124,6 +124,9 @@ entity gs4510 is
   
     no_hyppo : in std_logic;
 
+    sdram_t_or_hyperram_f : out boolean;
+    sdram_slow_clock : out std_logic := '1';
+    
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
@@ -229,11 +232,11 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_addr : inout std_logic_vector(19 downto 0) := (others => '0');
+    fastio_addr : buffer std_logic_vector(19 downto 0) := (others => '0');
     fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
-    fastio_read : inout std_logic := '0';
-    fastio_write : inout std_logic := '0';
-    fastio_wdata : inout std_logic_vector(7 downto 0) := (others => '0');
+    fastio_read : buffer std_logic := '0';
+    fastio_write : buffer std_logic := '0';
+    fastio_wdata : buffer std_logic_vector(7 downto 0) := (others => '0');
     fastio_rdata : in std_logic_vector(7 downto 0);
     hyppo_rdata : in std_logic_vector(7 downto 0);
     hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
@@ -257,7 +260,7 @@ entity gs4510 is
 
     -- Fast read interface for slow devices linear reading
     -- (presents only the next available byte)
-    slow_prefetched_request_toggle : inout std_logic := '0';
+    slow_prefetched_request_toggle : out std_logic := '0';
     slow_prefetched_data : in unsigned(7 downto 0) := x"00";
     slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
 
@@ -285,6 +288,9 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
+  signal sdram_t_or_hyperram_f_int : std_logic := '1';
+  signal sdram_slow_clock_int : std_logic := '1';
+  
   signal f_rdata : std_logic := '1';
   signal f_rdata_last : std_logic := '1';
   
@@ -1193,7 +1199,7 @@ architecture Behavioural of gs4510 is
   signal a_lsr : unsigned(7 downto 0);
   signal a_xor : unsigned(7 downto 0);
   signal a_and : unsigned(7 downto 0);
-  signal a_neg : unsigned(7 downto 0);
+--  signal a_neg : unsigned(7 downto 0); -- TODO: This is apparently not used. Perhaps remote it ?
 
   signal a_neg_z : std_logic;
   
@@ -1646,7 +1652,129 @@ begin
     addrr => std_logic_vector(cache_raddr),
     unsigned(doutr) => cache_rdata,
     dinl => std_logic_vector(cache_wdata)
-    );    
+    );
+
+  process (mathclock)
+  begin
+    if rising_edge(mathclock) and math_unit_enable then
+      -- For the plumbed math units, we want to avoid having two huge 16x32x32
+      -- MUXes to pick the inputs and outputs to and from the register file.
+      -- The interim solution is to have counters that present each of the
+      -- inputs and outputs in turn, and based on the configuration of the plumbing,
+      -- latch or store the appropriate results in the appropriate places.
+      -- This does mean that there can be 16 cycles of latency on the input and
+      -- output of the plumbing, depending on the phase of the counters.
+      -- Later we can try to reduce this latency, by clocking this piece of
+      -- logic at 2x or 4x CPU speed (as it is really a simple set of latches and
+      -- interconnect), and possibly widening it to present 2 of the 16 values
+      -- at a time, instead of just one.  On both input and output sides, it could
+      -- be possible to set the range over which it iterates the counters, to further
+      -- reduce the latency.  But for now, it will simply have the 16 phase
+      -- counters at the CPU speed.
+
+      -- Present input value to all math units
+      if math_input_counter /= 15 then
+        math_input_counter <= math_input_counter + 1;
+      else
+        math_input_counter <= 0;
+      end if;
+      math_input_number <= math_input_counter;
+      math_input_value <= reg_math_regs(math_input_counter);
+      report "MATH: Presenting math reg #" & integer'image(math_input_counter)
+        &" = $" & to_hstring(reg_math_regs(math_input_counter));
+
+      -- Update output counter being shown to math units
+      if math_output_counter /= 15 then
+        math_output_counter <= math_output_counter + 1;
+      else
+        math_output_counter <= 0;
+      end if;
+      prev_math_output_counter <= math_output_counter;
+      -- Based on the configuration for the previously selected unit,
+      -- stash the results in the appropriate place
+      if true then
+        report "MATH: output flags for unit #" & integer'image(prev_math_output_counter)
+          & " = "
+          & std_logic'image(reg_math_config(prev_math_output_counter).output_low) & ", "
+          & std_logic'image(reg_math_config(prev_math_output_counter).output_high) & ", "
+          & integer'image(reg_math_config(prev_math_output_counter).output) & ", "
+          & std_logic'image(reg_math_config(prev_math_output_counter).latched) & ".";
+      end if;
+
+      if math_unit_flags(1) = '1' then
+        if (reg_math_config_drive(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
+          if reg_math_config_drive(prev_math_output_counter).output_high = '0' then
+            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
+              -- No output being kept, so nothing to do.
+              null;
+            else
+              -- Only low output being kept
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") from output of math unit #" & integer'image(prev_math_output_counter)
+                & " ( = $" & to_hstring(math_output_value_low) & ")";
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
+            end if;
+          else
+            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
+              -- Only high half of output is being kept, so stash it
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") from output of math unit #" & integer'image(prev_math_output_counter);
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_high;
+            else
+              -- Both are being stashed, so store in consecutive slots
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") (and next) from output of math unit #" & integer'image(prev_math_output_counter);
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
+              if reg_math_config_drive(prev_math_output_counter).output /= 15 then
+                reg_math_regs(reg_math_config_drive(prev_math_output_counter).output + 1) <= math_output_value_high;
+              else
+                reg_math_regs(0) <= math_output_value_high;
+              end if;
+            end if;
+          end if;
+        end if;
+      end if;
+
+      -- TODO: Add reg_math_cycle_counter_reset signal to control
+      --       reset from main cpu process
+      -- Implement writing to math registers
+      if reg_math_write_toggle /= last_reg_math_write_toggle then
+        last_reg_math_write_toggle <= reg_math_write_toggle;
+        reg_math_write <= '1';
+      end if;
+      reg_math_write <= '0';
+      if math_unit_flags(0) = '1' then
+        if reg_math_write = '1' then
+          case reg_math_regbyte is
+            when 0 => reg_math_regs(reg_math_regnum)(7 downto 0) <= reg_math_write_value;
+            when 1 => reg_math_regs(reg_math_regnum)(15 downto 8) <= reg_math_write_value;
+            when 2 => reg_math_regs(reg_math_regnum)(23 downto 16) <= reg_math_write_value;
+            when 3 => reg_math_regs(reg_math_regnum)(31 downto 24) <= reg_math_write_value;
+            when others =>
+          end case;
+        end if;
+      end if;
+
+      -- Latch counter counts "math cycles", which is the time it takes for an
+      -- output to appear on the inputs again, i.e., once per lap of the input
+      -- and output propagation.
+      -- TODO: implement reg_math_cycle_counter_reset signal, see D7E1
+      reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
+      if math_output_counter = 1 then
+        -- Decrement latch counter
+        if reg_math_latch_counter = x"00" then
+          reg_math_latch_counter <= reg_math_latch_interval;
+          -- And update math cycle counter, if math unit is active
+          if math_unit_flags(1) = '1' then
+            reg_math_cycle_counter <= reg_math_cycle_counter_plus_one;
+          end if;
+        else
+          reg_math_latch_counter <= reg_math_latch_counter - 1;
+        end if;
+      end if;
+    end if;
+  end process;
+
       
   process (clock,mathclock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,flag_d,all_pause,read_data,
            pending_dma_address,dmagic_job_mapped_list,ocean_cart_mode,dat_bitplane_bank,
@@ -2868,7 +2996,9 @@ begin
               value(1) := ocean_cart_mode;
               value(2) := slow_cache_enable;
               value(3) := slow_cache_advance_enable;
-              value(6 downto 3) := (others => '0');
+              value(4) := sdram_t_or_hyperram_f_int;
+              value(5) := sdram_slow_clock_int;
+              value(6) := '0';
               value(7) := trng_enable;
               return value;
             when x"ff" =>
@@ -3339,7 +3469,7 @@ begin
           -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
           -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
           math_unit_flags <= value;
-          reg_math_cycle_counter <= to_unsigned(0,32);        
+          -- reg_math_cycle_counter <= to_unsigned(0,32); -- TODO: Should generate a reg_math_cycle_counter_reset signal
         elsif long_address(7 downto 0) = x"E8" then
           reg_math_cycle_compare(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"E9" then
@@ -3367,7 +3497,15 @@ begin
           power_down <= value(0);
         elsif (long_address = x"FFD27FE") or (long_address = x"FFD37FE") then
           -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+          -- @IO:GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
+          -- @IO:GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
           slow_prefetch_enable <= value(0);
+          slow_cache_enable <= value(2);
+          slow_cache_advance_enable <= value(3);
+          sdram_t_or_hyperram_f_int <= value(4);
+          sdram_slow_clock_int <= value(5);
+          sdram_slow_clock <= value(5);
+          
           -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
           ocean_cart_mode <= value(1);        
         elsif long_address(7 downto 0) = x"FF" then
@@ -3858,7 +3996,7 @@ begin
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      
-    a_neg <= (not reg_a) + 1;
+--    a_neg <= (not reg_a) + 1;
     if (reg_a = x"00") then 
       a_neg_z <= '1';
     else
@@ -3883,6 +4021,12 @@ begin
 
     if rising_edge(clock) then
 
+      if sdram_t_or_hyperram_f_int = '1' then
+        sdram_t_or_hyperram_f <= true;
+      else
+        sdram_t_or_hyperram_f <= false;
+      end if;
+      
       -- q_negated and friends have a total latency of at least 2 cycles,
       -- so that a NEG NEG NEG sequence doesn't process the result of the
       -- first NEG while executing the 3rd one which will act on the 32-bit
@@ -4157,121 +4301,6 @@ begin
       end if;
       
     end if;
-
-    if rising_edge(mathclock) and math_unit_enable then
-      -- For the plumbed math units, we want to avoid having two huge 16x32x32
-      -- MUXes to pick the inputs and outputs to and from the register file.
-      -- The interim solution is to have counters that present each of the
-      -- inputs and outputs in turn, and based on the configuration of the plumbing,
-      -- latch or store the appropriate results in the appropriate places.
-      -- This does mean that there can be 16 cycles of latency on the input and
-      -- output of the plumbing, depending on the phase of the counters.
-      -- Later we can try to reduce this latency, by clocking this piece of
-      -- logic at 2x or 4x CPU speed (as it is really a simple set of latches and
-      -- interconnect), and possibly widening it to present 2 of the 16 values
-      -- at a time, instead of just one.  On both input and output sides, it could
-      -- be possible to set the range over which it iterates the counters, to further
-      -- reduce the latency.  But for now, it will simply have the 16 phase
-      -- counters at the CPU speed.
-
-      -- Present input value to all math units
-      if math_input_counter /= 15 then
-        math_input_counter <= math_input_counter + 1;
-      else
-        math_input_counter <= 0;
-      end if;
-      math_input_number <= math_input_counter;
-      math_input_value <= reg_math_regs(math_input_counter);
-      report "MATH: Presenting math reg #" & integer'image(math_input_counter)
-        &" = $" & to_hstring(reg_math_regs(math_input_counter));
-
-      -- Update output counter being shown to math units
-      if math_output_counter /= 15 then
-        math_output_counter <= math_output_counter + 1;
-      else
-        math_output_counter <= 0;
-      end if;
-      prev_math_output_counter <= math_output_counter;
-      -- Based on the configuration for the previously selected unit,
-      -- stash the results in the appropriate place
-      if true then
-        report "MATH: output flags for unit #" & integer'image(prev_math_output_counter)
-          & " = "
-          & std_logic'image(reg_math_config(prev_math_output_counter).output_low) & ", "
-          & std_logic'image(reg_math_config(prev_math_output_counter).output_high) & ", "
-          & integer'image(reg_math_config(prev_math_output_counter).output) & ", "
-          & std_logic'image(reg_math_config(prev_math_output_counter).latched) & ".";
-      end if;
-
-      if math_unit_flags(1) = '1' then
-        if (reg_math_config_drive(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
-          if reg_math_config_drive(prev_math_output_counter).output_high = '0' then
-            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
-              -- No output being kept, so nothing to do.
-              null;
-            else
-              -- Only low output being kept
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") from output of math unit #" & integer'image(prev_math_output_counter)
-                & " ( = $" & to_hstring(math_output_value_low) & ")";
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-            end if;
-          else
-            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then          
-              -- Only high half of output is being kept, so stash it
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") from output of math unit #" & integer'image(prev_math_output_counter);
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_high;
-            else
-              -- Both are being stashed, so store in consecutive slots
-              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
-                & ") (and next) from output of math unit #" & integer'image(prev_math_output_counter);
-              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-              if reg_math_config_drive(prev_math_output_counter).output /= 15 then
-                reg_math_regs(reg_math_config_drive(prev_math_output_counter).output + 1) <= math_output_value_high;
-              else
-                reg_math_regs(0) <= math_output_value_high;
-              end if;
-            end if;
-          end if;
-        end if;
-      end if;
-
-      -- Implement writing to math registers
-      if reg_math_write_toggle /= last_reg_math_write_toggle then
-        last_reg_math_write_toggle <= reg_math_write_toggle;
-        reg_math_write <= '1';
-      end if;
-      reg_math_write <= '0';
-      if math_unit_flags(0) = '1' then
-        if reg_math_write = '1' then
-          case reg_math_regbyte is
-            when 0 => reg_math_regs(reg_math_regnum)(7 downto 0) <= reg_math_write_value;
-            when 1 => reg_math_regs(reg_math_regnum)(15 downto 8) <= reg_math_write_value;
-            when 2 => reg_math_regs(reg_math_regnum)(23 downto 16) <= reg_math_write_value;
-            when 3 => reg_math_regs(reg_math_regnum)(31 downto 24) <= reg_math_write_value;
-            when others =>
-          end case;
-        end if;
-      end if;
-
-      -- Latch counter counts "math cycles", which is the time it takes for an
-      -- output to appear on the inputs again, i.e., once per lap of the input
-      -- and output propagation.
-      reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
-      if math_output_counter = 1 then
-        -- Decrement latch counter
-        if reg_math_latch_counter = x"00" then
-          reg_math_latch_counter <= reg_math_latch_interval;
-          -- And update math cycle counter, if math unit is active
-          if math_unit_flags(1) = '1' then
-            reg_math_cycle_counter <= reg_math_cycle_counter_plus_one;
-          end if;
-        else
-          reg_math_latch_counter <= reg_math_latch_counter - 1;
-        end if;
-      end if;
-    end if;    
 
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
@@ -8902,7 +8931,9 @@ begin
            gated_exrom,gated_game,cpuport_value,cpuport_ddr,hyper_iomode,sector_buffer_mapped,colourram_at_dc00,reg_map_high,
            reg_map_low,reg_mb_high,reg_mb_low,reg_offset_high,reg_offset_low,rom_at_e000,rom_at_c000,rom_at_a000,rom_at_8000,
            dat_even,dat_bitplane_addresses,dat_offset_drive,georam_blockmask,vdc_reg_num,vdc_enabled,shadow_address_next,
-           read_source,fastio_addr_next
+           read_source,fastio_addr_next,
+           pending_dma_address,dmagic_job_mapped_list,dat_bitplane_bank,
+           ocean_cart_mode,ocean_cart_lo_bank,ocean_cart_hi_bank
            )
     variable is_pending_dma_access_lower : std_logic := '1';
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
@@ -10185,7 +10216,7 @@ begin
   end process;
 
   -- read_data input mux
-  process (read_source, shadow_rdata, read_data_copy)
+  process (read_source, shadow_rdata, slow_prefetch_data, read_data_copy)
   begin
     if(read_source = Shadow) then
       report "read_data from shadow";

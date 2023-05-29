@@ -45,7 +45,7 @@ architecture behavioural of dpram8x4096 is
 begin
 
   -------	 Port A	-------
-  process (clka,ena)
+  process (clka,ena,addra)
   begin
     if rising_edge(clka) then
       if ena = '1' then	
