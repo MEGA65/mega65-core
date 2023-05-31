@@ -392,9 +392,9 @@ begin
     CLKOUT4_USE_FINE_PS  => FALSE,
     
     -- CLKOUT5 = clock163 = 812.5MHz/5 = 162.5 MHz
-    -- Phase adjusted by -207 degrees
+    -- Phase adjusted by 180 degrees
     CLKOUT5_DIVIDE       => 5,
-    CLKOUT5_PHASE        => -207.0,
+    CLKOUT5_PHASE        => 180.0,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
 

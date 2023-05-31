@@ -1322,7 +1322,7 @@ begin
   -- Grove I2C bus. Currently only used for allowing an external RTC
   ----------------------------------------------------------------------------------
   i2c_grove:
-  if target = mega65r3 generate
+  if target = mega65r3 or target = mega65r4 generate
     grove0: entity work.grove_i2c
       generic map ( clock_frequency => cpu_frequency )
       port map (
