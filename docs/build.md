@@ -110,6 +110,7 @@ The following is assumed:
 1. you have `libusb-1.0-0-dev` installed (for communicationg with JTAG)
 1. you have `cbmconvert` installed (2.1.4+) (to make a D81 image) (refer to ./using.md)
 1. you have `gnat` installed (for compiling the GHDL submodule)
+1. you have `libgtest-dev` and `libgmock-dev` installed
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence (recommended that you install to directory /opt/Xilinx to prevent issue with makefile)
 
 Overview of the compile process. Choose the specific make target to suit the device that you are targetting:
