@@ -442,7 +442,7 @@ begin
           else
             i2c1_wdata <= write_reg;
           end if;
-        when 148 =>
+        when 169 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
             report "Writing value $" & to_hstring(write_val) & " to register";
