@@ -289,7 +289,7 @@ begin
           report "busy_count = " & integer'image(busy_count + 1);
           -- Delay switch to write so we generate a stop before hand and after
           -- the write.
-          if ((busy_count = (168-1)) or (busy_count = (168+1)) and (delayed_en = 0) then
+          if ((busy_count = (168-1)) or (busy_count = (168+1))) and (delayed_en = 0) then
             delayed_en <= 1024;
           end if;
         else
