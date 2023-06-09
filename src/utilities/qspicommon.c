@@ -1001,7 +1001,6 @@ char *get_model_name(uint8_t model_id)
 {
   static char *model_unknown = "?unknown?";
   uint8_t k;
-  uint8_t l = sizeof(models) / sizeof(models_type);
 
   for (k = 0; k < l; k++) {
     if (model_id == models[k].model_id) {

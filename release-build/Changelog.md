@@ -54,7 +54,7 @@ are not yet finished.
  - Hyppo All-RAM access (ROMLOAD, fonts)
    [#634](https://github.com/MEGA65/mega65-core/issues/634)
    [#676](https://github.com/MEGA65/mega65-core/issues/676)
- - Ethernet changes -  EtherLoad capability
+ - Ethernet changes - EtherLoad capability
    [#565](https://github.com/MEGA65/mega65-core/issues/565)
    [#633](https://github.com/MEGA65/mega65-core/issues/633)*
    [#636](https://github.com/MEGA65/mega65-core/issues/636)*
