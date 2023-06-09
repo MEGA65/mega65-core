@@ -9,6 +9,7 @@
 #include <6502.h>
 
 #include "qspicommon.h"
+#include "qspireconfig.h"
 
 #ifdef STANDALONE
 #include "version.h"
@@ -280,7 +281,7 @@ void main(void)
 
   mega65_io_enable();
 
-  SEI();
+  SEI(); // this is useless, as the next printf a few lines down will do CLI
 
   // white text, blue screen, black border, clear screen
   POKE(0x286, 1);

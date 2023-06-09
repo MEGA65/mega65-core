@@ -9,6 +9,7 @@
 #include <6502.h>
 
 #include "qspicommon.h"
+#include "qspireconfig.h"
 
 #if defined(STANDALONE) && defined(QSPI_FLASH_SLOT0)
 #include "crc32accl.h"
@@ -42,8 +43,6 @@ unsigned short cfi_length = 0;
 unsigned char flash_sector_bits = 0;
 unsigned char last_sector_num = 0xff;
 unsigned char sector_num = 0xff;
-
-unsigned char reconfig_disabled = 0;
 
 unsigned char data_buffer[512];
 // Magic string for identifying properly loaded bitstream
@@ -163,8 +162,6 @@ void progress_bar(unsigned int add_pages, char *action)
   return;
 }
 
-static unsigned char input_key;
-
 unsigned char check_input(char *m, uint8_t case_sensitive)
 {
   while (PEEK(0xD610))
@@ -190,24 +187,6 @@ unsigned char check_input(char *m, uint8_t case_sensitive)
   }
 
   return 1;
-}
-
-unsigned char press_any_key(unsigned char attention, unsigned char nomessage)
-{
-  if (!nomessage)
-    printf("\nPress any key to continue.\n");
-
-  // clear key buffer
-  POKE(0xD020, 0);
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
-  while (!(input_key = PEEK(0xD610)))
-    if (attention) // attention lets the border flash
-      POKE(0xD020, PEEK(0xD020) + 1);
-  POKE(0xD020, 0);
-
-  POKE(0xD610, 0);
-  return input_key;
 }
 
 void wait_10ms(void)
@@ -929,49 +908,6 @@ unsigned char select_bitstream_file(void)
   return SELECTED_FILE_INVALID;
 }
 
-void reconfig_fpga(unsigned long addr)
-{
-
-  if (reconfig_disabled) {
-    printf("%c%cERROR:%c Remember that warning about\n"
-           "having started from JTAG?\n"
-           "You %ccan't%c start a core from flash after\n"
-           "having started the system via JTAG.\n",
-        0x93, 158, 5, 158, 5);
-    press_any_key(0, 0);
-    printf("%c", 0x93);
-    return;
-  }
-
-  // Black screen when reconfiguring
-  POKE(0xD020, 0);
-  POKE(0xD011, 0);
-
-  mega65_io_enable();
-
-  // Addresses for WBSTAR are shifted by 8 bits
-  POKE(0xD6C8U, (addr >> 8) & 0xff);
-  POKE(0xD6C9U, (addr >> 16) & 0xff);
-  POKE(0xD6CAU, (addr >> 24) & 0xff);
-  POKE(0xD6CBU, 0x00);
-
-  // Try to reconfigure for some time
-  for (i = 0; i < 200; i++) {
-    // Wait a little while, to make sure that the WBSTAR slot in
-    // the reconfig sequence gets set before we instruct the FPGA
-    // to reconfigure.
-    usleep(255);
-
-    // Trigger reconfigure
-    POKE(0xD6CFU, 0x42);
-    // visual feedback
-    POKE(0xD020, PEEK(0xD012) & 0x0F);
-  }
-  // reconfig failed!
-  POKE(0xD020, 0x0C);
-  while (1);
-}
-
 typedef struct {
   int model_id;
   char *name;
@@ -1001,6 +937,7 @@ char *get_model_name(uint8_t model_id)
 {
   static char *model_unknown = "?unknown?";
   uint8_t k;
+  uint8_t l = sizeof(models) / sizeof(models_type);
 
   for (k = 0; k < l; k++) {
     if (model_id == models[k].model_id) {
@@ -1345,7 +1282,7 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
 
 #if defined(STANDALONE) && defined(QSPI_DEBUG)
     printf("%c", 0x93);
-    make_crc32_tables();
+    make_crc32_tables(data_buffer, buffer);
     init_crc32();
     update_crc32(11, "hello world");
     printf("\n\nhello world CRC32 = %08lX\n", get_crc32());
@@ -1380,22 +1317,22 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     if (slot == 0) {
       printf("%cGenerating CRC32 checksum...\n", 0x93);
       progress_start(addr_len >> 8, "Checksum");
-      make_crc32_tables();
+      make_crc32_tables(data_buffer, buffer);
       init_crc32();
       for (y = 1, addr = 0; addr < addr_len; addr += 256) {
-        lcopy(0x8000000L + addr, (unsigned long)data_buffer, 256);
+        lcopy(0x8000000L + addr, (unsigned long)part, 256);
         if (y) {
-          addr_len = *(uint32_t *)(data_buffer + 0x80);
+          addr_len = *(uint32_t *)(part + 0x80);
           progress_goal = addr_len >> 8;
-          core_crc = *(uint32_t *)(data_buffer + 0x84);
-          *(uint32_t *)(data_buffer + 0x84) = 0xf0f0f0f0UL;
+          core_crc = *(uint32_t *)(part + 0x84);
+          *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
 
           printf("\nCORE Length = %08lx\n", addr_len);
           printf("CORE CRC32  = %08lx\n", core_crc);
 
           y = 0;
         }
-        update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, data_buffer);
+        update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
         progress_bar(1, "Checksum");
       }
       printf("\n\nCALC CRC32  = %08lx\n", get_crc32());

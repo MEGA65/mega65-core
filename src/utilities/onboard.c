@@ -6,8 +6,9 @@
 #include <dirent.h>
 #include <time.h>
 
-#include "qspicommon.h"
+#include "qspireconfig.h"
 
+short i, y;
 unsigned char crt_mode = 1;
 unsigned char last_video_mode = 0;
 unsigned char video_mode_change_pending = 0;

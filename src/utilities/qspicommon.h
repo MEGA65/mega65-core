@@ -38,8 +38,6 @@ extern unsigned char flash_sector_bits;
 extern unsigned char last_sector_num;
 extern unsigned char sector_num;
 
-extern unsigned char reconfig_disabled;
-
 extern unsigned char data_buffer[512];
 extern unsigned char bitstream_magic[16];
 extern char disk_name_return[64];
@@ -53,7 +51,6 @@ extern short i, x, y, z;
 unsigned char probe_qspi_flash(void);
 unsigned char select_bitstream_file(void);
 void reflash_slot(unsigned char slot, unsigned char selected_file);
-void reconfig_fpga(unsigned long addr);
 void flash_inspector(void);
 
 void read_registers(void);
@@ -75,7 +72,6 @@ void spi_clock_low(void);
 void spi_clock_high(void);
 void spi_cs_low(void);
 void spi_cs_high(void);
-unsigned char press_any_key(unsigned char attention, unsigned char nomessage);
 unsigned char read_joystick_input(void);
 void delay(void);
 void spi_tx_byte(unsigned char b);
