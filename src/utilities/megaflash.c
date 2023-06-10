@@ -39,8 +39,10 @@ unsigned int base_addr;
 
 #define CARTCAP_NAME_MAX 3
 char cartcap_names[CARTCAP_NAME_MAX][5] = {"C64 ", "C128", "M65"};
-unsigned char cart_c128_magic[3] = { 0x43, 0x42, 0x4d };
-unsigned char cart_m65_magic[3] = { 0x4d, 0x36, 0x35 };
+#include <ascii_charmap.h>
+unsigned char cart_c128_magic[3] = "CBM";
+unsigned char cart_m65_magic[3] = "M65";
+#include <cbm_petscii_charmap.h>
 
 typedef struct {
   char name[32];
@@ -355,22 +357,29 @@ void main(void)
        * Determine which core should be started
        */
 
-      // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 cart
-      if ((PEEK(0xD67EU) & 0x60) != 0x60)
-        search_cart = CORECAP_CART_C64;
-      else {
-        // check for C128 or MEGA65 style cart by looking at signature at 8007 or C007
-        for (i = 0; i < 2; i++) {
-          lcopy(0x4008007UL + i * 0x4000UL, (long)cart_id, 3);
-          if (!memcmp(cart_id, cart_m65_magic, 3)) {
+      // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 or M65 cart
+      switch (PEEK(0xD67EU) & 0x60) {
+        case 0x00: // ROML + ROMH
+        case 0x20: // ROML
+          search_cart = CORECAP_CART_C64;
+          break;
+        case 0x40: // Ultimax, check for M65 marker at $8007
+          lcopy(0x4008007UL, (long)cart_id, 3);
+          if (!memcmp(cart_id, cart_m65_magic, 3))
             search_cart = CORECAP_CART_M65;
-            break;
+          else
+            search_cart = CORECAP_CART_C64;
+          break;
+        case 0x60:
+          // check for C128 style cart by looking at signature at 8007 or C007
+          for (i = 0; i < 2; i++) {
+            lcopy((i ? 0x400C007UL : 0x4008007UL), (long)cart_id, 3);
+            if (!memcmp(cart_id, cart_c128_magic, 3)) {
+              search_cart = CORECAP_CART_C128;
+              break;
+            }
           }
-          else if (!memcmp(cart_id, cart_c128_magic, 3)) {
-            search_cart = CORECAP_CART_C128;
-            break;
-          }
-        }
+          break;
       }
 
       // determine boot slot by flags (default search is for default slot)
