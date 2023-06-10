@@ -1,5 +1,37 @@
 #ifndef QSPICOMMON_H
 #define QSPICOMMON_H
+/*
+ * QSPI tools that are used to flash the QSPI,
+ * used in: MEGAFLASH and derivates
+ */
+
+/*
+ * Compile time options:
+ *
+ * A200T              - FPGA model A200T with 8MB slot size
+ * A100T              - FPGA model A100T with 4MB slot size
+ *
+ * Software version:
+ *   MODE_INTEGRATED  - build version that goes into the CORE
+ *   MODE_STANDALONE  - build standalone version
+ *
+ * QSPI Verbosity & Debugging
+ *   QSPI_VERBOSE       - more verbose QSPI probing output (not inteded for CORE inclusion)
+ *   QSPI_DEBUG         - even more output and debug testing (implies QSPI_VERBOSE)
+ *
+ * QSPI_FLASH_SLOT0   - allow flashing of slot 0
+ * QSPI_ERASE_ZERO    - allow erasing of slot 0
+ * QSPI_FLASH_INSPECT - enable flash inspector tool
+ *
+ * UPGRADE_ONLY       - build UPGRADE0.COR *only* version
+ * FIRMWARE_UPGRADE   - this removes file selection from slot 0 flashing,
+ *                      just uses UPGRADE0.COR instead, and adds special text
+ *                      warning the user about the risks
+ *
+ * WITH_JOYSTICK      - enble joystick navigation in file selector
+ *
+ */
+
 extern struct m65_tm tm_start;
 extern struct m65_tm tm_now;
 
@@ -40,7 +72,8 @@ extern unsigned char sector_num;
 
 extern unsigned char data_buffer[512];
 extern unsigned char bitstream_magic[16];
-extern char disk_name_return[64];
+extern char disk_name_return[65];
+extern char disk_display_return[40];
 
 extern unsigned short mb;
 
@@ -49,7 +82,7 @@ extern unsigned char buffer[512];
 extern short i, x, y, z;
 
 unsigned char probe_qspi_flash(void);
-unsigned char select_bitstream_file(void);
+unsigned char select_bitstream_file(unsigned char slot);
 void reflash_slot(unsigned char slot, unsigned char selected_file);
 void flash_inspector(void);
 

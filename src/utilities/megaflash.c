@@ -680,7 +680,7 @@ void main(void)
         POKE(0xd021, 6);
       }
       else {
-        unsigned char selected_file = select_bitstream_file();
+        unsigned char selected_file = select_bitstream_file(selected_reflash_slot);
         if (selected_file) {
           reflash_slot(selected_reflash_slot, selected_file);
           scan_bitstream_information(0, selected_reflash_slot | 0x80);
@@ -698,7 +698,12 @@ void main(void)
     goto do_exit;
   }
 
+#include <ascii_charmap.h>
   strncpy(disk_name_return, "upgrade0.cor", 32);
+#include <cbm_screen_charmap.h>
+  memcpy(disk_display_return, "UPGRADE0.COR", 12);
+  memset(disk_display_return + 12, 0x20, 28);
+#include <cbm_petscii_charmap.h>
   reflash_slot(0, SELECTED_FILE_VALID);
 #endif
 

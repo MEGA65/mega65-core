@@ -10,10 +10,7 @@
 
 #include "qspicommon.h"
 #include "qspireconfig.h"
-
-#if defined(STANDALONE) && defined(QSPI_FLASH_SLOT0)
 #include "crc32accl.h"
-#endif
 
 struct m65_tm tm_start;
 struct m65_tm tm_now;
@@ -27,7 +24,7 @@ unsigned char tries = 0;
 
 unsigned int num_4k_sectors = 0;
 
-unsigned char first, last, verboseProgram = 0;
+unsigned char verboseProgram = 0;
 
 unsigned char part[256];
 
@@ -44,15 +41,17 @@ unsigned char flash_sector_bits = 0;
 unsigned char last_sector_num = 0xff;
 unsigned char sector_num = 0xff;
 
+// used by QSPI routines
 unsigned char data_buffer[512];
 // Magic string for identifying properly loaded bitstream
-unsigned char bitstream_magic[16] =
-    // "MEGA65BITSTREAM0";
-    { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x42, 0x49, 0x54, 0x53, 0x54, 0x52, 0x45, 0x41, 0x4d, 0x30 };
-unsigned char mega65core_magic[7] = { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x00 };
+#include <ascii_charmap.h>
+unsigned char bitstream_magic[] = "MEGA65BITSTREAM0";
+unsigned char mega65core_magic[] = "MEGA65";
+#include <cbm_petscii_charmap.h>
 
 unsigned short mb = 0;
 
+// used by SD card routines
 unsigned char buffer[512];
 
 const unsigned long sd_timeout_value = 100000;
@@ -68,26 +67,38 @@ unsigned char debcd(unsigned char c)
   return (c & 0xf) + (c >> 4) * 10;
 }
 
-void getciartc(struct m65_tm *a)
+void getrtc(struct m65_tm *a)
 {
+#ifdef MODE_INTEGRATED
+  // use real RTC, as this will also work in HYPPO mode
+  a->tm_hour = debcd(lpeek(0xFFD7112L));
+  a->tm_min = debcd(lpeek(0xFFD7111L));
+  a->tm_sec = debcd(lpeek(0xFFD7110L));
+  a->tm_wday = lpeek(0xFFD7116L); // to remove read latch, wday is not used here
+#else
   a->tm_hour = debcd(PEEK(0xDC0B));
   a->tm_min = debcd(PEEK(0xDC0A));
   a->tm_sec = debcd(PEEK(0xDC09));
   a->tm_wday = PEEK(0xDC08); // to remove read latch, wday is not used here
+#endif
 }
 
-// assumes that b is greater a
-unsigned long seconds_between(struct m65_tm *a, struct m65_tm *b)
+// this is optimized for differences less than one hour,
+// to get rid of multiplications!
+unsigned long seconds_between(struct m65_tm *start, struct m65_tm *end)
 {
   unsigned long d = 0;
 
-  d += 3600L * b->tm_hour;
-  d += 60L * b->tm_min;
-  d += b->tm_sec;
+  // overflow to next day
+  if (end->tm_hour < start->tm_hour)
+    d = 3600L;
+  else if (end->tm_hour > start->tm_hour)
+    d = -3600L;
 
-  d -= 3600L * a->tm_hour;
-  d -= 60L * a->tm_min;
-  d -= a->tm_sec;
+  d += 60L * (end->tm_min - start->tm_min);
+
+  d += end->tm_sec;
+  d -= start->tm_sec;
 
   return d;
 }
@@ -98,7 +109,7 @@ unsigned int progress_total = 0, progress_goal = 0;
 
 #ifdef STANDALONE
 #define progress_start(PAGES, LABEL) \
-  getciartc(&tm_start); \
+  getrtc(&tm_start); \
   progress = progress_last = 0; \
   progress_total = 0; \
   progress_goal = PAGES; \
@@ -106,11 +117,14 @@ unsigned int progress_total = 0, progress_goal = 0;
             0x11, 0x11, 0x11, 0x11, LABEL)
 #else
 #define progress_start(PAGES, LABEL) \
-  getciartc(&tm_start); \
+  getrtc(&tm_start); \
   progress = progress_last = 0; \
   progress_total = 0; \
   progress_goal = PAGES
 #endif
+#define progress_time(VAR) VAR = seconds_between(&tm_start, &tm_now)
+
+#define EIGHT_FROM_TOP printf("\x13""\n\n\n\n\n\n\n\n");
 
 // this count 256 byte blocks and draws a 32 char wide progress bar with 128 divisions
 void progress_bar(unsigned int add_pages, char *action)
@@ -122,9 +136,8 @@ void progress_bar(unsigned int add_pages, char *action)
   if (progress != progress_last) {
     progress_last = progress;
 
-    getciartc(&tm_now);
-    // This division is _really_ slow, which is why we do it only
-    // once per second.
+    getrtc(&tm_now);
+
     if (tm_start.tm_sec != tm_now.tm_sec) {
       unsigned int speed;
       unsigned int eta, delta_t;
@@ -133,11 +146,10 @@ void progress_bar(unsigned int add_pages, char *action)
       speed = (unsigned int)((progress_total / delta_t) >> 2);
       if (speed > 0)
         eta = ((progress_goal - progress_total) / speed) >> 2;
-        printf("%c%c%c%c%c%c%c%c%c%s %uKB/sec, done in %u sec.     \n", 0x13, 0x11, 0x11, 0x11, 0x11,
-            0x11, 0x11, 0x11, 0x11, action, speed, eta);
+        EIGHT_FROM_TOP;
+        printf("%s %uKB/sec, done in %u sec.     ", action, speed, eta);
     }
   }
-  // printf("%c%c   %u   %u  %u   ", 0x13, 0x11, progress, progress_total, progress_last);
 
   /* Draw a progress bar several chars high */
   POKE(0x0403 + (4 * 40), 93);
@@ -145,7 +157,7 @@ void progress_bar(unsigned int add_pages, char *action)
   POKE(0x0403 + (6 * 40), 93);
   progress_small = progress >> 2;
   for (i = 0; i < 32; i++) {
-    if (i < progress_small)
+    if (i < progress_small || i >= progress_goal >> 10)
       bar = 160;
     else if (i == progress_small)
       bar = progress_chars[progress & 3];
@@ -451,13 +463,13 @@ struct m65_dirent hy_dirent;
 int8_t advance_to_next_entry(void)
 {
   hy_opendir_offset_in_sector += 0x20;
+  if (hy_opendir_offset_in_sector < 512)
+    return 0;
   
   // Chain through directory as required
-  if (hy_opendir_offset_in_sector == 512) {
-    hy_opendir_offset_in_sector = 0;
-    hy_opendir_sector_in_cluster++;
-    hy_opendir_sector++;
-  }
+  hy_opendir_offset_in_sector = 0;
+  hy_opendir_sector_in_cluster++;
+  hy_opendir_sector++;
   if (hy_opendir_sector_in_cluster >= fat32_sectors_per_cluster) {
     hy_opendir_sector_in_cluster = 0;
     hy_opendir_cluster = fat32_nextclusterinchain(hy_opendir_cluster);
@@ -495,74 +507,66 @@ void copy_vfat_chars_into_dname(unsigned char* dirent, char* dname, int seqnumbe
 
 struct m65_dirent *hy_readdir(void)
 {
-  int8_t retVal = 0;
-  unsigned char vfatEntry = 0, firstTime, deletedEntry = 0, j, found = 0;
-  int seqnumber;
+  unsigned char vfatEntry = 0, firstTime, deletedEntry = 0;
+  uint8_t seqnumber;
   unsigned char *dirent;
 
-  while (!found) {
-    retVal = advance_to_next_entry();
-
-    if (retVal == -2) // exiting due to end-of-directory>
-      return NULL;
-
+  while (1) {
     // Get DOS directory entry and populate
+    if (advance_to_next_entry() == -2) // exiting due to end-of-directory
+      return NULL;
     dirent = &buffer[hy_opendir_offset_in_sector];
 
-    // Read in all FAT32-VFAT entries to extract out long filenames
+    // Check if this is a VFAT entry
     if (dirent[0x0b] == 0x0f) {
+      // Read in all FAT32-VFAT entries to extract out long filenames
+      // first byte is sequence (1-19) plus end marker 0x40, but end can come
+      // first and name might be in reverse order! (or is this always the case?)
       vfatEntry = 1;
       firstTime = 1;
       do {
-        int seq = dirent[0x00];
-        if (seq == 0xe5) { // if deleted-entry, then ignore
+        if (dirent[0x00] == 0xe5) { // if deleted-entry, then ignore
           deletedEntry = 1;
         }
-        seqnumber = seq & 0x1f;
+        if (!deletedEntry) {
+          // we only copy filename if entry is not deleted
+          seqnumber = dirent[0x00] & 0x1f;
 
-        // assure there is a null-terminator
-        if (firstTime) {
-          hy_dirent.d_name[seqnumber * 13] = 0;
-          firstTime = 0;
+          // assure there is a null-terminator
+          if (firstTime) {
+            hy_dirent.d_name[seqnumber * 13] = 0;
+            firstTime = 0;
+          }
+
+          // vfat seqnumbers will be parsed from high to low, each containing up to 13 UCS-2 characters
+          copy_vfat_chars_into_dname(dirent, hy_dirent.d_name, seqnumber);
         }
 
-        // vfat seqnumbers will be parsed from high to low, each containing up to 13 UCS-2 characters
-        copy_vfat_chars_into_dname(dirent, hy_dirent.d_name, seqnumber);
-        advance_to_next_entry();
-
-        // Get DOS directory entry and populate
+        // Get next FAT directory entry and populate
+        if (advance_to_next_entry() == -2)
+          return NULL;
         dirent = &buffer[hy_opendir_offset_in_sector];
 
         // if next dirent is not a vfat entry, break out
-        if (dirent[0x0b] != 0x0f)
-          break;
-      } while (seqnumber != 1);
+      } while (dirent[0x0b] == 0x0f && seqnumber > 1);
       // printf("vfat = '%s'\n", hy_dirent.d_name);
       // press_any_key(0,0);
     }
 
+    // ignore deleted vfat entries and deleted entries
+    // ignore everything with underscore or tilde as first character (MacOS)
     // ignore any vfat files starting with '.' (such as mac osx '._*' metadata files)
-    if (vfatEntry && hy_dirent.d_name[0] == '.') {
-      hy_dirent.d_name[0] = 0;
-      vfatEntry = 0;
-      continue;
-    }
-
-    // ignored deleted vfat entries too (mac osx '._*' files are marked as deleted entries)
-    if (deletedEntry) {
+    // if the DOS 8.3 entry is a deleted-entry, then ignore
+    if (deletedEntry || dirent[0x00] == 0xe5
+        || dirent[0x00] == 0x7e || dirent[0x00] == 0x5f
+        || (vfatEntry && hy_dirent.d_name[0] == '.')) {
       hy_dirent.d_name[0] = 0;
       vfatEntry = 0;
       deletedEntry = 0;
       continue;
     }
 
-    // if the DOS 8.3 entry is a deleted-entry, then ignore
-    if (dirent[0x00] == 0xe5) {
-      hy_dirent.d_name[0] = 0;
-      vfatEntry = 0;
-      continue;
-    }
-
+    // copy start of file inode
     ((unsigned char *)&hy_dirent.d_ino)[0] = dirent[0x1a];
     ((unsigned char *)&hy_dirent.d_ino)[1] = dirent[0x1b];
     ((unsigned char *)&hy_dirent.d_ino)[2] = dirent[0x14];
@@ -570,29 +574,22 @@ struct m65_dirent *hy_readdir(void)
 
     // if not vfat-longname, then extract out old 8.3 name
     if (!vfatEntry) {
-      for (j = 0; j < 8; j++)
-        hy_dirent.d_name[j] = dirent[0 + j];
+      memcpy(hy_dirent.d_name, dirent, 8);
       hy_dirent.d_name[8] = '.';
-      for (j = 0; j < 8; j++)
-        hy_dirent.d_name[9 + j] = dirent[8 + j];
+      memcpy(hy_dirent.d_name+9, dirent+8, 4);
       hy_dirent.d_name[12] = 0;
     }
-    else {
-      found = 1;  // if vfat, let this dos8.3 dirent equate to the vfat item
-    }
 
-    if (hy_dirent.d_name[0] && hy_dirent.d_name[0] != 0xe5)
-      found = 1;
+    if (hy_dirent.d_name[0]) // sanity check, deleted check is done further up
+      return &hy_dirent;
 
     // for (k = 0; k < 16; k++)
     //   printf("%02x ", dirent[k]);
     // printf("\n\n");
   }
 
-  if (found)
-    return &hy_dirent;
-  else
-    return NULL;
+  // won't be reached
+  return NULL;
 }
 
 void hy_closedir(void)
@@ -660,8 +657,6 @@ void hy_closeall(void)
   Bitstream file chooser. Adapted from Freeze Menu disk
   image chooser.
 
-  Disk chooser for freeze menu.
-
   It is displayed over the top of the normal freeze menu,
   and so we use that screen mode.
 
@@ -680,19 +675,27 @@ short file_count = 0;
 short selection_number = 0;
 short display_offset = 0;
 
-char *diskchooser_instructions = "  SELECT FLASH FILE, THEN PRESS RETURN  "
-                                 "       OR PRESS RUN/STOP TO ABORT       ";
+#include <cbm_screen_charmap.h>
+char *diskchooser_instructions = " Select file for slot X, press <RETURN> "
+                                 " to accept or press <RUN/STOP> to abort ";
+#include <cbm_petscii_charmap.h>
+#define erase_message "- Erase Slot -"
 
-#define SCREEN_ADDRESS 0x0400
-#define COLOUR_RAM_ADDRESS 0x1f800
+#define SCREEN_ADDRESS 0x0400L
+#define COLOUR_RAM_ADDRESS 0xff80000L
 #define HIGHLIGHT_ATTR 0x21
 #define NORMAL_ATTR 0x01
 
-char disk_name_return[64];
+#define FILELIST_MAX 512
+#define FILELIST_ADDRESS 0x40000L
+#define FILESCREEN_ADDRESS 0x48000L
 
+char disk_name_return[65];
+char disk_display_return[40];
+
+#ifdef WITH_JOYSTICK
 unsigned char read_joystick_input(void)
 {
-#ifdef WITH_JOYSTICK
   unsigned char x = 0, v;
 
   if ((v = PEEK(0xDC00) & 0x1f) == 0x1f)
@@ -731,56 +734,31 @@ unsigned char read_joystick_input(void)
   }
 
   return x;
-#else /* !WITH_JOYSTICK */
-  return 0;
-#endif
 }
+#endif
+
+#define FAST_ASCII2SCREEN(C) C >= 'a' && C <= 'z' ? C & 0x1f : C
 
 void draw_file_list(void)
 {
   unsigned addr = SCREEN_ADDRESS;
-  unsigned char i, x;
-  unsigned char name[64];
-  // First, clear the screen
-  lfill(SCREEN_ADDRESS, ' ', 40 * 23);
+  // unsigned char i, x;
+  // unsigned char name[40];
+
+  // wait for raster leaving screen
+  while (!(PEEK(0xD011)&0x80));
+
+  // set colour
   lfill(COLOUR_RAM_ADDRESS, NORMAL_ATTR, 40 * 23);
 
-  // Draw instructions to FOOTER
-  for (i = 0; i < 80; i++) {
-    if (diskchooser_instructions[i] >= 'A' && diskchooser_instructions[i] <= 'Z')
-      POKE(SCREEN_ADDRESS + 23 * 40 + i + 0, diskchooser_instructions[i] & 0x1f);
-    else
-      POKE(SCREEN_ADDRESS + 23 * 40 + i + 0, diskchooser_instructions[i]);
-  }
-  lfill(COLOUR_RAM_ADDRESS + (23 * 40) + 0, HIGHLIGHT_ATTR, 80);
-
-  for (i = 0; i < 23; i++) {
-    if ((display_offset + i) < file_count) {
-      // Real line
-      lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 64);
-
-      for (x = 0; x < 40; x++) {
-        if ((name[x] >= 0x61 && name[x] <= 0x7a) || (name[x] >= 'a' && name[x] <= 'z'))
-          POKE(addr + x, name[x] & 0x1f);
-        else
-          POKE(addr + x, name[x]);
-      }
-    }
-    else {
-      // Blank dummy entry
-      for (x = 0; x < 20; x++)
-        POKE(addr + x, ' ');
-    }
-    if ((display_offset + i) == selection_number) {
-      // Highlight the row
-      lfill(COLOUR_RAM_ADDRESS + (i * 40), HIGHLIGHT_ATTR, 40);
-    }
-    addr += (40 * 1);
-  }
+  // copy pregenerated screen
+  lcopy(FILESCREEN_ADDRESS + display_offset * 40, SCREEN_ADDRESS, 23 * 40);
+  // highlight selected line
+  lfill(COLOUR_RAM_ADDRESS + (selection_number - display_offset) * 40, HIGHLIGHT_ATTR, 40);
 }
 
 /*
- * uchar select_bitstream_file()
+ * uchar select_bitstream_file(uchar slot)
  *
  * displays a file selector with core files on SD
  *
@@ -792,55 +770,65 @@ void draw_file_list(void)
  * side-effects:
  *  disk_name_return may be changed
  */
-unsigned char select_bitstream_file(void)
+unsigned char select_bitstream_file(unsigned char slot)
 {
   unsigned char x;
-  signed char j;
+  signed char fnlen, j;
   struct m65_dirent *dirent;
   int idle_time = 0;
 
-  file_count = 0;
   selection_number = 0;
   display_offset = 0;
 
-  // First, clear the screen
-  POKE(SCREEN_ADDRESS + 0, ' ');
-  POKE(SCREEN_ADDRESS + 1, ' ');
-  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 2, 40 * 25 - 2);
+  // fill temp memory with space
+  lfill(FILELIST_ADDRESS, ' ', 64L * FILELIST_MAX);
+  lfill(FILESCREEN_ADDRESS, ' ', 40L * FILELIST_MAX + 1024L);
+
+#include <cbm_screen_charmap.h>
+  // clear screen and display scanning message
+  lfill(SCREEN_ADDRESS, 0x20, 40 * 25);
+  lcopy((long)"Scanning directory...", SCREEN_ADDRESS, 21);
 
   // Add dummy entry for erasing the slot
-  lfill(0x40000L + (file_count * 64), ' ', 64);
-  lcopy((long)"-erase slot-", 0x40000L + (file_count * 64), 12);
-  file_count++;
+  lcopy((long)erase_message, FILESCREEN_ADDRESS, 14);
+#include <ascii_charmap.h>
+  lcopy((long)erase_message, FILELIST_ADDRESS, 14);
 
-  // ARGH!!! We are running from in hypervisor mode, so we can't use hypervisor
-  // traps to get the directory listing!
   hy_closeall();
   hy_opendir();
-  printf("%cScanning directory...\n", 0x93);
-  while (dirent = hy_readdir()) {
-    j = strlen(dirent->d_name) - 4;
-    //press_any_key(0,0);
-    if (j >= 0) {
-      // don't show filenames with _ or ~ as first char
-      // only select files ending in .COR
-      if ((dirent->d_name[0] != 0x7e) && (dirent->d_name[0] != 0x5f) &&
-          ((!strncmp(&dirent->d_name[j], ".cor", 4)) ||
-            (*&dirent->d_name[j] == 0x2e &&
-             *&dirent->d_name[j+1] == 0x63 &&
-             *&dirent->d_name[j+2] == 0x6f &&
-             *&dirent->d_name[j+3] == 0x72))) {
-        // File is a core
-        lfill(0x40000L + (file_count * 64), ' ', 64);
-        lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), j + 4);
-        file_count++;
+  file_count = 1;
+  while (file_count < FILELIST_MAX && (dirent = hy_readdir()) != NULL) {
+    fnlen = strlen(dirent->d_name);
+#include <ascii_charmap.h>
+    if (fnlen <= 64
+        && ((!strncmp(&dirent->d_name[fnlen - 4], ".COR", 4)) || (!strncmp(&dirent->d_name[fnlen - 4], ".cor", 4)))) {
+      // File is a core, store name to temp area
+      lcopy((long)&dirent->d_name[0], FILELIST_ADDRESS + (file_count * 64), fnlen);
+
+      // Also convert filename to screencode and copy to screen temp area
+      for (j = 0; j < 40; j++)
+        disk_name_return[j] = FAST_ASCII2SCREEN(dirent->d_name[j]);
+      if (fnlen > 40) {
+        // filename is longer than 40 chars, so we make a small ellipse using checkerboard
+        for (j--, fnlen--; j > 33; j--, fnlen--)
+          disk_name_return[j] = FAST_ASCII2SCREEN(dirent->d_name[fnlen]);
+        disk_name_return[j--] = 0x66;
+        disk_name_return[j--] = 0x66;
+        disk_name_return[j--] = 0x66;
       }
+#include <cbm_petscii_charmap.h>
+      lcopy((long)disk_name_return, FILESCREEN_ADDRESS + (file_count * 40), fnlen);
+      file_count++;
     }
   }
-
   hy_closedir();
 
   // Okay, we have some disk images, now get the user to pick one!
+  diskchooser_instructions[22] = 0x30 + slot;
+  // Draw instructions to FOOTER
+  lcopy((long)diskchooser_instructions, SCREEN_ADDRESS + 23 * 40, 80);
+  lfill(COLOUR_RAM_ADDRESS + 23 * 40, HIGHLIGHT_ATTR, 80);
+
   draw_file_list();
   while (1) {
 
@@ -868,14 +856,17 @@ unsigned char select_bitstream_file(void)
       // was erase (first entry) selected?
       if (selection_number == 0) {
         disk_name_return[0] = 0;
+        disk_display_return[0] = 0;
         return SELECTED_FILE_ERASE;
       }
 
       // Copy name out
-      lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 64);
+      lcopy(FILELIST_ADDRESS + (selection_number * 64), (long)disk_name_return, 64);
+      lcopy(FILESCREEN_ADDRESS + (selection_number * 40), (long)disk_display_return, 40);
       // Then null terminate it
       for (x = 63; x && disk_name_return[x] == ' '; x--)
         disk_name_return[x] = 0;
+      disk_name_return[64] = 0;
       return SELECTED_FILE_VALID;
 
     case 0x11:
@@ -958,7 +949,7 @@ int check_model_id_field(unsigned char megaonly)
   bytes_returned = hy_read512();
 
   if (!bytes_returned) {
-    printf("Failed to read .cor file.\n");
+    printf("\nFailed to read .cor file.\n");
     press_any_key(0, 0);
     return 0;
   }
@@ -1029,7 +1020,7 @@ int check_model_id_field(unsigned char megaonly)
  ***************************************************************************/
 
 unsigned char j, k;
-unsigned short erase_time = 0, flash_time = 0, verify_time = 0, load_time = 0;
+unsigned short flash_time = 0, crc_time = 0, load_time = 0;
 
 unsigned char slot_empty_check(unsigned short mb_num)
 {
@@ -1200,15 +1191,14 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
   return 0;
 }
 
-void reflash_slot(unsigned char slot, unsigned char selected_file)
+void reflash_slot(unsigned char the_slot, unsigned char selected_file)
 {
   unsigned long size, waddr, end_addr;
   unsigned short bytes_returned;
   unsigned char fd, tries;
   unsigned char erase_mode = 0;
-#if defined(STANDALONE) && defined(QSPI_FLASH_SLOT0)
+  unsigned char slot = the_slot;
   uint32_t core_crc;
-#endif
 
   if (selected_file == SELECTED_FILE_INVALID)
     return;
@@ -1260,23 +1250,24 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     both of which we have seen happen.
   */
 
-  printf("%cChecking COR file...\n   '%s'\n", 0x93, disk_name_return);
-
   lfill((unsigned long)buffer, 0, 512);
 
   // return code of select_bitstream_file > 1 means a file was selected
   if (selected_file == SELECTED_FILE_VALID) {
+    printf("%cChecking core file...\n\n", 0x93);
+    lcopy((long)disk_display_return, SCREEN_ADDRESS + 40, 40);
 
     fd = hy_open(disk_name_return);
     if (fd == 0xff) {
       // Couldn't open the file.
-      printf("\n%cERROR: Could not open flash file!%c\n", 25, 3);
+      printf("\n%cERROR: Could not open core file!%c\n", 25, 3);
       press_any_key(0, 0);
       return;
     }
 
     printf("\n");
 
+    // TODO: also check NAME "MEGA65" for slot 0 flash!
     if (!check_model_id_field(slot == 0 ? 1 : 0))
       return;
 
@@ -1309,44 +1300,61 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
       lfill(addr, 0xff, 512);
       progress_bar(2, "Filling");
     }
-    load_time = seconds_between(&tm_start, &tm_now);
+    progress_time(load_time);
     //printf("%c%cLoaded COR file in %u seconds.\n", 0x11, 0x11, load_time);
 
-#if defined(STANDALONE) && (defined(FIRMWARE_UPGRADE) || defined(QSPI_FLASH_SLOT0))
-    // do crc32
-    if (slot == 0) {
-      printf("%cGenerating CRC32 checksum...\n", 0x93);
-      progress_start(addr_len >> 8, "Checksum");
-      make_crc32_tables(data_buffer, buffer);
-      init_crc32();
-      for (y = 1, addr = 0; addr < addr_len; addr += 256) {
-        lcopy(0x8000000L + addr, (unsigned long)part, 256);
-        if (y) {
-          addr_len = *(uint32_t *)(part + 0x80);
-          progress_goal = addr_len >> 8;
-          core_crc = *(uint32_t *)(part + 0x84);
-          *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
+    // always do a CRC32 check!
+    printf("%cGenerating CRC32 checksum...\n", 0x93);
+    progress_start(addr_len >> 8, "Checksum");
+    // lets use two 512 byte buffers for our 1024 byte crc32 lookup table
+    make_crc32_tables(data_buffer, buffer);
+    init_crc32();
+    for (y = 1, addr = 0; addr < addr_len; addr += 256) {
+      // we don't need the part string anymore, so we reuse this buffer
+      // note: part is only used in probe_qspi_flash
+      lcopy(0x8000000L + addr, (unsigned long)part, 256);
+      if (y) {
+        // the first sector has the real length and the CRC32
+        addr_len = *(uint32_t *)(part + 0x80);
+        progress_goal = addr_len >> 8;
+        core_crc = *(uint32_t *)(part + 0x84);
+        // set CRC bytes to pre-calculation value
+        *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
 
-          printf("\nCORE Length = %08lx\n", addr_len);
-          printf("CORE CRC32  = %08lx\n", core_crc);
+        EIGHT_FROM_TOP;
+        printf("\n\nCORE Length = %08lx\n", addr_len);
+        printf("CORE CRC32  = %08lx", core_crc);
 
-          y = 0;
-        }
-        update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
-        progress_bar(1, "Checksum");
+        y = 0;
       }
-      printf("\n\nCALC CRC32  = %08lx\n", get_crc32());
+      update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
+      progress_bar(1, "Checksum");
+    }
+    progress_time(crc_time);
+    EIGHT_FROM_TOP;
+    printf("\n\n\nCALC CRC32  = %08lx\n", get_crc32());
 
-      if (addr_len < 4096 || core_crc != get_crc32()) {
-        printf("\n%cCHECKSUM MISMATCH, REFUSING TO FLASH!%c\n", 28, 5);
+    if (addr_len < 4096 || core_crc != get_crc32()) {
+      printf("\n%cCHECKSUM MISMATCH%c\n", 28, 5);
+      if (slot == 0) {
+        printf("\nRefusing to flash slot 0!\n");
+        press_any_key(0, 0);
         return;
       }
-      else
-        printf("\n%cChecksum matches, good to flash.%c\n", 30, 5);
-
+      else {
+        printf("\nPress F10 to flash anyway, or any other key to abort.\n", 28, 5);
+        bytes_returned = press_any_key(0, 1);
+        if (bytes_returned != 0xfa)
+          return;
+        printf("\nF10 pressed!\n");
+        press_any_key(0, 0);
+        return;
+      }
+    }
+    else {
+      printf("\n%cChecksum matches, good to flash.%c\n", 30, 5);
       press_any_key(0, 0);
     }
-#endif
 
     // start flashing
     printf("%c", 0x93);
@@ -1400,6 +1408,7 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
             POKE(0xD610, 0);
           flash_inspector();
 #else
+          // TODO: re-erase start of slot 0, reprogram flash to start slot 1
           printf("\nPlease turn the system off!\n");
           // don't let the user do anything else
           while (1)
@@ -1436,12 +1445,12 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
 
       progress_bar(size >> 8, "Flashing");
     }
-    flash_time = seconds_between(&tm_start, &tm_now);
+    progress_time(flash_time);
 
     // Undraw the sector display before showing results
     lfill(0x0400 + 12 * 40, 0x20, 512);
   }
-  else {
+  else if (selected_file == SELECTED_FILE_ERASE) {
     // extra question before erasing a slot
     printf("%c\nYou are about to erase slot %d!\n"
            "Are you sure you want to proceed? (y/n)%c\n\n",
@@ -1454,19 +1463,19 @@ void reflash_slot(unsigned char slot, unsigned char selected_file)
     progress_start(SLOT_SIZE_PAGES, "Erasing");
     addr = SLOT_SIZE * slot;
     erase_some_sectors(addr + SLOT_SIZE, 1);
-    flash_time = seconds_between(&tm_start, &tm_now);
+    progress_time(flash_time);
   }
 
-  printf("%c%c%c%c%c%c%c%c%c\n"
-         "Flash slot successfully updated.      \n\n",
-      0x13, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11);
-  if (selected_file == 1 && flash_time > 0)
+  EIGHT_FROM_TOP;
+  printf("Flash slot successfully updated.      \n\n");
+  if (selected_file == SELECTED_FILE_ERASE && flash_time > 0)
     printf("   Erase: %d sec \n\n", flash_time);
-  else if (load_time + flash_time > 0)
+  else if (load_time + crc_time + flash_time > 0)
     printf("    Load: %d sec \n"
+           "     CRC: %d sec \n"
            "   Flash: %d sec \n"
            "\n",
-        load_time, flash_time);
+        load_time, crc_time, flash_time);
 
   press_any_key(1, 0);
 
@@ -1977,9 +1986,6 @@ top:
   spi_clear_sr1();
   //  printf("About to clear WREN\n");
   spi_write_disable();
-
-  first = 0;
-  last = 0xff;
 
   //  printf("Waiting for flash to go non-busy\n");
   while (reg_sr1 & 0x03) {
