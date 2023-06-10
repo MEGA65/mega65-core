@@ -111,7 +111,8 @@ m_crct0_mod:
         sta CRCT0,x
         inx
         bne byteloop    ; Do next byte
-        rts
+
+        jmp incsp4      ; get rid of arguments and return
 
 _update_crc32:
         ;; void calc_attic_crc32(unsigned char len, unsigned char *buf)
