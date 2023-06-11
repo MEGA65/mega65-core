@@ -1372,9 +1372,6 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
         bytes_returned = press_any_key(0, 1);
         if (bytes_returned != 0xfa)
           return;
-        printf("\nF10 pressed!\n");
-        press_any_key(0, 0);
-        return;
       }
     }
     else {
