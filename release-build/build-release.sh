@@ -133,7 +133,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     echo
     cp ${REPOPATH}/bin/HICKUP.M65 ${PKGPATH}/extra/
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
-    cp ${REPOPATH}/src/utilities/mflash200.prg ${PKGPATH}/flasher
+    cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
     cp ${REPOPATH}/src/utilities/upgrade0.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/

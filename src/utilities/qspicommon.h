@@ -8,32 +8,34 @@
 /*
  * Compile time options:
  *
- * A200T              - FPGA model A200T with 8MB slot size
- * A100T              - FPGA model A100T with 4MB slot size
+ * Hardware releated:
+ *   STANDALONE         - build standalone version instead of CORE-integrated version
+ *                        sets slot size based on detected hardware
+ *   A100T              - FPGA model A100T with 4MB slot size
+ *                        sets slot size to 4MB
+ *                        sets TAB_FOR_MENU
+ *   A200T              - FPGA model A200T with 8MB slot size
+ *                        sets slot size to 8MB
+ *   TAB_FOR_MENU       - allow TAB key to enter MENU (default: NO SCROLL only)
  *
- * Software version:
- *   MODE_INTEGRATED  - build version that goes into the CORE
- *   MODE_STANDALONE  - build standalone version
- *
- * QSPI Verbosity & Debugging
+ * QSPI Verbosity & Debugging:
  *   QSPI_VERBOSE       - more verbose QSPI probing output (not inteded for CORE inclusion)
  *   QSPI_DEBUG         - even more output and debug testing (implies QSPI_VERBOSE)
  *
- * QSPI_FLASH_SLOT0   - allow flashing of slot 0
- * QSPI_ERASE_ZERO    - allow erasing of slot 0
- * QSPI_FLASH_INSPECT - enable flash inspector tool
+ * QSPI Options:
+ *   QSPI_FLASH_SLOT0   - allow flashing of slot 0
+ *   QSPI_ERASE_ZERO    - allow erasing of slot 0
+ *   QSPI_FLASH_INSPECT - enable flash inspector tool
+ *
+ * Control scheme:
+ *   WITH_JOYSTICK      - enable joystick navigation in file selector
  *
  * UPGRADE_ONLY       - build UPGRADE0.COR *only* version
  * FIRMWARE_UPGRADE   - this removes file selection from slot 0 flashing,
  *                      just uses UPGRADE0.COR instead, and adds special text
  *                      warning the user about the risks
  *
- * WITH_JOYSTICK      - enble joystick navigation in file selector
- *
  */
-
-extern struct m65_tm tm_start;
-extern struct m65_tm tm_now;
 
 #ifdef QSPI_DEBUG
 #ifndef QSPI_VERBOSE
@@ -41,17 +43,42 @@ extern struct m65_tm tm_now;
 #endif
 #endif
 
-#ifdef A100T
+#if (defined(A100T) && defined(A200T)) || (defined(A100T) && defined(STANDALONE)) || (defined(STANDALONE) && defined(A200T))
+#error A100T, A200T, and STANDALONE defines are exclusive!
+#endif
+
+#if defined(A100T)
+#define TAB_FOR_MENU 1
 #define SLOT_SIZE (4L * 1048576L)
 #define SLOT_SIZE_PAGES (4L * 4096L)
 #define SLOT_MB 4
-#else
+#elif defined(A200T)
 #define SLOT_MB 8
 #define SLOT_SIZE (8L * 1048576L)
 #define SLOT_SIZE_PAGES (8L * 4096L)
+#elif defined(STANDALONE)
+extern uint8_t SLOT_MB;
+extern unsigned long SLOT_SIZE;
+extern unsigned long SLOT_SIZE_PAGES;
+#else
+#error Please defined one of A100T, A200T, or STANDALONE
 #endif
 
+typedef struct {
+  int model_id;
+  uint8_t slot_mb;
+  char *name;
+} models_type;
+
+extern models_type mega_models[];
+
+extern uint8_t hw_model_id;
+extern char *hw_model_name;
 extern unsigned char slot_count;
+
+extern struct m65_tm tm_start;
+extern struct m65_tm tm_now;
+
 extern unsigned char bash_bits;
 extern unsigned int page_size;
 extern unsigned char latency_code;
@@ -81,6 +108,7 @@ extern unsigned char buffer[512];
 
 extern short i, x, y, z;
 
+int8_t probe_hardware_version(void);
 unsigned char probe_qspi_flash(void);
 unsigned char select_bitstream_file(unsigned char slot);
 void reflash_slot(unsigned char slot, unsigned char selected_file);

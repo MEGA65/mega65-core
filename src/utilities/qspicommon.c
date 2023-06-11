@@ -15,7 +15,15 @@
 struct m65_tm tm_start;
 struct m65_tm tm_now;
 
+uint8_t hw_model_id = 0;
+char *hw_model_name = "?unknown?";
 unsigned char slot_count = 0;
+
+#ifdef STANDALONE
+uint8_t SLOT_MB = 1;
+unsigned long SLOT_SIZE = 1L << 20;
+unsigned long SLOT_SIZE_PAGES = 1L << 12;
+#endif
 
 short i, x, y, z;
 
@@ -899,42 +907,61 @@ unsigned char select_bitstream_file(unsigned char slot)
   return SELECTED_FILE_INVALID;
 }
 
-typedef struct {
-  int model_id;
-  char *name;
-} models_type;
-
 // clang-format off
-models_type models[] = {
-  { 0x01, "MEGA65 R1" },
-  { 0x02, "MEGA65 R2" },
-  { 0x03, "MEGA65 R3" },
-  { 0x04, "MEGA65 R4" },
-  { 0x05, "MEGA65 R5" },
-  { 0x06, "MEGA65 R6" },
-  { 0x07, "MEGA65 R7" },
-  { 0x08, "MEGA65 R8" },
-  { 0x09, "MEGA65 R9" },
-  { 0x21, "MEGAphone R1" },
-  { 0x22, "MEGAphone R4" },
-  { 0x40, "Nexys4" },
-  { 0x41, "Nexys4DDR" },
-  { 0x42, "Nexys4DDR-widget" },
-  { 0xFD, "QMTECH Wukong A100T" },
-  { 0xFE, "Simulation" } };
+models_type mega_models[] = {
+  { 0x01, 8, "MEGA65 R1" },
+  { 0x02, 4, "MEGA65 R2" },
+  { 0x03, 8, "MEGA65 R3" },
+  { 0x04, 8, "MEGA65 R4" },
+  { 0x05, 8, "MEGA65 R5" },
+  { 0x21, 4, "MEGAphone R1" },
+  { 0x22, 4, "MEGAphone R4" },
+  { 0x40, 4, "Nexys4" },
+  { 0x41, 4, "Nexys4DDR" },
+  { 0x42, 4, "Nexys4DDR-widget" },
+  { 0x60, 4, "QMTECH A100T"},
+  { 0x61, 8, "QMTECH A200T"},
+  { 0x62, 8, "QMTECH A325T"},
+  { 0xFD, 4, "Wukong A100T" },
+  { 0xFE, 8, "Simulation" },
+  { 0x00, 0, NULL }
+};
 // clang-format on
+
+int8_t probe_hardware_version(void)
+{
+  uint8_t k;
+
+  hw_model_id = PEEK(0xD629);
+  for (k = 0; mega_models[k].name; k++)
+    if (hw_model_id == mega_models[k].model_id)
+      break;
+
+  if (!mega_models[k].name)
+    return -1;
+
+  hw_model_name = mega_models[k].name;
+
+  // we need to set those according to the hardware found
+#ifdef STANDALONE
+  SLOT_MB = mega_models[k].slot_mb;
+  SLOT_SIZE_PAGES = SLOT_MB;
+  SLOT_SIZE_PAGES <<= 12;
+  SLOT_SIZE = SLOT_SIZE_PAGES;
+  SLOT_SIZE <<= 8;
+#endif
+
+  return 0;
+}
 
 char *get_model_name(uint8_t model_id)
 {
   static char *model_unknown = "?unknown?";
   uint8_t k;
-  uint8_t l = sizeof(models) / sizeof(models_type);
 
-  for (k = 0; k < l; k++) {
-    if (model_id == models[k].model_id) {
-      return models[k].name;
-    }
-  }
+  for (k = 0; mega_models[k].name; k++)
+    if (model_id == mega_models[k].model_id)
+      return mega_models[k].name;
 
   return model_unknown;
 }
@@ -943,7 +970,6 @@ int check_model_id_field(unsigned char megaonly)
 {
   unsigned char x;
   unsigned short bytes_returned;
-  uint8_t hardware_model_id = PEEK(0xD629);
   uint8_t core_model_id = 0;
 
   bytes_returned = hy_read512();
@@ -980,9 +1006,9 @@ int check_model_id_field(unsigned char megaonly)
 
   core_model_id = buffer[0x70];
   printf(".COR file model id: $%02X - %s\n", core_model_id, get_model_name(core_model_id));
-  printf(" Hardware model id: $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
+  printf(" Hardware model id: $%02X - %s\n\n", hw_model_id, hw_model_name);
 
-  if (hardware_model_id == core_model_id) {
+  if (hw_model_id == core_model_id) {
     printf("%cVerified .COR file matches hardware.\n"
            "Safe to flash.%c\n\n"
            "Press any key to continue,\nRUN/STOP or ESC to abort.\n",
@@ -1621,6 +1647,10 @@ unsigned char probe_qspi_flash(void)
   }
 
   slot_count = mb / SLOT_MB;
+  // sanity check for slot count
+  if (slot_count == 0 || slot_count > 8)
+    slot_count = 8;
+
   // latency_code=3;
   latency_code = reg_cr1 >> 6;
 

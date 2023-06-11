@@ -11,9 +11,7 @@
 #include "qspicommon.h"
 #include "qspireconfig.h"
 
-#ifdef STANDALONE
 #include "version.h"
-#endif
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
@@ -57,17 +55,22 @@ slot_core_type slot_core[MAX_SLOTS];
 void display_version(void)
 {
   unsigned char key;
-  uint8_t hardware_model_id = PEEK(0xD629);
   uint8_t core_hash_1 = PEEK(0xD632);
   uint8_t core_hash_2 = PEEK(0xD633);
   uint8_t core_hash_3 = PEEK(0xD634);
   uint8_t core_hash_4 = PEEK(0xD635);
 
   printf("%c%c%c", 0x93, 0x11, 0x11);
-  printf("  MEGAFLASH/Core hash:\n    %02x%02x%02x%02x%s\n\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
+  printf("  Core hash:\n    %02x%02x%02x%02x%s\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
       reconfig_disabled ? " (booted via JTAG)" : "");
+  printf("  MEGAFLASH version:\n    %s\n", utilVersion);
   printf("  Slot 0 Version:\n    %s\n\n", slot_core[0].version);
-  printf("  Hardware model id:\n    $%02X - %s\n\n", hardware_model_id, get_model_name(hardware_model_id));
+  printf("  Hardware information\n"
+         "    Model ID:   $%02X\n"
+         "    Model name: %s\n"
+         "    Slots:      %d (each %dMB)\n"
+         "    Slot Size:  %ld (%ld pages)\n",
+         hw_model_id, hw_model_name, slot_count, SLOT_MB, SLOT_SIZE, SLOT_SIZE_PAGES);
 
 #if 0
   {
@@ -214,11 +217,12 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
   return found != 0xff ? found : default_slot;
 }
 
-void write_text(unsigned char x, unsigned char y, char *text)
+void write_text(unsigned char x, unsigned char y, char *text, uint8_t length)
 {
-  while (*text) {
+  while (length > 0) {
     POKE(0x400 + y*40 + x++, *text);
     text++;
+    length--;
   }
 }
 
@@ -257,6 +261,7 @@ unsigned char confirm_slot0_flash()
   return check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT);
 }
 
+#include <cbm_screen_charmap.h>
 void display_cartridge(short slot)
 {
   unsigned char offset = 1;
@@ -264,16 +269,34 @@ void display_cartridge(short slot)
 
   // if all three bits are 1, write ALL... is that even possible?
   if ((slot_core[slot].flags & CORECAP_CART) == CORECAP_CART) {
-    write_text(35, slot * 3 + offset, "\x1b" "ALL" "\x1d");
+    write_text(35, slot * 3 + offset, "[ALL]", 5);
     return;
   }
 
   if (slot_core[slot].flags & CORECAP_CART_C64)
-    write_text(35, slot * 3 + offset++, "\x1b" "C64" "\x1d");
+    write_text(35, slot * 3 + offset++, "[C64]", 5);
   if (slot_core[slot].flags & CORECAP_CART_C128)
-    write_text(35, slot * 3 + offset++, "\x1b" "128" "\x1d");
+    write_text(35, slot * 3 + offset++, "[128]", 5);
   if (slot_core[slot].flags & CORECAP_CART_M65)
-    write_text(35, slot * 3 + offset++, "\x1b" "M65" "\x1d");
+    write_text(35, slot * 3 + offset++, "[M65]", 5);
+}
+#include <cbm_petscii_charmap.h>
+
+void hard_exit(void)
+{
+  // clear keybuffer
+  *(unsigned char *)0xc6 = 0;
+
+  // Switch back to normal speed control before exiting
+  POKE(0, 64);
+#ifdef STANDALONE
+  // NMI vector
+  asm(" jmp $fffa ");
+#else
+  // back to HYPPO
+  POKE(0xCF7f, 0x4C);
+  asm(" jmp $cf7f ");
+#endif
 }
 
 void main(void)
@@ -314,10 +337,7 @@ void main(void)
 
   // Holding ESC on boot will prevent flash menu starting
   if (PEEK(0xD610) == 0x1b) {
-    // Switch back to normal speed control before exiting
-    POKE(0, 64);
-    POKE(0xCF7f, 0x4C);
-    asm(" jmp $cf7f ");
+    hard_exit();
   }
 
   probe_qspi_flash(); // sets slot_count
@@ -327,7 +347,7 @@ void main(void)
   // this is the non-interactive part, where megaflash just
   // starts a core from slot 1 or 2
   // if this failes, got to GUI anyway
-#ifdef A100T
+#ifdef TAB_FOR_MENU
   // TAB or NO-SCROLL on nexys and semilar
   if ((PEEK(0xD610) != 0x09) && (!(PEEK(0xD611) & 0x20))) {
 #else
@@ -348,9 +368,7 @@ void main(void)
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
       // Switch back to normal speed control before exiting
-      POKE(0, 64);
-      POKE(0xCF7f, 0x4C);
-      asm(" jmp $cf7f ");
+      hard_exit();
     }
     else { // FPGA has NOT been reconfigured
       /*
@@ -411,9 +429,7 @@ void main(void)
       else if (slot_core[selected].valid == SLOT_EMPTY) {
         // Empty slot -- ignore and resume
         // Switch back to normal speed control before exiting
-        POKE(0, 64);
-        POKE(0xCF7f, 0x4C);
-        asm(" jmp $cf7f ");
+        hard_exit();
       }
       else {
         printf("WARNING: Flash slot %d seems to be\n"
@@ -437,13 +453,23 @@ void main(void)
     }
   }
 
+  // we need to probe the hardware now, as we are going into the menu
+  if (probe_hardware_version())
+    hard_exit();
+
 #else /* STANDALONE */
   printf("\njtagflash Version\n  %s\n", utilVersion);
 
+  if (probe_hardware_version()) {
+    printf("\nUnknown hardware model id $%02X\n", hw_model_id);
+    press_any_key(1, 1);
+    hard_exit();
+  }
   if (probe_qspi_flash()) {
     // print it a second time, screen has scrolled!
     printf("\njtagflash Version\n  %s\n", utilVersion);
-    goto do_exit;
+    press_any_key(1, 1);
+    hard_exit();
   }
 
 #endif
@@ -506,18 +532,10 @@ void main(void)
     }
     while (PEEK(0xD610))
       POKE(0xD610, 0);
-#ifdef STANDALONE
-    // in standalone mode we want to be able to flash, so this does not work...
-    if (atticram_bad)
-      goto do_exit;
-#endif
   }
 
 #ifndef FIRMWARE_UPGRADE
   // prepare menu
-  // sanity check for slot count, determined by probe_qspi_flash
-  if (slot_count == 0 || slot_count > 8)
-    slot_count = 8;
 
   // Scan for existing bitstreams
   scan_bitstream_information(0, 0);
@@ -592,9 +610,7 @@ void main(void)
       // Simply exit flash menu without doing anything.
 
       // Switch back to normal speed control before exiting
-      POKE(0, 64);
-      POKE(0xCF7f, 0x4C);
-      asm(" jmp $cf7f ");
+      hard_exit();
 
     case 0x1d: // CRSR-RIGHT
     case 0x11: // CRSR-DOWN
@@ -704,7 +720,7 @@ void main(void)
 #else /* FIRMWARE_UPGRADE */
   if (!confirm_slot0_flash()) {
     printf("\n\nABORTED!\n");
-    goto do_exit;
+    hard_exit();
   }
 
 #include <ascii_charmap.h>
@@ -716,9 +732,5 @@ void main(void)
   reflash_slot(0, SELECTED_FILE_VALID);
 #endif
 
-#ifdef STANDALONE
-do_exit:
-#endif
-  // clear keybuffer
-  *(unsigned char *)0xc6 = 0;
+  hard_exit();
 }

@@ -178,7 +178,7 @@ SDCARD_FILES= \
 	$(SDCARD_DIR)/ETHLOAD.M65
 
 FLASHER_FILES= \
-	$(UTILDIR)/mflash200.prg \
+	$(UTILDIR)/mflash.prg \
 	$(UTILDIR)/upgrade0.prg
 
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
@@ -211,7 +211,7 @@ GEN_VERSION= \
 	$(UTILDIR)/version.s \
 	$(UTILDIR)/version.h
 
-$(GEN_VERSION):	.git/HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(GEN_VERSION):	.git/HEAD .git/ORIG_HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 $(SDCARD_DIR):
@@ -871,11 +871,11 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h 
 	$(call mbuild_sizecheck,29000,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash200.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) $(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA200T -DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
 		$(MEGA65LIBCLIB) $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
 	$(call mbuild_sizecheck,46000,$@)
 
@@ -883,24 +883,8 @@ $(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTI
 	$(call mbuild_header,$@)
 	$(CL65) $(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA200T -DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE \
+		-DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
-	$(call mbuild_sizecheck,46000,$@)
-
-$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/jtagflash.prg \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DQSPI_VERBOSE \
-		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-	$(call mbuild_sizecheck,46000,$@)
-
-$(UTILDIR)/jtagdebug.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/jtagdebug.prg \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DQSPI_VERBOSE -DQSPI_FLASH_INSPECT -DQSPI_ERASE_ZERO \
-		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
 	$(call mbuild_sizecheck,46000,$@)
 
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
