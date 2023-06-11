@@ -52,6 +52,8 @@ entity container is
 --         kb_io0 : out std_logic;
 --         kb_io1 : out std_logic;
 --         kb_io2 : in std_logic;
+         porta_pins : inout std_logic_vector(7 downto 0);
+         portb_pins : inout std_logic_vector(7 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
@@ -583,7 +585,7 @@ begin
         capslock_out => widget_capslock,
         upkey => keyup,
         leftkey => keyleft
-      
+
         );
 
     slow_devices0: entity work.slow_devices
@@ -892,14 +894,14 @@ begin
       sw => (others => '0'),
 --      uart_rx => '1',
       btn => (others => '1')
-         
+
       );
   end generate;
 
   process (pixelclock,cpuclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
+    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;

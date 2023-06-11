@@ -211,7 +211,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ddr_out_emard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix_wukong.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/matrix_to_ascii.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
@@ -422,7 +422,7 @@ set file "vhdl/keymapper.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/keyboard_to_matrix.vhdl"
+set file "vhdl/keyboard_to_matrix_wukong.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
