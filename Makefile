@@ -211,7 +211,7 @@ GEN_VERSION= \
 	$(UTILDIR)/version.s \
 	$(UTILDIR)/version.h
 
-$(GEN_VERSION):	.git/HEAD .git/ORIG_HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(GEN_VERSION):	.git/HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 $(SDCARD_DIR):
