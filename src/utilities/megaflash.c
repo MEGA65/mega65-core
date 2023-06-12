@@ -494,20 +494,20 @@ void main(void)
   }
 
   // quick and dirty attic ram check
-  lpoke(0x8000000l, 0x55);
-  if (lpeek(0x8000000l) != 0x55)
+  dma_poke(0x8000000l, 0x55);
+  if (dma_peek(0x8000000l) != 0x55)
     atticram_bad = 1;
   else {
-    lpoke(0x8000000l, 0xaa);
-    if (lpeek(0x8000000l) != 0xaa)
+    dma_poke(0x8000000l, 0xaa);
+    if (dma_peek(0x8000000l) != 0xaa)
       atticram_bad = 1;
     else {
-      lpoke(0x8000000l, 0xff);
-      if (lpeek(0x8000000l) != 0xff)
+      dma_poke(0x8000000l, 0xff);
+      if (dma_peek(0x8000000l) != 0xff)
         atticram_bad = 1;
       else {
-        lpoke(0x8000000l, 0x00);
-        if (lpeek(0x8000000l) != 0x00)
+        dma_poke(0x8000000l, 0x00);
+        if (dma_peek(0x8000000l) != 0x00)
           atticram_bad = 1;
       }
     }
