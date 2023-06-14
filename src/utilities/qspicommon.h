@@ -26,14 +26,11 @@
  *   QSPI_FLASH_SLOT0   - allow flashing of slot 0
  *   QSPI_ERASE_ZERO    - allow erasing of slot 0
  *   QSPI_FLASH_INSPECT - enable flash inspector tool
+ *   FIRMWARE_UPGRADE   - this removes file selection from slot 0 flashing,
+ *                        just uses UPGRADE0.COR instead
  *
  * Control scheme:
  *   WITH_JOYSTICK      - enable joystick navigation in file selector
- *
- * UPGRADE_ONLY       - build UPGRADE0.COR *only* version
- * FIRMWARE_UPGRADE   - this removes file selection from slot 0 flashing,
- *                      just uses UPGRADE0.COR instead, and adds special text
- *                      warning the user about the risks
  *
  */
 
@@ -98,7 +95,8 @@ extern unsigned char last_sector_num;
 extern unsigned char sector_num;
 
 extern unsigned char data_buffer[512];
-extern unsigned char bitstream_magic[16];
+extern unsigned char bitstream_magic[];
+extern unsigned char mega65core_magic[];
 extern char disk_name_return[65];
 extern char disk_display_return[40];
 

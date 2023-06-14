@@ -1327,6 +1327,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
       progress_bar(2, "Filling");
     }
     progress_time(load_time);
+    hy_close();
     //printf("%c%cLoaded COR file in %u seconds.\n", 0x11, 0x11, load_time);
 
     // always do a CRC32 check!
@@ -1437,8 +1438,6 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
           while (1)
             POKE(0xD020, PEEK(0xD020) & 0xf);
 #endif
-
-          hy_close();
           // don't do anything else, as this will result in slot 0 corruption
           // as global addr gets changed by flash_inspector
           return;
@@ -1501,8 +1500,6 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
         load_time, crc_time, flash_time);
 
   press_any_key(1, 0);
-
-  hy_close(); // there was once an intent to pass (fd), but it wasn't getting used
 
   return;
 }

@@ -187,14 +187,14 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
     if (search_flags)
       continue;
 
-#define FAST_PETSCII2ASCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
+#define FAST_ASCII2PETSCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
 
     lfill((long)slot_core[slot].name, ' ', 64);
     // extract names
     if (slot_core[slot].valid == SLOT_VALID) {
       for (j = 0; j < 31; j++) {
-        slot_core[slot].name[j] = FAST_PETSCII2ASCII(data_buffer[16 + j]);
-        slot_core[slot].version[j] = FAST_PETSCII2ASCII(data_buffer[48 + j]);
+        slot_core[slot].name[j] = FAST_ASCII2PETSCII(data_buffer[16 + j]);
+        slot_core[slot].version[j] = FAST_ASCII2PETSCII(data_buffer[48 + j]);
       }
     }
 
@@ -228,6 +228,23 @@ void write_text(unsigned char x, unsigned char y, char *text, uint8_t length)
 
 unsigned char confirm_slot0_flash()
 {
+  // FAST_ASCII2PETSCII is not compatible to cbm_petscii_charmap!
+  char slot_magic[] = { 0x6d, 0x65, 0x67, 0x61, 0x36, 0x35, 0x20, 0x20, 0x20 };
+  if (strncmp(slot_core[1].name, slot_magic, 9)) {
+    printf("%c\n"
+           " %c** No MEGA65 core in slot 1 found! **%c\n\n"
+           "An error while replacing slot 0 can\n"
+           "temporary brick your MEGA65, which can\n"
+           "%cONLY%c be reverted using a JTAG adapter\n"
+           "or a MEGA65 core in slot 1.\n\n"
+           "Please confirm that you know about the\n"
+           "risks and the recovery procedure by\n"
+           "typing CONFIRM, or press <RUN/STOP> to\n"
+           "abort: \n",
+           0x93, 129, 5, 129, 5);
+    if (!check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT))
+      return 0;
+  }
   printf("%c\n"
          " %c** You are about to replace slot 0! **%c\n\n"
          "If this process fails or is interrupted,"
@@ -248,16 +265,6 @@ unsigned char confirm_slot0_flash()
          "Type CONFIRM to proceed, or press\n"
          "<RUN/STOP> to abort: ",
          0x93, 129, 5, 155, 5, 158, 5);
-#if 0
-  printf("%c\n"
-         "An error while replacing slot 0 can\n"
-         "temporary brick your MEGA65, which can\n"
-         "ONLY be reverted using a JTAG adapter or"
-         "a MEGA65 core in slot 1.\n\n"
-         "Please confirm that you know the risks\n"
-         "and the recovery procedure by typing\n"
-         "CONFIRM: ", 0x93);
-#endif
   return check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT);
 }
 
@@ -282,6 +289,15 @@ void display_cartridge(short slot)
 }
 #include <cbm_petscii_charmap.h>
 
+void error_flash(void)
+{
+  POKE(0xD020, 2);
+  POKE(0xD021, 2);
+  usleep(150000L);
+  POKE(0xD020, 0);
+  POKE(0xD021, 6);
+}
+
 void hard_exit(void)
 {
   // clear keybuffer
@@ -301,8 +317,10 @@ void hard_exit(void)
 
 void main(void)
 {
-  unsigned char selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT, i;
-  unsigned char selected_reflash_slot;
+  unsigned char selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT;
+#ifndef FIRMWARE_UPGRADE
+  unsigned char i, selected_reflash_slot, selected_file;
+#endif
 
   mega65_io_enable();
 
@@ -534,11 +552,11 @@ void main(void)
       POKE(0xD610, 0);
   }
 
-#ifndef FIRMWARE_UPGRADE
-  // prepare menu
-
   // Scan for existing bitstreams
   scan_bitstream_information(0, 0);
+
+#ifndef FIRMWARE_UPGRADE
+  // prepare menu
 
   // clear screen
   selected = 0;
@@ -593,13 +611,8 @@ void main(void)
       }
       else if (slot_core[x - '0'].valid != 0) // only boot slot if not empty
         reconfig_fpga((x - '0') * SLOT_SIZE + 4096);
-      else {
-        POKE(0xd020, 2);
-        POKE(0xd021, 2);
-        usleep(150000L);
-        POKE(0xd020, 0);
-        POKE(0xd021, 6);
-      }
+      else
+        error_flash();
     }
 
     selected_reflash_slot = 0xff;
@@ -633,13 +646,8 @@ void main(void)
       }
       else if (slot_core[selected].valid != SLOT_EMPTY)
         reconfig_fpga(selected * SLOT_SIZE + 4096);
-      else {
-        POKE(0xd020, 2);
-        POKE(0xd021, 2);
-        usleep(150000L);
-        POKE(0xd020, 0);
-        POKE(0xd021, 6);
-      }
+      else
+        error_flash();
       break;
 #ifdef QSPI_FLASH_INSPECT
     case 0x06: // CTRL-F
@@ -698,20 +706,28 @@ void main(void)
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
       if (atticram_bad) {
-        POKE(0xd020, 2);
-        POKE(0xd021, 2);
-        usleep(150000L);
-        POKE(0xd020, 0);
-        POKE(0xd021, 6);
+        error_flash();
+        continue;
       }
-      else {
-        unsigned char selected_file = select_bitstream_file(selected_reflash_slot);
-        if (selected_file) {
-          reflash_slot(selected_reflash_slot, selected_file);
-          scan_bitstream_information(0, selected_reflash_slot | 0x80);
+      selected_file = SELECTED_FILE_INVALID;
+      if (selected_reflash_slot == 0) {
+        if (confirm_slot0_flash()) {
+#include <ascii_charmap.h>
+          strncpy(disk_name_return, "upgrade0.cor", 32);
+#include <cbm_screen_charmap.h>
+          memcpy(disk_display_return, "UPGRADE0.COR", 12);
+          memset(disk_display_return + 12, 0x20, 28);
+#include <cbm_petscii_charmap.h>
+          selected_file = SELECTED_FILE_VALID;
         }
-        printf("%c", 0x93);
       }
+      else
+        selected_file = select_bitstream_file(selected_reflash_slot);
+      if (selected_file != SELECTED_FILE_INVALID) {
+        reflash_slot(selected_reflash_slot, selected_file);
+        scan_bitstream_information(0, selected_reflash_slot | 0x80);
+      }
+      printf("%c", 0x93);
     }
 
     // restore black border
@@ -720,6 +736,7 @@ void main(void)
 #else /* FIRMWARE_UPGRADE */
   if (!confirm_slot0_flash()) {
     printf("\n\nABORTED!\n");
+    press_any_key(1, 0);
     hard_exit();
   }
 

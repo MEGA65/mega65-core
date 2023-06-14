@@ -847,7 +847,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.
 	$(CL65) $(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a100t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA100T -DQSPI_FLASH_SLOT0 \
+		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,29000,$@)
@@ -857,7 +857,7 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.
 	$(CL65) $(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a200t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA200T -DQSPI_FLASH_SLOT0 \
+		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,29000,$@)
