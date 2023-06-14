@@ -1463,12 +1463,12 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
 
         // Program sector
         printf("%cProgramming sector at $%08lX", 0x13, addr);
-        for (waddr = addr; waddr < (addr + size); waddr += 256) {
-          lcopy(0x8000000L + waddr - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
+        for (waddr = addr + size; waddr > addr; waddr -= 256) {
+          lcopy(0x8000000L + waddr - 256 - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
           // display sector on screen
           // lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
           POKE(0xD020, 3);
-          program_page(waddr, 256);
+          program_page(waddr - 256, 256);
           POKE(0xD020, 0);
         }
       } while (tries < 11);
