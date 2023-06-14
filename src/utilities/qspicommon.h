@@ -109,7 +109,7 @@ extern short i, x, y, z;
 int8_t probe_hardware_version(void);
 unsigned char probe_qspi_flash(void);
 unsigned char select_bitstream_file(unsigned char slot);
-void reflash_slot(unsigned char slot, unsigned char selected_file);
+void reflash_slot(unsigned char slot, unsigned char selected_file, char *slot0version);
 void flash_inspector(void);
 
 void read_registers(void);

@@ -187,14 +187,12 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
     if (search_flags)
       continue;
 
-#define FAST_ASCII2PETSCII(A) A == 0 ? 0x20 : (((A & 0b1000000) && ((A & 0b11111) != 0)) ? A^0x20 : A)
-
     lfill((long)slot_core[slot].name, ' ', 64);
     // extract names
     if (slot_core[slot].valid == SLOT_VALID) {
       for (j = 0; j < 31; j++) {
-        slot_core[slot].name[j] = FAST_ASCII2PETSCII(data_buffer[16 + j]);
-        slot_core[slot].version[j] = FAST_ASCII2PETSCII(data_buffer[48 + j]);
+        slot_core[slot].name[j] = ascii2petscii(data_buffer[16 + j], 0x20);
+        slot_core[slot].version[j] = ascii2petscii(data_buffer[48 + j], 0x20);
       }
     }
 
@@ -228,8 +226,7 @@ void write_text(unsigned char x, unsigned char y, char *text, uint8_t length)
 
 unsigned char confirm_slot0_flash()
 {
-  // FAST_ASCII2PETSCII is not compatible to cbm_petscii_charmap!
-  char slot_magic[] = { 0x6d, 0x65, 0x67, 0x61, 0x36, 0x35, 0x20, 0x20, 0x20 };
+  char slot_magic[] = "MEGA65   ";
   if (strncmp(slot_core[1].name, slot_magic, 9)) {
     printf("%c\n"
            " %c** No MEGA65 core in slot 1 found! **%c\n\n"
@@ -318,7 +315,7 @@ void hard_exit(void)
 void main(void)
 {
   unsigned char selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT;
-#ifndef FIRMWARE_UPGRADE
+#if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
   unsigned char i, selected_reflash_slot, selected_file;
 #endif
 
@@ -555,7 +552,7 @@ void main(void)
   // Scan for existing bitstreams
   scan_bitstream_information(0, 0);
 
-#ifndef FIRMWARE_UPGRADE
+#if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
   // prepare menu
 
   // clear screen
@@ -711,20 +708,18 @@ void main(void)
       }
       selected_file = SELECTED_FILE_INVALID;
       if (selected_reflash_slot == 0) {
-        if (confirm_slot0_flash()) {
 #include <ascii_charmap.h>
-          strncpy(disk_name_return, "upgrade0.cor", 32);
+        strncpy(disk_name_return, "UPGRADE0.COR", 32);
 #include <cbm_screen_charmap.h>
-          memcpy(disk_display_return, "UPGRADE0.COR", 12);
-          memset(disk_display_return + 12, 0x20, 28);
+        memcpy(disk_display_return, "UPGRADE0.COR", 12);
+        memset(disk_display_return + 12, 0x20, 28);
 #include <cbm_petscii_charmap.h>
-          selected_file = SELECTED_FILE_VALID;
-        }
+        selected_file = SELECTED_FILE_VALID;
       }
       else
         selected_file = select_bitstream_file(selected_reflash_slot);
       if (selected_file != SELECTED_FILE_INVALID) {
-        reflash_slot(selected_reflash_slot, selected_file);
+        reflash_slot(selected_reflash_slot, selected_file, slot_core[0].version);
         scan_bitstream_information(0, selected_reflash_slot | 0x80);
       }
       printf("%c", 0x93);
@@ -733,7 +728,7 @@ void main(void)
     // restore black border
     POKE(0xD020, 0);
   }
-#else /* FIRMWARE_UPGRADE */
+#else /* FIRMWARE_UPGRADE && STANDALONE */
   if (!confirm_slot0_flash()) {
     printf("\n\nABORTED!\n");
     press_any_key(1, 0);
@@ -741,12 +736,12 @@ void main(void)
   }
 
 #include <ascii_charmap.h>
-  strncpy(disk_name_return, "upgrade0.cor", 32);
+  strncpy(disk_name_return, "UPGRADE0.COR", 32);
 #include <cbm_screen_charmap.h>
   memcpy(disk_display_return, "UPGRADE0.COR", 12);
   memset(disk_display_return + 12, 0x20, 28);
 #include <cbm_petscii_charmap.h>
-  reflash_slot(0, SELECTED_FILE_VALID);
+  reflash_slot(0, SELECTED_FILE_VALID, slot_core[0].version);
 #endif
 
   hard_exit();

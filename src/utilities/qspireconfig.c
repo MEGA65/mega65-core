@@ -71,3 +71,38 @@ void reconfig_fpga(unsigned long addr)
   while (1);
 }
 
+unsigned char ascii2petscii(unsigned char a, unsigned char def)
+{
+  if (a < 0x20)
+    return def;
+  if (a < 0x41)
+    return a;
+  if (a < 0x5b)
+    return a | 0x80;
+  if (a < 0x5f)
+    return a;
+  if (a == 0x5f) // underscore
+    return 0xaf;
+  if (a == 0x60) // backtick
+    return 0xfa;
+  if (a < 0x7b)
+    return a ^ 0x20;
+  return def;
+}
+
+unsigned char ascii2screen(unsigned char a, unsigned char def)
+{
+  if (a < 0x20)
+    return def;
+  if (a == 0x40)
+    return 0x00;
+  if (a < 0x5f)
+    return a;
+  if (a == 0x5f) // underscore
+    return 0x6f;
+  if (a == 0x60) // backtick
+    return 0x7a;
+  if (a < 0x7b)
+    return a ^ 0x60;
+  return def;
+}

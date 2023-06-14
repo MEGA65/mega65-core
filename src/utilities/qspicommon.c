@@ -966,7 +966,7 @@ char *get_model_name(uint8_t model_id)
   return model_unknown;
 }
 
-int check_model_id_field(unsigned char megaonly)
+int check_model_id_field(unsigned char megaonly, char *slot0version)
 {
   unsigned char x;
   unsigned short bytes_returned;
@@ -1003,6 +1003,12 @@ int check_model_id_field(unsigned char megaonly)
       return 0;
     }
   }
+
+  // display core version
+  for (x = 48; x < 48+32; x++)
+    buffer[x] = ascii2petscii(buffer[x], 0x20);
+  buffer[x] = 0;
+  printf("UPGRADE0.COR Version:\n  %s\nSlot 0 Version:\n  %s\n\n", buffer + 48, slot0version);
 
   core_model_id = buffer[0x70];
   printf(".COR file model id: $%02X - %s\n", core_model_id, get_model_name(core_model_id));
@@ -1217,7 +1223,7 @@ unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash
   return 0;
 }
 
-void reflash_slot(unsigned char the_slot, unsigned char selected_file)
+void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slot0version)
 {
   unsigned long size, waddr, end_addr;
   unsigned short bytes_returned;
@@ -1294,7 +1300,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
     printf("\n");
 
     // TODO: also check NAME "MEGA65" for slot 0 flash!
-    if (!check_model_id_field(slot == 0 ? 1 : 0))
+    if (!check_model_id_field(slot == 0 ? 1 : 0, slot0version))
       return;
 
 #if defined(STANDALONE) && defined(QSPI_DEBUG)
@@ -1377,7 +1383,9 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file)
     }
     else {
       printf("\n%cChecksum matches, good to flash.%c\n", 30, 5);
-      press_any_key(0, 0);
+      bytes_returned = press_any_key(0, 0);
+      if (bytes_returned == 0x03 || bytes_returned == 0x1b)
+        return;
     }
 
     // start flashing
