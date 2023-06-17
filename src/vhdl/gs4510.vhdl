@@ -2158,7 +2158,7 @@ begin
           proceed <= '0';
           cpuport_num <= x"4";
         end if;
-      elsif (long_address = x"0000000") or (long_address = x"0000001") then
+      elsif ((long_address = x"0000000") or (long_address = x"0000001")) and (reg_map_low(0)='0') then
         accessing_cpuport <= '1';
         report "Preparing to read from a CPUPort";
         read_source <= CPUPort;
@@ -3235,7 +3235,7 @@ begin
       last_write_address <= real_long_address;
 
       -- Write to CPU port
-      if (long_address = x"0000000") then
+      if (long_address = x"0000000") and (reg_map_low(0)='0') then
         report "MEMORY: Writing to CPU DDR register" severity note;
         if value = x"40" then
           force_fast <= '0';
@@ -3247,7 +3247,7 @@ begin
         report "ZPCACHE: Flushing cache due to write to $01";
         cache_flushing <= '1';
         cache_flush_counter <= (others => '0');
-      elsif (long_address = x"0000001") then
+      elsif (long_address = x"0000001") and (reg_map_low(0)='0') then
         report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
         report "ZPCACHE: Flushing cache due to write to $01";
@@ -3526,6 +3526,9 @@ begin
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
         if long_address(19 downto 17)="001" then
           shadow_write <= (not rom_writeprotect) or hypervisor_mode;
+        elsif (long_address(19 downto 1)&'0' = x"00000") and (reg_map_low(0) = '0') then
+          -- Don't write to ram if cpu port is active
+          shadow_write <= '0';
         else
           shadow_write <= '1';
         end if;
@@ -3996,7 +3999,7 @@ begin
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      
---    a_neg <= (not reg_a) + 1;
+    --    a_neg <= (not reg_a) + 1;
     if (reg_a = x"00") then 
       a_neg_z <= '1';
     else
@@ -8962,7 +8965,7 @@ begin
     -- temp hack as I work to move this code around...
     variable real_long_address : unsigned(27 downto 0) := (others => '0');
     variable long_address : unsigned(27 downto 0) := (others => '0');
-        
+
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
                                             writeP : boolean)
@@ -8974,7 +8977,28 @@ begin
       
     begin  -- resolve_long_address
 
-      -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
+      -- default is address in = address out
+      temp_address(27 downto 16) := (others => '0');
+      temp_address(15 downto 0) := short_address;
+
+      -- Apply map offset if required
+      blocknum := to_integer(short_address(14 downto 13));
+      if short_address(15)='1' then
+        if reg_map_high(blocknum)='1' then
+          temp_address(27 downto 20) := reg_mb_high;
+          temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
+          return temp_address;    
+        end if;
+      else
+        if reg_map_low(blocknum)='1' then
+          temp_address(27 downto 20) := reg_mb_low;
+          temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
+          return temp_address;
+          report "mapped memory address is $" & to_hstring(temp_address) severity note;
+        end if;
+      end if;
+
+      -- C64-style $01 mapping
       blocknum := to_integer(short_address(15 downto 12));
 
       lhc(4) := gated_exrom;
@@ -8984,9 +9008,11 @@ begin
       lhc(1) := lhc(1) or (not cpuport_ddr(1));
       lhc(0) := lhc(0) or (not cpuport_ddr(0));
       
-      if(writeP) then
+      if (writeP and (rom_writeprotect='1')) then
+        -- writing to charrom mapped via $01 will hit ram at $D000
         char_access_addr := x"000D";
       else
+        -- reading charrom or writing : access $2Dxxx
         char_access_addr := x"002D";
       end if;
       
@@ -9006,10 +9032,6 @@ begin
       -- 1 1 0             RAM        RAM       I/O        I/O       KERNAL-ROM RAM
       -- 1 1 1             BASIC-ROM  RAM       I/O        I/O       KERNAL-ROM RAM
       
-      -- default is address in = address out
-      temp_address(27 downto 16) := (others => '0');
-      temp_address(15 downto 0) := short_address;
-
       -- IO
       if (blocknum=13) then
         temp_address(11 downto 0) := short_address(11 downto 0);
@@ -9068,132 +9090,106 @@ begin
       end if;
 
       -- C64 KERNEL
-      if reg_map_high(3)='0' then
-        if ((blocknum=14) or (blocknum=15)) and ((gated_exrom='1') and (gated_game='0')) then
-          -- ULTIMAX mode external ROM
-          temp_address(27 downto 16) := x"7FF";
-        else
-          if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-            temp_address(27 downto 12) := x"002E";
-          end if;        
-          if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
-            temp_address(27 downto 12) := x"002F";      
-          end if;
+      if ((blocknum=14) or (blocknum=15)) and ((gated_exrom='1') and (gated_game='0')) then
+        -- ULTIMAX mode external ROM
+        temp_address(27 downto 16) := x"7FF";
+      else
+        if (blocknum=14) and (lhc(1)='1') and ((writeP=false) or (rom_writeprotect='0')) then
+          temp_address(27 downto 12) := x"002E";
         end if;        
-      end if;      
-      -- C64 BASIC or cartridge ROM LO
-      if reg_map_high(0)='0' then
-        if ((blocknum=8) or (blocknum=9)) and
-          (
-            (
-              ((gated_exrom='1') and (gated_game='0'))
-              or
-              ((gated_exrom='0') and (lhc(1 downto 0)="11"))
-              )
-            and
-            (writeP=false)
-            )
-        then
-          -- ULTIMAX mode or cartridge external ROM
-          if ocean_cart_mode='1' then
-            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
-            temp_address(27 downto 21) := (others => '0');
-            temp_address(20 downto 13) := ocean_cart_lo_bank;
-          else
-            temp_address(27 downto 16) := x"7FF";
-          end if;            
+        if (blocknum=15) and (lhc(1)='1') and ((writeP=false) or (rom_writeprotect='0')) then
+          temp_address(27 downto 12) := x"002F";      
         end if;
-        if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
+      end if;        
+      -- C64 BASIC or cartridge ROM LO
+      if ((blocknum=8) or (blocknum=9)) and
+        (
+          (
+            ((gated_exrom='1') and (gated_game='0'))
+            or
+            ((gated_exrom='0') and (lhc(1 downto 0)="11"))
+            )
+          and
+          (writeP=false)
+          )
+      then
+        -- ULTIMAX mode or cartridge external ROM
+        if ocean_cart_mode='1' then
+          -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+          temp_address(27 downto 21) := (others => '0');
+          temp_address(20 downto 13) := ocean_cart_lo_bank;
+        else
+          temp_address(27 downto 16) := x"7FF";
+        end if;            
+      end if;
+      if ((writeP=false) or (rom_writeprotect='0')) then
+        if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') then
           
           temp_address(27 downto 12) := x"002A";
         end if;
-        if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
+        if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') then
           temp_address(27 downto 12) := x"002B";      
         end if;
       end if;
-      if reg_map_high(1)='0' then
-        if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
-            and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
-        then
-          if ocean_cart_mode='1' then
-            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
-            temp_address(27 downto 21) := (others => '0');
-            temp_address(20 downto 13) := ocean_cart_hi_bank;
-          else
-            -- ULTIMAX mode or cartridge external ROM
-            temp_address(27 downto 16) := x"7FF";
-          end if;
+
+      if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
+          and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
+      then
+        if ocean_cart_mode='1' then
+          -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+          temp_address(27 downto 21) := (others => '0');
+          temp_address(20 downto 13) := ocean_cart_hi_bank;
+        else
+          -- ULTIMAX mode or cartridge external ROM
+          temp_address(27 downto 16) := x"7FF";
         end if;
       end if;
 
       -- Expose remaining address space to cartridge port in ultimax mode
       if (gated_exrom='1') and (gated_game='0') and (hypervisor_mode='0') then
-        if (reg_map_low(0)='0') and  (blocknum=1) then
+        if (blocknum=1) then
           -- $1000 - $1FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(1)='0') and (blocknum=2 ) then
+        if (blocknum=2) then
           -- $2000 - $2FFF Ultimax mode
           -- XXX $3000-$3FFf is a copy of $F000-$FFFF from the cartridge so
           -- that the VIC-II can see it. On the M65, the Hypervisor has to copy
           -- it down. Not yet implemented, and won't be perfectly compatible.
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(2)='0') and ((blocknum=4) or (blocknum=5)) then
+        if (blocknum=4) or (blocknum=5) then
           -- $4000 - $5FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_low(3)='0') and ((blocknum=6) or (blocknum=7)) then
+        if (blocknum=6) or (blocknum=7) then
           -- $6000 - $7FFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
-        if (reg_map_high(2)='0') and (blocknum=12) then
+        if (blocknum=12) then
           -- $C000 - $CFFF Ultimax mode
           temp_address(27 downto 16) := x"7FF";
         end if;
       end if;
 
-      -- Lower 8 address bits are never changed
-      temp_address(7 downto 0):=short_address(7 downto 0);
-
-      -- Add the map offset if required
-      blocknum := to_integer(short_address(14 downto 13));
-      if short_address(15)='1' then
-        if reg_map_high(blocknum)='1' then
-          temp_address(27 downto 20) := reg_mb_high;
-          temp_address(19 downto 8) := reg_offset_high+to_integer(short_address(15 downto 8));
-          temp_address(7 downto 0) := short_address(7 downto 0);       
-        end if;
-      else
-        if reg_map_low(blocknum)='1' then
-          temp_address(27 downto 20) := reg_mb_low;
-          temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
-          temp_address(7 downto 0) := short_address(7 downto 0);
-          report "mapped memory address is $" & to_hstring(temp_address) severity note;
-        end if;
-      end if;
       
       -- $D030 ROM select lines:
-      if hypervisor_mode = '0' then
+      if (hypervisor_mode = '0') and ((writeP=false) or (rom_writeprotect='0')) then
         blocknum := to_integer(short_address(15 downto 12));
-        if (blocknum=14 or blocknum=15) and (rom_at_e000='1')
-          and (hypervisor_mode='0') then
-          temp_address(27 downto 12) := x"003E";
+        if (blocknum=14 or blocknum=15) and (rom_at_e000='1') then
+          temp_address(27 downto 12) := x"002E";
           if blocknum=15 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=12) and rom_at_c000='1' and (hypervisor_mode='0') then
+        if (blocknum=12) and (rom_at_c000='1') then
           temp_address(27 downto 12) := x"002C";
         end if;
-        if (blocknum=10 or blocknum=11) and (rom_at_a000='1')
-          and (hypervisor_mode='0') then
-          temp_address(27 downto 12) := x"003A";
+        if (blocknum=10 or blocknum=11) and (rom_at_a000='1') then
+          temp_address(27 downto 12) := x"002A";
           if blocknum=11 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=9) and (rom_at_8000='1') and (hypervisor_mode='0') then
-          temp_address(27 downto 12) := x"0039";
-        end if;
-        if (blocknum=8) and (rom_at_8000='1') and (hypervisor_mode='0') then
-          temp_address(27 downto 12) := x"0038";
+        if (blocknum=8 or blocknum=9) and (rom_at_8000='1') then
+          temp_address(27 downto 12) := x"0028";
+          if blocknum=9 then temp_address(12):='1'; end if;
         end if;
       end if;
 
@@ -10079,7 +10075,11 @@ begin
           shadow_address_var := to_integer(long_address(19 downto 0));
         elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
-          shadow_write_var := '1';
+          if (long_address(19 downto 1)&'0'=x"00000") and (reg_map_low(0)='0') then
+            shadow_write_var := '0';
+          else
+            shadow_write_var := '1';
+          end if;
           shadow_address_var := to_integer(long_address(19 downto 0));
 
           -- C65 uses $1F800-FFF as colour RAM, so we need to write there, too,
