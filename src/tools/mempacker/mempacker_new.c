@@ -81,7 +81,7 @@ int main(int argc, char **argv)
   if (!outfile)
     usage();
 
-  int i;
+  int i, j;
   for (i = optind; i < argc; i++) {
     load_block(argv[i], archive, ar_size);
   }
@@ -118,13 +118,19 @@ int main(int argc, char **argv)
       "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
       "  \n"
       "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
-      "  constant initram : ram_t := (\n",
+      "  constant initram : ram_t := (\n          ",
       name, name, name, bytes);
 
-  for (i = 0; i < bytes; i++)
+  for (i = 0; i < bytes;) {
     //    if (archive[i])
-    fprintf(o, "          x\"%02x\", -- $%05x\n", archive[i], i);
-  fprintf(o, "          x\"%02x\"); -- $%05x\n", archive[i], i);
+    for (j = 0; j < 15 && i < bytes; i++, j++)
+      fprintf(o, "x\"%02x\",", archive[i], i);
+    if (j == 15 && i < bytes) {
+      fprintf(o, "x\"%02x\", -- $%05x\n          ", archive[i], i - 15);
+      i++;
+    }
+  }
+  fprintf(o, "x\"%02x\");\n", archive[i]);
 
   fprintf(o, "  shared variable ram : ram_t := initram;\n");
 
