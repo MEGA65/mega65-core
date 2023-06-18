@@ -71,6 +71,7 @@ ifdef USE_LOCAL_CC65
 	CA65=  ca65 --cpu 4510
 	LD65=  ld65 -t none
 	CL65=  cl65 --config src/tests/vicii.cfg
+	CL65NC= cl65
 	CC65_DEPEND=
 else
 	# use the binary built from the submodule
@@ -78,6 +79,7 @@ else
 	CA65=  cc65/bin/ca65 --cpu 4510
 	LD65=  cc65/bin/ld65 -t none
 	CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+	CL65NC= cc65/bin/cl65
 	CC65_DEPEND=$(CC65)
 endif
 
@@ -835,57 +837,66 @@ $(UTILDIR)/crc32accl.o: $(UTILDIR)/crc32accl.s
 $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
-	$(CL65) $(MEGA65LIBCINC) -O --add-source \
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source \
 		-o $(SDCARD_DIR)/ONBOARD.M65 \
 		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
 		$< $(UTILDIR)/version.s $(UTILDIR)/qspireconfig.c $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
-	$(call mbuild_sizecheck,29000,$@)
+	$(call mbuild_sizecheck,30719,$@)
 
+#
+# MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
+#
 $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(MEGA65LIBCLIB) $(CC65_DEPEND) $(UTILDIR)/crc32accl.o
 	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O --add-source \
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a100t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
-	$(call mbuild_sizecheck,29000,$@)
+	$(call mbuild_sizecheck,30719,$@)
 
 $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(MEGA65LIBCLIB) $(CC65_DEPEND) $(UTILDIR)/crc32accl.o
 	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O --add-source \
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a200t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
-	$(call mbuild_sizecheck,29000,$@)
+	$(call mbuild_sizecheck,30719,$@)
 
 $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/joyflash-a200t.prg \
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O -o $(UTILDIR)/joyflash-a200t.prg \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspijoy.c
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
-	$(call mbuild_sizecheck,29000,$@)
+	$(call mbuild_sizecheck,30719,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
 $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O -o $@ \
+	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
+		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
 		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
 		$(MEGA65LIBCLIB) $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
-	$(call mbuild_sizecheck,46000,$@)
+	$(call mbuild_sizecheck,43000,$@)
 
 $(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(MEGA65LIBCLIB) $(CC65_DEPEND) $(UTILDIR)/crc32accl.o
 	$(call mbuild_header,$@)
-	$(CL65) $(MEGA65LIBCINC) -O -o $@ \
+	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
+		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
 		-DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE \
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/crc32accl.o
-	$(call mbuild_sizecheck,46000,$@)
+	$(call mbuild_sizecheck,43000,$@)
 
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
