@@ -35,12 +35,10 @@ unsigned int base_addr;
 #define SLOT_INVALID 0x01
 #define SLOT_VALID   0x80
 
-#define CARTCAP_NAME_MAX 3
-char cartcap_names[CARTCAP_NAME_MAX][5] = {"C64 ", "C128", "M65"};
-#include <ascii_charmap.h>
-unsigned char cart_c128_magic[3] = "CBM";
-unsigned char cart_m65_magic[3] = "M65";
 #include <cbm_petscii_charmap.h>
+unsigned char cart_c64_magic[5] = "CBM80";
+unsigned char cart_c128_magic[3] = "cbm";
+unsigned char cart_m65_magic[3] = "m65";
 
 typedef struct {
   char name[32];
@@ -52,6 +50,49 @@ typedef struct {
 
 slot_core_type slot_core[MAX_SLOTS];
 
+#ifndef STANDALONE
+char cart_id[5];
+
+unsigned char check_cartridge(void)
+{
+  unsigned char search_cart = CORECAP_SLOT_DEFAULT;
+
+  // first we always look for a M65 style cart, regardless what EXROM/GAME says
+  lcopy(0x4008007UL, (long)cart_id, 3);
+  if (!memcmp(cart_id, cart_m65_magic, 3))
+    return CORECAP_CART_M65;
+
+  // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 or M65 cart
+  switch (PEEK(0xD67EU) & 0x60) {
+    case 0x00: // ROML + ROMH
+    case 0x20: // ROML
+      // only with the CBM80 marker at $8004, the cartridge will start
+      // so we only assume it's a valid cartridge if the marker is found
+      lcopy(0x4008004UL, (long)cart_id, 5);
+      if (!memcmp(cart_id, cart_c64_magic, 5))
+        search_cart = CORECAP_CART_C64;
+      break;
+    case 0x40: // Ultimax
+      search_cart = CORECAP_CART_C64;
+      break;
+    case 0x60: // no Cartridge
+      // check for C128/M65 style cart by looking at signature at 8007 or C007
+      for (i = 0; i < 2; i++) {
+        lcopy((i ? 0x400C007UL : 0x4008007UL), (long)cart_id, 3);
+        if (!memcmp(cart_id, cart_c128_magic, 3)) {
+          search_cart = CORECAP_CART_C128;
+          break;
+        }
+      }
+      break;
+  }
+
+  return search_cart;
+}
+#endif
+
+unsigned char scan_bitstream_information(unsigned char search_flags, unsigned char update_slot);
+
 void display_version(void)
 {
   unsigned char key;
@@ -59,6 +100,9 @@ void display_version(void)
   uint8_t core_hash_2 = PEEK(0xD633);
   uint8_t core_hash_3 = PEEK(0xD634);
   uint8_t core_hash_4 = PEEK(0xD635);
+#ifndef STANDALONE
+  unsigned char search_cart, selected;
+#endif
 
   printf("%c%c%c", 0x93, 0x11, 0x11);
   printf("  Core hash:\n    %02x%02x%02x%02x%s\n", core_hash_4, core_hash_3, core_hash_2, core_hash_1,
@@ -68,37 +112,36 @@ void display_version(void)
   printf("  Hardware information\n"
          "    Model ID:   $%02X\n"
          "    Model name: %s\n"
-         "    Slots:      %d (each %dMB)\n"
-         "    Slot Size:  %ld (%ld pages)\n",
-         hw_model_id, hw_model_name, slot_count, SLOT_MB, SLOT_SIZE, SLOT_SIZE_PAGES);
+         "    Slots:      %d (each %dMB)\n",
+         hw_model_id, hw_model_name, slot_count, SLOT_MB);
+#ifdef QSPI_VERBOSE
+  printf("    Slot Size:  %ld (%ld pages)\n", SLOT_SIZE, SLOT_SIZE_PAGES);
+#endif
 
-#if 0
-  {
-    unsigned char cart_id[6];
-    printf("  Cartridge debug:\n");
-    key = PEEK(0xD67EU);
-    printf("    $D67E: %02X ", key);
-    switch (key & 0x60) {
-    case 0x00:
-      printf("ROML/ROMH");
-      break;
-    case 0x20:
-      printf("ROML");
-      break;
-    case 0x40:
-      printf("Ultimax");
-      break;
-    case 0x60:
-      printf("no C64 cart");
-      break;
-    }
-    lcopy(0x4008004, (long)cart_id, 6);
-    printf("\n    $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
-        cart_id[5]);
-    lcopy(0x400C004, (long)cart_id, 6);
-    printf(
-        "    $C004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
+#ifndef STANDALONE
+  // if this is the core megaflash, display boot slot selection information
+  search_cart = check_cartridge();
+  selected = scan_bitstream_information(search_cart, 0);
+  if (selected == 0xff)
+    selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
+
+  printf("\n  Cartridge: ");
+  switch (search_cart) {
+  case CORECAP_CART_C64:
+    printf("C64");
+    break;
+  case CORECAP_CART_C128:
+    printf("C128");
+    break;
+  case CORECAP_CART_M65:
+    printf("M65");
+    break;
+  default:
+    printf("none");
+    break;
   }
+  printf("\n  Boot Slot: %d\n", selected);
+  selected = 0;
 #endif
 
   // wait for ESC or RUN/STOP
@@ -106,10 +149,22 @@ void display_version(void)
     while (!(key = PEEK(0xD610)))
       ;
     POKE(0xD610, 0);
+#ifndef STANDALONE
+    // extra boot/cart debug information on F1, so we don't confuse the user
+    if (key == 0xf1 && !selected) {
+      selected = 1;
+      printf("\n%c   DIP4: %d\n  $D67E: $%02X\n", 155, 1 + ((PEEK(0xD69D) >> 3) & 1), PEEK(0xD67EU));
+      lcopy(0x4008004, (long)cart_id, 6);
+      printf("  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
+          cart_id[5]);
+      lcopy(0x400C007, (long)cart_id, 3);
+      printf("  $C007:          %02X %02X %02X%c\n", cart_id[0], cart_id[1], cart_id[2], 5);
+    }
+#endif
   } while (key != 0x1b && key != 0x03);
 
   // CLR screen for redraw
-  printf("%c", 0x93);
+  printf("%c%c", 0x93, 5);
 }
 
 unsigned char first_flash_read = 1;
@@ -227,7 +282,7 @@ void write_text(unsigned char x, unsigned char y, char *text, uint8_t length)
 unsigned char confirm_slot0_flash()
 {
   char slot_magic[] = "MEGA65   ";
-  if (strncmp(slot_core[1].name, slot_magic, 9)) {
+  if (!strncmp(slot_core[1].name, slot_magic, 9)) {
     printf("%c\n"
            " %c** No MEGA65 core in slot 1 found! **%c\n\n"
            "An error while replacing slot 0 can\n"
@@ -237,31 +292,31 @@ unsigned char confirm_slot0_flash()
            "Please confirm that you know about the\n"
            "risks and the recovery procedure by\n"
            "typing CONFIRM, or press <RUN/STOP> to\n"
-           "abort: \n",
-           0x93, 129, 5, 129, 5);
+           "abort: ",
+           0x93, 129, 5, 158, 5);
     if (!check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT))
       return 0;
   }
   printf("%c\n"
          " %c** You are about to replace slot 0! **%c\n\n"
          "If this process fails or is interrupted,"
-         "slot 0 will fail to boot. Then you can\n"
-         "either use a JTAG to boot again or wait "
-         "30 sec until slot 1 hopefully starts.\n\n"
+         "your %cMEGA65 is softbricked%c. Then you can"
+         "either use the JTAG recovery procedure\n"
+         "or wait ca. 30 sec until slot 1 starts.\n"
          "For this you need to make sure that your"
          "slot 1 MEGA65 core works correctly and\n"
-         "that you can send the %cupgrade0.prg%c from\n"
-         "your PC to your MEGA65!\n\n"
+         "you can use the flasher inside that\n"
+         "core to reflash slot 0.\n\n"
          "If you are unsure about any of this,\n"
          "please contact us first!\n\n%c"
          " * I confirm that I am aware of the\n"
          "   risks involved and like to proceed.\n\n"
-         " * I confirm that I can start my MEGA65 "
-         "   without the need of slot 0 and can\n"
-         "   send the flasher to my MEGA65.%c\n\n"
+         "%c * I confirm that I can start my MEGA65 "
+         "   without the need of slot 0 or can\n"
+         "   access the flasher in slot 1.%c\n\n"
          "Type CONFIRM to proceed, or press\n"
          "<RUN/STOP> to abort: ",
-         0x93, 129, 5, 155, 5, 158, 5);
+         0x93, 129, 5, 158, 5, 158, 159, 5);
   return check_input("CONFIRM\r", CASE_SENSITIVE|CASE_PRINT);
 }
 
@@ -369,7 +424,6 @@ void main(void)
   // only NO-SCROLL on mega65r2/r3
   if (!(PEEK(0xD611) & 0x20)) {
 #endif
-    char cart_id[6];
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
     usleep(10);
@@ -389,31 +443,7 @@ void main(void)
       /*
        * Determine which core should be started
        */
-
-      // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 or M65 cart
-      switch (PEEK(0xD67EU) & 0x60) {
-        case 0x00: // ROML + ROMH
-        case 0x20: // ROML
-          search_cart = CORECAP_CART_C64;
-          break;
-        case 0x40: // Ultimax, check for M65 marker at $8007
-          lcopy(0x4008007UL, (long)cart_id, 3);
-          if (!memcmp(cart_id, cart_m65_magic, 3))
-            search_cart = CORECAP_CART_M65;
-          else
-            search_cart = CORECAP_CART_C64;
-          break;
-        case 0x60:
-          // check for C128 style cart by looking at signature at 8007 or C007
-          for (i = 0; i < 2; i++) {
-            lcopy((i ? 0x400C007UL : 0x4008007UL), (long)cart_id, 3);
-            if (!memcmp(cart_id, cart_c128_magic, 3)) {
-              search_cart = CORECAP_CART_C128;
-              break;
-            }
-          }
-          break;
-      }
+      search_cart = check_cartridge();
 
       // determine boot slot by flags (default search is for default slot)
       selected = scan_bitstream_information(search_cart, 0);
@@ -421,21 +451,6 @@ void main(void)
       // if we don't have a cart slot, then we use slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
       if (selected == 0xff)
         selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
-
-#if 0
-      // debug -- do not use in official builds, may mess things up
-      printf("\n\nD67E=%02X,MATCH=%02X,SEARCH=%X,SEL=%X,D7FD=%02X\n", PEEK(0xD67EU), PEEK(0xD67EU) & 0x60, search_cart, selected, PEEK(0xD7FDU));
-      lcopy(0x4008004, (long)cart_id, 6);
-      printf("\n  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
-      lcopy(0x400C004, (long)cart_id, 6);
-      printf("\n  $C004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5]);
-      // wait for key
-      while (PEEK(0xD610))
-        POKE(0xD610, 0);
-      while (!PEEK(0xD610))
-        usleep(5000);
-      POKE(0xD610, 0);
-#endif
 
       if (slot_core[selected].valid == SLOT_VALID) {
         // Valid bitstream -- so start it
@@ -661,7 +676,7 @@ void main(void)
       if (confirm_slot0_flash()) {
         selected_reflash_slot = 0;
       }
-      printf("%c", 0x93);
+      printf("%c%c", 0x93, 5);
       break;
 #endif
     case 144: // CTRL-1
