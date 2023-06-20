@@ -282,7 +282,7 @@ void write_text(unsigned char x, unsigned char y, char *text, uint8_t length)
 unsigned char confirm_slot0_flash()
 {
   char slot_magic[] = "MEGA65   ";
-  if (!strncmp(slot_core[1].name, slot_magic, 9)) {
+  if (strncmp(slot_core[1].name, slot_magic, 9)) {
     printf("%c\n"
            " %c** No MEGA65 core in slot 1 found! **%c\n\n"
            "An error while replacing slot 0 can\n"
