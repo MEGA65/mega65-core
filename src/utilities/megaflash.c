@@ -51,43 +51,37 @@ typedef struct {
 slot_core_type slot_core[MAX_SLOTS];
 
 #ifndef STANDALONE
-char cart_id[5];
+char cart_id[9];
+unsigned char exrom_game = 0xff;
 
 unsigned char check_cartridge(void)
 {
-  unsigned char search_cart = CORECAP_SLOT_DEFAULT;
+  // copy cartridge magics out of cartridge ROM space
+  lcopy(0x4008004UL, (long)cart_id, 6);
+  lcopy(0x400C007UL, (long)cart_id + 6, 3);
 
   // first we always look for a M65 style cart, regardless what EXROM/GAME says
-  lcopy(0x4008007UL, (long)cart_id, 3);
-  if (!memcmp(cart_id, cart_m65_magic, 3))
+  if (!memcmp(cart_id + 3, cart_m65_magic, 3))
     return CORECAP_CART_M65;
 
-  // check for cartridge: if /EXROM and/or /GAME is low, we have a C64 or M65 cart
-  switch (PEEK(0xD67EU) & 0x60) {
-    case 0x00: // ROML + ROMH
-    case 0x20: // ROML
-      // only with the CBM80 marker at $8004, the cartridge will start
-      // so we only assume it's a valid cartridge if the marker is found
-      lcopy(0x4008004UL, (long)cart_id, 5);
-      if (!memcmp(cart_id, cart_c64_magic, 5))
-        search_cart = CORECAP_CART_C64;
-      break;
-    case 0x40: // Ultimax
-      search_cart = CORECAP_CART_C64;
-      break;
-    case 0x60: // no Cartridge
-      // check for C128/M65 style cart by looking at signature at 8007 or C007
-      for (i = 0; i < 2; i++) {
-        lcopy((i ? 0x400C007UL : 0x4008007UL), (long)cart_id, 3);
-        if (!memcmp(cart_id, cart_c128_magic, 3)) {
-          search_cart = CORECAP_CART_C128;
-          break;
-        }
-      }
-      break;
+  // there might be C64 cartridges that do some "magic", so we can't depend on
+  // EXROM/GAME. If CBM80 magic can be seem, assume C64 cartridge.
+  if (!memcmp(cart_id, cart_c64_magic, 5))
+    return CORECAP_CART_C64;
+
+  // check for /EXROM and/or /GAME is low, we have a C64 or M65 cart
+  if ((exrom_game & 0x60) != 0x60)
+    return CORECAP_CART_C64;
+
+  // check for C128/M65 style cart by looking at signature at 8007 or C007
+  if (!memcmp(cart_id + 3, cart_c128_magic, 3)) {
+    return CORECAP_CART_C128;
+  }
+  if (!memcmp(cart_id + 6, cart_c128_magic, 3)) {
+    return CORECAP_CART_C128;
   }
 
-  return search_cart;
+  return CORECAP_SLOT_DEFAULT;
 }
 #endif
 
@@ -152,13 +146,11 @@ void display_version(void)
 #ifndef STANDALONE
     // extra boot/cart debug information on F1, so we don't confuse the user
     if (key == 0xf1 && !selected) {
-      selected = 1;
-      printf("\n%c   DIP4: %d\n  $D67E: $%02X\n", 155, 1 + ((PEEK(0xD69D) >> 3) & 1), PEEK(0xD67EU));
-      lcopy(0x4008004, (long)cart_id, 6);
+      printf("\n%c   DIP4: %d\n  $D67E: $%02X (now $%02X)\n", 155, 1 + ((PEEK(0xD69D) >> 3) & 1), exrom_game, PEEK(0xD67EU));
       printf("  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
           cart_id[5]);
-      lcopy(0x400C007, (long)cart_id, 3);
       printf("  $C007:          %02X %02X %02X%c\n", cart_id[0], cart_id[1], cart_id[2], 5);
+      selected = 1;
     }
 #endif
   } while (key != 0x1b && key != 0x03);
@@ -377,6 +369,9 @@ void main(void)
   mega65_io_enable();
 
   SEI(); // this is useless, as the next printf a few lines down will do CLI
+
+  // we want to read this first!
+  exrom_game = PEEK(0xD67EU);
 
   // white text, blue screen, black border, clear screen
   POKE(0x286, 1);
