@@ -50,9 +50,9 @@ typedef struct {
 
 slot_core_type slot_core[MAX_SLOTS];
 
+unsigned char exrom_game = 0xff;
 #ifndef STANDALONE
 char cart_id[9];
-unsigned char exrom_game = 0xff;
 
 unsigned char check_cartridge(void)
 {
