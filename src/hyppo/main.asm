@@ -791,8 +791,6 @@ trybus0:
         dex
         bne morewaiting
 
-        ldx #$03
-
         lda #$c0
         sta $d680
 
@@ -806,6 +804,7 @@ trybus0:
         lda #$01
         sta $d680
 
+        ldx #$03
 @morewaiting2:
         jsr sdwaitawhile
 
