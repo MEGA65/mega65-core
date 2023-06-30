@@ -1404,7 +1404,7 @@ l17d:   lda txt_MEGA65ROM,x
         jsr sdwaitawhile
         jsr sdwaitawhile
 
-        jmp sdcarderror
+        jmp go64
 
 ;;         ========================
 
