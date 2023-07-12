@@ -906,7 +906,7 @@ begin  -- behavioural
             -- Wait for eth_tx_trigger to go low, unless it is
             -- a VIC-IV video frame, in which case immediately clear.
             eth_tx_complete <= '1';
-            if eth_tx_trigger='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
+            if eth_tx_trigger_50mhz='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
               eth_tx_commenced <= '0';
               eth_tx_state <= IdleWait;
             end if;
