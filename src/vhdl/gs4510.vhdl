@@ -3244,7 +3244,7 @@ begin
         else
           cpuport_ddr <= value;
         end if;
-        report "ZPCACHE: Flushing cache due to write to $01";
+        report "ZPCACHE: Flushing cache due to write to $00";
         cache_flushing <= '1';
         cache_flush_counter <= (others => '0');
       elsif (long_address = x"0000001") and (reg_map_low(0)='0') then
@@ -8993,8 +8993,8 @@ begin
         if reg_map_low(blocknum)='1' then
           temp_address(27 downto 20) := reg_mb_low;
           temp_address(19 downto 8) := reg_offset_low+to_integer(short_address(15 downto 8));
-          return temp_address;
           report "mapped memory address is $" & to_hstring(temp_address) severity note;
+          return temp_address;
         end if;
       end if;
 
@@ -9008,7 +9008,7 @@ begin
       lhc(1) := lhc(1) or (not cpuport_ddr(1));
       lhc(0) := lhc(0) or (not cpuport_ddr(0));
       
-      if (writeP and (rom_writeprotect='1')) then
+      if (writeP) then
         -- writing to charrom mapped via $01 will hit ram at $D000
         char_access_addr := x"000D";
       else
@@ -9094,10 +9094,10 @@ begin
         -- ULTIMAX mode external ROM
         temp_address(27 downto 16) := x"7FF";
       else
-        if (blocknum=14) and (lhc(1)='1') and ((writeP=false) or (rom_writeprotect='0')) then
+        if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002E";
         end if;        
-        if (blocknum=15) and (lhc(1)='1') and ((writeP=false) or (rom_writeprotect='0')) then
+        if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002F";      
         end if;
       end if;        
@@ -9122,7 +9122,7 @@ begin
           temp_address(27 downto 16) := x"7FF";
         end if;            
       end if;
-      if ((writeP=false) or (rom_writeprotect='0')) then
+      if (writeP=false) then
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') then
           
           temp_address(27 downto 12) := x"002A";
@@ -9174,7 +9174,7 @@ begin
 
       
       -- $D030 ROM select lines:
-      if (hypervisor_mode = '0') and ((writeP=false) or (rom_writeprotect='0')) then
+      if (hypervisor_mode = '0') and (writeP=false) then
         blocknum := to_integer(short_address(15 downto 12));
         if (blocknum=14 or blocknum=15) and (rom_at_e000='1') then
           temp_address(27 downto 12) := x"002E";
