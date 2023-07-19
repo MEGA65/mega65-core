@@ -129,8 +129,8 @@ define mbuild_sizecheck
 endef
 
 # mega65-libc for cc65
-MEGA65LIBCDIR= $(SRCDIR)/mega65-libc/cc65
-MEGA65LIBCLIB= $(MEGA65LIBCDIR)/libmega65.a
+MEGA65LIBCDIR= $(SRCDIR)/mega65-libc
+MEGA65LIBCLIB= $(MEGA65LIBCDIR)/cc65/libmega65.a
 MEGA65LIBCINC= -I $(MEGA65LIBCDIR)/include
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
