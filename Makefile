@@ -130,8 +130,8 @@ endef
 
 # mega65-libc for cc65
 MEGA65LIBCDIR= $(SRCDIR)/mega65-libc
-MEGA65LIBCLIB= $(MEGA65LIBCDIR)/cc65/libmega65.a
-MEGA65LIBCINC= -I $(MEGA65LIBCDIR)/include
+MEGA65LIBCLIB= $(MEGA65LIBCDIR)/libmega65.a
+MEGA65LIBCINC= -I$(MEGA65LIBCDIR)/include
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -185,7 +185,12 @@ FLASHER_FILES= \
 
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
+all:	freezer_files $(SDCARD_DIR)/MEGA65.D81
+	$(info ...)
+	$(info ======================================================================================)
+	$(info Please do make bin/TARGET.bit to build a bitstream (for example make bin/mega65r3.bit))
+	$(info or read docs/build.md for more information about the build process)
+	$(info ======================================================================================)
 
 # phony target to force submodule builds
 FORCE:
@@ -236,8 +241,7 @@ $(CBMCONVERT): FORCE
 
 $(MEGA65LIBCLIB):
 	$(SUBMODULEUPDATE)
-	make -C src/mega65-libc cc65
-	make -C src/mega65-libc clean
+	make -C src/mega65-libc -f Makefile_cc65 all
 
 cc65/bin/cc65:
 	$(call mbuild_header,$@)
@@ -1212,12 +1216,10 @@ clean:
 
 cleanall: clean
 	for path in `git submodule | awk '{ print "./" $$2 }'`; do \
-		if [ -e $$path/Makefile ]; then \
-			if [ $$path = ./src/mega65-libc ]; then \
-				make -C $$path cleanall; \
-			else \
-				make -C $$path clean; \
-			fi; \
+		if [ -e $$path/Makefile_cc65 ]; then \
+			make -C $$path -f Makefile_cc65 cleanall; \
+		elif [ -e $$path/Makefile ]; then \
+			make -C $$path clean; \
 		fi; \
 	done
 
