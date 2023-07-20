@@ -241,7 +241,8 @@ $(CBMCONVERT): FORCE
 
 $(MEGA65LIBCLIB):
 	$(SUBMODULEUPDATE)
-	make -C src/mega65-libc -f Makefile_cc65 all
+	make -C src/mega65-libc all
+	make -C src/mega65-libc clean
 
 cc65/bin/cc65:
 	$(call mbuild_header,$@)
@@ -1216,10 +1217,12 @@ clean:
 
 cleanall: clean
 	for path in `git submodule | awk '{ print "./" $$2 }'`; do \
-		if [ -e $$path/Makefile_cc65 ]; then \
-			make -C $$path -f Makefile_cc65 cleanall; \
-		elif [ -e $$path/Makefile ]; then \
-			make -C $$path clean; \
+		if [ -e $$path/Makefile ]; then \
+			if [ $$path = ./src/mega65-libc ]; then \
+				make -C $$path cleanall; \
+			else \
+				make -C $$path clean; \
+			fi; \
 		fi; \
 	done
 
