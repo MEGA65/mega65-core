@@ -1,5 +1,5 @@
 
-# MEGA65 Core Release 0.95 Release Candidate
+# MEGA65 Core Release 0.95
 
 Target system: ${RM_TARGET}
 
@@ -30,3 +30,8 @@ You will also need a ROM for your disk. Either get a
 [Closed ROM](https://files.mega65.org?id=54e69439-f25e-4124-8c78-22ea7ddc0f1c) or
 patch your own, if you don't have access, by using a
 [ROM diff file](https://files.mega65.org?id=fd2c40b9-f337-41f7-8a81-0254b1e09fb5).
+${RM_HASROM}
+## Known Problems
+
+- The FREEZER does support mounting of D64, but ROM 920377 has no working support for it
+- OpenROM only runs in PAL mode, see [core#362](https://github.com/MEGA65/mega65-core/issues/362)

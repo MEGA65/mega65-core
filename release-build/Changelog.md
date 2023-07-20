@@ -10,6 +10,7 @@ This is the Batch 3 Release (August 2023). All issues with a star '*'
 are not yet finished.
 
  - MEGAFLASH - more secure Slot 0 flashing
+   [#624](https://github.com/MEGA65/mega65-core/issues/624)
    [#625](https://github.com/MEGA65/mega65-core/issues/625)*
  - Cartridge handling (fix Ultimax mode)
    [#684](https://github.com/MEGA65/mega65-core/issues/684)*
