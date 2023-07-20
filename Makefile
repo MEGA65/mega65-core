@@ -129,7 +129,7 @@ define mbuild_sizecheck
 endef
 
 # mega65-libc for cc65
-MEGA65LIBCDIR= $(SRCDIR)/mega65-libc
+MEGA65LIBCDIR= $(SRCDIR)/mega65-libc/cc65
 MEGA65LIBCLIB= $(MEGA65LIBCDIR)/libmega65.a
 MEGA65LIBCINC= -I$(MEGA65LIBCDIR)/include
 
