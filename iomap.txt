@@ -236,7 +236,7 @@ GS $D05B VIC-IV:CHRYSCL Vertical scaling of text mode (number of physical raster
 GS $D05C VIC-IV:SDBDRWD!LSB Width of single side border (LSB)
 GS $D05D.0-5 VIC-IV:SDBDRWD!MSB side border width (MSB)
 GS $D05D.6 VIC-IV:RST!DELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
-GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
+GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes. Touching registers while this is disabled will trigger a change when reenabling. Setting this to 0 will clear the recalc flag, canceling the recalculation.
 GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
 GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
 GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 0 - 7)
@@ -1363,6 +1363,8 @@ GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
 GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
+GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
 GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
