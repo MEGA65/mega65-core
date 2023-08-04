@@ -2717,8 +2717,11 @@ begin
           viciv_single_side_border_width_touched <= '1';
           -- @IO:GS $D05D.6 VIC-IV:RST!DELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
           enable_raster_delay <= fastio_wdata(6);
-          -- @IO:GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
+          -- @IO:GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes. Touching registers while this is disabled will trigger a change when reenabling. Setting this to 0 will clear the recalc flag, canceling the recalculation.
           vicii_hot_regs_enable <= fastio_wdata(7);
+          if fastio_wdata(7) = '0' then
+            viciv_legacy_mode_registers_touched <= '0';
+          end if;
         elsif register_number=94 then
           -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
           display_row_width(7 downto 0) <= unsigned(fastio_wdata);
