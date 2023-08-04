@@ -2555,9 +2555,7 @@ begin
           else
             reg_interlace <= fastio_wdata(0);
           end if;
-          if reg_h640 & fastio_wdata(6) & viciii_extended_attributes & bitplane_mode & reg_v400 & reg_h1280 & reg_mono & reg_interlace /= fastio_wdata then
-            viciv_legacy_mode_registers_touched <= '1';
-          end if;
+          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;
         -- @IO:C65 $D033.5-7 VIC-III:B0ADODD@BXADODD Bitplane X address, odd lines
