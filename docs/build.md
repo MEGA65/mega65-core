@@ -1,151 +1,123 @@
-## This is the 'build' documentation file.
+# Building mega65-core
 
-# Table of Contents:
+This document describes how to build the MEGA65 core. The Linux operating system is strongly recommended for the best experience. These instructions assume some familiarity with the Linux command line.
 
-[Introduction](#introduction)
-[Downloading Repository](#downloading-repository)
-[Compiling](#compiling)
-[Modifying the design using ISE](#modifying-the-design-using-ise)
-[Programming the FPGA via USB](#programming-the-fpga-via-usb)
-[Programming the FPGA via sdcard](#programming-the-fpga-via-sdcard)
+For assistance with these steps, ask in the [MEGA65 Discord](https://mega65.org/chat).
 
-## Introduction
+## Installing support software
 
-*Thanks for justburn for his contributions on getting this file started!*
+The build process requires a set of tools and libraries common to most Linux distributions. You can ensure that all of the needed tools are installed with a command such as this one for Ubuntu Linux:
 
-The overall process from go-to-whoa takes about 60 minutes.
-
-Basically you:
-
-1. download the repository from github (5 mins),
-1. compile the design into a bitstream (10 - 240 mins),
-1. copy bitstream onto fpga board (5 mins).
-
-## Downloading Repository
-
-The following is assumed:
-
-1. you have linux, say, Ubuntu 20.04
-1. you have git installed, if not, use the following:
 ```
-$> sudo apt-get install git
+sudo apt install build-essential python3 libpng-dev libncurses5-dev \
+                 libtinfo5 libusb-1.0-0-dev git pkg-config wget sshpass \
+                 unzip imagemagick p7zip-full libgtest-dev libgmock-dev \
+                 libreadline-dev libcairo2-dev libgif-dev
 ```
 
-Make a working directory for your project, we refer to that working directory as `$GIT_ROOT`
+## Installing Xilinx Vivado
+
+The MEGA65 core uses [Xilinx Vivado](https://www.xilinx.com/products/design-tools/vivado.html), Standard edition, for compiling VHDL. The Standard edition can be used free of charge, but it requires an account on the Xilinx website.
+
+**Before running the installer:** Make sure you have the packages `libncurses5-dev` and `libtinfo5` installed! If either of these packages are missing, the Xilinx installer will hang on the last step during "Generating installed devices list." If this happens, quit the installer and double-check you have these packages.
+
+To install Xilinx Vivado:
+
+1. [Create an account](https://login.amd.com/) on the Xilinx website. You will need to provide the email address and password to the installer.
+1. [Download the Xilinx installer](https://www.xilinx.com/support/download.html).
+1. Run the installer. Use the following options when prompted:
+    * Select Vivado Standard edition.
+    * When prompted to select which components to install, expand the Devices list and make sure "Artix-7" is selected. You can deselect the others if you wish, or just leave the default selections.
+    * For the installation root path, change the default value to: `/opt/Xilinx`
+
+The download and installation process takes a while, as much as two hours.
+
+## Installing Exomizer
+
+The core build uses a tool called [Exomizer](https://bitbucket.org/magli143/exomizer/wiki/Home).
+
+1. Clone [the Exomizer source repo](https://bitbucket.org/magli143/exomizer/src).
+    * `cd ~`
+    * `git clone https://bitbucket.org/magli143/exomizer.git`
+2. Build.
+    * `cd exomizer/src`
+    * `make`
+3. Put the `exomizer` binary on your command path. For example, to set your command path to include the `~/exomizer/src` directory:
+    * `export PATH=$PATH:~/exomizer/src`
+
+(TODO: Can we make this a submodule or local copy?)
+
+## Checking out the MEGA65 core repository
+
+The MEGA65 core code lives in the [mega65-core](https://github.com/MEGA65/mega65-core) Github repository. If you want to contribute changes to the core, you will want to [fork the repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo), then base your contribution on the `development` branch. You will need a Github account and a Git client.
+
+If you just want to build the bitstream from source, you can [download the repository](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives) from Github. No account or `git` is needed to download a public repository. Be sure to select the appropriate branch before starting the download.
+
+The following commands check out your forked Github repository and switch to the `development` branch, replacing `YOURNAME` with your Github username:
+
 ```
-$> cd $GIT_ROOT
-```
-Clone the following two git repositories into your working directory
-```
-$GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
-```
-You should now have a directory in your working directory called `mega65-core`.
-
-(If you have a github account, and use SSH keys to avoid being prompted for your github password, use `git@github.com:MEGA65/mega65-core.git` instead of the https URL above. But if you have that we probably don't need to tell you...)
-
-Change directory into the `mega65-core` working directory.
-```
-$GIT_ROOT$> cd mega65-core
-$GIT_ROOT$/mega65-core>
-```
-
-The `master` branch is the latest release core. But you probably don't want to
-build that, as the release is always available on [filehost](https://files.mega65.org/) (search for `core release`).
-
-So you probably want to checkout the `development` branch.
-```
-$GIT_ROOT$/mega65-core> git checkout development
-```
-
-If it is a different branch you are interested in (perhaps someone on discord asked for a specific branch to test), just replace `development` with the respective branch name.
-
-To get back to the release branch, use `master` as the branch name.
-
-You may want to type `git status` or `git branch` to check what branch you have checked out.
-
-To make sure that you have the latest files, if you wish to repeat this after the MEGA65 team have updated the source code, all you have to do is type:
-```
-$GIT_ROOT$/mega65-core> git pull
-```
-
-## Submodules
-
-Previously it was necessary to checkout several sub-modules before building. This is now taken care of by the make file (Makefile).
-
-Some of the submodules can be disabled by setting various `USE_LOCAL_` variables. Check the Makefile for them.
-
-## 3rd-party programs
-
-### exomizer
-
-You need `exomizer` installed to be able to pack programs for the
-MEGA65.
-
-Get the software or sourcecode from the
-[Exomizer Project Homepage](https://bitbucket.org/magli143/exomizer/wiki/Home).
-Follow the instructions on the project page how to build and/or install.
-
-### cbmconvert
-
-
-
-### cc65
-
-The Makefile can compile a `cc65` version automatically, but if you are planning
-to work on the core, it is recommended to install `cc65` into your system.
-
-You can then set the environment variable `USE_LOCAL_CC65` to 1 or call make with
-```
-make USE_LOCAL_CC65=1 TARGETNAME
+git clone git@github.com:YOURNAME/mega65-core.git
+cd mega65-core
+git branch development
 ```
 
-## Compiling
+This creates a local directory named `mega65-core`. You can pull recent changes made to the Github repository at any time like so:
 
-The following is assumed:
-
-1. you have `gcc` installed (6.0+) (for compiling c.*)
-1. you have `make` installed (4.0+) (for the makefile)
-1. you have `python` installed (3.6+) (for some scripts)
-1. you have `libpng12-dev` installed (for the image manipulation) (alternatively use libpng-dev to install)
-1. you have `libusb-1.0-0-dev` installed (for communicationg with JTAG)
-1. you have `cbmconvert` installed (2.1.4+) (to make a D81 image) (refer to ./using.md)
-1. you have `gnat` installed (for compiling the GHDL submodule)
-1. you have `libgtest-dev` and `libgmock-dev` installed
-1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence (recommended that you install to directory /opt/Xilinx to prevent issue with makefile)
-
-Overview of the compile process. Choose the specific make target to suit the device that you are targetting:
-
-__MEGA65 Rev3 boards__:
-Aka dev kits and final release model:
-1. Bitstream: `make bin/mega65r3.bit`
-2. MCS file for Vivado: `make bin/mega65r3.mcs`
-
-__MEGA65 Rev2 boards__:
-1. Bitstream: `make bin/mega65r2.bit`
-2. MCS file for Vivado: `make bin/mega65r2.mcs`
-
-__Nexys4DDR (A7) boards__:
-1. Bitstream: `make bin/nexys4ddr-widget.bit`
-2. MCS file for Vivado: `make bin/nexys4ddr-widget.mcs`
-
-__Nexys4 boards__:
-1. Bitstream: `make bin/nexys4.bit`
-2. MCS file for Vivado: `make bin/nexys4.mcs`
-
-## Programming the FPGA JTAG and the m65 cli tool
-
-The `m65` program is part of the
-[mega65-tools](https://github.com/MEGA65/mega65-tools/)
-repository. Precompiled version are available.
-
-With this tool and a JTAG adapter it is very easy to push the bitstream onto your device. Consult the [tutorial](https://files.mega65.org?ar=280a57a6-fb84-40fc-96ac-6da603302aa7) for more help.
-
-The short version:
 ```
-m65 --bit bin/nexys4ddr.bit
+git pull
 ```
-(This assumes that you have the mega65-tools in your search path)
 
-## Programming the flash memory on the FPGA board
+## Compiling the bitstream
 
-Please consult the [tutorial](https://files.mega65.org?ar=280a57a6-fb84-40fc-96ac-6da603302aa7) how to do this.
+The `make` command initiates build tasks, as defined in the `Makefile`. There are `make` _targets_ for each type of MEGA65 main board. You must use the build target appropriate for your main board.
+
+| Type of MEGA65 | Board type | Build command |
+|-|-|-|
+| MEGA65 late 2023 | R5 board | `make bin/mega65r5.bit` |
+| MEGA65 2022-early 2023 / DevKit (2020) | R3A/R3 board | `make bin/mega65r3.bit` |
+| Nexys4DDR (A7) FPGA dev kit | Nexys4DDR | `make bin/nexys4ddr-widget.bit` |
+| Nexys4 FPGA dev kit | Nexys4 | `make bin/nexys4.bit` |
+
+These commands build the bitstream to the filename that appears in the command, e.g. `bin/mega65r3.bit`.
+
+You can also build a Vivado MCS memory configuration file the same way, replacing `.bit` with `.mcs` in the filename, such as: `make bin/mega65r3.mcs`
+
+## Sending the bitstream to the MEGA65 using a JTAG interface
+
+If you have the [XMOD FTDI JTAG Adapater](https://shop.trenz-electronic.de/en/TE0790-03L-XMOD-FTDI-JTAG-Adapter-not-compatible-with-Xilinx-Tools), you can connect your PC to your MEGA65 and transfer bitstreams directly to the FPGA for testing.
+
+One way to transmit a bitstream is with the `m65` command-line tool included with [mega65-tools](https://github.com/mega65/mega65-tools).
+
+1. Clone the [mega65-tools repo](https://github.com/mega65/mega65-tools).
+    * `cd ~`
+    * `git clone https://github.com/MEGA65/mega65-tools.git`
+2. Build the `m65` tool.
+    * `cd mega65-tools`
+    * `make bin/m65`
+
+To send a bitstream, replacing the name of the bitstream filename with the one you built earlier:
+
+```
+./bin/m65 -b ../mega65-core/bin/mega65r3-20230803.23-master-3f8d12c.bit
+```
+
+When successful, this resets the MEGA65 with the new bitstream running. You can confirm that the new version is running by holding the Mega key and pressing Tab to enter Matrix Mode. The bitstream version string is near the top of the screen. (Press Mega + Tab again to exit Matrix Mode.)
+
+You can optionally include the `-k HICKUP.M65` argument to include a "hickup" file with the bitstream. There are other options for changing the boot mode of the machine, uploading ROMs and programs, and typing test commands. Run `m65` without arguments for a list.
+
+## Installing the bitstream as a MEGA65 core
+
+You can convert the bitstream file to a MEGA65 core file using the `bit2core` tool, also provided by `mega65-tools`. You can copy the core file to the MEGA65 SD card, then install it in a core slot using the core selection menu.
+
+To build the `bit2core` tool, with `mega65-tools` checked out as above:
+
+* `cd ~/mega65-tools`
+* `make bin/bit2core`
+
+To convert a bitstream to a core, provide the command with the board name, bitstream filename, a name and version string for the core, and an output filename. For example:
+
+```
+./bin/bit2core mega65r3 ../mega65-core/bin/mega65r3-20230803.23-master-3f8d12c.bit "MEGA65 test core" "test version 1" r3test.cor
+```
+
+To see a list of board names, run `bit2core` without arguments.
