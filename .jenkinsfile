@@ -22,7 +22,6 @@ pipeline {
         stage('Build Freezer') {
             steps {
                 sh 'make freezer_files'
-                sh 'make flasher_files'
             }
         }
         stage('Build MEGA65R4') {
