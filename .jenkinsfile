@@ -19,13 +19,12 @@ pipeline {
                 sh 'make cleanall'
             }
         }
-        stage('Build Freezer & Flasher') {
+        stage('Build Freezer') {
             steps {
                 sh 'make freezer_files'
                 sh 'make flasher_files'
             }
         }
-        /*
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -34,7 +33,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Build MEGA65R3') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -43,7 +41,6 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -60,19 +57,15 @@ pipeline {
                 }
             }
         }
-        */
         stage('Set build result') {
             steps {
                 script {
                     def files = findFiles(glob: 'release-build/pkg/*.7z')
                     // number of total architectures needs to be changed in next line,
                     // if we add or subtract build targets!
-                    /*
-                    if (files.length < 2) {
+                    if (files.length < 3) {
                         currentBuild.result = 'UNSTABLE'
-                    } else
-                    */
-                    if (files.length == 0) {
+                    } else if (files.length == 0) {
                         currentBuild.result = 'FAILURE'
                     }
                 }
