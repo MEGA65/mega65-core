@@ -2550,11 +2550,13 @@ begin
           -- Auto-enable interlace mode when selecting V400 (unless in
           -- hypervisor, in which case we want to be able to unfreeze this
           -- register without side-effects)
-          if reg_v400='0' and fastio_wdata(3)='1' and hypervisor_mode='0' then
-            reg_interlace <= '1';
-          else
-            reg_interlace <= fastio_wdata(0);
-          end if;
+          -- Note: This has been disabled again as interlace mode was breaking display on some hdmi monitors
+          --       We need to come up with a configurable solution for composite once it is ready
+          -- if reg_v400='0' and fastio_wdata(3)='1' and hypervisor_mode='0' then
+          --   reg_interlace <= '1';
+          -- else
+          reg_interlace <= fastio_wdata(0);
+          -- end if;
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;
