@@ -129,7 +129,7 @@ entity iomapper is
         drive_led2 : out std_logic := '0';
         drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
-        porto_out : out unsigned(7 downto 0) := x"00";
+        porto_out : out unsigned(7 downto 0) := x"ff";
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
@@ -519,7 +519,7 @@ architecture behavioral of iomapper is
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal ascii_key_presenting : std_logic := '0';
-  signal petscii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal petscii_key_buffered : unsigned(7 downto 0) := x"ff";
   signal petscii_key_presenting : std_logic := '0';
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   signal ascii_key_buffer : key_buffer_t;
@@ -1963,7 +1963,7 @@ begin
         ascii_key_buffer_count <= 0;
 
         petscii_key_presenting <= '0';
-        petscii_key_buffered <= x"00";
+        petscii_key_buffered <= x"ff";
         petscii_key_buffer_count <= 0;
       elsif ascii_key_next = '1' then
         if ascii_key_buffer_count > 0 then
@@ -1992,7 +1992,7 @@ begin
           end loop;
         else
           petscii_key_presenting <= '0';
-          petscii_key_buffered <= x"00";
+          petscii_key_buffered <= x"ff";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;
