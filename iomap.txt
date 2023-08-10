@@ -73,7 +73,7 @@ C64 $D016.4 VIC-II:MCM Multi-colour mode
 C64 $D016.5 VIC-II:RST Disables video output on MAX Machine(tm) VIC-II 6566.  Ignored on normal C64s and the MEGA65
 C64 $D016 VIC-II control register
 C64 $D017 VIC-II:SEXY sprite vertical expansion enable bits
-C64 $D018.3-1 VIC-II:CB character set address location ($\times$ 1KiB)
+C64 $D018.3-1 VIC-II:CB character set address location ($\times$ 2KiB)
 C64 $D018.7-4 VIC-II:VS screen address ($\times$ 1KiB)
 C64 $D018 VIC-II RAM addresses
 C64 $D019.0 VIC-II:RIRQ raster compare indicate or acknowledge
@@ -302,7 +302,7 @@ C65 $D080 - F011 FDC control
 C65 $D081.0 FDC:NOBUF Reset the sector buffer read/write pointers
 C65 $D081.1 FDC:ALT Selects alternate DPLL read recovery method (not implemented)
 C65 $D081.2 FDC:ALGO Selects reading and writing algorithm (currently ignored).
-C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs
+C65 $D081.3 FDC:DIR Sets the stepping direction (inward vs outward)
 C65 $D081.4 FDC:STEP Writing 1 causes the head to step in the indicated direction
 C65 $D081.5 FDC:FREE Command is a free-format (low level) operation
 C65 $D081.6 FDC:RDCMD Command is a read operation if set

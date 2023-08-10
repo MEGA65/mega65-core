@@ -2357,7 +2357,7 @@ begin
         elsif register_number=24 then
           -- @IO:C64 $D018 VIC-II RAM addresses
           -- Character set source address for user-generated character sets.
-          -- @IO:C64 $D018.3-1 VIC-II:CB character set address location ($\times$ 1KiB)
+          -- @IO:C64 $D018.3-1 VIC-II:CB character set address location ($\times$ 2KiB)
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           character_set_address(10 downto 0) <= (others => '0');
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
