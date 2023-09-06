@@ -10034,27 +10034,10 @@ begin
         
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
-        if
-          -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
-          -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
-          (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
-          or
-          -- FFD[0-3]800-BFF
-          (real_long_address(27 downto 16) = x"FFD"
-           and real_long_address(15 downto 14) = "00"
-           and real_long_address(11 downto 10) = "10")        
-        then
-          report "Writing to colour RAM";
-          -- Write to shadow RAM
-          -- shadow_write <= '0';
-
-          -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
-          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-
         -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
         -- Is this for creating a linear memory map for quick task swapping, or
         -- something else? (PGS)
-        elsif real_long_address(27 downto 16) = x"7F4" then
+        if real_long_address(27 downto 16) = x"7F4" then
           long_address := x"FF80"&'0'&real_long_address(10 downto 0);
         elsif (real_long_address = x"ffd3601" or real_long_address = x"ffd2601") and vdc_reg_num = x"1f" and hypervisor_mode='0' and (vdc_enabled='1') then
           -- We map VDC RAM always to $40000
