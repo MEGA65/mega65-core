@@ -20,9 +20,7 @@ programentrypoint:
 	sta 0
 
 	; Set ethernet controller mode
-	lda #$31  ; Enable promiscuous mode, multicast and broadcast RX
-	ora #$04 ; Set TX phase offset to 1
-	ora #$40 ; Set RX phase offset to 1
+	lda #$75  ; Enable promiscuous mode, multicast and broadcast RX, tx/rx phase = 1
 	sta $d6e5
 
 	; Clear all waiting frames
@@ -56,6 +54,15 @@ purgequeue:
 	map
 	eom
 
+	; zeroize ip address
+	ldx #$03
+zeroip:
+	lda #$00
+	sta $80fc,x
+	dex
+	bpl zeroip
+
+
 	; Ethernet memory mapped buffer access should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
 	; length of frame is in $6800 / $6801 in little-endian byte order
@@ -67,6 +74,15 @@ purgequeue:
 	; ethernet controller knows it can receive.
 
 loop:
+
+	; eth buffer as basepage to save bytes accessing it
+	; IMPORTANT: This means all memory access to base page addresses will actually
+	; target the Ethernet buffer. Reading from it provides rx data (starting at offset
+	; 2 since the first two bytes are the length of the frame). Writing to it writes
+	; to the TX buffer (which does not have any offset, since it is not preceded by
+	; a length field).
+	lda #$68
+	tab
 
 nextpacket:
 
@@ -92,23 +108,25 @@ waitingforpacket:
 	ldx #9
 arpdloop:
 	lda arptemplate,x
-	lda $680e,x
+	lda $0e,x
 	dex
 	bpl arpdloop
 
 	ldx #$09
 arploop0:
-	lda $680e,x
+	lda $0e,x
 	cmp arptemplate,x
 	bne notarp
 	dex
 	bpl arploop0
 
 	; yes, we have ARP
-	; check that IP address asked for ends in .65
+	; check that IP address asked for is the same as ours
 	;
-	lda $682b
-	cmp #65
+	ldx #$03
+arploop5:
+	lda $80fc,x
+	cmp $28,x
 	bne notarp
 
 	; ok, so we have an ARP request.
@@ -126,37 +144,37 @@ arploop0:
 	; (note that TX buffer lacks 2 byte RX buffer header)
 	ldx #$14
 arploop1:
-	lda $6802,x
-	sta $6800,x
+	lda $02,x
+	sta $00,x
 	dex
 	bpl arploop1
 	; Copy ethernet source to ethernet destination in TX buffer
 	; Set our mac address in ethernet source address field in TX buffer
 	ldx #$05
 arploop2:
-	lda $6808,x    ; requestors mac from RX ethernet header
-	sta $6800,x    ; requestors mac into TX ethernet header
+	lda $08,x    ; requestors mac from RX ethernet header
+	sta $00,x    ; requestors mac into TX ethernet header
 	lda $d6e9,x
-	sta $6806,x    ; our mac in ethernet header
-	sta $6816,x    ; our mac in ARP payload
+	sta $06,x    ; our mac in ethernet header
+	sta $16,x    ; our mac in ARP payload
 	dex
 	bpl arploop2
 	; set packet as ARP reply
 	lda #$02     ; $02 = reply, $01 = request
-	sta $6815
+	sta $15
 
 	ldx #$03
 	; copy requested IP address into reply IP address field
 arploop3:
-	lda $6828,x
-	sta $681c,x
+	lda $28,x
+	sta $1c,x
 	dex
 	bpl arploop3
 	; copy requestors MAC+IP into target MAC+IP fields
 	ldx #9
 arploop4:
-	lda $6818,x
-	sta $6820,x
+	lda $18,x
+	sta $20,x
 	dex
 	bpl arploop4
 	
@@ -171,22 +189,22 @@ notarp:
 	; is it IPv4?
 	;
 
-	lda $6810
+	lda $10
 	cmp #$45
 	bne nextpacket
 
 	; is it UDP?
 	;
-	lda $6819
+	lda $19
 	cmp #$11
 	bne nextpacket
 
 	; UDP port #4510
 	;
-	lda $6826
+	lda $26
 	cmp #>4510
 	bne nextpacket
-	lda $6827
+	lda $27
 	cmp #<4510
 	bne nextpacket
 
@@ -195,7 +213,7 @@ notarp:
 	; packet body can do whatever is required to load data, keeping this
 	; programme very simple.
 	;
-	lda $682c
+	lda $2c
 	cmp #$a9
 	bne loop
 
@@ -204,6 +222,8 @@ notarp:
 	; allowing our loop to continue.
 	lda #$01
 	sta $d020
+	lda #$00
+	tab
 	jsr $682C
 	lda #$00
 	sta $d020
@@ -223,7 +243,7 @@ getnextframe:
 arptemplate:
 	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
 
-	.checkpc $C0FD
+	.checkpc $80FC
 	.scend
 
 	.outfile "sdcard-files/ETHLOAD.M65"

@@ -511,8 +511,8 @@ begin  -- behavioural
   begin    
     rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
     if fastio_read='1' and (
-      (fastio_addr(19 downto 12) = x"DE" and fastio_addr(11)='1')
-      or (fastio_addr(19 downto 12) = x"D2" and fastio_addr(11)='1')
+      (fastio_addr(19 downto 11)&"000" = x"DE8")
+      or (fastio_addr(19 downto 11)&"000" = x"D28")
       )
     then
       rxbuffer_cs <= rxbuffer_cs_vector;
@@ -1683,7 +1683,7 @@ begin  -- behavioural
         txbuffer_write <= '0';          
       else
         if (fastio_addr(19 downto 11)&"000" = x"DE8")
-          or (fastio_addr(19 downto 11)&"000" = x"D20")
+          or (fastio_addr(19 downto 11)&"000" = x"D28")
         then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to

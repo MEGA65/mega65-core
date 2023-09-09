@@ -180,12 +180,15 @@ task_set_as_system_task:
 ;;         ========================
 
 ethernet_remote_trap:
-	;; By sending a magic ethernet key press frame while the 4th dip switch is set
+	;; By sending a magic ethernet key press frame while the 2nd dip switch is set
 	;; will cause this trap to occur, if the key code is 1111111111111 (which
 	;; corresponds to no real key.
 	;; In response to this, we setup C64 mode, load ETHLOAD.M65 and then exit to it,
 	;; effectively passing control to the contents of the following ethernet frames.
-	jsr task_asblankslate
+        jsr dos_clear_filedescriptors
+        jsr task_get_next_taskid
+        sta currenttask_id
+        jsr task_set_c64_memorymap
 
         ldx #<txt_ETHLOAD
         ldy #>txt_ETHLOAD
