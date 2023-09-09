@@ -4526,17 +4526,16 @@ begin
             glyph_colour_drive(7 downto 4) <= colourramdata(7 downto 4);
           else
             if viciii_extended_attributes='1' then
+              glyph_colour_drive(4) <= colourramdata(6);
+              glyph_bold_drive <= colourramdata(6) and not colourramdata(5);
               if colourramdata(4)='1' then
                 -- Blinking glyph
                 glyph_blink_drive <= '1';
                 if colourramdata(5)='1'
-                  or colourramdata(6)='1'
                   or colourramdata(7)='1' then
                   -- Blinking attributes
                   if viciii_blink_phase='1' then
                     glyph_reverse_drive <= colourramdata(5);
-                    glyph_bold_drive <= colourramdata(6);
-                    glyph_colour_drive(4) <= colourramdata(6);
                     if chargen_y_hold="111" then
                       glyph_underline_drive <= colourramdata(7);
                     end if;
@@ -4549,8 +4548,6 @@ begin
                 -- Non-blinking attributes
                 glyph_visible_drive <= '1';
                 glyph_reverse_drive <= colourramdata(5);
-                glyph_bold_drive <= colourramdata(6);
-                glyph_colour_drive(4) <= colourramdata(6);
                 if chargen_y_hold="111" then
                   glyph_underline_drive <= colourramdata(7);
                 end if;
