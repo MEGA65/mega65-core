@@ -533,8 +533,8 @@ architecture behavioral of iomapper is
   signal petscii_bucky_key_buffer : bucky_key_buffer_t;
   signal petscii_key_buffer_count : integer range 0 to 4 := 0;
   signal petscii_key_next : std_logic := '0';
-  signal bucky_key_buffered_view : std_logic_vector(6 downto 0) := (others => '0');
-  signal bucky_key_buffered_mode : std_logic := '0'; -- 0=ASCII, 1=PETSCII
+  signal bucky_key_buffered_view : std_logic_vector(5 downto 0) := (others => '0');
+  signal bucky_key_buffered_mode : std_logic := '0';
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -2032,7 +2032,7 @@ begin
         bucky_key_buffered_view(0) <= petscii_bucky_key_buffered(0) or petscii_bucky_key_buffered(1);
         bucky_key_buffered_view(5 downto 1) <= petscii_bucky_key_buffered(6 downto 2);
       else
-        bucky_key_buffered_view <= "0000000";
+        bucky_key_buffered_view <= "000000";
       end if;
 
     end if;
