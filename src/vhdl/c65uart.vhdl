@@ -111,8 +111,8 @@ entity c65uart is
     suppress_key_retrigger : out std_logic := '0';
     ascii_key_event_count : in unsigned(15 downto 0);
 
-    bucky_key_buffered_view : buffer std_logic_vector(6 downto 0) := (others => '0');
-    bucky_key_buffered_mode : inout std_logic := '0'
+    bucky_key_buffered_view : in std_logic_vector(5 downto 0) := (others => '0');
+    bucky_key_buffered_mode : buffer std_logic := '0'
     );
 end c65uart;
 
