@@ -1631,7 +1631,7 @@ begin
         register_num := x"FF";
       end if;
 
-      if (register_bank=x"D0" or register_bank=x"D2") and register_page<4 then
+      if register_bank=x"D0" and register_page<4 then
         -- First 1KB of normal C64 IO space maps to r$0 - r$3F
         register_number(5 downto 0) := unsigned(fastio_addr(5 downto 0));
         register_number(11 downto 6) := (others => '0');
@@ -1649,7 +1649,7 @@ begin
         end if;
         report "IO access resolves to video register number "
           & integer'image(safe_to_integer(register_number)) severity note;
-      elsif (register_bank = x"D1" or register_bank = x"D3") and register_page<4 then
+      elsif (register_bank = x"D1" or register_bank = x"D2"or register_bank = x"D3") and register_page<4 then
         register_number(11 downto 10) := "00";
         register_number(9 downto 8) := register_page(1 downto 0);
         register_number(7 downto 0) := register_num;
@@ -2394,7 +2394,7 @@ begin
           -- @IO:C64 $D020.3-0 VIC-II:BORDERCOL display border colour (16 colour)
           -- @IO:C65 $D020.7-0 VIC-III:BORDERCOL display border colour (256 colour)
           -- @IO:GS $D020.7-0 VIC-IV:BORDERCOL display border colour (256 colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             border_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
             border_colour <= unsigned(fastio_wdata);
@@ -2404,7 +2404,7 @@ begin
           -- @IO:C64 $D021.3-0 VIC-II:SCREENCOL screen colour (16 colour)
           -- @IO:C65 $D021.7-0 VIC-III:SCREENCOL screen colour (256 colour)
           -- @IO:GS $D021.7-0 VIC-IV:SCREENCOL screen colour (256 colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             screen_colour(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
             screen_colour <= unsigned(fastio_wdata);
@@ -2414,7 +2414,7 @@ begin
           -- @IO:C64 $D022.3-0 VIC-II:MC1 multi-colour 1 (16 colour)
           -- @IO:C65 $D022.7-0 VIC-III:MC1 multi-colour 1 (256 colour)
           -- @IO:GS $D022.7-0 VIC-IV:MC1 multi-colour 1 (256 colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi1_colour <= unsigned(fastio_wdata);
@@ -2424,7 +2424,7 @@ begin
           -- @IO:C64 $D023.3-0 VIC-II:MC2 multi-colour 2 (16 colour)
           -- @IO:C65 $D023.7-0 VIC-III:MC2 multi-colour 2 (256 colour)
           -- @IO:GS $D023.7-0 VIC-IV:MC2 multi-colour 2 (256 colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             multi2_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi2_colour <= unsigned(fastio_wdata);
@@ -2434,7 +2434,7 @@ begin
           -- @IO:C64 $D024.3-0 VIC-II:MC3 multi-colour 3 (16 colour)
           -- @IO:C65 $D024.7-0 VIC-III:MC3 multi-colour 3 (256 colour)
           -- @IO:GS $D024.7-0 VIC-IV:MC3 multi-colour 3 (256 colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             multi3_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             multi3_colour <= unsigned(fastio_wdata);
@@ -2443,7 +2443,7 @@ begin
           -- @IO:C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0
           -- @IO:C65 $D025 VIC-III:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
           -- @IO:GS $D025 VIC-IV:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             sprite_multi0_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             sprite_multi0_colour <= unsigned(fastio_wdata);
@@ -2452,7 +2452,7 @@ begin
           -- @IO:C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1
           -- @IO:C65 $D026 VIC-III:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
           -- @IO:GS $D026 VIC-IV:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             sprite_multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
           else
             sprite_multi1_colour <= unsigned(fastio_wdata);
@@ -2466,7 +2466,7 @@ begin
           -- @IO:C64 $D02C VIC-II:SPR5COL @SPRNCOL
           -- @IO:C64 $D02D VIC-II:SPR6COL @SPRNCOL
           -- @IO:C64 $D02E VIC-II:SPR7COL @SPRNCOL
-          if (register_bank=x"D0" or register_bank=x"D2") then
+          if register_bank=x"D0" then
             sprite_colours(safe_to_integer(register_number)-39)(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
             sprite_colours(safe_to_integer(register_number)-39) <= unsigned(fastio_wdata);
