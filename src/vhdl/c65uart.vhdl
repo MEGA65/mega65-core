@@ -111,8 +111,7 @@ entity c65uart is
     suppress_key_retrigger : out std_logic := '0';
     ascii_key_event_count : in unsigned(15 downto 0);
 
-    bucky_key_buffered_view : in std_logic_vector(5 downto 0) := (others => '0');
-    bucky_key_buffered_mode : buffer std_logic := '0'
+    bucky_key_buffered : in std_logic_vector(6 downto 0) := (others => '0')
     );
 end c65uart;
 
@@ -279,7 +278,7 @@ begin  -- behavioural
           reg_ctrl1_parity_enable,reg_ctrl23_char_length_deduct,
           reg_ctrl45_sync_mode_flags,reg_ctrl6_rx_enable,reg_ctrl7_tx_enable,
           reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
-          clock709375,bucky_key_buffered_mode,bucky_key_buffered_view,reg_portf_read,reg_portf_ddr,
+          clock709375,bucky_key_buffered,reg_portf_read,reg_portf_ddr,
           reg_portg_read,reg_portg_ddr,
           key_left,key_up,real_hardware,accessible_key_extradim,
           accessible_key_enable,porth,porti,matrix_disable_modifiers,
@@ -527,7 +526,6 @@ begin  -- behavioural
 
           when x"09" =>
             clock709375 <= fastio_wdata(0);
-            bucky_key_buffered_mode <= fastio_wdata(7);
           when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
@@ -678,11 +676,15 @@ begin  -- behavioural
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
           -- @IO:GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz (VIC-IV pixel clock)
-          -- @IO:GS $D609.1-6 UARTMISC:MODKEY Modifier keys pressed during an ASCIIKEY or PETSCIIKEY event
-          -- @IO:GS $D609.7 UARTMISC:MODKEYVIEW Selector for MODKEY: 0 = ASCIIKEY, 1 = PETSCIIKEY
+          -- @IO:GS $D609.7 UARTMISC:MODKEYCAPS Buffered CAPS LOCK key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.6 UARTMISC:MODKEYMSCRL Buffered NOSCRL key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.5 UARTMISC:MODKEYMALT Buffered ALT key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.4 UARTMISC:MODKEYMMEGA Buffered MEGA/C= key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.3 UARTMISC:MODKEYMCTRL Buffered CTRL key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.2 UARTMISC:MODKEYMLSHFT Buffered Left shift key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.1 UARTMISC:MODKEYMRSHFT Buffered Right shift key state (hardware accelerated keyboard scanner).
           fastio_rdata(0) <= clock709375;
-          fastio_rdata(6 downto 1) <= unsigned(bucky_key_buffered_view(5 downto 0));
-          fastio_rdata(7) <= bucky_key_buffered_mode;
+          fastio_rdata(7 downto 1) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
           -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
           -- @IO:GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch point always
