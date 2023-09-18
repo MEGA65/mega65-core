@@ -14,8 +14,8 @@ architecture foo of test_ascii is
   signal matrix : std_logic_vector(71 downto 0) := (others => '1');
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(6 downto 0);
-  signal ascii_key_valid : std_logic;  
-                                       
+  signal key_valid : std_logic;
+
 begin
 
   ascii0: entity work.matrix_to_ascii
@@ -28,9 +28,9 @@ begin
       suppress_key_retrigger => '0',
       matrix_in => matrix,
       bucky_key => bucky_key,
-      ascii_key_valid => ascii_key_valid
+      key_valid => key_valid
       );
-  
+
   process is
   begin
     while true loop
@@ -58,11 +58,11 @@ begin
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
-      if ascii_key_valid='1' then
-        report "ascii_key_valid seen: ascii_key=$"
+      if key_valid='1' then
+        report "key_valid seen: ascii_key=$"
           & to_hstring(ascii_key);
       end if;
     end if;
   end process;
-  
+
 end foo;

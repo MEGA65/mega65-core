@@ -1,20 +1,20 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date:    22:30:37 12/10/2013 
--- Design Name: 
--- Module Name:    container - Behavioral 
--- Project Name: 
--- Target Devices: 
--- Tool versions: 
--- Description: 
+-- Company:
+-- Engineer:
 --
--- Dependencies: 
+-- Create Date:    22:30:37 12/10/2013
+-- Design Name:
+-- Module Name:    container - Behavioral
+-- Project Name:
+-- Target Devices:
+-- Tool versions:
+-- Description:
 --
--- Revision: 
+-- Dependencies:
+--
+-- Revision:
 -- Revision 0.01 - File Created
--- Additional Comments: 
+-- Additional Comments:
 --
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -34,7 +34,7 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;         
+  Port ( CLK_IN : STD_LOGIC;
          reset_button : inout  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
@@ -43,9 +43,9 @@ entity container is
          led_r : out std_logic;
 
          dipsw : in unsigned(3 downto 0);
-         
+
          ----------------------------------------------------------------------
-         -- keyboard/joystick 
+         -- keyboard/joystick
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
@@ -53,7 +53,7 @@ entity container is
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
 
-         -- Direct joystick lines         
+         -- Direct joystick lines
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
@@ -72,16 +72,16 @@ entity container is
          fa_down_out : out std_logic;
          fa_up_out : out std_logic;
          fa_fire_out : out std_logic;
-        
+
          fb_left_out : out std_logic;
          fb_right_out : out std_logic;
          fb_down_out : out std_logic;
          fb_up_out : out std_logic;
          fb_fire_out : out std_logic;
-         
+
          -- 8 test points on the motherboard
          testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
-         
+
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -134,7 +134,7 @@ entity container is
          iec_clk_i : in std_logic;
          iec_data_i : in std_logic;
          iec_srq_i : in std_logic;
-         
+
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -152,7 +152,7 @@ entity container is
          TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
          TMDS_clk_p : out STD_LOGIC;
          TMDS_clk_n : out STD_LOGIC;
-         
+
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
 
@@ -174,7 +174,7 @@ entity container is
          ---------------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0) := (others => '0');
          QspiCSn : out std_logic;
-                
+
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -188,13 +188,13 @@ entity container is
          eth_rxdv : in std_logic;
 --         eth_interrupt : in std_logic;
          eth_clock : out std_logic;
-         
+
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
 --         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
 --         sdClock : out std_logic;       -- (sclk_o)
---         sdMOSI : out std_logic;      
+--         sdMOSI : out std_logic;
 --         sdMISO : in  std_logic;
 
 --         sd2reset : out std_logic;
@@ -207,7 +207,7 @@ entity container is
          p1hi : inout std_logic_vector(3 downto 0);
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
@@ -233,14 +233,14 @@ entity container is
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
          fpga_sda : inout std_logic;
-         fpga_scl : inout std_logic;         
+         fpga_scl : inout std_logic;
 
          ----------------------------------------------------------------------
          -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
          RsRx : in std_logic
-         
+
          );
 end container;
 
@@ -266,7 +266,7 @@ architecture Behavioral of container is
   signal max10_reset_out : std_logic := '1';
   signal fpga_done : std_logic := '1';
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
-  
+
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock27 : std_logic;
@@ -288,8 +288,8 @@ architecture Behavioral of container is
   -- widget board interface, so just have these as dummy all-high place holders
   signal column : std_logic_vector(8 downto 0) := (others => '1');
   signal row : std_logic_vector(7 downto 0) := (others => '1');
-  
-  
+
+
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -302,8 +302,8 @@ architecture Behavioral of container is
   signal slow_prefetched_address : unsigned(26 downto 0);
   signal slow_prefetched_data : unsigned(7 downto 0);
   signal slow_prefetched_request_toggle : std_logic;
-  
-  signal sector_buffer_mapped : std_logic;  
+
+  signal sector_buffer_mapped : std_logic;
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
@@ -314,7 +314,7 @@ architecture Behavioral of container is
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
   signal hdmi_int : std_logic;
-  
+
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
@@ -324,7 +324,7 @@ architecture Behavioral of container is
   signal fa_up_drive : std_logic;
   signal fa_down_drive : std_logic;
   signal fa_fire_drive : std_logic;
-  
+
   signal fb_left_drive : std_logic;
   signal fb_right_drive : std_logic;
   signal fb_up_drive : std_logic;
@@ -338,7 +338,7 @@ architecture Behavioral of container is
   signal pot_drain : std_logic;
 
   signal pot_via_iec : std_logic;
-  
+
   signal iec_clk_en_drive : std_logic;
   signal iec_data_en_drive : std_logic;
   signal iec_srq_en_drive : std_logic;
@@ -372,7 +372,7 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal fastkey : std_logic;
-  
+
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic;
   signal expansionram_rdata : unsigned(7 downto 0);
@@ -392,10 +392,10 @@ architecture Behavioral of container is
 
   signal upscale_en : std_logic := '0';
   signal vlock_en : std_logic := '1';
-  
+
   signal interlace : std_logic := '1';
   signal mono : std_logic := '1';
-    
+
   signal pattern_r : unsigned(7 downto 0);
   signal pattern_g : unsigned(7 downto 0);
   signal pattern_b: unsigned(7 downto 0);
@@ -414,14 +414,14 @@ architecture Behavioral of container is
   signal luma : unsigned(7 downto 0);
   signal chroma : unsigned(7 downto 0);
   signal composite : unsigned(7 downto 0);
-  
+
   signal zero : std_logic := '0';
-  signal one : std_logic := '1';  
+  signal one : std_logic := '1';
 
   signal pixel_strobe : std_logic := '0';
   signal x_zero : std_logic := '0';
   signal y_zero : std_logic := '0';
-  
+
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
   signal audio_left_slow : std_logic_vector(19 downto 0);
@@ -429,7 +429,7 @@ architecture Behavioral of container is
   signal h_audio_left : std_logic_vector(19 downto 0);
   signal h_audio_right : std_logic_vector(19 downto 0);
   signal spdif_44100 : std_logic;
-  
+
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0) := x"00";
 
@@ -455,8 +455,8 @@ architecture Behavioral of container is
   signal pcm_acr : std_logic := '0';
   signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
   signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
-  
-  
+
+
   signal hdmi_is_progressive : boolean := true;
   signal hdmi_is_pal : boolean := true;
   signal hdmi_is_30khz : boolean := true;
@@ -477,7 +477,7 @@ architecture Behavioral of container is
   signal dvi_select : std_logic := '0';
 
   signal ascii_key : unsigned(7 downto 0);
-  signal ascii_key_valid : std_logic := '0';
+  signal key_valid : std_logic := '0';
   signal bucky_key : std_logic_vector(6 downto 0);
   signal capslock_combined : std_logic;
   signal key_caps : std_logic := '0';
@@ -503,9 +503,9 @@ architecture Behavioral of container is
 
   signal audio_l : std_logic_vector(15 downto 0) := x"0000";
   signal audio_r : std_logic_vector(15 downto 0) := x"0000";
-  
+
   signal counter : integer := 0;
-  
+
   constant clock_frequency : integer := 12_228_000;
   constant target_sample_rate : integer := 48000;
   constant tone_frequency : integer := 200;
@@ -530,7 +530,7 @@ architecture Behavioral of container is
   signal ntsc_dec_fine_int : std_logic := '0';
   signal ntsc_inc_coarse_int : std_logic := '0';
   signal ntsc_dec_coarse_int : std_logic := '0';
-  
+
    type sine_t is array (0 to 8) of unsigned(7 downto 0);
    signal sine_table : sine_t := (
      0 => to_unsigned(0,8),
@@ -544,7 +544,7 @@ architecture Behavioral of container is
      8 => to_unsigned(126,8)
      );
 
-  
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -614,30 +614,30 @@ begin
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
-            
+
             i2s_data_out => audio_sdata,
             i2s_lrclk => audio_lrclk,
             i2s_bick => audio_bick,
-            
+
 
             audio_left_slow => audio_left_slow,
             audio_right_slow => audio_right_slow,
             sample_ready_toggle => sample_ready_toggle,
-            
+
             pcm_l     => pcm_l,
             pcm_r     => pcm_r
         );
-  
+
     pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
     pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
-    
+
     hdmi0: entity work.vga_to_hdmi
       port map (
         select_44100 => portp(3),
         -- Disable HDMI-style audio if one
         -- BUT allow dipswitch 2 of S3 on the MEGA65 R3 main board to INVERT
         -- this behaviour
-        dvi => dvi_select, 
+        dvi => dvi_select,
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -665,7 +665,7 @@ begin
 
         tmds => tmds
         );
-    
+
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
@@ -690,8 +690,8 @@ begin
     port map (
       rst => '0',
       clk => cpuclock,
-      temp => fpga_temperature); 
-  
+      temp => fpga_temperature);
+
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -699,13 +699,13 @@ begin
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,
-      
+
       powerled => '1',
       flopled0 => flopled_drive,
       flopled2 => flopled_drive,
       flopledsd => flopled_drive,
       flopmotor => flopmotor_drive,
-            
+
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
@@ -714,7 +714,7 @@ begin
       kbd_commit => kbd_commit,
 
       eth_load_enable => '0',
-      
+
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
@@ -722,9 +722,9 @@ begin
       capslock_out => widget_capslock,
       upkey => keyup,
       leftkey => keyleft
-      
-      );    
-  
+
+      );
+
   block5: block
   begin
     kc0 : entity work.keyboard_complex
@@ -738,7 +738,7 @@ begin
 --      matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => '0',
       suppress_key_retrigger => '0',
-    
+
       scan_mode => "11",
       scan_rate => x"FF",
 
@@ -751,10 +751,10 @@ begin
     virtual_disable => '0',
 
       joyswap => '0',
-      
+
       joya_rotate => '0',
       joyb_rotate => '0',
-      
+
     cpuclock       => cpuclock,
 --    restore_out => restore_nmi,
     keyboard_restore => key_restore,
@@ -773,7 +773,7 @@ begin
 --    keydown2 => osk_key2,
 --    keydown3 => osk_key3,
 --    keydown4 => osk_key4,
-      
+
 --    hyper_trap_out => hyper_trap,
 --    hyper_trap_count => hyper_trap_count,
 --    restore_up_count => restore_up_count,
@@ -795,16 +795,16 @@ begin
     joya(2) => '1',
     joya(1) => '1',
     joya(3) => '1',
-    
+
     joyb(4) => '1',
     joyb(0) => '1',
     joyb(2) => '1',
     joyb(1) => '1',
     joyb(3) => '1',
-    
+
 --    key_debug_out => key_debug,
-  
-    porta_pins => porta_pins, 
+
+    porta_pins => porta_pins,
     portb_pins => (others => '1'),
 
 --    speed_gate => speed_gate,
@@ -820,34 +820,34 @@ begin
       widget_capslock => '1',
     widget_joya => (others => '1'),
     widget_joyb => (others => '1'),
-      
-      
+
+
     -- remote keyboard input via ethernet
       eth_keycode_toggle => '0',
       eth_keycode => (others => '0'),
 
-    -- remote 
+    -- remote
 --    eth_keycode_toggle => key_scancode_toggle,
 --    eth_keycode => key_scancode,
 
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
-    ascii_key_valid => ascii_key_valid,
+    key_valid => key_valid,
     bucky_key => bucky_key(6 downto 0)
-    
+
     );
   end block;
 
   uart_tx0: entity work.UART_TX_CTRL
     port map (
-      send    => ascii_key_valid,
+      send    => key_valid,
       BIT_TMR_MAX => to_unsigned((40500000/2000000) - 1,24),
       clk     => cpuclock,
       data    => ascii_key,
 --      ready   => tx0_ready,
       uart_tx => UART_TXD);
 
-  
+
   pixel0: entity work.pixel_driver
     port map (
       clock81 => pixelclock, -- 80MHz
@@ -857,9 +857,9 @@ begin
 
       debug_forward => debug_forward,
       debug_backward => debug_backward,
-      
+
       pixel_strobe_out => pixel_strobe,
-      
+
       -- Configuration information from the VIC-IV
       hsync_invert => one,
       vsync_invert => one,
@@ -869,10 +869,10 @@ begin
 
       interlace_mode => interlace,
       mono_mode => mono,
-      
+
       -- Framing information for VIC-IV
-      x_zero => x_zero,     
-      y_zero => y_zero,     
+      x_zero => x_zero,
+      y_zero => y_zero,
 
       -- Show simple purple screen when test pattern is off
       red_i => to_unsigned(255,8),
@@ -883,7 +883,7 @@ begin
       -- It is clocked at the correct pixel
       red_no => pattern_r,
       green_no => pattern_g,
-      blue_no => pattern_b,      
+      blue_no => pattern_b,
 
 --      red_o => panelred,
 --      green_o => panelgreen,
@@ -892,13 +892,13 @@ begin
       luma => luma,
       chroma => chroma,
       composite => composite,
-      
+
       hsync => pattern_hsync,
       vsync => pattern_vsync,  -- for HDMI
---      vga_hsync => vga_hsync,      -- for VGA          
+--      vga_hsync => vga_hsync,      -- for VGA
 
       -- And the variations on those signals for the LCD display
---      lcd_hsync => lcd_hsync,               
+--      lcd_hsync => lcd_hsync,
 --      lcd_vsync => lcd_vsync,
       narrow_dataenable => pattern_de
 --      lcd_inletterbox => lcd_inletterbox,
@@ -917,11 +917,11 @@ begin
       ntsc_dec_fine => ntsc_dec_fine,
       ntsc_inc_coarse => ntsc_inc_coarse,
       ntsc_dec_coarse => ntsc_dec_coarse,
-      
+
       pal50_select => pal50,
       upscale_en => upscale_en,
       vlock_en => vlock_en,
-      
+
       red_in => pattern_r,
       green_in => pattern_g,
       blue_in => pattern_b,
@@ -937,7 +937,7 @@ begin
       pixelvalid_out => upscale_de
 
       );
-  
+
   expansionboard0: entity work.r3_expansion
     port map (
       cpuclock => cpuclock,
@@ -957,7 +957,7 @@ begin
       chroma => luma,
       composite => luma,
       audio => luma
-      
+
       );
 
   ODDR_inst : ODDR
@@ -970,15 +970,15 @@ begin
       R => '0',    -- 1-bit reset input
       S => '0'     -- 1-bit set input
       );
-  
+
   -- BUFG on ethernet clock to keep the clock nice and strong
   ethbufg0:
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
-  -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
---  led <= pcm_acr;  
-  
+  -- XXX debug: export exactly 1KHz rate out to the LED for monitoring
+--  led <= pcm_acr;
+
   process (pixelclock,cpuclock,pcm_clk,clock270,dipsw,clock27,clock74p22) is
   begin
 
@@ -1000,7 +1000,7 @@ begin
       else
         sine_update_counter <= 0;
         if audio_address /= 35 then
-          audio_address <= audio_address + 1;          
+          audio_address <= audio_address + 1;
         else
           audio_address <= 0;
         end if;
@@ -1008,11 +1008,11 @@ begin
 
       audio_left(19 downto 12) <= audio_data;
       audio_right(19 downto 12) <= audio_data;
-      
+
     end if;
-    
+
     vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
+    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
     -- VGA output at full pixel clock
     if upscale_en = '0' then
@@ -1024,12 +1024,12 @@ begin
     pattern_de_n <= not pattern_de;
 
     led_g <= dipsw(2);
-    led_r <= dipsw(3);    
+    led_r <= dipsw(3);
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
-    nmi_combined <= nmi and nmi_out;    
-    
+    nmi_combined <= nmi and nmi_out;
+
     audio_mclk <= pcm_clk;
     if rising_edge(pcm_clk) then
       -- Generate 1KHz ACR pulse train from 12.288MHz
@@ -1041,11 +1041,11 @@ begin
         acr_counter <= 0;
       end if;
     end if;
-    
-    -- Drive most ports, to relax timing
-    if rising_edge(cpuclock) then      
 
-      if ascii_key_valid='1' then
+    -- Drive most ports, to relax timing
+    if rising_edge(cpuclock) then
+
+      if key_valid='1' then
         case ascii_key is
           when x"21" => upscale_en <= '1';
           when x"22" => upscale_en <= '0';
@@ -1070,17 +1070,17 @@ begin
           when x"53" | x"73" => ntsc_inc_fine <= not ntsc_dec_fine_int; ntsc_dec_fine_int <= not ntsc_dec_fine_int;
           when x"44" | x"64" => ntsc_dec_coarse <= not ntsc_dec_coarse_int; ntsc_dec_coarse_int <= not ntsc_dec_coarse_int;
           when x"66" | x"66" => ntsc_inc_coarse <= not ntsc_inc_coarse_int; ntsc_inc_coarse_int <= not ntsc_inc_coarse_int;
-                                
-          when others => null;                         
-        end case;        
-      end if;                        
-      
+
+          when others => null;
+        end case;
+      end if;
+
       dvi_select <= portp(1) xor dipsw(1);
-      
+
 --      reset_high <= not btncpureset;
 
       btncpureset <= max10_reset_out;
-      
+
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
       -- have a slow toggle
@@ -1104,7 +1104,7 @@ begin
       end if;
 
 --      reset_high <= not btncpureset;
-      
+
 --      led <= cart_exrom;
 --      led <= flopled_drive;
 
@@ -1112,17 +1112,17 @@ begin
       fa_right_drive <= fa_right;
       fa_up_drive <= fa_up;
       fa_down_drive <= fa_down;
-      fa_fire_drive <= fa_fire;  
+      fa_fire_drive <= fa_fire;
       fb_left_drive <= fb_left;
       fb_right_drive <= fb_right;
       fb_up_drive <= fb_up;
       fb_down_drive <= fb_down;
-      fb_fire_drive <= fb_fire;  
+      fb_fire_drive <= fb_fire;
 
       -- The simple output-only IEC lines we just drive
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
-      
+
       -- The active-high EN lines enable the IEC output drivers.
       -- We need to invert the signal, so that if a signal from CIA
       -- is high, we drive the IEC pin low. Else we let the line
@@ -1151,8 +1151,8 @@ begin
       else
         iec_bus_active <= '0';
       end if;
-      
-      
+
+
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
@@ -1166,7 +1166,7 @@ begin
       fa_poty <= paddle(1);
       fb_potx <= paddle(2);
       fb_poty <= paddle(3);
-      
+
     end if;
 
     -- @IO:GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
@@ -1177,7 +1177,7 @@ begin
     -- @IO:GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
 
 
-    
+
     h_audio_right <= audio_right;
     h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
@@ -1185,11 +1185,11 @@ begin
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
-    -- LED on main board 
+    -- LED on main board
 --    led <= portp(4);
 --    led <= dipsw(3);
 
-  end process;    
+  end process;
 
   process (upscale_en, upscale_r, upscale_g, upscale_b,
            upscale_hsync, upscale_vsync, upscale_de) is
@@ -1200,7 +1200,7 @@ begin
       vgared <= upscale_r;
       vgagreen <= upscale_g;
       vgablue <= upscale_b;
-    
+
   end process;
-  
+
 end Behavioral;
