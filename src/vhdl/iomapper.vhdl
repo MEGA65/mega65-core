@@ -515,24 +515,18 @@ architecture behavioral of iomapper is
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(6 downto 0) := (others => '0');
+  signal key_presenting : std_logic := '0';
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
-  signal ascii_bucky_key_buffered : std_logic_vector(6 downto 0) := (others => '0');
-  signal ascii_key_presenting : std_logic := '0';
   signal petscii_key_buffered : unsigned(7 downto 0) := x"ff";
-  signal petscii_key_presenting : std_logic := '0';
-  signal petscii_bucky_key_buffered : std_logic_vector(6 downto 0) := (others => '0');
+  signal bucky_key_buffered : std_logic_vector(6 downto 0) := (others => '0');
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   type bucky_key_buffer_t is array(0 to 3) of std_logic_vector(6 downto 0);
+  signal key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_buffer : key_buffer_t;
-  signal ascii_bucky_key_buffer : bucky_key_buffer_t;
-  signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
   signal petscii_key_buffer : key_buffer_t;
-  signal petscii_bucky_key_buffer : bucky_key_buffer_t;
-  signal petscii_key_buffer_count : integer range 0 to 4 := 0;
   signal petscii_key_next : std_logic := '0';
-  signal bucky_key_buffered_view : std_logic_vector(5 downto 0) := (others => '0');
-  signal bucky_key_buffered_mode : std_logic := '0';
+  signal bucky_key_buffer : bucky_key_buffer_t;
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -952,8 +946,7 @@ begin
       potb_x => potb_x,
       potb_y => potb_y,
 
-      bucky_key_buffered_view => bucky_key_buffered_view,
-      bucky_key_buffered_mode => bucky_key_buffered_mode
+      bucky_key_buffered => bucky_key_buffered
       );
   end block;
 
@@ -1932,83 +1925,66 @@ begin
           -- not)
           uart_char <= ascii_key;
           uart_char_valid <= '1';
-          -- Push char to $D610 accelerated keyboard reader as well
-          if ascii_key_presenting = '1' then
-            if ascii_key_buffer_count < 4 then
-              ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
-              ascii_bucky_key_buffer(ascii_key_buffer_count) <= bucky_key;
-              ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+          -- Enqueue char to keyboard buffer
+          --
+          -- If ascii_key = x"00" and petscii_key /= x"ff", enqueue the event,
+          -- encoding ascii_key as x"ff" to disambiguate from "empty queue"
+          -- state. This intentionally emits a valid but incorrect ASCII
+          -- character in 13 cases where PETSCII has a character but ASCII
+          -- does not for the same key number and modifiers.
+          if key_presenting = '1' then
+            if key_buffer_count < 4 then
+              if ascii_key = x"00" then
+                ascii_key_buffer(key_buffer_count) <= x"ff";
+              else
+                ascii_key_buffer(key_buffer_count) <= ascii_key;
+              end if;
+              petscii_key_buffer(key_buffer_count) <= petscii_key;
+              bucky_key_buffer(key_buffer_count) <= bucky_key;
+              key_buffer_count <= key_buffer_count + 1;
             end if;
           else
-            ascii_key_buffered <= ascii_key;
-            ascii_key_presenting <= '1';
-            ascii_bucky_key_buffered <= bucky_key;
+            if ascii_key = x"00" then
+              ascii_key_buffered <= x"ff";
+            else
+              ascii_key_buffered <= ascii_key;
+            end if;
+            petscii_key_buffered <= petscii_key;
+            bucky_key_buffered <= bucky_key;
+            key_presenting <= '1';
           end if;
 
-          -- Push char to $D619 accelerated keyboard reader
-          if petscii_key_presenting = '1' then
-            if petscii_key_buffer_count < 4 then
-              petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
-              petscii_bucky_key_buffer(petscii_key_buffer_count) <= bucky_key;
-              petscii_key_buffer_count <= petscii_key_buffer_count + 1;
-            end if;
-          else
-            petscii_key_buffered <= petscii_key;
-            petscii_key_presenting <= '1';
-            petscii_bucky_key_buffered <= bucky_key;
-          end if;
         end if;
-      end if;
+      end if; -- key_valid
 
       if reset_high = '1' then
-
         eth_load_enable_int <= '0';
         eth_load_enable <= '0';
 
-        ascii_key_presenting <= '0';
+        key_buffer_count <= 0;
+        key_presenting <= '0';
         ascii_key_buffered <= x"00";
-        ascii_bucky_key_buffered <= "0000000";
-        ascii_key_buffer_count <= 0;
-
-        petscii_key_presenting <= '0';
         petscii_key_buffered <= x"ff";
-        petscii_bucky_key_buffered <= "0000000";
-        petscii_key_buffer_count <= 0;
+        bucky_key_buffered <= "0000000";
 
-      elsif ascii_key_next = '1' then
-        if ascii_key_buffer_count > 0 then
-          ascii_key_presenting <= '1';
+      elsif ascii_key_next = '1' or petscii_key_next = '1' then
+        -- Dequeue the keyboard buffer
+        if key_buffer_count > 0 then
+          key_presenting <= '1';
           ascii_key_buffered <= ascii_key_buffer(0);
-          ascii_bucky_key_buffered <= ascii_bucky_key_buffer(0);
-          ascii_key_buffer_count <= ascii_key_buffer_count - 1;
+          petscii_key_buffered <= petscii_key_buffer(0);
+          bucky_key_buffered <= bucky_key_buffer(0);
+          key_buffer_count <= key_buffer_count - 1;
           for i in 0 to 2 loop
             ascii_key_buffer(i) <= ascii_key_buffer(i+1);
-            ascii_bucky_key_buffer(i) <= ascii_bucky_key_buffer(i+1);
-          end loop;
-        else
-          ascii_key_presenting <= '0';
-          ascii_key_buffered <= x"00";
-          ascii_bucky_key_buffered <= "0000000";
-        end if;
-        if ascii_key_event_count /= x"FFFF" then
-          ascii_key_event_count <= ascii_key_event_count + 1;
-        else
-          ascii_key_event_count <= x"0000";
-        end if;
-      elsif petscii_key_next = '1' then
-        if petscii_key_buffer_count > 0 then
-          petscii_key_presenting <= '1';
-          petscii_key_buffered <= petscii_key_buffer(0);
-          petscii_bucky_key_buffered <= petscii_bucky_key_buffer(0);
-          petscii_key_buffer_count <= petscii_key_buffer_count - 1;
-          for i in 0 to 2 loop
             petscii_key_buffer(i) <= petscii_key_buffer(i+1);
-            petscii_bucky_key_buffer(i) <= petscii_bucky_key_buffer(i+1);
+            bucky_key_buffer(i) <= bucky_key_buffer(i+1);
           end loop;
         else
-          petscii_key_presenting <= '0';
+          key_presenting <= '0';
+          ascii_key_buffered <= x"00";
           petscii_key_buffered <= x"ff";
-          petscii_bucky_key_buffered <= "0000000";
+          bucky_key_buffered <= "0000000";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;
@@ -2016,17 +1992,6 @@ begin
           ascii_key_event_count <= x"0000";
         end if;
       end if;
-
-      if bucky_key_buffered_mode='0' and ascii_key_presenting='1' then
-        bucky_key_buffered_view(0) <= ascii_bucky_key_buffered(0) or ascii_bucky_key_buffered(1);
-        bucky_key_buffered_view(5 downto 1) <= ascii_bucky_key_buffered(6 downto 2);
-      elsif bucky_key_buffered_mode='1' and petscii_key_presenting='1' then
-        bucky_key_buffered_view(0) <= petscii_bucky_key_buffered(0) or petscii_bucky_key_buffered(1);
-        bucky_key_buffered_view(5 downto 1) <= petscii_bucky_key_buffered(6 downto 2);
-      else
-        bucky_key_buffered_view <= "000000";
-      end if;
-
     end if;
   end process;
 

@@ -1035,30 +1035,33 @@ begin
         if (last_key_state = '1') and (debounce_key_state='0') then
           -- Key state has changed.
 
-          repeat_key <= key_num;
-          repeat_key_timer <= repeat_start_timer;
-          key_valid_countdown <= 1023;
-          key_valid <= '0';
-          ascii_key <= key_matrix(key_num);
-          petscii_key <= petscii_matrix(key_num);
+          if key_matrix(key_num) /= x"00" or petscii_matrix(key_num) /= x"ff" then
+            -- This is a typing event.
+            repeat_key <= key_num;
+            repeat_key_timer <= repeat_start_timer;
+            key_valid_countdown <= 1023;
+            key_valid <= '0';
+            ascii_key <= key_matrix(key_num);
+            petscii_key <= petscii_matrix(key_num);
 
-          if key_matrix(key_num) /= x"00" then
-            -- ASCII key press event.
-            report "matrix = " & to_string(matrix);
-            report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
+            if key_matrix(key_num) /= x"00" then
+              -- ASCII key press event.
+              report "matrix = " & to_string(matrix);
+              report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
 
-            -- Make CAPS LOCK invert case of only letters
-            if bucky_key_internal(6)='1'
-              and (
-                ((to_integer(key_matrix(key_num)) >= (96+1))
-                 and (to_integer(key_matrix(key_num)) <= (96+26)))
-                or (bucky_key_internal(4) = '1')
-                )
-                then
-                  -- Clear bit 5 ($20) to convert lower to upper case letters
-                  -- (Applies to some weird Latin1 characters, regardless of
-                  -- the symbol.)
-              ascii_key(5) <= '0';
+              -- Make CAPS LOCK invert case of only letters
+              if bucky_key_internal(6)='1'
+                and (
+                  ((to_integer(key_matrix(key_num)) >= (96+1))
+                  and (to_integer(key_matrix(key_num)) <= (96+26)))
+                  or (bucky_key_internal(4) = '1')
+                  )
+                  then
+                    -- Clear bit 5 ($20) to convert lower to upper case letters
+                    -- (Applies to some weird Latin1 characters, regardless of
+                    -- the symbol.)
+                ascii_key(5) <= '0';
+              end if;
             end if;
           end if;
 
