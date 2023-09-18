@@ -13,22 +13,22 @@ entity matrix_to_ascii is
 
         matrix_mode_in : in std_logic;
         matrix_disable_modifiers : in std_logic;
-        
+
         matrix_col : in std_logic_vector(7 downto 0);
         matrix_col_idx : in integer range 0 to 15;
-        
+
         suppress_key_glitches : in std_logic;
         suppress_key_retrigger : in std_logic;
 
         key_up : in std_logic;
         key_left : in std_logic;
         key_caps : in std_logic;
-        
+
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
         petscii_key : out unsigned(7 downto 0) := (others => '0');
-        
-        
+
+
         -- Bucky key list:
         -- 0 = left shift
         -- 1 = right shift
@@ -38,17 +38,16 @@ entity matrix_to_ascii is
         -- 5 = NO SCROLL
         -- 6 = ASC/DIN/CAPS LOCK (XXX - Has a separate line. Not currently monitored)
         bucky_key : out std_logic_vector(6 downto 0) := (others  => '0');
-        ascii_key_valid : out std_logic := '0';
-        petscii_key_valid : out std_logic := '0'
+        key_valid : out std_logic := '0'
         );
 end entity matrix_to_ascii;
-  
+
 architecture behavioral of matrix_to_ascii is
   -- Number of CPU cycles between each key scan event.
   constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
-  
+
   signal keyscan_counter : integer range 0 to keyscan_delay := 0;
-  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
+  -- Automatic key repeat (just repeats key_valid strobe periodically)
   -- (As key repeat is checked on each of the 72 key tests, we don't need to
   -- divide the maximum repeat counters by 72.)
   signal repeat_key : integer range 0 to 71 := 0;
@@ -56,7 +55,7 @@ architecture behavioral of matrix_to_ascii is
   constant repeat_start_timer : integer := clock_frequency/scan_frequency/2 * 19/26;
   constant repeat_again_timer : integer := clock_frequency/scan_frequency/20;
 
-  signal ascii_key_valid_countdown : integer range 0 to 65535 := 0;
+  signal key_valid_countdown : integer range 0 to 65535 := 0;
 
   signal repeat_key_timer : integer range 0 to repeat_start_timer := 0;
 
@@ -70,21 +69,21 @@ architecture behavioral of matrix_to_ascii is
   -- These are the current single output bits from the debounce and last matrix rams
   signal debounce_key_state : std_logic;
   signal last_key_state : std_logic;
-  
+
   -- This is the current index we are reading from both RAMs (and writing to last)
   signal ram_read_index : integer range 0 to 15;
   signal debounce_write_mask : std_logic_vector(7 downto 0);
   signal last_write_mask : std_logic_vector(7 downto 0);
-  
+
   signal debounce_in : std_logic_vector(7 downto 0);
   signal current_col_out : std_logic_vector(7 downto 0);
   signal debounce_col_out : std_logic_vector(7 downto 0);
   signal last_col_out : std_logic_vector(7 downto 0);
-  
+
   signal repeat_timer_expired : std_logic;
-  
+
   signal reset : std_logic := '1';
-  
+
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matrix_t := (
     0 => x"14", -- INS/DEL
@@ -367,7 +366,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"40", -- NO KEY/@
     47 => x"7e", -- </,/~
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"2A", -- */NO KEY     
+    49 => x"2A", -- */NO KEY
     50 => x"7d", -- ]/;/}
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -433,7 +432,7 @@ architecture behavioral of matrix_to_ascii is
     35 => x"db", -- {/0
     36 => x"B5", -- mu symbol (was m)
     37 => x"E1", -- A with accute accent (was K/k)
-    38 => x"F8", -- O with stroke through 
+    38 => x"F8", -- O with stroke through
     39 => x"F1", -- N with tilde over
     40 => x"B1", -- +/- sign
     41 => x"B6", -- Pilcrow Sign
@@ -850,12 +849,12 @@ architecture behavioral of matrix_to_ascii is
     70 => x"19",
     71 => x"1b",
     others => x"ff"
-  );  
-  
+  );
+
   signal key_num : integer range 0 to 71 := 0;
 
 begin
-  
+
   -- This is our first local copy that gets updated continuously by snooping
   -- the incoming column state from the keymapper.  It exists mostly so we have
   -- an updated copy of the current matrix state we can sample from at our own
@@ -869,7 +868,7 @@ begin
     addressb => ram_read_index,
     dob => current_col_out
     );
-  
+
   -- This is a second copy we use for debouncing the input.  It's input is either
   -- the current_col_out (if we're sampling) or the logical and of current_col_out
   -- and debounce_col_out (if we're debouncing)
@@ -882,8 +881,8 @@ begin
     addressb => ram_read_index,
     dob => debounce_col_out
     );
-    
-  -- This is our third local copy which we use for detecting edges.  It gets 
+
+  -- This is our third local copy which we use for detecting edges.  It gets
   -- updated as we do the key scan and always remembers the last state of whatever
   -- key we're currently looking at.
   last_kmm: entity work.kb_matrix_ram
@@ -895,7 +894,7 @@ begin
     addressb => ram_read_index,
     dob => last_col_out
     );
-    
+
     -- combinatorial processes
   process(ram_read_index,debounce_col_out,current_col_out,last_col_out,keyscan_counter,key_num,suppress_key_glitches)
     variable read_index : integer range 0 to 15;
@@ -914,7 +913,7 @@ begin
       key_num_bit := 0;
       dks := '1';
       lks := '1';
-      
+
       if keyscan_counter /= 0 then
         if(keyscan_counter < 11) then
           read_index := keyscan_counter - 1;
@@ -946,37 +945,35 @@ begin
         dks := debounce_col_out(key_num_bit);
         lks := last_col_out(key_num_bit);
       end if;
-      
+
       -- update debounce and last bits
       debounce_key_state <= dks;
       last_key_state <= lks;
-      
+
       -- update other ram input signals
       ram_read_index <= read_index;
       debounce_write_mask <= debounce_mask;
       last_write_mask <= last_mask;
   end process;
-  
+
   process(clk)
     variable key_matrix : key_matrix_t;
     variable petscii_matrix : key_matrix_t;
   begin
     if rising_edge(clk) then
 
-      petscii_key_valid <= '0';
-      
       -- CAPS LOCK key like others is active low, so we invert it when
       -- recording its status.
       bucky_key_internal(6) <= not key_caps;
-                     
+
       --reset <= reset_in;
       --if reset_in /= reset then
       --  matrix_internal <= (others => '1');
       --  matrix <= (others => '1');
       --end if;
-      
+
       --matrix_in(matrix_col_idx*8+7 downto matrix_col_idx*8) <= matrix_col;
-      
+
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
       -- as unique keys.
@@ -1008,15 +1005,16 @@ begin
         key_matrix := matrix_normal;
         petscii_matrix := matrix_petscii_normal;
       end if;
-        
+
 
       bucky_key <= bucky_key_internal;
+
+      key_valid <= '0';
 
       -- Check for key press events
       if keyscan_counter /= 0 then
         keyscan_counter <= keyscan_counter - 1;
-        ascii_key_valid <= '0';
-        petscii_key_valid <= '0';
+        key_valid <= '0';
       else
 --        report "Checking matrix for key event, matrix=" & to_string(matrix);
 
@@ -1031,21 +1029,24 @@ begin
           -- XXX CAPS LOCK has its own separate line, so is set elsewhere
           when others => null;
         end case;
-        
+
         keyscan_counter <= keyscan_delay;
 
         if (last_key_state = '1') and (debounce_key_state='0') then
-          if petscii_matrix(key_num) /= x"ff" then
-            petscii_key <= petscii_matrix(key_num);
-            petscii_key_valid <= '1';
-          end if;
+          -- Key state has changed.
+
+          repeat_key <= key_num;
+          repeat_key_timer <= repeat_start_timer;
+          key_valid_countdown <= 1023;
+          key_valid <= '0';
+          ascii_key <= key_matrix(key_num);
+          petscii_key <= petscii_matrix(key_num);
+
           if key_matrix(key_num) /= x"00" then
-            -- Key press event
+            -- ASCII key press event.
             report "matrix = " & to_string(matrix);
             report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
 
-            ascii_key <= key_matrix(key_num);
-            
             -- Make CAPS LOCK invert case of only letters
             if bucky_key_internal(6)='1'
               and (
@@ -1059,48 +1060,39 @@ begin
                   -- the symbol.)
               ascii_key(5) <= '0';
             end if;
-            
-            repeat_key <= key_num;
-            repeat_key_timer <= repeat_start_timer;
-            ascii_key_valid_countdown <= 1023;
-            ascii_key_valid <= '0';
-          else
-            ascii_key_valid <= '0';
           end if;
+
         else
+          -- Key state has not changed. Check for held and repeating keys.
+
           if repeat_key_timer /= 0 then
             repeat_key_timer <= repeat_key_timer - 1;
-            ascii_key_valid <= '0';
+            key_valid <= '0';
           elsif repeat_timer_expired = '1' then
             --repeat_key_timer <= repeat_again_timer;
             if (repeat_key = key_num) and debounce_key_state='0' then
-              ascii_key_valid <= '1';
               report "Repeating key held down";
               -- Republish the key, so that modifiers can change during repeat,
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
+              key_valid <= '1';
               ascii_key <= key_matrix(repeat_key);
-
-              petscii_key_valid <= '1';
               petscii_key <= petscii_matrix(repeat_key);
-              
-              --else
-              --ascii_key_valid <= '0';              
             end if;
           end if;
         end if;
 
         -- Do delayed presentation of down/right, modifying it to up/left if
         -- the shift key has gone down in the meantime.
-        if ascii_key_valid_countdown = 1 then
-          ascii_key_valid_countdown <= 0;
-          ascii_key_valid <= '1';
-        elsif ascii_key_valid_countdown /= 0 then
-          ascii_key_valid_countdown <= ascii_key_valid_countdown - 1;
+        if key_valid_countdown = 1 then
+          key_valid_countdown <= 0;
+          key_valid <= '1';
+        elsif key_valid_countdown /= 0 then
+          key_valid_countdown <= key_valid_countdown - 1;
         else
           null;
         end if;
-        
+
         if key_num /= 71 then
           key_num <= key_num + 1;
         else
@@ -1116,11 +1108,11 @@ begin
           end if;
         end if;
       end if;
-      
+
     end if;
-    
+
   end process;
 end behavioral;
-  
+
 
 

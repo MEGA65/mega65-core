@@ -14,7 +14,7 @@ entity keyboard_complex is
     viciv_frame_indicate : in std_logic;
 
     eth_hyperrupt : out std_logic := '0';
-    
+
     -- Physical interface pins
 
     -- Keyboard
@@ -32,7 +32,7 @@ entity keyboard_complex is
     joyb_rotate : in std_logic;
 
     joyswap : in std_logic;
-    
+
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);
     joyb : in std_logic_vector(4 downto 0);
@@ -47,7 +47,7 @@ entity keyboard_complex is
 
     -- PS/2 keyboard
     ps2clock  : in  std_logic;
-    ps2data   : in  std_logic;    
+    ps2data   : in  std_logic;
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle : in std_logic;
     eth_keycode : in unsigned(15 downto 0);
@@ -65,7 +65,7 @@ entity keyboard_complex is
     keydown2 : out unsigned(7 downto 0);
     keydown3 : out unsigned(7 downto 0);
     keydown4 : out unsigned(7 downto 0);
-    
+
     -- Flags to control which inputs are disabled, if any
     virtual_disable : in std_logic;
     physkey_disable : in std_logic;
@@ -80,16 +80,15 @@ entity keyboard_complex is
     reset_out : out std_logic := '1';
     hyper_trap_out : out std_logic := '1';
 
+    key_valid : out std_logic := '0';
     ascii_key : out unsigned(7 downto 0) := x"00";
-    ascii_key_valid : out std_logic := '0';
     petscii_key : out unsigned(7 downto 0) := x"00";
-    petscii_key_valid : out std_logic := '0';
-    bucky_key : out std_logic_vector(6 downto 0) := "0000000"; 
-    
+    bucky_key : out std_logic_vector(6 downto 0) := "0000000";
+
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
     speed_gate_enable : in std_logic := '1';
-    
+
     -- Registers for debugging
     key_debug_out : out std_logic_vector(7 downto 0);
     hyper_trap_count : out unsigned(7 downto 0) := x"00";
@@ -109,7 +108,7 @@ entity keyboard_complex is
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
     porta_ddr : in  std_logic_vector(7 downto 0);
-    portb_ddr : in  std_logic_vector(7 downto 0)    
+    portb_ddr : in  std_logic_vector(7 downto 0)
     );
 
 end entity keyboard_complex;
@@ -121,7 +120,7 @@ architecture behavioural of keyboard_complex is
   signal keyboard_matrix_col : std_logic_vector(7 downto 0);
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
   signal keyboard_joyb : std_logic_vector(4 downto 0) := (others => '1');
-  
+
   signal ps2_matrix_col : std_logic_vector(7 downto 0);
   signal ps2_restore : std_logic;
   signal ps2_capslock : std_logic;
@@ -149,7 +148,7 @@ architecture behavioural of keyboard_complex is
   signal shift_key_state : std_logic;
   signal kd_state : std_logic;
   signal virtual_restore : std_logic;
-  
+
 begin
 
   v2m: entity work.virtual_to_matrix
@@ -161,11 +160,11 @@ begin
       touch_key1 => touch_key1,
       touch_key2 => touch_key2,
       restore_out => virtual_restore,
-      
+
       matrix_col => virtual_matrix_col,
       matrix_col_idx => matrix_col_idx
       );
-  
+
   phykbd0: entity work.keyboard_to_matrix
     port map (
       clk => cpuclock,
@@ -192,17 +191,17 @@ begin
 
     matrix_col => ps2_matrix_col,
     matrix_col_idx => matrix_col_idx,
-    
+
     joya => ps2_joya,
     joyb => ps2_joyb,
 
     -- And also the last PS/2 key scan code in case someone wants it
     last_scan_code => last_scan_code,
-    
+
     -- PS2 keyboard interface
     ps2clock => ps2clock,
     ps2data => ps2data,
-    
+
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle => eth_keycode_toggle,
     eth_keycode => eth_keycode,
@@ -214,15 +213,15 @@ begin
     cpuclock => cpuclock,
     reset_in => reset_in,
     matrix_mode_in => matrix_mode_in,
-    viciv_frame_indicate => viciv_frame_indicate,      
+    viciv_frame_indicate => viciv_frame_indicate,
 
     -- Which inputs shall we incorporate
 
     joyswap => joyswap,
-    
+
     joya_rotate => joya_rotate,
     joyb_rotate => joyb_rotate,
-    
+
     virtual_disable => virtual_disable,
     physkey_disable => physkey_disable,
     matrix_col_physkey => keyboard_matrix_col,
@@ -253,20 +252,20 @@ begin
     restore_ps2 => ps2_restore,
 
     matrix_col_virtual => virtual_matrix_col,
-    
-    matrix_col_idx => matrix_col_idx,    
+
+    matrix_col_idx => matrix_col_idx,
     matrix_combined_col => matrix_combined_col,
     matrix_combined_col_idx => matrix_combined_col_idx,
-    
+
     -- RESTORE when held or double-tapped does special things
     restore_out => restore_combined,
     reset_out => reset_out,
     hyper_trap_out => hyper_trap_out,
-    
+
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
-    
+
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
     capslock_out => capslock_combined,
 
@@ -275,7 +274,7 @@ begin
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,
     restore_down_count => restore_down_count,
-    
+
     -- CIA1 ports
     porta_in  => porta_in ,
     portb_in  => portb_in ,
@@ -286,7 +285,7 @@ begin
 
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
     keyboard_column8_select_in => keyboard_column8_select_in
-    
+
     );
 
   ascii0: entity work.matrix_to_ascii
@@ -305,17 +304,15 @@ begin
       key_up => key_up,
       key_left => key_left,
       key_caps => capslock_combined,
-      
+
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
 
-      petscii_key => petscii_key,
-      petscii_key_valid => petscii_key_valid,
-      
       -- UART key stream
       ascii_key => ascii_key,
+      petscii_key => petscii_key,
       bucky_key => bucky_key,
-      ascii_key_valid => ascii_key_valid
+      key_valid => key_valid
       );
 
   -- copy of combined keyboard matrix for debug output
@@ -352,18 +349,18 @@ begin
     kd_state       <= summary_out(kd_phase_bit);
     summary_index  <= kd_phase_index;
   end process;
-        
+
   process (cpuclock,matrix_col_idx)
     variable num : integer;
   begin
 
     widget_matrix_col_idx <= matrix_col_idx;
-    
+
     if rising_edge(cpuclock) then
 
       capslock_out <= capslock_combined;
       restore_out <= restore_combined;
-      
+
       num := to_integer(unsigned(matrix_segment_num));
       if num < 10 then
         kmm_index <= num;
@@ -372,7 +369,7 @@ begin
         kmm_index <= 0;
         matrix_segment_out <= (others => '1');
       end if;
-      
+
       if reset_in = '0' then
         -- $7D = no key ($7E and $7F have special meanings)
         kd1 <= x"7D";
@@ -456,10 +453,10 @@ begin
             kd1 <= x"51";
             kd_count <= 1;
           end if;
-          
+
         end if;
-      end if;  
+      end if;
     end if;
   end process;
-  
+
 end behavioural;

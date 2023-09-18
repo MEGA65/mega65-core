@@ -510,10 +510,8 @@ architecture behavioral of iomapper is
 
   signal keyboard_column8_select : std_logic;
 
-  signal ascii_key_valid : std_logic := '0';
-  signal last_ascii_key_valid : std_logic := '0';
-  signal petscii_key_valid : std_logic := '0';
-  signal last_petscii_key_valid : std_logic := '0';
+  signal key_valid : std_logic := '0';
+  signal last_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal petscii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(6 downto 0) := (others => '0');
@@ -1062,10 +1060,9 @@ begin
     eth_keycode => combined_scancode,
 
     -- ASCII feed via hardware keyboard scanner
+    key_valid => key_valid,
     ascii_key => ascii_key,
-    ascii_key_valid => ascii_key_valid,
     petscii_key => petscii_key,
-    petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
 
     );
@@ -1881,11 +1878,11 @@ begin
       -- Buffer ASCII keyboard input: Writing to the register causes
       -- the next key in the queue to be displayed.
       matrix_mode_trap <= '0';
-      if ascii_key_valid='1' and ascii_key = x"E0" and  ef_latch='0' then
+      if key_valid='1' and ascii_key = x"E0" and  ef_latch='0' then
         eth_load_enable_int <= not eth_load_enable_int;
         eth_load_enable <= not eth_load_enable_int;
       end if;
-      if ascii_key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
+      if key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
         -- C= + TAB
         -- This replaces the old ALT+TAB task switch combination
         matrix_mode_trap <= '1';
@@ -1898,7 +1895,7 @@ begin
         -- from occurring too quickly
         ef_timeout <= 20; -- x 1/100th of a second
       end if;
-      if (ascii_key_valid='0' or ascii_key /= x"e0") and e0_latch='1' then
+      if (key_valid='0' or ascii_key /= x"e0") and e0_latch='1' then
         if viciv_frame_indicate='1' then
           if e0_timeout /= 0 then
             e0_timeout <= e0_timeout - 1;
@@ -1908,7 +1905,7 @@ begin
         end if;
       end if;
 
-      if (ascii_key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
+      if (key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
         if viciv_frame_indicate='1' then
           if ef_timeout /= 0 then
             ef_timeout <= ef_timeout - 1;
@@ -1919,8 +1916,8 @@ begin
       end if;
 
       -- UART char for monitor/matrix mode
-      last_ascii_key_valid <= ascii_key_valid;
-      if ascii_key_valid='1' and last_ascii_key_valid='0' and protected_hardware_in(6)='1' then
+      last_key_valid <= key_valid;
+      if key_valid='1' and last_key_valid='0' and protected_hardware_in(6)='1' then
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
       else
@@ -1929,7 +1926,7 @@ begin
 
       -- UART char for user mode
       uart_char_valid <= '0';
-      if ascii_key_valid='1' and last_ascii_key_valid='0' then
+      if key_valid='1' and last_key_valid='0' then
         if protected_hardware_in(6)='0' then
           -- Push char to matrix mode monitor (it will know if it is active or
           -- not)
@@ -1947,12 +1944,7 @@ begin
             ascii_key_presenting <= '1';
             ascii_bucky_key_buffered <= bucky_key;
           end if;
-        end if;
-      end if;
 
-      last_petscii_key_valid <= petscii_key_valid;
-      if petscii_key_valid='1' and last_petscii_key_valid='0' then
-        if protected_hardware_in(6)='0' then
           -- Push char to $D619 accelerated keyboard reader
           if petscii_key_presenting = '1' then
             if petscii_key_buffer_count < 4 then
