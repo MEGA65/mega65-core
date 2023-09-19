@@ -843,7 +843,7 @@ $(UTILDIR)/%.o: $(UTILDIR)/%.s
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $<
 
 $(UTILDIR)/%.o: $(UTILDIR)/%.c
-	@if [[ ! -d $(UTILDIR)/work ]]; then \
+	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
 	$(CC65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/work/$*.s $<
@@ -1223,7 +1223,7 @@ clean:
 	rm -rf vivado/*.{cache,runs,hw,ip_user_files,srcs,xpr}
 	rm -f $(TOOLS)
 	rm -f $(GEN_VERSION)
-	rm -f FAIL.* PASS.*
+	rm -f FAIL.* PASS.* JENKINS_BUILD_*
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean

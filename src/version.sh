@@ -4,11 +4,13 @@
 # get branch name
 #
 if [[ -n $JENKINS_SERVER_COOKIE ]]; then
-  LAST_BUILD=$(cat JENKINS_BUILD_ID)
-  if [[ $BUILD_ID = $LAST_BUILD ]]; then
-    echo "(JENKINS) version for this build already created:"
-    cat JENKINS_BUILD_VERSION
-    exit
+  if [[ -e JENKINS_BUILD_ID && -e JENKINS_BUILD_VERSION ]]; then
+    LAST_BUILD=$(cat JENKINS_BUILD_ID)
+    if [[ $BRANCH_NAME_$BUILD_ID = $LAST_BUILD ]]; then
+      echo "(JENKINS) reusing version for this target:"
+      cat JENKINS_BUILD_VERSION
+      exit
+    fi
   fi
   branch=${BRANCH_NAME}
 else
@@ -108,7 +110,7 @@ cat assets/matrix_banner.txt | sed -e 's/GITCOMMITID/'"${stringout}"'/g' | src/t
 echo "wrote: bin/matrix_banner.txt"
 
 if [[ -n $JENKINS_SERVER_COOKIE ]]; then
-  echo $BUILD_ID > JENKINS_BUILD_ID
+  echo $BRANCH_NAME_$BUILD_ID > JENKINS_BUILD_ID
   echo "-------------------------" > JENKINS_BUILD_VERSION
   echo "internal: ${stringout}" >> JENKINS_BUILD_VERSION
   echo "freezer:  ${freezerout}" >> JENKINS_BUILD_VERSION
