@@ -92,18 +92,17 @@ def parse_header(main: dict, line: str) -> bool:
     line = line.rstrip()
     if line == '':
         return False
-    match line[0]:
-        case '!':
-            if main['memory_start'] is None and main['memory_end'] is None:
-                main['memory_start'] = 0
-            return True
-        case '@':
-            if not parse_assignment(main, line[1:]):
-                sys.stderr.write(f"ERROR: can't parse '{line}'\n")
-                sys.exit(1)
-        case _:
-            sys.stderr.write('ERROR: header expects @ definitions only!\n')
+    if line[0] == '!':
+        if main['memory_start'] is None and main['memory_end'] is None:
+            main['memory_start'] = 0
+        return True
+    if line[0] == '@':
+        if not parse_assignment(main, line[1:]):
+            sys.stderr.write(f"ERROR: can't parse '{line}'\n")
             sys.exit(1)
+    else:
+        sys.stderr.write('ERROR: header expects @ definitions only!\n')
+        sys.exit(1)
     return False
 
 def parse_screen(screen: dict, line: str) -> bool:
