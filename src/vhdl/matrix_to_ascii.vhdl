@@ -852,6 +852,11 @@ architecture behavioral of matrix_to_ascii is
   );
 
   signal key_num : integer range 0 to 71 := 0;
+  signal cur_key_num : integer range 0 to 71 := 0;
+  signal prev_key_num : integer range 0 to 71 := 0;
+  signal key_num_timeout : integer := 0;
+  -- Cherry key switches claim a 5 ms debounce time = 1/200th of clock frequency
+  constant cherry_mx_debounce_time : integer := clock_frequency / 1000;
 
 begin
 
@@ -1009,6 +1014,10 @@ begin
 
       bucky_key <= bucky_key_internal;
 
+      if key_num_timeout /= 0 then
+        key_num_timeout <= key_num_timeout - 1;
+      end if;
+
       key_valid <= '0';
 
       -- Check for key press events
@@ -1037,31 +1046,41 @@ begin
 
           if key_matrix(key_num) /= x"00" or petscii_matrix(key_num) /= x"ff" then
             -- This is a typing event.
-            repeat_key <= key_num;
-            repeat_key_timer <= repeat_start_timer;
-            key_valid_countdown <= 1023;
-            key_valid <= '0';
-            ascii_key <= key_matrix(key_num);
-            petscii_key <= petscii_matrix(key_num);
 
-            if key_matrix(key_num) /= x"00" then
-              -- ASCII key press event.
-              report "matrix = " & to_string(matrix);
-              report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
+            cur_key_num <= key_num;
+            if prev_key_num /= cur_key_num or key_num_timeout = 0 then
 
-              -- Make CAPS LOCK invert case of only letters
-              if bucky_key_internal(6)='1'
-                and (
-                  ((to_integer(key_matrix(key_num)) >= (96+1))
-                  and (to_integer(key_matrix(key_num)) <= (96+26)))
-                  or (bucky_key_internal(4) = '1')
-                  )
-                  then
-                    -- Clear bit 5 ($20) to convert lower to upper case letters
-                    -- (Applies to some weird Latin1 characters, regardless of
-                    -- the symbol.)
-                ascii_key(5) <= '0';
+              prev_key_num <= key_num;
+              key_num_timeout <= cherry_mx_debounce_time;
+              repeat_key <= key_num;
+              repeat_key_timer <= repeat_start_timer;
+              key_valid_countdown <= 1023;
+              key_valid <= '0';
+              ascii_key <= key_matrix(key_num);
+              petscii_key <= petscii_matrix(key_num);
+
+              if key_matrix(key_num) /= x"00" then
+                -- ASCII key press event.
+                report "matrix = " & to_string(matrix);
+                report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
+
+                -- Make CAPS LOCK invert case of only letters
+                if bucky_key_internal(6)='1'
+                  and (
+                    ((to_integer(key_matrix(key_num)) >= (96+1))
+                    and (to_integer(key_matrix(key_num)) <= (96+26)))
+                    or (bucky_key_internal(4) = '1')
+                    )
+                    then
+                      -- Clear bit 5 ($20) to convert lower to upper case letters
+                      -- (Applies to some weird Latin1 characters, regardless of
+                      -- the symbol.)
+                  ascii_key(5) <= '0';
+                end if;
               end if;
+             else
+              -- Identical key presses in too short a period of time are glitches.
+              null;
             end if;
           end if;
 
