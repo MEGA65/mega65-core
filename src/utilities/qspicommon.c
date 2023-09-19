@@ -4,16 +4,22 @@
 #include <hal.h>
 #include <memory.h>
 #include <dirent.h>
-#include <time.h>
-
-#include <6502.h>
 
 #include "qspicommon.h"
 #include "qspireconfig.h"
+#include "mhexes.h"
 #include "crc32accl.h"
 
-struct m65_tm tm_start;
-struct m65_tm tm_now;
+#ifndef STANDALONE
+void nope(char *format, ...) { *format |= 0; }
+#endif
+
+typedef struct {
+  uint8_t tm_sec, tm_min, tm_hour;
+} time_t;
+
+time_t tm_start;
+time_t tm_now;
 
 uint8_t hw_model_id = 0;
 char *hw_model_name = "?unknown?";
@@ -49,12 +55,18 @@ unsigned char flash_sector_bits = 0;
 unsigned char last_sector_num = 0xff;
 unsigned char sector_num = 0xff;
 
+unsigned char corefile_model_id = 0;
+char corefile_name[32];
+char corefile_version[32];
+char corefile_error[32];
+
 // used by QSPI routines
 unsigned char data_buffer[512];
 // Magic string for identifying properly loaded bitstream
 #include <ascii_charmap.h>
 unsigned char bitstream_magic[] = "MEGA65BITSTREAM0";
-unsigned char mega65core_magic[] = "MEGA65";
+// it's the same, MEGA65, but only 6 chars, followed by 0 bytes
+#define mega65core_magic bitstream_magic
 #include <cbm_petscii_charmap.h>
 
 unsigned short mb = 0;
@@ -75,40 +87,40 @@ unsigned char debcd(unsigned char c)
   return (c & 0xf) + (c >> 4) * 10;
 }
 
-void getrtc(struct m65_tm *a)
+uint8_t tm_last_sec;
+uint16_t tm_elapsed;
+/*
+ * this counts elapsed seconds and needs to be called at least
+ * once per minute to work! better call it every few seconds!
+ * 
+ * returns 1 if tm_elapsed has changed since the last call
+ */
+uint8_t elapsed_sec(uint8_t start)
 {
+  uint8_t tm_sec;
+
 #ifdef MODE_INTEGRATED
-  // use real RTC, as this will also work in HYPPO mode
-  a->tm_hour = debcd(lpeek(0xFFD7112L));
-  a->tm_min = debcd(lpeek(0xFFD7111L));
-  a->tm_sec = debcd(lpeek(0xFFD7110L));
-  a->tm_wday = lpeek(0xFFD7116L); // to remove read latch, wday is not used here
+  // in HYPPO the CIA does not work, so we need to rely on RTC
+  tm_sec = debcd(lpeek(0xFFD7110L));
+  lpeek(0xFFD7116L); // to remove read latch, wday is not used here
 #else
-  a->tm_hour = debcd(PEEK(0xDC0B));
-  a->tm_min = debcd(PEEK(0xDC0A));
-  a->tm_sec = debcd(PEEK(0xDC09));
-  a->tm_wday = PEEK(0xDC08); // to remove read latch, wday is not used here
+  tm_sec = debcd(PEEK(0xDC09));
+  lpeek(0xDC08L); // read tenth of sec to remove read latch
 #endif
-}
 
-// this is optimized for differences less than one hour,
-// to get rid of multiplications!
-unsigned long seconds_between(struct m65_tm *start, struct m65_tm *end)
-{
-  unsigned long d = 0;
+  if (start) {
+    tm_last_sec = tm_sec;
+    tm_elapsed = 0;
+  }
+  if (tm_last_sec == tm_sec)
+    return 0;
 
-  // overflow to next day
-  if (end->tm_hour < start->tm_hour)
-    d = 3600L;
-  else if (end->tm_hour > start->tm_hour)
-    d = -3600L;
+  if (tm_last_sec > tm_sec)
+    tm_sec += 60;
+  tm_elapsed += tm_sec - tm_last_sec;
+  tm_last_sec = tm_sec;
 
-  d += 60L * (end->tm_min - start->tm_min);
-
-  d += end->tm_sec;
-  d -= start->tm_sec;
-
-  return d;
+  return 1;
 }
 
 unsigned char progress_chars[4] = { 32, 101, 97, 231 };
@@ -117,7 +129,7 @@ unsigned int progress_total = 0, progress_goal = 0;
 
 #ifdef STANDALONE
 #define progress_start(PAGES, LABEL) \
-  getrtc(&tm_start); \
+  elapsed_sec(1); \
   progress = progress_last = 0; \
   progress_total = 0; \
   progress_goal = PAGES; \
@@ -125,12 +137,14 @@ unsigned int progress_total = 0, progress_goal = 0;
             0x11, 0x11, 0x11, 0x11, LABEL)
 #else
 #define progress_start(PAGES, LABEL) \
-  getrtc(&tm_start); \
+  elapsed_sec(1); \
   progress = progress_last = 0; \
   progress_total = 0; \
-  progress_goal = PAGES
+  progress_goal = PAGES; \
+  printf("%c%c%c%c%c%c%c%c%c%s ?KB/sec, done in ? sec.     \n", 0x13, 0x11, 0x11, 0x11, 0x11, \
+            0x11, 0x11, 0x11, 0x11, LABEL)
 #endif
-#define progress_time(VAR) VAR = seconds_between(&tm_start, &tm_now)
+#define progress_time(VAR) VAR = tm_elapsed
 
 #define EIGHT_FROM_TOP printf("\x13""\n\n\n\n\n\n\n\n");
 
@@ -144,14 +158,11 @@ void progress_bar(unsigned int add_pages, char *action)
   if (progress != progress_last) {
     progress_last = progress;
 
-    getrtc(&tm_now);
-
-    if (tm_start.tm_sec != tm_now.tm_sec) {
+    if (elapsed_sec(0)) {
       unsigned int speed;
-      unsigned int eta, delta_t;
+      unsigned int eta;
 
-      delta_t = seconds_between(&tm_start, &tm_now);
-      speed = (unsigned int)((progress_total / delta_t) >> 2);
+      speed = (unsigned int)((progress_total / tm_elapsed) >> 2);
       if (speed > 0)
         eta = ((progress_goal - progress_total) / speed) >> 2;
         EIGHT_FROM_TOP;
@@ -180,45 +191,6 @@ void progress_bar(unsigned int add_pages, char *action)
   POKE(0x0424 + (6 * 40), 93);
 
   return;
-}
-
-unsigned char check_input(char *m, uint8_t case_sensitive)
-{
-  while (PEEK(0xD610))
-    POKE(0xD610, 0);
-
-  while (*m) {
-    // Weird CC65 PETSCII/ASCII fix ups
-    if (*m == 0x0a)
-      *m = 0x0d;
-
-    while (!(input_key = PEEK(0xD610)))
-      ;
-    POKE(0xD610, 0);
-    if (input_key != ((*m) & 0x7f)) {
-      if (case_sensitive & CASE_SENSITIVE)
-        return 0;
-      if (input_key != ((*m ^ 0x20) & 0x7f))
-        return 0;
-    }
-    if (case_sensitive & CASE_PRINT)
-      printf("%c", input_key ^ 0x20);
-    m++;
-  }
-
-  return 1;
-}
-
-void wait_10ms(void)
-{
-  // 16 x ~64usec raster lines = ~1ms
-  int c = 160;
-  unsigned char b;
-  while (c--) {
-    b = PEEK(0xD012U);
-    while (b == PEEK(0xD012U))
-      continue;
-  }
 }
 
 /***************************************************************************
@@ -580,6 +552,12 @@ struct m65_dirent *hy_readdir(void)
     ((unsigned char *)&hy_dirent.d_ino)[2] = dirent[0x14];
     ((unsigned char *)&hy_dirent.d_ino)[3] = dirent[0x15];
 
+    // copy size of file in bytes
+    ((unsigned char *)&hy_dirent.d_reclen)[0] = dirent[0x1c];
+    ((unsigned char *)&hy_dirent.d_reclen)[1] = dirent[0x1d];
+    ((unsigned char *)&hy_dirent.d_reclen)[2] = dirent[0x1e];
+    ((unsigned char *)&hy_dirent.d_reclen)[3] = dirent[0x1f];
+
     // if not vfat-longname, then extract out old 8.3 name
     if (!vfatEntry) {
       memcpy(hy_dirent.d_name, dirent, 8);
@@ -685,7 +663,7 @@ short display_offset = 0;
 
 #include <cbm_screen_charmap.h>
 char *diskchooser_instructions = " Select file for slot X, press <RETURN> "
-                                 " to accept or press <RUN/STOP> to abort ";
+                                 "   to accept or press <STOP> to abort   ";
 #include <cbm_petscii_charmap.h>
 #define erase_message "- Erase Slot -"
 
@@ -745,9 +723,91 @@ unsigned char read_joystick_input(void)
 }
 #endif
 
-#define FAST_ASCII2SCREEN(C) C >= 'a' && C <= 'z' ? C & 0x1f : C
+/*
+ * int8_t read_and_check_core()
+ *
+ * reads the header from the file in disk_name_return
+ * (set by select_bitstream_file), stores header information
+ * in gobal variables and does sanity checks.
+ *
+ * returns 0 on no errors, <0 on failure. stores failure
+ * reason in global variable (screencodes)
+ *
+ */
+#include <cbm_screen_charmap.h>
+int8_t read_and_check_core(uint8_t require_mega)
+{
+  unsigned char fd;
 
-void draw_file_list(void)
+  // initialize fields
+  corefile_model_id = 0;
+  memset(corefile_error, ' ', 32);
+  memset(corefile_name, ' ', 32);
+  memset(corefile_version, ' ', 32);
+  memcpy(corefile_name, "UNKNOWN CORE TYPE", 17);
+  memcpy(corefile_version, "UNKNOWN VERSION", 15);
+
+  fd = hy_open(disk_name_return);
+  if (fd == 0xff) {
+    // Couldn't open the file.
+    memcpy(corefile_error, "Could not open core file!", 25);
+    return -1;
+  }
+
+  y = hy_read512();
+  if (!y) {
+    memcpy(corefile_error, "Failed to read core file!", 25);
+    return -2;
+  }
+
+  // check for core bitstream signature
+  for (x = 0; x < 16; x++)
+    if (buffer[x] != bitstream_magic[x])
+      break;
+  if (x < 16) {
+    memcpy(corefile_error, "Core signature not found!", 25);
+    return -3;
+  }
+
+  // copy and convert name and version to screencode
+  for (x = 0; x < 32; x++) {
+    corefile_name[x] = ascii2screen(buffer[0x10 + x], ' ');
+    corefile_version[x] = ascii2screen(buffer[0x30 + x], ' ');
+  }
+
+  // check hardware model compability
+  corefile_model_id = buffer[0x70];
+  if (corefile_model_id != hw_model_id) {
+    memcpy(corefile_error, "Core hardware model mismatch!", 29);
+    return -4;
+  }
+
+  // only allow valid cores with MEGA65 as core name
+  if (require_mega) {
+    for (x = 0; x < 7; x++)
+      if (buffer[0x10 + x] != mega65core_magic[x])
+        break;
+    for (y = ((x < 7) ? 0xff : 0); x < 32; x++)
+      y |= buffer[0x10 + x];
+    if (y) {
+      memcpy(corefile_error, "Not a MEGA65 core!", 18);
+      return -5;
+    }
+  }
+
+  return 0;
+}
+#include <cbm_petscii_charmap.h>
+
+void select_bs_copy_name()
+{
+  lcopy(FILELIST_ADDRESS + (selection_number * 64), (long)disk_name_return, 64);
+  for (x = 63; x && disk_name_return[x] == ' '; x--)
+    disk_name_return[x] = 0;
+  disk_name_return[64] = 0;
+}
+
+void select_bs_draw_list(void)
 {
   unsigned addr = SCREEN_ADDRESS;
   // unsigned char i, x;
@@ -780,7 +840,6 @@ void draw_file_list(void)
  */
 unsigned char select_bitstream_file(unsigned char slot)
 {
-  unsigned char x;
   signed char fnlen, j;
   struct m65_dirent *dirent;
   int idle_time = 0;
@@ -815,18 +874,26 @@ unsigned char select_bitstream_file(unsigned char slot)
 
       // Also convert filename to screencode and copy to screen temp area
       for (j = 0; j < 40; j++)
-        disk_name_return[j] = FAST_ASCII2SCREEN(dirent->d_name[j]);
+        disk_name_return[j] = ascii2screen(dirent->d_name[j], 0x66);
       if (fnlen > 40) {
         // filename is longer than 40 chars, so we make a small ellipse using checkerboard
         for (j--, fnlen--; j > 33; j--, fnlen--)
-          disk_name_return[j] = FAST_ASCII2SCREEN(dirent->d_name[fnlen]);
+          disk_name_return[j] = ascii2screen(dirent->d_name[fnlen], 0x66);
         disk_name_return[j--] = 0x66;
         disk_name_return[j--] = 0x66;
         disk_name_return[j--] = 0x66;
+
       }
 #include <cbm_petscii_charmap.h>
       lcopy((long)disk_name_return, FILESCREEN_ADDRESS + (file_count * 40), fnlen);
       file_count++;
+/*
+#include <cbm_screen_charmap.h>
+      disk_name_return[25] = 0x80;
+      mhx_writef("--%08lx--%s--\n", dirent->d_reclen, disk_name_return);
+#include <cbm_petscii_charmap.h>
+      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+*/
     }
   }
   hy_closedir();
@@ -837,7 +904,7 @@ unsigned char select_bitstream_file(unsigned char slot)
   lcopy((long)diskchooser_instructions, SCREEN_ADDRESS + 23 * 40, 80);
   lfill(COLOUR_RAM_ADDRESS + 23 * 40, HIGHLIGHT_ATTR, 80);
 
-  draw_file_list();
+  select_bs_draw_list();
   while (1) {
 
     if ((x = PEEK(0xD610U)))
@@ -847,19 +914,39 @@ unsigned char select_bitstream_file(unsigned char slot)
       x = read_joystick_input();
 #endif /* WITH_JOYSTICK */
 
+#include <cbm_screen_charmap.h>
     if (!x) {
       idle_time++;
+
+      if (selection_number && idle_time == 150) {
+        select_bs_copy_name();
+        read_and_check_core(0);
+
+        if (selection_number - display_offset < 12) {
+          mhx_draw_rect(2, 17, 32, 3, " Corefile ", MHX_A_NOCOLOR);
+          memcpy((void *)(0x400 + 3 + 18*40), corefile_name, 32);
+          memcpy((void *)(0x400 + 3 + 19*40), corefile_version, 32);
+          memcpy((void *)(0x400 + 3 + 20*40), corefile_error, 32);
+        }
+        else {
+          mhx_draw_rect(2, 1, 32, 3, " Corefile ", MHX_A_NOCOLOR);
+          memcpy((void *)(0x400 + 3 + 2*40), corefile_name, 32);
+          memcpy((void *)(0x400 + 3 + 3*40), corefile_version, 32);
+          memcpy((void *)(0x400 + 3 + 4*40), corefile_error, 32);
+        }
+      }
 
       usleep(10000);
       continue;
     }
     else
       idle_time = 0;
+#include <cbm_petscii_charmap.h>
 
     switch (x) {
     case 0x03: // RUN-STOP = make no change
     case 0x1b: // ESC
-      return 0;
+      return SELECTED_FILE_INVALID;
     case 0x0d: // Return = select this disk.
       // was erase (first entry) selected?
       if (selection_number == 0) {
@@ -869,12 +956,8 @@ unsigned char select_bitstream_file(unsigned char slot)
       }
 
       // Copy name out
-      lcopy(FILELIST_ADDRESS + (selection_number * 64), (long)disk_name_return, 64);
       lcopy(FILESCREEN_ADDRESS + (selection_number * 40), (long)disk_display_return, 40);
-      // Then null terminate it
-      for (x = 63; x && disk_name_return[x] == ' '; x--)
-        disk_name_return[x] = 0;
-      disk_name_return[64] = 0;
+      select_bs_copy_name();
       return SELECTED_FILE_VALID;
 
     case 0x11:
@@ -901,13 +984,14 @@ unsigned char select_bitstream_file(unsigned char slot)
     if (display_offset < 0)
       display_offset = 0;
 
-    draw_file_list();
+    select_bs_draw_list();
   }
 
   return SELECTED_FILE_INVALID;
 }
 
 // clang-format off
+#include <cbm_screen_charmap.h>
 models_type mega_models[] = {
   { 0x01, 8, "MEGA65 R1" },
   { 0x02, 4, "MEGA65 R2" },
@@ -965,85 +1049,7 @@ char *get_model_name(uint8_t model_id)
 
   return model_unknown;
 }
-
-int check_model_id_field(unsigned char megaonly, char *slot0version)
-{
-  unsigned char x;
-  unsigned short bytes_returned;
-  uint8_t core_model_id = 0;
-
-  bytes_returned = hy_read512();
-
-  if (!bytes_returned) {
-    printf("\nFailed to read .cor file.\n");
-    press_any_key(0, 0);
-    return 0;
-  }
-
-  // check for core bitstream signature
-  for (x = 0; x < 16; x++)
-    if (buffer[x] != bitstream_magic[x])
-      break;
-  if (x < 16) {
-    printf("\n%c.COR file has no COR signature!%c\n", 0x1c, 0x05);
-    press_any_key(0, 0);
-    return 0;
-  }
-
-  // only allow valid cores with MEGA65 as core name
-  if (megaonly) {
-    for (x = 0; x < 7; x++)
-      if (buffer[0x10 + x] != mega65core_magic[x])
-        break;
-    if (x < 7) {
-      printf("\n%cOnly COR with core name 'MEGA65' can be\nflashed into slot 0!\n\n"
-             "Refusing to flash!%c\n",
-          0x1c, 0x05);
-      press_any_key(0, 0);
-      return 0;
-    }
-  }
-
-  // display core version
-  for (x = 48; x < 48+32; x++)
-    buffer[x] = ascii2petscii(buffer[x], 0x20);
-  buffer[x] = 0;
-  printf("UPGRADE0.COR Version:\n  %s\nSlot 0 Version:\n  %s\n\n", buffer + 48, slot0version);
-
-  core_model_id = buffer[0x70];
-  printf(".COR file model id: $%02X - %s\n", core_model_id, get_model_name(core_model_id));
-  printf(" Hardware model id: $%02X - %s\n\n", hw_model_id, hw_model_name);
-
-  if (hw_model_id == core_model_id) {
-    printf("%cVerified .COR file matches hardware.\n"
-           "Safe to flash.%c\n\n"
-           "Press any key to continue,\nRUN/STOP or ESC to abort.\n",
-        0x1e, 0x05);
-    bytes_returned = press_any_key(0, 1);
-    if (bytes_returned == 0x03 || bytes_returned == 0x1b) // run/stop and esc aborts
-      return 0;
-    return 1;
-  }
-
-  if (core_model_id == 0x00) {
-    printf("\x1c.COR file is missing model-id field.\n"
-           "Cannot confirm if .COR matches hardware.\n"
-           "%cAre you sure you want to flash? (y/n)\n\n",
-        0x05);
-    if (!check_input("y", CASE_INSENSITIVE))
-      return 0;
-
-    printf("Ok, will proceed to flash\n");
-    press_any_key(0, 0);
-    return 1;
-  }
-
-  printf("%cVerification error!\n"
-         "This .COR file is not intended for this hardware.%c\n",
-      0x1c, 0x05);
-  press_any_key(0, 0);
-  return 0;
-}
+#include <cbm_petscii_charmap.h>
 
 /***************************************************************************
 
@@ -1053,22 +1059,6 @@ int check_model_id_field(unsigned char megaonly, char *slot0version)
 
 unsigned char j, k;
 unsigned short flash_time = 0, crc_time = 0, load_time = 0;
-
-unsigned char slot_empty_check(unsigned short mb_num)
-{
-  unsigned long addr;
-  for (addr = (mb_num * 1048576L); addr < ((mb_num * 1048576L) + SLOT_SIZE); addr += 512) {
-    read_data(addr);
-    y = 0xff;
-    for (x = 0; x < 512; x++)
-      y &= data_buffer[x];
-    if (y != 0xff)
-      return -1;
-
-    *(unsigned long *)(0x0400) = addr;
-  }
-  return 0;
-}
 
 void flash_inspector(void)
 {
@@ -1300,8 +1290,8 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
     printf("\n");
 
     // TODO: also check NAME "MEGA65" for slot 0 flash!
-    if (!check_model_id_field(slot == 0 ? 1 : 0, slot0version))
-      return;
+    //if (!check_model_id_field(slot == 0 ? 1 : 0, slot0version))
+    //  return;
 
 #if defined(STANDALONE) && defined(QSPI_DEBUG)
     printf("%c", 0x93);
@@ -1368,7 +1358,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
     printf("\n\n\nCALC CRC32  = %08lx\n", get_crc32());
 
     if (addr_len < 4096 || core_crc != get_crc32()) {
-      printf("\n%cCHECKSUM MISMATCH%c\n", 28, 5);
+      printf("\n%cCHECKSUM MISMATCH%c %ds %ds\n", 28, 5, load_time, crc_time);
       if (slot == 0) {
         printf("\nRefusing to flash slot 0!\n");
         press_any_key(0, 0);
@@ -1485,7 +1475,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
     printf("%c\nYou are about to erase slot %d!\n"
            "Are you sure you want to proceed? (y/n)%c\n\n",
         0x81, slot, 0x05);
-    if (!check_input("y", CASE_INSENSITIVE))
+    if (!mhx_check_input("y", 0, MHX_A_NOCOLOR))
       return;
     printf("%c", 0x93);
 

@@ -1,0 +1,51 @@
+@memory_end=0x4ffff
+@memory_align=0x100
+@filename=megaflash_screens
+!screen=slot1_not_m65
+!size=40x25
+!background=6
+!foreground=1
+!text
+{8}
+  ** No MEGA65 core in slot 1 found! **
+{1}
+ An error while replacing slot 0 can
+ temporary brick your MEGA65, which can
+ {7}ONLY{1} be reverted using a JTAG adapter
+ or a MEGA65 core in slot 1.
+
+ Please confirm that you know about the
+ risks and the recovery procedure by
+ typing CONFIRM, or press <RUN/STOP> to
+ abort: {C}
+!endtext
+!screen=slot0_warning
+!size=40x25
+!background=6
+!foreground=1
+!text
+{8}
+ ** You are about to replace slot 0! **
+{1}
+If this process fails or is interrupted,
+your {7}MEGA65 is softbricked{1}. Then you can
+either use the JTAG recovery procedure
+or wait ca. 30 sec until slot 1 starts.
+For this you need to make sure that your
+slot 1 MEGA65 core works correctly and
+you can use the flasher inside that
+core to reflash slot 0.
+
+If you are unsure about any of this,
+please contact us first!
+{7}
+ * I confirm that I am aware of the
+   risks involved and like to proceed.
+
+ * I confirm that I can start my MEGA65
+   without the need of slot 0 or can
+   access the flasher in slot 1.
+{}
+Type CONFIRM to proceed, or press
+<RUN/STOP> to abort: {C}
+!endtext

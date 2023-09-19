@@ -2,7 +2,11 @@
 
 #include <hal.h>
 #include <memory.h>
-#include "qspireconfig.h"
+
+#ifndef STANDALONE
+#define printf nope
+void nope(char *format, ...);
+#endif
 
 unsigned char reconfig_disabled = 0;
 unsigned char input_key;
@@ -64,7 +68,7 @@ void reconfig_fpga(unsigned long addr)
     // Trigger reconfigure
     POKE(0xD6CFU, 0x42);
     // visual feedback
-    POKE(0xD020, PEEK(0xD012) & 0x0F);
+    POKE(0xD020, PEEK(0xD020) & 0x0F);
   }
   // reconfig failed!
   POKE(0xD020, 0x0C);

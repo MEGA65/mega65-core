@@ -4,6 +4,10 @@
  * QSPI tools that are used to flash the QSPI,
  * used in: MEGAFLASH and derivates
  */
+#ifndef STANDALONE
+#define printf nope
+void nope(char *format, ...);
+#endif
 
 /*
  * Compile time options:
@@ -72,9 +76,6 @@ extern models_type mega_models[];
 extern uint8_t hw_model_id;
 extern char *hw_model_name;
 extern unsigned char slot_count;
-
-extern struct m65_tm tm_start;
-extern struct m65_tm tm_now;
 
 extern unsigned char bash_bits;
 extern unsigned int page_size;
