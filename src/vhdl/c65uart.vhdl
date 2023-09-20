@@ -676,15 +676,18 @@ begin  -- behavioural
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
           -- @IO:GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz (VIC-IV pixel clock)
-          -- @IO:GS $D609.7 UARTMISC:MODKEYCAPS Buffered CAPS LOCK key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.6 UARTMISC:MODKEYMSCRL Buffered NOSCRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.5 UARTMISC:MODKEYMALT Buffered ALT key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.4 UARTMISC:MODKEYMMEGA Buffered MEGA/C= key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.3 UARTMISC:MODKEYMCTRL Buffered CTRL key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.2 UARTMISC:MODKEYMLSHFT Buffered Left shift key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D609.1 UARTMISC:MODKEYMRSHFT Buffered Right shift key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D609.7 FSERIAL:DMODE Fast IEC serial (not yet implemented)
+          -- @IO:GS $D609.6 FSERIAL:FSDIR Direction register for DMODE (not yet implemented)
           fastio_rdata(0) <= clock709375;
-          fastio_rdata(7 downto 1) <= unsigned(bucky_key_buffered(6 downto 0));
+        when x"0a" =>
+          -- @IO:GS $D60A.6 UARTMISC:MODKEYCAPS CAPS LOCK key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.5 UARTMISC:MODKEYSCRL NOSCRL key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.3 UARTMISC:MODKEYMEGA MEGA/C= key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+          fastio_rdata(6 downto 0) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
           -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
           -- @IO:GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch point always
@@ -720,18 +723,18 @@ begin  -- behavioural
           fastio_rdata(6) <= accessible_key_extradim;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
-          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII at top of typing event queue. Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
-          -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
-          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611 Modifier key state.
+          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers.
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (immediate; read only).
+          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (immediate; read only).
+          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (immediate; read only).
+          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (immediate; read only).
+          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (immediate; read only).
+          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (immediate; read only).
+          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (immediate; read only).
           fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
           fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>
@@ -774,7 +777,7 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Top of typing event queue as PETSCII. Write to clear event ready for next.
           fastio_rdata <= unsigned(porto);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
