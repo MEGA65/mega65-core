@@ -693,7 +693,7 @@ begin  -- behavioural
           -- @IO:GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
-          fastio_rdata(7) <= unsigned(key_presenting);
+          fastio_rdata(7) <= key_presenting;
           fastio_rdata(6 downto 0) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
           -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
