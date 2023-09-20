@@ -111,7 +111,9 @@ entity c65uart is
     suppress_key_retrigger : out std_logic := '0';
     ascii_key_event_count : in unsigned(15 downto 0);
 
-    bucky_key_buffered : in std_logic_vector(6 downto 0) := (others => '0')
+    bucky_key_buffered : in std_logic_vector(6 downto 0) := (others => '0');
+    key_presenting : inout std_logic := '0';
+    key_queue_flush : buffer std_logic := '1'
     );
 end c65uart;
 
@@ -278,10 +280,10 @@ begin  -- behavioural
           reg_ctrl1_parity_enable,reg_ctrl23_char_length_deduct,
           reg_ctrl45_sync_mode_flags,reg_ctrl6_rx_enable,reg_ctrl7_tx_enable,
           reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
-          clock709375,bucky_key_buffered,reg_portf_read,reg_portf_ddr,
+          clock709375,bucky_key_buffered,key_presenting,reg_portf_read,reg_portf_ddr,
           reg_portg_read,reg_portg_ddr,
           key_left,key_up,real_hardware,accessible_key_extradim,
-          accessible_key_enable,porth,porti,matrix_disable_modifiers,
+          accessible_key_enable,key_queue_flush,porth,porti,matrix_disable_modifiers,
           widget_enable_internal,ps2_enable_internal,physkey_enable_internal,
           virtual_enable_internal,joykey_enable_internal,joyswap_internal,
           joya_rotate_internal,joyb_rotate_internal,
@@ -466,6 +468,7 @@ begin  -- behavioural
 
       porth_write_strobe <= '0';
       porto_write_strobe <= '0';
+      key_queue_flush <= '1';
 
       -- Calculate read value for various ports
       reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);
@@ -526,6 +529,8 @@ begin  -- behavioural
 
           when x"09" =>
             clock709375 <= fastio_wdata(0);
+          when x"0a" =>
+            key_queue_flush <= fastio_wdata(7);
           when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
@@ -680,6 +685,7 @@ begin  -- behavioural
           -- @IO:GS $D609.6 FSERIAL:FSDIR Direction register for DMODE (not yet implemented)
           fastio_rdata(0) <= clock709375;
         when x"0a" =>
+          -- @IO:GS $D60A.7 UARTMISC:KEYQUEUE 1 = Typing event queue is non-empty. Write 0 to this bit to flush queue.
           -- @IO:GS $D60A.6 UARTMISC:MODKEYCAPS CAPS LOCK key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.5 UARTMISC:MODKEYSCRL NOSCRL key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
@@ -687,6 +693,7 @@ begin  -- behavioural
           -- @IO:GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+          fastio_rdata(7) <= unsigned(key_presenting);
           fastio_rdata(6 downto 0) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
           -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
