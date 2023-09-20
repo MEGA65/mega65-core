@@ -519,6 +519,7 @@ architecture behavioral of iomapper is
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
   signal petscii_key_buffered : unsigned(7 downto 0) := x"ff";
   signal bucky_key_buffered : std_logic_vector(6 downto 0) := (others => '0');
+  signal key_queue_flush : std_logic;
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
   type bucky_key_buffer_t is array(0 to 3) of std_logic_vector(6 downto 0);
   signal key_buffer_count : integer range 0 to 4 := 0;
@@ -946,7 +947,9 @@ begin
       potb_x => potb_x,
       potb_y => potb_y,
 
-      bucky_key_buffered => bucky_key_buffered
+      bucky_key_buffered => bucky_key_buffered,
+      key_presenting => key_presenting,
+      key_queue_flush => key_queue_flush
       );
   end block;
 
@@ -1991,6 +1994,13 @@ begin
         else
           ascii_key_event_count <= x"0000";
         end if;
+
+      elsif key_queue_flush = '0' then
+        key_buffer_count <= 0;
+        key_presenting <= '0';
+        ascii_key_buffered <= x"00";
+        petscii_key_buffered <= x"ff";
+        bucky_key_buffered <= "0000000";
       end if;
     end if;
   end process;
