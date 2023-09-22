@@ -12,8 +12,11 @@ The build process requires a set of tools and libraries common to most Linux dis
 sudo apt install build-essential python3 libpng-dev libncurses5-dev \
                  libtinfo5 libusb-1.0-0-dev git pkg-config wget sshpass \
                  unzip imagemagick p7zip-full libgtest-dev libgmock-dev \
-                 libreadline-dev libcairo2-dev libgif-dev
+                 libreadline-dev libcairo2-dev libgif-dev libgtest-dev \
+		 libgmock-dev
 ```
+
+(If you're having issues with the build that look like components are missing, check [the Jenkins builder Docker configuration](https://github.com/MEGA65/builder-docker/blob/main/megabuild/Dockerfile) for an updated list.)
 
 ## Installing Xilinx Vivado
 

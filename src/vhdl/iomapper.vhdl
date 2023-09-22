@@ -129,7 +129,7 @@ entity iomapper is
         drive_led2 : out std_logic := '0';
         drive_ledsd : out std_logic := '0';
         motor : out std_logic := '0';
-        porto_out : out unsigned(7 downto 0) := x"00";
+        porto_out : out unsigned(7 downto 0) := x"ff";
         portp_out : out unsigned(7 downto 0);
 
         last_reset_source : in unsigned(2 downto 0);
@@ -510,24 +510,24 @@ architecture behavioral of iomapper is
 
   signal keyboard_column8_select : std_logic;
 
-  signal ascii_key_valid : std_logic := '0';
-  signal last_ascii_key_valid : std_logic := '0';
-  signal petscii_key_valid : std_logic := '0';
-  signal last_petscii_key_valid : std_logic := '0';
+  signal key_valid : std_logic := '0';
+  signal last_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal petscii_key : unsigned(7 downto 0) := x"00";
-  signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
+  signal bucky_key : std_logic_vector(6 downto 0) := (others => '0');
+  signal key_presenting : std_logic := '0';
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
-  signal ascii_key_presenting : std_logic := '0';
-  signal petscii_key_buffered : unsigned(7 downto 0) := x"00";
-  signal petscii_key_presenting : std_logic := '0';
+  signal petscii_key_buffered : unsigned(7 downto 0) := x"ff";
+  signal bucky_key_buffered : std_logic_vector(6 downto 0) := (others => '0');
+  signal key_queue_flush : std_logic;
   type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
+  type bucky_key_buffer_t is array(0 to 3) of std_logic_vector(6 downto 0);
+  signal key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_buffer : key_buffer_t;
-  signal ascii_key_buffer_count : integer range 0 to 4 := 0;
   signal ascii_key_next : std_logic := '0';
   signal petscii_key_buffer : key_buffer_t;
-  signal petscii_key_buffer_count : integer range 0 to 4 := 0;
   signal petscii_key_next : std_logic := '0';
+  signal bucky_key_buffer : bucky_key_buffer_t;
 
   signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
@@ -912,7 +912,8 @@ begin
       porth_write_strobe => ascii_key_next,
       porto_write_strobe => petscii_key_next,
       matrix_disable_modifiers => matrix_disable_modifiers,
-      porti => std_logic_vector(bucky_key(7 downto 0)),
+      porti(6 downto 0) => std_logic_vector(bucky_key(6 downto 0)),
+      porti(7) => '0',
       portj_out => matrix_segment_num,
       portj_in => std_logic_vector(matrix_segment_out),
       portk_out(6 downto 0) => virtual_key1(6 downto 0),
@@ -944,7 +945,11 @@ begin
       pota_x => pota_x,
       pota_y => pota_y,
       potb_x => potb_x,
-      potb_y => potb_y
+      potb_y => potb_y,
+
+      bucky_key_buffered => bucky_key_buffered,
+      key_presenting => key_presenting,
+      key_queue_flush => key_queue_flush
       );
   end block;
 
@@ -1051,10 +1056,9 @@ begin
     eth_keycode => combined_scancode,
 
     -- ASCII feed via hardware keyboard scanner
+    key_valid => key_valid,
     ascii_key => ascii_key,
-    ascii_key_valid => ascii_key_valid,
     petscii_key => petscii_key,
-    petscii_key_valid => petscii_key_valid,
     bucky_key => bucky_key(6 downto 0)
 
     );
@@ -1870,11 +1874,11 @@ begin
       -- Buffer ASCII keyboard input: Writing to the register causes
       -- the next key in the queue to be displayed.
       matrix_mode_trap <= '0';
-      if ascii_key_valid='1' and ascii_key = x"E0" and  ef_latch='0' then
+      if key_valid='1' and ascii_key = x"E0" and  ef_latch='0' then
         eth_load_enable_int <= not eth_load_enable_int;
         eth_load_enable <= not eth_load_enable_int;
       end if;
-      if ascii_key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
+      if key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
         -- C= + TAB
         -- This replaces the old ALT+TAB task switch combination
         matrix_mode_trap <= '1';
@@ -1887,7 +1891,7 @@ begin
         -- from occurring too quickly
         ef_timeout <= 20; -- x 1/100th of a second
       end if;
-      if (ascii_key_valid='0' or ascii_key /= x"e0") and e0_latch='1' then
+      if (key_valid='0' or ascii_key /= x"e0") and e0_latch='1' then
         if viciv_frame_indicate='1' then
           if e0_timeout /= 0 then
             e0_timeout <= e0_timeout - 1;
@@ -1897,7 +1901,7 @@ begin
         end if;
       end if;
 
-      if (ascii_key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
+      if (key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
         if viciv_frame_indicate='1' then
           if ef_timeout /= 0 then
             ef_timeout <= ef_timeout - 1;
@@ -1908,8 +1912,8 @@ begin
       end if;
 
       -- UART char for monitor/matrix mode
-      last_ascii_key_valid <= ascii_key_valid;
-      if ascii_key_valid='1' and last_ascii_key_valid='0' and protected_hardware_in(6)='1' then
+      last_key_valid <= key_valid;
+      if key_valid='1' and last_key_valid='0' and protected_hardware_in(6)='1' then
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
       else
@@ -1918,89 +1922,86 @@ begin
 
       -- UART char for user mode
       uart_char_valid <= '0';
-      if ascii_key_valid='1' and last_ascii_key_valid='0' then
+      if key_valid='1' and last_key_valid='0' then
         if protected_hardware_in(6)='0' then
           -- Push char to matrix mode monitor (it will know if it is active or
           -- not)
           uart_char <= ascii_key;
           uart_char_valid <= '1';
-          -- Push char to $D610 accelerated keyboard reader as well
-          if ascii_key_presenting = '1' then
-            if ascii_key_buffer_count < 4 then
-              ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
-              ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+          -- Enqueue char to keyboard buffer
+          --
+          -- If ascii_key = x"00" and petscii_key /= x"ff", enqueue the event,
+          -- encoding ascii_key as x"ff" to disambiguate from "empty queue"
+          -- state. This intentionally emits a valid but incorrect ASCII
+          -- character in 13 cases where PETSCII has a character but ASCII
+          -- does not for the same key number and modifiers.
+          if key_presenting = '1' then
+            if key_buffer_count < 4 then
+              if ascii_key = x"00" then
+                ascii_key_buffer(key_buffer_count) <= x"ff";
+              else
+                ascii_key_buffer(key_buffer_count) <= ascii_key;
+              end if;
+              petscii_key_buffer(key_buffer_count) <= petscii_key;
+              bucky_key_buffer(key_buffer_count) <= bucky_key;
+              key_buffer_count <= key_buffer_count + 1;
             end if;
           else
-            ascii_key_buffered <= ascii_key;
-            ascii_key_presenting <= '1';
-          end if;
-        end if;
-      end if;
-
-      last_petscii_key_valid <= petscii_key_valid;
-      if petscii_key_valid='1' and last_petscii_key_valid='0' then
-        if protected_hardware_in(6)='0' then
-          -- Push char to $D619 accelerated keyboard reader
-          if petscii_key_presenting = '1' then
-            if petscii_key_buffer_count < 4 then
-              petscii_key_buffer(petscii_key_buffer_count) <= petscii_key;
-              petscii_key_buffer_count <= petscii_key_buffer_count + 1;
+            if ascii_key = x"00" then
+              ascii_key_buffered <= x"ff";
+            else
+              ascii_key_buffered <= ascii_key;
             end if;
-          else
             petscii_key_buffered <= petscii_key;
-            petscii_key_presenting <= '1';
+            bucky_key_buffered <= bucky_key;
+            key_presenting <= '1';
           end if;
+
         end if;
-      end if;
+      end if; -- key_valid
 
       if reset_high = '1' then
-
         eth_load_enable_int <= '0';
         eth_load_enable <= '0';
 
-        ascii_key_presenting <= '0';
+        key_buffer_count <= 0;
+        key_presenting <= '0';
         ascii_key_buffered <= x"00";
-        ascii_key_buffer_count <= 0;
+        petscii_key_buffered <= x"ff";
+        bucky_key_buffered <= "0000000";
 
-        petscii_key_presenting <= '0';
-        petscii_key_buffered <= x"00";
-        petscii_key_buffer_count <= 0;
-      elsif ascii_key_next = '1' then
-        if ascii_key_buffer_count > 0 then
-          ascii_key_presenting <= '1';
+      elsif ascii_key_next = '1' or petscii_key_next = '1' then
+        -- Dequeue the keyboard buffer
+        if key_buffer_count > 0 then
+          key_presenting <= '1';
           ascii_key_buffered <= ascii_key_buffer(0);
-          ascii_key_buffer_count <= ascii_key_buffer_count - 1;
+          petscii_key_buffered <= petscii_key_buffer(0);
+          bucky_key_buffered <= bucky_key_buffer(0);
+          key_buffer_count <= key_buffer_count - 1;
           for i in 0 to 2 loop
             ascii_key_buffer(i) <= ascii_key_buffer(i+1);
-          end loop;
-        else
-          ascii_key_presenting <= '0';
-          ascii_key_buffered <= x"00";
-        end if;
-        if ascii_key_event_count /= x"FFFF" then
-          ascii_key_event_count <= ascii_key_event_count + 1;
-        else
-          ascii_key_event_count <= x"0000";
-        end if;
-      elsif petscii_key_next = '1' then
-        if petscii_key_buffer_count > 0 then
-          petscii_key_presenting <= '1';
-          petscii_key_buffered <= petscii_key_buffer(0);
-          petscii_key_buffer_count <= petscii_key_buffer_count - 1;
-          for i in 0 to 2 loop
             petscii_key_buffer(i) <= petscii_key_buffer(i+1);
+            bucky_key_buffer(i) <= bucky_key_buffer(i+1);
           end loop;
         else
-          petscii_key_presenting <= '0';
-          petscii_key_buffered <= x"00";
+          key_presenting <= '0';
+          ascii_key_buffered <= x"00";
+          petscii_key_buffered <= x"ff";
+          bucky_key_buffered <= "0000000";
         end if;
         if ascii_key_event_count /= x"FFFF" then
           ascii_key_event_count <= ascii_key_event_count + 1;
         else
           ascii_key_event_count <= x"0000";
         end if;
-      end if;
 
+      elsif key_queue_flush = '0' then
+        key_buffer_count <= 0;
+        key_presenting <= '0';
+        ascii_key_buffered <= x"00";
+        petscii_key_buffered <= x"ff";
+        bucky_key_buffered <= "0000000";
+      end if;
     end if;
   end process;
 
