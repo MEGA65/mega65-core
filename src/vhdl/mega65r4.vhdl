@@ -249,7 +249,7 @@ entity container is
          audio_bick : out std_logic := '1';
          audio_lrclk : out std_logic := '1';
          audio_sdata : out std_logic := '1';
-         audio_powerdown_n : out std_logic := '1';
+         audio_powerdown_n : out std_logic := reset_out;
          audio_smute : out std_logic := '0'; -- do not mute Audio DAC
          audio_acks : out std_logic := '1';
          audio_cdti : out std_logic := '1';
