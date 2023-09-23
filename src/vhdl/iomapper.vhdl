@@ -1825,22 +1825,22 @@ begin
 
       -- Switch POTs between the two SIDs, based on the CIA port A upper
       -- bits.
-      case cia1portb_out(7 downto 6) is
+      case cia1porta_out(7 downto 6) is
         when "01" =>
-          potl_x <= pota_x;
-          potl_y <= pota_y;
-          potr_x <= potb_x;
-          -- Simulate light gun with touch screen
-          if touch1_valid_int='0' then
-            potr_y <= potb_y;
-          else
-            potr_y <= x"00";
-          end if;
-        when others =>
           potr_x <= pota_x;
           potr_y <= pota_y;
           potl_x <= potb_x;
-          potl_y <= potb_y;
+          -- Simulate light gun with touch screen
+          if touch1_valid_int='0' then
+            potl_y <= potb_y;
+          else
+            potl_y <= x"00";
+          end if;
+        when others =>
+          potl_x <= pota_x;
+          potl_y <= pota_y;
+          potr_x <= potb_x;
+          potr_y <= potb_y;
       end case;
 
       -- Reflect CIA lines for IEC bus driverse so that they

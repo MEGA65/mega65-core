@@ -793,10 +793,6 @@ begin  -- behavioural
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
           fastio_rdata <= mouse_debug;
-          -- @IO:GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D622 UARTMISC:POTBX Read Port B paddle X, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D623 UARTMISC:POTBY Read Port B paddle Y, without having to fiddle with SID/CIA settings.
         when x"1c" =>
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
@@ -811,6 +807,10 @@ begin  -- behavioural
         when x"1F" =>
           -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
+          -- @IO:GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D622 UARTMISC:POTBX Read Port B paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D623 UARTMISC:POTBY Read Port B paddle Y, without having to fiddle with SID/CIA settings.
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
