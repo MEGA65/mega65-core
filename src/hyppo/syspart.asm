@@ -461,9 +461,10 @@ syspart_configsector_apply:
 	sta [<zptempv32],z	
 
 	;; Audio amplifier control
+        lda $d6f4, #$fe   ; select mixer register $fe (audio-amp on/off via bit0)
         lda $de03
         and #$01
-        sta audioamp_ctl
+        sta $d6f5 ; store audio-amp on/off setting into mixer register $fe
 
 	;; Stereo flags
         lda $de03
