@@ -1054,6 +1054,7 @@ begin
               key_num_timeout <= cherry_mx_debounce_time;
               repeat_key <= key_num;
               repeat_key_timer <= repeat_start_timer;
+              repeat_timer_expired <= '0';
               key_valid_countdown <= 1023;
               key_valid <= '0';
               ascii_key <= key_matrix(key_num);
