@@ -20,7 +20,7 @@ programentrypoint:
 	sta 0
 
 	; Set ethernet controller mode
-	lda #$75  ; Enable promiscuous mode, multicast and broadcast RX, tx/rx phase = 1
+	lda #$75  ; RXPH 1, MCST on, BCST on, TXPH 1, NOCRC off, NOPROM on
 	sta $d6e5
 
 	; Clear all waiting frames
@@ -49,19 +49,10 @@ purgequeue:
 	lda #$80
 	ldx #$8d
 	; Keep ourselves mapped in upper half of RAM
-	ldy #$ff
+	ldy #$fe
 	ldz #$17
 	map
 	eom
-
-	; zeroize ip address
-	ldx #$03
-zeroip:
-	lda #$00
-	sta $80fc,x
-	dex
-	bpl zeroip
-
 
 	; Ethernet memory mapped buffer access should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
@@ -73,14 +64,30 @@ zeroip:
 	; also make sure that we acknowledge the last received packet so that the
 	; ethernet controller knows it can receive.
 
+	lda $d6e9
+	eor #$02
+	sta linklocaladdress+8
+	lda $d6ea
+	sta linklocaladdress+9
+	lda $d6eb
+	sta linklocaladdress+10
+	lda $d6ec
+	sta linklocaladdress+13
+	lda $d6ed
+	sta linklocaladdress+14
+	lda $d6ee
+	sta linklocaladdress+15
+	
+
+
 loop:
 
 	; eth buffer as basepage to save bytes accessing it
 	; IMPORTANT: This means all memory access to base page addresses will actually
-	; target the Ethernet buffer. Reading from it provides rx data (starting at offset
-	; 2 since the first two bytes are the length of the frame). Writing to it writes
-	; to the TX buffer (which does not have any offset, since it is not preceded by
-	; a length field).
+	; target the Ethernet buffer. Reading from it provides rx data (packet data starts
+	; at offset 2 since the first two bytes are the length of the frame). Writing to 
+	; it writes to the TX buffer (which does not have any offset, since it is not 
+	; preceded by a length field).
 	lda #$68
 	tab
 
@@ -98,86 +105,197 @@ waitingforpacket:
 
 	; Got a packet.
 	; check whether it is UDP port 4510
-	; or whether it is an ARP request
+	; or whether it is an ND solicitation request
 
-	; Is it an ARP request?
-	; Here we want to check that $680E - $6817 =
-	; 08 06 00 01 08 00 06 04 00 01
-	;
+	lda $0e			; type IPv6 = 0x86DD
+	cmp #$86
+	bne nextpacket
+	lda $0f
+	cmp #$dd
+	bne nextpacket
+	lda $10			; protocol version = 6
+	and #$f0
+	cmp #$60
+	bne nextpacket
+	lda $16			; next header = $3a (ICMPv6)
+	cmp #$3a
+	bne notnd
+	lda $15			; payload length >= 32
+	cmp #$20
+	bmi notnd
+	lda $38			; ICMPv6 type = 135 (ND solicitation)
+	cmp #$87
+	bne notnd
 
-	ldx #9
-arpdloop:
-	lda arptemplate,x
-	lda $0e,x
+	; compare last three bytes of dst address with our own link local address
+	ldx #$02
+ndloop0:
+	lda $35,x
+	cmp linklocaladdress+13,x
+	bne nextpacket
 	dex
-	bpl arpdloop
+	bpl ndloop0
 
-	ldx #$09
-arploop0:
-	lda $0e,x
-	cmp arptemplate,x
-	bne notarp
-	dex
-	bpl arploop0
-
-	; yes, we have ARP
-	; check that IP address asked for is the same as ours
+	; yes, we have an ND solicitation packet
+	; check if our own address is requested
 	;
-	ldx #$03
-arploop5:
-	lda $80fc,x
-	cmp $28,x
-	bne notarp
+	ldx #$0f
+ndloop2:
+	lda $40,x
+	cmp linklocaladdress,x
+	bne notnd
+	dex
+	bpl ndloop2
 
-	; ok, so we have an ARP request.
-	; now we need to build the ARP reply and send it.
-	; We should copy the sender's 
+	; ok, so we have a matching ND solicitation request.
+	; now we need to build the ND advertisement reply and send it.
 
 	; set output packet size
-	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
-	lda #<42
+	; 6+6+2 bytes ethernet header + 64 bytes of ND advertisement reply = 78 bytes
+	lda #<86
 	sta $d6e2
-	lda #>42
+	lda #>86
 	sta $d6e3
 
-	; copy fixed ARP fields (we will overwrite some later)
+	; copy ND solicitation packet to TX buffer
 	; (note that TX buffer lacks 2 byte RX buffer header)
-	ldx #$14
-arploop1:
+	ldx #86
+ndloop3:
 	lda $02,x
 	sta $00,x
 	dex
-	bpl arploop1
+	bpl ndloop3
 	; Copy ethernet source to ethernet destination in TX buffer
-	; Set our mac address in ethernet source address field in TX buffer
+	; Set our mac address in ethernet source address field and target link-layer address option in TX buffer
 	ldx #$05
-arploop2:
+ndloop4:
 	lda $08,x    ; requestors mac from RX ethernet header
 	sta $00,x    ; requestors mac into TX ethernet header
 	lda $d6e9,x
 	sta $06,x    ; our mac in ethernet header
-	sta $16,x    ; our mac in ARP payload
+	sta $50,x    ; our mac in target link-layer address option
 	dex
-	bpl arploop2
-	; set packet as ARP reply
-	lda #$02     ; $02 = reply, $01 = request
-	sta $15
+	bpl ndloop4
 
-	ldx #$03
-	; copy requested IP address into reply IP address field
-arploop3:
-	lda $28,x
-	sta $1c,x
+	ldx #$0f
+	; copy requested IP address into reply IPv6 src address field
+ndloop5:
+	lda $40,x	; copy RX requested IPv6 address
+	sta $16,x	; to   TX IPv6 src address
+	lda $18,x	; copy RX IPv6 src address
+	sta $26,x	; to   TX IPv6 dst address
 	dex
-	bpl arploop3
-	; copy requestors MAC+IP into target MAC+IP fields
-	ldx #9
-arploop4:
-	lda $18,x
-	sta $20,x
+	bpl ndloop5
+
+	; set payload length (big endian)
+	lda #>32
+	sta $12
+	lda #<32
+	sta $13
+
+	; set packet as Neighbor Advertisement type
+	lda #$88     ; $88 (136) = advertisement, $87 (135) = solicitation
+	sta $36
+
+	; set Solicited and override flag
+	lda #$60
+	sta $3a
+
+	; set option type (2 = target link layer address)
+	lda #$02
+	sta $4e
+
+
+
+	; calculate checksum of Neighbor Advertisement packet
+	; (checksum is calculated over the IPv6 pseudo header, the ICMPv6 header,
+	;  and the ICMPv6 payload, which is the ND advertisement)
+
+	; init checksum with constant static values
+	;  $0020 (payload length 32)
+	; +$003a (next header 58 = ICMPv6)
+	; +$8800 (ICMPv6 type 136 = ND advertisement)
+	; +$6000 (flags 4 = solicited, 2 = override)
+	; +$0201 (target address option type 2, length 1)
+	; =$ea5b
+	lda #<$ea5b
+	sta checksum
+	lda #>$ea5b
+	sta checksum+1
+
+	clc
+	; add target address (twice, as it is in payload and in IPv6 header)
+	ldy #$01
+ndloop6:
+	ldx #$0f
+ndloop7:
+	lda checksum
+	adc $40,x
+	sta checksum
 	dex
-	bpl arploop4
-	
+	lda checksum+1
+	adc $40,x
+	sta checksum+1
+	dex
+	bpl ndloop7
+	dey
+	bpl ndloop6
+
+	; add source address
+	ldx #$0f
+ndloop8:
+	lda checksum
+	adc $18,x
+	sta checksum
+	dex
+	lda checksum+1
+	adc $18,x
+	sta checksum+1
+	dex
+	bpl ndloop8
+
+	; add mac address
+	ldx #$05
+ndloop9:
+	lda checksum
+	adc $d6e9,x
+	sta checksum
+	dex
+	lda checksum+1
+	adc $d6e9,x
+	sta checksum+1
+	dex
+	bpl ndloop9
+
+	lda checksum
+	adc #$00
+	sta checksum
+	lda checksum+1
+	adc #$00
+	sta checksum+1
+	lda checksum
+	adc #$00
+	sta checksum
+
+	lda checksum
+	cmp #$ff
+	bne notndpacketdone
+	lda checksum+1
+	cmp #$ff
+	beq ndpacketdone
+notndpacketdone:
+	eor #$ff
+	sta checksum
+	lda checksum+1
+	eor #$ff
+	sta checksum+1
+
+ndpacketdone:
+	lda checksum
+	sta $39
+	lda checksum+1
+	sta $38
+
 	; packet should now all be ready - hit TX button
 	lda #$01
 	sta $d6e4	
@@ -185,35 +303,29 @@ arploop4:
 	; Fall through to rest of packet parser (even though it won't pass
 	; these tests -- it just saves a few bytes of code).
 
-notarp:
-	; is it IPv4?
-	;
-
-	lda $10
-	cmp #$45
-	bne nextpacket
+notnd:
 
 	; is it UDP?
 	;
-	lda $19
+	lda $16
 	cmp #$11
 	bne nextpacket
 
 	; UDP port #4510
 	;
-	lda $26
+	lda $3a
 	cmp #>4510
 	bne nextpacket
-	lda $27
+	lda $3b
 	cmp #<4510
 	bne nextpacket
 
-	; packet body begins at $682C.
+	; packet body begins at $6840.
 	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
 	; packet body can do whatever is required to load data, keeping this
 	; programme very simple.
 	;
-	lda $2c
+	lda $40
 	cmp #$a9
 	bne loop
 
@@ -224,7 +336,7 @@ notarp:
 	sta $d020
 	lda #$00
 	tab
-	jsr $682C
+	jsr $6840
 	lda #$00
 	sta $d020
 
@@ -240,10 +352,12 @@ getnextframe:
 	sta $d6e1
 	rts
 
-arptemplate:
-	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
+linklocaladdress:
+	.byte $fe,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$ff,$fe,$00,$00,$00
+checksum:
+	.word $0000
 
-	.checkpc $80FC
+	.checkpc $81FC
 	.scend
 
 	.outfile "sdcard-files/ETHLOAD.M65"

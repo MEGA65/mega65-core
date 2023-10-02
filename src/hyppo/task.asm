@@ -198,14 +198,14 @@ ethernet_remote_trap:
         ldx dos_default_disk
         jsr dos_cdroot
 
-        ;; Prepare 32-bit pointer for loading etherload at $FF87F00,	
-	;; This location is the last 256 bytes of the 32KB colour RAM we
+        ;; Prepare 32-bit pointer for loading etherload at $FF87E00,	
+	;; This location is the last 512 bytes of the 32KB colour RAM we
 	;; can assume all models possess, and should result in the code not
 	;; getting in the way of loading programs of almost any size.
         ;;
 	lda #$00
         sta <dos_file_loadaddress+0
-        lda #$7f
+        lda #$7e
         sta <dos_file_loadaddress+1
         lda #$f8
         sta <dos_file_loadaddress+2
@@ -222,9 +222,10 @@ ethernet_remote_trap:
         jsr task_dummy_nmi_vector
 
 	;; Now enable MAP of colour RAM at $8000-$9FFF
-	;; $FF87F00 - $8000 = $FF7FF00
+	;; $FF87E00 - $8000 = $FF7FE00
 	lda #$ff
 	sta hypervisor_maphimb
+	dec
 	sta hypervisor_maphilo
 	lda #$17
 	sta hypervisor_maphihi
