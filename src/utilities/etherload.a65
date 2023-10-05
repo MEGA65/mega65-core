@@ -38,7 +38,7 @@ purgequeue:
 	lda #$ff
 	ldx #$0f
 	; Also for keeping ourselves mapped in the upper half of RAM
-	ldy #$ff
+	tay
 	ldz #$0f
 	map
 	eom

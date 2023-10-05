@@ -1194,6 +1194,7 @@ begin
         -- 2nd dipswitch enables remote keyboard input and remote control
         -- of MEGA65 via ethernet
         eth_remote_control => dipsw(1),
+        eth_load_enable => eth_load_enable_int,
 
         ---------------------------------------------------------------------------
         -- IO lines to the ethernet controller

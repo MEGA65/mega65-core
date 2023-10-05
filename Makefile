@@ -325,6 +325,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/raw_bits_to_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
+			$(VHDLSRCDIR)/eth_beacon_ram.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x2048.vhdl \
 			$(VHDLSRCDIR)/ethernet_miim.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
