@@ -1033,6 +1033,8 @@ freeze_mem_list:
         !8 freeze_prep_hyperregs
 
         ;; VIC-IV palette block 0
+        ;; (It's not clear why this is copied four times, but we're leaving it
+        ;; to maintain compatibility with existing freeze state files.)
         !32 $ffd3100
         !16 $0300
         !8 0
@@ -1069,10 +1071,8 @@ freeze_mem_list:
         !8 freeze_prep_none
 
         ;; VIC-IV, F011 $D000-$D0FF
-        ;; This should be last since it is not a whole sector worth, and there is a bug
-        ;; that gets tickled sometimes if a region is not an integer number of sectors.
         !32 $ffd3000
-        !16 $0080
+        !16 $0100
         !8 0
         !8 freeze_prep_viciv
 
@@ -1123,7 +1123,7 @@ freeze_mem_list:
         !16 $1000
         !8 0
         !8 freeze_prep_none
-	
+
         ;; XXX - Other IO chips!
 
         ;; End of list

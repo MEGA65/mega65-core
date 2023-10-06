@@ -2924,9 +2924,10 @@ begin
           vicii_is_raster_source <= fastio_wdata(7);
 
           if fastio_wdata(5)='1' then
-            hw_errata_disable_toggle <= not hw_errata_disable_toggle;
-          else
+            -- Disable compatibility = enable errata
             hw_errata_enable_toggle <= not hw_errata_enable_toggle;
+          else
+            hw_errata_disable_toggle <= not hw_errata_disable_toggle;
           end if;
 
           viciv_legacy_mode_registers_touched <= '1';
