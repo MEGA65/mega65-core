@@ -1033,8 +1033,7 @@ freeze_mem_list:
         !8 freeze_prep_hyperregs
 
         ;; VIC-IV palette block 0
-        ;; (It's not clear why this is copied four times, but we're leaving it
-        ;; to maintain compatibility with existing freeze state files.)
+        ;; Each prep routine changes which palette is visible at ffd3100.
         !32 $ffd3100
         !16 $0300
         !8 0
