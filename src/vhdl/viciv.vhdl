@@ -2181,6 +2181,8 @@ begin
 
       reset_drive <= reset;
       if reset_drive='0' then
+        -- Disable HW errata on reset.
+        hw_errata_disable_toggle <= not hw_errata_disable_toggle;
 
         -- Allow hyppo ROM to be visible on reset.
         rom_at_e000 <= '0';
