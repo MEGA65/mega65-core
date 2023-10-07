@@ -2932,7 +2932,6 @@ begin
             hw_errata_disable_toggle <= not hw_errata_disable_toggle;
           end if;
 
-          viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
