@@ -249,7 +249,7 @@ entity container is
          audio_bick : out std_logic := '1';
          audio_lrclk : out std_logic := '1';
          audio_sdata : out std_logic := '1';
-         audio_powerdown_n : out std_logic := '1';
+         audio_powerdown_n : out std_logic := '0';
          audio_smute : out std_logic := '0'; -- do not mute Audio DAC
          audio_acks : out std_logic := '1';
          audio_cdti : out std_logic := '1';
@@ -1309,6 +1309,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      audio_powerdown_n <= reset_out;
+      
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
