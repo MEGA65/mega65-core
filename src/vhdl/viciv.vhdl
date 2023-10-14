@@ -2086,10 +2086,10 @@ begin
       -- Apply variable HW errata level settings
       -- Level 1: VIC-III D016 Delta
       if to_integer(hw_errata_level) > 0 then
-        bug_compat_vic_iii_d016_delta <= 2;
+        bug_compat_vic_iii_d016_delta <= 0;
         bug_compat_mode <= '0';
       else
-        bug_compat_vic_iii_d016_delta <= 0;
+        bug_compat_vic_iii_d016_delta <= 2;
         bug_compat_mode <= '1';
       end if;
       -- Level 2: Character attribute fixes
