@@ -466,29 +466,39 @@ C65 $D606.4 UART:IFRXNMI UART interrupt flag: NMI on RX (not yet implemented on 
 C65 $D606.5 UART:IFTXNMI UART interrupt flag: NMI on TX (not yet implemented on the MEGA65)
 C65 $D606.6 UART:IFRXIRQ UART interrupt flag: IRQ on RX (not yet implemented on the MEGA65)
 C65 $D606.7 UART:IFTXIRQ UART interrupt flag: IRQ on TX (not yet implemented on the MEGA65)
-C65 $D606 C65 UART interrupt flag register              
+C65 $D606 C65 UART interrupt flag register
 GS $D607.0 UART:CAPLOCK C65 capslock key sense
 GS $D607.1 UART:KEYCOL8 C65 keyboard column 8 select
 C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
 GS $D608.0-1 UART:PORTEDDR C65 keyboard extra lines Data Direction Register (DDR)
 C65 $D608 C65 UART data direction register (used for C65 keyboard)
 GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz (VIC-IV pixel clock)
+GS $D609.6 FSERIAL:FSDIR Direction register for DMODE (not yet implemented)
+GS $D609.7 FSERIAL:DMODE Fast IEC serial (not yet implemented)
 GS $D609 MEGA65 extended UART control register
+GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
+GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
+GS $D60A.3 UARTMISC:MODKEYMEGA MEGA/C= key state at top of typing event queue. 1 = held during event.
+GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
+GS $D60A.5 UARTMISC:MODKEYSCRL NOSCRL key state at top of typing event queue. 1 = held during event.
+GS $D60A.6 UARTMISC:MODKEYCAPS CAPS LOCK key state at top of typing event queue. 1 = held during event.
+GS $D60A.7 UARTMISC:KEYQUEUE 1 = Typing event queue is non-empty. Write 0 to this bit to flush queue.
 GS $D60B.5-0 UARTMISC:PORTF PMOD port A on FPGA board (data) (Nexys4 boards only)
 GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch point always
 GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
 GS $D60C.0-5 UARTMISC:PORTFDDR PMOD port A on FPGA board (DDR)
 GS $D60C.6-7 UARTMISC:PORTFDDR On Screen Keyboard (OSK) Zoom Control Data Direction Register (DDR). Must be set to output to control these features.
 GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)
-GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)                        
+GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)
 GS $D60D.1 - Internal 1541 drive reset
 GS $D60D.1 UARTMISC:RST41 Internal 1541 drive reset (1=reset, 0=operate)
 GS $D60D.2 UARTMISC:SDDATA SD card MOSI/MISO
 GS $D60D.3 UARTMISC:SDCLK SD card SCLK
 GS $D60D.4 UARTMISC:SDCS SD card CS_BO
 GS $D60D.5 UARTMISC:SDBSH Enable SD card bitbash mode
-GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line 
-GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock 
+GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line
+GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock
 GS $D60D Bit bashing port
 GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
 GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
@@ -496,18 +506,18 @@ GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
 GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
 GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
 GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
-GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
-GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
+GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII at top of typing event queue. Write to clear event ready for next.
+GS $D611.0 UARTMISC:MRSHFT Right shift key state (immediate; read only).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
-GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
+GS $D611.1 UARTMISC:MLSHFT Left shift key state (immediate; read only).
 GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
-GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
-GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
-GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
-GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
-GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
-GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
-GS $D611 Modifier key state (hardware accelerated keyboard scanner).
+GS $D611.2 UARTMISC:MCTRL CTRL key state (immediate; read only).
+GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (immediate; read only).
+GS $D611.4 UARTMISC:MALT ALT key state (immediate; read only).
+GS $D611.5 UARTMISC:MSCRL NOSCRL key state (immediate; read only).
+GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (immediate; read only).
+GS $D611.7 UARTMISC:MDISABLE Disable modifiers.
+GS $D611 Modifier key state.
 GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
 GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
 GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
@@ -526,7 +536,7 @@ GS $D616.7 UARTMISC:OSKALT Display alternate on-screen keyboard layout (typicall
 GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd virtual key press.
 GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
 GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
-GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+GS $D619 UARTMISC:PETSCIIKEY Top of typing event queue as PETSCII. Write to clear event ready for next.
 GS $D61A.0 SYSCTL:AUDMUTE Mute digital video audio (MEGA65 R2 only)
 GS $D61A.1 SYSCTL:DVI Control digital video as DVI (disables audio)
 GS $D61A.2 SYSCTL:AUDDBG Visualise audio samples (DEBUG)
@@ -556,7 +566,7 @@ GS $D624.3-2 CIA porta bits 7-6 for POT multiplexor
 GS $D624.4 fa_potx line
 GS $D624.5 fa_poty line
 GS $D624.6 fb_potx line
-GS $D624.7 fb_poty line          
+GS $D624.7 fb_poty line
 GS $D624 DEBUG:POTDEBUG READ ONLY flags for paddles. See c65uart.vhdl for more information.
 GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
 GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
@@ -582,9 +592,9 @@ GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
 GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
-GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer              
+GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer
 GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
-GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
+GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
 GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
@@ -1347,7 +1357,7 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
-GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
+GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number (reading triggers generation)
 GS $D7F1.0 CPU:IECBUSACT IEC bus is active
 GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
 GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)

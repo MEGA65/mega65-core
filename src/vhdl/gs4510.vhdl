@@ -2949,7 +2949,7 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
                           
             when x"ef" =>
-              -- @IO:GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
+              -- @IO:GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number (reading triggers generation)
               if trng_consume_toggle = trng_consume_toggle_last then
                 trng_consume_toggle <= not trng_consume_toggle;
               end if;
