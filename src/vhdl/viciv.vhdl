@@ -1075,7 +1075,9 @@ architecture Behavioral of viciv is
   signal sprite_continuous_pointer_monitoring : std_logic := '1';
 
   -- Set to 0 to disable bug compatibility D016 positioning
+  signal prev_hw_errata_level : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bug_compat_mode : std_logic := '1';
+  signal prev_bug_compat_mode : std_logic := '1';
   signal bug_compat_vic_iii_d016_delta : integer := 2;
   signal bug_compat_char_attr : std_logic := '1';
 
@@ -2083,20 +2085,24 @@ begin
 
     if rising_edge(cpuclock) then
 
-      -- Apply variable HW errata level settings
-      -- Level 1: VIC-III D016 Delta
-      if to_integer(hw_errata_level) > 0 then
-        bug_compat_vic_iii_d016_delta <= 0;
-        bug_compat_mode <= '0';
-      else
-        bug_compat_vic_iii_d016_delta <= 2;
-        bug_compat_mode <= '1';
-      end if;
-      -- Level 2: Character attribute fixes
-      if to_integer(hw_errata_level) > 1 then
-        bug_compat_char_attr <= '0';
-      else
-        bug_compat_char_attr <= '1';
+      if hw_errata_level /= prev_hw_errata_level then
+        prev_hw_errata_level <= hw_errata_level;
+
+        -- Apply variable HW errata level settings
+        -- Level 1: VIC-III D016 Delta
+        if to_integer(hw_errata_level) > 0 then
+          bug_compat_vic_iii_d016_delta <= 0;
+          bug_compat_mode <= '0';
+        else
+          bug_compat_vic_iii_d016_delta <= 2;
+          bug_compat_mode <= '1';
+        end if;
+        -- Level 2: Character attribute fixes
+        if to_integer(hw_errata_level) > 1 then
+          bug_compat_char_attr <= '0';
+        else
+          bug_compat_char_attr <= '1';
+        end if;
       end if;
 
       upscale_enable <= upscale_enable_int;
@@ -2925,11 +2931,14 @@ begin
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
 
-          if fastio_wdata(5)='1' then
-            -- Disable compatibility = enable errata
-            hw_errata_enable_toggle <= not hw_errata_enable_toggle;
-          else
-            hw_errata_disable_toggle <= not hw_errata_disable_toggle;
+          prev_bug_compat_mode <= not fastio_wdata(5);
+          if fastio_wdata(5)=prev_bug_compat_mode then
+            if fastio_wdata(5)='1' then
+              -- Disable compatibility = enable errata
+              hw_errata_enable_toggle <= not hw_errata_enable_toggle;
+            else
+              hw_errata_disable_toggle <= not hw_errata_disable_toggle;
+            end if;
           end if;
 
         elsif register_number=123 then
