@@ -5,6 +5,9 @@
         .import incsp8
         .importzp sp, ptr1, tmp1, tmp2, tmp3, tmp4
 
+;
+; Source: http://6502.org/source/strings/32bit-to-ascii.html
+;
 ;* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 ;*                                                                             *
 ;*                CONVERT 32-BIT BINARY TO ASCII NUMBER STRING                 *

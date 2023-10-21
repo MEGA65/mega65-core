@@ -17,7 +17,8 @@
 
 uint16_t mhx_saddr = mhx_base_scr, mhx_caddr = mhx_base_col;
 
-uint8_t mhx_linepos = 0, mhx_curattr = 0, mhx_border = 0, mhx_back = 0;
+int8_t mhx_posx = 0, mhx_posy = 0;
+uint8_t mhx_curattr = 0, mhx_border = 0, mhx_back = 0;
 
 mhx_keycode_t mhx_lastkey;
 
@@ -118,19 +119,50 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
 
 void mhx_set_xy(uint8_t ux, uint8_t uy)
 {
+  if (ux >= mhx_scr_width || uy >= mhx_scr_width)
+    return;
   mhx_saddr = ux + uy*mhx_scr_width;
   mhx_caddr = mhx_base_col + mhx_saddr;
   mhx_saddr += mhx_base_scr;
-  mhx_linepos = ux;
+  mhx_posx = ux;
+  mhx_posy = uy;
 }
 
-void mhx_move_xy(uint8_t ux, uint8_t uy)
+void mhx_move_xy(int8_t ux, int8_t uy)
 {
+  if (mhx_posx + ux < 0)
+    ux = -mhx_posx;
+  else if (mhx_posx + ux >= mhx_scr_width)
+    ux = mhx_scr_width - mhx_posx - 1;
+  if (mhx_posy + uy < 0)
+    uy = -mhx_posy;
+  else if (mhx_posy + uy >= mhx_scr_height)
+    ux = mhx_scr_height - mhx_posy - 1;
   mhx_saddr += ux + uy*mhx_scr_width;
   mhx_caddr += ux + uy*mhx_scr_width;
-  mhx_linepos += ux;
-  if (mhx_linepos >= mhx_scr_width)
-    mhx_linepos -= mhx_scr_width;
+  mhx_posx += ux;
+  mhx_posy += uy;
+}
+
+void mhx_advance_cursor(uint8_t offset)
+{
+  if (mhx_posx + offset > mhx_scr_width)
+    offset = mhx_scr_width - mhx_posx;
+  mhx_saddr += offset;
+  mhx_caddr += offset;
+  mhx_posx += offset;
+  if (mhx_posx >= mhx_scr_width) {
+    mhx_posx = 0;
+    mhx_posy++;
+    // need to scroll
+    if (mhx_posy >= mhx_scr_height) {
+      lcopy((long)mhx_base_scr + mhx_scr_width, (long)mhx_base_scr, mhx_scr_width * (mhx_scr_height - 1));
+      lcopy((long)mhx_base_col24 + mhx_scr_width, (long)mhx_base_col24, mhx_scr_width * (mhx_scr_height - 1));
+      mhx_saddr -= mhx_scr_width;
+      mhx_caddr -= mhx_scr_width;
+      mhx_posy--;
+    }
+  }
 }
 
 void mhx_write(char *text, uint8_t attr)
@@ -139,11 +171,7 @@ void mhx_write(char *text, uint8_t attr)
     POKE((void *)mhx_saddr, *text | (attr & MHX_A_INVERT));
     if (!(attr & MHX_A_NOCOLOR))
       POKE((void *)mhx_caddr, attr & MHX_A_COLORMASK);
-    mhx_saddr++;
-    mhx_caddr++;
-    mhx_linepos++;
-    if (mhx_linepos >= mhx_scr_width)
-      mhx_linepos = 0;
+    mhx_advance_cursor(1);
     text++;
   }
 }
@@ -166,14 +194,18 @@ void mhx_writef(char *format, ...)
         }
         else
           pflags = 0;
-parseformat:
-        format++;
-        if (*format >= '0' && *format <= '9') {
-          if (count < 20) {
-            count *= 10;
-            count += *format - '0';
+        while (1) {
+          format++;
+          if (*format >= '0' && *format <= '9') {
+            if (count < 20) {
+              count *= 10;
+              count += *format - '0';
+            }
           }
-          goto parseformat;
+          else if (*format == 'l')
+            pflags |= 0x40;
+          else
+            break;
         }
         switch (*format) {
           case MHX_C_EOS: // % at the end is ok, exception
@@ -196,11 +228,8 @@ parseformat:
             }
             mode = 2;
             break;
-          case 'l':
-            // switch to 32bit parsing
-            pflags |= 0x40;
-            goto parseformat;
-          case 'd':
+          case 'd': // no signs in this code! yet anyway
+          case 'u':
             pflags |= MHX_RDX_DEC | 0x20;
             break;
           case 'b':
@@ -248,9 +277,7 @@ parseformat:
       else
         switch (out) {
           case 0xca:
-            mhx_saddr += mhx_scr_width - mhx_linepos;
-            mhx_caddr += mhx_scr_width - mhx_linepos;
-            mhx_linepos = 0;
+            mhx_advance_cursor(mhx_scr_width);
             break;
           case 0x81:
             mhx_curattr |= MHX_A_INVERT;
@@ -269,11 +296,7 @@ parseformat:
     POKE((void *)mhx_saddr, out | (mhx_curattr & MHX_A_INVERT));
     if (!(mhx_curattr & MHX_A_NOCOLOR))
       POKE((void *)mhx_caddr, mhx_curattr & MHX_A_COLORMASK);
-    mhx_saddr++;
-    mhx_caddr++;
-    mhx_linepos++;
-    if (mhx_linepos >= mhx_scr_width)
-      mhx_linepos = 0;
+    mhx_advance_cursor(1);
   }
   va_end(args);
 }
@@ -283,13 +306,8 @@ void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr)
   POKE((void *)(mhx_saddr + offset), screencode | (attr & MHX_A_INVERT));
   if (!(attr & MHX_A_NOCOLOR))
     POKE((void *)(mhx_caddr + offset), attr & MHX_A_COLORMASK);
-  if (!offset) {
-    mhx_saddr++;
-    mhx_caddr++;
-    mhx_linepos++;
-    if (mhx_linepos >= mhx_scr_width)
-      mhx_linepos = 0;
-  }
+  if (!offset)
+    mhx_advance_cursor(1);
 }
 
 void mhx_clear_ch_buffer(void)
@@ -312,7 +330,7 @@ mhx_keycode_t mhx_getkeycode(void)
 mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr)
 {
   if (!(flags & MHX_AK_NOMESSAGE))
-    mhx_write("Press any key to continue.", attr);
+    mhx_writef("Press any key to continue.\n", attr);
 
   if (!(flags & MHX_AK_NOCLEAR))
     mhx_clear_ch_buffer();
@@ -356,8 +374,14 @@ uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr)
 
 void mhx_copyscreen(mhx_screen_t *screen)
 {
+  // wait for raster leaving screen
+  while (!(PEEK(0xD011)&0x80));
+
+  // copy stuff
   lcopy(screen->screen_start, mhx_base_scr, screen->screen_size);
   lcopy(screen->color_start, mhx_base_col24, screen->color_size);
+
+  // set cursor
   mhx_set_xy(screen->cursor_x, screen->cursor_y);
 }
 

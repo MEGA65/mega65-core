@@ -19,7 +19,8 @@
 // current attributes for writing to the screen (see MHX_A_*)
 extern uint8_t mhx_curattr;
 // border and background colour, current position in line
-extern uint8_t mhx_border, mhx_back, mhx_linepos;
+extern uint8_t mhx_border, mhx_back;
+extern int8_t mhx_posx, mhx_posy;
 
 // buffer for string formatting (used by mhx_writef)
 extern char mhx_buffer[];
@@ -114,6 +115,27 @@ extern mhx_keycode_t mhx_lastkey;
 #define MHX_W_LBLUE  "\x8e"
 #define MHX_W_LGREY  "\x8f"
 
+#define MHX_C_REVON  '\x81'
+#define MHX_C_REVOFF '\x82'
+#define MHX_C_CLRHOME '\x83'
+#define MHX_C_HOME   '\x84'
+#define MHX_C_BLACK  '\x90'
+#define MHX_C_WHITE  '\x91'
+#define MHX_C_RED    '\x92'
+#define MHX_C_CYAN   '\x93'
+#define MHX_C_PURPLE '\x94'
+#define MHX_C_GREEN  '\x95'
+#define MHX_C_BLUE   '\x96'
+#define MHX_C_YELLOW '\x97'
+#define MHX_C_ORANGE '\x98'
+#define MHX_C_BROWN  '\x99'
+#define MHX_C_LRED   '\x9a'
+#define MHX_C_DGREY  '\x8b'
+#define MHX_C_MGREY  '\x8c'
+#define MHX_C_LGREEN '\x8d'
+#define MHX_C_LBLUE  '\x8e'
+#define MHX_C_LGREY  '\x8f'
+
 uint8_t mhx_ascii2screen(uint8_t ascii, uint8_t def);
 
 /*
@@ -137,7 +159,7 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
 
 void mhx_set_xy(uint8_t ux, uint8_t uy);
 
-void mhx_move_xy(uint8_t ux, uint8_t uy);
+void mhx_move_xy(int8_t ux, int8_t uy);
 
 void mhx_write(char *text, uint8_t attr);
 

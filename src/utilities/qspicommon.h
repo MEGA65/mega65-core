@@ -4,10 +4,6 @@
  * QSPI tools that are used to flash the QSPI,
  * used in: MEGAFLASH and derivates
  */
-#ifndef STANDALONE
-#define printf nope
-void nope(char *format, ...);
-#endif
 
 /*
  * Compile time options:

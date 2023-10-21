@@ -11,6 +11,7 @@
 #include "qspicommon.h"
 #include "qspireconfig.h"
 #include "mhexes.h"
+#include "nohysdc.h"
 
 #ifdef STANDALONE
 #include "megaflash_screens_scr.h"
@@ -23,6 +24,7 @@
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
 
+uint8_t reconfig_disabled = 0;
 unsigned int base_addr;
 
 // mega65r3 QSPI has the most space currently with 8x8MB
@@ -61,7 +63,7 @@ corecap_def_type corecap_def[CORECAP_DEF_MAX] = {
   {"C128 Cartridge",   "[128]", CORECAP_CART_C128,    0xff},
 };
 
-unsigned char main_menu_bar[] = "0-7 = Launch Core.  CTRL 1-7 = Edit Slot";
+char main_menu_bar[] = "0-7 = Launch Core.  CTRL 1-7 = Edit Slot";
 
 #include <cbm_petscii_charmap.h>
 #define CART_C64_MAGIC_LENGTH 5
@@ -70,6 +72,7 @@ unsigned char cart_c64_magic[5] = "CBM80";
 unsigned char cart_c128_magic[3] = "cbm";
 #define CART_M65_MAGIC_LENGTH 3
 unsigned char cart_m65_magic[3] = "m65";
+#include <cbm_screen_charmap.h>
 
 typedef struct {
   char name[33];
@@ -82,9 +85,9 @@ typedef struct {
 slot_core_type slot_core[MAX_SLOTS];
 
 unsigned char exrom_game = 0xff;
-#if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
-  unsigned char selected_reflash_slot, selected_file;
-#endif
+// #if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
+unsigned char selected_reflash_slot, selected_file;
+// #endif
 #ifndef STANDALONE
 char cart_id[9];
 
@@ -119,12 +122,10 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
 
 void display_version(void)
 {
-  unsigned char key;
 #ifndef STANDALONE
   unsigned char search_cart, selected;
 #endif
 
-#include <cbm_screen_charmap.h>
 /*
   mhx_writef(MHX_W_WHITE MHX_W_CLRHOME MHX_W_YELLOW
              "Test: " MHX_W_BLACK MHX_W_REVON "$%03X" MHX_W_REVOFF MHX_W_BROWN " $%4x" MHX_W_WHITE "\n"
@@ -175,12 +176,10 @@ void display_version(void)
 
   // wait for ESC or RUN/STOP
   do {
-    while (!(key = PEEK(0xD610)))
-      ;
-    POKE(0xD610, 0);
+    mhx_getkeycode();
 #ifndef STANDALONE
     // extra boot/cart debug information on F1, so we don't confuse the user
-    if (key == 0xf1 && !selected) {
+    if (mhx_lastkey.code.key == 0xf1 && !selected) {
       mhx_writef(MHX_W_LGREY "\n   DIP4: %d\n  $D67E: $%02X (now $%02X)\n", 1 + ((PEEK(0xD69D) >> 3) & 1), exrom_game, PEEK(0xD67EU));
       mhx_writef("  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
           cart_id[5]);
@@ -188,10 +187,10 @@ void display_version(void)
       selected = 1;
     }
 #endif
-  } while (key != 0x1b && key != 0x03);
+  } while (mhx_lastkey.code.key != 0x1b && mhx_lastkey.code.key != 0x03);
 }
 
-unsigned char first_flash_read = 1;
+uint8_t first_flash_read = 1;
 void do_first_flash_read(unsigned long addr)
 {
   // XXX Work around weird flash thing where first read of a sector reads rubbish
@@ -387,9 +386,9 @@ uint8_t edit_slot(unsigned char selected_slot)
   draw_edit_slot(selected_slot);
   while (1) {
     if (core_loaded) {
-      mhx_write_xy(0, 20, "Press <F8> to flash slot.      ", MHX_A_NOCOLOR);
+      mhx_write_xy(0, 20, "Press <F8> to flash slot.       ", MHX_A_WHITE);
     }
-    if (core_loaded || slot_core[selected_slot].flags != cur_flags)
+    if (slot_core[selected_slot].flags != cur_flags)
       mhx_hl_lines(20, 20, MHX_A_WHITE);
     else
       mhx_hl_lines(20, 20, MHX_A_MGREY);
@@ -437,7 +436,6 @@ uint8_t edit_slot(unsigned char selected_slot)
 
   return 0;
 }
-#include <cbm_petscii_charmap.h>
 
 void hard_exit(void)
 {
@@ -450,7 +448,6 @@ void hard_exit(void)
   // NMI vector
   mhx_screencolor(MHX_A_BLUE, MHX_A_LBLUE);
   mhx_clearscreen(' ', MHX_A_WHITE);
-  POKE(286, MHX_A_WHITE);
   asm(" jmp $fffa ");
 #else
   // back to HYPPO
@@ -467,7 +464,6 @@ void main(void)
 {
   uint8_t selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT, default_slot = 0xff, last_selected = 0xff;
   uint8_t redraw_menu = REDRAW_CLEAR;
-  mhx_keycode_t key;
 
   mega65_io_enable();
 
@@ -481,7 +477,6 @@ void main(void)
   MEGAFLASH_SCREENS_INIT;
   mhx_screencolor(MHX_A_BLUE, MHX_A_BLACK);
   mhx_clearscreen(' ', MHX_A_WHITE);
-  POKE(286, 1);
 
 #ifndef STANDALONE
   /*
@@ -578,8 +573,7 @@ void main(void)
 
 #else /* STANDALONE */
 #include <cbm_screen_charmap.h>
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "\njtagflash Version\n  %s\n\n", utilVersion);
-  mhx_press_any_key(0, MHX_A_NOCOLOR);
+  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "\njtagflash Version\n  %s\n", utilVersion);
 
   if (probe_hardware_version()) {
     mhx_writef("\nUnknown hardware model id $%02X\n", hw_model_id);
@@ -592,7 +586,6 @@ void main(void)
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
     hard_exit();
   }
-#include <cbm_petscii_charmap.h>
 
 #endif
 
@@ -638,6 +631,18 @@ void main(void)
            "attic ram. Because the flasher in this\n"
            "core does not support flashing without\n"
            "attic ram, flashing has been " MHX_W_LRED "disabled" MHX_W_WHITE ".\n\n");
+/* TODO:
+  if (reconfig_disabled) {
+    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME MHX_W_YELLOW "ERROR:" MHX_W_WHITE " Remember that warning about\n"
+               "having started from JTAG?\n"
+               "You " MHX_W_YELLOW "can't" MHX_W_WHITE " start a core from flash after\n"
+               "having started the system via JTAG.\n");
+    mhx_press_any_key(0, MHX_A_NOCOLOR);
+    mhx_clearscreen(' ', MHX_A_WHITE);
+    mhx_set_xy(0, 0);
+    return;
+  }
+*/
 
   // if we gave some warning, wait for a keypress before continuing
   if (reconfig_disabled || atticram_bad)
@@ -693,24 +698,22 @@ void main(void)
     mhx_hl_lines(selected*3, selected*3 + 2, MHX_A_INVERT|(slot_core[selected].valid == SLOT_VALID ? MHX_A_WHITE : (slot_core[selected].valid == SLOT_INVALID ? MHX_A_RED : MHX_A_YELLOW)));
     last_selected = selected;
 
-#include <cbm_petscii_charmap.h>
-
-    key = mhx_getkeycode();
+    mhx_getkeycode();
 
     // check for number key pressed
-    if (key.code.key >= 0x30 && key.code.key < 0x30 + slot_count) {
-      if (key.code.key == 0x30) {
+    if (mhx_lastkey.code.key >= 0x30 && mhx_lastkey.code.key < 0x30 + slot_count) {
+      if (mhx_lastkey.code.key == 0x30) {
         reconfig_fpga(0 + 4096);
       }
-      else if (slot_core[key.code.key - 0x30].valid != 0) // only boot slot if not empty
-        reconfig_fpga((key.code.key - 0x30) * SLOT_SIZE + 4096);
+      else if (slot_core[mhx_lastkey.code.key - 0x30].valid != 0) // only boot slot if not empty
+        reconfig_fpga((mhx_lastkey.code.key - 0x30) * SLOT_SIZE + 4096);
       else
         mhx_flashscreen(MHX_A_RED, 150);
     }
 
     selected_reflash_slot = 0xff;
 
-    switch (key.code.key) {
+    switch (mhx_lastkey.code.key) {
     case 0x03: // RUN-STOP
     case 0x1b: // ESC
       // Simply exit flash menu without doing anything.
@@ -763,31 +766,31 @@ void main(void)
         selected_reflash_slot = selected;
       break;
     case 144: // CTRL-1
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 1;
       break;
     case 5: // CTRL-2
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 2;
       break;
     case 28: // CTRL-3
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 3;
       break;
     case 159: // CTRL-4
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 4;
       break;
     case 156: // CTRL-5
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 5;
       break;
     case 30: // CTRL-6
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 6;
       break;
     case 31: // CTRL-7 && HELP
-      if (key.code.mod & MHX_KEYMOD_CTRL)
+      if (mhx_lastkey.code.mod & MHX_KEYMOD_CTRL)
         selected_reflash_slot = 7;
       else {
         display_version();
@@ -817,7 +820,6 @@ void main(void)
 #include <cbm_screen_charmap.h>
         memcpy(disk_display_return, "UPGRADE0.COR", 12);
         memset(disk_display_return + 12, 0x20, 28);
-#include <cbm_petscii_charmap.h>
         selected_file = SELECTED_FILE_VALID;
       }
       else
@@ -842,11 +844,21 @@ void main(void)
   }
 
 #include <ascii_charmap.h>
-  strncpy(disk_name_return, "UPGRADE0.COR", 32);
+// misappropiate variable
+#define err selected
+  // only use internal slot
+  if ((err = nhsd_init(0, buffer))) {
+    mhx_writef(MHX_W_RED "ERROR: failed to init internal SD card (%x)" MHX_W_WHITE "\n", err);
+    hard_exit();
+  }
+  if ((err = nhsd_findfile("UPGRADE0.COR"))) {
+    mhx_writef(MHX_W_RED "ERROR: failed to find UPGRADE0.COR on\ninternal SD card (%d)" MHX_W_WHITE "\n", err);
+    hard_exit();
+  }
 #include <cbm_screen_charmap.h>
   memcpy(disk_display_return, "UPGRADE0.COR", 12);
   memset(disk_display_return + 12, 0x20, 28);
-#include <cbm_petscii_charmap.h>
+  disk_display_return[39] = MHX_C_EOS;
   reflash_slot(0, SELECTED_FILE_VALID, slot_core[0].version);
 #endif
 
