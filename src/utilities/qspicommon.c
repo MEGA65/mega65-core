@@ -214,12 +214,14 @@ void progress_bar(unsigned int add_pages, char *action)
   of a disk.
  */
 
-short file_count = 0;
-short selection_number = 0;
-short display_offset = 0;
+uint16_t sbs_file_count = 0;
+uint32_t sbs_coredir_inode = 0;
+int16_t selection_number = 0;
+int16_t display_offset = 0;
 
-char *diskchooser_instructions = " Select file for slot X, press <RETURN> "
-                                 "   to accept or press <STOP> to abort   ";
+char *diskchooser_footer = " <F9> Internal SD <F11> Directory: ROOT "
+                           " <RETURN> Select file      <STOP> Abort ";
+char *diskchooser_header = "      Select core file for slot X       ";
 #define erase_message "- Erase Slot -"
 
 #define SCREEN_ADDRESS 0x0400UL
@@ -357,12 +359,149 @@ void select_bs_draw_list(void)
   while (!(PEEK(0xD011)&0x80));
 
   // set colour
-  lfill(COLOUR_RAM_ADDRESS, NORMAL_ATTR, 40 * 23);
+  lfill(COLOUR_RAM_ADDRESS + 40, NORMAL_ATTR, 40 * 22);
 
   // copy pregenerated screen
-  lcopy(FILESCREEN_ADDRESS + display_offset * 40, SCREEN_ADDRESS, 23 * 40);
+  lcopy(FILESCREEN_ADDRESS + display_offset * 40, SCREEN_ADDRESS + 40, 22 * 40);
   // highlight selected line
-  lfill(COLOUR_RAM_ADDRESS + (selection_number - display_offset) * 40, HIGHLIGHT_ATTR, 40);
+  lfill(COLOUR_RAM_ADDRESS + (selection_number - display_offset + 1) * 40, HIGHLIGHT_ATTR, 40);
+}
+
+/*
+ * uint8_t select_bs_load_dir(uint8_t new_dir)
+ *
+ * loads all the .COR files from either ROOT or CORE diretory
+ * of the selected disk. new_disk bit 0 selects disk, bit 1
+ * selects directory (0 = ROOT, 1 = CORE).
+ *
+ * returns:
+ *   byte describing which dir was loaded, bit 7 set means error
+ *
+ * parameters:
+ *   new_dir: which disk and dir should be loaded.
+ *            bit 0 = disk (0 int, 1 ext)
+ *            bit 1 = dir (0 root, 1 core)
+ *            bit 7 = force init
+ *
+ */
+uint8_t select_bs_load_dir(uint8_t new_dir)
+{
+  uint8_t fnlen, i, j, isroot = 0;
+
+  // clear screen and display scanning message
+  mhx_draw_rect(6, 11, 26, 1, "Scanning directoy", MHX_A_WHITE|MHX_A_INVERT);
+  mhx_set_xy(7, 12);
+
+  // check if sd card is either not initialised or the wrong bus is selected
+  if ((new_dir & 0x80) || (nhsd_init_state & NHSD_INIT_INITMASK) != NHSD_INIT_INITMASK || (nhsd_init_state & NHSD_INIT_BUSMASK) != (new_dir & 1)) {
+    if ((i = nhsd_init((new_dir & 1) | NHSD_INIT_FALLBACK, buffer))) {
+      mhx_writef(MHX_W_WHITE MHX_W_REVON "SD Card init error $%02X" MHX_W_REVOFF, i);
+      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+      return 0x80;
+    }
+    // after init we need to forget the CORE dirs inode
+    sbs_coredir_inode = 0;
+  }
+  
+restart_dirload:
+  if (sbs_coredir_inode != 0 && (new_dir & 2)) {
+    nhsd_current_dir = sbs_coredir_inode;
+    isroot = 0;
+  }
+  else {
+    nhsd_current_dir = NHSD_ROOT_INODE;
+    isroot = 1;
+  }
+  if ((i = nhsd_opendir())) {
+    mhx_writef(MHX_W_WHITE MHX_W_REVON "SD Card opendir error $%02X" MHX_W_REVOFF, i);
+    mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+    return 0x80;
+  }
+
+  // fill temp memory with space
+  lfill(FILEINODE_ADDRESS, 0, 8L * FILELIST_MAX);
+  lfill(FILESCREEN_ADDRESS, ' ', 40L * FILELIST_MAX);
+  // Add dummy entry for erasing the slot
+  lcopy((long)erase_message, FILESCREEN_ADDRESS, 14);
+  sbs_file_count = 1;
+
+  while (sbs_file_count < FILELIST_MAX && !nhsd_readdir()) {
+    fnlen = strlen(nhsd_dirent.d_name);
+#include <ascii_charmap.h>
+    // check if we have a CORE subdir, but only if in root and not already discovered
+    if (!sbs_coredir_inode && isroot && !strcmp(nhsd_dirent.d_name, "CORE")) {
+      sbs_coredir_inode = nhsd_dirent.d_ino;
+      // check if we wanted to go to the CORE dir and restart scanning
+      if (new_dir & 2) {
+        nhsd_closedir();
+        goto restart_dirload;
+      }
+    }
+    if ((!strncmp(&nhsd_dirent.d_name[fnlen - 4], ".COR", 4))
+        || (!strncmp(&nhsd_dirent.d_name[fnlen - 4], ".cor", 4))) {
+#include <cbm_screen_charmap.h>
+      // File is a core, store name to temp area
+      lcopy((long)&nhsd_dirent.d_ino, FILEINODE_ADDRESS + (sbs_file_count * 8), 4);
+
+      // We need to convert the up to 247 char long ASCII filename to a
+      // maximum 38 character screencode name for displaying. We do this
+      // by adding a '...' ellipse between the start and the last 7 characters
+      // of the string.
+      // This needs to be 38 to be able to place it into a rectangle on
+      //  the 40 wide screen
+      // we do this directly in the dirent d_name to safe space
+      for (j = 0; j < 28 && j < fnlen; j++)
+        nhsd_dirent.d_name[j] = mhx_ascii2screen(nhsd_dirent.d_name[j], MHX_C_DEFAULT);
+
+      // filename is longer than 38 chars, so we need to place the ellipse now
+      if (fnlen > 38) {
+        for (; j < 31; j++)
+          nhsd_dirent.d_name[j] = 0x2e;
+        // place postion to 7 chars from the end of the string
+        i = fnlen - 7;
+      }
+      else // filename not to long, so just do inline replace
+        i = j;
+      for (; j < 38 && i < fnlen; j++, i++)
+        nhsd_dirent.d_name[j] = mhx_ascii2screen(nhsd_dirent.d_name[i], MHX_C_DEFAULT);
+
+      lcopy((long)nhsd_dirent.d_name, FILESCREEN_ADDRESS + (sbs_file_count * 40) + 1, j);
+      sbs_file_count++;
+/*
+      disk_name_return[25] = 0x80;
+      mhx_writef("--%08lx--%s--\n", nhsd_dirent.d_reclen, disk_name_return);
+      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+*/
+    }
+  }
+  nhsd_closedir();
+
+  // mhx_writef(MHX_W_WHITE MHX_W_REVON "%X Loaded %d files" MHX_W_REVOFF, sbs_file_count);
+  // mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+
+  return (nhsd_init_state & NHSD_INIT_BUSMASK) | (isroot ? 0 : 2);
+}
+
+void select_bs_draw_header(uint8_t selected_dir)
+{
+  if (selected_dir & 1) {
+    diskchooser_footer[6] = 'E';
+    diskchooser_footer[7] = 'x';
+  }
+  else {
+    diskchooser_footer[6] = 'I';
+    diskchooser_footer[7] = 'n';
+  }
+  if (selected_dir & 2)
+    memcpy(diskchooser_footer + 35, "CORE", 4);
+  else
+    memcpy(diskchooser_footer + 35, "ROOT", 4);
+
+  // Draw instructions to FOOTER
+  lcopy((long)diskchooser_header, SCREEN_ADDRESS, 40);
+  lcopy((long)diskchooser_footer, SCREEN_ADDRESS + 23*40, 80);
+  mhx_hl_lines(0, 0, MHX_A_LGREY|MHX_A_INVERT);
+  mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
 }
 
 /*
@@ -380,72 +519,20 @@ void select_bs_draw_list(void)
  */
 unsigned char select_bitstream_file(unsigned char slot)
 {
-  uint8_t fnlen, j;
-  uint8_t idle_time = 0;
+  uint8_t idle_time = 0, j;
+  uint8_t selected_dir = 0x83; // force init, external disk, core dir
 
   selection_number = 0;
   display_offset = 0;
 
-  // fill temp memory with space
-  lfill(FILEINODE_ADDRESS, 0, 8L * FILELIST_MAX);
-  lfill(FILESCREEN_ADDRESS, ' ', 40L * FILELIST_MAX + 1024L);
-
-  // clear screen and display scanning message
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Scanning directory...\n");
-
-  // Add dummy entry for erasing the slot
-  lcopy((long)erase_message, FILESCREEN_ADDRESS, 14);
-
-  if ((fnlen = nhsd_init(0x81, buffer))) {
-    mhx_writef("\nSD Card init error %X\n", (uint8_t)fnlen);
-    return SELECTED_FILE_INVALID;
-  }
-  if ((fnlen = nhsd_opendir())) {
-    mhx_writef("\nSD Card opendir error %X\n", (uint8_t)fnlen);
-    return SELECTED_FILE_INVALID;
-  }
-
-  file_count = 1;
-  while (file_count < FILELIST_MAX && !nhsd_readdir()) {
-    fnlen = strlen(nhsd_dirent.d_name);
-#include <ascii_charmap.h>
-    if (fnlen <= 64
-        && ((!strncmp(&nhsd_dirent.d_name[fnlen - 4], ".COR", 4)) || (!strncmp(&nhsd_dirent.d_name[fnlen - 4], ".cor", 4)))) {
-#include <cbm_screen_charmap.h>
-      // File is a core, store name to temp area
-      lcopy((long)&nhsd_dirent.d_ino, FILEINODE_ADDRESS + (file_count * 8), 4);
-
-      // Also convert filename to screencode and copy to screen temp area
-      for (j = 0; j < 40; j++)
-        nhsd_dirent.d_name[j] = mhx_ascii2screen(nhsd_dirent.d_name[j], 0x66);
-
-      if (fnlen > 40) {
-        // filename is longer than 40 chars, so we make a small ellipse using dots
-        // 8 chars from the end
-        for (j--, fnlen--; j > 33; j--, fnlen--)
-          nhsd_dirent.d_name[j] = mhx_ascii2screen(nhsd_dirent.d_name[fnlen], 0x66);
-        nhsd_dirent.d_name[j--] = 0x2e;
-        nhsd_dirent.d_name[j--] = 0x2e;
-        nhsd_dirent.d_name[j--] = 0x2e;
-
-      }
-      lcopy((long)nhsd_dirent.d_name, FILESCREEN_ADDRESS + (file_count * 40), fnlen);
-      file_count++;
-/*
-      disk_name_return[25] = 0x80;
-      mhx_writef("--%08lx--%s--\n", nhsd_dirent.d_reclen, disk_name_return);
-      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-*/
-    }
-  }
-  nhsd_closedir();
-
   // Okay, we have some disk images, now get the user to pick one!
-  diskchooser_instructions[22] = 0x30 + slot;
-  // Draw instructions to FOOTER
-  lcopy((long)diskchooser_instructions, SCREEN_ADDRESS + 23 * 40, 80);
-  lfill(COLOUR_RAM_ADDRESS + 23 * 40, HIGHLIGHT_ATTR, 80);
+  diskchooser_header[32] = 0x30 + slot;
 
+  mhx_clearscreen(' ', MHX_A_WHITE);
+  if ((selected_dir = select_bs_load_dir(selected_dir)) & 0x80)
+    return SELECTED_FILE_INVALID;
+
+  select_bs_draw_header(selected_dir);
   select_bs_draw_list();
   while (1) {
 
@@ -466,16 +553,16 @@ unsigned char select_bitstream_file(unsigned char slot)
         read_and_check_core(0);
 
         if (selection_number - display_offset < 12) {
-          mhx_draw_rect(2, 17, 32, 3, " Corefile ", MHX_A_NOCOLOR);
-          memcpy((void *)(0x400 + 3 + 18*40), corefile_name, 32);
-          memcpy((void *)(0x400 + 3 + 19*40), corefile_version, 32);
-          memcpy((void *)(0x400 + 3 + 20*40), corefile_error, 32);
+          mhx_draw_rect(3, 15, 32, 3, " Corefile ", MHX_A_NOCOLOR);
+          memcpy((void *)(0x400 + 4 + 16*40), corefile_name, 32);
+          memcpy((void *)(0x400 + 4 + 17*40), corefile_version, 32);
+          memcpy((void *)(0x400 + 4 + 18*40), corefile_error, 32);
         }
         else {
-          mhx_draw_rect(2, 1, 32, 3, " Corefile ", MHX_A_NOCOLOR);
-          memcpy((void *)(0x400 + 3 + 2*40), corefile_name, 32);
-          memcpy((void *)(0x400 + 3 + 3*40), corefile_version, 32);
-          memcpy((void *)(0x400 + 3 + 4*40), corefile_error, 32);
+          mhx_draw_rect(3, 5, 32, 3, " Corefile ", MHX_A_NOCOLOR);
+          memcpy((void *)(0x400 + 4 + 6*40), corefile_name, 32);
+          memcpy((void *)(0x400 + 4 + 7*40), corefile_version, 32);
+          memcpy((void *)(0x400 + 4 + 8*40), corefile_error, 32);
         }
       }
       usleep(10000);
@@ -496,31 +583,59 @@ unsigned char select_bitstream_file(unsigned char slot)
       }
 
       // Copy name out
-      lcopy(FILEINODE_ADDRESS + (selection_number * 8), (long)disk_file_inode, 4);
-      lcopy(FILESCREEN_ADDRESS + (selection_number * 40), (long)disk_display_return, 40);
+      lcopy(FILEINODE_ADDRESS + (selection_number * 8), (long)&disk_file_inode, 4);
+      lcopy(FILESCREEN_ADDRESS + (selection_number * 40) + 1, (long)&disk_display_return, 38);
+
+      if (!disk_file_inode) {
+        disk_file_inode = 0xfffffffful;
+        disk_display_return[0] = 0;
+        return SELECTED_FILE_ERASE;
+      }
+
       return SELECTED_FILE_VALID;
 
-    case 0x11:
-    case 0x1d: // Cursor down or right
-      selection_number++;
-      if (selection_number >= file_count)
-        selection_number = 0;
+    case 0xf9: // F9 - switch disk
+      if ((selected_dir = select_bs_load_dir((selected_dir ^ 1) | 0x2)) & 0x80)
+        return SELECTED_FILE_INVALID;
+      select_bs_draw_header(selected_dir);
+      selection_number = 0;
       break;
-    case 0x91:
-    case 0x9d: // Cursor up or left
+    case 0xfb: // F11 - switch dir (root / CORE)
+      if ((selected_dir = select_bs_load_dir(selected_dir ^ 2)) & 0x80)
+        return SELECTED_FILE_INVALID;
+      select_bs_draw_header(selected_dir);
+      selection_number = 0;
+      break;
+
+    case 0x13: // HOME
+      selection_number = 0;
+      break;
+    case 0x93: // Shift-HOME
+      selection_number = sbs_file_count - 1;
+      break;
+    case 0x1d: // Cursor right is a page
+      selection_number += 21;
+    case 0x11: // Cursor down
+      selection_number++;
+      if (selection_number >= sbs_file_count)
+        selection_number = sbs_file_count - 1;
+      break;
+    case 0x9d: // Cursor left is a page
+      selection_number -= 21;
+    case 0x91: // Cursor up or left
       selection_number--;
       if (selection_number < 0)
-        selection_number = file_count - 1;
+        selection_number = 0;
       break;
     }
 
     // Adjust display position
     if (selection_number < display_offset)
       display_offset = selection_number;
-    if (selection_number > (display_offset + 22))
-      display_offset = selection_number - 22;
-    if (display_offset > (file_count - 22))
-      display_offset = file_count - 22;
+    if (selection_number > (display_offset + 21))
+      display_offset = selection_number - 21;
+    if (display_offset > (sbs_file_count - 21))
+      display_offset = sbs_file_count - 21;
     if (display_offset < 0)
       display_offset = 0;
 
@@ -760,11 +875,17 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
   unsigned char slot = the_slot;
   uint32_t core_crc;
 
+  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "REFLASH SLOT %d %d\n", the_slot, selected_file);
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+
   if (selected_file == SELECTED_FILE_INVALID)
     return;
 
+  mhx_writef("is valid\n");
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+
 #ifndef QSPI_ERASE_ZERO
-  if (selected_file == 1 && slot == 0) {
+  if (selected_file == SELECTED_FILE_ERASE && slot == 0) {
     // we refuse to erase slot 0
     mhx_writef(MHX_W_WHITE MHX_W_CLRHOME MHX_W_RED "\nRefusing to erase slot 0!\n\n" MHX_W_WHITE);
     mhx_press_any_key(0, MHX_A_NOCOLOR);
@@ -773,11 +894,15 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
 #endif
 
   mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Preparing to reflash slot %d...\n\n", slot);
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 
   // Read a few times to make sure transient initial read problems disappear
   read_data(0);
   read_data(0);
   read_data(0);
+
+  mhx_writef("dummy read done\n");
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 
   /*
     The 512S QSPI on the R3A boards _sometimes_ suffer high write error rates
@@ -810,10 +935,13 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
 
   lfill((unsigned long)buffer, 0, 512);
 
+  mhx_writef("buffer cleared %d\n", selected_file);
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+
   // return code of select_bitstream_file > 1 means a file was selected
   if (selected_file == SELECTED_FILE_VALID) {
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Checking core file...\n\n");
-    lcopy((long)disk_display_return, SCREEN_ADDRESS + 40, 40);
+    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Checking core file...\n %s\n", disk_display_return);
+    mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 
     if ((err = nhsd_open(disk_file_inode))) {
       // Couldn't open the file.
@@ -840,6 +968,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
     // (as the model_id checking read the first 512 bytes already)
     if ((err = nhsd_open(disk_file_inode))) {
       mhx_writef("error %d while loading COR file\n", err);
+      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
       return;
     }
 

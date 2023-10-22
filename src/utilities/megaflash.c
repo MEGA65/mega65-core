@@ -63,7 +63,7 @@ corecap_def_type corecap_def[CORECAP_DEF_MAX] = {
   {"C128 Cartridge",   "[128]", CORECAP_CART_C128,    0xff},
 };
 
-char main_menu_bar[] = "0-7 = Launch Core.  CTRL 1-7 = Edit Slot";
+char main_menu_bar[] = "  <0>-<7> Launch   <CTRL>+<1>-<7> Edit  ";
 
 #include <cbm_petscii_charmap.h>
 #define CART_C64_MAGIC_LENGTH 5
@@ -349,7 +349,7 @@ void draw_edit_slot(unsigned char selected_slot)
   mhx_write_xy(1, 4, slot_core[selected_slot].version, MHX_A_NOCOLOR);
   mhx_draw_rect(0, 6, 38, 3, " Replace ", MHX_A_NOCOLOR);
   mhx_hl_lines(6, 10, MHX_A_MGREY);
-  mhx_write_xy(8, 8, "Press <F3> to load a core file", MHX_A_NOCOLOR);
+  mhx_write_xy(5, 8, "Press <F3> to load a core file", MHX_A_NOCOLOR);
   mhx_draw_rect(0, 12, 28, 4, " Flags ", MHX_A_NOCOLOR);
   for (i = 0; i < CORECAP_DEF_MAX; i++) {
     if (slot_core[selected_slot].capabilities & corecap_def[i].bits) {
@@ -386,9 +386,12 @@ uint8_t edit_slot(unsigned char selected_slot)
   draw_edit_slot(selected_slot);
   while (1) {
     if (core_loaded) {
-      mhx_write_xy(0, 20, "Press <F8> to flash slot.       ", MHX_A_WHITE);
+      mhx_write_xy(12, 20, "to flash slot.      ", MHX_A_WHITE);
     }
-    if (slot_core[selected_slot].flags != cur_flags)
+    else {
+      mhx_write_xy(12, 20, "to flash slot flags.", MHX_A_WHITE);
+    }
+    if (slot_core[selected_slot].flags != cur_flags || core_loaded)
       mhx_hl_lines(20, 20, MHX_A_WHITE);
     else
       mhx_hl_lines(20, 20, MHX_A_MGREY);
@@ -428,10 +431,6 @@ uint8_t edit_slot(unsigned char selected_slot)
         mhx_hl_lines(6, 10, MHX_A_YELLOW);
       }
     }
-
-    // F10 changes
-    if (key.code.key == 0xfa)
-      return core_loaded ? 2 : 1;
   }
 
   return 0;
@@ -445,10 +444,10 @@ void hard_exit(void)
   // Switch back to normal speed control before exiting
   POKE(0, 64);
 #ifdef STANDALONE
-  // NMI vector
   mhx_screencolor(MHX_A_BLUE, MHX_A_LBLUE);
   mhx_clearscreen(' ', MHX_A_WHITE);
-  asm(" jmp $fffa ");
+  // call NMI vector
+  asm(" jmp ($fffa) ");
 #else
   // back to HYPPO
   POKE(0xCF7f, 0x4C);
@@ -662,7 +661,7 @@ void main(void)
     default_slot = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
   // set max slot in menu bar
-  main_menu_bar[2] = main_menu_bar[27] = 0x30 + MAX_SLOTS - 1;
+  main_menu_bar[7] = main_menu_bar[31] = 0x30 + MAX_SLOTS - 1;
 
 #include <cbm_screen_charmap.h>
   // clear screen

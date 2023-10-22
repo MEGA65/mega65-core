@@ -19,6 +19,7 @@
 
 uint8_t *nhsd_buffer = NULL;
 uint8_t nhsd_init_state = 0;
+uint32_t nhsd_current_dir = NHSD_ROOT_INODE;
 
 uint32_t nhsd_part_start = 0;
 uint32_t nhsd_part_end = 0; // TODO: OPT unused
@@ -33,7 +34,7 @@ uint32_t nhsd_open_sector = 0;
 uint8_t nhsd_open_sector_in_cluster = 0;
 uint16_t nhsd_open_offset_in_sector = 0;
 
-struct m65_dirent nhsd_dirent;
+nhsd_dirent_t nhsd_dirent;
 
 uint8_t nhsd_reset(uint8_t bus)
 {
@@ -195,6 +196,8 @@ uint8_t nhsd_init(uint8_t bus, uint8_t *buffer)
 
   nhsd_fat32_cluster2_sector = nhsd_part_start + nhsd_fat32_reserved_sectors + nhsd_fat32_sectors_per_fat + nhsd_fat32_sectors_per_fat;
 
+  nhsd_current_dir = NHSD_ROOT_INODE;
+
   nhsd_init_state |= NHSD_INIT_FAT;
 
   return NHSD_ERR_NOERROR;
@@ -210,20 +213,31 @@ uint32_t nhsd_fat32_nextcluster(uint32_t cluster)
   return 0xfffffffful;
 }
 
-uint8_t nhsd_opendir()
+uint8_t nhsd_open_inode(uint32_t inode, uint8_t mode)
 {
   if ((nhsd_init_state & NHSD_INIT_INITMASK) != NHSD_INIT_INITMASK)
     return NHSD_ERR_NOINIT;
 
-  if (nhsd_init_state & NHSD_INIT_OPENFILE)
+  if (nhsd_init_state & NHSD_INIT_OPENMASK)
     return NHSD_ERR_ALREADY_OPEN;
 
-  nhsd_open_cluster = 2;
-  nhsd_open_sector = nhsd_fat32_cluster2_sector;
+  nhsd_open_cluster = inode;
   nhsd_open_sector_in_cluster = 0;
-  nhsd_open_offset_in_sector = 0xffe0u; // one direntry back, so the first advance gets us to 0
+  nhsd_open_sector = (nhsd_open_cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
 
-  nhsd_init_state |= NHSD_INIT_OPENDIR;
+  nhsd_init_state |= (mode & NHSD_INIT_OPENMASK);
+
+  return NHSD_ERR_NOERROR;
+}
+
+uint8_t nhsd_opendir()
+{
+  uint8_t err;
+
+  if ((err = nhsd_open_inode(nhsd_current_dir, NHSD_INIT_OPENDIR)))
+    return err;
+
+  nhsd_open_offset_in_sector = 512; // make it so that first nhsd_dir_next_entry will read a sector
 
   return NHSD_ERR_NOERROR;
 }
@@ -231,28 +245,17 @@ uint8_t nhsd_opendir()
 // TODO: can be possibly also used with files??
 uint8_t nhsd_dir_next_entry()
 {
+  uint8_t err;
+
+  // nhsd_opendir will start at 512, so this will fall through and read a sector
   nhsd_open_offset_in_sector += 0x20;
   if (nhsd_open_offset_in_sector < 512)
     return NHSD_ERR_NOERROR;
-  
-  // Chain through directory as required
-  nhsd_open_offset_in_sector = 0;
-  nhsd_open_sector_in_cluster++;
-  nhsd_open_sector++;
-  if (nhsd_open_sector_in_cluster >= nhsd_fat32_sectors_per_cluster) {
-    nhsd_open_sector_in_cluster = 0;
-    nhsd_open_cluster = nhsd_fat32_nextcluster(nhsd_open_cluster);
-    if (nhsd_open_cluster >= 0x0ffffff0) {
-      // end of directory reached
-      return NHSD_ERR_EOF;
-    }
-    nhsd_open_sector = (nhsd_open_cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
-  }
-  if (!nhsd_open_cluster)
-    return NHSD_ERR_EOF;
 
-  if (nhsd_readsector(nhsd_open_sector))
-    return NHSD_ERR_TIMEOUT;
+  if ((err = nhsd_read()))
+    return err;
+
+  nhsd_open_offset_in_sector = 0;
 
   return NHSD_ERR_NOERROR;
 }
@@ -278,7 +281,7 @@ void nhsd_copy_vfat_chars_into_dname(unsigned char* dirent_data, char* dname, in
 
 uint8_t nhsd_readdir()
 {
-  unsigned char vfatEntry = 0, firstTime, deletedEntry = 0;
+  uint8_t vfatFlag = 0; // bit 0 = is fvat, 7 = deleted
   uint8_t seqnumber, err;
   uint8_t *dirent_data;
 
@@ -295,26 +298,22 @@ uint8_t nhsd_readdir()
     // Check if this is a VFAT entry
     if (dirent_data[0x0b] == 0x0f) {
       // Read in all FAT32-VFAT entries to extract out long filenames
-      // first byte is sequence (1-19) plus end marker 0x40, but end can come
-      // first and name might be in reverse order! (or is this always the case?)
-      vfatEntry = 1;
-      firstTime = 1;
+      // first byte is sequence (1-19) plus end marker 0x40, always backwards
+      vfatFlag = 1;
       do {
-        if (dirent_data[0x00] == 0xe5) { // if deleted-entry, then ignore
-          deletedEntry = 1;
-        }
-        if (!deletedEntry) {
+        if (dirent_data[0x00] == 0xe5)
+          // if deleted-entry, then ignore, but still need to step through entries...
+          vfatFlag |= 0x80;
+        if (!(vfatFlag & 0x80)) {
           // we only copy filename if entry is not deleted
           seqnumber = dirent_data[0x00] & 0x1f;
-
-          // assure there is a null-terminator
-          if (firstTime) {
+          // set 0 byte to buffer, if vfat end marker, but not if seqnumber > 19!
+          if (dirent_data[0x00] & 0x40 || seqnumber == 19)
             nhsd_dirent.d_name[seqnumber * 13] = 0;
-            firstTime = 0;
-          }
 
           // vfat seqnumbers will be parsed from high to low, each containing up to 13 UCS-2 characters
-          nhsd_copy_vfat_chars_into_dname(dirent_data, nhsd_dirent.d_name, seqnumber);
+          if (seqnumber < 20) // seq 20 will overflow buffer!
+            nhsd_copy_vfat_chars_into_dname(dirent_data, nhsd_dirent.d_name, seqnumber);
         }
 
         // Get next FAT directory entry and populate
@@ -325,20 +324,17 @@ uint8_t nhsd_readdir()
 
         // if next dirent is not a vfat entry, break out
       } while (dirent_data[0x0b] == 0x0f && seqnumber > 1);
-      // printf("vfat = '%s'\n", nhsd_dirent.d_name);
-      // press_any_key(0,0);
     }
 
     // ignore deleted vfat entries and deleted entries
     // ignore everything with underscore or tilde as first character (MacOS)
     // ignore any vfat files starting with '.' (such as mac osx '._*' metadata files)
     // if the DOS 8.3 entry is a deleted-entry, then ignore
-    if (deletedEntry || dirent_data[0x00] == 0xe5
+    if (vfatFlag & 0x80 || dirent_data[0x00] == 0xe5
         || dirent_data[0x00] == 0x7e || dirent_data[0x00] == 0x5f
-        || (vfatEntry && nhsd_dirent.d_name[0] == '.')) {
+        || (vfatFlag && nhsd_dirent.d_name[0] == '.')) {
       nhsd_dirent.d_name[0] = 0;
-      vfatEntry = 0;
-      deletedEntry = 0;
+      vfatFlag = 0;
       continue;
     }
 
@@ -356,20 +352,23 @@ uint8_t nhsd_readdir()
     ((unsigned char *)&nhsd_dirent.d_reclen)[2] = dirent_data[0x1e];
     ((unsigned char *)&nhsd_dirent.d_reclen)[3] = dirent_data[0x1f];
 
-    // if not vfat-longname, then extract out old 8.3 name
-    if (!vfatEntry) {
-      memcpy(nhsd_dirent.d_name, dirent_data, 8);
-      nhsd_dirent.d_name[8] = '.';
-      memcpy(nhsd_dirent.d_name + 9, dirent_data + 8, 4);
-      nhsd_dirent.d_name[12] = 0;
+    nhsd_dirent.d_type = NHSD_DE_TYPE_FILE;
+
+    // if not vfat-longname, then extract out old 8.3 name, stripping spaces
+    if (!vfatFlag) {
+      // resuse of seqnumber and err as index...
+      for (seqnumber = 0, err = 0; seqnumber < 11; seqnumber++) {
+        if (dirent_data[seqnumber] != 0x20 && dirent_data[seqnumber] != 0)
+          nhsd_dirent.d_name[err++] = dirent_data[seqnumber];
+        if (seqnumber == 7)
+          nhsd_dirent.d_name[err++] = '.';
+      }
+      while (err > 0 && nhsd_dirent.d_name[err - 1] == '.') err--;
+      nhsd_dirent.d_name[err] = 0;
     }
 
     if (nhsd_dirent.d_name[0]) // sanity check, deleted check is done further up
       return NHSD_ERR_NOERROR;
-
-    // for (k = 0; k < 16; k++)
-    //   printf("%02x ", dirent[k]);
-    // printf("\n\n");
   }
 
   // won't be reached
@@ -408,29 +407,12 @@ uint8_t nhsd_findfile(char *filename)
   return err;
 }
 
-uint8_t nhsd_open(uint32_t inode)
-{
-  if ((nhsd_init_state & NHSD_INIT_INITMASK) != NHSD_INIT_INITMASK)
-    return NHSD_ERR_NOINIT;
-
-  if (nhsd_init_state & NHSD_INIT_OPENMASK)
-    return NHSD_ERR_ALREADY_OPEN;
-
-  nhsd_open_cluster = inode;
-  nhsd_open_sector_in_cluster = 0;
-  nhsd_open_sector = (nhsd_open_cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
-
-  nhsd_init_state |= NHSD_INIT_OPENFILE;
-
-  return NHSD_ERR_NOERROR;
-}
-
 uint8_t nhsd_read()
 {
   uint8_t err;
   uint32_t the_sector = nhsd_open_sector;
 
-  if (!(nhsd_init_state & NHSD_INIT_OPENFILE))
+  if (!(nhsd_init_state & NHSD_INIT_OPENMASK))
     return NHSD_ERR_FILE_NOT_OPEN;
 
   if (!nhsd_open_cluster)

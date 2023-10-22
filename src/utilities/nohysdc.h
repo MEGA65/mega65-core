@@ -25,10 +25,14 @@
 #define NHSD_INIT_FAT      0x10
 #define NHSD_INIT_OPENDIR  0x20
 #define NHSD_INIT_OPENFILE 0x40
+#define NHSD_INIT_FALLBACK 0x80
 
 #define NHSD_INIT_BUSMASK  0b00000001
 #define NHSD_INIT_INITMASK 0b00011110
 #define NHSD_INIT_OPENMASK 0b01100000
+
+#define NHSD_INIT_BUS0_FB1 0x80
+#define NHSD_INIT_BUS1_FB0 0x81
 
 /*
  * nhsd_init_state
@@ -44,9 +48,27 @@
 extern uint8_t nhsd_init_state;
 
 /*
+ * Directory struct
+ */
+typedef struct {
+  uint32_t d_ino;
+  uint32_t d_reclen;
+  uint8_t d_type;
+  char d_name[256];
+} nhsd_dirent_t;
+
+#define NHSD_DE_TYPE_FILE 0
+#define NHSD_DE_TYPE_DIR  1
+
+/*
  * current directory entry read by nhsd_readdir
  */
-extern struct m65_dirent nhsd_dirent;
+extern nhsd_dirent_t nhsd_dirent;
+
+/*
+ * current directory inode
+ */
+extern uint32_t nhsd_current_dir;
 
 /*
  * return codes used by nearly all functions
@@ -61,6 +83,9 @@ extern struct m65_dirent nhsd_dirent;
 #define NHSD_ERR_FILE_NOT_OPEN 7
 #define NHSD_ERR_ALREADY_OPEN 8
 #define NHSD_ERR_EOF 0x80
+
+// root directory starts at cluster 2
+#define NHSD_ROOT_INODE 2UL
 
 /*
  * uint8_t nhsd_init(uint8_t bus, char *buffer)
@@ -86,6 +111,9 @@ uint8_t nhsd_init(uint8_t bus, uint8_t *buffer);
  *
  * prepears no-hyppo sd for reading directory entries.
  *
+ * this will always open the directory that starts at cluster
+ * nhsd_current_dir and will use nhsd_open_inode to open it
+ *
  */
 uint8_t nhsd_opendir();
 
@@ -95,6 +123,7 @@ uint8_t nhsd_opendir();
  * reads the next directory entry. returns NHSD_ERR_EOF when no more entries are
  * found. stores the directory entry data in global nhsd_dirent.
  * entry names are in ASCII encoding (or whatever was used on the SD...)
+ * WARNING: will only read upt to 247 chars fro vfat filename!
  * 
  */
 uint8_t nhsd_readdir();
@@ -121,6 +150,18 @@ uint8_t nhsd_closedir();
 uint8_t nhsd_findfile(char *filename);
 
 /*
+ * uint8_t nhsd_open_inode(uint32_t inode, uint8_t mode)
+ *
+ * opens a file or directory at inode.
+ * Only one file or directory can be open at a time!
+ *
+ * parameters:
+ *   inode: starting inode of the file to be opened
+ *   mode: either NHSD_INIT_OPENDIR or NHSD_INIT_OPENFILE
+ */
+uint8_t nhsd_open_inode(uint32_t inode, uint8_t mode);
+
+/*
  * uint8_t nhsd_open(uint32_t inode)
  *
  * opens the file starting at inode, which is the d_ino from a found
@@ -130,7 +171,7 @@ uint8_t nhsd_findfile(char *filename);
  * parameters:
  *   inode: starting inode of the file to be opened
  */
-uint8_t nhsd_open(uint32_t inode);
+#define nhsd_open(INODE) nhsd_open_inode(INODE, NHSD_INIT_OPENFILE)
 
 /*
  * uint8_t nhsf_read()
