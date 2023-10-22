@@ -35,7 +35,7 @@ uint8_t mhx_ascii2screen(uint8_t ascii, uint8_t def)
   if (ascii < 0x5f)
     return ascii;
   if (ascii == 0x5f) // underscore
-    return 0x6f;
+    return 0x64;
   if (ascii == 0x60) // backtick
     return 0x7a;
   if (ascii < 0x7b)
@@ -69,7 +69,11 @@ void mhx_flashscreen(uint8_t color, uint16_t milli)
 }
 
 void mhx_hl_lines(uint8_t line_start, uint8_t line_end, uint8_t attr)
-{  
+{
+  if (line_end > mhx_scr_height || line_start > mhx_scr_height)
+    return;
+  if (line_end < line_start)
+    line_end = line_start;
   line_end = (line_end - line_start + 1)*mhx_scr_width;
   mhx_set_xy(0, line_start);
   if (attr & MHX_A_FLIP) {
@@ -107,8 +111,10 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
   for (x = 0; x < height; x++, mhx_saddr += mhx_scr_width, mhx_caddr += mhx_scr_width) {
     POKE(mhx_saddr, 0x5d | (attr & MHX_A_INVERT));
     POKE(mhx_saddr + width + 1, 0x5d | (attr & MHX_A_INVERT));
-    if (!(attr & MHX_A_NOCOLOR))
+    if (!(attr & MHX_A_NOCOLOR)) {
+      memset((void *)(mhx_saddr + 1), 0x20 | (attr & MHX_A_INVERT), width);
       memset((void *)mhx_caddr, attr & MHX_A_COLORMASK, width + 2);
+    }
   }
   POKE(mhx_saddr, 0x6d | (attr & MHX_A_INVERT));
   memset((void *)(mhx_saddr + 1), 0x40 | (attr & MHX_A_INVERT), width);
@@ -119,7 +125,7 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
 
 void mhx_set_xy(uint8_t ux, uint8_t uy)
 {
-  if (ux >= mhx_scr_width || uy >= mhx_scr_width)
+  if (ux >= mhx_scr_width || uy >= mhx_scr_height)
     return;
   mhx_saddr = ux + uy*mhx_scr_width;
   mhx_caddr = mhx_base_col + mhx_saddr;
@@ -158,6 +164,9 @@ void mhx_advance_cursor(uint8_t offset)
     if (mhx_posy >= mhx_scr_height) {
       lcopy((long)mhx_base_scr + mhx_scr_width, (long)mhx_base_scr, mhx_scr_width * (mhx_scr_height - 1));
       lcopy((long)mhx_base_col24 + mhx_scr_width, (long)mhx_base_col24, mhx_scr_width * (mhx_scr_height - 1));
+      // need to clear the last line
+      lfill((long)mhx_base_scr + mhx_scr_width * (mhx_scr_height - 1), ' ', mhx_scr_width);
+      lfill((long)mhx_base_col24 + mhx_scr_width * (mhx_scr_height - 1), mhx_curattr, mhx_scr_width);
       mhx_saddr -= mhx_scr_width;
       mhx_caddr -= mhx_scr_width;
       mhx_posy--;
@@ -179,7 +188,7 @@ void mhx_write(char *text, uint8_t attr)
 void mhx_writef(char *format, ...)
 {
   char out, *sub = NULL;
-  uint8_t mode = 0, count, pflags = 0;
+  uint8_t mode = 0, count, pflags = 0, eos = MHX_C_EOS;
   uint32_t lval = 0;
   va_list args;
   va_start(args, format);
@@ -219,9 +228,11 @@ void mhx_writef(char *format, ...)
             out = va_arg(args, char);
             format++;
             break;
+          case 'S': // autoconvert ASCII string to screencodes
+            eos = 0;
           case 's':
             sub = va_arg(args, char *);
-            if (*sub == MHX_C_EOS) {
+            if (*sub == eos) {
               // skip empty string
               format++;
               continue;
@@ -261,13 +272,16 @@ void mhx_writef(char *format, ...)
         format++;
       }
     }
-    // are we outputting s?
+    // are we outputting s or S?
     if (mode == 2) {
       out = *sub;
+      if (!eos)
+        out = mhx_ascii2screen(out, MHX_C_DEFAULT);
       sub++;
-      if (*sub == MHX_C_EOS) {
+      if (*sub == eos) {
         format++;
         mode = 0;
+        eos = MHX_C_EOS;
       }
     }
     // handle special chars like newline
@@ -336,7 +350,7 @@ mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr)
     mhx_clear_ch_buffer();
   do {
     mhx_lastkey.code.mod = PEEK(0xD611);
-    if ((mhx_lastkey.code.key = PEEK(0xD610)));
+    if ((mhx_lastkey.code.key = PEEK(0xD610)))
       POKE(0xD610, 0);
     if (flags & MHX_AK_ATTENTION) // attention lets the border flash
       POKE(0xD020, (PEEK(0xD020) + 1) & 0xf);

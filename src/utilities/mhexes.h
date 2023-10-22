@@ -115,6 +115,7 @@ extern mhx_keycode_t mhx_lastkey;
 #define MHX_W_LBLUE  "\x8e"
 #define MHX_W_LGREY  "\x8f"
 
+#define MHX_C_DEFAULT '\x7f'
 #define MHX_C_REVON  '\x81'
 #define MHX_C_REVOFF '\x82'
 #define MHX_C_CLRHOME '\x83'
