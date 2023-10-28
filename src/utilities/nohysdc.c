@@ -375,16 +375,6 @@ uint8_t nhsd_readdir()
   return NHSD_ERR_EOF;
 }
 
-uint8_t nhsd_closedir()
-{
-  if ((nhsd_init_state & NHSD_INIT_OPENMASK) != NHSD_INIT_OPENDIR)
-    return NHSD_ERR_DIR_NOT_OPEN;
-
-  nhsd_init_state &= 0xff ^ NHSD_INIT_OPENDIR;
-  
-  return NHSD_ERR_NOERROR;
-}
-
 uint8_t nhsd_findfile(char *filename)
 {
   uint8_t err;
@@ -440,8 +430,10 @@ uint8_t nhsd_close()
   if ((nhsd_init_state & NHSD_INIT_INITMASK) != NHSD_INIT_INITMASK)
     return NHSD_ERR_NOINIT;
 
-  if (nhsd_init_state & NHSD_INIT_OPENFILE)
-    nhsd_init_state &= 0xff ^ NHSD_INIT_OPENFILE;
+  if (!(nhsd_init_state & NHSD_INIT_OPENMASK))
+    return NHSD_ERR_FILE_NOT_OPEN;
+
+  nhsd_init_state &= 0xff ^ NHSD_INIT_OPENMASK;
   
   return NHSD_ERR_NOERROR;
 }

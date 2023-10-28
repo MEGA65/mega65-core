@@ -79,8 +79,8 @@ extern uint32_t nhsd_current_dir;
 #define NHSD_ERR_INVALID_MBR 3
 #define NHSD_ERR_PART_NOT_FOUND 4
 #define NHSD_ERR_READERROR 5
-#define NHSD_ERR_DIR_NOT_OPEN 6
 #define NHSD_ERR_FILE_NOT_OPEN 7
+#define NHSD_ERR_DIR_NOT_OPEN NHSD_ERR_FILE_NOT_OPEN
 #define NHSD_ERR_ALREADY_OPEN 8
 #define NHSD_ERR_EOF 0x80
 
@@ -127,15 +127,6 @@ uint8_t nhsd_opendir();
  * 
  */
 uint8_t nhsd_readdir();
-
-/*
- * uint8_t nhsd_closedir()
- *
- * tells no-hyppo sd that directory reading is finished.
- * note: you can only have opened directory or file, not both!
- *
- */
-uint8_t nhsd_closedir();
 
 /*
  * uint8_t nhsd_findfile(char *filename)
@@ -187,9 +178,14 @@ uint8_t nhsd_read();
 /*
  * uint8_t nhsd_close()
  *
- * closes the currently open file.
+ * closes the currently open file or directory, because of this
+ * nhsd_closedir is an alias to this function.
+ * Note: this library can only have EITHER a dir or a file open
+ * at a time!
  * 
  */
 uint8_t nhsd_close();
+#define nhsd_closedir() nhsd_close();
+
 
 #endif /* NOHYSDC_H */
