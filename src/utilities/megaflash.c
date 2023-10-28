@@ -229,6 +229,9 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
   if (first_flash_read)
     do_first_flash_read(0);
 
+  for (j = 0; j < CORECAP_DEF_MAX; j++)
+    corecap_def[j].slot = 0xff;
+
   for (slot = update_slot & 0x0f; slot < slot_count; slot++) {
     // read first sector from flash slot
     read_data(slot * SLOT_SIZE);
@@ -296,6 +299,12 @@ unsigned char scan_bitstream_information(unsigned char search_flags, unsigned ch
 
     if (update_slot & 0x80)
       break;
+  }
+
+  // if we don't have a slot, then we use slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
+  if (default_slot == 0xff) {
+    default_slot = 1 + ((PEEK(0xD69D) >> 3) & 1);
+    corecap_def[0].slot = default_slot;
   }
 
   return found != 0xff ? found : default_slot;
@@ -540,10 +549,6 @@ void main(void)
 
       // determine boot slot by flags (default search is for default slot)
       selected = scan_bitstream_information(search_cart, 0);
-
-      // if we don't have a cart slot, then we use slot 1 if dipsw4=off, or slot 2 if dipsw4=on (issue #443)
-      if (selected == 0xff)
-        selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
       if (slot_core[selected].valid == SLOT_VALID) {
         // Valid bitstream -- so start it
