@@ -55,9 +55,9 @@ unsigned char last_sector_num = 0xff;
 unsigned char sector_num = 0xff;
 
 uint8_t corefile_model_id = 0;
-char corefile_name[32];
-char corefile_version[32];
-char corefile_error[32];
+char corefile_name[33];
+char corefile_version[33];
+char corefile_error[33];
 
 // used by QSPI routines
 unsigned char data_buffer[512];
@@ -302,6 +302,7 @@ int8_t read_and_check_core(uint8_t require_mega)
   memset(corefile_version, ' ', 32);
   memcpy(corefile_name, "UNKNOWN CORE TYPE", 17);
   memcpy(corefile_version, "UNKNOWN VERSION", 15);
+  corefile_name[32] = corefile_version[32] = corefile_error[32] = MHX_C_EOS;
 
   if ((err = nhsd_open(disk_file_inode))) {
     memcpy(corefile_error, "Could not open core file!", 25);
@@ -311,7 +312,7 @@ int8_t read_and_check_core(uint8_t require_mega)
   err = nhsd_read();
   nhsd_close(); // only need the first sector
   if (err) {
-    memcpy(corefile_error, "Failed to read core file header!", 25);
+    memcpy(corefile_error, "Failed to read core file header!", 32);
     return -2;
   }
 
@@ -479,6 +480,7 @@ restart_dirload:
   // mhx_writef(MHX_W_WHITE MHX_W_REVON "%X Loaded %d files" MHX_W_REVOFF, sbs_file_count);
   // mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 
+  // return on which sd card and in which directory we are (fallback may have happened!)
   return (nhsd_init_state & NHSD_INIT_BUSMASK) | (isroot ? 0 : 2);
 }
 
@@ -554,15 +556,15 @@ unsigned char select_bitstream_file(unsigned char slot)
 
         if (selection_number - display_offset < 12) {
           mhx_draw_rect(3, 15, 32, 3, " Corefile ", MHX_A_NOCOLOR);
-          memcpy((void *)(0x400 + 4 + 16*40), corefile_name, 32);
-          memcpy((void *)(0x400 + 4 + 17*40), corefile_version, 32);
-          memcpy((void *)(0x400 + 4 + 18*40), corefile_error, 32);
+          mhx_write_xy(4, 16, corefile_name, MHX_A_WHITE);
+          mhx_write_xy(4, 17, corefile_version, MHX_A_WHITE);
+          mhx_write_xy(4, 18, corefile_error, MHX_A_WHITE);
         }
         else {
           mhx_draw_rect(3, 5, 32, 3, " Corefile ", MHX_A_NOCOLOR);
-          memcpy((void *)(0x400 + 4 + 6*40), corefile_name, 32);
-          memcpy((void *)(0x400 + 4 + 7*40), corefile_version, 32);
-          memcpy((void *)(0x400 + 4 + 8*40), corefile_error, 32);
+          mhx_write_xy(4, 6, corefile_name, MHX_A_WHITE);
+          mhx_write_xy(4, 7, corefile_version, MHX_A_WHITE);
+          mhx_write_xy(4, 8, corefile_error, MHX_A_WHITE);
         }
       }
       usleep(10000);
@@ -578,17 +580,18 @@ unsigned char select_bitstream_file(unsigned char slot)
       // was erase (first entry) selected?
       if (selection_number == 0) {
         disk_file_inode = 0xfffffffful;
-        disk_display_return[0] = 0;
+        disk_display_return[0] = MHX_C_EOS;
         return SELECTED_FILE_ERASE;
       }
 
       // Copy name out
       lcopy(FILEINODE_ADDRESS + (selection_number * 8), (long)&disk_file_inode, 4);
       lcopy(FILESCREEN_ADDRESS + (selection_number * 40) + 1, (long)&disk_display_return, 38);
+      disk_display_return[38] = MHX_C_EOS;
 
       if (!disk_file_inode) {
         disk_file_inode = 0xfffffffful;
-        disk_display_return[0] = 0;
+        disk_display_return[0] = MHX_C_EOS;
         return SELECTED_FILE_ERASE;
       }
 
@@ -964,6 +967,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
     mhx_press_any_key(0, MHX_A_WHITE);
 #endif
 
+#if 0
     // start reading file from beginning again
     // (as the model_id checking read the first 512 bytes already)
     if ((err = nhsd_open(disk_file_inode))) {
@@ -971,6 +975,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
       mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
       return;
     }
+#endif
 
     mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "%cLoading COR file into Attic RAM...\n");
     progress_start(SLOT_SIZE_PAGES, "Loading");
