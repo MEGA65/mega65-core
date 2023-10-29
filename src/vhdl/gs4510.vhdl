@@ -288,8 +288,8 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
-  signal sdram_t_or_hyperram_f_int : std_logic := '1';
-  signal sdram_slow_clock_int : std_logic := '1';
+  signal sdram_t_or_hyperram_f_int : std_logic := '0';
+  signal sdram_slow_clock_int : std_logic := '0';
   
   signal f_rdata : std_logic := '1';
   signal f_rdata_last : std_logic := '1';
