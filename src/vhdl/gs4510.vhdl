@@ -563,8 +563,8 @@ architecture Behavioural of gs4510 is
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
 
-  signal slow_prefetch_enable : std_logic := '1';
-  signal slow_cache_enable : std_logic := '0';
+  signal slow_prefetch_enable : std_logic := '0';
+  signal slow_cache_enable : std_logic := '1';
   signal slow_cache_advance_enable : std_logic := '0';
   signal prev_cache_read : unsigned(2 downto 0) := "000";
   signal slowram_cache_line_inc_toggle_int : std_logic := '0';
