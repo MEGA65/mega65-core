@@ -45,7 +45,7 @@
 
 library ieee ;
   use ieee.std_logic_1164.all ;
-  use ieee.std_logic_unsigned.all;
+--  use ieee.std_logic_unsigned.all;
   use ieee.numeric_std.all;
 
 --library UNISIM;
@@ -54,9 +54,9 @@ library ieee ;
 entity M6522 is
   port (
 
-    I_RS              : in    std_logic_vector(3 downto 0);
-    I_DATA            : in    std_logic_vector(7 downto 0);
-    O_DATA            : out   std_logic_vector(7 downto 0);
+    I_RS              : in    unsigned(3 downto 0);
+    I_DATA            : in    unsigned(7 downto 0);
+    O_DATA            : out   unsigned(7 downto 0);
     O_DATA_OE_L       : out   std_logic;
 
     I_RW_L            : in    std_logic;
@@ -96,7 +96,7 @@ end;
 
 architecture RTL of M6522 is
 
-  signal phase             : std_logic_vector(1 downto 0);
+  signal phase             : integer range 0 to 3 := 0;
   signal p2_h_t1           : std_logic;
   signal cs                : std_logic;
 
@@ -109,15 +109,15 @@ architecture RTL of M6522 is
   signal r_orb             : std_logic_vector(7 downto 0);
   signal r_irb             : std_logic_vector(7 downto 0);
 
-  signal r_t1l_l           : std_logic_vector(7 downto 0);
-  signal r_t1l_h           : std_logic_vector(7 downto 0);
-  signal r_t2l_l           : std_logic_vector(7 downto 0);
-  signal r_t2l_h           : std_logic_vector(7 downto 0); -- not in real chip
-  signal r_sr              : std_logic_vector(7 downto 0);
-  signal r_acr             : std_logic_vector(7 downto 0);
-  signal r_pcr             : std_logic_vector(7 downto 0);
-  signal r_ifr             : std_logic_vector(7 downto 0);
-  signal r_ier             : std_logic_vector(6 downto 0);
+  signal r_t1l_l           : unsigned(7 downto 0) := (others => '0');
+  signal r_t1l_h           : unsigned(7 downto 0) := (others => '0');
+  signal r_t2l_l           : unsigned(7 downto 0) := (others => '0');
+  signal r_t2l_h           : unsigned(7 downto 0) := (others => '0'); -- not in real chip
+  signal r_sr              : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_acr             : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_pcr             : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_ifr             : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_ier             : std_logic_vector(6 downto 0) := (others => '0');
 
   signal sr_write_ena      : boolean;
   signal sr_read_ena       : boolean;
@@ -127,7 +127,7 @@ architecture RTL of M6522 is
   signal load_data         : std_logic_vector(7 downto 0);
 
   -- timer 1
-  signal t1c               : std_logic_vector(15 downto 0);
+  signal t1c               : unsigned(15 downto 0);
   signal t1c_active        : boolean;
   signal t1c_done          : boolean;
   signal t1_w_reset_int    : boolean;
@@ -138,7 +138,7 @@ architecture RTL of M6522 is
   signal t1_irq            : std_logic := '0';
 
   -- timer 2
-  signal t2c               : std_logic_vector(15 downto 0);
+  signal t2c               : unsigned(15 downto 0);
   signal t2c_active        : boolean;
   signal t2c_done          : boolean;
   signal t2_pb6            : std_logic;
@@ -198,9 +198,16 @@ begin
     if (ENA_4 = '1') then
       p2_h_t1 <= I_P2_H;
       if (p2_h_t1 = '0') and (I_P2_H = '1') then
-        phase <= "11";
+        phase <= 3;
       else
-        phase <= phase + "1";
+        -- PGS 20231022 Gracefully handle situation where
+        -- CLK > 4x Phase 2 clock rate. This will leave phase
+        -- stuck at "10" between cycles, which is fine, because
+        -- nothing uses that phase to do stuff. All other phases
+        -- DO have things attached to them.
+        if phase /= 2 then
+          phase <= phase + 1;
+        end if;
       end if;
     end if;
   end process;
@@ -261,14 +268,14 @@ begin
         w_ora_hs <= '0';
         if (cs = '1') and (I_RW_L = '0') then
           case I_RS is
-            when x"0" => r_orb     <= I_DATA; w_orb_hs <= '1';
-            when x"1" => r_ora     <= I_DATA; w_ora_hs <= '1';
-            when x"2" => r_ddrb    <= I_DATA;
-            when x"3" => r_ddra    <= I_DATA;
+            when x"0" => r_orb     <= std_logic_vector(I_DATA); w_orb_hs <= '1';
+            when x"1" => r_ora     <= std_logic_vector(I_DATA); w_ora_hs <= '1';
+            when x"2" => r_ddrb    <= std_logic_vector(I_DATA);
+            when x"3" => r_ddra    <= std_logic_vector(I_DATA);
 
-            when x"B" => r_acr     <= I_DATA;
-            when x"C" => r_pcr     <= I_DATA;
-            when x"F" => r_ora     <= I_DATA;
+            when x"B" => r_acr     <= std_logic_vector(I_DATA);
+            when x"C" => r_pcr     <= std_logic_vector(I_DATA);
+            when x"F" => r_ora     <= std_logic_vector(I_DATA);
 
             when others => null;
           end case;
@@ -297,7 +304,7 @@ begin
       ier_write_ena <= false;
 
       if (cs = '1') and (I_RW_L = '0') then
-        load_data <= I_DATA;
+        load_data <= std_logic_vector(I_DATA);
         case I_RS is
           when x"4" => r_t1l_l   <= I_DATA;
           when x"5" => r_t1l_h   <= I_DATA; t1_w_reset_int  <= true;
@@ -343,22 +350,34 @@ begin
 		  case I_RS is
 			--when x"0" => O_DATA <= r_irb; r_irb_hs <= '1';
 			-- fix from Mark McDougall, untested
-			when x"0" => O_DATA <= (r_irb and not r_ddrb) or (r_orb and r_ddrb); r_irb_hs <= '1';
-			when x"1" => O_DATA <= r_ira; r_ira_hs <= '1';
-			when x"2" => O_DATA <= r_ddrb;
-			when x"3" => O_DATA <= r_ddra;
-			when x"4" => O_DATA <= t1c( 7 downto 0);  t1_r_reset_int <= true;
+                    when x"0" => O_DATA <= unsigned((r_irb and not r_ddrb) or (r_orb and r_ddrb)); r_irb_hs <= '1';
+                                 if prev_was_read = '0' then
+                                   report "MOS6522"&name&": register 0 (Port B data) = $"
+                                     & to_hexstring((r_irb and not r_ddrb) or (r_orb and r_ddrb))
+                                     & ", r_irb = $" & to_hexstring(r_irb)
+                                     & ", r_ddrb = $" & to_hexstring(r_ddrb)
+                                     & ", r_orb = $" & to_hexstring(r_orb)
+                                     ;
+                                 end if;
+                    when x"1" => O_DATA <= unsigned(r_ira); r_ira_hs <= '1';
+                                 if prev_was_read = '0' then
+                                   report "MOS6522"&name&": register 1 (IRA) = " & to_hexstring(r_ira);
+                                 end if;
+			when x"2" => O_DATA <= unsigned(r_ddrb);
+			when x"3" => O_DATA <= unsigned(r_ddra);
+                        when x"4" => O_DATA <= t1c( 7 downto 0);  t1_r_reset_int <= true;
+                                     -- report "MOS6522"&name&": Reading t1c low byte and asserting t1_r_reset_int";
 			when x"5" => O_DATA <= t1c(15 downto 8);
 			when x"6" => O_DATA <= r_t1l_l;
 			when x"7" => O_DATA <= r_t1l_h;
 			when x"8" => O_DATA <= t2c( 7 downto 0);  t2_r_reset_int <= true;
 			when x"9" => O_DATA <= t2c(15 downto 8);
-			when x"A" => O_DATA <= r_sr;              sr_read_ena <= true;
-			when x"B" => O_DATA <= r_acr;
-			when x"C" => O_DATA <= r_pcr;
-			when x"D" => O_DATA <= r_ifr;
-			when x"E" => O_DATA <= ('0' & r_ier);
-			when x"F" => O_DATA <= r_ira;
+			when x"A" => O_DATA <= unsigned(r_sr);              sr_read_ena <= true;
+			when x"B" => O_DATA <= unsigned(r_acr);
+			when x"C" => O_DATA <= unsigned(r_pcr);
+			when x"D" => O_DATA <= unsigned(r_ifr);
+			when x"E" => O_DATA <= ('0' & unsigned(r_ier));
+			when x"F" => O_DATA <= unsigned(r_ira);
 			when others => null;
 		  end case;
 		end if;
@@ -438,13 +457,13 @@ begin
     elsif rising_edge(CLK) then
       if (ENA_4 = '1') then
       -- ca
-        if (phase = "00") and ((w_ora_hs = '1') or (r_ira_hs = '1')) then
+        if (phase = 0) and ((w_ora_hs = '1') or (r_ira_hs = '1')) then
           ca_hs_sr <= '1';
         elsif ca1_int then
           ca_hs_sr <= '0';
         end if;
 
-        if (phase = "00") then
+        if (phase = 0) then
           ca_hs_pulse <= w_ora_hs or r_ira_hs;
         end if;
 
@@ -462,13 +481,13 @@ begin
         end case;
 
         -- cb
-        if (phase = "00") and (w_orb_hs = '1') then
+        if (phase = 0) and (w_orb_hs = '1') then
           cb_hs_sr <= '1';
         elsif cb1_int then
           cb_hs_sr <= '0';
         end if;
 
-        if (phase = "00") then
+        if (phase = 0) then
           cb_hs_pulse <= w_orb_hs;
         end if;
 
@@ -611,11 +630,17 @@ begin
   begin
     wait until rising_edge(CLK);
     if (ENA_4 = '1') then
-      if t1_load_counter or (t1_reload_counter and phase = "11") then
+      -- report "MOS6522"&name&": phase = " & to_string(phase);
+      if t1_load_counter or (t1_reload_counter and phase = 3) then
         t1c( 7 downto 0) <= r_t1l_l;
         t1c(15 downto 8) <= r_t1l_h;
-      elsif (phase="11") then
-        t1c <= t1c - "1";
+      elsif (phase=3) then
+        if to_integer(unsigned(t1c)) /= 0 then
+          if name = "@$1800" then
+            report "MOS6522"&name&": Decrementing t1c from " & integer'image(to_integer(unsigned(t1c)));
+          end if;
+          t1c <= to_unsigned(to_integer(t1c) - 1,16);
+        end if;
       end if;
 
       if t1_load_counter or t1_reload_counter then
@@ -643,7 +668,7 @@ begin
   begin
     wait until rising_edge(CLK);
     if (ENA_4 = '1') then
-      if (phase = "01") then -- leading edge p2_h
+      if (phase = 1) then -- leading edge p2_h
         t2_pb6    <= I_PB(6);
         t2_pb6_t1 <= t2_pb6;
       end if;
@@ -654,7 +679,7 @@ begin
     variable done : boolean;
   begin
       done := (t2c = x"0000");
-      t2c_done <= done and (phase = "11");
+      t2c_done <= done and (phase = 3);
       --if (phase = "11") then
         t2_reload_counter <= done;
       --end if;
@@ -671,19 +696,19 @@ begin
         ena := (t2_pb6_t1 = '1') and (t2_pb6 = '0'); -- falling edge
       end if;
 
-      if t2_load_counter or (t2_reload_counter and phase = "11") then
+      if t2_load_counter or (t2_reload_counter and phase = 3) then
       -- not sure if t2c_reload should be here. Does timer2 just continue to
       -- count down, or is it reloaded ? Reloaded makes more sense if using
       -- it to generate a clock for the shift register.
         t2c( 7 downto 0) <= r_t2l_l;
         t2c(15 downto 8) <= r_t2l_h;
       else
-        if (phase="11") and ena then -- or count mode
-            t2c <= t2c - "1";
+        if (phase=3) and ena then -- or count mode
+            t2c <= to_unsigned(to_integer(t2c) - 1,16);
         end if;
       end if;
 
-      t2_sr_ena <= (t2c(7 downto 0) = x"00") and (phase = "11");
+      t2_sr_ena <= (t2c(7 downto 0) = x"00") and (phase = 3);
 
       if t2_load_counter then
         t2c_active <= true;
@@ -755,7 +780,7 @@ begin
 		    sr_strobe <= '1';
 		  else
 			if ((use_t2 = '1') and t2_sr_ena) or
-			  ((use_t2 = '0') and (phase = "00")) then
+			  ((use_t2 = '0') and (phase = 0)) then
 			    sr_strobe <= not sr_strobe;
 			end if;
 		  end if;
@@ -793,10 +818,10 @@ begin
         -- some documentation says sr bit in IFR must be set as well ?
           sr_cnt <= "1000";
         elsif sr_count_ena and (sr_cnt(3) = '1') then
-          sr_cnt <= sr_cnt + "1";
+          sr_cnt <= std_logic_vector(to_unsigned(to_integer(unsigned(sr_cnt)) + 1,4));
         end if;
 
-        if (phase = "00") then
+        if (phase = 0) then
           sr_off_delay <= sr_cnt(3); -- give some hold time when shifting out
         end if;
 

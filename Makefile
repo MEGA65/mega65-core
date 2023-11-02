@@ -331,6 +331,8 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
 			$(VHDLSRCDIR)/slow_devices.vhdl \
+			$(VHDLSRCDIR)/sdcardio.vhdl \
+			$(VHDLSRCDIR)/iec_serial.vhdl \
 			$(AUDIOVHDL) \
 			$(KBDVHDL)
 
@@ -355,7 +357,9 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
 1541VHDL=		$(VHDLSRCDIR)/internal1541.vhdl \
 			$(VHDLSRCDIR)/driverom.vhdl \
 			$(VHDLSRCDIR)/dpram8x4096.vhdl \
-			$(VHDLSRCDIR)/dummy_cpu6502.vhdl \
+			$(VHDLSRCDIR)/simple_cpu6502.vhdl \
+			$(VHDLSRCDIR)/m6522.vhdl \
+			$(VHDLSRCDIR)/internal1541.vhdl \
 
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
@@ -458,9 +462,19 @@ OPL3VERILOG=		$(VERILOGSRCDIR)/calc_phase_inc.v \
 simulate:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(GHDL) -i $(SIMULATIONVHDL)
-	$(GHDL) -m cpu_test
-	$(GHDL) -r cpu_test --assert-level=warning
+	$(GHDL) -i -fsynopsys --work=unisim src/vhdl/my_vcomponents.vhdl src/vhdl/my_bufg.vhdl
+	$(GHDL) -i -fsynopsys $(SIMULATIONVHDL)
+	$(GHDL) -m -fsynopsys cpu_test
+	$(GHDL) -r cpu_test # --assert-level=warning
+
+UNISIM_VHDL=/opt/Xilinx/Vivado/2019.2/ids_lite/ISE/vhdl/src/unisims/*.vhd /opt/Xilinx/Vivado/2019.2/ids_lite/ISE/vhdl/src/unisims/primitive/*.vhd
+
+simulate-nvc:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(NVC) -M 256m --work=UNISIM -a --relaxed $(UNISIM_VHDL)
+	$(NVC) -M 256m -L . -a --relaxed $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SIMULATIONVHDL) $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fake_expansion_port.vhdl -e cpu_test -r
+
 
 # GHDL with llvm backend
 simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat

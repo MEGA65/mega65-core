@@ -99,8 +99,108 @@ architecture romanesque_revival of internal1541 is
 
 begin
   
-  -- XXX Add the missing 6522 VIAs
+  -- 2x 6522 VIAs 
+  via2: entity work.mos6522
+    generic map ( name => "@$1C00" )
+    port map (
+    I_RS   => via_address,
+    I_DATA => via_data_in,
+    O_DATA => via2_data_out,
 
+    I_RW_L => cpu_write_n,
+    I_CS1  => cs_via2,
+    I_CS2_L  => '0',
+
+    O_IRQ_L => via2_irq_n,
+
+    -- Port A
+    I_CA1 => via2_ca1_in,
+    I_CA2 => via2_ca2_in,
+    O_CA2 => via2_ca2_out,
+    O_CA2_OE_L => via2_ca2_out_en_n,
+
+    I_PA => via2_porta_in,
+    O_PA => via2_porta_out,
+    O_PA_OE_L => via2_porta_out_en_n,
+
+    -- Port B
+    I_CB1 => via2_cb1_in,
+    O_CB1 => via2_cb1_out,
+    O_CB1_OE_L => via2_cb1_out_en_n,
+
+    I_CB2 => via2_cb2_in,
+    O_CB2 => via2_cb2_out,
+    O_CB2_OE_L => via2_cb2_out_en_n,
+
+    I_PB => via2_portb_in,
+    O_PB => via2_portb_out,
+    O_PB_OE_L => via2_portb_out_en_n,
+
+    -- Phase 2 clock (active high)
+    I_P2_H => via_phase2_clock,
+    -- Fast FPGA clock
+    CLK => clock,
+    -- ENA_4 needs to be asserted at not less than 4x the Phase 2
+    -- clock rate.  We have modified m6522.vhdl to gracefully
+    -- handle this line being high always.
+    ENA_4 => '1',
+
+    RESET_L => drive_reset_n
+
+    );
+    
+
+  via1: entity work.mos6522
+    generic map ( name => "@$1800" )
+    port map (
+    I_RS   => via_address,
+    I_DATA => via_data_in,
+    O_DATA => via1_data_out,
+
+    I_RW_L => cpu_write_n,
+    I_CS1  => cs_via1,
+    I_CS2_L  => '0',
+
+    O_IRQ_L => via1_irq_n,
+
+    -- Port A
+    I_CA1 => via1_ca1_in,
+    I_CA2 => via1_ca2_in,
+    O_CA2 => via1_ca2_out,
+    O_CA2_OE_L => via1_ca2_out_en_n,
+
+    I_PA => via1_porta_in,
+    O_PA => via1_porta_out,
+    O_PA_OE_L => via1_porta_out_en_n,
+
+    -- Port B
+    I_CB1 => via1_cb1_in,
+    O_CB1 => via1_cb1_out,
+    O_CB1_OE_L => via1_cb1_out_en_n,
+
+    I_CB2 => via1_cb2_in,
+    O_CB2 => via1_cb2_out,
+    O_CB2_OE_L => via1_cb2_out_en_n,
+
+    I_PB => via1_portb_in,
+    O_PB => via1_portb_out,
+    O_PB_OE_L => via1_portb_out_en_n,
+
+    -- Phase 2 clock (active high)
+    I_P2_H => via_phase2_clock,
+    -- Fast FPGA clock
+    CLK => clock,
+    -- ENA_4 needs to be asserted at not less than 4x the Phase 2
+    -- clock rate.  We have modified m6522.vhdl to gracefully
+    -- handle this line being high always.
+    ENA_4 => '1',
+
+    RESET_L => drive_reset_n
+
+    );
+    
+  
+  
   ram: entity work.dpram8x4096 port map (
     -- Fastio interface
     clka => clock,
