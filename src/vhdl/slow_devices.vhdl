@@ -421,6 +421,14 @@ begin
               slow_access_ready_toggle <= slow_access_request_toggle;
               state <= Idle;
             end if;
+          elsif slow_access_address(27 downto 8) = x"f0000" then
+            slow_access_rdata <= x"00";
+            slow_access_rdata(1) <= last_expansionram_data_ready_toggle;
+            slow_access_rdata(0) <= expansionram_data_ready_toggle;
+            state <= Idle;
+            report "PUBLISH: Debug expansion RAM ready toggle";
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            
           elsif slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
             report "Triaging Expansion RAM request to address $" & to_hexstring(slow_access_address);
