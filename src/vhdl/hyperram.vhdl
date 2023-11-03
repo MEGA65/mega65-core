@@ -3562,7 +3562,7 @@ begin
                 report "hr_return='1'";
                 report "hr_return='0'";
                 if rdata_16en='0' then
-                  report "asserting read_publish_strobe on low byte";
+                  report "asserting read_publish_strobe2 on low byte";
                   read_publish_strobe2 <= '1';
                 end if;
               end if;
@@ -3578,7 +3578,7 @@ begin
                 report "hr_return='1'";
                 report "hr_return='0'";
 
-                report "asserting read_publish_strobe on high byte";
+                report "asserting read_publish_strobe2 on high byte";
                 read_publish_strobe2 <= '1';
 
               end if;
