@@ -663,7 +663,7 @@ begin
         -- We check the write buffers first, as any contents that they have
         -- must take priority over everything else
         if (block_valid='1') and (block_address_matches_address='1') then
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
           rdata_buf <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
           if rdata_16en='1' then
@@ -699,7 +699,7 @@ begin
           
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
           rdata_buf <= write_collect0_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
@@ -707,14 +707,14 @@ begin
                                                     and write_collect0_valids(to_integer(address(2 downto 1)&"0")) = '1'
                                                     and write_collect0_valids(to_integer(address(2 downto 1)&"1")) = '1') then
           -- Write cache read-back
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
           rdata_buf <= write_collect0_data(to_integer(address(2 downto 1)&"0"));
           rdata_hi_buf <= write_collect0_data(to_integer(address(2 downto 1)&"1"));
           report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
           rdata_buf <= write_collect1_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
@@ -741,7 +741,7 @@ begin
           report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
           rdata_buf <= cache_row1_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
@@ -902,9 +902,9 @@ begin
                           
             when others => rdata_buf <= x"BF";
           end case;
-          report "asserting read_publish_strobe";
+          report "flipping read_publish_toggle";
           read_publish_toggle <= not read_publish_toggle;
-          report "asserting read_publish_strobe for debug register read";                            
+          report "flipping read_publish_toggle for debug register read";                            
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
