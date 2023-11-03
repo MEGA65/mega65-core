@@ -424,9 +424,14 @@ begin
             end if;
           elsif slow_access_address(27 downto 8) = x"f0000" then
             slow_access_rdata <= x"00";
-            slow_access_rdata(2) <= last_expansionram_data_ready_toggle_sample;
-            slow_access_rdata(1) <= last_expansionram_data_ready_toggle;
-            slow_access_rdata(0) <= expansionram_data_ready_toggle;
+            if slow_access_address(7 downto 0) = x"00" then
+              slow_access_rdata(2) <= last_expansionram_data_ready_toggle_sample;
+              slow_access_rdata(1) <= last_expansionram_data_ready_toggle;
+              slow_access_rdata(0) <= expansionram_data_ready_toggle;
+            end if;
+            if slow_access_address(7 downto 0) = x"01" then
+              slow_access_rdata <= expansionram_rdata;
+            end if;
             state <= Idle;
             report "PUBLISH: Debug expansion RAM ready toggle";
             slow_access_ready_toggle <= slow_access_request_toggle;
