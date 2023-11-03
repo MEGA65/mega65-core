@@ -5,16 +5,6 @@ use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
 
-------------------------------------------------------------------------------------------------
--- PGS 12MAR2023:
--- NOTE: The cache must remain enabled for writes to be reliable across all
--- MEGA65 board revisions.  This is because the revD HyperRAM chip found on
--- _some_ machines in _some_ batches requires 32-bit writes (but still can be
--- byte masked), for the writes to happen correctly.
--- See https://github.com/MJoergen/HyperRAM/issues/2 for more information.
-------------------------------------------------------------------------------------------------
-
-
 entity sdram_controller is
   generic (in_simulation : in boolean := false);
   port (pixelclock : in std_logic;      -- For slow devices bus interface is
