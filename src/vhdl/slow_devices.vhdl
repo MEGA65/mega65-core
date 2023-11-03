@@ -169,6 +169,7 @@ architecture behavioural of slow_devices is
   signal last_expansionram_write_address : unsigned(27 downto 0) := (others => '1');
   signal last_expansionram_write_data : unsigned(7 downto 0) := x"00";
   signal last_expansionram_data_ready_toggle : std_logic := '0';
+  signal last_expansionram_data_ready_toggle_sample : std_logic := '0';
 
   signal opl_we : std_logic := '0';
   signal opl_data : unsigned(7 downto 0) := x"00";
@@ -423,6 +424,7 @@ begin
             end if;
           elsif slow_access_address(27 downto 8) = x"f0000" then
             slow_access_rdata <= x"00";
+            slow_access_rdata(2) <= last_expansionram_data_ready_toggle_sample;
             slow_access_rdata(1) <= last_expansionram_data_ready_toggle;
             slow_access_rdata(0) <= expansionram_data_ready_toggle;
             state <= Idle;
@@ -594,6 +596,7 @@ begin
         expansionram_read <= '0';
         expansionram_write <= '0';
       if (expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle) then
+        last_expansionram_data_ready_toggle_sample <= expansionram_data_ready_toggle;
         report "Saw data. Switching back to Idle state. byte = $" & to_hexstring(expansionram_rdata);
         state <= Idle;
         slow_access_rdata <= expansionram_rdata;
