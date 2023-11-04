@@ -421,6 +421,7 @@ architecture gothic of hyperram is
   signal rdata_buf2        : unsigned(7 downto 0);
   signal rdata_hi_buf2     : unsigned(7 downto 0);
   signal last_data_ready_toggle_out : std_logic := '0';
+  signal data_ready_toggle_drive : std_logic := '0';
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -1538,13 +1539,14 @@ begin
         end if;
       end if;
 
+      data_ready_toggle_out <= data_ready_toggle_drive;
       if read_publish_toggle /= last_read_publish_toggle then
         read_publish_toggle <= last_read_publish_toggle;
         report "PUBLISH: rdata <= $" & to_hexstring(rdata_hi_buf) & to_hexstring(rdata_buf);
         
         rdata                  <= rdata_buf;
         rdata_hi               <= rdata_hi_buf;
-        data_ready_toggle_out      <= not last_data_ready_toggle_out;
+        data_ready_toggle_drive      <= not last_data_ready_toggle_out;
         last_data_ready_toggle_out <= not last_data_ready_toggle_out;
 
       elsif read_publish_strobe2 = '1' then
@@ -1553,7 +1555,7 @@ begin
         
         rdata                  <= rdata_buf2;
         rdata_hi               <= rdata_hi_buf2;
-        data_ready_toggle_out      <= not last_data_ready_toggle_out;
+        data_ready_toggle_drive      <= not last_data_ready_toggle_out;
         last_data_ready_toggle_out <= not last_data_ready_toggle_out;
       end if;
       
