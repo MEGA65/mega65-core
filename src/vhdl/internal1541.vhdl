@@ -11,7 +11,7 @@ use work.victypes.all;
 entity internal1541 is
   port (
     clock : in std_logic;
-    
+        
     -- CPU side interface to read/write both the 16KB drive "ROM" and the 2KB
     -- drive RAM.    
     fastio_read : in std_logic;
@@ -28,11 +28,21 @@ entity internal1541 is
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
     -- so that fast loaders can be accelerated.
     drive_clock_cycle_strobe : in std_logic;
-    -- Assert high to hold the drive CPU under reset
-    drive_reset : in std_logic;
+    -- Assert low to hold the drive CPU under reset
+    drive_reset_n : in std_logic;
     -- Assert when the drive should be fully suspended
     -- (for freezing / resuming )
     drive_suspend : in std_logic;
+
+    -- IEC interface
+    iec_atn_i : in std_logic;
+    iec_clk_i : in std_logic;
+    iec_data_i : in std_logic;
+    iec_srq_i : in std_logic;
+    -- outputs are in voltage sense, i.e., 1 = 5V, 0 = 0V
+    iec_clk_o : out std_logic := '1';
+    iec_data_o : out std_logic := '1';
+    iec_srq_o : out std_logic := '1';
     
     -- Interface to SD card data feed
     -- Here we read non-GCR bytes and turn them to GCR.
@@ -53,6 +63,8 @@ end entity internal1541;
 
 architecture romanesque_revival of internal1541 is
 
+  signal phi_2_1mhz_counter : integer := 0;
+  
   -- signals here
   signal address : unsigned(15 downto 0) := x"0000";
   signal rdata : unsigned(7 downto 0);
@@ -63,7 +75,7 @@ architecture romanesque_revival of internal1541 is
   signal nmi : std_logic := '1';
   signal irq : std_logic := '1';
   
-  signal cpu_write : std_logic := '0';
+  signal cpu_write_n : std_logic := '1';
 
   -- Internal CS lines for the 1541
   signal cs_ram : std_logic;
@@ -75,28 +87,50 @@ architecture romanesque_revival of internal1541 is
   signal rom_rdata : unsigned(7 downto 0);
   
   signal address_next_internal : unsigned(15 downto 0);
-  
-  component cpu6502 is
-    port (
-      address : buffer unsigned(15 downto 0);
-      address_next : out unsigned(15 downto 0);
-      clk : in std_logic;
-      cpu_int : out std_logic;
-      cpu_state : out unsigned(7 downto 0);
-      data_i : in unsigned(7 downto 0);
-      data_o : out unsigned(7 downto 0);
-      data_o_next : out unsigned(7 downto 0);
-      irq : in std_logic;
-      nmi : in std_logic;
-      ready : in std_logic;
-      reset : in std_logic;
-      sync : buffer std_logic;
-      t : out unsigned(2 downto 0);
-      write : out std_logic;
-      write_next : buffer std_logic
-    );
-  end component;
 
+  signal via_address : unsigned(3 downto 0) := to_unsigned(0,4);
+  signal via_data_in : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal via1_data_out : unsigned(7 downto 0);
+  signal via2_data_out : unsigned(7 downto 0);
+  signal via1_data_out_en_n : std_logic := '1';
+  signal via2_data_out_en_n : std_logic := '1';
+  signal via1_irq_n : std_logic;
+  signal via2_irq_n : std_logic;
+  signal via1_ca1_in : std_logic;
+  signal via2_ca1_in : std_logic := '0';
+  signal via1_ca1_out : std_logic;
+  signal via2_ca1_out : std_logic;
+  signal via1_ca2_in : std_logic := '1';
+  signal via2_ca2_in : std_logic := '1';
+  signal via1_ca2_out : std_logic;
+  signal via2_ca2_out : std_logic;
+  signal via1_ca2_out_en_n : std_logic;
+  signal via2_ca2_out_en_n : std_logic;
+  signal via1_porta_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal via2_porta_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal via1_porta_out : std_logic_vector(7 downto 0);
+  signal via2_porta_out : std_logic_vector(7 downto 0);
+  signal via1_porta_out_en_n : std_logic_vector(7 downto 0);
+  signal via2_porta_out_en_n : std_logic_vector(7 downto 0);
+  signal via1_cb1_in : std_logic := '1';
+  signal via2_cb1_in : std_logic := '1';
+  signal via1_cb1_out : std_logic;
+  signal via2_cb1_out : std_logic;
+  signal via1_cb1_out_en_n : std_logic;
+  signal via2_cb1_out_en_n : std_logic;
+  signal via1_cb2_in : std_logic := '1';
+  signal via2_cb2_in : std_logic := '1';
+  signal via1_cb2_out : std_logic;
+  signal via2_cb2_out : std_logic;
+  signal via1_cb2_out_en_n : std_logic;
+  signal via2_cb2_out_en_n : std_logic;
+  signal via1_portb_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal via2_portb_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal via1_portb_out : std_logic_vector(7 downto 0);
+  signal via2_portb_out : std_logic_vector(7 downto 0);
+  signal via1_portb_out_en_n : std_logic_vector(7 downto 0);
+  signal via2_portb_out_en_n : std_logic_vector(7 downto 0);
+  signal via_phase2_clock : std_logic := '1';
 begin
   
   -- 2x 6522 VIAs 
@@ -204,12 +238,13 @@ begin
   ram: entity work.dpram8x4096 port map (
     -- Fastio interface
     clka => clock,
-    ena => cs_driveram,
+    ena => cs_driveram, -- host CPU side
     wea(0) => fastio_write,
     addra => std_logic_vector(fastio_address(11 downto 0)),
     dina => std_logic_vector(fastio_wdata),
     unsigned(douta) => fastio_rdata,
 
+    enb => cs_ram,  -- 1541 CPU side
     clkb => clock,
     web(0) => ram_write_enable,
     addrb => std_logic_vector(address(11 downto 0)),
@@ -228,18 +263,17 @@ begin
 
     -- CPU interface
     clkb => clock,
-    addressb => to_integer(address),
+    addressb => to_integer(address(13 downto 0)),
     dob => rom_rdata
     );
 
-  cpu: component cpu6502 port map (
+  cpu: entity work.cpu6502 port map (
     clk => clock,
---    reset => drive_reset,
-    reset => '0',
+    reset => drive_reset_n,
     nmi => nmi,
     irq => irq,
     ready => drive_clock_cycle_strobe,
-    write => cpu_write,
+    write_n => cpu_write_n,
 --    sync => cpu_sync,
     address => address,
     address_next => address_next_internal,
@@ -247,12 +281,44 @@ begin
     data_o => wdata   
     );
   
-  process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata)
+  process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata,cpu_write_n)
   begin
 
+    ram_write_enable <= not cpu_write_n;
+  
     if rising_edge(clock) then
-      report "1541TICK: address = $" & to_hstring(address) & ", drive_cycle = "
-        & std_logic'image(drive_clock_cycle_strobe) & ", reset=" & std_logic'image(drive_reset);
+
+      -- Generate exactly 1MHz strobes
+      if phi_2_1mhz_counter < (405 - 10) then
+        phi_2_1mhz_counter <= phi_2_1mhz_counter + 10;
+        via_phase2_clock <= '0';
+      else
+        phi_2_1mhz_counter <= phi_2_1mhz_counter + 10 - 405;
+        via_phase2_clock <= '1';
+        -- report "MOS6522: 1MHz tick";
+      end if;
+      
+      -- report "1541TICK: address = $" & to_hexstring(address) & ", drive_cycle = "
+      --   & std_logic'image(drive_clock_cycle_strobe) & ", reset=" & std_logic'image(drive_reset_n);
+      
+      irq <= via2_irq_n and via1_irq_n;
+    
+      via1_portb_in(0) <= not iec_data_i;
+      via1_portb_in(2) <= not iec_clk_i;
+      via1_portb_in(7) <= not iec_atn_i;
+      via1_ca1_in <= not iec_atn_i;
+
+      -- report "1541: iec_data_i = " & std_logic'image(iec_data_i);
+
+      iec_data_o <= '1';
+      iec_clk_o <= '1';
+      if via1_portb_out(1) = '1' and via1_portb_out_en_n(1)='0' then
+        iec_data_o <= '0';
+      end if;
+      if via1_portb_out(3) = '1' and via1_portb_out_en_n(3)='0' then
+        iec_clk_o <= '0';
+      end if;
+      
     end if;
     
     address_next <= address_next_internal;
@@ -277,11 +343,24 @@ begin
       end case;
     end if;
 
-    rdata <= (others => '0'); -- This avoids a latch
+    via_address <= address(3 downto 0);
+    via_data_in <= wdata;    
+    
     if cs_ram='1' then
       rdata <= ram_rdata;
     elsif cs_rom='1' then
       rdata <= rom_rdata;
+    elsif cs_via1='1' then
+--      if cpu_write_n='1' then
+--        report "MEMBUS: Reading VIA1 register $" & to_hexstring(address(3 downto 0)) & " value $" & to_hexstring(via1_data_out);
+--      else
+--        report "MEMBUS: Writing VIA1 register $" & to_hexstring(address(3 downto 0)) & " with value $" & to_hexstring(via_data_in);        
+--      end if;
+      rdata <= via1_data_out;
+    elsif cs_via2='1' then
+      rdata <= via2_data_out;
+    else
+      rdata <= (others => '0'); -- This avoids a latch      
     end if;
     
   end process;

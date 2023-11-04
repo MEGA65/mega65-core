@@ -737,12 +737,17 @@ begin
         cs_driverom => cs_driverom,
         cs_driveram => cs_driveram,
         drive_clock_cycle_strobe => drive_clock_cycle_strobe,
-        drive_reset => drive_reset,
+        drive_reset_n => drive_reset,
         drive_suspend => cpu_hypervisor_mode,
 
         -- Debug output of 1541 CPU next address
         address_next => address_next_1541,
 
+        iec_atn_i => '1',
+        iec_clk_i => '1',
+        iec_data_i => '1',
+        iec_srq_i => '1',
+        
         sd_data_byte => sd1541_data,
         sd_data_ready_toggle => sd1541_ready_toggle,
         sd_data_request_toggle => sd1541_request_toggle,

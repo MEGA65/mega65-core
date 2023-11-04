@@ -47,11 +47,13 @@ library ieee ;
   use ieee.std_logic_1164.all ;
 --  use ieee.std_logic_unsigned.all;
   use ieee.numeric_std.all;
-
+  use work.debugtools.all;
+  
 --library UNISIM;
 --  use UNISIM.Vcomponents.all;
 
-entity M6522 is
+  entity mos6522 is
+      generic ( name : string );
   port (
 
     I_RS              : in    unsigned(3 downto 0);
@@ -94,20 +96,20 @@ entity M6522 is
     );
 end;
 
-architecture RTL of M6522 is
+architecture RTL of mos6522 is
 
   signal phase             : integer range 0 to 3 := 0;
   signal p2_h_t1           : std_logic;
   signal cs                : std_logic;
 
   -- registers
-  signal r_ddra            : std_logic_vector(7 downto 0);
-  signal r_ora             : std_logic_vector(7 downto 0);
-  signal r_ira             : std_logic_vector(7 downto 0);
+  signal r_ddra            : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_ora             : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_ira             : std_logic_vector(7 downto 0) := (others => '0');
 
-  signal r_ddrb            : std_logic_vector(7 downto 0);
-  signal r_orb             : std_logic_vector(7 downto 0);
-  signal r_irb             : std_logic_vector(7 downto 0);
+  signal r_ddrb            : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_orb             : std_logic_vector(7 downto 0) := (others => '0');
+  signal r_irb             : std_logic_vector(7 downto 0) := (others => '0');
 
   signal r_t1l_l           : unsigned(7 downto 0) := (others => '0');
   signal r_t1l_h           : unsigned(7 downto 0) := (others => '0');
@@ -189,7 +191,11 @@ architecture RTL of M6522 is
   signal ca2_irq           : std_logic;
   signal cb2_irq           : std_logic;
 
-  signal final_irq         : std_logic;
+  signal final_irq         : std_logic := '0';
+
+  signal prev_was_read : std_logic := '0';
+  signal prev_was_write : std_logic := '0';
+ 
 begin
   p_phase : process
   begin
@@ -212,10 +218,10 @@ begin
     end if;
   end process;
 
-  p_cs : process(I_CS1, I_CS2_L, I_P2_H)
+  p_cs : process(I_CS1, I_CS2_L)
   begin
     cs <= '0';
-    if (I_CS1 = '1') and (I_CS2_L = '0') and (I_P2_H = '1') then
+    if (I_CS1 = '1') and (I_CS2_L = '0') then
       cs <= '1';
     end if;
   end process;
@@ -253,7 +259,7 @@ begin
   --        01 continuous interrupts                    pb7 square wave output
   --
 
-  p_write_reg_reset : process(RESET_L, CLK)
+  p_write_reg_reset : process(RESET_L, CLK, cs, I_RW_L)
   begin
     if (RESET_L = '0') then
       r_ora   <= x"00";    r_orb   <= x"00";
@@ -263,10 +269,15 @@ begin
       w_orb_hs <= '0';
       w_ora_hs <= '0';
     elsif rising_edge(CLK) then
+      prev_was_write <= '0';
       if (ENA_4 = '1') then
         w_orb_hs <= '0';
         w_ora_hs <= '0';
         if (cs = '1') and (I_RW_L = '0') then
+          prev_was_write <= '1';
+          if prev_was_write = '0' then
+            report "MOS6522" & name & ": Writing $" & to_hexstring(I_DATA) & " to register $" & to_hexstring(I_RS);
+          end if;
           case I_RS is
             when x"0" => r_orb     <= std_logic_vector(I_DATA); w_orb_hs <= '1';
             when x"1" => r_ora     <= std_logic_vector(I_DATA); w_ora_hs <= '1';
@@ -338,7 +349,8 @@ begin
   p_read : process
   begin
 	wait until rising_edge(CLK);
-	
+
+        prev_was_read <= '0';
 	if ENA_4 = '1' then
 		t1_r_reset_int <= false;
 		t2_r_reset_int <= false;
@@ -347,6 +359,12 @@ begin
 		r_ira_hs <= '0';
 		
 		if (cs = '1') and (I_RW_L = '1') then
+                  prev_was_read <= '1';
+                  if prev_was_read = '0' then
+                    report "MOS6522"&name&": Reading register $" & to_hexstring(I_RS);
+                    -- report "MOS6522"&name&": port B = " & to_string(I_PB)
+                    -- & ", r_acr = " & to_string(r_acr);
+                  end if;
 		  case I_RS is
 			--when x"0" => O_DATA <= r_irb; r_irb_hs <= '1';
 			-- fix from Mark McDougall, untested
@@ -371,6 +389,7 @@ begin
 			when x"6" => O_DATA <= r_t1l_l;
 			when x"7" => O_DATA <= r_t1l_h;
 			when x"8" => O_DATA <= t2c( 7 downto 0);  t2_r_reset_int <= true;
+                                     -- report "MOS6522"&name&": Reading t2c low byte and asserting t2_r_reset_int";
 			when x"9" => O_DATA <= t2c(15 downto 8);
 			when x"A" => O_DATA <= unsigned(r_sr);              sr_read_ena <= true;
 			when x"B" => O_DATA <= unsigned(r_acr);
@@ -524,6 +543,7 @@ begin
       if (ENA_4 = '1') then
         -- not pretty
         if ca1_int then
+          report "MOS6522"&name&": Asserting ca1_irq";
           ca1_irq <= '1';
         elsif (r_ira_hs = '1') or (w_ora_hs = '1') or (clear_irq(1) = '1') then
           ca1_irq <= '0';
@@ -581,6 +601,7 @@ begin
           r_ira <= I_PA;
         else -- enable latching
           if ca1_int then
+            report "MOS6522"&name&": Copying I_PA to r_ira due to ca1_int. I_PA=" & to_string(I_PA);
             r_ira <= I_PA;
           end if;
         end if;
@@ -620,10 +641,8 @@ begin
     variable done : boolean;
   begin
       done := (t1c = x"0000");
-      t1c_done <= done and (phase = "11");
-      --if (phase = "11") then
-        t1_reload_counter <= done and (r_acr(6) = '1');
-      --end if;
+      t1c_done <= done; -- PGS and (phase = "11");
+      t1_reload_counter <= done and (r_acr(6) = '1');
   end process;
 
   p_timer1 : process
@@ -654,10 +673,16 @@ begin
 
       t1_toggle <= '0';
       if t1c_active and t1c_done then
+        if t1_irq = '0' then
+          report "MOS6522"&name&": Asserting t1_irq";
+        end if;
         t1_toggle <= '1';
         t1_irq <= '1';
       elsif RESET_L = '0' or t1_w_reset_int or t1_r_reset_int or (clear_irq(6) = '1') then
         t1_irq <= '0';
+        if t1_irq = '0' then
+          report "MOS6522"&name&": Releasing t1_irq";
+        end if;
       end if;
     end if;
   end process;
@@ -894,6 +919,12 @@ begin
         if ((r_ifr(6 downto 0) and r_ier(6 downto 0)) = "0000000") then
           final_irq <= '0'; -- no interrupts
         else
+          if final_irq = '0' then
+            report "MOS6522"&name&": Triggering IRQ "
+              & "r_ifr = " & to_string(r_ifr(6 downto 0))
+              & "r_ier = " & to_string(r_ier(6 downto 0))
+              ;
+          end if;
           final_irq <= '1';
         end if;
       end if;
