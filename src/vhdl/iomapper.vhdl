@@ -725,7 +725,7 @@ begin
   -- currently not porduce any problems, as it is not yet used
   -- anywhere in the design! But it might if this changes...
   drive1541_mega65r3:
-  if target = mega65r3 generate
+  if false generate
     drive1541: entity work.internal1541
       port map (
         clock => cpuclock,

@@ -638,3 +638,11 @@ set_false_path -from [get_clocks clock41] -to [get_clocks clock60]
 set_clock_groups -asynchronous \
      -group { clock41 clock81p clock27 clock163 clock325 } \
      -group { clock50 clock200}
+
+################################
+# neoTRNG properties
+################################
+set trng_cells [get_cells -hier -regexp .*trng0.* -filter {NAME =~ .*/inv_chain_.* || NAME =~ .*/enable_sreg_.*}]
+set_property ALLOW_COMBINATORIAL_LOOPS true [get_nets -of_objects $trng_cells]
+set_disable_timing -to O [get_timing_arcs -of_objects $trng_cells]
+
