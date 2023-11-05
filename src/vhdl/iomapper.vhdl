@@ -747,7 +747,7 @@ begin
         iec_clk_i => '1',
         iec_data_i => '1',
         iec_srq_i => '1',
-        
+
         sd_data_byte => sd1541_data,
         sd_data_ready_toggle => sd1541_ready_toggle,
         sd_data_request_toggle => sd1541_request_toggle,

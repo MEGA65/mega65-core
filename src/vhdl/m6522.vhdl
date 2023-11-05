@@ -48,7 +48,7 @@ library ieee ;
 --  use ieee.std_logic_unsigned.all;
   use ieee.numeric_std.all;
   use work.debugtools.all;
-  
+
 --library UNISIM;
 --  use UNISIM.Vcomponents.all;
 
@@ -195,7 +195,7 @@ architecture RTL of mos6522 is
 
   signal prev_was_read : std_logic := '0';
   signal prev_was_write : std_logic := '0';
- 
+
 begin
   p_phase : process
   begin
@@ -357,7 +357,7 @@ begin
 		sr_read_ena <= false;
 		r_irb_hs <= '0';
 		r_ira_hs <= '0';
-		
+
 		if (cs = '1') and (I_RW_L = '1') then
                   prev_was_read <= '1';
                   if prev_was_read = '0' then

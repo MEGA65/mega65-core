@@ -22,7 +22,7 @@ entity iec_serial is
     clock : in std_logic;
     clock81 : in std_logic;
     irq : out std_logic := '1';
-    
+
     --------------------------------------------------
     -- CBM floppy serial port
     --------------------------------------------------
@@ -37,7 +37,7 @@ entity iec_serial is
     debug_msec : out unsigned(7 downto 0);
     debug_waits : out unsigned(7 downto 0);
     iec_state_reached : out unsigned(11 downto 0);
-    
+
     --------------------------------------------------
     -- CBM floppy serial port
     --------------------------------------------------
@@ -49,7 +49,7 @@ entity iec_serial is
     iec_clk_i : in std_logic;
     iec_data_i : in std_logic;
     iec_srq_i : in std_logic
-    
+
     );
 end iec_serial;
 
@@ -67,8 +67,8 @@ architecture questionable of iec_serial is
   -- C= fast serial protocol does not send fast byte prior
   -- to ATN if a device is listening (as in that case, it
   -- would treat the byte as data)
-  signal iec_dev_listening : std_logic := '0';  
-  
+  signal iec_dev_listening : std_logic := '0';
+
   signal iec_state : integer := 0;
   signal last_iec_state : integer := 0;
   signal prev_iec_state : integer := 0;
@@ -77,7 +77,6 @@ architecture questionable of iec_serial is
   signal send_eoi : std_logic := '0';
   signal eoi_detected : std_logic := '0';
 
-  
   signal wait_clk_high : std_logic := '0';
   signal wait_clk_low : std_logic := '0';
   signal wait_data_high : std_logic := '0';
@@ -110,15 +109,15 @@ architecture questionable of iec_serial is
   signal debug_ram_raddr : integer := 0;
   signal debug_ram_raddr_int : integer := 0;
   signal debug_ram_wdata : unsigned(7 downto 0) := x"00";
-  signal debug_ram_rdata : unsigned(7 downto 0);  
+  signal debug_ram_rdata : unsigned(7 downto 0);
   signal debug_ram_wdata2 : unsigned(7 downto 0) := x"00";
-  signal debug_ram_rdata2 : unsigned(7 downto 0);  
+  signal debug_ram_rdata2 : unsigned(7 downto 0);
   signal iec_clk_o_int : std_logic := '0';
   signal iec_data_o_int : std_logic := '0';
   signal iec_srq_o_int : std_logic := '0';
   signal iec_atn_int : std_logic := '0';
   signal iec_reset_int : std_logic := '0';
-  
+
 begin
 
   -- Note that we put RX on bit 6, so that the common case of LOADing can be a
@@ -133,7 +132,7 @@ begin
   -- @IO:GS $D697.2 AUTOIEC:IRQRXEN Enable RX interrupt source if set
   -- @IO:GS $D697.1 AUTOIEC:IRQREADYEN Enable TX interrupt source if set
   -- @IO:GS $D697.0 AUTOIEC:IRQTOEN Enable timeout interrupt source if set
-  
+
   -- @IO:GS $D698.7 AUTOIEC:STNODEV Device not present
   -- @IO:GS $D698.6 AUTOIEC:STNOEOI End of Indicate (EOI/EOF)
   -- @IO:GS $D698.5 AUTOIEC:STSRQ State of SRQ line
@@ -142,7 +141,7 @@ begin
   -- @IO:GS $D698.2 AUTOIEC:STD State of DATA line
   -- @IO:GS $D698.1 AUTOIEC:STTO Timeout occurred
   -- @IO:GS $D698.0 AUTOIEC:STDDIR Data direction when timeout occurred.
-  
+
   -- @IO:GS $D699 AUTOIEC:DATA Data byte read from IEC bus
   -- @IO:GS $D69A.7 AUTOIEC:DIPRESENT Device is present
   -- @IO:GS $D69A.5-6 AUTOIEC:DIPROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
@@ -162,7 +161,7 @@ begin
         rdata => debug_ram_rdata
         );
     end generate;
-  
+
   ram1: if with_debug generate
     debugram0: entity work.ram8x4096_sync
       port map (
@@ -176,7 +175,7 @@ begin
         rdata => debug_ram_rdata2
         );
     end generate;
-  
+
   process (clock,clock81) is
     procedure d(v : std_logic) is
     begin
@@ -224,7 +223,7 @@ begin
       wait_data_high <= '0'; wait_data_low <= '0';
       wait_srq_high <= '0'; wait_srq_low <= '0';
       wait_msec <= 0;
-      
+
       wait_usec <= usecs;
       not_waiting_usec <= false;
       not_waiting_msec <= true;
@@ -237,7 +236,7 @@ begin
       wait_data_high <= '0'; wait_data_low <= '0';
       wait_srq_high <= '0'; wait_srq_low <= '0';
       wait_usec <= 0;
-      
+
       wait_msec <= msecs;
       not_waiting_msec <= false;
       not_waiting_usec <= true;
@@ -245,7 +244,6 @@ begin
     end procedure;
   begin
 
-    
     if rising_edge(clock81) then
 
       if timing_sync_toggle /= last_timing_sync_toggle then
@@ -265,7 +263,7 @@ begin
         end if;
       end if;
     end if;
-    
+
     if fastio_addr(19 downto 4) = x"d369"
       and (to_integer(fastio_addr(3 downto 0))>3)
       and (to_integer(fastio_addr(3 downto 0))<11)
@@ -291,7 +289,7 @@ begin
           else
             fastio_rdata <= (others => 'Z');
           end if;
-        when x"7" => -- Read IRQ register          
+        when x"7" => -- Read IRQ register
           fastio_rdata <= iec_irq;
         when x"8" => -- Read from status register
           fastio_rdata <= iec_status;
@@ -304,7 +302,7 @@ begin
     else
       fastio_rdata <= (others => 'Z');
     end if;
-    
+
     if rising_edge(clock) then
 
       if with_debug then
@@ -333,7 +331,7 @@ begin
           end if;
         end if;
       end if;
-      
+
       debug_state <= to_unsigned(iec_state,12);
       debug_usec <= to_unsigned(wait_usec,8);
       debug_msec <= to_unsigned(wait_msec,8);
@@ -346,15 +344,15 @@ begin
       debug_waits(5) <= wait_srq_low;
       debug_waits(6) <= '0';
       debug_waits(7) <= '0';
-      
+
       -- Indicate busy status
       iec_irq(5) <= not iec_busy;
-    
+
       -- Allow easy reading of IEC lines
       iec_status(5) <= iec_srq_i;
       iec_status(3) <= iec_clk_i;
       iec_status(2) <= iec_data_i;
-      
+
       -- Trigger IRQ if appropriate event has occurred
       if (iec_irq(6) and iec_irq(6-4)) = '1' then
         iec_irq(7) <= '1';
@@ -370,7 +368,7 @@ begin
       else
         irq <= '1';
       end if;
-      
+
       if fastio_addr(19 downto 4) = x"d369"
         and (to_integer(fastio_addr(3 downto 0))>3)
         and (to_integer(fastio_addr(3 downto 0))<11) then
@@ -419,7 +417,7 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
-          
+
           -- Low-level / bitbashing commands
           when x"41" => -- ATN to +5V
             report "IEC: Released ATN line";
@@ -445,7 +443,7 @@ begin
             a('1'); d('1'); c('1');
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
-            iec_reset_int <= '0';            
+            iec_reset_int <= '0';
             iec_dev_listening <= '0';
             a('1'); d('1'); c('1');
 
@@ -461,7 +459,7 @@ begin
 
             -- Trigger begin collecting debug info during job
             debug_ram_waddr_int <= 0;
-            
+
           when x"31" => -- Send byte (without attention)
             iec_dev_listening <= '0';
             iec_state <= 400;
@@ -473,7 +471,6 @@ begin
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
 
-            
           when x"32" => -- Receive byte
             report "IEC: RECEIVE BYTE COMMAND received";
             iec_dev_listening <= '0';
@@ -484,7 +481,7 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
-            
+
           when x"33" => -- Send EOI without byte
             -- XXX How do we do this? There is a way, I read about it somewhere.
             -- But can I find it now? Oh no.
@@ -498,7 +495,7 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
-            
+
           when x"35" => -- Turn around from talk to listen
             report "IEC: TURNAROUND COMMAND received";
             iec_dev_listening <= '0';
@@ -509,7 +506,7 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
-            
+
           when others => null;
         end case;
       end if;
@@ -518,7 +515,7 @@ begin
       if usec_toggle /= last_usec_toggle then
         if wait_usec > 0 then
           not_waiting_usec <= false;
-          report "TIME: decrementing usec counter to " & integer'image(wait_usec-1);          
+          report "TIME: decrementing usec counter to " & integer'image(wait_usec-1);
           wait_usec <= wait_usec - 1;
           if wait_usec = 1 then
             not_waiting_usec <= true;
@@ -541,7 +538,7 @@ begin
         end if;
         msec_toggle <= last_msec_toggle;
       end if;
-      
+
       -- Advance state in IEC protocol transaction if the requirements are met
       if (wait_clk_high='1' and iec_clk_i='1') then
         report "WAIT: Used and clearing wait_clk_high";
@@ -584,7 +581,7 @@ begin
           and (wait_srq_high='0' or iec_srq_i='1')
           and (wait_usec = 0)
           and (wait_msec = 0 )
-          )       
+          )
       then
         if iec_state /= last_iec_state then
           report "iec_state = " & integer'image(iec_state)
@@ -597,12 +594,12 @@ begin
         case iec_state is
           -- IDLE state
           when 0 => null;
-                    
+
           -- Request attention from one or more devices
           when 100 =>
 
             iec_under_attention <= '0';
-          
+
             -- DATA to 5V
             -- Ensure SRQ is released to 5V
             d('1'); s('1');
@@ -613,7 +610,7 @@ begin
             -- XXX - Actually only required if the device supports
             -- C= fast serial?
             if iec_dev_listening='1' then
-              iec_state <= 120;                          
+              iec_state <= 120;
             end if;
 
           -- Send data byte $FF using SRQ as clock to indicate our ability
@@ -634,34 +631,34 @@ begin
           when 114 => s('0'); micro_wait(5);
           when 115 => s('1'); micro_wait(5);
           when 116 => s('0'); micro_wait(5);
-                      
+
           when 117 | 118 | 119 => null;
-                                  
+
           when 120 =>
             -- Prepare all IEC lines:
             a('0'); -- ATN to 0V
-            c('0'); -- CLK to 0V 
-            d('1'); -- DATA to 5V          
+            c('0'); -- CLK to 0V
+            d('1'); -- DATA to 5V
             s('1'); -- Ensure SRQ is released to 5V
-            
+
             -- Clear relevant status bits
             iec_status(7) <= '0'; -- no DEVICE NOT FOUND error (yet)
             iec_status(1) <= '0'; -- No timeout
             iec_status(0) <= '0'; -- No data direction during timeout
-            
+
             -- And also device info byte
             iec_devinfo(7) <= '0'; -- Device not (yet) detected
             iec_devinfo(6 downto 5) <= "00"; -- slow protocol
             -- Device ID being requested
             iec_devinfo(4 downto 0) <= iec_data_out(4 downto 0);
-            
+
             -- Wait a little while before asserting CLK
             micro_wait(20);
-            
+
           when 121 =>
             -- Wait upto 1ms for DATA to go low
             micro_wait(1000);
-            
+
           when 122 =>
             c('1');  -- Release CLK to 5V
             if prev_iec_state /= 123 then
@@ -683,18 +680,18 @@ begin
             iec_devinfo <= x"00";
             iec_status(7) <= '1'; -- DEVICE NOT PRESENT
             iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
-            iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING          
-            
+            iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
+
             -- Release all IEC lines
             a('1');
             c('1');
-            
+
             iec_busy <= '0';
-            
+
           when 124 =>
             -- At least one device has responded
             report "IEC: At least one device responded by pulling DATA low.";
-            
+
             -- Now wait upto 64ms for listener ready for data
             -- This period is actually unconstrained in the protcol,
             -- but we place a limit on it for now.
@@ -713,7 +710,7 @@ begin
               report "IEC: Saw DATA go high: Advancing";
               micro_wait(40);
             end if;
-            
+
           when 126 =>
             -- Listener ready for data
             iec_state <= iec_state + 2;
@@ -722,7 +719,7 @@ begin
 
           when 127 =>
             -- Timeout on listener ready for data
-            
+
             -- Timeout has occurred: DEVICE NOT PRESENT
             -- (which is not strictly true, it's that device
             -- did not respond in time)
@@ -733,11 +730,11 @@ begin
             iec_status(7) <= '1'; -- DEVICE NOT PRESENT
             iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
             iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
-            
+
             -- Release all IEC lines
             a('1');
             c('1');
-            
+
           when 128 =>
             -- Okay, all listeners are ready for the data byte.
             -- So send it using the slow protocol.
@@ -745,7 +742,7 @@ begin
             -- by delaying, and waiting to see if the data line
             -- is pulled low by a device, indicating that it speaks
             -- the JiffyDOS protocol.  More on that when we get to it.
-            
+
             -- Send the first 7 bits
             report "IEC: Sending data byte $" & to_hexstring(iec_data_out) & "  under ATN";
             null;
@@ -770,7 +767,7 @@ begin
           when 141 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
                       report "IEC: Sending bit 6 = " & std_logic'image(iec_data_out(0));
-                      
+
           -- Now we have sent 7 bits, release data, keeping clock at 0V, and
           -- check for DATA being pulled low
           when 143 => c('0'); d('1'); micro_wait(500);
@@ -790,7 +787,7 @@ begin
           when 146 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
                       report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
           when 147 => c('0'); d('1');
-          when 148 => 
+          when 148 =>
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
                       micro_wait(1000);
@@ -806,7 +803,7 @@ begin
             end if;
           when 150 =>
             -- Timeout detected acknowledging byte
-            
+
             -- Timeout has occurred: DEVICE NOT PRESENT
             -- (which is not strictly true, it's that device
             -- did not respond in time)
@@ -817,35 +814,35 @@ begin
             iec_status(7) <= '1'; -- DEVICE NOT PRESENT
             iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
             iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
-            
+
             iec_busy <= '0';
-            
+
             -- Release all IEC lines
             a('1');
             c('1');
-            
+
           when 151 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte under attention";
             iec_devinfo(7) <= '1';
             iec_busy <= '0';
-            
+
             iec_dev_listening <= '1';
-            
+
             -- And we are still under attention
             iec_under_attention <= '1';
             iec_devinfo(4) <= '1';
-            
+
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
 
-            
+
             -- TURNAROUND FROM TALKER TO LISTENER
             -- Wait 20 usec, release ATN, wait 20usec
             -- Computer pulls DATA low and releases CLK.
             -- Device then pulls CLK low and releases DATA.
-            
+
           when 200 => micro_wait(100);
           when 201 => a('1'); micro_wait(100);
           when 202 => d('0'); c('1'); micro_wait(100);
@@ -862,9 +859,9 @@ begin
               iec_devinfo <= x"00";
               iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
               iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
-            
+
               iec_busy <= '0';
-            
+
               -- Release all IEC lines
               a('1');
               d('1');
@@ -877,11 +874,11 @@ begin
 
             -- Device is now talking
             iec_dev_listening <= '0';
-            
+
             -- We are no longer under attention
             iec_under_attention <= '0';
             iec_devinfo(4) <= '1';
-            
+
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
@@ -912,7 +909,7 @@ begin
               -- Slow protocol, and it's the first bit
               iec_data(7) <= iec_data_i;
               iec_data(6 downto 0) <= iec_data(7 downto 1);
-              
+
               iec_state <= iec_state + 1;
             end if;
           when 305 => wait_clk_low <= '1';
@@ -949,14 +946,14 @@ begin
             report "IEC: Successfully completed receiving SLOW byte = $" & to_hexstring(iec_data) & ", EOI=" & std_logic'image(eoi_detected);
             iec_devinfo(7) <= '1';
             iec_status(6) <= eoi_detected;
-            
+
             iec_busy <= '0';
-            
+
             iec_dev_listening <= '0';
-            
+
             -- And we are still under attention
             iec_under_attention <= '0';
-            
+
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
@@ -989,15 +986,15 @@ begin
             report "IEC: Successfully completed receiving FAST byte = $" & to_hexstring(iec_data);
             iec_devinfo(7) <= '1';
             iec_busy <= '0';
-            
+
             iec_dev_listening <= '0';
-            
+
             -- And we are still under attention
             iec_under_attention <= '0';
-            
+
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
-            
+
 
 
             -- SEND A BYTE (no attention)
@@ -1044,7 +1041,7 @@ begin
             end if;
           when 405 => wait_data_high <= '1';  -- wait for high edge of EOI ACK pulse
           when 406 => null;
-                      
+
           when 407 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
                       report "IEC: Sending bit 0 = " & std_logic'image(iec_data_out(0));
           when 408 => c('1'); micro_wait(20);
@@ -1085,7 +1082,7 @@ begin
             end if;
           when 425 =>
             -- Timeout detected acknowledging byte
-            
+
             -- Timeout has occurred: DEVICE NOT PRESENT
             -- (which is not strictly true, it's that device
             -- did not respond in time)
@@ -1096,21 +1093,21 @@ begin
             iec_status(7) <= '1'; -- DEVICE NOT PRESENT
             iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
             iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
-            
+
             iec_busy <= '0';
-            
+
           when 426 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte without attention";
             iec_devinfo(7) <= '1';
             iec_busy <= '0';
-            
+
             iec_dev_listening <= '0';
-            
+
             -- And we are still under attention
             iec_under_attention <= '1';
             iec_devinfo(4) <= '1';
-            
+
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
@@ -1120,14 +1117,13 @@ begin
               send_eoi <= '0';
               c('1');
             end if;
-              
+
           when others => iec_state <= 0; iec_busy <= '0';
                          iec_state_reached <= to_unsigned(iec_state,12);
-                         
-        end case;  
+
+        end case;
       end if;
     end if;
   end process;
-  
-  
+
 end questionable;

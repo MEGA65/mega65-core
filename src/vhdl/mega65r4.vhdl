@@ -525,7 +525,7 @@ architecture Behavioral of container is
   signal vdac_clk_i : std_logic;
 
   signal sdram_slow_clock : std_logic;
-  
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -831,7 +831,7 @@ begin
       r  =>  '0',
       q  => sdram_clk
       );
-  
+
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
@@ -987,7 +987,7 @@ begin
 
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
-          
+
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
@@ -1277,7 +1277,7 @@ begin
       viciv_attic_data_strobe <= hyper_data_strobe;
       viciv_attic_data <= hyper_data;
     end if;
-    
+
     -- VGA output at full pixel clock
     if upscale_enable = '0' then
       vdac_clk_i <= pixelclock;
@@ -1315,7 +1315,7 @@ begin
       reset_high <= reset_button;
       -- Reset button also resets 3.5mm audio ADC
       audio_powerdown_n <= reset_out;
-      
+
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then

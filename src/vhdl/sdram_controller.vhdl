@@ -11,11 +11,11 @@ entity sdram_controller is
         -- actually on pixelclock to reduce latencies
         -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
         clock162   : in std_logic;      -- Used for fast clock for SDRAM
-        
+
         clock162r  : in std_logic;      -- read register clock
 
         identical_clocks : in std_logic;
-        
+
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
         -- speed up simulation)
         enforce_100us_delay : in boolean := true;
@@ -84,7 +84,7 @@ architecture tacoma_narrows of sdram_controller is
 
   -- XXX Don't configure SDRAM by default, while I debug why it sometimes
   -- powers up in wrong state.
-  signal sdram_prepped         : std_logic             := '1';     
+  signal sdram_prepped         : std_logic             := '1';
   -- The SDRAM requires a 100us setup time
   signal sdram_100us_countdown : integer               := 16_200;
   signal sdram_do_init         : std_logic             := '1';
@@ -192,12 +192,12 @@ architecture tacoma_narrows of sdram_controller is
   signal active_row_addr      : unsigned(25 downto 11) := (others => '0');
 
   signal resets : unsigned(7 downto 0) := x"00";
-  
+
 begin
 
   process(clock162r) is
   begin
-    
+
     if rising_edge(clock162r) then
       sdram_dq_latched <= sdram_dq;
     end if;

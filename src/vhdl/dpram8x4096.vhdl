@@ -75,7 +75,7 @@ begin
           if web(i) = '1' then
             RAM(to_integer(unsigned(addrb(11 downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dinb((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
             report "1541RAM: Writing $" & to_hexstring(dinb) & " to address $" & to_hexstring(to_unsigned(to_integer(unsigned(addrb)),16));
-          end if;			 
+          end if;
         end loop;
         doutb <= RAM(to_integer(unsigned(addrb(11 downto 0))));
       end if;

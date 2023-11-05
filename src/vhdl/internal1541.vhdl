@@ -11,11 +11,11 @@ use work.victypes.all;
 entity internal1541 is
   port (
     clock : in std_logic;
-        
+
     -- CPU side interface to read/write both the 16KB drive "ROM" and the 2KB
-    -- drive RAM.    
+    -- drive RAM.
     fastio_read : in std_logic;
-    fastio_write : in std_logic;    
+    fastio_write : in std_logic;
     fastio_address : in unsigned(19 downto 0);
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
@@ -23,7 +23,7 @@ entity internal1541 is
     cs_driveram : in std_logic;
 
     address_next : out unsigned(15 downto 0);
-    
+
     -- Drive CPU clock strobes.
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
     -- so that fast loaders can be accelerated.
@@ -43,7 +43,7 @@ entity internal1541 is
     iec_clk_o : out std_logic := '1';
     iec_data_o : out std_logic := '1';
     iec_srq_o : out std_logic := '1';
-    
+
     -- Interface to SD card data feed
     -- Here we read non-GCR bytes and turn them to GCR.
     -- We thus have a current byte, and then ask for the next when we will need
@@ -64,7 +64,7 @@ end entity internal1541;
 architecture romanesque_revival of internal1541 is
 
   signal phi_2_1mhz_counter : integer := 0;
-  
+
   -- signals here
   signal address : unsigned(15 downto 0) := x"0000";
   signal rdata : unsigned(7 downto 0);
@@ -74,7 +74,7 @@ architecture romanesque_revival of internal1541 is
   -- XXX Active high in the verilog 6502?
   signal nmi : std_logic := '1';
   signal irq : std_logic := '1';
-  
+
   signal cpu_write_n : std_logic := '1';
 
   -- Internal CS lines for the 1541
@@ -85,7 +85,7 @@ architecture romanesque_revival of internal1541 is
 
   signal ram_rdata : unsigned(7 downto 0);
   signal rom_rdata : unsigned(7 downto 0);
-  
+
   signal address_next_internal : unsigned(15 downto 0);
 
   signal via_address : unsigned(3 downto 0) := to_unsigned(0,4);
@@ -132,8 +132,8 @@ architecture romanesque_revival of internal1541 is
   signal via2_portb_out_en_n : std_logic_vector(7 downto 0);
   signal via_phase2_clock : std_logic := '1';
 begin
-  
-  -- 2x 6522 VIAs 
+
+  -- 2x 6522 VIAs
   via2: entity work.mos6522
     generic map ( name => "@$1C00" )
     port map (
@@ -182,7 +182,7 @@ begin
     RESET_L => drive_reset_n
 
     );
-    
+
 
   via1: entity work.mos6522
     generic map ( name => "@$1800" )
@@ -232,9 +232,9 @@ begin
     RESET_L => drive_reset_n
 
     );
-    
-  
-  
+
+
+
   ram: entity work.dpram8x4096 port map (
     -- Fastio interface
     clka => clock,
@@ -278,14 +278,14 @@ begin
     address => address,
     address_next => address_next_internal,
     data_i => rdata,
-    data_o => wdata   
+    data_o => wdata
     );
-  
+
   process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata,cpu_write_n)
   begin
 
     ram_write_enable <= not cpu_write_n;
-  
+
     if rising_edge(clock) then
 
       -- Generate exactly 1MHz strobes
@@ -297,12 +297,12 @@ begin
         via_phase2_clock <= '1';
         -- report "MOS6522: 1MHz tick";
       end if;
-      
+
       -- report "1541TICK: address = $" & to_hexstring(address) & ", drive_cycle = "
       --   & std_logic'image(drive_clock_cycle_strobe) & ", reset=" & std_logic'image(drive_reset_n);
-      
+
       irq <= via2_irq_n and via1_irq_n;
-    
+
       via1_portb_in(0) <= not iec_data_i;
       via1_portb_in(2) <= not iec_clk_i;
       via1_portb_in(7) <= not iec_atn_i;
@@ -318,11 +318,11 @@ begin
       if via1_portb_out(3) = '1' and via1_portb_out_en_n(3)='0' then
         iec_clk_o <= '0';
       end if;
-      
+
     end if;
-    
+
     address_next <= address_next_internal;
-    
+
     -- Decode ROM, RAM and IO addresses
     if address(15)='1' then
       -- ROM is repeated twice at $8000 and $C000
@@ -339,13 +339,13 @@ begin
         when "111" => -- $1C00-$1FFF = VIA2
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '1';
         when others =>
-          cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';          
+          cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
       end case;
     end if;
 
     via_address <= address(3 downto 0);
-    via_data_in <= wdata;    
-    
+    via_data_in <= wdata;
+
     if cs_ram='1' then
       rdata <= ram_rdata;
     elsif cs_rom='1' then
@@ -354,15 +354,15 @@ begin
 --      if cpu_write_n='1' then
 --        report "MEMBUS: Reading VIA1 register $" & to_hexstring(address(3 downto 0)) & " value $" & to_hexstring(via1_data_out);
 --      else
---        report "MEMBUS: Writing VIA1 register $" & to_hexstring(address(3 downto 0)) & " with value $" & to_hexstring(via_data_in);        
+--        report "MEMBUS: Writing VIA1 register $" & to_hexstring(address(3 downto 0)) & " with value $" & to_hexstring(via_data_in);
 --      end if;
       rdata <= via1_data_out;
     elsif cs_via2='1' then
       rdata <= via2_data_out;
     else
-      rdata <= (others => '0'); -- This avoids a latch      
+      rdata <= (others => '0'); -- This avoids a latch
     end if;
-    
+
   end process;
 
 end romanesque_revival;
