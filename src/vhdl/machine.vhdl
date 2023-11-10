@@ -506,6 +506,10 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal hw_errata_level : unsigned(7 downto 0);
+  signal hw_errata_enable_toggle : std_logic;
+  signal hw_errata_disable_toggle : std_logic;
+
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
@@ -1324,6 +1328,10 @@ begin
 
       dd00_bits => dd00_bits,
       upscale_enable => upscale_enable,
+
+      hw_errata_level => hw_errata_level,
+      hw_errata_enable_toggle => hw_errata_enable_toggle,
+      hw_errata_disable_toggle => hw_errata_disable_toggle,
       
       viciv_frame_indicate => viciv_frame_indicate,
 
@@ -1600,6 +1608,10 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
       eth_hyperrupt => eth_hyperrupt,
+
+      hw_errata_level => hw_errata_level,
+      hw_errata_enable_toggle => hw_errata_enable_toggle,
+      hw_errata_disable_toggle => hw_errata_disable_toggle,
 
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,      
