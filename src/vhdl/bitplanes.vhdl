@@ -108,41 +108,6 @@ end bitplanes;
 
 architecture behavioural of bitplanes is
 
-  component bitplane is
-  Port (
-    ----------------------------------------------------------------------
-    -- dot clock
-    ----------------------------------------------------------------------
-    pixelclock : in  STD_LOGIC;
-
-    reset : in std_logic;
-
-    advance_pixel : in std_logic;
-    sixteen_colour_mode : in std_logic;
-
-    data_in_valid : in std_logic;
-    data_in : in unsigned(7 downto 0);
-    data_request : out std_logic := '0';
-
-    pixel_out : out std_logic := '0';
-    pixel16_out : out unsigned(3 downto 0) := x"0"
-    );
-
-  end component;
-
-  component ram8x4096 IS
-    PORT (
-      clkr : IN STD_LOGIC;
-      clkw : IN STD_LOGIC;
-      cs : IN STD_LOGIC;
-      w : IN std_logic;
-      write_address : IN integer range 0 to 4095;
-      wdata : IN unsigned(7 DOWNTO 0);
-      address : IN integer range 0 to 4095;
-      rdata : OUT unsigned(7 DOWNTO 0)
-      );
-  END component;
-
   signal y_last : yposition;
   signal x_last : xposition;
   signal x_left : std_logic := '0';
@@ -211,7 +176,7 @@ begin  -- behavioural
   -- This is plenty, since we actually only read 100 bytes max per bitplane
   -- (800 pixel wide mode) per
   -- line (actually upto 400 bytes per line when using bitplanes in 16-colour mode)
-  bitplanedatabuffer: component ram8x4096
+  bitplanedatabuffer: entity work.ram8x4096
     port map (clkr => pixelclock,
               clkw => pixelclock,
               w => bitplanedatabuffer_write,
@@ -226,7 +191,7 @@ begin  -- behavioural
   generate_bitplanes:
   for index in 0 to 7 generate
     begin
-      bitplane_inst : bitplane
+      bitplane_inst : entity work.bitplane
       port map (
         pixelclock => pixelclock,
         reset => bitplanes_reset(index),
