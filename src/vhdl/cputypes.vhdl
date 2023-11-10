@@ -7,7 +7,7 @@ package cputypes is
 
   type mega65_target_t is (
     simulation,
-    mega65r1, mega65r2, mega65r3, mega65r4,
+    mega65r1, mega65r2, mega65r3, mega65r4, mega65r5,
     megaphoner1, megaphoner4,
     nexys4, nexys4ddr, nexys4ddr_widget,
     qmtecha100t, qmtecha200t, qmtechk325t,
@@ -48,6 +48,7 @@ package cputypes is
     );
 
   type ilut9bit is array(0 to 511) of instruction;
+  type ilut8bit is array(0 to 255) of instruction;
     
   
   type microcodeops is record
