@@ -385,7 +385,7 @@ begin
             cart_access_read_strobe <= '1';
             cart_access_read_toggle <= not cart_access_read_toggle_internal;
             cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
-            report "Read data from expansion port data pins = $" & to_hstring(cart_d_in);
+            report "Read data from expansion port data pins = $" & to_hexstring(cart_d_in);
           else
             cart_access_read_strobe <= '0';
           end if;         
@@ -455,9 +455,9 @@ begin
             -- currently low.
             and (cart_phi2_internal='0') then            
             report "Presenting legacy C64 expansion port access request to port, address=$"
-              & to_hstring(cart_access_address)
+              & to_hexstring(cart_access_address)
               & " rw=" & std_logic'image(cart_access_read)
-              & " wdata=$" & to_hstring(cart_access_wdata);
+              & " wdata=$" & to_hexstring(cart_access_wdata);
 
             if cart_access_read='0' then
               if cart_access_address(15 downto 0) = x"0000" then
@@ -548,7 +548,7 @@ begin
               read_in_progress <= '0';
               if (not_joystick_cartridge = '1' and force_joystick_cartridge='0') or (disable_joystick_cartridge='1') then
                 cart_d <= cart_access_wdata;
-                report "Write data is $" & to_hstring(cart_access_wdata);
+                report "Write data is $" & to_hexstring(cart_access_wdata);
               end if;
             end if;
           else
