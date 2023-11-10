@@ -3076,28 +3076,28 @@ msg_foundsdhccard:      !text "FOUND AND RESET SDHC CARD"
                         !8 0
 msg_sdcarderror:        !text "ERROR READING FROM SD CARD"
                         !8 0
-msg_sdredoread:         !text "RE-READING SDCARD"
-                        !8 0
+;; msg_sdredoread:      !text "RE-READING SDCARD"
+;;                      !8 0
 msg_nosdcard:           !text "NO SDCARD, TRYING BUILT-IN ROM"
                         !8 0
 msg_badformat:          !text "BAD MBR OR DOS BOOT SECTOR."
                         !8 0
-msg_sdcardfound:        !text "READ PARTITION TABLE FROM SDCARD"
-                        !8 0
-msg_foundromfile:       !text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
-                        !8 0
+;; msg_sdcardfound:     !text "READ PARTITION TABLE FROM SDCARD"
+;;                      !8 0
+;; msg_foundromfile:    !text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
+;;                      !8 0
 msg_diskcount:          !text "DISK-COUNT=$$, DEFAULT-DISK=$$"
                         !8 0
 ;; msg_diskdata0:       !text "DISK-TABLE:"
 ;;                      !8 0
 ;; msg_diskdata:        !text "BB$$:$$.$$.$$.$$.$$.$$.$$.$$"
 ;;                      !8 0
-msg_filelengths:        !text "LOOKING FOR $$ BYTES, I SEE $$ BYTES"
-                        !8 0
+;; msg_filelengths:     !text "LOOKING FOR $$ BYTES, I SEE $$ BYTES"
+;;                      !8 0
 msg_fileopenerror:      !text "COULD NOT OPEN ROM FILE FOR READING"
                         !8 0
-msg_readingfile:        !text "READING ROM FILE..."
-                        !8 0
+;; msg_readingfile:     !text "READING ROM FILE..."
+;;                      !8 0
 msg_romfilelongerror:   !text "ROM TOO LONG: (READ $$$$ PAGES)"
                         !8 0
 msg_romfileshorterror:  !text "ROM TOO SHORT: (READ $$$$ PAGES)"
@@ -3116,8 +3116,8 @@ msg_dipswitch3on:       !text "SW3 OFF OR PRESS RUN/STOP TO CONTINUE."
                         !8 0
 msg_romnotfound:        !text "COULD NOT FIND ROM MEGA65XXROM"
                         !8 0
-msg_foundhickup:        !text "LOADING HICKUP.M65 INTO HYPERVISOR"
-                        !8 0
+;;msg_foundhickup:      !text "LOADING HICKUP.M65 INTO HYPERVISOR"
+;;                      !8 0
 msg_no1541rom:          !text "COULD NOT LOAD 1541ROM.M65"
                         !8 0
 ;; msg_nohickup:        !text "NO HICKUP.M65 TO LOAD (OR BROKEN)"
@@ -3126,9 +3126,9 @@ msg_no1541rom:          !text "COULD NOT LOAD 1541ROM.M65"
 ;;                      !8 0
 msg_alreadyhicked:      !text "RUNNING HICKED HYPERVISOR"
                         !8 0
-msg_lookingfornextsector:
-                        !text "LOOKING FOR NEXT SECTOR OF FILE"
-                        !8 0
+;;msg_lookingfornextsector:
+;;                      !text "LOOKING FOR NEXT SECTOR OF FILE"
+;;                      !8 0
 msg_nologo:             !text "COULD NOT LOAD BANNER.M65 (ERRNO:$$)"
                         !8 0
 msg_cdrootfailed:       !text "COULD NOT CHDIR TO / (ERRNO:$$)"
@@ -3187,8 +3187,8 @@ txt_FREEZER:            !text "FREEZER.M65"
             ;; mode set to NTSC (60Hz), else as PAL (50Hz).
             ;; This is to allow us to boot in PAL by default, except for
             ;; those who have a monitor that cannot do 50Hz.
-txt_NTSC:               !text "NTSC"
-                        !8 0
+;; txt_NTSC:            !text "NTSC"
+;;                      !8 0
 
 ;;         ========================
 
@@ -3467,6 +3467,9 @@ zptempv32b:
         !16 0,0
 dos_file_loadaddress:
         !16 0,0
+
+Qone:
+        !8 1,0,0,0
 
 !if DEBUG_HYPPO {
         ;; Used for checkpoint debug system of hypervisor
