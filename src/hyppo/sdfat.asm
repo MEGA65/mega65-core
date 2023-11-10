@@ -242,95 +242,76 @@ sd_unmap_sectorbuffer:
 ;;         ========================
 
 ;; /*  -------------------------------------------------------------------
-;;     Below function is self-contained
+;;     Below functions are self-contained
 ;;     ---------------------------------------------------------------- */
 
+        ;; Assumes fixed sector number (or byte address in case of SD cards) is loaded into $D681 - $D684
+
 sd_readsector:
-        ;; Assumes fixed sector number (or byte address in case of SD cards)
-        ;; is loaded into $D681 - $D684
-
-!if DEBUG_HYPPO {
-        ;; print out debug info
-        ;;
-;;         jsr printsectoraddress        ; to screen
-        jsr dumpsectoraddress        ;; checkpoint message
-}
-
-        ;; check if sd card is busy
-        ;;
-        lda $d680
-        and #$01
-        bne rsbusyfail
-
-        ;;
-        jmp rs4                ;; skipping the redoread-delay below
-
-;;         ========================
-
-redoread:
-        ;; redo-read delay
-        ;;
-        ;; when retrying, introduce a delay.  This seems to be needed often
-        ;; when reading the first sector after SD card reset.
-        ;;
-        ;; print out a debug message to indicate RE-reading (ie previous read failed)
-        ;;
-        ldx #<msg_sdredoread
-        ldy #>msg_sdredoread
-        jsr printmessage
-
-        +Checkpoint "ERROR redoread:"
-
-        ldx #$f0
-        ldy #$00
-        ldz #$00
-r1:     inz
-        bne r1
-        iny
-        bne r1
-        inx
-        bne r1
-
-rs4:
-        ;; ask for sector to be read
-        ;;
+        jsr sd_rws_checkbusy
+sd_readsector_retry:                               ;; ask for sector to be read
         lda #$02
         sta $d680
+        jsr sd_rws_checksuccess
+        bcs +
+        jmp sd_readsector_retry
++       rts
 
-        ;; wait for sector to be read
-        ;;
-        jsr sdtimeoutreset
-rs3:
+;;      ========================
+
+sd_writesector:
+        jsr sd_rws_checkbusy
+sd_writesector_retry:                              ;; ask for sector to be written
+        lda #$03
+        sta $d680
+        jsr sd_rws_checksuccess
+        bcs +
+        jmp sd_writesector_retry
++       rts
+
+;;      ========================
+
+sd_rws_checkbusy:
+        !if DEBUG_HYPPO {
+            ;; jsr printsectoraddress             ;; print out debug info to screen
+            jsr dumpsectoraddress                 ;; checkpoint message
+        }
+
+        lda $d680                                 ;; check if sd card is busy
+        and #$01
+        bne sd_rws_busyfail
+        rts
+
+;;      ========================
+
+sd_rws_checksuccess:
+        jsr sdtimeoutreset                        ;; wait for sector to be read/written
+sd_rws_checksuccessloop:
         jsr sdreadytest
-        bcs rsread        ;; yes, sdcard is ready
-        bne rs3                ;; not ready, so check if ready now?
-        beq rereadsector        ;; Z was set, ie timeout
-rsread:
+        bcs sd_rws_success                        ;; yes, sdcard is ready
+        bne sd_rws_checksuccessloop               ;; not ready, and Z=0, so still busy -> check if ready again
+        beq sd_rws_retry                          ;; not ready, and Z=1, so not busy any more -> timeout, so reread sector
+sd_rws_success:
         sec
         rts
 
-;;         ========================
+;;      ========================
 
-rereadsector:
-        ;; reset sd card and try again
-        ;;
-
-        +Checkpoint "ERROR rereadsector:"
-
+sd_rws_retry:
+        +Checkpoint "ERROR rereadwritesector:"    ;; reset sd card and try again
         jsr sd_resetsequence
-        jmp rs4
+        clc
+        rts
 
-rsbusyfail:     ;; fail
-        ;;
-        lda #dos_errorcode_read_timeout
+sd_rws_busyfail:
+        lda #dos_errorcode_readwrite_timeout
         sta dos_error_code
-        +Checkpoint "ERROR rsbusyfail:"
-
+        +Checkpoint "ERROR rwsbusyfail:"
         clc
         rts
 
 ;; /*  -------------------------------------------------------------------
-;;     Above function is self-contained
+;;     Above functions are self-contained
 ;;     ---------------------------------------------------------------- */
 
 sd_inc_sectornumber:

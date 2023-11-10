@@ -36,31 +36,31 @@ dos_and_process_trap_table:
         !16 trap_dos_getdefaultdrive
         !16 trap_dos_getcurrentdrive          ;; appears out-of-order (is far below)
         !16 trap_dos_selectdrive
-        !16 trap_dos_getdisksize              ;; not currently implememted
-        !16 trap_dos_getcwd                   ;; not currently implememted
+        !16 trap_dos_getdisksize              ;; not currently implemented
+        !16 trap_dos_getcwd                   ;; not currently implemented
         !16 trap_dos_chdir                    
-        !16 trap_dos_mkdir                    ;; not currently implememted
+        !16 trap_dos_mkdir                    ;; not currently implemented
 
         ;; $10 - $1E
         ;;
-        !16 trap_dos_rmdir                    ;; not currently implememted
+        !16 trap_dos_rmdir                    ;; not currently implemented
         !16 trap_dos_opendir
         !16 trap_dos_readdir
         !16 trap_dos_closedir
         !16 trap_dos_openfile
-        !16 trap_dos_readfile                 
-        !16 trap_dos_writefile                ;; not currently implememted
+        !16 trap_dos_readfile
+        !16 trap_dos_writefile
         !16 trap_dos_mkfile                   ;; implementation started
 
         ;; $20 - $2E
         ;;
         !16 trap_dos_closefile
         !16 trap_dos_closeall
-        !16 trap_dos_seekfile                 ;; not currently implememted
-        !16 trap_dos_rmfile                   ;; not currently implememted
-        !16 trap_dos_fstat                    ;; not currently implememted
-        !16 trap_dos_rename                   ;; not currently implememted
-        !16 trap_dos_filedate                 ;; not currently implememted
+        !16 trap_dos_seekfile                 ;; not currently implemented
+        !16 trap_dos_rmfile                   ;; not currently implemented
+        !16 trap_dos_fstat                    ;; not currently implemented
+        !16 trap_dos_rename                   ;; not currently implemented
+        !16 trap_dos_filedate                 ;; not currently implemented
         !16 trap_dos_setname
 
         ;; $30 - $3E
@@ -87,25 +87,25 @@ dos_and_process_trap_table:
 
         ;; $50 - $5E
         ;;
-        !16 trap_dos_gettasklist              ;; not currently implememted
-        !16 trap_dos_sendmessage              ;; not currently implememted
-        !16 trap_dos_receivemessage           ;; not currently implememted
-        !16 trap_dos_writeintotask            ;; not currently implememted
-        !16 trap_dos_readoutoftask            ;; not currently implememted
+        !16 trap_dos_gettasklist              ;; not currently implemented
+        !16 trap_dos_sendmessage              ;; not currently implemented
+        !16 trap_dos_receivemessage           ;; not currently implemented
+        !16 trap_dos_writeintotask            ;; not currently implemented
+        !16 trap_dos_readoutoftask            ;; not currently implemented
         !16 invalid_subfunction
         !16 invalid_subfunction
         !16 invalid_subfunction
 
         ;; $60 - $6E
         ;;
-        !16 trap_dos_terminateothertask       ;; not currently implememted
-        !16 trap_dos_create_task_native       ;; not currently implememted
-        !16 trap_dos_load_into_task           ;; not currently implememted
-        !16 trap_dos_create_task_c64          ;; not currently implememted
-        !16 trap_dos_create_task_c65          ;; not currently implememted
-        !16 trap_dos_exit_and_switch_to_task  ;; not currently implememted
-        !16 trap_dos_switch_to_task           ;; not currently implememted
-        !16 trap_dos_exit_task                ;; not currently implememted
+        !16 trap_dos_terminateothertask       ;; not currently implemented
+        !16 trap_dos_create_task_native       ;; not currently implemented
+        !16 trap_dos_load_into_task           ;; not currently implemented
+        !16 trap_dos_create_task_c64          ;; not currently implemented
+        !16 trap_dos_create_task_c65          ;; not currently implemented
+        !16 trap_dos_exit_and_switch_to_task  ;; not currently implemented
+        !16 trap_dos_switch_to_task           ;; not currently implemented
+        !16 trap_dos_exit_task                ;; not currently implemented
 
         ;; $70 - $7E
         ;;
@@ -799,6 +799,9 @@ trap_dos_readfile:
 	jsr dos_readfile	
         jmp return_from_trap_with_carry_flag
 
+trap_dos_writefile:
+	jsr dos_writefile	
+	jmp return_from_trap_with_carry_flag
 
 trap_dos_cdrootdir:
 	ldx hypervisor_x
@@ -995,7 +998,6 @@ trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_mkdir:
 trap_dos_rmdir:
-trap_dos_writefile:
 trap_dos_seekfile:
 trap_dos_rmfile:
 trap_dos_fstat:
@@ -3309,7 +3311,21 @@ dfrcs1: lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 
 dos_file_read_current_sector:
 
-        jsr dos_get_file_descriptor_offset
+        jsr dos_file_update_sector_offset
+        jmp sd_readsector
+
+;;         ========================
+
+dos_file_write_current_sector:
+
+        jsr dos_file_update_sector_offset
+        jmp sd_writesector
+
+;;         ========================
+
+dos_file_update_sector_offset:
+
+       jsr dos_get_file_descriptor_offset
         jsr dos_set_current_cluster_from_file
         jsr dos_cluster_to_sector
 
@@ -3337,7 +3353,7 @@ gotFDOffset:
         ;;
         jsr sdsector_add_uint8
 
-        jmp sd_readsector
+        rts
 
 ;;         ========================
 
@@ -3788,8 +3804,7 @@ dos_load_y_based_on_dos_bytes_remaining:
         sta dos_bytes_remaining+3
         rts
 
-
-dos_readfile:
+dos_updatereturnsize:
 
 ;; 	ldx dos_bytes_remaining+3 
 ;; 	jsr checkpoint_bytetohex
@@ -3870,23 +3885,40 @@ dos_readfile:
 	;; Store number of bytes read in X and Y for calling process
 	stx hypervisor_x
 	sty hypervisor_y
-	
-	;; Now read sector and return
-	
+
         jsr sd_map_sectorbuffer
+
+        rts
+
+dos_readfile:
+
+        jsr dos_updatereturnsize
+        bcs +
+        rts
+
++	;; Now read sector and return
         jsr dos_file_read_current_sector
-        bcs drf_gotsector
+        bcs drwf_readwritesuccess
 	rts
 	
-drf_gotsector:
-	;; Then advance to next sector.
-	;; Ignore the error, as the EOF will get picked up on the next call.
+;;         ========================
 
-	jsr dos_file_advance_to_next_sector
+dos_writefile:
 
-	sec
-	rts
-	
+        jsr dos_updatereturnsize
+        bcs +
+        rts
+
++	;; Now write sector and return
+        jsr dos_file_write_current_sector
+        bcs drwf_readwritesuccess
+        rts
+
+drwf_readwritesuccess:
+        jsr dos_file_advance_to_next_sector
+
+        sec
+        rts
 	
 ;;         ========================
 
