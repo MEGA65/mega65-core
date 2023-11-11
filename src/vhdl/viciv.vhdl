@@ -2322,7 +2322,7 @@ begin
           extended_background_mode <= fastio_wdata(6);
           -- @IO:C64 $D011.5 VIC-II:BMM bitmap mode
           text_mode <= not fastio_wdata(5);
-          -- @IO:C64 $D011.4 VIC-II:BLNK disable display
+          -- @IO:C64 $D011.4 VIC-II:BLNK Enable display: 0 = blank the display, 1 = show the display
           blank <= not fastio_wdata(4);
           -- @IO:C64 $D011.3 VIC-II:RSEL 24/25 row select
           twentyfourlines <= not fastio_wdata(3);
