@@ -730,7 +730,7 @@ begin  -- behavioural
           fastio_rdata(6) <= accessible_key_extradim;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
-          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII at top of typing event queue. Write to clear event ready for next.
+          -- @IO:GS $D610 UARTMISC:ASCIIKEY Top of typing event queue as ASCII. Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state.
