@@ -56,7 +56,7 @@ entity iomapper is
         viciv_frame_indicate : in std_logic;
         eth_hyperrupt : out std_logic;
 
-	hw_errata_level : out unsigned(7 downto 0);
+        hw_errata_level : out unsigned(7 downto 0);
         hw_errata_enable_toggle : in std_logic := '0';
         hw_errata_disable_toggle : in std_logic := '0';
 
