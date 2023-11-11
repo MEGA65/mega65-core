@@ -4,7 +4,7 @@
 ;;     ---------------------------------------------------------------- */
 
 
-// Convenient macro for checkpoints. Uncomment the body to activate it
+;; Convenient macro for checkpoints. Uncomment the body to activate it
 !macro Checkpoint .text {
 ;;jsr checkpoint
 ;;!8 0

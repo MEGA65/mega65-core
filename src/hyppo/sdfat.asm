@@ -260,10 +260,14 @@ sd_readsector_retry:                               ;; ask for sector to be read
 ;;      ========================
 
 sd_writesector:
+        !if DEBUG_HYPPO {
+            jsr printsectoraddress             ;; print out debug info to screen
+            ;; jsr dumpsectoraddress                 ;; checkpoint message
+        }
+
         jsr sd_rws_checkbusy
 sd_writesector_retry:                              ;; ask for sector to be written
-        lda #$03
-        sta $d680
+        jsr write_non_mbr_sector
         jsr sd_rws_checksuccess
         bcs +
         jmp sd_writesector_retry
@@ -272,11 +276,6 @@ sd_writesector_retry:                              ;; ask for sector to be writt
 ;;      ========================
 
 sd_rws_checkbusy:
-        !if DEBUG_HYPPO {
-            ;; jsr printsectoraddress             ;; print out debug info to screen
-            jsr dumpsectoraddress                 ;; checkpoint message
-        }
-
         lda $d680                                 ;; check if sd card is busy
         and #$01
         bne sd_rws_busyfail
