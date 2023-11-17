@@ -62,8 +62,8 @@ architecture behavioural of buffereduart is
   -- This means 512 bytes for each UART
   -- 256 bytes TX buffer and 256 bytes RX buffer
   signal buffer_write : std_logic := '0';
-  signal buffer_writeaddress : integer := 0;
-  signal buffer_readaddress : integer := 0;
+  signal buffer_writeaddress : integer range 0 to 4095 := 0;
+  signal buffer_readaddress : integer range 0 to 4095 := 0;
   signal buffer_wdata : unsigned(7 downto 0) := x"00"; 
   signal buffer_rdata : unsigned(7 downto 0) := x"00"; 
 

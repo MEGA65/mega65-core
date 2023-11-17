@@ -113,7 +113,7 @@ architecture behavioural of mega65r4_i2c is
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 255) of uint8;
-  signal bytes : byte_array := (others => x"00");
+  signal bytes : byte_array := (others => x"bd");
 
   signal write_job_pending : std_logic := '0';
   signal write_addr : unsigned(7 downto 0) := x"48";
@@ -226,25 +226,12 @@ begin
 
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
-        if (to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 64) then
+        if (to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 220) then
           -- RTC
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
 --          report "triggering write to I2C device $A2, register $" & to_hstring(fastio_addr(7 downto 0));
           write_addr <= x"A2";
           write_job_pending <= '1';
-        elsif (to_integer(fastio_addr(7 downto 0)) >= 192 and to_integer(fastio_addr(7 downto 0)) < 208) then
-          -- RTC PMU / EEPROM
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 192 + 192,8);
---          report "triggering write to I2C device $A2, register $" & to_hstring(fastio_addr(7 downto 0));
-          write_addr <= x"A2";
-          write_job_pending <= '1';
-        elsif to_integer(fastio_addr(7 downto 0)) >= 64 and to_integer(fastio_addr(7 downto 0)) < 80 then
-          -- RTC SRAM
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64 + 64,8);
---          report "triggering write to $A2 SRAM area";
-          write_addr <= x"A2";
-          write_job_pending <= '1';
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)),8);
         elsif to_integer(fastio_addr(7 downto 0)) >= 220 and to_integer(fastio_addr(7 downto 0)) < 239 then
           -- Audio Amplifier for internal speakers
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 220,8);
@@ -284,12 +271,12 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 168) or ((write_job_pending='1') and (busy_count < (168+4))) then
+        if (busy_count < 244) or ((write_job_pending='1') and (busy_count < (244+4))) then
           busy_count <= busy_count + 1;
           report "busy_count = " & integer'image(busy_count + 1);
           -- Delay switch to write so we generate a stop before hand and after
           -- the write.
-          if ((busy_count = (168-1)) or (busy_count = (168+1))) and (delayed_en = 0) then
+          if ((busy_count = (244-1)) or (busy_count = (244+1))) and (delayed_en = 0) then
             delayed_en <= 1024;
           end if;
         else
@@ -377,9 +364,22 @@ begin
           report "RTC SRAM (16 bytes)";
           command_en <= '1';
           i2c1_address <= "1010001"; -- 51 = I2C address of device;
-          i2c1_wdata <= x"40"; -- NVRAM starts at offset $40
+          i2c1_wdata <= x"30"; -- Some extra registers in the $3x range, and
+                               -- also 16 bytes of NVRAM starts at offset $40
+                               -- plus some more bytes, for no really good reason
           i2c1_rw <= '0';
-        when 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 =>
+        when 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76
+          | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92
+          | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108
+          | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124
+          | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140
+          | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156
+          | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172
+          | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188
+          | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204
+          | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220
+          | 221
+          =>
           -- Read the 64 bytes from the device
           i2c1_rw <= '1';
           command_en <= '1';
@@ -388,36 +388,25 @@ begin
           if busy_count > 61 then
             bytes(busy_count - 1 - 61 + 64) <= i2c1_rdata;
           end if;
-        when 126 =>
+        when 222 =>
           i2c1_command_en <= '1';
-          i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
+          i2c1_address <= "0011001"; -- 0x19 = I2C address of amplifier;
           i2c1_wdata <= x"00";
           i2c1_rw <= '0';
           report "Audio amplifier regs 0 - 18";
-        when 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 =>
+        when 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238
+          | 239 | 240 | 241 | 242
+          | 243 =>
           -- Read the 19 bytes from the device
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
-          if busy_count > 127 and i2c1_error='0' then
-            bytes(busy_count - 1 - 127 + 220) <= i2c1_rdata;
-          end if;
-        when 147 =>
-          i2c1_command_en <= '1';
-          i2c1_address <= "1010001"; -- 51 = I2C address of device;
-          i2c1_wdata <= x"c0"; -- NVRAM starts at offset $40
-          i2c1_rw <= '0';
-          report "Audio amplifier regs 0 - 18";
-        when 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156 | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 =>
-          -- Read the 19 bytes from the device
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 127 and i2c1_error='0' then
-            bytes(busy_count - 1 - 147 + 192) <= i2c1_rdata;
+          if busy_count > 223 and i2c1_error='0' then
+            bytes(busy_count - 1 - 223 + 220) <= i2c1_rdata;
           end if;
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
         --------------------------------------------------------------------
-        when 168 =>
+        when 244 =>
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
           if last_busy_count /= busy_count then
@@ -442,7 +431,7 @@ begin
           else
             i2c1_wdata <= write_reg;
           end if;
-        when 169 =>
+        when 245 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
             report "Writing value $" & to_hstring(write_val) & " to register";

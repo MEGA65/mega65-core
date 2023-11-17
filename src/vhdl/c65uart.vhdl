@@ -691,8 +691,8 @@ begin  -- behavioural
           -- @IO:GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.3 UARTMISC:MODKEYMEGA MEGA/C= key state at top of typing event queue. 1 = held during event.
           -- @IO:GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
-          -- @IO:GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
-          -- @IO:GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.1 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.0 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
           fastio_rdata(7) <= key_presenting;
           fastio_rdata(6 downto 0) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
@@ -730,7 +730,7 @@ begin  -- behavioural
           fastio_rdata(6) <= accessible_key_extradim;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
-          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII at top of typing event queue. Write to clear event ready for next.
+          -- @IO:GS $D610 UARTMISC:ASCIIKEY Top of typing event queue as ASCII. Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state.
@@ -740,8 +740,8 @@ begin  -- behavioural
           -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (immediate; read only).
           -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (immediate; read only).
           -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (immediate; read only).
-          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (immediate; read only).
-          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (immediate; read only).
+          -- @IO:GS $D611.1 UARTMISC:MRSHFT Right shift key state (immediate; read only).
+          -- @IO:GS $D611.0 UARTMISC:MLSHFT Left shift key state (immediate; read only).
           fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
           fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>

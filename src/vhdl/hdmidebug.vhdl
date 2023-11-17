@@ -1,20 +1,20 @@
 ----------------------------------------------------------------------------------
--- Company:
--- Engineer:
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date:    22:30:37 12/10/2013 
+-- Design Name: 
+-- Module Name:    container - Behavioral 
+-- Project Name: 
+-- Target Devices: 
+-- Tool versions: 
+-- Description: 
 --
--- Create Date:    22:30:37 12/10/2013
--- Design Name:
--- Module Name:    container - Behavioral
--- Project Name:
--- Target Devices:
--- Tool versions:
--- Description:
+-- Dependencies: 
 --
--- Dependencies:
---
--- Revision:
+-- Revision: 
 -- Revision 0.01 - File Created
--- Additional Comments:
+-- Additional Comments: 
 --
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -36,13 +36,13 @@ use work.debugtools.all;
 --use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;
+  Port ( CLK_IN : STD_LOGIC;         
          btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
-
+         
          ----------------------------------------------------------------------
-         -- keyboard/joystick
+         -- keyboard/joystick 
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
@@ -73,7 +73,7 @@ entity container is
          sd2MOSI : out std_logic;
          sd2d1 : out std_logic;
          sd2d2 : out std_logic;
-
+         
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -111,7 +111,7 @@ entity container is
          hr_reset : out std_logic;
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
-
+         
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
@@ -126,7 +126,7 @@ entity container is
          iec_srq_en : out std_logic;
          iec_src_i : in std_logic;
          iec_atn : out std_logic;
-
+         
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -150,14 +150,14 @@ entity container is
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
-         hdmi_clk : out std_logic;
+         hdmi_clk : out std_logic; 
 
          hpd_a : inout std_logic;
          ct_hpd : out std_logic := '1';
          ls_oe : out std_logic := '1';
          -- (i.e., when hsync, vsync both low?)
-
-
+         
+         
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -171,19 +171,19 @@ entity container is
          eth_rxdv : in std_logic;
 --         eth_interrupt : in std_logic;
          eth_clock : out std_logic;
-
+         
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
          sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
          sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;
+         sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
          -- Left and right audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
-
+         
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
@@ -207,14 +207,14 @@ entity container is
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
          fpga_sda : out std_logic := '0';
-         fpga_scl : out std_logic := '0';
-
+         fpga_scl : out std_logic := '0';         
+         
          ----------------------------------------------------------------------
          -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
          RsRx : in std_logic
-
+         
          );
 end container;
 
@@ -232,7 +232,7 @@ architecture Behavioral of container is
   signal clock135n : std_logic;
   signal clock162 : std_logic;
   signal clock325 : std_logic;
-
+  
   signal red : std_logic_vector(7 downto 0);
   signal green : std_logic_vector(7 downto 0);
   signal blue : std_logic_vector(7 downto 0);
@@ -281,19 +281,20 @@ architecture Behavioral of container is
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_data_ready_toggle : std_logic;
+  signal last_expansionram_data_ready_toggle : std_logic := '0';
   signal expansionram_busy : std_logic;
 
   signal read_address : unsigned(7 downto 0) := to_unsigned(0,8);
-
+  
   signal queue_ram_write : std_logic := '0';
   signal read_countdown : integer range 0 to 10 := 0;
 
   signal ascii_key : unsigned(7 downto 0);
-  signal key_valid : std_logic := '0';
+  signal ascii_key_valid : std_logic := '0';
   signal bucky_key : std_logic_vector(6 downto 0);
   signal capslock_combined : std_logic;
-  signal widget_matrix_col_idx : integer range 0 to 8 := 5;
+  signal widget_matrix_col_idx : integer range 0 to 8 := 5;  
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal key_caps : std_logic := '0';
   signal key_restore : std_logic := '0';
@@ -304,7 +305,7 @@ architecture Behavioral of container is
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
 
   signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
-
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -375,7 +376,7 @@ begin
       powerled => key_up,
       flopled => '0',
       flopmotor => fb_fire,
-
+      
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
@@ -386,7 +387,7 @@ begin
       capslock_out => key_caps,
       upkey => key_up,
       leftkey => key_left
-
+      
       );
 
 --  i_vga_generator: entity work.vga_generator PORT MAP(
@@ -411,7 +412,7 @@ begin
 --      matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => '0',
       suppress_key_retrigger => '0',
-
+    
       scan_mode => "11",
       scan_rate => x"FF",
 
@@ -424,10 +425,10 @@ begin
     virtual_disable => '0',
 
       joyswap => '0',
-
+      
       joya_rotate => '0',
       joyb_rotate => '0',
-
+      
     cpuclock       => cpuclock,
 --    restore_out => restore_nmi,
     keyboard_restore => key_restore,
@@ -446,7 +447,7 @@ begin
 --    keydown2 => osk_key2,
 --    keydown3 => osk_key3,
 --    keydown4 => osk_key4,
-
+      
 --    hyper_trap_out => hyper_trap,
 --    hyper_trap_count => hyper_trap_count,
 --    restore_up_count => restore_up_count,
@@ -468,16 +469,16 @@ begin
     joya(2) => '1',
     joya(1) => '1',
     joya(3) => '1',
-
+    
     joyb(4) => '1',
     joyb(0) => '1',
     joyb(2) => '1',
     joyb(1) => '1',
     joyb(3) => '1',
-
+    
 --    key_debug_out => key_debug,
-
-    porta_pins => porta_pins,
+  
+    porta_pins => porta_pins, 
     portb_pins => (others => '1'),
 
 --    speed_gate => speed_gate,
@@ -493,34 +494,34 @@ begin
       widget_capslock => '1',
     widget_joya => (others => '1'),
     widget_joyb => (others => '1'),
-
-
+      
+      
     -- remote keyboard input via ethernet
       eth_keycode_toggle => '0',
       eth_keycode => (others => '0'),
 
-    -- remote
+    -- remote 
 --    eth_keycode_toggle => key_scancode_toggle,
 --    eth_keycode => key_scancode,
 
     -- ASCII feed via hardware keyboard scanner
     ascii_key => ascii_key,
-    key_valid => key_valid,
+    ascii_key_valid => ascii_key_valid,
     bucky_key => bucky_key(6 downto 0)
-
+    
     );
   end block;
 
   uart_tx0: entity work.UART_TX_CTRL
     port map (
-      send    => key_valid,
+      send    => ascii_key_valid,
       BIT_TMR_MAX => to_unsigned((40500000/2000000) - 1,16),
       clk     => cpuclock,
       data    => ascii_key,
 --      ready   => tx0_ready,
       uart_tx => UART_TXD);
 
-
+  
   pixel0: entity work.pixel_driver
     port map (
       clock81 => pixelclock, -- 80MHz
@@ -530,17 +531,17 @@ begin
       cpuclock => cpuclock,
 
       pixel_strobe_out => pixel_strobe,
-
+      
       -- Configuration information from the VIC-IV
       hsync_invert => zero,
       vsync_invert => zero,
       pal50_select => zero,
       vga60_select => zero,
-      test_pattern_enable => one,
-
+      test_pattern_enable => one,      
+      
       -- Framing information for VIC-IV
-      x_zero => x_zero,
-      y_zero => y_zero,
+      x_zero => x_zero,     
+      y_zero => y_zero,     
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
@@ -552,38 +553,38 @@ begin
       -- It is clocked at the correct pixel
       red_no => pattern_r,
       green_no => pattern_g,
-      blue_no => pattern_b,
+      blue_no => pattern_b,      
 
 --      red_o => panelred,
 --      green_o => panelgreen,
 --      blue_o => panelblue,
-
+      
       hsync => pattern_hsync,
       vsync => pattern_vsync,  -- for HDMI
---      vga_hsync => vga_hsync,      -- for VGA
+--      vga_hsync => vga_hsync,      -- for VGA          
 
       -- And the variations on those signals for the LCD display
---      lcd_hsync => lcd_hsync,
+--      lcd_hsync => lcd_hsync,               
 --      lcd_vsync => lcd_vsync,
       fullwidth_dataenable => pattern_de
 --      lcd_inletterbox => lcd_inletterbox,
 --      vga_inletterbox => vga_inletterbox
 
       );
+  
 
-
-
+  
   hdmi0: entity work.vga_hdmi
     port map (
       clock27 => clock27,
-
+      
       pattern_r => std_logic_vector(pattern_r),
       pattern_g => std_logic_vector(pattern_g),
       pattern_b => std_logic_vector(pattern_b),
       pattern_hsync => pattern_hsync,
       pattern_vsync => pattern_vsync,
       pattern_de => pattern_de,
-
+      
 --      vga_r => red,
 --      vga_g => green,
 --      vga_b => blue,
@@ -616,14 +617,14 @@ begin
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
       request_counter => led,
-
+      
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
       write_request => expansionram_write,
       rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
+      data_ready_toggle_out => expansionram_data_ready_toggle,
       busy => expansionram_busy,
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -633,21 +634,21 @@ begin
       hr_cs0 => hr_cs0
       );
 
-
+  
   PROCESS (PIXELCLOCK) IS
     variable row : unsigned(31 downto 0);
     variable thebit : unsigned(31 downto 0);
   BEGIN
 
     if rising_edge(pixelclock) then
-
+      
       -- XXX Show keyboard status on screen
-      if key_valid='1' then
+      if ascii_key_valid='1' then
         key_count <= key_count + 1;
       end if;
       ram_cache(15 downto 0) <= key_count;
       ram_cache(31 downto 24) <= ascii_key;
-      ram_cache(23) <= key_valid;
+      ram_cache(23) <= ascii_key_valid;
       ram_cache(22 downto 16) <= unsigned(bucky_key);
       ram_cache(32) <= key_up;
       ram_cache(33) <= key_left;
@@ -655,15 +656,16 @@ begin
       ram_cache(63 downto 56) <= unsigned(widget_matrix_col);
       ram_cache(55 downto 48) <= to_unsigned(widget_matrix_col_idx,8);
       ram_cache(47) <= key_caps;
-
+      
       -- Control hyperram
-      if expansionram_data_ready_strobe='1' then
+      last_expansionram_data_ready_toggle <= expansionram_data_ready_toggle;
+      if expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle then
         if (read_address /= ((512/8)-1)) then
           read_address <= read_address + 1;
         else
           read_address <= to_unsigned(0,8);
         end if;
-
+              
         ram_cache(to_integer(read_address)*8+7 downto to_integer(read_address)*8+0) <= expansionram_rdata;
         expansionram_read <= '0';
         expansionram_write <= '0';
@@ -689,8 +691,8 @@ begin
       elsif read_countdown /= 0 then
         read_countdown <= read_countdown - 1;
       end if;
-
-
+      
+      
       if y_zero = '1' then
         if ycounter /= 0 then
           frame_counter <= frame_counter + 1;
@@ -750,7 +752,7 @@ begin
         red <= x"00";
       end if;
     end if;
-
+    
     VGARED <= UNSIGNED(RED);
     VGAGREEN <= UNSIGNED(GREEN);
     VGABLUE <= UNSIGNED(BLUE);
@@ -758,9 +760,9 @@ begin
     HDMIRED <= UNSIGNED(RED);
     hdmigreen <= unsigned(green);
     hdmiblue <= unsigned(blue);
-
+    
     vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
+    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
@@ -773,12 +775,12 @@ begin
     h_audio_right <= h_audio_right + 32;
 
     if rising_edge(ethclock) then
-      counter <= counter + 1;
+      counter <= counter + 1; 
 
       if counter(24 downto 0) = to_unsigned(0,25) then
         reg_num(4 downto 0) <= reg_num(4 downto 0) + 1;
       end if;
-
+      
       if counter(12 downto 0) = x"000" then
         pmod_counter <= pmod_counter + 1;
         p1lo <= std_logic_vector(pmod_counter(3 downto 0));
@@ -795,7 +797,7 @@ begin
       sd2d1 <= counter(8);
       sd2d2 <= counter(9);
     end if;
-
-  end process;
-
+    
+  end process;    
+  
 end Behavioral;

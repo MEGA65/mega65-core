@@ -154,7 +154,6 @@ architecture behavior of ghdl_bug is
   signal expansionram_rdata : unsigned(7 downto 0) := (others => '0');
   signal expansionram_wdata : unsigned(7 downto 0) := (others => '0');
   signal expansionram_address : unsigned(26 downto 0) := (others => '0');
-  signal expansionram_data_ready_strobe : std_logic := '0';
   signal expansionram_busy : std_logic := '0';
 
   signal current_cache_line : cache_row_t := (others => (others => '0'));

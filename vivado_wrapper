@@ -2,7 +2,7 @@
 
 # Check if VIVADODIR is empty or undefined and detect version instead
 if [ -z "$VIVADODIR" ]; then
-    VIVADODIR=`ls -1d /opt/Xilinx/Vivado/* | tail -1`
+    VIVADODIR=`ls -1d /opt/Xilinx/Vivado/2* /opt/Xilinx/Vivado/Vivado/2* | tail -1`
 fi
 
 . ${VIVADODIR}/settings64.sh

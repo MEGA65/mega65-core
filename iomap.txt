@@ -58,7 +58,7 @@ C64 $D00F VIC-II:S7Y @SNY
 C64 $D010 VIC-II:SXMSB sprite horizontal position MSBs
 C64 $D011.2-0 VIC-II:YSCL 24/25 vertical smooth scroll
 C64 $D011.3 VIC-II:RSEL 24/25 row select
-C64 $D011.4 VIC-II:BLNK disable display
+C64 $D011.4 VIC-II:BLNK Enable display: 0 = blank the display, 1 = show the display
 C64 $D011.5 VIC-II:BMM bitmap mode
 C64 $D011.6 VIC-II:ECM extended background mode
 C64 $D011.7 VIC-II:RC8 raster compare bit 8
@@ -337,6 +337,7 @@ C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy 
 C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
 C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
 C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
+GS $D08F - Set/get MISCIO:HWERRATA MEGA65 hardware errata level
 GS $D09B - FSM state of low-level SD controller (DEBUG)
 GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
@@ -476,8 +477,8 @@ GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz 
 GS $D609.6 FSERIAL:FSDIR Direction register for DMODE (not yet implemented)
 GS $D609.7 FSERIAL:DMODE Fast IEC serial (not yet implemented)
 GS $D609 MEGA65 extended UART control register
-GS $D60A.0 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
-GS $D60A.1 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
+GS $D60A.0 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
+GS $D60A.1 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
 GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
 GS $D60A.3 UARTMISC:MODKEYMEGA MEGA/C= key state at top of typing event queue. 1 = held during event.
 GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
@@ -506,10 +507,10 @@ GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
 GS $D60F.5 UARTMISC:REALHW Set to 1 if the MEGA65 is running on real hardware, set to 0 if emulated (Xemu) or simulated (ghdl)
 GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
 GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
-GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII at top of typing event queue. Write to clear event ready for next.
-GS $D611.0 UARTMISC:MRSHFT Right shift key state (immediate; read only).
+GS $D610 UARTMISC:ASCIIKEY Top of typing event queue as ASCII. Write to clear event ready for next.
+GS $D611.0 UARTMISC:MLSHFT Left shift key state (immediate; read only).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
-GS $D611.1 UARTMISC:MLSHFT Left shift key state (immediate; read only).
+GS $D611.1 UARTMISC:MRSHFT Right shift key state (immediate; read only).
 GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
 GS $D611.2 UARTMISC:MCTRL CTRL key state (immediate; read only).
 GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (immediate; read only).
@@ -749,7 +750,7 @@ GS $D680.3 - SD controller sector buffer mapped flag
 GS $D680.4 - SD controller SDHC mode flag
 GS $D680.5 - SD controller SDIO FSM ERROR flag
 GS $D680.6 - SD controller SDIO error flag
-GS $D680.7 - SD controller primary / secondary SD card 
+GS $D680.7 - SD controller primary / secondary SD card
 GS $D680 SD:CMDANDSTAT SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
 GS $D681 SD:SECTOR0 SD controller SD sector address (LSB)
@@ -769,7 +770,7 @@ GS $D689.2 - (read only, debug) sd_handshake signal.
 GS $D689.2 SD:HNDSHK Set/read SD card sd_handshake signal
 GS $D689.3 - (read only, debug) sd_data_ready signal.
 GS $D689.3 SD:DRDY SD Card Data Ready indication
-GS $D689.4 - RESERVED              
+GS $D689.4 - RESERVED
 GS $D689.4 SD:RESERVED Reserved
 GS $D689.5 - F011 swap drive 0 / 1
 GS $D689.5 SD:FDCSWAP Set to swap floppy drive 0 (the internal drive) and drive 1 (the drive on the 2nd position on the internal floppy cable).
@@ -784,12 +785,12 @@ GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 mega image if set (otherwi
 GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 image if set (otherwise 800KiB 1581 or D65 image)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 drive 0 disk image enable
-GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive.
 GS $D68B.1 - F011 drive 0 present
 GS $D68B.1 SDFDC:D0P F011 drive 0 media present
 GS $D68B.2 - F011 drive 0 write protect
 GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
-GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive. 
+GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive.
 GS $D68B.4 SDFDC:D1P F011 drive 1 media present
 GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
 GS $D68B.6 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 0
@@ -817,6 +818,27 @@ GS $D692 SDFDC:D1STARTSEC2 F011 drive 1 disk image address on SD card (3rd byte)
 GS $D693 F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D693 SDFDC:D1STARTSEC3 F011 drive 1 disk image address on SD card (MSB)
 GS $D696 F011:AUTOTUNE Enable automatic track seeking for sector reads and writes
+GS $D697.0 AUTOIEC:IRQTOEN Enable timeout interrupt source if set
+GS $D697.1 AUTOIEC:IRQREADYEN Enable TX interrupt source if set
+GS $D697.2 AUTOIEC:IRQRXEN Enable RX interrupt source if set
+GS $D697.3 AUTOIEC:IRQEN Enable interrupts if set
+GS $D697.4 AUTOIEC:IRQTO Set if a protocol timeout has occurred, e.g., device not found.
+GS $D697.5 AUTOIEC:IRQREADY Set if ready to process a command
+GS $D697.6 AUTOIEC:IRQRX Set if a byte has been received from a listener.
+GS $D697.7 AUTOIEC:IRQFLAG Interrupt flag. Set if any IRQ event is triggered.
+GS $D698.0 AUTOIEC:STDDIR Data direction when timeout occurred.
+GS $D698.1 AUTOIEC:STTO Timeout occurred
+GS $D698.2 AUTOIEC:STD State of DATA line
+GS $D698.3 AUTOIEC:STC State of CLK line
+GS $D698.4 AUTOIEC:STVERIFY Verify error occurred
+GS $D698.5 AUTOIEC:STSRQ State of SRQ line
+GS $D698.6 AUTOIEC:STNOEOI End of Indicate (EOI/EOF)
+GS $D698.7 AUTOIEC:STNODEV Device not present
+GS $D699 AUTOIEC:DATA Data byte read from IEC bus
+GS $D69A.0-3 AUTOIEC:DIDEVNUM Lower 4 bits of currently selected device number
+GS $D69A.4 AUTOIEC:DIATN Device is currently held under attention
+GS $D69A.5-6 AUTOIEC:DIPROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
+GS $D69A.7 AUTOIEC:DIPRESENT Device is present
 GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
 GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
