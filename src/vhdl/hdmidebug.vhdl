@@ -281,7 +281,8 @@ architecture Behavioral of container is
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_data_ready_toggle : std_logic;
+  signal last_expansionram_data_ready_toggle : std_logic := '0';
   signal expansionram_busy : std_logic;
 
   signal read_address : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -623,7 +624,7 @@ begin
       read_request => expansionram_read,
       write_request => expansionram_write,
       rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
+      data_ready_toggle_out => expansionram_data_ready_toggle,
       busy => expansionram_busy,
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -657,7 +658,8 @@ begin
       ram_cache(47) <= key_caps;
       
       -- Control hyperram
-      if expansionram_data_ready_strobe='1' then
+      last_expansionram_data_ready_toggle <= expansionram_data_ready_toggle;
+      if expansionram_data_ready_toggle /= last_expansionram_data_ready_toggle then
         if (read_address /= ((512/8)-1)) then
           read_address <= read_address + 1;
         else

@@ -385,7 +385,7 @@ architecture Behavioral of container is
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_data_ready_toggle : std_logic;
   signal expansionram_busy : std_logic;
 
   signal current_cache_line : cache_row_t := (others => (others => '0'));
@@ -561,7 +561,7 @@ begin
       read_request => expansionram_read,
       write_request => expansionram_write,
       rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
+      data_ready_toggle_out => expansionram_data_ready_toggle,
       busy => expansionram_busy,
 
       current_cache_line => current_cache_line,
@@ -635,7 +635,7 @@ begin
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
-      expansionram_data_ready_strobe => expansionram_data_ready_strobe,
+      expansionram_data_ready_toggle => expansionram_data_ready_toggle,
       expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
       expansionram_write => expansionram_write,

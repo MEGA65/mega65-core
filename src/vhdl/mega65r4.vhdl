@@ -249,10 +249,11 @@ entity container is
          audio_bick : out std_logic := '1';
          audio_lrclk : out std_logic := '1';
          audio_sdata : out std_logic := '1';
-         audio_powerdown_n : out std_logic := reset_out;
-         audio_smute : out std_logic := '0'; -- do not mute Audio DAC
-         audio_acks : out std_logic := '1';
-         audio_cdti : out std_logic := '1';
+         audio_powerdown_n : out std_logic;
+         audio_smute : out std_logic := '0'; -- do not mute Audio DAC / also
+                                             -- means I2C low-speed mode
+         audio_scl : out std_logic := '1';
+         audio_sda : out std_logic := '1';
 
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
@@ -425,13 +426,10 @@ architecture Behavioral of container is
   signal sdram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_data_ready_toggle : std_logic;
   signal expansionram_busy : std_logic;
-  signal hyperram_data_ready_strobe : std_logic;
   signal hyperram_data_ready_toggle : std_logic;
   signal hyperram_busy : std_logic;
-  signal sdram_data_ready_strobe : std_logic;
   signal sdram_data_ready_toggle : std_logic;
   signal sdram_busy : std_logic;
 
@@ -527,7 +525,7 @@ architecture Behavioral of container is
   signal vdac_clk_i : std_logic;
 
   signal sdram_slow_clock : std_logic;
-  
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -798,7 +796,7 @@ begin
       read_request => expansionram_read,
       write_request => expansionram_write,
       rdata => hyperram_rdata,
-      data_ready_strobe => hyperram_data_ready_strobe,
+      data_ready_toggle_out => hyperram_data_ready_toggle,
       busy => hyperram_busy,
 
       current_cache_line => hyperram_cache_line,
@@ -833,7 +831,7 @@ begin
       r  =>  '0',
       q  => sdram_clk
       );
-  
+
   sdramctl0:
   if true generate
   sdramctrl0: entity work.sdram_controller
@@ -920,7 +918,6 @@ begin
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
-      expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_data_ready_toggle => expansionram_data_ready_toggle,
       expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
@@ -990,7 +987,7 @@ begin
 
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
-          
+
           eth_load_enabled => eth_load_enable,
 
           pal50_select_out => pal50,
@@ -1267,7 +1264,6 @@ begin
       expansionram_current_cache_line_address <= sdram_cache_line_address;
       expansionram_busy <= sdram_busy;
       expansionram_data_ready_toggle <= sdram_data_ready_toggle;
-      expansionram_data_ready_strobe <= sdram_data_ready_strobe;
       expansionram_rdata <= sdram_rdata;
       viciv_attic_data_strobe <= sdram_data_strobe;
       viciv_attic_data <= sdram_data;
@@ -1277,12 +1273,11 @@ begin
       expansionram_current_cache_line_address <= hyperram_cache_line_address;
       expansionram_busy <= hyperram_busy;
       expansionram_data_ready_toggle <= hyperram_data_ready_toggle;
-      expansionram_data_ready_strobe <= hyperram_data_ready_strobe;
       expansionram_rdata <= hyperram_rdata;
       viciv_attic_data_strobe <= hyper_data_strobe;
       viciv_attic_data <= hyper_data;
     end if;
-    
+
     -- VGA output at full pixel clock
     if upscale_enable = '0' then
       vdac_clk_i <= pixelclock;
@@ -1318,6 +1313,9 @@ begin
 
       btncpureset <= not reset_button;
       reset_high <= reset_button;
+      -- Reset button also resets 3.5mm audio ADC
+      audio_powerdown_n <= reset_out;
+
 
       -- Provide and clear single reset impulse to digital video output modules
       if reset_high='0' then

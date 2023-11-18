@@ -54,7 +54,8 @@ entity ethernet is
 
     cpu_ethernet_stream : out std_logic := '0';
     eth_remote_control : in std_logic;
-    
+    eth_load_enable : in std_logic;
+
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ architecture behavioural of ethernet is
     x"4b",x"45",x"59", -- KEY
     x"43",x"4f",x"44",x"45" -- CODE
     );
-  
+
   TYPE byte_array_86 IS ARRAY (1 to 85) OF std_logic_vector(7 downto 0);
   CONSTANT video_packet_header : byte_array_86 := (
     -- Ethernet header
@@ -275,6 +276,14 @@ architecture behavioural of ethernet is
   
   signal eth_tx_crc_count : integer range 0 to 16 := 0;
   signal eth_tx_crc_bits : std_logic_vector(31 downto 0) := (others => '0');
+
+  signal eth_beacon_timer_count : integer range 0 to 50000000 := 0;
+  signal eth_send_beacon : std_logic := '0';
+  signal update_beaconbuffer : std_logic := '0';
+  signal beaconbuffer_write : std_logic := '0';
+  signal beaconbuffer_waddr : integer range 0 to 67 := 0; 
+  signal beaconbuffer_wdata : unsigned(7 downto 0) := x"00";
+  signal beaconbuffer_rdata : unsigned(7 downto 0) := x"00";
   
   -- CRC
   signal  rx_fcs_crc_data_in       : std_logic_vector(7 downto 0)  := (others => '0');
@@ -446,6 +455,14 @@ begin  -- behavioural
     address => txbuffer_readaddress,
     rdata => txbuffer_rdata);  
 
+  beaconbuffer0: entity work.beaconram port map (
+    clk => clock,
+    w => beaconbuffer_write,
+    write_address => beaconbuffer_waddr,
+    wdata => beaconbuffer_wdata,
+    address => txbuffer_readaddress,
+    rdata => beaconbuffer_rdata);
+
   rx_CRC : entity work.CRC
     port map(
       CLOCK           => clock50mhz,
@@ -511,8 +528,8 @@ begin  -- behavioural
   begin    
     rxbuffer_readaddress <= to_integer(fastio_addr(10 downto 0));
     if fastio_read='1' and (
-      (fastio_addr(19 downto 12) = x"DE" and fastio_addr(11)='1')
-      or (fastio_addr(19 downto 12) = x"D2" and fastio_addr(11)='1')
+      (fastio_addr(19 downto 11)&"000" = x"DE8")
+      or (fastio_addr(19 downto 11)&"000" = x"D28")
       )
     then
       rxbuffer_cs <= rxbuffer_cs_vector;
@@ -642,6 +659,11 @@ begin  -- behavioural
       -- For now it is upto the user to ensure the 0.96us gap between packets.
       -- This is only 20 CPU cycles, so it is unlikely to be a problem.
       
+      -- Beacon counter
+      if (eth_remote_control = '1') and (eth_load_enable = '1') and (eth_send_beacon = '0') and (eth_beacon_timer_count > 0) then
+        eth_beacon_timer_count <= eth_beacon_timer_count - 1;
+      end if;
+
       -- Ethernet TX FSM
       if eth_tx_state = Idle then
         eth_tx_idle <= '1';
@@ -733,6 +755,18 @@ begin  -- behavioural
               eth_tx_state <= WaitBeforeTX;
               eth_tx_viciv <= '1';
               eth_tx_dump <= '0';
+            elsif (eth_remote_control = '1') and (eth_load_enable = '1') and (eth_beacon_timer_count = 0) then
+              eth_send_beacon <= '1';
+              -- Send beacon packet
+              report "Sending beacon packet";
+              eth_tx_commenced <= '1';
+              eth_tx_complete <= '0';
+              tx_preamble_count <= tx_preamble_length;
+              eth_txen_int <= '1';
+              eth_txd_int <= "01";
+              eth_tx_state <= WaitBeforeTX;
+              eth_tx_viciv <= '0';
+              eth_tx_dump <= '0';
             end if;
           when WaitBeforeTX =>
             if eth_tx_packet_count /= "111111" then
@@ -759,10 +793,14 @@ begin  -- behavioural
               tx_fcs_crc_d_valid <= '1';
               tx_fcs_crc_calc_en <= '1';
               report "TX CRC announcing input";
-              if eth_tx_viciv='0' and eth_tx_dump='0' then
+              if eth_tx_viciv='0' and eth_tx_dump='0' and eth_send_beacon='0' then
                 eth_tx_bits <= txbuffer_rdata;
                 tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
                 report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
+              elsif eth_send_beacon='1' then
+                -- sending first byte
+                eth_tx_bits <= beaconbuffer_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(beaconbuffer_rdata);
               else
                 eth_tx_bits <= x"ff";
                 tx_fcs_crc_data_in <= x"ff";
@@ -796,6 +834,9 @@ begin  -- behavioural
                   eth_tx_bits <= unsigned(dumpram_rdata);
                   tx_fcs_crc_data_in <= dumpram_rdata;
                 end if;              
+              elsif eth_send_beacon='1' then
+                eth_tx_bits <= beaconbuffer_rdata;
+                tx_fcs_crc_data_in <= std_logic_vector(beaconbuffer_rdata);
               elsif eth_tx_viciv='0' then
                 if eth_tx_padding = '1' then
                   report "PADDING: writing padding byte @ "
@@ -841,7 +882,10 @@ begin  -- behavioural
                 else
                   dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,11));
                 end if;
-              elsif ((eth_tx_dump='0') and (eth_tx_viciv='0')
+              elsif (eth_send_beacon='1') and (to_unsigned(txbuffer_readaddress,12) /= 68) then
+                -- sending next byte
+                txbuffer_readaddress <= txbuffer_readaddress + 1;
+              elsif ((eth_tx_dump='0') and (eth_tx_viciv='0') and (eth_send_beacon='0')
                      and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
                 or
                 ((eth_tx_viciv='1')
@@ -906,6 +950,8 @@ begin  -- behavioural
             -- Wait for eth_tx_trigger to go low, unless it is
             -- a VIC-IV video frame, in which case immediately clear.
             eth_tx_complete <= '1';
+            eth_send_beacon <= '0';
+            eth_beacon_timer_count <= 50000000;
             if eth_tx_trigger_50mhz='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
               eth_tx_commenced <= '0';
               eth_tx_state <= IdleWait;
@@ -1522,6 +1568,8 @@ begin  -- behavioural
       
       eth_tx_idle_cpuside <= eth_tx_idle;
 
+      beaconbuffer_write <= '0';
+
       if eth_videostream='1' and activity_dump='1' then
         report "ETHERDUMP: Logging FastIO bus activity, writing to $" & to_hstring(dumpram_waddr);
         -- Log PC and opcode to make it easier to match things up
@@ -1683,7 +1731,7 @@ begin  -- behavioural
         txbuffer_write <= '0';          
       else
         if (fastio_addr(19 downto 11)&"000" = x"DE8")
-          or (fastio_addr(19 downto 11)&"000" = x"D20")
+          or (fastio_addr(19 downto 11)&"000" = x"D28")
         then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
@@ -1824,6 +1872,19 @@ begin  -- behavioural
               -- Other registers do nothing
               null;
           end case;
+          if fastio_addr(3 downto 0) >= x"9" and fastio_addr(3 downto 0) <= x"E" then
+            -- Update the ethernet MAC address in the beacon buffer
+            -- This will automatically update the IPv6 destination address accordingly
+            -- (as the IPv6 destination address is derived from the MAC address)
+            -- The IPv6 UDP checksum will also be updated automatically.
+            -- These updates and calculations are done in the beacon buffer during the 
+            -- cycles following the last mac address update.
+            -- All other bytes in the beacon buffer except the src MAC address bytes 
+            -- are write-protected.
+            beaconbuffer_waddr <= to_integer(fastio_addr(3 downto 0)) - 3; -- src mac address is in bytes 6 to 11 in beacon ram
+            beaconbuffer_wdata <= fastio_wdata;
+            beaconbuffer_write <= '1';
+          end if;
         end if;
         if fastio_addr(19 downto 8) = x"DE0" then
           if fastio_addr(7 downto 6) = "00" then

@@ -20,15 +20,15 @@ entity c65uart is
     sid_mode : out unsigned(3 downto 0) := "0000";
     dc_track_rate : out unsigned(7 downto 0) := x"ff";
     dc_track_enable : out std_logic := '0';
-    
+
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
     max10_fpga_date : in unsigned(15 downto 0);
     max10_fpga_commit : in unsigned(31 downto 0);
-    
+
     kbd_datestamp : in unsigned(13 downto 0);
-    kbd_commit : in unsigned(31 downto 0);        
+    kbd_commit : in unsigned(31 downto 0);
 
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -42,14 +42,14 @@ entity c65uart is
     disco_led_en : out std_logic := '0';
     disco_led_id : out unsigned(7 downto 0) := x"00";
     disco_led_val : out unsigned(7 downto 0) := x"00";
-    
+
     uart_rx : in std_logic := '0';
     uart_tx : out std_logic;
 
     key_debug : in std_logic_vector(7 downto 0);
     key_left : in std_logic;
     key_up : in std_logic;
-    
+
     widget_disable : out std_logic;
     ps2_disable : out std_logic;
     joykey_disable : out std_logic;
@@ -71,14 +71,14 @@ entity c65uart is
     pota_x : in unsigned(7 downto 0);
     pota_y : in unsigned(7 downto 0);
     potb_x : in unsigned(7 downto 0);
-    potb_y : in unsigned(7 downto 0);    
+    potb_y : in unsigned(7 downto 0);
     pot_via_iec : buffer std_logic := '0';
     mouse_debug : in unsigned(7 downto 0);
     amiga_mouse_enable_a : out std_logic;
     amiga_mouse_enable_b : out std_logic;
     amiga_mouse_assume_a : out std_logic;
     amiga_mouse_assume_b : out std_logic;
-    
+
     porte : inout std_logic_vector(7 downto 0) := (others => '0');
     portf : inout std_logic_vector(7 downto 0) := (others => '0');
     portg : inout std_logic_vector(7 downto 0) := (others => '0');
@@ -98,19 +98,22 @@ entity c65uart is
     portq_in : in unsigned(7 downto 0);
     j21in : in std_logic_vector(11 downto 0) := (others => '1');
     j21out : inout std_logic_vector(11 downto 0) := (others => '1');
-    j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
+    j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
 
     last_reset_source : in unsigned(2 downto 0);
     reset_monitor_count : in unsigned(11 downto 0);
-    
+
     accessible_key_event : in unsigned(7 downto 0);
     accessible_key_enable : buffer std_logic := '0';
     accessible_key_extradim : buffer std_logic := '0';
-    
+
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
-    ascii_key_event_count : in unsigned(15 downto 0)
-    
+    ascii_key_event_count : in unsigned(15 downto 0);
+
+    bucky_key_buffered : in std_logic_vector(6 downto 0) := (others => '0');
+    key_presenting : inout std_logic := '0';
+    key_queue_flush : buffer std_logic := '1'
     );
 end c65uart;
 
@@ -133,7 +136,7 @@ architecture behavioural of c65uart is
   signal tick709375 : std_logic := '0';
 
   signal real_hardware : std_logic := '1';
-  
+
   -- Then merge this with 81MHz clock to have a single clock source used for
   -- generating half-ticks at the requested baud rate
   signal fine_tick : std_logic := '0';
@@ -166,7 +169,7 @@ architecture behavioural of c65uart is
   signal rx_bits_remaining : integer range 0 to 8;
   signal rx_stop_bit_got : std_logic := '0';
   signal rx_clear_flags : std_logic := '0';
-  
+
   -- Actual C65 UART registers
   signal reg_status0_rx_full : std_logic := '0';
   signal reg_status1_rx_overrun : std_logic := '0';
@@ -188,14 +191,14 @@ architecture behavioural of c65uart is
   signal reg_status5_tx_eot_drive : std_logic := '0';
   signal reg_status6_tx_empty_drive : std_logic;
   signal reg_status7_xmit_on_drive : std_logic := '0';
-  
+
   signal reg_ctrl0_parity_even : std_logic := '0';
   signal reg_ctrl1_parity_enable : std_logic := '0';
   signal reg_ctrl23_char_length_deduct : unsigned(1 downto 0) := "00";
   signal reg_ctrl45_sync_mode_flags : std_logic_vector(1 downto 0) := "00"; -- XXX not implemented
   signal reg_ctrl6_rx_enable : std_logic := '1';
   signal reg_ctrl7_tx_enable : std_logic := '1';
-  
+
   signal reg_divisor : unsigned(15 downto 0) := (others => '0');
   signal reg_intmask : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_intflag : std_logic_vector(7 downto 0) := (others => '0');
@@ -210,7 +213,7 @@ architecture behavioural of c65uart is
   signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
   -- Used for HDMI SPI control interface and SD SPI bitbashing debug interface)
   -- Bits 0 and 1 are invert sense for left and up keys
-  signal reg_portg_out : std_logic_vector(7 downto 0) := "00000000"; 
+  signal reg_portg_out : std_logic_vector(7 downto 0) := "00000000";
   signal reg_portg_ddr : std_logic_vector(7 downto 0) := "00111111";
   signal reg_portg_read : unsigned(7 downto 0) := (others => '0');
 
@@ -220,7 +223,7 @@ architecture behavioural of c65uart is
   signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
   signal portj_internal : std_logic_vector(7 downto 0) := x"FF";
-  
+
   signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
   signal joykey_enable_internal : std_logic := '1';
@@ -232,7 +235,7 @@ architecture behavioural of c65uart is
   signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
                                                                  -- keyboard
                                                                  -- off by default
-  
+
   signal portl_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
@@ -265,9 +268,9 @@ architecture behavioural of c65uart is
   signal sid_mode_int : unsigned(3 downto 0) := "0000";
   signal dc_track_rate_int : unsigned(7 downto 0) := x"ff";
   signal dc_track_enable_int : std_logic := '0';
-  
+
 begin  -- behavioural
-  
+
   process(pixelclock,cpuclock,fastio_address,fastio_write,fastio_read,
           c65uart_cs,reg_data_rx_drive,reg_status0_rx_full_drive,
           reg_status1_rx_overrun_drive,reg_status2_rx_parity_error_drive,
@@ -277,9 +280,10 @@ begin  -- behavioural
           reg_ctrl1_parity_enable,reg_ctrl23_char_length_deduct,
           reg_ctrl45_sync_mode_flags,reg_ctrl6_rx_enable,reg_ctrl7_tx_enable,
           reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
-          clock709375,reg_portf_read,reg_portf_ddr,reg_portg_read,reg_portg_ddr,
+          clock709375,bucky_key_buffered,key_presenting,reg_portf_read,reg_portf_ddr,
+          reg_portg_read,reg_portg_ddr,
           key_left,key_up,real_hardware,accessible_key_extradim,
-          accessible_key_enable,porth,porti,matrix_disable_modifiers,
+          accessible_key_enable,key_queue_flush,porth,porti,matrix_disable_modifiers,
           widget_enable_internal,ps2_enable_internal,physkey_enable_internal,
           virtual_enable_internal,joykey_enable_internal,joyswap_internal,
           joya_rotate_internal,joyb_rotate_internal,
@@ -296,7 +300,7 @@ begin  -- behavioural
       i                              : in std_logic_vector(7 downto 0);
       o                              : in std_logic_vector(7 downto 0))
     return unsigned is
-    variable result : unsigned(7 downto 0);     
+    variable result : unsigned(7 downto 0);
   begin  -- ddr_pick
     --report "determining read value for CIA port." &
     --  "  DDR=$" & to_hstring(ddr) &
@@ -336,24 +340,24 @@ begin  -- behavioural
       when qmtecha200t => target_id <= x"61";
       when qmtechk325t => target_id <= x"62";
       -- Misc other targets, that don't have common properties
-      when wukong => target_id <= x"FD";                               
+      when wukong => target_id <= x"FD";
       when simulation => target_id <= x"FE";
-                         
+
       when others => target_id <= x"FF";
-    end case;    
-        
+    end case;
+
     if rising_edge(cpuclock) then
 
       sid_mode <= sid_mode_int;
       dc_track_rate <= dc_track_rate_int;
       dc_track_enable <= dc_track_enable_int;
-      
+
       if target = simulation then
         real_hardware <= '0';
       else
         real_hardware <= '1';
       end if;
-      
+
       if accessible_key_enable = '1' then
         if accessible_key_event = x"FE" then
           -- Turn OSK off
@@ -392,7 +396,7 @@ begin  -- behavioural
           end if;
         end if;
       end if;
-      
+
       -- Monitor OSK toggle key input for MEGAphone, and cycle through the
       -- various OSK states (off, bottom and top position).
       last_osk_toggle_key <= osk_toggle_key;
@@ -415,7 +419,7 @@ begin  -- behavioural
       end if;
 
       reg_data_rx_drive <= reg_data_rx;
-      
+
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
       joykey_disable <= not joykey_enable_internal;
@@ -428,7 +432,7 @@ begin  -- behavioural
       portm_out <= portm_internal;
       portn_out <= unsigned(portn_internal);
       portp_out <= unsigned(portp_internal);
-      
+
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
         and (fastio_address(11 downto 5) = "0110000") then
@@ -449,9 +453,9 @@ begin  -- behavioural
       else
         if joyswap_countdown /= 0 then
           joyswap_countdown <= joyswap_countdown - 1;
-        end if;        
-      end if;      
-      
+        end if;
+      end if;
+
       -- Make copies of registers from pixelclock domain
       reg_status0_rx_full_drive <= reg_status0_rx_full;
       reg_status1_rx_overrun_drive <= reg_status1_rx_overrun;
@@ -460,13 +464,14 @@ begin  -- behavioural
       reg_status4_rx_idle_mode_drive <= reg_status4_rx_idle_mode;
       reg_status5_tx_eot_drive <= reg_status5_tx_eot;
       reg_status6_tx_empty_drive <= reg_status6_tx_empty;
-      reg_status7_xmit_on_drive <= reg_status7_xmit_on;      
-      
+      reg_status7_xmit_on_drive <= reg_status7_xmit_on;
+
       porth_write_strobe <= '0';
       porto_write_strobe <= '0';
-      
+      key_queue_flush <= '1';
+
       -- Calculate read value for various ports
-      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
+      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);
       reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
       reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);
 
@@ -492,7 +497,7 @@ begin  -- behavioural
           portg(bit) <= 'Z';
         end if;
       end loop;
-      
+
       -- Check for register writing
       if (fastio_write='1') and (c65uart_cs='1') then
         case register_number is
@@ -524,6 +529,8 @@ begin  -- behavioural
 
           when x"09" =>
             clock709375 <= fastio_wdata(0);
+          when x"0a" =>
+            key_queue_flush <= fastio_wdata(7);
           when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
@@ -590,7 +597,7 @@ begin  -- behavioural
             disco_led_id(6 downto 0) <= fastio_wdata(6 downto 0);
             disco_led_id(7) <= '0';
             -- Latch intensity level only when setting the register to write to.
-            disco_led_val <= disco_led_val_int;            
+            disco_led_val <= disco_led_val_int;
           when x"1e" =>
             disco_led_val_int <= fastio_wdata;
           when x"25" => j21out(7 downto 0) <= std_logic_vector(fastio_wdata);
@@ -604,17 +611,17 @@ begin  -- behavioural
         end case;
       end if;
     end if;
-    
+
     -- make sure this doesn't infer a latch
     fastio_rdata <= (others => 'Z');
-    
+
     -- Reading of registers
     if (fastio_read='1') and (c65uart_cs='1') then
       report "Reading C65 UART controller register";
       case register_number is
         when x"00" =>
           -- @IO:C65 $D600 UART:DATA UART data register (read or write)
-          fastio_rdata <= unsigned(reg_data_rx_drive);            
+          fastio_rdata <= unsigned(reg_data_rx_drive);
         when x"01" =>
           -- @IO:C65 $D601 C65 UART status register
           -- @IO:C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
@@ -628,7 +635,7 @@ begin  -- behavioural
           fastio_rdata(4) <= reg_status4_rx_idle_mode_drive;
           fastio_rdata(5) <= reg_status5_tx_eot_drive;
           fastio_rdata(6) <= reg_status6_tx_empty_drive;
-          fastio_rdata(7) <= reg_status7_xmit_on_drive;              
+          fastio_rdata(7) <= reg_status7_xmit_on_drive;
         when x"02" =>
           -- @IO:C65 $D602 C65 UART control register
           -- @IO:C65 $D602.0 UART:PTYEVEN UART Parity: 1=even, 0=odd
@@ -656,7 +663,7 @@ begin  -- behavioural
           -- @IO:C65 $D605.4 UART:IMRXNMI UART interrupt mask: NMI on RX (not yet implemented on the MEGA65)
           fastio_rdata <= unsigned(reg_intmask);
         when x"06" =>
-          -- @IO:C65 $D606 C65 UART interrupt flag register              
+          -- @IO:C65 $D606 C65 UART interrupt flag register
           -- @IO:C65 $D606.7 UART:IFTXIRQ UART interrupt flag: IRQ on TX (not yet implemented on the MEGA65)
           -- @IO:C65 $D606.6 UART:IFRXIRQ UART interrupt flag: IRQ on RX (not yet implemented on the MEGA65)
           -- @IO:C65 $D606.5 UART:IFTXNMI UART interrupt flag: NMI on TX (not yet implemented on the MEGA65)
@@ -674,8 +681,20 @@ begin  -- behavioural
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
           -- @IO:GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz (VIC-IV pixel clock)
+          -- @IO:GS $D609.7 FSERIAL:DMODE Fast IEC serial (not yet implemented)
+          -- @IO:GS $D609.6 FSERIAL:FSDIR Direction register for DMODE (not yet implemented)
           fastio_rdata(0) <= clock709375;
-          fastio_rdata(7 downto 1) <= (others => '1');
+        when x"0a" =>
+          -- @IO:GS $D60A.7 UARTMISC:KEYQUEUE 1 = Typing event queue is non-empty. Write 0 to this bit to flush queue.
+          -- @IO:GS $D60A.6 UARTMISC:MODKEYCAPS CAPS LOCK key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.5 UARTMISC:MODKEYSCRL NOSCRL key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.4 UARTMISC:MODKEYALT ALT key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.3 UARTMISC:MODKEYMEGA MEGA/C= key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.2 UARTMISC:MODKEYCTRL CTRL key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.1 UARTMISC:MODKEYRSHFT Right shift key state at top of typing event queue. 1 = held during event.
+          -- @IO:GS $D60A.0 UARTMISC:MODKEYLSHFT Left shift key state at top of typing event queue. 1 = held during event.
+          fastio_rdata(7) <= key_presenting;
+          fastio_rdata(6 downto 0) <= unsigned(bucky_key_buffered(6 downto 0));
         when x"0b" =>
           -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
           -- @IO:GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch point always
@@ -687,14 +706,14 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"0d" =>
           -- @IO:GS $D60D Bit bashing port
-          -- @IO:GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock 
-          -- @IO:GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line 
+          -- @IO:GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock
+          -- @IO:GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line
           -- @IO:GS $D60D.5 UARTMISC:SDBSH Enable SD card bitbash mode
           -- @IO:GS $D60D.4 UARTMISC:SDCS SD card CS_BO
           -- @IO:GS $D60D.3 UARTMISC:SDCLK SD card SCLK
           -- @IO:GS $D60D.2 UARTMISC:SDDATA SD card MOSI/MISO
           -- @IO:GS $D60D.1 UARTMISC:RST41 Internal 1541 drive reset (1=reset, 0=operate)
-          -- @IO:GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)                        
+          -- @IO:GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)
           fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
           -- @IO:GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
@@ -711,18 +730,18 @@ begin  -- behavioural
           fastio_rdata(6) <= accessible_key_extradim;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
-          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          -- @IO:GS $D610 UARTMISC:ASCIIKEY Top of typing event queue as ASCII. Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
-          -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers (hardware accelerated keyboard scanner).
-          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner - read only).
-          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard nner - read only).
-          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard nner - read only).
+          -- @IO:GS $D611 Modifier key state.
+          -- @IO:GS $D611.7 UARTMISC:MDISABLE Disable modifiers.
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (immediate; read only).
+          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (immediate; read only).
+          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (immediate; read only).
+          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (immediate; read only).
+          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (immediate; read only).
+          -- @IO:GS $D611.1 UARTMISC:MRSHFT Right shift key state (immediate; read only).
+          -- @IO:GS $D611.0 UARTMISC:MLSHFT Left shift key state (immediate; read only).
           fastio_rdata(6 downto 0) <= unsigned(porti(6 downto 0));
           fastio_rdata(7) <= matrix_disable_modifiers;
         when x"12" =>
@@ -765,19 +784,15 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Last key press as PETSCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          -- @IO:GS $D619 UARTMISC:PETSCIIKEY Top of typing event queue as PETSCII. Write to clear event ready for next.
           fastio_rdata <= unsigned(porto);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:SYSCTL System control flags (target specific)
-          
+
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
           fastio_rdata <= mouse_debug;
-          -- @IO:GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D622 UARTMISC:POTBX Read Port B paddle X, without having to fiddle with SID/CIA settings.
-          -- @IO:GS $D623 UARTMISC:POTBY Read Port B paddle Y, without having to fiddle with SID/CIA settings.
         when x"1c" =>
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
@@ -792,6 +807,10 @@ begin  -- behavioural
         when x"1F" =>
           -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
+          -- @IO:GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D622 UARTMISC:POTBX Read Port B paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D623 UARTMISC:POTBY Read Port B paddle Y, without having to fiddle with SID/CIA settings.
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
@@ -804,7 +823,7 @@ begin  -- behavioural
           -- @IO:GS $D624.4 fa_potx line
           -- @IO:GS $D624.5 fa_poty line
           -- @IO:GS $D624.6 fb_potx line
-          -- @IO:GS $D624.7 fb_poty line          
+          -- @IO:GS $D624.7 fb_poty line
           fastio_rdata(0) <= pot_via_iec;
           fastio_rdata(1) <= pot_drain;
           fastio_rdata(3 downto 2) <= unsigned(cia1portb_out(7 downto 6));
@@ -863,25 +882,25 @@ begin  -- behavioural
         when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
         when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
         -- @IO:GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
-        -- @IO:GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer              
+        -- @IO:GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer
         -- @IO:GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
         when x"3c" => fastio_rdata(3 downto 0) <= sid_mode_int;
                       fastio_rdata(4) <= dc_track_enable_int;
                       fastio_rdata(7 downto 5) <= last_reset_source;
-        -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter. 
+        -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
         when x"3d" => fastio_rdata <= dc_track_rate_int;
         when x"3e" => fastio_rdata <= reset_monitor_count(7 downto 0);
         when x"3f" => fastio_rdata(3 downto 0) <= reset_monitor_count(11 downto 8);
                       fastio_rdata(7 downto 4) <= x"0";
-          
+
         when others =>
           report "Reading untied register, result = Z";
           fastio_rdata <= (others => 'Z');
       end case;
     else
       fastio_rdata <= (others => 'Z');
-    end if;    
-        
+    end if;
+
     if rising_edge(pixelclock) then
 
       if rx_clear_flags='1' then
@@ -894,7 +913,7 @@ begin  -- behavioural
         -- Clear RX framing error flag
         reg_status3_rx_framing_error <= '0';
       end if;
-      
+
       if (baud_subcounter + baud_subcounter_step < 1048576) then
         baud_subcounter <= baud_subcounter + baud_subcounter_step;
         tick709375 <= '0';
@@ -934,7 +953,7 @@ begin  -- behavioural
       if rx_samples = "0000000000000000" then
         filtered_rx <= '0';
       end if;
-      
+
       if baud_tick = '0' then
         -- Cross-domain accept next byte to TX from CPU clock side
         if reg_data_tx_toggle /= reg_data_tx_toggle_prev then
@@ -975,7 +994,7 @@ begin  -- behavioural
             tx_stop_bit_sent <= '0';
           end if;
         end if;
-        
+
         -- Progress RX state machine
         if rx_in_progress='0' then
           -- Not yet receiving a byte, so see if we see something interesting
@@ -1020,7 +1039,7 @@ begin  -- behavioural
             end if;
             -- XXX Assert IRQ and/or NMI according to RX interrupt masks
           end if;
-        end if;        
+        end if;
       end if;
     end if;
   end process;

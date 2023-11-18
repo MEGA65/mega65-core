@@ -11,3 +11,7 @@ renamed to MEGA65.ROM, is 128k in size
 
 If you do not have such a file, the MEGA65 contains the free and open-source
 OpenROM alternative.
+
+# Automated Build Server
+
+The MEGA65 project maintains an automated build server at https://builder.mega65.org

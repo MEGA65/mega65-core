@@ -27,14 +27,14 @@ architecture behavioral of test_kv is
   -- 5 = NO SCROLL
   -- 6 = ASC/DIN/CAPS LOCK (XXX - Has a separate line. Not currently monitored)
   signal bucky_key : std_logic_vector(6 downto 0) := (others  => '0');
-  signal ascii_key_valid : std_logic := '0';
+  signal key_valid : std_logic := '0';
 
   signal pixelclock : std_logic := '0';
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
 
   signal matrix_mode : std_logic := '0';
-  
+
   signal keyboard_matrix : std_logic_vector(71 downto 0) := (others => '1');
 
   signal reset_in : std_logic := '1';
@@ -48,11 +48,11 @@ architecture behavioral of test_kv is
   signal pmod_data_out : std_logic_vector(1 downto 0) := "ZZ";
     -- PS/2 keyboard
   signal ps2clock  :  std_logic := '1';
-  signal ps2data   :  std_logic := '1';    
+  signal ps2data   :  std_logic := '1';
     -- ethernet keyboard input interface for remote head mode
   signal eth_keycode_toggle : std_logic := '0';
   signal eth_keycode : unsigned(15 downto 0) := x"1234";
-        
+
     -- Flags to control which inputs are disabled, if any
   signal physkey_disable : std_logic := '0';
   signal joy_disable : std_logic := '0';
@@ -64,17 +64,17 @@ architecture behavioral of test_kv is
   signal restore_out : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal hyper_trap_out : std_logic := '1';
-    
+
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
   signal speed_gate : std_logic := '1';
   signal speed_gate_enable : std_logic := '1';
-    
+
     -- Registers for debugging
   signal key_debug_out : std_logic_vector(7 downto 0);
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
-    
+
     -- cia1 ports
   signal keyboard_column8_select_in : std_logic;
   signal porta_in  :  std_logic_vector(7 downto 0);
@@ -86,9 +86,9 @@ architecture behavioral of test_kv is
 
   signal pota_x : unsigned(7 downto 0) := x"ff";
   signal pota_y : unsigned(7 downto 0) := x"ff";
-  signal potb_x : unsigned(7 downto 0) := x"ff";    
+  signal potb_x : unsigned(7 downto 0) := x"ff";
   signal potb_y : unsigned(7 downto 0) := x"ff";
-  
+
 begin
   kc0: entity work.keyboard_complex
     port map(
@@ -99,15 +99,15 @@ begin
 
     scan_mode => "01",
     scan_rate => x"01",
-    
+
     matrix_segment_num => x"00",
-    
+
     -- Physical interface pins
     virtual_disable => '0',
     key1 => x"FF",
     key2 => x"FF",
     key3 => x"FF",
-    
+
     -- Keyboard
     porta_pins => porta_pins,
     portb_pins => portb_pins,
@@ -129,7 +129,7 @@ begin
     -- ethernet keyboard input interface for remote head mode
     eth_keycode_toggle => eth_keycode_toggle,
     eth_keycode => eth_keycode,
-        
+
     -- Flags to control which inputs are disabled, if any
     physkey_disable => physkey_disable,
     joy_disable => joy_disable,
@@ -141,17 +141,17 @@ begin
     restore_out => restore_out,
     reset_out => reset_out,
     hyper_trap_out => hyper_trap_out,
-    
+
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
-    
+
     -- Registers for debugging
     key_debug_out => key_debug_out,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,
     restore_down_count => restore_down_count,
-    
+
     -- cia1 ports
     keyboard_column8_select_in => keyboard_column8_select_in,
     porta_in  => porta_in ,
@@ -183,7 +183,7 @@ begin
   process (cpuclock)
   begin
     if rising_edge(cpuclock) then
-      if ascii_key_valid='1' then
+      if key_valid='1' then
         report "bucky vector = " & to_string(bucky_key)
           & " ASCII code = 0x" & to_hstring(ascii_key);
       end if;
@@ -336,7 +336,7 @@ begin
           wait for 5 ns;
         end loop;
         portb_pins <= (others => 'Z');
-    end procedure;      
+    end procedure;
     procedure type_text(cycles_per_char : integer;
                         text : string) is
     begin
@@ -356,6 +356,6 @@ begin
     type_text(1000000,"The big fish");
     type_char(1000000,cr);
     wait for 1000 ms;
-  end process;  
-  
+  end process;
+
 end behavioral;

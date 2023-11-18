@@ -447,6 +447,12 @@ set_property -dict {PACKAGE_PIN P2   IOSTANDARD LVCMOS33} [get_ports f_writeprot
 set_property -dict {PACKAGE_PIN P1   IOSTANDARD LVCMOS33} [get_ports f_rdata]
 set_property -dict {PACKAGE_PIN R1   IOSTANDARD LVCMOS33} [get_ports f_diskchanged]
 
+################################
+# neoTRNG properties
+################################
+set trng_cells [get_cells -hier -regexp .*trng0.* -filter {NAME =~ .*/inv_chain_.* || NAME =~ .*/enable_sreg_.*}]
+set_property ALLOW_COMBINATORIAL_LOOPS true [get_nets -of_objects $trng_cells]
+set_disable_timing -to O [get_timing_arcs -of_objects $trng_cells]
 
 ################################
 ## Bitstream properties

@@ -450,7 +450,7 @@ begin
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
 
-      expansionram_data_ready_strobe => '1',
+      expansionram_data_ready_toggle => '1',
       expansionram_busy => '1',
       
       ----------------------------------------------------------------------

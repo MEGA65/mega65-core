@@ -371,7 +371,7 @@ architecture Behavioral of container is
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_data_ready_toggle : std_logic;
   signal expansionram_busy : std_logic;
 
   signal current_cache_line : cache_row_t := (others => (others => '0'));

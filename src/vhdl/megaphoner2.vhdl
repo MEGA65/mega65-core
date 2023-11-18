@@ -272,7 +272,7 @@ architecture Behavioral of container is
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
   signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_data_ready_toggle : std_logic;
   signal expansionram_busy : std_logic;
 
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
@@ -329,7 +329,7 @@ begin
       read_request => expansionram_read,
       write_request => expansionram_write,
       rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
+      data_ready_toggle_out => expansionram_data_ready_toggle,
       busy => expansionram_busy,
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -370,7 +370,7 @@ begin
       expansionram_rdata => expansionram_rdata,
       expansionram_wdata => expansionram_wdata,
       expansionram_address => expansionram_address,
-      expansionram_data_ready_strobe => expansionram_data_ready_strobe,
+      expansionram_data_ready_toggle => expansionram_data_ready_toggle,
       expansionram_busy => expansionram_busy,
       
       

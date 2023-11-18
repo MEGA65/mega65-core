@@ -197,7 +197,11 @@ begin
     -- Timing constants based on the master clock frequency and the SPI SCLK frequencies.
     constant CLKS_PER_INIT_SCLK_C      : real    := FREQ_G / INIT_SPI_FREQ_G;
     constant CLKS_PER_SCLK_C           : real    := FREQ_G / SPI_FREQ_G;
-    constant MAX_CLKS_PER_SCLK_C       : real    := realmax(CLKS_PER_INIT_SCLK_C, CLKS_PER_SCLK_C);
+    -- GHDL unisim doesn't like realmax() for some reason.
+    -- For now, a simple fix on the basis that the initialisation SPI clock
+    -- should never realistically be faster than the running SPI clock.
+    --Was: realmax(CLKS_PER_INIT_SCLK_C, CLKS_PER_SCLK_C);
+    constant MAX_CLKS_PER_SCLK_C       : real    := CLKS_PER_INIT_SCLK_C;
     constant MAX_CLKS_PER_SCLK_PHASE_C : natural := integer(round(MAX_CLKS_PER_SCLK_C / 2.0));
     constant INIT_SCLK_PHASE_PERIOD_C  : natural := integer(round(CLKS_PER_INIT_SCLK_C / 2.0));
     constant SCLK_PHASE_PERIOD_C       : natural := integer(round(CLKS_PER_SCLK_C / 2.0));

@@ -125,7 +125,7 @@ entity gs4510 is
     no_hyppo : in std_logic;
 
     sdram_t_or_hyperram_f : out boolean;
-    sdram_slow_clock : out std_logic := '1';
+    sdram_slow_clock : out std_logic := '0';
     
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
@@ -288,8 +288,8 @@ end entity gs4510;
 
 architecture Behavioural of gs4510 is
 
-  signal sdram_t_or_hyperram_f_int : std_logic := '1';
-  signal sdram_slow_clock_int : std_logic := '1';
+  signal sdram_t_or_hyperram_f_int : std_logic := '0';
+  signal sdram_slow_clock_int : std_logic := '0';
   
   signal f_rdata : std_logic := '1';
   signal f_rdata_last : std_logic := '1';
@@ -563,8 +563,8 @@ architecture Behavioural of gs4510 is
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
 
-  signal slow_prefetch_enable : std_logic := '1';
-  signal slow_cache_enable : std_logic := '0';
+  signal slow_prefetch_enable : std_logic := '0';
+  signal slow_cache_enable : std_logic := '1';
   signal slow_cache_advance_enable : std_logic := '0';
   signal prev_cache_read : unsigned(2 downto 0) := "000";
   signal slowram_cache_line_inc_toggle_int : std_logic := '0';
@@ -2949,7 +2949,7 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
                           
             when x"ef" =>
-              -- @IO:GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number
+              -- @IO:GS $D7EF CPU:HWRNG!RAND Hardware Real RNG random number (reading triggers generation)
               if trng_consume_toggle = trng_consume_toggle_last then
                 trng_consume_toggle <= not trng_consume_toggle;
               end if;
@@ -10034,27 +10034,10 @@ begin
         
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
-        if
-          -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
-          -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
-          (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
-          or
-          -- FFD[0-3]800-BFF
-          (real_long_address(27 downto 16) = x"FFD"
-           and real_long_address(15 downto 14) = "00"
-           and real_long_address(11 downto 10) = "10")        
-        then
-          report "Writing to colour RAM";
-          -- Write to shadow RAM
-          -- shadow_write <= '0';
-
-          -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
-          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-
         -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
         -- Is this for creating a linear memory map for quick task swapping, or
         -- something else? (PGS)
-        elsif real_long_address(27 downto 16) = x"7F4" then
+        if real_long_address(27 downto 16) = x"7F4" then
           long_address := x"FF80"&'0'&real_long_address(10 downto 0);
         elsif (real_long_address = x"ffd3601" or real_long_address = x"ffd2601") and vdc_reg_num = x"1f" and hypervisor_mode='0' and (vdc_enabled='1') then
           -- We map VDC RAM always to $40000
