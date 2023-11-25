@@ -1231,8 +1231,8 @@ begin
           widget_joyb => (others => '1'),
 
           sw => sw,
-          dipsw(4) => '0',
-          dipsw(3 downto 0) => dipsw,
+          dipsw(4 downto 0) => (others => '0'),
+
 --      uart_rx => '1',
           btn => (others => '1')
 
