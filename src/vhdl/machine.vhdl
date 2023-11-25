@@ -506,6 +506,8 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal dipsw_int : std_logic_vector(7 downto 0);
+  
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
@@ -857,9 +859,18 @@ begin
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if rising_edge(cpuclock) then
 
+      -- Select either direct-connected dipswitches (upto R4) or the dip
+      -- switches as read from the I2C IO expander (R5)
+      if target = mega65r5 then
+        dipsw_int <= dipsw_read;
+      else
+        dipsw_int(7 downto 4) <= (others => '0');
+        dipsw_int(3 downto 0) <= dipsw(3 downto 0);
+      end if;
+      
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
-      eth_load_enabled <= eth_load_enable and dipsw(1);
+      eth_load_enabled <= eth_load_enable and dipsw_int(1);
       
       -- Latch reset from monitor interface to avoid tripping on glitches
       -- But requiring to be low so long causes monitor induced reset to be ignored.
@@ -1707,7 +1718,8 @@ begin
       drive_led2 => drive_led2,
       drive_ledsd => drive_ledsd,
       motor => motor,
-      dipsw => dipsw,
+      dipsw => dipsw_int,
+      dipws_read => dipsw_read,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,

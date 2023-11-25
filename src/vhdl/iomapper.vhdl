@@ -18,6 +18,8 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
+        dipsw_read : out std_logic_vector(7 downto 0);
+        
         floppy_last_gap : out unsigned(7 downto 0) := x"00";
         floppy_gap_strobe : out std_logic := '0';
 
@@ -1332,7 +1334,7 @@ begin
   -- Grove I2C bus. Currently only used for allowing an external RTC
   ----------------------------------------------------------------------------------
   i2c_grove:
-  if target = mega65r3 or target = mega65r4 generate
+  if target = mega65r3 or target = mega65r4 or target = mega65r5 generate
     grove0: entity work.grove_i2c
       generic map ( clock_frequency => cpu_frequency )
       port map (
@@ -1398,6 +1400,49 @@ begin
     );
   end generate i2cperiph_megaphone;
 
+  i2cperiph_mega65r5:
+  if target = mega65r4 generate
+    i2c1: entity work.mega65r5_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2cperipherals_cs,
+
+      grove_rtc_present => grove_rtc_present,
+      reg_in => rtc_reg,
+      val_in => rtc_val,
+
+      dipsw_read => dipsw_read,
+    
+      sda => i2c1SDA,
+      scl => i2c1SCL,
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+      );
+    i2c2: entity work.edid_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2chdmi_cs,
+
+      sda => hdmi_sda,
+      scl => hdmi_scl,
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate i2cperiph_mega65r5;
+
+  
   i2cperiph_mega65r4:
   if target = mega65r4 generate
     i2c1: entity work.mega65r4_i2c
