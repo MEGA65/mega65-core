@@ -506,6 +506,7 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal dipsw_read : std_logic_vector(7 downto 0);
   signal dipsw_int : std_logic_vector(7 downto 0);
   
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
@@ -1719,7 +1720,7 @@ begin
       drive_ledsd => drive_ledsd,
       motor => motor,
       dipsw => dipsw_int,
-      dipws_read => dipsw_read,
+      dipsw_read => dipsw_read,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
