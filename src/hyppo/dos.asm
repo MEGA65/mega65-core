@@ -58,7 +58,7 @@ dos_and_process_trap_table:
         !16 trap_dos_closeall
         !16 trap_dos_seekfile                 ;; not currently implemented
         !16 trap_dos_rmfile
-        !16 trap_dos_fstat                    ;; not currently implemented
+        !16 trap_dos_fstat                    ;; implementation started
         !16 trap_dos_rename                   ;; not currently implemented
         !16 trap_dos_filedate                 ;; not currently implemented
         !16 trap_dos_setname
@@ -807,6 +807,12 @@ trap_dos_rmfile:
         jsr dos_rmfile
 	jmp return_from_trap_with_carry_flag
 
+trap_dos_fstat:
+        jsr dos_fstat
+        jmp return_from_trap_with_carry_flag
+
+;;         ========================
+
 trap_dos_cdrootdir:
 	ldx hypervisor_x
 	jsr dos_cdroot
@@ -1003,7 +1009,6 @@ trap_dos_getcwd:
 trap_dos_mkdir:
 trap_dos_rmdir:
 trap_dos_seekfile:
-trap_dos_fstat:
 trap_dos_rename:
 trap_dos_filedate:
 trap_dos_gettasklist:
@@ -4167,6 +4172,38 @@ drf_ok_cleardone:
         lda dos_file_descriptors+3,y
         sta dos_current_cluster+3
         rts
+
+;;         ========================
+
+dos_fstat
+
+        ;; rewind to start of directory entry
+        jsr dos_readdir_retreivelastentry
+        jsr sd_map_sectorbuffer
+        jsr dos_file_read_current_sector
+
+        lda dos_current_file_descriptor_offset
+        ora #dos_filedescriptor_offset_offsetinsector
+        tax
+        lda dos_file_descriptors,x
+        sta <dos_scratch_vector
+        lda dos_file_descriptors+1,x
+        clc
+        adc #$de   ;; high byte of SD card sector buffer
+        sta <(dos_scratch_vector+1)
+
+        ldy #fs_fat32_dirent_offset_shortname        ;; Y=0 (first char of entry)
+        lda (<dos_scratch_vector),y
+
+        ldy #0                                       ;; copy first 32 bytes of directory entry to user land
+tdfs:   lda (<dos_scratch_vector),y
+        sta (<hypervisor_userspace_copy_vector),y
+        iny
+        cpy #$20
+        bne tdfs
+
+        sec
+        rts       
 
 ;;         ========================
 
