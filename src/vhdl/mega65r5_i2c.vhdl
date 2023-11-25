@@ -69,7 +69,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-entity mega65r4_i2c is
+entity mega65r5_i2c is
   generic ( clock_frequency : integer);
   port (
     clock : in std_logic;
@@ -93,9 +93,9 @@ entity mega65r4_i2c is
     fastio_addr : in unsigned(19 downto 0)
 
     );
-end mega65r4_i2c;
+end mega65r5_i2c;
 
-architecture behavioural of mega65r4_i2c is
+architecture behavioural of mega65r5_i2c is
 
   signal dipsw_int : std_logic_vector(7 downto 0) := (others => '0');
   
