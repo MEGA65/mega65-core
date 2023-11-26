@@ -141,11 +141,11 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_reset : out std_logic;
-         iec_atn : out std_logic;
-         iec_clk_en : out std_logic;
-         iec_data_en : out std_logic;
-         iec_srq_en : out std_logic;
+         iec_reset_n : out std_logic;
+         iec_atn_en_n : out std_logic;
+         iec_data_en_n : out std_logic;
+         iec_clk_en_n : out std_logic;
+         iec_srq_en_n : out std_logic;
          iec_clk_o : out std_logic;
          iec_data_o : out std_logic;
          iec_srq_o : out std_logic;
@@ -1358,8 +1358,8 @@ begin
       fb_fire_drive <= fb_fire;
 
       -- The simple output-only IEC lines we just drive
-      iec_reset <= iec_reset_drive;
-      iec_atn <= not iec_atn_drive;
+      iec_reset_n <= iec_reset_drive;
+      iec_atn_en_n <= iec_atn_drive;
 
       -- The active-high EN lines enable the IEC output drivers.
       -- We need to invert the signal, so that if a signal from CIA
@@ -1394,9 +1394,9 @@ begin
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
-      iec_srq_en <= not (iec_srq_o_drive and iec_srq_en_drive);
-      iec_clk_en <= not (iec_clk_o_drive and iec_clk_en_drive);
-      iec_data_en <= not (iec_data_o_drive and iec_data_en_drive);
+      iec_srq_en_n <= iec_srq_o_drive and iec_srq_en_drive;
+      iec_clk_en_n <= iec_clk_o_drive and iec_clk_en_drive;
+      iec_data_en_n <= iec_data_o_drive and iec_data_en_drive;
 
       -- Connect up real C64-compatible paddle ports
       paddle_drain <= pot_drain;
