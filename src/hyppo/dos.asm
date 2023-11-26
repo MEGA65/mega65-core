@@ -4182,24 +4182,25 @@ dos_fstat
         jsr sd_map_sectorbuffer
         jsr dos_file_read_current_sector
 
+        ldy #32
         lda dos_current_file_descriptor_offset
         ora #dos_filedescriptor_offset_offsetinsector
         tax
         lda dos_file_descriptors,x
+        sta (<hypervisor_userspace_copy_vector),y       ; write directory entry offset to userland+32
         sta <dos_scratch_vector
         lda dos_file_descriptors+1,x
+        iny
+        sta (<hypervisor_userspace_copy_vector),y       ; write directory entry offset to userland+33
         clc
         adc #$de   ;; high byte of SD card sector buffer
         sta <(dos_scratch_vector+1)
 
-        ldy #fs_fat32_dirent_offset_shortname        ;; Y=0 (first char of entry)
-        lda (<dos_scratch_vector),y
-
-        ldy #0                                       ;; copy first 32 bytes of directory entry to user land
+        ldy #0                                       ;; copy first 32 bytes of directory entry to userland+0
 tdfs:   lda (<dos_scratch_vector),y
         sta (<hypervisor_userspace_copy_vector),y
         iny
-        cpy #$20
+        cpy #32
         bne tdfs
 
         sec
