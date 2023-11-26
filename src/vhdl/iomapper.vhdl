@@ -382,6 +382,7 @@ entity iomapper is
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
 
+    dipsw_hi : in std_logic_vector(7 downto 5) := (others => '0');
     dipsw : in std_logic_vector(4 downto 0);
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
