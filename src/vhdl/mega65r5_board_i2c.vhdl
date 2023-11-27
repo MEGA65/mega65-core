@@ -153,57 +153,13 @@ begin
       debug_scl => i2c1_debug_scl
       );
 
-  process (clock,cs,fastio_read,fastio_addr) is
+  process (clock) is
   begin
-
-    if cs='1' and fastio_read='1' then
---      if fastio_addr(7) = '0' then
-        report "reading buffered I2C data";
-        fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
---      elsif fastio_addr(7 downto 0) = "11111111" then
---        -- Show busy status for writing
---        fastio_rdata <= (others => write_job_pending);
---      elsif fastio_addr(7 downto 0) = "11111110" then
---        -- Show error status from I2C
---        fastio_rdata <= (others => i2c1_error);
---      elsif fastio_addr(7 downto 0) = "11111101" then
---        -- Show error status from I2C
---        fastio_rdata(7 downto 6) <= "10";
---        fastio_rdata(5 downto 0) <= debug_status;
---      else
---        -- Else for debug show busy count
---        fastio_rdata <= to_unsigned(busy_count,8);
---      end if;
-    else
-      fastio_rdata <= (others => 'Z');
-    end if;
 
     if rising_edge(clock) then
 
       dipsw_read <= dipsw_int;
       
-      -- If an external RTC is connected, use that in place of
-      -- the internal one.
-      -- The grove_i2c will sniff the bus for writes to the
-      -- addresses here, making it R/W.
-      if grove_rtc_present='1' then
-        case reg_in is
-          -- Convert between register layout of the two
-          when x"00" => bytes(16 + 0) <= val_in;
-          when x"01" => bytes(16 + 1) <= val_in;
-          when x"02" => bytes(16 + 2)(5 downto 0) <= val_in(5 downto 0);
-                        bytes(16 + 2)(6) <= '0';
-                        bytes(16 + 2)(7) <= not val_in(6);
-          when x"03" => bytes(16 + 6) <= val_in - to_unsigned(1,8);
-                        bytes(16 + 6)(7 downto 3) <= (others => '0');
-          when x"04" => bytes(16 + 3) <= val_in;
-          when x"05" => bytes(16 + 4) <= val_in;
-          when x"06" => bytes(16 + 5) <= val_in;
-          when others => null;
-        end case;
-      end if;
-
-
       -- Must come first, so state machines below can set delayed_en
       if delayed_en /= 0 then
         report "Waiting for delay to expire: " & integer'image(delayed_en);
@@ -222,47 +178,6 @@ begin
           report "Command latched.";
           command_en <= '0';
         end if;
-      end if;
-
-      -- Write to registers as required
-      if cs='1' and fastio_write='1' then
-        if (to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 220) then
-          -- RTC
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
---          report "triggering write to I2C device $A2, register $" & to_hstring(fastio_addr(7 downto 0));
-          write_addr <= x"A2";
-          write_job_pending <= '1';
-        elsif to_integer(fastio_addr(7 downto 0)) >= 220 and to_integer(fastio_addr(7 downto 0)) < 239 then
-          -- Audio Amplifier for internal speakers
-          write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 220,8);
-          write_addr <= x"68";
-          write_job_pending <= '1';
-        elsif fastio_addr(7 downto 0) = x"F0" then
-          i2c1_debug_scl <= '0';
-          debug_status(0) <= '0';
-        elsif fastio_addr(7 downto 0) = x"F1" then
-          i2c1_debug_scl <= '1';
-          debug_status(0) <= '1';
-        elsif fastio_addr(7 downto 0) = x"F2" then
-          i2c1_debug_sda <= '0';
-          debug_status(1) <= '0';
-        elsif fastio_addr(7 downto 0) = x"F3" then
-          i2c1_debug_sda <= '1';
-          debug_status(1) <= '1';
-        elsif fastio_addr(7 downto 0) = x"F4" then
-          i2c1_swap <= '0';
-          debug_status(2) <= '0';
-        elsif fastio_addr(7 downto 0) = x"F5" then
-          i2c1_swap <= '1';
-          debug_status(2) <= '1';
-        elsif fastio_addr(7 downto 0) = x"FE" then
-          i2c1_reset <= '0';
-          debug_status(3) <= '0';
-        elsif fastio_addr(7 downto 0) = x"FF" then
-          i2c1_reset <= '1';
-          debug_status(3) <= '1';
-        end if;
-        write_val <= fastio_wdata;
       end if;
 
       -- State machine for reading registers from the various
@@ -318,48 +233,7 @@ begin
           -- Read the 48 bytes from the device
           i2c1_rw <= '1';
           command_en <= '1';
-          -- The first 6 registers are the RTC values.
-          -- To avoid glitching in I2C reading causing trouble, we
-          -- double-buffer the RTC values, and only update the user-visible values
-          -- if two successive reads are identical.
-          if grove_rtc_present='0' then
-            if busy_count = 11 then
-              rtc_prev2 <= rtc_prev1;
-            end if;
-            if busy_count >= 13 and busy_count < (13+8) then
-              rtc_prev1(busy_count-12) <= i2c1_rdata;
-            elsif busy_count >= (13 + 8) then
-              bytes(busy_count - 1 - 11 + 16) <= i2c1_rdata;
-            end if;
-            -- Remap RTC registers to match those on the R3
-            -- We only rearrange the first 7 registers
-            if busy_count >= 13 and busy_count < (13 + 8 ) then
-              -- debounce RTC registers, except for 100ths of a second
-              if (busy_count = 13) or (rtc_prev1(busy_count - 13) = rtc_prev2(busy_count - 13)) then
-                case busy_count is
-                  when 13 + 0 => -- Read 100ths of seconds, write to reg 7
-                    bytes(16 + 7) <= rtc_prev1(busy_count - 13);
-                  when 13 + 1 => -- Read seconds, write to reg 0
-                    bytes(16 + 0) <= rtc_prev1(busy_count - 13);
-                  when 13 + 2 => -- Read minuntes, write to reg 1
-                    bytes(16 + 1) <= rtc_prev1(busy_count - 13);
-                  when 13 + 3 => -- Read 24-hour clock hours, write to reg 2,
-                    -- with bit 7 set
-                    bytes(16 + 2)(6 downto 0) <= rtc_prev1(busy_count - 13)(6 downto 0);
-                    bytes(16 + 2)(7) <= '1';
-                  when 13 + 4 => -- Read weekday, write to reg 6
-                    bytes(16 + 6) <= rtc_prev1(busy_count - 13);
-                  when 13 + 5 => -- Read day of month, write to reg 3
-                    bytes(16 + 3) <= rtc_prev1(busy_count - 13);
-                  when 13 + 6 => -- Read month, write to reg 4
-                    bytes(16 + 4) <= rtc_prev1(busy_count - 13);
-                  when 13 + 7 => -- Read year-2000, write to reg 5
-                    bytes(16 + 5) <= rtc_prev1(busy_count - 13);
-                  when others => null;
-                end case;
-              end if;
-            end if;
-          end if;
+
         when 60 =>
           report "RTC SRAM (16 bytes)";
           command_en <= '1';
