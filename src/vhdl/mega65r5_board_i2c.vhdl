@@ -69,7 +69,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-entity mega65r5_i2c is
+entity mega65r5_board_i2c is
   generic ( clock_frequency : integer);
   port (
     clock : in std_logic;
@@ -79,23 +79,13 @@ entity mega65r5_i2c is
     scl : inout std_logic;
 
     dipsw_read : out std_logic_vector(7 downto 0);
-    
-    grove_rtc_present : in std_logic;
-    reg_in : in unsigned(7 downto 0);
-    val_in : in unsigned(7 downto 0);
-
-    -- FastIO interface
-    cs : in std_logic;
-    fastio_read : in std_logic;
-    fastio_write : in std_logic;
-    fastio_rdata : out unsigned(7 downto 0);
-    fastio_wdata : in unsigned(7 downto 0);
-    fastio_addr : in unsigned(19 downto 0)
+    board_major : out unsigned(3 downto 0);
+    board_minor : out unsigned(3 downto 0)    
 
     );
-end mega65r5_i2c;
+end mega65r5_board_i2c;
 
-architecture behavioural of mega65r5_i2c is
+architecture behavioural of mega65r5_board_i2c is
 
   signal dipsw_int : std_logic_vector(7 downto 0) := (others => '0');
   
