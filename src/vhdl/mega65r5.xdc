@@ -252,8 +252,8 @@ set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
 set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
 
 # Dipswitch I2C bus
-set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVCMOS33} [get_ports board_scl]
-set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports board_sda]
+set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVCMOS33} [get_ports i2c_scl]
+set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports i2c_sda]
 
 # HDMI buffer things
 #set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports scl_a]

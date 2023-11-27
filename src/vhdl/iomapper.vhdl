@@ -373,10 +373,13 @@ entity iomapper is
     tmpCT : in std_logic;
 
     i2c1SDA : inout std_logic := '0';
-    i2c1SCL : inout std_logic := '0';
-
+    i2c1SCL : inout std_logic := '0';    
+    
     grove_sda : inout std_logic;
     grove_scl : inout std_logic;
+
+    board_sda : inout std_logic;
+    board_scl : inout std_logic;
 
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
@@ -1401,28 +1404,19 @@ begin
     );
   end generate i2cperiph_megaphone;
 
-  i2cperiph_mega65r5:
-  if target = mega65r4 generate
-    i2c1: entity work.mega65r5_i2c
+  i2cperiph_mega65r5_specific:
+  if target = mega65r5 generate
+    i2c1: entity work.mega65r5_board_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
       clock => cpuclock,
-      cs => i2cperipherals_cs,
-
-      grove_rtc_present => grove_rtc_present,
-      reg_in => rtc_reg,
-      val_in => rtc_val,
 
       dipsw_read => dipsw_read,
+      board_major => board_major,
+      board_minor => board_minor,
     
-      sda => i2c1SDA,
-      scl => i2c1SCL,
-
-      fastio_addr => unsigned(address),
-      fastio_write => w,
-      fastio_read => r,
-      fastio_wdata => unsigned(data_i),
-      std_logic_vector(fastio_rdata) => data_o
+      sda => board_sda,
+      scl => board_scl
 
       );
     i2c2: entity work.edid_i2c
@@ -1444,8 +1438,10 @@ begin
   end generate i2cperiph_mega65r5;
 
   
+
+  
   i2cperiph_mega65r4:
-  if target = mega65r4 generate
+  if target = mega65r4 or target = mega65r5 generate
     i2c1: entity work.mega65r4_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (

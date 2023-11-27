@@ -261,6 +261,12 @@ entity container is
          fpga_scl : inout std_logic;
 
          ----------------------------------------------------------------------
+         -- I2C board management peripherals (dip sw and dc-dc converters)
+         ----------------------------------------------------------------------         
+         board_sda : inout std_logic;
+         board_scl : inout std_logic;
+         
+         ----------------------------------------------------------------------
          -- Grove connector I2C peripherals
          -- (Currently used for auxilliary RTC, for boards with faulty RTCs)
          ----------------------------------------------------------------------
@@ -1195,12 +1201,13 @@ begin
           audio_left => audio_left,
           audio_right => audio_right,
 
-          -- XXX New onboard AK4432 Audio DAC on board
-
           -- Normal connection of I2C peripherals to dedicated address space
           i2c1sda => fpga_sda,
-          i2c1scl => fpga_scl,
+          i2c1scl => fpga_scl,          
 
+          board_sda => board_sda,
+          board_scl => board_scl,
+          
           grove_sda => grove_sda,
           grove_scl => grove_scl,
 

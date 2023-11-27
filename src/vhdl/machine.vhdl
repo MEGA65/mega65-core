@@ -339,6 +339,9 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
+         board_sda : inout std_logic;
+         board_scl : inout std_logic;
+
          grove_sda : inout std_logic;
          grove_scl : inout std_logic;
          
@@ -1926,10 +1929,13 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
-
+      
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
 
+      board_sda => board_sda,
+      board_scl => board_scl,
+      
       grove_sda => grove_sda,
       grove_scl => grove_scl,
 
