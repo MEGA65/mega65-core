@@ -63,16 +63,22 @@ set_property -dict {PACKAGE_PIN U21 IOSTANDARD LVCMOS33} [get_ports cart_data_en
 set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVCMOS33} [get_ports cart_phi2]
 set_property -dict {PACKAGE_PIN AA19 IOSTANDARD LVCMOS33} [get_ports cart_dotclock]
 set_property -dict {PACKAGE_PIN N14 IOSTANDARD LVCMOS33} [get_ports cart_reset]
+set_property -dict {PACKAGE_PIN T21 IOSTANDARD LVCMOS33} [get_ports cart_reset_en_n]
 set_property -dict {PACKAGE_PIN W17 IOSTANDARD LVCMOS33} [get_ports cart_nmi]
+set_property -dict {PACKAGE_PIN F20 IOSTANDARD LVCMOS33} [get_ports cart_nmi_en_n]
 set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS33} [get_ports cart_irq]
 set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS33} [get_ports cart_dma]
 set_property -dict {PACKAGE_PIN R19 IOSTANDARD LVCMOS33} [get_ports cart_exrom]
+set_property -dict {PACKAGE_PIN M16 IOSTANDARD LVCMOS33} [get_ports cart_exrom_en_n]
 set_property -dict {PACKAGE_PIN N13 IOSTANDARD LVCMOS33} [get_ports cart_ba]
 set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports cart_rw]
 set_property -dict {PACKAGE_PIN AB18 IOSTANDARD LVCMOS33} [get_ports cart_roml]
+set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports cart_roml_dir]
 set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports cart_romh]
+set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports cart_romh_dir]
 set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports cart_io1]
 set_property -dict {PACKAGE_PIN W22 IOSTANDARD LVCMOS33} [get_ports cart_game]
+set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33} [get_ports cart_game_en_n]
 set_property -dict {PACKAGE_PIN AA20 IOSTANDARD LVCMOS33} [get_ports cart_io2]
 set_property -dict {PACKAGE_PIN W21 IOSTANDARD LVCMOS33} [get_ports {cart_d[7]}]
 set_property -dict {PACKAGE_PIN W20 IOSTANDARD LVCMOS33} [get_ports {cart_d[6]}]
@@ -244,6 +250,10 @@ set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 # I2C bus for on-board peripherals
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
 set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
+
+# Dipswitch I2C bus
+set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVCMOS33} [get_ports board_scl]
+set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports board_sda]
 
 # HDMI buffer things
 #set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports scl_a]
