@@ -19,6 +19,8 @@ entity iomapper is
         uartclock : in std_logic;
 
         dipsw_read : out std_logic_vector(7 downto 0);
+        board_major : out unsigned(3 downto 0);
+        board_minor : out unsigned(3 downto 0);
         
         floppy_last_gap : out unsigned(7 downto 0) := x"00";
         floppy_gap_strobe : out std_logic := '0';
