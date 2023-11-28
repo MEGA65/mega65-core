@@ -1435,7 +1435,7 @@ begin
       std_logic_vector(fastio_rdata) => data_o
 
     );
-  end generate i2cperiph_mega65r5;
+  end generate i2cperiph_mega65r5_specific;
 
   
 
