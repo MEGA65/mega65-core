@@ -74,6 +74,8 @@ entity mega65r5_board_i2c is
   port (
     clock : in std_logic;
 
+    ear_watering_mode : in std_logic := '0';
+    
     -- I2C bus
     sda : inout std_logic;
     scl : inout std_logic;
@@ -125,10 +127,9 @@ architecture behavioural of mega65r5_board_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  type rtc_vals is array (0 to 7) of uint8;
-  signal rtc_prev1 : rtc_vals := (others => x"00");
-  signal rtc_prev2 : rtc_vals := (others => x"00");
-
+  signal port0 : unsigned(7 downto 0);
+  signal port1 : unsigned(7 downto 0);
+  
 begin
 
   i2c1: entity work.i2c_master
@@ -184,142 +185,60 @@ begin
       -- devices.
       last_busy <= i2c1_busy;
       if i2c1_busy='1' and last_busy='0' then
-
-        -- Sequence through the list of transactions endlessly
-        if (busy_count < 244) or ((write_job_pending='1') and (busy_count < (244+4))) then
-          busy_count <= busy_count + 1;
-          report "busy_count = " & integer'image(busy_count + 1);
-          -- Delay switch to write so we generate a stop before hand and after
-          -- the write.
-          if ((busy_count = (244-1)) or (busy_count = (244+1))) and (delayed_en = 0) then
-            delayed_en <= 1024;
-          end if;
-        else
-          busy_count <= 0;
-          -- Make sure we really start the job a new each round
-          delayed_en <= 1024;
-        report "busy_count = " & integer'image(0);
-        end if;
+        
       end if;
       last_busy_count <= busy_count;
 
       case busy_count is
-        -- The body for this case statement can be automatically generated
-        -- using src/tools/i2cstatemapper.c
-
-        --------------------------------------------------------------------
-        -- Start of Auto-Generated Content
-        --------------------------------------------------------------------
+        -- Enable force PWM mode for DCDC converter #1
         when 0 =>
---          report "Serial EEPROM UUID";
           command_en <= '1';
-          i2c1_address <= "1010000"; -- 0xA1/2 = I2C address of device;
-          i2c1_wdata <= x"F8";
+          i2c1_address <= "1100001"; -- 0x61 = I2C address of device;
+          i2c1_wdata <= x"01";
           i2c1_rw <= '0';
-        when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 =>
-          -- Read the 8 bytes from the device
-          i2c1_rw <= '1';
+        when 1 =>
           command_en <= '1';
-          if busy_count > 1 then
-            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
-          end if;
-        when 10 =>
-          report "Real Time clock regs 0 -- 2F";
-          command_en <= '1';
-          i2c1_address <= "1010001"; -- 0x51 = I2C address of device;
-          i2c1_wdata <= x"00";
           i2c1_rw <= '0';
-        when 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 =>
-          -- Read the 48 bytes from the device
-          i2c1_rw <= '1';
-          command_en <= '1';
+          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
+          -- to make your ears water from the annoying high frequency sounds
+          i2c1_wdata <= x"A6";
+          i2c1_wdata(0) <= not ear_watering_mode;
 
-        when 60 =>
-          report "RTC SRAM (16 bytes)";
+          delayed_en <= 1024;
+
+        -- Enable force PWM mode for DCDC converter #2
+        when 2 =>
           command_en <= '1';
-          i2c1_address <= "1010001"; -- 51 = I2C address of device;
-          i2c1_wdata <= x"30"; -- Some extra registers in the $3x range, and
-                               -- also 16 bytes of NVRAM starts at offset $40
-                               -- plus some more bytes, for no really good reason
+          i2c1_address <= "1100111"; -- 0x67 = I2C address of device;
+          i2c1_wdata <= x"01";
           i2c1_rw <= '0';
-        when 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76
-          | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92
-          | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108
-          | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124
-          | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140
-          | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 | 153 | 154 | 155 | 156
-          | 157 | 158 | 159 | 160 | 161 | 162 | 163 | 164 | 165 | 166 | 167 | 168 | 169 | 170 | 171 | 172
-          | 173 | 174 | 175 | 176 | 177 | 178 | 179 | 180 | 181 | 182 | 183 | 184 | 185 | 186 | 187 | 188
-          | 189 | 190 | 191 | 192 | 193 | 194 | 195 | 196 | 197 | 198 | 199 | 200 | 201 | 202 | 203 | 204
-          | 205 | 206 | 207 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220
-          | 221
-          =>
-          -- Read the 64 bytes from the device
-          i2c1_rw <= '1';
+        when 3 =>
           command_en <= '1';
-          -- Make sure we send a STOP before the next command starts
-          -- NOTE: This is done above in the incrementer for busy_count
-          if busy_count > 61 then
-            bytes(busy_count - 1 - 61 + 64) <= i2c1_rdata;
-          end if;
-        when 222 =>
-          i2c1_command_en <= '1';
-          i2c1_address <= "0011001"; -- 0x19 = I2C address of amplifier;
+          i2c1_rw <= '0';
+          -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
+          -- to make your ears water from the annoying high frequency sounds
+          i2c1_wdata <= x"A6";
+          i2c1_wdata(0) <= not ear_watering_mode;
+
+          delayed_en <= 1024;
+
+        -- Read DIP switches and board revision straps
+        when 4 =>
+          command_en <= '1';
+          i2c1_address <= "1000001"; -- 0x41 = I2C address of device;
           i2c1_wdata <= x"00";
           i2c1_rw <= '0';
-          report "Audio amplifier regs 0 - 18";
-        when 223 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238
-          | 239 | 240 | 241 | 242
-          | 243 =>
-          -- Read the 19 bytes from the device
+        when 5 =>
+          command_en <= '1';
           i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 223 and i2c1_error='0' then
-            bytes(busy_count - 1 - 223 + 220) <= i2c1_rdata;
-          end if;
-        --------------------------------------------------------------------
-        -- End of Auto-Generated Content
-        --------------------------------------------------------------------
-        when 244 =>
-          -- Write to a register, if a request is pending:
-          -- First, write the address and register number.
-          if last_busy_count /= busy_count then
-            report "Writing to register $" & to_hstring(write_reg);
-          end if;
-          i2c1_rw <= '0';
+        when 6 =>
+          port0 <= i2c1_rdata;
           command_en <= '1';
-          i2c1_address <= write_addr(7 downto 1);
-          -- If writing to RTC registers, remap them to look like the R3 RTC
-          if write_addr = x"a2" then
-            i2c1_wdata <= write_reg;
-            case write_reg is
-              when x"00" => i2c1_wdata <= x"01"; -- seconds
-              when x"01" => i2c1_wdata <= x"02"; -- minutes
-              when x"02" => i2c1_wdata <= x"03"; -- hours
-              when x"03" => i2c1_wdata <= x"05"; -- day of month
-              when x"04" => i2c1_wdata <= x"06"; -- month
-              when x"05" => i2c1_wdata <= x"07"; -- year - 2000
-              when x"06" => i2c1_wdata <= x"04"; -- day of week
-              when others => null;
-            end case;
-          else
-            i2c1_wdata <= write_reg;
-          end if;
-        when 245 =>
-          -- Second, write the actual value into the register
-          if last_busy_count /= busy_count then
-            report "Writing value $" & to_hstring(write_val) & " to register";
-          end if;
-          -- Make sure we send a STOP before the next command starts
-          -- NOTE: This is done above in the incrementer for busy_count
-          command_en <= '1';
-          i2c1_rw <= '0';
-          i2c1_wdata <= write_val;
+          i2c1_rw <= '1';
+        when 7 =>
+          port1 <= i2c1_rdata;
+          
         when others =>
-          if last_busy_count /= busy_count then
-            report "in others";
-          end if;
-          -- Make sure we can't get stuck.
           command_en <= '0';
           busy_count <= 0;
           last_busy <= '1';
