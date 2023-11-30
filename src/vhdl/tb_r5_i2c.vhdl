@@ -25,6 +25,8 @@ architecture test_arch of tb_r5_i2c is
 
   signal port0 : unsigned(7 downto 0) := x"00";
   signal port1 : unsigned(7 downto 0) := x"50";
+
+  signal reset_high : std_logic;
   
 begin
 
@@ -33,7 +35,7 @@ begin
                   address => b"1100001"
                   )
     port map ( clock => clock41,
-               reset => '0',
+               reset => reset_high,
                scl => scl,
                sda => sda,
                port0 => port0,
@@ -68,6 +70,10 @@ begin
     while test_suite loop
 
       if run("I2C runs") then
+
+        reset_high <= '1'; clock_tick;clock_tick;clock_tick;clock_tick;
+        reset_high <= '0'; clock_tick;clock_tick;clock_tick;clock_tick;
+        
         for i in 1 to 100000 loop
           clock_tick;
         end loop;
