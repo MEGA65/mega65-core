@@ -23,8 +23,22 @@ architecture test_arch of tb_r5_i2c is
   signal board_major : unsigned(3 downto 0);
   signal board_minor : unsigned(3 downto 0);
 
+  signal port0 : unsigned(7 downto 0) := x"00";
+  signal port1 : unsigned(7 downto 0) := x"50";
+  
 begin
 
+  pca0: entity work.pca9555
+    generic map ( clock_frequency => 40_500_000,
+                  address => b"1100001"
+                  )
+    port map ( clock => clock41,
+               reset => '0',
+               scl => scl,
+               sda => sda,
+               port0 => port0,
+               port1 => port1);
+  
   unit0: entity work.mega65r5_board_i2c
     generic map (clock_frequency => 40_500_000 )
     port map ( clock => clock41,
