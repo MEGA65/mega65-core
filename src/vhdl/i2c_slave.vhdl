@@ -235,7 +235,7 @@ begin
             else
               data_from_master_reg <= data_reg & sda_debounced;              
               data_valid_reg       <= '1';
-              report "received byte $" & to_hstring(data_reg & sda_debounced);
+              report "received byte $" & to_hexstring(data_reg & sda_debounced);
             end if;
           end if;
 

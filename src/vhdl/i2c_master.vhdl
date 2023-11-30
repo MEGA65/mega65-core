@@ -134,7 +134,7 @@ BEGIN
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
-              report "Accepting job: addr=$" & to_hstring(addr) & ", rw= " & std_logic'image(rw);
+              report "Accepting job: addr=$" & to_hexstring(addr) & ", rw= " & std_logic'image(rw);
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -166,12 +166,12 @@ BEGIN
               report "switching to wr following command";
               state <= wr;                   --go to write byte
             ELSE                             --read command
-              report "switching to rd following command $" & to_hstring(addr_rw);
+              report "switching to rd following command $" & to_hexstring(addr_rw);
               sda_int <= '1';                --release sda from incoming data
               state <= rd;                   --go to read byte
             END IF;
           WHEN wr =>                         --write byte of transaction
-            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hstring(data_tx) & " as " & std_logic'image(sda_int);
+            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hexstring(data_tx) & " as " & std_logic'image(sda_int);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --write byte transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
@@ -193,7 +193,7 @@ BEGIN
               END IF;
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               data_rd <= data_rx;            --output received data
-              report "Read byte $" & to_hstring(data_rx);
+              report "Read byte $" & to_hexstring(data_rx);
               state <= mstr_ack;             --go to master acknowledge
             ELSE                             --next clock cycle of read state
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits
@@ -204,7 +204,7 @@ BEGIN
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              report "Writing byte $" & to_hstring(data_wr) & " via slave_ack2";
+              report "Writing byte $" & to_hexstring(data_wr) & " via slave_ack2";
               if addr_rw = addr & rw THEN   --continue transaction with
                                                         --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
