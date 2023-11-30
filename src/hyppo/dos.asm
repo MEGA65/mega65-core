@@ -2493,8 +2493,6 @@ drd_notadir:
 ;;         ========================
 
 drd_isdir:
-        jsr dos_readdir_storecurrententry
-
         ;; Clear dirent structure
         ;; WARNING - Uses carnal knowledge to know that dirent structure is
         ;; 64+1+11+4+4+1 = 85 contiguous bytes
@@ -2851,6 +2849,8 @@ drce_cont_next_part:
 drce_normalrecord:
         ;; PGS: We have found a short name.
 
+        ;; start of short filename. store entry for use by fstat and rmfile
+        jsr dos_readdir_storecurrententry
 
         +Checkpoint "processing SHORT-name"
 
