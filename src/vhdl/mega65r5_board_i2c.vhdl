@@ -185,7 +185,7 @@ begin
       -- devices.
       last_busy <= i2c1_busy;
       if i2c1_busy='1' and last_busy='0' then
-        
+        busy_count <= busy_count + 1;
       end if;
       last_busy_count <= busy_count;
 
