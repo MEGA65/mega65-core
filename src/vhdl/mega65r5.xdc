@@ -73,12 +73,13 @@ set_property -dict {PACKAGE_PIN M16 IOSTANDARD LVCMOS33} [get_ports cart_exrom_e
 set_property -dict {PACKAGE_PIN N13 IOSTANDARD LVCMOS33} [get_ports cart_ba]
 set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS33} [get_ports cart_rw]
 set_property -dict {PACKAGE_PIN AB18 IOSTANDARD LVCMOS33} [get_ports cart_roml]
-set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports cart_roml_dir]
+set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports cart_roml_en_n]
 set_property -dict {PACKAGE_PIN T18 IOSTANDARD LVCMOS33} [get_ports cart_romh]
-set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports cart_romh_dir]
+set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports cart_romh_en_n]
 set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports cart_io1]
 set_property -dict {PACKAGE_PIN W22 IOSTANDARD LVCMOS33} [get_ports cart_game]
 set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33} [get_ports cart_game_en_n]
+set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports cart_irq_en_n]
 set_property -dict {PACKAGE_PIN AA20 IOSTANDARD LVCMOS33} [get_ports cart_io2]
 set_property -dict {PACKAGE_PIN W21 IOSTANDARD LVCMOS33} [get_ports {cart_d[7]}]
 set_property -dict {PACKAGE_PIN W20 IOSTANDARD LVCMOS33} [get_ports {cart_d[6]}]
@@ -133,8 +134,7 @@ set_property -dict {PACKAGE_PIN J22 IOSTANDARD LVCMOS33} [get_ports paddle[3]]
 set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_drain]
 
 # Output lines on joysticks allow pulling the joystick lines low on R4
-# However, these pins are also shared with the new DBG header, except for DBG10-11
-set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports dbg[10]]
+# However, these pins are also shared with the new DBG header, except for DBG11
 set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
 
 # Joystick port power control/sensing
@@ -245,7 +245,6 @@ set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable_n]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
-set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 
 # I2C bus for on-board peripherals
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
@@ -554,12 +553,6 @@ set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports pmod2_en]
 set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
 set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
-
-# MEGA65 board revision pins = 0100 = 0x4 for R4
-set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33} [get_ports board_rev[0]]
-set_property -dict {PACKAGE_PIN M16 IOSTANDARD LVCMOS33} [get_ports board_rev[1]]
-set_property -dict {PACKAGE_PIN F20 IOSTANDARD LVCMOS33} [get_ports board_rev[2]]
-set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports board_rev[3]]
 
 
 ##Micro SD Connector (x2 on r2 PCB)

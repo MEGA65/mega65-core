@@ -104,6 +104,14 @@ entity container is
          cart_game : inout std_logic := 'Z';
          cart_io2 : inout std_logic := 'Z';
 
+         -- By default, do not drive any of the new bi-dir cart port lines low
+         cart_irq_en_n : out std_logic := '1';
+         cart_nmi_en_n : out std_logic := '1';
+         cart_romh_en_n : out std_logic := '1';
+         cart_roml_en_n : out std_logic := '1';
+         cart_exrom_en_n : out std_logic := '1';
+         cart_game_en_n : out std_logic := '1';
+
          cart_d : inout unsigned(7 downto 0) := (others => 'Z');
          cart_a : inout unsigned(15 downto 0) := (others => 'Z');
 
