@@ -1416,9 +1416,9 @@ begin
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
-      iec_srq_en_n <= iec_srq_o_drive and iec_srq_en_drive;
-      iec_clk_en_n <= iec_clk_o_drive and iec_clk_en_drive;
-      iec_data_en_n <= iec_data_o_drive and iec_data_en_drive;
+      iec_srq_en_n <= iec_srq_o_drive and (not iec_srq_en_drive);
+      iec_clk_en_n <= iec_clk_o_drive and (not iec_clk_en_drive);
+      iec_data_en_n <= iec_data_o_drive and (not iec_data_en_drive);
 
       -- Connect up real C64-compatible paddle ports
       paddle_drain <= pot_drain;
