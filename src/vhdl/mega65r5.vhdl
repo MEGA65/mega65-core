@@ -90,6 +90,9 @@ entity container is
          cart_phi2 : out std_logic;
          cart_dotclock : out std_logic;
          cart_reset : out std_logic;
+         cart_reset_en_n : out std_logic;
+
+         cart_and_joy_en : out std_logic := '1';
 
          cart_nmi : in std_logic;
          cart_irq : in std_logic;
@@ -422,6 +425,7 @@ architecture Behavioral of container is
   signal joy4 : std_logic_vector(4 downto 0);
 
   signal cart_access_count : unsigned(7 downto 0);
+  signal cart_reset_int : std_logic := '1';
 
   signal widget_matrix_col_idx : integer range 0 to 8 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
@@ -954,7 +958,7 @@ begin
       cart_addr_en => cart_addr_en,
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
-      cart_reset => cart_reset,
+      cart_reset => cart_reset_int,
 
       cart_nmi => cart_nmi,
       cart_irq => cart_irq,
@@ -1318,6 +1322,9 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      cart_reset <= cart_reset_int;
+      cart_reset_en_n <= cart_reset_int;
+      
       portp_drive <= portp;
 
       dvi_select <= portp_drive(1);
