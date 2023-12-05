@@ -24,6 +24,14 @@ pipeline {
                 sh 'make freezer_files'
             }
         }
+        stage('Build MEGA65R5') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'make bin/mega65r5.bit'
+                    sh 'release-build/build-release.sh mega65r5 JENKINSGEN'
+                }
+            }
+        }
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -40,6 +48,7 @@ pipeline {
                 }
             }
         }
+        /*
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -56,6 +65,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Set build result') {
             steps {
                 script {
