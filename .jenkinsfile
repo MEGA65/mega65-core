@@ -5,7 +5,7 @@ pipeline {
     agent {
         docker {
             image 'megabuild'
-            args '--init -v vivado_2022_2:/opt/Xilinx'
+            args '--init -v vivado_2023_2:/opt/Xilinx'
         }
     }
     stages {
