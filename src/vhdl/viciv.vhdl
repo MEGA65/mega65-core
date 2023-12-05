@@ -61,7 +61,11 @@ entity viciv is
     all_pause : in std_logic;
 
     hypervisor_mode : in std_logic;
-    
+
+    hw_errata_level : in unsigned(7 downto 0);
+    hw_errata_enable_toggle : inout std_logic := '0';
+    hw_errata_disable_toggle : inout std_logic := '0';
+
     xcounter_out : out integer range 0 to 4095 := 0;
     ycounter_out : out integer range 0 to 2047 := 0;
     ----------------------------------------------------------------------
@@ -81,16 +85,16 @@ entity viciv is
     dd00_bits : in unsigned(1 downto 0);
 
     upscale_enable : out std_logic := '0';
-    
+
     -- Touch event to simulate light pen
     touch_x : in unsigned(13 downto 0);
     touch_y : in unsigned(11 downto 0);
     touch_active : in std_logic := '0';
-    
+
     -- Internal drive LED status for OSD
     led : in std_logic;
     motor : in std_logic;
-   
+
     -- Actual drive LED (including blink status) for keyboard
     -- (the F011 does this on a real C65)
     drive_led_out : out std_logic;
@@ -103,7 +107,7 @@ entity viciv is
 
     interlace_mode : out std_logic := '0';
     mono_mode : out std_logic := '0';
-    
+
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
     vicii_raster_out : out unsigned(11 downto 0) := to_unsigned(0,12);
@@ -180,7 +184,7 @@ entity viciv is
     hyper_request_toggle : out std_logic := '0';
     hyper_data_in : in unsigned(7 downto 0) := x"00";
     hyper_data_strobe_in : in std_logic := '0';
-    
+
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
     -----------------------------------------------------------------------------
@@ -212,14 +216,14 @@ architecture Behavioral of viciv is
   signal reset_drive : std_logic := '0';
 
   signal bitplane_bank_select : unsigned(2 downto 0) := "000";
-  
+
   signal iomode_set_toggle_last : std_logic := '0';
 
   signal before_y_chargen_start : std_logic := '1';
   signal justbefore_y_chargen_start : std_logic := '0';
   signal stop_chargen_raster_counter : unsigned(7 downto 0) := x"00";
   signal stop_chargen_delay : unsigned(7 downto 0) := to_unsigned(3,8);
-  
+
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
@@ -291,7 +295,7 @@ architecture Behavioral of viciv is
   -- The values here are simply those that apply on power up.
   -- NOTE: frame_h_front is deprecated due to the pixel_driver now?
   -- In any case, it seems to cause the trimming of frame_h_front pixels
-  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(0,8);
+  constant frame_h_front : unsigned(7 downto 0) := to_unsigned(0,8);
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(80,14);
   constant display_width : unsigned(11 downto 0) := to_unsigned(800,12);
@@ -307,8 +311,8 @@ architecture Behavioral of viciv is
   signal raster_buffer_half_toggle : std_logic := '0';
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
-  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(0,8);  
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14);
+  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(0,8);
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -373,7 +377,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
-  
+
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
@@ -761,7 +765,7 @@ architecture Behavioral of viciv is
 
   signal lightpen_x_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal lightpen_y_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
-  
+
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
   -- 60 frames = 1 second, and means no tearing.
@@ -963,7 +967,7 @@ architecture Behavioral of viciv is
 
   signal no_raster_buffer_delay : std_logic := '1';
   signal raster_buffer_double_line : std_logic := '0';
-  
+
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0) := to_unsigned(0,15+1);
   signal colourramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
@@ -1046,7 +1050,7 @@ architecture Behavioral of viciv is
   signal next_token_is_goto : std_logic := '0';
 
   signal reg_alpha_delay : unsigned(3 downto 0) := x"1";
-  
+
   signal is_fetch_start : std_logic := '0';
   signal last_was_fetch_start : std_logic := '0';
 
@@ -1071,9 +1075,12 @@ architecture Behavioral of viciv is
   signal sprite_continuous_pointer_monitoring : std_logic := '1';
 
   -- Set to 0 to disable bug compatibility D016 positioning
+  signal prev_hw_errata_level : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bug_compat_mode : std_logic := '1';
+  signal prev_bug_compat_mode : std_logic := '1';
   signal bug_compat_vic_iii_d016_delta : integer := 2;
-  
+  signal bug_compat_char_attr : std_logic := '1';
+
 begin
 
   rasterbuffer1: entity work.ram18x2k
@@ -1347,18 +1354,6 @@ begin
           ) is
     variable bitplane_number : integer;
 
-    procedure enable_bug_compat is
-    begin
-      bug_compat_mode <= '1';
-      bug_compat_vic_iii_d016_delta <= 2;
-    end procedure;
-
-    procedure disable_bug_compat is
-    begin
-      bug_compat_mode <= '0';
-      bug_compat_vic_iii_d016_delta <= 0;
-    end procedure;
-
     procedure viciv_calculate_modeline_dimensions is
       constant w : integer := 400; -- was 320
     begin
@@ -1454,7 +1449,7 @@ begin
 
       else
         -- V400 mode : as above, but with the different constants
-        display_row_count <= to_unsigned(50-1,8);        
+        display_row_count <= to_unsigned(50-1,8);
         chargen_y_scale <= to_unsigned(safe_to_integer(chargen_y_scale_400)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
@@ -1480,7 +1475,7 @@ begin
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +safe_to_integer(single_top_border_400)
-                                       -safe_to_integer(vicii_first_raster)*2                                       
+                                       -safe_to_integer(vicii_first_raster)*2
                                        -(3*2)
                                        -- Screen is always V400/600, so pixels
                                        -- are 2 physical pixels high
@@ -1497,7 +1492,7 @@ begin
         screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
         screen_ram_base(9 downto 0) <= (others => '0');
       end if;
-      
+
       -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
       -- column mode).
       -- In 80 column mode the screen base must be on a 2K boundary on the
@@ -1521,7 +1516,7 @@ begin
       -- NOTE: We DONT reset the character set address with a legacy write,
       -- even if HOTREG are enabled. This makes it easier to use alternate
       -- character sets, and full-colour text mode upgrading of old programmes.
-      
+
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
       colour_ram_base <= (others => '0');
@@ -1529,7 +1524,7 @@ begin
       -- NOTE: We DONT reset the character set address with a legacy write.
       -- This makes it easier to use alternate character sets, and full-colour
       -- text mode upgrading of old programmes.
-      
+
     end procedure viciv_interpret_legacy_mode_registers;
     procedure viciv_update_side_border_dimensions is
     begin
@@ -1733,7 +1728,7 @@ begin
           fastio_rdata(7) <= not irq_drive;
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= irq_rasterx; 
+          fastio_rdata(4) <= irq_rasterx;
           fastio_rdata(3) <= irq_lightpen;
           fastio_rdata(2) <= irq_collisionspritesprite;
           fastio_rdata(1) <= irq_collisionspritebitmap;
@@ -1742,7 +1737,7 @@ begin
           fastio_rdata(7) <= '1';       -- NC
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
-          fastio_rdata(4) <= mask_rasterx;       
+          fastio_rdata(4) <= mask_rasterx;
           fastio_rdata(3) <= mask_lightpen;
           fastio_rdata(2) <= mask_collisionspritesprite;
           fastio_rdata(1) <= mask_collisionspritebitmap;
@@ -2051,7 +2046,7 @@ begin
             fastio_rdata <= std_logic_vector(hyper_data_counter(15 downto 8));
           else
             -- In hypervisor mode, allow read-back of the debug crosshair positions
-            -- so that when we freeze and resume, it isn't put into the wrong place            
+            -- so that when we freeze and resume, it isn't put into the wrong place
             fastio_rdata <= std_logic_vector(debug_y(7 downto 0));
           end if;
         elsif register_number=127 then
@@ -2059,7 +2054,7 @@ begin
             fastio_rdata <= std_logic_vector(hyper_data_counter(23 downto 16));
           else
             -- In hypervisor mode, allow read-back of the debug crosshair positions
-            -- so that when we freeze and resume, it isn't put into the wrong place            
+            -- so that when we freeze and resume, it isn't put into the wrong place
             fastio_rdata(3 downto 0) <= std_logic_vector(debug_x(11 downto 8));
             fastio_rdata(7 downto 4) <= std_logic_vector(debug_y(11 downto 8));
           end if;
@@ -2090,16 +2085,36 @@ begin
 
     if rising_edge(cpuclock) then
 
+      if hw_errata_level /= prev_hw_errata_level then
+        prev_hw_errata_level <= hw_errata_level;
+
+        -- Apply variable HW errata level settings
+        -- Level 1: VIC-III D016 Delta
+        if to_integer(hw_errata_level) > 0 then
+          bug_compat_vic_iii_d016_delta <= 0;
+          bug_compat_mode <= '0';
+        else
+          bug_compat_vic_iii_d016_delta <= 2;
+          bug_compat_mode <= '1';
+        end if;
+        -- Level 2: Character attribute fixes
+        if to_integer(hw_errata_level) > 1 then
+          bug_compat_char_attr <= '0';
+        else
+          bug_compat_char_attr <= '1';
+        end if;
+      end if;
+
       upscale_enable <= upscale_enable_int;
-      
+
       interlace_mode <= reg_interlace;
       mono_mode <= reg_mono;
-      
+
       last_dd00_bits <= dd00_bits;
       if last_dd00_bits /= dd00_bits then
         viciv_legacy_mode_registers_touched <= '1';
       end if;
-      
+
       if reset='0' then
         -- Reset sprites to normal behaviour on reset
         sprite_horizontal_tile_enables <= (others => '0');
@@ -2115,7 +2130,7 @@ begin
         reg_char_y16 <= '0';
 
       end if;
-      
+
       -- Drive stage for data from hyper RAM and signals out to it
       hyper_data <= hyper_data_in;
       hyper_data_strobe <= hyper_data_strobe_in;
@@ -2127,13 +2142,13 @@ begin
       if hyper_data_strobe = '1' then
         hyper_data_counter <= hyper_data_counter + 1;
       end if;
-      
+
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
       else
         display_height <= display_height_pal;
       end if;
-      
+
       vicii_raster_out(8 downto 0) <= vicii_ycounter_driver;
       vicii_raster_out(11 downto 9) <= "000";
 
@@ -2172,8 +2187,8 @@ begin
 
       reset_drive <= reset;
       if reset_drive='0' then
-        -- Enable C65 bug compatibility mode on reset.
-        enable_bug_compat;
+        -- Disable HW errata on reset.
+        hw_errata_disable_toggle <= not hw_errata_disable_toggle;
 
         -- Allow hyppo ROM to be visible on reset.
         rom_at_e000 <= '0';
@@ -2251,7 +2266,7 @@ begin
 --        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
 --      end if;
 
-      
+
       -- Reading some registers clears IRQ flags
       clear_collisionspritebitmap_1 <= '0';
       clear_collisionspritesprite_1 <= '0';
@@ -2307,7 +2322,7 @@ begin
           extended_background_mode <= fastio_wdata(6);
           -- @IO:C64 $D011.5 VIC-II:BMM bitmap mode
           text_mode <= not fastio_wdata(5);
-          -- @IO:C64 $D011.4 VIC-II:BLNK disable display
+          -- @IO:C64 $D011.4 VIC-II:BLNK Enable display: 0 = blank the display, 1 = show the display
           blank <= not fastio_wdata(4);
           -- @IO:C64 $D011.3 VIC-II:RSEL 24/25 row select
           twentyfourlines <= not fastio_wdata(3);
@@ -2806,7 +2821,7 @@ begin
             reg_alpha_delay <= x"1";
           end if;
           report "LEGACY register update & PAL/NTSC mode select";
-          
+
           -- Recompute screen and border positions
           -- But only if not in hypervisor mode, so that we don't mess up freezing
           if hypervisor_mode='0' then
@@ -2843,7 +2858,7 @@ begin
                 if vicii_ntsc /= fastio_wdata(7) then
                   vicii_first_raster <= to_unsigned(7,9);
                 end if;
-                
+
               when "11" => -- NTSC 720x480 60Hz
                 sprite_y_adjust <= to_unsigned(24,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
@@ -2911,20 +2926,21 @@ begin
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
-          bug_compat_mode <= not fastio_wdata(5);
-          reg_char_y16 <= fastio_wdata(4);          
+          reg_char_y16 <= fastio_wdata(4);
           sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
 
-          if fastio_wdata(5)=bug_compat_mode then
+          prev_bug_compat_mode <= not fastio_wdata(5);
+          if fastio_wdata(5)=prev_bug_compat_mode then
             if fastio_wdata(5)='1' then
-              disable_bug_compat;
+              -- Disable compatibility = enable errata
+              hw_errata_enable_toggle <= not hw_errata_enable_toggle;
             else
-              enable_bug_compat;
+              hw_errata_disable_toggle <= not hw_errata_disable_toggle;
             end if;
-            viciv_legacy_mode_registers_touched <= '1';
           end if;
+
         elsif register_number=123 then
           -- @IO:GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
           display_row_count <= unsigned(fastio_wdata);
@@ -3006,8 +3022,8 @@ begin
         debug_pixel_green <= vgagreen_driver;
         debug_pixel_blue <= vgablue_driver;
       end if;
-      
-      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;      
+
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
       -- Ask for the next one (8 sprites + 8 C65 bitplanes)
       if sprite_number_counter = 15 then
         sprite_number_counter <= 0;
@@ -3083,7 +3099,7 @@ begin
         lightpen_x_latch <= touch_x(11 downto 4);
         lightpen_y_latch <= touch_y(9 downto 2);
       end if;
-      
+
       -- reset masks IRQs immediately
       if irq_drive = '0' then
         irq <= '0';
@@ -3163,7 +3179,7 @@ begin
         if stop_chargen_raster_counter = 1 then
           before_y_chargen_start <= '1';
         end if;
-                                 
+
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
         report "LEGACY vicii_ycounter_scale = " & integer'image(safe_to_integer(vicii_ycounter_scale))
           & ", vicii_ycounter_max_phase = " & integer'image(safe_to_integer(vicii_ycounter_max_phase))
@@ -3219,13 +3235,13 @@ begin
           -- now exact.
           report "XZERO: incrementing ycounter from " & integer'image(safe_to_integer(ycounter));
           ycounter_driver <= ycounter_driver + 1;
-          
+
           displaycolumn0 <= '1';
           displayy <= displayy + 1;
           if displayy(4)='1' then
             displayline0 <= '0';
           end if;
-          
+
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             if safe_to_integer(vicii_ycounter) /= vicii_max_raster then
               vicii_ycounter <= vicii_ycounter + 1;
@@ -3251,7 +3267,7 @@ begin
                 vicii_sprite_ycounter <= vicii_ycounter_continuous - 2  + safe_to_integer(sprite_y_adjust);
               end if;
             end if;
-            
+
             vicii_ycounter_phase <= (others => '0');
             -- All visible rasters are now equal height
             -- (we take up the slack using vertical_flyback fast raster stepping,
@@ -3264,7 +3280,7 @@ begin
             if safe_to_integer(vicii_ycounter_phase) =  safe_to_integer(vicii_ycounter_max_phase(3 downto 1)) then
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
-            
+
             -- Calculate raster number for sprites.
             -- The -2 is an adjustment factor to make the sprites line up correctly
             -- on the screen.
@@ -3274,17 +3290,17 @@ begin
             else
               vicii_sprite_ycounter <= vicii_ycounter_continuous - 2 + safe_to_integer(sprite_y_adjust);
             end if;
-            
+
           end if;
         end if;
       end if;
-      
+
       -- If we got far along the last line to make it look real, and ...
       last_external_frame_y_zero <= external_frame_y_zero;
       if external_frame_y_zero = '0' and last_external_frame_y_zero='1' then
         -- Start of next frame
         report "Starting new frame. ycounter_driver <= 0";
-        
+
         ycounter_driver <= (others =>'0');
         report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
         chargen_y_sub <= (others => '0');
@@ -3397,7 +3413,7 @@ begin
 
         -- Reset glyph Y offset each raster line
         glyph_y_offset <= 0;
-        
+
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
@@ -3408,7 +3424,7 @@ begin
         else
           charrow_repeated <= '0';
         end if;
-        
+
         -- Work out colour ram address
         report "COLOURRAM: Setting colourramaddress via first_card_of_row."
           & " text_mode=" & std_logic'image(text_mode)
@@ -3762,7 +3778,7 @@ begin
 
       -- One pixel delay required for alternate palette selection
       postsprite_alternate_palette_delayed <= postsprite_alternate_palette;
-      
+
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
@@ -3816,7 +3832,7 @@ begin
         -- text = $E (foreground and background, and not alpha sprite pixel)
         -- sprite white fg (=+$20) on blue bg (= no +$10) = $21, as expected
         if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
-          palette_address(3) <= '1';          
+          palette_address(3) <= '1';
         else
           palette_address(3) <= postsprite_inborder;
         end if;
@@ -4219,7 +4235,7 @@ begin
           -- By default, draw all pixel rows of each character
           screenline_draw_mask <= (others => '1');
           report "DRAWMASK: Reset drawmask to $ff";
-          
+
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
 
@@ -4408,7 +4424,7 @@ begin
             & ": Setting draw_mask_blank to " & std_logic'image(not screenline_draw_mask(to_integer(chargen_y_hold)))
             & ", glyph_4bit = " & std_logic'image(glyph_4bit)
             & ", screenline_draw_mask = $" & to_hstring(screenline_draw_mask);
-          
+
           if glyph_full_colour='1' then
             report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
@@ -4466,7 +4482,7 @@ begin
 
           if viciii_extended_attributes='1' or glyph_full_colour='1' then
             -- 8-bit colour RAM in VIC-III/IV mode for bitmap mode, or for
-            -- full-colour text mode            
+            -- full-colour text mode
             glyph_colour_drive <= colourramdata;
           else
             -- 16 colours only in VIC-II mode
@@ -4513,12 +4529,12 @@ begin
             screenline_draw_mask_drive <= colourramdata;
             report "DRAWMASK: Loading screenline_draw_mask_drive with $" & to_hstring(colourramdata)
               & ", glyph_4bit = " & std_logic'image(glyph_4bit);
-          end if;      
-                    
+          end if;
+
           -- Get bold + reverse combination, even if not in VIC-III extended attribute
           -- mode, so that we can check for it in GOTOX tokens.
           glyph_bold_and_reverse <= colourramdata(5) and colourramdata(6);
-          
+
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if multicolour_mode='1' then
             -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
@@ -4526,30 +4542,69 @@ begin
             glyph_colour_drive(7 downto 4) <= colourramdata(7 downto 4);
           else
             if viciii_extended_attributes='1' then
-              glyph_colour_drive(4) <= colourramdata(6);
-              glyph_bold_drive <= colourramdata(6) and not colourramdata(5);
-              if colourramdata(4)='1' then
-                -- Blinking glyph
-                glyph_blink_drive <= '1';
-                if colourramdata(5)='1'
-                  or colourramdata(7)='1' then
-                  -- Blinking attributes
-                  if viciii_blink_phase='1' then
-                    glyph_reverse_drive <= colourramdata(5);
-                    if chargen_y_hold="111" then
-                      glyph_underline_drive <= colourramdata(7);
+
+              if bug_compat_char_attr='1' then
+                -- VIC-III legacy behavior for character attributes
+                if colourramdata(4)='1' then
+                  -- Blinking glyph
+                  glyph_blink_drive <= '1';
+                  if colourramdata(5)='1'
+                    or colourramdata(6)='1'
+                    or colourramdata(7)='1' then
+                    -- Blinking attributes
+                    if viciii_blink_phase='1' then
+                      glyph_reverse_drive <= colourramdata(5);
+                      glyph_bold_drive <= colourramdata(6);
+                      glyph_colour_drive(4) <= colourramdata(6);
+                      if chargen_y_hold="111" then
+                        glyph_underline_drive <= colourramdata(7);
+                      end if;
                     end if;
+                  else
+                    -- Just plain blinking character
+                    glyph_visible_drive <= viciii_blink_phase;
                   end if;
                 else
-                  -- Just plain blinking character
-                  glyph_visible_drive <= viciii_blink_phase;
+                  -- Non-blinking attributes
+                  glyph_visible_drive <= '1';
+                  glyph_reverse_drive <= colourramdata(5);
+                  glyph_bold_drive <= colourramdata(6);
+                  glyph_colour_drive(4) <= colourramdata(6);
+                  if chargen_y_hold="111" then
+                    glyph_underline_drive <= colourramdata(7);
+                  end if;
                 end if;
-              else
-                -- Non-blinking attributes
-                glyph_visible_drive <= '1';
-                glyph_reverse_drive <= colourramdata(5);
-                if chargen_y_hold="111" then
-                  glyph_underline_drive <= colourramdata(7);
+
+              else  -- bug_compat_char_attr='0'
+                -- VIC-IV fix for character attributes:
+                -- reverse, blink, and underline to behave identically for
+                -- both lower palette (non-"bold") and upper/alternate palette
+                -- ("bold") characters.
+                glyph_colour_drive(4) <= colourramdata(6);
+                glyph_bold_drive <= colourramdata(6) and not colourramdata(5);
+                if colourramdata(4)='1' then
+                  -- Blinking glyph
+                  glyph_blink_drive <= '1';
+                  if colourramdata(5)='1'
+                    or colourramdata(7)='1' then
+                    -- Blinking attributes
+                    if viciii_blink_phase='1' then
+                      glyph_reverse_drive <= colourramdata(5);
+                      if chargen_y_hold="111" then
+                        glyph_underline_drive <= colourramdata(7);
+                      end if;
+                    end if;
+                  else
+                    -- Just plain blinking character
+                    glyph_visible_drive <= viciii_blink_phase;
+                  end if;
+                else
+                  -- Non-blinking attributes
+                  glyph_visible_drive <= '1';
+                  glyph_reverse_drive <= colourramdata(5);
+                  if chargen_y_hold="111" then
+                    glyph_underline_drive <= colourramdata(7);
+                  end if;
                 end if;
               end if;
             end if;
@@ -4617,9 +4672,9 @@ begin
               elsif glyph_reverse='1' and glyph_bold='0' then
                 full_colour_data(63 downto 56) <= hyper_data xor "11111111";
               else
-                full_colour_data(63 downto 56) <= hyper_data;                  
+                full_colour_data(63 downto 56) <= hyper_data;
               end if;
-              full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
+              full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
             else
               if glyph_visible='0' or draw_mask_blank='1' then
                 full_colour_data(7 downto 0) <= "00000000";
@@ -4628,19 +4683,19 @@ begin
               elsif glyph_reverse='1' and glyph_bold='0' then
                 full_colour_data(7 downto 0) <= hyper_data xor "11111111";
               else
-                full_colour_data(7 downto 0) <= hyper_data;                  
+                full_colour_data(7 downto 0) <= hyper_data;
               end if;
-              full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);                
+              full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);
             end if;
 
-            if full_colour_fetch_count < 7 then              
+            if full_colour_fetch_count < 7 then
               raster_fetch_state <= PaintFullColourHyperRAMFetch;
               full_colour_fetch_count <= full_colour_fetch_count + 1;
             else
               report "VIC: Received all bytes from HyperRAM. Resuming";
               raster_fetch_state <= PaintMemWait3;
             end if;
-            
+
           end if;
         when PaintFullColourFetch =>
           -- Show what we are doing in debug display mode
@@ -4721,11 +4776,11 @@ begin
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
             paint_alternate_palette <= glyph_reverse and glyph_bold;
-            
+
             if glyph_goto='1' then
 
               report "DRAWMASK: PAINTING: is GOTOX";
-              
+
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
@@ -4737,11 +4792,11 @@ begin
               else
                 screenline_draw_mask <= (others => '1');
                 report "DRAWMASK: PAINTING: Ignoring drawmask. Using $ff (glyph_4bit not set)";
-              end if; 
-              
+              end if;
+
               -- Allow setting of the glyph y offset in GOTO tokens
               glyph_y_offset <= to_integer(glyph_width_deduct(2 downto 0));
-              
+
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
               glyph_paint_background <= not glyph_flip_vertical;
@@ -4754,7 +4809,7 @@ begin
               -- background or foreground
               force_chars_foreground <= glyph_width_deduct(3);
               force_chars_background <= glyph_flip_horizontal;
-              
+
             -- ... and don't paint anything, because it is just
             -- a tab stop.
             elsif glyph_full_colour='1' then
@@ -4875,7 +4930,7 @@ begin
           render_activity <= "101";
 
           sprite_pointer_address(19 downto 17) <= "000";
-          
+
           sprite_datavalid <= '0';
           if sprite_fetch_sprite_number = 16 or (sprite_fetch_sprite_number = 8 and bitplane_mode = '0') then
             -- Done fetching sprites
@@ -5004,7 +5059,7 @@ begin
               sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
               sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
               sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
-            else 
+            else
               if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
                 sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
               else
@@ -5027,7 +5082,7 @@ begin
               & " pointer value = $" & to_hstring(ramdata_drive);
           else
             -- Bitplane fetches happen here
-            
+
             --sprite_data_address <= sprite_pointer_address;
             --sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             --  sprite_data_address(16) <= '0';
@@ -5036,7 +5091,7 @@ begin
             --  sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             if (reg_h640='1' or reg_h1280='1') then
               sprite_data_address(19 downto 14) <= sprite_pointer_address(19 downto 14);
-              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);              
+              sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             else
               sprite_data_address(19 downto 13) <= sprite_pointer_address(19 downto 13);
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
@@ -5055,12 +5110,12 @@ begin
           report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
           if sprite_continuous_pointer_monitoring='1' then
             sprite_data_address <= (ramdata_drive(5 downto 0)&sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0))
-                                   + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);            
+                                   + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
           else
             if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
               sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             else
-              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);            
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number);
               sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
               sprite_data_address(13 downto 0) <= sprite_data_address(13 downto 0);
               sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
@@ -5132,7 +5187,7 @@ begin
 
       -- Always write if we are using the primary or alternate palette
       raster_buffer_write_data(17) <= paint_alternate_palette xor glyph_alternate_palette_invert;
-      
+
       case paint_fsm_state is
         when Idle =>
           if paint_ready /= '1' then
@@ -5162,9 +5217,9 @@ begin
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              -- 
+              --
               raster_buffer_write_data(8) <= not force_chars_background;
-                
+
               if paint_full_colour_data(3 downto 0) /= x"F" then
                 -- Lower four bits of colour come from the nybl
                 raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
@@ -5351,7 +5406,7 @@ begin
               raster_buffer_write_data(7 downto 0) <= paint_foreground;
               report "Painting foreground pixel in colour $" & to_hstring(paint_foreground) severity note;
             else
-              raster_buffer_write_data(8) <= not force_chars_foreground;              
+              raster_buffer_write_data(8) <= not force_chars_foreground;
               raster_buffer_write_data(7 downto 0) <= paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
@@ -5522,7 +5577,7 @@ begin
       else
         charaddress <= 2048 + safe_to_integer(glyph_data_address(10 downto 0));
       end if;
-    end if;  
+    end if;
   --charaddress <= to_unsigned(0,12);
   --case raster_fetch_state is
   --  when FetchBitmapData =>

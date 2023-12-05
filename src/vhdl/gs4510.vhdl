@@ -125,7 +125,7 @@ entity gs4510 is
     no_hyppo : in std_logic;
 
     sdram_t_or_hyperram_f : out boolean;
-    sdram_slow_clock : out std_logic := '1';
+    sdram_slow_clock : out std_logic := '0';
     
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;

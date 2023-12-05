@@ -4454,7 +4454,7 @@ int load_hyppo(char *filename)
     fprintf(logfile, "ERROR: Could not read HICKUP file from '%s'\n", filename);
     return -1;
   }
-  int b = fread(hypporam_expected, 1, HYPPORAM_SIZE, f);
+  int b = fread(hypporam, 1, HYPPORAM_SIZE, f);
   if (b != HYPPORAM_SIZE) {
     fprintf(logfile, "ERROR: Read only %d of %d bytes from HICKUP file.\n", b, HYPPORAM_SIZE);
     return -1;

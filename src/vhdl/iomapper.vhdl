@@ -60,6 +60,10 @@ entity iomapper is
         viciv_frame_indicate : in std_logic;
         eth_hyperrupt : out std_logic;
 
+        hw_errata_level : out unsigned(7 downto 0);
+        hw_errata_enable_toggle : in std_logic := '0';
+        hw_errata_disable_toggle : in std_logic := '0';
+
         max10_fpga_date : in unsigned(15 downto 0);
         max10_fpga_commit : in unsigned(31 downto 0);
 
@@ -1577,6 +1581,10 @@ begin
     virtualise_f011_drive0 => virtualised_hardware_in(0),
     virtualise_f011_drive1 => virtualised_hardware_in(1),
     secure_mode => protected_hardware_in(7),
+
+    hw_errata_level => hw_errata_level,
+    hw_errata_enable_toggle => hw_errata_enable_toggle,
+    hw_errata_disable_toggle => hw_errata_disable_toggle,
 
     floppy_last_gap => floppy_last_gap,
     floppy_gap_strobe => floppy_gap_strobe,

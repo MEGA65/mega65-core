@@ -695,7 +695,13 @@ begin  -- behavioural
             if eth_tx_trigger_50mhz = '0' then
               eth_tx_complete <= '0';
             end if;
-            
+
+            -- reset beacon timer if we sent a beacon packet before
+            if eth_send_beacon='1' then
+              eth_send_beacon <= '0';
+              eth_beacon_timer_count <= 50000000;
+            end if;
+
             -- XXX Try having TXD be ready for preamble, to see if that
             -- fixes the weird problem with packet loss due to wrong preamble length.
             eth_txd_int <= "01";
@@ -755,7 +761,8 @@ begin  -- behavioural
               eth_tx_state <= WaitBeforeTX;
               eth_tx_viciv <= '1';
               eth_tx_dump <= '0';
-            elsif (eth_remote_control = '1') and (eth_load_enable = '1') and (eth_beacon_timer_count = 0) then
+            elsif (eth_remote_control = '1') and (eth_load_enable = '1') 
+                   and (eth_send_beacon = '0') and (eth_beacon_timer_count = 0) then
               eth_send_beacon <= '1';
               -- Send beacon packet
               report "Sending beacon packet";
@@ -950,8 +957,6 @@ begin  -- behavioural
             -- Wait for eth_tx_trigger to go low, unless it is
             -- a VIC-IV video frame, in which case immediately clear.
             eth_tx_complete <= '1';
-            eth_send_beacon <= '0';
-            eth_beacon_timer_count <= 50000000;
             if eth_tx_trigger_50mhz='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
               eth_tx_commenced <= '0';
               eth_tx_state <= IdleWait;

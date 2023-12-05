@@ -48,6 +48,7 @@ package cputypes is
     );
 
   type ilut9bit is array(0 to 511) of instruction;
+  type ilut8bit is array(0 to 255) of instruction;
     
   
   type microcodeops is record
