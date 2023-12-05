@@ -760,7 +760,7 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-  kk0: if false generate
+  kk0: if true generate
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -985,7 +985,7 @@ begin
   end generate;
   
   m0:
-    if false generate
+    if true generate
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
                      target => mega65r5,
