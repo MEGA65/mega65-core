@@ -699,6 +699,7 @@ begin
         tmds => tmds
         );
 
+  eb0: if false generate
   expansionboard0: entity work.r3_expansion
     port map (
       cpuclock => cpuclock,
@@ -720,6 +721,7 @@ begin
       audio => luma
 
       );
+  end generate;
 
   ODDR_inst : ODDR
     port map (
@@ -758,6 +760,7 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+  kk0: if false generate
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -790,9 +793,10 @@ begin
       leftkey => keyleft
 
       );
+  end generate;
 
   hyperram0:
-  if true generate
+  if false generate
   hram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
@@ -850,7 +854,7 @@ begin
       );
 
   sdramctl0:
-  if true generate
+  if false generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
@@ -896,6 +900,7 @@ begin
       );
   end generate;
 
+  slowdev0: if false generate
   slow_devices0: entity work.slow_devices
     generic map (
       target => mega65r4
@@ -977,13 +982,14 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
-
+  end generate;
+  
   m0:
-    if true generate
+    if false generate
       machine0: entity work.machine
         generic map (cpu_frequency => 40500000,
-                     target => mega65r4,
-                     -- MEGA65R3 has A200T which has plenty of spare BRAM.
+                     target => mega65r5,
+                     -- MEGA65R3 - R5 has A200T which has plenty of spare BRAM.
                      -- We can thus increase the number of eth RX buffers from
                      -- 4x2KB to 32x2KB = 64KB.
                      -- This will, inpractice, allow the reception of ~32x1.3K
@@ -1390,10 +1396,25 @@ begin
       -- in the FPGA.  This also means we can leave the input line to
       -- the output drivers set a 0, as we never "send" a 1 -- only relax
       -- and let it float to 1.
-      iec_srq_o <= '0';
-      iec_clk_o <= '0';
-      iec_data_o <= '0';
 
+      -- XXX - Try releasing these, as well
+      iec_srq_o <= '1';
+      iec_clk_o <= '1';
+      iec_data_o <= '1';
+
+      -- Finally, because we have the output value of 0 hard-wired
+      -- on the output drivers, we need only gate the EN line.
+      -- But we only do this if the DDR is set to output
+--      iec_srq_en_n <= iec_srq_o_drive and (not iec_srq_en_drive);
+--      iec_clk_en_n <= iec_clk_o_drive and (not iec_clk_en_drive);
+--      iec_data_en_n <= iec_data_o_drive and (not iec_data_en_drive);
+
+      -- XXX - Try releasing the IEC lines
+      iec_srq_en_n <= '1';
+      iec_clk_en_n <= '1';
+      iec_data_en_n <= '1';
+
+      
       -- Reading pins is simple
       iec_srq_i_drive <= iec_srq_i;
       iec_clk_i_drive <= iec_clk_i;
@@ -1411,14 +1432,6 @@ begin
       else
         iec_bus_active <= '0';
       end if;
-
-
-      -- Finally, because we have the output value of 0 hard-wired
-      -- on the output drivers, we need only gate the EN line.
-      -- But we only do this if the DDR is set to output
-      iec_srq_en_n <= iec_srq_o_drive and (not iec_srq_en_drive);
-      iec_clk_en_n <= iec_clk_o_drive and (not iec_clk_en_drive);
-      iec_data_en_n <= iec_data_o_drive and (not iec_data_en_drive);
 
       -- Connect up real C64-compatible paddle ports
       paddle_drain <= pot_drain;
