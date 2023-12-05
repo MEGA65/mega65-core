@@ -699,7 +699,7 @@ begin
         tmds => tmds
         );
 
-  eb0: if false generate
+  eb0: if true generate
   expansionboard0: entity work.r3_expansion
     port map (
       cpuclock => cpuclock,
@@ -796,7 +796,7 @@ begin
   end generate;
 
   hyperram0:
-  if false generate
+  if true generate
   hram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
@@ -854,7 +854,7 @@ begin
       );
 
   sdramctl0:
-  if false generate
+  if true generate
   sdramctrl0: entity work.sdram_controller
     port map (
       pixelclock => pixelclock,
@@ -900,7 +900,7 @@ begin
       );
   end generate;
 
-  slowdev0: if false generate
+  slowdev0: if true generate
   slow_devices0: entity work.slow_devices
     generic map (
       target => mega65r4
@@ -1396,11 +1396,9 @@ begin
       -- in the FPGA.  This also means we can leave the input line to
       -- the output drivers set a 0, as we never "send" a 1 -- only relax
       -- and let it float to 1.
-
-      -- XXX - Try releasing these, as well
-      iec_srq_o <= '1';
-      iec_clk_o <= '1';
-      iec_data_o <= '1';
+      iec_srq_o <= '0';
+      iec_clk_o <= '0';
+      iec_data_o <= '0';
 
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
