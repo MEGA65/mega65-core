@@ -135,13 +135,16 @@ begin
 
         report "Read DIP switches as $" & to_hexstring(dipsw_read);
         report "Read board revision as " & to_hexstring(board_major) & "." & to_hexstring(board_minor);
-        if dipsw_read /= x"a5" then
-          assert false report "DIP switch value not read correctly";
+        if to_X01(dipsw_read) /= x"a5" then
+          for i in 0 to 7 loop
+            report "DIP switch #" & integer'image(i) & " = " & std_logic'image(dipsw_read(i));
+          end loop;          
+          assert false report "DIP switch value not read correctly (saw $" & to_hexstring(dipsw_read) & " instead)";
         end if;
-        if board_major /= x"5" then
+        if to_X01(board_major) /= x"5" then
           assert false report "Board major version value not read correctly";
         end if;
-        if board_minor /= x"0" then
+        if to_X01(board_minor) /= x"0" then
           assert false report "Board minor version value not read correctly";
         end if;
           

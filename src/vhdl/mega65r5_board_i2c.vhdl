@@ -112,6 +112,7 @@ architecture behavioural of mega65r5_board_i2c is
   signal latch_count : integer range 0 to 255 := 150;
   signal last_latch_count : integer range 0 to 255 := 150;
   signal last_latch : std_logic := '1';
+  signal last_busy : std_logic := '0';
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 255) of uint8;
@@ -164,6 +165,7 @@ begin
 
       -- State machine for reading registers from the various
       -- devices.
+      last_busy <= i2c1_busy;
       last_latch <= i2c1_latch_toggle;
       if i2c1_latch_toggle /= last_latch then
         latch_count <= latch_count + 1;
@@ -213,12 +215,21 @@ begin
           command_en <= '1';
           i2c1_rw <= '1';
         when 6 =>
-          dipsw_int <= std_logic_vector(i2c1_rdata);
           command_en <= '1';
           i2c1_rw <= '1';
         when 7 =>
-          board_major <= i2c1_rdata(7 downto 4);
-          board_minor <= i2c1_rdata(3 downto 0);
+          command_en <= '1';
+          i2c1_rw <= '1';
+          if i2c1_busy = '1' and last_busy = '0' then
+            dipsw_int <= std_logic_vector(i2c1_rdata);
+          end if;
+        when 8 =>
+          command_en <= '1';
+          i2c1_rw <= '1';
+          if i2c1_busy = '1' and last_busy = '0' then
+            board_major <= i2c1_rdata(7 downto 4);
+            board_minor <= i2c1_rdata(3 downto 0);
+          end if;
           
         when others =>
           command_en <= '0';
