@@ -96,6 +96,7 @@ architecture behavioural of mega65r5_board_i2c is
   signal i2c1_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_latch_toggle : std_logic;
   signal i2c1_busy : std_logic := '0';
   signal i2c1_busy_last : std_logic := '0';
   signal i2c1_rw : std_logic := '0';
@@ -104,12 +105,13 @@ architecture behavioural of mega65r5_board_i2c is
   signal i2c1_reset : std_logic := '1';
   signal i2c1_command_en : std_logic := '0';
   signal command_en : std_logic := '0';
+  signal command_continue : std_logic := '0';
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal busy_count : integer range 0 to 255 := 150;
-  signal last_busy_count : integer range 0 to 255 := 150;
-  signal last_busy : std_logic := '1';
+  signal latch_count : integer range 0 to 255 := 150;
+  signal last_latch_count : integer range 0 to 255 := 150;
+  signal last_latch : std_logic := '1';
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 255) of uint8;
@@ -119,8 +121,6 @@ architecture behavioural of mega65r5_board_i2c is
   signal write_addr : unsigned(7 downto 0) := x"48";
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
-
-  signal delayed_en : integer range 0 to 65535 := 0;
 
   signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
@@ -147,6 +147,7 @@ begin
       busy => i2c1_busy,
       unsigned(data_rd) => i2c1_rdata,
       ack_error => i2c1_error,
+      latch_toggle => i2c1_latch_toggle,
       sda => sda,
       scl => scl,
       swap => i2c1_swap,
@@ -161,42 +162,31 @@ begin
 
       dipsw_read <= dipsw_int;
       
-      -- Must come first, so state machines below can set delayed_en
-      if delayed_en /= 0 then
-        report "Waiting for delay to expire: " & integer'image(delayed_en);
-        delayed_en <= delayed_en - 1;
-        if delayed_en = 1024 then
-          i2c1_command_en <= '0';
-        end if;
-      else
---        report "No command delay: busy=" & std_logic'image(i2c1_busy) & ", last_busy=" & std_logic'image(last_busy);
-        -- Activate command
-        if command_en = '1' and i2c1_busy = '0' and command_en='1' then
-          report "Enabling command";
-        end if;
-        i2c1_command_en <= command_en;
-        if i2c1_busy = '1' and last_busy = '0' then
-          report "Command latched.";
-          command_en <= '0';
-        end if;
+      -- Activate command
+      if command_en = '1' and i2c1_busy = '0' and command_en='1' then
+        report "Enabling command";
       end if;
+      i2c1_command_en <= command_en;
 
       -- State machine for reading registers from the various
       -- devices.
-      last_busy <= i2c1_busy;
-      if i2c1_busy='1' and last_busy='0' then
-        busy_count <= busy_count + 1;
+      last_latch <= i2c1_latch_toggle;
+      if i2c1_latch_toggle /= last_latch then
+        latch_count <= latch_count + 1;
       end if;
-      last_busy_count <= busy_count;
+      last_latch_count <= latch_count;
 
-      case busy_count is
+      case latch_count is
         -- Enable force PWM mode for DCDC converter #1
         when 0 =>
+          command_continue <= '0';
           command_en <= '1';
           i2c1_address <= "1100001"; -- 0x61 = I2C address of device;
           i2c1_wdata <= x"01";
           i2c1_rw <= '0';
         when 1 =>
+          -- Continue previous transaction
+          command_continue <= '1';
           command_en <= '1';
           i2c1_rw <= '0';
           -- Default settings + set bit 0 to 1 to force PWM mode or leave it 0
@@ -204,10 +194,9 @@ begin
           i2c1_wdata <= x"A6";
           i2c1_wdata(0) <= not ear_watering_mode;
 
-          delayed_en <= 1024;
-
         -- Enable force PWM mode for DCDC converter #2
         when 2 =>
+          command_continue <= '0';
           command_en <= '1';
           i2c1_address <= "1100111"; -- 0x67 = I2C address of device;
           i2c1_wdata <= x"01";
@@ -219,8 +208,6 @@ begin
           -- to make your ears water from the annoying high frequency sounds
           i2c1_wdata <= x"A6";
           i2c1_wdata(0) <= not ear_watering_mode;
-
-          delayed_en <= 1024;
 
         -- Read DIP switches and board revision straps
         when 4 =>
@@ -240,8 +227,8 @@ begin
           
         when others =>
           command_en <= '0';
-          busy_count <= 0;
-          last_busy <= '1';
+          latch_count <= 0;
+          last_latch <= i2c1_latch_toggle;
           write_job_pending <= '0';
       end case;
 

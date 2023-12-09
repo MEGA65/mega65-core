@@ -52,6 +52,8 @@ ENTITY i2c_master IS
     sda       : INOUT  STD_LOGIC;                    --serial data output of i2c bus
     scl       : INOUT  STD_LOGIC;                   --serial clock output of i2c bus
 
+    latch_toggle : out std_logic := '0';
+    
     -- Debug inputs that allow us to pull the lines low to test
     swap : in std_logic := '0';
     debug_scl : in std_logic := '0';
@@ -80,6 +82,8 @@ ARCHITECTURE logic OF i2c_master IS
   SIGNAL data_rx       : STD_LOGIC_VECTOR(7 DOWNTO 0);   --data received from slave
   SIGNAL bit_cnt       : INTEGER RANGE 0 TO 7 := 7;      --tracks bit number in transaction
   SIGNAL stretch       : STD_LOGIC := '0';               --identifies if slave is stretching scl
+
+  signal latch_toggle_int : std_logic := '0';
 BEGIN
 
   --generate the timing for the bus clock (scl_clk) and the data clock (data_clk)
@@ -139,6 +143,8 @@ BEGIN
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
               state <= start;                --go to start bit
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
             ELSE                             --remain idle
               busy <= '0';                   --unflag busy
               state <= ready;                --remain idle
@@ -201,6 +207,8 @@ BEGIN
             END IF;
           WHEN slv_ack2 =>                   --slave acknowledge bit (write)
             IF(ena = '1') THEN               --continue transaction
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -220,6 +228,8 @@ BEGIN
             END IF;
           WHEN mstr_ack =>                   --master acknowledge bit after a read
             IF(ena = '1') THEN               --continue transaction
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
               busy <= '0';                   --continue is accepted and data received is available on bus
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
