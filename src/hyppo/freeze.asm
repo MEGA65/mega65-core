@@ -3,6 +3,8 @@
 ;;     Paul Gardner-Stephen, 2014-2019.
 ;;     ---------------------------------------------------------------- */
 
+version_sentinel_str = "VRS"
+
 freeze_to_slot:
         ;; Freeze current running process to the specified slot
 
@@ -790,6 +792,7 @@ freeze_prep_jump_table:
         !16 do_freeze_prep_thumbnail
         !16 do_freeze_prep_viciv
 	!16 do_freeze_prep_none
+	!16 do_freeze_prep_none
 
 ;; Jump table of routines to be called before restoring specific regions
 ;; (the same region list is used for freeze and unfreeze, so the jump
@@ -840,8 +843,35 @@ do_unfreeze_post_none:
         rts
 
 do_unfreeze_post_scratch_to_sdcard_regs:
-        ;; XXX - Not implemented
-        rts
+        ;; Check that we have a version, then only copy stuff we actually saved for
+        ;; that version.
+        ldx #0
+-       lda freeze_version,x
+        cmp version_sentinel,x
+        bne @rts  ; pre-versioned or corrupt freeze
+        inx
+        cpx #len(version_sentinel_str)
+        bne -
+
+        ;; Version sentinal checks out
+        ldy freeze_version,x  ; actual version of this freeze
+        ;; when there are future versions this code would look like:
+;;        cpy #3
+;;        bne +
+;;        ;; Do stuff added for version 3 and skip over next cmp
+;;        lda freeze_blah
+;;        sta $XXXX
+;;        dey
+;;+       cpy #2
+;;        bne +
+;;        lda freeze_blerg
+;;        sta $XXXX
+;;        ;;... etc
+;;        dey
+;;+       cmp #1
+        lda freeze_vic_errata
+        sta $d08f
+@rts    rts
 
 do_unfreeze_post_hyperregs:
 	;; XXX For reasons unknown, the DMA restoration of the hypervisor registers
@@ -887,19 +917,38 @@ dfp1:   lda $d680,x
         ;; since it gets stomped while saving palettes
         lda $d070
         sta freeze_d070
+        ;; Also save $D08F (VIC IV Errata)
+        ;; We can't extend the VIC IV DMA entry due to
+        ;; it spanning $D081 which must not be written to
+        ;; lest the SD reading is disturbed.
+        lda $d08f
+        sta freeze_vic_errata
         rts
 
+version_sentinel: !text version_sentinel_str
 freeze_scratch_area:
         !8 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 freeze_d070:
         !8 0
+freeze_version:
+        !text version_sentinel_str
+        ;; *** NOTE: Update the version below if more values are added to be restored from
+        ;; the scratch area.  This prevents us restoring values that were not
+        ;; actually frozen but just happened to be in a freeze sector when an
+        ;; older freeze was made.
+        !8 1
+freeze_vic_errata:
+        !8 0
+        ;; See NOTE above ;)
+freeze_scratch_area_end:
 
 do_freeze_prep_viciv:
         ;; Restore saved $D070 value to fix that $D070 will have been
         ;; stomped over by the palette saving routines
         lda freeze_d070
         sta $d070
-        rts
+	rts
+
 
 freeze_region_dmalist:
         !8 $0A ;; F011A format DMA list
@@ -994,7 +1043,7 @@ freeze_mem_list:
         ;; So they are not done here.
         ;; (the +$FFF0000 is to rebase the pointer into the hypervisor memory area)
         !32 freeze_scratch_area+$fff0000
-        !16 $0010
+        !16 (freeze_scratch_area_end - freeze_scratch_area)
         !8 0
         !8 freeze_prep_none
 
@@ -1071,8 +1120,8 @@ freeze_mem_list:
 
         ;; VIC-IV, F011 $D000-$D0FF
         !32 $ffd3000
-        !16 $0100
-        !8 0
+        !16 $0080   ; Do not increase this. $D081 controls sd card buffers/etc.
+        !8 0        ;  writing to it will cause very bad things to happen.
         !8 freeze_prep_viciv
 
         ;; VIC-IV C128 2MHz enable emulation register
