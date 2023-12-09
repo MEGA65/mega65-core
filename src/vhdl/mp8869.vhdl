@@ -1,23 +1,13 @@
+-- Paul Gardner-Stephen 2023, forked from:
 -- Copyright (c) 2006 Frank Buss (fb@frank-buss.de)
 -- See license.txt for license
 --
--- An entity like the PCA9555, but without interrupt and maybe different latching timings.
--- Fireset a byte is written for addressing a register:
--- 0: input port 0
--- 1: input port 1
--- 2: output port 0
--- 3: output port 1
--- 4: input polarity inversion port 0 (1=input is inverted)
--- 5: input polarity inversion port 1
--- 6: configuration port 0 (1=pin is input)
--- 7: configuration port 0
--- Then you can write to the register or you can send a repeated start with
--- read bit set and read from it.
--- For details see http://www.nxp.com/acrobat_download/datasheets/PCA9555_6.pdf
+-- Simulated MP8869 DCDC converter to support testing
+-- of setting PWM mode
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-entity pca9555 is
+entity mp8869 is
   generic(
     clock_frequency: natural := 1e7;
     address: unsigned(6 downto 0) := b"0000000");
@@ -26,10 +16,9 @@ entity pca9555 is
     reset: in std_logic;
     scl: in std_logic;
     sda: inout std_logic;
-    port0: inout unsigned(7 downto 0);
-    port1: inout unsigned(7 downto 0));
-end entity pca9555;
-architecture rtl of pca9555 is
+    ear_watering_mode: out std_logic);
+end entity mp8869;
+architecture rtl of mp8869 is
   component i2c_slave is
     generic(
       clock_frequency: natural;
@@ -55,9 +44,9 @@ architecture rtl of pca9555 is
   signal transfer_started: boolean;
   signal data_out_requested: boolean;
   signal data_in_valid: boolean;
-    signal read_mode : boolean;  
+  signal read_mode : boolean;  
   
-  -- PCA9555 signals
+  -- MP8869 signals
   type registers_type is array (0 to 7) of unsigned(7 downto 0);
   signal registers: registers_type := (others => x"00");
   signal selected_register_index: unsigned(2 downto 0);
@@ -87,22 +76,18 @@ begin
       scl => scl);
   test_process: process(clock, reset)
   begin
+    ear_watering_mode <= not registers(1)(0);
+    
     if reset = '1' then
-      -- input
-      registers(0) <= x"00";
-      registers(1) <= x"00";
-      
-      -- output
-      registers(2) <= x"00";
-      registers(3) <= x"00";
-      
-      -- polarity inversion
-      registers(4) <= x"00";
-      registers(5) <= x"00";
-      
-      -- configuration
-      registers(6) <= x"ff";
-      registers(7) <= x"ff";
+      -- See page 26 of the datasheet
+      registers(0) <= x"1e"; -- VSEL
+      registers(1) <= x"a6"; -- SysCntlReg1 (bit 0 of this is the one we care about)
+      registers(2) <= x"c1"; -- SysCntlReg2
+      registers(3) <= x"00"; -- Output current
+      registers(4) <= x"00"; -- Output voltage
+      registers(5) <= x"80"; -- ID1
+      registers(6) <= x"01"; -- Status (bit0 = power good)
+      registers(7) <= x"ff"; -- DOES NOT EXIST IN REAL PART
       state <= idle;
     else
       if rising_edge(clock) then
@@ -145,23 +130,7 @@ begin
         if stop_detected then
           state <= idle;
         end if;
-        -- update input registers
-        registers(0) <= port0;
-        registers(1) <= port1;
-        
-        -- update port by output registers or set to tri-state
-        for i in 0 to 7 loop 
-          if registers(6)(i) = '1' then
-            port0(i) <= 'Z';
-          else
-            port0(i) <= registers(2)(i) xor registers(4)(i);
-          end if;
-          if registers(7)(i) = '1' then
-            port1(i) <= 'Z';
-          else
-            port1(i) <= registers(3)(i) xor registers(5)(i);
-          end if;
-        end loop;
+
       end if;
     end if;
   end process;
