@@ -120,6 +120,31 @@ begin
             exit;
           end if;
         end loop;
+
+      elsif run("DIP-Switches and board revision gets read") then
+
+        reset_high <= '1'; clock_tick;clock_tick;clock_tick;clock_tick;
+        reset_high <= '0'; clock_tick;clock_tick;clock_tick;clock_tick;
+
+        for i in 1 to 100000 loop
+          clock_tick;
+
+          port0 <= x"a5"; -- DIP switches
+          port1 <= x"50"; -- board revision
+        end loop;
+
+        report "Read DIP switches as $" & to_hexstring(dipsw_read);
+        report "Read board revision as " & to_hexstring(board_major) & "." & to_hexstring(board_minor);
+        if dipsw_read /= x"a5" then
+          assert false report "DIP switch value not read correctly";
+        end if;
+        if board_major /= x"5" then
+          assert false report "Board major version value not read correctly";
+        end if;
+        if board_minor /= x"0" then
+          assert false report "Board minor version value not read correctly";
+        end if;
+          
         
       end if;
     end loop;

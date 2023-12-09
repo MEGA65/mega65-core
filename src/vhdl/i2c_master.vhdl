@@ -177,7 +177,7 @@ BEGIN
               state <= rd;                   --go to read byte
             END IF;
           WHEN wr =>                         --write byte of transaction
-            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hexstring(data_tx) & " as " & std_logic'image(sda_int);
+--            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hexstring(data_tx) & " as " & std_logic'image(sda_int);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --write byte transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
@@ -189,7 +189,7 @@ BEGIN
               state <= wr;                   --continue writing
             END IF;
           WHEN rd =>                         --read byte of transaction
-            report "reading data bit " & integer'image(bit_cnt);
+--            report "reading data bit " & integer'image(bit_cnt);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --read byte receive finished
               IF(ena = '1' AND addr_rw = addr & rw) THEN  --continuing with another read at same address

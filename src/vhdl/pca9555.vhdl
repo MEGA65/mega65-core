@@ -17,6 +17,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use work.debugtools.all;
+
 entity pca9555 is
   generic(
     clock_frequency: natural := 1e7;
@@ -133,6 +135,8 @@ begin
               state <= wait_for_event_released;
             end if;
             if data_out_requested then
+              report "PCA9555: Reading regsiter $" & to_hexstring(selected_register_index)
+                & ", value = $" & to_hexstring(registers(to_integer(selected_register_index)));
               data_out <= registers(to_integer(selected_register_index));
               state <= wait_for_event_released;
             end if;

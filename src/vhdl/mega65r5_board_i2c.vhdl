@@ -127,9 +127,6 @@ architecture behavioural of mega65r5_board_i2c is
   signal i2c1_debug_scl : std_logic := '0';
   signal debug_status : unsigned(5 downto 0) := "000000";
 
-  signal port0 : unsigned(7 downto 0);
-  signal port1 : unsigned(7 downto 0);
-  
 begin
 
   i2c1: entity work.i2c_master
@@ -163,9 +160,6 @@ begin
       dipsw_read <= dipsw_int;
       
       -- Activate command
-      if command_en = '1' and i2c1_busy = '0' and command_en='1' then
-        report "Enabling command";
-      end if;
       i2c1_command_en <= command_en;
 
       -- State machine for reading registers from the various
@@ -219,11 +213,12 @@ begin
           command_en <= '1';
           i2c1_rw <= '1';
         when 6 =>
-          port0 <= i2c1_rdata;
+          dipsw_int <= std_logic_vector(i2c1_rdata);
           command_en <= '1';
           i2c1_rw <= '1';
         when 7 =>
-          port1 <= i2c1_rdata;
+          board_major <= i2c1_rdata(7 downto 4);
+          board_minor <= i2c1_rdata(3 downto 0);
           
         when others =>
           command_en <= '0';
