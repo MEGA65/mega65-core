@@ -838,13 +838,14 @@ begin  -- behavioural
         -- @IO:GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
         -- @IO:GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
         -- @IO:GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
-        -- @IO:GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        -- @IO:GS $D628.0-3 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        -- @IO:GS $D628.4-7 UARTMISC:BOARDMINOR Read PCB minor revision (R5+ only, else reads zeroes)
         when x"25" => fastio_rdata <= unsigned(j21in(7 downto 0));
         when x"26" => fastio_rdata(3 downto 0) <= (unsigned(j21in(11 downto 8)));
                       fastio_rdata(7 downto 4) <= "0000";
         when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
         when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
-                      fastio_rdata(7 downto 4) <= "0000";
+                      fastio_rdata(7 downto 4) <= board_minor;
         when x"29" =>
           -- @IO:GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
           fastio_rdata <= target_id;
