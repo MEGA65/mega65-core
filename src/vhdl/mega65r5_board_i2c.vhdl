@@ -171,7 +171,7 @@ begin
         -- Read DIP switches and board revision straps
         when 4 =>
           command_en <= '1';
-          i2c1_address <= "1000001"; -- 0x41 = I2C address of device;
+          i2c1_address <= "1000000"; -- 0x40 = I2C address of device;
           i2c1_wdata <= x"00";
           i2c1_rw <= '0';
         when 5 =>

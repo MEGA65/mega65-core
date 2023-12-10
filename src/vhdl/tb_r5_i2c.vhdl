@@ -35,7 +35,7 @@ begin
 
   pca0: entity work.pca9555
     generic map ( clock_frequency => 40_500_000,
-                  address => b"1000001"
+                  address => b"1000000"
                   )
     port map ( clock => clock41,
                reset => reset_high,
