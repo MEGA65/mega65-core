@@ -1387,7 +1387,7 @@ begin
 
       -- The simple output-only IEC lines we just drive
       iec_reset_n <= iec_reset_drive;
-      iec_atn_en_n <= iec_atn_drive;
+      iec_atn_en_n <= not iec_atn_drive;
 
       -- The active-high EN lines enable the IEC output drivers.
       -- We need to invert the signal, so that if a signal from CIA
