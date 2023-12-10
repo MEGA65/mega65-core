@@ -645,7 +645,7 @@ architecture behavioral of iomapper is
   signal eth_load_enable_int : std_logic := '0';
 
   signal board_major_int : unsigned(3 downto 0);
-  signal board_minor_int : unsigned(3 downto 0);
+  signal board_minor_int : unsigned(3 downto 0) := x"0";
 
 begin
 
