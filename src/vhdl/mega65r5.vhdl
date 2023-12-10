@@ -903,7 +903,7 @@ begin
   slowdev0: if true generate
   slow_devices0: entity work.slow_devices
     generic map (
-      target => mega65r4
+      target => mega65r5
       )
     port map (
       cpuclock => cpuclock,
