@@ -327,11 +327,14 @@ begin  -- behavioural
     -- Determine model number
     case target is
       -- $00-$1F = MEGA65 desktop versions
+      -- Note: MEGA65 R5 onwards read straps from an I2C IO expander to get
+      -- the board major and minor versions, so we don't ID beyond R4 here.
+      -- Search for mega65r5 in this file to find that other logic.
       when mega65r1 => target_id <= x"01";
       when mega65r2 => target_id <= x"02";
       when mega65r3 => target_id <= x"03";
       when mega65r4 => target_id <= x"04";
-      when mega65r4 => target_id <= x"05";
+                       
       -- $20-$3F = MEGAphone/handheld versions
       when megaphoner1 => target_id <= x"21";
       when megaphoner4 => target_id <= x"22";
@@ -848,11 +851,15 @@ begin  -- behavioural
                       fastio_rdata(7 downto 4) <= board_minor;
         when x"29" =>
           -- @IO:GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
-          fastio_rdata <= target_id;
-          if target = mega65r5 then
-            fastio_rdata(7 downto 4) <= x"0";
-            fastio_rdata(3 downto 0) <= board_major;
-          end if;
+          case target is
+            when mega65r5 | mega65r6 | mega65r7 | mega65r8 | mega65r9 | mega65r10
+              | mega65r11 | mega65r12 | mega65r13 | mega65r14 =>
+              fastio_rdata(7 downto 4) <= x"0";
+              fastio_rdata(3 downto 0) <= board_major;
+            when others =>
+              fastio_rdata <= target_id;
+          end case;
+
         -- @IO:GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
         -- @IO:GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
         when x"2a" => fastio_rdata <= kbd_datestamp(7 downto 0);
