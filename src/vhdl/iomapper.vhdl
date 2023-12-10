@@ -644,6 +644,9 @@ architecture behavioral of iomapper is
 
   signal eth_load_enable_int : std_logic := '0';
 
+  signal board_major_int : unsigned(3 downto 0);
+  signal board_minor_int : unsigned(3 downto 0);
+
 begin
 
   block1: block
@@ -906,8 +909,8 @@ begin
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
 
-      board_major => board_major,
-      board_minor => board_minor,
+      board_major => board_major_int,
+      board_minor => board_minor_int,
 
       key_debug => key_debug,
       widget_disable => widget_disable,
@@ -1421,8 +1424,8 @@ begin
       clock => cpuclock,
 
       dipsw_read => dipsw_read,
-      board_major => board_major,
-      board_minor => board_minor,
+      board_major => board_major_int,
+      board_minor => board_minor_int,
     
       sda => board_sda,
       scl => board_scl
@@ -1801,6 +1804,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      board_major <= board_major_int;
+      board_minor <= board_minor_int;
+      
       if key_scancode_toggle /= last_key_scancode_toggle then
         last_key_scancode_toggle <= key_scancode_toggle;
         combined_scancode_toggle <= not internal_combined_scancode_toggle;
