@@ -906,6 +906,9 @@ begin
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
 
+      board_major => board_major,
+      board_minor => board_minor,
+
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
