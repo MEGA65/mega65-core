@@ -1453,7 +1453,7 @@ begin
 
   
   i2cperiph_mega65r4:
-  if target = mega65r4 or target = mega65r5 generate
+  if (target = mega65r4) or (target = mega65r5) generate
     i2c1: entity work.mega65r4_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
@@ -2146,18 +2146,18 @@ begin
         end if;
       end if;
 
-      if target = mega65r3 or target = mega65r4 then
+      if target = mega65r3 or target = mega65r4 or target = mega65r5 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
-          report "i2cperipherals_cs for MEGA65R3/R4 asserted";
+          report "i2cperipherals_cs for MEGA65R3/R4/R5 asserted";
         end if;
         if address(19 downto 8) = x"D73" then
           i2chdmi_cs <= '1';
-          report "i2chdmi_cs for MEGA65R3/R4 asserted";
+          report "i2chdmi_cs for MEGA65R3/R4/R5 asserted";
         end if;
         if address(19 downto 8) = x"D74" then
           grove_cs <= '1';
-          report "grove_cs for MEGA65R3/R4 asserted";
+          report "grove_cs for MEGA65R3/R4/R5 asserted";
         end if;
       end if;
 
