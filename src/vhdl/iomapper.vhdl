@@ -1637,6 +1637,7 @@ begin
     f_diskchanged => f_diskchanged,
     f_rdata_loopback => f_rdata_loopback,
 
+    dipsw_hi => dipsw_hi,
     dipsw => dipsw,
     sw => sw,
     j21in => j21in,

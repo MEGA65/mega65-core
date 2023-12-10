@@ -123,6 +123,7 @@ entity sdcardio is
     drive_ledsd : out std_logic := '0';
     motor : out std_logic := '0';
 
+    dipsw_hi : in std_logic_vector(7 downto 5);
     dipsw : in std_logic_vector(4 downto 0);
     j21in : in std_logic_vector(11 downto 0);
     sw : in std_logic_vector(15 downto 0);
@@ -1098,7 +1099,7 @@ begin  -- behavioural
            sd_interface_select_internal,sdcard_busy,sd_handshake,sd_data_ready,
            f011_swap_drives,qspi_bytes_differ,virtualise_f011_drive0,
            virtualise_f011_drive1,f011_d64_disk,f011_d64_disk2,f011_mega_disk,
-           f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw,
+           f011_mega_disk2,fdc_write_byte_number,autotune_enable,j21in,dipsw,dipsw_hi,
            latched_disk_change_event,fdc_sector_found_2x,fdc_sector_end_2x,
            silent_sdcard,fdc_crc_error,fdc_2x_select,found_track_2x,
            found_sector_2x,found_side_2x,track_info_track,track_info_rate,
@@ -1402,9 +1403,10 @@ begin  -- behavioural
             fastio_rdata(3 downto 0) <= unsigned(j21in(11 downto 8));
             fastio_rdata(7 downto 4) <= "0000";
           when x"9d" =>
-            -- @IO:GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
-            fastio_rdata(4 downto 0) <= unsigned(dipsw(4 downto 0));
-            fastio_rdata(7 downto 5) <= "000";
+            -- @IO:GS $D69D.0-4 DEBUG:DIPSW Status of M65 R3/R3A/R4 DIP switches
+            -- @IO:GS $D69D.5-7 DEBUG:DIPSWHI Status of M65 R5 DIP switches
+            fastio_rdata(4 downto 0) <= unsigned(dipsw);
+            fastio_rdata(7 downto 5) <= unsigned(dipsw_hi);
           when x"9e" =>
             -- @IO:GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
             fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
