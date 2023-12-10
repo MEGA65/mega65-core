@@ -1386,7 +1386,7 @@ begin
       fb_fire_drive <= fb_fire;
 
       -- The simple output-only IEC lines we just drive
-      iec_reset_n <= not iec_reset_drive;
+      iec_reset_n <= iec_reset_drive;
       iec_atn_en_n <= not iec_atn_drive;
 
       -- The active-high EN lines enable the IEC output drivers.
