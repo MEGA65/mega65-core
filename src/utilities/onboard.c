@@ -316,6 +316,36 @@ void audiomix_setup(void)
   POKE(0xD478U, 0x0f);
 }
 
+void hw_setup_r4r5rtc(void)
+{
+  // enable SuperCAP charging, if not done yet
+  if (lpeek(0xffd71d0UL) == 0x23)
+    return;
+
+  // disable eeprom refresh
+  lpoke(0xffd7120UL, 0x04);
+  usleep(20000L); // need to wait for slow RTC getting updated
+  // set charging mode to LSM, TCM 4.5V
+  lpoke(0xffd71d0UL, 0x23);
+  usleep(20000L);
+  // EECMD Update EEPROM
+  lpoke(0xffd714fUL, 0x11);
+  usleep(20000L);
+  // enable eeprom refresh
+  lpoke(0xffd7120UL, 0x00);
+  usleep(20000L);
+}
+
+void hardware_setup(void)
+{
+  switch (PEEK(0xD629)) {
+    case 0x04:
+    case 0x05:
+      hw_setup_r4r5rtc();
+      break;
+  }
+}
+
 void main(void)
 {
   mega65_io_enable();
@@ -336,6 +366,9 @@ void main(void)
 
   // Reset audio mixer coefficients
   audiomix_setup();
+
+  // do hardware version dependent setup
+  hardware_setup();
 
   printf("%cWelcome to the MEGA65!\n", 0x93);
   printf("\nBefore you go further, there are couple of things you need to do.\n");
