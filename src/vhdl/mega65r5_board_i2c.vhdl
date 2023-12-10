@@ -184,8 +184,8 @@ begin
           command_en <= '1';
           i2c1_rw <= '1';
           if i2c1_busy = '1' and last_busy = '0' then
-            board_major <= i2c1_rdata(7 downto 4);
-            board_minor <= i2c1_rdata(3 downto 0);
+            board_minor <= i2c1_rdata(7 downto 4);
+            board_major <= i2c1_rdata(3 downto 0);
           end if;
         when 8 =>
           command_en <= '1';
