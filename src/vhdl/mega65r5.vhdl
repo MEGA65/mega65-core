@@ -114,8 +114,8 @@ entity container is
          cart_game_en_n : out std_logic := '1';
          -- Except the ROMH/ROML drive lines which we drive open-collector
          -- in the main process
-         cart_romh_en_n : out std_logic;
-         cart_roml_en_n : out std_logic;
+         cart_romh_en_n : out std_logic := '0';
+         cart_roml_en_n : out std_logic := '0';
 
          cart_d : inout unsigned(7 downto 0) := (others => 'Z');
          cart_a : inout unsigned(15 downto 0) := (others => 'Z');
@@ -1333,9 +1333,9 @@ begin
     if rising_edge(cpuclock) then
 
       cart_roml <= cart_roml_int;
-      cart_roml_en_n <= cart_roml_int;
+--      cart_roml_en_n <= cart_roml_int;
       cart_romh <= cart_romh_int;
-      cart_romh_en_n <= cart_romh_int;
+--      cart_romh_en_n <= cart_romh_int;
       
       cart_reset <= cart_reset_int;
       cart_reset_en_n <= cart_reset_int;
