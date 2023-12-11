@@ -110,10 +110,12 @@ entity container is
          -- By default, do not drive any of the new bi-dir cart port lines low
          cart_irq_en_n : out std_logic := '1';
          cart_nmi_en_n : out std_logic := '1';
-         cart_romh_en_n : out std_logic := '1';
-         cart_roml_en_n : out std_logic := '1';
          cart_exrom_en_n : out std_logic := '1';
          cart_game_en_n : out std_logic := '1';
+         -- Except the ROMH/ROML drive lines which we drive open-collector
+         -- in the main process
+         cart_romh_en_n : out std_logic;
+         cart_roml_en_n : out std_logic;
 
          cart_d : inout unsigned(7 downto 0) := (others => 'Z');
          cart_a : inout unsigned(15 downto 0) := (others => 'Z');
@@ -426,6 +428,8 @@ architecture Behavioral of container is
 
   signal cart_access_count : unsigned(7 downto 0);
   signal cart_reset_int : std_logic := '1';
+  signal cart_roml_int : std_logic;
+  signal cart_romh_int : std_logic;
 
   signal widget_matrix_col_idx : integer range 0 to 8 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
@@ -972,8 +976,8 @@ begin
       cart_exrom => cart_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
-      cart_roml => cart_roml,
-      cart_romh => cart_romh,
+      cart_roml => cart_roml_int,
+      cart_romh => cart_romh_int,
       cart_io1 => cart_io1,
       cart_game => cart_game,
       cart_io2 => cart_io2,
@@ -1328,6 +1332,11 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      cart_roml <= cart_roml_int;
+      cart_roml_en_n <= cart_roml_int;
+      cart_romh <= cart_romh_int;
+      cart_romh_en_n <= cart_romh_int;
+      
       cart_reset <= cart_reset_int;
       cart_reset_en_n <= cart_reset_int;
       
