@@ -1332,10 +1332,20 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
-      cart_roml <= cart_roml_int;
-      cart_roml_en_n <= cart_roml_int;
-      cart_romh <= cart_romh_int;
-      cart_romh_en_n <= cart_romh_int;
+      if cart_roml_int='0' then
+        cart_roml <= '0';
+        cart_roml_en_n <= '0';
+      else
+        cart_roml_en_n <= '1';
+        cart_roml <= 'Z';
+      end if;
+      if cart_romh_int='0' then
+        cart_romh <= '0';
+        cart_romh_en_n <= '0';
+      else
+        cart_romh_en_n <= '1';
+        cart_romh <= 'Z';
+      end if;
       
       cart_reset <= cart_reset_int;
       cart_reset_en_n <= cart_reset_int;
