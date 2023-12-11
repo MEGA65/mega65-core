@@ -4684,8 +4684,11 @@ begin
       end if;
       
       speed_gate_drive <= speed_gate;
-      
-      if cartridge_enable='1' then
+
+      if hypervisor_mode='1' then
+        gated_exrom <= '1';
+        gated_game <= '1';
+      elsif cartridge_enable='1' then
         gated_exrom <= exrom or force_exrom;
         gated_game <= game or force_game;
       else
