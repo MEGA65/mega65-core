@@ -948,7 +948,7 @@ do_freeze_prep_viciv:
         ;; stomped over by the palette saving routines
         lda freeze_d070
         sta $d070
-	rts
+        rts
 
 freeze_region_dmalist:
         !8 $0A ;; F011A format DMA list
