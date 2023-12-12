@@ -4,6 +4,7 @@
 ;;     ---------------------------------------------------------------- */
 
 version_sentinel_str = "VRS"
+version = 1
 
 freeze_to_slot:
         ;; Freeze current running process to the specified slot
@@ -932,14 +933,14 @@ freeze_d070:
         !8 0
 freeze_version:
         !text version_sentinel_str
-        ;; *** NOTE: Update the version below if more values are added to be restored from
+        ;; *** NOTE: Update the version constant if more values are added to be restored from
         ;; the scratch area.  This prevents us restoring values that were not
         ;; actually frozen but just happened to be in a freeze sector when an
         ;; older freeze was made.
-        !8 1
+        !8 version
 freeze_vic_errata:
         !8 0
-        ;; See NOTE above ;)
+        ;; If adding more values here, update the version constant
 freeze_scratch_area_end:
 
 do_freeze_prep_viciv:
@@ -1118,7 +1119,7 @@ freeze_mem_list:
         !8 0
         !8 freeze_prep_none
 
-        ;; VIC-IV, F011 $D000-$D0FF
+        ;; VIC-IV $D000-$D07F
         !32 $ffd3000
         !16 $0080   ; Do not increase this. $D081 controls sd card buffers/etc.
         !8 0        ;  writing to it will cause very bad things to happen.
