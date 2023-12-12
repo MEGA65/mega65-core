@@ -950,7 +950,6 @@ do_freeze_prep_viciv:
         sta $d070
 	rts
 
-
 freeze_region_dmalist:
         !8 $0A ;; F011A format DMA list
         !8 $80 ;; Source MB option follows
