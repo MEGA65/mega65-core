@@ -1350,7 +1350,7 @@ begin
   -- Grove I2C bus. Currently only used for allowing an external RTC
   ----------------------------------------------------------------------------------
   i2c_grove:
-  if target = mega65r3 or target = mega65r4 or target = mega65r5 generate
+  if target = mega65r3 or target = mega65r4 or target = mega65r5 or target = mega65r6 generate
     grove0: entity work.grove_i2c
       generic map ( clock_frequency => cpu_frequency )
       port map (
@@ -1417,7 +1417,7 @@ begin
   end generate i2cperiph_megaphone;
 
   i2cperiph_mega65r5_specific:
-  if target = mega65r5 generate
+  if target = mega65r5 or target = mega65r6 generate
     i2c1: entity work.mega65r5_board_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
@@ -1453,7 +1453,7 @@ begin
 
   
   i2cperiph_mega65r4:
-  if (target = mega65r4) or (target = mega65r5) generate
+  if (target = mega65r4) or (target = mega65r5) or (target = mega65r6) generate
     i2c1: entity work.mega65r4_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
@@ -2146,7 +2146,7 @@ begin
         end if;
       end if;
 
-      if target = mega65r3 or target = mega65r4 or target = mega65r5 then
+      if target = mega65r3 or target = mega65r4 or target = mega65r5 or target = mega65r6 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGA65R3/R4/R5 asserted";
