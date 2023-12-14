@@ -7,7 +7,7 @@ if { [info exists ::origin_dir_loc] } {
 }
 
 # Set the project name
-set project_name "mega65r5"
+set project_name "mega65r6"
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {
@@ -15,7 +15,7 @@ if { [info exists ::user_project_name] } {
 }
 
 variable script_file
-set script_file "mega65r5.tcl"
+set script_file "mega65r6.tcl"
 
 # Help information for this script
 proc help {} {
