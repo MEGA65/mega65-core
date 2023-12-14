@@ -1258,7 +1258,7 @@ clean:
 	rm -f thumbnail.prg work-obj93.cf
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
-	rm -rf vivado/*.{cache,runs,hw,ip_user_files,srcs,xpr}
+	rm -rf vivado/*.cache vivado/*.runs vivado/*.hw vivado/*.ip_user_files vivado/*.srcs vivado/*.xpr
 	rm -f $(TOOLS)
 	rm -f bin/matrix_banner.txt \
 		src/version.txt \
