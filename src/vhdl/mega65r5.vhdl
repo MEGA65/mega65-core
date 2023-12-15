@@ -716,12 +716,11 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      -- XXX The first revision of the R3 expansion board has the video
-      -- connector mis-wired.  So we put luma out everywhere, so that
-      -- we can still pick it up on a normally wired video cable
       luma => luma,
-      chroma => luma,
-      composite => luma,
+      chroma => chroma,
+      composite => composite,
+      -- XXX As of revC of the expansion board, we still don't have the audio
+      -- piped through. 
       audio => luma
 
       );
@@ -1060,8 +1059,8 @@ begin
           no_hyppo => '0',
 
           luma => luma,
---          chroma => luma,
---          composite => luma,
+          chroma => chroma,
+          composite => composite,
 
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
