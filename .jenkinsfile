@@ -26,7 +26,7 @@ pipeline {
         }
         stage('Build MEGA65R5') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
                     sh 'make bin/mega65r5.bit'
                     sh 'release-build/build-release.sh mega65r5 JENKINSGEN'
                 }
@@ -34,7 +34,7 @@ pipeline {
         }
         stage('Build MEGA65R4') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
                     sh 'make bin/mega65r4.bit'
                     sh 'release-build/build-release.sh mega65r4 JENKINSGEN'
                 }
@@ -42,7 +42,7 @@ pipeline {
         }
         stage('Build MEGA65R3') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
                     sh 'make bin/mega65r3.bit'
                     sh 'release-build/build-release.sh mega65r3 JENKINSGEN'
                 }
@@ -51,7 +51,7 @@ pipeline {
         /*
         stage('Build MEGA65R2') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
                     sh 'make bin/mega65r2.bit'
                     sh 'release-build/build-release.sh -noreg mega65r2 JENKINSGEN'
                 }
@@ -59,7 +59,7 @@ pipeline {
         }
         stage('Build Nexys4DDR-Widget') {
             steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
                     sh 'make bin/nexys4ddr-widget.bit'
                     sh 'release-build/build-release.sh nexys4ddr-widget JENKINSGEN'
                 }
