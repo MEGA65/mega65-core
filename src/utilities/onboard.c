@@ -316,8 +316,40 @@ void audiomix_setup(void)
   POKE(0xD478U, 0x0f);
 }
 
+void hw_setup_r4r5rtc(void)
+{
+  // enable SuperCAP charging, if not done yet
+  if (lpeek(0xffd71d0UL) == 0x23)
+    return;
+
+  // disable eeprom refresh
+  lpoke(0xffd7120UL, 0x04);
+  usleep(20000L); // need to wait for slow RTC getting updated
+  // set backup switchover mode to LSM, TCM 4.5V
+  lpoke(0xffd71d0UL, 0x23);
+  usleep(20000L);
+  // EECMD Update EEPROM
+  lpoke(0xffd714fUL, 0x11);
+  usleep(20000L);
+  // enable eeprom refresh
+  lpoke(0xffd7120UL, 0x00);
+  usleep(20000L);
+}
+
+void hardware_setup(void)
+{
+  switch (PEEK(0xD629)) {
+    case 0x04:
+    case 0x05:
+      hw_setup_r4r5rtc();
+      break;
+  }
+}
+
 void main(void)
 {
+  unsigned char idle_time = 0, update_rtc = 0;
+
   mega65_io_enable();
 
   // Disable OSK
@@ -337,24 +369,18 @@ void main(void)
   // Reset audio mixer coefficients
   audiomix_setup();
 
-  printf("%cWelcome to the MEGA65!\n", 0x93);
-  printf("\nBefore you go further, there are couple of things you need to do.\n");
-  printf("\nPress F3 - F13 to set the time and date (shift toggles direction).");
+  // do hardware version dependent setup
+  hardware_setup();
+
+  printf("%cWelcome to the MEGA65!\n\n"
+         "Before you go further, there are couple of things you need to do.\n\n"
+         "Press F3 - F13 to set the time and date (shift toggles direction).", 0x93);
+
+  getrtc(&tm);
 
   while (1) {
     POKE(0x286, 1);
     printf("%c\n\n\n\n\n", 0x13);
-
-    tm.tm_sec = 0;
-    tm.tm_min = 0;
-    tm.tm_hour = 0;
-    tm.tm_mday = 0;
-    tm.tm_mon = 0;
-    tm.tm_year = 0;
-    tm.tm_isdst = 0;
-    tm.tm_wday = 0;
-
-    getrtc(&tm);
 
     POKE(0x286, 1);
     printf("\nTime:  ");
@@ -417,8 +443,25 @@ void main(void)
     printf(" to save and exit.");
 
     c = PEEK(0xD610);
-    if (c)
-      POKE(0xD610, 0);
+    if (!c) {
+      if (idle_time < 75)
+        idle_time++;
+      if (idle_time == 75) {
+        if (update_rtc) {
+          setrtc(&tm);
+          usleep(950000UL);
+          update_rtc = 0;
+        }
+        else
+          getrtc(&tm);
+        idle_time = 0;
+      }
+      usleep(10000UL);
+      continue;
+    }
+    idle_time = 0;
+    POKE(0xD610, 0);
+
     switch (c) {
     case 0x41:
     case 0x61:
@@ -453,7 +496,6 @@ void main(void)
 
       break;
     case 0x09:
-    case 0xF1:
       video_mode++;
       video_mode &= 0x03;
 
@@ -478,7 +520,7 @@ void main(void)
         tm.tm_hour = 23;
       if (tm.tm_hour > 23)
         tm.tm_hour = 0;
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0xF5:
     case 0xF6:
@@ -490,7 +532,7 @@ void main(void)
         tm.tm_min = 59;
       if (tm.tm_min > 59)
         tm.tm_min = 0;
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0xF7:
     case 0xF8:
@@ -502,7 +544,7 @@ void main(void)
         tm.tm_sec = 59;
       if (tm.tm_sec > 59)
         tm.tm_sec = 0;
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0xF9:
     case 0xFA:
@@ -536,7 +578,7 @@ void main(void)
         if (tm.tm_mday > 31)
           tm.tm_mday = 1;
       }
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0xFB:
     case 0xFC:
@@ -570,7 +612,7 @@ void main(void)
           tm.tm_mday = 30;
         break;
       }
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0x42:
     case 0x62:
@@ -586,7 +628,7 @@ void main(void)
         tm.tm_year--;
       if (tm.tm_year > 299)
         tm.tm_year = 0;
-      setrtc(&tm);
+      update_rtc = 1;
       break;
     case 0x0d:
     case 0x0a:
@@ -594,6 +636,12 @@ void main(void)
       /*
         We write a valid default configuration sector.
       */
+
+      // this also sets the time
+      if (update_rtc) {
+        setrtc(&tm);
+        usleep(950000UL);
+      }
 
       if (video_mode_change_pending) {
         // If we have a video mode change pending, try it now
@@ -645,8 +693,14 @@ void main(void)
         while (lpeek(0xffd3680) & 0x03)
           continue;
 
-        // Now restart by reconfiguring the FPGA
-        reconfig_fpga(0);
+        // Now restart by reconfiguring the FPGA -- DONT DO THAT!
+        // as this will start slot 0
+        // reconfig_fpga(0);
+
+        printf("%c\n\n\n\n\n\n\n\n\n\n\n"
+               "   Please POWER-CYCLE your MEGA65 now\n"
+               "    by turning it off and on again!", 0x93);
+        while (1);
       }
     }
   }

@@ -7,7 +7,8 @@ package cputypes is
 
   type mega65_target_t is (
     simulation,
-    mega65r1, mega65r2, mega65r3, mega65r4, mega65r5,
+    mega65r1, mega65r2, mega65r3, mega65r4, mega65r5, mega65r6, mega65r7,
+    mega65r8, mega65r9, mega65r10,mega65r11,mega65r12,mega65r13,mega65r14,
     megaphoner1, megaphoner4,
     nexys4, nexys4ddr, nexys4ddr_widget,
     qmtecha100t, qmtecha200t, qmtechk325t,

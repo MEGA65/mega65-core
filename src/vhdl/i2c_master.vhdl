@@ -52,6 +52,8 @@ ENTITY i2c_master IS
     sda       : INOUT  STD_LOGIC;                    --serial data output of i2c bus
     scl       : INOUT  STD_LOGIC;                   --serial clock output of i2c bus
 
+    latch_toggle : out std_logic := '0';
+    
     -- Debug inputs that allow us to pull the lines low to test
     swap : in std_logic := '0';
     debug_scl : in std_logic := '0';
@@ -80,6 +82,8 @@ ARCHITECTURE logic OF i2c_master IS
   SIGNAL data_rx       : STD_LOGIC_VECTOR(7 DOWNTO 0);   --data received from slave
   SIGNAL bit_cnt       : INTEGER RANGE 0 TO 7 := 7;      --tracks bit number in transaction
   SIGNAL stretch       : STD_LOGIC := '0';               --identifies if slave is stretching scl
+
+  signal latch_toggle_int : std_logic := '0';
 BEGIN
 
   --generate the timing for the bus clock (scl_clk) and the data clock (data_clk)
@@ -134,11 +138,13 @@ BEGIN
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
-              report "Accepting job: addr=$" & to_hstring(addr) & ", rw= " & std_logic'image(rw);
+              report "Accepting job: addr=$" & to_hexstring(addr) & ", rw= " & std_logic'image(rw);
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
               state <= start;                --go to start bit
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
             ELSE                             --remain idle
               busy <= '0';                   --unflag busy
               state <= ready;                --remain idle
@@ -166,12 +172,12 @@ BEGIN
               report "switching to wr following command";
               state <= wr;                   --go to write byte
             ELSE                             --read command
-              report "switching to rd following command $" & to_hstring(addr_rw);
+              report "switching to rd following command $" & to_hexstring(addr_rw);
               sda_int <= '1';                --release sda from incoming data
               state <= rd;                   --go to read byte
             END IF;
           WHEN wr =>                         --write byte of transaction
-            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hstring(data_tx) & " as " & std_logic'image(sda_int);
+--            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hexstring(data_tx) & " as " & std_logic'image(sda_int);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --write byte transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
@@ -183,7 +189,7 @@ BEGIN
               state <= wr;                   --continue writing
             END IF;
           WHEN rd =>                         --read byte of transaction
-            report "reading data bit " & integer'image(bit_cnt);
+--            report "reading data bit " & integer'image(bit_cnt);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --read byte receive finished
               IF(ena = '1' AND addr_rw = addr & rw) THEN  --continuing with another read at same address
@@ -193,7 +199,7 @@ BEGIN
               END IF;
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               data_rd <= data_rx;            --output received data
-              report "Read byte $" & to_hstring(data_rx);
+              report "Read byte $" & to_hexstring(data_rx);
               state <= mstr_ack;             --go to master acknowledge
             ELSE                             --next clock cycle of read state
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits
@@ -201,10 +207,12 @@ BEGIN
             END IF;
           WHEN slv_ack2 =>                   --slave acknowledge bit (write)
             IF(ena = '1') THEN               --continue transaction
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              report "Writing byte $" & to_hstring(data_wr) & " via slave_ack2";
+              report "Writing byte $" & to_hexstring(data_wr) & " via slave_ack2";
               if addr_rw = addr & rw THEN   --continue transaction with
                                                         --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
@@ -220,6 +228,8 @@ BEGIN
             END IF;
           WHEN mstr_ack =>                   --master acknowledge bit after a read
             IF(ena = '1') THEN               --continue transaction
+              latch_toggle <= not latch_toggle_int;
+              latch_toggle_int <= not latch_toggle_int;
               busy <= '0';                   --continue is accepted and data received is available on bus
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write

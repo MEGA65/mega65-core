@@ -2,7 +2,7 @@
 ;M65 Configuration Utility
 ;===============================================================================
 ;
-;Version 01.00
+;Version 01.02
 ;Copyright (c) 2022 M.E.G.A., Daniel England
 ;
 ;Written by Daniel England for the MEGA65 project.
@@ -20,6 +20,9 @@
 ;TODO
 ;
 ;HISTORY
+;		13NOV2023	dengland	01.02
+;			-	Do not actually reset the machine when "exiting".  Instead,
+;				show a message to prompt the user into doing so.
 ;		15SEP2022	dengland	01.00
 ;			-	Fix bug in saving chipset values (handle date field)
 ;			-	Try to handle the case where the FGPA is configured from JTAG,
@@ -293,7 +296,7 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		"- version 01.00              B"
+	.byte		"- version 01.02              B"
 infoText1:
 	.if	C64_MODE
 	.byte		"- press f8 for help          B"
@@ -334,7 +337,7 @@ saveConfDflt0:
 	.defPStr	"as the defaults and exit?"
 
 saveConfRest0:
-	.defPStr	"reset your machine now"
+	.defPStr	"power-cycle your machine now"
 
 errorLine:
 	.byte		"config data corrupt. press f14 to reset."
@@ -3744,6 +3747,13 @@ usleep:
 ;-------------------------------------------------------------------------------
 reconfigReset:
 ;-------------------------------------------------------------------------------
+		JSR	clearScreen
+		JSR	updateSaveReset
+
+@halt:
+		JMP	@halt
+
+
 ;	Check if from JTAG and can't reconfigure
 		LDA	$D6C7
 		CMP	#$FF
