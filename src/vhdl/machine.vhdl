@@ -339,6 +339,9 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
+         board_sda : inout std_logic;
+         board_scl : inout std_logic;
+
          grove_sda : inout std_logic;
          grove_scl : inout std_logic;
 
@@ -505,6 +508,9 @@ architecture Behavioral of machine is
       monitor_mem_trace_toggle : out std_logic := '0'
       );
   end component;
+
+  signal dipsw_read : std_logic_vector(7 downto 0);
+  signal dipsw_int : std_logic_vector(7 downto 0);
 
   signal hw_errata_level : unsigned(7 downto 0);
   signal hw_errata_enable_toggle : std_logic;
@@ -861,9 +867,18 @@ begin
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if rising_edge(cpuclock) then
 
+      -- Select either direct-connected dipswitches (upto R4) or the dip
+      -- switches as read from the I2C IO expander (R5)
+      if target = mega65r5 or target = mega65r6 then
+        dipsw_int <= dipsw_read;
+      else
+        dipsw_int(7 downto 4) <= (others => '0');
+        dipsw_int(3 downto 0) <= dipsw(3 downto 0);
+      end if;
+      
       -- LED indication for when eth remote control is enabled
       -- (requires DIPSW 2 and MEGA+SHIFT+POUND)
-      eth_load_enabled <= eth_load_enable and dipsw(1);
+      eth_load_enabled <= eth_load_enable and dipsw_int(1);
 
       -- Latch reset from monitor interface to avoid tripping on glitches
       -- But requiring to be low so long causes monitor induced reset to be ignored.
@@ -1719,7 +1734,9 @@ begin
       drive_led2 => drive_led2,
       drive_ledsd => drive_ledsd,
       motor => motor,
-      dipsw => dipsw,
+      dipsw_hi => dipsw_int(7 downto 5),
+      dipsw => dipsw_int(4 downto 0),
+      dipsw_read => dipsw_read,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
@@ -1924,10 +1941,13 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
-
+      
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
 
+      board_sda => board_sda,
+      board_scl => board_scl,
+      
       grove_sda => grove_sda,
       grove_scl => grove_scl,
 

@@ -18,6 +18,10 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
+        dipsw_read : out std_logic_vector(7 downto 0);
+        board_major : out unsigned(3 downto 0);
+        board_minor : out unsigned(3 downto 0);
+        
         floppy_last_gap : out unsigned(7 downto 0) := x"00";
         floppy_gap_strobe : out std_logic := '0';
 
@@ -375,15 +379,19 @@ entity iomapper is
     tmpCT : in std_logic;
 
     i2c1SDA : inout std_logic := '0';
-    i2c1SCL : inout std_logic := '0';
-
+    i2c1SCL : inout std_logic := '0';    
+    
     grove_sda : inout std_logic;
     grove_scl : inout std_logic;
+
+    board_sda : inout std_logic;
+    board_scl : inout std_logic;
 
     lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
 
+    dipsw_hi : in std_logic_vector(7 downto 5) := (others => '0');
     dipsw : in std_logic_vector(4 downto 0);
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
@@ -635,6 +643,9 @@ architecture behavioral of iomapper is
   signal rtc_val : unsigned(7 downto 0);
 
   signal eth_load_enable_int : std_logic := '0';
+
+  signal board_major_int : unsigned(3 downto 0);
+  signal board_minor_int : unsigned(3 downto 0) := x"0";
 
 begin
 
@@ -897,6 +908,9 @@ begin
       max10_fpga_commit => max10_fpga_commit,
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
+
+      board_major => board_major_int,
+      board_minor => board_minor_int,
 
       key_debug => key_debug,
       widget_disable => widget_disable,
@@ -1336,7 +1350,7 @@ begin
   -- Grove I2C bus. Currently only used for allowing an external RTC
   ----------------------------------------------------------------------------------
   i2c_grove:
-  if target = mega65r3 or target = mega65r4 generate
+  if target = mega65r3 or target = mega65r4 or target = mega65r5 or target = mega65r6 generate
     grove0: entity work.grove_i2c
       generic map ( clock_frequency => cpu_frequency )
       port map (
@@ -1402,8 +1416,44 @@ begin
     );
   end generate i2cperiph_megaphone;
 
+  i2cperiph_mega65r5_specific:
+  if target = mega65r5 or target = mega65r6 generate
+    i2c1: entity work.mega65r5_board_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+
+      dipsw_read => dipsw_read,
+      board_major => board_major_int,
+      board_minor => board_minor_int,
+    
+      sda => board_sda,
+      scl => board_scl
+
+      );
+    i2c2: entity work.edid_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+      cs => i2chdmi_cs,
+
+      sda => hdmi_sda,
+      scl => hdmi_scl,
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate i2cperiph_mega65r5_specific;
+
+  
+
+  
   i2cperiph_mega65r4:
-  if target = mega65r4 generate
+  if (target = mega65r4) or (target = mega65r5) or (target = mega65r6) generate
     i2c1: entity work.mega65r4_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
@@ -1593,6 +1643,7 @@ begin
     f_diskchanged => f_diskchanged,
     f_rdata_loopback => f_rdata_loopback,
 
+    dipsw_hi => dipsw_hi,
     dipsw => dipsw,
     sw => sw,
     j21in => j21in,
@@ -1753,6 +1804,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      board_major <= board_major_int;
+      board_minor <= board_minor_int;
+      
       if key_scancode_toggle /= last_key_scancode_toggle then
         last_key_scancode_toggle <= key_scancode_toggle;
         combined_scancode_toggle <= not internal_combined_scancode_toggle;
@@ -2092,18 +2146,18 @@ begin
         end if;
       end if;
 
-      if target = mega65r3 or target = mega65r4 then
+      if target = mega65r3 or target = mega65r4 or target = mega65r5 or target = mega65r6 then
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
-          report "i2cperipherals_cs for MEGA65R3/R4 asserted";
+          report "i2cperipherals_cs for MEGA65R3/R4/R5 asserted";
         end if;
         if address(19 downto 8) = x"D73" then
           i2chdmi_cs <= '1';
-          report "i2chdmi_cs for MEGA65R3/R4 asserted";
+          report "i2chdmi_cs for MEGA65R3/R4/R5 asserted";
         end if;
         if address(19 downto 8) = x"D74" then
           grove_cs <= '1';
-          report "grove_cs for MEGA65R3/R4 asserted";
+          report "grove_cs for MEGA65R3/R4/R5 asserted";
         end if;
       end if;
 

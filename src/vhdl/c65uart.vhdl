@@ -30,6 +30,9 @@ entity c65uart is
     kbd_datestamp : in unsigned(13 downto 0);
     kbd_commit : in unsigned(31 downto 0);
 
+    board_major : in unsigned(3 downto 0);
+    board_minor : in unsigned(3 downto 0);
+    
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -324,10 +327,14 @@ begin  -- behavioural
     -- Determine model number
     case target is
       -- $00-$1F = MEGA65 desktop versions
+      -- Note: MEGA65 R5 onwards read straps from an I2C IO expander to get
+      -- the board major and minor versions, so we don't ID beyond R4 here.
+      -- Search for mega65r5 in this file to find that other logic.
       when mega65r1 => target_id <= x"01";
       when mega65r2 => target_id <= x"02";
       when mega65r3 => target_id <= x"03";
       when mega65r4 => target_id <= x"04";
+                       
       -- $20-$3F = MEGAphone/handheld versions
       when megaphoner1 => target_id <= x"21";
       when megaphoner4 => target_id <= x"22";
@@ -834,16 +841,25 @@ begin  -- behavioural
         -- @IO:GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
         -- @IO:GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
         -- @IO:GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
-        -- @IO:GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        -- @IO:GS $D628.0-3 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        -- @IO:GS $D628.4-7 UARTMISC:BOARDMINOR Read PCB minor revision (R5+ only, else reads zeroes)
         when x"25" => fastio_rdata <= unsigned(j21in(7 downto 0));
         when x"26" => fastio_rdata(3 downto 0) <= (unsigned(j21in(11 downto 8)));
                       fastio_rdata(7 downto 4) <= "0000";
         when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
         when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
-                      fastio_rdata(7 downto 4) <= "0000";
+                      fastio_rdata(7 downto 4) <= board_minor;
         when x"29" =>
-        -- @IO:GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
-          fastio_rdata <= target_id;
+          -- @IO:GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
+          case target is
+            when mega65r5 | mega65r6 | mega65r7 | mega65r8 | mega65r9 | mega65r10
+              | mega65r11 | mega65r12 | mega65r13 | mega65r14 =>
+              fastio_rdata(7 downto 4) <= x"0";
+              fastio_rdata(3 downto 0) <= board_major;
+            when others =>
+              fastio_rdata <= target_id;
+          end case;
+
         -- @IO:GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
         -- @IO:GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
         when x"2a" => fastio_rdata <= kbd_datestamp(7 downto 0);

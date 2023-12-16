@@ -12,7 +12,7 @@ usage () {
     echo "  -repack   don't copy new stuff, redo cor and mcs, make new 7z"
     echo "  -tag TAG  TAG defaults to the 6 first characters of the branch, use"
     echo "            this for setting something like 'release-0.95'"
-    echo "  MODEL     one of mega65r4, mega65r3, mega65r2, nexys4ddr-widget"
+    echo "  MODEL     one of mega65r[23456], nexys4ddr-widget, mega65r5_6"
     echo "  VERSION   version string to put before the hash into the core version"
     echo "            maximum 31 chars. The string HASH will be replaced by the"
     echo "            hash of the build."
@@ -21,7 +21,7 @@ usage () {
     echo "  EXTRA     file to put into the mega65 cor for fdisk population"
     echo "            (default is everything in sdcard-files)"
     echo
-    echo "Example: ${SCRIPTNAME} mega65r3 'Experimental Build HASH'"
+    echo "Example: ${SCRIPTNAME} mega65r5 'Experimental Build HASH'"
     echo
     if [[ "x$1" != "x" ]]; then
         echo $1
@@ -98,10 +98,22 @@ for file in $@; do
     fi
 done
 
+BITMODEL=${MODEL}
+MODELRENAME=0
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r4" ]]; then
     RM_TARGET="MEGA65R4 boards -- MEGA65 R4 (Artix A7 200T FPGA)"
+elif [[ ${MODEL} = "mega65r5" ]]; then
+    RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
+elif [[ ${MODEL} = "mega65r6" ]]; then
+    RM_TARGET="MEGA65R6 boards -- MEGA65 R6 (Artix A7 200T FPGA)"
+elif [[ ${MODEL} = "mega65r5_6" ]]; then
+    # build r5 core package using r6 bitstream
+    RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
+    MODEL="mega65r5"
+    BITMODEL="mega65r6"
+    MODELRENAME=1
 elif [[ ${MODEL} = "mega65r2" ]]; then
     RM_TARGET="MEGA65R2 boards -- Limited Testkit (Artix A7 100T FPGA)"
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
@@ -111,14 +123,27 @@ else
 fi
 
 # we always pack the latest bitstream
-BITPATH=$( ls -1 --sort time ${REPOPATH}/bin/${MODEL}*.bit | head -1 )
+BITPATH=$( ls -1 --sort time ${REPOPATH}/bin/${BITMODEL}*.bit | head -1 )
+BITPATHBASE=${BITPATH%.bit}
 BITNAME=${BITPATH##*/}
 BITBASE=${BITNAME%.bit}
 HASH=${BITBASE##*-}
 
+if [[ -z ${BITPATH} ]]; then
+    echo
+    echo "Failed to find bitstream!"
+    echo
+    exit 1
+fi
 echo
 echo "Bitstream found: ${BITNAME}"
 echo
+# hack for packaging r6 bitstreams as r5 cores
+if [[ ${MODELRENAME} ]]; then
+    BITBASE=${MODEL}-${BITBASE#*-}
+    echo "NOTE: packaging ${BITMODEL} COR as ${BITBASE} using model ${MODEL} instead!"
+    echo
+fi
 
 # determine branch
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
@@ -180,10 +205,10 @@ if [[ ${REPACK} -eq 0 ]]; then
     cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
     cp ${REPOPATH}/src/utilities/upgrade0.prg ${PKGPATH}/flasher
 
-    cp ${BITPATH} ${PKGPATH}/
-    cp ${BITPATH%.bit}.log ${PKGPATH}/log/
-    cp ${BITPATH%.bit}.timing.txt ${PKGPATH}/log/
-    VIOLATIONS=$( grep -c VIOL ${BITPATH%.bit}.timing.txt )
+    cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
+    cp ${BITPATHBASE}.log ${PKGPATH}/log/
+    cp ${BITPATHBASE}.timing.txt ${PKGPATH}/log/
+    VIOLATIONS=$( grep -c VIOL ${BITPATHBASE}.timing.txt )
     if [[ $VIOLATIONS -gt 0 ]]; then
         touch ${PKGPATH}/WARNING_${VIOLATIONS}_TIMING_VIOLATIONS
         UNSAFE=1
@@ -219,11 +244,11 @@ fi
 echo "Building COR/MCS"
 echo
 if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITNAME} MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
 elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${BIT2COR} mega65r2 ${PKGPATH}/${BITNAME} MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
 else
-    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITNAME} MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
+    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
 fi
 ${BIT2MCS} ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs 0
 
