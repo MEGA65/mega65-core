@@ -33,6 +33,16 @@ pipeline {
                 }
             }
         }
+        /*
+        // mega65r5 is essentially the same as mega65r6, and the r6 build will also package as r5
+        stage('Build MEGA65R5') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
+                    sh 'make bin/mega65r5.bit'
+                    sh 'release-build/build-release.sh mega65r5 JENKINSGEN'
+                }
+            }
+        }
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -41,6 +51,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build MEGA65R3') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -49,7 +60,6 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -66,7 +76,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Set build result') {
             steps {
                 script {
