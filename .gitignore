@@ -128,6 +128,7 @@ vivado/*.xpr
 release-build/mega65-release-prep
 release-build/mega65-tools
 release-build/pkg
+release-build/*.7z
 
 # py tests
 tests/vunit_out
