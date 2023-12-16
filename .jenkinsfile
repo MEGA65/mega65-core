@@ -60,6 +60,8 @@ pipeline {
                 }
             }
         }
+        /*
+        // r2 build cureently fail, put pack in if you fixed the problem
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -68,6 +70,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build Nexys4DDR-Widget') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
