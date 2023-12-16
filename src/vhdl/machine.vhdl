@@ -869,7 +869,7 @@ begin
 
       -- Select either direct-connected dipswitches (upto R4) or the dip
       -- switches as read from the I2C IO expander (R5)
-      if target = mega65r5 then
+      if target = mega65r5 or target = mega65r6 then
         dipsw_int <= dipsw_read;
       else
         dipsw_int(7 downto 4) <= (others => '0');
