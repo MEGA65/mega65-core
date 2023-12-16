@@ -316,7 +316,7 @@ void audiomix_setup(void)
   POKE(0xD478U, 0x0f);
 }
 
-void hw_setup_r4r5rtc(void)
+void hw_setup_r4rtc(void)
 {
   // enable SuperCAP charging, if not done yet
   if (lpeek(0xffd71d0UL) == 0x23)
@@ -341,7 +341,8 @@ void hardware_setup(void)
   switch (PEEK(0xD629)) {
     case 0x04:
     case 0x05:
-      hw_setup_r4r5rtc();
+    case 0x06:
+      hw_setup_r4rtc();
       break;
   }
 }
