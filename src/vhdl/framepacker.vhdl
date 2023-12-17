@@ -119,8 +119,6 @@ architecture behavioural of framepacker is
   signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
-  signal thumbnail_valid : std_logic := '0';
-  signal thumbnail_started : std_logic := '0';  
   signal thumbnail_active_pixel : std_logic := '0';
   signal thumbnail_active_row : std_logic := '0';
 
@@ -178,8 +176,7 @@ begin  -- behavioural
 
   -- Look after CPU side of mapping of compressed data
   process (cpuclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
-           thumbnail_cs,thumbnail_read_address,thumbnail_rdata,
-           thumbnail_valid,thumbnail_started
+           thumbnail_cs,thumbnail_read_address,thumbnail_rdata           
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -191,67 +188,13 @@ begin  -- behavioural
     -- last read of the reset register.  This will allow the hypervisor to
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
+    thumbnail_read_address(11 downto 0) <= fastio_raddr(11 downto 0);
     if fastio_read='1' and (thumbnail_cs='1') then
-      if fastio_addr(3 downto 0) = x"2" then
-        -- @IO:GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
-        fastio_rdata <= thumbnail_read_address(7 downto 0);
-      elsif fastio_addr(3 downto 0) = x"1" then
-        -- @IO:GS $D641 - Read port for thumbnail generator
-        fastio_rdata <= thumbnail_rdata;
-      elsif fastio_addr(3 downto 0) = x"0" then
-        -- @IO:GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-        -- @IO:GS $D640 - Read to reset port address for thumbnail generator
-        -- @IO:GS $D640 - Read to obtain status of thumbnail generator.
-        -- @IO:GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-        -- @IO:GS $D640.6 - Thumbnail drawing was in progress.
-        thumbnail_read_address <= (others => '0');
-        fastio_rdata(7) <= thumbnail_valid;
-        fastio_rdata(6) <= thumbnail_started;
-        fastio_rdata(5 downto 0) <= (others => '0');
---      elsif fastio_addr(3 downto 0) = x"3" then
---        -- @IO:GS $D643 - Thumbnail X position DEBUG
---        fastio_rdata <= to_unsigned(thumbnail_x_counter,8);
---      elsif fastio_addr(3 downto 0) = x"4" then
---        -- @IO:GS $D644 - Thumbnail Y position DEBUG
---        fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
---      elsif fastio_addr(3 downto 0) = x"5" then
---        -- @IO:GS $D645 - Thumbnail write address LSB DEBUG
---        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
---      elsif fastio_addr(3 downto 0) = x"6" then
---        -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
---        fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
---        fastio_rdata(7 downto 4) <= "0000";
---      elsif fastio_addr(3 downto 0) = x"7" then
---        -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
---        fastio_rdata <= pixel_y_drive(7 downto 0);
---      elsif fastio_addr(3 downto 0) = x"8" then
---        -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
---        fastio_rdata(3 downto 0) <= pixel_y_drive(11 downto 8);
---        fastio_rdata(7 downto 4) <= "0000";
-      else
-        fastio_rdata <= (others => 'Z');
-      end if;
+      fastio_rdata <= thumbnail_rdata;
     else
       fastio_rdata <= (others => 'Z');
     end if;
     
-    if rising_edge(cpuclock) then
-      
-      -- Logic to control port address for thumbnail buffer
-      if (fastio_read='1') and (thumbnail_cs='1') then
-        if fastio_addr(3 downto 0) = x"1" then
-          last_access_is_thumbnail <= '1';
-          if last_access_is_thumbnail = '0' then
-            thumbnail_read_address <= thumbnail_read_address + 1;
-          end if;
-        else
-          last_access_is_thumbnail <= '0';
-        end if;       
-      else
-        last_access_is_thumbnail <= '0';
-      end if;
-
-    end if;
   end process;
 
   -- Receive pixels and compress
@@ -314,8 +257,6 @@ begin  -- behavioural
           report "THUMB: active_row cleared on row "
             & to_string(std_logic_vector(pixel_y));
         else
-          thumbnail_valid <= thumbnail_started;
-          thumbnail_started <= '1';
           thumbnail_y_counter <= thumbnail_y_counter - 256;
           -- Thumbnail generation does not happen when in hypervisor mode
           thumbnail_active_row <= not last_hypervisor_mode;
@@ -374,10 +315,6 @@ begin  -- behavioural
       pixel_drive <= pixel_stream_in;
 
       last_hypervisor_mode <= hypervisor_mode;
-      if hypervisor_mode = '0' and last_hypervisor_mode = '1' then
-        thumbnail_started <= '0';
-        thumbnail_valid <= '0';
-      end if;
 
       bits_appended <= 0;
       if pixel_newframe='1' then

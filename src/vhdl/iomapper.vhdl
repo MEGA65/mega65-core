@@ -2226,14 +2226,13 @@ begin
         end case;
       else
         c65uart_cs <= '0';
-        report "THUMB: CS consideration for $FFD364x";
-        -- $D640-$D64F is thumbnail generator
-        if (address(19 downto 4) = x"D364") or (address(19 downto 4) = x"D264") then
-          thumbnail_cs <= c65uart_en;
-          report "THUMB: Trying to assert thumbnail_cs";
-        else
-          thumbnail_cs <= '0';
-        end if;
+      end if;
+      report "THUMB: CS consideration for $FFD364x";
+      -- @IO:GS $FFD4000 THUMB:THUMB Hardware-generated thumbnail image of screen. 80x50, using 3x3x2 RGB colour cube.
+      if (address(19 downto 12) = x"D4") then
+        thumbnail_cs <= '1';
+      else
+        thumbnail_cs <= '0';
       end if;
       if (address(19 downto 4) = x"D36E") or (address(19 downto 4) = x"D26E") then
         ethernet_cs <= ethernetcs_en;
