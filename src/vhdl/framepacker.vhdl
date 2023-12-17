@@ -169,7 +169,7 @@ begin  -- behavioural
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
     clkb => cpuclock,
-    addrb => std_logic_vector(fastio_addr(11 downto 0),
+    addrb => std_logic_vector(fastio_addr(11 downto 0)),
     unsigned(doutb) => thumbnail_rdata
     );
 
