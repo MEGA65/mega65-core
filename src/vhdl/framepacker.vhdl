@@ -174,6 +174,8 @@ begin  -- behavioural
     unsigned(doutb) => thumbnail_rdata
     );
 
+  thumbnail_read_address(11 downto 0) <= fastio_addr(11 downto 0);
+  
   -- Look after CPU side of mapping of compressed data
   process (cpuclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
            thumbnail_cs,thumbnail_read_address,thumbnail_rdata           
@@ -188,7 +190,6 @@ begin  -- behavioural
     -- last read of the reset register.  This will allow the hypervisor to
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
-    thumbnail_read_address(11 downto 0) <= fastio_addr(11 downto 0);
     if fastio_read='1' and (thumbnail_cs='1') then
       fastio_rdata <= thumbnail_rdata;
     else

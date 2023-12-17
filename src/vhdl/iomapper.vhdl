@@ -2216,7 +2216,6 @@ begin
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
-      thumbnail_cs <= '0'; -- This avoids a latch
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
