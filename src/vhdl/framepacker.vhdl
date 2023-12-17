@@ -116,7 +116,6 @@ architecture behavioural of framepacker is
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
   signal thumbnail_row_address : unsigned(11 downto 0) := x"000";
-  signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_active_pixel : std_logic := '0';
@@ -170,7 +169,7 @@ begin  -- behavioural
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
     clkb => cpuclock,
-    addrb => std_logic_vector(thumbnail_read_address),
+    addrb => std_logic_vector(fastio_addr(11 downto 0),
     unsigned(doutb) => thumbnail_rdata
     );
 
