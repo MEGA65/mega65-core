@@ -716,7 +716,11 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      luma => luma,
+      -- As of revC expansion board, we have only luma and chroma signals available.
+      -- Composite pin gets a copy of whatever is on the luma pin, so we just present
+      -- composite there for now.
+      -- XXX - Make this run-time switcheable to composite or luma.
+      luma => composite,
       chroma => chroma,
       composite => composite,
       -- XXX As of revC of the expansion board, we still don't have the audio
