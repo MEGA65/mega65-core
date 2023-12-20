@@ -899,14 +899,14 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/megaflash_screens.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/megaflash_screens.h $(UTILDIR)/mf_progress.c $(UTILDIR)/mf_progress.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a200t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
-		$(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB)
+		$(UTILDIR)/mf_progress.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
@@ -920,13 +920,13 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h 
 	$(call mbuild_sizecheck,30719,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/megaflash_screens_scr.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/megaflash_screens_scr.h $(UTILDIR)/mf_progress.c $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
 		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
 		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
-		$(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB)
+		$(UTILDIR)/mf_selectcore.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_progress.o $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
 $(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB) $(CC65_DEPEND)

@@ -43,6 +43,15 @@ uint8_t mhx_ascii2screen(uint8_t ascii, uint8_t def)
   return def;
 }
 
+uint16_t mhx_strlen(char *s)
+{
+  uint16_t size = 0;
+
+  for (size = 0; *s != MHX_C_EOS; size++, s++);
+
+  return size;
+}
+
 void mhx_clearscreen(uint8_t code, uint8_t color)
 {
   lfill((long)mhx_base_scr, code, mhx_scr_width*mhx_scr_height);
@@ -91,7 +100,7 @@ void mhx_hl_lines(uint8_t line_start, uint8_t line_end, uint8_t attr)
   }
 }
 
-void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *title, uint8_t attr)
+void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *title, uint8_t attr, uint8_t clear_inside)
 {
   // TODO: fix variables!
   uint8_t x;
@@ -104,14 +113,14 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
     mhx_write_xy(ux + 2, uy, title, attr);
     mhx_set_xy(ux, uy);
   }
-  if (!(attr & MHX_A_NOCOLOR))
+  if (clear_inside)
     memset((void *)mhx_caddr, attr & MHX_A_COLORMASK, width + 2);
   mhx_saddr += mhx_scr_width;
   mhx_caddr += mhx_scr_width;
   for (x = 0; x < height; x++, mhx_saddr += mhx_scr_width, mhx_caddr += mhx_scr_width) {
     POKE(mhx_saddr, 0x5d | (attr & MHX_A_INVERT));
     POKE(mhx_saddr + width + 1, 0x5d | (attr & MHX_A_INVERT));
-    if (!(attr & MHX_A_NOCOLOR)) {
+    if (clear_inside) {
       memset((void *)(mhx_saddr + 1), 0x20 | (attr & MHX_A_INVERT), width);
       memset((void *)mhx_caddr, attr & MHX_A_COLORMASK, width + 2);
     }
@@ -119,7 +128,7 @@ void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *
   POKE(mhx_saddr, 0x6d | (attr & MHX_A_INVERT));
   memset((void *)(mhx_saddr + 1), 0x40 | (attr & MHX_A_INVERT), width);
   POKE(mhx_saddr + width + 1, 0x7d | (attr & MHX_A_INVERT));
-  if (!(attr & MHX_A_NOCOLOR))
+  if (clear_inside)
     memset((void *)mhx_caddr, attr & MHX_A_COLORMASK, width + 2);
 }
 
@@ -330,13 +339,15 @@ void mhx_clear_ch_buffer(void)
     POKE(0xD610, 0);
 }
 
-mhx_keycode_t mhx_getkeycode(void)
+mhx_keycode_t mhx_getkeycode(uint8_t peekonly)
 {
   do {
     mhx_lastkey.code.key = PEEK(0xD610);
     mhx_lastkey.code.mod = PEEK(0xD611);
-  } while (!mhx_lastkey.code.key);
-  POKE(0xD610, 0);
+  } while (!mhx_lastkey.code.key && !peekonly);
+
+  if (mhx_lastkey.code.key)
+    POKE(0xD610, 0);
 
   return mhx_lastkey;
 }
@@ -371,7 +382,7 @@ uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr)
     if (*match == 0x0a)
       *match = 0x0d;
 
-    mhx_getkeycode();
+    mhx_getkeycode(0);
     if (mhx_lastkey.code.key != ((*match) & 0x7f)) {
       if (flags & MHX_CI_CHECKCASE)
         return 0;

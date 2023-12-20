@@ -92,20 +92,17 @@ extern unsigned char last_sector_num;
 extern unsigned char sector_num;
 
 extern unsigned char data_buffer[512];
-extern unsigned char bitstream_magic[];
-extern unsigned char mega65core_magic[];
-extern char disk_name_return[65];
-extern char disk_display_return[40];
 
 extern unsigned short mb;
 
 extern unsigned char buffer[512];
+extern unsigned char part[256];
 
 extern short i, x, y, z;
+extern unsigned long addr, addr_len;
 
 int8_t probe_hardware_version(void);
 unsigned char probe_qspi_flash(void);
-unsigned char select_bitstream_file(unsigned char slot);
 void reflash_slot(unsigned char slot, unsigned char selected_file, char *slot0version);
 void flash_inspector(void);
 
@@ -143,14 +140,6 @@ void spi_write_disable(void);
 // #define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
-#define SELECTED_FILE_INVALID 0
-#define SELECTED_FILE_ERASE 1
-#define SELECTED_FILE_VALID 2
-
-#define CASE_INSENSITIVE 0
-#define CASE_SENSITIVE 1
-#define CASE_PRINT 2
-
 /*
   $D6C8-B = address for FPGA to boot from in flash
   $D6CF = trigger address for FPGA reconfiguration: Write $42 to trigger
@@ -171,21 +160,5 @@ void spi_write_disable(void);
   $D6CD.1 = alternate control of clock pin
 */
 #define CLOCKCTL_PORT 0xD6CDU
-
-/*
-  Here are our routines for accessing the SD card without relying on the
-  hypervisor.  Note that we can't even assume that the hypervisor has
-  found and reset the SD card, because of the very early point at which
-  the flash menu gets called.  "Alles muss man selber machen" ;)
-  Oh, yes, and we have only about 5KB space left in this utility, before
-  we start having memory overrun problems. So we have to keep this
-  absolutely minimalistic.
- */
-
-#define sd_sectorbuffer 0xffd6e00L
-#define sd_ctl 0xd680L
-#define sd_addr 0xd681L
-
-extern const unsigned long sd_timeout_value;
 
 #endif /* QSPICOMMON_H */

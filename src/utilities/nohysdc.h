@@ -52,7 +52,7 @@ extern uint8_t nhsd_init_state;
  */
 typedef struct {
   uint32_t d_ino;
-  uint32_t d_reclen;
+  uint32_t d_reclen; // WARNING: d_reclen MUST follow d_ino for easy copy!
   uint8_t d_type;
   char d_name[256];
 } nhsd_dirent_t;

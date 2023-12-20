@@ -39,9 +39,9 @@ typedef struct {
   // position of the cursor after screen is written
   uint8_t cursor_x, cursor_y;
   // address of screen ram in memory
-  long screen_start;
+  int32_t screen_start;
   // address of colour ram in memory
-  long color_start;
+  int32_t color_start;
 } mhx_screen_t;
 
 // keyboard modifier bitmasks
@@ -90,9 +90,7 @@ extern mhx_keycode_t mhx_lastkey;
 #define MHX_A_INVERT    0x80
 #define MHX_A_FLIP      0xc0
 
-#define MHX_C_EOS       0x80
-
-// color and attribute codes
+// color and attribute strings
 #define MHX_W_EOS    "\x0"
 #define MHX_W_REVON  "\x81"
 #define MHX_W_REVOFF "\x82"
@@ -115,6 +113,8 @@ extern mhx_keycode_t mhx_lastkey;
 #define MHX_W_LBLUE  "\x8e"
 #define MHX_W_LGREY  "\x8f"
 
+// color and attribute chars
+#define MHX_C_EOS       0x80
 #define MHX_C_DEFAULT '\x7f'
 #define MHX_C_REVON  '\x81'
 #define MHX_C_REVOFF '\x82'
@@ -139,6 +139,8 @@ extern mhx_keycode_t mhx_lastkey;
 
 uint8_t mhx_ascii2screen(uint8_t ascii, uint8_t def);
 
+uint16_t mhx_strlen(char *s);
+
 /*
  * clear_screen(code, color)
  *
@@ -154,7 +156,7 @@ void mhx_copyscreen(mhx_screen_t *screen);
 
 void mhx_hl_lines(uint8_t line_start, uint8_t line_end, uint8_t attr);
 
-void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *title, uint8_t attr);
+void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *title, uint8_t attr, uint8_t clear_inside);
 
 #define mhx_setattr(attr) mhx_curattr = attr
 
@@ -176,7 +178,7 @@ void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr);
 
 void mhx_clear_ch_buffer(void);
 
-mhx_keycode_t mhx_getkeycode(void);
+mhx_keycode_t mhx_getkeycode(uint8_t peekonly);
 
 #define MHX_CI_CHECKCASE 1
 #define MHX_CI_PRINT 2
