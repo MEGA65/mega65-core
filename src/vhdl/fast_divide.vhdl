@@ -46,6 +46,7 @@ begin
     variable leading_zeros : natural range 0 to 31;
     variable new_dd : unsigned( 35 downto 0);
     variable new_nn : unsigned( 67 downto 0);
+    variable padded_d : unsigned(63 downto 0);
   begin
     if rising_edge(clock) then
       report "state is " & state_t'image(state);
@@ -98,8 +99,9 @@ begin
       if start_over='1' and d /= to_unsigned(0,32) then
         report "Calculating $" & to_hstring(n) & " / $" & to_hstring(d);
         leading_zeros := count_leading_zeros(d);
+        padded_d := d & X"00000000";
         new_dd := (others => '0');
-        new_dd(35 downto 4+leading_zeros) := d(31-leading_zeros downto 0);
+        new_dd(35 downto 4) := padded_d(63-leading_zeros downto 32-leading_zeros);
         new_nn := (others => '0');
         new_nn(35+leading_zeros downto 4+leading_zeros) := n;
         report "Normalised to $" & to_hstring(new_nn(67 downto 36)) & "." &
