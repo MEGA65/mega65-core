@@ -1,7 +1,7 @@
 ; Simple ethernet programme loader for C65GS.
 ; Reads and checks packets, and then runs code contained in the packets.
 ; This keeps the programme VERY small.
-; Now supports ARP replies to make life easier.
+; Uses IPv6 and Neighbor Discovery (ND) advertisement.
 
       .org $8000
       .scope
@@ -104,8 +104,8 @@ waitingforpacket:
 ; show length of ethernet frame
 
 	; Got a packet.
-	; check whether it is UDP port 4510
-	; or whether it is an ND solicitation request
+	; check whether it is an IPv6 packet from a link-local address 
+	; if it is ND, we continue, otherwiese we test for UDP at label notnd
 
 	lda $0e			; type IPv6 = 0x86DD
 	cmp #$86
@@ -116,6 +116,13 @@ waitingforpacket:
 	lda $10			; protocol version = 6
 	and #$f0
 	cmp #$60
+	bne nextpacket
+	lda $18			; dst address = link local address (fe80::/10)
+	cmp #$fe
+	bne nextpacket
+	lda $19
+	and #$c0        ; first two bits must be '10'
+	cmp #$80
 	bne nextpacket
 	lda $16			; next header = $3a (ICMPv6)
 	cmp #$3a
@@ -357,7 +364,7 @@ linklocaladdress:
 checksum:
 	.word $0000
 
-	.checkpc $81FC
+	.checkpc $9000
 	.scend
 
 	.outfile "sdcard-files/ETHLOAD.M65"
