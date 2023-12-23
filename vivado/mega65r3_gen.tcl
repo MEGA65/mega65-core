@@ -148,6 +148,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/mega65r2_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r3_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r4_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r5_board_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/grove_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_bytes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_gaps.vhdl"]"\
@@ -301,6 +302,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/mega65r4_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mega65r5_board_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
