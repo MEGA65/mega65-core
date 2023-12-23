@@ -27,9 +27,6 @@ else
     branch=`git rev-parse --abbrev-ref HEAD`
 fi
 freeze_branch=$(shorten_name $branch)
-echo $branch
-echo $freeze_branch
-exit
 #echo ${branch}
 #
 # if branchname is long, just use the first X-chars and last X-chars, ie "abcde...vwxyz"
