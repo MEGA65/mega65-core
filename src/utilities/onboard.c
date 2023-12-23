@@ -319,14 +319,14 @@ void audiomix_setup(void)
 void hw_setup_r4rtc(void)
 {
   // enable SuperCAP charging, if not done yet
-  if (lpeek(0xffd71d0UL) == 0x23)
+  if (lpeek(0xffd71d0UL) == 0x22)
     return;
 
   // disable eeprom refresh
   lpoke(0xffd7120UL, 0x04);
   usleep(20000L); // need to wait for slow RTC getting updated
-  // set backup switchover mode to LSM, TCM 4.5V
-  lpoke(0xffd71d0UL, 0x23);
+  // set backup switchover mode to LSM, TCM 3V (Battery protection)
+  lpoke(0xffd71d0UL, 0x22);
   usleep(20000L);
   // EECMD Update EEPROM
   lpoke(0xffd714fUL, 0x11);
