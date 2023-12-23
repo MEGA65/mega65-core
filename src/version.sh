@@ -1,5 +1,23 @@
 #!/bin/bash
 
+shorten_name () {
+  name=$1
+  # issue branch?
+  if [[ $name =~ ^([0-9]+)-(.+)$ ]]; then
+    name="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+  fi
+  # developemnt + extra?
+  if [[ $name =~ ^development-(.+)$ ]]; then
+    name="dev-${BASH_REMATCH[1]}"
+  fi
+  # release + version?
+  if [[ $name =~ ^release-([0-9])\.([0-9][0-9]?)$ ]]; then
+    name="r-${BASH_REMATCH[1]}.${BASH_REMATCH[2]}000"
+  fi
+  # cut after 6 chars
+  echo ${name:0:6}
+}
+
 # ###############################
 # get branch name
 #
@@ -8,7 +26,10 @@ if [[ -n $JENKINS_SERVER_COOKIE ]]; then
 else
     branch=`git rev-parse --abbrev-ref HEAD`
 fi
-freeze_branch=${branch:0:6}
+freeze_branch=$(shorten_name $branch)
+echo $branch
+echo $freeze_branch
+exit
 #echo ${branch}
 #
 # if branchname is long, just use the first X-chars and last X-chars, ie "abcde...vwxyz"
