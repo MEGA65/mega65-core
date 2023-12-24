@@ -113,22 +113,22 @@ architecture behavioural of framepacker is
   signal output_data : unsigned(7 downto 0) := x"00";
   signal output_write : std_logic := '0';
 
+  signal thumbnail_row_address : integer := 0;
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
-  signal thumbnail_row_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
-  signal thumbnail_active_pixel : std_logic := '0';
-  signal thumbnail_active_row : std_logic := '0';
 
   signal last_pixel_y : unsigned(11 downto 0) := x"000";
   signal pixel_drive : unsigned(7 downto 0) := x"00";
-  signal last_hypervisor_mode : std_logic := '0'; 
-  signal last_access_is_thumbnail : std_logic := '0';
-  signal thumbnail_x_counter : integer range 0 to 8 := 0;
-  signal thumbnail_y_counter : integer range 0 to 511 := 0;
-  signal thumbnail_pixels_remaining : integer range 0 to 80 := 0;
 
+  signal not_hypervisor_mode : std_logic := '0';
+  
+  signal thumbnail_x : integer range 0 to 79 := 0;
+  signal thumbnail_y : integer range 0 to 52 := 0;
+  signal thumbnail_x_compare : integer := 0;
+  signal thumbnail_y_compare : integer := 0;
+  
   signal x_counter : integer range 0 to 4095 := 0;
   signal bit_queue_len : integer range 0 to 32 := 0;
   signal bit_queue : std_logic_vector(31 downto 0) := (others => '0');
@@ -148,6 +148,7 @@ architecture behavioural of framepacker is
   signal pixel_valid_out : std_logic := '0';
 
   signal pixel_y_drive : unsigned(11 downto 0) := (others => '0');
+  signal pixel_y_100 : integer := 0;
   
 begin  -- behavioural
 
@@ -165,7 +166,7 @@ begin  -- behavioural
 
   thumnailbuffer0: entity work.videobuffer port map (
     clka => pixelclock,
-    wea(0) => '1',
+    wea(0) => not_hypervisor_mode,
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
     clkb => cpuclock,
@@ -204,6 +205,8 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      not_hypervisor_mode <= not hypervisor_mode;
+      
       pixel_y_drive <= pixel_y;
       
       report "pixel_y=" & integer'image(to_integer(pixel_y))
@@ -221,99 +224,61 @@ begin  -- behavioural
       -- whenever we switch halves.
       buffer_moby_toggle <= output_address(11);
       buffer_offset <= output_address;
+
+      -- Determine current thumbnail pixel row and column
+      -- based on raw pixel X and Y positions.      
+      if pal_mode='1' then
+        -- 576 / 50 = 9.6
+        -- 9.6 x 100 = 960
+        thumbnail_y_compare <= thumbnail_y * 960;
+      else
+        -- 480 / 50 = 11.52
+        -- 11.52 x 100 = 1152
+        thumbnail_y_compare <= thumbnail_y * 1152;
+      end if;
+      pixel_y_100 <= to_integer(pixel_y_drive) * 100;
+      if (thumbnail_y_compare < pixel_y_100) and (thumbnail_y < 49) then
+        thumbnail_y <= thumbnail_y + 1;
+      end if;
+      -- Max display width = 800 (for LCD panels on hand-held)
+      thumbnail_x_compare <= thumbnail_x * 10;
+      if (thumbnail_x_compare < x_counter) and (thumbnail_x < 79) then
+        thumbnail_x <= thumbnail_x + 1;
+      end if;
+
+      thumbnail_row_address <= thumbnail_y * 80;
+      report "THUMB: row_address = " & integer'image(thumbnail_row_address) & ", x=" & integer'image(thumbnail_x)
+        & ", y=" & integer'image(thumbnail_y);
+      thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
       
-      -- Work out address to write pixel to in thumbnail buffer.
-      -- 80x50 pixels = 4,000 bytes.
-      -- 480 / 50 = every 12th row  (NTSC)
-      -- 576 / 50 = every 9th row  (PAL)
-      -- 800 / 80 = every 10th column
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
+
         -- Very robustly determine when a new frame starts
         if to_integer(pixel_y) < to_integer(last_pixel_y) then
           thumbnail_write_address <= (others => '0');
           thumbnail_write_address_int <= (others => '0');
-          thumbnail_row_address <= (others => '0');
           report "THUMB: Reset write address";
-          thumbnail_y_counter <= 0;
-          thumbnail_x_counter <= 0;
-          thumbnail_active_row <= '0';
-        end if;
-        -- PAL has more raster lines than NTSC, so we have a different vertical
-        -- sampling rate.
-        if thumbnail_y_counter < 256 then
-          if pal_mode='1' then
-            -- 576 rows / 50 = add 23 each physical raster
-            thumbnail_y_counter <= thumbnail_y_counter + 23;
-          else
-            -- 480 rows / 50 = add 27
-            thumbnail_y_counter <= thumbnail_y_counter + 27;
-          end if;
-          thumbnail_active_row <= '0';
-          thumbnail_write_address <= thumbnail_row_address;
-          thumbnail_write_address_int <= thumbnail_row_address;
-            
-          report "THUMB: active_row cleared on row "
-            & to_string(std_logic_vector(pixel_y));
-        else
-          thumbnail_y_counter <= thumbnail_y_counter - 256;
-          -- Thumbnail generation does not happen when in hypervisor mode
-          thumbnail_active_row <= not last_hypervisor_mode;
-          if to_integer(thumbnail_row_address) < ( 4095 - 80 ) then
-            thumbnail_write_address
-              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
-            thumbnail_write_address_int
-              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
-            thumbnail_row_address
-              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
-          else
-            -- Make sure we don't overflow and wrap at the bottom of the frame.
-            thumbnail_write_address <= to_unsigned(4095 - 80,12);
-            thumbnail_write_address_int <= to_unsigned(4095 - 80,12);
-            thumbnail_row_address <= to_unsigned(4095 - 80,12);
-          end if;            
 
-          -- Make sure we collect no more than 80 pixels per raster
-          thumbnail_pixels_remaining <= 80 - 1;
-          
-          report "THUMB: active_row asserted on row "
-            & to_string(std_logic_vector(pixel_y));
+          thumbnail_y <= 0;
+          thumbnail_x <= 0;
+          thumbnail_y_compare <= 0;
+          thumbnail_x_compare <= 0;
         end if;
       end if;
       if pixel_newraster='1' then
         x_counter <= 0;
-        -- Sample first pixel, so we get all 80 pixels across the screen
-        thumbnail_x_counter <= 8;
+        thumbnail_x <= 0;
+        thumbnail_x_compare <= 0;
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
-        if thumbnail_x_counter /= 8 then
-          -- Make sure it doesn't wrap around within a frame if things go wrong.
-          thumbnail_x_counter <= thumbnail_x_counter + 1;
-          thumbnail_active_pixel <= '0';
-        else
-          thumbnail_x_counter <= 0;
-          if thumbnail_pixels_remaining /= 0 then
-            thumbnail_active_pixel <= thumbnail_active_row;
-            thumbnail_pixels_remaining <= thumbnail_pixels_remaining - 1;
-          end if;
-        end if;
-      else
-        thumbnail_active_pixel <= '0';
       end if;
-      if thumbnail_active_pixel='1' then
-        if to_integer(thumbnail_write_address) /= 4095 then
-          thumbnail_write_address
-            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
-          thumbnail_write_address_int
-            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
-        end if;
-        thumbnail_wdata <= pixel_drive;
-        report "THUMB: Writing pixel $" & to_hstring(pixel_drive)
-          & " @ $" & to_hstring(thumbnail_write_address);
-      end if;
-      pixel_drive <= pixel_stream_in;
 
-      last_hypervisor_mode <= hypervisor_mode;
+      thumbnail_wdata <= pixel_drive;
+      report "THUMB: Writing pixel $" & to_hstring(pixel_drive)
+        & " @ $" & to_hstring(thumbnail_write_address);
+
+      pixel_drive <= pixel_stream_in;
 
       bits_appended <= 0;
       if pixel_newframe='1' then
