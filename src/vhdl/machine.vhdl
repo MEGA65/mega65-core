@@ -673,7 +673,7 @@ architecture Behavioral of machine is
 
   -- Video pipeline plumbing
   signal pixel_x_viciv : integer;
-  signal pixel_strobe_viciv : std_logic := '0';
+  signal pixel_strobe_viciv : std_logic;
   signal vgared_viciv : unsigned(7 downto 0);
   signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_viciv : unsigned(7 downto 0);

@@ -207,6 +207,7 @@ begin  -- behavioural
       pixel_y_drive <= pixel_y;
       
       report "pixel_y=" & integer'image(to_integer(pixel_y))
+        & ", x_counter=" & integer'image(x_counter)
         & ", pixel_valid=" & std_logic'image(pixel_valid)
         & ", pal_mode=" & std_logic'image(pal_mode);
       
