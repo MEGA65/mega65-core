@@ -10,9 +10,9 @@ ENTITY beaconram IS
   PORT (
     clk : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer;
+    write_address : IN integer range 0 to 67;
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer;
+    address : IN integer range 0 to 67;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
 END beaconram;
