@@ -129,6 +129,7 @@ architecture behavioural of framepacker is
   signal thumbnail_y_compare : integer := 0;
   signal thumbnail_x_bumped : std_logic := '0';
   signal thumbnail_y_bumped : std_logic := '0';
+  signal thumbnail_write : std_logic := '0';
   
   signal x_counter : integer range 0 to 4095 := 0;
   signal bit_queue_len : integer range 0 to 32 := 0;
@@ -167,7 +168,7 @@ begin  -- behavioural
 
   thumnailbuffer0: entity work.videobuffer port map (
     clka => pixelclock,
-    wea(0) => '1', -- not_hypervisor_mode,
+    wea(0) => thumbnail_write,
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
     clkb => cpuclock,
@@ -207,6 +208,8 @@ begin  -- behavioural
     if rising_edge(pixelclock) then
 
       not_hypervisor_mode <= not hypervisor_mode;
+
+      thumbnail_write <= '0';
       
       pixel_y_drive <= pixel_y;
       
@@ -242,6 +245,7 @@ begin  -- behavioural
       if (thumbnail_y_compare < pixel_y_100) and (thumbnail_y < 49) and (thumbnail_y_bumped='0') then
         thumbnail_y <= thumbnail_y + 1;
         thumbnail_y_bumped <= '1';
+        thumbnail_write <= '1';
       end if;
       -- Max display width = 800 (for LCD panels on hand-held)
       thumbnail_x_compare <= thumbnail_x * 10;
@@ -249,6 +253,7 @@ begin  -- behavioural
       if (thumbnail_x_compare < x_counter) and (thumbnail_x < 79) and (thumbnail_x_bumped='0') then
         thumbnail_x <= thumbnail_x + 1;
         thumbnail_x_bumped <= '1';
+        thumbnail_write <= '1';
       end if;
 
       thumbnail_row_address <= thumbnail_y * 80;
@@ -270,6 +275,7 @@ begin  -- behavioural
           thumbnail_x_compare <= 0;
           thumbnail_x_bumped <= '1';
           thumbnail_y_bumped <= '1';
+          thumbnail_write <= '1';
         end if;
       end if;
       if pixel_newraster='1' then
@@ -277,6 +283,7 @@ begin  -- behavioural
         thumbnail_x <= 0;
         thumbnail_x_compare <= 0;
         thumbnail_x_bumped <= '1';
+        thumbnail_write <= '1';
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
       end if;
