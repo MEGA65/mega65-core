@@ -258,7 +258,7 @@ entity iomapper is
         ps2clock : in std_logic;
         scancode_out : out std_logic_vector(12 downto 0);
         -- Widget board / MEGA65R2 keyboard
-        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col_idx : out integer range 0 to 15 := 0;
         widget_matrix_col : in std_logic_vector(7 downto 0);
         widget_restore : in std_logic;
         widget_capslock : in std_logic;
