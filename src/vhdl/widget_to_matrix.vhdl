@@ -14,7 +14,7 @@ entity widget_to_matrix is
     pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
 
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
-    matrix_col_idx : in integer range 0 to 8;
+    matrix_col_idx : in integer range 0 to 15;
     
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1';

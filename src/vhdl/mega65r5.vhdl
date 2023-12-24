@@ -431,7 +431,7 @@ architecture Behavioral of container is
   signal cart_roml_int : std_logic;
   signal cart_romh_int : std_logic;
 
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col_idx : integer range 0 to 15 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
