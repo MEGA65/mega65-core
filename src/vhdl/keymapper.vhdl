@@ -131,7 +131,7 @@ architecture behavioural of keymapper is
   signal portb_pins : std_logic_vector(7 downto 0);
 
   -- The current column we're scanning from the matrix and the matrix ram output
-  signal scan_idx : integer range 0 to 9 := 9;
+  signal scan_idx : integer range 0 to 15 := 9;
   signal scan_col : std_logic_vector(7 downto 0); 
 
   -- These hold the intermediate values as we sweep.
