@@ -308,6 +308,7 @@ VFPGAVHDL=		$(VHDLSRCDIR)/vfpga/overlay_IP.vhdl \
 PERIPHVHDL=		$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
 			$(VHDLSRCDIR)/i2c_controller.vhdl \
+			$(VHDLSRCDIR)/mega65r5_board_i2c.vhdl \
 			$(VHDLSRCDIR)/grove_i2c.vhdl \
 			$(VHDLSRCDIR)/hdmi_i2c.vhdl \
 			$(VHDLSRCDIR)/spdif_encoder.vhdl \
