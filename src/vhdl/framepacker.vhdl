@@ -168,7 +168,7 @@ begin  -- behavioural
 
   thumnailbuffer0: entity work.videobuffer port map (
     clka => pixelclock,
-    wea(0) => not_hypervisor_mode,
+    wea(0) => '1', -- not_hypervisor_mode,
     addra => std_logic_vector(thumbnail_write_address),
     dina => std_logic_vector(thumbnail_wdata),
     clkb => cpuclock,
