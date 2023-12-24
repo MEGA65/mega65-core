@@ -288,7 +288,7 @@ begin  -- behavioural
           reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
           clock709375,bucky_key_buffered,key_presenting,reg_portf_read,reg_portf_ddr,
           reg_portg_read,reg_portg_ddr,
-          key_left,key_up,real_hardware,accessible_key_extradim,
+          key_left,key_up,real_hardware,accessible_key_extradim_int,
           accessible_key_enable,key_queue_flush,porth,porti,matrix_disable_modifiers,
           widget_enable_internal,ps2_enable_internal,physkey_enable_internal,
           virtual_enable_internal,joykey_enable_internal,joyswap_internal,
