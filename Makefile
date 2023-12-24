@@ -331,7 +331,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x2048.vhdl \
 			$(VHDLSRCDIR)/ethernet_miim.vhdl \
-			$(VHDLSRCDIR)/ethernet_beacon_ram.vhdl \
+			$(VHDLSRCDIR)/eth_beacon_ram.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
