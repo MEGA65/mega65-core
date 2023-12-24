@@ -273,7 +273,7 @@ begin
     nmi => nmi,
     irq => irq,
     ready => drive_clock_cycle_strobe,
-    write_n => cpu_write_n,
+    write => cpu_write_n,
 --    sync => cpu_sync,
     address => address,
     address_next => address_next_internal,
