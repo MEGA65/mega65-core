@@ -174,10 +174,7 @@ begin  -- behavioural
     );
 
   -- Look after CPU side of mapping of compressed data
-  process (cpuclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
-           thumbnail_cs,thumbnail_rdata           
-           ) is
-    variable temp_cmd : unsigned(7 downto 0);
+  process (fastio_read,thumbnail_cs,thumbnail_rdata,fastio_addr) is
   begin
 
     -- Provide read access to thumbnail buffer.  To simplify things, we won't
@@ -189,8 +186,9 @@ begin  -- behavioural
     -- another process.
     if fastio_read='1' and (thumbnail_cs='1') then
 --      fastio_rdata <= thumbnail_rdata;
-      fastio_rdata <= fastio_addr(7 downto 0);
       report "THUMB: Exporting read data $" & to_hexstring(thumbnail_rdata);
+      fastio_rdata <= fastio_addr(7 downto 0);
+      report "THUMB: Spoofing read data $" & to_hexstring(fastio_addr(7 downto 0));
     else
       fastio_rdata <= (others => 'Z');
     end if;
