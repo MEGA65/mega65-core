@@ -128,6 +128,8 @@ architecture behavioural of framepacker is
   signal thumbnail_y : integer range 0 to 52 := 0;
   signal thumbnail_x_compare : integer := 0;
   signal thumbnail_y_compare : integer := 0;
+  signal thumbnail_x_bumped : std_logic := '0';
+  signal thumbnail_y_bumped : std_logic := '0';
   
   signal x_counter : integer range 0 to 4095 := 0;
   signal bit_queue_len : integer range 0 to 32 := 0;
@@ -237,13 +239,17 @@ begin  -- behavioural
         thumbnail_y_compare <= thumbnail_y * 1152;
       end if;
       pixel_y_100 <= to_integer(pixel_y_drive) * 100;
-      if (thumbnail_y_compare < pixel_y_100) and (thumbnail_y < 49) then
+      thumbnail_y_bumped <= '0';
+      if (thumbnail_y_compare < pixel_y_100) and (thumbnail_y < 49) and (thumbnail_y_bumped='0') then
         thumbnail_y <= thumbnail_y + 1;
+        thumbnail_y_bumped <= '1';
       end if;
       -- Max display width = 800 (for LCD panels on hand-held)
       thumbnail_x_compare <= thumbnail_x * 10;
-      if (thumbnail_x_compare < x_counter) and (thumbnail_x < 79) then
+      thumbnail_x_bumped <= '0';
+      if (thumbnail_x_compare < x_counter) and (thumbnail_x < 79) and (thumbnail_x_bumped='0') then
         thumbnail_x <= thumbnail_x + 1;
+        thumbnail_x_bumped <= '1';
       end if;
 
       thumbnail_row_address <= thumbnail_y * 80;
@@ -264,12 +270,15 @@ begin  -- behavioural
           thumbnail_x <= 0;
           thumbnail_y_compare <= 0;
           thumbnail_x_compare <= 0;
+          thumbnail_x_bumped <= '1';
+          thumbnail_y_bumped <= '1';
         end if;
       end if;
       if pixel_newraster='1' then
         x_counter <= 0;
         thumbnail_x <= 0;
         thumbnail_x_compare <= 0;
+        thumbnail_x_bumped <= '1';
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
       end if;
