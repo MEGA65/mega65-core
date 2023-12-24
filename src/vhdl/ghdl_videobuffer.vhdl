@@ -19,7 +19,7 @@ architecture behavioural of videobuffer is
 
   type ram_t is array (0 to 4095) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
-    others => x"65" );
+    others => x"42" );
 
 begin
   PROCESS(Clka,clkb,addrb,ram)

@@ -115,7 +115,6 @@ architecture behavioural of framepacker is
 
   signal thumbnail_row_address : integer := 0;
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
-  signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
 
@@ -263,7 +262,6 @@ begin  -- behavioural
         -- Very robustly determine when a new frame starts
         if to_integer(pixel_y) < to_integer(last_pixel_y) then
           thumbnail_write_address <= (others => '0');
-          thumbnail_write_address_int <= (others => '0');
           report "THUMB: Reset write address";
 
           thumbnail_y <= 0;
