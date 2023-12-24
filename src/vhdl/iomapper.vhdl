@@ -2226,10 +2226,10 @@ begin
       else
         c65uart_cs <= '0';
       end if;
-      report "THUMB: CS consideration for $FFD364x";
       -- @IO:GS $FFD4000 THUMB:THUMB Hardware-generated thumbnail image of screen. 80x50, using 3x3x2 RGB colour cube.
       if (address(19 downto 12) = x"D4") then
         thumbnail_cs <= '1';
+      report "THUMB: Asserting CS";
       else
         thumbnail_cs <= '0';
       end if;

@@ -24,13 +24,13 @@ architecture behavioural of videobuffer is
 begin
   PROCESS(Clka,clkb,addrb,ram)
 BEGIN
-  --report "viciv reading charrom address $"
-  --  & to_hstring(address)
-  --  & " = " & integer'image(to_integer(address))
-  --  & " -> $" & to_hstring(ram(to_integer(address)))
-  --  severity note;
+  report "VIDEOBUFFER: Reading address $"
+    & to_hexstring(unsigned(addrb))
+    & " = " & integer'image(to_integer(unsigned(addrb)))
+    & " -> $" & to_hexstring(ram(to_integer(unsigned(addrb))))
+    severity note;
   if rising_edge(clkb) then
-    doutb <= ram(to_integer(unsigned(addrb)));
+    doutb <= ram(to_integer(unsigned(addrb)));    
   end if;
 
   if(rising_edge(Clka)) then 

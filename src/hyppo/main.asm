@@ -553,6 +553,24 @@ reset_machine_state:
 reset_entry:
         sei
 
+	sta $d707
+        ;; MEGA65 Enhanced DMA options
+        !8 $0A  ;; Request format is F018A
+        !8 $80,$ff ;; Source is $00xxxxx
+        !8 $81,$00 ;; Destination is $00xxxxx
+        !8 $00  ;; No more options
+        ;; copy $FFD4000-$FFD4FFF to $4000-$4FFF
+        ;; F018A DMA list
+        ;; (MB offsets get set in routine)
+        !8 $00 ;; copy + last request in chain
+        !16 $1000 ;; size of copy is 4KB
+        !16 $4000 ;; starting at $4000
+        !8 $0D   ;; of bank $0
+        !16 $4000 ;; destination address is $4000
+        !8 $00   ;; of bank $0
+        !16 $0000 ;; modulo (unused)
+
+	
  	;; Put ZP and stack back where they belong
 	lda #$bf
 	tab

@@ -188,7 +188,9 @@ begin  -- behavioural
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
     if fastio_read='1' and (thumbnail_cs='1') then
-      fastio_rdata <= thumbnail_rdata;
+--      fastio_rdata <= thumbnail_rdata;
+      fastio_rdata <= fastio_addr(7 downto 0);
+      report "THUMB: Exporting read data $" & to_hexstring(thumbnail_rdata);
     else
       fastio_rdata <= (others => 'Z');
     end if;
