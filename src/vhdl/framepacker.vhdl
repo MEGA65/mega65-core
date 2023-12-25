@@ -186,17 +186,7 @@ begin  -- behavioural
   process (thumbnail_cs, thumbnail_rdata, thumbnail_write_address_int, not_hypervisor_mode, hypervisor_mode) is
   begin
     if thumbnail_cs = '1' then
-      if fastio_addr(11 downto 0) = to_unsigned(0,12) then
-        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
-      elsif fastio_addr(11 downto 0) = to_unsigned(1,12) then
-        fastio_rdata(7) <= not_hypervisor_mode;
-        fastio_rdata(6) <= hypervisor_mode;
-        fastio_rdata(5 downto 0) <= (others => '0');
-      elsif fastio_addr(11 downto 0) = to_unsigned(2,12) then
-        fastio_rdata <= thumbnail_write_count;
-      else
-        fastio_rdata <= thumbnail_rdata;
-      end if;
+      fastio_rdata <= thumbnail_rdata;
     else
       fastio_rdata <= (others => 'Z');
     end if;
@@ -265,8 +255,14 @@ begin  -- behavioural
       report "THUMB: row_address = " & integer'image(thumbnail_row_address) & ", x=" & integer'image(thumbnail_x)
         & ", y=" & integer'image(thumbnail_y);
 
-      thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
-      thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
+      if thumbnail_x >0 or thumbnail_row_address>0 then
+        -- -1 correction is to improve horizontal centring of thumbnail image
+        thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x - 1,12);
+        thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x - 1,12);
+      else
+        thumbnail_write_address <= to_unsigned(0,12);
+        thumbnail_write_address_int <= to_unsigned(0,12);
+      end if;
       
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
