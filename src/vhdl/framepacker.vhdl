@@ -182,7 +182,7 @@ begin  -- behavioural
   -- Receive pixels and compress
   -- Also write pixels to thumbnail buffer
 
-  process (thumbnail_cs, thumbnail_rdata) is
+  process (thumbnail_cs, thumbnail_rdata, thumbnail_write_address_int, not_hypervisor_mode, hypervisor_mode) is
   begin
     if thumbnail_cs = '1' then
       if fastio_addr(11 downto 0) = to_unsigned(0,12) then
@@ -191,6 +191,8 @@ begin  -- behavioural
         fastio_rdata(7) <= not_hypervisor_mode;
         fastio_rdata(6) <= hypervisor_mode;
         fastio_rdata(5 downto 0) <= (others => '0');
+      elsif fastio_addr(11 downto 0) = to_unsigned(2,12) then
+        fastio_rdata <= thumbnail_write_count;
       else
         fastio_rdata <= thumbnail_rdata;
       end if;
@@ -199,7 +201,7 @@ begin  -- behavioural
     end if;
   end process;
   
-  process (pixelclock) is
+  process (pixelclock, not_hypervisor_mode, hypervisor_mode) is
     variable next_byte_valid : std_logic := '0';
     variable next_byte : std_logic_vector(7 downto 0) := "00000000";
   begin    
