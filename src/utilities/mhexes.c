@@ -54,8 +54,12 @@ uint16_t mhx_strlen(char *s)
 
 void mhx_clearscreen(uint8_t code, uint8_t color)
 {
+  // wait for raster leaving screen
+  if (color & MHX_A_FLIP == MHX_A_FLIP)
+    while (!(PEEK(0xD011) & 0x80));
+
   lfill((long)mhx_base_scr, code, mhx_scr_width*mhx_scr_height);
-  lfill((long)mhx_base_col24, color, mhx_scr_width*mhx_scr_height);
+  lfill((long)mhx_base_col24, color & MHX_A_COLORMASK, mhx_scr_width*mhx_scr_height);
   // memset((void *)mhx_base_scr, code, mhx_scr_width*mhx_scr_height);
   // memset((void *)mhx_base_col, color, mhx_scr_width*mhx_scr_height);
 }
@@ -68,11 +72,11 @@ void mhx_screencolor(uint8_t back, uint8_t border)
   mhx_back = back;
 }
 
-void mhx_flashscreen(uint8_t color, uint16_t milli)
+void mhx_flashscreen(uint8_t color, uint16_t delay)
 {
   POKE(0xd020, color);
   POKE(0xd021, color);
-  usleep(milli * 1000L);
+  usleep(delay * 1000L);
   POKE(0xd020, mhx_border);
   POKE(0xd021, mhx_back);
 }
@@ -333,7 +337,7 @@ void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr)
     mhx_advance_cursor(1);
 }
 
-void mhx_clear_ch_buffer(void)
+void mhx_clear_keybuffer(void)
 {
   while (PEEK(0xD610))
     POKE(0xD610, 0);
@@ -358,7 +362,7 @@ mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr)
     mhx_writef("Press any key to continue.\n", attr);
 
   if (!(flags & MHX_AK_NOCLEAR))
-    mhx_clear_ch_buffer();
+    mhx_clear_keybuffer();
   do {
     mhx_lastkey.code.mod = PEEK(0xD611);
     if ((mhx_lastkey.code.key = PEEK(0xD610)))
@@ -375,7 +379,7 @@ mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr)
 
 uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr)
 {
-  mhx_clear_ch_buffer();
+  mhx_clear_keybuffer();
 
   while (*match) {
     // newline/RETURN fix
@@ -409,7 +413,3 @@ void mhx_copyscreen(mhx_screen_t *screen)
   // set cursor
   mhx_set_xy(screen->cursor_x, screen->cursor_y);
 }
-
-uint8_t mhx_progress_chars[4] = { 0x20, 0x65, 0x61, 0xe7 };
-uint8_t mhx_progress, mhx_progress_last;
-uint16_t mhx_progress_total, mhx_progress_goal;
