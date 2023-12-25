@@ -185,7 +185,11 @@ begin  -- behavioural
   process (thumbnail_cs, thumbnail_rdata) is
   begin
     if thumbnail_cs = '1' then
-      fastio_rdata <= thumbnail_rdata;
+      if fastio_addr(11 downto 0) = to_unsigned(0,12) then
+        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+      else
+        fastio_rdata <= thumbnail_rdata;
+      end if;
     else
       fastio_rdata <= (others => 'Z');
     end if;
@@ -223,15 +227,17 @@ begin  -- behavioural
       buffer_offset <= output_address;
 
       -- Determine current thumbnail pixel row and column
-      -- based on raw pixel X and Y positions.      
+      -- based on raw pixel X and Y positions.
+      -- Vertically centre by skipping first 20 physical rasters in PAL and NTSC
+      -- modes (will require tweaking to get it perfect)
       if pal_mode='1' then
         -- 576 / 50 = 9.6
         -- 9.6 x 100 = 960
-        thumbnail_y_compare <= thumbnail_y * 960;
+        thumbnail_y_compare <= 2000 + thumbnail_y * 960;
       else
         -- 480 / 50 = 11.52
         -- 11.52 x 100 = 1152
-        thumbnail_y_compare <= thumbnail_y * 1152;
+        thumbnail_y_compare <= 2000 + thumbnail_y * 1152;
       end if;
       pixel_y_100 <= to_integer(pixel_y_drive) * 100;
       thumbnail_y_bumped <= '0';
@@ -252,6 +258,7 @@ begin  -- behavioural
       thumbnail_row_address <= thumbnail_y * 80;
       report "THUMB: row_address = " & integer'image(thumbnail_row_address) & ", x=" & integer'image(thumbnail_x)
         & ", y=" & integer'image(thumbnail_y);
+
       thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
       thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
       
