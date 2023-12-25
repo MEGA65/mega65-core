@@ -168,12 +168,13 @@ begin  -- behavioural
 --    unsigned(doutb) => buffer_rdata
 --    );
 
-  thumnailbuffer0: entity work.ram8x4096_sync port map (
+  thumnailbuffer0: entity work.ram8x4096_sync_2cs port map (
     clkw => pixelclock,
+    csw => '1',
     w => thumbnail_write,
     write_address => to_integer(thumbnail_write_address),
     wdata => thumbnail_wdata,
-    cs => thumbnail_cs,
+    csr => thumbnail_cs,
     clkr => cpuclock,
     address => to_integer(fastio_addr(11 downto 0)),
     rdata => thumbnail_rdata
