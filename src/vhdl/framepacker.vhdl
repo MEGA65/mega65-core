@@ -103,7 +103,7 @@ entity framepacker is
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0)
+    fastio_rdata : out unsigned(7 downto 0) := 'Z'
     );
 end framepacker;
 
@@ -118,6 +118,7 @@ architecture behavioural of framepacker is
   signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
   signal thumbnail_write_count : unsigned(7 downto 0) := to_unsigned(0,8);
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
+  signal thumbnail_rdata : unsigned(7 downto 0);
 
   signal last_pixel_y : unsigned(11 downto 0) := x"000";
   signal pixel_drive : unsigned(7 downto 0) := x"00";
@@ -175,16 +176,25 @@ begin  -- behavioural
     cs => thumbnail_cs,
     clkr => cpuclock,
     address => to_integer(fastio_addr(11 downto 0)),
-    rdata => fastio_rdata
+    rdata => thumbnail_rdata
     );
 
   -- Receive pixels and compress
   -- Also write pixels to thumbnail buffer
 
+  process (thumbnail_cs, thumbnail_rdata) is
+  begin
+    if thumbnail_cs = '1' then
+      fastio_rdata <= thumbnail_rdata;
+    else
+      fastio_rdata <= (others => 'Z');
+    end if;
+  end if;
+  
   process (pixelclock) is
     variable next_byte_valid : std_logic := '0';
     variable next_byte : std_logic_vector(7 downto 0) := "00000000";
-  begin
+  begin    
     if rising_edge(pixelclock) then
 
       not_hypervisor_mode <= not hypervisor_mode;

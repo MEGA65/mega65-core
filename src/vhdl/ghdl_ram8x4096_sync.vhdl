@@ -26,7 +26,7 @@ architecture behavioural of ram8x4096_sync is
 
   type ram_t is array (0 to 4095) of unsigned(7 downto 0);
   signal ram : ram_t := (
-    others => x"00");
+    others => x"99");
 
 begin  -- behavioural
 
