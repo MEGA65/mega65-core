@@ -238,11 +238,12 @@ begin  -- behavioural
       if pal_mode='1' then
         -- 576 / 50 = 9.6
         -- 9.6 x 100 = 960
-        thumbnail_y_compare <= 2000 + thumbnail_y * 960;
+        thumbnail_y_compare <= 3000 + thumbnail_y * 960;
       else
         -- 480 / 50 = 11.52
         -- 11.52 x 100 = 1152
-        thumbnail_y_compare <= 2000 + thumbnail_y * 1152;
+        -- except that's a bit too much...
+        thumbnail_y_compare <= 1000 + thumbnail_y * 1052;
       end if;
       pixel_y_100 <= to_integer(pixel_y_drive) * 100;
       thumbnail_y_bumped <= '0';
