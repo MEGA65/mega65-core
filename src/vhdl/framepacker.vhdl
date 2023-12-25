@@ -103,7 +103,7 @@ entity framepacker is
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0) := 'Z'
+    fastio_rdata : out unsigned(7 downto 0) := (others => 'Z')
     );
 end framepacker;
 
