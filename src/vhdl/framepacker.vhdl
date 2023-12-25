@@ -255,14 +255,8 @@ begin  -- behavioural
       report "THUMB: row_address = " & integer'image(thumbnail_row_address) & ", x=" & integer'image(thumbnail_x)
         & ", y=" & integer'image(thumbnail_y);
 
-      if thumbnail_x >0 or thumbnail_row_address>0 then
-        -- -1 correction is to improve horizontal centring of thumbnail image
-        thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x - 1,12);
-        thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x - 1,12);
-      else
-        thumbnail_write_address <= to_unsigned(0,12);
-        thumbnail_write_address_int <= to_unsigned(0,12);
-      end if;
+      thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
+      thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
       
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
