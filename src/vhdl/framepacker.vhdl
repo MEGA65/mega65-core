@@ -115,6 +115,8 @@ architecture behavioural of framepacker is
 
   signal thumbnail_row_address : integer := 0;
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
+  signal thumbnail_write_count : unsigned(7 downto 0) := to_unsigned(0,8);
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
 
@@ -188,10 +190,16 @@ begin  -- behavioural
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
     if fastio_read='1' and (thumbnail_cs='1') then
-      fastio_rdata <= thumbnail_rdata;
-      report "THUMB: Exporting read data $" & to_hexstring(thumbnail_rdata);
+      if fastio_addr(11 downto 0) = x"000" then
+        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+      elsif fastio_addr(11 downto 0) = x"001" then
+        fastio_rdata <= thumbnail_write_count;
+      else
+        fastio_rdata <= thumbnail_rdata;
+        report "THUMB: Exporting read data $" & to_hexstring(thumbnail_rdata);
 --      fastio_rdata <= fastio_addr(7 downto 0);
 --      report "THUMB: Spoofing read data $" & to_hexstring(fastio_addr(7 downto 0));
+      end if;
     else
       fastio_rdata <= (others => 'Z');
     end if;
@@ -209,6 +217,9 @@ begin  -- behavioural
 
       not_hypervisor_mode <= not hypervisor_mode;
 
+      if thumbnail_write = '1' then
+        thumbnail_write_count <= thumbnail_write_count + 1;
+      end if;
       thumbnail_write <= '0';
       
       pixel_y_drive <= pixel_y;
@@ -260,6 +271,7 @@ begin  -- behavioural
       report "THUMB: row_address = " & integer'image(thumbnail_row_address) & ", x=" & integer'image(thumbnail_x)
         & ", y=" & integer'image(thumbnail_y);
       thumbnail_write_address <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
+      thumbnail_write_address_int <= to_unsigned(thumbnail_row_address + thumbnail_x,12);
       
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
@@ -267,6 +279,7 @@ begin  -- behavioural
         -- Very robustly determine when a new frame starts
         if to_integer(pixel_y) < to_integer(last_pixel_y) then
           thumbnail_write_address <= (others => '0');
+          thumbnail_write_address_int <= (others => '0');
           report "THUMB: Reset write address";
 
           thumbnail_y <= 0;
