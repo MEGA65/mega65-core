@@ -55,7 +55,7 @@ uint16_t mhx_strlen(char *s)
 void mhx_clearscreen(uint8_t code, uint8_t color)
 {
   // wait for raster leaving screen
-  if (color & MHX_A_FLIP == MHX_A_FLIP)
+  if ((color & MHX_A_FLIP) == MHX_A_FLIP)
     while (!(PEEK(0xD011) & 0x80));
 
   lfill((long)mhx_base_scr, code, mhx_scr_width*mhx_scr_height);
