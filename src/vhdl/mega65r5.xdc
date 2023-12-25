@@ -541,7 +541,7 @@ set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_p
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 #set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_crs_dv]
 
-create_clock –name eth_rx_clock –period  20 –waveform  {0 10} [get_ports {eth_clock}]
+create_generated_clock -name eth_rx_clock -source [get_pins clocks1/mmcm_adv1_eth/CLKOUT1] [get_ports {eth_clock}]
 set_input_delay -clock [get_clocks eth_rx_clock] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
 set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] eth_rxd[0]}]
 
