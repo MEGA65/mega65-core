@@ -244,7 +244,7 @@ begin  -- behavioural
       if (thumbnail_y_compare < pixel_y_100) and (thumbnail_y < 49) and (thumbnail_y_bumped='0') then
         thumbnail_y <= thumbnail_y + 1;
         thumbnail_y_bumped <= '1';
-        thumbnail_write <= '1';
+        thumbnail_write <= not_hypervisor_mode;        
       end if;
       -- Max display width = 800 (for LCD panels on hand-held)
       thumbnail_x_compare <= thumbnail_x * 10;
@@ -252,7 +252,7 @@ begin  -- behavioural
       if (thumbnail_x_compare < x_counter) and (thumbnail_x < 79) and (thumbnail_x_bumped='0') then
         thumbnail_x <= thumbnail_x + 1;
         thumbnail_x_bumped <= '1';
-        thumbnail_write <= '1';
+        thumbnail_write <= not_hypervisor_mode;
       end if;
 
       thumbnail_row_address <= thumbnail_y * 80;
@@ -277,7 +277,7 @@ begin  -- behavioural
           thumbnail_x_compare <= 0;
           thumbnail_x_bumped <= '1';
           thumbnail_y_bumped <= '1';
-          thumbnail_write <= '1';
+          thumbnail_write <= not_hypervisor_mode;
         end if;
       end if;
       if pixel_newraster='1' then
@@ -285,7 +285,7 @@ begin  -- behavioural
         thumbnail_x <= 0;
         thumbnail_x_compare <= 0;
         thumbnail_x_bumped <= '1';
-        thumbnail_write <= '1';
+        thumbnail_write <= not_hypervisor_mode;
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
       end if;
