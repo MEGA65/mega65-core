@@ -118,7 +118,6 @@ architecture behavioural of framepacker is
   signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
   signal thumbnail_write_count : unsigned(7 downto 0) := to_unsigned(0,8);
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
-  signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
 
   signal last_pixel_y : unsigned(11 downto 0) := x"000";
   signal pixel_drive : unsigned(7 downto 0) := x"00";
@@ -168,43 +167,16 @@ begin  -- behavioural
 --    unsigned(doutb) => buffer_rdata
 --    );
 
-  thumnailbuffer0: entity work.videobuffer port map (
-    clka => pixelclock,
-    wea(0) => thumbnail_write,
-    addra => std_logic_vector(thumbnail_write_address),
-    dina => std_logic_vector(thumbnail_wdata),
-    clkb => cpuclock,
-    addrb => std_logic_vector(fastio_addr(11 downto 0)),
-    unsigned(doutb) => thumbnail_rdata
+  thumnailbuffer0: entity work.ram8x4096_sync port map (
+    clkw => pixelclock,
+    w => thumbnail_write,
+    write_address => to_integer(thumbnail_write_address),
+    wdata => thumbnail_wdata,
+    cs => thumbnail_cs,
+    clkr => cpuclock,
+    address => to_integer(fastio_addr(11 downto 0)),
+    rdata => fastio_rdata
     );
-
-  -- Look after CPU side of mapping of compressed data
-  process (fastio_read,thumbnail_cs,thumbnail_rdata,fastio_addr) is
-  begin
-
-    -- Provide read access to thumbnail buffer.  To simplify things, we won't
-    -- memory map the whole thing, but just provide a 2-byte interface to reset
-    -- the read address, and to read a byte of data.  We will also provide a
-    -- flag that indicates if a complete frame has been processed since the
-    -- last read of the reset register.  This will allow the hypervisor to
-    -- detect if the thumbnail is valid, or if it is still showing data from
-    -- another process.
-    if fastio_read='1' and (thumbnail_cs='1') then
-      if fastio_addr(11 downto 0) = x"000" then
-        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
-      elsif fastio_addr(11 downto 0) = x"001" then
-        fastio_rdata <= thumbnail_write_count;
-      else
-        fastio_rdata <= thumbnail_rdata;
-        report "THUMB: Exporting read data $" & to_hexstring(thumbnail_rdata);
---      fastio_rdata <= fastio_addr(7 downto 0);
---      report "THUMB: Spoofing read data $" & to_hexstring(fastio_addr(7 downto 0));
-      end if;
-    else
-      fastio_rdata <= (others => 'Z');
-    end if;
-    
-  end process;
 
   -- Receive pixels and compress
   -- Also write pixels to thumbnail buffer
