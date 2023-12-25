@@ -187,6 +187,10 @@ begin  -- behavioural
     if thumbnail_cs = '1' then
       if fastio_addr(11 downto 0) = to_unsigned(0,12) then
         fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+      elsif fastio_addr(11 downto 0) = to_unsigned(1,12) then
+        fastio_rdata(7) <= not_hypervisor_mode;
+        fastio_rdata(6) <= hypervisor_mode;
+        fastio_rdata(5 downto 0) <= (others => '0');
       else
         fastio_rdata <= thumbnail_rdata;
       end if;
