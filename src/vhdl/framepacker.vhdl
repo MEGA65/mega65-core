@@ -189,7 +189,7 @@ begin  -- behavioural
     else
       fastio_rdata <= (others => 'Z');
     end if;
-  end if;
+  end process;
   
   process (pixelclock) is
     variable next_byte_valid : std_logic := '0';
