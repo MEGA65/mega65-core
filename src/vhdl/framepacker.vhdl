@@ -228,16 +228,14 @@ begin  -- behavioural
 
       -- Determine current thumbnail pixel row and column
       -- based on raw pixel X and Y positions.
-      -- Vertically centre by skipping first 20 physical rasters in PAL and NTSC
-      -- modes (will require tweaking to get it perfect)
       if pal_mode='1' then
         -- 576 / 50 = 9.6
         -- 9.6 x 100 = 960
-        thumbnail_y_compare <= 2000 + thumbnail_y * 960;
+        thumbnail_y_compare <= thumbnail_y * 960;
       else
         -- 480 / 50 = 11.52
         -- 11.52 x 100 = 1152
-        thumbnail_y_compare <= 2000 + thumbnail_y * 1152;
+        thumbnail_y_compare <= thumbnail_y * 1152;
       end if;
       pixel_y_100 <= to_integer(pixel_y_drive) * 100;
       thumbnail_y_bumped <= '0';
