@@ -360,15 +360,14 @@ architecture Behavioral of container is
 
   signal pot_via_iec : std_logic;
   
-  signal iec_clk_en_drive : std_logic;
-  signal iec_data_en_drive : std_logic;
-  signal iec_srq_en_drive : std_logic;
+  signal iec_clk_en_n_drive : std_logic;
+  signal iec_data_en_n_drive : std_logic;
+  signal iec_srq_en_n_drive : std_logic;
   signal iec_reset_en_n_drive : std_logic;
   signal iec_data_i_drive : std_logic;
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
-  signal iec_atn_drive : std_logic;
-  signal last_iec_atn_drive : std_logic;
+  signal iec_atn_en_n_drive : std_logic;
   signal iec_bus_active : std_logic := '0';
 
   signal pwm_l_drive : std_logic;
