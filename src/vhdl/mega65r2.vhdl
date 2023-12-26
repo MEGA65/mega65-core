@@ -113,14 +113,14 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_reset : out std_logic;
-         iec_atn : out std_logic;
-         iec_clk_en : out std_logic;
-         iec_data_en : out std_logic;
-         iec_srq_en : out std_logic;
-         iec_clk_o : out std_logic;
-         iec_data_o : out std_logic;
-         iec_srq_o : out std_logic;
+         iec_reset_en_n : out std_logic;
+         iec_atn_en_n : out std_logic;
+         iec_clk_en_n : out std_logic;
+         iec_data_en_n : out std_logic;
+         iec_srq_en_n : out std_logic;
+         iec_clk_o : out std_logic := '0';
+         iec_data_o : out std_logic := '0';
+         iec_srq_o : out std_logic := '0';
          iec_clk_i : in std_logic;
          iec_data_i : in std_logic;
          iec_srq_i : in std_logic;
@@ -342,19 +342,15 @@ architecture Behavioral of container is
   signal pot_drain : std_logic;
 
   signal pot_via_iec : std_logic;
-  
-  signal iec_clk_en_drive : std_logic;
-  signal iec_data_en_drive : std_logic;
-  signal iec_srq_en_drive : std_logic;
-  signal iec_data_o_drive : std_logic;
-  signal iec_reset_drive : std_logic;
-  signal iec_clk_o_drive : std_logic;
-  signal iec_srq_o_drive : std_logic;
+
+  signal iec_clk_en_n_drive : std_logic;
+  signal iec_data_en_n_drive : std_logic;
+  signal iec_srq_en_n_drive : std_logic;
+  signal iec_atn_en_n_drive : std_logic;
+  signal iec_reset_en_n_drive : std_logic;
   signal iec_data_i_drive : std_logic;
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
-  signal iec_atn_drive : std_logic;
-  signal last_iec_atn_drive : std_logic;
   signal iec_bus_active : std_logic := '0';
 
   signal pwm_l_drive : std_logic;
@@ -604,7 +600,7 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
-      reset => iec_reset_drive,
+      reset => iec_reset_en_n_drive,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
@@ -748,18 +744,15 @@ begin
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
-      iec_clk_en => iec_clk_en_drive,
-      iec_data_en => iec_data_en_drive,
-      iec_srq_en => iec_srq_en_drive,
-      iec_data_o => iec_data_o_drive,
-      iec_reset => iec_reset_drive,
-      iec_clk_o => iec_clk_o_drive,
-      iec_srq_o => iec_srq_o_drive,
-      iec_data_external => iec_data_i_drive,
-      iec_clk_external => iec_clk_i_drive,
-      iec_srq_external => iec_srq_i_drive,
-      iec_atn_o => iec_atn_drive,
-      iec_bus_active => iec_bus_active,
+          iec_clk_en_n => iec_clk_en_n_drive,
+          iec_data_en_n => iec_data_en_n_drive,
+          iec_srq_en_n => iec_srq_en_n_drive,
+          iec_reset_en_n => iec_reset_en_n_drive,
+          iec_data_external => iec_data_i_drive,
+          iec_clk_external => iec_clk_i_drive,
+          iec_srq_external => iec_srq_i_drive,
+          iec_atn_en_n => iec_atn_en_n_drive,
+          iec_bus_active => iec_bus_active,
       
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => (others => '0'),
@@ -997,41 +990,26 @@ begin
       fb_fire_drive <= fb_fire;  
 
       -- The simple output-only IEC lines we just drive
-      iec_reset <= iec_reset_drive;
-      iec_atn <= not iec_atn_drive;
-      
-      -- The active-high EN lines enable the IEC output drivers.
-      -- We need to invert the signal, so that if a signal from CIA
-      -- is high, we drive the IEC pin low. Else we let the line
-      -- float high.  We have external pull-ups, so shouldn't use them
-      -- in the FPGA.  This also means we can leave the input line to
-      -- the output drivers set a 0, as we never "send" a 1 -- only relax
-      -- and let it float to 1.
-      iec_srq_o <= '0';
-      iec_clk_o <= '0';
-      iec_data_o <= '0';
+      iec_reset_en_n <= iec_reset_en_n_drive;
+      iec_atn_en_n <= iec_atn_en_n_drive;
 
       -- Reading pins is simple
       iec_srq_i_drive <= iec_srq_i;
       iec_clk_i_drive <= iec_clk_i;
       iec_data_i_drive <= iec_data_i;
 
-      last_iec_atn_drive <= iec_atn_drive;
-      if (iec_srq_i_drive /= iec_srq_i)
-        or (iec_clk_i_drive /= iec_clk_i)
-        or (iec_data_i_drive /= iec_data_i)
-        or (iec_atn_drive /= last_iec_atn_drive) then
+      if (iec_srq_en_n_drive and iec_clk_en_n_drive and iec_data_en_n_drive ) = '0' then
         iec_bus_active <= '1';
       else
         iec_bus_active <= '0';
       end if;
-      
+
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
-      iec_srq_en <= iec_srq_o_drive and iec_srq_en_drive;
-      iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
-      iec_data_en <= iec_data_o_drive and iec_data_en_drive;
+      iec_srq_en_n <= iec_srq_en_n_drive;
+      iec_clk_en_n <= iec_clk_en_n_drive;
+      iec_data_en_n <= iec_data_en_n_drive;
 
       -- Pots act like infinite resistance, as we have no real pots on R2 PCB
       fa_potx <= '0';
