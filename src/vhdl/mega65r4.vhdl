@@ -142,7 +142,7 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_reset_n : out std_logic;
+         iec_reset_en_n : out std_logic;
          iec_atn_en_n : out std_logic;
          iec_clk_en_n : out std_logic;
          iec_data_en_n : out std_logic;
@@ -390,7 +390,7 @@ architecture Behavioral of container is
   signal iec_data_en_n_drive : std_logic;
   signal iec_srq_en_n_drive : std_logic;
   signal iec_atn_en_n_drive : std_logic;
-  signal iec_reset_n_drive : std_logic;
+  signal iec_reset_en_n_drive : std_logic;
   signal iec_data_i_drive : std_logic;
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
@@ -882,7 +882,7 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
-      reset => iec_reset_n_drive,
+      reset => iec_reset_en_n_drive,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
@@ -1050,7 +1050,7 @@ begin
           iec_clk_en_n => iec_clk_en_n_drive,
           iec_data_en_n => iec_data_en_n_drive,
           iec_srq_en_n => iec_srq_en_n_drive,
-          iec_reset_n => iec_reset_n_drive,
+          iec_reset_en_n => iec_reset_en_n_drive,
           iec_data_external => iec_data_i_drive,
           iec_clk_external => iec_clk_i_drive,
           iec_srq_external => iec_srq_i_drive,
@@ -1352,7 +1352,7 @@ begin
       fb_fire_drive <= fb_fire;
 
       -- The simple output-only IEC lines we just drive
-      iec_reset_n <= iec_reset_n_drive;
+      iec_reset_en_n <= iec_reset_en_n_drive;
       iec_atn_en_n <= iec_atn_en_n_drive;
 
       -- Reading pins is simple
