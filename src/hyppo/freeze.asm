@@ -790,7 +790,7 @@ freeze_prep_jump_table:
         !16 do_freeze_prep_palette_select
         !16 do_freeze_prep_palette_select
         !16 do_freeze_prep_stash_sd_buffer_and_regs
-        !16 do_freeze_prep_thumbnail
+        !16 do_freeze_prep_none
         !16 do_freeze_prep_viciv
 	!16 do_freeze_prep_none
 	!16 do_freeze_prep_none
@@ -1131,7 +1131,6 @@ freeze_mem_list:
         !8 freeze_prep_none
 
         ;; 384KB RAM (includes the 128KB "ROM" area)
-        ;; Must be saved before doing the thumbnail, which re-uses $1000-$1FFF to store the thumbnail image
         !32 $0000000
         !16 $0000
         !8 6          ;; =6x64K blocks = 384KB
@@ -1156,12 +1155,11 @@ freeze_mem_list:
         !8 0
         !8 freeze_prep_none
 
-        ;; XXX - Thumbnail must be saved last, because something about freezing this causes
-        ;; the freezing of the remaining regions to fail.
-        ;; 4KB thumbnail of screen
-        ;; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
-        ;; first
-        !32 $0001000
+	;; Thumbnail is visible always at $FFD4xxx.
+	;; This saves some hypervisor code space, by no longer requiring to read it and place it
+	;; in low memory somewhere.  It's read-only, so we don't care about attempts to write to
+	;; it during unfreezing
+        !32 $FFD4000
         !16 $1000
         !8 $80                              ;; bit 7 set in # banks tells unfreezer to ignore it.
         !8 freeze_prep_thumbnail

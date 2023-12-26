@@ -16,7 +16,7 @@ architecture foo of testkey is
   signal kio9 : std_logic := '1';
   signal kio10 : std_logic := '1';
   signal matrix_col : std_logic_vector(7 downto 0);
-  signal matrix_col_idx : integer range 0 to 8 := 0;
+  signal matrix_col_idx : integer range 0 to 15 := 0;
   signal restore : std_logic := '1';
   signal capslock_out : std_logic := '1';
 

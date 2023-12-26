@@ -258,7 +258,7 @@ entity iomapper is
         ps2clock : in std_logic;
         scancode_out : out std_logic_vector(12 downto 0);
         -- Widget board / MEGA65R2 keyboard
-        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col_idx : out integer range 0 to 15 := 0;
         widget_matrix_col : in std_logic_vector(7 downto 0);
         widget_restore : in std_logic;
         widget_capslock : in std_logic;
@@ -2216,7 +2216,6 @@ begin
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
-      thumbnail_cs <= '0'; -- This avoids a latch
       if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
@@ -2226,14 +2225,13 @@ begin
         end case;
       else
         c65uart_cs <= '0';
-        report "THUMB: CS consideration for $FFD364x";
-        -- $D640-$D64F is thumbnail generator
-        if (address(19 downto 4) = x"D364") or (address(19 downto 4) = x"D264") then
-          thumbnail_cs <= c65uart_en;
-          report "THUMB: Trying to assert thumbnail_cs";
-        else
-          thumbnail_cs <= '0';
-        end if;
+      end if;
+      -- @IO:GS $FFD4000 THUMB:THUMB Hardware-generated thumbnail image of screen. 80x50, using 3x3x2 RGB colour cube.
+      if (address(19 downto 12) = x"D4") then
+        thumbnail_cs <= '1';
+        report "THUMB: Asserting CS";
+      else
+        thumbnail_cs <= '0';
       end if;
       if (address(19 downto 4) = x"D36E") or (address(19 downto 4) = x"D26E") then
         ethernet_cs <= ethernetcs_en;

@@ -5693,6 +5693,9 @@ begin
       --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles
       xcounter_out <= xcounter_pipeline_delayed;
 
+      report "VICIV: xcounter=" & integer'image(to_integer(xcounter))
+        & ", ycounter=" & integer'image(to_integer(ycounter));
+
       sprite_h640_delayed <= sprite_h640;
       sprite_v400s_delayed <= sprite_v400s;
       reg_h640_delayed <= reg_h640;

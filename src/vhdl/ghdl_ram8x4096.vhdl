@@ -12,9 +12,9 @@ ENTITY ram8x4096 IS
     clkw : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer;
+    write_address : IN integer range 0 to 4095;
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer;
+    address : IN integer range 0 to 4095;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
 END ram8x4096;

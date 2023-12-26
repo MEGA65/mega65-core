@@ -49,7 +49,7 @@ entity matrix_rain_compositor is
     ycounter_out : out unsigned(11 downto 0) := (others => '0');
     -- Scaled horizontal position (for virtual 640H
     -- operation, regardless of physical video mode)
-    xcounter_in : in integer;
+    xcounter_in : in integer range 0 to 4095;
     xcounter_out : out integer;
     lcd_in_letterbox : in std_logic;
 

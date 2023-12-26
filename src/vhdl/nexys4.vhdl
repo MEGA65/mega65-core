@@ -271,7 +271,7 @@ architecture Behavioral of container is
   signal lcd_vsync : std_logic;
   signal pal50_select : std_logic;
 
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col_idx : integer range 0 to 15 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic;
   signal widget_capslock : std_logic;
