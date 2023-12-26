@@ -1366,7 +1366,6 @@ begin
         iec_bus_active <= '0';
       end if;
 
-
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
