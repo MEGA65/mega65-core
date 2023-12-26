@@ -48,7 +48,7 @@ library ieee ;
 --  use ieee.std_logic_unsigned.all;
   use ieee.numeric_std.all;
   use work.debugtools.all;
-
+  
 --library UNISIM;
 --  use UNISIM.Vcomponents.all;
 
@@ -129,7 +129,7 @@ architecture RTL of mos6522 is
   signal load_data         : std_logic_vector(7 downto 0);
 
   -- timer 1
-  signal t1c               : unsigned(15 downto 0);
+  signal t1c               : unsigned(15 downto 0) := to_unsigned(0,16);
   signal t1c_active        : boolean;
   signal t1c_done          : boolean;
   signal t1_w_reset_int    : boolean;
@@ -140,7 +140,7 @@ architecture RTL of mos6522 is
   signal t1_irq            : std_logic := '0';
 
   -- timer 2
-  signal t2c               : unsigned(15 downto 0);
+  signal t2c               : unsigned(15 downto 0) := to_unsigned(0,16);
   signal t2c_active        : boolean;
   signal t2c_done          : boolean;
   signal t2_pb6            : std_logic;
@@ -195,7 +195,7 @@ architecture RTL of mos6522 is
 
   signal prev_was_read : std_logic := '0';
   signal prev_was_write : std_logic := '0';
-
+ 
 begin
   p_phase : process
   begin
@@ -211,7 +211,7 @@ begin
         -- stuck at "10" between cycles, which is fine, because
         -- nothing uses that phase to do stuff. All other phases
         -- DO have things attached to them.
-        if phase /= 2 then
+        if phase < 2 then
           phase <= phase + 1;
         end if;
       end if;
@@ -357,7 +357,7 @@ begin
 		sr_read_ena <= false;
 		r_irb_hs <= '0';
 		r_ira_hs <= '0';
-
+		
 		if (cs = '1') and (I_RW_L = '1') then
                   prev_was_read <= '1';
                   if prev_was_read = '0' then
@@ -658,7 +658,11 @@ begin
           if name = "@$1800" then
             report "MOS6522"&name&": Decrementing t1c from " & integer'image(to_integer(unsigned(t1c)));
           end if;
-          t1c <= to_unsigned(to_integer(t1c) - 1,16);
+          if t1c /= to_unsigned(0,16) then
+            t1c <= to_unsigned(to_integer(t1c) - 1,16);
+          else
+            t1c <= (others => '1');
+          end if;
         end if;
       end if;
 
@@ -729,7 +733,11 @@ begin
         t2c(15 downto 8) <= r_t2l_h;
       else
         if (phase=3) and ena then -- or count mode
-            t2c <= to_unsigned(to_integer(t2c) - 1,16);
+            if t2c /= to_unsigned(0,16) then
+	      t2c <= to_unsigned(to_integer(t2c) - 1,16);
+            else
+              t2c <= (others => '1');
+            end if;
         end if;
       end if;
 

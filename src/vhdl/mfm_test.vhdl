@@ -49,8 +49,8 @@ architecture behavior of mfm_test is
   signal last_crc_error : std_logic := '0';
   
   -- The track/sector/side we are being asked to find
-  signal target_track : unsigned(7 downto 0) := x"28";
-  signal target_sector : unsigned(7 downto 0) := x"01";
+  signal target_track : unsigned(7 downto 0) := x"01";
+  signal target_sector : unsigned(7 downto 0) := x"00";
   signal target_side : unsigned(7 downto 0) := x"01";
   signal target_any : std_logic := '0';
 
@@ -180,17 +180,38 @@ begin
   process is
     file trace : CharFile;
     variable c : character;
+    variable flux_interval : unsigned(7 downto 0);
   begin
-    while true loop
-      file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
-      while not endfile(trace) loop
-        Read(trace,c);
+    if false then
+      while true loop
+        file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
+        while not endfile(trace) loop
+          Read(trace,c);
 --        report "Floppy read bit " & std_logic'image(std_logic(to_unsigned(character'pos(c),8)(4)));
-        f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
-        wait for 60 ns;
+          f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
+          wait for 60 ns;
+        end loop;
+        file_close(trace);
       end loop;
-      file_close(trace);
-    end loop;
+    end if;
+    if true then
+      while true loop
+        file_open(trace,"assets/amiga-track0-intervals.dat",READ_MODE);
+        while not endfile(trace) loop
+          Read(trace,c);
+          flux_interval := to_unsigned(character'pos(c),8);
+--          report "Floppy interval = $" & to_hexstring(flux_interval);
+          f_rdata <= '1';
+          wait for 200 ns;
+          f_rdata <= '0';
+          for i in ( 200 / 50 ) to to_integer(flux_interval) loop
+            wait for 50 ns;
+          end loop;
+        end loop;
+        file_close(trace);
+      end loop;
+    end if;
+    
   end process;
 
   crc0: entity work.crc1581 port map (
@@ -216,15 +237,20 @@ begin
       clock_byte_in => clock_byte_in
     );
 
-  decoder0: entity work.mfm_decoder port map (
+  decoder0: entity work.mfm_decoder generic map (
+    unit_id => 1
+    )
+    port map (
     clock40mhz => cpuclock,
     -- Decode data from log file
---    f_rdata => f_rdata,
+    f_rdata => f_rdata,
     -- Decode written data
-    f_rdata => f_write,
+--    f_rdata => f_write,
     cycles_per_interval => to_unsigned(80,8),
     invalidate => '0',
 
+    encoding_mode => x"0",
+    
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
@@ -248,23 +274,25 @@ begin
     if rising_edge(cpuclock) then
 
       -- Encoder
-      
-      last_ready_for_next <= ready_for_next;
-      if ready_for_next = '1' and last_ready_for_next = '0' then
-        byte_valid <= '1';
-        byte_in <= mfm_data(byte_counter)(15 downto 8);
-        clock_byte_next <= mfm_data(byte_counter)(7 downto 0);
-        report "Feeding byte #" & integer'image(byte_counter) & " into MFM encoder: $" & to_hstring(mfm_data(byte_counter));
-        if byte_counter < 1024 then
-          byte_counter <= byte_counter + 1;
+
+      if false then
+        last_ready_for_next <= ready_for_next;
+        if ready_for_next = '1' and last_ready_for_next = '0' then
+          byte_valid <= '1';
+          byte_in <= mfm_data(byte_counter)(15 downto 8);
+          clock_byte_next <= mfm_data(byte_counter)(7 downto 0);
+          report "Feeding byte #" & integer'image(byte_counter) & " into MFM encoder: $" & to_hstring(mfm_data(byte_counter));
+          if byte_counter < 1024 then
+            byte_counter <= byte_counter + 1;
+          else
+            byte_counter <= 0;
+          end if;
         else
-          byte_counter <= 0;
-        end if;
-      else
-        byte_valid <= '0';
-        clock_byte_in <= clock_byte_next;
-        if clock_byte_next /= clock_byte_in then
-          report "presenting clock byte $"& to_hstring(clock_byte_next);
+          byte_valid <= '0';
+          clock_byte_in <= clock_byte_next;
+          if clock_byte_next /= clock_byte_in then
+            report "presenting clock byte $"& to_hstring(clock_byte_next);
+          end if;
         end if;
       end if;
 
@@ -303,7 +331,7 @@ begin
 
     wait for 3 ns;
     
-    for i in 1 to 2000000 loop
+    for i in 1 to 20000000 loop
 
       clock325 <= '0';
       pixelclock <= '0';

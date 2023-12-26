@@ -752,6 +752,13 @@ spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
 	$(GHDL) -m test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
 
+test-iec:	$(TOOLDIR)/mkdriverom
+	$(TOOLDIR)/mkdriverom ../1540-c000.325302-01.bin ../1541-e000.901229-01.bin > src/vhdl/driverom1541.vhdl
+	./test-iec.py
+
+$(TOOLDIR)/mkdriverom:	$(TOOLDIR)/mkdriverom.c
+	$(CC) $(COPT) -o $@ $<
+
 $(TOOLDIR)/merge-issue:	$(TOOLDIR)/merge-issue.c
 	$(CC) $(COPT) -o $(TOOLDIR)/merge-issue $(TOOLDIR)/merge-issue.c
 

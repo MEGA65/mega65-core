@@ -2,12 +2,7 @@
 
 # Check if VIVADODIR is empty or undefined and detect version instead
 if [ -z "$VIVADODIR" ]; then
-  # workaround for wrongly chosen VIVADO install path
-  if [ -e /opt/Xilinx/Vivado/Vivado ]; then
-    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/* /opt/Xilinx/Vivado/Vivado/* | sort | tail -1`
-  else
-    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/* | sort | tail -1`
-  fi
+    VIVADODIR=`ls -1d /opt/Xilinx/Vivado/2* /opt/Xilinx/Vivado/Vivado/2* | tail -1`
 fi
 
 . ${VIVADODIR}/settings64.sh
