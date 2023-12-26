@@ -25,8 +25,7 @@ entity cpu6502 is
     reset : in std_logic;
     sync : buffer std_logic;
     t : out unsigned(2 downto 0);
-    write_n : out std_logic;
-    write_next : buffer std_logic
+    write_n : out std_logic
     );
 end entity cpu6502;
 

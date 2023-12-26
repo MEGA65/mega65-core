@@ -273,7 +273,7 @@ begin
     nmi => nmi,
     irq => irq,
     ready => drive_clock_cycle_strobe,
-    write_next => cpu_write_n,
+    write_n => cpu_write_n,
 --    sync => cpu_sync,
     address => address,
     address_next => address_next_internal,
@@ -327,11 +327,14 @@ begin
     if address(15)='1' then
       -- ROM is repeated twice at $8000 and $C000
       cs_rom <= '1'; cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
+      -- report "1541: Accessing ROM address $" & to_hexstring(address);
     else
       cs_rom <= '0';
       case address(12 downto 10) is
         when "000" | "001" | "010" | "011" => -- $0000-$0FFF = RAM
           cs_ram <= '1'; cs_via1 <= '0'; cs_via2 <= '0';
+          -- report "1541: Accessing RAM address $" & to_hexstring(address) & ", wdata=$" & to_hexstring(fastio_wdata)
+          -- & ", write_n=" & std_logic'image(cpu_write_n);
         when "100" | "101" => -- $1000-$17FF = nothing
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
         when "110" => -- $1800-$1BFF = VIA1
