@@ -233,7 +233,7 @@ begin  -- behavioural
         -- 480 / 50 = 11.52
         -- 11.52 x 100 = 1152
         -- except that's a bit too much...
-        thumbnail_y_compare <= 1000 + thumbnail_y * 1052;
+        thumbnail_y_compare <= 1000 + thumbnail_y * 960;
       end if;
       pixel_y_100 <= to_integer(pixel_y_drive) * 100;
       thumbnail_y_bumped <= '0';
