@@ -363,7 +363,7 @@ architecture Behavioral of container is
   signal iec_clk_en_drive : std_logic;
   signal iec_data_en_drive : std_logic;
   signal iec_srq_en_drive : std_logic;
-  signal iec_reset_n_drive : std_logic;
+  signal iec_reset_en_n_drive : std_logic;
   signal iec_data_i_drive : std_logic;
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
