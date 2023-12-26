@@ -225,6 +225,7 @@ entity iomapper is
         iec_data_en_n : out std_logic := '0';
         iec_reset_en_n : out std_logic := '1';
         iec_srq_en_n : out std_logic := '0';
+        iec_atn_en_n : out std_logic := '0';
         iec_srq_external : in std_logic := 'Z';
         iec_data_external : in std_logic := 'Z';
         iec_clk_external : in std_logic := 'Z';
@@ -751,7 +752,7 @@ begin
   -- currently not produce any problems, as it is not yet used
   -- anywhere in the design! But it might if this changes...
   drive1541_mega65r3:
-  if target = mega65r3 or target = mega65r4 or target = mega65r5 or target = mega65r6 then
+  if (target = mega65r3) or (target = mega65r4) or (target = mega65r5) or (target = mega65r6) generate
     drive1541: entity work.internal1541
       port map (
         clock => cpuclock,
