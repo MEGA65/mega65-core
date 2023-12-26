@@ -119,7 +119,7 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_reset_n : out std_logic;
+         iec_reset_en_n : out std_logic;
          iec_atn_en_n : out std_logic;
          iec_data_en_n : out std_logic;
          iec_clk_en_n : out std_logic;
