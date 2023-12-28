@@ -181,8 +181,7 @@ SDCARD_FILES= \
 	$(SDCARD_DIR)/ETHLOAD.M65
 
 FLASHER_FILES= \
-	$(UTILDIR)/mflash.prg \
-	$(UTILDIR)/upgrade0.prg
+	$(UTILDIR)/mflash.prg
 
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
@@ -890,7 +889,7 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c 
 #
 # MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
 #
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
@@ -901,7 +900,7 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
@@ -922,7 +921,7 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h 
 	$(call mbuild_sizecheck,30719,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(UTILDIR)/mf_screens_solo.o $(UTILDIR)/mf_screens_solo.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens_solo.o $(UTILDIR)/mf_screens_solo.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
 		$(MEGA65LIBCINC) -O -o $@ \
@@ -1232,7 +1231,7 @@ $(BINDIR)/vncserver:	$(TOOLDIR)/vncserver.c
 clean:
 	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
 	rm -f $(BINDIR)/diskmenu_c000.bin
-	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.label $(UTILDIR)/*.map $(UTILDIR)/*.bin $(UTILDIR)/*.o $(UTILDIR)/megaflash_screens*
+	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.label $(UTILDIR)/*.map $(UTILDIR)/*.bin $(UTILDIR)/*.o $(UTILDIR)/mf_screens*
 	rm -rf $(UTILDIR)/work
 	## should not remove iomap.txt, as this is committed to repo!
 	#rm -f iomap.txt
