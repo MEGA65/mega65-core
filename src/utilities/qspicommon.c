@@ -357,10 +357,10 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
 
   // return code of select_bitstream_file > 1 means a file was selected
   if (selected_file == MFS_FILE_VALID) {
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Checking core file...\n %s\n", disk_display_return);
+    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Checking core file...\n %s\n", mfsc_corefile_displayname);
     mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 
-    if ((err = nhsd_open(disk_file_inode))) {
+    if ((err = nhsd_open(mfsc_corefile_inode))) {
       // Couldn't open the file.
       mhx_writef(MHX_W_RED "\nERROR: Could not open core file (%d)!\n" MHX_W_WHITE, err);
       mhx_press_any_key(0, MHX_A_WHITE);
@@ -384,7 +384,7 @@ void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slo
 #if 0
     // start reading file from beginning again
     // (as the model_id checking read the first 512 bytes already)
-    if ((err = nhsd_open(disk_file_inode))) {
+    if ((err = nhsd_open(mfsc_corefile_inode))) {
       mhx_writef("error %d while loading COR file\n", err);
       mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
       return;

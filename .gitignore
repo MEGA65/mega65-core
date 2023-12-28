@@ -48,7 +48,7 @@ src/utilities/*.map
 src/utilities/*.label
 src/utilities/*.lbl
 src/utilities/work/
-src/utilities/megaflash_screens*
+src/utilities/mf_screens*
 monitor.list
 monitor.map
 monitor.label

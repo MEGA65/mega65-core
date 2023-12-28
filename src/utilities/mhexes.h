@@ -17,6 +17,13 @@
  *
  */
 
+// this is currently hard defined, but should be a screen definition struct...
+#define mhx_base_scr 0x0400
+#define mhx_base_col 0xd800
+#define mhx_base_col24 0xff80000
+#define mhx_scr_width 40
+#define mhx_scr_height 25
+
 #include <cbm_screen_charmap.h>
 
 // current attributes for writing to the screen (see MHX_A_*)

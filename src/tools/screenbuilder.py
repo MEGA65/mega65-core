@@ -8,41 +8,71 @@ from typing import Optional
 
 DEBUG = False
 
-HEADER_TOP = """#ifndef %(cap_name)s_H
+SCREEN_BINH_HEADER = """/*
+ * Automatically generated file
+ */
+#ifndef %(cap_name)s_H
 #define %(cap_name)s_H 1
 
 #include "mhexes.h"
 
 """
 
-SCREEN_BINH_TMPL = """mhx_screen_t %(screen)s = {
-  0x%(txtram_len)04x, 0x%(colram_len)04x,
-  %(cursor_x)d, %(cursor_y)d,
-  0x%(txtram_start)06x,
-  0x%(colram_start)06x
-};
-
+SCREEN_BINH_TMPL = """extern mhx_screen_t %(mainname)s_%(screen)s;
 """
 
-SCREEN_SCRH_TMPL = """static const char %(screen)s_txtram[%(txtram_mem)d] = {
-  %(txtram_hex)s
-};
-static const char %(screen)s_colram[%(colram_mem)d] = {
-  %(colram_hex)s
-};
-
-mhx_screen_t %(screen)s = {
-  0x%(txtram_len)04x, 0x%(colram_len)04x,
-  %(cursor_x)d, %(cursor_y)d,
-  0,
-  0
-};
-
-"""
-
-HEADER_BOT = """
+SCREEN_BINH_FOOTER = """
 #endif /* %(cap_name)s_H */
 """
+
+SCREEN_BINC_HEADER = '''/*
+ * Automatically generated file
+ */
+#include <stdint.h>
+#include "%(filename)s.h"
+
+'''
+
+SCREEN_BINC_DATA_TMPL = """static const char %(mainname)s_%(screen)s_txtram[%(txtram_mem)d] = {
+  %(txtram_hex)s
+};
+
+%(nocol)sstatic const char %(mainname)s_%(screen)s_colram[%(colram_mem)d] = {
+%(nocol)s  %(colram_hex)s
+%(nocol)s};
+
+"""
+
+SCREEN_BINC_STRUCT_TMPL = """mhx_screen_t %(mainname)s_%(screen)s = {
+  0x%(txtram_len)04x, 0x%(colram_len)04x,
+  %(cursor_x)d, %(cursor_y)d,
+  0x%(txtram_start_h)xL,
+  0x%(colram_start_h)xL
+};
+
+"""
+
+SCREEN_BINC_FOOTER = ''
+
+COLORS = {
+    'BLK': 0,
+    'WHT': 1,
+    'RED': 2,
+    'CYN': 3,
+    'PUR': 4,
+    'GRN': 5,
+    'BLU': 6,
+    'YEL': 7,
+    'ORG': 8,
+    'ORN': 8,
+    'BRN': 9,
+    'LRD': 10,
+    'DGY': 11,
+    'MGY': 12,
+    'LGR': 13,
+    'LBL': 14,
+    'LGY': 15,
+}
 
 def ascii2screen(c: str, default: Optional[str] = b'\x20') -> bytes:
     c = ord(c)
@@ -86,6 +116,9 @@ def parse_assignment(data: dict, line: str) -> bool:
     elif SIZEre.match(value):
         value = tuple([int(x) for x in value.split('x', 1)])
     data[key] = value
+    if key == 'filename':
+        data['name'] = value.replace('-', '_')
+        data['cap_name'] = value.replace('-', '_').upper()
     return True
 
 def parse_header(main: dict, line: str) -> bool:
@@ -107,7 +140,7 @@ def parse_header(main: dict, line: str) -> bool:
 
 def parse_screen(screen: dict, line: str) -> bool:
     line = line.rstrip()
-    if line == '':
+    if line == '' or line[0] == '/':
         return False
     if line[0] != '!':
         sys.stderr.write('ERROR: text needs to be started by "!text"!\n')
@@ -121,7 +154,7 @@ def parse_screen(screen: dict, line: str) -> bool:
         sys.exit(1)
     return False
 
-COLre=re.compile(r'\{(?P<col>\d*|C)\}')
+COLre=re.compile(r'\{(?P<col>\d*|C|[a-zA-Z]{3})\}')
 def parse_text(screen: dict, line: str) -> bool:
     line = line.rstrip()
     if line == '!endtext':
@@ -143,6 +176,8 @@ def parse_text(screen: dict, line: str) -> bool:
         if match.group(1) == 'C':
             screen['cursor_x'] = len(tline)
             screen['cursor_y'] = len(screen['txtram'])
+        elif len(match.group(1)) == 3:
+            screen['_curcol'] = COLORS.get(match.group(1), screen['foreground'])
         else:
             screen['_curcol'] = int(match.group(1)) if match.group(1) else screen['foreground']
         line = line[match.end(0):]
@@ -150,7 +185,7 @@ def parse_text(screen: dict, line: str) -> bool:
     cline += bytes([screen['_curcol']] * len(line))
     # make line the right length
     if len(tline) > screen['size'][0]:
-        sys.stderr.write(f"screen {screen['screen']} line {len(screen['txtram'])+1} to long\n")
+        sys.stderr.write(f"screen {screen['screen']} line {len(screen['txtram'])+1} to long\n{repr(tline)}\n")
         tline = tline[:screen['size'][0]]
     if len(cline) > screen['size'][0]:
         cline = cline[:screen['size'][0]]
@@ -167,10 +202,14 @@ def add_screen(main: dict, screen: dict):
     ramsize = screen['size'][0] * screen['size'][1]
     if ramsize % main['memory_align']:
         ramsize = ((ramsize // main['memory_align']) + 1) * main['memory_align']
-    screen['colram'] = b''.join(screen['colram'])
-    screen['colram_len'] = len(screen['colram'])
-    if len(screen['colram']) < ramsize:
-        screen['colram'] += bytes([0] * (ramsize - len(screen['colram'])))
+    if screen['nocolorram'] == 1:
+        screen['colram'] = b''
+        screen['colram_len'] = 0
+    else:
+        screen['colram'] = b''.join(screen['colram'])
+        screen['colram_len'] = len(screen['colram'])
+        if len(screen['colram']) < ramsize:
+            screen['colram'] += bytes([0] * (ramsize - len(screen['colram'])))
     screen['colram_mem'] = len(screen['colram'])
     screen['txtram'] = b''.join(map(ascii2screen, ''.join(screen['txtram'])))
     screen['txtram_len'] = len(screen['txtram'])
@@ -179,6 +218,7 @@ def add_screen(main: dict, screen: dict):
     screen['txtram_mem'] = len(screen['txtram'])
     screen['txtram_hex'] = hexify(screen['txtram'])
     screen['colram_hex'] = hexify(screen['colram'])
+    screen['mainname'] = main['name']
     main['screens'].append(screen)
 
 def calc_memory(main: dict):
@@ -198,8 +238,11 @@ def calc_memory(main: dict):
     for screen in main['screens']:
         screen['txtram_start'] = addr
         addr += screen['txtram_mem']
-        screen['colram_start'] = addr
-        addr += screen['colram_mem']
+        if screen['nocolorram'] == 1:
+            screen['colram_start'] = 0
+        else:
+            screen['colram_start'] = addr
+            addr += screen['colram_mem']
         sys.stdout.write('  screen %(screen)s: txt@%(txtram_start)06X, col@%(colram_start)06X\n' % screen)
     # write address start to file for shell expansion use
     fn = os.path.join(main['path'], main['filename'] + '.adr')
@@ -214,28 +257,50 @@ def output_bin(main: dict):
             outf.write(screen['colram'])
     sys.stdout.write(f'wrote {fn}\n')
 
-def output_bin_header(main: dict):
-    fn = os.path.join(main['path'], main['filename'] + '.h')
-    with open(fn, 'wt') as outf:
-        outf.write(HEADER_TOP % main)
-        for screen in main['screens']:
-            outf.write(SCREEN_BINH_TMPL % screen)
-        outf.write('#define %(cap_name)s_INIT ;\n' % main)
-        outf.write(HEADER_BOT % main)
-    sys.stdout.write(f'wrote {fn}\n')
-
 def output_scr_header(main: dict):
-    fn = os.path.join(main['path'], main['filename'] + '_scr.h')
-    with open(fn, 'wt') as outf:
-        outf.write(HEADER_TOP % main)
-        for screen in main['screens']:
-            outf.write(SCREEN_SCRH_TMPL % screen)
-        outf.write('#define %(cap_name)s_INIT %(name)s_init()\n\nvoid %(name)s_init(void)\n{\n' % main)
-        for screen in main['screens']:
-            outf.write('  %(screen)s.screen_start = (long)&%(screen)s_txtram;\n  %(screen)s.color_start = (long)&%(screen)s_colram;\n' % screen)
-        outf.write('}\n')
-        outf.write(HEADER_BOT % main)
-    sys.stdout.write(f'wrote {fn}\n')
+    def _write(solo):
+        fn = os.path.join(main['path'], main['filename'] + ('_solo.h' if solo else '.h'))
+        with open(fn, 'wt') as outf:
+            outf.write(SCREEN_BINH_HEADER % main)
+            for screen in main['screens']:
+                outf.write(SCREEN_BINH_TMPL % screen)
+            if solo:
+                outf.write('void %(name)s_init(void);\n\n#define %(cap_name)s_INIT %(name)s_init();\n' % main)
+            else:
+                outf.write('#define %(cap_name)s_INIT ;\n' % main)
+            outf.write(SCREEN_BINH_FOOTER % main)
+        sys.stdout.write(f'wrote {fn}\n')
+    _write(0)
+    _write(1)
+
+def output_scr_code(main: dict):
+    def _write(solo):
+        fn = os.path.join(main['path'], main['filename'] + ('_solo.c' if solo else '.c'))
+        with open(fn, 'wt') as outf:
+            outf.write(SCREEN_BINC_HEADER % main)
+            for screen in main['screens']:
+                if screen['nocolorram'] == 1:
+                    screen['nocol'] = '// '
+                else:
+                    screen['nocol'] = ''
+                if solo:
+                    outf.write(SCREEN_BINC_DATA_TMPL % screen)
+                    screen['txtram_start_h'] = screen['txtram_start']
+                    screen['colram_start_h'] = screen['colram_start']
+                else:
+                    screen['txtram_start_h'] = screen['colram_start_h'] = 0
+                outf.write(SCREEN_BINC_STRUCT_TMPL % screen)
+            if solo:
+                outf.write('void %(name)s_init(void) {\n' % main)
+                for screen in main['screens']:
+                    outf.write('  %(mainname)s_%(screen)s.screen_start = (long)&%(mainname)s_%(screen)s_txtram;\n' % screen)
+                    if screen['nocolorram'] == 0:
+                        outf.write('  %(mainname)s_%(screen)s.color_start = (long)&%(mainname)s_%(screen)s_colram;\n' % screen)
+                outf.write('}\n')
+            outf.write(SCREEN_BINC_FOOTER % main)
+        sys.stdout.write(f'wrote {fn}\n')
+    _write(0)
+    _write(1)
 
 def main():
     parser = argparse.ArgumentParser(description="MEGA65 Screen Builder")
@@ -251,9 +316,9 @@ def main():
         'memory_end': None,
         'memory_align': 1,
         'path': path,
-        'filename': filename.replace(".scr", "-screens"),
-        'name': filename.replace(".scr", "-screens").replace('-', '_'),
-        'cap_name': filename.replace(".scr", "-screens").replace('-', '_').upper(),
+        'filename': filename.replace(".scr", ""),
+        'name': filename.replace(".scr", "").replace('-', '_'),
+        'cap_name': filename.replace(".scr", "").replace('-', '_').upper(),
         'screens': [],
     }
     SCREEN_TEMPLATE = {
@@ -263,7 +328,8 @@ def main():
         'cursor_y': -1,
         'background': 0,
         'foreground': 1,
-        'fillchar': ' '
+        'fillchar': ' ',
+        'nocolorram': 0,
     }
     screen = {x: y for x, y in SCREEN_TEMPLATE.items()}
 
@@ -286,8 +352,8 @@ def main():
                     state = 2
     calc_memory(main)
     output_bin(main)
-    output_bin_header(main)
     output_scr_header(main)
+    output_scr_code(main)
 
 if __name__ == "__main__":
     main()

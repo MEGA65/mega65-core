@@ -9,12 +9,6 @@
 #include "mhexes.h"
 #include "mhx_bin2scr.h"
 
-#define mhx_base_scr 0x0400
-#define mhx_base_col 0xd800
-#define mhx_base_col24 0xff80000
-#define mhx_scr_width 40
-#define mhx_scr_height 25
-
 uint16_t mhx_saddr = mhx_base_scr, mhx_caddr = mhx_base_col;
 
 int8_t mhx_posx = 0, mhx_posy = 0;

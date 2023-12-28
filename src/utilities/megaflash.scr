@@ -1,6 +1,6 @@
 @memory_end=0x4ffff
 @memory_align=0x100
-@filename=megaflash_screens
+@filename=mf_screens
 !screen=slot1_not_m65
 !size=40x25
 !background=6
@@ -48,4 +48,26 @@ please contact us first!
 {}
 Type CONFIRM to proceed, or press
 <RUN/STOP> to abort: {C}
+!endtext
+!screen=menu
+!size=40x14
+!nocolorram=1
+!background=6
+!foreground=1
+/123456789012345678901234567890123456789
+!text
+  <0>-<X> Launch   <CTRL>+<1>-<X> Edit
+      Select core file for slot X
+ <F5> Internal SD  <F7> Directory: ROOT
+ <RETURN> Select file      <STOP> Abort
+ <F5> External SD  <F7> Directory: ROOT
+ <RETURN> Select file      <STOP> Abort
+ <F5> Internal SD  <F7> Directory: CORE
+ <RETURN> Select file      <STOP> Abort
+ <F5> External SD  <F7> Directory: CORE
+ <RETURN> Select file      <STOP> Abort
+  <F3> Load Core  <F4> Erase Slot
+                           <STOP> Abort
+  <F3> Load Core  <F4> Erase Slot
+  <F8> Flash Slot          <STOP> Abort
 !endtext
