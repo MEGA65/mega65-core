@@ -17,7 +17,7 @@ entity virtual_to_matrix is
         
         -- Virtualised keyboard matrix
         matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
-        matrix_col_idx : in integer range 0 to 8
+        matrix_col_idx : in integer range 0 to 15
         
         );
 
@@ -34,7 +34,7 @@ architecture behavioral of virtual_to_matrix is
   signal touch_key2_drive : unsigned(7 downto 0) := (others => '0');
   
   -- keyboard matrix ram inputs
-  signal keyram_address : integer range 0 to 8 := 0;
+  signal keyram_address : integer range 0 to 15 := 0;
   signal keyram_di : std_logic_vector(7 downto 0) := (others => '0');
   signal keyram_wea : std_logic_vector(7 downto 0) := (others => '0');
 

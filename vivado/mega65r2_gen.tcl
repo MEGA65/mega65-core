@@ -115,6 +115,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x2048.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096_sync.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096_sync_2cs.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram32x1024_sync.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/colourram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/crc.vhdl"]"\
@@ -148,6 +149,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/mega65r2_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r3_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65r4_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65r5_board_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/grove_i2c.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_bytes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_gaps.vhdl"]"\
@@ -294,6 +296,10 @@ set file "vhdl/mega65r4_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/mega65r5_board_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/grove_i2c.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -383,6 +389,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/ghdl_ram8x4096_sync.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/ghdl_ram8x4096_sync_2cs.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

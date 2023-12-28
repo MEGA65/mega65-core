@@ -108,7 +108,7 @@ entity c65uart is
 
     accessible_key_event : in unsigned(7 downto 0);
     accessible_key_enable : buffer std_logic := '0';
-    accessible_key_extradim : buffer std_logic := '0';
+    accessible_key_extradim : out std_logic := '0';
 
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
@@ -272,6 +272,9 @@ architecture behavioural of c65uart is
   signal dc_track_rate_int : unsigned(7 downto 0) := x"ff";
   signal dc_track_enable_int : std_logic := '0';
 
+  signal accessible_key_extradim_int : std_logic := '0';
+
+  
 begin  -- behavioural
 
   process(pixelclock,cpuclock,fastio_address,fastio_write,fastio_read,
@@ -285,7 +288,7 @@ begin  -- behavioural
           reg_divisor,reg_intmask,reg_intflag,reg_porte_read,reg_porte_ddr,
           clock709375,bucky_key_buffered,key_presenting,reg_portf_read,reg_portf_ddr,
           reg_portg_read,reg_portg_ddr,
-          key_left,key_up,real_hardware,accessible_key_extradim,
+          key_left,key_up,real_hardware,accessible_key_extradim_int,
           accessible_key_enable,key_queue_flush,porth,porti,matrix_disable_modifiers,
           widget_enable_internal,ps2_enable_internal,physkey_enable_internal,
           virtual_enable_internal,joykey_enable_internal,joyswap_internal,
@@ -355,6 +358,8 @@ begin  -- behavioural
 
     if rising_edge(cpuclock) then
 
+      accessible_key_extradim <= accessible_key_extradim_int;
+      
       sid_mode <= sid_mode_int;
       dc_track_rate <= dc_track_rate_int;
       dc_track_enable <= dc_track_enable_int;
@@ -544,7 +549,7 @@ begin  -- behavioural
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
           when x"0f" =>
             accessible_key_enable <= fastio_wdata(7);
-            accessible_key_extradim <= fastio_wdata(6);
+            accessible_key_extradim_int <= fastio_wdata(6);
           when x"10" => porth_write_strobe <= '1';
           when x"11" =>
             -- bucky keys readonly
@@ -734,7 +739,7 @@ begin  -- behavioural
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
           fastio_rdata(5) <= real_hardware;
-          fastio_rdata(6) <= accessible_key_extradim;
+          fastio_rdata(6) <= accessible_key_extradim_int;
           fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
           -- @IO:GS $D610 UARTMISC:ASCIIKEY Top of typing event queue as ASCII. Write to clear event ready for next.

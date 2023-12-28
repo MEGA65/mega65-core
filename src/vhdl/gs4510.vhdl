@@ -3520,7 +3520,7 @@ begin
       shadow_wdata <= value;
       
       if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
-        report "writing to chip RAM addr=$" & to_hstring(long_address) severity note;
+        report "writing to chip RAM addr=$" & to_hstring(long_address) & " value = $" & to_hexstring(value) severity note;
         is_pending_dma_access <= '0';
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
@@ -6374,9 +6374,9 @@ begin
             when DMAgicCopyWrite =>
 
               -- Remember value just read
-              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+              report "DMAgicCopyWrite: dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
-                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&"), memory_read_value=$" & to_hexstring(memory_read_value);
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 

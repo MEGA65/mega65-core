@@ -326,7 +326,7 @@ architecture behavioural of ethernet is
   signal eth_txen : std_logic := '0';
   signal eth_txd_delayed : unsigned(7 downto 0) := "11111111";
   signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
-  signal eth_txd_phase : unsigned(1 downto 0) := "00";
+  signal eth_txd_phase : unsigned(1 downto 0) := "01";
   signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
   signal eth_txd_out_stage : unsigned(1 downto 0) := "00";
   signal eth_txen_out_stage : std_logic := '0';

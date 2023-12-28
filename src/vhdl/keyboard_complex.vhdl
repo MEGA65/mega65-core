@@ -38,7 +38,7 @@ entity keyboard_complex is
     joyb : in std_logic_vector(4 downto 0);
 
     -- Widget board / MEGA65R2 keyboard
-    widget_matrix_col_idx : out integer range 0 to 8 := 0;
+    widget_matrix_col_idx : out integer range 0 to 15 := 0;
     widget_matrix_col : in std_logic_vector(7 downto 0);
     widget_restore : in std_logic;
     widget_capslock : in std_logic;
@@ -137,10 +137,10 @@ architecture behavioural of keyboard_complex is
   signal restore_combined : std_logic := '1';
   signal capslock_combined : std_logic := '1';
 
-  signal matrix_col_idx : integer range 0 to 8;
+  signal matrix_col_idx : integer range 0 to 15;
 
   signal matrix_combined_col : std_logic_vector(7 downto 0);
-  signal matrix_combined_col_idx : integer range 0 to 8;
+  signal matrix_combined_col_idx : integer range 0 to 15;
   signal kmm_out : std_logic_vector(7 downto 0);
   signal kmm_index : integer range 0 to 15;
   signal summary_index : integer range 0 to 15;
