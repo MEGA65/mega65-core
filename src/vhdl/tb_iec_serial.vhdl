@@ -117,9 +117,9 @@ begin
       -- Ideally we would have <= (iec_clk_en_n and iec_clk_out)
       -- etc.
       iec_atn_i => iec_atn,
-      iec_clk_i => iec_clk_en_n,
-      iec_data_i => iec_data_en_n,
-      iec_srq_i => iec_srq_en_n,
+      iec_clk_i => iec_clk_i,
+      iec_data_i => iec_data_i,
+      iec_srq_i => iec_srq_i,
 
       iec_clk_o => f1541_clk,
       iec_data_o => f1541_data,
