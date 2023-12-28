@@ -728,40 +728,43 @@ begin
         for i in 1 to 800000 loop
           clock_tick;
           if iec_atn='0' then
+            if iec_atn_last = '1' then
+              report "TESTBED: ATN has gone low";
+            end if;
             if true then
               -- Pretend there is a device
-              if atn_state = 0 and iec_clk_o = '0' then
+              if atn_state = 0 and iec_clk_i = '0' then
                 atn_state <= 1;
                 report "TESTBED: Pulling DATA to 0V";
                 dummy_iec_data <= '0';
               end if;
-              if atn_state = 1 and iec_clk_o = '1' then
+              if atn_state = 1 and iec_clk_i = '1' then
                 atn_state <= 2;
                 dummy_iec_data <= '1';
                 report "TESTBED: Releasing DATA to 5V";
               end if;
-              if atn_state = 2 and iec_clk_o = '0' then
+              if atn_state = 2 and iec_clk_i = '0' then
                 atn_state <= 3;
               end if;
-              if atn_state = 2 and iec_clk_o = '0' then
+              if atn_state = 2 and iec_clk_i = '0' then
                 atn_state <= 3;
               end if;
               -- Then watch first 7 bits arrive, then signal JiffyDOS support
-              if atn_state = 2 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 3 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 4 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 5 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 6 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 7 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 8 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 9 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 10 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 11 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 12 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 13 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 14 and iec_clk_o = '0' then atn_state <= atn_state + 1; end if;
-              if atn_state = 15 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 16 and iec_clk_o = '0' then
+              if atn_state = 2 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 3 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 4 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 5 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 6 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 7 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 8 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 9 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 10 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 11 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 12 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 13 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 14 and iec_clk_i = '0' then atn_state <= atn_state + 1; end if;
+              if atn_state = 15 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 16 and iec_clk_i = '0' then
                 atn_state <= atn_state + 1;
                 dummy_iec_data <= '0';
                 report "TESTBED: Pulling DATA to 0V to kludge indication of JiffyDOS support ";
@@ -770,8 +773,8 @@ begin
                 end loop;
                 dummy_iec_data <= '1';
               end if;
-              if atn_state = 17 and iec_clk_o = '1' then atn_state <= atn_state + 1; end if;
-              if atn_state = 18 and iec_clk_o = '0' then
+              if atn_state = 17 and iec_clk_i = '1' then atn_state <= atn_state + 1; end if;
+              if atn_state = 18 and iec_clk_i = '0' then
                 atn_state <= atn_state + 1;
                 dummy_iec_data <= '0';
                 report "TESTBED: Pulling DATA to 0V to kludge indication of byte acknowledgement ";
