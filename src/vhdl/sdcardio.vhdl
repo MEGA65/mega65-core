@@ -3182,6 +3182,7 @@ begin  -- behavioural
                   qspi_action_state <= qspi_read_512;
                   qspi_verify_mode <= '0';
                   spi_flash_cmd_byte <= x"6c";
+                  spi_no_dummy_cycles <= '0';
                 when x"54" =>
                   -- T - Write a 512 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
@@ -3870,6 +3871,7 @@ begin  -- behavioural
           if qspi_release_cs_on_completion='1' then
             qspi_release_cs_on_completion <= '0';
             qspicsn <= '1';
+            qspi_csn_int <= '1';
           end if;
 
           if sectorbuffercs='1' and fastio_write='1' then
@@ -4842,9 +4844,9 @@ begin  -- behavioural
           end case;
           case qspi_read_sector_phase is
                             -- Release CS to ensure new transaction
-            when 0 | 1   => qspicsn <= '1';
+            when 0 | 1   => qspicsn <= '1'; qspi_csn_int <= '1';
                             -- Bring chip to attention
-            when 2       => qspicsn <= '0';
+            when 2       => qspicsn <= '0'; qspi_csn_int <= '0';
                             -- Send QSPI command
             when 3 | 4   => qspidb_oe <= '1'; qspidb_tristate <= '0';
                             qspidb(3 downto 1) <= "111";
@@ -4855,6 +4857,7 @@ begin  -- behavioural
         when QSPI_Release_CS =>
           qspi_clock_int <= '0';
           qspicsn <= '1';
+          qspi_csn_int <= '1';
           sd_state <= Idle;
         when SPI_read_512 =>
           report "QSPI: in SPI_read_512";
@@ -4925,6 +4928,8 @@ begin  -- behavioural
           else
             sd_state <= Idle;
             sdio_busy <= '0';
+            qspicsn <= '1';
+            qspi_csn_int <= '1';
           end if;
           qspi_clock_int <= '1';
         when QSPI_qwrite_512 =>
@@ -5055,6 +5060,7 @@ begin  -- behavioural
               sd_state <= Idle;
               sdio_busy <= '0';
               qspicsn <= '1';
+              qspi_csn_int <= '1';
             end if;
           else
             qspi_bit_counter <= qspi_bit_counter + 1;
