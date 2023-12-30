@@ -98,7 +98,7 @@ end;
 
 architecture RTL of mos6522 is
 
-  signal phase             : integer range 0 to 3 := 0;
+  signal phase             : integer range 0 to 4 := 0;
   signal p2_h_t1           : std_logic;
   signal cs                : std_logic;
 
@@ -213,6 +213,9 @@ begin
         -- DO have things attached to them.
         if phase < 2 then
           phase <= phase + 1;
+        end if;
+        if phase = 3 then
+          phase <= 4;
         end if;
       end if;
     end if;
