@@ -844,8 +844,8 @@ begin
             -- Device then pulls CLK low and releases DATA.
 
           when 200 => micro_wait(100);
-          when 201 => a('1'); micro_wait(100);
-          when 202 => d('0'); c('1'); micro_wait(100);
+          when 201 => a('1'); micro_wait(20);
+          when 202 => d('0'); c('1'); micro_wait(20);
           when 203 => milli_wait(64); wait_clk_low <= '1';
           when 204 =>
             if iec_clk_i = '0' then
