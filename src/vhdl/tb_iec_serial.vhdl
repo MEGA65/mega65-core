@@ -397,6 +397,8 @@ begin
     
     procedure tx_to_rx_turnaround is
     begin
+      report "IEC: tx_to_rx_turnaround() called.";
+      
       fastio_write <= '1';
       fastio_addr(3 downto 0) <= x"8";
       fastio_wdata <= x"35"; -- Trigger turn-around to listen
