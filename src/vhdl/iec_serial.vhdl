@@ -441,12 +441,12 @@ begin
             iec_reset_n <= '1';
             iec_reset_int <= '1';
             iec_dev_listening <= '0';
-            a('1'); d('1'); c('1');
+            a('1'); d('1'); c('1'); s('1');
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
             iec_reset_int <= '0';
             iec_dev_listening <= '0';
-            a('1'); d('1'); c('1');
+            a('1'); d('1'); c('1'); s('1');
 
             -- Protocol level commands
           when x"30" => -- Request device attention (send data byte under attention)
