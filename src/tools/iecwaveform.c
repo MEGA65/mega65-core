@@ -26,6 +26,8 @@ FILE *f=NULL;
 unsigned char dbg_vals[4096]={0};
 unsigned char dbg_states[4096]={0};
 
+int jiffyDOS = 0 ;
+
 char *sigs[5][24]={
   {"                        ",
    "xxxxxx   xxxxx  xxxxxx  ",
@@ -394,29 +396,61 @@ int getUpdate(void)
 	      case 0xCFB7: fprintf(stderr,"$%04X            1541: Write to channel \n",pc); break;
 	      case 0xCFE8: fprintf(stderr,"$%04X            1541: Check for end of command \n",pc); break;
 	      case 0xCFED: fprintf(stderr,"$%04X            1541: L45 (Indicate command waiting for processing) \n",pc); break;
-	      case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;
-	      case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
-	      case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
-	      case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
-	      case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); break;
-	      case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
-	      case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
-	      case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
-	      case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
-	      case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
-	      case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-	      case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+7 Received bit of serial bus byte\n",pc); break;
-	      case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
-	      case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
-	      case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
-	      case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
-	      case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
-	      case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
-	      case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
-	      case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
-	      case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
-	      default:
-		break;
+	      }
+	      if (!jiffyDOS) 
+		switch(pc) {
+		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
+		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
+		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
+		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
+		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); break;
+		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
+		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
+		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
+		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
+		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
+		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
+		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+7 Received bit of serial bus byte\n",pc); break;
+		case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
+		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
+		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
+		case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
+		case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
+		case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
+		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
+		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
+		default:
+		  break;
+		}
+	      else {
+		switch(pc) {
+		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
+		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
+		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
+		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
+		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); break;
+		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
+		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
+		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
+		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
+		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
+		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
+		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+7 Received bit of serial bus byte\n",pc); break;
+		case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
+		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
+		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
+		case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
+		case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
+		case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
+		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
+		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
+		case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
+		case 0xFBC8: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
+		default:
+		  break;
+		}
 	      }
 
 	    }
@@ -492,6 +526,19 @@ int iecDataTrace(char *msg)
 
 int main(int argc,char **argv)
 {
+  if (argc<2) {
+    fprintf(stderr,"usage: iecwaveform <VUnit output.txt> [JD]\n");
+    exit(-1);
+  }
+
+  if (argc>2) {
+    if (!strcasecmp(argv[2],"JD")) jiffyDOS=1;
+    else {
+      fprintf(stderr,"ERROR: JD is the only supported drive ROM variant.\n");
+      exit(-1);
+    }
+  }
+  
   openFile(argv[1]);
 
   iecDataTrace("VHDL IEC Simulation");
