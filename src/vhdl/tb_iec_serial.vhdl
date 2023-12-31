@@ -293,12 +293,29 @@ begin
         assert false report "Expected to not see DEVICE NOT PRESENT indicated in bit 7 of $D698, but it was";
       end if;
     end procedure;
+
+    procedure fail_if_DEVICE_PRESENT is
+    begin
+      PEEK(x"D688");
+      report "IEC status byte = $" & to_hexstring(fastio_rdata);
+      if fastio_rdata(7)='0' then
+        assert false report "Expected to see DEVICE NOT PRESENT indicated in bit 7 of $D698, but a device was found";
+      end if;
+    end procedure;
     
+    procedure fail_if_NO_TIMEOUT is
+    begin
+      PEEK(x"D688");
+      if fastio_rdata(1)='0' then
+        assert false report "Expected to not see TIMEOUT indicated in bit 1 of $D698, but it was";
+      end if;
+    end procedure;        
+
     procedure fail_if_TIMEOUT is
     begin
       PEEK(x"D688");
       if fastio_rdata(1)='1' then
-        assert false report "Expected to not see TIMEOUT indicated in bit 1 of $D698, but it was";
+        assert false report "Expected to see TIMEOUT indicated in bit 1 of $D698, but it wasn't";
       end if;
     end procedure;        
 
@@ -464,8 +481,8 @@ begin
 
         wait_a_while_until_done(400000);
 
-        fail_if_DEVICE_NOT_PRESENT;
-        fail_if_TIMEOUT;
+        fail_if_DEVICE_PRESENT;
+        fail_if_NO_TIMEOUT;
 
       elsif run("Debug RAM can be read") then
 
