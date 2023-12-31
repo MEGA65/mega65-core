@@ -263,14 +263,19 @@ begin
         end loop;
         fastio_write <= '0';
     end procedure;
-    
-    procedure wait_a_while_until_done(t : integer) is
+
+    procedure wait_a_while(t : integer) is
     begin        
       -- Allow time for everything to happen
       for i in 1 to t loop
         clock_tick;
       end loop;
       report "IEC state reached = $" & to_hexstring(iec_state_reached) & " = " & integer'image(to_integer(iec_state_reached));
+    end procedure;
+      
+    procedure wait_a_while_until_done(t : integer) is
+    begin        
+      wait_a_while(t);
       
       -- Expect BUSY flag to have cleared
       PEEK(x"D687");
@@ -467,7 +472,7 @@ begin
         POKE(x"D689",x"28"); -- Access device 8 (drive is device 11, so shouldn't respond)
         POKE(x"D688",x"30"); -- Trigger ATN write
 
-        wait_a_while_until_done(400000);
+        wait_a_while(400_000);
 
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
