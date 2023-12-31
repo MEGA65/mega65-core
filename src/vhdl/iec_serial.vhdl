@@ -817,9 +817,9 @@ begin
 
             iec_busy <= '0';
 
-            -- Release all IEC lines
-            a('1');
-            c('1');
+            -- We leave ATN low, if selected, and also CLK low, to indicate
+            -- that we aren't yet ready to send the next byte. This prevents
+            -- the receiver from commencing the EOI detection count-down.
 
           when 151 =>
             -- Successfully sent byte
