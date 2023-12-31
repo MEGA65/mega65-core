@@ -902,6 +902,41 @@ begin
         iec_rx(x"2c");
         iec_rx(x"43");
 
+      elsif run("Read from Error Channel (15) of VHDL 1541 with SRQ low") then
+
+        iec_srq_i <= '0';        
+        
+        -- Send $48, $6F under ATN, then do turn-around to listen, and receive
+        -- 73,... status message from the drive.
+
+        boot_1541;
+
+        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
+
+        atn_tx_byte(x"4B"); -- Device 11 TALK
+
+        report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
+
+        atn_tx_byte(x"6F");
+
+        report "IEC: Waiting a while before performing turn around...";
+        
+        for i in 1 to 800000 loop
+          clock_tick;
+        end loop;
+        
+        report "IEC: Commencing turn-around to listen";
+
+        tx_to_rx_turnaround;
+
+        report "IEC: Trying to receive a byte";
+
+        -- Check for first 4 bytes of "73,CBM DOS..." message
+        iec_rx(x"37");
+        iec_rx(x"33");
+        iec_rx(x"2c");
+        iec_rx(x"43");
+        
       elsif run("Read from Error Channel (15) of VHDL 1541 with delay before turn-around") then
 
         -- Send $48, $6F under ATN, then do turn-around to listen, and receive
