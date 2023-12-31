@@ -92,13 +92,13 @@ int main(int argc,char **argv)
   f=fopen(argv[2],"rb");
   if (!f) {
     fprintf(stderr,"ERROR: Failed to read $E000 ROM from '%s'\n",
-	    argv[1]);
+	    argv[2]);
     exit(-1);
   }
   n=fread(hirom,8192,1,f);
   if (n!=1) {
     fprintf(stderr,"ERROR: Failed to read 8KB from '%s'\n",
-	    argv[1]);
+	    argv[2]);
     exit(-1);
   }
   fclose(f);  
