@@ -628,8 +628,13 @@ begin
           clock_tick;
         end loop;
       elsif run("ATN Sequence with no device gets DEVICE NOT PRESENT") then
+
+        -- Hold 1541 under reset, so that it can't answer
+        f1541_reset_n <= '0';
+        
         fastio_addr(3 downto 0) <= x"9"; -- set write data
-        fastio_wdata <= x"28"; -- Access device 8
+        fastio_wdata <= x"28"; -- Access device 8 (drive is device 11, so
+                               -- shouldn't respond)
         fastio_write <= '1';
         for i in 1 to 4 loop
           clock_tick;
