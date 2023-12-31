@@ -770,12 +770,14 @@ begin
           when 141 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
                       report "IEC: Sending bit 6 = " & std_logic'image(iec_data_out(0));
-
+          when 143 => c('0'); d(iec_data_out(0)); micro_wait(35);
+          when 144 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+                      report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
           -- Now we have sent 7 bits, release data, keeping clock at 0V, and
           -- check for DATA being pulled low
-          when 143 => c('0'); d('1'); micro_wait(500);
+          when 145 => c('0'); d('1'); micro_wait(600);
                       report "IEC: Performing JiffyDOS(tm) check";
-          when 144 =>
+          when 146 =>
             -- If data went low: device speaks JiffyDOS protocol
             if iec_data_i='0' then
               if iec_devinfo(6 downto 5) = "00" then
@@ -786,9 +788,7 @@ begin
               -- Wait for DATA to be released again
               wait_usec <= 0; wait_data_high <= '1';
             end if;
-          when 145 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 146 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
+
           when 147 => c('0'); d('1');
           when 148 =>
             -- Allow device 1000usec = 1ms to acknowledge byte by
