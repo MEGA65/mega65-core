@@ -687,7 +687,7 @@ begin
         t1_irq <= '1';
       elsif RESET_L = '0' or t1_w_reset_int or t1_r_reset_int or (clear_irq(6) = '1') then
         t1_irq <= '0';
-        if t1_irq = '0' then
+        if t1_irq = '1' then
           report "MOS6522"&name&": Releasing t1_irq";
         end if;
       end if;
