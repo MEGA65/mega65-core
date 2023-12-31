@@ -413,7 +413,7 @@ begin
 
           -- Abort existing command
           when x"00" =>
-            iec_state <= 0;
+            iec_state <= 0; iec_busy <= '0';
             wait_clk_high <= '0'; wait_clk_low <= '0';
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
@@ -595,7 +595,7 @@ begin
         case iec_state is
           -- IDLE state
           when 0 => null;
-
+                    
           -- Request attention from one or more devices
           when 100 =>
 
@@ -851,7 +851,7 @@ begin
           when 204 =>
             if iec_clk_i = '0' then
               report "IEC: TURNAROUND complete";
-              iec_state <= iec_state + 2;
+              iec_state <= iec_state + 1;
             else
               -- Timeout
               report "IEC: TURNAROUND TIMEOUT: Device failed to turn-aruond to talker wihtin 64ms";
