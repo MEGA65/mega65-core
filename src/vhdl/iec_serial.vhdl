@@ -120,6 +120,9 @@ architecture questionable of iec_serial is
   signal iec_reset_int : std_logic := '0';
 
   signal initial_srq_i : std_logic := '1';
+
+  signal jiffydos_enabled : std_logic := '1';
+  signal c128fast_enabled : std_logic := '1';
   
 begin
 
@@ -444,12 +447,21 @@ begin
             iec_reset_int <= '1';
             iec_dev_listening <= '0';
             a('1'); d('1'); c('1'); s('1');
+            jiffydos_enabled <= '1';
+            c128fast_enabled <= '1';
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
             iec_reset_int <= '0';
             iec_dev_listening <= '0';
             a('1'); d('1'); c('1'); s('1');
 
+            -- Allow enabling and disabling of JiffyDOS offering
+          when x"4A" => jiffydos_enabled <= '1';
+          when x"6A" => jiffydos_enabled <= '0';
+            -- and also c128 fast serial
+          when x"46" => c128fast_enabled <= '1';
+          when x"66" => c128fast_enabled <= '0';
+            
             -- Protocol level commands
           when x"30" => -- Request device attention (send data byte under attention)
             iec_state <= 100;
@@ -612,7 +624,7 @@ begin
             -- as data.
             -- XXX - Actually only required if the device supports
             -- C= fast serial?
-            if iec_dev_listening='1' then
+            if iec_dev_listening='1' or c128fast_enabled='0' then
               iec_state <= 120;
             end if;
 
@@ -741,7 +753,7 @@ begin
           when 128 =>
             -- Okay, all listeners are ready for the data byte.
             -- So send it using the slow protocol.
-            -- After sending 7th bit, we do the JiffyDOS(tm) check
+            -- After sending 8th bit, we do the JiffyDOS(tm) check
             -- by delaying, and waiting to see if the data line
             -- is pulled low by a device, indicating that it speaks
             -- the JiffyDOS protocol.  More on that when we get to it.
@@ -775,8 +787,17 @@ begin
                       report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
           -- Now we have sent 7 bits, release data, keeping clock at 0V, and
           -- check for DATA being pulled low
-          when 145 => c('0'); d('1'); micro_wait(600);
-                      report "IEC: Performing JiffyDOS(tm) check";
+          when 145 => c('0'); d('1');
+                      if jiffydos_enabled='1' then
+                        micro_wait(600);
+                        report "IEC: Performing JiffyDOS(tm) check";
+                      else
+                        report "IEC: Skipping JiffyDOS(tm) check, as JiffyDOS is disabled";
+                        micro_wait(35);
+                        iec_state <= 147;
+                        -- Mark device as not supporting JiffyDOS
+                        iec_devinfo(6 downto 5) <= "00";
+                      end if;
           when 146 =>
             -- If data went low: device speaks JiffyDOS protocol
             if iec_data_i='0' then
@@ -905,15 +926,21 @@ begin
                         d('0');
                         micro_wait(80);
                       end if;
-          when 303 => d('1'); wait_clk_low <= '1';
+          when 303 => d('1'); wait_clk_low <= '1'; 
           when 304 =>
             -- Get ready to receive first bit
             -- If CLK goes high first, it's slow protocol.
             -- But if SRQ goes low first, it's fast protocol
             iec_state <= iec_state;
-            if iec_srq_i='0' and initial_srq_i='1' then
-              iec_state <= 350; -- FAST
-              iec_devinfo(5) <= '1'; -- Device using FAST protocol
+            if iec_srq_i='0' and initial_srq_i='1' then 
+              report "IEC: Detected byte being transmitted using C128 FAST serial protocol";
+              if c128fast_enabled='1' then              
+                iec_state <= 350; -- FAST
+                iec_devinfo(5) <= '1'; -- Device using FAST protocol
+              else
+                report "IEC: WARNING: Ignoring C128 FAST serial byte";
+                report "              bus will likely lock-up now.";
+              end if;
             end if;
             if iec_clk_i='1' then
               -- Slow protocol, and it's the first bit
@@ -1141,6 +1168,8 @@ begin
         wait_srq_high <= '0'; wait_srq_low <= '0';
         wait_usec <= 0; wait_msec <= 0;
         a('1'); s('1'); d('1'); c('1');
+        jiffydos_enabled <= '1';
+        c128fast_enabled <= '1';
       end if;
       
       
