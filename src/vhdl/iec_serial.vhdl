@@ -123,6 +123,8 @@ architecture questionable of iec_serial is
 
   signal jiffydos_enabled : std_logic := '1';
   signal c128fast_enabled : std_logic := '1';
+
+  signal data_low_observed : std_logic := '0';
   
 begin
 
@@ -311,6 +313,10 @@ begin
 
     if rising_edge(clock) then
 
+      if iec_data_i='0' then
+        data_low_observed <= '1';
+      end if;
+      
       if with_debug then
         debug_ram_wdata(0) <= iec_data_i;
         debug_ram_wdata(1) <= iec_clk_i;
@@ -763,61 +769,65 @@ begin
             null;
           when 129 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 130 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 0 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 0 = " & std_logic'image(iec_data_out(0));                      
           when 131 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 132 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 1 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 1 = " & std_logic'image(iec_data_out(0));
           when 133 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 134 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 2 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 2 = " & std_logic'image(iec_data_out(0));
           when 135 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 136 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 3 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 3 = " & std_logic'image(iec_data_out(0));
           when 137 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 138 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 4 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 4 = " & std_logic'image(iec_data_out(0));
           when 139 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 140 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 5 = " & std_logic'image(iec_data_out(0));
+                      report "IEC: Sent bit 5 = " & std_logic'image(iec_data_out(0));
           when 141 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 6 = " & std_logic'image(iec_data_out(0));
-          when 143 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 144 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
-                      report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
-          -- Now we have sent 7 bits, release data, keeping clock at 0V, and
-          -- check for DATA being pulled low
-          when 145 => c('0'); d('1');
-                      if jiffydos_enabled='1' then
-                        micro_wait(600);
-                        report "IEC: Performing JiffyDOS(tm) check";
-                      else
-                        report "IEC: Skipping JiffyDOS(tm) check, as JiffyDOS is disabled";
-                        micro_wait(35);
-                        iec_state <= 147;
-                        -- Mark device as not supporting JiffyDOS
-                        iec_devinfo(6 downto 5) <= "00";
-                      end if;
+                      report "IEC: Sent bit 6 = " & std_logic'image(iec_data_out(0));
+          when 143 => c('0'); d(iec_data_out(0)); micro_wait(35);                      
+          when 144 =>
+            -- To do the JiffyDOS detection, we need to make sure the DATA line
+            -- has gone high before we start looking for it to go low.
+            -- But we need to not release the DATA line too early, so that a normal
+            -- 1541 will not capture this as a 1 bit. In theory, the 35 usec
+            -- delay from the previous state should ensure this.
+            d('1'); micro_wait(5);
+          when 145 =>
+            if jiffydos_enabled='1' then
+              -- Release DATA, and wait for at least 300usec, to see if data
+              -- goes low.  If yes, device supports JiffyDOS.
+              d('1'); data_low_observed <= '0'; micro_wait(400);
+            else
+              iec_state <= iec_state + 2;
+            end if;
           when 146 =>
-            -- If data went low: device speaks JiffyDOS protocol
-            if iec_data_i='0' then
+            if data_low_observed = '1' then
               if iec_devinfo(6 downto 5) = "00" then
                 report "IEC: Device supports JiffyDOS(tm) protocol. Waiting for DATA to release again.";
               end if;
               -- Record JiffyDOS capability
               iec_devinfo(6 downto 5) <= "10";
               -- Wait for DATA to be released again
-              wait_usec <= 0; wait_data_high <= '1';
+              wait_usec <= 0; wait_data_high <= '1';              
+            else
+              report "IEC: Device does not support JiffyDOS(tm) protocol.";
             end if;
-
-          when 147 => c('0'); d('1');
-          when 148 =>
+          when 147=> c('1'); micro_wait(35);
+                      report "IEC: Sent bit 7 = " & std_logic'image(iec_data_out(0));
+          -- Now we have sent 7 bits, release data, keeping clock at 0V, and
+          -- check for DATA being pulled low
+          when 148 => c('0'); d('1');
+          when 149 =>
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
                       micro_wait(1000);
                       wait_data_low <= '1';
                       report "IEC: Waiting for device to acknowledge byte";
-          when 149 =>
+          when 150 =>
             if iec_data_i='0' then
               report "IEC: Device acknowledged receipt of byte";
               iec_state <= iec_state + 2;
@@ -825,7 +835,7 @@ begin
             else
               report "IEC: Timedout waiting for device to acknowledge receipt of byte";
             end if;
-          when 150 =>
+          when 151 =>
             -- Timeout detected acknowledging byte
 
             -- Timeout has occurred: DEVICE NOT PRESENT
@@ -845,7 +855,7 @@ begin
             -- that we aren't yet ready to send the next byte. This prevents
             -- the receiver from commencing the EOI detection count-down.
 
-          when 151 =>
+          when 152 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte under attention";
             iec_devinfo(7) <= '1';
