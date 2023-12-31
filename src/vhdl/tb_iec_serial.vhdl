@@ -588,7 +588,10 @@ begin
       elsif run("ATN Sequence with VHDL 1541 device succeeds with JiffyDOS and C128 FAST disabled") then
 
         boot_1541;
-
+        
+        POKE(x"D688",x"6A"); -- Disable JiffyDOS
+        POKE(x"D688",x"66"); -- Disable C128 FAST serial
+      
         report "IEC: Commencing sending byte under ATN";
 
         -- Access device 8 (which isn't actually
@@ -622,6 +625,33 @@ begin
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
         
+      elsif run("Read from Error Channel (15) of VHDL 1541 device succeeds with JiffyDOS and C128 FAST disabled") then
+
+        -- Send $48, $6F under ATN, then do turn-around to listen, and receive
+        -- 73,... status message from the drive.
+
+        boot_1541;
+        
+        POKE(x"D688",x"6A"); -- Disable JiffyDOS
+        POKE(x"D688",x"66"); -- Disable C128 FAST serial        
+
+        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
+        atn_tx_byte(x"4B"); -- Device 11 TALK
+
+        report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
+        atn_tx_byte(x"6F");
+
+        report "IEC: Commencing turn-around to listen";
+        tx_to_rx_turnaround;
+
+        report "IEC: Trying to receive a byte";
+
+        -- Check for first 4 bytes of "73,CBM DOS..." message
+        iec_rx(x"37");
+        iec_rx(x"33");
+        iec_rx(x"2c");
+        iec_rx(x"43");
+
       elsif run("Read from Error Channel (15) of VHDL 1541 device succeeds") then
 
         -- Send $48, $6F under ATN, then do turn-around to listen, and receive
