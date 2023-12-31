@@ -754,11 +754,11 @@ spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
 
 test-iec:	$(TOOLDIR)/mkdriverom
 	$(TOOLDIR)/mkdriverom ../1540-c000.325302-01.bin ../1541-e000.901229-01.bin > src/vhdl/driverom1541.vhdl
-	./test-iec.py
+	./test-iec.py -p8
 
 test-iec-jd:	$(TOOLDIR)/mkdriverom
 	$(TOOLDIR)/mkdriverom ../1540-c000.325302-01.bin ../jiffy_dos/1541-e000-jd6.00.bin > src/vhdl/driverom1541jd.vhdl
-	./test-iec-jd.py
+	./test-iec-jd.py -p8
 
 $(TOOLDIR)/mkdriverom:	$(TOOLDIR)/mkdriverom.c
 	$(CC) $(COPT) -o $@ $<
