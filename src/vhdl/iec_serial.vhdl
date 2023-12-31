@@ -119,6 +119,8 @@ architecture questionable of iec_serial is
   signal iec_atn_int : std_logic := '0';
   signal iec_reset_int : std_logic := '0';
 
+  signal initial_srq_i : std_logic := '1';
+  
 begin
 
   -- Note that we put RX on bit 6, so that the common case of LOADing can be a
@@ -886,6 +888,13 @@ begin
 
           -- RECEIVE BYTE FROM THE IEC BUS
           when 300 => wait_clk_high <= '1';
+                      -- Watch for negative transition on SRQ to indicate C128
+                      -- fast protocol.  But note that in C64 mode, SRQ is held
+                      -- low by default ROM initialisation of our CIAs (which might
+                      -- themselves be faulty). Anyway, the solution is to watch
+                      -- for a negative-going transition, rather than a
+                      -- negative level.
+                      initial_srq_i <= iec_srq_i;
           when 301 => d('1');
                       eoi_detected <= '0';
                       micro_wait(200);
@@ -902,7 +911,7 @@ begin
             -- If CLK goes high first, it's slow protocol.
             -- But if SRQ goes low first, it's fast protocol
             iec_state <= iec_state;
-            if iec_srq_i='0' then
+            if iec_srq_i='0' and initial_srq_i='1' then
               iec_state <= 350; -- FAST
               iec_devinfo(5) <= '1'; -- Device using FAST protocol
             end if;
