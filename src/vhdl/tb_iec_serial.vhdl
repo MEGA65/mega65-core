@@ -715,6 +715,10 @@ begin
                   
       elsif run("ATN Sequence with dummy device succeeds") then
 
+        -- Hold simulated 1541 under reset, so that it can't interfere
+        -- (JiffyDOS ROM at least holds DATA low during boot-up).
+        f1541_reset_n <= '0';
+        
         for i in 1 to 4000 loop
           clock_tick;
         end loop;
