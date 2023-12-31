@@ -819,6 +819,7 @@ begin
     iecserial0: entity work.iec_serial
       generic map ( cpu_frequency => cpu_frequency )
       port map (
+        reset_in => reset,
         clock => cpuclock,
         clock81 => pixelclk,
         irq => iec_irq,

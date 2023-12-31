@@ -19,6 +19,7 @@ entity iec_serial is
     with_debug : boolean := false
     );
   port (
+    reset_in : in std_logic := '1';
     clock : in std_logic;
     clock81 : in std_logic;
     irq : out std_logic := '1';
@@ -1123,6 +1124,17 @@ begin
 
         end case;
       end if;
+
+      if reset_in = '0' then
+        iec_state <= 0;
+        wait_clk_high <= '0'; wait_clk_low <= '0';
+        wait_data_high <= '0'; wait_data_low <= '0';
+        wait_srq_high <= '0'; wait_srq_low <= '0';
+        wait_usec <= 0; wait_msec <= 0;
+        a('1'); s('1'); d('1'); c('1');
+      end if;
+      
+      
     end if;
   end process;
 
