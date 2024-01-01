@@ -378,7 +378,7 @@ int getUpdate(void)
 
 	    {
 	      char drive_cap[1024];
-	      if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/iec_serial.vhdl:%*d:%*d:@%lld%[^:]:(report note): DRIVEINFO: %[^\n]",time_val,time_units,drive_cap)==3) {
+	      if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/iec_serial.vhdl:%*d:%*d:@%lld%[^:]:(report note): DRIVEINFO: %[^\n]",&time_val,time_units,drive_cap)==3) {
 		fprintf(stderr,"            DRIVE INFO: %s\n",drive_cap);		       
 		}
 	  }
