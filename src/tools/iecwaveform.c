@@ -344,6 +344,8 @@ unsigned int atn, clk_c64, clk_1541, data_c64, data_1541, data_dummy;
 unsigned int iec_state,instr_num,pc;
 char time_units[8192];
 
+int bit_num=0;
+
 int getUpdate(void)
 {
 
@@ -403,14 +405,14 @@ int getUpdate(void)
 		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
 		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
 		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
-		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); break;
+		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
 		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
 		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
 		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
 		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
 		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
 		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Received bit of serial bus byte\n",pc); break;
+		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
 		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
 		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
 		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
@@ -429,15 +431,15 @@ int getUpdate(void)
 		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
 		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
 		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
-		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); break;
+		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
 		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
 		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
 		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
 		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
 		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
 		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03+10 Received bit of serial bus byte\n",pc); break;
-		case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
+		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
 		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
 		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
 		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
