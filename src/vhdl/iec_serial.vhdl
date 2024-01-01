@@ -1063,10 +1063,11 @@ begin
           when 386 => d('0');
                       iec_state <= 0;
                       iec_busy <= '0';
-                      iec_status(6) <= iec_clk_i;
-                      if iec_data_i='0' then
-                        -- Byte received (with or without EOI)
-
+                      if iec_data_i='0' and iec_data_i='1' then
+                        -- Byte received with EOI
+                        iec_status(6) <= '1';
+                      elsif iec_data_i='1' and iec_clk_i='0' then
+                        -- Byte received without EOI
                       else
                         -- Error
                         iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
