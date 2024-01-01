@@ -869,8 +869,6 @@ begin
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
-            a('1');
-            
             -- TURNAROUND FROM TALKER TO LISTENER
             -- Wait 20 usec, release ATN, wait 20usec
             -- Computer pulls DATA low and releases CLK.
