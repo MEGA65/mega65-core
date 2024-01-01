@@ -1051,7 +1051,7 @@ begin
           when 384 => iec_data(7) <= not iec_data_i; iec_data(6) <= not iec_clk_i; micro_wait(11);
           when 385 => micro_wait(4);
           when 386 => d('0');
-                      iec_state <= '0';
+                      iec_state <= 0;
                       iec_busy <= '0';
                       iec_status(6) <= iec_clk_i;
                       if iec_data_i='0' then
