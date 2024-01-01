@@ -336,6 +336,37 @@ begin
         assert false report "Expected to see IEC bus busy in bit 5 of $D697, but it wasn't";
       end if;
     end procedure;
+
+    procedure get_drive_capability is
+    begin
+      PEEK(x"D68A");
+
+      case fastio_rdata(6 downto 5) is
+        when "01" => report "DRIVEINFO: Drive is offering C128 fast serial protocol";
+        when "10" => report "DRIVEINFO: Drive is offering JiffyDOS fast serial protocol";
+        when "11" => report "DRIVEINFO: Drive is offering JiffyDOS and C128 fast serial protocols";
+        when others => report "DRIVEINFO: Drive is supports only slow Commodore serial protocol";
+      end case;
+    end procedure;
+    
+    procedure fail_if_JIFFYDOS_CAPABLE is
+    begin
+      get_drive_capability;
+      
+      if fastio_rdata(6)='1' then
+        assert false report "Drive reports JiffyDOS capable, but this is not allowed.";
+      end if;
+    end procedure;        
+
+    procedure fail_if_NOT_JIFFYDOS_CAPABLE is
+    begin
+      get_drive_capability;
+      
+      if fastio_rdata(6)='1' then
+        assert false report "Drive is not JiffyDOS capable, but this is required.";
+      end if;
+    end procedure;        
+
     
     procedure atn_tx_byte(v : unsigned(7 downto 0)) is
     begin
@@ -605,6 +636,8 @@ begin
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
 
+        fail_if_JIFFYDOS_CAPABLE;
+        
       elsif run("ATN Sequence with VHDL 1541 device succeeds") then
 
         boot_1541;
