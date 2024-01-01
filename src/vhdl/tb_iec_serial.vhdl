@@ -645,11 +645,11 @@ begin
 
         report "IEC: Trying to receive a byte";
 
-        -- Check for first 4 bytes of "73,CBM DOS..." message
+        -- Check for first 3 bytes of "73,CBM DOS.. / 73,JIFFY DOS...." message
         iec_rx(x"37");
         iec_rx(x"33");
-        iec_rx(x"2c");
-        iec_rx(x"43");
+        iec_rx(x"2c");        
+
 
       elsif run("Read from Error Channel (15) of VHDL 1541 device succeeds") then
 
@@ -669,11 +669,10 @@ begin
 
         report "IEC: Trying to receive a byte";
 
-        -- Check for first 4 bytes of "73,CBM DOS..." message
+        -- Check for first 3 bytes of "73,CBM DOS... / 73,JIFFY DOS..." message
         iec_rx(x"37");
         iec_rx(x"33");
         iec_rx(x"2c");
-        iec_rx(x"43");
 
       elsif run("Read from Error Channel (15) of VHDL 1541 with SRQ low") then
 
@@ -698,11 +697,11 @@ begin
         tx_to_rx_turnaround;
 
         report "IEC: Trying to receive a few bytes";
-        -- Check for first 4 bytes of "73,CBM DOS..." message
+
+        -- Check for first 3 bytes of "73,CBM DOS... / 73,JIFFY DOS..." message
         iec_rx(x"37");
         iec_rx(x"33");
         iec_rx(x"2c");
-        iec_rx(x"43");
         
       elsif run("Read from Error Channel (15) of VHDL 1541 with delay before turn-around") then
 
@@ -724,11 +723,11 @@ begin
         tx_to_rx_turnaround;
 
         report "IEC: Trying to receive a few bytes";
-        -- Check for first 4 bytes of "73,CBM DOS..." message
+
+        -- Check for first 3 bytes of "73,CBM DOS... / 73,JIFFY DOS..." message
         iec_rx(x"37");
         iec_rx(x"33");
         iec_rx(x"2c");
-        iec_rx(x"43");
         
       elsif run("Write to and read from Command Channel (15) of VHDL 1541 device succeeds") then
 
