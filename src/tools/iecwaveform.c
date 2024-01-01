@@ -410,8 +410,8 @@ int getUpdate(void)
 		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
 		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
 		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+7 Received bit of serial bus byte\n",pc); break;
-		case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Received bit of serial bus byte\n",pc); break;
+		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
 		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
 		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
 		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
@@ -436,7 +436,7 @@ int getUpdate(void)
 		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
 		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
 		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+7 Received bit of serial bus byte\n",pc); break;
+		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03+10 Received bit of serial bus byte\n",pc); break;
 		case 0xEA1A: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
 		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
 		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
