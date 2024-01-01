@@ -888,26 +888,28 @@ begin
           when 201 => a('1'); micro_wait(20);
           when 202 => d('0'); c('1'); micro_wait(20);
           when 203 => milli_wait(64); wait_clk_low <= '1';
-          when 204 =>
+          when 204 => if iec_clk_i='1' then
+                        -- Timeout
+                        report "IEC: TURNAROUND TIMEOUT: Device failed to turn-aruond to talker wihtin 64ms";
+                        iec_state_reached <= to_unsigned(iec_state,12);
+                        iec_state <= 0;
+                        iec_devinfo <= x"00";
+                        iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
+                        iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
+                        
+                        iec_busy <= '0';
+                        
+                        -- Release all IEC lines
+                        a('1');
+                        d('1');
+                      end if;
+          when 205 =>
             if iec_clk_i = '0' then
               report "IEC: TURNAROUND complete";
               iec_state <= iec_state + 1;
             else
-              -- Timeout
-              report "IEC: TURNAROUND TIMEOUT: Device failed to turn-aruond to talker wihtin 64ms";
-              iec_state_reached <= to_unsigned(iec_state,12);
-              iec_state <= 0;
-              iec_devinfo <= x"00";
-              iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
-              iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
-
-              iec_busy <= '0';
-
-              -- Release all IEC lines
-              a('1');
-              d('1');
             end if;
-          when 205 =>
+          when 206 =>
 
             -- Device is present
             iec_devinfo(7) <= '1';
@@ -1053,14 +1055,23 @@ begin
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
-          when 380 => d('1'); micro_wait(15);
+          when 380 => 
             report "IEC: Receiving byte using JiffyDOS(tm) protocol";
-          when 381 => iec_data(1) <= not iec_data_i; iec_data(0) <= not iec_clk_i; micro_wait(10);
-          when 382 => iec_data(3) <= not iec_data_i; iec_data(2) <= not iec_clk_i; micro_wait(11);
-          when 383 => iec_data(5) <= not iec_data_i; iec_data(4) <= not iec_clk_i; micro_wait(11);
-          when 384 => iec_data(7) <= not iec_data_i; iec_data(6) <= not iec_clk_i; micro_wait(11);
-          when 385 => micro_wait(4);
-          when 386 => d('0');
+            -- We need to give the JiffyDOS routine time to get itself
+            -- organised before telling it we are ready to receive a byte
+            -- I can't find accurate documentation on the time required
+            -- for this, but based on the documentation from Gideon, it looks
+            -- like about 55usec can be required.
+            -- Is this only needed for the first byte received after turn-around?
+            -- after that, the CLK line should be a safe indicator.
+            micro_wait(55);
+          when 381 => d('1'); micro_wait(15);
+          when 382 => iec_data(1) <= not iec_data_i; iec_data(0) <= not iec_clk_i; micro_wait(10);
+          when 383 => iec_data(3) <= not iec_data_i; iec_data(2) <= not iec_clk_i; micro_wait(11);
+          when 384 => iec_data(5) <= not iec_data_i; iec_data(4) <= not iec_clk_i; micro_wait(11);
+          when 385 => iec_data(7) <= not iec_data_i; iec_data(6) <= not iec_clk_i; micro_wait(11);
+          when 386 => micro_wait(4);
+          when 387 => d('0');
                       iec_state <= 0;
                       iec_busy <= '0';
                       if iec_data_i='0' and iec_data_i='1' then

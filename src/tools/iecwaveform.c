@@ -456,6 +456,7 @@ int getUpdate(void)
 		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
 		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
 		case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
+		case 0xFFB5: fprintf(stderr,"$%04X            JIFFYDOS: Waiting for computer to indicate ready to RX byte\n",pc); break;
 		case 0xFBC8: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
 		default:
 		  break;
