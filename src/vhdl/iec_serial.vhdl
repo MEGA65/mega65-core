@@ -121,6 +121,7 @@ architecture questionable of iec_serial is
 
   signal initial_srq_i : std_logic := '1';
 
+  signal probe_jiffydos : std_logic := '0';
   signal jiffydos_enabled : std_logic := '1';
   signal c128fast_enabled : std_logic := '1';
 
@@ -667,12 +668,21 @@ begin
             iec_status(1) <= '0'; -- No timeout
             iec_status(0) <= '0'; -- No data direction during timeout
 
-            -- And also device info byte
-            iec_devinfo(7) <= '0'; -- Device not (yet) detected
-            iec_devinfo(6 downto 5) <= "00"; -- slow protocol
-            -- Device ID being requested
+            -- Record the device ID being requested
             iec_devinfo(4 downto 0) <= iec_data_out(4 downto 0);
+            -- Device not (yet) detected
+            iec_devinfo(7) <= '0';
 
+            -- And reset the device protocol capability flag if we are sending
+            -- a TALK or LISTEN
+            case iec_data_out(7 downto 5) is
+              when "010" | "001" =>
+                iec_devinfo(6 downto 5) <= "00";
+                probe_jiffydos <= jiffydos_enabled;
+              when others =>
+                probe_jiffydos <= '0';
+            end case;
+            
             -- Wait a little while before asserting CLK
             micro_wait(20);
 
@@ -796,12 +806,12 @@ begin
             -- 1541 will not capture this as a 1 bit. In theory, the 35 usec
             -- delay from the previous state should ensure this.
             -- Except that it doesn't.  So we make it a bit longer.
-            if jiffydos_enabled='1' then
+            if probe_jiffydos='1' then
               d('1');
             end if;
             micro_wait(5);
           when 145 =>
-            if jiffydos_enabled='1' then
+            if probe_jiffydos='1' then
               -- Release DATA, and wait for at least 300usec, to see if data
               -- goes low.  If yes, device supports JiffyDOS.
               d('1'); data_low_observed <= '0'; micro_wait(300);
@@ -813,11 +823,11 @@ begin
             
             d(iec_data_out(0)); 
             if data_low_observed = '1' then
-              if iec_devinfo(6 downto 5) = "00" then
+              if iec_devinfo(6) = '0' then
                 report "IEC: Device supports JiffyDOS(tm) protocol. Waiting for DATA to release again.";
               end if;
               -- Record JiffyDOS capability
-              iec_devinfo(6 downto 5) <= "10";
+              iec_devinfo(6) <= '1';
               -- Wait for DATA to be released again
               wait_usec <= 0; wait_data_high <= '1';              
             else
