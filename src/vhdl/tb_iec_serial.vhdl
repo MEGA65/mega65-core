@@ -307,7 +307,7 @@ begin
     begin
       PEEK(x"D688");
       if fastio_rdata(1)='0' then
-        assert false report "Expected to not see TIMEOUT indicated in bit 1 of $D698, but it was";
+        assert false report "Expected to see TIMEOUT indicated in bit 1 of $D698, but it wasn't";
       end if;
     end procedure;        
 
@@ -315,7 +315,7 @@ begin
     begin
       PEEK(x"D688");
       if fastio_rdata(1)='1' then
-        assert false report "Expected to see TIMEOUT indicated in bit 1 of $D698, but it wasn't";
+        assert false report "Expected to not see TIMEOUT indicated in bit 1 of $D698, but it was";
       end if;
     end procedure;        
 
