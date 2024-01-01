@@ -788,23 +788,30 @@ begin
           when 141 => c('0'); d(iec_data_out(0)); micro_wait(35);
           when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
                       report "IEC: Sent bit 6 = " & std_logic'image(iec_data_out(0));
-          when 143 => c('0'); d(iec_data_out(0)); micro_wait(35);                      
+          when 143 => c('0'); d(iec_data_out(0)); micro_wait(100);                      
           when 144 =>
             -- To do the JiffyDOS detection, we need to make sure the DATA line
             -- has gone high before we start looking for it to go low.
             -- But we need to not release the DATA line too early, so that a normal
             -- 1541 will not capture this as a 1 bit. In theory, the 35 usec
             -- delay from the previous state should ensure this.
-            d('1'); micro_wait(5);
+            -- Except that it doesn't.  So we make it a bit longer.
+            if jiffydos_enabled='1' then
+              d('1');
+            end if;
+            micro_wait(5);
           when 145 =>
             if jiffydos_enabled='1' then
               -- Release DATA, and wait for at least 300usec, to see if data
               -- goes low.  If yes, device supports JiffyDOS.
-              d('1'); data_low_observed <= '0'; micro_wait(400);
+              d('1'); data_low_observed <= '0'; micro_wait(300);
             else
               iec_state <= iec_state + 2;
+              micro_wait(30);
             end if;
           when 146 =>
+            
+            d(iec_data_out(0)); 
             if data_low_observed = '1' then
               if iec_devinfo(6 downto 5) = "00" then
                 report "IEC: Device supports JiffyDOS(tm) protocol. Waiting for DATA to release again.";
@@ -851,10 +858,6 @@ begin
 
             iec_busy <= '0';
 
-            -- We leave ATN low, if selected, and also CLK low, to indicate
-            -- that we aren't yet ready to send the next byte. This prevents
-            -- the receiver from commencing the EOI detection count-down.
-
           when 152 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte under attention";
@@ -863,15 +866,11 @@ begin
 
             iec_dev_listening <= '1';
 
-            -- And we are still under attention
-            iec_under_attention <= '1';
-            iec_devinfo(4) <= '1';
-
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
-
-
+            a('1');
+            
             -- TURNAROUND FROM TALKER TO LISTENER
             -- Wait 20 usec, release ATN, wait 20usec
             -- Computer pulls DATA low and releases CLK.
