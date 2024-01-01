@@ -910,6 +910,16 @@ begin
             else
             end if;
           when 206 =>
+            -- We need to give the JiffyDOS routine time to get itself
+            -- organised before telling it we are ready to receive a byte
+            -- I can't find accurate documentation on the time required
+            -- for this, but based on the documentation from Gideon, it looks
+            -- like about 55usec can be required.
+            -- This only needed for the first byte received after turn-around.
+            -- After that, the CLK line should be a safe indicator.
+            micro_wait(55);
+            
+          when 207 =>
 
             -- Device is present
             iec_devinfo(7) <= '1';
@@ -1057,14 +1067,6 @@ begin
 
           when 380 => 
             report "IEC: Receiving byte using JiffyDOS(tm) protocol";
-            -- We need to give the JiffyDOS routine time to get itself
-            -- organised before telling it we are ready to receive a byte
-            -- I can't find accurate documentation on the time required
-            -- for this, but based on the documentation from Gideon, it looks
-            -- like about 55usec can be required.
-            -- Is this only needed for the first byte received after turn-around?
-            -- after that, the CLK line should be a safe indicator.
-            micro_wait(55);
           when 381 => d('1'); micro_wait(15);
           when 382 => iec_data(1) <= not iec_data_i; iec_data(0) <= not iec_clk_i; micro_wait(10);
           when 383 => iec_data(3) <= not iec_data_i; iec_data(2) <= not iec_clk_i; micro_wait(11);
