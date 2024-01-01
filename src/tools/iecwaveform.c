@@ -376,6 +376,13 @@ int getUpdate(void)
 	      return 0;
 	    }
 
+	    {
+	      char drive_cap[1024];
+	      if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/iec_serial.vhdl:%*d:%*d:@%lld%[^:]:(report note): DRIVEINFO: %[^\n]",time_val,time_units,drive_cap)==3) {
+		fprintf(stderr,"            DRIVE INFO: %s\n",drive_cap);		       
+		}
+	  }
+	    
 	    if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/iec_serial.vhdl:%*d:%*d:@%lld%[^:]:(report note): iec_state = %d",
 		       &time_val,time_units,&iec_state)==3) {
 	      fprintf(stderr,"            iec_state = %d\n",iec_state);

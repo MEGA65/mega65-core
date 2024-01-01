@@ -698,11 +698,13 @@ begin
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
 
+        get_drive_capability;
+        
         report "IEC: Commencing turn-around to listen";
         tx_to_rx_turnaround;
 
         report "IEC: Trying to receive a byte";
-
+        
         -- Check for first 3 bytes of "73,CBM DOS... / 73,JIFFY DOS..." message
         iec_rx(x"37");
         iec_rx(x"33");
@@ -723,6 +725,8 @@ begin
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
 
+        get_drive_capability;
+        
         report "IEC: Waiting a while before performing turn around...";
         wait_a_while_until_done(800_000);
         
@@ -749,6 +753,8 @@ begin
 
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
+
+        get_drive_capability;
 
         report "IEC: Waiting a while before performing turn around...";
         wait_a_while_until_done(800_000);
@@ -778,6 +784,8 @@ begin
                             -- here, but that yields device not present on the
                             -- VHDL 1541 for some reason?  $6F seems to work, though?
 
+        get_drive_capability;
+        
         report "Clearing ATN";
         atn_release;       
         
