@@ -635,9 +635,8 @@ begin
 
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
+        fail_if_JIFFYDOS_CAPABLE;        
 
-        fail_if_JIFFYDOS_CAPABLE;
-        
       elsif run("ATN Sequence with VHDL 1541 device succeeds") then
 
         boot_1541;
@@ -683,6 +682,8 @@ begin
         iec_rx(x"33");
         iec_rx(x"2c");        
 
+        fail_if_JIFFYDOS_CAPABLE;
+        
 
       elsif run("Read from Error Channel (15) of VHDL 1541 device succeeds") then
 
