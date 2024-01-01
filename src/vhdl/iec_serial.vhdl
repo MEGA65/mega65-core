@@ -923,6 +923,10 @@ begin
                       -- for a negative-going transition, rather than a
                       -- negative level.
                       initial_srq_i <= iec_srq_i;
+                      if iec_devinfo(6)='1' then
+                        -- Assume drive will talk JiffyDOS protocol
+                        iec_state <= 380;
+                      end if;
           when 301 => d('1');
                       eoi_detected <= '0';
                       micro_wait(200);
@@ -1039,7 +1043,25 @@ begin
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
+          when 380 => d('1'); micro_wait(15);
+            report "IEC: Receiving byte using JiffyDOS(tm) protocol";
+          when 381 => iec_data(1) <= not iec_data_i; iec_data(0) <= not iec_clk_i; micro_wait(10);
+          when 382 => iec_data(3) <= not iec_data_i; iec_data(2) <= not iec_clk_i; micro_wait(11);
+          when 383 => iec_data(5) <= not iec_data_i; iec_data(4) <= not iec_clk_i; micro_wait(11);
+          when 384 => iec_data(7) <= not iec_data_i; iec_data(6) <= not iec_clk_i; micro_wait(11);
+          when 385 => micro_wait(4);
+          when 386 => d('0');
+                      iec_state <= '0';
+                      iec_busy <= '0';
+                      iec_status(6) <= iec_clk_i;
+                      if iec_data_i='0' then
+                        -- Byte received (with or without EOI)
 
+                      else
+                        -- Error
+                        iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
+                        iec_status(0) <= '0'; -- ... WHILE WE WERE LISTENING
+                      end if;
 
             -- SEND A BYTE (no attention)
           when 400 =>
