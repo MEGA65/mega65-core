@@ -364,7 +364,7 @@ begin
 		if (cs = '1') and (I_RW_L = '1') then
                   prev_was_read <= '1';
                   if prev_was_read = '0' then
-                    report "MOS6522"&name&": Reading register $" & to_hexstring(I_RS);
+                    -- report "MOS6522"&name&": Reading register $" & to_hexstring(I_RS);
                     -- report "MOS6522"&name&": port B = " & to_string(I_PB)
                     -- & ", r_acr = " & to_string(r_acr);
                   end if;
@@ -373,12 +373,12 @@ begin
 			-- fix from Mark McDougall, untested
                     when x"0" => O_DATA <= unsigned((r_irb and not r_ddrb) or (r_orb and r_ddrb)); r_irb_hs <= '1';
                                  if prev_was_read = '0' then
-                                   report "MOS6522"&name&": register 0 (Port B data) = $"
-                                     & to_hexstring((r_irb and not r_ddrb) or (r_orb and r_ddrb))
-                                     & ", r_irb = $" & to_hexstring(r_irb)
-                                     & ", r_ddrb = $" & to_hexstring(r_ddrb)
-                                     & ", r_orb = $" & to_hexstring(r_orb)
-                                     ;
+                                   -- report "MOS6522"&name&": register 0 (Port B data) = $"
+                                   --  & to_hexstring((r_irb and not r_ddrb) or (r_orb and r_ddrb))
+                                   --  & ", r_irb = $" & to_hexstring(r_irb)
+                                   --  & ", r_ddrb = $" & to_hexstring(r_ddrb)
+                                   --  & ", r_orb = $" & to_hexstring(r_orb)
+                                   --  ;
                                  end if;
                     when x"1" => O_DATA <= unsigned(r_ira); r_ira_hs <= '1';
                                  if prev_was_read = '0' then
