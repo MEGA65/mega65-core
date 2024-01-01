@@ -489,11 +489,10 @@ begin
         POKE(x"D689",x"28"); -- Access device 8 (drive is device 11, so shouldn't respond)
         POKE(x"D688",x"30"); -- Trigger ATN write
 
+        -- Allow some time for some data to be collected. But we don't care
+        -- whether the job finishes or not.
         wait_a_while(400_000);
 
-        fail_if_DEVICE_NOT_PRESENT;
-        fail_if_TIMEOUT;
-        
         -- Now read back debug RAM content
 
         -- Reset read point to start of debug RAM
