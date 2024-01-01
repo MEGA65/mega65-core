@@ -917,7 +917,7 @@ begin
             -- like about 55usec can be required.
             -- This only needed for the first byte received after turn-around.
             -- After that, the CLK line should be a safe indicator.
-            micro_wait(55);
+            micro_wait(100);
             
           when 207 =>
 
@@ -1076,13 +1076,19 @@ begin
           when 387 => d('0');
                       iec_state <= 0;
                       iec_busy <= '0';
-                      if iec_data_i='0' and iec_data_i='1' then
+                      -- No timeout
+                      iec_status(1) <= '0';
+                      iec_status(0) <= '0';
+                      if iec_data_i='0' and iec_clk_i='1' then
                         -- Byte received with EOI
                         iec_status(6) <= '1';
+                        report "IEC: Received byte via JiffyDOS fast protocol with EOI";
                       elsif iec_data_i='1' and iec_clk_i='0' then
                         -- Byte received without EOI
+                        report "IEC: Received byte via JiffyDOS fast protocol (without EOI)";
                       else
                         -- Error
+                        report "IEC: Error occurred while receiving byte via JiffyDOS fast protocol";
                         iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
                         iec_status(0) <= '0'; -- ... WHILE WE WERE LISTENING
                       end if;
