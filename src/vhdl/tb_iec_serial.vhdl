@@ -523,7 +523,7 @@ begin
         -- Hold 1541 under reset, so that it can't answer
         f1541_reset_n <= '0';
 
-        POKE(x"D689",x"28"); -- Access device 8 (drive is device 11, so shouldn't respond)
+        POKE(x"D689",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
         POKE(x"D688",x"30"); -- Trigger ATN write
 
         wait_a_while_until_done(400000);
@@ -533,7 +533,7 @@ begin
 
       elsif run("Debug RAM can be read") then
 
-        POKE(x"D689",x"28"); -- Access device 8 (drive is device 11, so shouldn't respond)
+        POKE(x"D689",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
         POKE(x"D688",x"30"); -- Trigger ATN write
 
         -- Allow some time for some data to be collected. But we don't care
@@ -640,11 +640,11 @@ begin
       
         report "IEC: Commencing sending byte under ATN";
 
-        -- Access device 8 (which isn't actually
-        -- present, the VHDL device is 11, but
+        -- Access device 9 (which isn't actually
+        -- present, the VHDL device is 8, but
         -- this situation doesn't get detected as
         -- device not present).
-        POKE(x"D689",x"28");
+        POKE(x"D689",x"29");
         POKE(x"D688",x"30"); -- Trigger ATN write
 
         wait_a_while_until_done(800000);
@@ -659,11 +659,11 @@ begin
 
         report "IEC: Commencing sending byte under ATN";
         
-        -- Access device 8 (which isn't actually
-        -- present, the VHDL device is 11, but
+        -- Access device 9 (which isn't actually
+        -- present, the VHDL device is 8, but
         -- this situation doesn't get detected as
         -- device not present).
-        POKE(x"D689",x"28");        
+        POKE(x"D689",x"29");        
         POKE(x"D688",x"30"); -- Trigger ATN write
 
         wait_a_while_until_done(800000);
@@ -682,8 +682,8 @@ begin
         POKE(x"D688",x"6A"); -- Disable JiffyDOS
         POKE(x"D688",x"66"); -- Disable C128 FAST serial        
 
-        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
-        atn_tx_byte(x"4B"); -- Device 11 TALK
+        report "IEC: Commencing sending DEVICE 8 TALK ($48) byte under ATN";
+        atn_tx_byte(x"48"); -- Device 8 TALK
 
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
@@ -708,8 +708,8 @@ begin
 
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
-        atn_tx_byte(x"4B"); -- Device 11 TALK
+        report "IEC: Commencing sending DEVICE 8 TALK ($48) byte under ATN";
+        atn_tx_byte(x"48"); -- Device 8 TALK
 
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
@@ -735,8 +735,8 @@ begin
 
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
-        atn_tx_byte(x"4B"); -- Device 11 TALK
+        report "IEC: Commencing sending DEVICE 8 TALK ($48) byte under ATN";
+        atn_tx_byte(x"48"); -- Device 8 TALK
 
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
@@ -764,8 +764,8 @@ begin
 
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 11 TALK ($4B) byte under ATN";
-        atn_tx_byte(x"4B"); -- Device 11 TALK
+        report "IEC: Commencing sending DEVICE 8 TALK ($48) byte under ATN";
+        atn_tx_byte(x"48"); -- Device 8 TALK
 
         report "IEC: Commencing sending SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"6F");
@@ -787,13 +787,13 @@ begin
         
       elsif run("Write to and read from Command Channel (15) of VHDL 1541 device succeeds") then
 
-        -- Send LISTEN to device 11, channel 15, send the "UI-" command, then
-        -- Send TALK to device 11, channel 15, and read back 00,OK,00,00 message
+        -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
+        -- Send TALK to device 8, channel 15, and read back 00,OK,00,00 message
         
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 11 LISTEN ($2B) byte under ATN";
-        atn_tx_byte(x"2B"); -- Device 11 LISTEN
+        report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
+        atn_tx_byte(x"28"); -- Device 8 LISTEN
 
         report "IEC: Commencing sending OPEN SECONDARY ADDRESS 15 byte under ATN";
         atn_tx_byte(x"FF"); -- Some documentation claims $FF should be used
@@ -810,7 +810,7 @@ begin
         iec_tx(x"49");  -- I
         iec_tx_eoi(x"2D");  -- +
 
-        report "IEC: Sending UNLISTEN to device 11";
+        report "IEC: Sending UNLISTEN to device 8";
         atn_tx_byte(x"3F");
 
         report "Clearing ATN";
@@ -822,8 +822,8 @@ begin
         report "IEC: Allow 1541 time to process the UI+ command.";
         wait_a_while_until_done(300_000);
         
-        report "IEC: Request read command channel 15 of device 11";
-        atn_tx_byte(x"4b");
+        report "IEC: Request read command channel 15 of device 8";
+        atn_tx_byte(x"48");
         atn_tx_byte(x"6f");
         
         report "IEC: Commencing turn-around to listen";

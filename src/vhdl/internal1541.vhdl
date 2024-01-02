@@ -24,6 +24,9 @@ entity internal1541 is
 
     address_next : out unsigned(15 downto 0);
 
+    -- Device ID straps: 00 = 8, 11 = 11 (of course ;)
+    device_id_straps : in unsigned(1 downto 0) := "00";
+    
     -- Drive CPU clock strobes.
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
     -- so that fast loaders can be accelerated.
@@ -305,6 +308,7 @@ begin
 
       via1_portb_in(0) <= not iec_data_i;
       via1_portb_in(2) <= not iec_clk_i;
+      via1_portb_in(6 downto 5) <= std_ulogic_vector(device_id_straps);
       via1_portb_in(7) <= not iec_atn_i;
       via1_ca1_in <= not iec_atn_i;
 
