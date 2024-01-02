@@ -659,7 +659,6 @@ begin
           when 120 =>
             -- Prepare all IEC lines:
             a('0'); -- ATN to 0V
-            c('0'); -- CLK to 0V
             d('1'); -- DATA to 5V
             s('1'); -- Ensure SRQ is released to 5V
 
@@ -687,6 +686,7 @@ begin
             micro_wait(20);
 
           when 121 =>
+            c('0'); -- CLK to 0V
             -- Wait upto 1ms for DATA to go low
             micro_wait(1000);
 

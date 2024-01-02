@@ -398,6 +398,15 @@ begin
       fail_if_TIMEOUT;
     end procedure;    
 
+    procedure check_1541_last_rx_byte ( v : unsigned(7 downto 0)) is
+    begin
+      if c1541_received_byte /= v then
+        assert false report "1541 expected to receive $" & to_hexstring(v) & ", but received $" & to_hexstring(c1541_received_byte);
+      else
+        report "1541 correctly received the byte $" & to_hexstring(c1541_received_byte);
+      end if;
+    end procedure;          
+    
     procedure iec_tx(v : unsigned(7 downto 0)) is
     begin 
       report "IEC: iec_tx($" & to_hexstring(v) & ")";
@@ -409,6 +418,9 @@ begin
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
+
+      check_1541_last_rx_byte(v);
+      
     end procedure;    
 
     procedure iec_tx_eoi(v : unsigned(7 downto 0)) is
@@ -423,6 +435,8 @@ begin
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
+
+      check_1541_last_rx_byte(v);
       
     end procedure;    
     
@@ -511,13 +525,6 @@ begin
       end if;      
     end procedure;
 
-    procedure check_1541_last_rx_byte ( v : unsigned(7 downto 0)) is
-    begin
-      if c1541_received_byte /= v then
-        assert false report "1541 expected to receive $" & to_hexstring(v) & ", but received $" & to_hexstring(c1541_received_byte);
-      end if;
-    end procedure;          
-    
   begin
     test_runner_setup(runner, runner_cfg);    
     
@@ -797,9 +804,6 @@ begin
         
       elsif run("Drive Byte RX Bit Order and Polarity") then
 
-        -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
-        -- Send TALK to device 8, channel 15, and read back 00,OK,00,00 message
-        
         boot_1541;
 
         report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
@@ -817,7 +821,7 @@ begin
         
         report "IEC: Bytes with each single bit set";
         
-        iec_tx(x"01"); check_1541_last_rx_byte(x"01");
+        iec_tx(x"01");
         iec_tx(x"02"); 
         iec_tx(x"04"); 
         iec_tx(x"08");
@@ -850,7 +854,6 @@ begin
         report "IEC: Sending UI- command";
         iec_tx(x"55");  -- U
         iec_tx(x"49");  -- I
-      wait_a_while(1800000);
         iec_tx_eoi(x"2D");  -- +
              
         report "IEC: Sending UNLISTEN to device 8";
