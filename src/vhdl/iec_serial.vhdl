@@ -1266,7 +1266,7 @@ begin
           when 486 => d('0');                 c(send_eoi);            micro_wait(28);
                       send_eoi <= '0';
                       wait_data_high <= '1';
-          when 487 => d('1'); micro_wait(10);
+          when 487 => d('1'); micro_wait(15);
           when 488 => if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
