@@ -434,6 +434,7 @@ int getUpdate(void)
 		  break;
 		}
 	      else {
+		// JiffyDOS ROM
 		switch(pc) {
 		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
 		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
@@ -463,6 +464,7 @@ int getUpdate(void)
 		case 0xFBE8: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 6 and 7\n",pc); break;
 		case 0xFBF0: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 1 of 2\n",pc); break;
 		case 0xFBF6: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 2 of 2\n",pc); break;
+		case 0xFC00: fprintf(stderr,"$%04X            JIFFYDOS: Latch status bits\n",pc); break;
 		default:
 		  break;
 		}
