@@ -281,7 +281,7 @@ begin
     begin        
       -- Allow time for everything to happen
       for i in 1 to 1_000_000 loop
-        PEEK(x"D687");
+        PEEK(x"D697");
         if fastio_rdata(5)='1' then
           report "Waited " & integer'image(i) & " iterations for READY to be asserted";
           exit;
@@ -295,7 +295,7 @@ begin
       wait_a_while(t);
       
       -- Expect BUSY flag to have cleared
-      PEEK(x"D687");
+      PEEK(x"D697");
       report "IEC IRQ status byte = $" & to_hexstring(fastio_rdata);
       if fastio_rdata(5)='0' then
         assert false report "Expected to see ready for command indicated in bit 5 of $D697, but it wasn't";
@@ -304,7 +304,7 @@ begin
 
     procedure fail_if_DEVICE_NOT_PRESENT is
     begin
-      PEEK(x"D688");
+      PEEK(x"D698");
       report "IEC status byte = $" & to_hexstring(fastio_rdata);
       if fastio_rdata(7)='1' then
         assert false report "Expected to not see DEVICE NOT PRESENT indicated in bit 7 of $D698, but it was";
@@ -313,7 +313,7 @@ begin
 
     procedure fail_if_DEVICE_PRESENT is
     begin
-      PEEK(x"D688");
+      PEEK(x"D698");
       report "IEC status byte = $" & to_hexstring(fastio_rdata);
       if fastio_rdata(7)='0' then
         assert false report "Expected to see DEVICE NOT PRESENT indicated in bit 7 of $D698, but a device was found";
@@ -322,7 +322,7 @@ begin
     
     procedure fail_if_NO_TIMEOUT is
     begin
-      PEEK(x"D688");
+      PEEK(x"D698");
       if fastio_rdata(1)='0' then
         assert false report "Expected to see TIMEOUT indicated in bit 1 of $D698, but it wasn't";
       end if;
@@ -330,7 +330,7 @@ begin
 
     procedure fail_if_TIMEOUT is
     begin
-      PEEK(x"D688");
+      PEEK(x"D698");
       if fastio_rdata(1)='1' then
         assert false report "Expected to not see TIMEOUT indicated in bit 1 of $D698, but it was";
       end if;
@@ -338,7 +338,7 @@ begin
 
     procedure fail_if_BUSY is
     begin
-      PEEK(x"D687");
+      PEEK(x"D697");
       report "IEC IRQ status byte = $" & to_hexstring(fastio_rdata);
       if fastio_rdata(5)='0' then
         assert false report "Expected to see ready for command indicated in bit 5 of $D697, but it wasn't";
@@ -347,7 +347,7 @@ begin
 
     procedure fail_if_READY is
     begin
-      PEEK(x"D687");
+      PEEK(x"D697");
       report "IEC IRQ status byte = $" & to_hexstring(fastio_rdata);
       if fastio_rdata(5)='1' then
         assert false report "Expected to see IEC bus busy in bit 5 of $D697, but it wasn't";
@@ -356,7 +356,7 @@ begin
 
     procedure get_drive_capability is
     begin
-      PEEK(x"D68A");
+      PEEK(x"D69A");
 
       case fastio_rdata(6 downto 5) is
         when "01" => report "DRIVEINFO: Drive is offering C128 fast serial protocol";
@@ -388,8 +388,8 @@ begin
     procedure atn_tx_byte(v : unsigned(7 downto 0)) is
     begin
       report "IEC: atn_tx_byte($" & to_hexstring(v) & ")";
-      POKE(x"D689",v);
-      POKE(x"D688",x"30"); -- Trigger ATN write
+      POKE(x"D699",v);
+      POKE(x"D698",x"30"); -- Trigger ATN write
 
       wait_until_READY;
 
@@ -410,8 +410,8 @@ begin
     procedure iec_tx(v : unsigned(7 downto 0)) is
     begin 
       report "IEC: iec_tx($" & to_hexstring(v) & ")";
-      POKE(x"D689",v);
-      POKE(x"D688",x"31"); -- Trigger TX byte without attention
+      POKE(x"D699",v);
+      POKE(x"D698",x"31"); -- Trigger TX byte without attention
 
       wait_until_READY;
 
@@ -427,8 +427,8 @@ begin
     begin 
       report "IEC: iec_tx_eoi($" & to_hexstring(v) & ")";
 
-      POKE(x"D689",v);
-      POKE(x"D688",x"34"); -- Trigger TX byte without attention, with EOI
+      POKE(x"D699",v);
+      POKE(x"D698",x"34"); -- Trigger TX byte without attention, with EOI
 
       wait_until_READY;
 
@@ -444,7 +444,7 @@ begin
     begin
       report "IEC: tx_to_rx_turnaround() called.";
 
-      POKE(x"D688",x"35"); -- Trigger turn-around to listen
+      POKE(x"D698",x"35"); -- Trigger turn-around to listen
       
       -- Allow a little time and check status goes busy
       for i in 1 to 100 loop
@@ -468,7 +468,7 @@ begin
     begin
       report "IEC: iec_rx($" & to_hexstring(expected) & ")";
 
-      POKE(x"D688",x"32"); -- Trigger RECEIVE BYTE
+      POKE(x"D698",x"32"); -- Trigger RECEIVE BYTE
       
       -- Allow a little time and check status goes busy
       for i in 1 to 100 loop
@@ -484,7 +484,7 @@ begin
       fail_if_TIMEOUT;
 
       -- Read data byte and check against expected
-      PEEK(x"D689");
+      PEEK(x"D699");
       report "IEC data byte = $" & to_hexstring(fastio_rdata) & " (expected $" & to_hexstring(expected) & ")";
       if fastio_rdata /= expected then
         assert false report "Data byte value was different to expected value";
@@ -494,7 +494,7 @@ begin
     procedure iec_rx_eoi(expected : unsigned(7 downto 0)) is
     begin
       report "IEC: iec_rx($" & to_hexstring(expected) & ")";
-      POKE(x"D688",x"32"); -- Trigger RECEIVE BYTE
+      POKE(x"D698",x"32"); -- Trigger RECEIVE BYTE
       
       -- Allow a little time and check status goes busy
       for i in 1 to 100 loop
@@ -510,7 +510,7 @@ begin
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
 
-      PEEK(x"D688");
+      PEEK(x"D698");
       if fastio_rdata(6)='1' then
         report "Saw EOI";
       else
@@ -518,7 +518,7 @@ begin
       end if;
 
       -- Read data byte and check against expected
-      PEEK(x"D689");
+      PEEK(x"D699");
       report "IEC data byte = $" & to_hexstring(fastio_rdata) & " (expected $" & to_hexstring(expected) & ")";
       if fastio_rdata /= expected then
         assert false report "Data byte value was different to expected value";
@@ -541,8 +541,8 @@ begin
         -- Hold 1541 under reset, so that it can't answer
         f1541_reset_n <= '0';
 
-        POKE(x"D689",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
-        POKE(x"D688",x"30"); -- Trigger ATN write
+        POKE(x"D699",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
+        POKE(x"D698",x"30"); -- Trigger ATN write
 
         wait_and_check_READY(400000);
 
@@ -551,8 +551,8 @@ begin
 
       elsif run("Debug RAM can be read") then
 
-        POKE(x"D689",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
-        POKE(x"D688",x"30"); -- Trigger ATN write
+        POKE(x"D699",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
+        POKE(x"D698",x"30"); -- Trigger ATN write
 
         -- Allow some time for some data to be collected. But we don't care
         -- whether the job finishes or not.
@@ -561,17 +561,17 @@ begin
         -- Now read back debug RAM content
 
         -- Reset read point to start of debug RAM
-        POKE(x"D681",x"00");
+        POKE(x"D691",x"00");
 
         report "Starting readback of debug RAM";
         
         fastio_addr(3 downto 0) <= x"4";
         for n in 0 to 127 loop
-          PEEK(x"D684");
+          PEEK(x"D694");
 
           report "Read $" & to_hexstring(fastio_rdata) & " from debug RAM.";
 
-          POKE(x"D684",x"01");
+          POKE(x"D694",x"01");
 
         end loop;
                   
@@ -581,8 +581,8 @@ begin
         -- (JiffyDOS ROM at least holds DATA low during boot-up).
         f1541_reset_n <= '0';
 
-        POKE(x"D689",x"28"); -- Access device 8
-        POKE(x"D688",x"30"); -- Trigger ATN write
+        POKE(x"D699",x"28"); -- Access device 8
+        POKE(x"D698",x"30"); -- Trigger ATN write
 
         -- Now pretend to be a simple IEC device
         for i in 1 to 800000 loop
@@ -653,8 +653,8 @@ begin
 
         boot_1541;
         
-        POKE(x"D688",x"6A"); -- Disable JiffyDOS
-        POKE(x"D688",x"66"); -- Disable C128 FAST serial
+        POKE(x"D698",x"6A"); -- Disable JiffyDOS
+        POKE(x"D698",x"66"); -- Disable C128 FAST serial
       
         report "IEC: Commencing sending byte under ATN";
 
@@ -662,8 +662,8 @@ begin
         -- present, the VHDL device is 8, but
         -- this situation doesn't get detected as
         -- device not present).
-        POKE(x"D689",x"29");
-        POKE(x"D688",x"30"); -- Trigger ATN write
+        POKE(x"D699",x"29");
+        POKE(x"D698",x"30"); -- Trigger ATN write
 
         wait_until_READY;
 
@@ -681,8 +681,8 @@ begin
         -- present, the VHDL device is 8, but
         -- this situation doesn't get detected as
         -- device not present).
-        POKE(x"D689",x"29");        
-        POKE(x"D688",x"30"); -- Trigger ATN write
+        POKE(x"D699",x"29");        
+        POKE(x"D698",x"30"); -- Trigger ATN write
 
         wait_until_READY;
 
@@ -696,8 +696,8 @@ begin
 
         boot_1541;
         
-        POKE(x"D688",x"6A"); -- Disable JiffyDOS
-        POKE(x"D688",x"66"); -- Disable C128 FAST serial        
+        POKE(x"D698",x"6A"); -- Disable JiffyDOS
+        POKE(x"D698",x"66"); -- Disable C128 FAST serial        
 
         report "IEC: Commencing sending DEVICE 8 TALK ($48) byte under ATN";
         atn_tx_byte(x"48"); -- Device 8 TALK
