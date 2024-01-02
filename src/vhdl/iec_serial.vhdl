@@ -914,10 +914,18 @@ begin
             -- organised before telling it we are ready to receive a byte
             -- I can't find accurate documentation on the time required
             -- for this, but based on the documentation from Gideon, it looks
-            -- like about 55usec can be required.
+            -- like about 55usec can be required. But in practice, it seems
+            -- more is required.
             -- This only needed for the first byte received after turn-around.
-            -- After that, the CLK line should be a safe indicator.
-            micro_wait(100);
+            -- After that, the CLK line should be a safe indicator, as this seems
+            -- to only be an issue that the CLK line is released early following
+            -- turn-around. Is this true?
+
+            -- Some experimentation reveals that we need longer.
+            -- 525 usec is too short.
+            -- 540 usec seems to work
+            -- 600 usec is plenty
+            micro_wait(600);
             
           when 207 =>
 
@@ -1067,11 +1075,13 @@ begin
 
           when 380 => 
             report "IEC: Receiving byte using JiffyDOS(tm) protocol";
+            -- Allow JiffyDOS time to setup the byte, as it frequently seems to
+            -- not be ready immediately.
           when 381 => d('1'); micro_wait(15);
-          when 382 => iec_data(1) <= not iec_data_i; iec_data(0) <= not iec_clk_i; micro_wait(10);
-          when 383 => iec_data(3) <= not iec_data_i; iec_data(2) <= not iec_clk_i; micro_wait(11);
-          when 384 => iec_data(5) <= not iec_data_i; iec_data(4) <= not iec_clk_i; micro_wait(11);
-          when 385 => iec_data(7) <= not iec_data_i; iec_data(6) <= not iec_clk_i; micro_wait(11);
+          when 382 => iec_data(1) <= iec_data_i; iec_data(0) <= iec_clk_i; micro_wait(10);
+          when 383 => iec_data(3) <= iec_data_i; iec_data(2) <= iec_clk_i; micro_wait(11);
+          when 384 => iec_data(5) <= iec_data_i; iec_data(4) <= iec_clk_i; micro_wait(11);
+          when 385 => iec_data(7) <= iec_data_i; iec_data(6) <= iec_clk_i; micro_wait(11);
           when 386 => micro_wait(4);
           when 387 => d('0');
                       iec_state <= 0;
