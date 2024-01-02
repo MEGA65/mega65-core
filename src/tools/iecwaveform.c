@@ -457,7 +457,11 @@ int getUpdate(void)
 		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
 		case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
 		case 0xFFB5: fprintf(stderr,"$%04X            JIFFYDOS: Waiting for computer to indicate ready to RX byte\n",pc); break;
-		case 0xFBC8: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
+		case 0xFBD3: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
+		case 0xFBE2: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 4 and 5\n",pc); break;
+		case 0xFBE8: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 6 and 7\n",pc); break;
+		case 0xFBF0: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 1 of 2\n",pc); break;
+		case 0xFBF6: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 2 of 2\n",pc); break;
 		default:
 		  break;
 		}
