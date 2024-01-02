@@ -133,6 +133,9 @@ begin
   -- little faster, by allowing BIT $D697 / BVC *-3 to be a very tight loop
   -- for waiting for bytes.
 
+  -- @IO:GS $D694 AUTOIEC:DATALOG0 Access integrated data logger in IEC controller
+  -- @IO:GS $D695 AUTOIEC:DATALOG1 Access integrated data logger in IEC controller
+  
   -- @IO:GS $D697.7 AUTOIEC:IRQFLAG Interrupt flag. Set if any IRQ event is triggered.
   -- @IO:GS $D697.6 AUTOIEC:IRQRX Set if a byte has been received from a listener.
   -- @IO:GS $D697.5 AUTOIEC:IRQREADY Set if ready to process a command
