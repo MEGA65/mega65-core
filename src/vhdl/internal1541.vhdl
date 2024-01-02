@@ -26,7 +26,9 @@ entity internal1541 is
 
     -- Device ID straps: 00 = 8, 11 = 11 (of course ;)
     device_id_straps : in unsigned(1 downto 0) := "00";
-    
+
+    last_rx_byte : out unsigned(7 downto 0);
+  
     -- Drive CPU clock strobes.
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
     -- so that fast loaders can be accelerated.
@@ -348,6 +350,13 @@ begin
         when others =>
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
       end case;
+
+      -- Export last byte written to 1541 RX byte location to support automated
+      -- tests of IEC communications in tb_iec_serial.vhdl
+      if address = x"0085" and cpu_write_n='0' then
+        last_rx_byte <= wdata;
+      end if;
+      
     end if;
 
     via_address <= address(3 downto 0);
