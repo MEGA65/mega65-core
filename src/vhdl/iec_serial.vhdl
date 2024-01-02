@@ -1258,7 +1258,7 @@ begin
                         null; 
                       end if;
           when 488 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
-                      iec_devinfo(7) <= '1';
+                      iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
                       iec_dev_listening <= '1';
