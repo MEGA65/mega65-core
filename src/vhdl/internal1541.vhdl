@@ -310,7 +310,7 @@ begin
 
       via1_portb_in(0) <= not iec_data_i;
       via1_portb_in(2) <= not iec_clk_i;
-      via1_portb_in(6 downto 5) <= std_ulogic_vector(device_id_straps);
+      via1_portb_in(6 downto 5) <= std_logic_vector(device_id_straps);
       via1_portb_in(7) <= not iec_atn_i;
       via1_ca1_in <= not iec_atn_i;
 
