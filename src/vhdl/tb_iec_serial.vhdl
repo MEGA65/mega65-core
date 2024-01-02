@@ -272,7 +272,20 @@ begin
       end loop;
       report "IEC state reached = $" & to_hexstring(iec_state_reached) & " = " & integer'image(to_integer(iec_state_reached));
     end procedure;
-      
+
+    procedure wait_until_READY is
+    begin        
+      -- Allow time for everything to happen
+      for i in 1 to 1_000_000 loop
+        PEEK(x"D687");
+        if fastio_rdata(5)='1' then
+          report "Waited " & integer'image(i) & " iterations for READY to be asserted";
+          exit;
+        end if;
+      end loop;
+
+    end procedure;
+    
     procedure wait_a_while_until_done(t : integer) is
     begin        
       wait_a_while(t);
@@ -423,7 +436,10 @@ begin
       -- Expect BUSY flag to have set
       fail_if_READY;
 
-      wait_a_while_until_done(50_000);
+      -- Don't wait any longer than necessary, as want to make the test
+      -- sensitive to the time delay that the turn-around imposes for
+      -- the JiffyDOS protocol, where this is important.
+      wait_until_READY;
 
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
