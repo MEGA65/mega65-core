@@ -465,6 +465,7 @@ int getUpdate(void)
 		case 0xFBF0: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 1 of 2\n",pc); break;
 		case 0xFBF6: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 2 of 2\n",pc); break;
 		case 0xFC00: fprintf(stderr,"$%04X            JIFFYDOS: Latch status bits\n",pc); break;
+		case 0xFC0E: fprintf(stderr,"$%04X            JIFFYDOS: Drive detected EOI when receiving byte\n",pc); break;
 		default:
 		  break;
 		}
