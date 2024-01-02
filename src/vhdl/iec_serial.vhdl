@@ -1237,18 +1237,31 @@ begin
 
           when 480 => report "IEC: Sending byte using JiffyDOS(tm) protocol";
                       wait_data_high <= '1';
-          when 481 => c('1'); micro_wait(10);
-          when 482 => d(iec_data_out(1)); c(iec_data_out(0)); micro_wait(13);
-          when 483 => d(iec_data_out(3)); c(iec_data_out(2)); micro_wait(11);
-          when 484 => d(iec_data_out(5)); c(iec_data_out(4)); micro_wait(13);
-          when 485 => d(iec_data_out(7)); c(iec_data_out(6)); micro_wait(20);
-          when 486 => d('1'); c(send_eoi); send_eoi <= '0'; wait_data_high <= '1';
-          when 487 => wait_data_low <= '1';
+          when 481 =>                     c('1');             micro_wait(10);
+          when 482 => d(iec_data_out(5)); c(iec_data_out(4)); micro_wait(13);
+          when 483 => d(iec_data_out(7)); c(iec_data_out(6)); micro_wait(11);
+          when 484 => d(iec_data_out(1)); c(iec_data_out(0)); micro_wait(13);
+          when 485 => d(iec_data_out(3)); c(iec_data_out(2)); micro_wait(20);
+          when 486 => d('1');             c(send_eoi);        micro_wait(20);
+                      send_eoi <= '0';
+                      wait_data_high <= '1';
+          when 487 => if iec_data_i='1' then
+                        -- ERROR: Report timeout
+                        iec_dev_listening <= '0';
+                        iec_devinfo(1) <= '1';
+                        iec_devinfo(0) <= '1'; -- while outputting data
+                        iec_busy <= '0';
+                        iec_state_reached <= to_unsigned(iec_state,12);
+                        iec_state <= 0;
+                      else
+                        -- No error, JiffyDOS drive is busy again
+                        null; 
+                      end if;
           when 488 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '1';
                       iec_busy <= '0';
 
-                      iec_dev_listening <= '0';
+                      iec_dev_listening <= '1';
 
                       -- And we are still under attention
                       iec_under_attention <= '0';
