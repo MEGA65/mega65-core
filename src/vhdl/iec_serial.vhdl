@@ -1260,7 +1260,7 @@ begin
           when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
-          when 486 => d('0');                 c(send_eoi);            micro_wait(20);
+          when 486 => d('0');                 c(send_eoi);            micro_wait(28);
                       send_eoi <= '0';
                       wait_data_high <= '1';
           when 487 => d('1'); micro_wait(10);
