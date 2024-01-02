@@ -61,6 +61,8 @@ architecture test_arch of tb_iec_serial is
   signal iec_atn_last : std_logic := '1';
   signal power_up : boolean := true;
 
+  signal c1541_received_byte : unsigned(7 downto 0); 
+  
 begin
 
   iec0: entity work.iec_serial generic map (
@@ -105,6 +107,8 @@ begin
       cs_driverom => '0',
       cs_driveram => '0',
 
+      last_rx_byte => c1541_received_byte,
+      
       address_next => f1541_pc,
 
       drive_clock_cycle_strobe => f1541_cycle_strobe,
@@ -286,7 +290,7 @@ begin
 
     end procedure;
     
-    procedure wait_a_while_until_done(t : integer) is
+    procedure wait_and_check_READY(t : integer) is
     begin        
       wait_a_while(t);
       
@@ -387,7 +391,7 @@ begin
       POKE(x"D689",v);
       POKE(x"D688",x"30"); -- Trigger ATN write
 
-      wait_a_while_until_done(800000);
+      wait_until_READY;
 
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
@@ -400,7 +404,7 @@ begin
       POKE(x"D689",v);
       POKE(x"D688",x"31"); -- Trigger TX byte without attention
 
-      wait_a_while_until_done(800000);
+      wait_until_READY;
 
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
@@ -414,7 +418,7 @@ begin
       POKE(x"D689",v);
       POKE(x"D688",x"34"); -- Trigger TX byte without attention, with EOI
 
-      wait_a_while_until_done(1_200_000);
+      wait_until_READY;
 
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
@@ -459,7 +463,7 @@ begin
 
       fail_if_READY;
 
-      wait_a_while_until_done(800_000);
+      wait_until_READY;
 
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
@@ -486,7 +490,7 @@ begin
       -- Expect BUSY flag to have set
       fail_if_READY;
 
-      wait_a_while_until_done(800_000);
+      wait_until_READY;
 
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
@@ -506,6 +510,13 @@ begin
         assert false report "Data byte value was different to expected value";
       end if;      
     end procedure;
+
+    procedure check_1541_last_rx_byte ( v : unsigned(7 downto 0)) is
+    begin
+      if c1541_received_byte /= v then
+        assert false report "1541 expected to receive $" & to_hexstring(v) & ", but received $" & to_hexstring(c1541_received_byte);
+      end if;
+    end procedure;          
     
   begin
     test_runner_setup(runner, runner_cfg);    
@@ -526,7 +537,7 @@ begin
         POKE(x"D689",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
         POKE(x"D688",x"30"); -- Trigger ATN write
 
-        wait_a_while_until_done(400000);
+        wait_and_check_READY(400000);
 
         fail_if_DEVICE_PRESENT;
         fail_if_NO_TIMEOUT;
@@ -647,7 +658,7 @@ begin
         POKE(x"D689",x"29");
         POKE(x"D688",x"30"); -- Trigger ATN write
 
-        wait_a_while_until_done(800000);
+        wait_until_READY;
 
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
@@ -666,9 +677,8 @@ begin
         POKE(x"D689",x"29");        
         POKE(x"D688",x"30"); -- Trigger ATN write
 
-        wait_a_while_until_done(800000);
+        wait_until_READY;
 
-        fail_if_BUSY;
         fail_if_DEVICE_NOT_PRESENT;
         fail_if_TIMEOUT;
         
@@ -744,7 +754,7 @@ begin
         get_drive_capability;
         
         report "IEC: Waiting a while before performing turn around...";
-        wait_a_while_until_done(800_000);
+        wait_until_READY;
         
         report "IEC: Commencing turn-around to listen";
 
@@ -773,7 +783,7 @@ begin
         get_drive_capability;
 
         report "IEC: Waiting a while before performing turn around...";
-        wait_a_while_until_done(800_000);
+        wait_and_check_READY(800_000);
 
         report "IEC: Commencing turn-around to listen";
         tx_to_rx_turnaround;
@@ -785,6 +795,38 @@ begin
         iec_rx(x"33");
         iec_rx(x"2c");
         
+      elsif run("Drive Byte RX Bit Order and Polarity") then
+
+        -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
+        -- Send TALK to device 8, channel 15, and read back 00,OK,00,00 message
+        
+        boot_1541;
+
+        report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
+        atn_tx_byte(x"28"); -- Device 8 LISTEN
+
+        report "IEC: Commencing sending OPEN SECONDARY ADDRESS 15 byte under ATN";
+        atn_tx_byte(x"FF"); -- Some documentation claims $FF should be used
+                            -- here, but that yields device not present on the
+                            -- VHDL 1541 for some reason?  $6F seems to work, though?
+
+        get_drive_capability;
+        
+        report "Clearing ATN";
+        atn_release;       
+        
+        report "IEC: Bytes with each single bit set";
+        
+        iec_tx(x"01"); check_1541_last_rx_byte(x"01");
+        iec_tx(x"02"); 
+        iec_tx(x"04"); 
+        iec_tx(x"08");
+        iec_tx(x"10");
+        iec_tx(x"20");
+        iec_tx(x"40");
+        iec_tx(x"80");
+        
+
       elsif run("Write to and read from Command Channel (15) of VHDL 1541 device succeeds") then
 
         -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
@@ -820,7 +862,7 @@ begin
         -- that whole computationally expensive retrieval of error message text
         -- from tokens thing.
         report "IEC: Allow 1541 time to process the UI+ command.";
-        wait_a_while_until_done(300_000);
+        wait_and_check_READY(300_000);
         
         report "IEC: Request read command channel 15 of device 8";
         atn_tx_byte(x"48");
