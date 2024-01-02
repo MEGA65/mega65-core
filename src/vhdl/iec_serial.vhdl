@@ -1255,7 +1255,7 @@ begin
             end if;
 
           when 480 => report "IEC: Sending byte using JiffyDOS(tm) protocol";
-                      wait_data_high <= '1';
+                      d('1');                 c('1');                 wait_data_high <= '1';
           when 481 =>                         c('1');                 micro_wait(10);
                       -- Send direction for JiffyDOS uses inverted signals, and
                       -- rearranged bit order to optimise the transfer
@@ -1265,9 +1265,8 @@ begin
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
           when 486 => d('0');                 c(send_eoi);            micro_wait(28);
                       send_eoi <= '0';
-                      wait_data_high <= '1';
-          when 487 => d('1'); micro_wait(15);
-          when 488 => if iec_data_i='1' then
+          when 487 => c('0');
+                      if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
                         iec_devinfo(1) <= '1';
@@ -1279,7 +1278,7 @@ begin
                         -- No error, JiffyDOS drive is busy again
                         null; 
                       end if;
-          when 489 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
+          when 488 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
