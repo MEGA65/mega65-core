@@ -849,12 +849,15 @@ begin
         
         report "IEC: Sending UI- command";
         iec_tx(x"55");  -- U
+      wait_a_while(1300000);
         iec_tx(x"49");  -- I
+      wait_a_while(1300000);
         iec_tx_eoi(x"2D");  -- +
-
+             
         report "IEC: Sending UNLISTEN to device 8";
         atn_tx_byte(x"3F");
 
+           
         report "Clearing ATN";
         atn_release;
 
@@ -867,7 +870,7 @@ begin
         report "IEC: Request read command channel 15 of device 8";
         atn_tx_byte(x"48");
         atn_tx_byte(x"6f");
-        
+
         report "IEC: Commencing turn-around to listen";
         tx_to_rx_turnaround;
 
