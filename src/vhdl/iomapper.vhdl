@@ -818,7 +818,7 @@ begin
   iec0: if target = mega65r6 or target = mega65r5 or target = mega65r4 or target = mega65r3 generate
     iecserial0: entity work.iec_serial
       generic map ( cpu_frequency => cpu_frequency,
-                    with_debug = true)
+                    with_debug => true)
       port map (
         reset_in => reset,
         clock => cpuclock,
