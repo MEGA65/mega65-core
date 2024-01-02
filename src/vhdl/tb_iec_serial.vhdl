@@ -849,9 +849,8 @@ begin
         
         report "IEC: Sending UI- command";
         iec_tx(x"55");  -- U
-      wait_a_while(1300000);
         iec_tx(x"49");  -- I
-      wait_a_while(500000);
+      wait_a_while(1800000);
         iec_tx_eoi(x"2D");  -- +
              
         report "IEC: Sending UNLISTEN to device 8";
