@@ -945,7 +945,7 @@ begin
 
 
           -- RECEIVE BYTE FROM THE IEC BUS
-          when 300 => wait_clk_high <= '1';
+          when 300 => wait_clk_high <= '1';                        
                       -- Watch for negative transition on SRQ to indicate C128
                       -- fast protocol.  But note that in C64 mode, SRQ is held
                       -- low by default ROM initialisation of our CIAs (which might
@@ -1075,33 +1075,49 @@ begin
 
           when 380 => 
             report "IEC: Receiving byte using JiffyDOS(tm) protocol";
-            -- Allow JiffyDOS time to setup the byte, as it frequently seems to
-            -- not be ready immediately.
-          when 381 => d('1'); micro_wait(15);
-          when 382 => iec_data(1) <= iec_data_i; iec_data(0) <= iec_clk_i; micro_wait(10);
-          when 383 => iec_data(3) <= iec_data_i; iec_data(2) <= iec_clk_i; micro_wait(11);
-          when 384 => iec_data(5) <= iec_data_i; iec_data(4) <= iec_clk_i; micro_wait(11);
-          when 385 => iec_data(7) <= iec_data_i; iec_data(6) <= iec_clk_i; micro_wait(11);
-          when 386 => micro_wait(4);
-          when 387 => d('0');
-                      iec_state <= 0;
-                      iec_busy <= '0';
-                      -- No timeout
-                      iec_status(1) <= '0';
+            -- Allow JiffyDOS time to setup the byte
+            -- From when JiffyDOS releases CLK to when it is _actually_
+            -- ready is ~37 usec. So we must not release DATA until at
+            -- least that long.
+            -- Ideally we could count how long CLK had already been released,
+            -- to save a little more time per byte.
+            micro_wait(37);
+
+            -- The semantics of micro_wait() means that the state will run
+            -- repeatedly until the time as expired. Thus it will sample at
+            -- the _end_ rather than the _start_ of the period. We avoid this
+            -- by separating sampling states from delay states.
+          when 381 => d('1'); micro_wait(13);
+          when 382 => iec_data(1) <= iec_data_i; iec_data(0) <= iec_clk_i;
+                      report "IEC: Sampling first 2 JiffyDOS bits";
+          when 383 => micro_wait(10);
+          when 384 => iec_data(3) <= iec_data_i; iec_data(2) <= iec_clk_i;
+                      report "IEC: Sampling second 2 JiffyDOS bits";
+          when 385 => micro_wait(11);
+          when 386 => iec_data(5) <= iec_data_i; iec_data(4) <= iec_clk_i;
+                      report "IEC: Sampling third 2 JiffyDOS bits";
+          when 387 => micro_wait(11);
+          when 388 => iec_data(7) <= iec_data_i; iec_data(6) <= iec_clk_i;
+                      report "IEC: Sampling fourth 2 JiffyDOS bits";
+          when 389 => micro_wait(13);
+          when 390 => d('0'); iec_status(1) <= '0';
                       iec_status(0) <= '0';
                       if iec_data_i='0' and iec_clk_i='1' then
                         -- Byte received with EOI
                         iec_status(6) <= '1';
-                        report "IEC: Received byte via JiffyDOS fast protocol with EOI";
+                        report "IEC: Received byte via JiffyDOS fast protocol with EOI = $" & to_hexstring(iec_data);
                       elsif iec_data_i='1' and iec_clk_i='0' then
                         -- Byte received without EOI
-                        report "IEC: Received byte via JiffyDOS fast protocol (without EOI)";
+                        report "IEC: Received byte via JiffyDOS fast protocol (without EOI) = $" & to_hexstring(iec_data);
                       else
                         -- Error
                         report "IEC: Error occurred while receiving byte via JiffyDOS fast protocol";
                         iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
                         iec_status(0) <= '0'; -- ... WHILE WE WERE LISTENING
                       end if;
+                      iec_state <= 0;
+                      iec_busy <= '0';
+            
 
             -- SEND A BYTE (no attention)
           when 400 =>
