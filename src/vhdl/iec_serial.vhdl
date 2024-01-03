@@ -1338,8 +1338,8 @@ begin
                       iec_state <= 0;
 
                       -- Generate a 1KHz pulse train on the CLK and DATA lines
-          when 500 => c('1'); d('0'); micro_wait(500);
-          when 501 => c('0'); d('1'); micro_wait(500);
+          when 500 => a(msec_toggle); c('1'); d('0'); micro_wait(500);
+          when 501 => a(msec_toggle); c('0'); d('1'); micro_wait(500);
           when 502 => iec_state <= 500;            
                       
           when others => iec_state <= 0; iec_busy <= '0';
