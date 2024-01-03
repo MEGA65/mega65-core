@@ -97,27 +97,27 @@ architecture romanesque_revival of internal1581 is
   signal cia_data_out : unsigned(7 downto 0);
   signal cia_data_out_en_n : std_logic := '1';
   signal cia_irq_n : std_logic;
-  signal cia_ca1_in : std_logic := '0';
-  signal cia_ca1_out : std_logic;
-  signal cia_ca2_in : std_logic := '1';
-  signal cia_ca2_out : std_logic;
-  signal cia_ca2_out_en_n : std_logic;
+  signal cia_flag : std_logic;
+  signal cia_spout : std_logic;
+  signal cia_spin : std_logic;
+  signal cia_countin : std_logic;
+  signal cia_countout : std_logic;
   signal cia_porta_in : std_logic_vector(7 downto 0) := (others => '1');
   signal cia_porta_out : std_logic_vector(7 downto 0);
   signal cia_porta_out_en_n : std_logic_vector(7 downto 0);
-  signal cia_cb1_in : std_logic := '1';
-  signal cia_cb1_out : std_logic;
-  signal cia_cb1_out_en_n : std_logic;
-  signal cia_cb2_in : std_logic := '1';
-  signal cia_cb2_out : std_logic;
-  signal cia_cb2_out_en_n : std_logic;
   signal cia_portb_in : std_logic_vector(7 downto 0) := (others => '1');
   signal cia_portb_out : std_logic_vector(7 downto 0);
   signal cia_portb_out_en_n : std_logic_vector(7 downto 0);
-  signal cia_phase2_clock : std_logic := '1';
+
+  signal fast_serial_direction : std_logic;
+  
 begin
 
-  ram: entity work.dpram8x8192 port map (
+  ram: entity work.dpram8x4096 generic map (
+    SIZE => 8192,
+    ADDR_WIDTH => 13
+    )
+    port map (
     -- Fastio interface
     clka => clock,
     ena => cs_driveram, -- host CPU side
@@ -149,6 +149,37 @@ begin
     dob => rom_rdata
     );
 
+  cia: entity work.cia6526 port map (
+    cpuclock => clock,
+    phi0_1mhz => cia_phase2_clock,
+    todclock => cia_phase2_clock,
+    reset => drive_reset_n,
+    irq => cia_irq_n,
+
+    cpu_slow => '0',  -- dont perform any CIA write delay compensation for fast CPUs
+
+    hypervisor_mode => '0',
+
+    cs => cia_cs,
+    fastio_address => address(7 downto 0),
+    fastio_write => not write_n,
+    fastio_read => write_n,
+
+    portaout => cia_porta_out_en_n,
+    portain => cia_porta_in,
+
+    portbout => cia_portb_out_en_n,
+    portbin => cia_portb_in,
+
+    flagin => cia_flag,
+    pcout => cia_pcout,
+    spout => cia_spout,
+    spin => cia_spin,
+
+    countout => cia_countout,
+    countin => cia_countin
+    );
+  
   cpu: entity work.cpu6502 port map (
     clk => clock,
     reset => drive_reset_n,
@@ -210,6 +241,12 @@ begin
         iec_clk_o <= '0';
       end if;
 
+      cia_spin <= iec_srq_i;
+      iec_srq_o <= '1';
+      if cia_spout = '0' and fast_serial_direction='1' then
+        iec_srq_o <= '0';
+      end if;
+      
     end if;
 
     address_next <= address_next_internal;
