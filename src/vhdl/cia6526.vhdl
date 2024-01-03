@@ -86,7 +86,7 @@ architecture behavioural of cia6526 is
   signal reg_timera_oneshot : std_logic := '0';
   signal reg_timera_toggle_or_pulse : std_logic := '0';
   signal reg_timera_pb6_out : std_logic := '0';
-  signal reg_timera_start : std_logic := '1';
+  signal reg_timera_start : std_logic := '0';
   signal reg_timera_has_ticked : std_logic := '0';
   signal reg_timera_underflow : std_logic := '0';
 
@@ -457,7 +457,8 @@ begin  -- behavioural
         or (imask_tb='1' and reg_isr(1)='1')
         or (imask_ta='1' and reg_isr(0)='1')
       then
-        -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
+        report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta)
+          & " reg_isr=" & to_string(reg_isr) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
         reg_isr(7)<='0'; irq<='1';
