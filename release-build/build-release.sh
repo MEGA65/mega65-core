@@ -28,6 +28,24 @@ usage () {
     exit 1
 }
 
+shorten_name () {
+  name=$1
+  # issue branch?
+  if [[ $name =~ ^([0-9]+)-(.+)$ ]]; then
+    name="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+  fi
+  # developemnt + extra?
+  if [[ $name =~ ^development-(.+)$ ]]; then
+    name="dev-${BASH_REMATCH[1]}"
+  fi
+  # release + version?
+  if [[ $name =~ ^release-([0-9])\.([0-9][0-9]?)$ ]]; then
+    name="r-${BASH_REMATCH[1]}.${BASH_REMATCH[2]}000"
+  fi
+  # cut after 6 chars
+  echo ${name:0:6}
+}
+
 # check if we are in jenkins environment
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BIT2COR=${SCRIPTPATH}/mega65-tools/bin/bit2core
@@ -117,14 +135,14 @@ fi
 
 # determine branch
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
-    BRANCH=${BRANCH_NAME:0:6}
+    BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
         VERSION="JENKINS#${BUILD_NUMBER} ${BRANCH} ${HASH}"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
     BRANCH=`git rev-parse --abbrev-ref HEAD`
-    BRANCH=${BRANCH:0:6}
+    BRANCH=$(shorten_name $BRANCH)
     PKGNAME=${MODEL}-${BRANCH}-${HASH}
     VERSION=${VERSION/HASH/$HASH}
 fi
