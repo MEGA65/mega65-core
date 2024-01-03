@@ -98,7 +98,7 @@ int main(int argc,char **argv)
     // Mask out 1541 RAM/ROM tests on startup to speed it up
     fprintf(stderr,"INFO: Assuming 16KB ROM is for 1541, and masking out RAM/ROM startup tests\n");
     for(int i=0xEAA7;i<=0xEB21;i++) {
-      rom[i-0x8000]=0xea;
+      rom[i-0xc000]=0xea;
     }
   }
   
