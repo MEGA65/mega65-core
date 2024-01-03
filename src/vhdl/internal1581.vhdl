@@ -97,7 +97,7 @@ architecture romanesque_revival of internal1581 is
   signal cia_data_out : unsigned(7 downto 0);
   signal cia_data_out_en_n : std_logic := '1';
   signal cia_irq_n : std_logic;
-  signal cia_flag : std_logic;
+  signal cia_flag_in : std_logic;
   signal cia_spout : std_logic;
   signal cia_spin : std_logic;
   signal cia_countin : std_logic;
@@ -109,6 +109,8 @@ architecture romanesque_revival of internal1581 is
   signal cia_portb_out : std_logic_vector(7 downto 0);
   signal cia_portb_out_en_n : std_logic_vector(7 downto 0);
 
+  signal cia_phase2_clock : std_logic := '0';
+  
   signal fast_serial_direction : std_logic;
   
 begin
@@ -134,7 +136,7 @@ begin
     unsigned(doutb) => ram_rdata
     );
 
-  rom: entity work.driverom1581 port map (
+  rom: entity work.driverom port map (
     -- Fast IO interface
     clka => clock,
     csa => cs_driverom,
@@ -160,10 +162,11 @@ begin
 
     hypervisor_mode => '0',
 
-    cs => cia_cs,
+    cs => cs_cia,
     fastio_address => address(7 downto 0),
-    fastio_write => not write_n,
-    fastio_read => write_n,
+    fastio_write => not cpu_write_n,
+    fastio_wdata => wdata,
+    fastio_rdata => cia_data_out,
 
     portaout => cia_porta_out_en_n,
     portain => cia_porta_in,
@@ -171,8 +174,8 @@ begin
     portbout => cia_portb_out_en_n,
     portbin => cia_portb_in,
 
-    flagin => cia_flag,
-    pcout => cia_pcout,
+    flagin => cia_flag_in,
+--    pcout => cia_pcout,
     spout => cia_spout,
     spin => cia_spin,
 
@@ -194,7 +197,7 @@ begin
     data_o => wdata
     );
 
-  process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata,cpu_write_n)
+  process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata,cia_data_out,cpu_write_n)
   begin
 
     ram_write_enable <= not cpu_write_n;
@@ -211,12 +214,12 @@ begin
         report "MOS6502: 2MHz tick";
       end if;
 
-      irq <= cia_irq_n and fdc_irq_n;
+      irq <= cia_irq_n; -- and fdc_irq_n;
 
       -- cia_porta_out(0) => f_side0;
       -- cia_porta_out(1) <= f_ready_n;
       -- cia_porta_out(2) => f_motor_n;
-      cia_porta_in(4 downto 3) => std_logic_vector(device_id_straps);
+      cia_porta_in(4 downto 3) <= std_logic_vector(device_id_straps);
       -- cia_porta_in(4) => f_side0;
       -- cia_porta_out(5) => power_led;
       -- cia_porta_out(6) => drive_activity_led;
@@ -275,9 +278,6 @@ begin
       
     end if;
 
-    via_address <= address(3 downto 0);
-    via_data_in <= wdata;
-
     if cs_ram='1' then
       rdata <= ram_rdata;
     elsif cs_rom='1' then
@@ -285,7 +285,8 @@ begin
     elsif cs_cia='1' then
       rdata <= cia_data_out;
     elsif cs_fdc='1' then
-      rdata <= fdc_data_out;
+      -- rdata <= fdc_data_out;
+      rdata <= (others => '1');
     else
       rdata <= (others => '0'); -- This avoids a latch
     end if;
