@@ -92,49 +92,29 @@ architecture romanesque_revival of internal1581 is
 
   signal address_next_internal : unsigned(15 downto 0);
 
-  signal via_address : unsigned(3 downto 0) := to_unsigned(0,4);
-  signal via_data_in : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal via1_data_out : unsigned(7 downto 0);
-  signal via2_data_out : unsigned(7 downto 0);
-  signal via1_data_out_en_n : std_logic := '1';
-  signal via2_data_out_en_n : std_logic := '1';
-  signal via1_irq_n : std_logic;
-  signal via2_irq_n : std_logic;
-  signal via1_ca1_in : std_logic;
-  signal via2_ca1_in : std_logic := '0';
-  signal via1_ca1_out : std_logic;
-  signal via2_ca1_out : std_logic;
-  signal via1_ca2_in : std_logic := '1';
-  signal via2_ca2_in : std_logic := '1';
-  signal via1_ca2_out : std_logic;
-  signal via2_ca2_out : std_logic;
-  signal via1_ca2_out_en_n : std_logic;
-  signal via2_ca2_out_en_n : std_logic;
-  signal via1_porta_in : std_logic_vector(7 downto 0) := (others => '1');
-  signal via2_porta_in : std_logic_vector(7 downto 0) := (others => '1');
-  signal via1_porta_out : std_logic_vector(7 downto 0);
-  signal via2_porta_out : std_logic_vector(7 downto 0);
-  signal via1_porta_out_en_n : std_logic_vector(7 downto 0);
-  signal via2_porta_out_en_n : std_logic_vector(7 downto 0);
-  signal via1_cb1_in : std_logic := '1';
-  signal via2_cb1_in : std_logic := '1';
-  signal via1_cb1_out : std_logic;
-  signal via2_cb1_out : std_logic;
-  signal via1_cb1_out_en_n : std_logic;
-  signal via2_cb1_out_en_n : std_logic;
-  signal via1_cb2_in : std_logic := '1';
-  signal via2_cb2_in : std_logic := '1';
-  signal via1_cb2_out : std_logic;
-  signal via2_cb2_out : std_logic;
-  signal via1_cb2_out_en_n : std_logic;
-  signal via2_cb2_out_en_n : std_logic;
-  signal via1_portb_in : std_logic_vector(7 downto 0) := (others => '1');
-  signal via2_portb_in : std_logic_vector(7 downto 0) := (others => '1');
-  signal via1_portb_out : std_logic_vector(7 downto 0);
-  signal via2_portb_out : std_logic_vector(7 downto 0);
-  signal via1_portb_out_en_n : std_logic_vector(7 downto 0);
-  signal via2_portb_out_en_n : std_logic_vector(7 downto 0);
-  signal via_phase2_clock : std_logic := '1';
+  signal cia_address : unsigned(3 downto 0) := to_unsigned(0,4);
+  signal cia_data_in : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal cia_data_out : unsigned(7 downto 0);
+  signal cia_data_out_en_n : std_logic := '1';
+  signal cia_irq_n : std_logic;
+  signal cia_ca1_in : std_logic := '0';
+  signal cia_ca1_out : std_logic;
+  signal cia_ca2_in : std_logic := '1';
+  signal cia_ca2_out : std_logic;
+  signal cia_ca2_out_en_n : std_logic;
+  signal cia_porta_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal cia_porta_out : std_logic_vector(7 downto 0);
+  signal cia_porta_out_en_n : std_logic_vector(7 downto 0);
+  signal cia_cb1_in : std_logic := '1';
+  signal cia_cb1_out : std_logic;
+  signal cia_cb1_out_en_n : std_logic;
+  signal cia_cb2_in : std_logic := '1';
+  signal cia_cb2_out : std_logic;
+  signal cia_cb2_out_en_n : std_logic;
+  signal cia_portb_in : std_logic_vector(7 downto 0) := (others => '1');
+  signal cia_portb_out : std_logic_vector(7 downto 0);
+  signal cia_portb_out_en_n : std_logic_vector(7 downto 0);
+  signal cia_phase2_clock : std_logic := '1';
 begin
 
   ram: entity work.dpram8x8192 port map (
@@ -202,18 +182,31 @@ begin
 
       irq <= cia_irq_n and fdc_irq_n;
 
-      via1_portb_in(0) <= not iec_data_i;
-      via1_portb_in(2) <= not iec_clk_i;
-      via1_portb_in(6 downto 5) <= std_logic_vector(device_id_straps);
-      via1_portb_in(7) <= not iec_atn_i;
-      via1_ca1_in <= not iec_atn_i;
+      -- cia_porta_out(0) => f_side0;
+      -- cia_porta_out(1) <= f_ready_n;
+      -- cia_porta_out(2) => f_motor_n;
+      cia_porta_in(4 downto 3) => std_logic_vector(device_id_straps);
+      -- cia_porta_in(4) => f_side0;
+      -- cia_porta_out(5) => power_led;
+      -- cia_porta_out(6) => drive_activity_led;
+      -- cia_porta_in(7) <= f_disk_change_n;
+      
+      cia_portb_in(0) <= not iec_data_i;
+      -- cia_portb_out(1) == iec_data_o (see below)
+      cia_portb_in(2) <= not iec_clk_i;
+      -- cia_portb_out(3) == iec_clk_o (see below)
+      -- cia_portb_out(4) == atn_ack (not used)
+      cia_portb_out(5) <= fast_serial_direction;
+      cia_portb_in(6) <= '1'; -- f_write_protect_n
+      cia_portb_in(7) <= not iec_atn_i;
+      cia_flag_in <= iec_atn_i;
 
       iec_data_o <= '1';
       iec_clk_o <= '1';
-      if via1_portb_out(1) = '1' and via1_portb_out_en_n(1)='0' then
+      if cia_portb_out(1) = '1' and cia_portb_out_en_n(1)='0' then
         iec_data_o <= '0';
       end if;
-      if via1_portb_out(3) = '1' and via1_portb_out_en_n(3)='0' then
+      if cia_portb_out(3) = '1' and cia_portb_out_en_n(3)='0' then
         iec_clk_o <= '0';
       end if;
 
