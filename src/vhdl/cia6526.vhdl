@@ -364,9 +364,9 @@ begin  -- behavioural
     variable result : unsigned(7 downto 0);     
   begin  -- ddr_pick
     --report "determining read value for CIA port." &
-    --  "  DDR=$" & to_hstring(ddr) &
-    --  ", out_value=$" & to_hstring(o) &
-    --  ", in_value=$" & to_hstring(i) severity note;
+    --  "  DDR=$" & to_hexstring(ddr) &
+    --  ", out_value=$" & to_hexstring(o) &
+    --  ", in_value=$" & to_hexstring(i) severity note;
     result := unsigned(i);
     for b in 0 to 7 loop
       if ddr(b)='1' and i(b)='1' then
@@ -445,8 +445,8 @@ begin  -- behavioural
         end loop;
         clear_isr <= '0';
         if reg_isr /= x"00" then
-          report "CIA" & to_hstring(unit) & " clearing reg_isr (was $" & to_hstring(reg_isr) & ", bits to clear = $"
-            & to_hstring(clear_isr_bits) & ")";
+          report "CIA" & to_hexstring(unit) & " clearing reg_isr (was $" & to_hexstring(reg_isr) & ", bits to clear = $"
+            & to_hexstring(clear_isr_bits) & ")";
         end if;
       end if;
       
@@ -528,7 +528,7 @@ begin  -- behavioural
       if reg_timera_start='1' and hypervisor_mode='0' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           -- underflow
-          report "CIA" & to_hstring(unit) & " timera underflow (reg_serialport_direction="
+          report "CIA" & to_hexstring(unit) & " timera underflow (reg_serialport_direction="
             & std_logic'image(reg_serialport_direction) & ", sdr_bits_remaining = "
             & integer'image(sdr_bits_remaining) & ", sdr_bit_alternate="
             & std_logic'image(sdr_bit_alternate);
@@ -570,7 +570,7 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0_1mhz ='1' then
-              report "CIA" & to_hstring(unit) &  " timera ticked down to $" & to_hstring(reg_timera);
+              report "CIA" & to_hexstring(unit) &  " timera ticked down to $" & to_hexstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
@@ -584,16 +584,16 @@ begin  -- behavioural
         end case;
       end if;
       if reg_timerb_start='1' and hypervisor_mode='0' then
-        report "CIA" & to_hstring(unit) & " timerb running. reg_timerb = $" & to_hstring(reg_timerb);
+        report "CIA" & to_hexstring(unit) & " timerb running. reg_timerb = $" & to_hexstring(reg_timerb);
         if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
           -- underflow
-          report "CIA" & to_hstring(unit) & " timerb underflow";
+          report "CIA" & to_hexstring(unit) & " timerb underflow";
           reg_isr(1) <= '1';
           if reg_timerb_oneshot='0' then
-            report "CIA" & to_hstring(unit) & " timerb set from latch";
+            report "CIA" & to_hexstring(unit) & " timerb set from latch";
             reg_timerb <= reg_timerb_latch;
           else
-            report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
+            report "CIA" & to_hexstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
             reg_timerb_start <= '0';
           end if;
           reg_timerb_has_ticked <= '0';
@@ -602,12 +602,12 @@ begin  -- behavioural
           when "00" => -- phi2 pulses
             if phi0_1mhz ='1' then
               if reg_timerb /= x"0000" then
-                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
-                  & " from $" & to_hstring(reg_timerb);
+                report "CIA" & to_hexstring(unit) & " timerb ticking down to $" & to_hexstring(to_unsigned(to_integer(reg_timerb) - 1,16))
+                  & " from $" & to_hexstring(reg_timerb);
                 reg_timerb <= to_unsigned(to_integer(reg_timerb) - 1,16);
               else
-                report "CIA" & to_hstring(unit) & " timerb ticking down to -1"
-                  & " from $" & to_hstring(reg_timerb);
+                report "CIA" & to_hexstring(unit) & " timerb ticking down to -1"
+                  & " from $" & to_hexstring(reg_timerb);
                 reg_timerb <= (others => '1');
               end if;
               reg_timerb_has_ticked <= '1';
@@ -616,20 +616,20 @@ begin  -- behavioural
             -- positive CNT transitions
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
               if countin='1' and prev_countin='0' then
-                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+                report "CIA" & to_hexstring(unit) & " timerb ticking down to $" & to_hexstring(reg_timerb);
                 reg_timerb <= reg_timerb - 1;
                 reg_timerb_has_ticked <= '1';
               end if;
             end if; 
           when "10" => -- Timer A underflows
             if reg_timera_underflow='1' then
-              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+              report "CIA" & to_hexstring(unit) & " timerb ticking down to $" & to_hexstring(reg_timerb);
               reg_timerb <= reg_timerb - 1;
               reg_timerb_has_ticked <= '1';
             end if;
           when "11" => -- Timer A underflows, but only while CNT is high
             if reg_timera_underflow='1' and countin='1' then
-              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+              report "CIA" & to_hexstring(unit) & " timerb ticking down to $" & to_hexstring(reg_timerb);
               reg_timerb <= reg_timerb - 1;
               reg_timerb_has_ticked <= '1';
             end if;
@@ -657,7 +657,7 @@ begin  -- behavioural
 
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
-        --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
+        --report "Performing side-effects of reading from CIA register $" & to_hexstring(register_number) severity note;
         register_number(7 downto 5) := "000";
         if hypervisor_mode='1' then
           register_number(4) := fastio_address(4);
@@ -691,8 +691,8 @@ begin  -- behavioural
       
       -- Check for register writing
       if fastio_write='1' and cs='1' then
-        --report "writing $" & to_hstring(fastio_wdata)
-        --  & " to CIA register $" & to_hstring(register_number) severity note;
+        --report "writing $" & to_hexstring(fastio_wdata)
+        --  & " to CIA register $" & to_hexstring(register_number) severity note;
         register_number(7 downto 5) := "000";
         if hypervisor_mode='1' then
           register_number(4) := fastio_address(4);
@@ -763,7 +763,7 @@ begin  -- behavioural
             end if;
           when x"0c" =>
             -- Begin shifting data in or out on shift register
-            report "CIA" & to_hstring(unit) & " Loading shift register";
+            report "CIA" & to_hexstring(unit) & " Loading shift register";
             reg_sdr_data <= std_logic_vector(fastio_wdata);
             sdr_bits_remaining <= 8;
             sdr_bit_alternate <= '1';
@@ -788,7 +788,7 @@ begin  -- behavioural
           when x"0e" =>
             reg_50hz <= fastio_wdata(7);
             reg_serialport_direction <= fastio_wdata(6);
-            report "CIA" & to_hstring(unit) & " reg_serialport_direction = " & std_logic'image(fastio_wdata(6));
+            report "CIA" & to_hexstring(unit) & " reg_serialport_direction = " & std_logic'image(fastio_wdata(6));
             reg_timera_tick_source <= fastio_wdata(5);
             if fastio_wdata(4)='1' then
               -- Force loading of timer A now from latch
@@ -806,7 +806,7 @@ begin  -- behavioural
               -- Force loading of timer B now from latch
               reg_timerb <= reg_timerb_latch;
               reg_timerb_has_ticked <= '0';
-              report "loading reg_timerb=$" & to_hstring(reg_timerb_latch);
+              report "loading reg_timerb=$" & to_hexstring(reg_timerb_latch);
             end if;
             reg_timerb_oneshot <= std_logic(fastio_wdata(3));
             reg_timerb_toggle_or_pulse <= std_logic(fastio_wdata(2));
