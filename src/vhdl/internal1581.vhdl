@@ -124,7 +124,7 @@ begin
     clka => clock,
     ena => cs_driveram, -- host CPU side
     wea(0) => fastio_write,
-    addra => std_logic_vector(fastio_address(11 downto 0)),
+    addra => std_logic_vector(fastio_address(13 downto 0)),
     dina => std_logic_vector(fastio_wdata),
     unsigned(douta) => fastio_rdata,
 
