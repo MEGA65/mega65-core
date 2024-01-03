@@ -1263,8 +1263,9 @@ begin
           when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
-          when 486 => d('0');                 c('0');                 micro_wait(28);
-          when 487 => if iec_data_i='1' then
+          when 486 => d('0');                 c(not send_eoi);        micro_wait(28);
+          when 487 => c('1');
+                      if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
                         iec_devinfo(1) <= '1';
