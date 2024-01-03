@@ -834,7 +834,7 @@ begin
               -- Wait for DATA to be released again
               wait_usec <= 0; wait_data_high <= '1';              
             else
-              report "IEC: Device does not support JiffyDOS(tm) protocol.";
+              report "IEC: Device did not indicate support for JiffyDOS(tm) protocol (this is normal, depending on command issued).";
             end if;
           when 147=> c('1'); micro_wait(35);
                       report "IEC: Sent bit 7 = " & std_logic'image(iec_data_out(0));
@@ -1254,7 +1254,7 @@ begin
               c('1');
             end if;
 
-          when 480 => report "IEC: Sending byte using JiffyDOS(tm) protocol";
+          when 480 => report "IEC: Sending byte $" & to_hexstring(iec_data_out) & " using JiffyDOS(tm) protocol";
                       d('1');                 c('1');                 wait_data_high <= '1';
           when 481 =>                         c('1');                 micro_wait(10);
                       -- Send direction for JiffyDOS uses inverted signals, and
@@ -1263,10 +1263,8 @@ begin
           when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
-          when 486 => d('0');                 c(send_eoi);            micro_wait(28);
-                      send_eoi <= '0';
-          when 487 => c('0');
-                      if iec_data_i='1' then
+          when 486 => d('0');                 c('0');                 micro_wait(28);
+          when 487 => if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
                         iec_devinfo(1) <= '1';
@@ -1278,11 +1276,47 @@ begin
                         -- No error, JiffyDOS drive is busy again
                         null; 
                       end if;
+                      if send_eoi='1' then
+                        iec_state <= iec_state + 2;
+                      end if;
           when 488 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
                       iec_dev_listening <= '1';
+
+                      -- And we are still under attention
+                      iec_under_attention <= '0';
+                      iec_devinfo(4) <= '0';
+
+                      iec_state_reached <= to_unsigned(iec_state,12);
+                      iec_state <= 0;
+
+                      -- Send EOI byte (contents will be ignored by JiffyDOS)
+          when 489 => -- Pretend we want to send another byte
+                      d('1');                 c('1');
+                      wait_data_high <= '1';
+          when 490 => micro_wait(10);
+
+                      -- We repeat the last byte we sent, not because JiffyDOS
+                      -- requires it, but to make tb_iec_serial's probing of most
+                      -- recently received byte by drive checks pass.
+          when 491 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(13);
+          when 492 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
+          when 493 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
+          when 494 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
+          when 495 => d('0');                 c('0');                 micro_wait(28);
+                      -- JiffyDOS requires that ATN line is also pulsed low
+                      -- when sending EOI.                      -
+                      a('0');
+          when 496 => -- But we have to also release ATN again soon after, if
+                      -- we want the EOI to be processed.
+                      a('1');                                         micro_wait(15);                                  
+          when 497 => report "IEC: Successfully sent EOI using JiffyDOS(tm) protocol";
+                      iec_devinfo(7) <= '0';
+                      iec_busy <= '0';
+
+                      iec_dev_listening <= '0';
 
                       -- And we are still under attention
                       iec_under_attention <= '0';

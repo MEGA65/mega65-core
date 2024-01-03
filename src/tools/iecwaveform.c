@@ -408,6 +408,8 @@ int getUpdate(void)
 	      }
 	      if (!jiffyDOS) 
 		switch(pc) {
+		case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
+		case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
 		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
 		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
 		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
@@ -436,6 +438,8 @@ int getUpdate(void)
 	      else {
 		// JiffyDOS ROM
 		switch(pc) {
+		case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
+		case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
 		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
 		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
 		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
@@ -456,6 +460,8 @@ int getUpdate(void)
 		case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
 		case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
 		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
+		case 0xEBF5: fprintf(stderr,"$%04X            1541: Executing pending command\n",pc); break;
+		case 0xEC00: fprintf(stderr,"$%04X            1541: Checking if ATN request pending\n",pc); break;		
 		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
 		case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
 		case 0xFFB5: fprintf(stderr,"$%04X            JIFFYDOS: Waiting for computer to indicate ready to RX byte\n",pc); break;
