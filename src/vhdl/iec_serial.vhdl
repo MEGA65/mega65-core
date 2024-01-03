@@ -123,7 +123,7 @@ architecture questionable of iec_serial is
 
   signal probe_jiffydos : std_logic := '0';
   signal jiffydos_enabled : std_logic := '1';
-  signal c128fast_enabled : std_logic := '1';
+  signal c128fast_enabled : std_logic := '0';
 
   signal data_low_observed : std_logic := '0';
   
@@ -458,7 +458,7 @@ begin
             iec_dev_listening <= '0';
             a('1'); d('1'); c('1'); s('1');
             jiffydos_enabled <= '1';
-            c128fast_enabled <= '1';
+            c128fast_enabled <= '0';
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
             iec_reset_int <= '0';
@@ -1340,7 +1340,7 @@ begin
         wait_usec <= 0; wait_msec <= 0;
         a('1'); s('1'); d('1'); c('1');
         jiffydos_enabled <= '1';
-        c128fast_enabled <= '1';
+        c128fast_enabled <= '0';
       end if;
       
       
