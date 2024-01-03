@@ -9,7 +9,7 @@ char *top="library IEEE;\n"
 "--\n"
 "entity driverom is\n"
 "  port (ClkA : in std_logic;\n"
-"        addressa : in integer; -- range 0 to 16383;\n"
+"        addressa : in integer; -- range 0 to %d;\n"
 "        wea : in std_logic;\n"
 "        csa : in std_logic;\n"
 "        dia : in unsigned(7 downto 0);\n"
@@ -27,7 +27,7 @@ char *top="library IEEE;\n"
 "  signal write_count : unsigned(7 downto 0) := x\"00\";\n"
 "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
 "  \n"
-"  type ram_t is array (0 to 16383) of unsigned(7 downto 0);\n"
+"  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
 "  shared variable ram : ram_t := (\n"
 ;
 
@@ -67,52 +67,44 @@ char *bottom=
 
 int main(int argc,char **argv)
 {
-  if (argc!=3) {
-    fprintf(stderr,"usage: mkdriverom <$C000 ROM> <$E000 ROM>\n");
+  if (argc<2) {
+    fprintf(stderr,"usage: mkdriverom <ROM> [.. <ROM>]\n");
     exit(-1);
   }
 
-  unsigned char lorom[8192];
-  unsigned char hirom[8192];
+#define MAX_ROM 65536
+  unsigned char rom[MAX_ROM];
 
-  FILE *f=fopen(argv[1],"rb");
-  if (!f) {
-    fprintf(stderr,"ERROR: Failed to read $C000 ROM from '%s'\n",
-	    argv[1]);
-    exit(-1);
+  int rom_size = 0;
+  
+  for(int i=1;i<argc;i++) {
+  
+    FILE *f=fopen(argv[i],"rb");
+    if (!f) {
+      fprintf(stderr,"ERROR: Failed to read ROM from '%s'\n",
+	      argv[i]);
+      exit(-1);
+    }
+    int n=fread(&rom[rom_size],1,MAX_ROM - rom_size,f);
+    fprintf(stderr,"INFO: Read %d bytes from ROM file '%s'\n",
+	    n,argv[i]);
+    rom_size+=n;
+    fclose(f);
   }
-  int n=fread(lorom,8192,1,f);
-  if (n!=1) {
-    fprintf(stderr,"ERROR: Failed to read 8KB from '%s'\n",
-	    argv[1]);
-    exit(-1);
-  }
-  fclose(f);
 
-  f=fopen(argv[2],"rb");
-  if (!f) {
-    fprintf(stderr,"ERROR: Failed to read $E000 ROM from '%s'\n",
-	    argv[2]);
-    exit(-1);
-  }
-  n=fread(hirom,8192,1,f);
-  if (n!=1) {
-    fprintf(stderr,"ERROR: Failed to read 8KB from '%s'\n",
-	    argv[2]);
-    exit(-1);
-  }
-  fclose(f);  
+  fprintf(stderr,"INFO: Read %d total ROM bytes\n",rom_size);
 
-  // Mask out RAM/ROM tests on startup to speed it up
-  for(int i=0xEAA7;i<=0xEB21;i++) {
-    hirom[i-0xe000]=0xea;
+  if (rom_size==16384) {
+    // Mask out 1541 RAM/ROM tests on startup to speed it up
+    fprintf(stderr,"INFO: Assuming 16KB ROM is for 1541, and masking out RAM/ROM startup tests\n");
+    for(int i=0xEAA7;i<=0xEB21;i++) {
+      rom[i-0x8000]=0xea;
+    }
   }
   
-  fprintf(stdout,"%s",top);
-  for(int i=0;i<8192;i++) printf(" %d => x\"%02x\",\n",i,lorom[i]);
-  for(int i=0;i<8191;i++)
-    printf(" %d => x\"%02x\",\n",i+8192,hirom[i]);
-  printf(" %d => x\"%02x\"\n",8191+8192,hirom[8191]);
+  fprintf(stdout,top,rom_size-1,rom_size-1);
+  for(int i=0;i<rom_size-1;i++) printf(" %d => x\"%02x\",\n",i,rom[i]);
+  printf(" %d => x\"%02x\"\n",rom_size-1,rom[rom_size-1]);
   fprintf(stdout,"%s",bottom);
   
   return 0;
