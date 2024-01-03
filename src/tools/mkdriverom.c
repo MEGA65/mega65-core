@@ -113,6 +113,7 @@ int main(int argc,char **argv)
     // no jobs ever execute, but that should be okay for the test environment.
     // rom[0x95a1-0x8000]= 0x60; // was a BRK
     rom[0x959D-0x8000]= 0x60; // was first instruction of this job service routine
+    rom[0x959A-0x8000]= 0x60; // alternate entry point
   }
   
   fprintf(stdout,top,rom_size-1,rom_size-1);
