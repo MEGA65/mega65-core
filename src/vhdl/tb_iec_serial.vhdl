@@ -866,8 +866,8 @@ begin
         -- Processing the command takes quite a while, because we have to do
         -- that whole computationally expensive retrieval of error message text
         -- from tokens thing.
-        report "IEC: Allow 1541 time to process the UI+ command.";
-        wait_and_check_READY(300_000);
+        report "IEC: Allow 1541 time to process the UI- command.";
+        wait_a_while(300_000);
         
         report "IEC: Request read command channel 15 of device 8";
         atn_tx_byte(x"48");
