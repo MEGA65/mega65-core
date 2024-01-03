@@ -113,9 +113,10 @@ int main(int argc,char **argv)
     // no jobs ever execute, but that should be okay for the test environment.
     // rom[0x95a1-0x8000]= 0x60; // was a BRK
     // rom[0x959D-0x8000]= 0x60; // was first instruction of this job service routine
-    // The routine has various entry points it seems, and fiddles with the stack, so just
-    // wipe it all out.
-    for(int i=0x959A;i<=0x95A9;i++) rom[i-0x8000]= 0x60; 
+    // The routine has various entry points it seems, and fiddles with the stack
+    // so we need to leave the stack operations in there, and just wipe out the problem
+    // part in the middle.
+    for(int i=0x959F;i<=0x95A6;i++) rom[i-0x8000]= 0xea; 
   }
   
   fprintf(stdout,top,rom_size-1,rom_size-1);
