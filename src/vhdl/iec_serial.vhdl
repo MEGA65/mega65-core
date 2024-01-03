@@ -532,6 +532,17 @@ begin
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
 
+          when x"d1" => -- Begin generating a 1KHz pulse train on the DATA
+            -- and CLK lines
+            iec_dev_listening <= '0';
+            iec_state <= 500;
+            iec_busy <= '1';
+
+            wait_clk_high <= '0'; wait_clk_low <= '0';
+            wait_data_high <= '0'; wait_data_low <= '0';
+            wait_srq_high <= '0'; wait_srq_low <= '0';
+            wait_usec <= 0; wait_msec <= 0;
+            
           when others => null;
         end case;
       end if;
@@ -1325,7 +1336,12 @@ begin
 
                       iec_state_reached <= to_unsigned(iec_state,12);
                       iec_state <= 0;
-            
+
+                      -- Generate a 1KHz pulse train on the CLK and DATA lines
+          when 500 => c('1'); d('0'); micro_wait(500);
+          when 501 => c('0'); d('1'); micro_wait(500);
+          when 502 => iec_state <= 500;            
+                      
           when others => iec_state <= 0; iec_busy <= '0';
                          iec_state_reached <= to_unsigned(iec_state,12);
 
