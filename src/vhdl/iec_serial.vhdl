@@ -126,6 +126,8 @@ architecture questionable of iec_serial is
   signal c128fast_enabled : std_logic := '0';
 
   signal data_low_observed : std_logic := '0';
+
+  signal divisor_1mhz : integer := 81 - 1;
   
 begin
 
@@ -262,7 +264,7 @@ begin
         last_timing_sync_toggle <= timing_sync_toggle;
         cycles <= 0;
         usecs <= 0;
-      elsif cycles < (81-1) then
+      elsif cycles < divisor_1mhz then
         cycles <= cycles + 1;
       else
         cycles <= 0;
@@ -542,6 +544,8 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
+          when x"d2" => divisor_1mhz <= 81 - 1;
+          when x"d3" => divisor_1mhz <= 40;
             
           when others => null;
         end case;
