@@ -131,7 +131,7 @@ begin
     enb => cs_ram,  -- 1541 CPU side
     clkb => clock,
     web(0) => ram_write_enable,
-    addrb => std_logic_vector(address(11 downto 0)),
+    addrb => std_logic_vector(address(13 downto 0)),
     dinb => std_logic_vector(wdata),
     unsigned(doutb) => ram_rdata
     );
