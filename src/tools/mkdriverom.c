@@ -107,6 +107,8 @@ int main(int argc,char **argv)
     for(int i=0xAF4E;i<=0xAFBF;i++) {
       rom[i-0x8000]=0xea;
     }
+    // Mask out BRK instruction that 1581 ROM uses on purpose (!!)
+    rom[0x95a1-0x8000]= 0xea;
   }
   
   fprintf(stdout,top,rom_size-1,rom_size-1);
