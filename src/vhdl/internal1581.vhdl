@@ -124,14 +124,14 @@ begin
     clka => clock,
     ena => cs_driveram, -- host CPU side
     wea(0) => fastio_write,
-    addra => std_logic_vector(fastio_address(13 downto 0)),
+    addra => std_logic_vector(fastio_address(12 downto 0)),
     dina => std_logic_vector(fastio_wdata),
     unsigned(douta) => fastio_rdata,
 
     enb => cs_ram,  -- 1541 CPU side
     clkb => clock,
     web(0) => ram_write_enable,
-    addrb => std_logic_vector(address(13 downto 0)),
+    addrb => std_logic_vector(address(12 downto 0)),
     dinb => std_logic_vector(wdata),
     unsigned(doutb) => ram_rdata
     );
