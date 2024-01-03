@@ -211,7 +211,7 @@ begin
       else
         phi_2_1mhz_counter <= phi_2_1mhz_counter + 20 - 405;
         cia_phase2_clock <= '1';
-        report "MOS6502: 2MHz tick";
+        -- report "MOS6502: 2MHz tick";
       end if;
 
       irq <= cia_irq_n; -- and fdc_irq_n;
