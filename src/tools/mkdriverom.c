@@ -108,7 +108,11 @@ int main(int argc,char **argv)
       rom[i-0x8000]=0xea;
     }
     // Mask out BRK instruction that 1581 ROM uses on purpose (!!)
-    rom[0x95a1-0x8000]= 0xea;
+    // It is used to switch from DOS to FDC personalities, as best I can tell.
+    // We'll just make it RTS instead at the start of the routine. This will mean
+    // no jobs ever execute, but that should be okay for the test environment.
+    // rom[0x95a1-0x8000]= 0x60; // was a BRK
+    rom[0x959D-0x8000]= 0x60; // was first instruction of this job service routine
   }
   
   fprintf(stdout,top,rom_size-1,rom_size-1);
