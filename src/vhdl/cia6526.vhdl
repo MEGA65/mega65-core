@@ -136,7 +136,7 @@ architecture behavioural of cia6526 is
   signal imask_serialport : std_logic := '0';
   signal imask_alarm : std_logic := '0';
   signal imask_tb : std_logic := '0';
-  signal imask_ta : std_logic := '1';
+  signal imask_ta : std_logic := '0';
 
   signal reg_serialport_direction : std_logic := '0';
   signal reg_read_sdr : std_logic_vector(7 downto 0) := x"FF";
