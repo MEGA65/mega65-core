@@ -101,6 +101,13 @@ int main(int argc,char **argv)
       rom[i-0xc000]=0xea;
     }
   }
+  if (rom_size==32768) {
+    // Mask out 1581 RAM/ROM tests on startup to speed it up
+    fprintf(stderr,"INFO: Assuming 32KB ROM is for 1581, and masking out RAM/ROM startup tests\n");
+    for(int i=0xAF4E;i<=0xAFBF;i++) {
+      rom[i-0x8000]=0xea;
+    }
+  }
   
   fprintf(stdout,top,rom_size-1,rom_size-1);
   for(int i=0;i<rom_size-1;i++) printf(" %d => x\"%02x\",\n",i,rom[i]);
