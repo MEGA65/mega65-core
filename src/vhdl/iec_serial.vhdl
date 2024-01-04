@@ -557,6 +557,9 @@ begin
             wait_usec <= 0; wait_msec <= 0;
 
           when x"80" => reset_timing_now <= '1';
+          when x"81" => t_r <= to_integer(iec_data_out);     iec_data <= to_unsigned(t_r,8);
+          when x"82" => t_tk <= to_integer(iec_data_out);    iec_data <= to_unsigned(t_tk,8);
+          when x"83" => t_dc_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_dc_ms,8);
           
           when x"d1" => -- Begin generating a 1KHz pulse train on the DATA
             -- and CLK lines
