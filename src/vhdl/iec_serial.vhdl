@@ -211,6 +211,7 @@ begin
         t_r <= c_t_r;
         t_tk <= c_t_tk;
         t_dc_ms <= c_t_dc_ms;
+        t_bb <= c_t_bb;
       end procedure;
       
     procedure d(v : std_logic) is
@@ -1387,6 +1388,7 @@ begin
       end if;
 
       if reset_timing_now = '1' then
+        report "IEC: Resetting protocol timing to default";
         reset_timing;
         reset_timing_now <= '0';
       end if;
