@@ -207,6 +207,17 @@ begin
       wait for 6.173 ns;
     end procedure;
 
+    procedure POKE(a : unsigned(15 downto 0); v : unsigned(7 downto 0)) is
+    begin
+        fastio_addr(3 downto 0) <= a(3 downto 0);
+        fastio_wdata <= v;
+        fastio_write <= '1';
+        for i in 1 to 4 loop
+          clock_tick;
+        end loop;
+        fastio_write <= '0';
+    end procedure;
+    
     procedure boot_1541 is
     begin
       report "IEC: Allowing time for 1541 to boot";
@@ -261,17 +272,6 @@ begin
         fastio_read <= '0';      
     end procedure;
     
-    procedure POKE(a : unsigned(15 downto 0); v : unsigned(7 downto 0)) is
-    begin
-        fastio_addr(3 downto 0) <= a(3 downto 0);
-        fastio_wdata <= v;
-        fastio_write <= '1';
-        for i in 1 to 4 loop
-          clock_tick;
-        end loop;
-        fastio_write <= '0';
-    end procedure;
-
     procedure wait_a_while(t : integer) is
     begin        
       -- Allow time for everything to happen
