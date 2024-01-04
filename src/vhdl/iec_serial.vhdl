@@ -903,7 +903,7 @@ begin
             -- Computer pulls DATA low and releases CLK.
             -- Device then pulls CLK low and releases DATA.
 
-          when 200 => micro_wait(100);
+          when 200 => micro_wait(200); -- was 100 usec, see below
           when 201 => a('1'); micro_wait(40);  -- was 20 usec, which was likely not long enough
                               -- with real drives in some cases
           when 202 => d('0'); c('1'); micro_wait(40);  -- was 20 usec, which was likely not long enough
