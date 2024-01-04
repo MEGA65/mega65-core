@@ -128,6 +128,17 @@ architecture questionable of iec_serial is
   signal data_low_observed : std_logic := '0';
 
   signal divisor_1mhz : integer := 81 - 1;
+
+  -- Table of IEC serial protocol timing constants
+  constant c_t_r     : integer := 200;  -- C64 PRG says >= 20 usec
+  constant c_t_tk    : integer :=  40;  -- C64 PRG says >= 20 usec
+  constant c_t_dc_ms : integer :=  64;  -- C64 PRG says can be infinte, we
+                                        -- limit to 64 milliseconds
+  signal t_r : integer;
+  signal t_tk : integer;
+  signal t_dc_ms : integer;
+
+  signal reset_timing_now : std_logic := '1';
   
 begin
 
@@ -190,7 +201,15 @@ begin
         );
     end generate;
 
-  process (clock,clock81) is
+    process (clock,clock81) is
+
+      procedure reset_timing is
+      begin
+        t_r <= c_t_r;
+        t_tk <= c_t_tk;
+        t_dc_ms <= c_t_dc_ms;
+      end procedure;
+      
     procedure d(v : std_logic) is
     begin
       if v /= last_iec_data then
@@ -537,6 +556,8 @@ begin
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
 
+          when x"80" => reset_timing_now <= '1';
+          
           when x"d1" => -- Begin generating a 1KHz pulse train on the DATA
             -- and CLK lines
             iec_dev_listening <= '0';
@@ -903,12 +924,16 @@ begin
             -- Computer pulls DATA low and releases CLK.
             -- Device then pulls CLK low and releases DATA.
 
-          when 200 => micro_wait(200); -- was 100 usec, see below
-          when 201 => a('1'); micro_wait(40);  -- was 20 usec, which was likely not long enough
+          when 200 => micro_wait(t_r); -- T(R), which C64 PRG says >= 20 usec
+          when 201 => a('1'); micro_wait(t_tk);  -- T(TK), which C64 PRG says >= 20
+                                               -- usec and <= 100 usec.
+                              -- was 20 usec, which was likely not long enough
                               -- with real drives in some cases
-          when 202 => d('0'); c('1'); micro_wait(40);  -- was 20 usec, which was likely not long enough
-                              -- with real drives in some cases
-          when 203 => milli_wait(64); wait_clk_low <= '1';
+          when 202 => d('0'); c('1'); micro_wait(4);   -- Wait only long enough
+                                                       -- to ensure CLK has had
+                                                       -- time to rise.
+          when 203 => milli_wait(t_dc_ms); wait_clk_low <= '1'; -- T(DC) limit (in
+                                                           -- milli seconds)
           when 204 => if iec_clk_i='1' then
                         -- Timeout
                         report "IEC: TURNAROUND TIMEOUT: Device failed to turn-aruond to talker wihtin 64ms";
@@ -1355,6 +1380,11 @@ begin
         end case;
       end if;
 
+      if reset_timing_now = '1' then
+        reset_timing;
+        reset_timing_now <= '0';
+      end if;
+            
       if reset_in = '0' then
         iec_state <= 0;
         wait_clk_high <= '0'; wait_clk_low <= '0';
@@ -1365,9 +1395,9 @@ begin
         jiffydos_enabled <= '1';
         report "IEC: Enabling JiffyDOS solicitation via /RESET pin";
         c128fast_enabled <= '0';
+        reset_timing_now <= '1';
       end if;
-      
-      
+
     end if;
   end process;
 
