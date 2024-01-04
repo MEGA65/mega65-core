@@ -465,6 +465,7 @@ begin
             iec_dev_listening <= '0';
             a('1'); d('1'); c('1'); s('1');
             jiffydos_enabled <= '1';
+            report "IEC: Enabling JiffyDOS solicitation via $52 RESET command";
             c128fast_enabled <= '0';
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
@@ -474,7 +475,9 @@ begin
 
             -- Allow enabling and disabling of JiffyDOS offering
           when x"4A" => jiffydos_enabled <= '1';
+                        report "IEC: Enabling JiffyDOS solicitation";
           when x"6A" => jiffydos_enabled <= '0';
+                        report "IEC: Disabling JiffyDOS solicitation";
             -- and also c128 fast serial
           when x"46" => c128fast_enabled <= '1';
           when x"66" => c128fast_enabled <= '0';
@@ -1365,6 +1368,7 @@ begin
         wait_usec <= 0; wait_msec <= 0;
         a('1'); s('1'); d('1'); c('1');
         jiffydos_enabled <= '1';
+        report "IEC: Enabling JiffyDOS solicitation via /RESET pin";
         c128fast_enabled <= '0';
       end if;
       

@@ -221,15 +221,16 @@ begin
     procedure boot_1541 is
     begin
       report "IEC: Allowing time for 1541 to boot";
-      
+
+      report "IEC: Applying work-around for synthesis vs simulation deviation in 1usec time keeping in iec_serial.vhdl";
+      POKE(x"D688",x"D2");      
+
       -- Give the 1541 just time enough to boot
+      -- (and for the above POKE to take effect)
       for i in 1 to 1_950_000 loop
         clock_tick;
       end loop;
 
-      report "IEC: Applying work-around for synthesis vs simulation deviation in 1usec time keeping in iec_serial.vhdl";
-      POKE(x"D688",x"D2");
-      
     end procedure;
 
     procedure atn_release is
@@ -656,7 +657,8 @@ begin
       elsif run("ATN Sequence with VHDL 1541 device succeeds with JiffyDOS and C128 FAST disabled") then
 
         boot_1541;
-        
+
+        report "IEC: Issuing command $6A to disable JiffyDOS solicitation";
         POKE(x"D698",x"6A"); -- Disable JiffyDOS
         POKE(x"D698",x"66"); -- Disable C128 FAST serial
       
@@ -700,6 +702,7 @@ begin
 
         boot_1541;
         
+        report "IEC: Issuing command $6A to disable JiffyDOS solicitation";
         POKE(x"D698",x"6A"); -- Disable JiffyDOS
         POKE(x"D698",x"66"); -- Disable C128 FAST serial        
 
