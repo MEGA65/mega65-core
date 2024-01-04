@@ -510,9 +510,6 @@ begin
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
 
-            -- Trigger begin collecting debug info during job
-            debug_ram_waddr_int <= 0;
-
           when x"31" => -- Send byte (without attention)
             iec_dev_listening <= '0';
             iec_state <= 400;
@@ -565,7 +562,11 @@ begin
           when x"82" => t_tk <= to_integer(iec_data_out);    iec_data <= to_unsigned(t_tk,8);
           when x"83" => t_dc_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_dc_ms,8);
           when x"84" => t_bb <= to_integer(iec_data_out); iec_data <= to_unsigned(t_bb,8);
-          
+
+          when x"d0" =>
+            -- Trigger begin collecting debug info during job
+            debug_ram_waddr_int <= 0;            
+                        
           when x"d1" => -- Begin generating a 1KHz pulse train on the DATA
             -- and CLK lines
             iec_dev_listening <= '0';
