@@ -215,6 +215,10 @@ begin
       for i in 1 to 1_950_000 loop
         clock_tick;
       end loop;
+
+      report "IEC: Applying work-around for synthesis vs simulation deviation in 1usec time keeping in iec_serial.vhdl";
+      POKE(x"D688",x"D2");
+      
     end procedure;
 
     procedure atn_release is

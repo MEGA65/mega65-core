@@ -127,7 +127,12 @@ architecture questionable of iec_serial is
 
   signal data_low_observed : std_logic := '0';
 
-  signal divisor_1mhz : integer := 81 - 1;
+  -- XXX For some reason, the micro_wait() logic results in double the delay
+  -- that it should when synthesised, but not under simulation.  Really weird.
+  -- The work-around for now, is to select the correct speed for synthesis by
+  -- default, and the tests will issue the $D2 command before attempting to
+  -- communicate using JiffyDOS.
+  signal divisor_1mhz : integer := 40; -- 81 - 1;
   
 begin
 
@@ -512,7 +517,7 @@ begin
           when x"33" => -- Send EOI without byte
             -- XXX How do we do this? There is a way, I read about it somewhere.
             -- But can I find it now? Oh no.
-          when x"34" => -- Send byte with EOI (don't touch ATN)
+          when x"34" => -- Send byte with EOI (clears ATN)
             iec_dev_listening <= '0';
             iec_state <= 400;
             iec_busy <= '1';
