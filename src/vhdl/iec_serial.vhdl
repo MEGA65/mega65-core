@@ -127,12 +127,7 @@ architecture questionable of iec_serial is
 
   signal data_low_observed : std_logic := '0';
 
-  -- XXX For some reason, the micro_wait() logic results in double the delay
-  -- that it should when synthesised, but not under simulation.  Really weird.
-  -- The work-around for now, is to select the correct speed for synthesis by
-  -- default, and the tests will issue the $D2 command before attempting to
-  -- communicate using JiffyDOS.
-  signal divisor_1mhz : integer := 40; -- 81 - 1;
+  signal divisor_1mhz : integer := 81 - 1;
   
 begin
 
@@ -552,8 +547,6 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
-          when x"d2" => divisor_1mhz <= 81 - 1;
-          when x"d3" => divisor_1mhz <= 40;
             
           when others => null;
         end case;
@@ -573,7 +566,7 @@ begin
             wait_srq_high <= '0'; wait_srq_low <= '0';
           end if;
         end if;
-        usec_toggle <= last_usec_toggle;
+        last_usec_toggle <= usec_toggle;
       end if;
       if msec_toggle /= last_msec_toggle then
         if wait_msec > 0 then
