@@ -1105,7 +1105,7 @@ begin
             -- repeatedly until the time as expired. Thus it will sample at
             -- the _end_ rather than the _start_ of the period. We avoid this
             -- by separating sampling states from delay states.
-          when 381 => d('1'); micro_wait(12);
+          when 381 => d('1'); micro_wait(14);
           when 382 => iec_data(1) <= iec_data_i; iec_data(0) <= iec_clk_i;
                       report "IEC: Sampling first 2 JiffyDOS bits";
           when 383 => micro_wait(10);
