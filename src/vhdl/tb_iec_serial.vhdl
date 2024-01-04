@@ -223,7 +223,7 @@ begin
       report "IEC: Allowing time for 1541 to boot";
 
       report "IEC: Applying work-around for synthesis vs simulation deviation in 1usec time keeping in iec_serial.vhdl";
-      POKE(x"D688",x"D2");      
+      POKE(x"D698",x"D2");      
 
       -- Give the 1541 just time enough to boot
       -- (and for the above POKE to take effect)
