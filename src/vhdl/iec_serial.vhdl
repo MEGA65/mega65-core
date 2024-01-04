@@ -134,9 +134,12 @@ architecture questionable of iec_serial is
   constant c_t_tk    : integer :=  40;  -- C64 PRG says >= 20 usec
   constant c_t_dc_ms : integer :=  64;  -- C64 PRG says can be infinte, we
                                         -- limit to 64 milliseconds
+  constant c_t_bb    : integer := 100;  -- C64 PRG says >= 100 usec
+
   signal t_r : integer;
   signal t_tk : integer;
   signal t_dc_ms : integer;
+  signal t_bb : integer;
 
   signal reset_timing_now : std_logic := '1';
   
@@ -560,6 +563,7 @@ begin
           when x"81" => t_r <= to_integer(iec_data_out);     iec_data <= to_unsigned(t_r,8);
           when x"82" => t_tk <= to_integer(iec_data_out);    iec_data <= to_unsigned(t_tk,8);
           when x"83" => t_dc_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_dc_ms,8);
+          when x"84" => t_bb <= to_integer(iec_data_out); iec_data <= to_unsigned(t_bb,8);
           
           when x"d1" => -- Begin generating a 1KHz pulse train on the DATA
             -- and CLK lines
@@ -911,7 +915,8 @@ begin
 
             iec_busy <= '0';
 
-          when 152 =>
+          when 152 => micro_wait(t_bb);
+          when 153 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte under attention";
             iec_devinfo(7) <= '1';
@@ -927,11 +932,8 @@ begin
             -- Computer pulls DATA low and releases CLK.
             -- Device then pulls CLK low and releases DATA.
 
-          when 200 => micro_wait(t_r); -- T(R), which C64 PRG says >= 20 usec
-          when 201 => a('1'); micro_wait(t_tk);  -- T(TK), which C64 PRG says >= 20
-                                               -- usec and <= 100 usec.
-                              -- was 20 usec, which was likely not long enough
-                              -- with real drives in some cases
+          when 200 => micro_wait(t_r);
+          when 201 => a('1'); micro_wait(t_tk);
           when 202 => d('0'); c('1'); micro_wait(4);   -- Wait only long enough
                                                        -- to ensure CLK has had
                                                        -- time to rise.
@@ -1278,7 +1280,8 @@ begin
 
             iec_busy <= '0';
 
-          when 426 =>
+          when 426 => micro_wait(t_bb);
+          when 427 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte without attention";
             iec_devinfo(7) <= '1';
