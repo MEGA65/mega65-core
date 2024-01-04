@@ -154,11 +154,11 @@ begin
   
   -- @IO:GS $D697.7 AUTOIEC:IRQFLAG Interrupt flag. Set if any IRQ event is triggered.
   -- @IO:GS $D697.6 AUTOIEC:IRQRX Set if a byte has been received from a listener.
-  -- @IO:GS $D697.5 AUTOIEC:IRQREADY Set if ready to process a command
+  -- @IO:GS $D697.5 AUTOIEC:IRQRDY Set if ready to process a command
   -- @IO:GS $D697.4 AUTOIEC:IRQTO Set if a protocol timeout has occurred, e.g., device not found.
   -- @IO:GS $D697.3 AUTOIEC:IRQEN Enable interrupts if set
   -- @IO:GS $D697.2 AUTOIEC:IRQRXEN Enable RX interrupt source if set
-  -- @IO:GS $D697.1 AUTOIEC:IRQREADYEN Enable TX interrupt source if set
+  -- @IO:GS $D697.1 AUTOIEC:IRQRDYEN Enable TX interrupt source if set
   -- @IO:GS $D697.0 AUTOIEC:IRQTOEN Enable timeout interrupt source if set
 
   -- @IO:GS $D698.7 AUTOIEC:STNODEV Device not present
@@ -171,10 +171,10 @@ begin
   -- @IO:GS $D698.0 AUTOIEC:STDDIR Data direction when timeout occurred.
 
   -- @IO:GS $D699 AUTOIEC:DATA Data byte read from IEC bus
-  -- @IO:GS $D69A.7 AUTOIEC:DIPRESENT Device is present
-  -- @IO:GS $D69A.5-6 AUTOIEC:DIPROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
+  -- @IO:GS $D69A.7 AUTOIEC:PRESENT Device is present
+  -- @IO:GS $D69A.5-6 AUTOIEC:PROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
   -- @IO:GS $D69A.4 AUTOIEC:DIATN Device is currently held under attention
-  -- @IO:GS $D69A.0-3 AUTOIEC:DIDEVNUM Lower 4 bits of currently selected device number
+  -- @IO:GS $D69A.0-3 AUTOIEC:DEVNUM Lower 4 bits of currently selected device number
 
   ram0: if with_debug generate
     debugram0: entity work.ram8x4096_sync
