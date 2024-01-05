@@ -687,7 +687,7 @@ begin
           when x"9C" => t_j10 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j10,8);
           when x"9D" => t_j11 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j11,8);
           when x"9E" => t_jr <= to_integer(iec_data_out); iec_data <= to_unsigned(t_jr,8);
-          when x"9F" => t_fs;    <= to_integer(iec_data_out); iec_data <= to_unsigned(t_fs;   ,8);
+          when x"9F" => t_fs <= to_integer(iec_data_out); iec_data <= to_unsigned(t_fs,8);
           when x"A0" => t_ff <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ff,8);
           when x"A1" => t_pullup <= to_integer(iec_data_out); iec_data <= to_unsigned(t_pullup,8);
                          
