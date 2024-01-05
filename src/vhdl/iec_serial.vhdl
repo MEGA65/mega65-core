@@ -102,7 +102,6 @@ architecture questionable of iec_serial is
   signal last_iec_clk : std_logic := 'U';
   signal last_iec_srq : std_logic := 'U';
 
-  signal debug_counter : integer range 0 to 4095 := 4095;
   signal debug_ram_write : std_logic := '0';
   signal debug_ram_waddr : integer := 0;
   signal debug_ram_waddr_int : integer := 0;
@@ -458,11 +457,9 @@ begin
         debug_ram_wdata2 <= to_unsigned(iec_state,8);
 
         prev_iec_state <= iec_state;
-        if debug_counter < (40-1) and (iec_state = prev_iec_state) then
-          debug_counter <= debug_counter + 1;
+        if (iec_state = prev_iec_state) then
           debug_ram_write <= '0';
         else
-          debug_counter <= 0;
           if debug_ram_waddr_int < 4095 then
             debug_ram_write <= '1';
             debug_ram_waddr_int <= debug_ram_waddr_int + 1;
