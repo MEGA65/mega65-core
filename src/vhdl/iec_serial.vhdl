@@ -861,26 +861,26 @@ begin
             -- Send the first 7 bits
             report "IEC: Sending data byte $" & to_hexstring(iec_data_out) & "  under ATN";
             null;
-          when 129 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 130 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 129 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 130 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 0 = " & std_logic'image(iec_data_out(0));                      
-          when 131 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 132 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 131 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 132 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 1 = " & std_logic'image(iec_data_out(0));
-          when 133 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 134 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 133 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 134 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 2 = " & std_logic'image(iec_data_out(0));
-          when 135 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 136 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 135 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 136 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 3 = " & std_logic'image(iec_data_out(0));
-          when 137 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 138 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 137 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 138 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 4 = " & std_logic'image(iec_data_out(0));
-          when 139 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 140 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 139 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 140 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 5 = " & std_logic'image(iec_data_out(0));
-          when 141 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
-          when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
+          when 141 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
+          when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 6 = " & std_logic'image(iec_data_out(0));
           when 143 => c('0'); d(iec_data_out(0)); micro_wait(100);                      
           when 144 =>
@@ -917,7 +917,7 @@ begin
             else
               report "IEC: Device did not indicate support for JiffyDOS(tm) protocol (this is normal, depending on command issued).";
             end if;
-          when 147=> c('1'); micro_wait(t_v);
+          when 147=> c('1'); micro_wait(t_vt);
                       report "IEC: Sent bit 7 = " & std_logic'image(iec_data_out(0));
           -- Now we have sent 7 bits, release data, keeping clock at 0V, and
           -- check for DATA being pulled low
