@@ -182,7 +182,6 @@ architecture questionable of iec_serial is
   signal t_dc_ms : integer := 0;
   signal t_bb : integer;
   signal t_ha_ms : integer;
-  signal t_ha : integer;
   signal t_st : integer;
   signal t_vt : integer;
   signal t_al : integer;
