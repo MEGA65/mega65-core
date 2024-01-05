@@ -143,6 +143,10 @@ architecture questionable of iec_serial is
   constant c_t_h_ms  : integer :=   64;  -- C64 PRG says 64 ms
   constant c_t_ne    : integer :=   40;  -- C64 PRG says 40 usec
   constant c_t_f     : integer :=  255;  -- C64 PRG says 20 -- 1000 usec
+  constant c_t_ye    : integer :=  250;  -- C64 PRG says 250
+  constant c_t_ei    : integer :=   80;  -- C64 PRG says min 60
+  constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
+
   
   signal t_r : integer;
   signal t_tk : integer;
@@ -157,6 +161,9 @@ architecture questionable of iec_serial is
   signal t_h_ms : integer := 0;
   signal t_ne : integer;
   signal t_f : integer;
+  signal t_ye : integer;
+  signal t_ei : integer;
+  signal t_ar : integer;
 
   signal t_at : integer;
   signal t_h : integer;
@@ -243,7 +250,9 @@ begin
         t_at_ms <= c_t_at_ms;
         t_h_ms <= c_t_h_ms;
         t_ne <= c_t_ne;
-        t_f <= c_t_f;        
+        t_f <= c_t_f;
+        t_ye <= c_t_ye;
+        t_ei <= c_t_ei;
       end procedure;
       
     procedure d(v : std_logic) is
@@ -595,6 +604,9 @@ begin
           when x"8B" => t_h_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_h_ms,8);
           when x"8C" => t_ne <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ne,8);
           when x"8D" => t_f <= to_integer(iec_data_out); iec_data <= to_unsigned(t_f,8);
+          when x"8E" => t_ye <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ye,8);
+          when x"8F" => t_ei <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
+          when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
                          
           when x"d0" =>
             -- Trigger begin collecting debug info during job
@@ -1034,13 +1046,13 @@ begin
                       end if;
           when 301 => d('1');
                       eoi_detected <= '0';
-                      micro_wait(200);
+                      micro_wait(t_ye);
                       wait_clk_low <= '1';
           when 302 => if iec_clk_i='1' then
                         report "Acknowledging EOI";
                         eoi_detected <= '1';
                         d('0');
-                        micro_wait(80);
+                        micro_wait(t_ei);
                       end if;
           when 303 => d('1'); wait_clk_low <= '1'; 
           when 304 =>
@@ -1202,7 +1214,7 @@ begin
             -- T_R -- Release of ATN at end of frame: 20 usec
             -- But we don't need to pay it if ATN was already released
             if iec_atn_int = '0' then
-              micro_wait(20);
+              micro_wait(t_ar);
             end if;
 
             -- Decide whether to send using slow, fast or JiffyDOS protocol
@@ -1235,7 +1247,7 @@ begin
             -- However, if it's EOI, then we expect the drive to pull DATA low
             -- after about 200 usec
             if send_eoi='0' then
-              micro_wait(40);
+              micro_wait(t_ne);
             else
               report "IEC: Sending byte with EOI: Waiting for device to pulse DATA to ACK";
               wait_data_low <= '1';
@@ -1277,7 +1289,7 @@ begin
           when 423 => c('0'); d('1');
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
-                      micro_wait(1000);
+                      micro_wait(t_f);
                       wait_data_low <= '0';
                       report "IEC: Waiting for device to acknowledge byte";
           when 424 =>
