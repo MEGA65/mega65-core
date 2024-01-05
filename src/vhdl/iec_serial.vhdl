@@ -141,7 +141,7 @@ architecture questionable of iec_serial is
   constant c_t_dc_ms : integer :=   64;  -- C64 PRG says can be infinte, we
                                          -- limit to 64 milliseconds
   constant c_t_bb    : integer :=  100;  -- C64 PRG says >= 100 usec
-  constant c_t_ha    : integer :=   64;  -- = T_H in C64 PRG, infinite
+  constant c_t_ha_ms : integer :=   64;  -- = T_H in C64 PRG, infinite
   constant c_t_st    : integer :=   70;  -- C64 PRG says >= 20 usec
   constant c_t_vt    : integer :=   70;  -- C64 PRG says >= 20 usec
   constant c_t_al    : integer := 1000;  -- Not specified by C64 PRG
@@ -181,6 +181,7 @@ architecture questionable of iec_serial is
   signal t_tk : integer;
   signal t_dc_ms : integer := 0;
   signal t_bb : integer;
+  signal t_ha_ms : integer;
   signal t_ha : integer;
   signal t_st : integer;
   signal t_vt : integer;
@@ -195,6 +196,7 @@ architecture questionable of iec_serial is
   signal t_ar : integer;
 
   signal t_at : integer;
+  signal t_ha : integer;
   signal t_h : integer;
   signal t_dc : integer;
 
@@ -325,7 +327,7 @@ begin
         t_tk <= c_t_tk;
         t_dc_ms <= c_t_dc_ms;
         t_bb <= c_t_bb;
-        t_ha <= c_t_ha;
+        t_ha_ms <= c_t_ha_ms;
         t_st <= c_t_st;
         t_vt <= c_t_vt;
         t_al <= c_t_al;
@@ -483,6 +485,7 @@ begin
       -- Convert milliseconds to ~micro seconds by x1024
       t_at <= to_integer(to_unsigned(t_at_ms,8)&ten_zeroes);
       t_h <= to_integer(to_unsigned(t_h_ms,8)&ten_zeroes);
+      t_ha <= to_integer(to_unsigned(t_ha_ms,8)&ten_zeroes);
       t_dc <= to_integer(to_unsigned(t_dc_ms,8)&ten_zeroes); 
       
       if iec_data_i='0' then
@@ -952,7 +955,7 @@ begin
             -- and then continue. If we wait <40 usec the drive will miss
             -- the pulse, and think it has to wait for another pulse on CLK.
             -- If we wait >200usec, then it will think it is EOI.
-            micro_wait(t_h);
+            micro_wait(t_ha);
             wait_data_high <= '1';
 
           when 125 =>
