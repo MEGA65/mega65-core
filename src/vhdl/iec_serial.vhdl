@@ -147,6 +147,28 @@ architecture questionable of iec_serial is
   constant c_t_ei    : integer :=   80;  -- C64 PRG says min 60
   constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
 
+  constant c_t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
+  constant c_t_j0    : integer :=   37;  -- JiffyDOS RX setup time
+  constant c_t_j1    : integer :=   14;  -- JiffyDOS RX start time
+  constant c_t_j2    : integer :=   10;  -- JiffyDOS RX 
+  constant c_t_j3    : integer :=   11;  -- JiffyDOS RX 
+  constant c_t_j4    : integer :=   11;  -- JiffyDOS RX 
+  constant c_t_j5    : integer :=   13;  -- JiffyDOS RX 
+
+  constant c_t_j6    : integer :=   10;  -- JiffyDOS TX 
+  constant c_t_j7    : integer :=   13;  -- JiffyDOS TX 
+  constant c_t_j8    : integer :=   11;  -- JiffyDOS TX 
+  constant c_t_j9    : integer :=   11;  -- JiffyDOS TX 
+  constant c_t_j10   : integer :=   12;  -- JiffyDOS TX 
+  constant c_t_j11   : integer :=   28;  -- JiffyDOS TX 
+  constant c_t_jr    : integer :=   15;  -- JiffyDOS TX
+  
+
+  constant c_t_fs    : integer :=    5;  -- C128 does 5usec 
+  constant c_t_fv    : integer :=    5;  -- C128 does 5usec 
+  constant c_t_ff    : integer :=    40;  -- 
+
+  constant c_t_pullup : integer :=   5;  -- Rise-time allowance for IEC bus lines
   
   signal t_r : integer;
   signal t_tk : integer;
@@ -169,6 +191,28 @@ architecture questionable of iec_serial is
   signal t_h : integer;
   signal t_dc : integer;
 
+  signal t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
+  signal t_j0    : integer :=   37;  -- JiffyDOS RX setup time
+  signal t_j1    : integer :=   14;  -- JiffyDOS RX start time
+  signal t_j2    : integer :=   10;  -- JiffyDOS RX 
+  signal t_j3    : integer :=   11;  -- JiffyDOS RX 
+  signal t_j4    : integer :=   11;  -- JiffyDOS RX 
+  signal t_j5    : integer :=   13;  -- JiffyDOS RX 
+  signal t_j6    : integer :=   10;  -- JiffyDOS TX 
+  signal t_j7    : integer :=   13;  -- JiffyDOS TX 
+  signal t_j8    : integer :=   11;  -- JiffyDOS TX 
+  signal t_j9    : integer :=   11;  -- JiffyDOS TX 
+  signal t_j10   : integer :=   12;  -- JiffyDOS TX 
+  signal t_j11   : integer :=   28;  -- JiffyDOS TX 
+  signal t_jr    : integer :=   15;  -- JiffyDOS TX
+  
+
+  signal t_fs    : integer :=    5;  -- C128 does 5usec 
+  signal t_fv    : integer :=    5;  -- C128 does 5usec 
+  signal t_ff    : integer :=    40;  -- 
+
+  signal t_pullup : integer :=   5;  -- Rise-time allowance for IEC bus lines
+    
   signal ten_zeroes : unsigned(9 downto 0) := (others => '0');
   
   signal reset_timing_now : std_logic := '1';
@@ -253,6 +297,28 @@ begin
         t_f <= c_t_f;
         t_ye <= c_t_ye;
         t_ei <= c_t_ei;
+
+        t_jt <= c_t_jt;
+        t_j0 <= c_t_j0;
+        t_j1 <= c_t_j1;
+        t_j2 <= c_t_j2;
+        t_j3 <= c_t_j3;
+        t_j4 <= c_t_j4;
+        t_j5 <= c_t_j5;
+        t_j6 <= c_t_j6;
+        t_j7 <= c_t_j7;
+        t_j8 <= c_t_j8;
+        t_j9 <= c_t_j9;
+        t_j10 <= c_t_j10;
+        t_j11 <= c_t_j11;
+        t_jr <= c_t_jr;
+  
+        t_fs <= c_t_fs;
+        t_fv <= c_t_fv;
+        t_ff <= c_t_ff;
+
+        t_pullup <= c_t_pullup;
+        
       end procedure;
       
     procedure d(v : std_logic) is
@@ -607,6 +673,23 @@ begin
           when x"8E" => t_ye <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ye,8);
           when x"8F" => t_ei <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
           when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
+          when x"91" => t_jt <= to_integer(iec_data_out); iec_data <= to_unsigned(t_jt,8);
+          when x"92" => t_j0 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j0,8);
+          when x"93" => t_j1 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j1,8);
+          when x"94" => t_j2 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j2,8);
+          when x"95" => t_j3 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j3,8);
+          when x"96" => t_j4 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j4,8);
+          when x"97" => t_j5 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j5,8);
+          when x"98" => t_j6 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j6,8);
+          when x"99" => t_j7 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j7,8);
+          when x"9A" => t_j8 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j8,8);
+          when x"9B" => t_j9 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j9,8);
+          when x"9C" => t_j10 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j10,8);
+          when x"9D" => t_j11 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j11,8);
+          when x"9E" => t_jr <= to_integer(iec_data_out); iec_data <= to_unsigned(t_jr,8);
+          when x"9F" => t_fs;    <= to_integer(iec_data_out); iec_data <= to_unsigned(t_fs;   ,8);
+          when x"A0" => t_ff <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ff,8);
+          when x"A1" => t_pullup <= to_integer(iec_data_out); iec_data <= to_unsigned(t_pullup,8);
                          
           when x"d0" =>
             -- Trigger begin collecting debug info during job
@@ -720,22 +803,22 @@ begin
 
           -- Send data byte $FF using SRQ as clock to indicate our ability
           -- to do C= fast serial
-          when 101 => s('1'); micro_wait(5);
-          when 102 => s('0'); micro_wait(5);
-          when 103 => s('1'); micro_wait(5);
-          when 104 => s('0'); micro_wait(5);
-          when 105 => s('1'); micro_wait(5);
-          when 106 => s('0'); micro_wait(5);
-          when 107 => s('1'); micro_wait(5);
-          when 108 => s('0'); micro_wait(5);
-          when 109 => s('1'); micro_wait(5);
-          when 110 => s('0'); micro_wait(5);
-          when 111 => s('1'); micro_wait(5);
-          when 112 => s('0'); micro_wait(5);
-          when 113 => s('1'); micro_wait(5);
-          when 114 => s('0'); micro_wait(5);
-          when 115 => s('1'); micro_wait(5);
-          when 116 => s('0'); micro_wait(5);
+          when 101 => s('1'); micro_wait(t_fs);
+          when 102 => s('0'); micro_wait(t_fv);
+          when 103 => s('1'); micro_wait(t_fs);
+          when 104 => s('0'); micro_wait(t_fv);
+          when 105 => s('1'); micro_wait(t_fs);
+          when 106 => s('0'); micro_wait(t_fv);
+          when 107 => s('1'); micro_wait(t_fs);
+          when 108 => s('0'); micro_wait(t_fv);
+          when 109 => s('1'); micro_wait(t_fs);
+          when 110 => s('0'); micro_wait(t_fv);
+          when 111 => s('1'); micro_wait(t_fs);
+          when 112 => s('0'); micro_wait(t_fv);
+          when 113 => s('1'); micro_wait(t_fs);
+          when 114 => s('0'); micro_wait(t_fv);
+          when 115 => s('1'); micro_wait(t_fs);
+          when 116 => s('0'); micro_wait(t_fv);
 
           when 117 | 118 | 119 => null;
 
@@ -881,7 +964,7 @@ begin
           when 141 => c('0'); d(iec_data_out(0)); micro_wait(t_st);
           when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_vt);
                       report "IEC: Sent bit 6 = " & std_logic'image(iec_data_out(0));
-          when 143 => c('0'); d(iec_data_out(0)); micro_wait(100);                      
+          when 143 => c('0'); d(iec_data_out(0)); micro_wait(t_st);                      
           when 144 =>
             -- To do the JiffyDOS detection, we need to make sure the DATA line
             -- has gone high before we start looking for it to go low.
@@ -892,15 +975,17 @@ begin
             if probe_jiffydos='1' then
               d('1');
             end if;
-            micro_wait(5);
+            micro_wait(t_pullup);
           when 145 =>
             if probe_jiffydos='1' then
               -- Release DATA, and wait for at least 300usec, to see if data
               -- goes low.  If yes, device supports JiffyDOS.
+              -- XXX Delay is >255 usec, but <1ms, so we can't easily
+              -- parameterise it
               d('1'); data_low_observed <= '0'; micro_wait(300);
             else
               iec_state <= iec_state + 2;
-              micro_wait(30);
+              micro_wait(t_vt);
             end if;
           when 146 =>
             
@@ -970,7 +1055,7 @@ begin
 
           when 200 => micro_wait(t_r);
           when 201 => a('1'); micro_wait(t_tk);
-          when 202 => d('0'); c('1'); micro_wait(4);   -- Wait only long enough
+          when 202 => d('0'); c('1'); micro_wait(t_pullup);   -- Wait only long enough
                                                        -- to ensure CLK has had
                                                        -- time to rise.
           when 203 => micro_wait(t_dc); wait_clk_low <= '1'; -- T(DC) limit (in
@@ -1012,7 +1097,7 @@ begin
             -- 525 usec is too short.
             -- 540 usec seems to work
             -- 600 usec is plenty
-            micro_wait(600);
+            micro_wait(t_jt);
             
           when 207 =>
 
@@ -1146,7 +1231,7 @@ begin
             -- notice our ACK, before we might release DATA to say we are ready
             -- for the next byte.
             -- XXX Not sure how long this wait needs to be.
-            d('0'); micro_wait(40);
+            d('0'); micro_wait(t_ff);
           when 368 =>
             report "IEC: Successfully completed receiving FAST byte = $" & to_hexstring(iec_data);
             iec_devinfo(7) <= '1';
@@ -1168,25 +1253,25 @@ begin
             -- least that long.
             -- Ideally we could count how long CLK had already been released,
             -- to save a little more time per byte.
-            micro_wait(37);
+            micro_wait(t_j0);
 
             -- The semantics of micro_wait() means that the state will run
             -- repeatedly until the time as expired. Thus it will sample at
             -- the _end_ rather than the _start_ of the period. We avoid this
             -- by separating sampling states from delay states.
-          when 381 => d('1'); micro_wait(14);
+          when 381 => d('1'); micro_wait(t_j1);
           when 382 => iec_data(1) <= iec_data_i; iec_data(0) <= iec_clk_i;
                       report "IEC: Sampling first 2 JiffyDOS bits";
-          when 383 => micro_wait(10);
+          when 383 => micro_wait(t_j2);
           when 384 => iec_data(3) <= iec_data_i; iec_data(2) <= iec_clk_i;
                       report "IEC: Sampling second 2 JiffyDOS bits";
-          when 385 => micro_wait(11);
+          when 385 => micro_wait(t_j3);
           when 386 => iec_data(5) <= iec_data_i; iec_data(4) <= iec_clk_i;
                       report "IEC: Sampling third 2 JiffyDOS bits";
-          when 387 => micro_wait(11);
+          when 387 => micro_wait(t_j4);
           when 388 => iec_data(7) <= iec_data_i; iec_data(6) <= iec_clk_i;
                       report "IEC: Sampling fourth 2 JiffyDOS bits";
-          when 389 => micro_wait(13);
+          when 389 => micro_wait(t_j5);
           when 390 => d('0'); iec_status(1) <= '0';
                       iec_status(0) <= '0';
                       if iec_data_i='0' and iec_clk_i='1' then
@@ -1341,14 +1426,14 @@ begin
 
           when 480 => report "IEC: Sending byte $" & to_hexstring(iec_data_out) & " using JiffyDOS(tm) protocol";
                       d('1');                 c('1');                 wait_data_high <= '1';
-          when 481 =>                         c('1');                 micro_wait(10);
+          when 481 =>                         c('1');                 micro_wait(t_j6);
                       -- Send direction for JiffyDOS uses inverted signals, and
                       -- rearranged bit order to optimise the transfer
-          when 482 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(13);
-          when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
-          when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
-          when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
-          when 486 => d('0');                 c(not send_eoi);        micro_wait(28);
+          when 482 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(t_j7);
+          when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
+          when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
+          when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
+          when 486 => d('0');                 c(not send_eoi);        micro_wait(t_j11);
           when 487 => c('1');
                       if iec_data_i='1' then
                         -- ERROR: Report timeout
@@ -1382,22 +1467,22 @@ begin
           when 489 => -- Pretend we want to send another byte
                       d('1');                 c('1');
                       wait_data_high <= '1';
-          when 490 => micro_wait(10);
+          when 490 => micro_wait(t_j6);
 
                       -- We repeat the last byte we sent, not because JiffyDOS
                       -- requires it, but to make tb_iec_serial's probing of most
                       -- recently received byte by drive checks pass.
-          when 491 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(13);
-          when 492 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(11);
-          when 493 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(11);
-          when 494 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(12);
-          when 495 => d('0');                 c('0');                 micro_wait(28);
+          when 491 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(t_j7);
+          when 492 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
+          when 493 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
+          when 494 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
+          when 495 => d('0');                 c('0');                 micro_wait(t_j11);
                       -- JiffyDOS requires that ATN line is also pulsed low
                       -- when sending EOI.                      -
                       a('0');
           when 496 => -- But we have to also release ATN again soon after, if
                       -- we want the EOI to be processed.
-                      a('1');                                         micro_wait(15);                                  
+                      a('1');                                         micro_wait(t_jr);
           when 497 => report "IEC: Successfully sent EOI using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
