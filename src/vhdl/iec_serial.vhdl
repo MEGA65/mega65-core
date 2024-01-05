@@ -91,11 +91,8 @@ architecture questionable of iec_serial is
   signal wait_msec : integer := 0;
 
   signal cycles : integer := 0;
-  signal usecs : integer := 0;
   signal usec_toggle : std_logic := '0';
-  signal msec_toggle : std_logic := '0';
   signal last_usec_toggle : std_logic := '0';
-  signal last_msec_toggle : std_logic := '0';
   signal timing_sync_toggle : std_logic := '0';
   signal last_timing_sync_toggle : std_logic := '0';
 
@@ -158,6 +155,12 @@ architecture questionable of iec_serial is
   signal t_h_ms : integer;
   signal t_ne : integer;
   signal t_f : integer;
+
+  signal t_at : integer;
+  signal t_h : integer;
+  signal t_dc : integer;
+
+  signal ten_zeroes : unsigned(9 downto 0) := (others => '0');
   
   signal reset_timing_now : std_logic := '1';
   
@@ -293,20 +296,6 @@ begin
       not_waiting_msec <= true;
 
     end procedure;
-    procedure milli_wait(msecs : integer) is
-    begin
-      
-      wait_clk_high <= '0'; wait_clk_low <= '0';
-      wait_data_high <= '0'; wait_data_low <= '0';
-      wait_srq_high <= '0'; wait_srq_low <= '0';
-      wait_usec <= 0;
-
-      usecs <= 0; -- make sure we wait a whole milli-second
-      wait_msec <= msecs;
-      not_waiting_msec <= false;
-      not_waiting_usec <= true;
-
-    end procedure;
   begin
 
     if rising_edge(clock81) then
@@ -320,12 +309,6 @@ begin
       else
         cycles <= 0;
         usec_toggle <= not usec_toggle;
-        if usecs < 999 then
-          usecs <= usecs + 1;
-        else
-          usecs <= 0;
-          msec_toggle <= not msec_toggle;
-        end if;
       end if;
     end if;
 
@@ -370,6 +353,11 @@ begin
 
     if rising_edge(clock) then
 
+      -- Convert milliseconds to ~micro seconds by x1024
+      t_at <= to_integer(to_unsigned(t_at_ms,8)&ten_zeroes);
+      t_h <= to_integer(to_unsigned(t_h_ms,8)&ten_zeroes);
+      t_dc <= to_integer(to_unsigned(t_dc_ms,8)&ten_zeroes); 
+      
       if iec_data_i='0' then
         data_low_observed <= '1';
       end if;
@@ -774,7 +762,7 @@ begin
           when 121 =>
             c('0'); -- CLK to 0V
             -- Wait before releasing CLK after ATN has been responded to
-            milli_wait(t_at_ms);
+            micro_wait(t_at);
 
           when 122 =>
             c('1');  -- Release CLK to 5V
@@ -816,7 +804,7 @@ begin
             -- and then continue. If we wait <40 usec the drive will miss
             -- the pulse, and think it has to wait for another pulse on CLK.
             -- If we wait >200usec, then it will think it is EOI.
-            milli_wait(t_h_ms);
+            micro_wait(t_h);
             wait_data_high <= '1';
 
           when 125 =>
@@ -976,7 +964,7 @@ begin
           when 202 => d('0'); c('1'); micro_wait(4);   -- Wait only long enough
                                                        -- to ensure CLK has had
                                                        -- time to rise.
-          when 203 => milli_wait(t_dc_ms); wait_clk_low <= '1'; -- T(DC) limit (in
+          when 203 => micro_wait(t_dc); wait_clk_low <= '1'; -- T(DC) limit (in
                                                            -- milli seconds)
           when 204 => if iec_clk_i='1' then
                         -- Timeout
