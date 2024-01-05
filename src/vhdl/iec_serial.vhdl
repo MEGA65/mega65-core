@@ -111,6 +111,14 @@ architecture questionable of iec_serial is
   signal debug_ram_rdata : unsigned(7 downto 0);
   signal debug_ram_wdata2 : unsigned(7 downto 0) := x"00";
   signal debug_ram_rdata2 : unsigned(7 downto 0);
+  signal debug_ram_wdata3 : unsigned(7 downto 0) := x"00";
+  signal debug_ram_rdata3 : unsigned(7 downto 0);
+  signal debug_ram_wdata4 : unsigned(7 downto 0) := x"00";
+  signal debug_ram_rdata4 : unsigned(7 downto 0);
+  signal debug_ram_wdata5 : unsigned(7 downto 0) := x"00";
+  signal debug_ram_rdata5 : unsigned(7 downto 0);
+  signal debug_ram_read_select : integer range 2 to 5 := 2;
+  signal debug_state_counter : integer range 0 to 65535 := 0;
   signal iec_clk_o_int : std_logic := '0';
   signal iec_data_o_int : std_logic := '0';
   signal iec_srq_o_int : std_logic := '0';
@@ -251,7 +259,7 @@ begin
   -- @IO:GS $D69A.4 AUTOIEC:DIATN Device is currently held under attention
   -- @IO:GS $D69A.0-3 AUTOIEC:DEVNUM Lower 4 bits of currently selected device number
 
-  ram0: if with_debug generate
+  ram1: if with_debug generate
     debugram0: entity work.ram8x4096_sync
       port map (
         clkr => clock,
@@ -265,7 +273,7 @@ begin
         );
     end generate;
 
-  ram1: if with_debug generate
+  ram2: if with_debug generate
     debugram0: entity work.ram8x4096_sync
       port map (
         clkr => clock,
@@ -276,6 +284,34 @@ begin
         address => debug_ram_raddr,
         wdata => debug_ram_wdata2,
         rdata => debug_ram_rdata2
+        );
+    end generate;
+
+  ram3: if with_debug generate
+    debugram0: entity work.ram8x4096_sync
+      port map (
+        clkr => clock,
+        clkw => clock,
+        cs => '1',
+        w => debug_ram_write,
+        write_address => debug_ram_waddr,
+        address => debug_ram_raddr,
+        wdata => debug_ram_wdata3,
+        rdata => debug_ram_rdata3
+        );
+    end generate;
+
+  ram4: if with_debug generate
+    debugram0: entity work.ram8x4096_sync
+      port map (
+        clkr => clock,
+        clkw => clock,
+        cs => '1',
+        w => debug_ram_write,
+        write_address => debug_ram_waddr,
+        address => debug_ram_raddr,
+        wdata => debug_ram_wdata4,
+        rdata => debug_ram_rdata4
         );
     end generate;
 
@@ -363,7 +399,7 @@ begin
       -- of same byte is possible without having to re-write it.
       iec_data_out(6 downto 0) <= iec_data_out(7 downto 1); iec_data_out(7) <= iec_data_out(0);
     end procedure;
-    procedure micro_wait(usecs : integer) is
+    procedure micro_wait(usec_count : integer) is
     begin
 
       wait_clk_high <= '0'; wait_clk_low <= '0';
@@ -371,7 +407,7 @@ begin
       wait_srq_high <= '0'; wait_srq_low <= '0';
       wait_msec <= 0;
 
-      wait_usec <= usecs;
+      wait_usec <= usec_count;
       not_waiting_usec <= false;
       not_waiting_msec <= true;
 
@@ -412,7 +448,12 @@ begin
           end if;
         when x"5" => -- debug read register
           if with_debug then
-            fastio_rdata <= debug_ram_rdata2;
+            case debug_ram_read_select is
+              when 2 => fastio_rdata <= debug_ram_rdata2;
+              when 3 => fastio_rdata <= debug_ram_rdata3;
+              when 4 => fastio_rdata <= debug_ram_rdata4;
+              when 5 => fastio_rdata <= debug_ram_rdata5;
+            end case;
             report "Reading $" & to_hexstring(debug_ram_rdata2) & " from debug RAM2 address " & integer'image(debug_ram_raddr_int);
           else
             fastio_rdata <= (others => 'Z');
@@ -461,16 +502,24 @@ begin
         debug_ram_wdata <= iec_bus_state;
         
         debug_ram_wdata2 <= to_unsigned(iec_state,8);
+        debug_ram_wdata3 <= to_unsigned(iec_state,16)(15 downto 8);
 
+        debug_ram_wdata4 <= to_unsigned(debug_state_counter,8);
+        debug_ram_wdata5 <= to_unsigned(debug_state_counter,16)(15 downto 8);
+        
         prev_iec_state <= iec_state;
         prev_iec_bus_state <= iec_bus_state;
         if (iec_state = prev_iec_state) and (iec_bus_state = prev_iec_bus_state) then
           debug_ram_write <= '0';
+          if debug_state_counter < 65535 then
+            debug_state_counter <= debug_state_counter + 1;
+          end if;
         else
           if debug_ram_waddr_int < 4095 then
             debug_ram_write <= '1';
             debug_ram_waddr_int <= debug_ram_waddr_int + 1;
             debug_ram_waddr <= debug_ram_waddr_int + 1;
+            debug_state_counter <= 0;
             -- report "Writing $" & to_hexstring(debug_ram_wdata) & " to debug RAM address " & integer'image(debug_ram_waddr_int + 1);
           end if;
         end if;
@@ -521,15 +570,18 @@ begin
           case fastio_addr(3 downto 0) is
             when x"4" =>
               if with_debug then
-                if fastio_wdata = x"00" then
-                  debug_ram_raddr <= 0;
-                  debug_ram_raddr_int <= 0;
-                else
-                  if debug_ram_raddr_int < 4095 then
-                    debug_ram_raddr_int <= debug_ram_raddr_int + 1;
-                    debug_ram_raddr <= debug_ram_raddr_int + 1;
-                  end if;
-                end if;
+                case fastio_wdata is
+                  when x"00" => debug_ram_raddr <= 0; debug_ram_raddr_int <= 0;
+                  when x"01" => if debug_ram_raddr_int < 4095 then
+                                  debug_ram_raddr_int <= debug_ram_raddr_int + 1;
+                                  debug_ram_raddr <= debug_ram_raddr_int + 1;
+                                end if;
+                  when x"02" => debug_ram_read_select <= 2;
+                  when x"03" => debug_ram_read_select <= 3;
+                  when x"04" => debug_ram_read_select <= 4;
+                  when x"05" => debug_ram_read_select <= 5;                    
+                  when others => null;
+                end case;
               end if;
             when x"7" => -- Write to IRQ register
               -- Writing to IRQ bits clears the events
