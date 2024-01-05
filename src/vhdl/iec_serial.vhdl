@@ -236,6 +236,7 @@ begin
         t_al <= c_t_al;
         t_ac <= c_t_ac;
         t_at_ms <= c_t_at_ms;
+        t_h_ms <= c_t_h_ms;
         t_ne <= c_t_ne;
         t_f <= c_t_f;        
       end procedure;
@@ -294,7 +295,7 @@ begin
     end procedure;
     procedure milli_wait(msecs : integer) is
     begin
-
+      
       wait_clk_high <= '0'; wait_clk_low <= '0';
       wait_data_high <= '0'; wait_data_low <= '0';
       wait_srq_high <= '0'; wait_srq_low <= '0';
