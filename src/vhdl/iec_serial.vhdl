@@ -215,6 +215,8 @@ architecture questionable of iec_serial is
   signal ten_zeroes : unsigned(9 downto 0) := (others => '0');
   
   signal reset_timing_now : std_logic := '1';
+
+  signal prev_iec_bus_state : unsigned(7 downto 0) := (others => '0');
   
 begin
 
@@ -279,6 +281,8 @@ begin
 
     process (clock,clock81) is
 
+      variable iec_bus_state : unsigned(7 downto 0) := (others => '0');
+      
       procedure reset_timing is
       begin
         t_r <= c_t_r;
@@ -445,19 +449,22 @@ begin
       end if;
       
       if with_debug then
-        debug_ram_wdata(0) <= iec_data_i;
-        debug_ram_wdata(1) <= iec_clk_i;
-        debug_ram_wdata(2) <= iec_srq_i;
-        debug_ram_wdata(3) <= iec_data_o_int;
-        debug_ram_wdata(4) <= iec_clk_o_int;
-        debug_ram_wdata(5) <= iec_srq_o_int;
-        debug_ram_wdata(6) <= iec_atn_int;
-        debug_ram_wdata(7) <= iec_reset_int;
+        iec_bus_state(0) := iec_data_i;
+        iec_bus_state(1) := iec_clk_i;
+        iec_bus_state(2) := iec_srq_i;
+        iec_bus_state(3) := iec_data_o_int;
+        iec_bus_state(4) := iec_clk_o_int;
+        iec_bus_state(5) := iec_srq_o_int;
+        iec_bus_state(6) := iec_atn_int;
+        iec_bus_state(7) := iec_reset_int;
 
+        debug_ram_wdata <= iec_bus_state;
+        
         debug_ram_wdata2 <= to_unsigned(iec_state,8);
 
         prev_iec_state <= iec_state;
-        if (iec_state = prev_iec_state) then
+        prev_iec_bus_state <= iec_bus_state;
+        if (iec_state = prev_iec_state) and (iec_bus_state = prev_iec_bus_state) then
           debug_ram_write <= '0';
         else
           if debug_ram_waddr_int < 4095 then
