@@ -301,6 +301,7 @@ begin
       wait_srq_high <= '0'; wait_srq_low <= '0';
       wait_usec <= 0;
 
+      usecs <= 0; -- make sure we wait a whole milli-second
       wait_msec <= msecs;
       not_waiting_msec <= false;
       not_waiting_usec <= true;
