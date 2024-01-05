@@ -91,7 +91,9 @@ architecture questionable of iec_serial is
   signal wait_msec : integer := 0;
 
   signal cycles : integer := 0;
+  signal usecs : integer := 0;
   signal usec_toggle : std_logic := '0';
+  signal msec_toggle : std_logic := '0';
   signal last_usec_toggle : std_logic := '0';
   signal timing_sync_toggle : std_logic := '0';
   signal last_timing_sync_toggle : std_logic := '0';
@@ -309,6 +311,12 @@ begin
       else
         cycles <= 0;
         usec_toggle <= not usec_toggle;
+        if usecs < 999 then
+          usecs <= usecs + 1;
+        else
+          usecs <= 0;
+          msec_toggle <= not msec_toggle;
+        end if;
       end if;
     end if;
 
