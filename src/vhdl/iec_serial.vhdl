@@ -631,17 +631,6 @@ begin
         end if;
         last_usec_toggle <= usec_toggle;
       end if;
-      if msec_toggle /= last_msec_toggle then
-        if wait_msec > 0 then
-          not_waiting_msec <= false;
-          report "TIME: decrementing msec counter to " & integer'image(wait_msec-1);
-          wait_msec <= wait_msec - 1;
-          if wait_msec = 1 then
-            not_waiting_msec <= true;
-          end if;
-        end if;
-        msec_toggle <= last_msec_toggle;
-      end if;
 
       -- Advance state in IEC protocol transaction if the requirements are met
       if (wait_clk_high='1' and iec_clk_i='1') then
