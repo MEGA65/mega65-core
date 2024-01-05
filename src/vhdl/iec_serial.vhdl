@@ -1250,30 +1250,30 @@ begin
           when 405 => wait_data_high <= '1';  -- wait for high edge of EOI ACK pulse
           when 406 => null;
 
-          when 407 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 407 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 0 = " & std_logic'image(iec_data_out(0));
-          when 408 => c('1'); micro_wait(20);
-          when 409 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 408 => c('1'); micro_wait(t_vt);
+          when 409 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 1 = " & std_logic'image(iec_data_out(0));
-          when 410 => c('1'); micro_wait(20);
-          when 411 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 410 => c('1'); micro_wait(t_vt);
+          when 411 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 2 = " & std_logic'image(iec_data_out(0));
-          when 412 => c('1'); micro_wait(20);
-          when 413 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 412 => c('1'); micro_wait(t_vt);
+          when 413 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 3 = " & std_logic'image(iec_data_out(0));
-          when 414 => c('1'); micro_wait(20);
-          when 415 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 414 => c('1'); micro_wait(t_vt);
+          when 415 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 4 = " & std_logic'image(iec_data_out(0));
-          when 416 => c('1'); micro_wait(20);
-          when 417 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 416 => c('1'); micro_wait(t_vt);
+          when 417 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 5 = " & std_logic'image(iec_data_out(0));
-          when 418 => c('1'); micro_wait(20);
-          when 419 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 418 => c('1'); micro_wait(t_vt);
+          when 419 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 6 = " & std_logic'image(iec_data_out(0));
-          when 420 => c('1'); micro_wait(20);
-          when 421 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(70);
+          when 420 => c('1'); micro_wait(t_vt);
+          when 421 => c('0'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_st);
                       report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
-          when 422 => c('1'); micro_wait(20);
+          when 422 => c('1'); micro_wait(t_vt);
           when 423 => c('0'); d('1');
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
