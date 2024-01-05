@@ -130,17 +130,35 @@ architecture questionable of iec_serial is
   signal divisor_1mhz : integer := 81 - 1;
 
   -- Table of IEC serial protocol timing constants
-  constant c_t_r     : integer := 200;  -- C64 PRG says >= 20 usec
-  constant c_t_tk    : integer :=  40;  -- C64 PRG says >= 20 usec
-  constant c_t_dc_ms : integer :=  64;  -- C64 PRG says can be infinte, we
-                                        -- limit to 64 milliseconds
-  constant c_t_bb    : integer := 100;  -- C64 PRG says >= 100 usec
-
+  constant c_t_r     : integer :=  200;  -- C64 PRG says >= 20 usec
+  constant c_t_tk    : integer :=   40;  -- C64 PRG says >= 20 usec
+  constant c_t_dc_ms : integer :=   64;  -- C64 PRG says can be infinte, we
+                                         -- limit to 64 milliseconds
+  constant c_t_bb    : integer :=  100;  -- C64 PRG says >= 100 usec
+  constant c_t_ha    : integer :=   64;  -- = T_H in C64 PRG, infinite
+  constant c_t_st    : integer :=   70;  -- C64 PRG says >= 20 usec
+  constant c_t_vt    : integer :=   70;  -- C64 PRG says >= 20 usec
+  constant c_t_al    : integer := 1000;  -- Not specified by C64 PRG
+  constant c_t_ac    : integer :=   20;  -- Not specified by C64 PRG
+  constant c_t_at_ms : integer :=    1;  -- C64 PRG says 1 ms
+  constant c_t_h_ms  : integer :=   64;  -- C64 PRG says 64 ms
+  constant c_t_ne    : integer :=   40;  -- C64 PRG says 40 usec
+  constant c_t_f     : integer :=  255;  -- C64 PRG says 20 -- 1000 usec
+  
   signal t_r : integer;
   signal t_tk : integer;
   signal t_dc_ms : integer;
   signal t_bb : integer;
-
+  signal t_ha : integer;
+  signal t_st : integer;
+  signal t_vt : integer;
+  signal t_al : integer;
+  signal t_ac : integer;
+  signal t_at_ms : integer;
+  signal t_h_ms : integer;
+  signal t_ne : integer;
+  signal t_f : integer;
+  
   signal reset_timing_now : std_logic := '1';
   
 begin
@@ -212,6 +230,14 @@ begin
         t_tk <= c_t_tk;
         t_dc_ms <= c_t_dc_ms;
         t_bb <= c_t_bb;
+        t_ha <= c_t_ha;
+        t_st <= c_t_st;
+        t_vt <= c_t_vt;
+        t_al <= c_t_al;
+        t_ac <= c_t_ac;
+        t_at_ms <= c_t_at_ms;
+        t_ne <= c_t_ne;
+        t_f <= c_t_f;        
       end procedure;
       
     procedure d(v : std_logic) is
@@ -562,7 +588,16 @@ begin
           when x"82" => t_tk <= to_integer(iec_data_out);    iec_data <= to_unsigned(t_tk,8);
           when x"83" => t_dc_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_dc_ms,8);
           when x"84" => t_bb <= to_integer(iec_data_out); iec_data <= to_unsigned(t_bb,8);
-
+          when x"85" => t_ha <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ha,8);
+          when x"86" => t_st <= to_integer(iec_data_out); iec_data <= to_unsigned(t_st,8);
+          when x"87" => t_vt <= to_integer(iec_data_out); iec_data <= to_unsigned(t_vt,8);
+          when x"88" => t_al <= to_integer(iec_data_out); iec_data <= to_unsigned(t_al,8);
+          when x"89" => t_ac <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ac,8);
+          when x"8A" => t_at_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_at_ms,8);
+          when x"8B" => t_h_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_h_ms,8);
+          when x"8C" => t_ne <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ne,8);
+          when x"8D" => t_f <= to_integer(iec_data_out); iec_data <= to_unsigned(t_f,8);
+                         
           when x"d0" =>
             -- Trigger begin collecting debug info during job
             debug_ram_waddr_int <= 0;            
@@ -732,12 +767,12 @@ begin
             end case;
             
             -- Wait a little while before asserting CLK
-            micro_wait(20);
+            micro_wait(t_ac);
 
           when 121 =>
             c('0'); -- CLK to 0V
-            -- Wait upto 1ms for DATA to go low
-            micro_wait(1000);
+            -- Wait before releasing CLK after ATN has been responded to
+            milli_wait(t_at_ms);
 
           when 122 =>
             c('1');  -- Release CLK to 5V
@@ -779,7 +814,7 @@ begin
             -- and then continue. If we wait <40 usec the drive will miss
             -- the pulse, and think it has to wait for another pulse on CLK.
             -- If we wait >200usec, then it will think it is EOI.
-            milli_wait(64);
+            milli_wait(t_h_ms);
             wait_data_high <= '1';
 
           when 125 =>
@@ -788,7 +823,7 @@ begin
               iec_state <= iec_state + 2;
             else
               report "IEC: Saw DATA go high: Advancing";
-              micro_wait(40);
+              micro_wait(t_ne);
             end if;
 
           when 126 =>
@@ -826,26 +861,26 @@ begin
             -- Send the first 7 bits
             report "IEC: Sending data byte $" & to_hexstring(iec_data_out) & "  under ATN";
             null;
-          when 129 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 130 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 129 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 130 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 0 = " & std_logic'image(iec_data_out(0));                      
-          when 131 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 132 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 131 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 132 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 1 = " & std_logic'image(iec_data_out(0));
-          when 133 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 134 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 133 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 134 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 2 = " & std_logic'image(iec_data_out(0));
-          when 135 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 136 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 135 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 136 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 3 = " & std_logic'image(iec_data_out(0));
-          when 137 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 138 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 137 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 138 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 4 = " & std_logic'image(iec_data_out(0));
-          when 139 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 140 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 139 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 140 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 5 = " & std_logic'image(iec_data_out(0));
-          when 141 => c('0'); d(iec_data_out(0)); micro_wait(35);
-          when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(35);
+          when 141 => c('0'); d(iec_data_out(0)); micro_wait(t_s);
+          when 142 => c('1'); d(iec_data_out(0)); iec_data_out_rotate; micro_wait(t_v);
                       report "IEC: Sent bit 6 = " & std_logic'image(iec_data_out(0));
           when 143 => c('0'); d(iec_data_out(0)); micro_wait(100);                      
           when 144 =>
@@ -882,7 +917,7 @@ begin
             else
               report "IEC: Device did not indicate support for JiffyDOS(tm) protocol (this is normal, depending on command issued).";
             end if;
-          when 147=> c('1'); micro_wait(35);
+          when 147=> c('1'); micro_wait(t_v);
                       report "IEC: Sent bit 7 = " & std_logic'image(iec_data_out(0));
           -- Now we have sent 7 bits, release data, keeping clock at 0V, and
           -- check for DATA being pulled low
@@ -890,7 +925,7 @@ begin
           when 149 =>
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
-                      micro_wait(1000);
+                      micro_wait(t_f);
                       wait_data_low <= '1';
                       report "IEC: Waiting for device to acknowledge byte";
           when 150 =>
