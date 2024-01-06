@@ -149,7 +149,7 @@ architecture questionable of iec_serial is
   constant c_t_at_ms : integer :=    1;  -- C64 PRG says 1 ms
   constant c_t_h_ms  : integer :=   64;  -- C64 PRG says 64 ms
   constant c_t_ne    : integer :=   40;  -- C64 PRG says 40 usec
-  constant c_t_f     : integer :=  255;  -- C64 PRG says 20 -- 1000 usec
+  constant c_t_f     : integer := 1000;  -- C64 PRG says 20 -- 1000 usec
   constant c_t_ye    : integer :=  250;  -- C64 PRG says 250
   constant c_t_ei    : integer :=   80;  -- C64 PRG says min 60
   constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
@@ -730,7 +730,7 @@ begin
           when x"8A" => t_at_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_at_ms,8);
           when x"8B" => t_h_ms <= to_integer(iec_data_out); iec_data <= to_unsigned(t_h_ms,8);
           when x"8C" => t_ne <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ne,8);
-          when x"8D" => t_f <= to_integer(iec_data_out); iec_data <= to_unsigned(t_f,8);
+          when x"8D" => t_f <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_f,10)(9 downto 2);
           when x"8E" => t_ye <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ye,8);
           when x"8F" => t_ei <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
           when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
