@@ -199,6 +199,7 @@ architecture questionable of iec_serial is
   signal t_h : integer;
   signal t_dc : integer;
 
+  signal t_jd    : integer :=  300;  -- JiffyDOS solicitation CLK hold time
   signal t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
   signal t_j0    : integer :=   37;  -- JiffyDOS RX setup time
   signal t_j1    : integer :=   14;  -- JiffyDOS RX start time
@@ -352,6 +353,7 @@ begin
         t_j10 <= c_t_j10;
         t_j11 <= c_t_j11;
         t_jr <= c_t_jr;
+        t_jd <= c_t_jd;
   
         t_fs <= c_t_fs;
         t_fv <= c_t_fv;
@@ -731,7 +733,7 @@ begin
           when x"8E" => t_ye <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ye,8);
           when x"8F" => t_ei <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
           when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
-          when x"91" => t_jt <= to_integer(iec_data_out); iec_data <= to_unsigned(t_jt,8);
+          when x"91" => t_jt <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_jt,10)(9 downto 2);
           when x"92" => t_j0 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j0,8);
           when x"93" => t_j1 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j1,8);
           when x"94" => t_j2 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j2,8);
@@ -748,6 +750,7 @@ begin
           when x"9F" => t_fs <= to_integer(iec_data_out); iec_data <= to_unsigned(t_fs,8);
           when x"A0" => t_ff <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ff,8);
           when x"A1" => t_pullup <= to_integer(iec_data_out); iec_data <= to_unsigned(t_pullup,8);
+          when x"A2" => t_jd <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_jd,10)(9 downto 2);
                          
           when x"d0" =>
             -- Trigger begin collecting debug info during job
@@ -1038,9 +1041,7 @@ begin
             if probe_jiffydos='1' then
               -- Release DATA, and wait for at least 300usec, to see if data
               -- goes low.  If yes, device supports JiffyDOS.
-              -- XXX Delay is >255 usec, but <1ms, so we can't easily
-              -- parameterise it
-              d('1'); data_low_observed <= '0'; micro_wait(300);
+              d('1'); data_low_observed <= '0'; micro_wait(t_jd);
             else
               iec_state <= iec_state + 2;
               micro_wait(t_vt);
