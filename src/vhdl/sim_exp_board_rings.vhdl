@@ -52,12 +52,12 @@ entity sim_exp_board_rings is
 );
 end sim_exp_board_rings;
 
-architecture simulation of sim_exp_board_rings is
-
-  
+architecture simulation of sim_exp_board_rings is  
   
 begin
 
+  -- Nothing to do: Just plumb everything together.
+  
   u1: entity work.sim74LS595 port map (
     q => user_d_o,
     ser => exp_wdata,
