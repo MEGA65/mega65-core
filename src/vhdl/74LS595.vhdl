@@ -7,12 +7,6 @@ use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
 
--- on Pi1541 test unit:
--- ATN - purple
--- SRQ - white
--- DATA - green
--- CLK - blue
-
 entity sim74LS595 is
   port (
     q : out unsigned(7 downto 0);
