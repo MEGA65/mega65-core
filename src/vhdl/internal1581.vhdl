@@ -267,6 +267,11 @@ begin
           -- & ", write_n=" & std_logic'image(cpu_write_n);
         when x"4" => cs_cia <='1'; -- $400x = 8520A CIA
         when x"6" => cs_fdc <='1'; -- $600x = WDC 1770 FDC
+                     if cpu_write_n='1' then
+                       report "1581FDC: Reading FDC register $" & to_hexstring(address);
+                     else
+                       report "1581FDC: Writing FDC register $" & to_hexstring(address) & " <- wdata=$" & to_hexstring(fastio_wdata)
+                     end if;
         when others => null;
       end case;
 
@@ -286,6 +291,7 @@ begin
       rdata <= cia_data_out;
     elsif cs_fdc='1' then
       -- rdata <= fdc_data_out;
+      report "1581: Trying to read from FDC";
       rdata <= (others => '1');
     else
       rdata <= (others => '0'); -- This avoids a latch
