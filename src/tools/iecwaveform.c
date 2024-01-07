@@ -27,6 +27,7 @@ unsigned char dbg_vals[4096]={0};
 unsigned char dbg_states[4096]={0};
 
 int jiffyDOS = 0 ;
+int c1581 = 0;
 
 char *sigs[5][24]={
   {"                        ",
@@ -406,77 +407,114 @@ int getUpdate(void)
 	      case 0xCFE8: fprintf(stderr,"$%04X            1541: Check for end of command \n",pc); break;
 	      case 0xCFED: fprintf(stderr,"$%04X            1541: L45 (Indicate command waiting for processing) \n",pc); break;
 	      }
-	      if (!jiffyDOS) 
-		switch(pc) {
-		case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
-		case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
-		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
-		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
-		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
-		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
-		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
-		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
-		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
-		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
-		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
-		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
-		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
-		case 0xEA18: fprintf(stderr,"$%04X            1541: ACP03+13 Stashing sampled bit into $85\n",pc); break;
-		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
-		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
-		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
-		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
-		case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
-		case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
-		case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
-		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
-		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
-		default:
-		  break;
-		}
-	      else {
-		// JiffyDOS ROM
-		switch(pc) {
-		case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
-		case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
-		case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
-		case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
-		case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
-		case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
-		case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
-		case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
-		case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
-		case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
-		case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
-		case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
-		case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
-		case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
-		case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
-		case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
-		case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
-		case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
-		case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
-		case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
-		case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
-		case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
-		case 0xEBF5: fprintf(stderr,"$%04X            1541: Executing pending command\n",pc); break;
-		case 0xEC00: fprintf(stderr,"$%04X            1541: Checking if ATN request pending\n",pc); break;		
-		case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
-		case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
-		case 0xFFB5: fprintf(stderr,"$%04X            JIFFYDOS: Waiting for computer to indicate ready to RX byte\n",pc); break;
-		case 0xFBD3: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
-		case 0xFBE2: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 4 and 5\n",pc); break;
-		case 0xFBE8: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 6 and 7\n",pc); break;
-		case 0xFBF0: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 1 of 2\n",pc); break;
-		case 0xFBF6: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 2 of 2\n",pc); break;
-		case 0xFC00: fprintf(stderr,"$%04X            JIFFYDOS: Latch status bits\n",pc); break;
-		case 0xFC0E: fprintf(stderr,"$%04X            JIFFYDOS: Drive detected EOI when receiving byte\n",pc); break;
-		default:
-		  break;
+	      if (c1581) {
+		// From chapter 10 of 1581 user guide
+		  switch(pc) {
+		  case 0xFF00: fprintf(stderr,"$%04X            1581: Jump to main IDLE loop\n",pc); break;
+		  case 0xFF03: fprintf(stderr,"$%04X            1581: Jump to IRQ handler\n",pc); break;
+		  case 0xFF06: fprintf(stderr,"$%04X            1581: Jump to NMI handler\n",pc); break;
+		  case 0xFF09: fprintf(stderr,"$%04X            1581: Jump to VALIDATE command\n",pc); break;
+		  case 0xFF0C: fprintf(stderr,"$%04X            1581: Jump to INITIALIZE command\n",pc); break;
+		  case 0xFF0F: fprintf(stderr,"$%04X            1581: Jump to PARTITION command\n",pc); break;
+		  case 0xFF12: fprintf(stderr,"$%04X            1581: Jump to M-R/M-W command\n",pc); break;
+		  case 0xFF15: fprintf(stderr,"$%04X            1581: Jump to BLOCK family commands\n",pc); break;
+		  case 0xFF18: fprintf(stderr,"$%04X            1581: Jump to USER command\n",pc); break;
+		  case 0xFF1B: fprintf(stderr,"$%04X            1581: Jump to RECORD command\n",pc); break;
+		  case 0xFF1E: fprintf(stderr,"$%04X            1581: Jump to Utility loader command (&)\n",pc); break;
+		  case 0xFF21: fprintf(stderr,"$%04X            1581: Jump to COPY command\n",pc); break;
+		  case 0xFF24: fprintf(stderr,"$%04X            1581: Jump to RENAME command\n",pc); break;
+		  case 0xFF27: fprintf(stderr,"$%04X            1581: Jump to SCRATCH command\n",pc); break;
+		  case 0xFF2A: fprintf(stderr,"$%04X            1581: Jump to NEW/FORMAT command\n",pc); break;
+		  case 0xFF2D: fprintf(stderr,"$%04X            1581: Jump to FDC error handler routine\n",pc); break;
+		  case 0xFF30: fprintf(stderr,"$%04X            1581: Jump to ATN reponse handler\n",pc); break;
+		  case 0xFF33: fprintf(stderr,"$%04X            1581: Jump to TALK routine\n",pc); break;
+		  case 0xFF36: fprintf(stderr,"$%04X            1581: Jump to LISTEN\n",pc); break;
+		  case 0xFF39: fprintf(stderr,"$%04X            1581: Jump to FDC routine?\n",pc); break;
+		  case 0xFF3C: fprintf(stderr,"$%04X            1581: Jump to LOGICAL TO PHYSICAL sector translate routine\n",pc); break;
+		  case 0xFF3F: fprintf(stderr,"$%04X            1581: Jump to DOS ERROR handler routine\n",pc); break;
+
+		  case 0xFF54: fprintf(stderr,"$%04X            1581: Jump to Direct controller (FDC?) call\n",pc); break;
+		  case 0xFF57: fprintf(stderr,"$%04X            1581: Jump to CBM auto-loader routine\n",pc); break;
+		  case 0xFF5A: fprintf(stderr,"$%04X            1581: Jump to Return from CBM autoloader with autoloader disabled\n",pc); break;
+		  case 0xFF5D: fprintf(stderr,"$%04X            1581: Jump to signature analysis routine\n",pc); break;
+
+		  case 0xFF60: fprintf(stderr,"$%04X            1581: Jump to \n",pc); break;
+		  case 0xFF63: fprintf(stderr,"$%04X            1581: Jump to \n",pc); break;
+		  case 0xFF66: fprintf(stderr,"$%04X            1581: Jump to \n",pc); break;
+		  }
+	      } else {		    
+		// 1541
+		if (!jiffyDOS) 
+		  switch(pc) {
+		  case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
+		  case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
+		  case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
+		  case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
+		  case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
+		  case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
+		  case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
+		  case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
+		  case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
+		  case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
+		  case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
+		  case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
+		  case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
+		  case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
+		  case 0xEA18: fprintf(stderr,"$%04X            1541: ACP03+13 Stashing sampled bit into $85\n",pc); break;
+		  case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		  case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
+		  case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
+		  case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
+		  case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
+		  case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
+		  case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
+		  case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
+		  case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
+		  default:
+		    break;
+		  }
+		else {
+		  // JiffyDOS ROM
+		  switch(pc) {
+		  case 0xE853: fprintf(stderr,"$%04X            1541: ATN IRQ occurred, and ATN queued for processing\n",pc); break;
+		  case 0xE85B: fprintf(stderr,"$%04X            1541: Servicing ATN request\n",pc); break;		
+		  case 0xE89F: fprintf(stderr,"$%04X            1541: Received TALK command for device\n",pc); break;		
+		  case 0xE8BE: fprintf(stderr,"$%04X            1541: Received secondary address\n",pc); break;
+		  case 0xE8F1: fprintf(stderr,"$%04X            1541: TURNAROUND (Serial bus wants to become talker)\n",pc); break;
+		  case 0xE909: fprintf(stderr,"$%04X            1541: TALK (Serial bus wants to send a byte)\n",pc); break;
+		  case 0xE9C9: fprintf(stderr,"$%04X            1541: ACPTR (Serial bus receive byte)\n",pc); bit_num=0; break;
+		  case 0xE9CD: fprintf(stderr,"$%04X            1541: ACP00A (wait for CLK to go to 5V)\n",pc); break;
+		  case 0xE9DF: fprintf(stderr,"$%04X            1541: ACP00 (saw CLK get released)\n",pc); break;
+		  case 0xE9F2: fprintf(stderr,"$%04X            1541: ACP00B (Pulse data low and wait for turn-around)\n",pc); break;
+		  case 0xE9FD: fprintf(stderr,"$%04X            1541: ACP02A (EOI check)\n",pc); break;
+		  case 0xEA07: fprintf(stderr,"$%04X            1541:   Clear EOI flag\n",pc); break;
+		  case 0xEA0C: fprintf(stderr,"$%04X            1541:   Set EOI flag\n",pc); break;
+		  case 0xEA12: fprintf(stderr,"$%04X            1541: ACP03+10 Sampled bit %d of serial bus byte\n",pc,bit_num++); break;
+		  case 0xEA24: fprintf(stderr,"$%04X            1541: ACP03A Got bit of serial bus byte\n",pc); break;
+		  case 0xEA28: fprintf(stderr,"$%04X            1541: ACKNOWLEDGE BYTE\n",pc); break;
+		  case 0xEA2B: fprintf(stderr,"$%04X            1541: ACP03A+17 Got all 8 bits\n",pc); break;
+		  case 0xEA2E: fprintf(stderr,"$%04X            1541: LISTEN (Starting to receive a byte)\n",pc); break;
+		  case 0xEA41: fprintf(stderr,"$%04X            1541: LISTEN BAD CHANNEL (abort listening, due to lack of active channel)\n",pc); break;
+		  case 0xEA44: fprintf(stderr,"$%04X            1541: LISTEN OPEN  (abort listening, due to lack of active channel)\n",pc); break;
+		  case 0xEB34: fprintf(stderr,"$%04X            1541: Write to $180D\n",pc); break;
+		  case 0xEBE7: fprintf(stderr,"$%04X            1541: Enter IDLE loop\n",pc); break;
+		  case 0xEBF5: fprintf(stderr,"$%04X            1541: Executing pending command\n",pc); break;
+		  case 0xEC00: fprintf(stderr,"$%04X            1541: Checking if ATN request pending\n",pc); break;		
+		  case 0xFF0D: fprintf(stderr,"$%04X            1541: NNMI10 (Set C64/VIC20 speed)\n",pc); break;
+		  case 0xFF79: fprintf(stderr,"$%04X            JIFFYDOS: Send byte to computer\n",pc); break;
+		  case 0xFFB5: fprintf(stderr,"$%04X            JIFFYDOS: Waiting for computer to indicate ready to RX byte\n",pc); break;
+		  case 0xFBD3: fprintf(stderr,"$%04X            JIFFYDOS: Receive byte from computer\n",pc); break;
+		  case 0xFBE2: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 4 and 5\n",pc); break;
+		  case 0xFBE8: fprintf(stderr,"$%04X            JIFFYDOS: Latch bits 6 and 7\n",pc); break;
+		  case 0xFBF0: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 1 of 2\n",pc); break;
+		  case 0xFBF6: fprintf(stderr,"$%04X            JIFFYDOS: Latch low nybl bits 2 of 2\n",pc); break;
+		  case 0xFC00: fprintf(stderr,"$%04X            JIFFYDOS: Latch status bits\n",pc); break;
+		  case 0xFC0E: fprintf(stderr,"$%04X            JIFFYDOS: Drive detected EOI when receiving byte\n",pc); break;
+		  default:
+		    break;
+		  }
 		}
 	      }
-
 	    }
 	  }
 	  line[0]=0; line_len=0;
@@ -551,14 +589,15 @@ int iecDataTrace(char *msg)
 int main(int argc,char **argv)
 {
   if (argc<2) {
-    fprintf(stderr,"usage: iecwaveform <VUnit output.txt> [JD]\n");
+    fprintf(stderr,"usage: iecwaveform <VUnit output.txt> [JD|81]\n");
     exit(-1);
   }
 
   if (argc>2) {
     if (!strcasecmp(argv[2],"JD")) jiffyDOS=1;
+    if (!strcasecmp(argv[2],"81")) c1581=1;
     else {
-      fprintf(stderr,"ERROR: JD is the only supported drive ROM variant.\n");
+      fprintf(stderr,"ERROR: JD and 81 are the only supported drive ROM variants (default is stock 1541).\n");
       exit(-1);
     }
   }
