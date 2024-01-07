@@ -26,6 +26,7 @@ architecture simulated of sim74LS165 is
 begin
 
   process (clk, q, ser, sh_ld_n, clk_inhibit) is
+  begin
     if rising_edge(clk) and clk_inhibit='0' then
       -- Reset register contents
       if sh_ld_n = '0' then

@@ -12,8 +12,8 @@ entity sim74LS595 is
     q : out unsigned(7 downto 0);
     ser : in std_logic;
     g_n : in std_logic;       -- Gate, i.e., oe_n
-    rck : in std_logic;       -- latch sr into register
-    srck : in std_logic;      -- shift register clock
+    rclk : in std_logic;       -- latch sr into register
+    srclk : in std_logic;      -- shift register clock
     srclr_n : in std_logic;   -- clear shift register
     q_h_dash : out std_logic  -- cascade output
     );
@@ -26,7 +26,8 @@ architecture simulated of sim74LS595 is
   
 begin
 
-  process (rclk, srclr_n, srck, g_n, ser) is
+  process (rclk, srclr_n, srclk, g_n, ser) is
+  begin
     if rising_edge(srclk) then
       -- Advance bits through shift register.
       sr(0) <= ser;
@@ -34,7 +35,7 @@ begin
 
       -- Reset register contents
       if srclr_n = '0' then
-        sr <= (others '0');
+        sr <= (others => '0');
       end if;      
     end if;
 
