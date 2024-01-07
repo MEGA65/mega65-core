@@ -406,6 +406,8 @@ begin
     procedure micro_wait(usec_count : integer) is
     begin
 
+      report "micro_wait(" & integer'image(usec_count) & ") called in iec_state = " & integer'image(iec_state);
+      
       wait_clk_high <= '0'; wait_clk_low <= '0';
       wait_data_high <= '0'; wait_data_low <= '0';
       wait_srq_high <= '0'; wait_srq_low <= '0';
@@ -920,7 +922,7 @@ begin
 
           when 122 =>
             c('1');  -- Release CLK to 5V
-            if prev_iec_state /= 123 then
+            if prev_iec_state /= iec_state then
               report "IEC: Checking if DATA went low (device responded to ATN)";
             end if;
             if iec_data_i = '0' then
