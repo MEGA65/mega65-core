@@ -270,7 +270,7 @@ begin
                      if cpu_write_n='1' then
                        report "1581FDC: Reading FDC register $" & to_hexstring(address);
                      else
-                       report "1581FDC: Writing FDC register $" & to_hexstring(address) & " <- wdata=$" & to_hexstring(fastio_wdata)
+                       report "1581FDC: Writing FDC register $" & to_hexstring(address) & " <- wdata=$" & to_hexstring(fastio_wdata);
                      end if;
         when others => null;
       end case;
