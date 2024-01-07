@@ -215,6 +215,8 @@ begin
       for i in 1 to 1_950_000 loop
         clock_tick;
       end loop;
+      report "1581BOOT: Time for drive to boot expired";
+      
     end procedure;
 
     procedure atn_release is

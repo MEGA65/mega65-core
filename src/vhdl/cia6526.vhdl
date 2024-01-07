@@ -571,7 +571,7 @@ begin  -- behavioural
           when '0' =>
             -- phi2 pulses
             if phi0_1mhz ='1' then
-              report "CIA" & to_hexstring(unit) &  " timera ticked down to $" & to_hexstring(reg_timera);
+              -- report "CIA" & to_hexstring(unit) &  " timera ticked down to $" & to_hexstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
             end if;
