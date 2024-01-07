@@ -155,7 +155,7 @@ architecture questionable of iec_serial is
   constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
 
   constant c_t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
-  constant c_t_jd    : integer :=  300;  -- JiffyDOS CLK hold time for detection
+  constant c_t_jd    : integer :=  320;  -- JiffyDOS CLK hold time for detection
   constant c_t_j0    : integer :=   37;  -- JiffyDOS RX setup time
   constant c_t_j1    : integer :=   14;  -- JiffyDOS RX start time
   constant c_t_j2    : integer :=   10;  -- JiffyDOS RX 
