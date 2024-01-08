@@ -240,6 +240,25 @@ begin
         else
           report "Saw " & integer'image(exp_tick_count) & " edges on EXP_CLOCK";
         end if;
+      elsif run("EXP_LATCH is asserted") then
+        for i in 1 to 32*60 loop
+          clock_tick;
+          if exp_latch = '1' then
+            exp_tick_count <= exp_tick_count + 1;
+          end if;
+        end loop;
+
+        -- Check that EXP_LATCH gets asserted
+        if exp_tick_count = 0 then
+          assert false report "EXP_LATCH was never asserted";
+        end if;
+        report "Saw " & integer'image(exp_tick_count) & " cycles with EXP_LATCH asserted";
+
+        -- Check that it is asserted at the correct duty-cycle = 1/32
+        if exp_tick_count /= 60 then
+          assert false report "Expected EXP_LATCH to be asserted 1/32 of the time, i.e., 60 cycles";
+        end if;
+        
       end if;
     end loop;
     test_runner_cleanup(runner);
