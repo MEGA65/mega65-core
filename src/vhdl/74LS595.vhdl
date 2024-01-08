@@ -46,17 +46,22 @@ begin
       q_h_dash <= sr(6);
     end if;
 
-    if rising_edge(rclk) then
-      report "U" & integer'image(unit) & ": RCLK rose: Latching data " & to_string(sr);
-      q_int <= sr;
-    end if;
-
     if g_n='0' then
       q <= q_int;
     else
       q <= (others => 'Z');
     end if;
-    
+            
+    if rising_edge(rclk) then
+      if g_n='0' then
+        report "U" & integer'image(unit) & ": RCLK rose: Latching and presenting data " & to_string(sr);
+        q <= sr;
+      else
+        report "U" & integer'image(unit) & ": RCLK rose: Latching data " & to_string(sr);
+      end if;
+      q_int <= sr;
+    end if;
+
   end process;
 end simulated;
     
