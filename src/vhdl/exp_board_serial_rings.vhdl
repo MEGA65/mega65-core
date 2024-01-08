@@ -219,9 +219,25 @@ begin
       -- Update signals if enabled
       if plumb_signals = '1' then
         -- XXX Update output_vector from signals
+        output_vector(23) <= user_pa2_o;
+        output_vector(22) <= user_sp1_o;
+        output_vector(21) <= user_cnt2_o;
+        output_vector(20) <= user_sp2_o;
+        output_vector(19) <= user_pc2_o;
+        output_vector(18) <= user_atn_en_n;
+        output_vector(17) <= user_cnt1_o;
+        output_vector(16) <= user_reset_n_en_n;
+        output_vector(15) <= c1565_ld_o;
+        output_vector(14) <= c1565_serio_en_n;
+        output_vector(13) <= c1565_rst_o;
+        output_vector(12) <= '1'; -- not assigned
         output_vector(11) <= tape_write_o;
+        output_vector(10) <= tape_6v_en;
+        output_vector(9) <= c1565_serio_o;
+        output_vector(8) <= c1565_clk_o;
         for i in 0 to 7 loop
           output_vector(31-i) <= user_d_o(i);
+          output_vector(7-i) <= user_d_en_n(i);
         end loop;
       end if;
 
