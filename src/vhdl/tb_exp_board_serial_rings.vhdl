@@ -282,23 +282,23 @@ begin
     procedure remember_current_signals is
     begin
       -- Tape port
-      r_tape_write_o <= s_tape_write_o;
+      r_tape_write_o <= tape_write_o;
       r_tape_read_i <= s_tape_read_i;
       r_tape_sense_i <= s_tape_sense_i;
-      r_tape_6v_en <= s_tape_6v_en;
+      r_tape_6v_en <= tape_6v_en;
   
       -- C1565 port
       r_c1565_serio_i <= s_c1565_serio_i;
-      r_c1565_serio_o <= s_c1565_serio_o;
-      r_c1565_serio_en_n <= s_c1565_serio_en_n;
-      r_c1565_clk_o <= s_c1565_clk_o;
-      r_c1565_ld_o <= s_c1565_ld_o;
-      r_c1565_rst_o <= s_c1565_rst_o;
+      r_c1565_serio_o <= c1565_serio_o;
+      r_c1565_serio_en_n <= c1565_serio_en_n;
+      r_c1565_clk_o <= c1565_clk_o;
+      r_c1565_ld_o <= c1565_ld_o;
+      r_c1565_rst_o <= c1565_rst_o;
 
       -- User port
       r_user_d_i <= s_user_d_i;
-      r_user_d_o <= s_user_d_o;
-      r_user_d_en_n <= s_user_d_en_n;
+      r_user_d_o <= user_d_o;
+      r_user_d_en_n <= user_d_en_n;
       r_user_pa2_i <= s_user_pa2_i;
       r_user_sp1_i <= s_user_sp1_i;
       r_user_cnt2_i <= s_user_cnt2_i;
@@ -306,20 +306,20 @@ begin
       r_user_pc2_i <= s_user_pc2_i;
       r_user_flag2_i <= s_user_flag2_i;
       r_user_cnt1_i <= s_user_cnt1_i;
-      r_user_pa2_o <= s_user_pa2_o;
-      r_user_sp1_o <= s_user_sp1_o;
-      r_user_cnt2_o <= s_user_cnt2_o;
-      r_user_sp2_o <= s_user_sp2_o;
-      r_user_pc2_o <= s_user_pc2_o;
-      r_user_flag2_o <= s_user_flag2_o;
-      r_user_cnt1_o <= s_user_cnt1_o;
+      r_user_pa2_o <= user_pa2_o;
+      r_user_sp1_o <= user_sp1_o;
+      r_user_cnt2_o <= user_cnt2_o;
+      r_user_sp2_o <= user_sp2_o;
+      r_user_pc2_o <= user_pc2_o;
+      r_user_flag2_o <= user_flag2_o;
+      r_user_cnt1_o <= user_cnt1_o;
       r_user_reset_n_i <= s_user_reset_n_i;
-      r_user_sp1_en_n <= s_user_sp1_en_n;
-      r_user_cnt2_en_n <= s_user_cnt2_en_n;
-      r_user_sp2_en_n <= s_user_sp2_en_n;
-      r_user_atn_en_n <= s_user_atn_en_n;
-      r_user_cnt1_en_n <= s_user_cnt1_en_n;
-      r_user_reset_n_en_n <= s_user_reset_n_en_n;
+      r_user_sp1_en_n <= user_sp1_en_n;
+      r_user_cnt2_en_n <= user_cnt2_en_n;
+      r_user_sp2_en_n <= user_sp2_en_n;
+      r_user_atn_en_n <= user_atn_en_n;
+      r_user_cnt1_en_n <= user_cnt1_en_n;
+      r_user_reset_n_en_n <= user_reset_n_en_n;
       
     end procedure;
 
