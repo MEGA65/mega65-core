@@ -21,6 +21,10 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal exp_wdata : std_logic := '0';
   signal exp_rdata : std_logic;
 
+
+  signal exp_tick_count : integer := 0;
+  signal last_exp_clock : std_logic := '0';
+  
   signal fastio_addr : unsigned(19 downto 0) := to_unsigned(0,20);
   signal fastio_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal fastio_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -223,8 +227,19 @@ begin
     
     while test_suite loop
 
-      if run("Dummy test") then
-        assert false report "Dummy test";
+      if run("EXP_CLOCK ticks") then
+        for i in 1 to 1000 loop
+          clock_tick;
+          if exp_clock /= last_exp_clock then
+            last_exp_clock <= exp_clock;
+            exp_tick_count <= exp_tick_count + 1;
+          end if;
+        end loop;
+        if exp_tick_count = 0 then
+          assert false report "EXP_CLOCK did not tick";
+        else
+          report "Saw " & integer'image(exp_tick_count) & " edges on EXP_CLOCK";
+        end if;
       end if;
     end loop;
     test_runner_cleanup(runner);
