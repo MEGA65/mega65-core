@@ -104,6 +104,26 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   signal exp_clock_int : std_logic := '0';
 
   signal ring_phase : integer range 0 to 32 := 0;
+
+  function to_str(signal vec: std_logic_vector) return string is
+      variable result: string(0 to (vec'length-1));
+    begin
+      for i in vec'range loop
+        case vec(i) is
+          when 'U' => result(i) := 'U';
+          when 'X' => result(i) := 'X';
+          when '0' => result(i) := '0';
+          when '1' => result(i) := '1';
+          when 'Z' => result(i) := 'Z';
+          when 'W' => result(i) := 'W';
+          when 'L' => result(i) := 'L';
+          when 'H' => result(i) := 'H';
+          when '-' => result(i) := '-';
+          when others => result(i) := '?';
+        end case;
+      end loop;
+      return result;
+    end to_str;
   
 begin
 
@@ -185,10 +205,10 @@ begin
 
             -- Reset output vector
             sr_out <= output_vector;
-            report "RING: preparing to output vector " & to_string(output_vector);
+            report "RING: preparing to output vector " & to_str(output_vector);
             -- Latch input shift register contents
             input_vector <= sr_in;
-            report "RING: latched input vector " & to_string(sr_in);
+            report "RING: latched input vector " & to_str(sr_in);
           else
             ring_phase <= ring_phase - 1;
             exp_latch <= '0';
