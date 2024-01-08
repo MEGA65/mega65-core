@@ -200,6 +200,7 @@ begin
       if plumb_signals = '1' then
         -- XXX Update output_vector from signals
         output_vector(19) <= tape_write_o;
+        output_vector(31 downto 24) <= user_d_o;
       end if;
 
     end if;
