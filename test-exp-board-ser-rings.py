@@ -15,6 +15,7 @@ lib.add_source_files("src/vhdl/cputypes.vhdl")
 lib.add_source_files("src/vhdl/74LS595.vhdl")
 lib.add_source_files("src/vhdl/74LS165.vhdl")
 lib.add_source_files("src/vhdl/sim_exp_board_rings.vhdl")
+lib.add_source_files("src/vhdl/exp_board_serial_rings.vhdl")
 
 vu.set_compile_option("ghdl.a_flags", ["-frelaxed-rules","-fsynopsys"])
 vu.set_sim_option("ghdl.elab_flags", ["-frelaxed-rules","-fsynopsys"])

@@ -50,14 +50,16 @@ entity sim_exp_board_rings is
     user_flag2_o : out std_logic;
     user_cnt1_o : out std_logic;
 
-    user_reset_n_i : in std_logic;
-    user_spi1_en_n : out std_logic;
+    user_sp1_en_n : out std_logic;
     user_cnt2_en_n : out std_logic;
     user_sp2_en_n : out std_logic;
-    user_atn_en_n : out std_logic;
     user_cnt1_en_n : out std_logic;
-    user_reset_n_en_n : out std_logic
 
+    user_atn_en_n : out std_logic;
+
+    user_reset_n_i : in std_logic;
+    user_reset_n_en : out std_logic
+    
 );
 end sim_exp_board_rings;
 
@@ -103,7 +105,7 @@ begin
     q(4) => user_pc2_o,
     q(5) => user_atn_en_n,
     q(6) => user_cnt1_o,
-    q(7) => user_reset_n_en_n,
+    q(7) => user_reset_n_en,
     ser => ser_u1_u4,
     q_h_dash => ser_u4_u6,
     rclk => exp_latch,
