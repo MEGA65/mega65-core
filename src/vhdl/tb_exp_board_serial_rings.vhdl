@@ -34,23 +34,23 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- M65 internal signals
   
   -- Tape port
-  signal tape_write_o : std_logic;
+  signal tape_write_o : std_logic := '1';
   signal tape_read_i :  std_logic;
   signal tape_sense_i :  std_logic;
-  signal tape_6v_en : std_logic;
+  signal tape_6v_en : std_logic := '1';
   
     -- C1565 port
   signal c1565_serio_i :  std_logic;
-  signal c1565_serio_o : std_logic;
-  signal c1565_serio_en_n : std_logic;
-  signal c1565_clk_o : std_logic;
-  signal c1565_ld_o : std_logic;
-  signal c1565_rst_o : std_logic;
+  signal c1565_serio_o : std_logic := '1';
+  signal c1565_serio_en_n : std_logic := '1';
+  signal c1565_clk_o : std_logic := '1';
+  signal c1565_ld_o : std_logic := '1';
+  signal c1565_rst_o : std_logic := '1';
   
     -- User port
   signal user_d_i : std_logic_vector(7 downto 0);
-  signal user_d_o : std_logic_vector(7 downto 0);
-  signal user_d_en_n : std_logic_vector(7 downto 0);
+  signal user_d_o : std_logic_vector(7 downto 0) := (others => '1');
+  signal user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
   signal user_pa2_i : std_logic;
   signal user_sp1_i : std_logic;
   signal user_cnt2_i : std_logic;
@@ -58,13 +58,13 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal user_pc2_i :  std_logic;
   signal user_flag2_i : std_logic;
   signal user_cnt1_i :  std_logic;
-  signal user_pa2_o : std_logic;
-  signal user_sp1_o : std_logic;
-  signal user_cnt2_o : std_logic;
-  signal user_sp2_o :  std_logic;
-  signal user_pc2_o :  std_logic;
-  signal user_flag2_o : std_logic;
-  signal user_cnt1_o :  std_logic;
+  signal user_pa2_o : std_logic := '1';
+  signal user_sp1_o : std_logic := '1';
+  signal user_cnt2_o : std_logic := '1';
+  signal user_sp2_o :  std_logic := '1';
+  signal user_pc2_o :  std_logic := '1';
+  signal user_flag2_o : std_logic := '1';
+  signal user_cnt1_o :  std_logic := '1';
   signal user_reset_n_i : std_logic;
   signal user_sp1_en_n : std_logic;
   signal user_cnt2_en_n : std_logic;
@@ -83,16 +83,16 @@ architecture test_arch of tb_exp_board_serial_rings is
   
   -- C1565 port
   signal s_c1565_serio_i :  std_logic;
-  signal s_c1565_serio_o : std_logic;
+  signal s_c1565_serio_o : std_logic := '1';
   signal s_c1565_serio_en_n : std_logic;
-  signal s_c1565_clk_o : std_logic;
-  signal s_c1565_ld_o : std_logic;
-  signal s_c1565_rst_o : std_logic;
+  signal s_c1565_clk_o : std_logic := '1';
+  signal s_c1565_ld_o : std_logic := '1';
+  signal s_c1565_rst_o : std_logic := '1';
 
   -- User port
   signal s_user_d_i : std_logic_vector(7 downto 0);
-  signal s_user_d_o : std_logic_vector(7 downto 0);
-  signal s_user_d_en_n : std_logic_vector(7 downto 0);
+  signal s_user_d_o : std_logic_vector(7 downto 0) := (others => '1');
+  signal s_user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_pa2_i : std_logic;
   signal s_user_sp1_i : std_logic;
   signal s_user_cnt2_i : std_logic;
@@ -100,13 +100,13 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_user_pc2_i :  std_logic;
   signal s_user_flag2_i : std_logic;
   signal s_user_cnt1_i :  std_logic;
-  signal s_user_pa2_o : std_logic;
-  signal s_user_sp1_o : std_logic;
-  signal s_user_cnt2_o : std_logic;
-  signal s_user_sp2_o :  std_logic;
-  signal s_user_pc2_o :  std_logic;
-  signal s_user_flag2_o : std_logic;
-  signal s_user_cnt1_o :  std_logic;
+  signal s_user_pa2_o : std_logic := '1';
+  signal s_user_sp1_o : std_logic := '1';
+  signal s_user_cnt2_o : std_logic := '1';
+  signal s_user_sp2_o :  std_logic := '1';
+  signal s_user_pc2_o :  std_logic := '1';
+  signal s_user_flag2_o : std_logic := '1';
+  signal s_user_cnt1_o :  std_logic := '1';
   signal s_user_reset_n_i : std_logic;
   signal s_user_sp1_en_n : std_logic;
   signal s_user_cnt2_en_n : std_logic;
@@ -536,22 +536,38 @@ begin
       elsif run("TAPE_WRITE is correctly conveyed") then
         wait_for_ring_cycle;
 
-        remember_current_signals; r_tape_write_o <= '0';
-        tape_write_o <= '0'; wait_for_ring_cycle;
+        remember_current_signals;
+        r_tape_write_o <= '0'; tape_write_o <= '0';
+        wait_for_ring_cycle;
         compare_with_remembered_signals;
         
-        remember_current_signals; r_tape_write_o <= '1';
-        tape_write_o <= '1'; wait_for_ring_cycle;
+        remember_current_signals;
+        r_tape_write_o <= '1'; tape_write_o <= '1';
+        wait_for_ring_cycle;
         compare_with_remembered_signals;
       elsif run("DATA0 output is correctly conveyed") then
         wait_for_ring_cycle;
 
-        remember_current_signals; r_user_d_o(0) <= '0';
-        tape_write_o <= '0'; wait_for_ring_cycle;
+        remember_current_signals;
+        r_user_d_o(0) <= '0'; user_d_o(0) <= '0';
+        wait_for_ring_cycle;
         compare_with_remembered_signals;
         
-        remember_current_signals; r_tape_write_o <= '1';
-        tape_write_o <= '1'; wait_for_ring_cycle;
+        remember_current_signals;
+        r_user_d_o(0) <= '1'; user_d_o(0) <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+      elsif run("DATA1 output is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_d_o(1) <= '0'; user_d_o(1) <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_d_o(1) <= '1'; user_d_o(1) <= '1';
+        wait_for_ring_cycle;
         compare_with_remembered_signals;
       end if;
     end loop;
