@@ -387,18 +387,24 @@ begin
         report "c1565_rst_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_rst_o) & ", but expected " & std_logic'image(r_c1565_rst_o);
         errors := errors + 1;
       end if;
-      if s_user_d_i /= r_user_d_i then
-        report "user_d_i on expansion board value incorrect: Saw " & to_str(s_user_d_i) & ", but expected " & to_str(r_user_d_i);
-        errors := errors + 1;
-      end if;
-      if s_user_d_o /= r_user_d_o then
-        report "user_d_o on expansion board value incorrect: Saw " & to_string(s_user_d_o) & ", but expected " & to_string(r_user_d_o);
-        errors := errors + 1;
-      end if;
-      if s_user_d_en_n /= r_user_d_en_n then
-        report "user_d_en_n on expansion board value incorrect: Saw " & to_string(s_user_d_en_n) & ", but expected " & to_string(r_user_d_en_n);
-        errors := errors + 1;
-      end if;
+      for i in 0 to 7 loop
+        if s_user_d_i(i) /= r_user_d_i(i) then
+          report "user_d_i("&integer'image(i)&") on expansion board value incorrect: Saw " & to_string(s_user_d_i(i)) & ", but expected " & to_string(r_user_d_i(i));
+          errors := errors + 1;
+        end if;
+      end loop;
+      for i in 0 to 7 loop
+        if s_user_d_o(i) /= r_user_d_o(i) then
+          report "user_d_o("&integer'image(i)&") on expansion board value incorrect: Saw " & to_string(s_user_d_o(i)) & ", but expected " & to_string(r_user_d_o(i));
+          errors := errors + 1;
+        end if;
+      end loop;
+      for i in 0 to 7 loop
+        if s_user_d_en_n(i) /= r_user_d_en_n(i) then
+          report "user_d_en_n("&integer'image(i)&") on expansion board value incorrect: Saw " & to_string(s_user_d_en_n(i)) & ", but expected " & to_string(r_user_d_en_n(i));
+          errors := errors + 1;
+        end if;
+      end loop;
       if s_user_pa2_i /= r_user_pa2_i then
         report "user_pa2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_pa2_i) & ", but expected " & std_logic'image(r_user_pa2_i);
         errors := errors + 1;
@@ -531,6 +537,16 @@ begin
         wait_for_ring_cycle;
 
         remember_current_signals; r_tape_write_o <= '0';
+        tape_write_o <= '0'; wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals; r_tape_write_o <= '1';
+        tape_write_o <= '1'; wait_for_ring_cycle;
+        compare_with_remembered_signals;
+      elsif run("DATA0 output is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals; r_user_d_o(0) <= '0';
         tape_write_o <= '0'; wait_for_ring_cycle;
         compare_with_remembered_signals;
         
