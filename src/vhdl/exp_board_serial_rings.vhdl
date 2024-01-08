@@ -102,6 +102,8 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   signal clock_divisor : integer := 4;  
   signal clock_counter : integer := 0;
   signal exp_clock_int : std_logic := '0';
+
+  signal ring_phase : integer range 0 to 31 := 0;
   
 begin
 
@@ -160,8 +162,17 @@ begin
         exp_clock <= not exp_clock_int;
         exp_clock_int <= not exp_clock_int;
 
-        if exp_clock_int='0' then
-          -- Rising edge of EXP_CLOCK
+        -- Assert EXP_LATCH for one cycle of EXP_CLOCK, every 32nd
+        -- EXP_CLOCK.
+        if exp_clock_int='1' then
+          -- Falling edge of EXP_CLOCK
+          if ring_phase = 0 then
+            ring_phase <= 31;
+            exp_latch <= '1';
+          else
+            ring_phase <= ring_phase - 1;
+            exp_latch <= '0';
+          end if;
         end if;
         
       end if;
