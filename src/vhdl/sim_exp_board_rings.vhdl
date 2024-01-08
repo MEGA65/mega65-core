@@ -174,5 +174,15 @@ begin
     srclr_n => '1',
     srclk => exp_clock    
     );
+
+  process (exp_latch,exp_clock) is
+  begin
+    if rising_edge(exp_latch) then
+      report "EXP_LATCH rising edge";
+    end if;
+    if rising_edge(exp_clock) then
+      report "EXP_CLOCK rising edge, EXP_WDATA=" & std_logic'image(EXP_WDATA);
+    end if;
+  end process;
   
 end simulation;
