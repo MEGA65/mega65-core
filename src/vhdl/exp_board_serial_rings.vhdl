@@ -103,7 +103,7 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   signal clock_counter : integer := 0;
   signal exp_clock_int : std_logic := '0';
 
-  signal ring_phase : integer range 0 to 31 := 0;
+  signal ring_phase : integer range 0 to 32 := 0;
   
 begin
 
@@ -180,7 +180,7 @@ begin
           sr_out(31) <= sr_out(0);
 
           if ring_phase = 0 then
-            ring_phase <= 31;
+            ring_phase <= 32;
             exp_latch <= '1';
 
             -- Reset output vector
@@ -199,8 +199,10 @@ begin
       -- Update signals if enabled
       if plumb_signals = '1' then
         -- XXX Update output_vector from signals
-        output_vector(19) <= tape_write_o;
-        output_vector(31 downto 24) <= user_d_o;
+        output_vector(11) <= tape_write_o;
+        for i in 0 to 7 loop
+          output_vector(31-i) <= user_d_o(i);
+        end loop;
       end if;
 
     end if;
