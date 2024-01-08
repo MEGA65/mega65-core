@@ -115,6 +115,49 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_user_cnt1_en_n : std_logic;
   signal s_user_reset_n_en_n : std_logic;
 
+
+  -- Remembered / expected signal values
+  
+  -- Tape port
+  signal r_tape_write_o : std_logic;
+  signal r_tape_read_i :  std_logic;
+  signal r_tape_sense_i :  std_logic;
+  signal r_tape_6v_en : std_logic;
+  
+  -- C1565 port
+  signal r_c1565_serio_i :  std_logic;
+  signal r_c1565_serio_o : std_logic;
+  signal r_c1565_serio_en_n : std_logic;
+  signal r_c1565_clk_o : std_logic;
+  signal r_c1565_ld_o : std_logic;
+  signal r_c1565_rst_o : std_logic;
+
+  -- User port
+  signal r_user_d_i : unsigned(7 downto 0);
+  signal r_user_d_o : unsigned(7 downto 0);
+  signal r_user_d_en_n : unsigned(7 downto 0);
+  signal r_user_pa2_i : std_logic;
+  signal r_user_sp1_i : std_logic;
+  signal r_user_cnt2_i : std_logic;
+  signal r_user_sp2_i :  std_logic;
+  signal r_user_pc2_i :  std_logic;
+  signal r_user_flag2_i : std_logic;
+  signal r_user_cnt1_i :  std_logic;
+  signal r_user_pa2_o : std_logic;
+  signal r_user_sp1_o : std_logic;
+  signal r_user_cnt2_o : std_logic;
+  signal r_user_sp2_o :  std_logic;
+  signal r_user_pc2_o :  std_logic;
+  signal r_user_flag2_o : std_logic;
+  signal r_user_cnt1_o :  std_logic;
+  signal r_user_reset_n_i : std_logic;
+  signal r_user_sp1_en_n : std_logic;
+  signal r_user_cnt2_en_n : std_logic;
+  signal r_user_sp2_en_n : std_logic;
+  signal r_user_atn_en_n : std_logic;
+  signal r_user_cnt1_en_n : std_logic;
+  signal r_user_reset_n_en_n : std_logic;
+  
 begin
 
   controller0: entity work.exp_board_ring_ctrl port map (
@@ -231,6 +274,120 @@ begin
       end loop;
     end procedure;
 
+    procedure remember_current_signals is
+    begin
+    end procedure;
+
+    procedure compare_with_remembered_signals is
+    begin
+      if s_tape_write_o /= r_tape_write_o then
+        assert false report "TAPE_WRITTE on expansion board value incorrect: Saw " & std_logic'image(s_tape_write_o) & ", but expected " & std_logic'image(r_tape_write_o);
+      end if;
+      if s_tape_write_o /= r_tape_write_o then
+        assert false report "tape_write_o on expansion board value incorrect: Saw " & std_logic'image(s_tape_write_o) & ", but expected " & std_logic'image(r_tape_write_o);
+      end if;
+      if s_tape_read_i /= r_tape_read_i then
+        assert false report "tape_read_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_read_i) & ", but expected " & std_logic'image(r_tape_read_i);
+      end if;
+      if s_tape_sense_i /= r_tape_sense_i then
+        assert false report "tape_sense_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_sense_i) & ", but expected " & std_logic'image(r_tape_sense_i);
+      end if;
+      if s_tape_6v_en /= r_tape_6v_en then
+        assert false report "tape_6v_en on expansion board value incorrect: Saw " & std_logic'image(s_tape_6v_en) & ", but expected " & std_logic'image(r_tape_6v_en);
+      end if;
+      if s_c1565_serio_i /= r_c1565_serio_i then
+        assert false report "c1565_serio_i on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_i) & ", but expected " & std_logic'image(r_c1565_serio_i);
+      end if;
+      if s_c1565_serio_o /= r_c1565_serio_o then
+        assert false report "c1565_serio_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_o) & ", but expected " & std_logic'image(r_c1565_serio_o);
+      end if;
+      if s_c1565_serio_en_n /= r_c1565_serio_en_n then
+        assert false report "c1565_serio_en_n on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_en_n) & ", but expected " & std_logic'image(r_c1565_serio_en_n);
+      end if;
+      if s_c1565_clk_o /= r_c1565_clk_o then
+        assert false report "c1565_clk_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_clk_o) & ", but expected " & std_logic'image(r_c1565_clk_o);
+      end if;
+      if s_c1565_ld_o /= r_c1565_ld_o then
+        assert false report "c1565_ld_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_ld_o) & ", but expected " & std_logic'image(r_c1565_ld_o);
+      end if;
+      if s_c1565_rst_o /= r_c1565_rst_o then
+        assert false report "c1565_rst_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_rst_o) & ", but expected " & std_logic'image(r_c1565_rst_o);
+      end if;
+      if s_user_d_i /= r_user_d_i then
+        assert false report "user_d_i on expansion board value incorrect: Saw " & to_string(s_user_d_i) & ", but expected " & to_string(r_user_d_i);
+      end if;
+      if s_user_d_o /= r_user_d_o then
+        assert false report "user_d_o on expansion board value incorrect: Saw " & to_string(s_user_d_o) & ", but expected " & to_string(r_user_d_o);
+      end if;
+      if s_user_d_en_n /= r_user_d_en_n then
+        assert false report "user_d_en_n on expansion board value incorrect: Saw " & to_string(s_user_d_en_n) & ", but expected " & to_string(r_user_d_en_n);
+      end if;
+      if s_user_pa2_i /= r_user_pa2_i then
+        assert false report "user_pa2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_pa2_i) & ", but expected " & std_logic'image(r_user_pa2_i);
+      end if;
+      if s_user_sp1_i /= r_user_sp1_i then
+        assert false report "user_sp1_i on expansion board value incorrect: Saw " & std_logic'image(s_user_sp1_i) & ", but expected " & std_logic'image(r_user_sp1_i);
+      end if;
+      if s_user_cnt2_i /= r_user_cnt2_i then
+        assert false report "user_cnt2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt2_i) & ", but expected " & std_logic'image(r_user_cnt2_i);
+      end if;
+      if s_user_sp2_i /= r_user_sp2_i then
+        assert false report "user_sp2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_sp2_i) & ", but expected " & std_logic'image(r_user_sp2_i);
+      end if;
+      if s_user_pc2_i /= r_user_pc2_i then
+        assert false report "user_pc2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_pc2_i) & ", but expected " & std_logic'image(r_user_pc2_i);
+      end if;
+      if s_user_flag2_i /= r_user_flag2_i then
+        assert false report "user_flag2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_flag2_i) & ", but expected " & std_logic'image(r_user_flag2_i);
+      end if;
+      if s_user_cnt1_i /= r_user_cnt1_i then
+        assert false report "user_cnt1_i on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_i) & ", but expected " & std_logic'image(r_user_cnt1_i);
+      end if;
+      if s_user_pa2_o /= r_user_pa2_o then
+        assert false report "user_pa2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_pa2_o) & ", but expected " & std_logic'image(r_user_pa2_o);
+      end if;
+      if s_user_sp1_o /= r_user_sp1_o then
+        assert false report "user_sp1_o on expansion board value incorrect: Saw " & std_logic'image(s_user_sp1_o) & ", but expected " & std_logic'image(r_user_sp1_o);
+      end if;
+      if s_user_cnt2_o /= r_user_cnt2_o then
+        assert false report "user_cnt2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt2_o) & ", but expected " & std_logic'image(r_user_cnt2_o);
+      end if;
+      if s_user_sp2_o /= r_user_sp2_o then
+        assert false report "user_sp2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_sp2_o) & ", but expected " & std_logic'image(r_user_sp2_o);
+      end if;
+      if s_user_pc2_o /= r_user_pc2_o then
+        assert false report "user_pc2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_pc2_o) & ", but expected " & std_logic'image(r_user_pc2_o);
+      end if;
+      if s_user_flag2_o /= r_user_flag2_o then
+        assert false report "user_flag2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_flag2_o) & ", but expected " & std_logic'image(r_user_flag2_o);
+      end if;
+      if s_user_cnt1_o /= r_user_cnt1_o then
+        assert false report "user_cnt1_o on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_o) & ", but expected " & std_logic'image(r_user_cnt1_o);
+      end if;
+      if s_user_reset_n_i /= r_user_reset_n_i then
+        assert false report "user_reset_n_i on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_i) & ", but expected " & std_logic'image(r_user_reset_n_i);
+      end if;
+      if s_user_sp1_en_n /= r_user_sp1_en_n then
+        assert false report "user_sp1_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_sp1_en_n) & ", but expected " & std_logic'image(r_user_sp1_en_n);
+      end if;
+      if s_user_cnt2_en_n /= r_user_cnt2_en_n then
+        assert false report "user_cnt2_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt2_en_n) & ", but expected " & std_logic'image(r_user_cnt2_en_n);
+      end if;
+      if s_user_sp2_en_n /= r_user_sp2_en_n then
+        assert false report "user_sp2_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_sp2_en_n) & ", but expected " & std_logic'image(r_user_sp2_en_n);
+      end if;
+      if s_user_atn_en_n /= r_user_atn_en_n then
+        assert false report "user_atn_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_atn_en_n) & ", but expected " & std_logic'image(r_user_atn_en_n);
+      end if;
+      if s_user_cnt1_en_n /= r_user_cnt1_en_n then
+        assert false report "user_cnt1_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_en_n) & ", but expected " & std_logic'image(r_user_cnt1_en_n);
+      end if;
+      if s_user_reset_n_en_n /= r_user_reset_n_en_n then
+        assert false report "user_reset_n_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_en_n) & ", but expected " & std_logic'image(r_user_reset_n_en_n);
+      end if;
+      
+    end procedure;
+    
 
   begin
     test_runner_setup(runner, runner_cfg);    
@@ -269,14 +426,15 @@ begin
           assert false report "Expected EXP_LATCH to be asserted 1/32 of the time, i.e., 60 cycles";
         end if;
       elsif run("TAPE_WRITE is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals; r_tape_write_o <= '0';
         tape_write_o <= '0'; wait_for_ring_cycle;
-        if s_tape_write_o /= '0' then
-          assert false report "TAPE_WRITTE on expansion board did not propogate transition low";
-        end if;
+        compare_with_remembered_signals;
+        
+        remember_current_signals; r_tape_write_o <= '1';
         tape_write_o <= '1'; wait_for_ring_cycle;
-        if s_tape_write_o /= '1' then
-          assert false report "TAPE_WRITTE on expansion board did not propogate transition high";
-        end if;
+        compare_with_remembered_signals;
       end if;
     end loop;
     test_runner_cleanup(runner);
