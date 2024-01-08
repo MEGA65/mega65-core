@@ -30,9 +30,9 @@ entity sim_exp_board_rings is
     c1565_rst_o : out std_logic;
     
     -- User port
-    user_d_i : in unsigned(7 downto 0);
-    user_d_o : out unsigned(7 downto 0);
-    user_d_en_n : out unsigned(7 downto 0);
+    user_d_i : in std_logic_vector(7 downto 0);
+    user_d_o : out std_logic_vector(7 downto 0);
+    user_d_en_n : out std_logic_vector(7 downto 0);
 
     user_pa2_i : in std_logic;
     user_sp1_i : in std_logic;

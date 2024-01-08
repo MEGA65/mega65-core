@@ -9,7 +9,7 @@ use work.cputypes.all;
 
 entity sim74LS165 is
   port (
-    q : in unsigned(7 downto 0);
+    q : in std_logic_vector(7 downto 0);
     ser : in std_logic;
     sh_ld_n : in std_logic;       -- latch sr into register
     clk : in std_logic;      -- shift register clock
@@ -21,7 +21,7 @@ end sim74LS165;
 
 architecture simulated of sim74LS165 is
 
-  signal sr : unsigned(7 downto 0);
+  signal sr : std_logic_vector(7 downto 0);
   
 begin
 

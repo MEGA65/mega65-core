@@ -10,7 +10,7 @@ use work.cputypes.all;
 entity sim74LS595 is
   generic ( unit : integer := 999);
   port (
-    q : out unsigned(7 downto 0);
+    q : out std_logic_vector(7 downto 0);
     ser : in std_logic;
     g_n : in std_logic;       -- Gate, i.e., oe_n
     rclk : in std_logic;       -- latch sr into register
@@ -22,8 +22,8 @@ end sim74LS595;
 
 architecture simulated of sim74LS595 is
 
-  signal sr : unsigned(7 downto 0);
-  signal q_int : unsigned(7 downto 0);
+  signal sr : std_logic_vector(7 downto 0);
+  signal q_int : std_logic_vector(7 downto 0);
   
 begin
 

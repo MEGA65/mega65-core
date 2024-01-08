@@ -40,9 +40,9 @@ entity exp_board_ring_ctrl is
     c1565_rst_o : in std_logic;
     
     -- User port
-    user_d_i : out unsigned(7 downto 0);
-    user_d_o : in unsigned(7 downto 0);
-    user_d_en_n : in unsigned(7 downto 0);
+    user_d_i : out std_logic_vector(7 downto 0);
+    user_d_o : in std_logic_vector(7 downto 0);
+    user_d_en_n : in std_logic_vector(7 downto 0);
 
     user_pa2_o : out std_logic;
     user_sp1_o : out std_logic;
