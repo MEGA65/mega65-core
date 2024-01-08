@@ -8,6 +8,7 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity sim74LS595 is
+  generic ( unit : integer := 999);
   port (
     q : out unsigned(7 downto 0);
     ser : in std_logic;
@@ -29,6 +30,7 @@ begin
   process (rclk, srclr_n, srclk, g_n, ser) is
   begin
     if rising_edge(srclk) then
+      -- report "SRCLK ticked, latching bit " & std_logic'image(ser) ;      
       -- Advance bits through shift register.
       sr(0) <= ser;
       sr(7 downto 1) <= sr(6 downto 0);
@@ -45,6 +47,7 @@ begin
     end if;
 
     if rising_edge(rclk) then
+      report "U" & integer'image(unit) & ": RCLK rose: Latching data " & to_string(sr);
       q_int <= sr;
     end if;
 

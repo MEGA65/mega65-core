@@ -77,7 +77,7 @@ begin
 
   -- Nothing to do: Just plumb everything together.
   
-  u1: entity work.sim74LS595 port map (
+  u1: entity work.sim74LS595 generic map ( unit => 1 ) port map (
     q => user_d_o,
     ser => exp_wdata,
     q_h_dash => ser_u1_u4,
@@ -97,7 +97,7 @@ begin
     clk_inhibit => '0'
     );
 
-  u4: entity work.sim74LS595 port map (
+  u4: entity work.sim74LS595 generic map ( unit => 4) port map (
     q(0) => user_pa2_o,
     q(1) => user_sp1_o,
     q(2) => user_cnt2_o,
@@ -131,7 +131,8 @@ begin
     clk_inhibit => '0'
     );
 
-  u6: entity work.sim74LS595 port map (
+  u6: entity work.sim74LS595 generic map (unit => 6 )
+    port map (
     q(0) => c1565_ld_o,
     q(1) => c1565_serio_en_n,
     q(2) => c1565_rst_o,
@@ -165,7 +166,7 @@ begin
     clk_inhibit => '0'
     );
 
-  u11: entity work.sim74LS595 port map (
+  u11: entity work.sim74LS595 generic map ( unit => 11 ) port map (
     q => user_d_en_n,
     ser => ser_u6_u11,
     q_h_dash => open,
@@ -180,9 +181,9 @@ begin
     if rising_edge(exp_latch) then
       report "EXP_LATCH rising edge";
     end if;
-    if rising_edge(exp_clock) then
-      report "EXP_CLOCK rising edge, EXP_WDATA=" & std_logic'image(EXP_WDATA);
-    end if;
+--    if rising_edge(exp_clock) then
+--      report "EXP_CLOCK rising edge, EXP_WDATA=" & std_logic'image(EXP_WDATA);
+--    end if;
   end process;
   
 end simulation;
