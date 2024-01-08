@@ -24,6 +24,26 @@ architecture simulated of sim74LS595 is
 
   signal sr : std_logic_vector(7 downto 0);
   signal q_int : std_logic_vector(7 downto 0);
+
+  function to_str(signal vec: std_logic_vector) return string is
+      variable result: string(0 to (vec'length-1));
+    begin
+      for i in vec'range loop
+        case vec(i) is
+          when 'U' => result(i) := 'U';
+          when 'X' => result(i) := 'X';
+          when '0' => result(i) := '0';
+          when '1' => result(i) := '1';
+          when 'Z' => result(i) := 'Z';
+          when 'W' => result(i) := 'W';
+          when 'L' => result(i) := 'L';
+          when 'H' => result(i) := 'H';
+          when '-' => result(i) := '-';
+          when others => result(i) := '?';
+        end case;
+      end loop;
+      return result;
+    end to_str;
   
 begin
 
@@ -43,7 +63,7 @@ begin
 
     -- Allow for cascading
     if falling_edge(srclk) then
-      q_h_dash <= sr(6);
+      q_h_dash <= sr(7);
     end if;
 
     if g_n='0' then
@@ -54,10 +74,10 @@ begin
             
     if rising_edge(rclk) then
       if g_n='0' then
-        report "U" & integer'image(unit) & ": RCLK rose: Latching and presenting data " & to_string(sr);
+        report "U" & integer'image(unit) & ": RCLK rose: Latching and presenting data " & to_str(sr);
         q <= sr;
       else
-        report "U" & integer'image(unit) & ": RCLK rose: Latching data " & to_string(sr);
+        report "U" & integer'image(unit) & ": RCLK rose: Latching data " & to_str(sr);
       end if;
       q_int <= sr;
     end if;
