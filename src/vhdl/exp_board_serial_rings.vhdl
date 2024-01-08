@@ -153,6 +153,10 @@ begin
         end case;
       end if;
 
+      -- Update signals if enabled
+      if plumb_signals = '1' then
+      end if;
+      
       -- Generate serial ring clock
       if clock_counter < clock_divisor then
         clock_counter <= clock_counter + 1;
@@ -169,6 +173,11 @@ begin
           if ring_phase = 0 then
             ring_phase <= 31;
             exp_latch <= '1';
+
+            -- Reset output vector
+            sr_out <= output_vector;
+            -- Latch input shift register contents
+            input_vector <= sr_in;
           else
             ring_phase <= ring_phase - 1;
             exp_latch <= '0';

@@ -76,9 +76,9 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- Signals visible on the expansion board
   
   -- Tape port
-  signal s_tape_write_i : std_logic;
-  signal s_tape_read_o :  std_logic;
-  signal s_tape_sense_o :  std_logic;
+  signal s_tape_write_o : std_logic;
+  signal s_tape_read_i :  std_logic;
+  signal s_tape_sense_i :  std_logic;
   signal s_tape_6v_en : std_logic;
   
   -- C1565 port
@@ -181,9 +181,9 @@ begin
     -- Simulated ports have opposite direction sense 
     
     -- Tape port
-    tape_write_o => s_tape_write_i,
-    tape_read_i => s_tape_read_o,
-    tape_sense_i => s_tape_sense_o,
+    tape_write_o => s_tape_write_o,
+    tape_read_i => s_tape_read_i,
+    tape_sense_i => s_tape_sense_i,
     tape_6v_en => s_tape_6v_en,
     
     -- C1565 port
@@ -222,6 +222,16 @@ begin
       wait for 12.5 ns;
     end procedure;
 
+    procedure wait_for_ring_cycle is
+    begin
+      -- Allow 2 complete cycles of the ring, to ensure that at least one full
+      -- ring cycle has occurred, allowing data to propagate
+      for i in 1 to 32*10*2 loop
+        clock_tick;
+      end loop;
+    end procedure;
+
+
   begin
     test_runner_setup(runner, runner_cfg);    
     
@@ -258,7 +268,15 @@ begin
         if exp_tick_count /= 60 then
           assert false report "Expected EXP_LATCH to be asserted 1/32 of the time, i.e., 60 cycles";
         end if;
-        
+      elsif run("TAPE_WRITE is correctly conveyed") then
+        tape_write_o <= '0'; wait_for_ring_cycle;
+        if s_tape_write_o /= '0' then
+          assert false report "TAPE_WRITTE on expansion board did not propogate transition low";
+        end if;
+        tape_write_o <= '1'; wait_for_ring_cycle;
+        if s_tape_write_o /= '1' then
+          assert false report "TAPE_WRITTE on expansion board did not propogate transition high";
+        end if;
       end if;
     end loop;
     test_runner_cleanup(runner);
