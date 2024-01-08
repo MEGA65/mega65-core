@@ -153,10 +153,6 @@ begin
         end case;
       end if;
 
-      -- Update signals if enabled
-      if plumb_signals = '1' then
-      end if;
-      
       -- Generate serial ring clock
       if clock_counter < clock_divisor then
         clock_counter <= clock_counter + 1;
@@ -168,23 +164,44 @@ begin
 
         -- Assert EXP_LATCH for one cycle of EXP_CLOCK, every 32nd
         -- EXP_CLOCK.
+        
+        if exp_clock_int='0' then
+          -- Rising edge of EXP_CLOCK
+          sr_in(0) <= exp_rdata;
+          sr_in(23 downto 1) <= sr_in(22 downto 0);
+        end if;
+        
         if exp_clock_int='1' then
           -- Falling edge of EXP_CLOCK
+
+          -- Output bit
+          exp_wdata <= sr_out(0);
+          sr_out(30 downto 0) <= sr_out(31 downto 1);
+          sr_out(31) <= sr_out(0);
+
           if ring_phase = 0 then
             ring_phase <= 31;
             exp_latch <= '1';
 
             -- Reset output vector
             sr_out <= output_vector;
+            report "RING: preparing to output vector " & to_string(output_vector);
             -- Latch input shift register contents
             input_vector <= sr_in;
+            report "RING: latched input vector " & to_string(sr_in);
           else
             ring_phase <= ring_phase - 1;
             exp_latch <= '0';
           end if;
         end if;
-        
       end if;
+
+      -- Update signals if enabled
+      if plumb_signals = '1' then
+        -- XXX Update output_vector from signals
+        output_vector(19) <= tape_write_o;
+      end if;
+
     end if;
   end process;
   
