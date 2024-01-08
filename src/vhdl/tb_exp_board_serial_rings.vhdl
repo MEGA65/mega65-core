@@ -545,30 +545,37 @@ begin
         r_tape_write_o <= '1'; tape_write_o <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
-      elsif run("DATA0 output is correctly conveyed") then
+      elsif run("DATA outputs are correctly conveyed") then
+
+        for i in 0 to 7 loop
+          wait_for_ring_cycle;
+
+          remember_current_signals;
+          r_user_d_o(i) <= '0'; user_d_o(i) <= '0';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
+        
+          remember_current_signals;
+          r_user_d_o(i) <= '1'; user_d_o(i) <= '1';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
+        end loop;
+        
+      elsif run("DATA output enables are correctly conveyed") then
         wait_for_ring_cycle;
 
-        remember_current_signals;
-        r_user_d_o(0) <= '0'; user_d_o(0) <= '0';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;
+        for i in 0 to 7 loop
+          remember_current_signals;
+          r_user_d_en_n(i) <= '0'; user_d_en_n(i) <= '0';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
         
-        remember_current_signals;
-        r_user_d_o(0) <= '1'; user_d_o(0) <= '1';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;
-      elsif run("DATA1 output is correctly conveyed") then
-        wait_for_ring_cycle;
-
-        remember_current_signals;
-        r_user_d_o(1) <= '0'; user_d_o(1) <= '0';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;
+          remember_current_signals;
+          r_user_d_en_n(i) <= '1'; user_d_en_n(i) <= '1';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
+        end loop;
         
-        remember_current_signals;
-        r_user_d_o(1) <= '1'; user_d_o(1) <= '1';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;
       end if;
     end loop;
     test_runner_cleanup(runner);
