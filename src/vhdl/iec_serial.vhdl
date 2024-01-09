@@ -1110,6 +1110,11 @@ begin
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
+            -- Release ATN after UNTALK and UNLISTEN
+            if iec_data_out=x"3f" or iec_data_out=x"5f" then
+              a('1');
+            end if;
+            
             -- TURNAROUND FROM TALKER TO LISTENER
             -- Wait 20 usec, release ATN, wait 20usec
             -- Computer pulls DATA low and releases CLK.
