@@ -23,7 +23,9 @@ end sim74LS165;
 architecture simulated of sim74LS165 is
 
   signal sr : std_logic_vector(7 downto 0);
+  signal last_sh_ld_n : std_logic := '0';
 
+  
   function to_str(signal vec: std_logic_vector) return string is
       variable result: string(0 to (vec'length-1));
     begin
@@ -50,11 +52,15 @@ begin
   begin
     if rising_edge(clk) and clk_inhibit='0' then
       -- Reset register contents
+      last_sh_ld_n <= sh_ld_n;
       if sh_ld_n = '0' then
         sr <= q;
-        report "U" & integer'image(unit) & ": Loading SR with " & to_str(q);
+        if last_sh_ld_n = '1' then
+          report "U" & integer'image(unit) & ": Loading SR with " & to_str(q);
+        end if;
       else 
         -- Advance bits through shift register.
+--      report "U" & integer'image(unit) & ": Shifting";
         sr(0) <= ser;
         sr(7 downto 1) <= sr(6 downto 0);
         q_h <= sr(7);
