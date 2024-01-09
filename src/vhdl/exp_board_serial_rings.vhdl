@@ -194,6 +194,16 @@ begin
           sr_out(30 downto 0) <= sr_out(31 downto 1);
           sr_out(31) <= sr_out(0);
 
+          -- We need EXP_LATCH to remain high for 24 clock ticks to allow
+          -- shifting of the data through the input ring of 74LS165s.
+          -- We then need a positive edge to latch the output ring of
+          -- 74LS595s.
+          -- (remembering that ring_phase counts down not up, so 24 cycles
+          -- is obtained by clearing EXP_LATCH when ring_phase = 32 - 24 = 8)
+          if ring_phase = 8 then
+            exp_latch <= '0';
+          end if;
+                         
           if ring_phase = 0 then
             ring_phase <= 32;
             exp_latch <= '1';
@@ -206,7 +216,6 @@ begin
             report "RING: latched input vector " & to_str(sr_in);
           else
             ring_phase <= ring_phase - 1;
-            exp_latch <= '0';
           end if;
         end if;
       end if;
