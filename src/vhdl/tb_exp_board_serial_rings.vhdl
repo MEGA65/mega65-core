@@ -507,7 +507,7 @@ begin
         remember_current_signals;
         r_tape_write_o <= '1'; tape_write_o <= '1';
         wait_for_ring_cycle;
-        compare_with_remembered_signals;
+        compare_with_remembered_signals;        
       elsif run("DATA outputs are correctly conveyed") then
 
         for i in 0 to 7 loop
@@ -542,6 +542,186 @@ begin
           wait_for_ring_cycle;
           compare_with_remembered_signals;
         end loop;
+      elsif run("tape_6v_en is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_tape_6v_en <= '0'; tape_6v_en <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_tape_6v_en <= '1'; tape_6v_en <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_serio_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_serio_o <= '0'; c1565_serio_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_serio_o <= '1'; c1565_serio_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_serio_en_n is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_serio_en_n <= '0'; c1565_serio_en_n <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_serio_en_n <= '1'; c1565_serio_en_n <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_clk_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_clk_o <= '0'; c1565_clk_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_clk_o <= '1'; c1565_clk_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_ld_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_ld_o <= '0'; c1565_ld_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_ld_o <= '1'; c1565_ld_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_rst_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_rst_o <= '0'; c1565_rst_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_rst_o <= '1'; c1565_rst_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_pa2_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_pa2_o <= '0'; user_pa2_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_pa2_o <= '1'; user_pa2_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_sp1_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_sp1_o <= '0'; user_sp1_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_sp1_o <= '1'; user_sp1_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_cnt2_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_cnt2_o <= '0'; user_cnt2_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_cnt2_o <= '1'; user_cnt2_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_sp2_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_sp2_o <= '0'; user_sp2_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_sp2_o <= '1'; user_sp2_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_pc2_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_pc2_o <= '0'; user_pc2_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_pc2_o <= '1'; user_pc2_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_flag2_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_flag2_o <= '0'; user_flag2_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_flag2_o <= '1'; user_flag2_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_cnt1_o is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_cnt1_o <= '0'; user_cnt1_o <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_cnt1_o <= '1'; user_cnt1_o <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_atn_en_n is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_atn_en_n <= '0'; user_atn_en_n <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_atn_en_n <= '1'; user_atn_en_n <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_reset_n_en_n is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_reset_n_en_n <= '0'; user_reset_n_en_n <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_reset_n_en_n <= '1'; user_reset_n_en_n <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
         
       end if;
     end loop;
