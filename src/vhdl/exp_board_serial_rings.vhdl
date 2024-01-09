@@ -241,6 +241,21 @@ begin
         end loop;
       end if;
 
+      for i in 0 to 7 loop
+        user_d_i(i) <= input_vector(i);
+      end loop;
+      user_pa2_i <= input_vector(8);
+      user_sp1_i <= input_vector(9);
+      user_cnt2_i <= input_vector(10);
+      user_sp2_i <= input_vector(11);
+      user_pc2_i <= input_vector(12);
+      user_flag2_i <= input_vector(13);
+      user_cnt1_i <= input_vector(14);
+      user_reset_n_i <= input_vector(15);
+      tape_read_i <= input_vector(20);
+      tape_sense_i <= input_vector(21);
+      c1565_serio_i <= input_vector(22);
+      
     end if;
   end process;
   
