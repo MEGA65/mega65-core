@@ -232,6 +232,13 @@ begin
     user_pc2_i => s_user_pc2_i,
     user_flag2_i => s_user_flag2_i,
     user_cnt1_i => s_user_cnt1_i,
+    user_pa2_o => s_user_pa2_o,
+    user_sp1_o => s_user_sp1_o,
+    user_cnt2_o => s_user_cnt2_o,
+    user_sp2_o => s_user_sp2_o,
+    user_pc2_o => s_user_pc2_o,
+    user_flag2_o => s_user_flag2_o,
+    user_cnt1_o => s_user_cnt1_o,
     user_reset_n_i => s_user_reset_n_i,
     user_atn_en_n => s_user_atn_en_n,
     user_reset_n_en => s_user_reset_n_en_n
@@ -255,7 +262,7 @@ begin
       -- 32 ticks of EXP_CLOCK for one ring cycle
       -- 2 ring cycles, to be sure
       -- Then add 10 cycles extra, just to be totally sure.
-      for i in 1 to 2*5*2*32*2 + 10 loop
+      for i in 1 to 2*5*2*32*2 + 1000 loop
         clock_tick;
       end loop;
     end procedure;

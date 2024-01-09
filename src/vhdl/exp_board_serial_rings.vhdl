@@ -223,6 +223,7 @@ begin
         output_vector(18) <= user_atn_en_n;
         output_vector(17) <= user_cnt1_o;
         output_vector(16) <= user_reset_n_en_n;
+        
         output_vector(15) <= c1565_ld_o;
         output_vector(14) <= c1565_serio_en_n;
         output_vector(13) <= c1565_rst_o;
@@ -231,6 +232,7 @@ begin
         output_vector(10) <= tape_6v_en;
         output_vector(9) <= c1565_serio_o;        
         output_vector(8) <= c1565_clk_o;
+        
         if (c1565_clk_o = 'U') then
           report "c1565_clk_o = " & std_logic'image(c1565_clk_o);
         end if;
