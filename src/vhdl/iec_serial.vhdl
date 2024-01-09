@@ -339,6 +339,7 @@ begin
         t_f <= c_t_f;
         t_ye <= c_t_ye;
         t_ei <= c_t_ei;
+        t_ar <= c_t_ar;
 
         t_jt <= c_t_jt;
         t_j0 <= c_t_j0;
