@@ -29,7 +29,7 @@ architecture simulated of sim74LS595 is
       variable result: string(0 to (vec'length-1));
     begin
       for i in vec'range loop
-        case vec(i) is
+        case vec(vec'length-1-i) is
           when 'U' => result(i) := 'U';
           when 'X' => result(i) := 'X';
           when '0' => result(i) := '0';

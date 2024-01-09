@@ -327,7 +327,7 @@ begin
       variable result: string(1 to vec'length);
     begin
       for i in vec'range loop
-        case vec(i) is
+        case vec(vec'length-1-i) is
           when 'U' => result(i) := 'U';
           when 'X' => result(i) := 'X';
           when '0' => result(i) := '0';

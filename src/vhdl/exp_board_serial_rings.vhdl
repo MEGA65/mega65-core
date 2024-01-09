@@ -109,7 +109,7 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
       variable result: string(0 to (vec'length-1));
     begin
       for i in vec'range loop
-        case vec(i) is
+        case vec(vec'length-1-i) is
           when 'U' => result(i) := 'U';
           when 'X' => result(i) := 'X';
           when '0' => result(i) := '0';
@@ -233,8 +233,11 @@ begin
         output_vector(12) <= '1'; -- not assigned
         output_vector(11) <= tape_write_o;
         output_vector(10) <= tape_6v_en;
-        output_vector(9) <= c1565_serio_o;
+        output_vector(9) <= c1565_serio_o;        
         output_vector(8) <= c1565_clk_o;
+        if (c1565_clk_o = 'U') then
+          report "c1565_clk_o = " & std_logic'image(c1565_clk_o);
+        end if;
         for i in 0 to 7 loop
           output_vector(31-i) <= user_d_o(i);
           output_vector(7-i) <= user_d_en_n(i);
