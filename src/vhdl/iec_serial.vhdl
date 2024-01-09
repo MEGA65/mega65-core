@@ -735,7 +735,7 @@ begin
           when x"8D" => t_f <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_f,10)(9 downto 2);
           when x"8E" => t_ye <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ye,8);
           when x"8F" => t_ei <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
-          when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ei,8);
+          when x"90" => t_ar <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ar,8);
           when x"91" => t_jt <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_jt,10)(9 downto 2);
           when x"92" => t_j0 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j0,8);
           when x"93" => t_j1 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j1,8);
