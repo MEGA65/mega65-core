@@ -228,6 +228,8 @@ architecture questionable of iec_serial is
   signal reset_timing_now : std_logic := '1';
 
   signal prev_iec_bus_state : unsigned(7 downto 0) := (others => '0');
+
+  signal release_atn_when_done : std_logic := '0';
   
 begin
 
@@ -853,6 +855,12 @@ begin
 
             iec_under_attention <= '0';
 
+            if iec_data_out=x"3f" or iec_data_out=x"5f" then
+              release_atn_when_done <= '1';
+            else
+              release_atn_when_done <= '0';
+            end if;
+            
             -- DATA to 5V
             -- Ensure SRQ is released to 5V
             d('1'); s('1');
@@ -1111,8 +1119,7 @@ begin
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
 
-            -- Release ATN after UNTALK and UNLISTEN
-            if iec_data_out=x"3f" or iec_data_out=x"5f" then
+            if release_atn_when_done='1' then
               a('1');
             end if;
             
