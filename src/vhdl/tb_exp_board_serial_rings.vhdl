@@ -66,12 +66,12 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal user_flag2_o : std_logic := '1';
   signal user_cnt1_o :  std_logic := '1';
   signal user_reset_n_i : std_logic;
-  signal user_sp1_en_n : std_logic;
-  signal user_cnt2_en_n : std_logic;
-  signal user_sp2_en_n : std_logic;
-  signal user_atn_en_n : std_logic;
-  signal user_cnt1_en_n : std_logic;
-  signal user_reset_n_en_n : std_logic;
+  signal user_sp1_en_n : std_logic := '1';
+  signal user_cnt2_en_n : std_logic := '1';
+  signal user_sp2_en_n : std_logic := '1';
+  signal user_atn_en_n : std_logic := '1';
+  signal user_cnt1_en_n : std_logic := '1';
+  signal user_reset_n_en_n : std_logic := '1';
 
   -- Signals visible on the expansion board
   
@@ -196,13 +196,13 @@ begin
     user_d_i => user_d_i,
     user_d_o => user_d_o,
     user_d_en_n => user_d_en_n,
-    user_pa2_i => user_pa2_i,
-    user_sp1_i => user_sp1_i,
-    user_cnt2_i => user_cnt2_i,
-    user_sp2_i => user_sp2_i,
-    user_pc2_i => user_pc2_i,
-    user_flag2_i => user_flag2_i,
-    user_cnt1_i => user_cnt1_i,
+    user_pa2_o => user_pa2_o,
+    user_sp1_o => user_sp1_o,
+    user_cnt2_o => user_cnt2_o,
+    user_sp2_o => user_sp2_o,
+    user_pc2_o => user_pc2_o,
+    user_flag2_o => user_flag2_o,
+    user_cnt1_o => user_cnt1_o,
     user_reset_n_i => user_reset_n_i,
     user_sp1_en_n => user_sp1_en_n,
     user_cnt2_en_n => user_cnt2_en_n,
@@ -306,13 +306,13 @@ begin
       r_user_pc2_i <= s_user_pc2_i;
       r_user_flag2_i <= s_user_flag2_i;
       r_user_cnt1_i <= s_user_cnt1_i;
-      r_user_pa2_o <= user_pa2_o;
-      r_user_sp1_o <= user_sp1_o;
-      r_user_cnt2_o <= user_cnt2_o;
-      r_user_sp2_o <= user_sp2_o;
-      r_user_pc2_o <= user_pc2_o;
-      r_user_flag2_o <= user_flag2_o;
-      r_user_cnt1_o <= user_cnt1_o;
+      r_user_pa2_o <= s_user_pa2_o;
+      r_user_sp1_o <= s_user_sp1_o;
+      r_user_cnt2_o <= s_user_cnt2_o;
+      r_user_sp2_o <= s_user_sp2_o;
+      r_user_pc2_o <= s_user_pc2_o;
+      r_user_flag2_o <= s_user_flag2_o;
+      r_user_cnt1_o <= s_user_cnt1_o;
       r_user_reset_n_i <= s_user_reset_n_i;
       r_user_sp1_en_n <= user_sp1_en_n;
       r_user_cnt2_en_n <= user_cnt2_en_n;

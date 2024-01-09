@@ -44,21 +44,21 @@ entity exp_board_ring_ctrl is
     user_d_o : in std_logic_vector(7 downto 0);
     user_d_en_n : in std_logic_vector(7 downto 0);
 
-    user_pa2_o : out std_logic;
-    user_sp1_o : out std_logic;
-    user_cnt2_o : out std_logic;
-    user_sp2_o : out std_logic;
-    user_pc2_o : out std_logic;
-    user_flag2_o : out std_logic;
-    user_cnt1_o : out std_logic;
+    user_pa2_i : out std_logic;
+    user_sp1_i : out std_logic;
+    user_cnt2_i : out std_logic;
+    user_sp2_i : out std_logic;
+    user_pc2_i : out std_logic;
+    user_flag2_i : out std_logic;
+    user_cnt1_i : out std_logic;
 
-    user_pa2_i : in std_logic;
-    user_sp1_i : in std_logic;
-    user_cnt2_i : in std_logic;
-    user_sp2_i : in std_logic;
-    user_pc2_i : in std_logic;
-    user_flag2_i : in std_logic;
-    user_cnt1_i : in std_logic;
+    user_pa2_o : in std_logic;
+    user_sp1_o : in std_logic;
+    user_cnt2_o : in std_logic;
+    user_sp2_o : in std_logic;
+    user_pc2_o : in std_logic;
+    user_flag2_o : in std_logic;
+    user_cnt1_o : in std_logic;
 
     user_reset_n_i : out std_logic;
     user_sp1_en_n : in std_logic;
