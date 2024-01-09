@@ -330,11 +330,11 @@ begin
         errors := errors + 1;
       end if;
       if tape_read_i /= r_tape_read_i then
-        report "tape_read_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_read_i) & ", but expected " & std_logic'image(r_tape_read_i);
+        report "tape_read_i on expansion board value incorrect: Saw " & std_logic'image(tape_read_i) & ", but expected " & std_logic'image(r_tape_read_i);
         errors := errors + 1;
       end if;
       if tape_sense_i /= r_tape_sense_i then
-        report "tape_sense_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_sense_i) & ", but expected " & std_logic'image(r_tape_sense_i);
+        report "tape_sense_i on expansion board value incorrect: Saw " & std_logic'image(tape_sense_i) & ", but expected " & std_logic'image(r_tape_sense_i);
         errors := errors + 1;
       end if;
       if s_tape_6v_en /= r_tape_6v_en then
@@ -342,7 +342,7 @@ begin
         errors := errors + 1;
       end if;
       if c1565_serio_i /= r_c1565_serio_i then
-        report "c1565_serio_i on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_i) & ", but expected " & std_logic'image(r_c1565_serio_i);
+        report "c1565_serio_i on expansion board value incorrect: Saw " & std_logic'image(c1565_serio_i) & ", but expected " & std_logic'image(r_c1565_serio_i);
         errors := errors + 1;
       end if;
       if s_c1565_serio_o /= r_c1565_serio_o then
@@ -436,7 +436,7 @@ begin
         errors := errors + 1;
       end if;
       if user_reset_n_i /= r_user_reset_n_i then
-        report "user_reset_n_i on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_i) & ", but expected " & std_logic'image(r_user_reset_n_i);
+        report "user_reset_n_i on expansion board value incorrect: Saw " & std_logic'image(user_reset_n_i) & ", but expected " & std_logic'image(r_user_reset_n_i);
         errors := errors + 1;
       end if;
 
