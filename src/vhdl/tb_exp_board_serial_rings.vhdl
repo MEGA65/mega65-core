@@ -66,11 +66,7 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal user_flag2_o : std_logic := '1';
   signal user_cnt1_o :  std_logic := '1';
   signal user_reset_n_i : std_logic;
-  signal user_sp1_en_n : std_logic := '1';
-  signal user_cnt2_en_n : std_logic := '1';
-  signal user_sp2_en_n : std_logic := '1';
   signal user_atn_en_n : std_logic := '1';
-  signal user_cnt1_en_n : std_logic := '1';
   signal user_reset_n_en_n : std_logic := '1';
 
   -- Signals visible on the expansion board
@@ -108,11 +104,7 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_user_flag2_o : std_logic := '1';
   signal s_user_cnt1_o :  std_logic := '1';
   signal s_user_reset_n_i : std_logic;
-  signal s_user_sp1_en_n : std_logic;
-  signal s_user_cnt2_en_n : std_logic;
-  signal s_user_sp2_en_n : std_logic;
   signal s_user_atn_en_n : std_logic;
-  signal s_user_cnt1_en_n : std_logic;
   signal s_user_reset_n_en_n : std_logic;
 
 
@@ -151,11 +143,7 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal r_user_flag2_o : std_logic;
   signal r_user_cnt1_o :  std_logic;
   signal r_user_reset_n_i : std_logic := '1';
-  signal r_user_sp1_en_n : std_logic;
-  signal r_user_cnt2_en_n : std_logic;
-  signal r_user_sp2_en_n : std_logic;
   signal r_user_atn_en_n : std_logic;
-  signal r_user_cnt1_en_n : std_logic;
   signal r_user_reset_n_en_n : std_logic;
   
 begin
@@ -204,11 +192,7 @@ begin
     user_flag2_o => user_flag2_o,
     user_cnt1_o => user_cnt1_o,
     user_reset_n_i => user_reset_n_i,
-    user_sp1_en_n => user_sp1_en_n,
-    user_cnt2_en_n => user_cnt2_en_n,
-    user_sp2_en_n => user_sp2_en_n,
     user_atn_en_n => user_atn_en_n,
-    user_cnt1_en_n => user_cnt1_en_n,
     user_reset_n_en_n => user_reset_n_en_n
     
     );
@@ -249,11 +233,7 @@ begin
     user_flag2_i => s_user_flag2_i,
     user_cnt1_i => s_user_cnt1_i,
     user_reset_n_i => s_user_reset_n_i,
-    user_sp1_en_n => s_user_sp1_en_n,
-    user_cnt2_en_n => s_user_cnt2_en_n,
-    user_sp2_en_n => s_user_sp2_en_n,
     user_atn_en_n => s_user_atn_en_n,
-    user_cnt1_en_n => s_user_cnt1_en_n,
     user_reset_n_en => s_user_reset_n_en_n
     );      
   
@@ -314,11 +294,7 @@ begin
       r_user_flag2_o <= s_user_flag2_o;
       r_user_cnt1_o <= s_user_cnt1_o;
       r_user_reset_n_i <= s_user_reset_n_i;
-      r_user_sp1_en_n <= user_sp1_en_n;
-      r_user_cnt2_en_n <= user_cnt2_en_n;
-      r_user_sp2_en_n <= user_sp2_en_n;
       r_user_atn_en_n <= user_atn_en_n;
-      r_user_cnt1_en_n <= user_cnt1_en_n;
       r_user_reset_n_en_n <= user_reset_n_en_n;
       
     end procedure;
@@ -465,26 +441,12 @@ begin
         report "user_reset_n_i on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_i) & ", but expected " & std_logic'image(r_user_reset_n_i);
         errors := errors + 1;
       end if;
-      if s_user_sp1_en_n /= r_user_sp1_en_n then
-        report "user_sp1_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_sp1_en_n) & ", but expected " & std_logic'image(r_user_sp1_en_n);
-        errors := errors + 1;
-      end if;
-      if s_user_cnt2_en_n /= r_user_cnt2_en_n then
-        report "user_cnt2_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt2_en_n) & ", but expected " & std_logic'image(r_user_cnt2_en_n);
-        errors := errors + 1;
-      end if;
-      if s_user_sp2_en_n /= r_user_sp2_en_n then
-        report "user_sp2_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_sp2_en_n) & ", but expected " & std_logic'image(r_user_sp2_en_n);
-        errors := errors + 1;
-      end if;
+
       if s_user_atn_en_n /= r_user_atn_en_n then
         report "user_atn_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_atn_en_n) & ", but expected " & std_logic'image(r_user_atn_en_n);
         errors := errors + 1;
       end if;
-      if s_user_cnt1_en_n /= r_user_cnt1_en_n then
-        report "user_cnt1_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_en_n) & ", but expected " & std_logic'image(r_user_cnt1_en_n);
-        errors := errors + 1;
-      end if;
+
       if s_user_reset_n_en_n /= r_user_reset_n_en_n then
         report "user_reset_n_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_en_n) & ", but expected " & std_logic'image(r_user_reset_n_en_n);
         errors := errors + 1;
