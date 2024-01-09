@@ -254,7 +254,8 @@ begin
       -- 2 half-ticks of EXP_CLOCK per full tick of EXP_CLOCK
       -- 32 ticks of EXP_CLOCK for one ring cycle
       -- 2 ring cycles, to be sure
-      for i in 1 to 2*5*2*32*2 loop
+      -- Then add 10 cycles extra, just to be totally sure.
+      for i in 1 to 2*5*2*32*2 + 10 loop
         clock_tick;
       end loop;
     end procedure;
@@ -527,11 +528,15 @@ begin
         wait_for_ring_cycle;
 
         for i in 0 to 7 loop
+          report "TEST: Pull data output enable " & integer'image(i) & " low.";
+          
           remember_current_signals;
           r_user_d_en_n(i) <= '0'; user_d_en_n(i) <= '0';
           wait_for_ring_cycle;
           compare_with_remembered_signals;
         
+          report "TEST: Set data output enable " & integer'image(i) & " high";
+
           remember_current_signals;
           r_user_d_en_n(i) <= '1'; user_d_en_n(i) <= '1';
           wait_for_ring_cycle;
