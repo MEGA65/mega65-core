@@ -85,7 +85,7 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_c1565_rst_o : std_logic := '1';
 
   -- User port
-  signal s_user_d_i : std_logic_vector(7 downto 0);
+  signal s_user_d_i : std_logic_vector(7 downto 0) := (others => '0');
   signal s_user_d_o : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_pa2_i : std_logic;
@@ -366,8 +366,8 @@ begin
         errors := errors + 1;
       end if;
       for i in 0 to 7 loop
-        if s_user_d_i(i) /= r_user_d_i(i) then
-          report "user_d_i("&integer'image(i)&") on expansion board value incorrect: Saw " & to_string(s_user_d_i(i)) & ", but expected " & to_string(r_user_d_i(i));
+        if user_d_i(i) /= r_user_d_i(i) then
+          report "user_d_i("&integer'image(i)&") on expansion board value incorrect: Saw " & to_string(user_d_i(i)) & ", but expected " & to_string(r_user_d_i(i));
           errors := errors + 1;
         end if;
       end loop;
@@ -383,32 +383,32 @@ begin
           errors := errors + 1;
         end if;
       end loop;
-      if s_user_pa2_i /= r_user_pa2_i then
-        report "user_pa2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_pa2_i) & ", but expected " & std_logic'image(r_user_pa2_i);
+      if user_pa2_i /= r_user_pa2_i then
+        report "user_pa2_i on expansion board value incorrect: Saw " & std_logic'image(user_pa2_i) & ", but expected " & std_logic'image(r_user_pa2_i);
         errors := errors + 1;
       end if;
-      if s_user_sp1_i /= r_user_sp1_i then
-        report "user_sp1_i on expansion board value incorrect: Saw " & std_logic'image(s_user_sp1_i) & ", but expected " & std_logic'image(r_user_sp1_i);
+      if user_sp1_i /= r_user_sp1_i then
+        report "user_sp1_i on expansion board value incorrect: Saw " & std_logic'image(user_sp1_i) & ", but expected " & std_logic'image(r_user_sp1_i);
         errors := errors + 1;
       end if;
-      if s_user_cnt2_i /= r_user_cnt2_i then
-        report "user_cnt2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt2_i) & ", but expected " & std_logic'image(r_user_cnt2_i);
+      if user_cnt2_i /= r_user_cnt2_i then
+        report "user_cnt2_i on expansion board value incorrect: Saw " & std_logic'image(user_cnt2_i) & ", but expected " & std_logic'image(r_user_cnt2_i);
         errors := errors + 1;
       end if;
-      if s_user_sp2_i /= r_user_sp2_i then
-        report "user_sp2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_sp2_i) & ", but expected " & std_logic'image(r_user_sp2_i);
+      if user_sp2_i /= r_user_sp2_i then
+        report "user_sp2_i on expansion board value incorrect: Saw " & std_logic'image(user_sp2_i) & ", but expected " & std_logic'image(r_user_sp2_i);
         errors := errors + 1;
       end if;
-      if s_user_pc2_i /= r_user_pc2_i then
-        report "user_pc2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_pc2_i) & ", but expected " & std_logic'image(r_user_pc2_i);
+      if user_pc2_i /= r_user_pc2_i then
+        report "user_pc2_i on expansion board value incorrect: Saw " & std_logic'image(user_pc2_i) & ", but expected " & std_logic'image(r_user_pc2_i);
         errors := errors + 1;
       end if;
-      if s_user_flag2_i /= r_user_flag2_i then
-        report "user_flag2_i on expansion board value incorrect: Saw " & std_logic'image(s_user_flag2_i) & ", but expected " & std_logic'image(r_user_flag2_i);
+      if user_flag2_i /= r_user_flag2_i then
+        report "user_flag2_i on expansion board value incorrect: Saw " & std_logic'image(user_flag2_i) & ", but expected " & std_logic'image(r_user_flag2_i);
         errors := errors + 1;
       end if;
-      if s_user_cnt1_i /= r_user_cnt1_i then
-        report "user_cnt1_i on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_i) & ", but expected " & std_logic'image(r_user_cnt1_i);
+      if user_cnt1_i /= r_user_cnt1_i then
+        report "user_cnt1_i on expansion board value incorrect: Saw " & std_logic'image(user_cnt1_i) & ", but expected " & std_logic'image(r_user_cnt1_i);
         errors := errors + 1;
       end if;
       if s_user_pa2_o /= r_user_pa2_o then
@@ -707,7 +707,156 @@ begin
         r_user_reset_n_en_n <= '1'; user_reset_n_en_n <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
+
+      elsif run("tape_read_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_tape_read_i <= '0'; s_tape_read_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
         
+        remember_current_signals;
+        r_tape_read_i <= '1'; s_tape_read_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("tape_sense_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_tape_sense_i <= '0'; s_tape_sense_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_tape_sense_i <= '1'; s_tape_sense_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("c1565_serio_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_c1565_serio_i <= '0'; s_c1565_serio_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_c1565_serio_i <= '1'; s_c1565_serio_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_d_i is correctly conveyed") then
+
+        for i in 0 to 7 loop
+          wait_for_ring_cycle;
+
+          remember_current_signals;
+          r_user_d_i(i) <= '0'; s_user_d_i(i) <= '0';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
+        
+          remember_current_signals;
+          r_user_d_i(i) <= '1'; s_user_d_i(i) <= '1';
+          wait_for_ring_cycle;
+          compare_with_remembered_signals;
+        end loop;
+        
+      elsif run("user_pa2_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_pa2_i <= '0'; s_user_pa2_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_pa2_i <= '1'; s_user_pa2_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_sp1_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_sp1_i <= '0'; s_user_sp1_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_sp1_i <= '1'; s_user_sp1_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_cnt2_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_cnt2_i <= '0'; s_user_cnt2_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_cnt2_i <= '1'; s_user_cnt2_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_sp2_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_sp2_i <= '0'; s_user_sp2_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_sp2_i <= '1'; s_user_sp2_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_pc2_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_pc2_i <= '0'; s_user_pc2_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_pc2_i <= '1'; s_user_pc2_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_flag2_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_flag2_i <= '0'; s_user_flag2_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_flag2_i <= '1'; s_user_flag2_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_cnt1_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_cnt1_i <= '0'; s_user_cnt1_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_cnt1_i <= '1'; s_user_cnt1_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+      elsif run("user_reset_n_i is correctly conveyed") then
+        wait_for_ring_cycle;
+
+        remember_current_signals;
+        r_user_reset_n_i <= '0'; s_user_reset_n_i <= '0';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;
+        
+        remember_current_signals;
+        r_user_reset_n_i <= '1'; s_user_reset_n_i <= '1';
+        wait_for_ring_cycle;
+        compare_with_remembered_signals;        
+                                        
       end if;
     end loop;
     test_runner_cleanup(runner);
