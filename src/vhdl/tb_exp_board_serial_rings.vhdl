@@ -266,38 +266,38 @@ begin
     begin
       -- Tape port
       r_tape_write_o <= tape_write_o;
-      r_tape_read_i <= s_tape_read_i;
-      r_tape_sense_i <= s_tape_sense_i;
+      r_tape_read_i <= tape_read_i;
+      r_tape_sense_i <= tape_sense_i;
       r_tape_6v_en <= tape_6v_en;
   
       -- C1565 port
-      r_c1565_serio_i <= s_c1565_serio_i;
-      r_c1565_serio_o <= c1565_serio_o;
+      r_c1565_serio_i <= c1565_serio_i;
+      r_c1565_serio_o <= s_c1565_serio_o;
       r_c1565_serio_en_n <= c1565_serio_en_n;
-      r_c1565_clk_o <= c1565_clk_o;
-      r_c1565_ld_o <= c1565_ld_o;
-      r_c1565_rst_o <= c1565_rst_o;
+      r_c1565_clk_o <= s_c1565_clk_o;
+      r_c1565_ld_o <= s_c1565_ld_o;
+      r_c1565_rst_o <= s_c1565_rst_o;
 
       -- User port
-      r_user_d_i <= s_user_d_i;
-      r_user_d_o <= user_d_o;
-      r_user_d_en_n <= user_d_en_n;
-      r_user_pa2_i <= s_user_pa2_i;
-      r_user_sp1_i <= s_user_sp1_i;
-      r_user_cnt2_i <= s_user_cnt2_i;
-      r_user_sp2_i <= s_user_sp2_i;
-      r_user_pc2_i <= s_user_pc2_i;
-      r_user_flag2_i <= s_user_flag2_i;
-      r_user_cnt1_i <= s_user_cnt1_i;
+      r_user_d_i <= user_d_i;
+      r_user_d_o <= s_user_d_o;
+      r_user_d_en_n <= s_user_d_en_n;
+      r_user_pa2_i <= user_pa2_i;
+      r_user_sp1_i <= user_sp1_i;
+      r_user_cnt2_i <= user_cnt2_i;
+      r_user_sp2_i <= user_sp2_i;
+      r_user_pc2_i <= user_pc2_i;
+      r_user_flag2_i <= user_flag2_i;
+      r_user_cnt1_i <= user_cnt1_i;
       r_user_pa2_o <= s_user_pa2_o;
       r_user_sp1_o <= s_user_sp1_o;
       r_user_cnt2_o <= s_user_cnt2_o;
       r_user_sp2_o <= s_user_sp2_o;
       r_user_pc2_o <= s_user_pc2_o;
       r_user_cnt1_o <= s_user_cnt1_o;
-      r_user_reset_n_i <= s_user_reset_n_i;
-      r_user_atn_en_n <= user_atn_en_n;
-      r_user_reset_n_en_n <= user_reset_n_en_n;
+      r_user_reset_n_i <= user_reset_n_i;
+      r_user_atn_en_n <= s_user_atn_en_n;
+      r_user_reset_n_en_n <= s_user_reset_n_en_n;
       
     end procedure;
 
@@ -329,11 +329,11 @@ begin
         report "tape_write_o on expansion board value incorrect: Saw " & std_logic'image(s_tape_write_o) & ", but expected " & std_logic'image(r_tape_write_o);
         errors := errors + 1;
       end if;
-      if s_tape_read_i /= r_tape_read_i then
+      if tape_read_i /= r_tape_read_i then
         report "tape_read_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_read_i) & ", but expected " & std_logic'image(r_tape_read_i);
         errors := errors + 1;
       end if;
-      if s_tape_sense_i /= r_tape_sense_i then
+      if tape_sense_i /= r_tape_sense_i then
         report "tape_sense_i on expansion board value incorrect: Saw " & std_logic'image(s_tape_sense_i) & ", but expected " & std_logic'image(r_tape_sense_i);
         errors := errors + 1;
       end if;
@@ -341,7 +341,7 @@ begin
         report "tape_6v_en on expansion board value incorrect: Saw " & std_logic'image(s_tape_6v_en) & ", but expected " & std_logic'image(r_tape_6v_en);
         errors := errors + 1;
       end if;
-      if s_c1565_serio_i /= r_c1565_serio_i then
+      if c1565_serio_i /= r_c1565_serio_i then
         report "c1565_serio_i on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_i) & ", but expected " & std_logic'image(r_c1565_serio_i);
         errors := errors + 1;
       end if;
@@ -435,7 +435,7 @@ begin
         report "user_cnt1_o on expansion board value incorrect: Saw " & std_logic'image(s_user_cnt1_o) & ", but expected " & std_logic'image(r_user_cnt1_o);
         errors := errors + 1;
       end if;
-      if s_user_reset_n_i /= r_user_reset_n_i then
+      if user_reset_n_i /= r_user_reset_n_i then
         report "user_reset_n_i on expansion board value incorrect: Saw " & std_logic'image(s_user_reset_n_i) & ", but expected " & std_logic'image(r_user_reset_n_i);
         errors := errors + 1;
       end if;
