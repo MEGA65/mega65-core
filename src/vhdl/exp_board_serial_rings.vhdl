@@ -57,7 +57,6 @@ entity exp_board_ring_ctrl is
     user_cnt2_o : in std_logic;
     user_sp2_o : in std_logic;
     user_pc2_o : in std_logic;
-    user_flag2_o : in std_logic;
     user_cnt1_o : in std_logic;
 
     user_reset_n_i : out std_logic;

@@ -47,7 +47,6 @@ entity sim_exp_board_rings is
     user_cnt2_o : out std_logic;
     user_sp2_o : out std_logic;
     user_pc2_o : out std_logic;
-    user_flag2_o : out std_logic;
     user_cnt1_o : out std_logic;
 
     user_atn_en_n : out std_logic;

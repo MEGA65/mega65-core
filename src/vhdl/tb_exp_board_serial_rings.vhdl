@@ -63,7 +63,6 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal user_cnt2_o : std_logic := '1';
   signal user_sp2_o :  std_logic := '1';
   signal user_pc2_o :  std_logic := '1';
-  signal user_flag2_o : std_logic := '1';
   signal user_cnt1_o :  std_logic := '1';
   signal user_reset_n_i : std_logic;
   signal user_atn_en_n : std_logic := '1';
@@ -101,7 +100,6 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_user_cnt2_o : std_logic := '1';
   signal s_user_sp2_o :  std_logic := '1';
   signal s_user_pc2_o :  std_logic := '1';
-  signal s_user_flag2_o : std_logic := '1';
   signal s_user_cnt1_o :  std_logic := '1';
   signal s_user_reset_n_i : std_logic;
   signal s_user_atn_en_n : std_logic;
@@ -140,7 +138,6 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal r_user_cnt2_o : std_logic;
   signal r_user_sp2_o :  std_logic;
   signal r_user_pc2_o :  std_logic;
-  signal r_user_flag2_o : std_logic;
   signal r_user_cnt1_o :  std_logic;
   signal r_user_reset_n_i : std_logic := '1';
   signal r_user_atn_en_n : std_logic;
@@ -189,7 +186,6 @@ begin
     user_cnt2_o => user_cnt2_o,
     user_sp2_o => user_sp2_o,
     user_pc2_o => user_pc2_o,
-    user_flag2_o => user_flag2_o,
     user_cnt1_o => user_cnt1_o,
     user_reset_n_i => user_reset_n_i,
     user_atn_en_n => user_atn_en_n,
@@ -237,7 +233,6 @@ begin
     user_cnt2_o => s_user_cnt2_o,
     user_sp2_o => s_user_sp2_o,
     user_pc2_o => s_user_pc2_o,
-    user_flag2_o => s_user_flag2_o,
     user_cnt1_o => s_user_cnt1_o,
     user_reset_n_i => s_user_reset_n_i,
     user_atn_en_n => s_user_atn_en_n,
@@ -299,7 +294,6 @@ begin
       r_user_cnt2_o <= s_user_cnt2_o;
       r_user_sp2_o <= s_user_sp2_o;
       r_user_pc2_o <= s_user_pc2_o;
-      r_user_flag2_o <= s_user_flag2_o;
       r_user_cnt1_o <= s_user_cnt1_o;
       r_user_reset_n_i <= s_user_reset_n_i;
       r_user_atn_en_n <= user_atn_en_n;
@@ -435,10 +429,6 @@ begin
       end if;
       if s_user_pc2_o /= r_user_pc2_o then
         report "user_pc2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_pc2_o) & ", but expected " & std_logic'image(r_user_pc2_o);
-        errors := errors + 1;
-      end if;
-      if s_user_flag2_o /= r_user_flag2_o then
-        report "user_flag2_o on expansion board value incorrect: Saw " & std_logic'image(s_user_flag2_o) & ", but expected " & std_logic'image(r_user_flag2_o);
         errors := errors + 1;
       end if;
       if s_user_cnt1_o /= r_user_cnt1_o then
@@ -679,18 +669,6 @@ begin
         
         remember_current_signals;
         r_user_pc2_o <= '1'; user_pc2_o <= '1';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;        
-      elsif run("user_flag2_o is correctly conveyed") then
-        wait_for_ring_cycle;
-
-        remember_current_signals;
-        r_user_flag2_o <= '0'; user_flag2_o <= '0';
-        wait_for_ring_cycle;
-        compare_with_remembered_signals;
-        
-        remember_current_signals;
-        r_user_flag2_o <= '1'; user_flag2_o <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("user_cnt1_o is correctly conveyed") then
