@@ -51,35 +51,35 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal user_d_i : std_logic_vector(7 downto 0);
   signal user_d_o : std_logic_vector(7 downto 0) := (others => '1');
   signal user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
-  signal user_pa2_i : std_logic;
-  signal user_sp1_i : std_logic;
-  signal user_cnt2_i : std_logic;
-  signal user_sp2_i :  std_logic;
-  signal user_pc2_i :  std_logic;
-  signal user_flag2_i : std_logic;
-  signal user_cnt1_i :  std_logic;
+  signal user_pa2_i : std_logic := '1';
+  signal user_sp1_i : std_logic := '1';
+  signal user_cnt2_i : std_logic := '1';
+  signal user_sp2_i :  std_logic := '1';
+  signal user_pc2_i :  std_logic := '1';
+  signal user_flag2_i : std_logic := '1';
+  signal user_cnt1_i :  std_logic := '1';
   signal user_pa2_o : std_logic := '1';
   signal user_sp1_o : std_logic := '1';
   signal user_cnt2_o : std_logic := '1';
   signal user_sp2_o :  std_logic := '1';
   signal user_pc2_o :  std_logic := '1';
   signal user_cnt1_o :  std_logic := '1';
-  signal user_reset_n_i : std_logic;
+  signal user_reset_n_i : std_logic := '1';
   signal user_atn_en_n : std_logic := '1';
   signal user_reset_n_en_n : std_logic := '1';
 
   -- Signals visible on the expansion board
   
   -- Tape port
-  signal s_tape_write_o : std_logic;
-  signal s_tape_read_i :  std_logic;
-  signal s_tape_sense_i :  std_logic;
-  signal s_tape_6v_en : std_logic;
+  signal s_tape_write_o : std_logic := '1';
+  signal s_tape_read_i :  std_logic := '1';
+  signal s_tape_sense_i :  std_logic := '1';
+  signal s_tape_6v_en : std_logic := '1';
   
   -- C1565 port
-  signal s_c1565_serio_i :  std_logic;
+  signal s_c1565_serio_i :  std_logic := '1';
   signal s_c1565_serio_o : std_logic := '1';
-  signal s_c1565_serio_en_n : std_logic;
+  signal s_c1565_serio_en_n : std_logic := '1';
   signal s_c1565_clk_o : std_logic := '1';
   signal s_c1565_ld_o : std_logic := '1';
   signal s_c1565_rst_o : std_logic := '1';
@@ -88,22 +88,22 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_user_d_i : std_logic_vector(7 downto 0) := (others => '0');
   signal s_user_d_o : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
-  signal s_user_pa2_i : std_logic;
-  signal s_user_sp1_i : std_logic;
-  signal s_user_cnt2_i : std_logic;
-  signal s_user_sp2_i :  std_logic;
-  signal s_user_pc2_i :  std_logic;
-  signal s_user_flag2_i : std_logic;
-  signal s_user_cnt1_i :  std_logic;
+  signal s_user_pa2_i : std_logic := '1';
+  signal s_user_sp1_i : std_logic := '1';
+  signal s_user_cnt2_i : std_logic := '1';
+  signal s_user_sp2_i :  std_logic := '1';
+  signal s_user_pc2_i :  std_logic := '1';
+  signal s_user_flag2_i : std_logic := '1';
+  signal s_user_cnt1_i :  std_logic := '1';
   signal s_user_pa2_o : std_logic := '1';
   signal s_user_sp1_o : std_logic := '1';
   signal s_user_cnt2_o : std_logic := '1';
   signal s_user_sp2_o :  std_logic := '1';
   signal s_user_pc2_o :  std_logic := '1';
   signal s_user_cnt1_o :  std_logic := '1';
-  signal s_user_reset_n_i : std_logic;
-  signal s_user_atn_en_n : std_logic;
-  signal s_user_reset_n_en_n : std_logic;
+  signal s_user_reset_n_i : std_logic := '1';
+  signal s_user_atn_en_n : std_logic := '1';
+  signal s_user_reset_n_en_n : std_logic := '1';
 
 
   -- Remembered / expected signal values
@@ -133,15 +133,15 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal r_user_pc2_i :  std_logic := '1';
   signal r_user_flag2_i : std_logic := '1';
   signal r_user_cnt1_i :  std_logic := '1';
-  signal r_user_pa2_o : std_logic;
-  signal r_user_sp1_o : std_logic;
-  signal r_user_cnt2_o : std_logic;
-  signal r_user_sp2_o :  std_logic;
-  signal r_user_pc2_o :  std_logic;
-  signal r_user_cnt1_o :  std_logic;
+  signal r_user_pa2_o : std_logic := '1';
+  signal r_user_sp1_o : std_logic := '1';
+  signal r_user_cnt2_o : std_logic := '1';
+  signal r_user_sp2_o :  std_logic := '1';
+  signal r_user_pc2_o :  std_logic := '1';
+  signal r_user_cnt1_o :  std_logic := '1';
   signal r_user_reset_n_i : std_logic := '1';
-  signal r_user_atn_en_n : std_logic;
-  signal r_user_reset_n_en_n : std_logic;
+  signal r_user_atn_en_n : std_logic := '1';
+  signal r_user_reset_n_en_n : std_logic := '1';
   
 begin
 

@@ -81,7 +81,7 @@ begin
     srclk => exp_clock
     );
 
-  u2: entity work.sim74LS165 port map (
+  u2: entity work.sim74LS165 generic map (unit => 2) port map (
     ser => '0',
     q => user_d_i,
     q_h => ser_u2_u5,
@@ -108,7 +108,7 @@ begin
     srclk => exp_clock    
     );
 
-  u5: entity work.sim74LS165 port map (
+  u5: entity work.sim74LS165 generic map ( unit => 5) port map (
     ser => ser_u2_u5,
     q(0) => user_pa2_i,
     q(1) => user_sp1_i,
@@ -143,7 +143,7 @@ begin
     srclk => exp_clock    
     );
 
-  u7: entity work.sim74LS165 port map (
+  u7: entity work.sim74LS165 generic map ( unit => 7) port map (
     ser => ser_u5_u7,
     q(0) => user_cnt1_i,
     q(1) => '0',

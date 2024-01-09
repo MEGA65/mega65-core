@@ -8,6 +8,7 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity sim74LS165 is
+  generic ( unit : integer);
   port (
     q : in std_logic_vector(7 downto 0);
     ser : in std_logic;
@@ -22,6 +23,26 @@ end sim74LS165;
 architecture simulated of sim74LS165 is
 
   signal sr : std_logic_vector(7 downto 0);
+
+  function to_str(signal vec: std_logic_vector) return string is
+      variable result: string(0 to (vec'length-1));
+    begin
+      for i in vec'range loop
+        case vec(vec'length-1-i) is
+          when 'U' => result(i) := 'U';
+          when 'X' => result(i) := 'X';
+          when '0' => result(i) := '0';
+          when '1' => result(i) := '1';
+          when 'Z' => result(i) := 'Z';
+          when 'W' => result(i) := 'W';
+          when 'L' => result(i) := 'L';
+          when 'H' => result(i) := 'H';
+          when '-' => result(i) := '-';
+          when others => result(i) := '?';
+        end case;
+      end loop;
+      return result;
+    end to_str;  
   
 begin
 
@@ -31,6 +52,7 @@ begin
       -- Reset register contents
       if sh_ld_n = '0' then
         sr <= q;
+        report "U" & integer'image(unit) & ": Loading SR with " & to_str(q);
       else 
         -- Advance bits through shift register.
         sr(0) <= ser;
