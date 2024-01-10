@@ -6,6 +6,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.porttypes.all;
 
 entity exp_board_ring_ctrl is
   port (
@@ -26,10 +27,8 @@ entity exp_board_ring_ctrl is
     exp_rdata : in std_logic;
     
     -- Tape port
-    tape_write_o : in std_logic;
-    tape_read_i : out std_logic;
-    tape_sense_i : out std_logic;
-    tape_6v_en : in std_logic;
+    tape_i : out tape_port_in;
+    tape_o : in tape_port_out;
     
     -- C1565 port
     c1565_serio_i : out std_logic;
@@ -238,8 +237,8 @@ begin
         output_vector(14) <= c1565_serio_en_n;
         output_vector(13) <= c1565_rst_o;
         output_vector(12) <= '1'; -- not assigned
-        output_vector(11) <= tape_write_o;
-        output_vector(10) <= tape_6v_en;
+        output_vector(11) <= tape_o.write;
+        output_vector(10) <= tape_o.motor_en;
         output_vector(9) <= c1565_serio_o;        
         output_vector(8) <= c1565_clk_o;
         
@@ -257,8 +256,8 @@ begin
       end loop;
 
       c1565_serio_i <= input_vector(22);
-      tape_sense_i <= input_vector(21);
-      tape_read_i <= input_vector(20);
+      tape_i.sense <= input_vector(21);
+      tape_i.read <= input_vector(20);
       user_pa2_i <= input_vector(8);
       user_sp1_i <= input_vector(9);
       user_cnt2_i <= input_vector(10);

@@ -6,6 +6,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.porttypes.all;
 
 entity sim_exp_board_rings is
   port (
@@ -16,10 +17,8 @@ entity sim_exp_board_rings is
     exp_rdata : out std_logic;
     
     -- Tape port
-    tape_write_o : out std_logic;
-    tape_read_i : in std_logic;
-    tape_sense_i : in std_logic;
-    tape_6v_en : out std_logic;
+    tape_o : out tape_port_out;
+    tape_i : in tape_port_in;
     
     -- C1565 port
     c1565_serio_i : in std_logic;
@@ -131,8 +130,8 @@ begin
     q(1) => c1565_serio_en_n,
     q(2) => c1565_rst_o,
     q(3) => dummy_u6_q3,
-    q(4) => tape_write_o,
-    q(5) => tape_6v_en,
+    q(4) => tape_o.write,
+    q(5) => tape_o.motor_en,
     q(6) => c1565_serio_o,
     q(7) => c1565_clk_o,
     ser => ser_u4_u6,
@@ -149,8 +148,8 @@ begin
     q(1) => '0',
     q(2) => '0',
     q(3) => '0',
-    q(4) => tape_read_i,
-    q(5) => tape_sense_i,
+    q(4) => tape_i.read,
+    q(5) => tape_i.sense,
     q(6) => c1565_serio_i,
     q(7) => '0',
     q_h => exp_rdata,

@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.porttypes.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
@@ -34,10 +35,8 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- M65 internal signals
   
   -- Tape port
-  signal tape_write_o : std_logic := '1';
-  signal tape_read_i :  std_logic;
-  signal tape_sense_i :  std_logic;
-  signal tape_6v_en : std_logic := '1';
+  signal tape_i : tape_port_in;
+  signal tape_o : tape_port_out;
   
     -- C1565 port
   signal c1565_serio_i :  std_logic;
@@ -71,10 +70,8 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- Signals visible on the expansion board
   
   -- Tape port
-  signal s_tape_write_o : std_logic := '1';
-  signal s_tape_read_i :  std_logic := '1';
-  signal s_tape_sense_i :  std_logic := '1';
-  signal s_tape_6v_en : std_logic := '1';
+  signal s_tape_i : tape_port_in;
+  signal s_tape_o : tape_port_out;
   
   -- C1565 port
   signal s_c1565_serio_i :  std_logic := '1';
@@ -109,10 +106,8 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- Remembered / expected signal values
   
   -- Tape port
-  signal r_tape_write_o : std_logic;
-  signal r_tape_read_i :  std_logic;
-  signal r_tape_sense_i :  std_logic;
-  signal r_tape_6v_en : std_logic;
+  signal r_tape_o : tape_port_out;
+  signal r_tape_i : tape_port_in;
   
   -- C1565 port
   signal r_c1565_serio_i :  std_logic;
@@ -164,10 +159,8 @@ begin
     exp_rdata => exp_rdata,
     
     -- Tape port
-    tape_write_o => tape_write_o,
-    tape_read_i => tape_read_i,
-    tape_sense_i => tape_sense_i,
-    tape_6v_en => tape_6v_en,
+    tape_o => tape_o,
+    tape_i => tape_i,
     
     -- C1565 port
     c1565_serio_i => c1565_serio_i,
@@ -213,10 +206,8 @@ begin
     -- Simulated ports have opposite direction sense 
     
     -- Tape port
-    tape_write_o => s_tape_write_o,
-    tape_read_i => s_tape_read_i,
-    tape_sense_i => s_tape_sense_i,
-    tape_6v_en => s_tape_6v_en,
+    tape_o => s_tape_o,
+    tape_i => s_tape_i,
     
     -- C1565 port
     c1565_serio_o => s_c1565_serio_o,
@@ -274,10 +265,10 @@ begin
     procedure remember_current_signals is
     begin
       -- Tape port
-      r_tape_write_o <= tape_write_o;
-      r_tape_read_i <= tape_read_i;
-      r_tape_sense_i <= tape_sense_i;
-      r_tape_6v_en <= tape_6v_en;
+      r_tape_o.write <= tape_o.write;
+      r_tape_i.read <= tape_i.read;
+      r_tape_i.sense <= tape_i.sense;
+      r_tape_o.motor_en <= tape_o.motor_en;
   
       -- C1565 port
       r_c1565_serio_i <= c1565_serio_i;
@@ -334,20 +325,20 @@ begin
     procedure compare_with_remembered_signals is
       variable errors : integer := 0;
     begin
-      if s_tape_write_o /= r_tape_write_o then
-        report "tape_write_o on expansion board value incorrect: Saw " & std_logic'image(s_tape_write_o) & ", but expected " & std_logic'image(r_tape_write_o);
+      if s_tape_o.write /= r_tape_o.write then
+        report "tape_o.write on expansion board value incorrect: Saw " & std_logic'image(s_tape_o.write) & ", but expected " & std_logic'image(r_tape_o.write);
         errors := errors + 1;
       end if;
-      if tape_read_i /= r_tape_read_i then
-        report "tape_read_i on expansion board value incorrect: Saw " & std_logic'image(tape_read_i) & ", but expected " & std_logic'image(r_tape_read_i);
+      if tape_i.read /= r_tape_i.read then
+        report "tape_i.read on expansion board value incorrect: Saw " & std_logic'image(tape_i.read) & ", but expected " & std_logic'image(r_tape_i.read);
         errors := errors + 1;
       end if;
-      if tape_sense_i /= r_tape_sense_i then
-        report "tape_sense_i on expansion board value incorrect: Saw " & std_logic'image(tape_sense_i) & ", but expected " & std_logic'image(r_tape_sense_i);
+      if tape_i.sense /= r_tape_i.sense then
+        report "tape_i.sense on expansion board value incorrect: Saw " & std_logic'image(tape_i.sense) & ", but expected " & std_logic'image(r_tape_i.sense);
         errors := errors + 1;
       end if;
-      if s_tape_6v_en /= r_tape_6v_en then
-        report "tape_6v_en on expansion board value incorrect: Saw " & std_logic'image(s_tape_6v_en) & ", but expected " & std_logic'image(r_tape_6v_en);
+      if s_tape_o.motor_en /= r_tape_o.motor_en then
+        report "tape_o.motor_en on expansion board value incorrect: Saw " & std_logic'image(s_tape_o.motor_en) & ", but expected " & std_logic'image(r_tape_o.motor_en);
         errors := errors + 1;
       end if;
       if c1565_serio_i /= r_c1565_serio_i then
@@ -502,12 +493,12 @@ begin
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_write_o <= '0'; tape_write_o <= '0';
+        r_tape_o.write <= '0'; tape_o.write <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_write_o <= '1'; tape_write_o <= '1';
+        r_tape_o.write <= '1'; tape_o.write <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("DATA outputs are correctly conveyed") then
@@ -544,16 +535,16 @@ begin
           wait_for_ring_cycle;
           compare_with_remembered_signals;
         end loop;
-      elsif run("tape_6v_en is correctly conveyed") then
+      elsif run("tape_o.motor_en is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_6v_en <= '0'; tape_6v_en <= '0';
+        r_tape_o.motor_en <= '0'; tape_o.motor_en <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_6v_en <= '1'; tape_6v_en <= '1';
+        r_tape_o.motor_en <= '1'; tape_o.motor_en <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("c1565_serio_o is correctly conveyed") then
@@ -713,28 +704,28 @@ begin
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
 
-      elsif run("tape_read_i is correctly conveyed") then
+      elsif run("tape_i.read is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_read_i <= '0'; s_tape_read_i <= '0';
+        r_tape_i.read <= '0'; s_tape_i.read <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_read_i <= '1'; s_tape_read_i <= '1';
+        r_tape_i.read <= '1'; s_tape_i.read <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("tape_sense_i is correctly conveyed") then
+      elsif run("tape_i.sense is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_sense_i <= '0'; s_tape_sense_i <= '0';
+        r_tape_i.sense <= '0'; s_tape_i.sense <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_sense_i <= '1'; s_tape_sense_i <= '1';
+        r_tape_i.sense <= '1'; s_tape_i.sense <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("c1565_serio_i is correctly conveyed") then
