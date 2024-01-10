@@ -31,12 +31,8 @@ entity exp_board_ring_ctrl is
     tape_o : in tape_port_out;
     
     -- C1565 port
-    c1565_serio_i : out std_logic;
-    c1565_serio_o : in std_logic;
-    c1565_serio_en_n : in std_logic;
-    c1565_clk_o : in std_logic;
-    c1565_ld_o : in std_logic;
-    c1565_rst_o : in std_logic;
+    c1565_i : out c1565_port_in;
+    c1565_o : in c1565_port_out;
     
     -- User port
     user_d_i : out std_logic_vector(7 downto 0);
@@ -233,18 +229,15 @@ begin
         output_vector(17) <= user_cnt1_o;
         output_vector(16) <= user_reset_n_en_n;
         
-        output_vector(15) <= c1565_ld_o;
-        output_vector(14) <= c1565_serio_en_n;
-        output_vector(13) <= c1565_rst_o;
+        output_vector(15) <= c1565_o.ld;
+        output_vector(14) <= c1565_o.serio_en_n;
+        output_vector(13) <= c1565_o.rst;
         output_vector(12) <= '1'; -- not assigned
         output_vector(11) <= tape_o.write;
         output_vector(10) <= tape_o.motor_en;
-        output_vector(9) <= c1565_serio_o;        
-        output_vector(8) <= c1565_clk_o;
+        output_vector(9) <= c1565_o.serio;        
+        output_vector(8) <= c1565_o.clk;
         
-        if (c1565_clk_o = 'U') then
-          report "c1565_clk_o = " & std_logic'image(c1565_clk_o);
-        end if;
         for i in 0 to 7 loop
           output_vector(31-i) <= user_d_o(i);
           output_vector(7-i) <= user_d_en_n(i);
@@ -255,7 +248,7 @@ begin
         user_d_i(i) <= input_vector(i);
       end loop;
 
-      c1565_serio_i <= input_vector(22);
+      c1565_i.serio <= input_vector(22);
       tape_i.sense <= input_vector(21);
       tape_i.read <= input_vector(20);
       user_pa2_i <= input_vector(8);

@@ -21,12 +21,8 @@ entity sim_exp_board_rings is
     tape_i : in tape_port_in;
     
     -- C1565 port
-    c1565_serio_i : in std_logic;
-    c1565_serio_o : out std_logic;
-    c1565_serio_en_n : out std_logic;
-    c1565_clk_o : out std_logic;
-    c1565_ld_o : out std_logic;
-    c1565_rst_o : out std_logic;
+    c1565_i : in c1565_port_in;
+    c1565_o : out c1565_port_out;
     
     -- User port
     user_d_i : in std_logic_vector(7 downto 0);
@@ -126,14 +122,14 @@ begin
 
   u6: entity work.sim74LS595 generic map (unit => 6 )
     port map (
-    q(0) => c1565_ld_o,
-    q(1) => c1565_serio_en_n,
-    q(2) => c1565_rst_o,
+    q(0) => c1565_o.ld,
+    q(1) => c1565_o.serio_en_n,
+    q(2) => c1565_o.rst,
     q(3) => dummy_u6_q3,
     q(4) => tape_o.write,
     q(5) => tape_o.motor_en,
-    q(6) => c1565_serio_o,
-    q(7) => c1565_clk_o,
+    q(6) => c1565_o.serio,
+    q(7) => c1565_o.clk,
     ser => ser_u4_u6,
     q_h_dash => ser_u6_u11,
     rclk => exp_latch,
@@ -150,7 +146,7 @@ begin
     q(3) => '0',
     q(4) => tape_i.read,
     q(5) => tape_i.sense,
-    q(6) => c1565_serio_i,
+    q(6) => c1565_i.serio,
     q(7) => '0',
     q_h => exp_rdata,
     q_h_n => open,

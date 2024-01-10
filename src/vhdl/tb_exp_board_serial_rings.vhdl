@@ -38,13 +38,9 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal tape_i : tape_port_in;
   signal tape_o : tape_port_out;
   
-    -- C1565 port
-  signal c1565_serio_i :  std_logic;
-  signal c1565_serio_o : std_logic := '1';
-  signal c1565_serio_en_n : std_logic := '1';
-  signal c1565_clk_o : std_logic := '1';
-  signal c1565_ld_o : std_logic := '1';
-  signal c1565_rst_o : std_logic := '1';
+  -- C1565 port
+  signal c1565_i : c1565_port_in;
+  signal c1565_o : c1565_port_out;
   
     -- User port
   signal user_d_i : std_logic_vector(7 downto 0);
@@ -74,12 +70,8 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_tape_o : tape_port_out;
   
   -- C1565 port
-  signal s_c1565_serio_i :  std_logic := '1';
-  signal s_c1565_serio_o : std_logic := '1';
-  signal s_c1565_serio_en_n : std_logic := '1';
-  signal s_c1565_clk_o : std_logic := '1';
-  signal s_c1565_ld_o : std_logic := '1';
-  signal s_c1565_rst_o : std_logic := '1';
+  signal s_c1565_i : c1565_port_in;
+  signal s_c1565_o : c1565_port_out;
 
   -- User port
   signal s_user_d_i : std_logic_vector(7 downto 0) := "10010110";
@@ -110,12 +102,8 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal r_tape_i : tape_port_in;
   
   -- C1565 port
-  signal r_c1565_serio_i :  std_logic;
-  signal r_c1565_serio_o : std_logic;
-  signal r_c1565_serio_en_n : std_logic;
-  signal r_c1565_clk_o : std_logic;
-  signal r_c1565_ld_o : std_logic;
-  signal r_c1565_rst_o : std_logic;
+  signal r_c1565_i : c1565_port_in;
+  signal r_c1565_o : c1565_port_out;
 
   -- User port
   signal r_user_d_i : std_logic_vector(7 downto 0) := (others => '1');
@@ -163,12 +151,8 @@ begin
     tape_i => tape_i,
     
     -- C1565 port
-    c1565_serio_i => c1565_serio_i,
-    c1565_serio_o => c1565_serio_o,
-    c1565_serio_en_n => c1565_serio_en_n,
-    c1565_clk_o => c1565_clk_o,
-    c1565_ld_o => c1565_ld_o,
-    c1565_rst_o => c1565_rst_o,
+    c1565_i => c1565_i,
+    c1565_o => c1565_o,
     
     -- User port
     user_d_i => user_d_i,
@@ -210,12 +194,8 @@ begin
     tape_i => s_tape_i,
     
     -- C1565 port
-    c1565_serio_o => s_c1565_serio_o,
-    c1565_serio_i => s_c1565_serio_i,
-    c1565_serio_en_n => s_c1565_serio_en_n,
-    c1565_clk_o => s_c1565_clk_o,
-    c1565_ld_o => s_c1565_ld_o,
-    c1565_rst_o => s_c1565_rst_o,
+    c1565_i => s_c1565_i,
+    c1565_o => s_c1565_o,
     
     -- User port
     user_d_i => s_user_d_i,
@@ -271,12 +251,8 @@ begin
       r_tape_o.motor_en <= tape_o.motor_en;
   
       -- C1565 port
-      r_c1565_serio_i <= c1565_serio_i;
-      r_c1565_serio_o <= s_c1565_serio_o;
-      r_c1565_serio_en_n <= c1565_serio_en_n;
-      r_c1565_clk_o <= s_c1565_clk_o;
-      r_c1565_ld_o <= s_c1565_ld_o;
-      r_c1565_rst_o <= s_c1565_rst_o;
+      r_c1565_i <= c1565_i;
+      r_c1565_o <= s_c1565_o;
 
       -- User port
       r_user_d_i <= user_d_i;
@@ -341,28 +317,28 @@ begin
         report "tape_o.motor_en on expansion board value incorrect: Saw " & std_logic'image(s_tape_o.motor_en) & ", but expected " & std_logic'image(r_tape_o.motor_en);
         errors := errors + 1;
       end if;
-      if c1565_serio_i /= r_c1565_serio_i then
-        report "c1565_serio_i on expansion board value incorrect: Saw " & std_logic'image(c1565_serio_i) & ", but expected " & std_logic'image(r_c1565_serio_i);
+      if c1565_i.serio /= r_c1565_i.serio then
+        report "c1565_i.serio on expansion board value incorrect: Saw " & std_logic'image(c1565_i.serio) & ", but expected " & std_logic'image(r_c1565_i.serio);
         errors := errors + 1;
       end if;
-      if s_c1565_serio_o /= r_c1565_serio_o then
-        report "c1565_serio_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_o) & ", but expected " & std_logic'image(r_c1565_serio_o);
+      if s_c1565_o.serio /= r_c1565_o.serio then
+        report "c1565_o.serio on expansion board value incorrect: Saw " & std_logic'image(s_c1565_o.serio) & ", but expected " & std_logic'image(r_c1565_o.serio);
         errors := errors + 1;
       end if;
-      if s_c1565_serio_en_n /= r_c1565_serio_en_n then
-        report "c1565_serio_en_n on expansion board value incorrect: Saw " & std_logic'image(s_c1565_serio_en_n) & ", but expected " & std_logic'image(r_c1565_serio_en_n);
+      if s_c1565_o.serio_en_n /= r_c1565_o.serio_en_n then
+        report "c1565_o.serio_en_n on expansion board value incorrect: Saw " & std_logic'image(s_c1565_o.serio_en_n) & ", but expected " & std_logic'image(r_c1565_o.serio_en_n);
         errors := errors + 1;
       end if;
-      if s_c1565_clk_o /= r_c1565_clk_o then
-        report "c1565_clk_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_clk_o) & ", but expected " & std_logic'image(r_c1565_clk_o);
+      if s_c1565_o.clk /= r_c1565_o.clk then
+        report "c1565_o.clk on expansion board value incorrect: Saw " & std_logic'image(s_c1565_o.clk) & ", but expected " & std_logic'image(r_c1565_o.clk);
         errors := errors + 1;
       end if;
-      if s_c1565_ld_o /= r_c1565_ld_o then
-        report "c1565_ld_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_ld_o) & ", but expected " & std_logic'image(r_c1565_ld_o);
+      if s_c1565_o.ld /= r_c1565_o.ld then
+        report "c1565_o.ld on expansion board value incorrect: Saw " & std_logic'image(s_c1565_o.ld) & ", but expected " & std_logic'image(r_c1565_o.ld);
         errors := errors + 1;
       end if;
-      if s_c1565_rst_o /= r_c1565_rst_o then
-        report "c1565_rst_o on expansion board value incorrect: Saw " & std_logic'image(s_c1565_rst_o) & ", but expected " & std_logic'image(r_c1565_rst_o);
+      if s_c1565_o.rst /= r_c1565_o.rst then
+        report "c1565_o.rst on expansion board value incorrect: Saw " & std_logic'image(s_c1565_o.rst) & ", but expected " & std_logic'image(r_c1565_o.rst);
         errors := errors + 1;
       end if;
       for i in 0 to 7 loop
@@ -547,64 +523,64 @@ begin
         r_tape_o.motor_en <= '1'; tape_o.motor_en <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("c1565_serio_o is correctly conveyed") then
+      elsif run("c1565_o.serio is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_serio_o <= '0'; c1565_serio_o <= '0';
+        r_c1565_o.serio <= '0'; c1565_o.serio <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_serio_o <= '1'; c1565_serio_o <= '1';
+        r_c1565_o.serio <= '1'; c1565_o.serio <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("c1565_serio_en_n is correctly conveyed") then
+      elsif run("c1565_o.serio_en_n is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_serio_en_n <= '0'; c1565_serio_en_n <= '0';
+        r_c1565_o.serio_en_n <= '0'; c1565_o.serio_en_n <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_serio_en_n <= '1'; c1565_serio_en_n <= '1';
+        r_c1565_o.serio_en_n <= '1'; c1565_o.serio_en_n <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("c1565_clk_o is correctly conveyed") then
+      elsif run("c1565_o.clk is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_clk_o <= '0'; c1565_clk_o <= '0';
+        r_c1565_o.clk <= '0'; c1565_o.clk <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_clk_o <= '1'; c1565_clk_o <= '1';
+        r_c1565_o.clk <= '1'; c1565_o.clk <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("c1565_ld_o is correctly conveyed") then
+      elsif run("c1565_o.ld is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_ld_o <= '0'; c1565_ld_o <= '0';
+        r_c1565_o.ld <= '0'; c1565_o.ld <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_ld_o <= '1'; c1565_ld_o <= '1';
+        r_c1565_o.ld <= '1'; c1565_o.ld <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("c1565_rst_o is correctly conveyed") then
+      elsif run("c1565_o.rst is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_rst_o <= '0'; c1565_rst_o <= '0';
+        r_c1565_o.rst <= '0'; c1565_o.rst <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_rst_o <= '1'; c1565_rst_o <= '1';
+        r_c1565_o.rst <= '1'; c1565_o.rst <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("user_pa2_o is correctly conveyed") then
@@ -732,12 +708,12 @@ begin
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_c1565_serio_i <= '0'; s_c1565_serio_i <= '0';
+        r_c1565_i.serio <= '0'; s_c1565_i.serio <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_c1565_serio_i <= '1'; s_c1565_serio_i <= '1';
+        r_c1565_i.serio <= '1'; s_c1565_i.serio <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("user_d_i is correctly conveyed") then
