@@ -85,7 +85,7 @@ architecture test_arch of tb_exp_board_serial_rings is
   signal s_c1565_rst_o : std_logic := '1';
 
   -- User port
-  signal s_user_d_i : std_logic_vector(7 downto 0) := (others => '0');
+  signal s_user_d_i : std_logic_vector(7 downto 0) := "10010110";
   signal s_user_d_o : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_d_en_n : std_logic_vector(7 downto 0) := (others => '1');
   signal s_user_pa2_i : std_logic := '1';
@@ -187,6 +187,15 @@ begin
     user_sp2_o => user_sp2_o,
     user_pc2_o => user_pc2_o,
     user_cnt1_o => user_cnt1_o,
+
+    user_pa2_i => user_pa2_i,
+    user_sp1_i => user_sp1_i,
+    user_cnt2_i => user_cnt2_i,
+    user_sp2_i => user_sp2_i,
+    user_pc2_i => user_pc2_i,
+    user_cnt1_i => user_cnt1_i,
+    user_flag2_i => user_flag2_i,
+    
     user_reset_n_i => user_reset_n_i,
     user_atn_en_n => user_atn_en_n,
     user_reset_n_en_n => user_reset_n_en_n
