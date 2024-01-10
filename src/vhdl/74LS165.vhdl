@@ -63,10 +63,15 @@ begin
 --      report "U" & integer'image(unit) & ": Shifting";
         sr(0) <= ser;
         sr(7 downto 1) <= sr(6 downto 0);
-        q_h <= sr(7);
-        q_h_n <= not sr(7);
       end if;      
     end if;
+
+    -- Allow for cascading
+    if falling_edge(clk) and clk_inhibit='0' then
+      q_h <= sr(7);
+      q_h_n <= not sr(7);
+    end if;
+    
   end process;
 end simulated;
     
