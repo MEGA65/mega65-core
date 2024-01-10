@@ -200,8 +200,12 @@ begin
           -- 74LS595s.
           -- (remembering that ring_phase counts down not up, so 24 cycles
           -- is obtained by clearing EXP_LATCH when ring_phase = 32 - 24 = 8)
-          if ring_phase = 8 then
+          -- Then we have to make some further minor adjustment to get it to
+          -- all correctly line up with when we sample etc. So we use 9.
+          if ring_phase = 9 then
             exp_latch <= '0';
+            report "RING: latched input vector " & to_str(sr_in);
+            input_vector <= sr_in;
           end if;
                          
           if ring_phase = 0 then
@@ -212,8 +216,6 @@ begin
             sr_out <= output_vector;
             report "RING: preparing to output vector " & to_str(output_vector);
             -- Latch input shift register contents
-            input_vector <= sr_in;
-            report "RING: latched input vector " & to_str(sr_in);
           else
             ring_phase <= ring_phase - 1;
           end if;
@@ -253,6 +255,10 @@ begin
       for i in 0 to 7 loop
         user_d_i(i) <= input_vector(i);
       end loop;
+
+      c1565_serio_i <= input_vector(22);
+      tape_sense_i <= input_vector(21);
+      tape_read_i <= input_vector(20);
       user_pa2_i <= input_vector(8);
       user_sp1_i <= input_vector(9);
       user_cnt2_i <= input_vector(10);
@@ -261,9 +267,6 @@ begin
       user_flag2_i <= input_vector(13);
       user_cnt1_i <= input_vector(14);
       user_reset_n_i <= input_vector(15);
-      tape_read_i <= input_vector(20);
-      tape_sense_i <= input_vector(21);
-      c1565_serio_i <= input_vector(22);
       
     end if;
   end process;
