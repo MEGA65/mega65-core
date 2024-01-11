@@ -18,7 +18,6 @@ use UNISIM.VComponents.all;
 entity r3_expansion is
   Port ( cpuclock : STD_LOGIC;         
          clock27 : std_logic;
-         clock41 : std_logic;
          clock81 : std_logic;
          clock270 : std_logic;
 
