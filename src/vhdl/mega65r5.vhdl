@@ -740,7 +740,7 @@ begin
       c1565_port_i => c1565_port_i,
       c1565_port_o => c1565_port_o,
       user_port_i => user_port_i,
-      user_port_o => user_port_o,
+      user_port_o => user_port_o
 
       );
   end generate;
