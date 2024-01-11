@@ -1361,6 +1361,7 @@ begin
                       report "IEC: Sampling fourth 2 JiffyDOS bits";
           when 389 => micro_wait(t_j5);
           when 390 => d('0'); iec_status(1) <= '0';
+                      iec_status(6) <= '0';
                       iec_status(0) <= '0';
                       if iec_data_i='0' and iec_clk_i='1' then
                         -- Byte received with EOI
