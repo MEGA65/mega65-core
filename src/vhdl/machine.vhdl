@@ -227,11 +227,11 @@ entity machine is
         fb_fire_drain_n : out std_logic;
 
         user_port_i : in user_port_in;
-        user_port_o : in user_port_out;
+        user_port_o : out user_port_out;
         tape_port_i : in tape_port_in;
-        tape_port_o : in tape_port_out;
+        tape_port_o : out tape_port_out;
         c1565_port_i : in c1565_port_in;
-        c1565_port_o : in c1565_port_out;
+        c1565_port_o : out c1565_port_out;
         
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
