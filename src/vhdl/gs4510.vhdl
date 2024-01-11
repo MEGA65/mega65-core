@@ -89,7 +89,7 @@ entity gs4510 is
     iomode_set_toggle : out std_logic := '0';
 
     tape_port_i : in tape_port_in;
-    tape_port_o : in tape_port_out;
+    tape_port_o : out tape_port_out;
     
     dat_bitplane_bank : in unsigned(2 downto 0);
     dat_offset : in unsigned(15 downto 0);
@@ -4032,7 +4032,7 @@ begin
       -- Compute the value we see on port $01 to incorporate the tape interface
       -- XXX To minimise incompatibility with past cores, I have not implemented
       -- full DDR handling.
-      tape_port_o.wdata = cpuport_value(3) ;
+      tape_port_o.wdata = cpuport_value(3);
       tape_port_o.motor_en = cpuport_value(5);
       cpuport_value_computed <= cpuport_value;
       if cpuport_ddr(4)='0' then
