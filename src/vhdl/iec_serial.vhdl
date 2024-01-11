@@ -623,6 +623,12 @@ begin
             wait_data_high <= '0'; wait_data_low <= '0';
             wait_srq_high <= '0'; wait_srq_low <= '0';
             wait_usec <= 0; wait_msec <= 0;
+          when x"01" => -- Reset controller state
+            iec_dev_listening <= '0';
+            a('1'); d('1'); c('1'); s('1');
+            jiffydos_enabled <= '1';
+            report "IEC: Enabling JiffyDOS solicitation via $52 RESET command";
+            c128fast_enabled <= '0';
 
           -- Low-level / bitbashing commands
           when x"41" => -- ATN to +5V
@@ -645,17 +651,10 @@ begin
           when x"52" => -- Drive IEC reset pin 5V
             iec_reset_n <= '1';
             iec_reset_int <= '1';
-            iec_dev_listening <= '0';
-            a('1'); d('1'); c('1'); s('1');
-            jiffydos_enabled <= '1';
-            report "IEC: Enabling JiffyDOS solicitation via $52 RESET command";
-            c128fast_enabled <= '0';
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
             iec_reset_int <= '0';
-            iec_dev_listening <= '0';
-            a('1'); d('1'); c('1'); s('1');
-
+            
             -- Allow enabling and disabling of JiffyDOS offering
           when x"4A" => jiffydos_enabled <= '1';
                         report "IEC: Enabling JiffyDOS solicitation";
