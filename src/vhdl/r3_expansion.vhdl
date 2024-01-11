@@ -102,8 +102,8 @@ begin
     -- Management interface (not connected for now)
     cs => '0',
 --    fastio_rdata => fastio_rdata,
-    fastio_wdata => to_unsigned(0,8);,
-    fastio_addr => to_unsigned(0,20);
+    fastio_wdata => to_unsigned(0,8),
+    fastio_addr => to_unsigned(0,20),
     fastio_write => '0',
 
     -- PMOD pins
