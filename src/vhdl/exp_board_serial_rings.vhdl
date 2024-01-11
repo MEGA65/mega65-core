@@ -229,6 +229,8 @@ begin
       if input_vector /= "111111111111111111111111" and
         input_vector /=  "000000000000000000000000" then
         input_active <= '1';
+      else
+        input_active <= '0';
       end if;
 
       if input_active = '1' then
