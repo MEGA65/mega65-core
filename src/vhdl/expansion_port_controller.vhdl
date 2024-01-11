@@ -42,7 +42,7 @@ ENTITY expansion_port_controller IS
     ------------------------------------------------------------------------
     joya : out std_logic_vector(4 downto 0) := "11111";
     joyb : out std_logic_vector(4 downto 0) := "11111";
-    
+
     ------------------------------------------------------------------------
     -- Suppress mapping of IO at $DE00-$DFFF if sector buffer mapped
     ------------------------------------------------------------------------

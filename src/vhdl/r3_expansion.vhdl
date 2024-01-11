@@ -29,11 +29,17 @@ entity r3_expansion is
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
 
-         -- C1565 port XXX
+         -- C1565 port
+         c1565_port_i : out c1565_port_in;
+         c1565_port_o : in c1565_port_out;
 
-         -- USER port XXX
+         -- USER port
+         user_port_i : out user_port_in;
+         user_port_o : in user_port_out;
 
-         -- TAPE port XXX
+         -- TAPE port
+         tape_port_i : out tape_port_in;
+         tape_port_o : in tape_port_out;
 
          -- Video and Audio feed for composite video port
          chroma : in unsigned(7 downto 0);
