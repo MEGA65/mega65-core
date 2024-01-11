@@ -836,7 +836,6 @@ begin
     portain(5) => iec_data_reflect,
     portain(6) => iec_clk_external,
     portain(7) => iec_data_external,
-    portaout(2) => dummy(2),
     portaout(1 downto 0) => dd00_bits_out,
     portaout(2) => user_port_o.pa2,
     portaout(3) => iec_atn_fromcia,
