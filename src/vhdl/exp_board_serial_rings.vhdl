@@ -35,28 +35,8 @@ entity exp_board_ring_ctrl is
     c1565_o : in c1565_port_out;
     
     -- User port
-    user_d_i : out std_logic_vector(7 downto 0);
-    user_d_o : in std_logic_vector(7 downto 0);
-    user_d_en_n : in std_logic_vector(7 downto 0);
-
-    user_pa2_i : out std_logic;
-    user_sp1_i : out std_logic;
-    user_cnt2_i : out std_logic;
-    user_sp2_i : out std_logic;
-    user_pc2_i : out std_logic;
-    user_flag2_i : out std_logic;
-    user_cnt1_i : out std_logic;
-
-    user_pa2_o : in std_logic;
-    user_sp1_o : in std_logic;
-    user_cnt2_o : in std_logic;
-    user_sp2_o : in std_logic;
-    user_pc2_o : in std_logic;
-    user_cnt1_o : in std_logic;
-
-    user_reset_n_i : out std_logic;
-    user_atn_en_n : in std_logic;
-    user_reset_n_en_n : in std_logic
+    user_i : out user_port_in;
+    user_o : in user_port_out
 
 );
 end exp_board_ring_ctrl;
@@ -220,14 +200,14 @@ begin
       -- Update signals if enabled
       if plumb_signals = '1' then
         -- XXX Update output_vector from signals
-        output_vector(23) <= user_pa2_o;
-        output_vector(22) <= user_sp1_o;
-        output_vector(21) <= user_cnt2_o;
-        output_vector(20) <= user_sp2_o;
-        output_vector(19) <= user_pc2_o;
-        output_vector(18) <= user_atn_en_n;
-        output_vector(17) <= user_cnt1_o;
-        output_vector(16) <= user_reset_n_en_n;
+        output_vector(23) <= user_o.pa2;
+        output_vector(22) <= user_o.sp1;
+        output_vector(21) <= user_o.cnt2;
+        output_vector(20) <= user_o.sp2;
+        output_vector(19) <= user_o.pc2;
+        output_vector(18) <= user_o.atn_en_n;
+        output_vector(17) <= user_o.cnt1;
+        output_vector(16) <= user_o.reset_n;
         
         output_vector(15) <= c1565_o.ld;
         output_vector(14) <= c1565_o.serio_en_n;
@@ -239,26 +219,26 @@ begin
         output_vector(8) <= c1565_o.clk;
         
         for i in 0 to 7 loop
-          output_vector(31-i) <= user_d_o(i);
-          output_vector(7-i) <= user_d_en_n(i);
+          output_vector(31-i) <= user_o.d(i);
+          output_vector(7-i) <= user_o.d_en_n(i);
         end loop;
       end if;
 
       for i in 0 to 7 loop
-        user_d_i(i) <= input_vector(i);
+        user_i.d(i) <= input_vector(i);
       end loop;
 
       c1565_i.serio <= input_vector(22);
       tape_i.sense <= input_vector(21);
       tape_i.read <= input_vector(20);
-      user_pa2_i <= input_vector(8);
-      user_sp1_i <= input_vector(9);
-      user_cnt2_i <= input_vector(10);
-      user_sp2_i <= input_vector(11);
-      user_pc2_i <= input_vector(12);
-      user_flag2_i <= input_vector(13);
-      user_cnt1_i <= input_vector(14);
-      user_reset_n_i <= input_vector(15);
+      user_i.pa2 <= input_vector(8);
+      user_i.sp1 <= input_vector(9);
+      user_i.cnt2 <= input_vector(10);
+      user_i.sp2 <= input_vector(11);
+      user_i.pc2 <= input_vector(12);
+      user_i.flag2 <= input_vector(13);
+      user_i.cnt1 <= input_vector(14);
+      user_i.reset_n <= input_vector(15);
       
     end if;
   end process;

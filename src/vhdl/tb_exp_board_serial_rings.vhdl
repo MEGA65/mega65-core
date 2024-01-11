@@ -45,7 +45,6 @@ architecture test_arch of tb_exp_board_serial_rings is
   -- User port
   signal user_i : user_port_in;
   signal user_o : user_port_out;
-  signal user_o.atn_n_en : std_logic := '1';
 
   -- Signals visible on the expansion board
   
@@ -105,23 +104,7 @@ begin
     
     -- User port
     user_i => user_i,
-    user_o => user_o,
-    user_o.sp1 => user_o.sp1,
-    user_o.cnt2 => user_o.cnt2,
-    user_o.sp2 => user_o.sp2,
-    user_o.pc2 => user_o.pc2,
-    user_o.cnt1 => user_o.cnt1,
-
-    user_i.sp1 => user_i.sp1,
-    user_i.cnt2 => user_i.cnt2,
-    user_i.sp2 => user_i.sp2,
-    user_i.pc2 => user_i.pc2,
-    user_i.cnt1 => user_i.cnt1,
-    user_i.flag2 => user_i.flag2,
-    
-    user_i.reset_n => user_i.reset_n,
-    user_o.atn_n_en => user_o.atn_n_en,
-    user_o.reset_n => user_o.reset_n
+    user_o => user_o
     
     );
   
@@ -145,21 +128,8 @@ begin
     
     -- User port
     user_i => s_user_i,
-    user_o => s_user_o,
-    user_i.sp1 => s_user_i.sp1,
-    user_i.cnt2 => s_user_i.cnt2,
-    user_i.sp2 => s_user_i.sp2,
-    user_i.pc2 => s_user_i.pc2,
-    user_i.flag2 => s_user_i.flag2,
-    user_i.cnt1 => s_user_i.cnt1,
-    user_o.sp1 => s_user_o.sp1,
-    user_o.cnt2 => s_user_o.cnt2,
-    user_o.sp2 => s_user_o.sp2,
-    user_o.pc2 => s_user_o.pc2,
-    user_o.cnt1 => s_user_o.cnt1,
-    user_i.reset_n => s_user_i.reset_n,
-    user_o.atn_n_en => s_user_o.atn_n_en,
-    user_o.reset_n => s_user_o.reset_nn
+    user_o => s_user_o
+
     );      
   
   main : process
@@ -198,22 +168,8 @@ begin
       r_c1565_o <= s_c1565_o;
 
       -- User port
-      r_user_i <= user_i,
-      r_user_o <= user_o,
-      r_user_i.sp1 <= user_i.sp1;
-      r_user_i.cnt2 <= user_i.cnt2;
-      r_user_i.sp2 <= user_i.sp2;
-      r_user_i.pc2 <= user_i.pc2;
-      r_user_i.flag2 <= user_i.flag2;
-      r_user_i.cnt1 <= user_i.cnt1;
-      r_user_o.sp1 <= s_user_o.sp1;
-      r_user_o.cnt2 <= s_user_o.cnt2;
-      r_user_o.sp2 <= s_user_o.sp2;
-      r_user_o.pc2 <= s_user_o.pc2;
-      r_user_o.cnt1 <= s_user_o.cnt1;
-      r_user_i.reset_n <= user_i.reset_n;
-      r_user_o.atn_n_en <= s_user_o.atn_n_en;
-      r_user_o.reset_n <= s_user_o.reset_n;
+      r_user_i <= user_i;
+      r_user_o <= user_o;
       
     end procedure;
 
@@ -300,7 +256,7 @@ begin
         end if;
       end loop;
       if user_i.pa2 /= r_user_i.pa2 then
-        report "user_i.pa2 on expansion board value incorrect: Saw " & std_logic'image(user_i.pa2) & ", but expected " & std_logic'image(r_user_i.pa2;
+        report "user_i.pa2 on expansion board value incorrect: Saw " & std_logic'image(user_i.pa2) & ", but expected " & std_logic'image(r_user_i.pa2);
         errors := errors + 1;
       end if;
       if user_i.sp1 /= r_user_i.sp1 then
@@ -356,8 +312,8 @@ begin
         errors := errors + 1;
       end if;
 
-      if s_user_o.atn_n_en /= r_user_o.atn_n_en then
-        report "user_o.atn_n_en on expansion board value incorrect: Saw " & std_logic'image(s_user_o.atn_n_en) & ", but expected " & std_logic'image(r_user_o.atn_n_en);
+      if s_user_o.atn_en_n /= r_user_o.atn_en_n then
+        report "user_o.atn_en_n on expansion board value incorrect: Saw " & std_logic'image(s_user_o.atn_en_n) & ", but expected " & std_logic'image(r_user_o.atn_en_n);
         errors := errors + 1;
       end if;
 
@@ -595,16 +551,16 @@ begin
         r_user_o.cnt1 <= '1'; user_o.cnt1 <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
-      elsif run("user_o.atn_n_en is correctly conveyed") then
+      elsif run("user_o.atn_en_n is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_user_o.atn_n_en <= '0'; user_o.atn_n_en <= '0';
+        r_user_o.atn_en_n <= '0'; user_o.atn_en_n <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_user_o.atn_n_en <= '1'; user_o.atn_n_en <= '1';
+        r_user_o.atn_en_n <= '1'; user_o.atn_en_n <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("user_o.reset_n is correctly conveyed") then

@@ -25,30 +25,8 @@ entity sim_exp_board_rings is
     c1565_o : out c1565_port_out;
     
     -- User port
-    user_d_i : in std_logic_vector(7 downto 0);
-    user_d_o : out std_logic_vector(7 downto 0);
-    user_d_en_n : out std_logic_vector(7 downto 0);
-
-    user_pa2_i : in std_logic;
-    user_sp1_i : in std_logic;
-    user_cnt2_i : in std_logic;
-    user_sp2_i : in std_logic;
-    user_pc2_i : in std_logic;
-    user_flag2_i : in std_logic;
-    user_cnt1_i : in std_logic;
-
-    user_pa2_o : out std_logic;
-    user_sp1_o : out std_logic;
-    user_cnt2_o : out std_logic;
-    user_sp2_o : out std_logic;
-    user_pc2_o : out std_logic;
-    user_cnt1_o : out std_logic;
-
-    user_atn_en_n : out std_logic;
-
-    user_reset_n_i : in std_logic;
-    user_reset_n_en : out std_logic
-    
+    user_i : in user_port_in;
+    user_o : out user_port_out    
 );
 end sim_exp_board_rings;
 
@@ -67,7 +45,7 @@ begin
   -- Nothing to do: Just plumb everything together.
   
   u1: entity work.sim74LS595 generic map ( unit => 1 ) port map (
-    q => user_d_o,
+    q => user_o.d,
     ser => exp_wdata,
     q_h_dash => ser_u1_u4,
     rclk => exp_latch,
@@ -78,7 +56,7 @@ begin
 
   u2: entity work.sim74LS165 generic map (unit => 2) port map (
     ser => '0',
-    q => user_d_i,
+    q => user_i.d,
     q_h => ser_u2_u5,
     q_h_n => open,
     sh_ld_n => exp_latch,
@@ -87,14 +65,14 @@ begin
     );
 
   u4: entity work.sim74LS595 generic map ( unit => 4) port map (
-    q(0) => user_pa2_o,
-    q(1) => user_sp1_o,
-    q(2) => user_cnt2_o,
-    q(3) => user_sp2_o,
-    q(4) => user_pc2_o,
-    q(5) => user_atn_en_n,
-    q(6) => user_cnt1_o,
-    q(7) => user_reset_n_en,
+    q(0) => user_o.pa2,
+    q(1) => user_o.sp1,
+    q(2) => user_o.cnt2,
+    q(3) => user_o.sp2,
+    q(4) => user_o.pc2,
+    q(5) => user_o.atn_en_n,
+    q(6) => user_o.cnt1,
+    q(7) => user_o.reset_n,
     ser => ser_u1_u4,
     q_h_dash => ser_u4_u6,
     rclk => exp_latch,
@@ -105,14 +83,14 @@ begin
 
   u5: entity work.sim74LS165 generic map ( unit => 5) port map (
     ser => ser_u2_u5,
-    q(0) => user_pa2_i,
-    q(1) => user_sp1_i,
-    q(2) => user_cnt2_i,
-    q(3) => user_sp2_i,
-    q(4) => user_pc2_i,
-    q(5) => user_flag2_i,
-    q(6) => user_cnt1_i,
-    q(7) => user_reset_n_i,
+    q(0) => user_i.pa2,
+    q(1) => user_i.sp1,
+    q(2) => user_i.cnt2,
+    q(3) => user_i.sp2,
+    q(4) => user_i.pc2,
+    q(5) => user_i.flag2,
+    q(6) => user_i.cnt1,
+    q(7) => user_i.reset_n,
     q_h => ser_u5_u7,
     q_h_n => open,
     sh_ld_n => exp_latch,
@@ -140,7 +118,7 @@ begin
 
   u7: entity work.sim74LS165 generic map ( unit => 7) port map (
     ser => ser_u5_u7,
-    q(0) => user_cnt1_i,
+    q(0) => user_i.cnt1,
     q(1) => '0',
     q(2) => '0',
     q(3) => '0',
@@ -156,7 +134,7 @@ begin
     );
 
   u11: entity work.sim74LS595 generic map ( unit => 11 ) port map (
-    q => user_d_en_n,
+    q => user_o.d_en_n,
     ser => ser_u6_u11,
     q_h_dash => open,
     rclk => exp_latch,
