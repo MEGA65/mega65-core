@@ -75,6 +75,8 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
 
   signal ring_phase : integer range 0 to 32 := 0;
 
+  signal input_active : std_logic := '0';
+  
   function to_str(signal vec: std_logic_vector) return string is
       variable result: string(0 to (vec'length-1));
     begin
@@ -224,21 +226,41 @@ begin
         end loop;
       end if;
 
-      for i in 0 to 7 loop
-        user_i.d(i) <= input_vector(i);
-      end loop;
+      if input_vector /= "111111111111111111111111" and
+        input_vector /=  "000000000000000000000000" then
+        input_active <= '1';
+      end if;
 
-      c1565_i.serio <= input_vector(22);
-      tape_i.sense <= input_vector(21);
-      tape_i.rdata <= input_vector(20);
-      user_i.pa2 <= input_vector(8);
-      user_i.sp1 <= input_vector(9);
-      user_i.cnt2 <= input_vector(10);
-      user_i.sp2 <= input_vector(11);
-      user_i.pc2 <= input_vector(12);
-      user_i.flag2 <= input_vector(13);
-      user_i.cnt1 <= input_vector(14);
-      user_i.reset_n <= input_vector(15);
+      if input_active = '1' then
+        for i in 0 to 7 loop
+          user_i.d(i) <= input_vector(i);
+        end loop;
+
+        c1565_i.serio <= input_vector(22);
+        tape_i.sense <= input_vector(21);
+        tape_i.rdata <= input_vector(20);
+        user_i.pa2 <= input_vector(8);
+        user_i.sp1 <= input_vector(9);
+        user_i.cnt2 <= input_vector(10);
+        user_i.sp2 <= input_vector(11);
+        user_i.pc2 <= input_vector(12);
+        user_i.flag2 <= input_vector(13);
+        user_i.cnt1 <= input_vector(14);
+        user_i.reset_n <= input_vector(15);
+      else
+        user_i.d <= (others => '1');
+        c1565_i.serio <= '1';
+        tape_i.sense <= '1';
+        tape_i.rdata <= '1';
+        user_i.pa2 <= '1';
+        user_i.sp1 <= '1';
+        user_i.cnt2 <= '1';
+        user_i.sp2 <= '1';
+        user_i.pc2 <= '1';
+        user_i.flag2 <= '1';
+        user_i.cnt1 <= '1';
+        user_i.reset_n <= '1';        
+      end if;
       
     end if;
   end process;
