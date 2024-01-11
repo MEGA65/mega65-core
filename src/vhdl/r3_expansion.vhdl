@@ -97,7 +97,7 @@ begin
   controller0: entity work.exp_board_ring_ctrl port map (
 
     -- Master clock
-    clock41 => clock41,
+    clock41 => cpuclock,
 
     -- Management interface (not connected for now)
     cs => '0',

@@ -324,7 +324,6 @@ architecture Behavioral of container is
 
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal clock74p22 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
@@ -716,7 +715,6 @@ begin
     port map (
       cpuclock => cpuclock,
       clock27 => clock27,
-      clock41 => clock41,
       clock81 => pixelclock,
       clock270 => clock270,
 
