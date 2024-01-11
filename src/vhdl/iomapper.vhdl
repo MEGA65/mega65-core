@@ -5,6 +5,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.porttypes.all;
 
 entity iomapper is
   generic ( target : mega65_target_t;
