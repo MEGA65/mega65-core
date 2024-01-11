@@ -158,8 +158,8 @@ begin
     procedure remember_current_signals is
     begin
       -- Tape port
-      r_tape_o.write <= tape_o.write;
-      r_tape_i.read <= tape_i.read;
+      r_tape_o.wdata <= tape_o.wdata;
+      r_tape_i.rdata <= tape_i.rdata;
       r_tape_i.sense <= tape_i.sense;
       r_tape_o.motor_en <= tape_o.motor_en;
   
@@ -197,12 +197,12 @@ begin
     procedure compare_with_remembered_signals is
       variable errors : integer := 0;
     begin
-      if s_tape_o.write /= r_tape_o.write then
-        report "tape_o.write on expansion board value incorrect: Saw " & std_logic'image(s_tape_o.write) & ", but expected " & std_logic'image(r_tape_o.write);
+      if s_tape_o.wdata /= r_tape_o.wdata then
+        report "tape_o.wdata on expansion board value incorrect: Saw " & std_logic'image(s_tape_o.wdata) & ", but expected " & std_logic'image(r_tape_o.wdata);
         errors := errors + 1;
       end if;
-      if tape_i.read /= r_tape_i.read then
-        report "tape_i.read on expansion board value incorrect: Saw " & std_logic'image(tape_i.read) & ", but expected " & std_logic'image(r_tape_i.read);
+      if tape_i.rdata /= r_tape_i.rdata then
+        report "tape_i.rdata on expansion board value incorrect: Saw " & std_logic'image(tape_i.rdata) & ", but expected " & std_logic'image(r_tape_i.rdata);
         errors := errors + 1;
       end if;
       if tape_i.sense /= r_tape_i.sense then
@@ -365,12 +365,12 @@ begin
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_o.write <= '0'; tape_o.write <= '0';
+        r_tape_o.wdata <= '0'; tape_o.wdata <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_o.write <= '1'; tape_o.write <= '1';
+        r_tape_o.wdata <= '1'; tape_o.wdata <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("DATA outputs are correctly conveyed") then
@@ -576,16 +576,16 @@ begin
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
 
-      elsif run("tape_i.read is correctly conveyed") then
+      elsif run("tape_i.rdata is correctly conveyed") then
         wait_for_ring_cycle;
 
         remember_current_signals;
-        r_tape_i.read <= '0'; s_tape_i.read <= '0';
+        r_tape_i.rdata <= '0'; s_tape_i.rdata <= '0';
         wait_for_ring_cycle;
         compare_with_remembered_signals;
         
         remember_current_signals;
-        r_tape_i.read <= '1'; s_tape_i.read <= '1';
+        r_tape_i.rdata <= '1'; s_tape_i.rdata <= '1';
         wait_for_ring_cycle;
         compare_with_remembered_signals;        
       elsif run("tape_i.sense is correctly conveyed") then

@@ -4032,7 +4032,7 @@ begin
       -- Compute the value we see on port $01 to incorporate the tape interface
       -- XXX To minimise incompatibility with past cores, I have not implemented
       -- full DDR handling.
-      tape_port_o.write = cpuport_value(3) ;
+      tape_port_o.wdata = cpuport_value(3) ;
       tape_port_o.motor_en = cpuport_value(5);
       cpuport_value_computed <= cpuport_value;
       if cpuport_ddr(4)='0' then

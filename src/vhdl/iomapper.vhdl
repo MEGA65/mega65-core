@@ -801,7 +801,7 @@ begin
     portaddr => cia1porta_ddr,
     portbddr => cia1portb_ddr,
     -- Datasette read line is /FLAG on CIA1
-    flagin => tape_port_i.read,
+    flagin => tape_port_i.rdata,
     spin => user_port_i.sp1,
     countin => user_port_i.cnt1
     );

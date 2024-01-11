@@ -213,7 +213,7 @@ begin
         output_vector(14) <= c1565_o.serio_en_n;
         output_vector(13) <= c1565_o.rst;
         output_vector(12) <= '1'; -- not assigned
-        output_vector(11) <= tape_o.write;
+        output_vector(11) <= tape_o.wdata;
         output_vector(10) <= tape_o.motor_en;
         output_vector(9) <= c1565_o.serio;        
         output_vector(8) <= c1565_o.clk;
@@ -230,7 +230,7 @@ begin
 
       c1565_i.serio <= input_vector(22);
       tape_i.sense <= input_vector(21);
-      tape_i.read <= input_vector(20);
+      tape_i.rdata <= input_vector(20);
       user_i.pa2 <= input_vector(8);
       user_i.sp1 <= input_vector(9);
       user_i.cnt2 <= input_vector(10);

@@ -43,12 +43,12 @@ package porttypes is
   end record;
 
   type tape_port_out is record
-    write : std_logic;
+    wdata : std_logic;
     motor_en : std_logic;
   end record;
 
   type tape_port_in is record
-    read : std_logic;
+    rdata : std_logic;
     sense : std_logic;
   end record;
 
