@@ -1891,10 +1891,10 @@ begin
         if i = 5 then
           userport_in(i) <= user_port_i.d(i) and joy4(4);
         end if;
-        if i < 4 and user_port_o.i(7)='1' then
+        if i < 4 and user_port_i.d(7)='1' then
           userport_in(i) <= user_port_i.d(i) and joy3(i);
         end if;
-        if i < 4 and user_port_o.i(7)='0' then
+        if i < 4 and user_port_i.d(7)='0' then
           userport_in(i) <= user_port_i.d(i) and joy4(i);
         end if;
       end loop;
