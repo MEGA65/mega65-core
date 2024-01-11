@@ -21,7 +21,7 @@ entity iomapper is
 
         tape_port_i : in tape_port_in;
         user_port_i : in user_port_in;
-        user_port_o : in user_port_out;
+        user_port_o : out user_port_out;
         
         dipsw_read : out std_logic_vector(7 downto 0);
         board_major : out unsigned(3 downto 0);
