@@ -4029,16 +4029,6 @@ begin
 
     if rising_edge(clock) then
 
-      -- Compute the value we see on port $01 to incorporate the tape interface
-      -- XXX To minimise incompatibility with past cores, I have not implemented
-      -- full DDR handling.
-      tape_port_o.wdata <= cpuport_value(3);
-      tape_port_o.motor_en <= cpuport_value(5);
-      cpuport_value_computed <= cpuport_value;
-      if cpuport_ddr(4)='0' then
-        cpuport_value(4) <= tape_port_i.sense;
-      end if;
-      
       if sdram_t_or_hyperram_f_int = '1' then
         sdram_t_or_hyperram_f <= true;
       else
@@ -4323,6 +4313,16 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      -- Compute the value we see on port $01 to incorporate the tape interface
+      -- XXX To minimise incompatibility with past cores, I have not implemented
+      -- full DDR handling.
+      tape_port_o.wdata <= cpuport_value(3);
+      tape_port_o.motor_en <= cpuport_value(5);
+      cpuport_value_computed <= cpuport_value;
+      if cpuport_ddr(4)='0' then
+        cpuport_value(4) <= tape_port_i.sense;
+      end if;      
+      
       update_add_or_subtract_value <= '0';
 
       eth_hyperrupt_masked <= eth_hyperrupt and eth_load_enable;
