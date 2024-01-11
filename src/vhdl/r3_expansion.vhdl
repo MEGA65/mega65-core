@@ -18,6 +18,7 @@ use UNISIM.VComponents.all;
 entity r3_expansion is
   Port ( cpuclock : STD_LOGIC;         
          clock27 : std_logic;
+         clock41 : std_logic;
          clock81 : std_logic;
          clock270 : std_logic;
 
@@ -93,6 +94,39 @@ architecture gothic of r3_expansion is
   
 begin
 
+  controller0: entity work.exp_board_ring_ctrl port map (
+
+    -- Master clock
+    clock41 => clock41,
+
+    -- Management interface (not connected for now)
+    cs => '0',
+--    fastio_rdata => fastio_rdata,
+    fastio_wdata => to_unsigned(0,8);,
+    fastio_addr => to_unsigned(0,20);
+    fastio_write => '0',
+
+    -- PMOD pins
+    exp_clock => p1lo(2),
+    exp_latch => p1lo(1),
+    exp_wdata => p1lo(3),
+    exp_rdata => p1lo(4),
+    
+    -- Tape port
+    tape_o => tape_port_o,
+    tape_i => tape_port_i,
+    
+    -- C1565 port
+    c1565_i => c1565_port_i,
+    c1565_o => c1565_port_o,
+    
+    -- User port
+    user_i => user_port_i,
+    user_o => user_port_o
+    
+    );
+
+  
   process (clock270,clock81,clock27) is
   begin
     if rising_edge(clock27) then
