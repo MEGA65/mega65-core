@@ -320,6 +320,20 @@ begin
         );
     end generate;
 
+  ram5: if with_debug generate
+    debugram0: entity work.ram8x4096_sync
+      port map (
+        clkr => clock,
+        clkw => clock,
+        cs => '1',
+        w => debug_ram_write,
+        write_address => debug_ram_waddr,
+        address => debug_ram_raddr,
+        wdata => debug_ram_wdata5,
+        rdata => debug_ram_rdata5
+        );
+    end generate;
+
     process (clock,clock81) is
 
       variable iec_bus_state : unsigned(7 downto 0) := (others => '0');
