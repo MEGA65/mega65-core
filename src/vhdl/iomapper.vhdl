@@ -19,7 +19,7 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
-        tape_port_i : in std_logic;
+        tape_port_i : in tape_port_in;
         user_port_i : in user_port_in;
         user_port_o : in user_port_out;
         
