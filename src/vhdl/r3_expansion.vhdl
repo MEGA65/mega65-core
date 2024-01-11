@@ -66,8 +66,10 @@ architecture gothic of r3_expansion is
 
   signal chroma_high : unsigned(5 downto 3) := (others => '0');
   signal luma_high : unsigned(5 downto 3) := (others => '0');
+  signal composite_high : unsigned(5 downto 3) := (others => '0');
   signal chroma_low : unsigned(7 downto 0) := (others => '0');
   signal luma_low : unsigned(7 downto 0) := (others => '0');
+  signal composite_low : unsigned(7 downto 0) := (others => '0');
 
   signal sub_clock : integer range 0 to 7 := 0;
 
@@ -102,6 +104,8 @@ begin
       chroma_low <= pick_sub_clock(chroma(4 downto 2));
       luma_high <= luma(7 downto 5);
       luma_low <= pick_sub_clock(luma(4 downto 2));
+      composite_high <= composite(7 downto 5);
+      composite_low <= pick_sub_clock(composite(4 downto 2));
     end if;
     
     if rising_edge(clock270) then
@@ -109,6 +113,7 @@ begin
       for i in 0 to 2 loop
         p2lo(i) <= chroma_high(5-i);
         p2hi(i) <= luma_high(5-i);
+        p1hi(i) <= composite_high(5-i);
       end loop;
       -- We want at least 8 bits of total resolution,
       -- so we do PWM on lowest bit (and later on all
@@ -116,6 +121,7 @@ begin
       -- of just 2x).
       p2lo(3) <= chroma_low(sub_clock);
       p2hi(3) <= luma_low(sub_clock);
+      p1hi(3) <= composite_low(sub_clock);
       if sub_clock /= 7 then
         sub_clock <= sub_clock + 1;
       else
