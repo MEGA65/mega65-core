@@ -42,6 +42,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.victypes.all;
 use work.cputypes.all;
+use work.porttypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -225,6 +226,13 @@ entity machine is
         fb_up_drain_n : out std_logic;
         fb_fire_drain_n : out std_logic;
 
+        user_port_i : in user_port_in;
+        user_port_o : in user_port_out;
+        tape_port_i : in tape_port_in;
+        tape_port_o : in tape_port_out;
+        c1565_port_i : in c1565_port_in;
+        c1565_port_o : in c1565_port_out;
+        
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
         i2c_joya_down : out std_logic := '1';
@@ -1138,6 +1146,9 @@ begin
       dat_bitplane_addresses => dat_bitplane_addresses,
       pixel_frame_toggle => pixel_frame_toggle,
 
+      tape_port_i => tape_port_i,
+      tape_port_o => tape_port_o,
+      
       sid_audio => rightsid_audio,
 
       f_read => f_rdata_switched,
@@ -1632,6 +1643,10 @@ begin
       hw_errata_enable_toggle => hw_errata_enable_toggle,
       hw_errata_disable_toggle => hw_errata_disable_toggle,
 
+      tape_port_i => tape_port_i,
+      user_port_i => user_port_i,
+      user_port_o => user_port_o,
+      
       floppy_last_gap => floppy_last_gap,
       floppy_gap_strobe => floppy_gap_strobe,
 

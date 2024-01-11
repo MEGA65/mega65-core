@@ -18,6 +18,10 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
+        tape_port_i : in std_logic;
+        user_port_i : in user_port_in;
+        user_port_o : in user_port_out;
+        
         dipsw_read : out std_logic_vector(7 downto 0);
         board_major : out unsigned(3 downto 0);
         board_minor : out unsigned(3 downto 0);
@@ -604,7 +608,6 @@ architecture behavioral of iomapper is
   signal touch1_valid_int : std_logic := '0';
 
   signal userport_in : std_logic_vector(7 downto 0) := x"FF";
-  signal userport_out : std_logic_vector(7 downto 0) := x"FF";
 
   signal sd_interface_select_internal : std_logic := '0';
 
@@ -796,9 +799,10 @@ begin
     portbin => cia1portb_in,
     portaddr => cia1porta_ddr,
     portbddr => cia1portb_ddr,
-    flagin => '1',
-    spin => '1',
-    countin => '1'
+    -- Datasette read line is /FLAG on CIA1
+    flagin => tape_port_i.read,
+    spin => user_port_i.sp1,
+    countin => user_port_i.cnt1
     );
   end block;
 
@@ -822,7 +826,8 @@ begin
 
     -- CIA port a (VIC-II bank select + IEC serial port)
     -- XXX Implement connection to internal 1541 drive if drive_connect is asserted
-    portain(2 downto 0) => (others => '1'),
+    portain(1 downto 0) => (others => '1'),
+    portain(2) => user_port_i.pa2,
     portain(3) => iec_atn_reflect, -- IEC serial ATN
     -- We reflect the output values for CLK and DATA straight back in,
     -- as they are needed to be visible for the DOS routines to work.
@@ -832,6 +837,7 @@ begin
     portain(7) => iec_data_external,
     portaout(2) => dummy(2),
     portaout(1 downto 0) => dd00_bits_out,
+    portaout(2) => user_port_o.pa2,
     portaout(3) => iec_atn_fromcia,
     portaout(4) => iec_clk_fromcia,
     portaout(5) => iec_data_fromcia,
@@ -848,12 +854,14 @@ begin
     -- adapters
 
     portbin => userport_in,
-    portbout => userport_out,
-    flagin => '1',
+    portbout => user_port_o.d,
+    portbddr => user_port_o.d_en_n,
+    flagin => user_port_i.flag2,
     spin => iec_srq_external,
     spout => iec_srq_o,
     sp_ddr => iec_srq_en,
-    countin => '1'
+    pcout => user_port_o.pc2,
+    countin => user_port_i.cnt2
     );
   end block;
 
@@ -1864,19 +1872,31 @@ begin
 
       sd_interface_select_internal <= sd_interface_select;
 
-      -- User port is only emulated to provide joy3 and joy4 as though a
-      -- CGA/Protovision joystick adapter were connected.
+      -- Originally, the User port was only emulated to provide joy3 and joy4 as though
+      -- a CGA/Protovision joystick adapter were connected.
       -- This is implemented by a special cartridge (since MEGA65 has no
       -- userport): Tie DMA to GND, and then use data and address pins 0 - 4
       -- for the two joysticks -- even simpler than the original!
       -- (and from a software perspective, it works exactly as the original)
-      if userport_out(7)='1' then
-        userport_in(3 downto 0) <= joy3(3 downto 0);
-      else
-        userport_in(3 downto 0) <= joy4(3 downto 0);
-      end if;
-      userport_in(4) <= joy3(4);
-      userport_in(5) <= joy4(4);
+      -- Now that we support a real User Port via the expansion board, we need
+      -- to make this work together.
+      -- Basically we AND the joy3 / joy4 lines with what we read from the real
+      -- User Port.
+      for i in 0 to 7 loop
+        userport_in(i) <= user_port_i.d(i);
+        if i = 4 then
+          userport_in(i) <= user_port_i.d(i) and joy3(4);
+        end if;
+        if i = 5 then
+          userport_in(i) <= user_port_i.d(i) and joy4(4);
+        end if;
+        if i < 4 and user_port_o.i(7)='1' then
+          userport_in(i) <= user_port_i.d(i) and joy3(i);
+        end if;
+        if i < 4 and user_port_o.i(7)='0' then
+          userport_in(i) <= user_port_i.d(i) and joy4(i);
+        end if;
+      end loop;
 
       touch_key1_driver <= touch_key1;
       touch_key2_driver <= touch_key2;

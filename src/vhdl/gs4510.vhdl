@@ -34,6 +34,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
 use work.victypes.all;
+use work.porttypes.all;
 
 entity gs4510 is
   generic(
@@ -87,6 +88,9 @@ entity gs4510 is
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
+    tape_port_i : in tape_port_in;
+    tape_port_o : in tape_port_out;
+    
     dat_bitplane_bank : in unsigned(2 downto 0);
     dat_offset : in unsigned(15 downto 0);
     dat_even : in std_logic;
@@ -824,6 +828,7 @@ architecture Behavioural of gs4510 is
   signal hyperport_num : unsigned(5 downto 0);
   signal cpuport_ddr : unsigned(7 downto 0) := x"FF";
   signal cpuport_value : unsigned(7 downto 0) := x"3F";
+  signal cpuport_value_computed : unsigned(7 downto 0) := x"3F";
   signal the_read_address : unsigned(27 downto 0);
   
   signal monitor_mem_trace_toggle_last : std_logic := '0';
@@ -3104,7 +3109,7 @@ begin
           report "reading from CPU port" severity note;
           case cpuport_num is
             when x"0" => return cpuport_ddr;
-            when x"1" => return cpuport_value;
+            when x"1" => return cpuport_value_computed;
             when x"2" => return rec_status;
             when x"3" => return vdc_status;
             when x"4" =>
@@ -4024,6 +4029,16 @@ begin
 
     if rising_edge(clock) then
 
+      -- Compute the value we see on port $01 to incorporate the tape interface
+      -- XXX To minimise incompatibility with past cores, I have not implemented
+      -- full DDR handling.
+      tape_port_o.write = cpuport_value(3) ;
+      tape_port_o.motor_en = cpuport_value(5);
+      cpuport_value_computed <= cpuport_value;
+      if cpuport_ddr(4)='0' then
+        cpuport_valud(4) <= tape_port_i.sense;
+      end if;
+      
       if sdram_t_or_hyperram_f_int = '1' then
         sdram_t_or_hyperram_f <= true;
       else
