@@ -107,10 +107,10 @@ begin
     fastio_write => '0',
 
     -- PMOD pins
-    exp_clock => p1lo(2),
-    exp_latch => p1lo(1),
-    exp_wdata => p1lo(3),
-    exp_rdata => p1lo(4),
+    exp_clock => p1lo(1),
+    exp_latch => p1lo(0),
+    exp_wdata => p1lo(2),
+    exp_rdata => p1lo(3),
     
     -- Tape port
     tape_o => tape_port_o,
