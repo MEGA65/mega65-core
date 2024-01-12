@@ -340,6 +340,10 @@ set_property -dict {PACKAGE_PIN B21  IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST 
 set_property -dict {PACKAGE_PIN B22  IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN C22  IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_cs0]
 
+## PMOD power rail enables
+set_property -dict { PACKAGE_PIN C12 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {pmod1en}]
+set_property -dict { PACKAGE_PIN D11 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {pmod2en}]
+
 ## Pmod Header P1
 set_property -dict { PACKAGE_PIN F1  IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
 set_property -dict { PACKAGE_PIN D1  IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]

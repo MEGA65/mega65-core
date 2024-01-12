@@ -436,6 +436,9 @@ set_input_delay  -min [expr $tPCB+$tCKDImin] -clock hr_clk [get_ports $hyperram_
 set_multicycle_path 2 -setup -end -from hr_clk -to clock163
 set_multicycle_path 1 -hold  -end -from hr_clk -to clock163
 
+## PMOD power rail enables
+set_property -dict { PACKAGE_PIN J16 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {pmod1en}]
+set_property -dict { PACKAGE_PIN M13 IOSTANDARD LVCMOS33 PULLUP TRUE } [get_ports {pmod2en}]
 
 ## Pmod Header P1
 # B35_L5_N

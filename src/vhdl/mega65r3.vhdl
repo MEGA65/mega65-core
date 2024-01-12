@@ -39,6 +39,10 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
+         -- Enable 3.3V rail on PMODs 
+         pmod1en : out std_logic := '1';
+         pmod2en : out std_logic := '1';         
+
          ----------------------------------------------------------------------
          -- keyboard/joystick 
          ----------------------------------------------------------------------
