@@ -1817,7 +1817,7 @@ begin
       -- DDR is active high from CIA, but active low on expansion board
       for i in 0 to 7 loop
         user_port_o.d_en_n(i) <= not userport_ddr(i);
-      end if;
+      end loop;
       
       board_major <= board_major_int;
       board_minor <= board_minor_int;
