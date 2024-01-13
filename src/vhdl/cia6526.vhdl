@@ -131,7 +131,7 @@ architecture behavioural of cia6526 is
 
   signal last_flag : std_logic := '0';
   signal reg_isr : unsigned(7 downto 0) := x"00";
-  signal strobe_pc : std_logic := '0';
+  signal strobe_pc_counter : integer range 0 to 511 := 0;
   signal imask_flag : std_logic := '0';
   signal imask_serialport : std_logic := '0';
   signal imask_alarm : std_logic := '0';
@@ -650,9 +650,10 @@ begin  -- behavioural
       end if;
 
       -- Strobe PC line
-      if strobe_pc='1' then
+      if strobe_pc_counter = 0 then
         pcout<='0';
-        strobe_pc<='0';
+      else
+        strobe_pc_counter <= strobe_pc_counter - 1;
       end if;
 
       -- Check for register read side effects
@@ -667,9 +668,9 @@ begin  -- behavioural
         register_number(3 downto 0) := fastio_address(3 downto 0);
         case register_number is
           when x"01" =>
-            -- Reading or writing port B strobes PC high for 1 cycle
+            -- Reading or writing port B strobes PC high
             pcout <= '1';
-            strobe_pc <= '1';
+            strobe_pc_counter <= 511;
           when x"08" => read_tod_latched <='0';
           when x"0b" =>
             read_tod_latched <='1';
@@ -717,6 +718,9 @@ begin  -- behavioural
               reg_porta_pending_timer <= 4;
             end if;           
           when x"01" =>  
+            -- Reading or writing port B strobes PC high
+            pcout <= '1';
+            strobe_pc_counter <= 511;
             
             reg_portb_out<=std_logic_vector(fastio_wdata);
           when x"02" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
