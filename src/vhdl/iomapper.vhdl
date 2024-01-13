@@ -651,7 +651,7 @@ architecture behavioral of iomapper is
   signal board_major_int : unsigned(3 downto 0);
   signal board_minor_int : unsigned(3 downto 0) := x"0";
 
-  signal userport_ddr : unsigned(7 downto 0);
+  signal userport_ddr : std_logic_vector(7 downto 0);
   
 begin
 
