@@ -461,6 +461,7 @@ architecture behavioral of iomapper is
   signal cycles_since_reset : integer range 0 to 1023 := 0;
 
   signal pa2_en : std_logic := '0';
+  signal pa2_ddr : std_logic := '0';
 
   signal combined_scancode_toggle : std_logic := '0';
   signal internal_combined_scancode_toggle : std_logic := '0';
