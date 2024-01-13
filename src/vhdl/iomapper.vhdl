@@ -1992,7 +1992,7 @@ begin
       iec_clk_o <= iec_clk_fromcia;
       iec_data_o <= iec_data_fromcia;
       iec_atn_o <= iec_atn_fromcia;
-      user_port_o.atn_en_n <= iec_atn_fromcia;      
+      user_port_o.atn_en_n <= not iec_atn_fromcia;      
 
       seg_led(12) <= eth_scancode_toggle;
       seg_led(11) <= last_scan_code(12);
