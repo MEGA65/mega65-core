@@ -651,6 +651,8 @@ architecture behavioral of iomapper is
   signal board_major_int : unsigned(3 downto 0);
   signal board_minor_int : unsigned(3 downto 0) := x"0";
 
+  signal userport_ddr : unsigned(7 downto 0);
+  
 begin
 
   block1: block
@@ -855,7 +857,7 @@ begin
 
     portbin => userport_in,
     portbout => user_port_o.d,
-    portbddr => user_port_o.d_en_n,
+    portbddr => userport_ddr,
     flagin => user_port_i.flag2,
     spin => iec_srq_external,
     spout => iec_srq_o,
@@ -1812,6 +1814,11 @@ begin
 
     if rising_edge(cpuclock) then
 
+      -- DDR is active high from CIA, but active low on expansion board
+      for i in 0 to 7 loop
+        user_port_o.d_en_n <= not userport_ddr(i);
+      end if;
+      
       board_major <= board_major_int;
       board_minor <= board_minor_int;
       
