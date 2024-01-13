@@ -9,6 +9,7 @@ package porttypes is
     d : std_logic_vector(7 downto 0);
     d_en_n : std_logic_vector(7 downto 0);
     pa2 : std_logic;
+    pa2_en : std_logic;
     sp1 : std_logic;
     cnt2 : std_logic;
     sp2 : std_logic;

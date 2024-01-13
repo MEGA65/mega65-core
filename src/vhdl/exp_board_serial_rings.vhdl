@@ -214,7 +214,9 @@ begin
         output_vector(15) <= c1565_o.ld;
         output_vector(14) <= c1565_o.serio_en_n;
         output_vector(13) <= c1565_o.rst;
-        output_vector(12) <= '1'; -- not assigned
+        output_vector(12) <= user_o.pa2_en and user_o.pa2; -- insufficient pins
+                                                           -- to have separate
+                                                           -- enable
         output_vector(11) <= tape_o.wdata;
         output_vector(10) <= tape_o.motor_en;
         output_vector(9) <= c1565_o.serio;        
