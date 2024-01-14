@@ -168,8 +168,9 @@ architecture questionable of iec_serial is
   constant c_t_j8    : integer :=   12;  -- JiffyDOS TX 
   constant c_t_j9    : integer :=   12;  -- JiffyDOS TX 
   constant c_t_j10   : integer :=   13;  -- JiffyDOS TX 
-  constant c_t_j11   : integer :=   5;  -- JiffyDOS TX 
-  constant c_t_jr    : integer :=   15;  -- JiffyDOS TX
+  constant c_t_j11   : integer :=   5;   -- JiffyDOS TX 
+  constant c_t_j12   : integer :=   18;  -- JiffyDOS TX 
+  constant c_t_jr    : integer :=   23;  -- JiffyDOS TX
   
 
   constant c_t_fs    : integer :=    5;  -- C128 does 5usec 
@@ -214,6 +215,7 @@ architecture questionable of iec_serial is
   signal t_j9    : integer :=   12;  -- JiffyDOS TX 
   signal t_j10   : integer :=   13;  -- JiffyDOS TX 
   signal t_j11   : integer :=   5;  -- JiffyDOS TX 
+  signal t_j12   : integer :=   18;  -- JiffyDOS TX 
   signal t_jr    : integer :=   15;  -- JiffyDOS TX
   
 
@@ -370,6 +372,7 @@ begin
         t_j9 <= c_t_j9;
         t_j10 <= c_t_j10;
         t_j11 <= c_t_j11;
+        t_j12 <= c_t_j12;
         t_jr <= c_t_jr;
         t_jd <= c_t_jd;
   
@@ -770,6 +773,7 @@ begin
           when x"A0" => t_ff <= to_integer(iec_data_out); iec_data <= to_unsigned(t_ff,8);
           when x"A1" => t_pullup <= to_integer(iec_data_out); iec_data <= to_unsigned(t_pullup,8);
           when x"A2" => t_jd <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_jd,10)(9 downto 2);
+          when x"A3" => t_j12 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j12,8);
                          
           when x"d0" =>
             -- Trigger begin collecting debug info during job
@@ -1523,7 +1527,8 @@ begin
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
           when 486 => d('0');                 c(not send_eoi);        micro_wait(t_j11);
-          when 487 => c('0');
+          when 487 => c('0');                                         micro_wait(t_j12);
+          when 488 => c('0');
                       if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
@@ -1539,7 +1544,7 @@ begin
                       if send_eoi='1' then
                         iec_state <= iec_state + 2;
                       end if;
-          when 488 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
+          when 489 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
@@ -1553,26 +1558,26 @@ begin
                       iec_state <= 0;
 
                       -- Send EOI byte (contents will be ignored by JiffyDOS)
-          when 489 => -- Pretend we want to send another byte
+          when 490 => -- Pretend we want to send another byte
                       d('1');                 c('1');
                       wait_data_high <= '1';
-          when 490 => micro_wait(t_j6);
+          when 491 => micro_wait(t_j6);
 
                       -- We repeat the last byte we sent, not because JiffyDOS
                       -- requires it, but to make tb_iec_serial's probing of most
                       -- recently received byte by drive checks pass.
-          when 491 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(t_j7);
-          when 492 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
-          when 493 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
-          when 494 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
-          when 495 => d('0');                 c('0');                 micro_wait(t_j11);
+          when 492 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(t_j7);
+          when 493 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
+          when 494 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
+          when 495 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
+          when 496 => d('0');                 c('0');                 micro_wait(t_j11);
                       -- JiffyDOS requires that ATN line is also pulsed low
                       -- when sending EOI.                      -
                       a('0');
-          when 496 => -- But we have to also release ATN again soon after, if
+          when 497 => -- But we have to also release ATN again soon after, if
                       -- we want the EOI to be processed.
                       a('1');                                         micro_wait(t_jr);
-          when 497 => report "IEC: Successfully sent EOI using JiffyDOS(tm) protocol";
+          when 498 => report "IEC: Successfully sent EOI using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
