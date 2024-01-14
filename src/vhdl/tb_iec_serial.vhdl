@@ -810,7 +810,7 @@ begin
 
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
+        report "IEC: Commencing sending DEVICE 8 LISTEN ($28) byte under ATN";
         atn_tx_byte(x"28"); -- Device 8 LISTEN
 
         report "IEC: Commencing sending OPEN SECONDARY ADDRESS 15 byte under ATN";
@@ -842,7 +842,7 @@ begin
         
         boot_1541;
 
-        report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
+        report "IEC: Commencing sending DEVICE 8 LISTEN ($28) byte under ATN";
         atn_tx_byte(x"28"); -- Device 8 LISTEN
 
         report "IEC: Commencing sending OPEN SECONDARY ADDRESS 15 byte under ATN";
