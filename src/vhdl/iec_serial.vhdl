@@ -164,11 +164,11 @@ architecture questionable of iec_serial is
   constant c_t_j5    : integer :=   13;  -- JiffyDOS RX 
 
   constant c_t_j6    : integer :=   10;  -- JiffyDOS TX 
-  constant c_t_j7    : integer :=   13;  -- JiffyDOS TX 
-  constant c_t_j8    : integer :=   11;  -- JiffyDOS TX 
-  constant c_t_j9    : integer :=   11;  -- JiffyDOS TX 
-  constant c_t_j10   : integer :=   12;  -- JiffyDOS TX 
-  constant c_t_j11   : integer :=   28;  -- JiffyDOS TX 
+  constant c_t_j7    : integer :=   12;  -- JiffyDOS TX 
+  constant c_t_j8    : integer :=   12;  -- JiffyDOS TX 
+  constant c_t_j9    : integer :=   12;  -- JiffyDOS TX 
+  constant c_t_j10   : integer :=   13;  -- JiffyDOS TX 
+  constant c_t_j11   : integer :=   5;  -- JiffyDOS TX 
   constant c_t_jr    : integer :=   15;  -- JiffyDOS TX
   
 
@@ -209,11 +209,11 @@ architecture questionable of iec_serial is
   signal t_j4    : integer :=   11;  -- JiffyDOS RX 
   signal t_j5    : integer :=   13;  -- JiffyDOS RX 
   signal t_j6    : integer :=   10;  -- JiffyDOS TX 
-  signal t_j7    : integer :=   13;  -- JiffyDOS TX 
-  signal t_j8    : integer :=   11;  -- JiffyDOS TX 
-  signal t_j9    : integer :=   11;  -- JiffyDOS TX 
-  signal t_j10   : integer :=   12;  -- JiffyDOS TX 
-  signal t_j11   : integer :=   28;  -- JiffyDOS TX 
+  signal t_j7    : integer :=   12;  -- JiffyDOS TX 
+  signal t_j8    : integer :=   12;  -- JiffyDOS TX 
+  signal t_j9    : integer :=   12;  -- JiffyDOS TX 
+  signal t_j10   : integer :=   13;  -- JiffyDOS TX 
+  signal t_j11   : integer :=   5;  -- JiffyDOS TX 
   signal t_jr    : integer :=   15;  -- JiffyDOS TX
   
 
@@ -1514,7 +1514,7 @@ begin
             end if;
 
           when 480 => report "IEC: Sending byte $" & to_hexstring(iec_data_out) & " using JiffyDOS(tm) protocol";
-                      d('1');                 c('1');                 wait_data_high <= '1';
+                      d('1');                 c('0');                 wait_data_high <= '1';
           when 481 =>                         c('1');                 micro_wait(t_j6);
                       -- Send direction for JiffyDOS uses inverted signals, and
                       -- rearranged bit order to optimise the transfer
@@ -1523,7 +1523,7 @@ begin
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
           when 486 => d('0');                 c(not send_eoi);        micro_wait(t_j11);
-          when 487 => c('1');
+          when 487 => c('0');
                       if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
