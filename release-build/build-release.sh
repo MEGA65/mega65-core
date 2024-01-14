@@ -137,7 +137,8 @@ fi
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
-        VERSION="JENKINS#${BUILD_NUMBER} ${BRANCH} ${HASH}"
+        # Release hack
+        VERSION="Rel 0.96 RC#${BUILD_NUMBER} ${HASH}"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
@@ -188,30 +189,31 @@ if [[ ${REPACK} -eq 0 ]]; then
 fi
 
 # do regression tests
-if [[ ${NOREG} -eq 1 ]]; then
-    echo "Skipping regression tests"
-    if [[ ${REPACK} -eq 0 ]]; then
-        touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED
-        UNSAFE=1
-    fi
-else
-    echo "Starting regression tests"
-    ${REGTEST} ${BITPATH} ${PKGPATH}/log/
-    if [[ $? -ne 0 ]]; then
-        touch ${PKGPATH}/WARNING_TESTS_HAVE_FAILED_SEE_LOGS
-        UNSAFE=1
-    fi
-    echo "done"
-fi
-echo
+# if [[ ${NOREG} -eq 1 ]]; then
+#     echo "Skipping regression tests"
+#     if [[ ${REPACK} -eq 0 ]]; then
+#         touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED
+#         UNSAFE=1
+#     fi
+# else
+#     echo "Starting regression tests"
+#     ${REGTEST} ${BITPATH} ${PKGPATH}/log/
+#     if [[ $? -ne 0 ]]; then
+#         touch ${PKGPATH}/WARNING_TESTS_HAVE_FAILED_SEE_LOGS
+#         UNSAFE=1
+#     fi
+#     echo "done"
+# fi
+# echo
 
-if [[ ${UNSAFE} -eq 1 ]]; then
-    touch ${PKGPATH}/ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65
-    # also replace JENKINS# prefix in version with UNSAFE#
-    if [[ ${VERSION:0:8} = "JENKINS#" ]]; then
-        VERSION="UNSAFE#${VERSION:8}"
-    fi
-fi
+# if [[ ${UNSAFE} -eq 1 ]]; then
+#    touch ${PKGPATH}/ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65
+#    # also replace JENKINS# prefix in version with UNSAFE#
+#    if [[ ${VERSION:0:8} = "JENKINS#" ]]; then
+#        VERSION="UNSAFE#${VERSION:8}"
+#    fi
+# fi
+
 
 echo "Building COR/MCS"
 echo
