@@ -168,9 +168,9 @@ architecture questionable of iec_serial is
   constant c_t_j8    : integer :=   12;  -- JiffyDOS TX 
   constant c_t_j9    : integer :=   12;  -- JiffyDOS TX 
   constant c_t_j10   : integer :=   13;  -- JiffyDOS TX 
-  constant c_t_j11   : integer :=   5;   -- JiffyDOS TX 
+  constant c_t_j11   : integer :=   15;   -- JiffyDOS TX 
   constant c_t_j12   : integer :=   18;  -- JiffyDOS TX 
-  constant c_t_jr    : integer :=   23;  -- JiffyDOS TX
+  constant c_t_jr    : integer :=   15;  -- JiffyDOS TX
   
 
   constant c_t_fs    : integer :=    5;  -- C128 does 5usec 
@@ -214,7 +214,7 @@ architecture questionable of iec_serial is
   signal t_j8    : integer :=   12;  -- JiffyDOS TX 
   signal t_j9    : integer :=   12;  -- JiffyDOS TX 
   signal t_j10   : integer :=   13;  -- JiffyDOS TX 
-  signal t_j11   : integer :=   5;  -- JiffyDOS TX 
+  signal t_j11   : integer :=   15;  -- JiffyDOS TX 
   signal t_j12   : integer :=   18;  -- JiffyDOS TX 
   signal t_jr    : integer :=   15;  -- JiffyDOS TX
   
@@ -1526,7 +1526,7 @@ begin
           when 483 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
-          when 486 => d('0');                 c(not send_eoi);        micro_wait(t_j11);
+          when 486 => d('0');                 c(send_eoi);            micro_wait(t_j11);
           when 487 => c('0');                                         micro_wait(t_j12);
           when 488 => c('0');
                       if iec_data_i='1' then
@@ -1541,47 +1541,11 @@ begin
                         -- No error, JiffyDOS drive is busy again
                         null; 
                       end if;
-                      if send_eoi='1' then
-                        iec_state <= iec_state + 2;
-                      end if;
           when 489 => report "IEC: Successfully sent byte using JiffyDOS(tm) protocol";
                       iec_devinfo(7) <= '0';
                       iec_busy <= '0';
 
                       iec_dev_listening <= '1';
-
-                      -- And we are still under attention
-                      iec_under_attention <= '0';
-                      iec_devinfo(4) <= '0';
-
-                      iec_state_reached <= to_unsigned(iec_state,12);
-                      iec_state <= 0;
-
-                      -- Send EOI byte (contents will be ignored by JiffyDOS)
-          when 490 => -- Pretend we want to send another byte
-                      d('1');                 c('1');
-                      wait_data_high <= '1';
-          when 491 => micro_wait(t_j6);
-
-                      -- We repeat the last byte we sent, not because JiffyDOS
-                      -- requires it, but to make tb_iec_serial's probing of most
-                      -- recently received byte by drive checks pass.
-          when 492 => d(not iec_data_out(5)); c(not iec_data_out(4)); micro_wait(t_j7);
-          when 493 => d(not iec_data_out(7)); c(not iec_data_out(6)); micro_wait(t_j8);
-          when 494 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
-          when 495 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
-          when 496 => d('0');                 c('0');                 micro_wait(t_j11);
-                      -- JiffyDOS requires that ATN line is also pulsed low
-                      -- when sending EOI.                      -
-                      a('0');
-          when 497 => -- But we have to also release ATN again soon after, if
-                      -- we want the EOI to be processed.
-                      a('1');                                         micro_wait(t_jr);
-          when 498 => report "IEC: Successfully sent EOI using JiffyDOS(tm) protocol";
-                      iec_devinfo(7) <= '0';
-                      iec_busy <= '0';
-
-                      iec_dev_listening <= '0';
 
                       -- And we are still under attention
                       iec_under_attention <= '0';
