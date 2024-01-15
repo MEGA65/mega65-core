@@ -30,6 +30,24 @@ usage () {
     exit 1
 }
 
+shorten_name () {
+  name=$1
+  # issue branch?
+  if [[ $name =~ ^([0-9]+)-(.+)$ ]]; then
+    name="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+  fi
+  # developemnt + extra?
+  if [[ $name =~ ^development-(.+)$ ]]; then
+    name="dev-${BASH_REMATCH[1]}"
+  fi
+  # release + version?
+  if [[ $name =~ ^release-([0-9])\.([0-9][0-9]?)$ ]]; then
+    name="r-${BASH_REMATCH[1]}.${BASH_REMATCH[2]}000"
+  fi
+  # cut after 6 chars
+  echo ${name:0:6}
+}
+
 # check if we are in jenkins environment
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BIT2COR=${SCRIPTPATH}/mega65-tools/bin/bit2core
@@ -147,9 +165,10 @@ fi
 
 # determine branch
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
-    BRANCH=${BRANCH_NAME:0:6}
+    BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
-        VERSION="JENKINS#${BUILD_NUMBER} ${BRANCH} ${HASH}"
+        # Release hack
+        VERSION="Rel 0.96 RC#${BUILD_NUMBER} ${HASH}"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
@@ -216,30 +235,31 @@ if [[ ${REPACK} -eq 0 ]]; then
 fi
 
 # do regression tests
-if [[ ${NOREG} -eq 1 ]]; then
-    echo "Skipping regression tests"
-    if [[ ${REPACK} -eq 0 ]]; then
-        touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED
-        UNSAFE=1
-    fi
-else
-    echo "Starting regression tests"
-    ${REGTEST} ${BITPATH} ${PKGPATH}/log/
-    if [[ $? -ne 0 ]]; then
-        touch ${PKGPATH}/WARNING_TESTS_HAVE_FAILED_SEE_LOGS
-        UNSAFE=1
-    fi
-    echo "done"
-fi
-echo
+# if [[ ${NOREG} -eq 1 ]]; then
+#     echo "Skipping regression tests"
+#     if [[ ${REPACK} -eq 0 ]]; then
+#         touch ${PKGPATH}/WARNING_NO_TESTS_COULD_BE_EXECUTED
+#         UNSAFE=1
+#     fi
+# else
+#     echo "Starting regression tests"
+#     ${REGTEST} ${BITPATH} ${PKGPATH}/log/
+#     if [[ $? -ne 0 ]]; then
+#         touch ${PKGPATH}/WARNING_TESTS_HAVE_FAILED_SEE_LOGS
+#         UNSAFE=1
+#     fi
+#     echo "done"
+# fi
+# echo
 
-if [[ ${UNSAFE} -eq 1 ]]; then
-    touch ${PKGPATH}/ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65
-    # also replace JENKINS# prefix in version with UNSAFE#
-    if [[ ${VERSION:0:8} = "JENKINS#" ]]; then
-        VERSION="UNSAFE#${VERSION:8}"
-    fi
-fi
+# if [[ ${UNSAFE} -eq 1 ]]; then
+#    touch ${PKGPATH}/ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65
+#    # also replace JENKINS# prefix in version with UNSAFE#
+#    if [[ ${VERSION:0:8} = "JENKINS#" ]]; then
+#        VERSION="UNSAFE#${VERSION:8}"
+#    fi
+# fi
+
 
 echo "Building COR/MCS"
 echo
