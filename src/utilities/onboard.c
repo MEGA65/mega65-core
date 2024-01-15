@@ -5,6 +5,7 @@
 #include <memory.h>
 #include <dirent.h>
 #include <time.h>
+#include <random.h>
 
 #include "qspicommon.h"
 
@@ -359,8 +360,8 @@ void main(void)
   // Enable VIC-III attributes
   POKE(0xD031, 0x20);
 
-  // Disable CRT emulation to begin with
-  POKE(0xD054, 0);
+  // Enable CRT emulation to begin with
+  POKE(0xD054, 0x20);
 
   // Ensure screen colours right
   POKE(0xD020, 6);
@@ -661,6 +662,9 @@ void main(void)
         while (lpeek(0xffd3680) & 0x03)
           continue;
 
+        // Clear complete config sector
+        lfill(0xffd6e00, 0, 512);
+
         // Write version header
         lpoke(0xffd6e00, 0x01);
         lpoke(0xffd6e01, 0x01);
@@ -687,6 +691,17 @@ void main(void)
 
         // Write onboarding complete byte
         lpoke(0xffd6e0e, 0x80);
+
+        // Generate a random MAC address if no valid one is already present
+        if ((lpeek(0xffd6e06) & 0x02) == 0 || (lpeek(0xffd6e06) & 0x01) != 0) {
+          // not locally administered or not unicast -> generate random MAC
+          lpoke(0xffd6e06, (random8(0) & 0xfe) | 0x02);
+          for (i = 1; i < 6; i++)
+            lpoke(0xffd6e06 + i, random8(0));
+        }
+
+        // DMAgic to new version (F011B) by default
+        lpoke(0xffd6e20, 0x01);
 
         // write config sector back
         lpoke(0xffd3680, 0x57); // open write gate
