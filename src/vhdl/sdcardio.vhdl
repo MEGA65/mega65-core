@@ -2750,9 +2750,11 @@ begin  -- behavioural
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
-                    if (f011_ds(0) xor f011_swap_drives) = '0' then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' and 
+                       (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    else
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                          (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
                   end if;
@@ -2768,9 +2770,11 @@ begin  -- behavioural
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
-                    if (f011_ds(0) xor f011_swap_drives) = '0' then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' and
+                       (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    else
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                          (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
                   end if;
@@ -2791,9 +2795,11 @@ begin  -- behavioural
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
-                    if (f011_ds(0) xor f011_swap_drives) = '0' then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' and
+                       (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    else
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                          (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
                   end if;
