@@ -20,6 +20,9 @@
 ;TODO
 ;
 ;HISTORY
+;		13NOV2023	kibo		01.03
+;			-	Add option DISK IMAGE DRIVE NOISE to tab CHIPSET
+;			-	Moved settings for DMAgic and LONG FN SUPPORT to new page
 ;		13NOV2023	dengland	01.02
 ;			-	Do not actually reset the machine when "exiting".  Instead,
 ;				show a message to prompt the user into doing so.
@@ -296,7 +299,7 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		"- version 01.02              B"
+	.byte		"- version 01.03              B"
 infoText1:
 	.if	C64_MODE
 	.byte		"- press f8 for help          B"
