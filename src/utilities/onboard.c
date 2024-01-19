@@ -686,6 +686,9 @@ void main(void)
         else
           lpoke(0xffd6e21, 0x00);
 
+        // SID 8580 by default
+        lpoke(0xffd6e22, 0x01);
+
         // Enforce lfn support now
         lpoke (0xffd6e0f, 0x80);
 
