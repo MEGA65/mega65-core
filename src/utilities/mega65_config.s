@@ -20,9 +20,10 @@
 ;TODO
 ;
 ;HISTORY
-;		13NOV2023	kibo		01.03
+;		20JAN2024	kibo		01.03
 ;			-	Add option DISK IMAGE DRIVE NOISE to tab CHIPSET
 ;			-	Moved settings for DMAgic and LONG FN SUPPORT to new page
+;			-	Set DMAgic F018B and SID8580 as defaults
 ;		13NOV2023	dengland	01.02
 ;			-	Do not actually reset the machine when "exiting".  Instead,
 ;				show a message to prompt the user into doing so.
@@ -1113,6 +1114,10 @@ getDefaultSettings:
 
 		LDA	#$80
 		STA	optDfltBase + $f	; enable LFN support by default
+
+		LDA	#$01
+		STA	optDfltBase + $20	; DMAgic F018B by default
+		STA	optDfltBase + $22	; enable SID model 8580 by default
 
 		JSR	readRealTimeClock
 		JSR	copyRealTimeClock
