@@ -686,9 +686,6 @@ void main(void)
         else
           lpoke(0xffd6e21, 0x00);
 
-        // SID 8580 by default
-        lpoke(0xffd6e22, 0x01);
-
         // Enforce lfn support now
         lpoke (0xffd6e0f, 0x80);
 
@@ -705,6 +702,9 @@ void main(void)
 
         // DMAgic to new version (F011B) by default
         lpoke(0xffd6e20, 0x01);
+
+        // SID 8580 by default
+        lpoke(0xffd6e22, 0x01);
 
         // write config sector back
         lpoke(0xffd3680, 0x57); // open write gate
