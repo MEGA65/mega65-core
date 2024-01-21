@@ -20,7 +20,7 @@
 // mfp_progress_direction 00 for upwards, ff for downwards
 uint8_t mfp_progress_direction;
 // y position where the progress bar starts
-uint8_t mfp_progress_top;
+uint8_t mfp_progress_top = 0xff;
 uint8_t mfp_progress_lines;
 // 16k block base progress
 uint16_t mfp_progress_last;
@@ -83,6 +83,9 @@ void mfp_init_progress(uint8_t maxmb, uint8_t yp, uint8_t screencode, char *titl
  */
 void mfp_set_progress(uint8_t pos, uint8_t screencode, uint8_t attr)
 {
+  if (mfp_progress_top == 0xff)
+    return;
+
   // limit to 8M = 128 chars of 64K each
   pos &= 0x7f;
   mhx_set_xy(4 + (pos & 31) + ((pos & 31) >> 3), mfp_progress_top + (pos >> 5));
@@ -134,6 +137,9 @@ void mfp_set_area(uint16_t start_block, uint8_t num_blocks, uint8_t screencode, 
  */
 void mfp_start(uint32_t last, uint8_t direction, uint8_t full_code, uint8_t progress_attr, char *title, uint8_t attr)
 {
+  if (mfp_progress_top == 0xff)
+    return;
+
   mhx_draw_rect(0, mfp_progress_top - 1, 38, mfp_progress_lines, title, attr, 0);
   mfp_progress_direction = direction == MFP_DIR_UP ? MFP_DIR_UP : MFP_DIR_DOWN;
   mfp_screencode_cur = direction == MFP_DIR_UP ? mfp_screencode_up : mfp_screencode_dn;

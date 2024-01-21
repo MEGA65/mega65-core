@@ -862,6 +862,58 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(LD65) $< -Ln $*.label -vm --mapfile $*.map -o $*.prg
 
+#
+# NNEW MEGAFLASH BUILD
+#
+MFLASH_QSPI_C = \
+	$(UTILDIR)/qspicommon.c \
+	$(UTILDIR)/qspireconfig.c
+
+MFLASH_QSPI_H = \
+	$(UTILDIR)/version.h \
+	$(UTILDIR)/qspicommon.h \
+	$(UTILDIR)/qspireconfig.h
+
+MFLASH_BASE_H = \
+	$(UTILDIR)/mhexes.h \
+	$(UTILDIR)/mhx_bin2scr.h \
+	$(UTILDIR)/nohysdc.h \
+	$(UTILDIR)/crc32accl.h \
+	$(UTILDIR)/mf_progress.h \
+	$(UTILDIR)/mf_selectcore.h \
+	$(UTILDIR)/mf_hlflash.h
+
+MFLASH_BASE_OBJ = \
+	$(UTILDIR)/mhexes.o \
+	$(UTILDIR)/mhx_bin2scr.o \
+	$(UTILDIR)/nohysdc.o \
+	$(UTILDIR)/crc32accl.o \
+	$(UTILDIR)/mf_progress.o \
+	$(UTILDIR)/mf_selectcore.o \
+	$(UTILDIR)/mf_hlflash.o
+
+MFLASH_CORE_H = \
+	$(UTILDIR)/mf_screens.h \
+	$(MFLASH_BASE_H)
+
+MFLASH_CORE_OBJ = \
+	$(UTILDIR)/mf_screens.o \
+	$(MFLASH_BASE_OBJ)
+
+MFLASH_SOLO_H = \
+	$(UTILDIR)/mf_screens_solo.h \
+	$(MFLASH_BASE_H)
+
+MFLASH_SOLO_OBJ = \
+	$(UTILDIR)/mf_screens_solo.o \
+	$(MFLASH_BASE_OBJ)
+
+MFLASH_CORE_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
+MFLASH_CORE_LINK = $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
+
+MFLASH_SOLO_REQ = $(MFLASH_QSPI_H) $(MFLASH_SOLO_H) $(MFLASH_QSPI_C) $(MFLASH_SOLO_OBJ)
+MFLASH_SOLO_LINK = $(MFLASH_QSPI_C) $(MFLASH_SOLO_OBJ)
+
 $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin $(UTILDIR)/mf_screens.c $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_screens_solo.c $(UTILDIR)/mf_screens_solo.h: $(UTILDIR)/megaflash.scr $(TOOLDIR)/screenbuilder.py
 	$(TOOLDIR)/screenbuilder.py $<
 
@@ -889,28 +941,41 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c 
 #
 # MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
 #
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a100t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
-		$(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_selectcore.o $(MEGA65LIBCLIB)
+		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a200t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
-		$(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_selectcore.o $(MEGA65LIBCLIB)
+		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
+# The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging, but also for production and recovery
+$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
+		$(MEGA65LIBCINC) -O -o $@ \
+		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
+		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
+	$(call mbuild_sizecheck,43000,$@)
+
+#
+# OLD MEGAFLASH BUILD, not working, probably
+#
 $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
@@ -919,25 +984,6 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h 
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspijoy.c
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
-
-# The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging
-$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens_solo.o $(UTILDIR)/mf_screens_solo.h $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_progress.h $(UTILDIR)/mf_selectcore.o $(UTILDIR)/mf_selectcore.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
-		$(MEGA65LIBCINC) -O -o $@ \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
-		$(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(UTILDIR)/mf_screens_solo.o $(UTILDIR)/mf_progress.o $(UTILDIR)/mf_selectcore.o $(MEGA65LIBCLIB)
-	$(call mbuild_sizecheck,43000,$@)
-
-$(UTILDIR)/upgrade0.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/mhexes.o $(UTILDIR)/mhexes.h $(UTILDIR)/mhx_bin2scr.o $(UTILDIR)/nohysdc.o $(UTILDIR)/nohysdc.h $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
-		$(MEGA65LIBCINC) -O -o $@ \
-		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DSTANDALONE -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DQSPI_VERBOSE $< \
-		$(UTILDIR)/qspireconfig.c $(UTILDIR)/qspicommon.c $(UTILDIR)/mhexes.o $(UTILDIR)/mhx_bin2scr.o  $(UTILDIR)/nohysdc.o $(UTILDIR)/crc32accl.o $(MEGA65LIBCLIB)
-	$(call mbuild_sizecheck,43000,$@)
 
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
@@ -1033,11 +1079,11 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	$(SUBMODULEUPDATE)
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
+$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/megaflash-a100t.prg $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/mf_screens.bin@`cat $(UTILDIR)/mf_screens.adr` $(UTILDIR)/megaflash-a100t.prg@50000
 
-$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
+$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/megaflash-a200t.prg $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/mf_screens.bin@`cat $(UTILDIR)/mf_screens.adr` $(UTILDIR)/megaflash-a200t.prg@50000
 

@@ -19,9 +19,12 @@
 
 // access needed by mfp_set_progress_last macro
 extern uint16_t mfp_progress_last;
+extern uint8_t mfp_progress_top;
 
 // set last from a 32bit address
 #define mfp_set_progress_last(addr) mfp_progress_last = (addr >> 14) & 0xffff
+
+#define mfp_progress_stop() mfp_progress_top = 0xff
 
 /*
  * mfp_init_progress(maxmb, yp, screencode, *title, attr)
@@ -64,6 +67,7 @@ void mfp_set_area(uint16_t start_block, uint8_t num_blocks, uint8_t screencode, 
  *   last: initial value for the start (as 32 bit address)
  *   direction: either MFP_DIR_UP or MFP_DIR_DOWN
  *   full_code: use this screencode for a filled block
+ *   progress_attr: attribute for the filled block
  *   title: title for the progress box
  *   attr: attribute for the title
  *

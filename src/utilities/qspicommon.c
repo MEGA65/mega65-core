@@ -16,11 +16,9 @@
 
 unsigned char slot_count = 0;
 
-#ifdef STANDALONE
 uint8_t SLOT_MB = 1;
 unsigned long SLOT_SIZE = 1L << 20;
 unsigned long SLOT_SIZE_PAGES = 1L << 12;
-#endif
 
 short i, x, y, z;
 
@@ -52,7 +50,7 @@ unsigned char data_buffer[512];
 unsigned char buffer[512];
 
 uint8_t hw_model_id = 0;
-char *hw_model_name = "?unknown?";
+char *hw_model_name;
 
 unsigned short mb = 0;
 
@@ -62,13 +60,20 @@ unsigned short mb = 0;
 
  ***************************************************************************/
 
+typedef struct {
+  int model_id;
+  uint8_t slot_mb;
+  char *name;
+} mega_models_t;
+
 // clang-format off
-models_type mega_models[] = {
+mega_models_t mega_models[] = {
   { 0x01, 8, "MEGA65 R1" },
   { 0x02, 4, "MEGA65 R2" },
   { 0x03, 8, "MEGA65 R3" },
   { 0x04, 8, "MEGA65 R4" },
   { 0x05, 8, "MEGA65 R5" },
+  { 0x06, 8, "MEGA65 R6" },
   { 0x21, 4, "MEGAphone R1" },
   { 0x22, 4, "MEGAphone R4" },
   { 0x40, 4, "Nexys4" },
@@ -79,46 +84,41 @@ models_type mega_models[] = {
   { 0x62, 8, "QMTECH A325T"},
   { 0xFD, 4, "Wukong A100T" },
   { 0xFE, 8, "Simulation" },
-  { 0x00, 0, NULL }
+  { 0x00, 0, "Unknown" }
 };
 // clang-format on
+
+char *get_model_name(uint8_t model_id)
+{
+  uint8_t k;
+
+  for (k = 0; mega_models[k].model_id; k++)
+    if (model_id == mega_models[k].model_id)
+      return mega_models[k].name;
+
+  return NULL;
+}
 
 int8_t probe_hardware_version(void)
 {
   uint8_t k;
 
   hw_model_id = PEEK(0xD629);
-  for (k = 0; mega_models[k].name; k++)
-    if (hw_model_id == mega_models[k].model_id)
-      break;
 
-  if (!mega_models[k].name)
-    return -1;
+  for (k = 0; mega_models[k].model_id; k++)
+    if (hw_model_id == mega_models[k].model_id) {
+      // we need to set those according to the hardware found
+      SLOT_MB = mega_models[k].slot_mb;
+      SLOT_SIZE_PAGES = SLOT_MB;
+      SLOT_SIZE_PAGES <<= 12;
+      SLOT_SIZE = SLOT_SIZE_PAGES;
+      SLOT_SIZE <<= 8;
+      hw_model_name = mega_models[k].name;
+      return 0;
+    }
 
-  hw_model_name = mega_models[k].name;
-
-  // we need to set those according to the hardware found
-#ifdef STANDALONE
-  SLOT_MB = mega_models[k].slot_mb;
-  SLOT_SIZE_PAGES = SLOT_MB;
-  SLOT_SIZE_PAGES <<= 12;
-  SLOT_SIZE = SLOT_SIZE_PAGES;
-  SLOT_SIZE <<= 8;
-#endif
-
-  return 0;
-}
-
-char *get_model_name(uint8_t model_id)
-{
-  static char *model_unknown = "?unknown?";
-  uint8_t k;
-
-  for (k = 0; mega_models[k].name; k++)
-    if (model_id == mega_models[k].model_id)
-      return mega_models[k].name;
-
-  return model_unknown;
+  hw_model_name = mega_models[k].name; // unknown
+  return -1;
 }
 
 /***************************************************************************
@@ -210,9 +210,9 @@ void flash_inspector(void)
         data_buffer[0x102] = addr >> 8L;
         data_buffer[0x103] = addr >> 0L;
         addr -= 256;
-        //        lfill(0xFFD6E00,0xFF,0x200);
-        mhx_writef("E: %02x %02x %02x\n", lpeek(0xffd6e00), lpeek(0xffd6e01), lpeek(0xffd6e02));
-        mhx_writef("F: %02x %02x %02x\n", lpeek(0xffd6f00), lpeek(0xffd6f01), lpeek(0xffd6f02));
+        //        lfill(QSPI_FLASH_BUFFER,0xFF,0x200);
+        mhx_writef("E: %02x %02x %02x\n", lpeek(QSPI_FLASH_BUFFER), lpeek(0xffd6e01), lpeek(0xffd6e02));
+        mhx_writef("F: %02x %02x %02x\n", lpeek(QSPI_FLASH_BUFFER + 0x100), lpeek(0xffd6f01), lpeek(0xffd6f02));
         mhx_writef("P: %02x %02x %02x\n", data_buffer[0], data_buffer[1], data_buffer[2]);
         // Now program it
         unprotect_flash(addr);
@@ -254,337 +254,6 @@ void debug_memory_block(int offset, unsigned long dbg_addr)
   mhx_press_any_key(0, MHX_A_WHITE);
 }
 #endif
-
-unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash_addr, long size)
-{
-  while (size > 0) {
-
-    lcopy(0x8000000 + attic_addr, 0xffd6e00L, 512);
-    if (!verify_data_in_place(flash_addr)) {
-#ifdef SHOW_FLASH_DIFF
-      mhx_writef("\nVerify error  ");
-      mhx_press_any_key(0, MHX_A_NOCOLOR);
-      mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
-      read_data(flash_addr);
-      lcopy(0x8000000L + attic_addr, (long)buffer, 512);
-      debug_memory_block(0, flash_addr);
-      debug_memory_block(256, flash_addr);
-      mhx_writef("comparing read data against reread yields %d\n", verify_data_in_place(flash_addr));
-      mhx_press_any_key(0, MHX_A_NOCLOR);
-      mhx_clearscreen(' ', MHX_A_WHITE);
-      mhx_set_xy(0, 0);
-#endif
-      return 1;
-    }
-    attic_addr += 512;
-    flash_addr += 512;
-    size -= 512;
-  }
-  return 0;
-}
-
-void reflash_slot(unsigned char the_slot, unsigned char selected_file, char *slot0version)
-{
-  unsigned long size, waddr, end_addr;
-  uint8_t err;
-  unsigned char tries;
-  unsigned char erase_mode = 0;
-  unsigned char slot = the_slot;
-  uint32_t core_crc;
-
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "REFLASH SLOT %d %d\n", the_slot, selected_file);
-  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-  if (selected_file == MFS_FILE_INVALID)
-    return;
-
-  mhx_writef("is valid\n");
-  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-#ifndef QSPI_ERASE_ZERO
-  if (selected_file == MFS_FILE_ERASE && slot == 0) {
-    // we refuse to erase slot 0
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME MHX_W_RED "\nRefusing to erase slot 0!\n\n" MHX_W_WHITE);
-    mhx_press_any_key(0, MHX_A_NOCOLOR);
-    return;
-  }
-#endif
-
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Preparing to reflash slot %d...\n\n", slot);
-  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-  // Read a few times to make sure transient initial read problems disappear
-  read_data(0);
-  read_data(0);
-  read_data(0);
-
-  mhx_writef("dummy read done\n");
-  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-  /*
-    The 512S QSPI on the R3A boards _sometimes_ suffer high write error rates
-    that can often be worked around by processing flash sector at a time, so
-    that if such an error occurs that requires rewriting a sector*, we can do just
-    that sector. It also has the nice side-effect that if only part of a bitstream
-    (or the embedded files in a COR file) change, then only that part will need to
-    be modified.
-
-    The trick is that we will have to refactor the code here quite a bit, because
-    we can't seek backwards through an SD card file here, and the hardware verification
-    support requires that the data be in the SD card buffer, so we will have to buffer
-    a sector's worth of data in HyperRAM (non-MEGA65R3 targets are assumed to have JTAG
-    and Vivado as the main flashing solution for now. We can resolve this post-release),
-    and then copying those sectors of data back into the SD card sector buffer for
-    hardware verification.
-
-    This might end up being a bit slower or a bit faster, its hard to predict right now.
-    The extra copying will slow things down, but not having to read the file from SD card
-    twice will potentially speed things up.  Overall, performance should be quite acceptable,
-    however.
-
-    It's probably easiest in fact to simply read the whole <= 8MB COR file into HyperRAM,
-    and then just work from that.
-
-    * This only occurs if a byte gets bits cleared that shouldn't have been cleared.
-    This happens only when the QSPI chip misses clock edges or detects extra ones,
-    both of which we have seen happen.
-  */
-
-  lfill((unsigned long)buffer, 0, 512);
-
-  mhx_writef("buffer cleared %d\n", selected_file);
-  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-  // return code of select_bitstream_file > 1 means a file was selected
-  if (selected_file == MFS_FILE_VALID) {
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Checking core file...\n %s\n", mfsc_corefile_displayname);
-    mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-
-    if ((err = nhsd_open(mfsc_corefile_inode))) {
-      // Couldn't open the file.
-      mhx_writef(MHX_W_RED "\nERROR: Could not open core file (%d)!\n" MHX_W_WHITE, err);
-      mhx_press_any_key(0, MHX_A_WHITE);
-      return;
-    }
-
-    mhx_move_xy(0, 1);
-
-    // TODO: also check NAME "MEGA65" for slot 0 flash!
-    //if (!check_model_id_field(slot == 0 ? 1 : 0, slot0version))
-    //  return;
-
-#if defined(STANDALONE) && defined(QSPI_DEBUG)
-    make_crc32_tables(data_buffer, buffer);
-    init_crc32();
-    update_crc32(11, "hello world");
-    mhx_writef(MHX_W_CLRHOME "\n\nhello world CRC32 = %08lX\n", get_crc32());
-    mhx_press_any_key(0, MHX_A_WHITE);
-#endif
-
-#if 0
-    // start reading file from beginning again
-    // (as the model_id checking read the first 512 bytes already)
-    if ((err = nhsd_open(mfsc_corefile_inode))) {
-      mhx_writef("error %d while loading COR file\n", err);
-      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-      return;
-    }
-#endif
-
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "%cLoading COR file into Attic RAM...\n");
-    // progress_start(SLOT_SIZE_PAGES, "Loading");
-
-    for (addr = 0; addr < SLOT_SIZE; addr += 512) {
-      if ((err = nhsd_read()))
-        break;
-      lcopy(0xffd6e00L, 0x8000000L + addr, 512);
-      // progress_bar(2, "Loading");
-    }
-    addr_len = addr; // save last sector
-    // fill rest of attic ram with emptiness
-    for (; addr < SLOT_SIZE; addr += 512) {
-      lfill(addr, 0xff, 512);
-      // progress_bar(2, "Filling");
-    }
-    // progress_time(load_time);
-    nhsd_close();
-
-    // mhx_writef("\n\nLoaded COR file in %u seconds.\n", load_time);
-
-    // always do a CRC32 check!
-    mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "Generating CRC32 checksum...\n");
-    // progress_start(addr_len >> 8, "Checksum");
-    // lets use two 512 byte buffers for our 1024 byte crc32 lookup table
-    make_crc32_tables(data_buffer, buffer);
-    init_crc32();
-    for (y = 1, addr = 0; addr < addr_len; addr += 256) {
-      // we don't need the part string anymore, so we reuse this buffer
-      // note: part is only used in probe_qspi_flash
-      lcopy(0x8000000L + addr, (unsigned long)part, 256);
-      if (y) {
-        // the first sector has the real length and the CRC32
-        addr_len = *(uint32_t *)(part + 0x80);
-        // progress_goal = addr_len >> 8;
-        core_crc = *(uint32_t *)(part + 0x84);
-        // set CRC bytes to pre-calculation value
-        *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
-
-        // EIGHT_FROM_TOP;
-        mhx_writef("\n\nCORE Length = %08lx\nCORE CRC32  = %08lx", addr_len, core_crc);
-
-        y = 0;
-      }
-      update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
-      // progress_bar(1, "Checksum");
-    }
-    // progress_time(crc_time);
-    // EIGHT_FROM_TOP;
-    mhx_writef("\n\n\nCALC CRC32  = %08lx\n", get_crc32());
-
-    if (addr_len < 4096 || core_crc != get_crc32()) {
-      mhx_writef("\n" MHX_W_RED "CHECKSUM MISMATCH" MHX_W_WHITE " %ds %ds\n", load_time, crc_time);
-      if (slot == 0) {
-        mhx_writef("\nRefusing to flash slot 0!\n");
-        mhx_press_any_key(0, MHX_A_NOCOLOR);
-        return;
-      }
-      else {
-        mhx_writef("\nPress F10 to flash anyway, or any other key to abort.\n");
-        mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-        if (mhx_lastkey.code.key != 0xfa)
-          return;
-      }
-    }
-    else {
-      mhx_writef("\n" MHX_W_GREEN "Checksum matches, good to flash." MHX_W_WHITE "\n");
-      mhx_press_any_key(0, MHX_A_NOCOLOR);
-      if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
-        return;
-    }
-
-    // start flashing
-    mhx_clearscreen(' ', MHX_A_WHITE);
-    mhx_set_xy(0, 0);
-    // progress_start(SLOT_SIZE_PAGES, "Flashing");
-    // erase first 256k first
-    end_addr = addr = SLOT_SIZE * slot;
-    // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
-    erase_some_sectors(addr + 1024L * 1024L, 0);
-    // start at the end...
-    addr = end_addr + SLOT_SIZE;
-    while (addr > end_addr) {
-      if (addr <= (unsigned long)num_4k_sectors << 12)
-        size = 4096;
-      else
-        size = 1L << ((long)flash_sector_bits);
-      addr -= size;
-#if 0
-      mhx_writef("\n%d %08lX %08lX\nsize = %ld", num_4k_sectors, (unsigned long)num_4k_sectors << 12, addr, size);
-      mhx_press_any_key(0, 0);
-#endif
-
-      // Do a dummy read to clear any pending stuck QSPI commands
-      // (else we get incorrect return value from QSPI verify command)
-      while (!verify_data_in_place(0L))
-        read_data(0);
-
-      // try 10 times to erase/write the sector
-      tries = 0;
-      do {
-        // Verify the sector to see if it is already correct
-        mhx_writef(MHX_W_HOME "  Verifying sector at $%08lX/%07lX", addr, addr - SLOT_SIZE * slot);
-        if (!flash_region_differs(addr - SLOT_SIZE * slot, addr, size))
-          break;
-
-        // if we failed 10 times, we abort with the option for the flash inspector
-        if (tries == 10) {
-          mhx_move_xy(0, 10);
-          mhx_writef("ERROR: Could not write to flash after\n%d tries.\n", tries);
-
-          // secret Ctrl-F (keycode 0x06) will launch flash inspector,
-          // but only if QSPI_FLASH_INSPECTOR is defined!
-          // otherwise: endless loop!
-#ifdef QSPI_FLASH_INSPECTOR
-          mhx_writef("Press Ctrl-F for Flash Inspector.\n");
-
-          while (PEEK(0xD610))
-            POKE(0xD610, 0);
-          while (PEEK(0xD610) != 0x06)
-            POKE(0xD610, 0);
-          while (PEEK(0xD610))
-            POKE(0xD610, 0);
-          flash_inspector();
-#else
-          // TODO: re-erase start of slot 0, reprogram flash to start slot 1
-          mhx_writef("\nPlease turn the system off!\n");
-          // don't let the user do anything else
-          while (1)
-            POKE(0xD020, PEEK(0xD020) & 0xf);
-#endif
-          // don't do anything else, as this will result in slot 0 corruption
-          // as global addr gets changed by flash_inspector
-          return;
-        }
-
-        // next try to erase/program the sector
-        tries++;
-
-        // Erase Sector
-        mhx_writef(MHX_W_HOME "    Erasing sector at $%08lX", addr);
-        POKE(0xD020, 2);
-        erase_sector(addr);
-        read_data(0xffffffff);
-        POKE(0xD020, 0);
-
-        // Program sector
-        mhx_writef(MHX_W_HOME "Programming sector at $%08lX", addr);
-        for (waddr = addr + size; waddr > addr; waddr -= 256) {
-          lcopy(0x8000000L + waddr - 256 - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
-          // display sector on screen
-          // lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
-          POKE(0xD020, 3);
-          program_page(waddr - 256, 256);
-          POKE(0xD020, 0);
-        }
-      } while (tries < 11);
-
-      // progress_bar(size >> 8, "Flashing");
-    }
-    // progress_time(flash_time);
-
-    // Undraw the sector display before showing results
-    lfill(0x0400 + 12 * 40, 0x20, 512);
-  }
-  else if (selected_file == MFS_FILE_ERASE) {
-    // extra question before erasing a slot
-    mhx_writef(MHX_W_ORANGE "\nYou are about to erase slot %d!\n"
-           "Are you sure you want to proceed? (y/n)" MHX_W_WHITE "\n\n", slot);
-    if (!mhx_check_input("y", 0, MHX_A_NOCOLOR))
-      return;
-    mhx_clearscreen(' ', MHX_A_WHITE);
-    mhx_set_xy(0, 0);
-
-    // Erase mode
-    // progress_start(SLOT_SIZE_PAGES, "Erasing");
-    addr = SLOT_SIZE * slot;
-    erase_some_sectors(addr + SLOT_SIZE, 1);
-    // progress_time(flash_time);
-  }
-
-  // EIGHT_FROM_TOP;
-  mhx_writef("Flash slot successfully updated.      \n\n");
-  if (selected_file == MFS_FILE_ERASE && flash_time > 0)
-    mhx_writef("   Erase: %d sec \n\n", flash_time);
-  else if (load_time + crc_time + flash_time > 0)
-    mhx_writef("    Load: %d sec \n"
-               "     CRC: %d sec \n"
-               "   Flash: %d sec \n"
-               "\n", load_time, crc_time, flash_time);
-
-  mhx_press_any_key(MHX_AK_ATTENTION, MHX_A_NOCOLOR);
-
-  return;
-}
 
 void erase_some_sectors(unsigned long end_addr, unsigned char progress)
 {
@@ -966,6 +635,7 @@ void query_flash_protection(unsigned long addr)
   mhx_writef("\n");
 }
 
+// TODO: needs return code, as it can fail!
 void erase_sector(unsigned long address_in_sector)
 {
 
@@ -1075,7 +745,7 @@ unsigned char verify_data_in_place(unsigned long start_address)
 unsigned char verify_data(unsigned long start_address)
 {
   // Copy data to buffer for hardware compare/verify
-  lcopy((unsigned long)data_buffer, 0xffd6e00L, 512);
+  lcopy((unsigned long)data_buffer, QSPI_FLASH_BUFFER, 512);
 
   return verify_data_in_place(start_address);
 }
@@ -1151,7 +821,7 @@ top:
     //    mhx_writef("Hardware SPI write 512 (a)\n");
 
     // is this broken? at least it is not used
-    lcopy((unsigned long)data_buffer, 0xffd6e00L, 512);
+    lcopy((unsigned long)data_buffer, QSPI_FLASH_BUFFER, 512);
     POKE(0xD681, start_address >> 0);
     POKE(0xD682, start_address >> 8);
     POKE(0xD683, start_address >> 16);
@@ -1229,7 +899,7 @@ void read_data(unsigned long start_address)
   // Tristate and release CS at the end
   POKE(BITBASH_PORT, 0xff);
 
-  lcopy(0xFFD6E00L, (unsigned long)data_buffer, 512);
+  lcopy(QSPI_FLASH_BUFFER, (unsigned long)data_buffer, 512);
 
   POKE(0xD020, 0);
 }
@@ -1251,7 +921,7 @@ void fetch_rdid(void)
   for (i = 0; i < 512; i++)
     continue;
   spi_cs_high();
-  lcopy(0xffd6e00L, (unsigned long)cfi_data, 512);
+  lcopy(QSPI_FLASH_BUFFER, (unsigned long)cfi_data, 512);
 
 #else
   spi_cs_high();

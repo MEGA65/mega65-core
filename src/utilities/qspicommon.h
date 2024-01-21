@@ -40,34 +40,9 @@
 #endif
 #endif
 
-#if (defined(A100T) && defined(A200T)) || (defined(A100T) && defined(STANDALONE)) || (defined(STANDALONE) && defined(A200T))
-#error A100T, A200T, and STANDALONE defines are exclusive!
-#endif
-
-#if defined(A100T)
-#define TAB_FOR_MENU 1
-#define SLOT_SIZE (4L * 1048576L)
-#define SLOT_SIZE_PAGES (4L * 4096L)
-#define SLOT_MB 4
-#elif defined(A200T)
-#define SLOT_MB 8
-#define SLOT_SIZE (8L * 1048576L)
-#define SLOT_SIZE_PAGES (8L * 4096L)
-#elif defined(STANDALONE)
 extern uint8_t SLOT_MB;
 extern unsigned long SLOT_SIZE;
 extern unsigned long SLOT_SIZE_PAGES;
-#else
-#error Please defined one of A100T, A200T, or STANDALONE
-#endif
-
-typedef struct {
-  int model_id;
-  uint8_t slot_mb;
-  char *name;
-} models_type;
-
-extern models_type mega_models[];
 
 extern uint8_t hw_model_id;
 extern char *hw_model_name;
@@ -90,6 +65,7 @@ extern unsigned short cfi_length;
 extern unsigned char flash_sector_bits;
 extern unsigned char last_sector_num;
 extern unsigned char sector_num;
+extern unsigned int num_4k_sectors;
 
 extern unsigned char data_buffer[512];
 
@@ -99,11 +75,10 @@ extern unsigned char buffer[512];
 extern unsigned char part[256];
 
 extern short i, x, y, z;
-extern unsigned long addr, addr_len;
+// extern unsigned long addr, addr_len;
 
 int8_t probe_hardware_version(void);
 unsigned char probe_qspi_flash(void);
-void reflash_slot(unsigned char slot, unsigned char selected_file, char *slot0version);
 void flash_inspector(void);
 
 void read_registers(void);
@@ -118,6 +93,7 @@ void read_data(unsigned long start_address);
 void program_page(unsigned long start_address, unsigned int page_size);
 void erase_some_sectors(unsigned long end_addr, unsigned char progress);
 void erase_sector(unsigned long address_in_sector);
+unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash_addr, long size);
 void enable_quad_mode(void);
 char *get_model_name(uint8_t model_id);
 
@@ -160,5 +136,10 @@ void spi_write_disable(void);
   $D6CD.1 = alternate control of clock pin
 */
 #define CLOCKCTL_PORT 0xD6CDU
+
+/*
+ * QSPI Flash Buffer Address
+ */
+#define QSPI_FLASH_BUFFER 0xFFD6E00L
 
 #endif /* QSPICOMMON_H */

@@ -64,24 +64,36 @@ uint32_t mfsc_corefile_inode;
 uint32_t mfsc_corefile_size;
 char mfsc_corefile_displayname[40];
 
+char *mfsc_corefile_error_message[5] = {
+#define MFSC_CF_ERROR_OPEN 1
+  "Could not open core file!",
+#define MFSC_CF_ERROR_READ 2
+  "Failed to read core file header!",
+#define MFSC_CF_ERROR_SIG 3
+  "Core signature not found!",
+#define MFSC_CF_ERROR_HWMODEL 4
+  "Core hardware model mismatch!",
+#define MFSC_CF_ERROR_FACTORY 5
+  "Not a MEGA65 Factory core!",
+};
+
 /*
- * int8_t read_and_check_core(require_mega)
+ * int8_t mfsc_checkcore(require_mega)
  *
  * reads the header from the file in mfsc_corefile_inode
- * (set by select_bitstream_file), stores header information
+ * (set by mfsc_selectcore), stores header information
  * in gobal variables and does sanity checks.
  *
  * returns 0 on no errors, <0 on failure. stores failure
  * reason in global variable (screencodes)
  *
  */
-int8_t read_and_check_core(uint8_t require_mega)
+int8_t mfsc_checkcore(uint8_t require_mega)
 {
-  uint8_t err;
+  uint8_t x, err;
 
   // initialize fields
   mfsc_corefile_model_id = 0;
-  memset(mfsc_corefile_error, ' ', 32);
   memset(mfsc_corefile_name, ' ', 32);
   memset(mfsc_corefile_version, ' ', 32);
   memcpy(mfsc_corefile_name, "UNKNOWN CORE TYPE", 17);
@@ -89,15 +101,13 @@ int8_t read_and_check_core(uint8_t require_mega)
   mfsc_corefile_name[32] = mfsc_corefile_version[32] = mfsc_corefile_error[32] = MHX_C_EOS;
 
   if ((err = nhsd_open(mfsc_corefile_inode))) {
-    memcpy(mfsc_corefile_error, "Could not open core file!", 25);
-    return -1;
+    return MFSC_CF_ERROR_OPEN;
   }
 
   err = nhsd_read();
   nhsd_close(); // only need the first sector
   if (err) {
-    memcpy(mfsc_corefile_error, "Failed to read core file header!", 32);
-    return -2;
+    return MFSC_CF_ERROR_READ;
   }
 
   // check for core bitstream signature
@@ -105,8 +115,7 @@ int8_t read_and_check_core(uint8_t require_mega)
     if (buffer[x] != mfsc_bitstream_magic[x])
       break;
   if (x < 16) {
-    memcpy(mfsc_corefile_error, "Core signature not found!", 25);
-    return -3;
+    return MFSC_CF_ERROR_SIG;
   }
 
   // copy and convert name and version to screencode
@@ -118,21 +127,22 @@ int8_t read_and_check_core(uint8_t require_mega)
   // check hardware model compability
   mfsc_corefile_model_id = buffer[0x70];
   if (mfsc_corefile_model_id != hw_model_id) {
-    memcpy(mfsc_corefile_error, "Core hardware model mismatch!", 29);
-    return -4;
+    return MFSC_CF_ERROR_HWMODEL;
   }
 
-  // only allow valid cores with MEGA65 as core name
+  // allow only marked cores for slot 0
   if (require_mega) {
-    for (x = 0; x < 7; x++)
+    // check install_flags bit 0 == FACTORY
+    if (!(buffer[0x7d] & 0x01))
+      return MFSC_CF_ERROR_FACTORY;
+    // check CORE name, which needs to be MEGA65 only
+    for (x = 0; x < 6; x++)
       if (buffer[0x10 + x] != mega65core_magic[x])
         break;
-    for (y = ((x < 7) ? 0xff : 0); x < 32; x++)
-      y |= buffer[0x10 + x];
-    if (y) {
-      memcpy(mfsc_corefile_error, "Not a MEGA65 core!", 18);
-      return -5;
-    }
+    for (err = ((x < 6) ? 0xff : 0); !err && x < 32; x++)
+      err |= buffer[0x10 + x];
+    if (err)
+      return MFSC_CF_ERROR_FACTORY;
   }
 
   return 0;
@@ -148,8 +158,10 @@ void select_bs_draw_list(void)
 
   // copy pregenerated screen
   lcopy(FILESCREEN_ADDRESS + mfsc_offset * 40, mhx_base_scr + 40, 22 * 40);
-  // highlight selected line
-  mhx_hl_lines((mfsc_selection - mfsc_offset + 1) * 40, (mfsc_selection - mfsc_offset + 1) * 40, MHX_A_INVERT | MHX_A_WHITE);
+  for (y = 0; y < 22; y++) {
+    lcopy(FILEINODE_ADDRESS + ((mfsc_offset + y) * 8) + 4, (long)&mfsc_corefile_size, 4);
+    mhx_hl_lines(y + 1, y + 1, (!mfsc_corefile_size ? MHX_A_DGREY : MHX_A_WHITE) | (mfsc_selection - mfsc_offset == y ? MHX_A_INVERT : 0));
+  }
 }
 
 /*
@@ -277,14 +289,14 @@ void select_bs_draw_header(uint8_t selected_dir, uint8_t slot)
   lcopy((long)mf_screens_menu.screen_start + 40, mhx_base_scr, 40);
   lcopy((long)mf_screens_menu.screen_start + ((selected_dir & 0x3) + 1) * 80, mhx_base_scr + 23*40, 80);
   // set slot number in header
-  mhx_putch_xy(0, 32, 0x30 + slot, MHX_A_NOCOLOR);
+  mhx_putch_xy(32, 0, 0x30 + slot, MHX_A_NOCOLOR);
   // invert and color header and footer
   mhx_hl_lines(0, 0, MHX_A_LGREY|MHX_A_INVERT);
   mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
 }
 
 /*
- * uchar select_bitstream_file(uchar slot)
+ * uchar mfsc_selectcore(uchar slot)
  *
  * displays a file selector with core files on SD
  *
@@ -296,9 +308,9 @@ void select_bs_draw_header(uint8_t selected_dir, uint8_t slot)
  * side-effects:
  *  mfsc_corefile_inode may be changed
  */
-uint8_t select_bitstream_file(uint8_t slot)
+uint8_t mfsc_selectcore(uint8_t slot)
 {
-  uint8_t idle_time = 0;
+  uint8_t idle_time = 0, core_check;
   uint8_t selected_dir = 0x83; // force init, external disk, core dir
 
   mfsc_selection = 0;
@@ -309,7 +321,7 @@ uint8_t select_bitstream_file(uint8_t slot)
 
   mhx_clearscreen(' ', MHX_A_WHITE);
   if ((selected_dir = select_bs_load_dir(selected_dir)) & 0x80)
-    return MFS_FILE_INVALID;
+    return MFSC_FILE_INVALID;
 
   select_bs_draw_header(selected_dir, slot);
   select_bs_draw_list();
@@ -321,22 +333,26 @@ uint8_t select_bitstream_file(uint8_t slot)
       if (idle_time < 150)
         idle_time++;
 
-      if (mfsc_selection && idle_time == 150) {
+      if (idle_time == 150) {
         idle_time++;
         lcopy(FILEINODE_ADDRESS + (mfsc_selection * 8), (long)&mfsc_corefile_inode, 4);
-        read_and_check_core(0);
+        core_check = mfsc_checkcore(slot ? 0 : 1);
+
+        if (core_check) {
+          lfill(FILEINODE_ADDRESS + (mfsc_selection * 8) + 4, 0, 4);
+        }
 
         if (mfsc_selection - mfsc_offset < 12) {
           mhx_draw_rect(3, 15, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
-          mhx_write_xy(4, 16, mfsc_corefile_name, MHX_A_WHITE);
-          mhx_write_xy(4, 17, mfsc_corefile_version, MHX_A_WHITE);
-          mhx_write_xy(4, 18, mfsc_corefile_error, MHX_A_WHITE);
+          mhx_write_xy(4, 16, mfsc_corefile_name, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 17, mfsc_corefile_version, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 18, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
         }
         else {
           mhx_draw_rect(3, 5, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
-          mhx_write_xy(4, 6, mfsc_corefile_name, MHX_A_WHITE);
-          mhx_write_xy(4, 7, mfsc_corefile_version, MHX_A_WHITE);
-          mhx_write_xy(4, 8, mfsc_corefile_error, MHX_A_WHITE);
+          mhx_write_xy(4, 6, mfsc_corefile_name, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 7, mfsc_corefile_version, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 8, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
         }
       }
       usleep(10000);
@@ -347,7 +363,7 @@ uint8_t select_bitstream_file(uint8_t slot)
     switch (mhx_lastkey.code.key) {
     case 0x03: // RUN-STOP = make no change
     case 0x1b: // ESC
-      return MFS_FILE_INVALID;
+      return MFSC_FILE_INVALID;
     case 0x0d: // Return = select this disk.
       // Copy name out
       lcopy(FILEINODE_ADDRESS + (mfsc_selection * 8), (long)&mfsc_corefile_inode, 4);
@@ -355,24 +371,26 @@ uint8_t select_bitstream_file(uint8_t slot)
       lcopy(FILESCREEN_ADDRESS + (mfsc_selection * 40) + 1, (long)&mfsc_corefile_displayname, 38);
       mfsc_corefile_displayname[38] = MHX_C_EOS;
 
-      if (!mfsc_corefile_inode) {
-        mfsc_corefile_inode = 0xfffffffful;
-        mfsc_corefile_displayname[0] = MHX_C_EOS;
-        return MFS_FILE_INVALID;
+      if ((core_check = mfsc_checkcore(slot ? 0 : 1)) || !mfsc_corefile_inode) {
+        mhx_flashscreen(MHX_A_RED, 150);
+        if (mfsc_corefile_size)
+          lfill(FILEINODE_ADDRESS + (mfsc_selection * 8) + 4, 0, 4);
+        // let the main loop display info popup directly
+        idle_time = 149;
+        continue;
       }
 
-      read_and_check_core(0);
-      return MFS_FILE_VALID;
+      return MFSC_FILE_VALID;
 
     case 0xf5: // F5 - switch disk
       if ((selected_dir = select_bs_load_dir((selected_dir ^ 1) | 0x2)) & 0x80)
-        return MFS_FILE_INVALID;
+        return MFSC_FILE_INVALID;
       select_bs_draw_header(selected_dir, slot);
       mfsc_selection = 0;
       break;
     case 0xf7: // F7 - switch dir (root / CORE)
       if ((selected_dir = select_bs_load_dir(selected_dir ^ 2)) & 0x80)
-        return MFS_FILE_INVALID;
+        return MFSC_FILE_INVALID;
       select_bs_draw_header(selected_dir, slot);
       mfsc_selection = 0;
       break;
@@ -412,5 +430,5 @@ uint8_t select_bitstream_file(uint8_t slot)
     select_bs_draw_list();
   }
 
-  return MFS_FILE_INVALID;
+  return MFSC_FILE_INVALID;
 }

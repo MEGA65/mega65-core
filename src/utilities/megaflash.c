@@ -14,10 +14,35 @@
 #include "nohysdc.h"
 #include "mf_progress.h"
 #include "mf_selectcore.h"
-#include "crc32accl.h"
+#include "mf_hlflash.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
+
+// OPENROM Palette for STANDALONE MODE
+// make sure to also load openrom font for perfect testing!
+struct rgb {
+  uint8_t r, g, b;
+};
+
+struct rgb openrom_palette[] = {
+  {0, 0, 0},
+  {0xff, 0xff, 0xff},
+  {0xba, 0x13, 0x62},
+  {0x66, 0xad, 0xff},
+  {0xbb, 0xf3, 0x8b},
+  {0x55, 0xec, 0x85},
+  {0xd1, 0xe0, 0x79},
+  {0xae, 0x5f, 0xc7},
+  {0x9b, 0x47, 0x81},
+  {0x87, 0x37, 0x00},
+  {0xdd, 0x39, 0x78},
+  {0xb5, 0xb5, 0xb5},
+  {0xb8, 0xb8, 0xb8},
+  {0x0b, 0x4f, 0xca},
+  {0xaa, 0xd9, 0xfe},
+  {0x8b, 0x8b, 0x8b},
+};
 #else
 #include "mf_screens.h"
 #endif
@@ -120,7 +145,7 @@ unsigned char check_cartridge(void)
 }
 #endif
 
-unsigned char scan_bitstream_information(unsigned char search_flags, unsigned char update_slot);
+unsigned char scan_core_information(unsigned char search_flags, unsigned char update_slot);
 
 void display_version(void)
 {
@@ -144,7 +169,8 @@ void display_version(void)
          "    Model name: %s\n"
          "    Slots:      %d (each %d MB)\n",
          PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), reconfig_disabled ? " (booted via JTAG)" : "",
-         utilVersion, slot_core[0].version,
+         utilVersion,
+         slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
          hw_model_id, hw_model_name, slot_count, SLOT_MB);
 #ifdef QSPI_VERBOSE
   mhx_writef("    Slot Size:  %ld (%ld pages)\n", (long)SLOT_SIZE, (long)SLOT_SIZE_PAGES);
@@ -153,7 +179,7 @@ void display_version(void)
 #ifndef STANDALONE
   // if this is the core megaflash, display boot slot selection information
   search_cart = check_cartridge();
-  selected = scan_bitstream_information(search_cart, 0);
+  selected = scan_core_information(search_cart, 0);
   if (selected == 0xff)
     selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
 
@@ -209,7 +235,7 @@ void do_first_flash_read(unsigned long addr)
 }
 
 /*
- * uchar scan_bitstream_information(search_flags, slot)
+ * uchar scan_core_information(search_flags, slot)
  *
  * gathers core slot information from flash and looks
  * for a slot to boot.
@@ -224,7 +250,7 @@ void do_first_flash_read(unsigned long addr)
  * bit to only update one slot.
  *
  */
-unsigned char scan_bitstream_information(unsigned char search_flags, unsigned char update_slot)
+unsigned char scan_core_information(unsigned char search_flags, unsigned char update_slot)
 {
   short slot, j;
   unsigned char found = 0xff, default_slot = 0xff, flagmask = CORECAP_USED;
@@ -328,8 +354,8 @@ unsigned char confirm_slot0_flash()
   mhx_copyscreen(&mf_screens_slot0_warning);
   return mhx_check_input("CONFIRM\r", MHX_CI_CHECKCASE|MHX_CI_PRINT, MHX_A_YELLOW);
 }
-
 #include <cbm_screen_charmap.h>
+
 void display_cartridge(short slot)
 {
   unsigned char offset = 1;
@@ -354,7 +380,7 @@ void display_cartridge(short slot)
 
 uint8_t mfde_replace_attr[3] = { MHX_A_MGREY, MHX_A_YELLOW, MHX_A_LRED };
 
-void draw_edit_slot(uint8_t selected_slot, uint8_t flags_changed)
+void draw_edit_slot(uint8_t selected_slot, uint8_t current_flags)
 {
   mhx_clearscreen(0x20, MHX_A_WHITE | MHX_A_FLIP);
   mhx_set_xy(14, 0);
@@ -367,30 +393,38 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t flags_changed)
   mhx_set_xy(1,4);
   mhx_writef(MHX_W_LGREY "Ver.: " MHX_W_WHITE "%s", slot_core[selected_slot].version);
   mhx_draw_rect(0, 6, 38, 3, " Replace ", mfde_replace_attr[selected_file], 1);
-  if (selected_file == MFS_FILE_ERASE) {
+  if (selected_file == MFSC_FILE_ERASE) {
     mhx_write_xy(15, 8, "Erase slot", MHX_A_LRED);
   }
-  else if (selected_file == MFS_FILE_VALID) {
+  else if (selected_file == MFSC_FILE_VALID) {
     mhx_write_xy(1, 7, mfsc_corefile_displayname, MHX_A_WHITE);
     mhx_set_xy(1, 8);
     mhx_writef(MHX_W_LGREY "Name: " MHX_W_WHITE "%s", mfsc_corefile_name);
     mhx_set_xy(1, 9);
     mhx_writef(MHX_W_LGREY "Ver.: " MHX_W_WHITE "%s", mfsc_corefile_version);
   }
-  mhx_draw_rect(0, 11, 28, 4, " Flags ", MHX_A_NOCOLOR, 0);
-  for (i = 0; i < CORECAP_DEF_MAX; i++) {
-    if (slot_core[selected_slot].capabilities & corecap_def[i].bits) {
-      mhx_write_xy(1, 12 + i, "< > [ ]", MHX_A_NOCOLOR);
-      mhx_putch_offset(-6, 0x31 + i, MHX_A_NOCOLOR);
-      mhx_putch_offset(-2, (slot_core[selected_slot].flags & corecap_def[i].bits)?'*':' ', MHX_A_NOCOLOR);
-    }
-    mhx_write_xy(9, 12 + i, corecap_def[i].name, MHX_A_NOCOLOR);
-    if (slot_core[selected_slot].length && corecap_def[i].slot != 0xff) {
-      mhx_write_xy(26, 12 + i, "( )",
-        (!(slot_core[selected_slot].capabilities & corecap_def[i].bits) ? MHX_A_NOCOLOR :
-          (corecap_def[i].slot < selected_slot ? MHX_A_YELLOW :
-            (corecap_def[i].slot == selected_slot ? MHX_A_GREEN : MHX_A_NOCOLOR))));
-      mhx_putch_offset(-2, 0x30 + corecap_def[i].slot, MHX_A_NOCOLOR);
+  if (selected_slot > 0) {
+    mhx_draw_rect(0, 11, 28, 4, " Flags ", MHX_A_NOCOLOR, 0);
+    for (i = 0; i < CORECAP_DEF_MAX; i++) {
+      if (slot_core[selected_slot].capabilities & corecap_def[i].bits) {
+        mhx_write_xy(1, 12 + i, "< > [ ]", MHX_A_NOCOLOR);
+        mhx_putch_offset(-6, 0x31 + i, MHX_A_NOCOLOR);
+
+        if ((slot_core[selected_slot].flags & corecap_def[i].bits) == (current_flags & corecap_def[i].bits)) {
+          mhx_putch_offset(-2, (current_flags & corecap_def[i].bits) ? '*' : ' ', MHX_A_WHITE);
+        }
+        else {
+          mhx_putch_offset(-2, (current_flags & corecap_def[i].bits) ? '+' : '-', MHX_A_YELLOW);
+        }
+      }
+      mhx_write_xy(9, 12 + i, corecap_def[i].name, MHX_A_NOCOLOR);
+      if (slot_core[selected_slot].length && corecap_def[i].slot != 0xff) {
+        mhx_write_xy(26, 12 + i, "( )",
+          (!(slot_core[selected_slot].capabilities & corecap_def[i].bits) ? MHX_A_NOCOLOR :
+            (corecap_def[i].slot < selected_slot ? MHX_A_YELLOW :
+              (corecap_def[i].slot == selected_slot ? MHX_A_GREEN : MHX_A_NOCOLOR))));
+        mhx_putch_offset(-2, 0x30 + corecap_def[i].slot, MHX_A_NOCOLOR);
+      }
     }
   }
   if (!slot_core[selected_slot].length) {
@@ -401,7 +435,9 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t flags_changed)
   mfp_set_area(0, slot_core[selected_slot].length >> 16, '*', MHX_A_WHITE);
 
   // copy footer from upper memory
-  lcopy((long)mf_screens_menu.screen_start + 40*10 + ((selected_file != MFS_FILE_INVALID || flags_changed) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  //lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].flags != current_flags) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  // no flags only flashing yet...
+  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID) ? 80 : 0), mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }
@@ -412,116 +448,50 @@ uint8_t edit_slot(uint8_t selected_slot)
   // plus menu with flags and the option to flash a new core
   // new core must load header, then display information
   // and allow for flag manipulation
-  // so this will also to select_bitstream_file, and part of
+  // so this will also to mfsc_selectcore, and part of
   // the header check?
-  uint8_t cur_flags = slot_core[selected_slot].flags, core_loaded = 0, selbit, err;
-  uint16_t length;
-  uint32_t core_crc;
+  uint8_t cur_flags = slot_core[selected_slot].flags, selbit;
 
-  selected_file = MFS_FILE_INVALID;
-  draw_edit_slot(selected_slot, 0);
+  selected_file = MFSC_FILE_INVALID;
+  draw_edit_slot(selected_slot, cur_flags);
   while (1) {
-    /*
-    if (core_loaded) {
-      mhx_write_xy(12, 20, "to flash slot.      ", MHX_A_WHITE);
-    }
-    else {
-      mhx_write_xy(12, 20, "to flash slot flags.", MHX_A_WHITE);
-    }
-    if (slot_core[selected_slot].flags != cur_flags || core_loaded)
-      mhx_hl_lines(20, 20, MHX_A_WHITE);
-    else
-      mhx_hl_lines(20, 20, MHX_A_MGREY);
-    */
-    mhx_getkeycode(0);
+    // get a key
+    mhx_getkeycode(MHX_GK_WAIT);
 
-    if (mhx_lastkey.code.key > 0x30 && mhx_lastkey.code.key < 0x31 + CORECAP_DEF_MAX) {
-      selbit = mhx_lastkey.code.key - 0x31;
-      if (slot_core[selected_slot].capabilities & corecap_def[selbit].bits) {
-        cur_flags ^= corecap_def[selbit].bits;
-        if ((slot_core[selected_slot].flags & corecap_def[selbit].bits) == (cur_flags & corecap_def[selbit].bits)) {
-          mhx_putch_xy(6, 13 + selbit, (cur_flags & corecap_def[selbit].bits) ? '*' : ' ', MHX_A_WHITE);
-        }
-        else {
-          mhx_putch_xy(6, 13 + selbit, (cur_flags & corecap_def[selbit].bits) ? '+' : '-', MHX_A_YELLOW);
-        }
-      }
-      draw_edit_slot(selected_slot, slot_core[selected_slot].flags != cur_flags);
-      continue;
-    }
-
-    // ESC or STOP exists without changes
+    // ESC or STOP exist without changes
     if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
       return 0;
-    
-    if (core_loaded && mhx_lastkey.code.key == 0xf8) {
-      mfp_init_progress(8, 19, '-', " Load Core ", MHX_A_WHITE);
-      if (mfsc_corefile_size < SLOT_SIZE) {
-        length = mfsc_corefile_size >> 16;
-        if (mfsc_corefile_size & 0xffff)
-          length++;
-        mfp_set_area(length, 255, 0x69, MHX_A_LGREY);
-      }
-      else
-        length = 128;
-      addr_len = mfsc_corefile_size;
-      if ((err = nhsd_open(mfsc_corefile_inode))) {
-        // Couldn't open the file.
-        mhx_set_xy(5,12);
-        mhx_writef(MHX_W_ORANGE MHX_W_REVON "ERROR: Could not open core file (%d)!" MHX_W_REVOFF MHX_W_WHITE, err);
-        mhx_press_any_key(MHX_AK_NOMESSAGE|MHX_AK_ATTENTION, MHX_A_WHITE);
-        return 0;
-      }
 
-      mfp_start(0, MFP_DIR_UP, 0x66, MHX_A_WHITE, " Load Core ", MHX_A_WHITE);
-      mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-
-      for (addr = 0; addr < mfsc_corefile_size; addr += 512) {
-        if ((err = nhsd_read()))
-          break;
-        lcopy(0xffd6e00L, 0x8000000L + addr, 512);
-        mfp_progress(addr);
-      }
-      if (addr & 0xffff)
-        mfp_set_area(addr >> 16, 1, 0x66, MHX_A_WHITE);
-
-      mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-
-      mfp_start(addr_len, MFP_DIR_DOWN, 0xa0, MHX_A_WHITE, " Calculate CRC32 ", MHX_A_WHITE);
-      make_crc32_tables(data_buffer, buffer);
-      init_crc32();
-      for (y = 1, addr = 0; addr < addr_len; addr += 256) {
-        // we don't need the part string anymore, so we reuse this buffer
-        // note: part is only used in probe_qspi_flash
-        lcopy(0x8000000L + addr, (unsigned long)part, 256);
-        if (y) {
-          // the first sector has the real length and the CRC32
-          addr_len = *(uint32_t *)(part + 0x80);
-          core_crc = *(uint32_t *)(part + 0x84);
-          // set CRC bytes to pre-calculation value
-          *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
-          y = 0;
-        }
-        update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
-        mfp_progress(addr_len - addr);
-      }
-      mfp_set_area(0, length, (core_crc != get_crc32() ? 'E' : 0x20), MHX_A_INVERT|(core_crc != get_crc32() ? MHX_A_RED : MHX_A_GREEN));
-      mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-
-      // reflash_slot(selected_slot, selected_file, NULL);
-      return 0;
+    // check if a number is pressed which toggles a flag
+    if (selected_slot > 0 && mhx_lastkey.code.key > 0x30 && mhx_lastkey.code.key < 0x31 + CORECAP_DEF_MAX) {
+      selbit = mhx_lastkey.code.key - 0x31;
+      if (slot_core[selected_slot].capabilities & corecap_def[selbit].bits)
+        cur_flags ^= corecap_def[selbit].bits;
+      draw_edit_slot(selected_slot, cur_flags);
+      continue;
     }
 
     // F3 loads a core
     if (mhx_lastkey.code.key == 0xf3) {
-      selected_file = select_bitstream_file(selected_reflash_slot);
-      if (selected_file != MFS_FILE_INVALID)
-        core_loaded = 1;
-      draw_edit_slot(selected_slot, slot_core[selected_slot].flags != cur_flags);
+      selected_file = mfsc_selectcore(selected_reflash_slot);
+      draw_edit_slot(selected_slot, cur_flags);
+      continue;
     }
-    else if (mhx_lastkey.code.key == 0xf4) {
-      selected_file = MFS_FILE_ERASE;
-      draw_edit_slot(selected_slot, slot_core[selected_slot].flags != cur_flags);
+    
+    if (selected_slot > 0 && mhx_lastkey.code.key == 0xf4) {
+      selected_file = MFSC_FILE_ERASE;
+      draw_edit_slot(selected_slot, cur_flags);
+      continue;
+    }
+
+    if (selected_file != MFSC_FILE_INVALID && mhx_lastkey.code.key == 0xf8) {
+      if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
+        // patch flags into loaded core, but no flags for slot 0
+        lpoke(0x800007CL, selected_slot ? cur_flags : 0);
+        mfhf_flash_core(selected_file, selected_slot);
+        scan_core_information(0, 0);
+      }
+      return 0;
     }
   }
 
@@ -568,6 +538,19 @@ void main(void)
   MF_SCREENS_INIT;
   mhx_screencolor(MHX_A_BLUE, MHX_A_BLACK);
   mhx_clearscreen(' ', MHX_A_WHITE);
+
+#ifdef STANDALONE
+  // setup OPENROM palette in standalone mode
+  for (i = 0; i < 16; i++) {
+    POKE(0xd100 + i, openrom_palette[i].r);
+    POKE(0xd200 + i, openrom_palette[i].g);
+    POKE(0xd300 + i, openrom_palette[i].b);
+  }
+#endif
+
+  // we need to probe the hardware now, as we are going into the menu
+  if (probe_hardware_version())
+    hard_exit();
 
 #ifndef STANDALONE
   /*
@@ -631,7 +614,7 @@ void main(void)
       search_cart = check_cartridge();
 
       // determine boot slot by flags (default search is for default slot)
-      selected = scan_bitstream_information(search_cart, 0);
+      selected = scan_core_information(search_cart, 0);
 
       if (slot_core[selected].valid == SLOT_VALID) {
         // Valid bitstream -- so start it
@@ -653,10 +636,6 @@ void main(void)
       }
     }
   }
-
-  // we need to probe the hardware now, as we are going into the menu
-  if (probe_hardware_version())
-    hard_exit();
 
 #else /* STANDALONE */
 #include <cbm_screen_charmap.h>
@@ -727,7 +706,7 @@ void main(void)
     mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
 
   // Scan for existing bitstreams and locate first default slot
-  scan_bitstream_information(0, 0);
+  scan_core_information(0, 0);
 
 #if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
   // prepare menu
@@ -747,6 +726,7 @@ void main(void)
     if (redraw_menu) {
       if (redraw_menu == REDRAW_CLEAR) {
         mhx_clearscreen(0x20, MHX_A_WHITE);
+        mhx_setattr(MHX_A_WHITE);
         last_selected = MAX_SLOTS;
       }
       for (i = 0; i < slot_count; i++) {
@@ -838,7 +818,7 @@ void main(void)
 #endif
     case 0x09: // TAB
       // Edit selected slot
-      if (selected > 0)
+      if (selected > 0) // the entry above is the only way to flash slot 0
         selected_reflash_slot = selected;
       break;
     case 144: // CTRL-1
@@ -885,25 +865,24 @@ void main(void)
         mhx_flashscreen(MHX_A_RED, 150);
         continue;
       }
-      if (selected_reflash_slot > 0)
-        edit_slot(selected_reflash_slot);
+      edit_slot(selected_reflash_slot);
 #if 0
 #ifdef FIRMWARE_UPGRADE
-      selected_file = MFS_FILE_INVALID;
+      selected_file = MFSC_FILE_INVALID;
       if (selected_reflash_slot == 0) {
 #include <ascii_charmap.h>
         strncpy(disk_name_return, "UPGRADE0.COR", 32);
 #include <cbm_screen_charmap.h>
         memcpy(mfsc_corefile_displayname, "UPGRADE0.COR", 12);
         memset(mfsc_corefile_displayname + 12, 0x20, 28);
-        selected_file = MFS_FILE_VALID;
+        selected_file = MFSC_FILE_VALID;
       }
       else
 #endif
-        selected_file = select_bitstream_file(selected_reflash_slot);
-      if (selected_file != MFS_FILE_INVALID) {
+        selected_file = mfsc_selectcore(selected_reflash_slot);
+      if (selected_file != MFSC_FILE_INVALID) {
         reflash_slot(selected_reflash_slot, selected_file, slot_core[0].version);
-        scan_bitstream_information(0, selected_reflash_slot | 0x80);
+        scan_core_information(0, selected_reflash_slot | 0x80);
       }
 #endif
       redraw_menu = REDRAW_CLEAR;
@@ -935,7 +914,7 @@ void main(void)
   memcpy(mfsc_corefile_displayname, "UPGRADE0.COR", 12);
   memset(mfsc_corefile_displayname + 12, 0x20, 28);
   mfsc_corefile_displayname[39] = MHX_C_EOS;
-  reflash_slot(0, MFS_FILE_VALID, slot_core[0].version);
+  reflash_slot(0, MFSC_FILE_VALID, slot_core[0].version);
 #endif
 
   hard_exit();
