@@ -1111,6 +1111,10 @@ getDefaultSettings:
 		LDA	#$80
 		STA	optDfltBase + $f	; enable LFN support by default
 
+		LDA	#$01
+		STA	optDfltBase + $20	; DMAgic F018B by default
+		STA	optDfltBase + $22	; enable SID model 8580 by default
+
 		JSR	readRealTimeClock
 		JSR	copyRealTimeClock
 
@@ -1529,7 +1533,7 @@ readDefaultOpts:
 
 		LDX	readTemp3
 		INX
-		CPX	#inputPageCnt
+		CPX	#chipsetPageCnt
 		BNE	@loopChipset
 
 
