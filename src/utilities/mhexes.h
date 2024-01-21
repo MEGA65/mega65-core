@@ -272,6 +272,16 @@ void mhx_hl_lines(uint8_t line_start, uint8_t line_end, uint8_t attr);
  */
 void mhx_draw_rect(uint8_t ux, uint8_t uy, uint8_t width, uint8_t height, char *title, uint8_t attr, uint8_t clear_inside);
 
+/*
+ * mhx_setattr(attr) [MACRO]
+ *
+ * parameters:
+ *   attr: the attribute bits
+ *
+ * set mhx_curattr to attr, which will be the new default attribute
+ * used by "attributeless" mhx functions (like mhx_writef) by default.
+ *
+ */
 #define mhx_setattr(attr) mhx_curattr = attr
 
 /*
@@ -384,11 +394,46 @@ void mhx_writef(char *format, ...);
  */
 void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr);
 
+/*
+ * mhx_putch(screencode, attr) [MACRO]
+ *
+ * parameters:
+ *   screencode: character to put at the current screen position
+ *   attr: attribute for colorram
+ *
+ * executes mhx_putch_offset with offset set to 0, which
+ * places the screencode/attr at the current cursor position.
+ *
+ */
 #define mhx_putch(screencode, attr) mhx_putch_offset(0, screencode, attr)
 
-#define mhx_write_xy(ux, uy, text, attr) mhx_set_xy(ux, uy); mhx_write(text, attr)
-
+/*
+ * mhx_putch(ux, uy, screencode, attr) [MACRO]
+ *
+ * parameters:
+ *   ux, uy: screenposition to place a character at
+ *   screencode: character to put at the current screen position
+ *   attr: attribute for colorram
+ *
+ * executes mhx_set_xy to move the current cursor position to ux, uy
+ * and the executes mhx_putch_offset with offset set to 0, which
+ * places the screencode/attr at this position
+ *
+ */
 #define mhx_putch_xy(ux, uy, screencode, attr) mhx_set_xy(ux, uy); mhx_putch_offset(0, screencode, attr)
+
+/*
+ * mhx_write_xy(ux, uy, text, attr) [MACRO]
+ *
+ * parameters:
+ *   ux, uy: screenposition to start writing string at
+ *   text: string to write to screen
+ *   attr: attribute for the text
+ *
+ * moves to cursor using mhx_set_xy and then writes text at this
+ * position using attr.
+ */
+#define mhx_write_xy(ux, uy, text, attr) mhx_set_xy(ux, uy); mhx_write(text, attr)
 
 /*
  * mhx_clear_keybuffer()
@@ -415,6 +460,9 @@ void mhx_clear_keybuffer(void);
  *
  */
 mhx_keycode_t mhx_getkeycode(uint8_t peekonly);
+
+#define MHX_GK_WAIT 0
+#define MHX_GK_PEEK 1
 
 /*
  * bool mhx_check_input(match, flags, attr)
