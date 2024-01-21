@@ -5,19 +5,26 @@
 !size=40x25
 !background=6
 !foreground=1
+/123456789012345678901234567890123456789
 !text
 {8}
-  ** No MEGA65 core in slot 1 found! **
+  ** MEGA65 core in slot 1 missing! **
 {1}
  An error while replacing slot 0 can
  temporary brick your MEGA65, which can
  {7}ONLY{1} be reverted using a JTAG adapter
  or a MEGA65 core in slot 1.
 
- Please confirm that you know about the
- risks and the recovery procedure by
- typing CONFIRM, or press <RUN/STOP> to
- abort: {C}
+ If you are unsure about this, make
+ sure to first install a recent MEGA65
+ Core into slot 1. Then test if you can
+ use it to flash a core.
+
+ Otherwise you can confirm that you own
+ a {7}JTAG Adapter{1} and know how to use
+ it to recover your Factory Core
+ manually by typing CONFIRM, or press
+ <RUN/STOP> to abort: {C}
 !endtext
 !screen=slot0_warning
 !size=40x25
@@ -50,7 +57,7 @@ Type CONFIRM to proceed, or press
 <RUN/STOP> to abort: {C}
 !endtext
 !screen=menu
-!size=40x14
+!size=40x16
 !nocolorram=1
 !background=6
 !foreground=1
@@ -66,8 +73,10 @@ Type CONFIRM to proceed, or press
  <RETURN> Select file      <STOP> Abort
  <F5> External SD  <F7> Directory: CORE
  <RETURN> Select file      <STOP> Abort
-  <F3> Load Core  <F4> Erase Slot
+ <F3> Load Core   <F4> Erase Slot
                            <STOP> Abort
-  <F3> Load Core  <F4> Erase Slot
-  <F8> Flash Slot          <STOP> Abort
+ <F3> Load Core   <F4> Erase Slot
+ <F8> Flash Slot           <STOP> Abort
+ Don't interrupt power supply nor touch
+       the device while flashing!
 !endtext
