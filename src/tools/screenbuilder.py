@@ -285,10 +285,10 @@ def output_scr_code(main: dict):
                     screen['nocol'] = ''
                 if solo:
                     outf.write(SCREEN_BINC_DATA_TMPL % screen)
+                    screen['txtram_start_h'] = screen['colram_start_h'] = 0
+                else:
                     screen['txtram_start_h'] = screen['txtram_start']
                     screen['colram_start_h'] = screen['colram_start']
-                else:
-                    screen['txtram_start_h'] = screen['colram_start_h'] = 0
                 outf.write(SCREEN_BINC_STRUCT_TMPL % screen)
             if solo:
                 outf.write('void %(name)s_init(void) {\n' % main)
