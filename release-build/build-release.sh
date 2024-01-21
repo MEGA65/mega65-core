@@ -264,11 +264,11 @@ fi
 echo "Building COR/MCS"
 echo
 if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
 elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
 else
-    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
+    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
 fi
 ${BIT2MCS} ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs 0
 
@@ -283,4 +283,3 @@ fi
 
 # 7z will only put the relative paths between ARCFILE and PKGPATH inside the archive. smart!
 7z a ${ARCFILE} ${PKGPATH}
-
