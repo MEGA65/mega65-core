@@ -52,7 +52,7 @@ struct rgb openrom_palette[] = {
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
 
-uint8_t reconfig_disabled = 0;
+uint8_t booted_via_jtag = 0;
 
 // mega65r3 QSPI has the most space currently with 8x8MB
 // this is to much for r3 or r2, but we can handle...
@@ -168,7 +168,7 @@ void display_version(void)
          "    Model ID:   $%02X\n"
          "    Model name: %s\n"
          "    Slots:      %d (each %d MB)\n",
-         PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), reconfig_disabled ? " (booted via JTAG)" : "",
+         PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), booted_via_jtag ? " (booted via JTAG)" : "",
          utilVersion,
          slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
          hw_model_id, hw_model_name, slot_count, SLOT_MB);
@@ -523,8 +523,11 @@ void hard_exit(void)
 
 void main(void)
 {
-  uint8_t selected = 0xff, atticram_bad = 0, search_cart = CORECAP_SLOT_DEFAULT, default_slot = 0xff, last_selected = 0xff;
+  uint8_t selected = 0xff, search_cart = CORECAP_SLOT_DEFAULT, default_slot = 0xff, last_selected = 0xff;
   uint8_t redraw_menu = REDRAW_CLEAR;
+#ifdef LAZY_ATTICRAM_CHECK
+  uint8_t atticram_bad = 0;
+#endif
 
   mega65_io_enable();
 
@@ -654,8 +657,6 @@ void main(void)
   }
 #endif
 
-// only need to check for JTAG in interactive mode
-#ifdef STANDALONE
   // We are now in interactive mode, do some tests,
   // then start the GUI
 
@@ -664,18 +665,16 @@ void main(void)
     // started from a bitstream via JTAG, and the ECAPE2 thingy
     // isn't working. This means we can't successfully reconfigure
     // so we should probably display a warning.
-    mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " You appear to have started this"
-               "bitstream via JTAG.  This means that you"
-               MHX_W_LRED "can't" MHX_W_WHITE " use this menu to launch other\n"
-               "cores.\n"
-               "You will still be able to flash new\n"
-               "bitstreams, though.\n\n");
-    reconfig_disabled = 1;
+    mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " You have started this bitstream"
+               "via JTAG, launching other cores has been" MHX_W_LRED "disabled" MHX_W_WHITE "!\n\n");
+    booted_via_jtag = 1;
     // wait for key see below
+#ifndef LAZY_ATTICRAM_CHECK
+    mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
+#endif
   }
 
-#endif
-
+#ifdef LAZY_ATTICRAM_CHECK
   // quick and dirty attic ram check
   dma_poke(0x8000000l, 0x55);
   if (dma_peek(0x8000000l) != 0x55)
@@ -697,13 +696,12 @@ void main(void)
   }
   if (atticram_bad)
     mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Your system does not support\n"
-           "attic ram. Because the flasher in this\n"
-           "core does not support flashing without\n"
-           "attic ram, flashing has been " MHX_W_LRED "disabled!" MHX_W_WHITE ".\n\n");
+           "attic ram, flashing has been " MHX_W_LRED "disabled" MHX_W_WHITE "!\n\n");
 
   // if we gave some warning, wait for a keypress before continuing
-  if (reconfig_disabled || atticram_bad)
+  if (booted_via_jtag || atticram_bad)
     mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
+#endif
 
   // Scan for existing bitstreams and locate first default slot
   scan_core_information(0, 0);
@@ -861,10 +859,13 @@ void main(void)
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
+#ifdef LAZY_ATTICRAM_CHECK
+
       if (atticram_bad) {
         mhx_flashscreen(MHX_A_RED, 150);
         continue;
       }
+#endif
       edit_slot(selected_reflash_slot);
 #if 0
 #ifdef FIRMWARE_UPGRADE

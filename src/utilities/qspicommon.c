@@ -289,7 +289,9 @@ unsigned char probe_qspi_flash(void)
   usleep(50000L);
 
 #ifdef QSPI_VERBOSE
-  mhx_writef("\nProbing flash...\n");
+  mhx_writef(MHX_W_WHITE "\nProbing flash...\n");
+#else
+  mhx_writef(MHX_W_WHITE "\n\n");
 #endif
 
   // Put QSPI clock under bitbash control
@@ -472,7 +474,9 @@ unsigned char probe_qspi_flash(void)
       POKE(0xD020, PEEK(0xD020) + 1);
   }
 
-  mhx_writef("\nQuad-mode enabled,\nflash is write-enabled.\n\n");
+#ifdef QSPI_VERBOSE
+  mhx_writef(MHX_W_WHITE "\nQuad-mode enabled,\nflash is write-enabled.\n\n");
+#endif
 
   // Finally make sure that there is no half-finished QSPI commands that will cause erroneous
   // reads of sectors.
@@ -480,7 +484,9 @@ unsigned char probe_qspi_flash(void)
   read_data(0);
   read_data(0);
 
+#ifdef QSPI_VERBOSE
   mhx_writef("Done probing flash.\n\n");
+#endif
 
   return 0;
 }
