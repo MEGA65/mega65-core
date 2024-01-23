@@ -976,7 +976,7 @@ $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65L
 #
 # OLD MEGAFLASH BUILD, not working, probably
 #
-$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspijoy.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O -o $(UTILDIR)/joyflash-a200t.prg \

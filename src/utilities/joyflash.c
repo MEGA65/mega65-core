@@ -8,7 +8,7 @@
 
 #include <6502.h>
 
-#include "qspicommon.h"
+#include "qspijoy.h"
 // not needed, no slot 0 flashing in core flasher!
 // #include "userwarning.c"
 

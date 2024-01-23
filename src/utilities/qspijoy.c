@@ -8,7 +8,7 @@
 
 #include <6502.h>
 
-#include "qspicommon.h"
+#include "qspijoy.h"
 
 struct m65_tm tm_start;
 struct m65_tm tm_now;
