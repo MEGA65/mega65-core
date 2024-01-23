@@ -927,6 +927,7 @@ $(UTILDIR)/%.o: $(UTILDIR)/%.c
 	$(CC65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/work/$*.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
 
+# remember: version.s needs to be first!
 $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
@@ -934,7 +935,7 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c 
 		$(MEGA65LIBCINC) -O --add-source -DA200T \
 		-o $(SDCARD_DIR)/ONBOARD.M65 -DSTANDALONE \
 		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
-		$< $(UTILDIR)/version.s $(UTILDIR)/qspireconfig.c $(MEGA65LIBCLIB)
+		$(UTILDIR)/version.s $< $(UTILDIR)/qspireconfig.c $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
