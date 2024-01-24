@@ -82,16 +82,16 @@ int8_t mfhf_load_core() {
 
   // setup progress bar
   mfp_init_progress(8, 17, '-', " Load Core ", MHX_A_WHITE);
-  if (mfsc_corefile_size < SLOT_SIZE) {
+  if (mfsc_corehdr_length < SLOT_SIZE) {
     // fill unused slot area grey
-    length = mfsc_corefile_size >> 16;
-    if (mfsc_corefile_size & 0xffff)
+    length = mfsc_corehdr_length >> 16;
+    if (mfsc_corehdr_length & 0xffff)
       length++;
     mfp_set_area(length, 255, 0x69, MHX_A_LGREY);
   }
   else
     length = 128;
-  addr_len = mfsc_corefile_size;
+  addr_len = mfsc_corehdr_length;
 
   // open file
   if ((err = nhsd_open(mfsc_corefile_inode))) {
@@ -104,7 +104,7 @@ int8_t mfhf_load_core() {
 
   // load file to attic ram
   mfp_start(0, MFP_DIR_UP, 0x5f, MHX_A_WHITE, " Load Core ", MHX_A_WHITE);
-  for (addr = 0; addr < mfsc_corefile_size; addr += 512) {
+  for (addr = 0; addr < mfsc_corehdr_length; addr += 512) {
     if ((err = nhsd_read()))
       break;
     lcopy(QSPI_FLASH_BUFFER, 0x8000000L + addr, 512);
@@ -128,17 +128,17 @@ int8_t mfhf_load_core() {
   make_crc32_tables(data_buffer, buffer);
   init_crc32();
 #define first err
-  for (first = 1, addr = 0; addr < mfsc_corefile_size; addr += 256) {
+  for (first = 1, addr = 0; addr < mfsc_corehdr_length; addr += 256) {
     // we don't need the part string anymore, so we reuse this buffer
     // note: part is only used in probe_qspi_flash
     lcopy(0x8000000L + addr, (long)part, 256);
     if (first) {
       // the first sector has the real length and the CRC32
-      addr_len = *(uint32_t *)(part + 0x80);
-      core_crc = *(uint32_t *)(part + 0x84);
+      addr_len = *(uint32_t *)(part + MFSC_COREHDR_LENGTH);
+      core_crc = *(uint32_t *)(part + MFSC_COREHDR_CRC32);
       // set CRC bytes to pre-calculation value
-      *(uint32_t *)(part + 0x84) = 0xf0f0f0f0UL;
-      if (addr_len != mfsc_corefile_size)
+      *(uint32_t *)(part + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
+      if (addr_len != mfsc_corehdr_length)
         break;
       first = 0;
     }
@@ -159,6 +159,9 @@ int8_t mfhf_load_core() {
     return MFHF_LC_NOTLOADED;
   }
 
+  // set potentially changed flags after load & crc check
+  lpoke(0x8000000L + MFSC_COREHDR_BOOTFLAGS, mfsc_corehdr_bootflags);
+
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
   return mfhf_core_file_state;
@@ -168,7 +171,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 {
   while (size > 0) {
 
-    lcopy(0x8000000 + attic_addr, QSPI_FLASH_BUFFER, 512);
+    lcopy(0x8000000L + attic_addr, QSPI_FLASH_BUFFER, 512);
     if (!verify_data_in_place(flash_addr)) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
@@ -227,7 +230,7 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 }
 
 int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
-  uint32_t addr, end_addr, size, waddr;
+  uint32_t attic_addr, addr, end_addr, size, waddr;
   uint8_t tries;
 
   /*
@@ -288,6 +291,12 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
     mhx_writef("\n%d %08lX %08lX\nsize = %ld", num_4k_sectors, (unsigned long)num_4k_sectors << 12, addr, size);
     mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 #endif
+
+    // if we are flashing a file, skip over sectors without data
+    // this works because at this point addr points at the start of the sector that is being flashed
+    if (selected_file != MFSC_FILE_ERASE && (addr - SLOT_SIZE * slot) >= mfsc_corehdr_length) {
+      continue;
+    }
 
     // Do a dummy read to clear any pending stuck QSPI commands
     // (else we get incorrect return value from QSPI verify command)

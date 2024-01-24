@@ -9,6 +9,7 @@
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_selectcore.h"
+#include "qspicommon.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
@@ -36,11 +37,14 @@ extern uint8_t hw_model_id;
  */
 
 // information from the core files header
-uint8_t mfsc_corefile_model_id = 0;
-uint8_t mfsc_corefile_caps = 0, mfsc_corefile_flags = 0;
-char mfsc_corefile_name[33];
-char mfsc_corefile_version[33];
-char mfsc_corefile_error[33];
+uint8_t mfsc_corehdr_model_id = 0;
+uint8_t mfsc_corehdr_bootcaps = 0;
+uint8_t mfsc_corehdr_bootflags = 0;
+uint8_t mfsc_corehdr_instflags = 0;
+uint32_t mfsc_corehdr_length = 0UL;
+char mfsc_corehdr_name[33];
+char mfsc_corehdr_version[33];
+char mfsc_corehdr_error[33];
 
 uint16_t mfsc_filecount = 0;
 uint32_t mfsc_coredir_inode = 0;
@@ -64,16 +68,18 @@ uint32_t mfsc_corefile_inode;
 uint32_t mfsc_corefile_size;
 char mfsc_corefile_displayname[40];
 
-char *mfsc_corefile_error_message[5] = {
+char *mfsc_corefile_error_message[6] = {
 #define MFSC_CF_ERROR_OPEN 1
   "Could not open core file!",
 #define MFSC_CF_ERROR_READ 2
   "Failed to read core file header!",
 #define MFSC_CF_ERROR_SIG 3
   "Core signature not found!",
-#define MFSC_CF_ERROR_HWMODEL 4
+#define MFSC_CF_ERROR_SIZE 4
+  "Core file to large or corrupt!",
+#define MFSC_CF_ERROR_HWMODEL 5
   "Core hardware model mismatch!",
-#define MFSC_CF_ERROR_FACTORY 5
+#define MFSC_CF_ERROR_FACTORY 6
   "Not a MEGA65 Factory core!",
 };
 
@@ -93,12 +99,12 @@ int8_t mfsc_checkcore(uint8_t require_mega)
   uint8_t x, err;
 
   // initialize fields
-  mfsc_corefile_model_id = 0;
-  memset(mfsc_corefile_name, ' ', 32);
-  memset(mfsc_corefile_version, ' ', 32);
-  memcpy(mfsc_corefile_name, "UNKNOWN CORE TYPE", 17);
-  memcpy(mfsc_corefile_version, "UNKNOWN VERSION", 15);
-  mfsc_corefile_name[32] = mfsc_corefile_version[32] = mfsc_corefile_error[32] = MHX_C_EOS;
+  mfsc_corehdr_model_id = 0;
+  memset(mfsc_corehdr_name, ' ', 32);
+  memset(mfsc_corehdr_version, ' ', 32);
+  memcpy(mfsc_corehdr_name, "UNKNOWN CORE TYPE", 18);
+  memcpy(mfsc_corehdr_version, "UNKNOWN VERSION", 16);
+  mfsc_corehdr_name[32] = mfsc_corehdr_version[32] = mfsc_corehdr_error[32] = MHX_C_EOS;
 
   if ((err = nhsd_open(mfsc_corefile_inode))) {
     return MFSC_CF_ERROR_OPEN;
@@ -112,7 +118,7 @@ int8_t mfsc_checkcore(uint8_t require_mega)
 
   // check for core bitstream signature
   for (x = 0; x < 16; x++)
-    if (buffer[x] != mfsc_bitstream_magic[x])
+    if (buffer[MFSC_COREHDR_MAGIC + x] != mfsc_bitstream_magic[x])
       break;
   if (x < 16) {
     return MFSC_CF_ERROR_SIG;
@@ -120,35 +126,46 @@ int8_t mfsc_checkcore(uint8_t require_mega)
 
   // copy and convert name and version to screencode
   for (x = 0; x < 32; x++) {
-    mfsc_corefile_name[x] = mhx_ascii2screen(buffer[0x10 + x], ' ');
-    mfsc_corefile_version[x] = mhx_ascii2screen(buffer[0x30 + x], ' ');
+    mfsc_corehdr_name[x] = mhx_ascii2screen(buffer[MFSC_COREHDR_NAME + x], ' ');
+    mfsc_corehdr_version[x] = mhx_ascii2screen(buffer[MFSC_COREHDR_VERSION + x], ' ');
+  }
+
+  // check core file size
+  mfsc_corehdr_length = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
+  if (mfsc_corehdr_length > SLOT_SIZE) {
+    return MFSC_CF_ERROR_SIZE;
   }
 
   // check hardware model compability
-  mfsc_corefile_model_id = buffer[0x70];
-  if (mfsc_corefile_model_id != hw_model_id) {
+  mfsc_corehdr_model_id = buffer[MFSC_COREHDR_MODELID];
+  if (mfsc_corehdr_model_id != hw_model_id) {
     return MFSC_CF_ERROR_HWMODEL;
   }
 
   // allow only marked cores for slot 0
   if (require_mega) {
     // check install_flags bit 0 == FACTORY
-    if (!(buffer[0x7d] & 0x01))
+    if (!(buffer[MFSC_COREHDR_INSTFLAGS] & 0x01))
       return MFSC_CF_ERROR_FACTORY;
     // check CORE name, which needs to be MEGA65 only
     for (x = 0; x < 6; x++)
-      if (buffer[0x10 + x] != mega65core_magic[x])
+      if (buffer[MFSC_COREHDR_NAME + x] != mega65core_magic[x])
         break;
     for (err = ((x < 6) ? 0xff : 0); !err && x < 32; x++)
-      err |= buffer[0x10 + x];
+      err |= buffer[MFSC_COREHDR_NAME + x];
     if (err)
       return MFSC_CF_ERROR_FACTORY;
   }
 
+  // if all is good, we copy over the flags
+  mfsc_corehdr_bootcaps = buffer[MFSC_COREHDR_BOOTCAPS];
+  mfsc_corehdr_bootflags = buffer[MFSC_COREHDR_BOOTFLAGS];
+  mfsc_corehdr_instflags = buffer[MFSC_COREHDR_INSTFLAGS];
+
   return 0;
 }
 
-void select_bs_draw_list(void)
+void mfsc_draw_list(void)
 {
   // wait for raster leaving screen
   while (!(PEEK(0xD011)&0x80));
@@ -165,7 +182,7 @@ void select_bs_draw_list(void)
 }
 
 /*
- * uint8_t select_bs_load_dir(uint8_t new_dir)
+ * uint8_t mfsc_load_dir(uint8_t new_dir)
  *
  * loads all the .COR files from either ROOT or CORE diretory
  * of the selected disk. new_disk bit 0 selects disk, bit 1
@@ -181,7 +198,7 @@ void select_bs_draw_list(void)
  *            bit 7 = force init
  *
  */
-uint8_t select_bs_load_dir(uint8_t new_dir)
+uint8_t mfsc_load_dir(uint8_t new_dir)
 {
   uint8_t fnlen, i, j, isroot = 0;
 
@@ -283,7 +300,7 @@ restart_dirload:
   return (nhsd_init_state & NHSD_INIT_BUSMASK) | (isroot ? 0 : 2);
 }
 
-void select_bs_draw_header(uint8_t selected_dir, uint8_t slot)
+void mfsc_draw_header(uint8_t selected_dir, uint8_t slot)
 {
   // copy header and footer from upper memory
   lcopy((long)mf_screens_menu.screen_start + 40, mhx_base_scr, 40);
@@ -320,11 +337,11 @@ uint8_t mfsc_selectcore(uint8_t slot)
   //diskchooser_header[32] = 0x30 + slot;
 
   mhx_clearscreen(' ', MHX_A_WHITE);
-  if ((selected_dir = select_bs_load_dir(selected_dir)) & 0x80)
+  if ((selected_dir = mfsc_load_dir(selected_dir)) & 0x80)
     return MFSC_FILE_INVALID;
 
-  select_bs_draw_header(selected_dir, slot);
-  select_bs_draw_list();
+  mfsc_draw_header(selected_dir, slot);
+  mfsc_draw_list();
   while (1) {
 
     mhx_getkeycode(1);
@@ -344,14 +361,14 @@ uint8_t mfsc_selectcore(uint8_t slot)
 
         if (mfsc_selection - mfsc_offset < 12) {
           mhx_draw_rect(3, 15, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
-          mhx_write_xy(4, 16, mfsc_corefile_name, MHX_A_WHITE|MHX_A_INVERT);
-          mhx_write_xy(4, 17, mfsc_corefile_version, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 16, mfsc_corehdr_name, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 17, mfsc_corehdr_version, MHX_A_WHITE|MHX_A_INVERT);
           mhx_write_xy(4, 18, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
         }
         else {
           mhx_draw_rect(3, 5, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
-          mhx_write_xy(4, 6, mfsc_corefile_name, MHX_A_WHITE|MHX_A_INVERT);
-          mhx_write_xy(4, 7, mfsc_corefile_version, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 6, mfsc_corehdr_name, MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 7, mfsc_corehdr_version, MHX_A_WHITE|MHX_A_INVERT);
           mhx_write_xy(4, 8, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
         }
       }
@@ -383,15 +400,15 @@ uint8_t mfsc_selectcore(uint8_t slot)
       return MFSC_FILE_VALID;
 
     case 0xf5: // F5 - switch disk
-      if ((selected_dir = select_bs_load_dir((selected_dir ^ 1) | 0x2)) & 0x80)
+      if ((selected_dir = mfsc_load_dir((selected_dir ^ 1) | 0x2)) & 0x80)
         return MFSC_FILE_INVALID;
-      select_bs_draw_header(selected_dir, slot);
+      mfsc_draw_header(selected_dir, slot);
       mfsc_selection = 0;
       break;
     case 0xf7: // F7 - switch dir (root / CORE)
-      if ((selected_dir = select_bs_load_dir(selected_dir ^ 2)) & 0x80)
+      if ((selected_dir = mfsc_load_dir(selected_dir ^ 2)) & 0x80)
         return MFSC_FILE_INVALID;
-      select_bs_draw_header(selected_dir, slot);
+      mfsc_draw_header(selected_dir, slot);
       mfsc_selection = 0;
       break;
 
@@ -427,7 +444,7 @@ uint8_t mfsc_selectcore(uint8_t slot)
     if (mfsc_offset < 0)
       mfsc_offset = 0;
 
-    select_bs_draw_list();
+    mfsc_draw_list();
   }
 
   return MFSC_FILE_INVALID;

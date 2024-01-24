@@ -18,7 +18,7 @@ extern uint32_t mfhf_slot_size;
 #define MFHF_LC_FROMDISK  2
 
 /*
- * int8_t mfhf_load_core()
+ * int8_t mfhf_load_core(custom_flags)
  *
  * Returns:
  *   int8_t(bool): 0 - load succeeded
@@ -26,6 +26,9 @@ extern uint32_t mfhf_slot_size;
  *
  * Loads the selected core into attic ram and does a crc32
  * check. Will ask for confirmation if crc32 check fails.
+ *
+ * This will replace the core flags field by the value of
+ * mfsc_corefile_bootflags.
  *
  */
 int8_t mfhf_load_core();

@@ -17,14 +17,28 @@ extern char mfsc_corefile_displayname[40];
 extern uint32_t mfsc_corefile_inode;
 extern uint32_t mfsc_corefile_size;
 
-extern uint8_t mfsc_corefile_model_id;
-extern char mfsc_corefile_name[33];
-extern char mfsc_corefile_version[33];
-extern char mfsc_corefile_error[33];
+extern uint8_t mfsc_corehdr_model_id;
+extern uint8_t mfsc_corehdr_bootcaps;
+extern uint8_t mfsc_corehdr_bootflags;
+extern uint8_t mfsc_corehdr_instflags;
+extern uint32_t mfsc_corehdr_length;
+extern char mfsc_corehdr_name[33];
+extern char mfsc_corehdr_version[33];
+extern char mfsc_corehdr_error[33];
 
 #define MFSC_FILE_INVALID 0
 #define MFSC_FILE_VALID 1
 #define MFSC_FILE_ERASE 2
+
+#define MFSC_COREHDR_MAGIC 0x00
+#define MFSC_COREHDR_NAME 0x10
+#define MFSC_COREHDR_VERSION 0x30
+#define MFSC_COREHDR_MODELID 0x70
+#define MFSC_COREHDR_BOOTCAPS 0x7b
+#define MFSC_COREHDR_BOOTFLAGS 0x7c
+#define MFSC_COREHDR_INSTFLAGS 0x7d
+#define MFSC_COREHDR_LENGTH 0x80
+#define MFSC_COREHDR_CRC32 0x84
 
 /*
  * mfsc_selectcore(slot)
