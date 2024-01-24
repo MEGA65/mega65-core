@@ -178,6 +178,21 @@ format:
 
 freezer_files: $(SDCARD_DIR) $(FREEZER_FILES) $(SDCARD_FILES)
 
+# generate various version files
+GEN_VERSION= \
+	$(VHDLSRCDIR)/version.vhdl \
+	src/monitor/version.a65 \
+	src/version.a65 \
+	src/version.asm \
+	src/version.txt \
+	$(BINDIR)/matrix_banner.txt \
+	$(UTILDIR)/version.s \
+	$(UTILDIR)/version.a65 \
+	$(UTILDIR)/version.h
+
+$(GEN_VERSION):	.git/HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+	./src/version.sh
+
 $(SDCARD_DIR):
 	mkdir $(SDCARD_DIR)
 
@@ -1000,10 +1015,10 @@ $(BINDIR)/monitor.m65:	$(OPHIS_DEPEND) $(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/m
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS_MON) -l $(SRCDIR)/monitor/monitor.list -m $(SRCDIR)/monitor/monitor.map -o $(BINDIR)/monitor.m65 $(SRCDIR)/monitor/monitor.a65
 
-$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(SRCDIR)/utilities/etherload.a65
+$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(UTILDIR)/etherload.a65 $(UTILDIR)/version.a65
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $(OPHISOPT) -l $(SRCDIR)/utilities/etherload.list -m $(SRCDIR)/utilities/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(SRCDIR)/utilities/etherload.a65
+	$(OPHIS) $(OPHISOPT) -l $(UTILDIR)/etherload.list -m $(UTILDIR)/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(UTILDIR)/etherload.a65
 
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
@@ -1105,13 +1120,6 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/utilpacker/utilpacker $(TOOLDIR)/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
-# script to extract the git-status from the ./.git filesystem, and to embed that string
-# into two files (*.vhdl and *.a65), that is wrapped with the template-file
-# NOTE that we should use make to build the ISE project so that the
-# version information is updated.
-# for now we will always update the version info whenever we do a make.
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm src/version.txt $(BINDIR)/matrix_banner.txt $(UTILDIR)/version.s $(UTILDIR)/version.h:	FORCE .git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
-	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
@@ -1262,14 +1270,7 @@ clean:
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/*.cache vivado/*.runs vivado/*.hw vivado/*.ip_user_files vivado/*.srcs vivado/*.xpr
 	rm -f $(TOOLS)
-	rm -f bin/matrix_banner.txt \
-		src/version.txt \
-		src/version.a65 \
-		src/version.asm \
-		src/monitor/version.a65 \
-		src/utilities/version.h \
-		src/utilities/version.s \
-		src/vhdl/version.vhdl
+	rm -f $(GEN_VERSION)
 	rm -f FAIL.* PASS.*
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
