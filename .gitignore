@@ -54,6 +54,7 @@ src/version.asm
 src/monitor/version.a65
 src/utilities/version.h
 src/utilities/version.s
+src/utilities/version.a65
 src/vhdl/version.vhdl
 
 # generated vhdl

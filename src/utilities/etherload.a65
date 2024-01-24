@@ -364,6 +364,8 @@ linklocaladdress:
 checksum:
 	.word $0000
 
+.require "version.a65"
+
 	.checkpc $9000
 	.scend
 

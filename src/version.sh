@@ -118,5 +118,8 @@ echo "wrote: src/monitor/version.a65"
 echo -e ".segment \"CODE\"\n_version:\n  .asciiz \"v:${freezerout}\"" > src/utilities/version.s
 echo "wrote: src/utilities/version.s"
 
+echo -e "_version:\n  .byte \"V:${freezerout^^}\", 0" > src/utilities/version.a65
+echo "wrote: src/utilities/version.a65"
+
 cat assets/matrix_banner.txt | sed -e 's/GITCOMMITID/'"${stringout}"'/g' | src/tools/format_banner bin/matrix_banner.txt 50
 echo "wrote: bin/matrix_banner.txt"
