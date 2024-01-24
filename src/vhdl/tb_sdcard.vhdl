@@ -21,8 +21,8 @@ architecture test_arch of tb_sdcard is
   signal reset : std_logic := '0';
   
   signal fastio_addr : unsigned(19 downto 0);
-  signal fastio_waddr : unsigned(7 downto 0);
-  signal fastio_raddr : unsigned(7 downto 0);
+  signal fastio_wdata : unsigned(7 downto 0);
+  signal fastio_rdata : unsigned(7 downto 0);
   signal fastio_read : std_logic := '0';
   signal fastio_write : std_logic := '0';
   signal cs : std_logic := '0';
@@ -33,12 +33,19 @@ architecture test_arch of tb_sdcard is
   signal sckl_o : std_logic := '0';
   signal mosi_o : std_logic := '0';
   signal miso_i : std_logic := '0';
+
+  signal dummy_tmpSDA : std_logic := '0';
+  signal dummy_tmpSCL : std_logic := '0';
+  signal dummy_i2c1SDA : std_logic := '0';
+  signal dummy_i2c1SCL : std_logic := '0';
+  signal dummy_touchSDA : std_logic := '0';
+  signal dummy_touchSCL : std_logic := '0';
   
 begin
 
   sdcard_controller0: entity work.sdcardio
   generic map ( target => simulation,
-                cpu_freq => 40_500_000,
+                cpu_frequency => 40_500_000,
                 cache_size => 128 )  -- 128 sectors = 64KB
     port map ( clock => clock41,
                pixelclk => pixelclock,
@@ -75,7 +82,7 @@ begin
                f011_cs => '0',
                hw_errata_disable_toggle => '0',
                hw_errata_enable_toggle => '0',
-               audio_loopback => (others => '0');
+               audio_loopback => (others => '0'),
                hypervisor_mode => '0',
                secure_mode => '0',
                fpga_temperature => (others => '0'),
@@ -99,14 +106,14 @@ begin
                aclMISO  => '0',
                aclInt1  => '0',
                aclInt2  => '0',
-               tmpSDA  => '0',
-               tmpSCL  => '0',
+               tmpSDA  => dummy_tmpSDA,
+               tmpSCL  => dummy_tmpSCL,
                tmpInt  => '0',
                tmpCT  => '0',
-               i2c1SDA  => '0',
-               i2c1SCL  => '0',
-               touchSDA  => '0',
-               touchSCL  => '0',
+               i2c1SDA  => dummy_i2c1SDA,
+               i2c1SCL  => dummy_i2c1SCL,
+               touchSDA  => dummy_touchSDA,
+               touchSCL  => dummy_touchSCL,
                QspiDB_in => x"0"
     );
 
@@ -121,7 +128,6 @@ begin
       if clock162 = '1' then
         pixelclock <= not pixelclock;
         if pixelclock='1' then
-          check_sdram_read_strobe;
           clock41 <= not clock41;
         end if;
       end if;
