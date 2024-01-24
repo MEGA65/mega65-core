@@ -56,7 +56,9 @@ use work.cputypes.all;
 entity sdcardio is
   generic (
     target : mega65_target_t;
-    cpu_frequency : integer
+    cpu_frequency : integer;
+    -- By default do not have a cache.
+    cache_size : integer := 0
     );
   port (
     clock : in std_logic;
@@ -1141,7 +1143,7 @@ begin  -- behavioural
 
       if f011_cs='1' and sdcardio_cs='0' and secure_mode='0' then
         -- F011 FDC emulation registers
---        report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
+--        report "Preparing to read F011 emulation register @ $" & to_hexstring(fastio_addr);
 
         case fastio_addr(4 downto 0) is
           when "00000" =>
@@ -1282,7 +1284,7 @@ begin  -- behavioural
       elsif (sdcardio_cs='1' and f011_cs='0')
         and (secure_mode='0' or fastio_addr(7 downto 4) = x"B" or fastio_addr(7 downto 4) = x"F") then
         -- microSD controller registers
---        report "reading SDCARD register $" & to_hstring(fastio_addr(7 downto 0)) severity note;
+--        report "reading SDCARD register $" & to_hexstring(fastio_addr(7 downto 0)) severity note;
         case fastio_addr(7 downto 0) is
           -- @IO:GS $D680.0 - SD controller BUSY flag
           -- @IO:GS $D680.1 - SD controller BUSY flag
@@ -1725,9 +1727,9 @@ begin  -- behavioural
 --      report "Exporting value to fastio_read";
       if fastio_read='1' and sectorbuffercs='0' then
         fastio_rdata_sel <= fastio_rdata;
---        report "fastio_rdata(_sel) <= $" & to_hstring(fastio_rdata) & "(from register read)";
+--        report "fastio_rdata(_sel) <= $" & to_hexstring(fastio_rdata) & "(from register read)";
       elsif sectorbuffercs='1' then
---        report "fastio_rdata(_sel) <= $" & to_hstring(fastio_rdata_ram) & " (from BRAM)";
+--        report "fastio_rdata(_sel) <= $" & to_hexstring(fastio_rdata_ram) & " (from BRAM)";
         fastio_rdata_sel <= fastio_rdata_ram;
       else
 --        report "tri-stating fastio_read(_sel)";
@@ -1749,7 +1751,7 @@ begin  -- behavioural
           f011_buffer_read_address <= "110"&f011_buffer_disk_address;
         else
           f011_buffer_read_address <= "111"&sd_buffer_offset;
-          report "QSPI: reading from 111&sd_buffer_offset = $" & to_hstring("111"&sd_buffer_offset);
+          report "QSPI: reading from 111&sd_buffer_offset = $" & to_hexstring("111"&sd_buffer_offset);
         end if;
       when F011WriteSectorRealDriveWait|F011WriteSectorRealDrive =>
         f011_buffer_read_address <= "110"&f011_buffer_disk_address;
@@ -1885,7 +1887,7 @@ begin  -- behavioural
         if use_tib_info='1' then
           cycles_per_interval_from_track_info <= dd_track_info_rate;
           fdc_encoding_mode <= dd_track_info_encoding(3 downto 0);
-          report "TRACKINFO: Setting encoding to $" & to_hstring(dd_track_info_encoding(3 downto 0)) & " from track info block.";
+          report "TRACKINFO: Setting encoding to $" & to_hexstring(dd_track_info_encoding(3 downto 0)) & " from track info block.";
         end if;
       end if;
 
@@ -1898,7 +1900,7 @@ begin  -- behavioural
         if use_tib_info='1' then
           cycles_per_interval_from_track_info <= hd_track_info_rate;
           fdc_encoding_mode <= hd_track_info_encoding(3 downto 0);
-          report "TRACKINFO: Setting encoding to $" & to_hstring(hd_track_info_encoding(3 downto 0)) & " from track info block.";
+          report "TRACKINFO: Setting encoding to $" & to_hexstring(hd_track_info_encoding(3 downto 0)) & " from track info block.";
         end if;
       end if;
 
@@ -1958,7 +1960,7 @@ begin  -- behavioural
       end if;
 
 --      report "sectorbuffercs = " & std_logic'image(sectorbuffercs) & ", sectorbuffercs_fast=" & std_logic'image(sectorbuffercs_fast)
---        & ", fastio_rdata_ram=$" & to_hstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hstring(to_unsigned(sector_buffer_fastio_address,12));
+--        & ", fastio_rdata_ram=$" & to_hexstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hexstring(to_unsigned(sector_buffer_fastio_address,12));
 
       audio_mix_write <= '0';
 
@@ -2048,7 +2050,7 @@ begin  -- behavioural
 
       -- Make CPU write request if required
       if sb_cpu_write_request='1' then
-        report "CPU writing $" & to_hstring(sb_cpu_wdata) & " to sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
+        report "CPU writing $" & to_hexstring(sb_cpu_wdata) & " to sector buffer @ $" & to_hexstring(f011_buffer_cpu_address);
         f011_buffer_write_address <= "110"&f011_buffer_cpu_address;
         f011_buffer_wdata <= sb_cpu_wdata;
         f011_buffer_write <= '1';
@@ -2059,14 +2061,14 @@ begin  -- behavioural
       end if;
       -- Prepare for CPU read request via $D087 if required
       if sb_cpu_read_request='1' and sb_cpu_reading='0' then
-        report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
+        report "CPU read pre-fetch from sector buffer @ $" & to_hexstring(f011_buffer_cpu_address);
         sb_cpu_reading <= '1';
       else
         sb_cpu_reading <= '0';
       end if;
       if sb_cpu_reading = '1' then
         sb_cpu_rdata <= f011_buffer_rdata;
-        report "CPU sector buffer data pre-fetch = $" & to_hstring(f011_buffer_rdata);
+        report "CPU sector buffer data pre-fetch = $" & to_hexstring(f011_buffer_rdata);
         sb_cpu_reading <= '0';
       end if;
 
@@ -2092,8 +2094,8 @@ begin  -- behavioural
       last_f011_buffer_cpu_address <= f011_buffer_cpu_address;
       if (f011_buffer_disk_address /= last_f011_buffer_disk_address) or
         (f011_buffer_cpu_address /= last_f011_buffer_cpu_address) then
-        report "f011_buffer_disk_address = $" & to_hstring(f011_buffer_disk_address)
-          & ", f011_buffer_cpu_address = $" & to_hstring(f011_buffer_cpu_address);
+        report "f011_buffer_disk_address = $" & to_hexstring(f011_buffer_disk_address)
+          & ", f011_buffer_cpu_address = $" & to_hexstring(f011_buffer_cpu_address);
       end if;
       if f011_buffer_disk_address = f011_buffer_cpu_address then
         if f011_flag_eq='0' then
@@ -2521,7 +2523,7 @@ begin  -- behavioural
               end if;
 
               temp_cmd := fastio_wdata(7 downto 2) & "00";
-              report "F011 command $" & to_hstring(temp_cmd) & " issued.";
+              report "F011 command $" & to_hexstring(temp_cmd) & " issued.";
               case temp_cmd is
 
                 when x"A0" | x"A4" | x"A8" | x"AC" =>
@@ -2828,7 +2830,7 @@ begin  -- behavioural
             when "00100" =>
               -- @IO:C65 $D084 FDC:TRACK F011 FDC track selection register
               f011_track <= fastio_wdata;
-              report "D084: Setting f011_track to $" & to_hstring(f011_track);
+              report "D084: Setting f011_track to $" & to_hexstring(f011_track);
             when "00101" =>
               -- @IO:C65 $D085 FDC:SECTOR F011 FDC sector selection register
               f011_sector <= fastio_wdata;
@@ -2840,7 +2842,7 @@ begin  -- behavioural
             when "00111" =>
               -- @IO:C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy controller's 512 byte sector buffer
               if last_was_d087='0' then
-                report "FLOP: $D087 write : trigger sector buffer write of $" & to_hstring(fastio_wdata);
+                report "FLOP: $D087 write : trigger sector buffer write of $" & to_hexstring(fastio_wdata);
                 sb_cpu_write_request <= '1';
                 sb_cpu_wdata <= fastio_wdata;
                 f011_drq <= '0';
@@ -2848,7 +2850,7 @@ begin  -- behavioural
               last_was_d087<='1';
               f011_eq_inhibit <= '0';
 
-              report "FLOP: (format track) Writing byte $" & to_hstring(sb_cpu_wdata) & " to MFM write engine.";
+              report "FLOP: (format track) Writing byte $" & to_hexstring(sb_cpu_wdata) & " to MFM write engine.";
               fw_byte_in <= fastio_wdata;
               fw_byte_valid <= '1';
 
@@ -3416,7 +3418,7 @@ begin  -- behavioural
 
               -- @IO:GS $D68B.0 - F011 drive 0 disk image enable
               diskimage1_enable <= fastio_wdata(0);
-              report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
+              report "writing $" & to_hexstring(fastio_wdata) & " to FDC control";
 
             -- @IO:GS $D68C-$D68F - F011 drive 0 disk image address on SD card
             -- @IO:GS $D68C SDFDC:D0STARTSEC0 F011 drive 0 disk image address on SD card (LSB)
@@ -3825,8 +3827,8 @@ begin  -- behavioural
             f011_buffer_wdata <= fastio_wdata;
             f011_buffer_write <= '1';
 
-            report "QSPI: Writing $" & to_hstring(fastio_wdata) & " into sector buffer @ $"
-              & to_hstring(fastio_addr(11 downto 0));
+            report "QSPI: Writing $" & to_hexstring(fastio_wdata) & " into sector buffer @ $"
+              & to_hexstring(fastio_addr(11 downto 0));
 
           end if;
 
@@ -4155,13 +4157,13 @@ begin  -- behavioural
                 crc_force_delay <= '1';
               when 21 =>
                 -- Sector header: First CRC byte
-                report "SECTORHEADER: Writing CRC byte 1 $" & to_hstring(crc_value(15 downto 8));
+                report "SECTORHEADER: Writing CRC byte 1 $" & to_hexstring(crc_value(15 downto 8));
                 fw_byte_in <= crc_value(15 downto 8);
                 fw_byte_valid <= '1';
                 crc_feed <= '0';
               when 22 =>
                 -- Sector header: Second CRC byte
-                report "SECTORHEADER: Writing CRC byte 2 $" & to_hstring(crc_value(7 downto 0));
+                report "SECTORHEADER: Writing CRC byte 2 $" & to_hexstring(crc_value(7 downto 0));
                 fw_byte_in <= crc_value(7 downto 0);
                 fw_byte_valid <= '1';
                 if format_no_gaps='1' then
@@ -4276,7 +4278,7 @@ begin  -- behavioural
                 -- bit6 = track-at-once(1)/normal sectors with gaps that can be
                 -- written to individually(0)
                 -- Other bits reserved
-                report "TRACKINFO: setting encoding byte to $x" & to_hstring(saved_fdc_encoding_mode);
+                report "TRACKINFO: setting encoding byte to $x" & to_hexstring(saved_fdc_encoding_mode);
 
                 if format_no_gaps = '1' then
                   fw_byte_in(7 downto 4) <= x"0";
@@ -4514,7 +4516,7 @@ begin  -- behavioural
               end if;
               if fdc_byte_valid = '1' and (fdc_sector_found or f011_rsector_found)='1' then
                 -- DEBUG: Note how many bytes we have received from the floppy
-                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_disk_address);
+                report "fdc_byte valid asserted, storing byte @ $" & to_hexstring(f011_buffer_disk_address);
                 if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
                   fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
                 else
@@ -4570,7 +4572,7 @@ begin  -- behavioural
               end if;
               if fdc_byte_valid_2x = '1' and (fdc_sector_found_2x or f011_rsector_found)='1' then
                 -- DEBUG: Note how many bytes we have received from the floppy
-                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_disk_address);
+                report "fdc_byte valid asserted, storing byte @ $" & to_hexstring(f011_buffer_disk_address);
                 if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
                   fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
                 else
@@ -4626,7 +4628,7 @@ begin  -- behavioural
         when WriteSector =>
           -- Begin writing a sector into the buffer
           if sdio_busy='0' and sdcard_busy='0' then
-            report "SDWRITE: Busy flag clear; writing value $" & to_hstring(f011_buffer_rdata);
+            report "SDWRITE: Busy flag clear; writing value $" & to_hexstring(f011_buffer_rdata);
             sd_dowrite <= '1';
             sdio_busy <= '1';
             skip <= 0;
@@ -4649,9 +4651,9 @@ begin  -- behavioural
             sd_handshake_internal <= '1';
 
             report "SDWRITE: skip = " & integer'image(skip)
-              & ", sd_buffer_offset=$" & to_hstring(sd_buffer_offset)
+              & ", sd_buffer_offset=$" & to_hexstring(sd_buffer_offset)
               & ", sd_wrote_byte=" & std_logic'image(sd_wrote_byte)
-              & ", sd_wdata=$" & to_hstring(f011_buffer_rdata);
+              & ", sd_wdata=$" & to_hexstring(f011_buffer_rdata);
             if skip = 0 then
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
@@ -4812,8 +4814,8 @@ begin  -- behavioural
           sd_state <= QSPI_read_phase4;
         when QSPI_read_phase4 =>
           report "QSPI read $"
-            & to_hstring(qspi_bits) & to_hstring(qspidb_in) &
-            " into f011 buffer @ $" & to_hstring(sd_buffer_offset);
+            & to_hexstring(qspi_bits) & to_hexstring(qspidb_in) &
+            " into f011 buffer @ $" & to_hexstring(sd_buffer_offset);
           if qspi_verify_mode='0' then
             f011_buffer_write_address <= "111"&sd_buffer_offset;
             f011_buffer_wdata(3 downto 0) <= qspidb_in;
@@ -4833,8 +4835,8 @@ begin  -- behavioural
           else
             -- Compare byte with previously read byte and set bytes_differ flag
             -- if different
-            report "QSPI: Verifying: read $" & to_hstring(qspi_bits) & to_hstring(qspidb_in)
-              & " vs expected $" & to_hstring(f011_buffer_rdata);
+            report "QSPI: Verifying: read $" & to_hexstring(qspi_bits) & to_hexstring(qspidb_in)
+              & " vs expected $" & to_hexstring(f011_buffer_rdata);
             report "QSPI: qspi_command_len="& integer'image(qspi_command_len);
             if (f011_buffer_rdata(3 downto 0) /= qspidb_in)
               or (f011_buffer_rdata(7 downto 4) /= qspi_bits) then
@@ -4889,7 +4891,7 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase1;
 
         when QSPI_qwrite_phase1 =>
-          report "QSPI: QUAD TX $" & to_hstring(f011_buffer_rdata) & " @ $" & to_hstring(sd_buffer_offset);
+          report "QSPI: QUAD TX $" & to_hexstring(f011_buffer_rdata) & " @ $" & to_hexstring(sd_buffer_offset);
           sd_state <= QSPI_qwrite_phase2;
           qspidb <= f011_buffer_rdata(7 downto 4);
           qspi_bits <= f011_buffer_rdata(3 downto 0);
@@ -4901,7 +4903,7 @@ begin  -- behavioural
           sd_state <= QSPI_qwrite_phase4;
           qspidb <= qspi_bits;
           qspi_clock_int <= '0';
-          report "QSPI: Bump sd_buffer_offset from $" & to_hstring(sd_buffer_offset);
+          report "QSPI: Bump sd_buffer_offset from $" & to_hexstring(sd_buffer_offset);
           if sd_buffer_offset /= 511 then
             sd_buffer_offset <= sd_buffer_offset + 1;
           else
@@ -4921,7 +4923,7 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase2;
         when QSPI_write_phase2 =>
           if qspi_bit_counter = 0 then
-            report "QSPI: Sending byte $" & to_hstring(f011_buffer_rdata);
+            report "QSPI: Sending byte $" & to_hexstring(f011_buffer_rdata);
             qspi_byte_value <= f011_buffer_rdata;
           end if;
           qspi_clock_int <= '0';
@@ -4965,7 +4967,7 @@ begin  -- behavioural
         when SPI_read_phase4 =>
           qspi_clock_int <= '1';
           if qspi_bit_counter = 7 then
-            report "QSPI: SPI read byte $" & to_hstring(qspi_byte_value);
+            report "QSPI: SPI read byte $" & to_hexstring(qspi_byte_value);
             f011_buffer_write_address <= "111"&sd_buffer_offset;
             f011_buffer_wdata <= qspi_byte_value;
             f011_buffer_write <= '1';
@@ -5004,7 +5006,7 @@ begin  -- behavioural
           sd_state <= QSPI4_write_phase2;
         when QSPI4_write_phase2 =>
           if qspi_bit_counter = 0 then
-            report "QSPI4: Sending byte $" & to_hstring(f011_buffer_rdata);
+            report "QSPI4: Sending byte $" & to_hexstring(f011_buffer_rdata);
             qspi_byte_value <= f011_buffer_rdata;
           end if;
           -- XXX INCOMPLETE!
