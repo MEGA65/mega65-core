@@ -30,6 +30,7 @@ lib.add_source_files("src/vhdl/crc1581.vhdl")
 lib.add_source_files("src/vhdl/i2c_master.vhdl")
 lib.add_source_files("src/vhdl/touch.vhdl")
 lib.add_source_files("src/vhdl/dummy_reconfig.vhdl")
+lib.add_source_files("src/vhdl/sdcard_model.vhdl")
 
 vu.set_compile_option("ghdl.a_flags", ["-frelaxed-rules","-fsynopsys"])
 vu.set_sim_option("ghdl.elab_flags", ["-frelaxed-rules","-fsynopsys"])

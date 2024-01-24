@@ -30,7 +30,7 @@ architecture test_arch of tb_sdcard is
   signal sector_cs_fast : std_logic := '0';
   signal sd_bus_number : std_logic := '0';
   signal cs_bo : std_logic := '0';
-  signal sckl_o : std_logic := '0';
+  signal sclk_o : std_logic := '0';
   signal mosi_o : std_logic := '0';
   signal miso_i : std_logic := '0';
 
@@ -43,6 +43,14 @@ architecture test_arch of tb_sdcard is
   
 begin
 
+  sdcard0: entity work.sdcard_model
+    port map ( clock => clock41,
+               cs_bo => cs_bo,
+               sclk_o => sclk_o,
+               mosi_o => mosi_o,
+               miso_i => miso_i
+               );
+  
   sdcard_controller0: entity work.sdcardio
   generic map ( target => simulation,
                 cpu_frequency => 40_500_000,
@@ -72,7 +80,7 @@ begin
                -------------------------------------------------------------------------
                sd_interface_select => sd_bus_number,
                cs_bo => cs_bo,
-               sclk_o => sckl_o,
+               sclk_o => sclk_o,
                mosi_o => mosi_o,
                miso_i => miso_i,
 
