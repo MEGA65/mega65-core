@@ -107,7 +107,7 @@ begin
           byte_in_buffer <= '1';
           byte_in_buffer_2 <= '0';
           if enabled='1' then
-            report "shuffling down next byte = $" & to_hstring(next_byte_2) & to_hstring(latched_clock_byte_2);
+            report "shuffling down next byte = $" & to_hexstring(next_byte_2) & to_hexstring(latched_clock_byte_2);
           end if;
         else
           byte_in_buffer <= '0';          
@@ -144,7 +144,7 @@ begin
           end if;
         end if;
         if enabled='1' then
-          report "latching data byte $" & to_hstring(byte_in);
+          report "latching data byte $" & to_hexstring(byte_in);
         end if;
         -- Then set timer to latch the clock.
         -- For bug-compatibility with C65 DOS code, this should be done

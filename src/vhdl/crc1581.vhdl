@@ -45,12 +45,12 @@ begin
       crc_ready <= ready;
       crc_value <= value;
       if ready='1' and (last_crc /= value) then
-        report "CRC" & integer'image(id) & " value is $" & to_hstring(value);
+        report "CRC" & integer'image(id) & " value is $" & to_hexstring(value);
         last_crc := value;
       end if;
 
       if crc_feed='1' then
-        report "CRC" & integer'image(id) & " buffering byte $" & to_hstring(crc_byte);
+        report "CRC" & integer'image(id) & " buffering byte $" & to_hexstring(crc_byte);
         byte_buffered <= '1';
         buffered_byte <= crc_byte;
       end if;
@@ -107,7 +107,7 @@ begin
           bits_left <= 8;
           byte <= buffered_byte;
           ready <= '0';
-          report "CRC" & integer'image(id) & " fed with $" & to_hstring(crc_byte);
+          report "CRC" & integer'image(id) & " fed with $" & to_hexstring(crc_byte);
           byte_buffered <= '0';
         else
           ready <= '1';          

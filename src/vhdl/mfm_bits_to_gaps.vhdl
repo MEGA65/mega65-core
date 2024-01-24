@@ -226,16 +226,16 @@ begin
         if clock_byte_target='0' then
           latched_clock_byte <= clock_byte_in;
           if enabled='1' then
-            report "latching clock byte $" & to_hstring(clock_byte_in);
+            report "latching clock byte $" & to_hexstring(clock_byte_in);
           end if;
         else
           latched_clock_byte_2 <= clock_byte_in;
           if enabled='1' then
-            report "latching clock byte 2 $" & to_hstring(clock_byte_in);
+            report "latching clock byte 2 $" & to_hexstring(clock_byte_in);
           end if;
         end if;
 --        if latched_clock_byte /= clock_byte_in then
---          report "latching clock byte $" & to_hstring(clock_byte_in);
+--          report "latching clock byte $" & to_hexstring(clock_byte_in);
 --        end if;
       end if;
       if clock_latch_timer /= 0 then
@@ -249,7 +249,7 @@ begin
 
       if bits_queued = 0 and byte_in_buffer='1' then
         if enabled='1' then
-          report "MFMFLOPPY: emitting buffered byte $" & to_hstring(next_byte) & " (latched clock byte $" & to_hstring(latched_clock_byte) &") for encoding.";
+          report "MFMFLOPPY: emitting buffered byte $" & to_hexstring(next_byte) & " (latched clock byte $" & to_hexstring(latched_clock_byte) &") for encoding.";
         end if;
         bits_queued <= 16;
         -- Get the bits to send
@@ -281,7 +281,7 @@ begin
           byte_in_buffer <= '1';
           byte_in_buffer_2 <= '0';
           if enabled='1' then
-            report "shuffling down next byte = $" & to_hstring(next_byte_2) & to_hstring(latched_clock_byte_2);
+            report "shuffling down next byte = $" & to_hexstring(next_byte_2) & to_hexstring(latched_clock_byte_2);
           end if;
         else
           byte_in_buffer <= '0';          
@@ -318,7 +318,7 @@ begin
           end if;
         end if;
         if enabled='1' then
-          report "latching data byte $" & to_hstring(byte_in);
+          report "latching data byte $" & to_hexstring(byte_in);
         end if;
         -- Then set timer to latch the clock.
         -- For bug-compatibility with C65 DOS code, this should be done

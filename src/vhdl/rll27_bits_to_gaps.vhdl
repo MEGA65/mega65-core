@@ -253,13 +253,13 @@ begin
       if clock_latch_timer = 1 then
         if clock_byte_target='0' then
           latched_clock_byte <= clock_byte_in;
-          report "latching clock byte $" & to_hstring(clock_byte_in);
+          report "latching clock byte $" & to_hexstring(clock_byte_in);
         else
           latched_clock_byte_2 <= clock_byte_in;
-          report "latching clock byte 2 $" & to_hstring(clock_byte_in);
+          report "latching clock byte 2 $" & to_hexstring(clock_byte_in);
         end if;
 --        if latched_clock_byte /= clock_byte_in then
---          report "latching clock byte $" & to_hstring(clock_byte_in);
+--          report "latching clock byte $" & to_hexstring(clock_byte_in);
 --        end if;
       end if;
       if clock_latch_timer /= 0 then
@@ -370,7 +370,7 @@ begin
       elsif byte_in_buffer = '1' and (next_is_sync='0' or bits_in_buffer=0) then
 --        report "SHUFFLErll: Byte in buffer: " & integer'image(bits_in_buffer) & " bits in buffer";
         if bits_in_buffer < 9 then
-          report "RLLENCODE: Importing byte $" & to_hstring(next_byte) &" with " & integer'image(bits_in_buffer) & " bits already in the buffer.";
+          report "RLLENCODE: Importing byte $" & to_hexstring(next_byte) &" with " & integer'image(bits_in_buffer) & " bits already in the buffer.";
           bit_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= next_byte;
           clock_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= latched_clock_byte;
           bits_in_buffer <= bits_in_buffer + 8;
@@ -401,7 +401,7 @@ begin
           clock_byte_target <= '1';
           report "NEXTBYTE2: clearing ready_for_next after store in next_byte_2";
           last_ingest_byte_toggle <= ingest_byte_toggle;
-          report "RLL: latching data byte $" & to_hstring(byte_in);
+          report "RLL: latching data byte $" & to_hexstring(byte_in);
           clock_latch_timer <= 63;          
         elsif byte_in_buffer = '0' then
           -- No byte in the byte buffer, so store it
@@ -413,7 +413,7 @@ begin
           clock_byte_target <= '0';
 --          report "NEXTBYTE1: asserting ready_for_next after store in next_byte (delayed)";
           last_ingest_byte_toggle <= ingest_byte_toggle;
-          report "RLL: latching data byte $" & to_hstring(byte_in);
+          report "RLL: latching data byte $" & to_hexstring(byte_in);
           clock_latch_timer <= 63;          
         end if;
         -- Then set timer to latch the clock.

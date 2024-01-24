@@ -297,7 +297,7 @@ begin
 
         -- set crc_error and clear seen_valid if CRC /= 0
         if crc_value /= x"0000" then
---          report "HEADER: crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
+--          report "HEADER: crc_value = $" & to_hexstring(crc_value) & ", asserting crc_error";
           seen_valid <= '0';
           crc_error <= '1';
         else
@@ -391,7 +391,7 @@ begin
         sync_count <= 0;
         if sync_count = 3 then
           -- First byte after a sync
-          report "TRACKINFO: Post Sync byte = $" & to_hstring(byte_in);
+          report "TRACKINFO: Post Sync byte = $" & to_hexstring(byte_in);
           if byte_in = x"FE" then
             -- Sector header marker
             crc_feed <= '1'; crc_byte <= byte_in;
@@ -421,36 +421,36 @@ begin
               -- Byte 0: Track number
               -- Byte 1: Track data rate
               -- Byte 2: Track encoding ($80 = RLL, $00 = MFM, lower bits reserved)
-              report "TRACKINFO: Saw Track = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw Track = $" & to_hexstring(byte_in);
               track_info_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoRate;
             when TrackInfoRate =>
-              report "TRACKINFO: Saw Rate = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw Rate = $" & to_hexstring(byte_in);
               track_info_rate <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoEncoding;
             when TrackInfoEncoding =>
-              report "TRACKINFO: Saw Encoding = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw Encoding = $" & to_hexstring(byte_in);
               track_info_encoding <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoSectorCount;
             when TrackInfoSectorcount =>
-              report "TRACKINFO: Saw Sector Count = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw Sector Count = $" & to_hexstring(byte_in);
               track_info_sectors <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;              
               state <= TrackInfoCRC1;
             when TrackInfoCRC1 =>
-              report "TRACKINFO: Saw CRC1 = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw CRC1 = $" & to_hexstring(byte_in);
               state <= TrackInfoCRC2;
               crc_feed <= '1'; crc_byte <= byte_in;
             when TrackInfoCRC2 =>
-              report "TRACKINFO: Saw CRC2 = $" & to_hstring(byte_in);
+              report "TRACKINFO: Saw CRC2 = $" & to_hexstring(byte_in);
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= TrackInfoCheckCRC;
             when TrackInfoCheckCRC =>
               
-              report "TRACKINFO: CRC=$" & to_hstring(crc_value);
+              report "TRACKINFO: CRC=$" & to_hexstring(crc_value);
               crc_feed <= '0';
               if crc_value = x"0000" then
                 track_info_valid <= '1';
@@ -480,10 +480,10 @@ begin
               crc_feed <= '1'; crc_byte <= byte_in;
               crc_wait <= "1111";
               state <= CheckCRC;
-              report "HEADER: Saw Track $" & to_hstring(seen_track)
-                & ", Sector $" & to_hstring(seen_sector)
-                & ", Side $" & to_hstring(seen_side)
-                & ", Size $" & to_hstring(seen_size);
+              report "HEADER: Saw Track $" & to_hexstring(seen_track)
+                & ", Sector $" & to_hexstring(seen_sector)
+                & ", Side $" & to_hexstring(seen_side)
+                & ", Size $" & to_hexstring(seen_size);
             when SectorData =>
               if (byte_count = 0) and (seen_valid='1') then
                 first_byte <= '1';
