@@ -66,13 +66,20 @@ rom_first () {
             echo ${file}
         fi
     done
+    # this needs to be found fast, too!
+    for file in $@; do
+        if [[ ${file##*/} = "ETHLOAD.M65" ]]; then
+            echo ${file}
+        fi
+    done
     for file in $@; do
         if [[ ${file##*/} = "FREEZER.M65" ]]; then
             echo ${file}
         fi
     done
+    # we remove ONBOARD.M65 here. it is in the core, no need to put it on the SD!
     for file in $@; do
-        if [[ ${file##*/} != "MEGA65.ROM" && ${file##*/} != "FREEZER.M65" ]]; then
+        if [[ ${file##*/} != "MEGA65.ROM" && ${file##*/} != "FREEZER.M65" && ${file##*/} != "ETHLOAD.M65" && ${file##*/} != "ONBOARD.M65" ]]; then
             echo ${file}
         fi
     done
@@ -221,8 +228,9 @@ if [[ ${REPACK} -eq 0 ]]; then
         cp ${ROM_FILE} ${PKGPATH}/sdcard-files/
     fi
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
+    # we don't need ONBOARD.M65
+    rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
     cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
-    cp ${REPOPATH}/src/utilities/upgrade0.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
     cp ${BITPATHBASE}.log ${PKGPATH}/log/
