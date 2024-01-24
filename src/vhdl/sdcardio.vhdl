@@ -733,16 +733,13 @@ begin  -- behavioural
   --**********************************************************************
 
   -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
-  reconfig:
-  if target /= simulation generate
-    reconfig1:
+  reconfig1:
     entity work.reconfig
       port map ( clock => clock,
                  reg_num => icape2_reg,
                  trigger_reconfigure => trigger_reconfigure,
                  reconfigure_address => reconfigure_address,
                  boot_address => flash_boot_address);
-  end generate;
 
   touch0: entity work.touch
     generic map ( clock_frequency => cpu_frequency)
