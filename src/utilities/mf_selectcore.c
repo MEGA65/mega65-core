@@ -17,11 +17,6 @@
 #include "mf_screens.h"
 #endif
 
-// from qspicommon
-extern short i, x, y, z;
-extern unsigned char buffer[512];
-extern uint8_t hw_model_id;
-
 /*
  * MEGAFLASH - Core file chooser
  *

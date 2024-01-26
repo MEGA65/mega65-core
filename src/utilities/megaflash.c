@@ -186,19 +186,20 @@ void display_version(void)
   mhx_writef("\n  Cartridge: ");
   switch (search_cart) {
   case CORECAP_CART_C64:
-    mhx_writef(corecap_def[CORECAP_C64].short_name);
+    mhx_writef(corecap_def[CORECAP_C64].short_name + 1);
     break;
   case CORECAP_CART_C128:
-    mhx_writef(corecap_def[CORECAP_C128].short_name);
+    mhx_writef(corecap_def[CORECAP_C128].short_name + 1);
     break;
   case CORECAP_CART_M65:
-    mhx_writef(corecap_def[CORECAP_M65].short_name);
+    mhx_writef(corecap_def[CORECAP_M65].short_name + 1);
     break;
   default:
-    mhx_writef("none");
+    mhx_writef("none ");
     break;
   }
-  mhx_writef("\n  Boot Slot: %d\n", selected);
+  mhx_move_xy(-1, 0);
+  mhx_writef(" \n  Boot Slot: %d\n", selected);
   selected = 0;
 #endif
 
@@ -609,6 +610,10 @@ void main(void)
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
       // Switch back to normal speed control before exiting
+#ifdef DANDEBUG
+      mhx_writef("Was reconfigured!\n\n");
+      mhx_press_any_key(0,0);
+#endif
       hard_exit();
     }
     else { // FPGA has NOT been reconfigured
@@ -619,6 +624,11 @@ void main(void)
 
       // determine boot slot by flags (default search is for default slot)
       selected = scan_core_information(search_cart);
+
+#ifdef DANDEBUG
+      mhx_writef("Selected Slot: %08x (V:%08x)\n\n", selected, slot_core[selected].valid);
+      mhx_press_any_key(0,0);
+#endif
 
       if (slot_core[selected].valid == SLOT_VALID) {
         // Valid bitstream -- so start it

@@ -271,14 +271,17 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   mhx_writef(MHX_W_WHITE "SLOT_SIZE = %08lx  \nSLOT      = %d\nend_addr  = %08lx  \n", SLOT_SIZE, slot, end_addr);
   */
 
-  if (selected_file == MFSC_FILE_VALID) {
-    // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
-    mfhf_erase_some_sectors(end_addr, end_addr + 1024L * 1024L);
-    // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-  }
+  // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
+  mfhf_erase_some_sectors(end_addr, end_addr + 0x100000UL);
+  // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
   // start at the end and flash downwards
   addr = end_addr + SLOT_SIZE;
+
+  // don't need to erase two times, if we are in erase mode
+  if (selected_file == MFSC_FILE_ERASE) {
+    end_addr += 0x100000UL;
+  }
 
   while (addr > end_addr) {
     if (addr <= (uint32_t)num_4k_sectors << 12)

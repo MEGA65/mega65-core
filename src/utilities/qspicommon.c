@@ -644,7 +644,6 @@ void query_flash_protection(unsigned long addr)
 // TODO: needs return code, as it can fail!
 void erase_sector(unsigned long address_in_sector)
 {
-
   unprotect_flash(address_in_sector);
   //  query_flash_protection(address_in_sector);
 

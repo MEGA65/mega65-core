@@ -921,7 +921,7 @@ $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin $(UTILDIR)/mf_screens.c $(UT
 $(UTILDIR)/%.o: $(UTILDIR)/%.s
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $<
 
-$(UTILDIR)/%.o: $(UTILDIR)/%.c
+$(UTILDIR)/%.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
