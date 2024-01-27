@@ -236,7 +236,11 @@ begin
         -- Map Amiga right button from POTY to UP
         -- Use unprocessed pot value, as it is effectively being used as a
         -- digital input.
-        fa_up_out <= fa_potx;
+        if pota_x_counter > 200 then
+          fa_up_out <= '0';
+        elsif pota_x_counter < 40 then
+          fa_up_out <= '1';
+        end if;
         fa_left_out <= '1';
         fa_right_out <= '1';
         fa_down_out <= '1';
@@ -279,7 +283,11 @@ begin
         fa_down_out <= fa_down;
       end if;
       if mb_amiga_mode='1' then
-        fb_up_out <= fb_potx;
+        if potb_x_counter > 200 then
+          fb_up_out <= '1';
+        elsif potb_x_counter < 40 then
+          fb_up_out <= '0';
+        end if;
         fb_left_out <= '1';
         fb_right_out <= '1';
         fb_down_out <= '1';
