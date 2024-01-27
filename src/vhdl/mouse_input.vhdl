@@ -236,10 +236,18 @@ begin
         -- Map Amiga right button from POTY to UP
         -- Use unprocessed pot value, as it is effectively being used as a
         -- digital input.
+
+        -- XXX Note that Amiga mouses do NOT have a pull-up on pin 9, and the
+        -- C64 and MEGA65 also lack this pull-up, because they expect to use
+        -- paddles on those pins. To use the right button on an Amiga mouse on
+        -- a C64 or MEGA65, the work-around is to add a pull-up to the Amiga
+        -- mouse, or alternatively, make an extension lead for the joystick
+        -- port that includes this pull-up resistor.
+        
         if pota_x_internal > 200 then
-          fa_up_out <= '0';
-        elsif pota_x_internal < 40 then
           fa_up_out <= '1';
+        elsif pota_x_internal < 40 then
+          fa_up_out <= '0';
         end if;
         fa_left_out <= '1';
         fa_right_out <= '1';
