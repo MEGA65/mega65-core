@@ -85,6 +85,8 @@ architecture behavioural of mouse_input is
   signal mb_amiga_pots : std_logic := '0';
   signal ma_amiga_mode_timeout : integer := 0;
   signal mb_amiga_mode_timeout : integer := 0;
+  signal ma_amiga_rbutton_flags : std_logic_vector(1 downto 0) := "00";
+  signal mb_amiga_rbutton_flags : std_logic_vector(1 downto 0) := "00";
   
   -- Integrated Amiga mouse positions
   signal ma_x : unsigned(6 downto 0) := "1111111";
@@ -232,6 +234,28 @@ begin
       last_fa_rightdown <= fa_right & fa_down;
       last_fb_leftup <= fb_left & fb_up;
       last_fb_rightdown <= fb_right & fb_down;
+
+      if ma_amiga_mode='0' then
+        ma_amiga_rbutton_flags <= "00";
+      else
+        if pota_x_internal > 200 then
+          ma_amiga_rbutton_flags(0) <= '1';
+        end if;
+        if pota_x_internal > 40 then
+          ma_amiga_rbutton_flags(1) <= '1';
+        end if;
+      end if;
+      if mb_amiga_mode='0' then
+        mb_amiga_rbutton_flags <= "00";
+      else
+        if potb_x_internal > 200 then
+          mb_amiga_rbutton_flags(0) <= '1';
+        end if;
+        if potb_x_internal > 40 then
+          mb_amiga_rbutton_flags(1) <= '1';
+        end if;
+      end if;
+      
       if ma_amiga_mode='1' then
         -- Map Amiga right button from POTY to UP
         -- Use unprocessed pot value, as it is effectively being used as a
@@ -243,11 +267,15 @@ begin
         -- a C64 or MEGA65, the work-around is to add a pull-up to the Amiga
         -- mouse, or alternatively, make an extension lead for the joystick
         -- port that includes this pull-up resistor.
-        
-        if pota_x_internal > 200 then
+
+        if ma_amiga_rbutton_flags="11" then
+          if pota_x_internal > 200 then
+            fa_up_out <= '1';
+          elsif pota_x_internal < 40 then
+            fa_up_out <= '0';
+          end if;
+        else
           fa_up_out <= '1';
-        elsif pota_x_internal < 40 then
-          fa_up_out <= '0';
         end if;
         fa_left_out <= '1';
         fa_right_out <= '1';
@@ -291,10 +319,14 @@ begin
         fa_down_out <= fa_down;
       end if;
       if mb_amiga_mode='1' then
-        if potb_x_internal > 200 then
+        if ma_amiga_rbutton_flags="11" then
+          if potb_x_internal > 200 then
+            fb_up_out <= '1';
+          elsif potb_x_internal < 40 then
+            fb_up_out <= '0';
+          end if;
+        else
           fb_up_out <= '1';
-        elsif potb_x_internal < 40 then
-          fb_up_out <= '0';
         end if;
         fb_left_out <= '1';
         fb_right_out <= '1';
