@@ -100,6 +100,16 @@ architecture behavioural of mouse_input is
   signal potb_x_internal : unsigned(7 downto 0) := x"00";
   signal potb_y_internal : unsigned(7 downto 0) := x"00";
 
+  -- POT values after hysteresis stabilisation to de-jitter least significant bit
+  signal pota_x_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal pota_y_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal potb_x_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal potb_y_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal ma_x_hist : std_logic := '0';
+  signal ma_y_hist : std_logic := '0';
+  signal mb_x_hist : std_logic := '0';
+  signal mb_y_hist : std_logic := '0';
+  
   -- Are the real POT values at either extremity of value?
   -- (if so, it can't be a 1351, but might be amiga mouse)
   signal potsa_at_edge : std_logic := '0';
@@ -378,8 +388,8 @@ begin
         pota_y(6) <= ma_y(6) xor '1';
         pota_y(7) <= ma_y(6);
       else
-        pota_x <= pota_x_internal;
-        pota_y <= pota_y_internal;
+        pota_x <= pota_x_internal_stabilised;
+        pota_y <= pota_y_internal_stabilised;
       end if;
       if mb_amiga_pots='1' then
         potb_x(5 downto 0) <= mb_x(5 downto 0);
@@ -389,8 +399,8 @@ begin
         potb_y(6) <= mb_y(6) xor '1';
         potb_y(7) <= mb_y(6);
       else
-        potb_x <= potb_x_internal;
-        potb_y <= potb_y_internal;
+        potb_x <= potb_x_internal_stabilised;
+        potb_y <= potb_y_internal_stabilised;
       end if;
 
       -- At ~1MHz C64 bus clock
@@ -436,6 +446,61 @@ begin
           pota_y_counter <= 0;
           potb_x_counter <= 0;
           potb_y_counter <= 0;
+
+          -- Track 1351 historesis to de-jitter 1351 mouse
+          if ma_amiga_mode='1' then
+            pota_x_internal_stabilised <= pota_x_internal;
+            pota_y_internal_stabilised <= pota_y_internal;
+          end if;
+          if mb_amiga_mode='1' then
+            potb_x_internal_stabilised <= potb_x_internal;
+            potb_y_internal_stabilised <= potb_y_internal;
+          end if;
+          if pota_x_counter < to_integer(pota_x_internal) then
+            ma_x_hist <= '0';
+            if (pota_x_counter /= (to_integer(pota_x_internal) - 1) ) or ma_x_hist='0' then
+              pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
+            end if;
+          elsif pota_x_counter > to_integer(pota_x_internal) then
+            ma_x_hist <= '1';
+            if (pota_x_counter /= (to_integer(pota_x_internal) + 1) ) or ma_x_hist='1' then
+              pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
+            end if;
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal) then
+            ma_y_hist <= '0';
+            if (pota_y_counter /= (to_integer(pota_y_internal) - 1) ) or ma_y_hist='0' then
+              pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
+            end if;
+          elsif pota_y_counter > to_integer(pota_y_internal) then
+            ma_y_hist <= '1';
+            if (pota_y_counter /= (to_integer(pota_y_internal) + 1) ) or ma_y_hist='1' then
+              pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
+            end if;
+          end if;
+          if potb_x_counter < to_integer(potb_x_internal) then
+            mb_x_hist <= '0';
+            if (potb_x_counter /= (to_integer(potb_x_internal) - 1) ) or mb_x_hist='0' then
+              potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
+            end if;
+          elsif potb_x_counter > to_integer(potb_x_internal) then
+            mb_x_hist <= '1';
+            if (potb_x_counter /= (to_integer(potb_x_internal) + 1) ) or mb_x_hist='1' then
+              potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
+            end if;
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal) then
+            mb_y_hist <= '0';
+            if (potb_y_counter /= (to_integer(potb_y_internal) - 1) ) or mb_y_hist='0' then
+              potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
+            end if;
+          elsif potb_y_counter > to_integer(potb_y_internal) then
+            mb_y_hist <= '1';
+            if (potb_y_counter /= (to_integer(potb_y_internal) + 1) ) or mb_y_hist='1' then
+              potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
+            end if;
+          end if;
+          
         end if;		  
       end if;
 
