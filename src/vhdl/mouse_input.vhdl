@@ -447,7 +447,11 @@ begin
           potb_x_counter <= 0;
           potb_y_counter <= 0;
 
-          -- Track 1351 historesis to de-jitter 1351 mouse
+
+          -- Do not apply 1351 historesis to Amiga mouses, or if aggressive
+          -- mode is enabled for Amiga mouses (this allows turning off historesis
+          -- for 1351 mouses by enabling aggressive mode, but not amiga
+          -- emulation mode)
           if ma_amiga_mode='1' or amiga_mouse_assume_a='1' then
             pota_x_internal_stabilised <= pota_x_internal;
             pota_y_internal_stabilised <= pota_y_internal;
@@ -456,50 +460,79 @@ begin
             potb_x_internal_stabilised <= potb_x_internal;
             potb_y_internal_stabilised <= potb_y_internal;
           end if;
-          if pota_x_counter < to_integer(pota_x_internal) then
+          
+          -- Track 1351 historesis: Values can vary +/- 1 from the "true"
+          -- value, so we need to see a jump of more than 2 to be sure we have
+          -- truly moved.
+          if pota_x_counter < to_integer(pota_x_internal_stabilised) - 2 then
             ma_x_hist <= '0';
+          end if;
+          if pota_x_counter > to_integer(pota_x_internal_stabilised) + 2 then
+            ma_x_hist <= '1';
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) - 2 then
+            ma_y_hist <= '0';
+          end if;          
+          if pota_y_counter > to_integer(pota_y_internal_stabilised) + 2 then
+            ma_y_hist <= '1';
+          end if;
+          if potb_x_counter < to_integer(potb_x_internal_stabilised) - 2 then
+            mb_x_hist <= '0';
+          end if;          
+          if potb_x_counter > to_integer(potb_x_internal_stabilised) + 2 then
+            mb_x_hist <= '1';
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) - 2 then
+            mb_y_hist <= '0';
+          end if;
+          if potb_y_counter > to_integer(potb_y_internal_stabilised) + 2 then
+            mb_y_hist <= '1';
+          end if;
+
+          -- Now apply historesis to mouse/paddles on port 1
+          if pota_x_counter < to_integer(pota_x_internal_stabilised) then
             if (pota_x_counter < (to_integer(pota_x_internal) - 2) ) or ma_x_hist='0' then
               pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
             end if;
-          elsif pota_x_counter > to_integer(pota_x_internal) then
-            ma_x_hist <= '1';
+          end if;
+          if pota_x_counter > to_integer(pota_x_internal_stabilised) then
             if (pota_x_counter > (to_integer(pota_x_internal) + 2) ) or ma_x_hist='1' then
               pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
             end if;
           end if;
-          if potb_y_counter < to_integer(potb_y_internal) then
-            ma_y_hist <= '0';
+          if pota_y_counter < to_integer(pota_y_internal_stabilised) then          
             if (pota_y_counter < (to_integer(pota_y_internal) - 2) ) or ma_y_hist='0' then
               pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
             end if;
-          elsif pota_y_counter > to_integer(pota_y_internal) then
-            ma_y_hist <= '1';
+          end if;
+          if pota_y_counter > to_integer(pota_y_internal_stabilised) then
             if (pota_y_counter > (to_integer(pota_y_internal) + 2) ) or ma_y_hist='1' then
               pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
             end if;
           end if;
-          if potb_x_counter < to_integer(potb_x_internal) then
-            mb_x_hist <= '0';
+          
+          -- Now apply historesis to mouse/paddles on port 2
+          if potb_x_counter < to_integer(potb_x_internal_stabilised) then
             if (potb_x_counter < (to_integer(potb_x_internal) - 2) ) or mb_x_hist='0' then
               potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
             end if;
-          elsif potb_x_counter > to_integer(potb_x_internal) then
-            mb_x_hist <= '1';
+          end if;
+          if potb_x_counter > to_integer(potb_x_internal_stabilised) then
             if (potb_x_counter > (to_integer(potb_x_internal) + 2) ) or mb_x_hist='1' then
               potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
             end if;
           end if;
-          if potb_y_counter < to_integer(potb_y_internal) then
-            mb_y_hist <= '0';
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) then          
             if (potb_y_counter < (to_integer(potb_y_internal) - 2) ) or mb_y_hist='0' then
               potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
             end if;
-          elsif potb_y_counter > to_integer(potb_y_internal) then
-            mb_y_hist <= '1';
+          end if;
+          if potb_y_counter > to_integer(potb_y_internal_stabilised) then
             if (potb_y_counter > (to_integer(potb_y_internal) + 2) ) or mb_y_hist='1' then
               potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
             end if;
           end if;
+          
           
         end if;		  
       end if;
