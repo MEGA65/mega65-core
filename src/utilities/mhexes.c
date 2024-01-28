@@ -337,6 +337,20 @@ void mhx_clear_keybuffer(void)
     POKE(0xD610, 0);
 }
 
+void mhx_until_keys_released(void)
+{
+  uint8_t i, r;
+
+  // check keyboard matrix if really all keys are released
+  do {
+    i = 0xff;
+    for (r = 0; r < 10; r++) {
+      POKE(0xD614, r);
+      i &= PEEK(0xD613);
+    }
+  } while (i != 0xff);
+}
+
 mhx_keycode_t mhx_getkeycode(uint8_t peekonly)
 {
   do {

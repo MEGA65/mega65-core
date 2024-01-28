@@ -444,6 +444,15 @@ void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr);
 void mhx_clear_keybuffer(void);
 
 /*
+ * mhx_until_keys_released()
+ *
+ * Waits until all keys have been released.
+ * Note: certain keys are not in the key matrix, those are *not* checked!
+ *
+ */
+void mhx_until_keys_released(void);
+
+/*
  * mhx_keycode_t mhx_getkeycode(peekonly)
  *
  * parameters:

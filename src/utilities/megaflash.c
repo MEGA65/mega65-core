@@ -507,6 +507,7 @@ uint8_t edit_slot(uint8_t selected_slot)
 void hard_exit(void)
 {
   // clear keybuffer
+  mhx_clear_keybuffer();
   *(unsigned char *)0xc6 = 0;
 
   // Switch back to normal speed control before exiting
@@ -632,7 +633,11 @@ void main(void)
 #endif
 
       if (slot_core[selected].valid == SLOT_VALID) {
-        // Valid bitstream -- so start it
+        // extra delay: wait two frames so the QSPI has time to settle
+        r = PEEK(0xD7FA);
+        while (r == PEEK(0xD7FA));
+        r = PEEK(0xD7FA);
+        while (r == PEEK(0xD7FA));
         reconfig_fpga(SLOT_SIZE * selected + 4096);
       }
       else if (slot_core[selected].valid == SLOT_EMPTY) {
@@ -761,14 +766,7 @@ void main(void)
     // check for number key pressed
     if (mhx_lastkey.code.key >= 0x30 && mhx_lastkey.code.key < 0x30 + slot_count) {
       mhx_clear_keybuffer();
-      // check keyboard matrix if really all keys are released
-      do {
-        i = 0xff;
-        for (r = 0; r < 10; r++) {
-          POKE(0xD614, r);
-          i &= PEEK(0xD613);
-        }
-      } while (i != 0xff);
+      mhx_until_keys_released();
       if (mhx_lastkey.code.key == 0x30) {
         reconfig_fpga(0 + 4096);
       }
