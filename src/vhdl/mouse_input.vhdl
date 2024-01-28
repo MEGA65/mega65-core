@@ -448,11 +448,11 @@ begin
           potb_y_counter <= 0;
 
           -- Track 1351 historesis to de-jitter 1351 mouse
-          if ma_amiga_mode='1' then
+          if ma_amiga_mode='1' or amiga_mouse_assume_a='1' then
             pota_x_internal_stabilised <= pota_x_internal;
             pota_y_internal_stabilised <= pota_y_internal;
           end if;
-          if mb_amiga_mode='1' then
+          if mb_amiga_mode='1' or amiga_mouse_assume_b='1' then
             potb_x_internal_stabilised <= potb_x_internal;
             potb_y_internal_stabilised <= potb_y_internal;
           end if;
