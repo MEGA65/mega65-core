@@ -222,6 +222,8 @@ void display_version(void)
 uint8_t first_flash_read = 1;
 void do_first_flash_read(unsigned long addr)
 {
+  uint16_t x;
+
   // Work around weird flash thing where first read of a sector reads rubbish
   // TODO: is this really required?
   read_data(addr);
@@ -376,6 +378,8 @@ uint8_t mfde_replace_attr[3] = { MHX_A_MGREY, MHX_A_YELLOW, MHX_A_LRED };
 
 void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
 {
+  uint8_t i;
+
   mhx_clearscreen(0x20, MHX_A_WHITE | MHX_A_FLIP);
   mhx_set_xy(14, 0);
   mhx_writef("Edit Slot #%d", selected_slot);
@@ -527,6 +531,7 @@ void main(void)
 {
   uint8_t selected = 0xff, search_cart = CORECAP_SLOT_DEFAULT, last_selected = 0xff;
   uint8_t redraw_menu = REDRAW_CLEAR;
+  uint8_t i, r;
 #ifdef LAZY_ATTICRAM_CHECK
   uint8_t atticram_bad = 0;
 #endif
@@ -599,9 +604,9 @@ void main(void)
 #endif
     // Select BOOTSTS register
     POKE(0xD6C4, 0x16);
-    usleep(10);
+    usleep(20);
     // Allow a little while for it to be fetched.
-    // (about 40 cycles should be long enough)
+    // (about 70 cycles should be long enough) - raised to 70 based on test
     if (PEEK(0xD6C5) & 0x01) {
       // FPGA has been reconfigured, so assume that we should boot
       // normally, unless magic keys are being pressed.
@@ -610,10 +615,6 @@ void main(void)
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
       // Switch back to normal speed control before exiting
-#ifdef DANDEBUG
-      mhx_writef("Was reconfigured!\n\n");
-      mhx_press_any_key(0,0);
-#endif
       hard_exit();
     }
     else { // FPGA has NOT been reconfigured
@@ -626,7 +627,7 @@ void main(void)
       selected = scan_core_information(search_cart);
 
 #ifdef DANDEBUG
-      mhx_writef("Selected Slot: %08x (V:%08x)\n\n", selected, slot_core[selected].valid);
+      mhx_writef("Selected Slot: %08x (V:%02x)\n\n", selected, slot_core[selected].valid);
       mhx_press_any_key(0,0);
 #endif
 
@@ -759,6 +760,15 @@ void main(void)
 
     // check for number key pressed
     if (mhx_lastkey.code.key >= 0x30 && mhx_lastkey.code.key < 0x30 + slot_count) {
+      mhx_clear_keybuffer();
+      // check keyboard matrix if really all keys are released
+      do {
+        i = 0xff;
+        for (r = 0; r < 10; r++) {
+          POKE(0xD614, r);
+          i &= PEEK(0xD613);
+        }
+      } while (i != 0xff);
       if (mhx_lastkey.code.key == 0x30) {
         reconfig_fpga(0 + 4096);
       }

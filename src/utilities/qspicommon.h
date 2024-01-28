@@ -74,7 +74,7 @@ extern unsigned short mb;
 extern unsigned char buffer[512];
 extern unsigned char part[256];
 
-extern short i, x, y, z;
+// extern short i, x, y, z;
 // extern unsigned long addr, addr_len;
 
 int8_t probe_hardware_version(void);

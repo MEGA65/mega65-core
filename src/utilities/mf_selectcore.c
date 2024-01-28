@@ -162,6 +162,8 @@ int8_t mfsc_checkcore(uint8_t require_mega)
 
 void mfsc_draw_list(void)
 {
+  uint8_t y;
+
   // wait for raster leaving screen
   while (!(PEEK(0xD011)&0x80));
 
