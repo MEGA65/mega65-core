@@ -458,45 +458,45 @@ begin
           end if;
           if pota_x_counter < to_integer(pota_x_internal) then
             ma_x_hist <= '0';
-            if (pota_x_counter /= (to_integer(pota_x_internal) - 1) ) or ma_x_hist='0' then
+            if (pota_x_counter < (to_integer(pota_x_internal) - 2) ) or ma_x_hist='0' then
               pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
             end if;
           elsif pota_x_counter > to_integer(pota_x_internal) then
             ma_x_hist <= '1';
-            if (pota_x_counter /= (to_integer(pota_x_internal) + 1) ) or ma_x_hist='1' then
+            if (pota_x_counter > (to_integer(pota_x_internal) + 2) ) or ma_x_hist='1' then
               pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
             end if;
           end if;
           if potb_y_counter < to_integer(potb_y_internal) then
             ma_y_hist <= '0';
-            if (pota_y_counter /= (to_integer(pota_y_internal) - 1) ) or ma_y_hist='0' then
+            if (pota_y_counter < (to_integer(pota_y_internal) - 2) ) or ma_y_hist='0' then
               pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
             end if;
           elsif pota_y_counter > to_integer(pota_y_internal) then
             ma_y_hist <= '1';
-            if (pota_y_counter /= (to_integer(pota_y_internal) + 1) ) or ma_y_hist='1' then
+            if (pota_y_counter > (to_integer(pota_y_internal) + 2) ) or ma_y_hist='1' then
               pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
             end if;
           end if;
           if potb_x_counter < to_integer(potb_x_internal) then
             mb_x_hist <= '0';
-            if (potb_x_counter /= (to_integer(potb_x_internal) - 1) ) or mb_x_hist='0' then
+            if (potb_x_counter < (to_integer(potb_x_internal) - 2) ) or mb_x_hist='0' then
               potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
             end if;
           elsif potb_x_counter > to_integer(potb_x_internal) then
             mb_x_hist <= '1';
-            if (potb_x_counter /= (to_integer(potb_x_internal) + 1) ) or mb_x_hist='1' then
+            if (potb_x_counter > (to_integer(potb_x_internal) + 2) ) or mb_x_hist='1' then
               potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
             end if;
           end if;
           if potb_y_counter < to_integer(potb_y_internal) then
             mb_y_hist <= '0';
-            if (potb_y_counter /= (to_integer(potb_y_internal) - 1) ) or mb_y_hist='0' then
+            if (potb_y_counter < (to_integer(potb_y_internal) - 2) ) or mb_y_hist='0' then
               potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
             end if;
           elsif potb_y_counter > to_integer(potb_y_internal) then
             mb_y_hist <= '1';
-            if (potb_y_counter /= (to_integer(potb_y_internal) + 1) ) or mb_y_hist='1' then
+            if (potb_y_counter > (to_integer(potb_y_internal) + 2) ) or mb_y_hist='1' then
               potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
             end if;
           end if;
