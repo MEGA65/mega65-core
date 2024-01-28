@@ -78,9 +78,9 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$08			;bits for testing/setting
 	.byte		$04			;bits for testing/setting
-	.defPStr	"joystick 1 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joystick 1 mouse behaviour:"	;label
+	.defPStr	'de-jitter 1351 movement'		;option unset
+	.defPStr	"aggressive detect amiga mouse"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
@@ -94,9 +94,9 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$04			;bits for testing/setting
 	.byte		$08			;bits for testing/setting
-	.defPStr	"joystick 2 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joystick 2 mouse behaviour:"	;label
+	.defPStr	'de-jitter 1351 movement'		;option unset
+	.defPStr	"aggressive detect amiga mouse"	;option set
 
 
 	.byte		$00			;end of list type
