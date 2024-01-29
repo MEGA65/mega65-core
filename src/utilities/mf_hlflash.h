@@ -18,7 +18,7 @@ extern uint32_t mfhf_slot_size;
 #define MFHF_LC_FROMDISK  2
 
 /*
- * int8_t mfhf_load_core(custom_flags)
+ * int8_t mfhf_load_core()
  *
  * Returns:
  *   int8_t(bool): 0 - load succeeded
@@ -33,6 +33,34 @@ extern uint32_t mfhf_slot_size;
  */
 int8_t mfhf_load_core();
 
+/*
+ * int8_t mfhf_load_core_from_flash(slot, addr_len)
+ *
+ * parameters:
+ *   slot: flash slot to load from
+ *   addr_len: how many bytes should be loaded
+ *
+ * side effects:
+ *   mfhf_core_file_state
+ *   mfsc_corehdr_length: set to addr_len after success
+ *
+ * loads data from a flash slot into attic ram.
+ *
+ */
+int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len);
+
+/*
+ * int8_t mfhf_flash_core(selected_file, slot)
+ *
+ * parameters:
+ *   selected_file: selects between flashing and erasing
+ *   slot: flash slot that should be flashed
+ *
+ * flashes data from attic ram into a core slot. if 
+ * selected_file is MFSC_FILE_ERASE, the routine will
+ * erase all sectors without writing anything.
+ *
+ */
 int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot);
 
 #endif /* MF_HLFLASH_H */

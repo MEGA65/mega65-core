@@ -456,13 +456,13 @@ int8_t mfsc_findcorefile(const char *filename, uint8_t require_mega65)
 
   if ((err = nhsd_findfile(filename)))
     return err;
-  
+
   mfsc_corefile_inode = nhsd_dirent.d_ino;
   mfsc_corefile_size = nhsd_dirent.d_reclen;
   memcpy(mfsc_corefile_displayname, "BRINGUP.COR", 12);
 
   if (mfsc_checkcore(require_mega65))
     return err;
-  
+
   return 0;
 }

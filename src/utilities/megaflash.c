@@ -97,6 +97,12 @@ char cart_c64_magic[5] = "CBM80";
 char cart_c128_magic[3] = "cbm";
 #define CART_M65_MAGIC_LENGTH 3
 char cart_m65_magic[3] = "m65";
+
+#ifndef STANDALONE
+#include <ascii_charmap.h>
+static const char BRINGUP_CORE[13] = "BRINGUP.COR";
+#endif
+
 #include <cbm_screen_charmap.h>
 
 typedef struct {
@@ -108,7 +114,10 @@ typedef struct {
   uint32_t length;
 } slot_core_t;
 
-slot_core_t slot_core[MAX_SLOTS];
+slot_core_t slot_core[MAX_SLOTS] = {
+  // this is needed for BRINGUP.COR, as draw_editslot will display it
+  {"FACTORY CORE AUTO UPDATE", "", 0x00, 0x00, SLOT_VALID, 0x800000UL},
+};
 
 uint8_t exrom_game = 0xff;
 // #if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
@@ -433,9 +442,7 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   mfp_set_area(0, slot_core[selected_slot].length >> 16, '*', MHX_A_WHITE);
 
   // copy footer from upper memory
-  //lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
-  // no flags only flashing yet...
-  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }
@@ -491,13 +498,26 @@ uint8_t edit_slot(uint8_t selected_slot)
       continue;
     }
 
-    if (selected_file != MFSC_FILE_INVALID && mhx_lastkey.code.key == 0xf8) {
-      if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
-        // patch flags into loaded core, but no flags for slot 0
-        mfhf_flash_core(selected_file, selected_slot);
-        scan_core_information(0);
+    if (mhx_lastkey.code.key == 0xf8) {
+      // first check if file or erase was selected
+      if (selected_file != MFSC_FILE_INVALID) {
+        if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
+          // patch flags into loaded core, but no flags for slot 0
+          mfhf_flash_core(selected_file, selected_slot);
+          scan_core_information(0);
+        }
+        return 0;
+      // otherwise perhaps only flags have changed?
+      } else if (slot_core[selected_slot].flags != mfsc_corehdr_bootflags) {
+        // we default to loading 256k (this is the sector size on r3a+)
+        // TODO: make this independet of flash chip geometry
+        if (mfhf_load_core_from_flash(selected_slot, 0x40000L)) {
+          selected_file = MFSC_FILE_VALID; // mfhf_flash_core needs to know what to do
+          mfhf_flash_core(selected_file, selected_slot);
+          scan_core_information(0);
+        }
+        return 0;
       }
-      return 0;
     }
   }
 
@@ -532,7 +552,10 @@ void main(void)
 {
   uint8_t selected = 0xff, search_cart = CORECAP_SLOT_DEFAULT, last_selected = 0xff;
   uint8_t redraw_menu = REDRAW_CLEAR;
-  uint8_t i, r;
+  uint8_t i;
+#ifndef STANDALONE
+  uint8_t r;
+#endif
 #ifdef LAZY_ATTICRAM_CHECK
   uint8_t atticram_bad = 0;
 #endif
@@ -608,6 +631,25 @@ void main(void)
     usleep(20);
     // Allow a little while for it to be fetched.
     // (about 70 cycles should be long enough) - raised to 70 based on test
+
+    // check if BOOTSTS is not reading properly, because we started from
+    // a bitstream pushed via JTAG
+    // check if we automatically flash slot 0 with BRINGUP.COR
+    if (PEEK(0xD6C7) == 0xFF && !mfsc_findcorefile(BRINGUP_CORE, 1)) {
+      if ((mfsc_corehdr_instflags & (MFSC_COREINST_FACTORY | MFSC_COREINST_AUTO | MFSC_COREINST_FORCE)) == (MFSC_COREINST_FACTORY | MFSC_COREINST_AUTO | MFSC_COREINST_FORCE)) {
+        selected_file = MFSC_FILE_VALID;
+        draw_edit_slot(0, 1);
+        if (mfhf_load_core()) {
+          mfhf_flash_core(selected_file, 0);
+        }
+        mhx_clearscreen(' ', MHX_A_WHITE);
+        mhx_set_xy(5, 12);
+        mhx_writef("Please power cycle your MEGA65");
+        while (1)
+          POKE(0xD020, PEEK(0xD020) & 0x0f);
+      }
+    }
+
     if (PEEK(0xD6C5) & 0x01) {
       // FPGA has been reconfigured, so assume that we should boot
       // normally, unless magic keys are being pressed.

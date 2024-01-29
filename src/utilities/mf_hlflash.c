@@ -167,6 +167,36 @@ int8_t mfhf_load_core() {
   return mfhf_core_file_state;
 }
 
+int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
+  uint32_t addr, flash_addr;
+
+  mfhf_core_file_state = MFHF_LC_NOTLOADED;
+
+  // cover menu bar keys except STOP
+  lfill(mhx_base_scr + 23*40, 0xa0, 60);
+
+  // setup progress bar
+  mfp_init_progress(8, 17, '-', " Read Core Header ", MHX_A_WHITE);
+
+  // load core from qspi to attic ram
+  mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
+  for (flash_addr = SLOT_SIZE * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
+    read_data(flash_addr);
+    lcopy(&data_buffer, 0x8000000L + addr, 512);
+    mfp_progress(addr);
+    if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
+      return mfhf_core_file_state;
+  }
+
+  // set potentially changed flags after load & crc check
+  lpoke(0x8000000L + MFSC_COREHDR_BOOTFLAGS, mfsc_corehdr_bootflags);
+
+  mfsc_corehdr_length = addr_len;
+  mfhf_core_file_state = MFHF_LC_ATTICOK;
+
+  return mfhf_core_file_state;
+}
+
 int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t size)
 {
   while (size > 0) {
@@ -271,18 +301,30 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   mhx_writef(MHX_W_WHITE "SLOT_SIZE = %08lx  \nSLOT      = %d\nend_addr  = %08lx  \n", SLOT_SIZE, slot, end_addr);
   */
 
-  // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
-  mfhf_erase_some_sectors(end_addr, end_addr + 0x100000UL);
-  // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
+  // if we are flashing only a short part, then we can skip the erase first
+  if (mfsc_corehdr_length < 0x100000UL)
+    addr = end_addr + mfsc_corehdr_length;
+  else {
+    // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
+    mfhf_erase_some_sectors(end_addr, end_addr + 0x100000UL);
+    // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
-  // start at the end and flash downwards
-  addr = end_addr + SLOT_SIZE;
+    // start at the end and flash downwards
+    addr = end_addr + SLOT_SIZE;
+  }
 
   // don't need to erase two times, if we are in erase mode
   if (selected_file == MFSC_FILE_ERASE) {
     end_addr += 0x100000UL;
   }
 
+#undef SHORTFLASHDEBUG
+
+#ifdef SHORTFLASHDEBUG
+  mhx_set_xy(0,0);
+  mhx_writef(MHX_W_WHITE "end  = %08lx\naddr = %08lx\n", end_addr, addr);
+  mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+#endif
   while (addr > end_addr) {
     if (addr <= (uint32_t)num_4k_sectors << 12)
       size = 4096;
@@ -290,6 +332,9 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
       size = 1L << ((uint32_t)flash_sector_bits);
     addr -= size;
 
+#ifdef SHORTFLASHDEBUG
+    mhx_writef(MHX_W_WHITE MHX_W_HOME "addr = %08lx\nsize = %08lx\n                  \n                  \n                     \n", addr, size);
+#endif
 #if 0
     mhx_writef("\n%d %08lX %08lX\nsize = %ld", num_4k_sectors, (unsigned long)num_4k_sectors << 12, addr, size);
     mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
@@ -297,10 +342,16 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
 
     // if we are flashing a file, skip over sectors without data
     // this works because at this point addr points at the start of the sector that is being flashed
-    if (selected_file != MFSC_FILE_ERASE && (addr - SLOT_SIZE * slot) >= mfsc_corehdr_length) {
+    if (selected_file != MFSC_FILE_ERASE && (addr - end_addr) >= mfsc_corehdr_length) {
+#ifdef SHORTFLASHDEBUG
+      mhx_writef("skip\n");
+#endif
       continue;
     }
 
+#ifdef SHORTFLASHDEBUG
+    mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+#endif
     // Do a dummy read to clear any pending stuck QSPI commands
     // (else we get incorrect return value from QSPI verify command)
     // TODO: get rid of this
@@ -311,21 +362,30 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
     for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
       if (selected_file == MFSC_FILE_VALID) {
         // Verify the sector to see if it is already correct
-        if (!mfhf_sectors_differ(addr - SLOT_SIZE * slot, addr, size)) {
+        if (!mfhf_sectors_differ(addr - end_addr, addr, size)) {
           mfp_set_area(addr >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
           break;
         }
       }
-
+#ifdef SHORTFLASHDEBUG
+      mhx_writef("verify..");
+#endif
       // Erase Sector
       mfhf_erase_some_sectors(addr, addr + size);
       if (selected_file == MFSC_FILE_ERASE)
         break;
 
+#ifdef SHORTFLASHDEBUG
+      mhx_writef("erase..");
+#endif
       // Program sector
       if (selected_file == MFSC_FILE_VALID) {
         for (waddr = addr + size; waddr > addr; waddr -= 256) {
-          lcopy(0x8000000L + waddr - 256 - SLOT_SIZE * slot, (unsigned long)data_buffer, 256);
+#ifdef SHORTFLASHDEBUG
+          mhx_writef("%08lx..", waddr);
+          mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+#endif
+          lcopy(0x8000000L + waddr - 256 - end_addr, (unsigned long)data_buffer, 256);
           // display sector on screen
           // lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
           POKE(0xD020, 3);
