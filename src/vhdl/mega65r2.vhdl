@@ -652,6 +652,7 @@ begin
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
+      cart_ctrl_en => cart_ctrl_en,
       cart_haddr_dir => cart_haddr_dir,
       cart_laddr_dir => cart_laddr_dir,
       cart_data_dir => cart_data_dir,
