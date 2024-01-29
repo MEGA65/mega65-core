@@ -140,7 +140,7 @@ int8_t mfsc_checkcore(uint8_t require_mega)
   // allow only marked cores for slot 0
   if (require_mega) {
     // check install_flags bit 0 == FACTORY
-    if (!(buffer[MFSC_COREHDR_INSTFLAGS] & 0x01))
+    if (!(buffer[MFSC_COREHDR_INSTFLAGS] & MFSC_COREINST_FACTORY))
       return MFSC_CF_ERROR_FACTORY;
     // check CORE name, which needs to be MEGA65 only
     for (x = 0; x < 6; x++)
@@ -445,4 +445,24 @@ uint8_t mfsc_selectcore(uint8_t slot)
   }
 
   return MFSC_FILE_INVALID;
+}
+
+int8_t mfsc_findcorefile(const char *filename, uint8_t require_mega65)
+{
+  uint8_t err;
+
+  if ((err = nhsd_init(NHSD_INIT_BUS0, buffer)))
+    return err;
+
+  if ((err = nhsd_findfile(filename)))
+    return err;
+  
+  mfsc_corefile_inode = nhsd_dirent.d_ino;
+  mfsc_corefile_size = nhsd_dirent.d_reclen;
+  memcpy(mfsc_corefile_displayname, "BRINGUP.COR", 12);
+
+  if (mfsc_checkcore(require_mega65))
+    return err;
+  
+  return 0;
 }

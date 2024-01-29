@@ -40,6 +40,10 @@ extern char mfsc_corehdr_error[33];
 #define MFSC_COREHDR_LENGTH 0x80
 #define MFSC_COREHDR_CRC32 0x84
 
+#define MFSC_COREINST_FACTORY 0b00000001
+#define MFSC_COREINST_AUTO    0b00000010
+#define MFSC_COREINST_FORCE   0b10000000
+
 /*
  * mfsc_selectcore(slot)
  *
@@ -67,5 +71,19 @@ uint8_t mfsc_selectcore(uint8_t slot);
  *
  */
 int8_t mfsc_checkcore(uint8_t require_mega);
+
+/*
+ * int8_t mfsc_findcorefile(filename, require_mega65)
+ *
+ * parameters:
+ *   filename: fat filename
+ *   require_mega65: bool, should core be checked for slot 0 compability?
+ *
+ * search for filename in the root of the internal SD card.
+ * 
+ * returns 0 if it was found and is a valid MEGA65 FACTORY core.
+ *
+ */
+int8_t mfsc_findcorefile(const char *filename, uint8_t require_mega65);
 
 #endif /* MF_SELECTCORE_H */
