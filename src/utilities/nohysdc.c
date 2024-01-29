@@ -391,9 +391,6 @@ uint8_t nhsd_findfile(char *filename)
   // not catching any errors here, but we are also not expecting any...
   nhsd_closedir();
 
-  if (!err) // nhsd_dirent.d_ino contains first cluster
-    return NHSD_ERR_NOERROR;
-
   return err;
 }
 
