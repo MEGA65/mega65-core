@@ -82,6 +82,7 @@ entity container is
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
          cart_ctrl_dir : out std_logic;
+         cart_ctrl_en : out std_logic;
          cart_haddr_dir : out std_logic;
          cart_laddr_dir : out std_logic;
          cart_data_en : out std_logic;
@@ -963,6 +964,7 @@ begin
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
+      cart_ctrl_en => cart_ctrl_en,
       cart_haddr_dir => cart_haddr_dir,
       cart_laddr_dir => cart_laddr_dir,
       cart_data_dir => cart_data_dir,
