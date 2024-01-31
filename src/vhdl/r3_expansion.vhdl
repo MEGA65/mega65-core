@@ -64,11 +64,11 @@ architecture gothic of r3_expansion is
   constant seq_7 : unsigned(7 downto 0) := "01111111";
   constant seq_8 : unsigned(7 downto 0) := "11111111";
 
-  signal chroma_high : unsigned(3 downto 0) := (others => '0');
+  signal chroma_high : unsigned(2 downto 0) := (others => '0');
 --  signal chroma_low : unsigned(7 downto 0) := (others => '0');
-  signal luma_high : unsigned(3 downto 0) := (others => '0');
+  signal luma_high : unsigned(2 downto 0) := (others => '0');
 --  signal luma_low : unsigned(7 downto 0) := (others => '0');
-  signal composite_high : unsigned(3 downto 0) := (others => '0');
+  signal composite_high : unsigned(2 downto 0) := (others => '0');
 --  signal composite_low : unsigned(7 downto 0) := (others => '0');
 
   signal sub_clock : integer range 0 to 7 := 0;
@@ -133,11 +133,11 @@ begin
       -- resolution than the 4 bits we have.
       -- With appropriate filtering of the resulting signal,
       -- this should gain us 2 extra bits of resolution
-      chroma_high    <= chroma(7 downto 4);
+      chroma_high    <= chroma(7 downto 5);
 --      chroma_low     <= pick_sub_clock(chroma(4 downto 2));
-      luma_high      <= luma(7 downto 4);
+      luma_high      <= luma(7 downto 5);
 --      luma_low       <= pick_sub_clock(luma(4 downto 2));
-      composite_high <= composite(7 downto 4);
+      composite_high <= composite(7 downto 5);
 --      composite_low  <= pick_sub_clock(composite(4 downto 2));
     end if;
     
@@ -150,10 +150,10 @@ begin
       p2lo <= (others => '0');
       p2hi <= (others => '0');
       p1hi <= (others => '0');
-      for i in 0 to 3 loop
-        p2lo(i) <= chroma_high(3 - i);
-        p2hi(i) <= luma_high(3 - i);
-        p1hi(i) <= composite_high(3 - i);
+      for i in 0 to 2 loop
+        p2lo(i) <= chroma_high(2 - i);
+        p2hi(i) <= luma_high(2 - i);
+        p1hi(i) <= composite_high(2 - i);
       end loop;
 
       if sub_clock /= 7 then
