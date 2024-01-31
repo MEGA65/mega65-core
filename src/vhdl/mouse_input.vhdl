@@ -196,16 +196,18 @@ begin
       
       
       -- Work out if we think we have an amiga mouse connected
-      if ((pota_x_internal(7 downto 2) = "111111") or (pota_x_internal(7 downto 2) = "000000"))
-        and ((pota_y_internal(7 downto 2) = "111111") or (pota_y_internal(7 downto 2) = "000000")) then
+      -- 22K resistor on Amiga mouse right button gives values of 12 and 255,
+      -- so we only check the upper nybl.
+      if ((pota_x_internal(7 downto 4) = "1111") or (pota_x_internal(7 downto 4) = "0000"))
+        and ((pota_y_internal(7 downto 4) = "1111") or (pota_y_internal(7 downto 4) = "0000")) then
         potsa_at_edge <= '1';
       else
         potsa_at_edge <= '0';
         ma_amiga_mode <= '0';
         ma_amiga_pots <= '0';
       end if;
-      if (potb_x_internal(7 downto 2) = "111111" or (potb_x_internal(7 downto 2) = "000000"))
-        and (potb_y_internal(7 downto 2) = "111111" or (potb_y_internal(7 downto 2) = "000000")) then
+      if (potb_x_internal(7 downto 4) = "1111" or (potb_x_internal(7 downto 4) = "0000"))
+        and (potb_y_internal(7 downto 4) = "1111" or (potb_y_internal(7 downto 4) = "0000")) then
         potsb_at_edge <= '1';
       else
         potsb_at_edge <= '0';
