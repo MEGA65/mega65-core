@@ -190,9 +190,9 @@ begin
 
     if fastio_addr(19 downto 4) = x"D800" and fastio_read = '1' then
       case fastio_addr(3 downto 0) is
-        when x"0" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
-        when x"1" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
-        when x"2" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
+        when x"0" => fastio_rdata <= to_unsigned(source_names'pos(channel_a_source_cpu),8);
+        when x"1" => fastio_rdata <= to_unsigned(source_names'pos(channel_a_source_cpu),8);
+        when x"2" => fastio_rdata <= to_unsigned(source_names'pos(channel_a_source_cpu),8);
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
