@@ -996,6 +996,7 @@ begin
           uartclock       => cpuclock, -- Match CPU clock
           clock162 => clock162,
           clock200 => clock200,
+          clock270 => clock270,
           clock27 => clock27,
           clock50mhz      => ethclock,
 
