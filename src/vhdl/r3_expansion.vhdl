@@ -92,9 +92,9 @@ architecture gothic of r3_expansion is
   signal channel_b_data : unsigned(7 downto 0);
   signal channel_c_data : unsigned(7 downto 0);
   
-  signal chan_a_high : unsigned(5 downto 3) := (others => '0');
-  signal chan_b_high : unsigned(5 downto 3) := (others => '0');
-  signal chan_c_high : unsigned(5 downto 3) := (others => '0');
+  signal chan_a_high  : unsigned(7 downto 0) := (others => '0');
+  signal chan_b_high  : unsigned(7 downto 0) := (others => '0');
+  signal chan_c_high  : unsigned(7 downto 0) := (others => '0');
   signal chan_a_low  : unsigned(7 downto 0) := (others => '0');
   signal chan_b_low  : unsigned(7 downto 0) := (others => '0');
   signal chan_c_low  : unsigned(7 downto 0) := (others => '0');
@@ -232,26 +232,28 @@ begin
       -- resolution than the 4 bits we have.
       -- With appropriate filtering of the resulting signal,
       -- this should gain us 2 extra bits of resolution
-      chan_a_high <= channel_a_data(7 downto 5); chan_a_low <= pick_sub_clock(channel_a_data(4 downto 2));
-      chan_b_high <= channel_b_data(7 downto 5); chan_b_low <= pick_sub_clock(channel_b_data(4 downto 2));
-      chan_c_high <= channel_c_data(7 downto 5); chan_c_low <= pick_sub_clock(channel_c_data(4 downto 2));
+      chan_a_high <= pick_sub_clock(channel_a_data(7 downto 5)); chan_a_low <= pick_sub_clock(channel_a_data(4 downto 2));
+      chan_b_high <= pick_sub_clock(channel_b_data(7 downto 5)); chan_b_low <= pick_sub_clock(channel_b_data(4 downto 2));
+      chan_c_high <= pick_sub_clock(channel_c_data(7 downto 5)); chan_c_low <= pick_sub_clock(channel_c_data(4 downto 2));
       
     end if;
     
     if rising_edge(clock270) then
       -- Bit order on PMODs is reversed
-      for i in 0 to 2 loop
-        p2lo(i) <= chan_a_high(5-i);
-        p2hi(i) <= chan_b_high(5-i);
-        p1hi(i) <= chan_c_high(5-i);
-      end loop;
       -- We want at least 8 bits of total resolution,
       -- so we do PWM on lowest bit (and later on all
       -- bits, with 4x or 8x step between resistors, instead
       -- of just 2x).
+      p2lo(2 downto 1) <= (others => '0');
+      p2hi(2 downto 1) <= (others => '0');
+      p1hi(2 downto 1) <= (others => '0');
+      p2lo(0) <= chan_a_high(sub_clock);
+      p2hi(0) <= chan_b_high(sub_clock);
+      p1hi(0) <= chan_c_high(sub_clock);
       p2lo(3) <= chan_a_low(sub_clock);
       p2hi(3) <= chan_b_low(sub_clock);
       p1hi(3) <= chan_c_low(sub_clock);
+
       if sub_clock /= 7 then
         sub_clock <= sub_clock + 1;
       else
