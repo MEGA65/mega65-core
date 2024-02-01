@@ -87,6 +87,10 @@ architecture gothic of r3_expansion is
   signal channel_a_source_cpu : source_names := chroma;
   signal channel_b_source_cpu : source_names := luma;
   signal channel_c_source_cpu : source_names := composite;
+
+  signal channel_a_data : unsigned(7 downto 0);
+  signal channel_b_data : unsigned(7 downto 0);
+  signal channel_c_data : unsigned(7 downto 0);
   
   signal chan_a_high : unsigned(5 downto 3) := (others => '0');
   signal chan_b_high : unsigned(5 downto 3) := (others => '0');
