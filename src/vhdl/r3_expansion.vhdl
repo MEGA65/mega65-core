@@ -252,7 +252,7 @@ begin
       else
         sawtooth_val <= x"00";
       end if;
-      sinewave_val <= sine_table(to_integer(sawtooth_val(7 downto 3)));
+      sinewave_val <= unsigned(sine_table(to_integer(sawtooth_val(7 downto 3))));
       
       channel_a_source <= channel_a_source_cpu;
       channel_b_source <= channel_b_source_cpu;
