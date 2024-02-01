@@ -99,7 +99,7 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   
 begin
 
-  process (clock41, cs, fastio_addr, fastio_write) is
+  process (clock41, cs, fastio_addr, fastio_write, input_vector, output_vector, plumb_signals, clock_divisor) is
   begin
 
     -- Read management registers

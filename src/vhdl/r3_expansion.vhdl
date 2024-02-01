@@ -216,7 +216,7 @@ begin
     );
 
   
-  process (clock270,clock81,clock27) is
+  process (cpuclock,clock270,clock81,clock27,channel_a_source_cpu,channel_b_source_cpu,channel_c_source_cpu) is
   begin
 
     if fastio_addr(19 downto 4) = x"D800" and fastio_read = '1' then
@@ -252,7 +252,11 @@ begin
       else
         sawtooth_val <= x"00";
       end if;
-      sinewave_val <= unsigned(sine_table(to_integer(sawtooth_val(7 downto 3))));
+      if (sawtooth_val(7)='0') then
+        sinewave_val <= unsigned(sine_table(to_integer(sawtooth_val(6 downto 2))));
+      else
+        sinewave_val <= unsigned(sine_table(31 - to_integer(sawtooth_val(6 downto 2))));
+      end if;
       
       channel_a_source <= channel_a_source_cpu;
       channel_b_source <= channel_b_source_cpu;
