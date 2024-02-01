@@ -127,7 +127,7 @@ architecture gothic of r3_expansion is
       end case;
   end source_select;          
 
-  function source_name_lookup(source : integer) is
+  function source_name_lookup(source : integer) return source_names is
   begin
     case source is
       when 0 => return chroma;
@@ -188,11 +188,11 @@ begin
   process (clock270,clock81,clock27) is
   begin
 
-    if fastio_addr(19 downto 4) = x"D800" and fastio_rdata = '1' then
+    if fastio_addr(19 downto 4) = x"D800" and fastio_read = '1' then
       case fastio_addr(3 downto 0) is
-        when x"0" => fastio_rdata <= source_names'index(channel_a_source_cpu);
-        when x"1" => fastio_rdata <= source_names'index(channel_a_source_cpu);
-        when x"2" => fastio_rdata <= source_names'index(channel_a_source_cpu);
+        when x"0" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
+        when x"1" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
+        when x"2" => fastio_rdata <= source_names'pos(channel_a_source_cpu);
         when others => fastio_rdata <= (others => 'Z');
       end case;
     else
