@@ -71,14 +71,14 @@ architecture gothic of r3_expansion is
   constant seq_7 : unsigned(7 downto 0) := "01111111";
   constant seq_8 : unsigned(7 downto 0) := "11111111";
 
-  type source_names is
+  type source_names is (
     chroma, luma, composite,
     audio_left, audio_right,
     red, green, blue,
     red_sync, green_sync, blue_sync,
     p_b, p_r,
     unused13,unused14,unused15
-    };
+    );
   
   signal channel_a_source : source_names := chroma;
   signal channel_b_source : source_names := luma;
