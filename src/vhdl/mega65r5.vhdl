@@ -736,8 +736,8 @@ begin
       luma_in => luma,
       chroma_in => chroma,
       composite_in => composite,
-      audio_l_in => unsigned(audio_left(19 downto 12),
-      audio_r_in => unsigned(audio_left(19 downto 12),
+      audio_l_in => unsigned(audio_left(19 downto 12)),
+      audio_r_in => unsigned(audio_left(19 downto 12)),
 
       tape_port_i => tape_port_i,
       tape_port_o => tape_port_o,
