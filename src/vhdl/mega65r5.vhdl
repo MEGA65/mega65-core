@@ -714,41 +714,6 @@ begin
         tmds => tmds
         );
 
-  eb0: if true generate
-  expansionboard0: entity work.r3_expansion
-    port map (
-      cpuclock => cpuclock,
-      clock27 => clock27,
-      clock81 => pixelclock,
-      clock270 => clock270,
-
-      p1lo => p1lo,
-      p1hi => p1hi,
-      p2lo => p2lo,
-      p2hi => p2hi,
-
-      fastio_read => fastio_read,
-      fastio_write => fastio_write,
-      fastio_addr => fastio_addr,
-      fastio_rdata => fastio_rdata,
-      fastio_wdata => fastio_wdata,
-      
-      luma_in => luma,
-      chroma_in => chroma,
-      composite_in => composite,
-      audio_l_in => unsigned(audio_left(19 downto 12)),
-      audio_r_in => unsigned(audio_left(19 downto 12)),
-
-      tape_port_i => tape_port_i,
-      tape_port_o => tape_port_o,
-      c1565_port_i => c1565_port_i,
-      c1565_port_o => c1565_port_o,
-      user_port_i => user_port_i,
-      user_port_o => user_port_o
-
-      );
-  end generate;
-
   ODDR_inst : ODDR
     port map (
       Q => vdac_clk,   -- 1-bit DDR output
@@ -1034,6 +999,11 @@ begin
           clock27 => clock27,
           clock50mhz      => ethclock,
 
+          p1lo => p1lo,
+          p1hi => p1hi,
+          p2lo => p2lo,
+          p2hi => p2hi,
+          
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 

@@ -137,6 +137,12 @@ entity machine is
          fm_left : in signed(15 downto 0) := to_signed(0,16);
          fm_right : in signed(15 downto 0) := to_signed(0,16);
 
+         -- PMOD connectors on the MEGA65 R2 main board
+         p1lo : inout std_logic_vector(3 downto 0);
+         p1hi : inout std_logic_vector(3 downto 0);
+         p2lo : inout std_logic_vector(3 downto 0);
+         p2hi : inout std_logic_vector(3 downto 0);
+         
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
@@ -145,13 +151,6 @@ entity machine is
          qspidb_oe : out std_logic;
          QspiCSn : out std_logic := '0';
          qspi_clock : out std_logic := '0';
-
-         ----------------------------------------------------------------------
-         -- Composite/S-Video/Component out
-         ----------------------------------------------------------------------
-         luma : out unsigned(7 downto 0);
-         chroma : out unsigned(7 downto 0);
-         composite : out unsigned(7 downto 0);
 
          ----------------------------------------------------------------------
          -- VGA output
@@ -226,13 +225,6 @@ entity machine is
         fb_up_drain_n : out std_logic;
         fb_fire_drain_n : out std_logic;
 
-        user_port_i : in user_port_in;
-        user_port_o : out user_port_out;
-        tape_port_i : in tape_port_in;
-        tape_port_o : out tape_port_out;
-        c1565_port_i : in c1565_port_in;
-        c1565_port_o : out c1565_port_out;
-        
         i2c_joya_fire : out std_logic := '1';
         i2c_joya_up : out std_logic := '1';
         i2c_joya_down : out std_logic := '1';
@@ -517,6 +509,17 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal user_port_i : user_port_in;
+  signal user_port_o : user_port_out;
+  signal tape_port_i : tape_port_in;
+  signal tape_port_o : tape_port_out;
+  signal c1565_port_i : c1565_port_in;
+  signal c1565_port_o : c1565_port_out;        
+
+  signal luma : unsigned(7 downto 0);
+  signal chroma : unsigned(7 downto 0);
+  signal composite : unsigned(7 downto 0);
+  
   signal dipsw_read : std_logic_vector(7 downto 0);
   signal dipsw_int : std_logic_vector(7 downto 0);
 
@@ -1104,6 +1107,41 @@ begin
     end if;
   end process;
 
+  eb0: if true generate
+  expansionboard0: entity work.r3_expansion
+    port map (
+      cpuclock => cpuclock,
+      clock27 => clock27,
+      clock81 => pixelclock,
+      clock270 => clock270,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
+
+      fastio_read => fastio_read,
+      fastio_write => fastio_write,
+      fastio_addr => fastio_addr,
+      fastio_rdata => fastio_rdata,
+      fastio_wdata => fastio_wdata,
+      
+      luma_in => luma,
+      chroma_in => chroma,
+      composite_in => composite,
+      audio_l_in => unsigned(audio_left(19 downto 12)),
+      audio_r_in => unsigned(audio_right(19 downto 12)),
+
+      tape_port_i => tape_port_i,
+      tape_port_o => tape_port_o,
+      c1565_port_i => c1565_port_i,
+      c1565_port_o => c1565_port_o,
+      user_port_i => user_port_i,
+      user_port_o => user_port_o
+
+      );
+  end generate;
+  
   cpu0: entity work.gs4510
     generic map(target => target)
     port map(
