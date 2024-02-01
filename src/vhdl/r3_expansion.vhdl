@@ -208,15 +208,14 @@ begin
       -- @IO:GS $FFD8000 ANALOGAV:CHANASEL Select source for analog output channel A
       -- @IO:GS $FFD8001 ANALOGAV:CHANASEL Select source for analog output channel A
       -- @IO:GS $FFD8002 ANALOGAV:CHANASEL Select source for analog output channel A
-        if fastio_write='1' then
-          case fastio_addr(3 downto 0) is
-            when x"0" => channel_a_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
-            when x"1" => channel_b_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
-            when x"2" => channel_c_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
-            when others => null;
-          end case;
-        end if;
-
+      if fastio_addr(19 downto 4) = x"D800" and fastio_write='1' then
+        case fastio_addr(3 downto 0) is
+          when x"0" => channel_a_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
+          when x"1" => channel_b_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
+          when x"2" => channel_c_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
+          when others => null;
+        end case;
+      end if;
     end if;
     
     if rising_edge(clock27) then
