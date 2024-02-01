@@ -1129,8 +1129,8 @@ begin
       luma_in => luma,
       chroma_in => chroma,
       composite_in => composite,
-      audio_l_in => unsigned(audio_left(19 downto 12)),
-      audio_r_in => unsigned(audio_right(19 downto 12)),
+      audio_l_in => unsigned(audio_left_int(19 downto 12)),
+      audio_r_in => unsigned(audio_right_int(19 downto 12)),
 
       tape_port_i => tape_port_i,
       tape_port_o => tape_port_o,
@@ -1963,8 +1963,8 @@ begin
       ampPWM_r => ampPWM_r,
       ampSD => ampSD,
       pcspeaker_left => pcspeaker_left,
-      audio_left => audio_left,
-      audio_right => audio_right,
+      audio_left => audio_left_int,
+      audio_right => audio_right_int,
 
 
       -- MEMS microphones
@@ -2126,6 +2126,9 @@ begin
 
       report "tick";
 
+      audio_left <= audio_left_int;
+      audio_right <= audio_right_int;
+      
       secure_mode_triage_required <= protected_hardware_sig(7) or secure_mode_from_monitor;
 
       osk_touch1_key <= osk_touch1_key_driver;
