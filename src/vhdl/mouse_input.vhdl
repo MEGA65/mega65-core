@@ -85,6 +85,8 @@ architecture behavioural of mouse_input is
   signal mb_amiga_pots : std_logic := '0';
   signal ma_amiga_mode_timeout : integer := 0;
   signal mb_amiga_mode_timeout : integer := 0;
+  signal ma_amiga_rbutton_flags : std_logic_vector(1 downto 0) := "00";
+  signal mb_amiga_rbutton_flags : std_logic_vector(1 downto 0) := "00";
   
   -- Integrated Amiga mouse positions
   signal ma_x : unsigned(6 downto 0) := "1111111";
@@ -98,6 +100,16 @@ architecture behavioural of mouse_input is
   signal potb_x_internal : unsigned(7 downto 0) := x"00";
   signal potb_y_internal : unsigned(7 downto 0) := x"00";
 
+  -- POT values after hysteresis stabilisation to de-jitter least significant bit
+  signal pota_x_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal pota_y_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal potb_x_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal potb_y_internal_stabilised : unsigned(7 downto 0) := x"00";
+  signal ma_x_hist : std_logic := '0';
+  signal ma_y_hist : std_logic := '0';
+  signal mb_x_hist : std_logic := '0';
+  signal mb_y_hist : std_logic := '0';
+  
   -- Are the real POT values at either extremity of value?
   -- (if so, it can't be a 1351, but might be amiga mouse)
   signal potsa_at_edge : std_logic := '0';
@@ -184,16 +196,18 @@ begin
       
       
       -- Work out if we think we have an amiga mouse connected
-      if ((pota_x_internal(7 downto 2) = "111111") or (pota_x_internal(7 downto 2) = "000000"))
-        and ((pota_y_internal(7 downto 2) = "111111") or (pota_y_internal(7 downto 2) = "000000")) then
+      -- 22K resistor on Amiga mouse right button gives values of 12 and 255,
+      -- so we only check the upper nybl.
+      if ((pota_x_internal(7 downto 4) = "1111") or (pota_x_internal(7 downto 4) = "0000"))
+        and ((pota_y_internal(7 downto 4) = "1111") or (pota_y_internal(7 downto 4) = "0000")) then
         potsa_at_edge <= '1';
       else
         potsa_at_edge <= '0';
         ma_amiga_mode <= '0';
         ma_amiga_pots <= '0';
       end if;
-      if (potb_x_internal(7 downto 2) = "111111" or (potb_x_internal(7 downto 2) = "000000"))
-        and (potb_y_internal(7 downto 2) = "111111" or (potb_y_internal(7 downto 2) = "000000")) then
+      if (potb_x_internal(7 downto 4) = "1111" or (potb_x_internal(7 downto 4) = "0000"))
+        and (potb_y_internal(7 downto 4) = "1111" or (potb_y_internal(7 downto 4) = "0000")) then
         potsb_at_edge <= '1';
       else
         potsb_at_edge <= '0';
@@ -232,9 +246,49 @@ begin
       last_fa_rightdown <= fa_right & fa_down;
       last_fb_leftup <= fb_left & fb_up;
       last_fb_rightdown <= fb_right & fb_down;
+
+      if ma_amiga_mode='0' then
+        ma_amiga_rbutton_flags <= "00";
+      else
+        if pota_x_internal > 200 then
+          ma_amiga_rbutton_flags(0) <= '1';
+        end if;
+        if pota_x_internal > 40 then
+          ma_amiga_rbutton_flags(1) <= '1';
+        end if;
+      end if;
+      if mb_amiga_mode='0' then
+        mb_amiga_rbutton_flags <= "00";
+      else
+        if potb_x_internal > 200 then
+          mb_amiga_rbutton_flags(0) <= '1';
+        end if;
+        if potb_x_internal > 40 then
+          mb_amiga_rbutton_flags(1) <= '1';
+        end if;
+      end if;
+      
       if ma_amiga_mode='1' then
         -- Map Amiga right button from POTY to UP
-        fa_up_out <= pota_x_internal(7);
+        -- Use unprocessed pot value, as it is effectively being used as a
+        -- digital input.
+
+        -- XXX Note that Amiga mouses do NOT have a pull-up on pin 9, and the
+        -- C64 and MEGA65 also lack this pull-up, because they expect to use
+        -- paddles on those pins. To use the right button on an Amiga mouse on
+        -- a C64 or MEGA65, the work-around is to add a pull-up to the Amiga
+        -- mouse, or alternatively, make an extension lead for the joystick
+        -- port that includes this pull-up resistor.
+
+        if ma_amiga_rbutton_flags="11" then
+          if pota_x_internal > 200 then
+            fa_up_out <= '1';
+          elsif pota_x_internal < 40 then
+            fa_up_out <= '0';
+          end if;
+        else
+          fa_up_out <= '1';
+        end if;
         fa_left_out <= '1';
         fa_right_out <= '1';
         fa_down_out <= '1';
@@ -277,7 +331,15 @@ begin
         fa_down_out <= fa_down;
       end if;
       if mb_amiga_mode='1' then
-        fb_up_out <= potb_x_internal(7);
+        if ma_amiga_rbutton_flags="11" then
+          if potb_x_internal > 200 then
+            fb_up_out <= '1';
+          elsif potb_x_internal < 40 then
+            fb_up_out <= '0';
+          end if;
+        else
+          fb_up_out <= '1';
+        end if;
         fb_left_out <= '1';
         fb_right_out <= '1';
         fb_down_out <= '1';
@@ -328,8 +390,8 @@ begin
         pota_y(6) <= ma_y(6) xor '1';
         pota_y(7) <= ma_y(6);
       else
-        pota_x <= pota_x_internal;
-        pota_y <= pota_y_internal;
+        pota_x <= pota_x_internal_stabilised;
+        pota_y <= pota_y_internal_stabilised;
       end if;
       if mb_amiga_pots='1' then
         potb_x(5 downto 0) <= mb_x(5 downto 0);
@@ -339,8 +401,8 @@ begin
         potb_y(6) <= mb_y(6) xor '1';
         potb_y(7) <= mb_y(6);
       else
-        potb_x <= potb_x_internal;
-        potb_y <= potb_y_internal;
+        potb_x <= potb_x_internal_stabilised;
+        potb_y <= potb_y_internal_stabilised;
       end if;
 
       -- At ~1MHz C64 bus clock
@@ -386,6 +448,94 @@ begin
           pota_y_counter <= 0;
           potb_x_counter <= 0;
           potb_y_counter <= 0;
+
+
+          -- Do not apply 1351 historesis to Amiga mouses, or if aggressive
+          -- mode is enabled for Amiga mouses (this allows turning off historesis
+          -- for 1351 mouses by enabling aggressive mode, but not amiga
+          -- emulation mode)
+          if ma_amiga_mode='1' or amiga_mouse_assume_a='1' then
+            pota_x_internal_stabilised <= pota_x_internal;
+            pota_y_internal_stabilised <= pota_y_internal;
+          end if;
+          if mb_amiga_mode='1' or amiga_mouse_assume_b='1' then
+            potb_x_internal_stabilised <= potb_x_internal;
+            potb_y_internal_stabilised <= potb_y_internal;
+          end if;
+          
+          -- Track 1351 historesis: Values can vary +/- 1 from the "true"
+          -- value, so we need to see a jump of more than 2 to be sure we have
+          -- truly moved.
+          if pota_x_counter < to_integer(pota_x_internal_stabilised) - 2 then
+            ma_x_hist <= '0';
+          end if;
+          if pota_x_counter > to_integer(pota_x_internal_stabilised) + 2 then
+            ma_x_hist <= '1';
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) - 2 then
+            ma_y_hist <= '0';
+          end if;          
+          if pota_y_counter > to_integer(pota_y_internal_stabilised) + 2 then
+            ma_y_hist <= '1';
+          end if;
+          if potb_x_counter < to_integer(potb_x_internal_stabilised) - 2 then
+            mb_x_hist <= '0';
+          end if;          
+          if potb_x_counter > to_integer(potb_x_internal_stabilised) + 2 then
+            mb_x_hist <= '1';
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) - 2 then
+            mb_y_hist <= '0';
+          end if;
+          if potb_y_counter > to_integer(potb_y_internal_stabilised) + 2 then
+            mb_y_hist <= '1';
+          end if;
+
+          -- Now apply historesis to mouse/paddles on port 1
+          if pota_x_counter < to_integer(pota_x_internal_stabilised) then
+            if (pota_x_counter < (to_integer(pota_x_internal) - 2) ) or ma_x_hist='0' then
+              pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
+            end if;
+          end if;
+          if pota_x_counter > to_integer(pota_x_internal_stabilised) then
+            if (pota_x_counter > (to_integer(pota_x_internal) + 2) ) or ma_x_hist='1' then
+              pota_x_internal_stabilised <= to_unsigned(pota_x_counter,8);
+            end if;
+          end if;
+          if pota_y_counter < to_integer(pota_y_internal_stabilised) then          
+            if (pota_y_counter < (to_integer(pota_y_internal) - 2) ) or ma_y_hist='0' then
+              pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
+            end if;
+          end if;
+          if pota_y_counter > to_integer(pota_y_internal_stabilised) then
+            if (pota_y_counter > (to_integer(pota_y_internal) + 2) ) or ma_y_hist='1' then
+              pota_y_internal_stabilised <= to_unsigned(pota_y_counter,8);
+            end if;
+          end if;
+          
+          -- Now apply historesis to mouse/paddles on port 2
+          if potb_x_counter < to_integer(potb_x_internal_stabilised) then
+            if (potb_x_counter < (to_integer(potb_x_internal) - 2) ) or mb_x_hist='0' then
+              potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
+            end if;
+          end if;
+          if potb_x_counter > to_integer(potb_x_internal_stabilised) then
+            if (potb_x_counter > (to_integer(potb_x_internal) + 2) ) or mb_x_hist='1' then
+              potb_x_internal_stabilised <= to_unsigned(potb_x_counter,8);
+            end if;
+          end if;
+          if potb_y_counter < to_integer(potb_y_internal_stabilised) then          
+            if (potb_y_counter < (to_integer(potb_y_internal) - 2) ) or mb_y_hist='0' then
+              potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
+            end if;
+          end if;
+          if potb_y_counter > to_integer(potb_y_internal_stabilised) then
+            if (potb_y_counter > (to_integer(potb_y_internal) + 2) ) or mb_y_hist='1' then
+              potb_y_internal_stabilised <= to_unsigned(potb_y_counter,8);
+            end if;
+          end if;
+          
+          
         end if;		  
       end if;
 
