@@ -115,7 +115,7 @@ architecture gothic of r3_expansion is
     end case;
   end pick_sub_clock;    
 
-  function source_select(source : source_names) is
+  impure function source_select(source : source_names) is
   begin
       case source is
         when chroma =>      return chroma_in;
