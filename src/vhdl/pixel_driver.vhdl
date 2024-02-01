@@ -1358,7 +1358,7 @@ begin
       -- XXX Allow switching between composite and component video?
       if mono_mode='1' or cv_sync='1' then
         -- No colour info if mono, or during sync pulses
-        composite <= unsigned(signed(luma_drive(9 downto 2));
+        composite <= unsigned(signed(luma_drive(9 downto 2)));
       else
         composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
       end if;
