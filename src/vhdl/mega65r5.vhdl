@@ -539,10 +539,6 @@ architecture Behavioral of container is
 
   signal dvi_select : std_logic := '0';
 
-  signal luma : unsigned(7 downto 0);
-  signal chroma : unsigned(7 downto 0);
-  signal composite : unsigned(7 downto 0);
-
   signal eth_load_enable : std_logic;
 
   signal upscale_enable : std_logic;
@@ -1051,10 +1047,6 @@ begin
           fm_right => fm_right,
 
           no_hyppo => '0',
-
-          luma => luma,
-          chroma => chroma,
-          composite => composite,
 
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
