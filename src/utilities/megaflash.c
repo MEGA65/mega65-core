@@ -524,6 +524,17 @@ uint8_t edit_slot(uint8_t selected_slot)
   return 0;
 }
 
+void perhaps_reconfig(uint8_t slot)
+{
+  if (!booted_via_jtag) {
+    mhx_clear_keybuffer();
+    mhx_until_keys_released();
+    if (!slot || slot_core[slot].valid != 0)
+      reconfig_fpga(slot * SLOT_SIZE + 4096);
+  }
+  mhx_flashscreen(MHX_A_RED, 150);
+}
+
 void hard_exit(void)
 {
   // clear keybuffer
@@ -806,17 +817,8 @@ void main(void)
     mhx_getkeycode(0);
 
     // check for number key pressed
-    if (mhx_lastkey.code.key >= 0x30 && mhx_lastkey.code.key < 0x30 + slot_count) {
-      mhx_clear_keybuffer();
-      mhx_until_keys_released();
-      if (mhx_lastkey.code.key == 0x30) {
-        reconfig_fpga(0 + 4096);
-      }
-      else if (slot_core[mhx_lastkey.code.key - 0x30].valid != 0) // only boot slot if not empty
-        reconfig_fpga((mhx_lastkey.code.key - 0x30) * SLOT_SIZE + 4096);
-      else
-        mhx_flashscreen(MHX_A_RED, 150);
-    }
+    if (mhx_lastkey.code.key >= 0x30 && mhx_lastkey.code.key < 0x30 + slot_count)
+      perhaps_reconfig(mhx_lastkey.code.key - 0x30);
 
     selected_reflash_slot = 0xff;
 
@@ -844,10 +846,7 @@ void main(void)
       break;
     case 0x0d: // RET
       // Launch selected slot
-      if (slot_core[selected].valid != SLOT_EMPTY)
-        reconfig_fpga(selected * SLOT_SIZE + 4096);
-      else
-        mhx_flashscreen(MHX_A_RED, 150);
+      perhaps_reconfig(selected);
       break;
 #ifdef QSPI_FLASH_INSPECT
     case 0x06: // CTRL-F
