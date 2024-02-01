@@ -1356,7 +1356,7 @@ begin
 
       -- Generate final composite signals
       -- XXX Allow switching between composite and component video?
-      if mono_mode='1' or cv_sync='1' then
+      if mono_mode='1' or cv_vsync='1' or cv_hsync='1' then
         -- No colour info if mono, or during sync pulses
         composite <= unsigned(signed(luma_drive(9 downto 2)));
       else
