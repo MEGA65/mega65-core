@@ -1319,7 +1319,7 @@ begin
           else
             luma_drive <= unsigned(signed(px_luma(15 downto 6))
                                    + sine_table(to_integer(ntsc_colour_phase)) /2
-                                   + sine_table(to_integer(pal_colour_phase)) / 4
+                                   + sine_table(to_integer(ntsc_colour_phase)) / 4
                                    );
           end if;
         else
@@ -1358,11 +1358,12 @@ begin
       -- XXX Allow switching between composite and component video?
       if mono_mode='1' or cv_sync='1' then
         -- No colour info if mono, or during sync pulses
-        luma <= luma_drive(9 downto 2);
+        composite <= unsigned(signed(luma_drive(9 downto 2));
       else
-        luma <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
+        composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
       end if;
-      composite <= unsigned(signed(luma_drive(9 downto 2)) + to_integer(chroma_drive(15 downto 8)));
+      -- Dedicated luma signal without colour
+      luma <= luma_drive(9 downto 2);
       -- Dedicated chroma signal has full amplitude, for now at least.
       chroma <= unsigned(chroma_drive(15 downto 8));
 
