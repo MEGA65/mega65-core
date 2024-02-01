@@ -77,7 +77,8 @@ architecture gothic of r3_expansion is
     red, green, blue,
     red_sync, green_sync, blue_sync,
     p_b, p_r,
-    unused13,unused14,unused15
+    sinewave,sawtooth,
+    unused15
     );
   
   signal channel_a_source : source_names := chroma;
@@ -101,8 +102,32 @@ architecture gothic of r3_expansion is
 
   signal sub_clock : integer range 0 to 7 := 0;
 
+  signal sinewave_val : unsigned(7 downto 0) := (others => '0');
+  signal sawtooth_val : unsigned(7 downto 0) := (others => '0');
+
+  
   subtype unsigned2_0_t is unsigned(2 downto 0);
   subtype unsigned7_0_t is unsigned(7 downto 0);
+
+  type s7_0to31 is array (0 to 31) of signed(7 downto 0);
+  signal sine_table : s7_0to31 := (
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(255-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(103+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(1+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(103+128,8))    
+    );
   
   function pick_sub_clock(n : unsigned2_0_t) return unsigned7_0_t is
   begin
@@ -127,6 +152,8 @@ architecture gothic of r3_expansion is
         when composite =>   return composite_in;
         when audio_left =>  return audio_l_in;
         when audio_right => return audio_r_in;
+        when sinewave =>    return sinewave_val;
+        when sawtooth =>    return sawtooth_val;
         when others =>      return (others => '0');          
       end case;
   end source_select;          
@@ -147,8 +174,8 @@ architecture gothic of r3_expansion is
       when 10 => return blue_sync;
       when 11 => return p_b;
       when 12 => return p_r;
-      when 13 => return unused13;
-      when 14 => return unused14;
+      when 13 => return sinewave;
+      when 14 => return sawtooth;
       when 15 => return unused15;
       when others => return unused15;
     end case;
@@ -220,6 +247,13 @@ begin
     
     if rising_edge(clock27) then
 
+      if sawtooth_val /= x"ff" then
+        sawtooth_val <= sawtooth_val + 1;
+      else
+        sawtooth_val <= x"00";
+      end if;
+      sinwave_val <= sine_table(to_integer(sawtooth_val(7 downto 3)));
+      
       channel_a_source <= channel_a_source_cpu;
       channel_b_source <= channel_b_source_cpu;
       channel_b_source <= channel_c_source_cpu;
