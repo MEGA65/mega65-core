@@ -21,11 +21,11 @@ entity r3_expansion is
          clock81 : std_logic;
          clock270 : std_logic;
 
-         fastio_write : std_logic;
-         fastio_read : std_logic;
-         fastio_addr : unsigned(19 downto 0);
-         fastio_rdata : unsigned(7 downto 0);
-         fastio_wdata : unsigned(7 downto 0);
+         fastio_write : in std_logic;
+         fastio_read : in std_logic;
+         fastio_addr : in unsigned(19 downto 0);
+         fastio_rdata : out unsigned(7 downto 0);
+         fastio_wdata : in unsigned(7 downto 0);
          
          -- PMOD connectors on the MEGA65 main board
          -- We say R3 onwards, but in theory we can work with the R2 board
@@ -206,9 +206,9 @@ begin
       -- @IO:GS $FFD8002 ANALOGAV:CHANASEL Select source for analog output channel A
         if fastio_write='1' then
           case fastio_addr(3 downto 0) is
-            when x"0" => channel_a_source_cpu = source_name_lookup(to_integer(fastio_wdata));
-            when x"1" => channel_b_source_cpu = source_name_lookup(to_integer(fastio_wdata));
-            when x"2" => channel_c_source_cpu = source_name_lookup(to_integer(fastio_wdata));
+            when x"0" => channel_a_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
+            when x"1" => channel_b_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
+            when x"2" => channel_c_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
             when others => null;
           end case;
         end if;
