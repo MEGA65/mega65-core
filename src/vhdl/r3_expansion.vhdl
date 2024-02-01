@@ -200,7 +200,7 @@ begin
     end if;
     
     
-    if rising_edge(clock41) then
+    if rising_edge(cpuclock) then
       -- @IO:GS $FFD8000 ANALOGAV:CHANASEL Select source for analog output channel A
       -- @IO:GS $FFD8001 ANALOGAV:CHANASEL Select source for analog output channel A
       -- @IO:GS $FFD8002 ANALOGAV:CHANASEL Select source for analog output channel A
@@ -212,8 +212,7 @@ begin
             when others => null;
           end case;
         end if;
-      end if;
-        
+
     end if;
     
     if rising_edge(clock27) then
