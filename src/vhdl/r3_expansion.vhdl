@@ -21,6 +21,12 @@ entity r3_expansion is
          clock81 : std_logic;
          clock270 : std_logic;
 
+         fastio_write : std_logic;
+         fastio_read : std_logic;
+         fastio_addr : unsigned(19 downto 0);
+         fastio_rdata : unsigned(7 downto 0);
+         fastio_wdata : unsigned(7 downto 0);
+         
          -- PMOD connectors on the MEGA65 main board
          -- We say R3 onwards, but in theory we can work with the R2 board
          -- as well, but that has a smaller FPGA, and no cut-outs in the
@@ -43,10 +49,11 @@ entity r3_expansion is
          tape_port_o : in tape_port_out;
 
          -- Video and Audio feed for composite video port
-         chroma : in unsigned(7 downto 0);
-         luma : in unsigned(7 downto 0);
-         composite : in unsigned(7 downto 0);
-         audio : in unsigned(7 downto 0)
+         chroma_in : in unsigned(7 downto 0);
+         luma_in : in unsigned(7 downto 0);
+         composite_in : in unsigned(7 downto 0);
+         audio_l_in : in unsigned(7 downto 0);
+         audio_r_in : in unsigned(7 downto 0)
          
          );
 
@@ -64,12 +71,29 @@ architecture gothic of r3_expansion is
   constant seq_7 : unsigned(7 downto 0) := "01111111";
   constant seq_8 : unsigned(7 downto 0) := "11111111";
 
-  signal chroma_high : unsigned(5 downto 3) := (others => '0');
-  signal luma_high : unsigned(5 downto 3) := (others => '0');
-  signal composite_high : unsigned(5 downto 3) := (others => '0');
-  signal chroma_low : unsigned(7 downto 0) := (others => '0');
-  signal luma_low : unsigned(7 downto 0) := (others => '0');
-  signal composite_low : unsigned(7 downto 0) := (others => '0');
+  type source_names is
+    chroma, luma, composite,
+    audio_left, audio_right,
+    red, green, blue,
+    red_sync, green_sync, blue_sync,
+    p_b, p_r,
+    unused13,unused14,unused15
+    };
+  
+  signal channel_a_source : source_names := chroma;
+  signal channel_b_source : source_names := luma;
+  signal channel_c_source : source_names := composite;
+
+  signal channel_a_source_cpu : source_names := chroma;
+  signal channel_b_source_cpu : source_names := luma;
+  signal channel_c_source_cpu : source_names := composite;
+  
+  signal chan_a_high : unsigned(5 downto 3) := (others => '0');
+  signal chan_b_high : unsigned(5 downto 3) := (others => '0');
+  signal chan_c_high : unsigned(5 downto 3) := (others => '0');
+  signal chan_a_low  : unsigned(7 downto 0) := (others => '0');
+  signal chan_b_low  : unsigned(7 downto 0) := (others => '0');
+  signal chan_c_low  : unsigned(7 downto 0) := (others => '0');
 
   signal sub_clock : integer range 0 to 7 := 0;
 
@@ -90,7 +114,42 @@ architecture gothic of r3_expansion is
       when others => return seq_0;
     end case;
   end pick_sub_clock;    
-  
+
+  function source_select(source : source_names) is
+  begin
+      case source is
+        when chroma =>      return chroma_in;
+        when luma =>        return luma_in;
+        when composite =>   return composite_in;
+        when audio_left =>  return audio_l_in;
+        when audio_right => return audio_r_in;
+        when others =>      return (others => '0');          
+      end case;
+  end source_select;          
+
+  function source_name_lookup(source : integer) is
+  begin
+    case source is
+      when 0 => return chroma;
+      when 1 => return luma;
+      when 2 => return composite;
+      when 3 => return audio_left;
+      when 4 => return audio_right;
+      when 5 => return red;
+      when 6 => return green;
+      when 7 => return blue;
+      when 8 => return red_sync;
+      when 9 => return green_sync;
+      when 10 => return blue_sync;
+      when 11 => return p_b;
+      when 12 => return p_r;
+      when 13 => return unused13;
+      when 14 => return unused14;
+      when 15 => return unused15;
+      when others => return unused15;
+    end case;
+  end source_name_lookup;
+ 
 begin
 
   controller0: entity work.exp_board_ring_ctrl port map (
@@ -128,33 +187,69 @@ begin
   
   process (clock270,clock81,clock27) is
   begin
+
+    if fastio_addr(19 downto 4) = x"D800" and fastio_rdata = '1' then
+      case fastio_addr(3 downto 0) is
+        when x"0" => fastio_rdata <= source_names'index(channel_a_source_cpu);
+        when x"1" => fastio_rdata <= source_names'index(channel_a_source_cpu);
+        when x"2" => fastio_rdata <= source_names'index(channel_a_source_cpu);
+        when others => fastio_rdata <= (others => 'Z');
+      end case;
+    else
+      fastio_rdata <= (others => 'Z');
+    end if;
+    
+    
+    if rising_edge(clock41) then
+      -- @IO:GS $FFD8000 ANALOGAV:CHANASEL Select source for analog output channel A
+      -- @IO:GS $FFD8001 ANALOGAV:CHANASEL Select source for analog output channel A
+      -- @IO:GS $FFD8002 ANALOGAV:CHANASEL Select source for analog output channel A
+        if fastio_write='1' then
+          case fastio_addr(3 downto 0) is
+            when x"0" => channel_a_source_cpu = source_name_lookup(to_integer(fastio_wdata));
+            when x"1" => channel_b_source_cpu = source_name_lookup(to_integer(fastio_wdata));
+            when x"2" => channel_c_source_cpu = source_name_lookup(to_integer(fastio_wdata));
+            when others => null;
+          end case;
+        end if;
+      end if;
+        
+    end if;
+    
     if rising_edge(clock27) then
+
+      channel_a_source <= channel_a_source_cpu;
+      channel_b_source <= channel_b_source_cpu;
+      channel_b_source <= channel_c_source_cpu;
+
+      channel_a_data <= source_select(channel_a_source);
+      channel_b_data <= source_select(channel_b_source);
+      channel_c_data <= source_select(channel_c_source);
+
       -- Toggle bottom bit of DAC really fast to simulate higher
       -- resolution than the 4 bits we have.
       -- With appropriate filtering of the resulting signal,
       -- this should gain us 2 extra bits of resolution
-      chroma_high <= chroma(7 downto 5); 
-      chroma_low <= pick_sub_clock(chroma(4 downto 2));
-      luma_high <= luma(7 downto 5);
-      luma_low <= pick_sub_clock(luma(4 downto 2));
-      composite_high <= composite(7 downto 5);
-      composite_low <= pick_sub_clock(composite(4 downto 2));
+      chan_a_high <= channel_a_data(7 downto 5); chan_a_low <= pick_sub_clock(channel_a_data(4 downto 2));
+      chan_b_high <= channel_b_data(7 downto 5); chan_b_low <= pick_sub_clock(channel_b_data(4 downto 2));
+      chan_c_high <= channel_c_data(7 downto 5); chan_c_low <= pick_sub_clock(channel_c_data(4 downto 2));
+      
     end if;
     
     if rising_edge(clock270) then
       -- Bit order on PMODs is reversed
       for i in 0 to 2 loop
-        p2lo(i) <= chroma_high(5-i);
-        p2hi(i) <= luma_high(5-i);
-        p1hi(i) <= composite_high(5-i);
+        p2lo(i) <= chan_a_high(5-i);
+        p2hi(i) <= chan_b_high(5-i);
+        p1hi(i) <= chan_c_high(5-i);
       end loop;
       -- We want at least 8 bits of total resolution,
       -- so we do PWM on lowest bit (and later on all
       -- bits, with 4x or 8x step between resistors, instead
       -- of just 2x).
-      p2lo(3) <= chroma_low(sub_clock);
-      p2hi(3) <= luma_low(sub_clock);
-      p1hi(3) <= composite_low(sub_clock);
+      p2lo(3) <= chan_a_low(sub_clock);
+      p2hi(3) <= chan_b_low(sub_clock);
+      p1hi(3) <= chan_c_low(sub_clock);
       if sub_clock /= 7 then
         sub_clock <= sub_clock + 1;
       else

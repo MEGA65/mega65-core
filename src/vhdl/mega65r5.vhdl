@@ -727,13 +727,17 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      -- XXX - Make this run-time switcheable to composite or luma.
-      luma => luma,
-      chroma => chroma,
-      composite => composite,
-      -- XXX As of revC of the expansion board, we still don't have the audio
-      -- piped through. 
-      audio => luma,
+      fastio_read => fastio_read,
+      fastio_write => fastio_write,
+      fastio_addr => fastio_addr,
+      fastio_rdata => fastio_rdata,
+      fastio_wdata => fastio_wdata,
+      
+      luma_in => luma,
+      chroma_in => chroma,
+      composite_in => composite,
+      audio_l_in => unsigned(audio_left(19 downto 12),
+      audio_r_in => unsigned(audio_left(19 downto 12),
 
       tape_port_i => tape_port_i,
       tape_port_o => tape_port_o,
