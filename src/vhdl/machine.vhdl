@@ -851,6 +851,9 @@ architecture Behavioral of machine is
   signal interlace_mode : std_logic;
   signal mono_mode : std_logic;
 
+  signal audio_left_int : unsigned(7 downto 0);
+  signal audio_right_int : unsigned(7 downto 0);
+  
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
