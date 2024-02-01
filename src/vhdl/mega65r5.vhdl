@@ -547,13 +547,6 @@ architecture Behavioral of container is
 
   signal sdram_slow_clock : std_logic;
 
-  signal user_port_i : user_port_in;
-  signal user_port_o : user_port_out;
-  signal tape_port_i : tape_port_in;
-  signal tape_port_o : tape_port_out;
-  signal c1565_port_i : c1565_port_in;
-  signal c1565_port_o : c1565_port_out;
-  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -1117,13 +1110,6 @@ begin
           pot_drain => pot_drain,
           pot_via_iec => pot_via_iec,
 
-          tape_port_i => tape_port_i,
-          tape_port_o => tape_port_o,
-          c1565_port_i => c1565_port_i,
-          c1565_port_o => c1565_port_o,
-          user_port_i => user_port_i,
-          user_port_o => user_port_o,
-          
           f_density => f_density,
           f_motorb => f_motorb,
           f_motora => f_motora,
