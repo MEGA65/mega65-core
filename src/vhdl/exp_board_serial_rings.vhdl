@@ -80,6 +80,8 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   signal allow_reset : std_logic := '1';
   signal reset_counter : integer range 0 to 127 := 0;
   signal last_reset_in : std_logic := '1';
+  signal ring_lengths : unsigned(7 downto 0) := x"00";
+  signal board_revision : unsigned(7 downto 0) := x"00";
   
   function to_str(signal vec: std_logic_vector) return string is
       variable result: string(0 to (vec'length-1));
