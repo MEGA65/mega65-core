@@ -190,8 +190,8 @@ begin
 
     -- Management interface
     fastio_rdata => fastio_rdata,
-    fastio_wdata => to_unsigned(0,8),
-    fastio_addr => to_unsigned(0,20),
+    fastio_wdata => fastio_waddr,
+    fastio_addr => fastio_addr,
     fastio_write => fastio_write,    
     fastio_read => fastio_read,    
     
