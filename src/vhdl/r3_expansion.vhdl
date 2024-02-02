@@ -216,7 +216,7 @@ begin
     );
 
   
-  process (cpuclock,clock270,clock81,clock27,channel_a_source_cpu,channel_b_source_cpu,channel_c_source_cpu) is
+  process (cpuclock,clock270,clock81,clock27,channel_a_source_cpu,channel_b_source_cpu,channel_c_source_cpu,fastio_addr,fastio_read) is
   begin
 
     if fastio_addr(19 downto 4) = x"D800" and fastio_read = '1' then
