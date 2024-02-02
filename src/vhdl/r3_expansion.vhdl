@@ -260,7 +260,7 @@ begin
       
       channel_a_source <= channel_a_source_cpu;
       channel_b_source <= channel_b_source_cpu;
-      channel_b_source <= channel_c_source_cpu;
+      channel_c_source <= channel_c_source_cpu;
 
       channel_a_data <= source_select(channel_a_source);
       channel_b_data <= source_select(channel_b_source);
