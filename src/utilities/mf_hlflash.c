@@ -118,6 +118,8 @@ int8_t mfhf_load_core() {
     mfhf_display_sderror("Error while loading core file!", err);
     return 0;
   }
+  nhsd_close();
+
   if (addr & 0xffff)
     mfp_set_area(addr >> 16, 1, 0x5f, MHX_A_WHITE);
 
@@ -182,7 +184,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
   for (flash_addr = SLOT_SIZE * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
     read_data(flash_addr);
-    lcopy(&data_buffer, 0x8000000L + addr, 512);
+    lcopy((long)&data_buffer, 0x8000000L + addr, 512);
     mfp_progress(addr);
     if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
       return mfhf_core_file_state;
@@ -193,6 +195,10 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
 
   mfsc_corehdr_length = addr_len;
   mfhf_core_file_state = MFHF_LC_ATTICOK;
+
+  // do a dummy sdcard action in hope that this resets the bus
+  // TODO: solve underlaying problem!
+  nhsd_init(NHSD_INIT_BUS0_FB1, buffer);
 
   return mfhf_core_file_state;
 }
@@ -260,7 +266,7 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 }
 
 int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
-  uint32_t attic_addr, addr, end_addr, size, waddr;
+  uint32_t addr, end_addr, size, waddr;
   uint8_t tries;
 
   /*
@@ -284,16 +290,13 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   lcopy((long)mf_screens_menu.screen_start + 7 * 80, mhx_base_scr + 23*40, 80);
   mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
 
-  // Setup progress bar
-  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, selected_file == MFSC_FILE_VALID ? " Flash Core to Slot " : " Erasing Slot ", MHX_A_WHITE);
-
   // Read a few times to make sure transient initial read problems disappear
   // TODO: get rid of this by fixing underlaying problem!
   read_data(0);
   read_data(0);
   read_data(0);
 
-  // erase first 256k first
+  // set end_addr to the START OF THE SLOT (flashing downwards!)
   end_addr = SLOT_SIZE * slot;
 
   /*
@@ -301,22 +304,33 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   mhx_writef(MHX_W_WHITE "SLOT_SIZE = %08lx  \nSLOT      = %d\nend_addr  = %08lx  \n", SLOT_SIZE, slot, end_addr);
   */
 
-  // if we are flashing only a short part, then we can skip the erase first
-  if (mfsc_corehdr_length < 0x100000UL)
-    addr = end_addr + mfsc_corehdr_length;
+  // Setup progress bar
+  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Erasing Slot ", MHX_A_WHITE);
+
+  if (!slot || selected_file == MFSC_FILE_ERASE)
+    // if we are flashing slot 0 or erasing a slot, we
+    // erase the full slot first
+    size = SLOT_SIZE;
   else {
-    // tests with Senfsosse showed that 256k or 512k were not enough to ensure slot 1 boot
-    mfhf_erase_some_sectors(end_addr, end_addr + 0x100000UL);
-    // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-
-    // start at the end and flash downwards
-    addr = end_addr + SLOT_SIZE;
+    // if we are not flashing factory slot, just erase the first sector
+    // to get rid of the core header -- header is 4k!
+    if (end_addr <= (uint32_t)num_4k_sectors << 12)
+      size = 4096;
+    else
+      size = 1L << ((uint32_t)flash_sector_bits);
   }
 
-  // don't need to erase two times, if we are in erase mode
-  if (selected_file == MFSC_FILE_ERASE) {
-    end_addr += 0x100000UL;
-  }
+  // now erase what is needed
+  mfhf_erase_some_sectors(end_addr, end_addr + size);
+
+  // if it was erase only, we jump to the end!
+  if (selected_file == MFSC_FILE_ERASE)
+    goto mfhf_flash_finish;
+
+  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Flash Core to Slot ", MHX_A_WHITE);
+
+  // only flash up to the files length
+  addr = end_addr + SLOT_SIZE;
 
 #undef SHORTFLASHDEBUG
 
@@ -342,7 +356,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
 
     // if we are flashing a file, skip over sectors without data
     // this works because at this point addr points at the start of the sector that is being flashed
-    if (selected_file != MFSC_FILE_ERASE && (addr - end_addr) >= mfsc_corehdr_length) {
+    if ((addr - end_addr) >= mfsc_corehdr_length) {
 #ifdef SHORTFLASHDEBUG
       mhx_writef("skip\n");
 #endif
@@ -438,6 +452,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
                "\n", load_time, crc_time, flash_time);
 #endif
 
+mfhf_flash_finish:
   mhx_draw_rect(4, 12, 30, 1, "Finished Flashing", MHX_A_GREEN, 1);
   mhx_write_xy(5, 13, (selected_file == MFSC_FILE_VALID) ? "Core was successfully flashed" : "Slot was successfully erased", MHX_A_GREEN);
 
