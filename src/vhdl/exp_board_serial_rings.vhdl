@@ -112,17 +112,37 @@ begin
     if fastio_read='1' and fastio_addr(19 downto 4) = x"D801" then
       -- Reading
       case fastio_addr(3 downto 0) is
+        -- @IO:GS $FFD8010 EXPBOARD:RINGLENGTHS Read and write ring lengths (read only)
         when x"0" => fastio_rdata <= ring_lengths;
+        -- @IO:GS $FFD8011 EXPBOARD:RDRING1 First byte of expansion port input ring
+        -- @IO:GS $FFD8012 EXPBOARD:RDRING2 Second byte of expansion port input ring
+        -- @IO:GS $FFD8013 EXPBOARD:RDRING3 Third byte of expansion port input ring
+        -- @IO:GS $FFD8014 EXPBOARD:RDRING4 Fourth byte of expansion port input ring
+        -- @IO:GS $FFD8015 EXPBOARD:RDRING5 Fifth byte of expansion port input ring
+        -- @IO:GS $FFD8016 EXPBOARD:RDRING6 Sixth byte of expansion port input ring
         when x"1" => fastio_rdata <= unsigned(input_vector(7 downto 0));
         when x"2" => fastio_rdata <= unsigned(input_vector(15 downto 8));
         when x"3" => fastio_rdata <= unsigned(input_vector(23 downto 16));
+        -- @IO:GS $FFD8018 EXPBOARD:WRRING1 First byte of expansion port output ring
+        -- @IO:GS $FFD8019 EXPBOARD:WRRING2 Second byte of expansion port output ring
+        -- @IO:GS $FFD801A EXPBOARD:WRRING3 Third byte of expansion port output ring
+        -- @IO:GS $FFD801B EXPBOARD:WRRING4 Fourth byte of expansion port output ring
+        -- @IO:GS $FFD801C EXPBOARD:WRRING5 Fifth byte of expansion port output ring
+        -- @IO:GS $FFD801D EXPBOARD:WRRING6 Sixth byte of expansion port output ring
+        -- @IO:GS $FFD801E EXPBOARD:WRRING7 Seventh byte of expansion port output ring
         when x"8" => fastio_rdata <= unsigned(output_vector(7 downto 0));
         when x"9" => fastio_rdata <= unsigned(output_vector(15 downto 8));
         when x"A" => fastio_rdata <= unsigned(output_vector(23 downto 16));
         when x"B" => fastio_rdata <= unsigned(output_vector(31 downto 24));
+        -- @IO:GS $FFD8016 EXPBOARD:BOARDREV Revision of detected expansion board (read only)
         when x"6" => fastio_rdata <= board_revision;
+        -- @IO:GS $FFD8017.7 EXPBOARD:USRRSTEN Enable reset of MEGA65 via user port reset line
+        -- @IO:GS $FFD8017.0-6 EXPBOARD:USRRSTCT Number of negative edges seen on user-port reset since last write to register.
         when x"7" => fastio_rdata(7) <= allow_reset;
                      fastio_rdata(6 downto 0) <= to_unsigned(reset_counter,7);
+                     
+        -- @IO:GS $FFD801F.7 EXPBOARD:PLUMBEN Plumb expansion board signals to MEGA65 logical ports.
+        -- @IO:GS $FFD801F.0-6 EXPBOARD:CLOCKDIV Expansion board clock divisor
         when x"F" => fastio_rdata(7) <= plumb_signals;
                      fastio_rdata(6 downto 0) <= to_unsigned(clock_divisor,7);
         when others => fastio_rdata <= (others => 'Z');
