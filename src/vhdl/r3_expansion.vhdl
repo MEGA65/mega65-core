@@ -109,24 +109,24 @@ architecture gothic of r3_expansion is
   subtype unsigned2_0_t is unsigned(2 downto 0);
   subtype unsigned7_0_t is unsigned(7 downto 0);
 
-  type s7_0to31 is array (0 to 31) of signed(7 downto 0);
-  signal sine_table : s7_0to31 := (
-    signed(to_unsigned(128-128,8)),signed(to_unsigned(152-128,8)),
-    signed(to_unsigned(176-128,8)),signed(to_unsigned(198-128,8)),
-    signed(to_unsigned(217-128,8)),signed(to_unsigned(233-128,8)),
-    signed(to_unsigned(245-128,8)),signed(to_unsigned(252-128,8)),
-    signed(to_unsigned(255-128,8)),signed(to_unsigned(252-128,8)),
-    signed(to_unsigned(245-128,8)),signed(to_unsigned(233-128,8)),
-    signed(to_unsigned(217-128,8)),signed(to_unsigned(198-128,8)),
-    signed(to_unsigned(176-128,8)),signed(to_unsigned(152-128,8)),
-    signed(to_unsigned(128-128,8)),signed(to_unsigned(103+128,8)),
-    signed(to_unsigned(79+128,8)),signed(to_unsigned(57+128,8)),
-    signed(to_unsigned(38+128,8)),signed(to_unsigned(22+128,8)),
-    signed(to_unsigned(10+128,8)),signed(to_unsigned(3+128,8)),
-    signed(to_unsigned(1+128,8)),signed(to_unsigned(3+128,8)),
-    signed(to_unsigned(10+128,8)),signed(to_unsigned(22+128,8)),
-    signed(to_unsigned(38+128,8)),signed(to_unsigned(57+128,8)),
-    signed(to_unsigned(79+128,8)),signed(to_unsigned(103+128,8))    
+  type us7_0to63 is array (0 to 63) of unsigned(7 downto 0);
+  signal sine_table : s7_0to63 := (
+    to_unsigned(128,8), to_unsigned(131,8), to_unsigned(134,8), to_unsigned(137,8),
+    to_unsigned(140,8), to_unsigned(143,8), to_unsigned(146,8), to_unsigned(149,8),
+    to_unsigned(152,8), to_unsigned(155,8), to_unsigned(158,8), to_unsigned(161,8),
+    to_unsigned(164,8), to_unsigned(167,8), to_unsigned(170,8), to_unsigned(173,8),
+    to_unsigned(176,8), to_unsigned(179,8), to_unsigned(182,8), to_unsigned(185,8),
+    to_unsigned(187,8), to_unsigned(190,8), to_unsigned(193,8), to_unsigned(195,8),
+    to_unsigned(198,8), to_unsigned(201,8), to_unsigned(203,8), to_unsigned(206,8),
+    to_unsigned(208,8), to_unsigned(210,8), to_unsigned(213,8), to_unsigned(215,8),
+    to_unsigned(217,8), to_unsigned(219,8), to_unsigned(222,8), to_unsigned(224,8),
+    to_unsigned(226,8), to_unsigned(228,8), to_unsigned(230,8), to_unsigned(231,8),
+    to_unsigned(233,8), to_unsigned(235,8), to_unsigned(236,8), to_unsigned(238,8),
+    to_unsigned(240,8), to_unsigned(241,8), to_unsigned(242,8), to_unsigned(244,8),
+    to_unsigned(245,8), to_unsigned(246,8), to_unsigned(247,8), to_unsigned(248,8),
+    to_unsigned(249,8), to_unsigned(250,8), to_unsigned(251,8), to_unsigned(251,8),
+    to_unsigned(252,8), to_unsigned(253,8), to_unsigned(253,8), to_unsigned(254,8),
+    to_unsigned(254,8), to_unsigned(254,8), to_unsigned(254,8), to_unsigned(255,8)
     );
   
   function pick_sub_clock(n : unsigned2_0_t) return unsigned7_0_t is
@@ -252,12 +252,13 @@ begin
       else
         sawtooth_val <= x"00";
       end if;
-      if (sawtooth_val(7)='0') then
-        sinewave_val <= unsigned(sine_table(to_integer(sawtooth_val(6 downto 2))));
-      else
-        sinewave_val <= unsigned(sine_table(31 - to_integer(sawtooth_val(6 downto 2))));
-      end if;
-      
+      case sawtooth_val(7 downto 6) is
+        when "00" => sinewave_val <= unsigned(sine_table(to_integer(sawtooth_val(5 downto 0))));
+        when "01" => sinewave_val <= unsigned(sine_table(63 - to_integer(sawtooth_val(5 downto 0))));
+        when "10" => sinewave_val <= unsigned(255 - sine_table(to_integer(sawtooth_val(5 downto 0))));
+        when "11" => sinewave_val <= unsigned(255 - sine_table(63 - to_integer(sawtooth_val(5 downto 0))));
+      end case;
+                     
       channel_a_source <= channel_a_source_cpu;
       channel_b_source <= channel_b_source_cpu;
       channel_c_source <= channel_c_source_cpu;
