@@ -105,32 +105,28 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   
 begin
 
-  process (clock41, cs, fastio_addr, fastio_write, input_vector, output_vector, plumb_signals, clock_divisor) is
+  process (clock41, fastio_addr, fastio_write, input_vector, output_vector, plumb_signals, clock_divisor) is
   begin
 
     -- Read management registers
-    if cs='1' then
-      if fastio_read='1' and fastio_addr(19 downto 4) = x"D801" then
-        -- Reading
-        case fastio_addr(3 downto 0) is
-          when x"0" => fastio_rdata <= ring_lengths;
-          when x"1" => fastio_rdata <= unsigned(input_vector(7 downto 0));
-          when x"2" => fastio_rdata <= unsigned(input_vector(15 downto 8));
-          when x"3" => fastio_rdata <= unsigned(input_vector(23 downto 16));
-          when x"8" => fastio_rdata <= unsigned(output_vector(7 downto 0));
-          when x"9" => fastio_rdata <= unsigned(output_vector(15 downto 8));
-          when x"A" => fastio_rdata <= unsigned(output_vector(23 downto 16));
-          when x"B" => fastio_rdata <= unsigned(output_vector(31 downto 24));
-          when x"6" => fastio_rdata <= board_revision;
-          when x"7" => fastio_rdata(7) <= allow_reset;
-                       fastio_rdata(6 downto 0) <= to_unsigned(reset_counter,7);
-          when x"F" => fastio_rdata(7) <= plumb_signals;
-                       fastio_rdata(6 downto 0) <= to_unsigned(clock_divisor,7);
-          when others => fastio_rdata <= (others => 'Z');
-        end case;
-      else
-        fastio_rdata <= (others => 'Z');
-      end if;
+    if fastio_read='1' and fastio_addr(19 downto 4) = x"D801" then
+      -- Reading
+      case fastio_addr(3 downto 0) is
+        when x"0" => fastio_rdata <= ring_lengths;
+        when x"1" => fastio_rdata <= unsigned(input_vector(7 downto 0));
+        when x"2" => fastio_rdata <= unsigned(input_vector(15 downto 8));
+        when x"3" => fastio_rdata <= unsigned(input_vector(23 downto 16));
+        when x"8" => fastio_rdata <= unsigned(output_vector(7 downto 0));
+        when x"9" => fastio_rdata <= unsigned(output_vector(15 downto 8));
+        when x"A" => fastio_rdata <= unsigned(output_vector(23 downto 16));
+        when x"B" => fastio_rdata <= unsigned(output_vector(31 downto 24));
+        when x"6" => fastio_rdata <= board_revision;
+        when x"7" => fastio_rdata(7) <= allow_reset;
+                     fastio_rdata(6 downto 0) <= to_unsigned(reset_counter,7);
+        when x"F" => fastio_rdata(7) <= plumb_signals;
+                     fastio_rdata(6 downto 0) <= to_unsigned(clock_divisor,7);
+        when others => fastio_rdata <= (others => 'Z');
+      end case;
     else
       fastio_rdata <= (others => 'Z');
     end if;
