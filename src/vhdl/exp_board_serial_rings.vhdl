@@ -14,9 +14,9 @@ entity exp_board_ring_ctrl is
     clock41 : in std_logic;
 
     -- FastIO interface to manage the ring controller
-    cs : in std_logic;
     fastio_addr : in unsigned(19 downto 0);
     fastio_write : in std_logic;
+    fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0) := (others => 'Z');
     
@@ -76,6 +76,10 @@ architecture one_ring_to_bind_them of exp_board_ring_ctrl is
   signal ring_phase : integer range 0 to 32 := 0;
 
   signal input_active : std_logic := '0';
+
+  signal allow_reset : std_logic := '1';
+  signal reset_counter : integer range 0 to 127 := 0;
+  signal last_reset_in : std_logic := '1';
   
   function to_str(signal vec: std_logic_vector) return string is
       variable result: string(0 to (vec'length-1));
@@ -104,10 +108,10 @@ begin
 
     -- Read management registers
     if cs='1' then
-      if fastio_write='0' then
+      if fastio_read='1' and fastio_addr(19 downto 4) = x"D801" then
         -- Reading
         case fastio_addr(3 downto 0) is
-          when x"0" => fastio_rdata <= x"34";
+          when x"0" => fastio_rdata <= ring_lengths;
           when x"1" => fastio_rdata <= unsigned(input_vector(7 downto 0));
           when x"2" => fastio_rdata <= unsigned(input_vector(15 downto 8));
           when x"3" => fastio_rdata <= unsigned(input_vector(23 downto 16));
@@ -115,9 +119,12 @@ begin
           when x"9" => fastio_rdata <= unsigned(output_vector(15 downto 8));
           when x"A" => fastio_rdata <= unsigned(output_vector(23 downto 16));
           when x"B" => fastio_rdata <= unsigned(output_vector(31 downto 24));
+          when x"6" => fastio_rdata <= board_revision;
+          when x"7" => fastio_rdata(7) <= allow_reset;
+                       fastio_rdata(6 downto 0) <= to_unsigned(reset_counter,7);
           when x"F" => fastio_rdata(7) <= plumb_signals;
                        fastio_rdata(6 downto 0) <= to_unsigned(clock_divisor,7);
-          when others => null;
+          when others => fastio_rdata <= (others => 'Z');
         end case;
       else
         fastio_rdata <= (others => 'Z');
@@ -129,11 +136,13 @@ begin
     if rising_edge(clock41) then
 
       -- Write to management registers
-      if cs='1' and fastio_write='1' then
+      if fastio_write='1' fastio_addr(19 downto 4) = x"D801" then
         case fastio_addr(3 downto 0) is
           when x"1" => input_vector(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"2" => input_vector(15 downto 8) <= std_logic_vector(fastio_wdata);
           when x"3" => input_vector(23 downto 16) <= std_logic_vector(fastio_wdata);
+          when x"7" => allow_reset <= fastio_wdata(7);
+                       reset_counter <= 0;
           when x"8" => output_vector(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"9" => output_vector(15 downto 8) <= std_logic_vector(fastio_wdata);
           when x"A" => output_vector(23 downto 16) <= std_logic_vector(fastio_wdata);
@@ -235,37 +244,65 @@ begin
         input_active <= '0';
       end if;
 
-      if input_active = '1' then
-        for i in 0 to 7 loop
-          user_i.d(i) <= input_vector(i);
-        end loop;
-
-        c1565_i.serio <= input_vector(22);
-        tape_i.sense <= input_vector(21);
-        tape_i.rdata <= input_vector(20);
-        user_i.pa2 <= input_vector(8);
-        user_i.sp1 <= input_vector(9);
-        user_i.cnt2 <= input_vector(10);
-        user_i.sp2 <= input_vector(11);
-        user_i.pc2 <= input_vector(12);
-        user_i.flag2 <= input_vector(13);
-        user_i.cnt1 <= input_vector(14);
-        user_i.reset_n <= input_vector(15);
-      else
-        user_i.d <= (others => '1');
-        c1565_i.serio <= '1';
-        tape_i.sense <= '1';
-        tape_i.rdata <= '1';
-        user_i.pa2 <= '1';
-        user_i.sp1 <= '1';
-        user_i.cnt2 <= '1';
-        user_i.sp2 <= '1';
-        user_i.pc2 <= '1';
-        user_i.flag2 <= '1';
-        user_i.cnt1 <= '1';
-        user_i.reset_n <= '1';        
-      end if;
+      user_i.d <= (others => '1');
+      c1565_i.serio <= '1';
+      tape_i.sense <= '1';
+      tape_i.rdata <= '1';
+      user_i.pa2 <= '1';
+      user_i.sp1 <= '1';
+      user_i.cnt2 <= '1';
+      user_i.sp2 <= '1';
+      user_i.pc2 <= '1';
+      user_i.flag2 <= '1';
+      user_i.cnt1 <= '1';
+      user_i.reset_n <= '1';
+      ring_lengths <= x"00";
+      board_revision <= x"00";
       
+      if input_active = '1' then
+        if input_vector(16)='0' and input_vector(19 downto 17) = "001" then
+          -- reserved for a future version with incompatible input or output rings
+          -- We can use values 001 -- 111, but not 000, as we have to have at
+          -- least one 1 bit and one 0 bit in the pins 16-19, so that we can be
+          -- sure we can detect when the board is not responding
+
+          board_revision <= x"05";
+          -- ...
+          
+        if input_vector(16)='1' and input_vector(17)='0' then
+
+          -- revC, revD or compatible expansion board
+
+          board_revision <= x"04";
+          ring_lengths <= x"34";
+          
+          for i in 0 to 7 loop
+            user_i.d(i) <= input_vector(i);
+          end loop;
+
+          c1565_i.serio <= input_vector(22);
+          tape_i.sense <= input_vector(21);
+          tape_i.rdata <= input_vector(20);
+          user_i.pa2 <= input_vector(8);
+          user_i.sp1 <= input_vector(9);
+          user_i.cnt2 <= input_vector(10);
+          user_i.sp2 <= input_vector(11);
+          user_i.pc2 <= input_vector(12);
+          user_i.flag2 <= input_vector(13);
+          user_i.cnt1 <= input_vector(14);
+          last_reset_in <= input_vector(15);
+          if input_vector(15)='0' and last_reset_in='1' then
+            if reset_counter < 127 then
+              reset_counter <= reset_counter + 1;
+            end if;
+          end if;
+          if allow_reset='1' then
+            user_i.reset_n <= input_vector(15);
+          else
+            user_i.reset_n <= '1';
+          end if;
+        end if;
+      end if;
     end if;
   end process;
   

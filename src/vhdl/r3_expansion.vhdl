@@ -188,13 +188,13 @@ begin
     -- Master clock
     clock41 => cpuclock,
 
-    -- Management interface (not connected for now)
-    cs => '0',
---    fastio_rdata => fastio_rdata,
+    -- Management interface
+    fastio_rdata => fastio_rdata,
     fastio_wdata => to_unsigned(0,8),
     fastio_addr => to_unsigned(0,20),
-    fastio_write => '0',
-
+    fastio_write => fastio_write,    
+    fastio_read => fastio_read,    
+    
     -- PMOD pins
     exp_clock => p1lo(1),
     exp_latch => p1lo(0),
