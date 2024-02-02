@@ -110,7 +110,7 @@ architecture gothic of r3_expansion is
   subtype unsigned7_0_t is unsigned(7 downto 0);
 
   type us7_0to63 is array (0 to 63) of unsigned(7 downto 0);
-  signal sine_table : s7_0to63 := (
+  signal sine_table : us7_0to63 := (
     to_unsigned(128,8), to_unsigned(131,8), to_unsigned(134,8), to_unsigned(137,8),
     to_unsigned(140,8), to_unsigned(143,8), to_unsigned(146,8), to_unsigned(149,8),
     to_unsigned(152,8), to_unsigned(155,8), to_unsigned(158,8), to_unsigned(161,8),
