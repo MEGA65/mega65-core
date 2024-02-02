@@ -287,7 +287,7 @@ begin
           board_revision <= x"05";
           -- ...
           
-        if input_vector(16)='1' and input_vector(17)='0' then
+        elsif input_vector(16)='1' and input_vector(17)='0' then
 
           -- revC, revD or compatible expansion board
 
