@@ -110,6 +110,7 @@ typedef struct {
   char version[33];
   uint8_t capabilities;
   uint8_t flags;
+  uint8_t real_flags;
   uint8_t valid;
   uint32_t length;
 } slot_core_t;
@@ -283,6 +284,8 @@ unsigned char scan_core_information(unsigned char search_flags)
 
     if (slot_core[slot].valid == SLOT_VALID) {
       slot_core[slot].capabilities = data_buffer[MFSC_COREHDR_BOOTCAPS] & CORECAP_USED;
+      // needed for flag editing
+      slot_core[slot].real_flags = data_buffer[MFSC_COREHDR_BOOTFLAGS];
       // mask out flags from prior slots, slot 0 never has flags enabled!
       slot_core[slot].flags = data_buffer[MFSC_COREHDR_BOOTFLAGS] & flagmask;
       // remove flags from flagmask (we only find the first flag of a kind)
@@ -417,7 +420,7 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
         mhx_write_xy(1, 12 + i, "< > [ ]", MHX_A_NOCOLOR);
         mhx_putch_offset(-6, 0x31 + i, MHX_A_NOCOLOR);
 
-        if (loaded || (slot_core[selected_slot].flags & corecap_def[i].bits) == (mfsc_corehdr_bootflags & corecap_def[i].bits)) {
+        if (loaded || (slot_core[selected_slot].real_flags & corecap_def[i].bits) == (mfsc_corehdr_bootflags & corecap_def[i].bits)) {
           mhx_putch_offset(-2, (mfsc_corehdr_bootflags & corecap_def[i].bits) ? '*' : ' ', MHX_A_WHITE);
         }
         else {
@@ -442,7 +445,7 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   mfp_set_area(0, slot_core[selected_slot].length >> 16, '*', MHX_A_WHITE);
 
   // copy footer from upper memory
-  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }
@@ -459,7 +462,7 @@ uint8_t edit_slot(uint8_t selected_slot)
 
   // setup mfsc_selectcore flags with slot flags, so that
   // they can be replace by caps and flags of a core file selected
-  mfsc_corehdr_bootflags = slot_core[selected_slot].flags;
+  mfsc_corehdr_bootflags = slot_core[selected_slot].real_flags;
   mfsc_corehdr_bootcaps = slot_core[selected_slot].capabilities;
   mfsc_corehdr_length = slot_core[selected_slot].length;
 
@@ -508,7 +511,7 @@ uint8_t edit_slot(uint8_t selected_slot)
         }
         return 0;
       // otherwise perhaps only flags have changed?
-      } else if (slot_core[selected_slot].flags != mfsc_corehdr_bootflags) {
+      } else if (slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) {
         // we default to loading 256k (this is the sector size on r3a+)
         // TODO: make this independet of flash chip geometry
         if (mfhf_load_core_from_flash(selected_slot, 0x40000L)) {
