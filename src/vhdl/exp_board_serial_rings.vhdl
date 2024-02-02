@@ -154,7 +154,7 @@ begin
     if rising_edge(clock41) then
 
       -- Write to management registers
-      if fastio_write='1' fastio_addr(19 downto 4) = x"D801" then
+      if fastio_write='1' and fastio_addr(19 downto 4) = x"D801" then
         case fastio_addr(3 downto 0) is
           when x"1" => input_vector(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"2" => input_vector(15 downto 8) <= std_logic_vector(fastio_wdata);
