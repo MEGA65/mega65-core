@@ -190,7 +190,7 @@ begin
 
     -- Management interface
     fastio_rdata => fastio_rdata,
-    fastio_wdata => fastio_waddr,
+    fastio_wdata => fastio_wdata,
     fastio_addr => fastio_addr,
     fastio_write => fastio_write,    
     fastio_read => fastio_read,    
