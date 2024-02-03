@@ -105,6 +105,8 @@ static const char BRINGUP_CORE[13] = "BRINGUP.COR";
 
 #include <cbm_screen_charmap.h>
 
+static const char R095_VER[] = "Release 0.95 93d55f0";
+
 typedef struct {
   char name[33];
   char version[33];
@@ -506,7 +508,7 @@ uint8_t edit_slot(uint8_t selected_slot)
       if (selected_file != MFSC_FILE_INVALID) {
         if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
           // patch flags into loaded core, but no flags for slot 0
-          mfhf_flash_core(selected_file, selected_slot);
+          mfhf_flash_core(selected_file, (!selected_slot && !memcmp(slot_core[selected_slot].version, R095_VER, 20) ? 0x80 : selected_slot));
           scan_core_information(0);
         }
         return 0;

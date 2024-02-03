@@ -296,6 +296,23 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   read_data(0);
   read_data(0);
 
+  /*
+   * Special handling for 0.95 in slot 0
+   *
+   * we specifically erase the three sectors that contain a sync word
+   * to make sure recovery by slot 1 core works
+   *
+   */
+  if (slot == 0x80) {
+    mfhf_erase_some_sectors(0x000000UL, 0x040000UL);
+    mfhf_erase_some_sectors(0x340000UL, 0x380000UL);
+    mfhf_erase_some_sectors(0x400000UL, 0x440000UL);
+  }
+  slot &= 0x7f;
+  /*
+   * end of special handling for 0.95 in slot 0
+   */
+
   // set end_addr to the START OF THE SLOT (flashing downwards!)
   end_addr = SLOT_SIZE * slot;
 
