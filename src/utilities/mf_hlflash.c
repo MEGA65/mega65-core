@@ -287,7 +287,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    */
 
   // cover STOP menubar option with warning
-  lcopy((long)mf_screens_menu.screen_start + 7 * 80, mhx_base_scr + 23*40, 80);
+  lcopy((long)mf_screens_menu.screen_start + 9 * 80, mhx_base_scr + 23*40, 80);
   mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
 
   // Read a few times to make sure transient initial read problems disappear

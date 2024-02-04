@@ -447,7 +447,7 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   mfp_set_area(0, slot_core[selected_slot].length >> 16, '*', MHX_A_WHITE);
 
   // copy footer from upper memory
-  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_slot | booted_via_jtag) ? 160 : 0) + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }

@@ -57,7 +57,7 @@ Type CONFIRM to proceed, or press
 <RUN/STOP> to abort: {C}
 !endtext
 !screen=menu
-!size=40x16
+!size=40x20
 !nocolorram=1
 !background=6
 !foreground=1
@@ -73,9 +73,13 @@ Type CONFIRM to proceed, or press
  <RETURN> Select file      <STOP> Abort
  <F5> External SD  <F7> Directory: CORE
  <RETURN> Select file      <STOP> Abort
- <F3> Load Core   <F4> Erase Slot
+ <F3> Load Core
                            <STOP> Abort
- <F3> Load Core   <F4> Erase Slot
+ <F3> Load Core
+ <F8> Flash Slot           <STOP> Abort
+ <F3> Load Core    <F4> Erase Slot
+                           <STOP> Abort
+ <F3> Load Core    <F4> Erase Slot
  <F8> Flash Slot           <STOP> Abort
  Don't interrupt power supply nor touch
        the device while flashing!
