@@ -105,7 +105,11 @@ static const char BRINGUP_CORE[13] = "BRINGUP.COR";
 
 #include <cbm_screen_charmap.h>
 
+// Release 0.95 cores in the Batch2 machines do not have a erase list
+// to get rid of the extra sync words. We provide them statically,
+// so the list can be set in scan_core_information
 static const char R095_VER_STUB[] = "Release 0.95";
+static const uint8_t r095_erase_list[] = { 0x36, 0x41 };
 
 typedef struct {
   char name[33];
@@ -323,6 +327,14 @@ unsigned char scan_core_information(unsigned char search_flags)
     if (slot == 0) {
       // slot 0 is always displayed as FACTORY CORE
       memcpy(slot_core[slot].name, "MEGA65 FACTORY CORE", 19);
+      // copy erase list from header or set r0.95 default
+      memset(mfhf_slot0_erase_list, 0xff, 16);
+      if (data_buffer[MFSC_COREHDR_INSTFLAGS] & MFSC_COREINST_ERASELIST)
+        memcpy(mfhf_slot0_erase_list, data_buffer + MFSC_COREHDR_ERASELIST, 16);
+      else if (!memcmp(slot_core[slot].version, R095_VER_STUB, 12)) {
+        mfhf_slot0_erase_list[0] = r095_erase_list[0];
+        mfhf_slot0_erase_list[1] = r095_erase_list[1];
+      }
     }
     else if (slot_core[slot].valid == SLOT_EMPTY) {
       // 0xff in the first 512 bytes, this is empty
@@ -515,8 +527,7 @@ uint8_t edit_slot(uint8_t selected_slot)
       if (selected_file != MFSC_FILE_INVALID) {
         // mfhf_load_core patches flags into loaded core
         if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
-          // set selected_slot to special 0x80, if R0.95 was detected in slot 0
-          mfhf_flash_core(selected_file, (!selected_slot && !memcmp(slot_core[selected_slot].version, R095_VER_STUB, 12) ? 0x80 : selected_slot));
+          mfhf_flash_core(selected_file, selected_slot);
           scan_core_information(0);
         }
         return 0;

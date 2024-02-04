@@ -12,6 +12,7 @@
 
 extern uint8_t mfhf_slot_mb;
 extern uint32_t mfhf_slot_size;
+extern uint8_t mfhf_slot0_erase_list[];
 
 #define MFHF_LC_NOTLOADED 0
 #define MFHF_LC_ATTICOK   1

@@ -26,23 +26,27 @@ extern char mfsc_corehdr_name[33];
 extern char mfsc_corehdr_version[33];
 extern char mfsc_corehdr_error[33];
 
+// clang-format off
 #define MFSC_FILE_INVALID 0
-#define MFSC_FILE_VALID 1
-#define MFSC_FILE_ERASE 2
+#define MFSC_FILE_VALID   1
+#define MFSC_FILE_ERASE   2
 
-#define MFSC_COREHDR_MAGIC 0x00
-#define MFSC_COREHDR_NAME 0x10
-#define MFSC_COREHDR_VERSION 0x30
-#define MFSC_COREHDR_MODELID 0x70
-#define MFSC_COREHDR_BOOTCAPS 0x7b
+#define MFSC_COREHDR_MAGIC     0x00
+#define MFSC_COREHDR_NAME      0x10
+#define MFSC_COREHDR_VERSION   0x30
+#define MFSC_COREHDR_MODELID   0x70
+#define MFSC_COREHDR_BOOTCAPS  0x7b
 #define MFSC_COREHDR_BOOTFLAGS 0x7c
 #define MFSC_COREHDR_INSTFLAGS 0x7d
-#define MFSC_COREHDR_LENGTH 0x80
-#define MFSC_COREHDR_CRC32 0x84
+#define MFSC_COREHDR_LENGTH    0x80
+#define MFSC_COREHDR_CRC32     0x84
+#define MFSC_COREHDR_ERASELIST 0xf0
 
-#define MFSC_COREINST_FACTORY 0b00000001
-#define MFSC_COREINST_AUTO    0b00000010
-#define MFSC_COREINST_FORCE   0b10000000
+#define MFSC_COREINST_FACTORY   0b00000001
+#define MFSC_COREINST_AUTO      0b00000010
+#define MFSC_COREINST_ERASELIST 0b01000000
+#define MFSC_COREINST_FORCE     0b10000000
+// clang-format on
 
 /*
  * mfsc_selectcore(slot)

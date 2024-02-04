@@ -23,6 +23,7 @@
 uint8_t mfhf_slot_mb = 1;
 uint32_t mfhf_slot_size = 1L << 20;
 uint32_t mfhf_curaddr = 0UL;
+uint8_t mfhf_slot0_erase_list[16];
 
 uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
 
@@ -297,20 +298,30 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   read_data(0);
 
   /*
-   * Special handling for 0.95 in slot 0
+   * Special handling for slot 0
    *
-   * we specifically erase the three sectors that contain a sync word
-   * to make sure recovery by slot 1 core works
+   * first erase all sectors in the slot 0 cores erase list, that
+   * was loaded by scan_core_information
    *
    */
-  if (slot == 0x80) {
-    mfhf_erase_some_sectors(0x000000UL, 0x040000UL);
-    mfhf_erase_some_sectors(0x340000UL, 0x380000UL);
-    mfhf_erase_some_sectors(0x400000UL, 0x440000UL);
-  }
-  slot &= 0x7f;
+  if (!slot)
+    for (tries = 0; tries < 15 && mfhf_slot0_erase_list[tries] != 0xff; tries++) {
+      addr = ((uint32_t)(mfhf_slot0_erase_list[tries] & 0x7f)) << 16;
+      if (addr <= (uint32_t)num_4k_sectors << 12)
+        // do 64k
+        size = 1L << 16;
+      else {
+        size = 1L << ((uint32_t)flash_sector_bits);
+        // we need to align the address to the bits
+        if (flash_sector_bits > 16) {
+          waddr = 0UL - size; // size to get mask
+          addr &= waddr;
+        }
+      }
+      mfhf_erase_some_sectors(addr, addr + size);
+    }
   /*
-   * end of special handling for 0.95 in slot 0
+   * end of special handling for slot 0 erase list
    */
 
   // set end_addr to the START OF THE SLOT (flashing downwards!)
@@ -324,15 +335,15 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   // Setup progress bar
   mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Erasing Slot ", MHX_A_WHITE);
 
-  if (!slot || selected_file == MFSC_FILE_ERASE)
+  if (selected_file == MFSC_FILE_ERASE)
     // if we are flashing slot 0 or erasing a slot, we
     // erase the full slot first
     size = SLOT_SIZE;
   else {
     // if we are not flashing factory slot, just erase the first sector
-    // to get rid of the core header -- header is 4k!
+    // to get rid of the core header and at least the sector after that
     if (end_addr <= (uint32_t)num_4k_sectors << 12)
-      size = 4096;
+      size = 1L << 16;
     else
       size = 1L << ((uint32_t)flash_sector_bits);
   }
