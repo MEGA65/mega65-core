@@ -105,7 +105,7 @@ static const char BRINGUP_CORE[13] = "BRINGUP.COR";
 
 #include <cbm_screen_charmap.h>
 
-static const char R095_VER[] = "Release 0.95 93d55f0";
+static const char R095_VER_STUB[] = "Release 0.95";
 
 typedef struct {
   char name[33];
@@ -211,7 +211,7 @@ void display_version(void)
     break;
   }
   mhx_move_xy(-1, 0);
-  mhx_writef(" \n  Boot Slot: %d\n", selected);
+  mhx_writef(" \n  Autoselect Slot: %d\n", selected);
   selected = 0;
 #endif
 
@@ -495,8 +495,15 @@ uint8_t edit_slot(uint8_t selected_slot)
       draw_edit_slot(selected_slot, loaded);
       continue;
     }
-    
-    if (selected_slot > 0 && mhx_lastkey.code.key == 0xf4) {
+
+    if (mhx_lastkey.code.key == 0xf4) {
+#ifndef STANDALONE
+      // main flasher only allows erasing slot 0 if booted from jtag
+      if (selected_slot == 0 && !booted_via_jtag) {
+        mhx_flashscreen(MHX_A_LRED, 150);
+        continue;
+      }
+#endif
       selected_file = MFSC_FILE_ERASE;
       loaded = 0;
       draw_edit_slot(selected_slot, loaded);
@@ -506,9 +513,10 @@ uint8_t edit_slot(uint8_t selected_slot)
     if (mhx_lastkey.code.key == 0xf8) {
       // first check if file or erase was selected
       if (selected_file != MFSC_FILE_INVALID) {
+        // mfhf_load_core patches flags into loaded core
         if (selected_file == MFSC_FILE_ERASE || mfhf_load_core()) {
-          // patch flags into loaded core, but no flags for slot 0
-          mfhf_flash_core(selected_file, (!selected_slot && !memcmp(slot_core[selected_slot].version, R095_VER, 20) ? 0x80 : selected_slot));
+          // set selected_slot to special 0x80, if R0.95 was detected in slot 0
+          mfhf_flash_core(selected_file, (!selected_slot && !memcmp(slot_core[selected_slot].version, R095_VER_STUB, 12) ? 0x80 : selected_slot));
           scan_core_information(0);
         }
         return 0;
