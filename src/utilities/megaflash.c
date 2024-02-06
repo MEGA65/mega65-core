@@ -189,7 +189,7 @@ void display_version(void)
          slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
          hw_model_id, hw_model_name, slot_count, SLOT_MB);
 #ifdef QSPI_VERBOSE
-  mhx_writef("    Slot Size:  %ld (%ld pages)\n", (long)SLOT_SIZE, (long)SLOT_SIZE_PAGES);
+  mhx_writef("    Slot Size:  %ld ($%02x page max)\n", (long)SLOT_SIZE, SLOT_SIZE_PAGE_MAX);
 #endif
 
 #ifndef STANDALONE

@@ -305,8 +305,8 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    *
    */
   if (!slot)
-    for (tries = 0; tries < 15 && mfhf_slot0_erase_list[tries] != 0xff; tries++) {
-      addr = ((uint32_t)(mfhf_slot0_erase_list[tries] & 0x7f)) << 16;
+    for (tries = 0; tries < 16 && mfhf_slot0_erase_list[tries] != 0xff; tries++) {
+      addr = ((uint32_t)(mfhf_slot0_erase_list[tries] & (SLOT_SIZE_PAGE_MAX - 1))) << 16;
       if (addr <= (uint32_t)num_4k_sectors << 12)
         // do 64k
         size = 1L << 16;

@@ -34,6 +34,8 @@
  *
  */
 
+#include <stdint.h>
+
 #ifdef QSPI_DEBUG
 #ifndef QSPI_VERBOSE
 #define QSPI_VERBOSE 1
@@ -41,8 +43,8 @@
 #endif
 
 extern uint8_t SLOT_MB;
-extern unsigned long SLOT_SIZE;
-extern unsigned long SLOT_SIZE_PAGES;
+extern uint8_t SLOT_SIZE_PAGE_MAX;
+extern uint32_t SLOT_SIZE;
 
 extern uint8_t hw_model_id;
 extern char *hw_model_name;

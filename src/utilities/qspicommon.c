@@ -17,8 +17,8 @@
 unsigned char slot_count = 0;
 
 uint8_t SLOT_MB = 1;
-unsigned long SLOT_SIZE = 1L << 20;
-unsigned long SLOT_SIZE_PAGES = 1L << 12;
+uint8_t SLOT_SIZE_PAGE_MAX = 1 << 4;
+uint32_t SLOT_SIZE = 1L << 20;
 
 short i, x, y, z;
 
@@ -108,11 +108,9 @@ int8_t probe_hardware_version(void)
   for (k = 0; mega_models[k].model_id; k++)
     if (hw_model_id == mega_models[k].model_id) {
       // we need to set those according to the hardware found
-      SLOT_MB = mega_models[k].slot_mb;
-      SLOT_SIZE_PAGES = SLOT_MB;
-      SLOT_SIZE_PAGES <<= 12;
-      SLOT_SIZE = SLOT_SIZE_PAGES;
-      SLOT_SIZE <<= 8;
+      SLOT_SIZE_PAGE_MAX = SLOT_MB = mega_models[k].slot_mb;
+      SLOT_SIZE_PAGE_MAX <<= 4;
+      SLOT_SIZE = ((uint32_t)SLOT_SIZE_PAGE_MAX) << 16;
       hw_model_name = mega_models[k].name;
       return 0;
     }
@@ -130,9 +128,9 @@ int8_t probe_hardware_version(void)
 unsigned char j, k;
 unsigned short flash_time = 0, crc_time = 0, load_time = 0;
 
+#ifdef QSPI_FLASH_INSPECT
 void flash_inspector(void)
 {
-#ifdef QSPI_FLASH_INSPECT
   addr = 0;
   read_data(addr);
   mhx_writef("Flash @ $%08x:\n", addr);
@@ -236,8 +234,8 @@ void flash_inspector(void)
       mhx_writef("page_size=%d\n", page_size);
     }
   }
-#endif
 }
+#endif
 
 #ifdef SHOW_FLASH_DIFF
 void debug_memory_block(int offset, unsigned long dbg_addr)
