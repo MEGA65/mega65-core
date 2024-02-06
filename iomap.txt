@@ -547,8 +547,8 @@ GS $D61A.7 SYSCTL:AUDINV Invert digital video audio sample values
 GS $D61A UARTMISC:SYSCTL System control flags (target specific)
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
 GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
-GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
-GS $D61B.3 WRITEONLY assume amiga mouse on jostick 2 if enabled
+GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled.
+GS $D61B.3 WRITEONLY assume amiga mouse on jostick 2 if enabled.
 GS $D61B.6 WRITEONLY DEBUG disable ASCII key retrigger suppression
 GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
 GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
@@ -572,7 +572,8 @@ GS $D624 DEBUG:POTDEBUG READ ONLY flags for paddles. See c65uart.vhdl for more i
 GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
 GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
 GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
-GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+GS $D628.0-3 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+GS $D628.4-7 UARTMISC:BOARDMINOR Read PCB minor revision (R5+ only, else reads zeroes)
 GS $D629 UARTMISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
 GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
 GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
@@ -596,37 +597,24 @@ GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
 GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer
 GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
 GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
-GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-GS $D640.6 - Thumbnail drawing was in progress.
-GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
 GS $D640 HCPU:REGA Hypervisor A register storage
-GS $D640 - Read to obtain status of thumbnail generator.
-GS $D640 - Read to reset port address for thumbnail generator
 GS $D641 CPU:HTRAP01 @HTRAPXX
 GS $D641 HCPU:REGX Hypervisor X register storage
-GS $D641 - Read port for thumbnail generator
 GS $D642 CPU:HTRAP02 @HTRAPXX
 GS $D642 HCPU_REGY Hypervisor Y register storage
-GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D643 CPU:HTRAP03 @HTRAPXX
 GS $D643 HCPU:REGZ Hypervisor Z register storage
-GS $D643 - Thumbnail X position DEBUG
 GS $D644 CPU:HTRAP04 @HTRAPXX
 GS $D644 HCPU:REGB Hypervisor B register storage
-GS $D644 - Thumbnail Y position DEBUG
 GS $D645 CPU:HTRAP05 @HTRAPXX
 GS $D645 HCPU:SPL Hypervisor SPL register storage
-GS $D645 - Thumbnail write address LSB DEBUG
 GS $D646 CPU:HTRAP06 @HTRAPXX
 GS $D646 HCPU:SPH Hypervisor SPH register storage
-GS $D646 - Thumbnail write address MSB DEBUG
 GS $D647 CPU:HTRAP07 @HTRAPXX
 GS $D647 HCPU:PFLAGS Hypervisor P register storage
-GS $D647 - Thumbnail pixel_y LSB DEBUG
 GS $D648 CPU:HTRAP08 @HTRAPXX
 GS $D648 HCPU:PCL Hypervisor PC-low register storage
-GS $D648 - Thumbnail pixel_y MSB DEBUG
 GS $D649 CPU:HTRAP09 @HTRAPXX
 GS $D649 HCPU:PCH Hypervisor PC-high register storage
 GS $D64A CPU:HTRAP0A @HTRAPXX
@@ -841,7 +829,8 @@ GS $D69A.5-6 AUTOIEC:DIPROT Device protocol support (5=C128/C65 FAST, bit 6 = Ji
 GS $D69A.7 AUTOIEC:DIPRESENT Device is present
 GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
-GS $D69D DEBUG:DIPSW Status of M65 R3 DIP switches
+GS $D69D.0-4 DEBUG:DIPSW Status of M65 R3/R3A/R4 DIP switches
+GS $D69D.5-7 DEBUG:DIPSWHI Status of M65 R5 DIP switches
 GS $D69E DEBUG:SWSTATUS Status of switches 0 to 7
 GS $D69F DEBUG:SWSTATUS Status of switches 8 to 15
 GS $D6A0.0 FDC:DBGWGATE Control floppy drive SIDE1 line
@@ -1524,6 +1513,7 @@ GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFcB000-$FFcBFFF - Internal 1541 RAM access
 GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
+GS $FFD4000 THUMB:THUMB Hardware-generated thumbnail image of screen. 80x50, using 3x3x2 RGB colour cube.
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
 GS $FFD70F0 - ADC1 smoothed value (LSB)
