@@ -13,6 +13,7 @@
 bin/*
 
 # files generated using make
+*.COR
 src/KICKUP.M65
 src/*.prg
 src/diskmenu_c000.bin
@@ -33,18 +34,25 @@ exomized.prg
 src/*.list
 src/*.map
 src/*.label
+src/*.lbl
 src/tests/*.list
 src/tests/*.map
 src/tests/*.label
+src/tests/*.lbl
 src/tools/*.list
 src/tools/*.map
 src/tools/*.label
+src/tools/*.lbl
 src/utilities/*.list
 src/utilities/*.map
 src/utilities/*.label
+src/utilities/*.lbl
+src/utilities/work/
+src/utilities/mf_screens*
 monitor.list
 monitor.map
 monitor.label
+monitor.lbl
 
 # generated version files (by src/version.sh)
 bin/matrix_banner.txt
@@ -121,6 +129,7 @@ vivado/*.xpr
 release-build/mega65-release-prep
 release-build/mega65-tools
 release-build/pkg
+release-build/*.7z
 
 # py tests
 tests/vunit_out
@@ -128,3 +137,7 @@ tests/vunit_out
 # hyppotest outputs
 FAIL.*
 PASS.*
+
+# jenkins build artifacts
+JENKINS_BUILD_ID
+JENKINS_BUILD_VERSION

@@ -70,7 +70,7 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$02			;bits for testing/setting
 	.byte		$01			;bits for testing/setting
-	.defPStr	"joystick 1 mouse mode:"	;label
+	.defPStr	"joy 1 mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"amiga to 1351 enabled"	;option set
 
@@ -78,15 +78,15 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$08			;bits for testing/setting
 	.byte		$04			;bits for testing/setting
-	.defPStr	"joystick 1 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joy 1 1351 de-jitter:"	;label
+	.defPStr	'on'		;option unset
+	.defPStr	"off"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
 ;	.byte		$01			;bits for testing/setting
 	.byte		$02			;bits for testing/setting
-	.defPStr	"joystick 2 mouse mode:"	;label
+	.defPStr	"joy 2 mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"amiga to 1351 enabled"	;option set
 
@@ -94,9 +94,9 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$04			;bits for testing/setting
 	.byte		$08			;bits for testing/setting
-	.defPStr	"joystick 2 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joy 2 1351 de-jitter:"	;label
+	.defPStr	'on'		;option unset
+	.defPStr	"off"	;option set
 
 
 	.byte		$00			;end of list type

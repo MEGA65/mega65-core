@@ -6,18 +6,20 @@ SCRIPTNAME=${SCRIPT##*/}
 REPOPATH=${SCRIPTPATH%/*}
 
 usage () {
-    echo "Usage: ${SCRIPTNAME} [-noreg] [-repack] MODEL VERSION [EXTRA]"
+    echo "Usage: ${SCRIPTNAME} [-noreg] [-repack] [-tag TAG] MODEL VERSION [EXTRA]"
     echo
-    echo "  -noreg   skip regression testing"
-    echo "  -repack  don't copy new stuff, redo cor and mcs, make new 7z"
-    echo "  MODEL    one of mega65r[23456], nexys4ddr-widget, mega65r5_6"
-    echo "  VERSION  version string to put before the hash into the core version"
-    echo "           maximum 31 chars. The string HASH will be replaced by the"
-    echo "           hash of the build."
-    echo "           The value JENKINSGEN will auto generate this text from"
-    echo "           environ 'JENKINS#NUM BRANCH HASH'"
-    echo "  EXTRA    file to put into the mega65r3+ cor for fdisk population"
-    echo "           (default is everything in sdcard-files)"
+    echo "  -noreg    skip regression testing"
+    echo "  -repack   don't copy new stuff, redo cor and mcs, make new 7z"
+    echo "  -tag TAG  TAG defaults to the 6 first characters of the branch, use"
+    echo "            this for setting something like 'release-0.95'"
+    echo "  MODEL     one of mega65r[23456], nexys4ddr-widget, mega65r5_6"
+    echo "  VERSION   version string to put before the hash into the core version"
+    echo "            maximum 31 chars. The string HASH will be replaced by the"
+    echo "            hash of the build."
+    echo "            The value JENKINSGEN will auto generate this text from"
+    echo "            environ 'JENKINS#NUM BRANCH HASH'"
+    echo "  EXTRA     file to put into the mega65 cor for fdisk population"
+    echo "            (default is everything in sdcard-files)"
     echo
     echo "Example: ${SCRIPTNAME} mega65r5 'Experimental Build HASH'"
     echo
@@ -58,6 +60,32 @@ else
     REGTEST=${REPOPATH}/../mega65-tools/src/tests/regression-test.sh
 fi
 
+rom_first () {
+    for file in $@; do
+        if [[ ${file##*/} = "MEGA65.ROM" ]]; then
+            echo ${file}
+        fi
+    done
+    # this needs to be found fast, too!
+    for file in $@; do
+        if [[ ${file##*/} = "ETHLOAD.M65" ]]; then
+            echo ${file}
+        fi
+    done
+    for file in $@; do
+        if [[ ${file##*/} = "FREEZER.M65" ]]; then
+            echo ${file}
+        fi
+    done
+    # we remove ONBOARD.M65 here. it is in the core, no need to put it on the SD!
+    for file in $@; do
+        if [[ ${file##*/} != "MEGA65.ROM" && ${file##*/} != "FREEZER.M65" && ${file##*/} != "ETHLOAD.M65" && ${file##*/} != "ONBOARD.M65" ]]; then
+            echo ${file}
+        fi
+    done
+}
+
+TAG="NULL"
 REPACK=0
 NOREG=0
 while [[ $# -gt 2 && $1 =~ ^-.+ ]]; do
@@ -66,6 +94,9 @@ while [[ $# -gt 2 && $1 =~ ^-.+ ]]; do
     elif [[ $1 == "-repack" ]]; then
         NOREG=1
         REPACK=1
+    elif [[ $1 == "-tag" ]]; then
+        shift
+        TAG=$1
     else
         usage "unknown option $1"
     fi
@@ -79,10 +110,16 @@ fi
 MODEL=$1
 VERSION=$2
 shift 2
-EXTRA_FILES="$@"
-for file in ${EXTRA_FILES}; do
+EXTRA_FILES=""
+RM_HASROM=""
+ROM_FILE=""
+for file in $@; do
     if [[ ! -r ${file} ]]; then
         usage "extra file is unreadable: ${file}"
+    elif [[ ${file##*/} = "MEGA65.ROM" ]]; then
+        ROM_FILE=${file}
+    else
+        EXTRA_FILES="${EXTRA_FILES} ${file}"
     fi
 done
 
@@ -142,8 +179,12 @@ if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
-    BRANCH=`git rev-parse --abbrev-ref HEAD`
-    BRANCH=$(shorten_name $BRANCH)
+    if [[ ${TAG} == "NULL" ]]; then
+        BRANCH=`git rev-parse --abbrev-ref HEAD`
+        BRANCH=${BRANCH:0:6}
+    else
+        BRANCH=${TAG}
+    fi
     PKGNAME=${MODEL}-${BRANCH}-${HASH}
     VERSION=${VERSION/HASH/$HASH}
 fi
@@ -156,7 +197,14 @@ if [[ ${REPACK} -eq 0 ]]; then
     rm -rvf ${PKGPATH}
 fi
 
-for dir in ${PKGPATH}/log ${PKGPATH}/sdcard-files ${PKGPATH}/extra; do
+if [[ ${ROM_FILE} != "" ]]; then
+    RM_HASROM="
+This package also contains a ROM, which is included in the COR for automatic population
+and can also be found in \`sdcard-files\`.
+"
+fi
+
+for dir in ${PKGPATH}/log ${PKGPATH}/sdcard-files ${PKGPATH}/extra ${PKGPATH}/flasher; do
     if [[ ! -d ${dir} ]]; then
         mkdir -p ${dir}
     fi
@@ -176,7 +224,13 @@ if [[ ${REPACK} -eq 0 ]]; then
     echo "Copying build files"
     echo
     cp ${REPOPATH}/bin/HICKUP.M65 ${PKGPATH}/extra/
+    if [[ ${ROM_FILE} != "" ]]; then
+        cp ${ROM_FILE} ${PKGPATH}/sdcard-files/
+    fi
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
+    # we don't need ONBOARD.M65
+    rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
+    cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
     cp ${BITPATHBASE}.log ${PKGPATH}/log/
@@ -218,11 +272,11 @@ fi
 echo "Building COR/MCS"
 echo
 if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
 elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor
+    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
 else
-    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor ${EXTRA_FILES} ${PKGPATH}/sdcard-files/*
+    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
 fi
 ${BIT2MCS} ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs 0
 
@@ -237,4 +291,3 @@ fi
 
 # 7z will only put the relative paths between ARCFILE and PKGPATH inside the archive. smart!
 7z a ${ARCFILE} ${PKGPATH}
-
