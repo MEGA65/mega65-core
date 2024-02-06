@@ -217,6 +217,8 @@ void display_version(void)
   mhx_move_xy(-1, 0);
   mhx_writef(" \n  Autoselect Slot: %d\n", selected);
   selected = 0;
+  // rescan real core information for menu
+  scan_core_information(0);
 #endif
 
   // wait for ESC or RUN/STOP
