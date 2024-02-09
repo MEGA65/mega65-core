@@ -230,7 +230,7 @@ void display_version(void)
       mhx_writef(MHX_W_LGREY "\n   DIP4: %d\n  $D67E: $%02X (now $%02X)\n", 1 + ((PEEK(0xD69D) >> 3) & 1), exrom_game, PEEK(0xD67EU));
       mhx_writef("  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
           cart_id[5]);
-      mhx_writef("  $C007:          %02X %02X %02X\n" MHX_W_WHITE, cart_id[0], cart_id[1], cart_id[2]);
+      mhx_writef("  $C007:          %02X %02X %02X\n" MHX_W_WHITE, cart_id[6], cart_id[7], cart_id[8]);
       selected = 1;
     }
 #endif
