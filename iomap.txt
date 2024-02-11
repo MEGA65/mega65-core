@@ -39,6 +39,7 @@ GS $7010009 - Directly read upper 8 cartridge address data lines.
 GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
+GS $BFFFFF0 - $BFFFFFF HYRAM!DEBUG Special HyperRAM setting registers used for debugging
 C64 $D000 VIC-II:S0X@SNX sprite N horizontal position
 C64 $D001 VIC-II:S0Y@SNY sprite N vertical position
 C64 $D002 VIC-II:S1X @SNX
@@ -1384,9 +1385,11 @@ GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
 GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+GS $D7FE.2 CPU:SLOWCACHE Enable slow line caching for Attic RAM
+GS $D7FE.3 CPU:SLOWCACHE!ADV Enable slow line cache advance for Attic RAM
 GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
 GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
-GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
+GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready (read only)
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
 C64 $DC02 CIA1:DDRA Port A DDR

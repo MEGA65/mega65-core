@@ -2991,7 +2991,7 @@ begin
               value(0) := '1'; -- Set if power is on, clear if power is off
               return value;
             when x"fe" =>
-              -- @IO:GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
+              -- @IO:GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready (read only)
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
               value(2) := slow_cache_enable;
@@ -3497,6 +3497,8 @@ begin
           power_down <= value(0);
         elsif (long_address = x"FFD27FE") or (long_address = x"FFD37FE") then
           -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+          -- @IO:GS $D7FE.2 CPU:SLOWCACHE Enable slow line caching for Attic RAM
+          -- @IO:GS $D7FE.3 CPU:SLOWCACHE!ADV Enable slow line cache advance for Attic RAM
           -- @IO:GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
           -- @IO:GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
           slow_prefetch_enable <= value(0);
