@@ -138,7 +138,7 @@ uint8_t nhsd_readdir();
  * parameters:
  *   filename: filename to be searched in the fat, needs to have the right encoding (ASCII)
  */
-uint8_t nhsd_findfile(char *filename);
+uint8_t nhsd_findfile(const char *filename);
 
 /*
  * uint8_t nhsd_open_inode(uint32_t inode, uint8_t mode)

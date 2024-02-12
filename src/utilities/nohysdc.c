@@ -375,7 +375,7 @@ uint8_t nhsd_readdir()
   return NHSD_ERR_EOF;
 }
 
-uint8_t nhsd_findfile(char *filename)
+uint8_t nhsd_findfile(const char *filename)
 {
   uint8_t err;
 
