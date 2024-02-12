@@ -22,7 +22,6 @@
 
 uint8_t mfhf_slot_mb = 1;
 uint32_t mfhf_slot_size = 1L << 20;
-uint32_t mfhf_curaddr = 0UL;
 uint8_t mfhf_slot0_erase_list[16];
 
 uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
@@ -266,9 +265,104 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
   return 0;
 }
 
-int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
-  uint32_t addr, end_addr, size, waddr;
+int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
+{
+  uint32_t wraddr;
   uint8_t tries;
+
+  // Do a dummy read to clear any pending stuck QSPI commands
+  // (else we get incorrect return value from QSPI verify command)
+  // TODO: get rid of this
+  while (!verify_data_in_place(0UL))
+    read_data(0UL);
+
+  // try 10 times to erase/write the sector
+  for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
+    // Verify the sector to see if it is already correct
+    if (!mfhf_sectors_differ(addr - end_addr, addr, size)) {
+      mfp_set_area(addr >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
+      break;
+    }
+#ifdef SHORTFLASHDEBUG
+    mhx_writef("verify..");
+#endif
+    // Erase Sector
+    mfhf_erase_some_sectors(addr, addr + size);
+
+#ifdef SHORTFLASHDEBUG
+    mhx_writef("erase..");
+#endif
+    // Program sector
+    for (wraddr = addr + size; wraddr > addr; wraddr -= 256) {
+#ifdef SHORTFLASHDEBUG
+      mhx_writef("%08lx..", wraddr);
+      mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
+#endif
+      lcopy(0x8000000L + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
+      // display sector on screen
+      // lcopy(0x8000000L+wraddr-SLOT_SIZE*slot,0x0400+17*40,256);
+      POKE(0xD020, 3);
+      program_page(wraddr - 256, 256);
+      POKE(0xD020, 0);
+      mfp_progress(wraddr - 256);
+    }
+  }
+
+  // if we failed 10 times, we abort with the option for the flash inspector
+  if (tries == MFHF_FLASH_MAX_RETRY) {
+    mhx_move_xy(0, 10);
+    mhx_writef("ERROR: Could not write to flash after\n%d tries.\n", tries);
+
+    // secret Ctrl-F (keycode 0x06) will launch flash inspector,
+    // but only if QSPI_FLASH_INSPECTOR is defined!
+    // otherwise: endless loop!
+#ifdef QSPI_FLASH_INSPECTOR
+    mhx_writef("Press Ctrl-F for Flash Inspector.\n");
+
+    while (PEEK(0xD610))
+      POKE(0xD610, 0);
+    while (PEEK(0xD610) != 0x06)
+      POKE(0xD610, 0);
+    while (PEEK(0xD610))
+      POKE(0xD610, 0);
+    flash_inspector();
+#else
+    // TODO: re-erase start of slot 0, reprogram flash to start slot 1
+    mhx_writef("\nPlease turn the system off!\n");
+    // don't let the user do anything else
+    while (1)
+      POKE(0xD020, PEEK(0xD020) & 0xf);
+#endif
+    // don't do anything else, as this will result in slot 0 corruption
+    // as global addr gets changed by flash_inspector
+    return 1;
+  }
+
+  return 0;
+}
+
+void mfhf_calc_el_addr(const uint8_t el_sector, uint32_t *addr, uint32_t *size)
+{
+  uint32_t mask;
+
+  *addr = ((uint32_t)(el_sector & (SLOT_SIZE_PAGE_MAX - 1))) << 16;
+  if (num_4k_sectors && *addr <= (uint32_t)num_4k_sectors << 12)
+    // always do 64k
+    *size = 1L << 16;
+  else {
+    *size = 1L << ((uint32_t)flash_sector_bits);
+    // we need to align the address to the bits
+    if (flash_sector_bits > 16) {
+      mask = 0UL - *size; // size to get mask
+      *addr &= mask;
+    }
+  }
+}
+
+int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
+  uint32_t addr, end_addr, size, el_addr, el_size;
+  uint8_t cnt;
+  int8_t el_pos = -1;
 
   /*
    * Flow of high level flashing progress:
@@ -304,22 +398,14 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    * was loaded by scan_core_information
    *
    */
-  if (!slot)
-    for (tries = 0; tries < 16 && mfhf_slot0_erase_list[tries] != 0xff; tries++) {
-      addr = ((uint32_t)(mfhf_slot0_erase_list[tries] & (SLOT_SIZE_PAGE_MAX - 1))) << 16;
-      if (addr <= (uint32_t)num_4k_sectors << 12)
-        // do 64k
-        size = 1L << 16;
-      else {
-        size = 1L << ((uint32_t)flash_sector_bits);
-        // we need to align the address to the bits
-        if (flash_sector_bits > 16) {
-          waddr = 0UL - size; // size to get mask
-          addr &= waddr;
-        }
-      }
+  if (!slot) {
+    for (cnt = 0; cnt < 16 && mfhf_slot0_erase_list[cnt] != 0xff; cnt++) {
+      mfhf_calc_el_addr(mfhf_slot0_erase_list[cnt], &addr, &size);
       mfhf_erase_some_sectors(addr, addr + size);
     }
+    // find end of erase list
+    for (el_pos = 15; el_pos > -1 && mfsc_corehdr_erase_list[el_pos] == 0xff; el_pos--);
+  }
   /*
    * end of special handling for slot 0 erase list
    */
@@ -391,83 +477,32 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
       continue;
     }
 
+    /* check addr against erase list, skip if match, and advance erase_list down */
+    if (!slot && el_pos > -1) {
+      mfhf_calc_el_addr(mfsc_corehdr_erase_list[el_pos], &el_addr, &el_size);
+      if (el_addr == addr) {
+        el_pos--;
+        continue;
+      }
+    }
+
 #ifdef SHORTFLASHDEBUG
     mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 #endif
-    // Do a dummy read to clear any pending stuck QSPI commands
-    // (else we get incorrect return value from QSPI verify command)
-    // TODO: get rid of this
-    while (!verify_data_in_place(0UL))
-      read_data(0UL);
 
-    // try 10 times to erase/write the sector
-    for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
-      if (selected_file == MFSC_FILE_VALID) {
-        // Verify the sector to see if it is already correct
-        if (!mfhf_sectors_differ(addr - end_addr, addr, size)) {
-          mfp_set_area(addr >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
-          break;
-        }
-      }
-#ifdef SHORTFLASHDEBUG
-      mhx_writef("verify..");
-#endif
-      // Erase Sector
-      mfhf_erase_some_sectors(addr, addr + size);
-      if (selected_file == MFSC_FILE_ERASE)
-        break;
-
-#ifdef SHORTFLASHDEBUG
-      mhx_writef("erase..");
-#endif
-      // Program sector
-      if (selected_file == MFSC_FILE_VALID) {
-        for (waddr = addr + size; waddr > addr; waddr -= 256) {
-#ifdef SHORTFLASHDEBUG
-          mhx_writef("%08lx..", waddr);
-          mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
-#endif
-          lcopy(0x8000000L + waddr - 256 - end_addr, (unsigned long)data_buffer, 256);
-          // display sector on screen
-          // lcopy(0x8000000L+waddr-SLOT_SIZE*slot,0x0400+17*40,256);
-          POKE(0xD020, 3);
-          program_page(waddr - 256, 256);
-          POKE(0xD020, 0);
-          mfp_progress(waddr - 256);
-        }
-      }
-    }
-
-    // if we failed 10 times, we abort with the option for the flash inspector
-    if (tries == MFHF_FLASH_MAX_RETRY) {
-      mhx_move_xy(0, 10);
-      mhx_writef("ERROR: Could not write to flash after\n%d tries.\n", tries);
-
-      // secret Ctrl-F (keycode 0x06) will launch flash inspector,
-      // but only if QSPI_FLASH_INSPECTOR is defined!
-      // otherwise: endless loop!
-#ifdef QSPI_FLASH_INSPECTOR
-      mhx_writef("Press Ctrl-F for Flash Inspector.\n");
-
-      while (PEEK(0xD610))
-        POKE(0xD610, 0);
-      while (PEEK(0xD610) != 0x06)
-        POKE(0xD610, 0);
-      while (PEEK(0xD610))
-        POKE(0xD610, 0);
-      flash_inspector();
-#else
-      // TODO: re-erase start of slot 0, reprogram flash to start slot 1
-      mhx_writef("\nPlease turn the system off!\n");
-      // don't let the user do anything else
-      while (1)
-        POKE(0xD020, PEEK(0xD020) & 0xf);
-#endif
-      // don't do anything else, as this will result in slot 0 corruption
-      // as global addr gets changed by flash_inspector
-      return 0;
-    }
+    if (mfhf_flash_sector(addr, end_addr, size))
+      return 1;
   }
+
+  /* now flash all sectors from erase list */
+  if (!slot)
+    for (el_pos = 15; el_pos > -1; el_pos--) {
+      if (mfsc_corehdr_erase_list[el_pos] == 0xff || mfsc_corehdr_erase_list[el_pos] == 0x00)
+        continue;
+      mfhf_calc_el_addr(mfsc_corehdr_erase_list[el_pos], &el_addr, &el_size);
+      if (mfhf_flash_sector(el_addr, 0, el_size))
+        return 1;
+    }
 
 #if 0
   mhx_writef("Flash slot successfully updated.      \n\n");
@@ -481,10 +516,10 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
 #endif
 
 mfhf_flash_finish:
-  mhx_draw_rect(4, 12, 30, 1, "Finished Flashing", MHX_A_GREEN, 1);
-  mhx_write_xy(5, 13, (selected_file == MFSC_FILE_VALID) ? "Core was successfully flashed" : "Slot was successfully erased", MHX_A_GREEN);
-
-  mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
+  mhx_draw_rect(4, 12, 30, 2, "Finished Flashing", MHX_A_GREEN, 1);
+  mhx_write_xy(5, 13, (selected_file == MFSC_FILE_VALID) ? "Core was successfully flashed." : "Slot was successfully erased.", MHX_A_GREEN);
+  mhx_set_xy(5, 14);
+  mhx_press_any_key(MHX_AK_ATTENTION, MHX_A_GREEN);
 
   return 0;
 }

@@ -105,12 +105,6 @@ static const char BRINGUP_CORE[13] = "BRINGUP.COR";
 
 #include <cbm_screen_charmap.h>
 
-// Release 0.95 cores in the Batch2 machines do not have a erase list
-// to get rid of the extra sync words. We provide them statically,
-// so the list can be set in scan_core_information
-static const char R095_VER_STUB[] = "Release 0.95";
-static const uint8_t r095_erase_list[] = { 0x36, 0x41 };
-
 typedef struct {
   char name[33];
   char version[33];
@@ -333,9 +327,9 @@ unsigned char scan_core_information(unsigned char search_flags)
       memset(mfhf_slot0_erase_list, 0xff, 16);
       if (data_buffer[MFSC_COREHDR_INSTFLAGS] & MFSC_COREINST_ERASELIST)
         memcpy(mfhf_slot0_erase_list, data_buffer + MFSC_COREHDR_ERASELIST, 16);
-      else if (!memcmp(slot_core[slot].version, R095_VER_STUB, 12)) {
-        mfhf_slot0_erase_list[0] = r095_erase_list[0];
-        mfhf_slot0_erase_list[1] = r095_erase_list[1];
+      else if (!memcmp(slot_core[slot].version, R095_VER_STUB, R095_VER_STUB_SIZE)) {
+        mfhf_slot0_erase_list[0] = R095_ERASE_LIST[0];
+        mfhf_slot0_erase_list[1] = R095_ERASE_LIST[1];
       }
     }
     else if (slot_core[slot].valid == SLOT_EMPTY) {

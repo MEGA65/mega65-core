@@ -31,11 +31,18 @@
  * ends at $4C000.
  */
 
+// Release 0.95 cores in the Batch2 machines do not have a erase list
+// to get rid of the extra sync words. We provide them statically,
+// so the list can be set in scan_core_information
+const char R095_VER_STUB[] = "Release 0.95";
+const uint8_t R095_ERASE_LIST[] = { 0x36, 0x41 };
+
 // information from the core files header
 uint8_t mfsc_corehdr_model_id = 0;
 uint8_t mfsc_corehdr_bootcaps = 0;
 uint8_t mfsc_corehdr_bootflags = 0;
 uint8_t mfsc_corehdr_instflags = 0;
+uint8_t mfsc_corehdr_erase_list[16];
 uint32_t mfsc_corehdr_length = 0UL;
 char mfsc_corehdr_name[33];
 char mfsc_corehdr_version[33];
@@ -156,6 +163,13 @@ int8_t mfsc_checkcore(uint8_t require_mega)
   mfsc_corehdr_bootcaps = buffer[MFSC_COREHDR_BOOTCAPS];
   mfsc_corehdr_bootflags = buffer[MFSC_COREHDR_BOOTFLAGS];
   mfsc_corehdr_instflags = buffer[MFSC_COREHDR_INSTFLAGS];
+  memset(mfsc_corehdr_erase_list, 0xff, 16);
+  if (mfsc_corehdr_instflags & MFSC_COREINST_ERASELIST)
+    memcpy(mfsc_corehdr_erase_list, buffer + MFSC_COREHDR_ERASELIST, 16);
+  else if (!memcmp(mfsc_corehdr_version, R095_VER_STUB, R095_VER_STUB_SIZE)) {
+    mfsc_corehdr_erase_list[0] = R095_ERASE_LIST[0];
+    mfsc_corehdr_erase_list[1] = R095_ERASE_LIST[1];
+  }
 
   return 0;
 }

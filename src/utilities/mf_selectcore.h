@@ -11,6 +11,10 @@
  *
  */
 
+#define R095_VER_STUB_SIZE 12
+extern const char R095_VER_STUB[];
+extern const uint8_t R095_ERASE_LIST[];
+
 extern unsigned char mfsc_bitstream_magic[];
 
 extern char mfsc_corefile_displayname[40];
@@ -21,7 +25,9 @@ extern uint8_t mfsc_corehdr_model_id;
 extern uint8_t mfsc_corehdr_bootcaps;
 extern uint8_t mfsc_corehdr_bootflags;
 extern uint8_t mfsc_corehdr_instflags;
+extern uint8_t mfsc_corehdr_erase_list[16];
 extern uint32_t mfsc_corehdr_length;
+
 extern char mfsc_corehdr_name[33];
 extern char mfsc_corehdr_version[33];
 extern char mfsc_corehdr_error[33];
