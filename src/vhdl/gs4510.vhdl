@@ -5481,6 +5481,9 @@ begin
               stack_pop := '1';
               state <= RTS1;
             when RTS =>
+              if reg_addressingmode = M_immnn then
+                reg_arg1 <= memory_read_value;
+              end if;
               stack_pop := '1';
               state <= RTS1;
             when RTS1 =>
@@ -5501,6 +5504,13 @@ begin
                 reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
               else
                 reg_pc <= (memory_read_value&reg_pc(7 downto 0));
+              end if;
+              if reg_addressingmode = M_immnn then  -- RTS immediate mode needs to adapt the stack pointer
+                temp9 := ('0'&reg_sp) + ('0'&reg_arg1);
+                reg_sp <= temp9(7 downto 0);
+                if flag_e='0' and temp9(8)='1' then
+                  reg_sph <= reg_sph + 1;
+                end if;
               end if;
               state <= RTS3;
             when RTS3 =>
@@ -6868,6 +6878,10 @@ begin
                         report "Far-RTS";
                         state <= Flat32RTS;
                       end if;
+                    elsif memory_read_value=x"62" then
+                                        -- Fast-track RTS immediate mode
+                      pc_inc := '1';
+                      state <= RTS;
                     elsif memory_read_value=x"40" then
                                         -- Fast-track RTI
                       state <= RTI;
