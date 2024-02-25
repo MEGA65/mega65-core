@@ -2118,6 +2118,7 @@ begin
       if reset='0' then
         -- Reset sprites to normal behaviour on reset
         sprite_horizontal_tile_enables <= (others => '0');
+        sprite_v400s <= (others => '0');
         sprite_v400_super_msbs <= (others => '0');
         sprite_alpha_blend_enables <= (others => '0');
         sprite_bitplane_enables <= (others => '0');

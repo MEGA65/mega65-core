@@ -1,153 +1,222 @@
 
 # Changelog
 
-Please look into [mega65-core](https://github.com/MEGA65/mega65-core/)
+Please look into [mega65-core](https://github.com/MEGA65/mega65-core/),
+[mega65-freezemenu](https://github.com/MEGA65/mega65-freezemenu/), and
+[mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/)
 for a complete changelog.
 
 ## Release 0.96 (commit hash tbd)
 
-This is the Batch 3 Release (August 2023). All issues with a star '*'
-are not yet finished.
+This is the Batch 3 Release (February 2024), which is mainly aimed at the new
+mega65r6 board for the Batch 3 production.
 
- - MEGAFLASH - more secure Slot 0 flashing
-   [#625](https://github.com/MEGA65/mega65-core/issues/625)*
- - Cartridge handling (fix Ultimax mode)
-   [#684](https://github.com/MEGA65/mega65-core/issues/684)*
-   [#683](https://github.com/MEGA65/mega65-core/issues/683)*
- - Mouse 1351 jumps
-   [#694](https://github.com/MEGA65/mega65-core/issues/694)
- - wrong VIC-II multicolour colours
-   [#571](https://github.com/MEGA65/mega65-core/issues/571)
-   [PR#657](https://github.com/MEGA65/mega65-core/issues/657)
- - missing pixel lines
-   [#671](https://github.com/MEGA65/mega65-core/issues/671)
-   [#681](https://github.com/MEGA65/mega65-core/issues/681)
-   [#682](https://github.com/MEGA65/mega65-core/issues/682)
- - C65 VIC bug compability flag
-   [#685](https://github.com/MEGA65/mega65-core/issues/685)
- - double vertical resolution for fonts in Y200 mode
-   [#678](https://github.com/MEGA65/mega65-core/issues/678)
- - RRB row masking
-   [#340](https://github.com/MEGA65/mega65-core/issues/340)
- - Audio DMA distortion fixes
-   [#651](https://github.com/MEGA65/mega65-core/issues/651)*
- - Keyboard test info about cursor key behaviour
-   [#649](https://github.com/MEGA65/mega65-core/issues/649)
- - new Development setup using Jenkins and Dockers
- - upgrade to Vivado 2022.2
- - new target MEGAphone R4 (WiP)
- - new target MEGA65R4 (WiP)
- - new target QMTech (WiP)
-   [PR#650](https://github.com/MEGA65/mega65-core/pull/650)
-   [#642](https://github.com/MEGA65/mega65-core/issues/642)*
- - SD-Card related fixes
-   [#643](https://github.com/MEGA65/mega65-core/issues/643)
-   [#646](https://github.com/MEGA65/mega65-core/issues/646)
-   [PR#647](https://github.com/MEGA65/mega65-core/pull/647)
-   [#669](https://github.com/MEGA65/mega65-core/issues/669)
- - Documentation
-   [#639](https://github.com/MEGA65/mega65-core/issues/639)
- - Plumbing for Composite Video board
-   [#638](https://github.com/MEGA65/mega65-core/issues/638)*
- - MK-II Keyboard support for 100T boards and Nexys
-   [#637](https://github.com/MEGA65/mega65-core/issues/637)
- - Hyppo All-RAM access (ROMLOAD, fonts)
-   [#634](https://github.com/MEGA65/mega65-core/issues/634)
-   [#676](https://github.com/MEGA65/mega65-core/issues/676)
- - Ethernet changes -  EtherLoad capability
-   [#565](https://github.com/MEGA65/mega65-core/issues/565)
-   [#633](https://github.com/MEGA65/mega65-core/issues/633)*
-   [#636](https://github.com/MEGA65/mega65-core/issues/636)*
-   [#673](https://github.com/MEGA65/mega65-core/issues/673)*
-   [#693](https://github.com/MEGA65/mega65-core/issues/693)*
-   [#696](https://github.com/MEGA65/mega65-core/issues/696)*
+You can find issues associated with this release by following these links:
+
+- [mega65-core](https://github.com/MEGA65/mega65-core/milestone/8?closed=1)
+- [mega65-freezemenu](https://github.com/MEGA65/mega65-freezemenu/milestone/6?closed=1)
+- [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/milestone/5?closed=1)
+
+Note: It is possible that not all changes were marked with the milestone.
+
+### Changes
+
+- **new MEGAFLASH** version [#683](https://github.com/MEGA65/mega65-core/issues/683):
+  - More secure Slot 0 flashing
+    [#625](https://github.com/MEGA65/mega65-core/issues/625)
+    [#783](https://github.com/MEGA65/mega65-core/issues/783)
+  - Cartridge handling (fix Ultimax mode)
+    [#567](https://github.com/MEGA65/mega65-core/issues/567)
+    [#684](https://github.com/MEGA65/mega65-core/issues/684)
+  - Add LFN support to core picker
+     [#697](https://github.com/MEGA65/mega65-core/issues/697)
+  - Set autoboot slot via flashmenu
+     [#370](https://github.com/MEGA65/mega65-core/issues/370)
+- **Ethernet Support** for system tools (mega65_ftp and etherload)
+  [#565](https://github.com/MEGA65/mega65-core/issues/565)
+  [#633](https://github.com/MEGA65/mega65-core/issues/633)
+  [#636](https://github.com/MEGA65/mega65-core/issues/636)
+  [#673](https://github.com/MEGA65/mega65-core/issues/673)
+  [#693](https://github.com/MEGA65/mega65-core/issues/693)
+  [#696](https://github.com/MEGA65/mega65-core/issues/696)
+  [#708](https://github.com/MEGA65/mega65-core/issues/708)
+- General Build improvements, including:
+  - New Development setup using Jenkins and Docker
+  - Upgrade to Vivado 2023.2
+- New hardware platforms supported:
+  - MEGA65R4, R5, R6 (these are the iterations towards the Batch 3 board)
+  - MEGAphone R4 (WiP)
+  - New target QMTech (WiP)
+    [PR#650](https://github.com/MEGA65/mega65-core/pull/650)
+  - MK-II Keyboard support for 100T boards and Nexys
+    [#637](https://github.com/MEGA65/mega65-core/issues/637)
+- Bugfixes:
+  - C65 VIC bug compability flag
+    [#685](https://github.com/MEGA65/mega65-core/issues/685)
+  - Mouse 1351 jumps
+    [#694](https://github.com/MEGA65/mega65-core/issues/694)
+  - Wrong VIC-II multicolour colours
+    [#571](https://github.com/MEGA65/mega65-core/issues/571)
+    [PR#657](https://github.com/MEGA65/mega65-core/issues/657)
+  - Missing pixel lines
+    [#671](https://github.com/MEGA65/mega65-core/issues/671)
+    [#681](https://github.com/MEGA65/mega65-core/issues/681)
+    [#682](https://github.com/MEGA65/mega65-core/issues/682)
+  - Double vertical resolution for fonts in Y200 mode
+    [#678](https://github.com/MEGA65/mega65-core/issues/678)
+  - RRB row masking
+    [#340](https://github.com/MEGA65/mega65-core/issues/340)
+  - Keyboard test info about cursor key behaviour
+    [#649](https://github.com/MEGA65/mega65-core/issues/649)
+  - VIC-IV should reset D076 SPRENV400
+    [#771](https://github.com/MEGA65/mega65-core/issues/771)
+  - Right most character pixel not drawn with H640 disabled
+    [#682](https://github.com/MEGA65/mega65-core/issues/682)
+  - Hyppo All-RAM access (ROMLOAD, fonts)
+    [#634](https://github.com/MEGA65/mega65-core/issues/634)
+    [#676](https://github.com/MEGA65/mega65-core/issues/676)
+  - SD-Card related fixes
+    [#643](https://github.com/MEGA65/mega65-core/issues/643)
+    [#646](https://github.com/MEGA65/mega65-core/issues/646)
+    [PR#647](https://github.com/MEGA65/mega65-core/pull/647)
+    [#669](https://github.com/MEGA65/mega65-core/issues/669)
+- FREEZER updated to release 0.3.0
+  - Disable EXROM/GAME so cartidge ROM does not kill freezer
+    [freezer#56](https://github.com/MEGA65/mega65-freezemenu/issues/56)
+  - Don't allow freeze when no slot != 0 was selected
+    [freezer#61](https://github.com/MEGA65/mega65-freezemenu/issues/61)
+  - Make slot restore/save menu key line clearer and don't allow wrong presses
+    [freezer#66](https://github.com/MEGA65/mega65-freezemenu/issues/66)
+  - Always restore charset when entering FREEZER from `CHARSET.M65` or `MEGA65.ROM`
+    [freezer#67](https://github.com/MEGA65/mega65-freezemenu/issues/67)
+  - Fix corrupted computer frame
+    [freezer#68](https://github.com/MEGA65/mega65-freezemenu/issues/68)
+  - AUDIOMIX: fix simple mode (now changes HDMI and jack at the same time)
+    [freezer#69](https://github.com/MEGA65/mega65-freezemenu/issues/69)
+  - MEGAINFO: support for new PCBs (r4 - r6)
+    [freezer#71](https://github.com/MEGA65/mega65-freezemenu/issues/71)
+  - Always chdir root after image selection, so tools will start
+    [freezer#79](https://github.com/MEGA65/mega65-freezemenu/issues/79)
+  - MEGAINFO: add version check for ETHLOAD.M65, remove ONBOARD.M65
+    [freezer#83](https://github.com/MEGA65/mega65-freezemenu/issues/83)
+  - ROMLOAD: file selector sorts directories to the top and `ROMS` to the very top
+    [freezer#84](https://github.com/MEGA65/mega65-freezemenu/issues/84)
+  - Faster navigation (left/right, up/down, comma/period, home)
+    [freezer#85](https://github.com/MEGA65/mega65-freezemenu/issues/85)
+  - Don't allow F5-RESET on slots != 0
+    [freezer#86](https://github.com/MEGA65/mega65-freezemenu/issues/86)
+  - Set 40 MHz mode correctly
+    [freezer#87](https://github.com/MEGA65/mega65-freezemenu/issues/87)
+- FDISK update ro release 0.30
+  - Change name of the FAT volume to MEGA65FDISK (prior name was illegal)
+    [fdisk#18](https://github.com/MEGA65/mega65-fdisk/issues/18)
+  - Erase Config Block
+    [fdisk#19](https://github.com/MEGA65/mega65-fdisk/issues/19)
+  - Fix sdcard fragmentation issues
+    [fdisk#21](https://github.com/MEGA65/mega65-fdisk/issues/21)
+  - Populate SD card sees 8 slots on R3
+    [fdisk#20](https://github.com/MEGA65/mega65-fdisk/issues/20)
+  - Populate SD does not know r4-6 yet
+    [fdisk#24](https://github.com/MEGA65/mega65-fdisk/issues/24)
+- Documentation
+  [#639](https://github.com/MEGA65/mega65-core/issues/639)
+
+### Known Bugs
+
+- There are still some open issues with the Expansion Port, so some cartridges
+  are not detected correctly by the MEGA65 core (moved to 0.97 Release)
+  [#778](https://github.com/MEGA65/mega65-core/issues/778)
+  [#781](https://github.com/MEGA65/mega65-core/issues/781)
+- Mouse Support has open issues
+  [#751](https://github.com/MEGA65/mega65-core/issues/751)
 
 ## Release 0.95 (commit hash 93d55f0)
 
 This is the Batch 2 Release (October 2022).
 
- - MEGAFLASH/jtagflash security fixes
-   [#589](https://github.com/MEGA65/mega65-core/issues/589)
-   [#612](https://github.com/MEGA65/mega65-core/issues/612)
-   [#611](https://github.com/MEGA65/mega65-core/issues/611)
-   [#612](https://github.com/MEGA65/mega65-core/issues/612)
- - fixed placement of I/O components to improve build quality
-   [#603](https://github.com/MEGA65/mega65-core/issues/603)
- - fdisk tool improvements (rescan bus, skip or select population)
-   [fdisk#10](https://github.com/MEGA65/mega65-fdisk/issues/10)
-   [fdisk#11](https://github.com/MEGA65/mega65-fdisk/issues/11)
-   [fdisk#12](https://github.com/MEGA65/mega65-fdisk/issues/12)
-   [fdisk#13](https://github.com/MEGA65/mega65-fdisk/issues/13)
- - onboarding fixes (date format, day one off bug)
- - configure menu updates (date format, mac address)
-   [#560](https://github.com/MEGA65/mega65-core/issues/560)
- - Hyppo improvements
-   [#620](https://github.com/MEGA65/mega65-core/issues/620)
-   [#550](https://github.com/MEGA65/mega65-core/issues/550)
-   [#568](https://github.com/MEGA65/mega65-core/issues/568)
-   [#552](https://github.com/MEGA65/mega65-core/issues/552)
-   [#578](https://github.com/MEGA65/mega65-core/issues/578)
-   [#493](https://github.com/MEGA65/mega65-core/issues/493)
- - Grove RTC support (external RTC)
-   [#591](https://github.com/MEGA65/mega65-core/issues/591)
- - MAX10 FPGA communication fixes
- - Unify date/time display and entry between tools
-   [#542](https://github.com/MEGA65/mega65-core/issues/542)
-   [#540](https://github.com/MEGA65/mega65-core/issues/540)
- - VIC-IV Raster IRQ fixes
-   [#604](https://github.com/MEGA65/mega65-core/issues/604)
-   [#609](https://github.com/MEGA65/mega65-core/issues/609)
- - 50/60Hz TOD flag for CIA
-   [#587](https://github.com/MEGA65/mega65-core/issues/587)
- - matrix monitor @ fix
-   [#596](https://github.com/MEGA65/mega65-core/issues/596)
- - freezer updates (mounting, audiomixer, sprited)
-   [#548](https://github.com/MEGA65/mega65-core/issues/548)
-   [#590](https://github.com/MEGA65/mega65-core/issues/590)
-   [freezer#54](https://github.com/MEGA65/mega65-freezemenu/issues/54)
-   [freezer#53](https://github.com/MEGA65/mega65-freezemenu/issues/53)
-   [freezer#52](https://github.com/MEGA65/mega65-freezemenu/issues/52)
-   [freezer#51](https://github.com/MEGA65/mega65-freezemenu/issues/51)
-   [freezer#50](https://github.com/MEGA65/mega65-freezemenu/issues/50)
-   [freezer#49](https://github.com/MEGA65/mega65-freezemenu/issues/49)
-   [freezer#48](https://github.com/MEGA65/mega65-freezemenu/issues/48)
-   [freezer#47](https://github.com/MEGA65/mega65-freezemenu/issues/47)
-   [freezer#44](https://github.com/MEGA65/mega65-freezemenu/issues/44)
-   [freezer#42](https://github.com/MEGA65/mega65-freezemenu/issues/42)
-   [freezer#41](https://github.com/MEGA65/mega65-freezemenu/issues/41)
-   [freezer#39](https://github.com/MEGA65/mega65-freezemenu/issues/39)
-   [freezer#34](https://github.com/MEGA65/mega65-freezemenu/issues/34)
-   [freezer#33](https://github.com/MEGA65/mega65-freezemenu/issues/33)
-   [freezer#31](https://github.com/MEGA65/mega65-freezemenu/issues/31)
-   [freezer#23](https://github.com/MEGA65/mega65-freezemenu/issues/23)
- - MC Text mode fixes
-   [#420](https://github.com/MEGA65/mega65-core/issues/420)
- - MCM + VIC-III/IV behaviour less surprising
-   [#571](https://github.com/MEGA65/mega65-core/issues/571)
- - inline DMA jobs
-   [#580](https://github.com/MEGA65/mega65-core/issues/580)
- - tiled Sprite end pos
-   [#579](https://github.com/MEGA65/mega65-core/issues/579)
- - Hyppotest improvements
-   [#525](https://github.com/MEGA65/mega65-core/issues/525)
- - Joystick port interface via PMOD
-   [#521](https://github.com/MEGA65/mega65-core/issues/521)
- - vFAT fixes
-   [#539](https://github.com/MEGA65/mega65-core/issues/539)
- - DMA line improvements
-   [#401](https://github.com/MEGA65/mega65-core/issues/401)
- - 32bit opcode next op bugfix
-   [#535](https://github.com/MEGA65/mega65-core/issues/535)
- - fix ASCII keyscanner tables
-   [#532](https://github.com/MEGA65/mega65-core/issues/532)
- - SID Frequenzy correction 1MHz
-   [#449](https://github.com/MEGA65/mega65-core/issues/449)
- - SID 8580 waveform
-   [#477](https://github.com/MEGA65/mega65-core/issues/477)
- - ethernet enhancements
-   [#523](https://github.com/MEGA65/mega65-core/issues/523)
- - remove 1541/6502 from mega65r2 target
- - lots of documentation fixes (iomap.txt, user-guide)
+- MEGAFLASH/jtagflash security fixes
+  [#589](https://github.com/MEGA65/mega65-core/issues/589)
+  [#612](https://github.com/MEGA65/mega65-core/issues/612)
+  [#611](https://github.com/MEGA65/mega65-core/issues/611)
+  [#612](https://github.com/MEGA65/mega65-core/issues/612)
+- Fixed placement of I/O components to improve build quality
+  [#603](https://github.com/MEGA65/mega65-core/issues/603)
+- Fdisk tool improvements (rescan bus, skip or select population)
+  [fdisk#10](https://github.com/MEGA65/mega65-fdisk/issues/10)
+  [fdisk#11](https://github.com/MEGA65/mega65-fdisk/issues/11)
+  [fdisk#12](https://github.com/MEGA65/mega65-fdisk/issues/12)
+  [fdisk#13](https://github.com/MEGA65/mega65-fdisk/issues/13)
+- Onboarding fixes (date format, day one off bug)
+- Configure menu updates (date format, mac address)
+  [#560](https://github.com/MEGA65/mega65-core/issues/560)
+- Hyppo improvements
+  [#620](https://github.com/MEGA65/mega65-core/issues/620)
+  [#550](https://github.com/MEGA65/mega65-core/issues/550)
+  [#568](https://github.com/MEGA65/mega65-core/issues/568)
+  [#552](https://github.com/MEGA65/mega65-core/issues/552)
+  [#578](https://github.com/MEGA65/mega65-core/issues/578)
+  [#493](https://github.com/MEGA65/mega65-core/issues/493)
+- Grove RTC support (external RTC)
+  [#591](https://github.com/MEGA65/mega65-core/issues/591)
+- MAX10 FPGA communication fixes
+- Unify date/time display and entry between tools
+  [#542](https://github.com/MEGA65/mega65-core/issues/542)
+  [#540](https://github.com/MEGA65/mega65-core/issues/540)
+- VIC-IV Raster IRQ fixes
+  [#604](https://github.com/MEGA65/mega65-core/issues/604)
+  [#609](https://github.com/MEGA65/mega65-core/issues/609)
+- 50/60Hz TOD flag for CIA
+  [#587](https://github.com/MEGA65/mega65-core/issues/587)
+- Matrix monitor @ fix
+  [#596](https://github.com/MEGA65/mega65-core/issues/596)
+- FREEZER updates (mounting, audiomixer, sprited, romload)
+  [#548](https://github.com/MEGA65/mega65-core/issues/548)
+  [#590](https://github.com/MEGA65/mega65-core/issues/590)
+  [freezer#54](https://github.com/MEGA65/mega65-freezemenu/issues/54)
+  [freezer#53](https://github.com/MEGA65/mega65-freezemenu/issues/53)
+  [freezer#52](https://github.com/MEGA65/mega65-freezemenu/issues/52)
+  [freezer#51](https://github.com/MEGA65/mega65-freezemenu/issues/51)
+  [freezer#50](https://github.com/MEGA65/mega65-freezemenu/issues/50)
+  [freezer#49](https://github.com/MEGA65/mega65-freezemenu/issues/49)
+  [freezer#48](https://github.com/MEGA65/mega65-freezemenu/issues/48)
+  [freezer#47](https://github.com/MEGA65/mega65-freezemenu/issues/47)
+  [freezer#44](https://github.com/MEGA65/mega65-freezemenu/issues/44)
+  [freezer#42](https://github.com/MEGA65/mega65-freezemenu/issues/42)
+  [freezer#41](https://github.com/MEGA65/mega65-freezemenu/issues/41)
+  [freezer#39](https://github.com/MEGA65/mega65-freezemenu/issues/39)
+  [freezer#34](https://github.com/MEGA65/mega65-freezemenu/issues/34)
+  [freezer#33](https://github.com/MEGA65/mega65-freezemenu/issues/33)
+  [freezer#31](https://github.com/MEGA65/mega65-freezemenu/issues/31)
+  [freezer#27](https://github.com/MEGA65/mega65-freezemenu/issues/27)
+  [freezer#23](https://github.com/MEGA65/mega65-freezemenu/issues/23)
+- MC Text mode fixes
+  [#420](https://github.com/MEGA65/mega65-core/issues/420)
+- MCM + VIC-III/IV behaviour less surprising
+  [#571](https://github.com/MEGA65/mega65-core/issues/571)
+- Inline DMA jobs
+  [#580](https://github.com/MEGA65/mega65-core/issues/580)
+- Tiled Sprite end pos
+  [#579](https://github.com/MEGA65/mega65-core/issues/579)
+- Hyppotest improvements
+  [#525](https://github.com/MEGA65/mega65-core/issues/525)
+- Joystick port interface via PMOD
+  [#521](https://github.com/MEGA65/mega65-core/issues/521)
+- VFAT fixes
+  [#539](https://github.com/MEGA65/mega65-core/issues/539)
+- DMA line improvements
+  [#401](https://github.com/MEGA65/mega65-core/issues/401)
+- 32bit opcode next op bugfix
+  [#535](https://github.com/MEGA65/mega65-core/issues/535)
+- Fix ASCII keyscanner tables
+  [#532](https://github.com/MEGA65/mega65-core/issues/532)
+- SID Frequenzy correction 1MHz
+  [#449](https://github.com/MEGA65/mega65-core/issues/449)
+- SID 8580 waveform
+  [#477](https://github.com/MEGA65/mega65-core/issues/477)
+- Ethernet enhancements
+  [#523](https://github.com/MEGA65/mega65-core/issues/523)
+- Remove 1541/6502 from mega65r2 target
+- Lots of documentation fixes (iomap.txt, user-guide)
 
 ## Release 0.9 (commit hash f7554a8)
 

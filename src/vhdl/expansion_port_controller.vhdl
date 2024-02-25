@@ -75,6 +75,7 @@ ENTITY expansion_port_controller IS
     -- Expansion port pins
     ------------------------------------------------------------------------
     cart_ctrl_dir : out std_logic := '1';
+    cart_ctrl_en : out std_logic := '0'; -- required for R4/R5/R6
     cart_haddr_dir : out std_logic := '1';
     cart_laddr_dir : out std_logic := '1';
     cart_addr_en : out std_logic := '0';
@@ -419,6 +420,9 @@ begin
             -- direction for a fraction of a 1MHz cycle, but we need to better
             -- understand the performance of the buffers to know what latency
             -- is required.
+            -- XXX On R4/R5/R6 only the R/W line might need to be read instead
+            -- of written to.  Note has been logged for R7 board design to
+            -- make R/W open-collector and have a separate read sense on it.
             report "EXROM: Tri-stating cart_exrom,game, setting cart_ctrl_dir=0";
             reprobe_exrom <= '0';
             cart_ctrl_dir <= '0';

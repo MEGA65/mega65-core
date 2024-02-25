@@ -71,6 +71,7 @@ ifdef USE_LOCAL_CC65
 	CA65=  ca65 --cpu 4510
 	LD65=  ld65 -t none
 	CL65=  cl65 --config src/tests/vicii.cfg
+	CL65NC= cl65
 	CC65_DEPEND=
 else
 	# use the binary built from the submodule
@@ -78,6 +79,7 @@ else
 	CA65=  cc65/bin/ca65 --cpu 4510
 	LD65=  cc65/bin/ld65 -t none
 	CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+	CL65NC= cc65/bin/cl65
 	CC65_DEPEND=$(CC65)
 endif
 
@@ -114,6 +116,23 @@ endif
 ifeq ($(OSYSTEM),Linux) # Linux
         CONVERT=        $(firstword $(wildcard /usr/bin/convert /usr/local/bin/convert))
 endif
+
+# Utility functions for build output
+define mbuild_header
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $(1))
+endef
+
+# Make sure that result is not too big.
+define mbuild_sizecheck
+	@echo $$(stat -c"~~~~~~~~~~~~~~~~> $(notdir $(2)) size is %s (max $(1))" $(2))
+	@test -z "$$(find $(2) -size +$(1)c)"
+endef
+
+# mega65-libc for cc65
+MEGA65LIBCDIR= $(SRCDIR)/mega65-libc/cc65
+MEGA65LIBCLIB= $(MEGA65LIBCDIR)/libmega65.a
+MEGA65LIBCINC= -I$(MEGA65LIBCDIR)/include
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -161,9 +180,17 @@ FREEZER_FILES= \
 SDCARD_FILES= \
 	$(SDCARD_DIR)/ETHLOAD.M65
 
+FLASHER_FILES= \
+	$(UTILDIR)/mflash.prg
+
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r2.mcs $(BINDIR)/mega65r3.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr-widget.mcs $(BINDIR)/megaphoner1.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save freezer_files
+all:	freezer_files $(SDCARD_DIR)/MEGA65.D81
+	$(info ...)
+	$(info ======================================================================================)
+	$(info Please do make bin/TARGET.bit to build a bitstream (for example make bin/mega65r3.bit))
+	$(info or read docs/build.md for more information about the build process)
+	$(info ======================================================================================)
 
 # phony target to force submodule builds
 FORCE:
@@ -174,9 +201,26 @@ format:
 	done; \
 	find . -type d \( -path ./release-build $$submodules \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print0 | xargs -0 clang-format --style=file -i --verbose
 
-.PHONY: FORCE format
+.PHONY: all FORCE format freezer_files flasher_files
 
 freezer_files: $(SDCARD_DIR) $(FREEZER_FILES) $(SDCARD_FILES)
+
+flasher_files: $(FLASHER_FILES)
+
+# generate various version files
+GEN_VERSION= \
+	$(VHDLSRCDIR)/version.vhdl \
+	src/monitor/version.a65 \
+	src/version.a65 \
+	src/version.asm \
+	src/version.txt \
+	$(BINDIR)/matrix_banner.txt \
+	$(UTILDIR)/version.s \
+	$(UTILDIR)/version.a65 \
+	$(UTILDIR)/version.h
+
+$(GEN_VERSION):	.git/HEAD ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+	./src/version.sh
 
 $(SDCARD_DIR):
 	mkdir $(SDCARD_DIR)
@@ -196,36 +240,35 @@ $(CBMCONVERT): FORCE
 	$(SUBMODULEUPDATE)
 	( cd cbmconvert && make -f Makefile.unix )
 
-cc65/bin/cc65: FORCE
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+$(MEGA65LIBCLIB):
+	$(SUBMODULEUPDATE)
+	make -C src/mega65-libc all
+	make -C src/mega65-libc clean
+
+cc65/bin/cc65:
+	$(call mbuild_header,$@)
 	$(SUBMODULEUPDATE)
 	( cd cc65 && make -j 8 )
 
 
-Ophis/bin/ophis: FORCE
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+Ophis/bin/ophis:
 	$(SUBMODULEUPDATE)
-	# Ophis submodule has the executable pre-built at Ophis/bin/ophis
+# nothing to do, Ophis submodule has the executable pre-built at Ophis/bin/ophis
 
 
 src/tools/acme/src/acme: FORCE
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(SUBMODULEUPDATE)
 	( cd src/tools/acme/src && make -j 8 )
 
 
 ghdl/ghdl_mcode: ghdl/build/bin/ghdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	# GHDL submodule is compiled by ghdl/build/bin/ghdl
 
 
 ghdl/build/bin/ghdl: #FORCE
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	# APT Package gnat is a prerequisite for this to succeed, as described in the documentation
 	$(SUBMODULEUPDATE)
 	( cd ghdl && ./configure --prefix=./build && make -j 8 && make install )
@@ -486,14 +529,12 @@ simulate-nvc:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 
 # GHDL with llvm backend
 simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g cpu_test
 
 simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src/vhdl/fast_divide.vhdl src/vhdl/multiply32.vhdl src/vhdl/shifter32.vhdl src/vhdl/divider32.vhdl src/vhdl/shadowram-cpusim.vhdl src/vhdl/ghdl_ram36x1k.vhdl src/vhdl/cpu_only.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl src/vhdl/victypes.vhdl
 	$(GHDL) -m -g cpu_only
 	$(GHDL) -r -g cpu_only
@@ -502,8 +543,7 @@ simulate-cpu-llvm:	$(GHDL_DEPEND) src/vhdl/gs4510.vhdl src/vhdl/neotrng.vhdl src
 # GHDL with mcode backend for backtraces (PGS special debug version)
 GHDLGCC = ghdl
 simulate-gcc-build:  $(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDLGCC) -i -g $(SIMULATIONVHDL)
 	$(GHDLGCC) -m -g cpu_test
 
@@ -512,8 +552,7 @@ simulate-gcc: simulate-gcc-build
 
 
 ghdl_bug:	$(GHDL_DEPEND) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m -g ghdl_bug
 
@@ -530,8 +569,7 @@ simulatemfm:	$(GHDL_DEPEND) $(MFMTESTSRCS)
 #	$(GHDL) -m -g mfm_test
 
 nocpu:	$(GHDL_DEPEND) $(NOCPUSIMULATIONVHDL)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -m cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
@@ -541,8 +579,7 @@ KVFILES=$(VHDLSRCDIR)/test_kv.vhdl $(VHDLSRCDIR)/keyboard_to_matrix.vhdl $(VHDLS
 	$(VHDLSRCDIR)/widget_to_matrix.vhdl $(VHDLSRCDIR)/ps2_to_matrix.vhdl $(VHDLSRCDIR)/keymapper.vhdl \
 	$(VHDLSRCDIR)/keyboard_complex.vhdl $(VHDLSRCDIR)/virtual_to_matrix.vhdl
 kvsimulate:	$(GHDL_DEPEND) $(KVFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(KVFILES)
 	$(GHDL) -m test_kv
 	./test_kv || $(GHDL) -r test_kv
@@ -551,8 +588,7 @@ OSKFILES=$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl
 osksimulate:	$(GHDL_DEPEND) $(OSKFILES) $(TOOLDIR)/osk_image
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(OSKFILES)
 	$(GHDL) -m test_osk
 	( ./test_osk || $(GHDL) -r test_osk ) 2>&1 | $(TOOLDIR)/osk_image
@@ -567,8 +603,7 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/termmem.vhdl
 
 mmsimulate:	$(GHDL_DEPEND) $(MMFILES) $(TOOLDIR)/osk_image
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(MMFILES)
 	$(GHDL) -m test_matrix
 	( ./test_matrix || $(GHDL) -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
@@ -587,8 +622,7 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
 mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(MFMFILES)
 	$(GHDL) -m test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
@@ -609,24 +643,21 @@ QSPIFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/test_qspi.vhdl
 
 qspisimulate: $(GHDL_DEPEND) $(QSPIFILES) $(ASSETS)/synthesised-60ns.dat
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(QSPIFILES)
 	$(GHDL) -m test_qspi
 	( ./test_qspi --vcd=qspi.vcd || $(GHDL) -r test_qspi --vcd=qspi.vcd )
 
 READCOMPFILES=	$(VHDLSRCDIR)/test_readcomp.vhdl $(VHDLSRCDIR)/floppy_read_compensator.vhdl
 readcompsimulate: $(GHDL_DEPEND) $(READCOMPFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(READCOMPFILES)
 	$(GHDL) -m test_readcomp
 	( ./test_readcomp || $(GHDL) -r test_readcomp )
 
 
 pdmsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(GHDL) -m test_pdm
 	( ./test_pdm || $(GHDL) -r test_pdm )
@@ -639,15 +670,13 @@ hyperramsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 buffereduartsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_buffereduart.vhdl $(VHDLSRCDIR)/buffereduart.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/ghdl_ram8x4096.vhdl
 	$(GHDL) -m test_buffereduart
 	( ./test_buffereduart || $(GHDL) -r test_buffereduart )
 
 uartrxbuffsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_rxbuff.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx_buffered.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_rxbuff.vhdl $(VHDLSRCDIR)/test_rxbuff.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/uart_rx_buffered.vhdl $(VHDLSRCDIR)/UART_TX_CTRL.vhdl $(VHDLSRCDIR)/cputypes.vhdl
 	$(GHDL) -m test_rxbuff
 	( ./test_rxbuff || $(GHDL) -r test_rxbuff )
@@ -663,52 +692,45 @@ hyperramsimulate2: $(GHDL_DEPEND) $(VHDLSRCDIR)/vital_primitives.vhdl $(VHDLSRCD
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 hyperramsimulate16: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
 	$(GHDL) -m test_hyperram16
 	( ./test_hyperram16 || $(GHDL) -r test_hyperram16 )
 
 i2csimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
 
 grovesimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_grove.vhdl $(VHDLSRCDIR)/i2c_controller.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/grove_i2c.vhdl
 	$(GHDL) -m test_grove
 	( ./test_grove || $(GHDL) -r test_grove )
 
 k2simulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
 	$(GHDL) -m testkey
 	( ./testkey || $(GHDL) -r testkey )
 
 divsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testdiv.vhdl $(VHDLSRCDIR)/fast_divide.vhdl $(VHDLSRCDIR)/debugtools.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/testdiv.vhdl $(VHDLSRCDIR)/fast_divide.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m testdiv
 	( ./testdev || $(GHDL) -r testdiv )
 
 
 fpacksimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -m test_framepacker
 	( ./test_framepacker || $(GHDL) -r test_framepacker )
 
 HWSC_FILES=	$(VHDLSRCDIR)/test_sc.vhdl $(VHDLSRCDIR)/sc_cell_calc.vhdl 
 scsimulate: $(GHDL_DEPEND) $(HWSC_FILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(HWSC_FILES)
 	$(GHDL) -m test_sc
 	( ./test_i2c || $(GHDL) -r test_sc )
@@ -718,8 +740,7 @@ MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
 
 miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
@@ -728,8 +749,7 @@ ETHFILES=	$(VHDLSRCDIR)/ethernet.vhdl \
 		$(VHDLSRCDIR)/test_ethernet.vhdl
 
 ethsimulate:	$(GHDL_DEPEND) $(ETHFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(ETHFILES)
 	$(GHDL) -m test_ethernet
 	( ./test_ethernet || $(GHDL) -r test_ethernet )
@@ -740,16 +760,14 @@ ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
 asciisimulate:	$(GHDL_DEPEND) $(ASCIIFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(ASCIIFILES)
 	$(GHDL) -m test_ascii
 	( ./test_ascii || $(GHDL) -r test_ascii )
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(SPRITEFILES)
 	$(GHDL) -m test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
@@ -767,8 +785,7 @@ $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(CC) $(COPT) -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
 vfsimulate:	$(GHDL_DEPEND) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	$(GHDL) -m frame_test
 	./frame_test || $(GHDL) -r frame_test
@@ -781,23 +798,20 @@ vfsimulate:	$(GHDL_DEPEND) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_fra
 
 # ============================
 $(SDCARD_DIR)/CHARROM.M65:
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/CHARROM.M65)
+	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/CHARROM.M65 http://www.zimmers.net/anonftp/pub/cbm/firmware/characters/c65-caff.bin
 
 # ============================
 $(SDCARD_DIR)/MEGA65.ROM:
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.ROM)
+	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
 	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111-390488-01.bin
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
 $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
+	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
 	$(CBMCONVERT) -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
@@ -806,179 +820,206 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
 %.prg:	%.a65 $(OPHIS_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
 %.bin:	%.a65 $(OPHIS_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-
-
 %.o:	%.s $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CA65) $< -l $*.list
 
 $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CA65) $< -g -l $*.list
 
 $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s
 
 $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
 $(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(LD65) $< -Ln $*.label -vm --mapfile $*.map -o $*.prg
 
-$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+#
+# NNEW MEGAFLASH BUILD
+#
+MFLASH_QSPI_C = \
+	$(UTILDIR)/qspicommon.c \
+	$(UTILDIR)/qspireconfig.c
+
+MFLASH_QSPI_H = \
+	$(UTILDIR)/version.h \
+	$(UTILDIR)/qspicommon.h \
+	$(UTILDIR)/qspireconfig.h
+
+MFLASH_BASE_H = \
+	$(UTILDIR)/mhexes.h \
+	$(UTILDIR)/mhx_bin2scr.h \
+	$(UTILDIR)/nohysdc.h \
+	$(UTILDIR)/crc32accl.h \
+	$(UTILDIR)/mf_progress.h \
+	$(UTILDIR)/mf_selectcore.h \
+	$(UTILDIR)/mf_hlflash.h
+
+MFLASH_BASE_OBJ = \
+	$(UTILDIR)/mhexes.o \
+	$(UTILDIR)/mhx_bin2scr.o \
+	$(UTILDIR)/nohysdc.o \
+	$(UTILDIR)/crc32accl.o \
+	$(UTILDIR)/mf_progress.o \
+	$(UTILDIR)/mf_selectcore.o \
+	$(UTILDIR)/mf_hlflash.o
+
+MFLASH_CORE_H = \
+	$(UTILDIR)/mf_screens.h \
+	$(MFLASH_BASE_H)
+
+MFLASH_CORE_OBJ = \
+	$(UTILDIR)/mf_screens.o \
+	$(MFLASH_BASE_OBJ)
+
+MFLASH_SOLO_H = \
+	$(UTILDIR)/mf_screens_solo.h \
+	$(MFLASH_BASE_H)
+
+MFLASH_SOLO_OBJ = \
+	$(UTILDIR)/mf_screens_solo.o \
+	$(MFLASH_BASE_OBJ)
+
+MFLASH_CORE_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
+MFLASH_CORE_LINK = $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
+
+MFLASH_SOLO_REQ = $(MFLASH_QSPI_H) $(MFLASH_SOLO_H) $(MFLASH_QSPI_C) $(MFLASH_SOLO_OBJ)
+MFLASH_SOLO_LINK = $(MFLASH_QSPI_C) $(MFLASH_SOLO_OBJ)
+
+$(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin $(UTILDIR)/mf_screens.c $(UTILDIR)/mf_screens.h $(UTILDIR)/mf_screens_solo.c $(UTILDIR)/mf_screens_solo.h: $(UTILDIR)/megaflash.scr $(TOOLDIR)/screenbuilder.py
+	$(TOOLDIR)/screenbuilder.py $<
+
+$(UTILDIR)/%.o: $(UTILDIR)/%.s
+	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $<
+
+$(UTILDIR)/%.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
+	@if [ ! -e $(UTILDIR)/work ]; then \
+		mkdir $(UTILDIR)/work; \
+	fi
+	$(CC65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/work/$*.s $<
+	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
+
+# remember: version.s needs to be first!
+$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(SDCARD_DIR)/ONBOARD.M65 --add-source -Ln $(UTILDIR)/ONBOARD.label --listing $(UTILDIR)/ONBOARD.list --mapfile $(UTILDIR)/ONBOARD.map $(UTILDIR)/version.s $< $(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/memory_asm.s $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-# it doesn't overlap with hypervisor
-	@echo $$(stat -c"~~~~~~~~~~~~~~~~> ONBOARD.M65 size is %s (max 29000)" $(SDCARD_DIR)/ONBOARD.M65)
-	@test -n "$$(find $(SDCARD_DIR)/ONBOARD.M65 -size -29000c)"
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source -DA200T \
+		-o $(SDCARD_DIR)/ONBOARD.M65 -DSTANDALONE \
+		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
+		$(UTILDIR)/version.s $< $(UTILDIR)/qspireconfig.c $(MEGA65LIBCLIB)
+# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
+	$(call mbuild_sizecheck,30719,$@)
 
-# $(UTILDIR)/userwarning.c:	$(UTILDIR)/userwarning_default.c
-# 	$(UTILDIR)/userwarning.sh
+#
+# MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
+#
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source \
+		-o $(UTILDIR)/megaflash-a100t.prg \
+		-Ln $*.label --listing $*.list --mapfile $*.map \
+		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
+		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
+# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
+	$(call mbuild_sizecheck,30719,$@)
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg \
-		--add-source -Ln $*.label --listing $*.list \
-		--mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/memory_asm.s $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
-# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-# it doesn't overlap with hypervisor
-	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a100t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a100t.prg)
-	@test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source \
+		-o $(UTILDIR)/megaflash-a200t.prg \
+		-Ln $*.label --listing $*.list --mapfile $*.map \
+		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
+		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
+# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
+	$(call mbuild_sizecheck,30719,$@)
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg \
-		--add-source -Ln $*.label --listing $*.list \
-		--mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/memory_asm.s $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspicommon.c
-# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-# it doesn't overlap with hypervisor
-	@echo $$(stat -c"~~~~~~~~~~~~~~~~> megaflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/megaflash-a200t.prg)
-	@test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
+# The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging, but also for production and recovery
+$(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
+		$(MEGA65LIBCINC) -O -o $@ \
+		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
+		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
+	$(call mbuild_sizecheck,43000,$@)
 
-$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/qspijoy.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND) # $(UTILDIR)/userwarning.c
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/joyflash-a200t.prg \
-		--add-source -Ln $*.label --listing $*.list \
-		--mapfile $*.map $< \
-		$(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(UTILDIR)/qspijoy.c
-# Make sure that result is not too big.  Top must be below < $$8000 after loading, so that
-# it doesn't overlap with hypervisor
-	@echo $$(stat -c"~~~~~~~~~~~~~~~~> joyflash-a200t.prg size is %s (max 29000)" $(UTILDIR)/joyflash-a200t.prg)
-	@test -n "$$(find $(UTILDIR)/joyflash-a200t.prg -size -29000c)"
+#
+# OLD MEGAFLASH BUILD, not working, probably
+#
+$(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspijoy.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O -o $(UTILDIR)/joyflash-a200t.prg \
+		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
+		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspijoy.c
+# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
+	$(call mbuild_sizecheck,30719,$@)
 
-
-$(UTILDIR)/jtagflash.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagflash.prg \
-		--add-source --listing $*.list --mapfile $*.map -DQSPI_VERBOSE $< \
-		$(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-
-$(UTILDIR)/autoflash.prg:       $(UTILDIR)/jtagflash-automatic.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon-automatic.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/autoflash.prg \
-		--add-source --listing $*.list --mapfile $*.map -DQSPI_VERBOSE $< \
-		$(UTILDIR)/qspicommon-automatic.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-
-$(UTILDIR)/jtagdebug.prg:       $(UTILDIR)/jtagflash.c $(UTILDIR)/version.h $(UTILDIR)/qspicommon.c $(UTILDIR)/qspicommon.h $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $(UTILDIR)/jtagdebug.prg \
-		--add-source --listing $*.list --mapfile $*.map -DQSPI_VERBOSE -DQSPI_FLASH_INSPECT -DQSPI_ERASE_ZERO $< \
-		$(UTILDIR)/qspicommon.c $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c $(SRCDIR)/mega65-libc/cc65/src/time.c $(SRCDIR)/mega65-libc/cc65/src/targets.c
-
-
-$(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s) $(wildcard $(SRCDIR)/mega65-libc/cc65/include/*.h) $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $*.prg --mapfile $*.map $< $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s)
+$(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65) $(MEGA65LIBCINC) -O -o $*.prg --mapfile $*.map $< $(MEGA65LIBCLIB)
 
 $(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s $(SRCDIR)/mega65-libc/cc65/include/*.h $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $*.prg --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s
+$(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	$(CL65) $(MEGA65LIBCINC) -O -o $*.prg --mapfile $*.map $< $(MEGA65LIBCLIB)
 
 $(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
 $(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(CA65) $< -l $*.list
 
 $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-# Assure tests build and pass
-$(SRCDIR)/mega65-fdisk/gtest/bin/m65fdisk.test:
-	make -C $(SRCDIR)/mega65-fdisk/ test
-
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg: $(SRCDIR)/mega65-fdisk/gtest/bin/m65fdisk.test FORCE
-	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg)  
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg: FORCE
+	make -C $(SRCDIR)/mega65-fdisk/ USE_LOCAL_CC65=$(USE_LOCAL_CC65) test m65fdisk.prg
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
@@ -1000,10 +1041,10 @@ $(BINDIR)/monitor.m65:	$(OPHIS_DEPEND) $(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/m
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS_MON) -l $(SRCDIR)/monitor/monitor.list -m $(SRCDIR)/monitor/monitor.map -o $(BINDIR)/monitor.m65 $(SRCDIR)/monitor/monitor.a65
 
-$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(SRCDIR)/utilities/etherload.a65
+$(SDCARD_DIR)/ETHLOAD.M65:	$(OPHIS_DEPEND) $(UTILDIR)/etherload.a65 $(UTILDIR)/version.a65
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $(OPHISOPT) -l $(SRCDIR)/utilities/etherload.list -m $(SRCDIR)/utilities/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(SRCDIR)/utilities/etherload.a65
+	$(OPHIS) $(OPHISOPT) -l $(UTILDIR)/etherload.list -m $(UTILDIR)/etherload.map -o $(SDCARD_DIR)/ETHLOAD.M65 $(UTILDIR)/etherload.a65
 
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
@@ -1040,13 +1081,13 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	$(SUBMODULEUPDATE)
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg $(SDCARD_DIR)/ONBOARD.M65
+$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/megaflash-a100t.prg $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a100t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/mf_screens.bin@`cat $(UTILDIR)/mf_screens.adr` $(UTILDIR)/megaflash-a100t.prg@50000
 
-$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg $(SDCARD_DIR)/ONBOARD.M65
+$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/megaflash-a200t.prg $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/megaflash-a200t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/mf_screens.bin@`cat $(UTILDIR)/mf_screens.adr` $(UTILDIR)/megaflash-a200t.prg@50000
 
 $(VHDLSRCDIR)/shadowram-cpusim.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(UTILDIR)/cpusim.prg
 	mkdir -p $(SDCARD_DIR)
@@ -1105,15 +1146,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/utilpacker/utilpacker $(TOOLDIR)/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
-# script to extract the git-status from the ./.git filesystem, and to embed that string
-# into two files (*.vhdl and *.a65), that is wrapped with the template-file
-# NOTE that we should use make to build the ISE project so that the
-# version information is updated.
-# for now we will always update the version info whenever we do a make.
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm src/version.txt $(BINDIR)/matrix_banner.txt $(UTILDIR)/version.s $(UTILDIR)/version.h:	FORCE .git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
-	./src/version.sh
-
-# i think 'charrom' is used to put the pngprepare file into a special mode that
+# I think 'charrom' is used to put the pngprepare file into a special mode that
 # generates the charrom.vhdl file that is embedded with the contents of the 8x8font.png file
 $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.png
 #       exe          option  infile      outfile
@@ -1159,8 +1192,7 @@ $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOO
 	$(CC) $(COPT) -g -Wall -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz -lpthread
 
 $(BINDIR)/ftphelper.bin:	$(OPHIS_DEPEND) src/ftphelper.a65
-	$(info =============================================================)
-	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	$(call mbuild_header,$@)
 	$(OPHIS) $(OPHISOPT) src/ftphelper.a65
 
 $(TOOLDIR)/ftphelper.c:	$(BINDIR)/ftphelper.bin $(TOOLDIR)/bin2c
@@ -1246,7 +1278,9 @@ $(BINDIR)/vncserver:	$(TOOLDIR)/vncserver.c
 
 clean:
 	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
-	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.label $(UTILDIR)/*.map $(UTILDIR)/*.bin $(UTILDIR)/*.o
+	rm -f $(BINDIR)/diskmenu_c000.bin
+	rm -f $(UTILDIR)/*.list $(UTILDIR)/*.label $(UTILDIR)/*.map $(UTILDIR)/*.bin $(UTILDIR)/*.o $(UTILDIR)/mf_screens*
+	rm -rf $(UTILDIR)/work
 	## should not remove iomap.txt, as this is committed to repo!
 	#rm -f iomap.txt
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
@@ -1262,15 +1296,8 @@ clean:
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/*.cache vivado/*.runs vivado/*.hw vivado/*.ip_user_files vivado/*.srcs vivado/*.xpr
 	rm -f $(TOOLS)
-	rm -f bin/matrix_banner.txt \
-		src/version.txt \
-		src/version.a65 \
-		src/version.asm \
-		src/monitor/version.a65 \
-		src/utilities/version.h \
-		src/utilities/version.s \
-		src/vhdl/version.vhdl
-	rm -f FAIL.* PASS.*
+	rm -f $(GEN_VERSION)
+	rm -f FAIL.* PASS.* JENKINS_BUILD_*
 	find . -type d -name "*.dSYM" -exec rm -rf -- {} +
 
 cleanall: clean

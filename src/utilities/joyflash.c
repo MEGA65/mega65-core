@@ -8,7 +8,7 @@
 
 #include <6502.h>
 
-#include "qspicommon.h"
+#include "qspijoy.h"
 // not needed, no slot 0 flashing in core flasher!
 // #include "userwarning.c"
 
@@ -341,8 +341,11 @@ void main(void)
         POKE(0xd021, 6);
       }
       else {
-        reflash_slot(selected_reflash_slot);
-        scan_bitstream_information();
+        unsigned char selected_file = select_bitstream_file();
+        if (selected_file) {
+          reflash_slot(selected_reflash_slot, selected_file);
+          scan_bitstream_information();
+        }
         printf("%c", 0x93);
       }
     }
