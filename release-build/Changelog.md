@@ -6,7 +6,7 @@ Please look into [mega65-core](https://github.com/MEGA65/mega65-core/),
 [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/)
 for a complete changelog.
 
-## Release 0.96 (commit hash tbd)
+## Release 0.96 (commit hash 3c10488)
 
 This is the Batch 3 Release (February 2024), which is mainly aimed at the new
 mega65r6 board for the Batch 3 production.
