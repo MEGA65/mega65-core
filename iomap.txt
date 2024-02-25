@@ -529,8 +529,8 @@ GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
 GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
-GS $D613 DEBUG:CRTACSCNT Count of cartridge port memory accesses (read only)
-GS $D614 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
+GS $D613 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
+GS $D614 DEBUG:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
 GS $D615.0-6 UARTMISC:VIRTKEY1 Set to \$7F for no key down, else specify virtual key press.
 GS $D615.7 UARTMISC:OSKEN Enable display of on-screen keyboard composited overlay
 GS $D616.0-6 UARTMISC:VIRTKEY2 Set to \$7F for no key down, else specify 2nd virtual key press.
