@@ -53,6 +53,7 @@ unsigned char joy_x = 100;
 unsigned char joy_y = 100;
 
 uint8_t booted_via_jtag = 0;
+uint8_t old_flash_chip = 0;
 
 // mega65r3 QSPI has the most space currently with 8x8MB
 // this is to much for r3 or r2, but we can handle...
@@ -764,6 +765,15 @@ void main(void)
 #endif
   }
 
+  // currently flashing is only possible on r3a or later
+  if (hw_model_id < 3 || hw_model_id > 9 || num_4k_sectors || flash_sector_bits != 18) {
+    mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Flashing is currently not\n"
+               "supported on your platform, please use\n"
+               "alternative ways.\n\n");
+    old_flash_chip = 1;
+    mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
+  }
+
 #ifdef LAZY_ATTICRAM_CHECK
   // quick and dirty attic ram check
   dma_poke(0x8000000l, 0x55);
@@ -931,6 +941,11 @@ void main(void)
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
+      if (old_flash_chip) {
+        mhx_flashscreen(MHX_A_YELLOW, 150);
+        continue;
+      }
+
 #ifdef LAZY_ATTICRAM_CHECK
 
       if (atticram_bad) {
