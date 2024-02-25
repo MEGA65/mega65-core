@@ -367,7 +367,8 @@ mhx_keycode_t mhx_getkeycode(uint8_t peekonly)
 mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr)
 {
   if (!(flags & MHX_AK_NOMESSAGE)) {
-    mhx_setattr(attr);
+    if (!(attr & MHX_A_NOCOLOR))
+      mhx_setattr(attr);
     mhx_writef("Press any key to continue.\n");
   }
 
