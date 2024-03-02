@@ -25,7 +25,7 @@ architecture test_arch of tb_sdcard is
   signal fastio_rdata : unsigned(7 downto 0);
   signal fastio_read : std_logic := '0';
   signal fastio_write : std_logic := '0';
-  signal cs : std_logic := '0';
+  signal sdcardio_cs : std_logic := '0';
   signal sector_cs : std_logic := '0';
   signal sector_cs_fast : std_logic := '0';
   signal sd_bus_number : std_logic := '0';
@@ -69,7 +69,7 @@ begin
                fastio_wdata => fastio_wdata,
                fastio_rdata_sel => fastio_rdata,
 
-               sdcardio_cs => cs,
+               sdcardio_cs => sdcardio_cs,
                colourram_at_dc00 => '0',
                viciii_iomode => "11",
                sectorbuffercs => sector_cs,
@@ -145,6 +145,7 @@ begin
 
     procedure reg_write(addr : unsigned(19 downto 0); data : unsigned(7 downto 0)) is
     begin
+      sdcardio_cs <= '1';
       fastio_addr <= addr;
       fastio_wdata <= data;
       fastio_write <= '1';
@@ -153,11 +154,14 @@ begin
       for i in 1 to 8 loop
         clock_tick;
       end loop;
+      fastio_write <= '0';
+      sdcardio_cs <= '0';
       
     end procedure;
     
     procedure reg_read(addr : unsigned(19 downto 0) ) is
     begin
+      sdcardio_cs <= '1';
       fastio_addr <= addr;
       fastio_write <= '0';
       fastio_read <= '1';
@@ -166,6 +170,8 @@ begin
       for i in 1 to 8 loop
         clock_tick;
       end loop;
+      fastio_read <= '0';
+      sdcardio_cs <= '0';
       -- return fastio_rdata;
       
     end procedure;
@@ -189,7 +195,8 @@ begin
           end if;
         end loop;
         if fastio_rdata(1 downto 0) /= "00" then
-          assert false report "SD card was not READY following reset";
+          assert false report "SD card was not READY following reset: sdcard_busy="
+            & std_logic'image(fastio_rdata(1)) & ", sdio_busy=" & std_logic'image(fastio_rdata(0));
         end if;
         
       end if;
