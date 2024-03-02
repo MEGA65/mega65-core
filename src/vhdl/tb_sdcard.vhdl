@@ -143,13 +143,55 @@ begin
 
     end procedure;
 
+    procedure reg_write(addr : unsigned(19 downto 0); data : unsigned(7 downto 0)) is
+    begin
+      fastio_addr <= addr;
+      fastio_wdata <= data;
+      fastio_write <= '1';
+      fastio_read <= '0';
+      -- Wait one full 41MHz clock tick
+      for i in 1 to 8 loop
+        clock_tick;
+      end loop;
+      
+    end procedure;
+    
+    procedure reg_read(addr : unsigned(19 downto 0) ) is
+    begin
+      fastio_addr <= addr;
+      fastio_write <= '0';
+      fastio_read <= '1';
+      -- Wait two full 41MHz clock ticks to make sure any latency is
+      -- accomodated when reading BRAMs
+      for i in 1 to 8 loop
+        clock_tick;
+      end loop;
+      -- return fastio_rdata;
+      
+    end procedure;
+    
+    
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
 
-      if run("SDcard responds to reset request") then
-        assert false report "not implemented";
+      if run("SD card ready following RESET sequence") then
+        
+        reg_write(x"D3080",x"00"); -- assert RESET
+        reg_write(x"D3080",x"01"); -- release RESET
+
+        for i in 1 to 1000 loop
+          reg_read(x"D3080");
+          if fastio_rdata(1 downto 0) = "00" then
+            report "SD card reported READY after " & integer'image(i) & " cycles.";
+            exit;
+          end if;
+        end loop;
+        if fastio_rdata(1 downto 0) /= "00" then
+          assert false report "SD card was not READY following reset";
+        end if;
+        
       end if;
     end loop;
     test_runner_cleanup(runner);
