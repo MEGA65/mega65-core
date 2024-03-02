@@ -326,6 +326,8 @@ begin
         sclkPhaseTimer_v := 0;  -- Don't delay the initialization right after reset.
         busy_o           <= '1';  -- Busy while the SD card interface is being initialized.
 
+        report "SDCARD: reset_i asserted";
+        
       elsif sclkPhaseTimer_v /= 0 then
         -- Setting the clock phase timer to a non-zero value delays any further actions
         -- and generates the slower SPI clock from the faster master clock.
@@ -354,6 +356,8 @@ begin
         
         busy_o <= '1';  -- Busy by default. Only false when waiting for R/W from host or stalled by error.
 
+        report "SDCARD: state_v = " & FsmState_t'image(state_v);
+        
         case state_v is
           
           when START_INIT =>  -- Deselect the SD card and send it a bunch of clock pulses with MOSI high.

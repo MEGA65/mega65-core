@@ -1294,7 +1294,7 @@ begin  -- behavioural
           when x"80" =>
             -- status / command register
             -- error status in bit 6 so that V flag can be used for check
-            report "reading $D680 SDCARD status register" severity note;
+            -- report "reading $D680 SDCARD status register" severity note;
             fastio_rdata(7) <= sd_interface_select_internal;
             fastio_rdata(6) <= sdio_error;
             fastio_rdata(5) <= sdio_fsm_error;

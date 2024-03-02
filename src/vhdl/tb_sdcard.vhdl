@@ -183,11 +183,13 @@ begin
     while test_suite loop
 
       if run("SD card ready following RESET sequence") then
+
+        -- This sequence will cause sdcard.vhdl to begin its initialisation sequence.
         
         reg_write(x"D3080",x"00"); -- assert RESET
         reg_write(x"D3080",x"01"); -- release RESET
 
-        for i in 1 to 1000 loop
+        for i in 1 to 100000 loop
           reg_read(x"D3080");
           if fastio_rdata(1 downto 0) = "00" then
             report "SD card reported READY after " & integer'image(i) & " cycles.";
@@ -195,8 +197,10 @@ begin
           end if;
         end loop;
         if fastio_rdata(1 downto 0) /= "00" then
-          assert false report "SD card was not READY following reset: sdcard_busy="
+          report "SD card was not READY following reset: sdcard_busy="
             & std_logic'image(fastio_rdata(1)) & ", sdio_busy=" & std_logic'image(fastio_rdata(0));
+          reg_read(x"D309B");
+          assert false report "sdcard.vhdl FSM state = " & integer'image(to_integer(fastio_rdata));
         end if;
         
       end if;
