@@ -314,13 +314,14 @@ begin
       if parse_touch = 3 then
         -- We ignore the MSB, so that it is possible for the multiplier to
         -- both scale up and down versus the input from the panel
-        report "touch point 1 ="
-          & " " & to_hexstring(bytes(3))
-          & " " & to_hexstring(bytes(4))
-          & " " & to_hexstring(bytes(5))
-          & " " & to_hexstring(bytes(6))
-          & " " & to_hexstring(bytes(7))
-          & " " & to_hexstring(bytes(8));
+--        report "touch point 1 ="
+--          & " " & to_hexstring(bytes(3))
+--          & " " & to_hexstring(bytes(4))
+--          & " " & to_hexstring(bytes(5))
+--          & " " & to_hexstring(bytes(6))
+--          & " " & to_hexstring(bytes(7))
+--          & " " & to_hexstring(bytes(8));
+        null;
       end if;
 
       if x_invert = '1' then
@@ -357,33 +358,33 @@ begin
       y2_mult <= to_unsigned(y2_inv * safe_to_integer(y_mult),12+16)(19 downto 4);
       
       r := x1_mult + x_delta; x1 <= r(15 downto 6);
-      if parse_touch = 3 then
-        report "scaled x1 = ( (" & integer'image(x1_int)
-          & " * " & integer'image(safe_to_integer(x_mult))
-          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
-          & " = " & integer'image(safe_to_integer(r));
-      end if;
+--      if parse_touch = 3 then
+--        report "scaled x1 = ( (" & integer'image(x1_int)
+--          & " * " & integer'image(safe_to_integer(x_mult))
+--          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
+--          & " = " & integer'image(safe_to_integer(r));
+--      end if;
       r := y1_mult + y_delta; y1 <= r(15 downto 6);
-      if parse_touch = 3 then
-        report "scaled y1 = ( (" & integer'image(y1_int)
-          & " * " & integer'image(safe_to_integer(y_mult))
-          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
-          & " = " & integer'image(safe_to_integer(r));
-      end if;
+--      if parse_touch = 3 then
+--        report "scaled y1 = ( (" & integer'image(y1_int)
+--          & " * " & integer'image(safe_to_integer(y_mult))
+--          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
+--          & " = " & integer'image(safe_to_integer(r));
+--      end if;
       r := x2_mult + x_delta; x2 <= r(15 downto 6);
-      if parse_touch = 3 then
-        report "scaled x2 = ( (" & integer'image(x2_int)
-          & " * " & integer'image(safe_to_integer(x_mult))
-          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
-          & " = " & integer'image(safe_to_integer(r));
-      end if;
+--      if parse_touch = 3 then
+--        report "scaled x2 = ( (" & integer'image(x2_int)
+--          & " * " & integer'image(safe_to_integer(x_mult))
+--          & ") >> 11) + " & integer'image(safe_to_integer(x_delta))
+--          & " = " & integer'image(safe_to_integer(r));
+--      end if;
       r := y2_mult + y_delta; y2 <= r(15 downto 6);
-      if parse_touch = 3 then
-        report "scaled y2 = ( (" & integer'image(y2_int)
-          & " * " & integer'image(safe_to_integer(y_mult))
-          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
-          & " = " & integer'image(safe_to_integer(r));
-      end if;
+--      if parse_touch = 3 then
+--        report "scaled y2 = ( (" & integer'image(y2_int)
+--          & " * " & integer'image(safe_to_integer(y_mult))
+--          & ") >> 11) + " & integer'image(safe_to_integer(y_delta))
+--          & " = " & integer'image(safe_to_integer(r));
+--     end if;
 
 
       

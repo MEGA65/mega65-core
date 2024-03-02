@@ -96,8 +96,8 @@ begin
       -- Emit pulse with write precompensation
       if interval_countdown = transition_point + f_write_time_adj then
         if enabled='1' then
-          report "Writing bit " & std_logic'image(f_write_next) &
-            " at " & integer'image(transition_point) & " + " & integer'image(f_write_time_adj);
+--          report "Writing bit " & std_logic'image(f_write_next) &
+--            " at " & integer'image(transition_point) & " + " & integer'image(f_write_time_adj);
         end if;
         f_write <= not f_write_next;
       end if;
@@ -113,9 +113,9 @@ begin
         if write_precomp_enable='0' then
           -- No write precompensation, so emit bit at the right time.
           f_write_time_adj <= 0;
-          if enabled='1' then
-            report "WPRECOMP: Disabled";
-          end if;
+--          if enabled='1' then
+--            report "WPRECOMP: Disabled";
+--          end if;
         else
           if enabled='1' then
             report "f_write_buf = " & to_string(f_write_buf);
