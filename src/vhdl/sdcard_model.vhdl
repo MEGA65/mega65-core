@@ -21,7 +21,9 @@ architecture cheap_imitation of sdcard_model is
     IDLE,
     CMD_RX,
     CMD_PROCESS,
-    SEND_R1
+    SEND_R1,
+    READ_BLOCK,
+    READ_BLOCK_LOOP
     );
   
   signal sdcard_state : sd_card_state_t := IDLE;
@@ -38,6 +40,13 @@ architecture cheap_imitation of sdcard_model is
   signal next_cmd_is_acmd : std_logic := '0';
 
   signal sdcard_idle : std_logic := '1';
+
+  signal block_size : integer range 0 to 4096 := 512;
+  signal flash_address : unsigned(47 downto 0) := to_unsigned(0,48);
+  signal flash_byte : unsigned(7 downto 0) := x"99";
+  signal flash_rdata : unsigned(7 downto 0) := x"42";
+  signal bits_remaining : integer range 0 to 8 := 0;
+  signal bytes_remaining : integer range 0 to 4096 := 0;
   
 begin
 
@@ -125,6 +134,16 @@ begin
               r1_response(2) <= '0'; -- Accept command              
             when 16 => -- CMD 16 : Change R/W block size
               null;
+            when 17 => -- CMD 17 : Read single block
+              r1_response(2) <= '0';
+              next_sdcard_state <= READ_BLOCK;
+              bytes_remaining <= block_size;
+              bits_remaining <= 8;              
+              -- Address calculation assumes 512 byte blocks, regardless of
+              -- read block size.
+              flash_address <= (others => '0');
+              flash_address(40 downto 9) <= cmd(39 downto 8);
+              report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8));
             when 18 => -- CMD 18 : Read multiple blocks
               null;
             when 25 => -- CMD 25 : Write multiple blocks
@@ -149,6 +168,42 @@ begin
             cmd_phase <= 0;
             sdcard_state <= next_sdcard_state;
           end if;
+
+        when READ_BLOCK =>
+          -- Send $FE "start data" token
+          miso_i <= '1';
+          if cmd_phase = 7 then
+            miso_i <= '0';
+          end if;
+          if cmd_phase < 7 then
+            cmd_phase <= cmd_phase + 1;
+          else
+            cmd_phase <= 0;
+            sdcard_state <= READ_BLOCK_LOOP;
+          end if;
+        when READ_BLOCK_LOOP =>
+          if bits_remaining = 8 then
+            miso_i <= flash_rdata(7);
+            flash_byte(7 downto 1) <= flash_rdata(6 downto 0);
+          else
+            miso_i <= flash_byte(7);
+            flash_byte(7 downto 1) <= flash_byte(6 downto 0);
+          end if;
+          if bits_remaining = 7 then
+            flash_address <= flash_address + 1;
+          end if;
+          if bits_remaining /= 0 then
+            bits_remaining <= bits_remaining - 1;
+          else 
+            if bytes_remaining /= 0 then
+              bytes_remaining <= bytes_remaining - 1;
+              bits_remaining <= 8;
+            else
+              report "SDCARDMODEL: Finished sending sector bytes";
+              
+            end if;
+          end if;
+          
         when others =>
           assert false report "sdcard_state in illegal state '" & sd_card_state_t'image(sdcard_state) & "'";
       end case;      
