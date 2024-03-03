@@ -2970,6 +2970,7 @@ begin  -- behavioural
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   else
+                    report "SDCARDIO: Attempting to read a sector";
                     sd_state <= ReadSector;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -3871,6 +3872,7 @@ begin  -- behavioural
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
+            report "SDCARDIO: sdio_busy clear, so proceeding with read request";
             sd_doread <= '1';
             sd_state <= ReadingSector;
             sdio_busy <= '1';
@@ -3881,6 +3883,7 @@ begin  -- behavioural
             sd_handshake <= '0';
             sd_handshake_internal <= '0';
           else
+            report "SDCARDIO: sdio_busy asserted -- aborting read?";
             sd_doread <= '0';
           end if;
 

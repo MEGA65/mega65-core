@@ -185,6 +185,16 @@ begin
       POKE(x"D681",to_unsigned(sector,32)(23 downto 16));
       POKE(x"D681",to_unsigned(sector,32)(31 downto 24));
       POKE(x"D680",x"02"); -- Read single sector
+      for i in 1 to 1000 loop
+        PEEK(x"D680");
+        if fastio_rdata(1 downto 0) = "00" then
+          report "SD card READY following READ SECTOR after " & integer'image(i) & " read cycles.";
+          exit;
+        end if;
+      end loop;
+      if fastio_rdata(1 downto 0) /= "00" then
+        assert false report "SD card reported error (or had not responded) following request to read single sector " & integer'image(sector);
+      end if;
     end procedure;
     
     procedure sdcard_reset_sequence is

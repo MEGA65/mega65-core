@@ -449,6 +449,7 @@ begin
               state_v := START_TX;
               rtnState_v := WAIT_FOR_HOST_RW;
             elsif rd_i = '1' then  -- send READ command and address to the SD card.
+              report "SDCARD: Saw read request";
               cs_bo <= '0';              -- Enable the SD card.
               txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
