@@ -166,8 +166,13 @@ begin
         if sector_found = false then
           report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to an empty sector.";
         end if;
+      end if;
+      if flash_address /= last_flash_address then
+        report "SDCARDIMG: Reading $" & to_hexstring(sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))))
+          & " from (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";
         flash_rdata <= sector_slots(flash_slot)(to_integer(flash_address(8 downto 0)));
       end if;
+
       last_flash_address <= flash_address;
       
       clock162 <= not clock162;
@@ -223,7 +228,8 @@ begin
       POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
       POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
       POKE(x"D680",x"02"); -- Read single sector
-      for i in 1 to 1000 loop
+      -- Allow enough time to read the whole sector
+      for i in 1 to 20000 loop
         PEEK(x"D680");
         if fastio_rdata(1 downto 0) = "00" then
           report "SD card READY following READ SECTOR after " & integer'image(i) & " read cycles.";
@@ -236,12 +242,12 @@ begin
       if fastio_rdata(6 downto 5) /= "00" then
         assert false report "SD card error following request to read single sector " & integer'image(sector);
       end if;
-      if to_integer(flash_address(40 downto 9)) /= (sector+1) then
-        assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector,32))
-          & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
-      end if;
       if flash_address(8 downto 0) /= "000000000" then
         assert false report "SD card did not read exactly 512 bytes of data: Lower 9 bits = " & integer'image(to_integer(flash_address(8 downto 0)));
+      end if;
+      if to_integer(flash_address(40 downto 9)) /= (sector+1) then
+        assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
+          & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
       end if;
     end procedure;
     
@@ -288,6 +294,7 @@ begin
       read(char_file, char_v);
       byte_v := character'pos(char_v);
       sector_slots(sector_count)(byte_count) <= to_unsigned(byte_v,8);
+--      report "SDCARDIMG: Stashing in (" & integer'image(sector_count) & "," & integer'image(byte_count) & ") <= byte $" & to_hexstring(to_unsigned(byte_v,8)) & " = #" & integer'image(byte_v);
       if byte_v /= 0 then
         sector_empty := false;
       end if;
