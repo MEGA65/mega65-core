@@ -153,6 +153,7 @@ begin
 
       -- Simulate SD card flash memory
       if flash_address(47 downto 9) /= last_flash_address(47 downto 9) then
+        report "SDCARDIMG: Selecting sector $" & to_hexstring(flash_address) & " (prev was $" & to_hexstring(last_flash_address) & ")";
         flash_slot <= 0;
         for i in 1 to (sector_count-1) loop
           if to_integer(flash_address(47 downto 9)) = sector_numbers(i) then
@@ -218,9 +219,9 @@ begin
     procedure sdcard_read_sector(sector : integer) is
     begin
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
-      POKE(x"D681",to_unsigned(sector,32)(15 downto 8));
-      POKE(x"D681",to_unsigned(sector,32)(23 downto 16));
-      POKE(x"D681",to_unsigned(sector,32)(31 downto 24));
+      POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
+      POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
+      POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
       POKE(x"D680",x"02"); -- Read single sector
       for i in 1 to 1000 loop
         PEEK(x"D680");
@@ -230,7 +231,17 @@ begin
         end if;
       end loop;
       if fastio_rdata(1 downto 0) /= "00" then
-        assert false report "SD card reported error (or had not responded) following request to read single sector " & integer'image(sector);
+        assert false report "SD card did not return READY following request to read single sector " & integer'image(sector);
+      end if;
+      if fastio_rdata(6 downto 5) /= "00" then
+        assert false report "SD card error following request to read single sector " & integer'image(sector);
+      end if;
+      if to_integer(flash_address(40 downto 9)) /= (sector+1) then
+        assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector,32))
+          & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
+      end if;
+      if flash_address(8 downto 0) /= "000000000" then
+        assert false report "SD card did not read exactly 512 bytes of data: Lower 9 bits = " & integer'image(to_integer(flash_address(8 downto 0)));
       end if;
     end procedure;
     
@@ -313,7 +324,7 @@ begin
       elsif run("SD card can read a single sector") then
 
         sdcard_reset_sequence;
-        sdcard_read_sector(0);
+        sdcard_read_sector(1);
         
       end if;
     end loop;
