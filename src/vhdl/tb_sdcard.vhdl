@@ -143,10 +143,11 @@ begin
 
     end procedure;
 
-    procedure reg_write(addr : unsigned(19 downto 0); data : unsigned(7 downto 0)) is
+    procedure POKE(addr : unsigned(15 downto 0); data : unsigned(7 downto 0)) is
     begin
       sdcardio_cs <= '1';
-      fastio_addr <= addr;
+      fastio_addr(11 downto 0) <= addr(11 downto 0);
+      fastio_addr(19 downto 12) <= x"d3";
       fastio_wdata <= data;
       fastio_write <= '1';
       fastio_read <= '0';
@@ -159,10 +160,11 @@ begin
       
     end procedure;
     
-    procedure reg_read(addr : unsigned(19 downto 0) ) is
+    procedure PEEK(addr : unsigned(15 downto 0) ) is
     begin
       sdcardio_cs <= '1';
-      fastio_addr <= addr;
+      fastio_addr(11 downto 0) <= addr(11 downto 0);
+      fastio_addr(19 downto 12) <= x"d3";
       fastio_write <= '0';
       fastio_read <= '1';
       -- Wait two full 41MHz clock ticks to make sure any latency is
@@ -175,7 +177,37 @@ begin
       -- return fastio_rdata;
       
     end procedure;
+
+    procedure sdcard_read_sector(sector : integer) is
+    begin
+      POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
+      POKE(x"D681",to_unsigned(sector,32)(15 downto 8));
+      POKE(x"D681",to_unsigned(sector,32)(23 downto 16));
+      POKE(x"D681",to_unsigned(sector,32)(31 downto 24));
+      POKE(x"D680",x"02"); -- Read single sector
+    end procedure;
     
+    procedure sdcard_reset_sequence is
+    begin
+      -- This sequence will cause sdcard.vhdl to begin its initialisation sequence.
+      
+      POKE(x"D680",x"00"); -- assert RESET
+      POKE(x"D680",x"01"); -- release RESET
+      
+      for i in 1 to 100000 loop
+        PEEK(x"D680");
+        if fastio_rdata(1 downto 0) = "00" then
+          report "SD card reported READY after " & integer'image(i) & " cycles.";
+          exit;
+        end if;
+      end loop;
+      if fastio_rdata(1 downto 0) /= "00" then
+        report "SD card was not READY following reset: sdcard_busy="
+          & std_logic'image(fastio_rdata(1)) & ", sdio_busy=" & std_logic'image(fastio_rdata(0));
+        PEEK(x"D69B");
+        assert false report "sdcard.vhdl FSM state = " & integer'image(to_integer(fastio_rdata));
+      end if;
+    end procedure;
     
   begin
     test_runner_setup(runner, runner_cfg);
@@ -184,24 +216,12 @@ begin
 
       if run("SD card ready following RESET sequence") then
 
-        -- This sequence will cause sdcard.vhdl to begin its initialisation sequence.
+        sdcard_reset_sequence;
         
-        reg_write(x"D3080",x"00"); -- assert RESET
-        reg_write(x"D3080",x"01"); -- release RESET
+      elsif run("SD card can read a single sector") then
 
-        for i in 1 to 100000 loop
-          reg_read(x"D3080");
-          if fastio_rdata(1 downto 0) = "00" then
-            report "SD card reported READY after " & integer'image(i) & " cycles.";
-            exit;
-          end if;
-        end loop;
-        if fastio_rdata(1 downto 0) /= "00" then
-          report "SD card was not READY following reset: sdcard_busy="
-            & std_logic'image(fastio_rdata(1)) & ", sdio_busy=" & std_logic'image(fastio_rdata(0));
-          reg_read(x"D309B");
-          assert false report "sdcard.vhdl FSM state = " & integer'image(to_integer(fastio_rdata));
-        end if;
+        sdcard_reset_sequence;
+        sdcard_read_sector(0);
         
       end if;
     end loop;
