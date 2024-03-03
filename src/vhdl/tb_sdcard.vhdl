@@ -53,6 +53,7 @@ architecture test_arch of tb_sdcard is
   signal last_flash_address : unsigned(47 downto 0);
   signal flash_rdata : unsigned(7 downto 0);
   signal flash_slot : integer := 0;
+  signal last_flash_slot : integer := 0;
   
 begin
 
@@ -167,13 +168,14 @@ begin
           report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to an empty sector.";
         end if;
       end if;
-      if flash_address /= last_flash_address then
+      if flash_address /= last_flash_address or flash_slot /= last_flash_slot then
         report "SDCARDIMG: Reading $" & to_hexstring(sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))))
           & " from (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";
         flash_rdata <= sector_slots(flash_slot)(to_integer(flash_address(8 downto 0)));
       end if;
 
       last_flash_address <= flash_address;
+      last_flash_slot <= flash_slot;
       
       clock162 <= not clock162;
       if clock162 = '1' then
