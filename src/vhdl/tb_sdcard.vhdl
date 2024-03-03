@@ -40,6 +40,14 @@ architecture test_arch of tb_sdcard is
   signal dummy_i2c1SCL : std_logic := '0';
   signal dummy_touchSDA : std_logic := '0';
   signal dummy_touchSCL : std_logic := '0';
+
+  constant sector_slot_count : integer := 1024;
+  type sector_buffer_t is array(0 to 511) of unsigned(7 downto 0);
+  type sector_slot_buffer_t is array(0 to (sector_slot_count-1)) of sector_buffer_t;
+  type sector_list_t is array(0 to (sector_slot_count-1)) of integer;
+  signal sector_slots : sector_slot_buffer_t := (others => (others => x"00"));
+  signal sector_numbers : sector_list_t := (others => 999999999);
+  signal sector_count : integer := 0;
   
 begin
 
@@ -218,8 +226,53 @@ begin
         assert false report "sdcard.vhdl FSM state = " & integer'image(to_integer(fastio_rdata));
       end if;
     end procedure;
+
+    type char_file_t is file of character;
+    file char_file : char_file_t;
+    variable char_v : character;
+    subtype byte_t is natural range 0 to 255;
+    variable byte_v : byte_t;
+
+    variable sector_number : integer := 0;
+    variable byte_count : integer := 0;
+    variable sector_empty : boolean := true;
     
   begin
+
+    -- Begin by loading VFAT dummy file system
+    report "VFAT: Loading VFAT file system from test-sdcard.img";
+    file_open(char_file, "test-sdcard.img");
+    sector_number := 0;
+    sector_empty := true;
+    while not endfile(char_file) loop
+      read(char_file, char_v);
+      byte_v := character'pos(char_v);
+      sector_slots(sector_count)(byte_count) <= to_unsigned(byte_v,8);
+      if byte_v /= 0 then
+        sector_empty := false;
+      end if;
+      byte_count := byte_count + 1;
+      if byte_count = 512 then
+        if sector_empty = false then
+          report "Sector $" & to_hexstring(to_unsigned(sector_number,32)) & " is not empty. Storing in slot " & integer'image(sector_count);
+          sector_numbers(sector_count) <= sector_number;
+          sector_count <= sector_count + 1;
+          if (sector_count + 1) >= sector_slot_count then
+            assert false report "VFAT: Too many non-zero sectors. Increase sector_slot_count";
+          end if;
+        end if;
+
+        -- Get ready for reading the next sector in
+        sector_number := sector_number + 1;
+        byte_count := 0;
+        sector_empty := true;
+      end if; 
+      wait for 1 ps;
+    end loop;
+    wait for 1 ps;
+    file_close(char_file);
+    report "VFAT: Finished loading VFAT file system of " & integer'image(sector_number) & " sectors (" & integer'image(sector_count) & " non empty).";
+    
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop

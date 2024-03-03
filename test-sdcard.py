@@ -6,6 +6,22 @@ from vunit import VUnit
 vu = VUnit.from_argv(compile_builtins=False)
 vu.add_vhdl_builtins()
 
+from pyfatfs.PyFatFS import PyFatFS
+import os
+
+# Create empty file of 16MB to hold the file system
+os.system("dd if=/dev/zero of=test-sdcard.img bs=1048576 count=16");
+# Format the file VFAT32 system
+os.system("mformat -i test-sdcard.img ::");
+# Get access to it from within Python
+fs = PyFatFS(f"test-sdcard.img", read_only = False);
+
+# Populate test file system
+d1 = fs.makedirs("First Directory");
+d2 = fs.makedirs("Second Directory");
+d1.writetext("A short file 1 in First Directory","Some rather short file contents");
+fs.close();
+
 # Create library 'lib'
 lib = vu.add_library("lib")
 
