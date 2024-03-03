@@ -66,6 +66,7 @@ begin
       cmd <= (others => '0');
       next_cmd_is_acmd <= '0';
       sdcard_idle <= '1';
+      flash_address <= (others => '0');
     elsif rising_edge(sclk_o) then
       if sdcard_state /= last_sdcard_state then
         report "SDCARDMODEL: state = " & sd_card_state_t'image(sdcard_state);
@@ -110,6 +111,8 @@ begin
           r1_response(6) <= '0'; -- Parameter Error
           r1_response(7) <= '0'; -- Used to indicate start of R1 TX
           cmd_phase <= 0;
+          miso_i <= '0'; -- first bit of R1 TX, because the state switch adds a
+                         -- 1 clock delay, and it's easiest to work around here.
 
           next_cmd_is_acmd <= '0';
 
@@ -160,30 +163,37 @@ begin
           end case;
         
         when SEND_R1 =>
-          miso_i <= r1_response(7);
+          if cmd_phase = 0 then
+            report "SDCARDMODEL: Sending R1 response $" & to_hexstring(r1_response);
+          end if;
+          report "SDCARDMODEL: Sending R1 bit " & integer'image(cmd_phase);
+          miso_i <= r1_response(6);
           r1_response(7 downto 1) <= r1_response(6 downto 0);
           r1_response(0) <= r1_response(7);
-          if cmd_phase < 7 then
+          if cmd_phase < 6 then
             cmd_phase <= cmd_phase + 1;
           else
             cmd_phase <= 0;
             sdcard_state <= next_sdcard_state;
+            report "SDCARDMODEL: Done sending R1. Advancing to " & sd_card_state_t'image(next_sdcard_state);
           end if;
 
         when READ_BLOCK =>
           -- Send $FE "start data" token
           miso_i <= '1';
-          if cmd_phase = 7 then
-            miso_i <= '0';
-          end if;
+          report "SDCARDMODEL: Sending start token bit " & integer'image(cmd_phase);
           if cmd_phase < 7 then
             cmd_phase <= cmd_phase + 1;
           else
+            miso_i <= '0';
+            report "SDCARDMODEL: Sent $FE start of data token";
             cmd_phase <= 0;
+            bits_remaining <= 8;
             sdcard_state <= READ_BLOCK_LOOP;
           end if;
         when READ_BLOCK_LOOP =>
           if bits_remaining = 8 then
+            report "SDCARDMODEL: Sending next byte of sector read = $" & to_hexstring(flash_rdata);
             miso_i <= flash_rdata(7);
             flash_byte(7 downto 1) <= flash_rdata(6 downto 0);
           else
@@ -192,6 +202,7 @@ begin
           end if;
           if bits_remaining = 7 then
             flash_address <= flash_address + 1;
+            report "SDCARDMODEL: Advancing flash_address from $" & to_hexstring(flash_address);
           end if;
           if bits_remaining /= 0 then
             bits_remaining <= bits_remaining - 1;
