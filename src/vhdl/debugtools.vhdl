@@ -125,7 +125,8 @@ package body debugtools is
           if sv(i)='1' then
             v := v + (2**p);
           elsif sv(i) /= '0' then
-            report "Bit #" & integer'image(i) & " of %" & to_string(std_logic_vector(sv)) & " is not 1 or 0, but " & std_logic'image(sv(i)) & ".";
+--            report "Bit #" & integer'image(i) & " of %" & to_string(std_logic_vector(sv)) & " is not 1 or 0, but " & std_logic'image(sv(i)) & ".";
+            null;
           end if;
           p := p + 1;
         end loop;

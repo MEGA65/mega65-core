@@ -151,33 +151,33 @@ begin
               -- short pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
               if enabled='1' then
-                report "WPRECOMP: Late(b)";
+--                report "WPRECOMP: Late(b)";
               end if;
               f_write_time_adj <= to_integer(write_precomp_magnitude_b);
             when "100010000" =>
               -- medium pulse before, long one after : pulse will be pushed
               -- early, so write it a bit late
               if enabled='1' then
-                report "WPRECOMP: Late";
+--                report "WPRECOMP: Late";
               end if;
               f_write_time_adj <= to_integer(write_precomp_magnitude) + to_integer(write_precomp_delay15);
             when "000010000" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
               if enabled='1' then
-                report "WPRECOMP: Equal";
+--                report "WPRECOMP: Equal";
               end if;
             when "010010010" =>
               -- equal length pulses either side
               f_write_time_adj <= 0;
               if enabled='1' then
-                report "WPRECOMP: Equal";
+--                report "WPRECOMP: Equal";
               end if;
             when "100010010" =>
               -- Medium pulse before, short one after : pulse will be pushed late,
               -- so write it a bit early
               if enabled='1' then
-                report "WPRECOMP: Early";
+--                report "WPRECOMP: Early";
               end if;
               f_write_time_adj <= to_integer(write_precomp_delay15) - to_integer(write_precomp_magnitude);
             when "000010010" =>
@@ -185,45 +185,45 @@ begin
               -- 
               f_write_time_adj <= - to_integer(write_precomp_magnitude_b);
               if enabled='1' then
-                report "WPRECOMP: Early(b)";
+--                report "WPRECOMP: Early(b)";
               end if;
             when "010010001" =>
               -- Short pulse before, medium after
               f_write_time_adj <= to_integer(write_precomp_magnitude);
               if enabled='1' then
-                report "WPRECOMP: Late";
+--                report "WPRECOMP: Late";
               end if;
             when "100010001" =>
               -- equal length pulses either side
               f_write_time_adj <=  to_integer(write_precomp_delay15);
               if enabled='1' then
-                report "WPRECOMP: Equal";
+--                report "WPRECOMP: Equal";
               end if;
             when "000010001" =>
               -- Long pulse before, medium after
               f_write_time_adj <= - to_integer(write_precomp_magnitude);
               if enabled='1' then
-                report "WPRECOMP: Early";
+--                report "WPRECOMP: Early";
               end if;
             when others =>
               -- All other combinations are invalid for RLL encoding, so do no
               -- write precompensation
               f_write_time_adj <= 0;                
-              report "WPRECOMP: OTHERS";
+--              report "WPRECOMP: OTHERS";
           end case;
         end if;
         
         bit_queue(15 downto 1) <= bit_queue(14 downto 0);
         if bits_queued /= 0 then
-          report "RLLFLOPPY: Decrement bits_queued to " & integer'image(bits_queued - 1);
+--          report "RLLFLOPPY: Decrement bits_queued to " & integer'image(bits_queued - 1);
           bits_queued <= bits_queued - 1;
         end if;
 
       end if;
 
       if show_bit_sequence='1' then
-        report "RLL bit sequence: " & to_string(std_logic_vector(bit_queue))
-          & "  (" & integer'image(bits_queued) & " bits queued)";
+--        report "RLL bit sequence: " & to_string(std_logic_vector(bit_queue))
+--          & "  (" & integer'image(bits_queued) & " bits queued)";
         show_bit_sequence <= '0';
       end if;
                   
@@ -253,10 +253,10 @@ begin
       if clock_latch_timer = 1 then
         if clock_byte_target='0' then
           latched_clock_byte <= clock_byte_in;
-          report "latching clock byte $" & to_hexstring(clock_byte_in);
+--          report "latching clock byte $" & to_hexstring(clock_byte_in);
         else
           latched_clock_byte_2 <= clock_byte_in;
-          report "latching clock byte 2 $" & to_hexstring(clock_byte_in);
+--          report "latching clock byte 2 $" & to_hexstring(clock_byte_in);
         end if;
 --        if latched_clock_byte /= clock_byte_in then
 --          report "latching clock byte $" & to_hexstring(clock_byte_in);
@@ -279,11 +279,11 @@ begin
       
 --     report "LOOPrll: Here";
       if bits_queued = 0 and (bits_in_buffer >= 8 or next_is_sync='1') then
-        report "RLLFLOPPY: emitting bits from buffer: " & to_string(std_logic_vector(bit_buffer)) & "/" & to_string(std_logic_vector(clock_buffer))
-          & ", " & integer'image(bits_in_buffer) & " bits in buffer, next_sync=" & std_logic'image(next_is_sync); 
+--        report "RLLFLOPPY: emitting bits from buffer: " & to_string(std_logic_vector(bit_buffer)) & "/" & to_string(std_logic_vector(clock_buffer))
+--          & ", " & integer'image(bits_in_buffer) & " bits in buffer, next_sync=" & std_logic'image(next_is_sync); 
 
         if bit_buffer(15 downto 8) = x"a1" and clock_buffer(15 downto 8) = x"fb" and (bits_in_buffer=8 or bits_in_buffer = 16) then
-          report "RLL: Emitting sync mark";
+--          report "RLL: Emitting sync mark";
           -- Write sync mark
           bit_queue(15 downto 2) <= "10000000100100";
           bits_queued <= 14;
@@ -370,7 +370,7 @@ begin
       elsif byte_in_buffer = '1' and (next_is_sync='0' or bits_in_buffer=0) then
 --        report "SHUFFLErll: Byte in buffer: " & integer'image(bits_in_buffer) & " bits in buffer";
         if bits_in_buffer < 9 then
-          report "RLLENCODE: Importing byte $" & to_hexstring(next_byte) &" with " & integer'image(bits_in_buffer) & " bits already in the buffer.";
+--          report "RLLENCODE: Importing byte $" & to_hexstring(next_byte) &" with " & integer'image(bits_in_buffer) & " bits already in the buffer.";
           bit_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= next_byte;
           clock_buffer((15 - bits_in_buffer) downto (8 - bits_in_buffer)) <= latched_clock_byte;
           bits_in_buffer <= bits_in_buffer + 8;
@@ -386,12 +386,12 @@ begin
           -- Make sure ready_for_next produces an edge each time it triggers
           ready_for_next <= '0';
           ready_for_next_delayed <= '1';
-          report "asserting ready_for_next";
+--          report "asserting ready_for_next";
         end if;
         
       elsif ingest_byte_toggle /= last_ingest_byte_toggle then
         -- We have another byte to ingest, so do it now.
-        report "RLL: Ingesting a byte";
+--        report "RLL: Ingesting a byte";
       
         if byte_in_buffer='1' and byte_in_buffer_2 = '0' then
           -- No byte in 2nd byte buffer, so store it
@@ -399,9 +399,9 @@ begin
           byte_in_buffer_2 <= '1';
           ready_for_next <= '0';
           clock_byte_target <= '1';
-          report "NEXTBYTE2: clearing ready_for_next after store in next_byte_2";
+--          report "NEXTBYTE2: clearing ready_for_next after store in next_byte_2";
           last_ingest_byte_toggle <= ingest_byte_toggle;
-          report "RLL: latching data byte $" & to_hexstring(byte_in);
+--          report "RLL: latching data byte $" & to_hexstring(byte_in);
           clock_latch_timer <= 63;          
         elsif byte_in_buffer = '0' then
           -- No byte in the byte buffer, so store it
@@ -413,7 +413,7 @@ begin
           clock_byte_target <= '0';
 --          report "NEXTBYTE1: asserting ready_for_next after store in next_byte (delayed)";
           last_ingest_byte_toggle <= ingest_byte_toggle;
-          report "RLL: latching data byte $" & to_hexstring(byte_in);
+--          report "RLL: latching data byte $" & to_hexstring(byte_in);
           clock_latch_timer <= 63;          
         end if;
         -- Then set timer to latch the clock.

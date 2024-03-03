@@ -257,9 +257,9 @@ begin
           null;
         when 1 =>
           -- Begin parsing
-          report "There are " & integer'image(safe_to_integer(bytes(2))) & " touch events: $"
-            & to_hexstring(bytes(3+2)(7 downto 4)) & " & $"
-            & to_hexstring(bytes(9+2)(7 downto 4));
+--          report "There are " & integer'image(safe_to_integer(bytes(2))) & " touch events: $"
+--            & to_hexstring(bytes(3+2)(7 downto 4)) & " & $"
+--            & to_hexstring(bytes(9+2)(7 downto 4));
 
           if scan_count /= x"ff" then
             scan_count <= scan_count + 1;
@@ -274,13 +274,13 @@ begin
             if bytes(3+2)(7 downto 4) = "0000" then
               touch1_active_internal <= not std_logic(bytes(3+0)(6));
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
-              report "Setting x1_int to $" & to_hexstring(bytes(3+2)(3 downto 0) & bytes(3+3));
+--              report "Setting x1_int to $" & to_hexstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x1_int <= safe_to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y1_int <= safe_to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             elsif bytes(3+2)(7 downto 4) = "0001" then
               touch2_active_internal <= not std_logic(bytes(3+0)(6));
               touch2_status <= std_logic_vector(bytes(3+0)(7 downto 6));
-              report "Setting x2_int to $" & to_hexstring(bytes(3+2)(3 downto 0) & bytes(3+3));
+--              report "Setting x2_int to $" & to_hexstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x2_int <= safe_to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y2_int <= safe_to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             end if;
@@ -288,20 +288,20 @@ begin
 
           if safe_to_integer(bytes(2)) > 1 and safe_to_integer(bytes(9+2)(7 downto 4)) /= 15 then
             if bytes(9+2)(7 downto 4) = "0000" then
-              report "Setting x1_int to $" & to_hexstring(bytes(9+2)(3 downto 0) & bytes(9+3));
+--              report "Setting x1_int to $" & to_hexstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch1_active_internal <= not std_logic(bytes(9+0)(6));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x1_int <= safe_to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y1_int <= safe_to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             elsif bytes(9+2)(7 downto 4) = "0001" then
-              report "Setting x2_int to $" & to_hexstring(bytes(9+2)(3 downto 0) & bytes(9+3));
+--              report "Setting x2_int to $" & to_hexstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch2_active_internal <= not std_logic(bytes(9+0)(6));
               touch2_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x2_int <= safe_to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y2_int <= safe_to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             end if;
           end if;
-          parse_touch <= 2;
+           parse_touch <= 2;
         when 2 =>
           parse_touch <= 3;
         when 3 =>

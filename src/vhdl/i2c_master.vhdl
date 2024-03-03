@@ -138,7 +138,7 @@ BEGIN
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
-              report "Accepting job: addr=$" & to_hexstring(addr) & ", rw= " & std_logic'image(rw);
+--              report "Accepting job: addr=$" & to_hexstring(addr) & ", rw= " & std_logic'image(rw);
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -150,7 +150,7 @@ BEGIN
               state <= ready;                --remain idle
             END IF;
           WHEN start =>                      --start bit of transaction
-            report "sending start for transaction";
+--            report "sending start for transaction";
             busy <= '1';                     --resume busy if continuous mode
 --            report "sending command bit " & integer'image(bit_cnt) & " = " & std_logic'image(addr_rw(bit_cnt));
             sda_int <= addr_rw(bit_cnt);     --set first address bit to bus
@@ -169,10 +169,10 @@ BEGIN
           WHEN slv_ack1 =>                   --slave acknowledge bit (command)
             IF(addr_rw(0) = '0') THEN        --write command
               sda_int <= data_tx(bit_cnt);   --write first bit of data
-              report "switching to wr following command";
+--              report "switching to wr following command";
               state <= wr;                   --go to write byte
             ELSE                             --read command
-              report "switching to rd following command $" & to_hexstring(addr_rw);
+--              report "switching to rd following command $" & to_hexstring(addr_rw);
               sda_int <= '1';                --release sda from incoming data
               state <= rd;                   --go to read byte
             END IF;
@@ -199,7 +199,7 @@ BEGIN
               END IF;
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               data_rd <= data_rx;            --output received data
-              report "Read byte $" & to_hexstring(data_rx);
+--              report "Read byte $" & to_hexstring(data_rx);
               state <= mstr_ack;             --go to master acknowledge
             ELSE                             --next clock cycle of read state
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits
@@ -212,18 +212,18 @@ BEGIN
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              report "Writing byte $" & to_hexstring(data_wr) & " via slave_ack2";
+--              report "Writing byte $" & to_hexstring(data_wr) & " via slave_ack2";
               if addr_rw = addr & rw THEN   --continue transaction with
                                                         --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
-                report "re-trigging byte write, because ena is still high";
+--                report "re-trigging byte write, because ena is still high";
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
-                report "repeating start, because target differs";
+--                report "repeating start, because target differs";
                 state <= start;              --go to repeated start
               END IF;
             ELSE                             --complete transaction
-              report "stopping";
+--              report "stopping";
               state <= stop;                 --go to stop bit
             END IF;
           WHEN mstr_ack =>                   --master acknowledge bit after a read
@@ -239,11 +239,11 @@ BEGIN
                 state <= rd;                 --go to read byte
               ELSE                           --continue transaction with a write or new slave
                 state <= start;              --repeated start
-                report "Repeating start";
+--                report "Repeating start";
               END IF;    
             ELSE                             --complete transaction
               state <= stop;                 --go to stop bit
-              report "Stopping";
+--              report "Stopping";
             END IF;
           WHEN stop =>                       --stop bit of transaction
             busy <= '0';                     --unflag busy

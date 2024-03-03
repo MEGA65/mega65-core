@@ -47,14 +47,14 @@ begin
 
       -- See which category the incoming gap fits
       if gap_valid_in='1' and true then
-        report "Quantising gap of " & integer'image(to_integer(gap_length_in))
-          & " (thresholds = "
-          & integer'image(to_integer(threshold_2_high)) & ", "
-          & integer'image(to_integer(threshold_3_high)) & ", "
-          & integer'image(to_integer(threshold_4_high)) & ", "
-          & integer'image(to_integer(threshold_5_high)) & ", "
-          & integer'image(to_integer(threshold_6_high)) & ", "
-          & integer'image(to_integer(threshold_7_high)) & ").";
+--        report "Quantising gap of " & integer'image(to_integer(gap_length_in))
+--          & " (thresholds = "
+--          & integer'image(to_integer(threshold_2_high)) & ", "
+--          & integer'image(to_integer(threshold_3_high)) & ", "
+--          & integer'image(to_integer(threshold_4_high)) & ", "
+--          & integer'image(to_integer(threshold_5_high)) & ", "
+--          & integer'image(to_integer(threshold_6_high)) & ", "
+--          & integer'image(to_integer(threshold_7_high)) & ").";
       end if;
       if gap_length_in <= threshold_2_high then
         gap_size_out <= "010"; -- 2 intervals
