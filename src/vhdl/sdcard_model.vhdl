@@ -10,7 +10,10 @@ entity sdcard_model is
          cs_bo : in std_logic;
          sclk_o : in std_logic;
          mosi_o : in std_logic;
-         miso_i : out std_logic
+         miso_i : out std_logic;
+
+         flash_address : out unsigned(47 downto 0);
+         flash_rdata : in unsigned(7 downto 0)
          );
   
 end entity;
@@ -42,9 +45,7 @@ architecture cheap_imitation of sdcard_model is
   signal sdcard_idle : std_logic := '1';
 
   signal block_size : integer range 0 to 4096 := 512;
-  signal flash_address : unsigned(47 downto 0) := to_unsigned(0,48);
   signal flash_byte : unsigned(7 downto 0) := x"99";
-  signal flash_rdata : unsigned(7 downto 0) := x"42";
   signal bits_remaining : integer range 0 to 8 := 0;
   signal bytes_remaining : integer range 0 to 4096 := 0;
   

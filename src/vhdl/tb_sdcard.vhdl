@@ -47,7 +47,12 @@ architecture test_arch of tb_sdcard is
   type sector_list_t is array(0 to (sector_slot_count-1)) of integer;
   signal sector_slots : sector_slot_buffer_t := (others => (others => x"00"));
   signal sector_numbers : sector_list_t := (others => 999999999);
-  signal sector_count : integer := 0;
+  signal sector_count : integer := 1; -- slot 0 holds the dummy "all zeroes" sector
+
+  signal flash_address : unsigned(47 downto 0);
+  signal last_flash_address : unsigned(47 downto 0);
+  signal flash_rdata : unsigned(7 downto 0);
+  signal flash_slot : integer := 0;
   
 begin
 
@@ -56,7 +61,10 @@ begin
                cs_bo => cs_bo,
                sclk_o => sclk_o,
                mosi_o => mosi_o,
-               miso_i => miso_i
+               miso_i => miso_i,
+
+               flash_address => flash_address,
+               flash_rdata => flash_rdata
                );
   
   sdcard_controller0: entity work.sdcardio
@@ -139,7 +147,28 @@ begin
     variable v : unsigned(15 downto 0);
 
     procedure clock_tick is
+      variable slot_num : integer := 0;
+      variable sector_found : boolean := false;
     begin
+
+      -- Simulate SD card flash memory
+      if flash_address(47 downto 9) /= last_flash_address(47 downto 9) then
+        flash_slot <= 0;
+        for i in 1 to (sector_count-1) loop
+          if to_integer(flash_address(47 downto 9)) = sector_numbers(i) then
+            flash_slot <= i;
+            report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
+            sector_found := true;
+            exit;
+          end if;
+        end loop;
+        if sector_found = false then
+          report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to an empty sector.";
+        end if;
+        flash_rdata <= sector_slots(flash_slot)(to_integer(flash_address(8 downto 0)));
+      end if;
+      last_flash_address <= flash_address;
+      
       clock162 <= not clock162;
       if clock162 = '1' then
         pixelclock <= not pixelclock;
