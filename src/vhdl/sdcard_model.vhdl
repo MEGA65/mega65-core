@@ -36,6 +36,8 @@ architecture cheap_imitation of sdcard_model is
   signal last_cs : std_logic := '1';
 
   signal next_cmd_is_acmd : std_logic := '0';
+
+  signal sdcard_idle : std_logic := '1';
   
 begin
 
@@ -53,6 +55,7 @@ begin
       cmd_phase <= 0;
       cmd <= (others => '0');
       next_cmd_is_acmd <= '0';
+      sdcard_idle <= '1';
     elsif rising_edge(sclk_o) then
       if sdcard_state /= last_sdcard_state then
         report "SDCARDMODEL: state = " & sd_card_state_t'image(sdcard_state);
@@ -76,12 +79,19 @@ begin
                          sdcard_state <= CMD_PROCESS;
                        end if;
         when CMD_PROCESS =>
-          report "SDCARDMODEL: Received command: " & to_hexstring(cmd)
-            & ", command code = " & integer'image(to_integer(cmd(45 downto 40)));
+          if next_cmd_is_acmd='0' then
+            report "SDCARDMODEL: Received "
+              & "CMD" & integer'image(to_integer(cmd(45 downto 40)))
+              & ", full command = $" & to_hexstring(cmd);
+          else
+            report "SDCARDMODEL: Received "
+              & "ACMD" & integer'image(to_integer(cmd(45 downto 40)))
+              & ", full command = $" & to_hexstring(cmd);
+          end if;
           -- By default send R1 in response
           sdcard_state <= SEND_R1;
           next_sdcard_state <= IDLE;
-          r1_response(0) <= '1'; -- SD card is in idle state
+          r1_response(0) <= sdcard_idle; -- SD card is in idle state
           r1_response(1) <= '0'; -- Erase reset
           r1_response(2) <= '1'; -- Illegal command
           r1_response(3) <= '0'; -- Command CRC error
@@ -92,7 +102,7 @@ begin
           cmd_phase <= 0;
 
           next_cmd_is_acmd <= '0';
-          
+
           case to_integer(cmd(45 downto 40)) is
             when 0 => -- CMD 0 : Software reset
               r1_response(2) <= '0'; -- Accept command
@@ -103,7 +113,10 @@ begin
             when 41 => -- ACMD 41 : SDC initiate initialisation process
               if next_cmd_is_acmd = '1' then
                 -- Process as ACMD41 : SDC initiate initialisation process
-                null;
+                r1_response(2) <= '0'; -- Accept command                
+                r1_response(0) <= '0'; -- SD card no longer idle, i.e., waiting
+                -- for R/W access
+                sdcard_idle <= '0';
               else
                 -- Process as CMD41 -- meaning unknown
                 null; 
@@ -117,7 +130,7 @@ begin
             when 25 => -- CMD 25 : Write multiple blocks
               null;
             when 55 => -- ACMD 55 : Prefix to indicate following command is ACMD
-              next_cmd_is_acmd <= '0';
+              next_cmd_is_acmd <= '1';
               r1_response(2) <= '0';
             when 58 => -- CMD58 : Read Operation Conditions register
               null;

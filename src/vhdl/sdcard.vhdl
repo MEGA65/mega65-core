@@ -429,10 +429,13 @@ begin
             -- If one of the R1 error flags is set, then report the error and stall.
             if rx_v = ACTIVE_NO_ERRORS_C then   -- Not IDLE, no errors.
               state_v := WAIT_FOR_HOST_RW;  -- Start processing R/W commands from the host.
+              report "SDCARD: Card is active, no errors after ACMD41 -- waiting for host to make request";
             elsif rx_v = IDLE_NO_ERRORS_C then  -- Still IDLE but no errors. 
               state_v := SEND_CMD55;    -- Repeat the CMD55, CMD41 sequence.
+              report "SDCARD: Card is still idle after ACMD41 -- repeating request";
             else                        -- Some error occurred.
               state_v := REPORT_ERROR;  -- Report the error and stall.
+              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hstring(rx_v);
             end if;
             
           when WAIT_FOR_HOST_RW =>  -- Wait for the host to read or write a block of data from the SD card.
