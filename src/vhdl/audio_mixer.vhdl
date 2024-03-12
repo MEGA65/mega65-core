@@ -215,7 +215,11 @@ begin
           if mix_check_ovf(16) = mix_check_ovf(15) then
             mixed_value <= mix_check_ovf(15 downto 0);
           else
-            mixed_value <= x"8000";
+            if mix_check_ovf(16) = '1' then
+              mixed_value <= x"8000";
+            else
+              mixed_value <= x"7FFF";
+            end if;
           end if;
 
           -- Request next mix coefficient
