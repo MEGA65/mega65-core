@@ -199,6 +199,25 @@ architecture elizabethan of audio_complex is
   signal ampPWM_l_in : signed(15 downto 0);
   signal ampPWM_r_in : signed(15 downto 0);
   
+  -- add two signed integers, peak if overflow, used to try and fix the SIDs
+  -- hardcoding this to 16 bits because i'm lazy ngl
+  subtype signed18 is signed(17 downto 0);
+  function add_with_ovf(a : signed18; b : signed18) return signed18 is
+    variable resized_a, resized_b, add_result : signed(18 downto 0) := (others => '0'); -- vars with more bits for overflow check
+  begin
+    resized_a := resize(a, 19);
+    resized_b := resize(b, 19);
+    add_result := resized_a + resized_b;
+    if add_result(18) /= add_result(17) then
+      if add_result(18) = '1' then
+        add_result(17 downto 0) := o"400000";
+      else
+        add_result(17 downto 0) := o"377777";
+      end if;
+    end if;
+    return add_result(17 downto 0);
+  end function; 
+  
 begin
 
   -- PCM master clock interface for modems
@@ -431,9 +450,10 @@ begin
       audio_right(19 downto 4) <= std_logic_vector(spkr_right);
       audio_right(3 downto 0) <= "0000";
       
-      -- Combine the pairs of SIDs      
-      leftsid_audio_combined <=  leftsid_audio + frontsid_audio;
-      rightsid_audio_combined <= rightsid_audio + backsid_audio;
+      -- Combine the pairs of SIDs     
+      -- use the overflow checking addition to be safe 
+      leftsid_audio_combined <= add_with_ovf(leftsid_audio, frontsid_audio);
+      rightsid_audio_combined <= add_with_ovf(rightsid_audio, backsid_audio);
 
       if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;

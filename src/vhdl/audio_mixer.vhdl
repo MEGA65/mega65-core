@@ -74,7 +74,6 @@ architecture elizabethan of audio_mixer is
   signal output_channel : integer range 0 to 15 := 0;
   
   signal mixed_value : signed(15 downto 0) := x"0000";
-
   signal dummy : unsigned(15 downto 0) := x"0000";
 
   signal volume_knob1_last : unsigned(15 downto 0) := x"8000";
@@ -101,29 +100,34 @@ begin
     variable src_temp : unsigned(15 downto 0);
     variable mix_temp : integer;
 
+    -- values to check if the mixer overflows
+    variable mix_a, mix_b, mix_check_ovf : signed(16 downto 0) := (others => '0');
+
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(15 downto 0))
       return signed is
       variable value_unsigned : unsigned(15 downto 0);
-      variable result_unsigned : unsigned(31 downto 0);
-      variable result : signed(31 downto 0);
+      variable result_unsigned : unsigned(32 downto 0);
+      variable actual_result_unsigned : unsigned(31 downto 0);
+      variable result : signed(15 downto 0);
     begin
-      if (value(15)='0') then
-        value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
+
+      if value(15) = '1' then
+        value_unsigned := unsigned((not value) + 1);
       else
-        value_unsigned(14 downto 0) := (not unsigned(value(14 downto 0)) + 1);
+        value_unsigned := unsigned(value);
       end if;
-      value_unsigned(15) := '0';
+      -- fix for peak values being $8001 and $7FFE, ignore the wacky size fix
+      result_unsigned := value_unsigned * (('0' & volume) + 1);
+      actual_result_unsigned := result_unsigned(31 downto 0);
 
-      result_unsigned := value_unsigned * volume;
-
-      if value(15)='1' then
-        result_unsigned := (not result_unsigned) + 1;
+      if value(15) = '1' then
+        result_unsigned(31 downto 16) := (not result_unsigned(31 downto 16)) + 1;
       end if;
 
-      result := signed(result_unsigned);
-
-      return result(31 downto 16);
+      result := signed(result_unsigned(31 downto 16));
+      
+      return result;
       
     end function;   
     
@@ -204,7 +208,22 @@ begin
           if state = 15 then
             source14_volume <= ram_rdata(31 downto 16);
           end if;
-          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
+          
+          -- compute mixing in a variable to check for overflow
+          mix_a := resize(mixed_value,17);
+          mix_b := resize(multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16)),17);
+          mix_check_ovf := mix_a + mix_b;
+          -- if we do overflow then peak at $8000
+          if mix_check_ovf(16) = mix_check_ovf(15) then
+            mixed_value <= mix_check_ovf(15 downto 0);
+          else
+            if mix_check_ovf(16) = '1' then
+              mixed_value <= x"8000";
+            else
+              mixed_value <= x"7FFF";
+            end if;
+          end if;
+
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
