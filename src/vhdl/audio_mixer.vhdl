@@ -107,7 +107,8 @@ begin
                                              volume : unsigned(15 downto 0))
       return signed is
       variable value_unsigned : unsigned(15 downto 0);
-      variable result_unsigned : unsigned(31 downto 0);
+      variable result_unsigned : unsigned(32 downto 0);
+      variable actual_result_unsigned : unsigned(31 downto 0);
       variable result : signed(15 downto 0);
     begin
 
@@ -116,8 +117,9 @@ begin
       else
         value_unsigned := unsigned(value);
       end if;
-      
-      result_unsigned := value_unsigned * volume;
+      -- fix for peak values being $8001 and $7FFE, ignore the wacky size fix
+      result_unsigned := value_unsigned * (('0' & volume) + 1);
+      actual_result_unsigned := result_unsigned(31 downto 0);
 
       if value(15) = '1' then
         result_unsigned(31 downto 16) := (not result_unsigned(31 downto 16)) + 1;
