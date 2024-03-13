@@ -201,21 +201,21 @@ architecture elizabethan of audio_complex is
   
   -- add two signed integers, peak if overflow, used to try and fix the SIDs
   -- hardcoding this to 16 bits because i'm lazy ngl
-  subtype signed16 is signed(15 downto 0);
-  function add_with_ovf(a : signed16; b : signed16) return signed16 is
-    variable resized_a, resized_b, add_result : signed(16 downto 0) := (others => '0'); -- vars with more bits for overflow check
+  subtype signed18 is signed(17 downto 0);
+  function add_with_ovf(a : signed18; b : signed18) return signed18 is
+    variable resized_a, resized_b, add_result : signed(18 downto 0) := (others => '0'); -- vars with more bits for overflow check
   begin
-    resized_a := resize(a, 17);
-    resized_b := resize(b, 17);
+    resized_a := resize(a, 19);
+    resized_b := resize(b, 19);
     add_result := resized_a + resized_b;
-    if add_result(16) /= add_result(15) then
-      if add_result(16) = '1' then
-        add_result(15 downto 0) := x"8000";
+    if add_result(18) /= add_result(17) then
+      if add_result(18) = '1' then
+        add_result(17 downto 0) := o"400000";
       else
-        add_result(15 downto 0) := x"7FFF";
+        add_result(17 downto 0) := o"377777";
       end if;
     end if;
-    return add_result(15 downto 0);
+    return add_result(17 downto 0);
   end function; 
   
 begin
@@ -452,8 +452,8 @@ begin
       
       -- Combine the pairs of SIDs     
       -- use the overflow checking addition to be safe 
-      leftsid_audio_combined(17 downto 2) <= add_with_ovf(leftsid_audio(17 downto 2), frontsid_audio(17 downto 2));
-      rightsid_audio_combined(17 downto 2) <= add_with_ovf(rightsid_audio(17 downto 2), backsid_audio(17 downto 2));
+      leftsid_audio_combined <= add_with_ovf(leftsid_audio, frontsid_audio);
+      rightsid_audio_combined <= add_with_ovf(rightsid_audio, backsid_audio);
 
       if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;
