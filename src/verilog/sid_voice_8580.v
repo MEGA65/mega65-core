@@ -132,29 +132,29 @@ always @(posedge clock) begin
 							(!oscillator[19] && osc_edge) ? 1'b0 :
 							osc_edge;
 							
-      lfsr_noise      <= (oscillator[19] && !osc_edge) ?
-						   {lfsr_noise[21],
-							wave_out[11],
-							lfsr_noise[19],
-							wave_out[10],
-							lfsr_noise[17:15],
-							wave_out[9],
-							lfsr_noise[13:12],
-							wave_out[8],
-							lfsr_noise[10],
-							wave_out[7],
-							lfsr_noise[8:6],
-							wave_out[6],
-							lfsr_noise[4:3],
-							wave_out[5],
-							lfsr_noise[1],
-							wave_out[4],
-							(lfsr_noise[17] ^ lfsr_noise[22] ^ reset ^ `test_ctrl)}
-							: lfsr_noise;
+//      lfsr_noise      <= (oscillator[19] && !osc_edge) ?
+//						   {lfsr_noise[21],
+//							wave_out[11],
+//							lfsr_noise[19],
+//							wave_out[10],
+//							lfsr_noise[17:15],
+//							wave_out[9],
+//							lfsr_noise[13:12],
+//							wave_out[8],
+//							lfsr_noise[10],
+//							wave_out[7],
+//							lfsr_noise[8:6],
+//							wave_out[6],
+//							lfsr_noise[4:3],
+//							wave_out[5],
+//							lfsr_noise[1],
+//							wave_out[4],
+//							(lfsr_noise[17] ^ lfsr_noise[22] ^ reset ^ `test_ctrl)}
+//							: lfsr_noise;
                      
-//		lfsr_noise <= 	(oscillator[19] && !osc_edge) ?
-//							{lfsr_noise[21:0], (lfsr_noise[22] | `test_ctrl) ^ lfsr_noise[17]} :
-//							lfsr_noise;
+		lfsr_noise <= 	(oscillator[19] && !osc_edge) ?
+							{lfsr_noise[21:0], (lfsr_noise[22] | `test_ctrl) ^ lfsr_noise[17]} :
+							lfsr_noise;
     end
 end
 
