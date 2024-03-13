@@ -83,7 +83,7 @@ entity audio_complex is
     -- Master PCM clock for the modems (1.8V and 8KHz instead)
     pcm_modem_clk : out std_logic := '0';
     pcm_modem_sync : out std_logic := '0';
-    -- And slave PCM clock for devices that need it
+	    -- And slave PCM clock for devices that need it
     -- (there is a problem with the QC25AU refusing to accept AT+QDAI=1,1,0,4,0
     -- to set PCM to slave mode, for example)
     pcm_modem_clk_in : in std_logic;
@@ -198,6 +198,25 @@ architecture elizabethan of audio_complex is
   
   signal ampPWM_l_in : signed(15 downto 0);
   signal ampPWM_r_in : signed(15 downto 0);
+  
+  -- add two signed integers, peak if overflow, used to try and fix the SIDs
+  -- hardcoding this to 16 bits because i'm lazy ngl
+  subtype signed16 is signed(15 downto 0);
+  function add_with_ovf(a : signed16; b : signed16) return signed16 is
+    variable resized_a, resized_b, add_result : signed(16 downto 0) := (others => '0'); -- vars with more bits for overflow check
+  begin
+    resized_a := resize(a, 17);
+    resized_b := resize(b, 17);
+    add_result := resized_a + resized_b;
+    if add_result(16) /= add_result(15) then
+      if add_result(16) = '1' then
+        add_result(15 downto 0) := x"8000";
+      else
+        add_result(15 downto 0) := x"7FFF";
+      end if;
+    end if;
+    return add_result(15 downto 0);
+  end function; 
   
 begin
 
@@ -431,9 +450,10 @@ begin
       audio_right(19 downto 4) <= std_logic_vector(spkr_right);
       audio_right(3 downto 0) <= "0000";
       
-      -- Combine the pairs of SIDs      
-      leftsid_audio_combined <=  leftsid_audio + frontsid_audio;
-      rightsid_audio_combined <= rightsid_audio + backsid_audio;
+      -- Combine the pairs of SIDs     
+      -- use the overflow checking addition to be safe 
+      leftsid_audio_combined(17 downto 2) <= add_with_ovf(leftsid_audio(17 downto 2), frontsid_audio(17 downto 2));
+      rightsid_audio_combined(17 downto 2) <= add_with_ovf(rightsid_audio(17 downto 2), backsid_audio(17 downto 2));
 
       if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;
