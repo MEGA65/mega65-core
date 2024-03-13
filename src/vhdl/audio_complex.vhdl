@@ -83,7 +83,7 @@ entity audio_complex is
     -- Master PCM clock for the modems (1.8V and 8KHz instead)
     pcm_modem_clk : out std_logic := '0';
     pcm_modem_sync : out std_logic := '0';
-	    -- And slave PCM clock for devices that need it
+    -- And slave PCM clock for devices that need it
     -- (there is a problem with the QC25AU refusing to accept AT+QDAI=1,1,0,4,0
     -- to set PCM to slave mode, for example)
     pcm_modem_clk_in : in std_logic;
