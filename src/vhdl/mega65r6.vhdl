@@ -23,6 +23,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
 use work.types_pkg.all;
+use work.porttypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -301,6 +302,9 @@ end container;
 
 architecture Behavioral of container is
 
+  signal buffereduart_rx : std_logic_vector(7 downto 0) := (others => '1');
+  signal buffereduart_tx : std_logic_vector(7 downto 0);  
+
   -- Use to select SDRAM or hyperram
   signal sdram_t_or_hyperram_f : boolean;
 
@@ -327,7 +331,6 @@ architecture Behavioral of container is
 
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal clock74p22 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
@@ -539,10 +542,6 @@ architecture Behavioral of container is
 
   signal dvi_select : std_logic := '0';
 
-  signal luma : unsigned(7 downto 0);
-  signal chroma : unsigned(7 downto 0);
-  signal composite : unsigned(7 downto 0);
-
   signal eth_load_enable : std_logic;
 
   signal upscale_enable : std_logic;
@@ -706,27 +705,6 @@ begin
 
         tmds => tmds
         );
-
-  eb0: if true generate
-  expansionboard0: entity work.r3_expansion
-    port map (
-      cpuclock => cpuclock,
-      clock27 => clock27,
-      clock81 => pixelclock,
-      clock270 => clock270,
-
-      p1lo => p1lo,
-      p1hi => p1hi,
-      p2lo => p2lo,
-      p2hi => p2hi,
-
-      luma => luma,
-      chroma => chroma,
-      composite => composite,
-      audio => luma
-
-      );
-  end generate;
 
   ODDR_inst : ODDR
     port map (
@@ -1010,9 +988,15 @@ begin
           uartclock       => cpuclock, -- Match CPU clock
           clock162 => clock162,
           clock200 => clock200,
+          clock270 => clock270,
           clock27 => clock27,
           clock50mhz      => ethclock,
 
+          p1lo => p1lo,
+          p1hi => p1hi,
+          p2lo => p2lo,
+          p2hi => p2hi,
+          
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
 
@@ -1060,10 +1044,6 @@ begin
 
           no_hyppo => '0',
 
-          luma => luma,
-          chroma => chroma,
-          composite => composite,
-
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
           hdmi_hsync       => v_hdmi_hsync,
@@ -1092,7 +1072,9 @@ begin
           iec_atn_o => iec_atn_drive,
           iec_bus_active => iec_bus_active,
 
---      buffereduart_rx => '1',
+          buffereduart_rx => buffereduart_rx,
+          buffereduart_tx => buffereduart_tx,
+          
           buffereduart_ringindicate => (others => '0'),
 
           porta_pins => column(7 downto 0),
@@ -1287,6 +1269,10 @@ begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
+    -- Connect expansion board accessory interface
+    buffereduart_rx(0) <= accessory_rx;
+    accessory_tx <= buffereduart_tx(0);
+    
     if sdram_t_or_hyperram_f = true then
       expansionram_current_cache_line <= sdram_cache_line;
       expansionram_current_cache_line_valid <= sdram_cache_line_valid;
