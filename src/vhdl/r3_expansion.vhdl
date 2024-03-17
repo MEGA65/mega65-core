@@ -36,6 +36,11 @@ entity r3_expansion is
          p2lo : inout std_logic_vector(3 downto 0);
          p2hi : inout std_logic_vector(3 downto 0);
 
+         -- ESP32 / Accessory interface
+         accessory_enable : in std_logic;
+         accessory_tx : in std_logic;
+         accessory_rx : out std_logic;
+         
          -- C1565 port
          c1565_port_i : out c1565_port_in;
          c1565_port_o : in c1565_port_out;
@@ -276,16 +281,19 @@ begin
       chan_c_high <= pick_sub_clock(channel_c_data(7 downto 5)); chan_c_low <= pick_sub_clock(channel_c_data(4 downto 2));
       
     end if;
+
+    p2lo(2) <= c1565_port_i.clk;
+    p2lo(1) <= c1565_port_i.ld;
+    
+    c1565_port_o.serio <= p2hi(2);
+    p2hi(1) <= c1565_port_i.serio;
+    
+    accessory_rx <= p1hi(2);
+    p1hi(1) <= accessory_tx;    
     
     if rising_edge(clock270) then
       -- Bit order on PMODs is reversed
-      -- We want at least 8 bits of total resolution,
-      -- so we do PWM on lowest bit (and later on all
-      -- bits, with 4x or 8x step between resistors, instead
-      -- of just 2x).
-      p2lo(2 downto 1) <= (others => '0');
-      p2hi(2 downto 1) <= (others => '0');
-      p1hi(2 downto 1) <= (others => '0');
+
       p2lo(0) <= chan_a_high(sub_clock);
       p2hi(0) <= chan_b_high(sub_clock);
       p1hi(0) <= chan_c_high(sub_clock);
