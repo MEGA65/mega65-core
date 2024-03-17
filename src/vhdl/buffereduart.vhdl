@@ -39,7 +39,8 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     uart_rx : in std_logic_vector(7 downto 0) := (others => '1');
     uart_tx : out std_logic_vector(7 downto 0) := (others => '1');
-    uart_ringindicate : in std_logic_vector(7 downto 0);    
+    uart_ringindicate : in std_logic_vector(7 downto 0);
+    accessory_enable : out std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -119,6 +120,8 @@ architecture behavioural of buffereduart is
   signal uart_irq_on_rx_byte : std_logic_vector(7 downto 0) := (others => '0');
   signal uart_irq_on_rx_highwater : std_logic_vector(7 downto 0) := (others => '0');
   signal uart_irq_on_tx_lowwater : std_logic_vector(7 downto 0) := (others => '0'); 
+
+  signal accessory_enable_int : std_logic := '0';
   
 begin  -- behavioural
 
@@ -254,6 +257,10 @@ begin  -- behavioural
             else
               fastio_rdata <= x"FF";
             end if;
+          when x"7" =>
+            -- @IO:GS $D0E7 Peripheral control lines
+            -- @IO:GS $D0E7.0 Enable Expansion Board Serial Accessory (eg ESP32)
+            fastio_rdata <= accessory_enable_int;
           when x"c" =>
             if selected_uart < 8 then
               fastio_rdata <= uart_rx_buffer_pointer_write(selected_uart);
@@ -443,6 +450,9 @@ begin  -- behavioural
               uart_bit_rate_divisor_internal(selected_uart)(23 downto 16) <= fastio_wdata;
               uart_bit_rate_divisor(selected_uart)(23 downto 16) <= fastio_wdata;
             end if;
+          when x"7" =>
+            accessory_enable <= fastio_wdata(0);
+            accessory_enable_int <= fastio_wdata(0);
           when others =>
             null;
         end case;

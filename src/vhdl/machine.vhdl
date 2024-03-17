@@ -89,6 +89,9 @@ entity machine is
 
          upscale_enable : out std_logic := '0';
 
+         accessory_rx : in std_logic;
+         accessory_tx : out std_logic;
+         
          no_hyppo : in std_logic;
 
          disco_led_id : out unsigned(7 downto 0) := x"00";
@@ -510,6 +513,8 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal accessory_enable : std_logic;
+  
   signal user_port_i : user_port_in;
   signal user_port_o : user_port_out;
   signal tape_port_i : tape_port_in;
@@ -854,7 +859,7 @@ architecture Behavioral of machine is
 
   signal audio_left_int : std_logic_vector(19 downto 0);
   signal audio_right_int : std_logic_vector(19 downto 0);
-  
+
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
@@ -1124,6 +1129,10 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
+      accessory_rx => accessory_rx,
+      accessory_tx => accessory_tx,
+      accessory_enable => accessory_enable, 
+      
       fastio_read => fastio_read,
       fastio_write => fastio_write,
       fastio_addr => unsigned(fastio_addr),
@@ -1685,6 +1694,10 @@ begin
       hw_errata_enable_toggle => hw_errata_enable_toggle,
       hw_errata_disable_toggle => hw_errata_disable_toggle,
 
+      accessory_rx => accessory_rx,
+      accessory_tx => accessory_tx,
+      accessory_enable => accessory_enable,
+      
       tape_port_i => tape_port_i,
       user_port_i => user_port_i,
       user_port_o => user_port_o,

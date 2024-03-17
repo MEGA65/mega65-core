@@ -302,6 +302,9 @@ end container;
 
 architecture Behavioral of container is
 
+  signal buffereduart_rx : std_logic_vector(7 downto 0) := (others => '1');
+  signal buffereduart_tx : std_logic_vector(7 downto 0);  
+
   -- Use to select SDRAM or hyperram
   signal sdram_t_or_hyperram_f : boolean;
 
@@ -1069,7 +1072,9 @@ begin
           iec_atn_o => iec_atn_drive,
           iec_bus_active => iec_bus_active,
 
---      buffereduart_rx => '1',
+          buffereduart_rx => buffereduart_rx,
+          buffereduart_tx => buffereduart_tx,
+          
           buffereduart_ringindicate => (others => '0'),
 
           porta_pins => column(7 downto 0),
@@ -1264,6 +1269,10 @@ begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync);
 
+    -- Connect expansion board accessory interface
+    buffereduart_rx(0) <= accessory_rx;
+    accessory_tx <= buffereduart_tx(0);
+    
     if sdram_t_or_hyperram_f = true then
       expansionram_current_cache_line <= sdram_cache_line;
       expansionram_current_cache_line_valid <= sdram_cache_line_valid;
