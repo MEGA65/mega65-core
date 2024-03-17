@@ -282,11 +282,11 @@ begin
       
     end if;
 
-    p2lo(2) <= c1565_port_i.clk;
-    p2lo(1) <= c1565_port_i.ld;
+    p2lo(2) <= c1565_port_o.clk;
+    p2lo(1) <= c1565_port_o.ld;
     
-    c1565_port_o.serio <= p2hi(2);
-    p2hi(1) <= c1565_port_i.serio;
+    c1565_port_i.serio <= p2hi(2);
+    p2hi(1) <= c1565_port_o.serio;
     
     accessory_rx <= p1hi(2);
     p1hi(1) <= accessory_tx;    
