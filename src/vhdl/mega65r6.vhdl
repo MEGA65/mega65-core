@@ -550,6 +550,9 @@ architecture Behavioral of container is
 
   signal sdram_slow_clock : std_logic;
 
+  signal accessory_rx : std_logic;
+  signal accessory_tx : std_logic;
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -996,6 +999,9 @@ begin
           p1hi => p1hi,
           p2lo => p2lo,
           p2hi => p2hi,
+
+          accessory_tx => accessory_tx,
+          accessory_rx => accessory_rx,
           
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
           sdram_slow_clock => sdram_slow_clock,
