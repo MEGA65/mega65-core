@@ -89,8 +89,8 @@ entity machine is
 
          upscale_enable : out std_logic := '0';
 
-         accessory_rx : in std_logic;
-         accessory_tx : out std_logic;
+         accessory_rx : out std_logic;
+         accessory_tx : in std_logic;
          
          no_hyppo : in std_logic;
 
@@ -1694,8 +1694,6 @@ begin
       hw_errata_enable_toggle => hw_errata_enable_toggle,
       hw_errata_disable_toggle => hw_errata_disable_toggle,
 
-      accessory_rx => accessory_rx,
-      accessory_tx => accessory_tx,
       accessory_enable => accessory_enable,
       
       tape_port_i => tape_port_i,
