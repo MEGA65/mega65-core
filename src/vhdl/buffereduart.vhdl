@@ -260,7 +260,8 @@ begin  -- behavioural
           when x"7" =>
             -- @IO:GS $D0E7 Peripheral control lines
             -- @IO:GS $D0E7.0 Enable Expansion Board Serial Accessory (eg ESP32)
-            fastio_rdata <= accessory_enable_int;
+            fastio_rdata(0) <= accessory_enable_int;
+            fastio_rdata(7 downto 1) <= (others => '0');
           when x"c" =>
             if selected_uart < 8 then
               fastio_rdata <= uart_rx_buffer_pointer_write(selected_uart);
