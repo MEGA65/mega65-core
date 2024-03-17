@@ -89,6 +89,7 @@ entity iomapper is
 
         buffereduart_rx : in std_logic_vector(7 downto 0) := (others => '1');
         buffereduart_tx : out std_logic_vector(7 downto 0) := (others => '1');
+        accessory_enable : out std_logic;
         buffereduart_ringindicate : in std_logic_vector(7 downto 0);
 
         fm_left : in signed(15 downto 0) := x"0000";
