@@ -188,11 +188,11 @@ begin
             miso_i <= '0';
             report "SDCARDMODEL: Sent $FE start of data token";
             cmd_phase <= 0;
-            bits_remaining <= 8;
+            bits_remaining <= 7;
             sdcard_state <= READ_BLOCK_LOOP;
           end if;
         when READ_BLOCK_LOOP =>
-          if bits_remaining = 8 then
+          if bits_remaining = 7 then
             report "SDCARDMODEL: Sending next byte of sector read = $" & to_hexstring(flash_rdata);
             miso_i <= flash_rdata(7);
             flash_byte(7 downto 1) <= flash_rdata(6 downto 0);
@@ -209,7 +209,7 @@ begin
           else 
             if bytes_remaining /= 0 then
               bytes_remaining <= bytes_remaining - 1;
-              bits_remaining <= 8;
+              bits_remaining <= 7;
             else
               report "SDCARDMODEL: Finished sending sector bytes";
               

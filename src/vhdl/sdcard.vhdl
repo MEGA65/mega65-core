@@ -638,6 +638,7 @@ begin
                 if rtnData_v then       -- Send the received data to the host.
                   data_o   <= rx_v;     -- Output received data to the host.
                   hndShk_r <= '1';  -- Signal to the host that the data is ready.
+                  report "SDCARD: Received byte $" & to_hstring(rx_v);
                 end if;
                 if doDeselect_v then
                   bitCnt_v := 1;
