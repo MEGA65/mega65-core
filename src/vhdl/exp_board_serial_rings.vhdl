@@ -19,6 +19,8 @@ entity exp_board_ring_ctrl is
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0) := (others => 'Z');
+
+    accessory_enable : in std_logic;
     
     -- PMOD pins
     exp_clock : out std_logic;
@@ -238,16 +240,19 @@ begin
         output_vector(17) <= user_o.cnt1;
         output_vector(16) <= user_o.reset_n;
         
-        output_vector(15) <= c1565_o.ld;
-        output_vector(14) <= c1565_o.serio_en_n;
+        output_vector(15) <= '1'; -- spare
+        output_vector(14) <= accessory_enable;
         output_vector(13) <= c1565_o.rst;
         output_vector(12) <= user_o.pa2_en and user_o.pa2; -- insufficient pins
                                                            -- to have separate
-                                                           -- enable
+                                                           -- enable (well,
+                                                           -- that was the
+                                                           -- case. Could be
+                                                           -- fixed now)
         output_vector(11) <= tape_o.wdata;
         output_vector(10) <= tape_o.motor_en;
-        output_vector(9) <= c1565_o.serio;        
-        output_vector(8) <= c1565_o.clk;
+        output_vector(9) <= '1'; -- spare
+        output_vector(8) <= '1'; -- spare
         
         for i in 0 to 7 loop
           output_vector(31-i) <= user_o.d(i);

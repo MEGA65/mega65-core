@@ -199,6 +199,8 @@ begin
     fastio_addr => fastio_addr,
     fastio_write => fastio_write,    
     fastio_read => fastio_read,    
+
+    accessory_enable => accessory_enable,
     
     -- PMOD pins
     exp_clock => p1lo(1),

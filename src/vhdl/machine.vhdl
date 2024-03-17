@@ -90,7 +90,7 @@ entity machine is
          upscale_enable : out std_logic := '0';
 
          accessory_rx : out std_logic;
-         accessory_tx : in std_logic;
+         accessory_tx : in std_logic := '1';
          
          no_hyppo : in std_logic;
 
