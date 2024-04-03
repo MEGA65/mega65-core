@@ -263,6 +263,7 @@ architecture Behavioral of container is
 
   signal ampPWM_internal : std_logic;
   signal dummy : std_logic_vector(2 downto 0);
+  signal dummy_tx : std_logic_vector(7 downto 1);
   signal sawtooth_phase : integer := 0;
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
@@ -584,6 +585,7 @@ begin
       buffereduart_rx(0) => jalo(1),
       buffereduart_rx(7 downto 1) => (others => '1'),
       buffereduart_tx(0) => jalo(2),
+      buffereduart_rx(7 downto 1) => dummy_tx,
       buffereduart_ringindicate => (others => '0'),
       
       slow_access_request_toggle => slow_access_request_toggle,
