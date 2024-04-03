@@ -581,8 +581,8 @@ begin
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 
---      buffereduart_rx => jclo(3),
---      buffereduart_tx => jclo(4),
+      buffereduart_rx => jalo(1),
+      buffereduart_tx => jalo(2),
 --      buffereduart2_rx => jchi(9),
 --      buffereduart2_tx => jchi(10),
       buffereduart_ringindicate => (others => '0'),
