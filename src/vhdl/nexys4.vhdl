@@ -582,9 +582,8 @@ begin
       uart_tx => jclo(2),
 
       buffereduart_rx(0) => jalo(1),
+      buffereduart_rx(7 downto 1) => (others => '1'),
       buffereduart_tx(0) => jalo(2),
---      buffereduart2_rx => jchi(9),
---      buffereduart2_tx => jchi(10),
       buffereduart_ringindicate => (others => '0'),
       
       slow_access_request_toggle => slow_access_request_toggle,
