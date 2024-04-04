@@ -142,7 +142,7 @@ begin
       debug_scl => i2c1_debug_scl
       );
 
-  process (clock,cs,fastio_read,fastio_addr) is
+  process (clock,cs,fastio_read,fastio_addr,write_job_pending,i2c1_error,debug_status,busy_count) is
   begin
 
     if cs='1' and fastio_read='1' then
