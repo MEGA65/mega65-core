@@ -1422,7 +1422,7 @@ begin
 
   i2cperiph_keypad:
   if target = nexys4 generate
-    i2c1: entity work.keypad_i2c
+    i2c_keypad: entity work.keypad_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
       clock => cpuclock,
