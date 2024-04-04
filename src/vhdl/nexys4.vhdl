@@ -587,6 +587,9 @@ begin
       buffereduart_tx(0) => jalo(2),
       buffereduart_tx(7 downto 1) => dummy_tx,
       buffereduart_ringindicate => (others => '0'),
+
+      keypadSDA => jalo(3),
+      keypadSCL => jalo(4),
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,

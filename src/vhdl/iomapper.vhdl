@@ -380,6 +380,9 @@ entity iomapper is
 
     i2c1SDA : inout std_logic := '0';
     i2c1SCL : inout std_logic := '0';    
+
+    keypadSDA : inout std_logic := '0';
+    keypadSCL : inout std_logic := '0';    
     
     grove_sda : inout std_logic;
     grove_scl : inout std_logic;
@@ -479,6 +482,7 @@ architecture behavioral of iomapper is
   signal cia2cs : std_logic;
 
   signal i2cperipherals_cs : std_logic;
+  signal i2ckeypad_cs : std_logic;
   signal i2chdmi_cs : std_logic;
   signal grove_cs : std_logic;
   signal sectorbuffercs : std_logic;
@@ -1416,6 +1420,25 @@ begin
     );
   end generate i2cperiph_megaphone;
 
+  i2cperiph_keypad:
+  if target = nexys4 generate
+    i2c1: entity work.keypad_i2c
+      generic map ( clock_frequency => cpu_frequency)
+      port map (
+      clock => cpuclock,
+
+      cs => i2ckeypad_cs,
+
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      
+      sda => keypad_sda,
+      scl => keypad_scl
+
+      );
+  
   i2cperiph_mega65r5_specific:
   if target = mega65r5 or target = mega65r6 generate
     i2c1: entity work.mega65r5_board_i2c
@@ -2125,6 +2148,7 @@ begin
       end if;
 
       -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets
+      i2ckeypad_cs <= '0';
       i2cperipherals_cs <= '0';
       i2chdmi_cs <= '0';
       grove_cs <= '0';
@@ -2161,6 +2185,13 @@ begin
         end if;
       end if;
 
+      if (target = nexys4) then
+        if address(19 downto 8) = x"D75" then
+          i2ckeypad_cs <= '1';
+          report "i2ckeypad_cs asserted";
+        end if;
+      end if;
+      
       cs_driveram <= '0';
       cs_driverom <= '0';
       if address(19 downto 16) = x"C" then

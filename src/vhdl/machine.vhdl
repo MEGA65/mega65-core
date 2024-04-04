@@ -339,6 +339,9 @@ entity machine is
          i2c1SDA : inout std_logic := '1';
          i2c1SCL : inout std_logic := '1';
 
+         keypadSDA : inout std_logic := '1';
+         keypadSCL : inout std_logic := '1';
+
          board_sda : inout std_logic;
          board_scl : inout std_logic;
 

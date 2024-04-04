@@ -1,7 +1,6 @@
 #include <stdio.h>
 
-// #define MEGAPHONER1
-#define MEGA65R2
+#define KEYPAD
 
 struct entry {
   int addr;
@@ -17,6 +16,17 @@ struct entry e[] = {
 
 // The IO expanders can only be read one register pair at a time,
 // so we have to schedule multiple jobs.
+
+#ifdef KEYPAD
+  { 0x40, 0x00, 0x07, 0x00, "IO Expander #0" }, 
+  { 0x42, 0x00, 0x07, 0x08, "IO Expander #1" }, 
+  { 0x44, 0x00, 0x07, 0x10, "IO Expander #2" }, 
+  { 0x46, 0x00, 0x07, 0x18, "IO Expander #3" }, 
+  { 0x48, 0x00, 0x07, 0x20, "IO Expander #4" }, 
+  { 0x4a, 0x00, 0x07, 0x28, "IO Expander #5" }, 
+  { 0x4c, 0x00, 0x07, 0x30, "IO Expander #6" }, 
+  { 0x4e, 0x00, 0x07, 0x38, "IO Expander #7" }, 
+#endif
 
 #ifdef MEGAPHONER1
   // First IO expander
