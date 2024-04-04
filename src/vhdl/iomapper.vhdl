@@ -1438,6 +1438,7 @@ begin
       scl => keypad_scl
 
       );
+  end generate i2cperiph_keypad;  
   
   i2cperiph_mega65r5_specific:
   if target = mega65r5 or target = mega65r6 generate
