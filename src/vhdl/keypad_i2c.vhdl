@@ -192,7 +192,8 @@ begin
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- This is nice and easy here, because we have 8 identical I2C IO expanders
-        write_reg <= fastio_addr(2 downto 0);
+        write_reg(7 downto 3) <= (others => '0');
+        write_reg(2 downto 0) <= fastio_addr(2 downto 0);
         write_addr(7 downto 4) <= "0100";
         write_addr(3 downto 1) <= fastio_addr(5 downto 3);
         write_addr(0) <= '0';
