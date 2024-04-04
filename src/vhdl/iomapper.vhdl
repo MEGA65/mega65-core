@@ -1434,8 +1434,8 @@ begin
       fastio_read => r,
       fastio_wdata => unsigned(data_i),
       
-      sda => keypad_sda,
-      scl => keypad_scl
+      sda => keypadSDA,
+      scl => keypadSCL
 
       );
   end generate i2cperiph_keypad;  
