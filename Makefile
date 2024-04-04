@@ -352,6 +352,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
 			$(VHDLSRCDIR)/i2c_controller.vhdl \
 			$(VHDLSRCDIR)/mega65r5_board_i2c.vhdl \
+			$(VHDLSRCDIR)/keypad_i2c.vhdl \
 			$(VHDLSRCDIR)/grove_i2c.vhdl \
 			$(VHDLSRCDIR)/hdmi_i2c.vhdl \
 			$(VHDLSRCDIR)/spdif_encoder.vhdl \
@@ -442,6 +443,7 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram18x2k.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl \
+			$(VHDLSRCDIR)/ghdl_ram8x4096_sync_2cs.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x4096_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x512.vhdl \
