@@ -1421,7 +1421,7 @@ begin
   end generate i2cperiph_megaphone;
 
   i2cperiph_keypad:
-  if target = nexys4 generate
+  if (target = nexys4) or (target = simulation) generate
     i2c_keypad: entity work.keypad_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
@@ -2186,7 +2186,7 @@ begin
         end if;
       end if;
 
-      if (target = nexys4) then
+      if (target = nexys4) or (target = simulation) then
         if address(19 downto 8) = x"D75" then
           i2ckeypad_cs <= '1';
           report "i2ckeypad_cs asserted";
