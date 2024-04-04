@@ -65,9 +65,6 @@ entity keypad_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
-    reg_in : in unsigned(7 downto 0);
-    val_in : in unsigned(7 downto 0);
-
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
