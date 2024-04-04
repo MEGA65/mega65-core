@@ -208,12 +208,12 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 244) or ((write_job_pending='1') and (busy_count < (244+4))) then
+        if (busy_count < 81) or ((write_job_pending='1') and (busy_count < (81+4))) then
           busy_count <= busy_count + 1;
           report "busy_count = " & integer'image(busy_count + 1);
           -- Delay switch to write so we generate a stop before hand and after
           -- the write.
-          if ((busy_count = (244-1)) or (busy_count = (244+1))) and (delayed_en = 0) then
+          if ((busy_count = (81-1)) or (busy_count = (81+1))) and (delayed_en = 0) then
             delayed_en <= 1024;
           end if;
         else
