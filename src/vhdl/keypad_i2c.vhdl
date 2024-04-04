@@ -159,6 +159,8 @@ begin
         -- Show error status from I2C
         fastio_rdata(7 downto 6) <= "10";
         fastio_rdata(5 downto 0) <= debug_status;
+      elsif fastio_addr(7 downto 0) = "11111100" then
+        fastio_rdata <= x"42";
       else
         -- Else for debug show busy count
         fastio_rdata <= to_unsigned(busy_count,8);
