@@ -243,6 +243,8 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 1 then
+            report "Storing I2C_rdata = $" & to_hexstring(i2c1_rdata)
+              & ", i2c1_error = " & std_logic'image(i2c1_error);
             bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
           end if;
         when 10 =>
