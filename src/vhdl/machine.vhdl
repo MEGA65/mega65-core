@@ -1668,7 +1668,7 @@ begin
 
       porto_out => porto_out,
       portp_out => portp_out,
-
+      
       -- Accessibility inputs for showing on visual keyboard
       accessible_row => accessible_row,
       accessible_key => accessible_key,
@@ -1948,6 +1948,9 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
+
+      keypadSDA => keypadSDA,
+      keypadSCL => keypadSCL,
       
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
