@@ -78,7 +78,7 @@ end keypad_i2c;
 
 architecture behavioural of keypad_i2c is
 
-  constant max_state : integer := 128;
+  constant max_state : integer := 127;
   
   signal i2c1_address : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
