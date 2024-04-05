@@ -1433,6 +1433,7 @@ begin
       fastio_write => w,
       fastio_read => r,
       fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o,
       
       sda => keypadSDA,
       scl => keypadSCL
