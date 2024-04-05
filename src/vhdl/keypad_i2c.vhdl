@@ -105,6 +105,7 @@ architecture behavioural of keypad_i2c is
   signal bytes : byte_array := (others => x"bd");
 
   signal write_job_pending : std_logic := '0';
+  signal write_count : unsigned(7 downto 0) := to_unsigned(0,8);
   signal write_addr : unsigned(7 downto 0) := x"48";
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
@@ -165,6 +166,8 @@ begin
       elsif fastio_addr(7 downto 0) = "11111100" then
         report "reading magic $42 register";
         fastio_rdata <= x"42";
+      elsif fastio_addr(7 downto 0) = "11111011" then
+        fastio_rdata <= write_count;
       else
         -- Else for debug show busy count
         fastio_rdata <= to_unsigned(busy_count,8);
@@ -691,6 +694,8 @@ begin
           command_en <= '1';
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= write_reg;
+
+          write_count <= write_count + 1;
         when max_state+2 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
