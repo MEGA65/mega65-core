@@ -147,7 +147,8 @@ begin
 
     if cs='1' and fastio_read='1' then
       if fastio_addr(7) = '0' then
-        report "reading buffered I2C data";
+        report "reading buffered I2C data addr $" & to_hexstring(fastio_addr(7 downto 0)) & " = $"
+          & to_hexstring(bytes(to_integer(fastio_addr(7 downto 0))));
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
       elsif fastio_addr(7 downto 0) = "11111111" then
         -- Show busy status for writing
@@ -160,6 +161,7 @@ begin
         fastio_rdata(7 downto 6) <= "10";
         fastio_rdata(5 downto 0) <= debug_status;
       elsif fastio_addr(7 downto 0) = "11111100" then
+        report "reading magic $42 register";
         fastio_rdata <= x"42";
       else
         -- Else for debug show busy count
@@ -193,13 +195,39 @@ begin
 
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
-        -- This is nice and easy here, because we have 8 identical I2C IO expanders
-        write_reg(7 downto 3) <= (others => '0');
-        write_reg(2 downto 0) <= fastio_addr(2 downto 0);
-        write_addr(7 downto 4) <= "0100";
-        write_addr(3 downto 1) <= fastio_addr(5 downto 3);
-        write_addr(0) <= '0';
-        write_val <= fastio_wdata;
+        if fastio_addr(7)='0' then
+          -- This is nice and easy here, because we have 8 identical I2C IO expanders
+          write_reg(7 downto 3) <= (others => '0');
+          write_reg(2 downto 0) <= fastio_addr(2 downto 0);
+          write_addr(7 downto 4) <= "0100";
+          write_addr(3 downto 1) <= fastio_addr(5 downto 3);
+          write_addr(0) <= '0';
+          write_val <= fastio_wdata;
+        elsif fastio_addr(7 downto 0) = x"F0" then
+          i2c1_debug_scl <= '0';
+          debug_status(0) <= '0';
+        elsif fastio_addr(7 downto 0) = x"F1" then
+          i2c1_debug_scl <= '1';          
+          debug_status(0) <= '1';
+        elsif fastio_addr(7 downto 0) = x"F2" then
+          i2c1_debug_sda <= '0';
+          debug_status(1) <= '0';
+        elsif fastio_addr(7 downto 0) = x"F3" then
+          i2c1_debug_sda <= '1';          
+          debug_status(1) <= '1';
+        elsif fastio_addr(7 downto 0) = x"F4" then
+          i2c1_swap <= '0';
+          debug_status(2) <= '0';
+        elsif fastio_addr(7 downto 0) = x"F5" then
+          i2c1_swap <= '1';          
+          debug_status(2) <= '1';
+        elsif fastio_addr(7 downto 0) = x"FE" then
+          i2c1_reset <= '0';
+          debug_status(3) <= '0';
+        elsif fastio_addr(7 downto 0) = x"FF" then
+          i2c1_reset <= '1';
+          debug_status(3) <= '1';
+        end if;
       end if;
 
       -- State machine for reading registers from the various
