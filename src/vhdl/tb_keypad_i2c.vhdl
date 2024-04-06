@@ -73,6 +73,40 @@ begin
 
     end procedure;
 
+    procedure POKE(a : unsigned(15 downto 0); v : unsigned(7 downto 0)) is
+    begin
+      cs <= '1';
+      fastio_addr(7 downto 0) <= a(7 downto 0);
+      fastio_wdata <= v;
+      fastio_write <= '1';
+      for i in 1 to 4 loop
+        clock_tick;
+      end loop;
+      fastio_write <= '0';
+      cs <= '0';
+    end procedure;
+
+    procedure PEEK(a : unsigned(15 downto 0)) is
+    begin
+      cs <= '1';
+      fastio_addr(7 downto 0) <= a(7 downto 0);
+      fastio_read <= '1';
+      for i in 1 to 8 loop
+        clock_tick;
+      end loop;
+      fastio_read <= '0';
+      cs <= '0';
+    end procedure;
+
+    procedure wait_a_while(t : integer) is
+    begin        
+      -- Allow time for everything to happen
+      for i in 1 to t loop
+        clock_tick;
+      end loop;
+      report "Waited for " & integer'image(t) & " ticks.";
+    end procedure;
+    
   begin
     test_runner_setup(runner, runner_cfg);
 
