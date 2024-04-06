@@ -194,6 +194,9 @@ begin
         if debug_reg6 /= x"91" then
           assert false report "PCA9555 register had $91 written to it, but contained $" & to_hexstring(debug_reg6) & " after the write.";
         end if;
+        if debug_reg7 /= x"FF" then
+          assert false report "PCA9555 register 6 had $91 written to it, and reg 7 should have $FF, but contained $" & to_hexstring(debug_reg7) & " after the write to the OTHER register.";
+        end if;
         
       end if;
     end loop;
