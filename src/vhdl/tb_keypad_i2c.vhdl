@@ -25,6 +25,9 @@ architecture test_arch of tb_keypad_i2c is
   signal fastio_rdata : unsigned(7 downto 0);
   signal fastio_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal fastio_addr : unsigned(19 downto 0) := x"00000";
+
+  signal debug_write_count : integer;
+  signal debug_write_pending_count : integer;
   
   signal port0 : unsigned(7 downto 0) := x"00";
   signal port1 : unsigned(7 downto 0) := x"50";
@@ -51,6 +54,9 @@ begin
                sda => sda,
                scl => scl,
 
+               debug_write_pending_count => debug_write_pending_count,
+               debug_write_count => debug_write_count,
+               
                cs => cs,
                fastio_read => fastio_read,
                fastio_write => fastio_write,
@@ -121,6 +127,48 @@ begin
           clock_tick;
         end loop;
 
+      elsif run("Writing to I2C expander triggers write_job_pending") then
+
+        reset_high <= '1'; clock_tick;clock_tick;clock_tick;clock_tick;
+        reset_high <= '0'; clock_tick;clock_tick;clock_tick;clock_tick;
+
+        POKE(x"7506",x"91");
+
+        for i in 1 to 100000 loop
+          clock_tick;
+          if debug_write_pending_count /= 0 then
+            exit;
+          end if;
+        end loop;
+
+        if debug_write_pending_count = 0 then
+          assert false report "write job was never marked pending";
+        end if;
+        
+      elsif run("Writing to I2C causes write to occur") then
+
+        reset_high <= '1'; clock_tick;clock_tick;clock_tick;clock_tick;
+        reset_high <= '0'; clock_tick;clock_tick;clock_tick;clock_tick;
+
+        POKE(x"7506",x"91");
+
+        for i in 1 to 100000 loop
+          clock_tick;
+          if debug_write_count /= 0 then
+            exit;
+          end if;
+        end loop;
+
+        if debug_write_pending_count = 0 then
+          assert false report "write job was never marked pending";
+        end if;
+        if debug_write_count = 0 then
+          assert false report "write job was never completed";
+        end if;
+
+        report "debug_write_pending_count = " & integer'image(debug_write_pending_count);
+        assert false report "debug_write_count = " & integer'image(debug_write_count);
+        
       end if;
     end loop;
     test_runner_cleanup(runner);

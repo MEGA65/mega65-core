@@ -65,6 +65,9 @@ entity keypad_i2c is
     sda : inout std_logic;
     scl : inout std_logic;
 
+    debug_write_pending_count : inout integer := 0;
+    debug_write_count : inout integer := 0;
+    
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
@@ -696,6 +699,7 @@ begin
           i2c1_wdata <= write_reg;
 
           write_count <= write_count + 1;
+          debug_write_count <= debug_write_count + 1;
         when max_state+2 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
