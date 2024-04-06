@@ -717,6 +717,10 @@ begin
           command_en <= '1';
           i2c1_rw <= '0';
           i2c1_wdata <= write_val;
+        when max_state+3 =>
+          -- Dummy state so that STOP gets emmitted after writing the single byte.
+          -- This fixes stray writes to adjacent registers.
+          null;
         when others =>
           if last_busy_count /= busy_count then
             report "in others";
