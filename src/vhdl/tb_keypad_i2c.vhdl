@@ -181,8 +181,8 @@ begin
           end if;
         end loop;
 
-        -- Give time for register update to propagate
-        wait_a_while(10);       
+        -- Give time for register write to occur and propagate
+        wait_a_while(10000);
         
         if debug_write_pending_count = 0 then
           assert false report "write job was never marked pending";
