@@ -32,6 +32,15 @@ architecture test_arch of tb_keypad_i2c is
   signal port0 : unsigned(7 downto 0) := x"00";
   signal port1 : unsigned(7 downto 0) := x"50";
 
+  signal debug_reg0: unsigned(7 downto 0);
+  signal debug_reg1: unsigned(7 downto 0);
+  signal debug_reg2: unsigned(7 downto 0);
+  signal debug_reg3: unsigned(7 downto 0);
+  signal debug_reg4: unsigned(7 downto 0);
+  signal debug_reg5: unsigned(7 downto 0);
+  signal debug_reg6: unsigned(7 downto 0);
+  signal debug_reg7: unsigned(7 downto 0);
+  
   signal reset_high : std_logic;
   
 begin
@@ -44,6 +53,16 @@ begin
                reset => reset_high,
                scl => scl,
                sda => sda,
+
+               debug_reg0 => debug_reg0,
+               debug_reg1 => debug_reg1,
+               debug_reg2 => debug_reg2,
+               debug_reg3 => debug_reg3,
+               debug_reg4 => debug_reg4,
+               debug_reg5 => debug_reg5,
+               debug_reg6 => debug_reg6,
+               debug_reg7 => debug_reg7,
+               
                port0 => port0,
                port1 => port1);
 
@@ -162,6 +181,9 @@ begin
           end if;
         end loop;
 
+        -- Give time for register update to propagate
+        wait_a_while(10);       
+        
         if debug_write_pending_count = 0 then
           assert false report "write job was never marked pending";
         end if;
@@ -169,8 +191,9 @@ begin
           assert false report "write job was never completed";
         end if;
 
-        report "debug_write_pending_count = " & integer'image(debug_write_pending_count);
-        report "debug_write_count = " & integer'image(debug_write_count);
+        if debug_reg6 /= x"91" then
+          assert false report "PCA9555 register had $91 written to it, but contained $" & to_hexstring(debug_reg6) & " after the write.";
+        end if;
         
       end if;
     end loop;

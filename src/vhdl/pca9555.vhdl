@@ -28,6 +28,16 @@ entity pca9555 is
     reset: in std_logic;
     scl: in std_logic;
     sda: inout std_logic;
+
+    debug_reg0: inout unsigned(7 downto 0);
+    debug_reg1: inout unsigned(7 downto 0);
+    debug_reg2: inout unsigned(7 downto 0);
+    debug_reg3: inout unsigned(7 downto 0);
+    debug_reg4: inout unsigned(7 downto 0);
+    debug_reg5: inout unsigned(7 downto 0);
+    debug_reg6: inout unsigned(7 downto 0);
+    debug_reg7: inout unsigned(7 downto 0);
+
     port0: inout unsigned(7 downto 0);
     port1: inout unsigned(7 downto 0));
 end entity pca9555;
@@ -133,6 +143,7 @@ begin
             if data_in_valid then
               registers(to_integer(selected_register_index)) <= data_in;
               state <= wait_for_event_released;
+              report "PCA9555: Writing $" & to_hexstring(data_in) & " to register " & integer'image(to_integer(selected_register_index));
             end if;
             if data_out_requested then
               report "PCA9555: Reading regsiter $" & to_hexstring(selected_register_index)
@@ -166,6 +177,17 @@ begin
             port1(i) <= registers(3)(i) xor registers(5)(i);
           end if;
         end loop;
+
+        -- Expose other registers for debug
+        debug_reg0 <= registers(0);
+        debug_reg1 <= registers(1);
+        debug_reg2 <= registers(2);
+        debug_reg3 <= registers(3);
+        debug_reg4 <= registers(4);
+        debug_reg5 <= registers(5);
+        debug_reg6 <= registers(6);
+        debug_reg7 <= registers(7);
+        
       end if;
     end if;
   end process;
