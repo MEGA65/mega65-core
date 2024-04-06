@@ -134,7 +134,7 @@ begin
 
         POKE(x"7506",x"91");
 
-        for i in 1 to 100000 loop
+        for i in 1 to 1000000 loop
           clock_tick;
           if debug_write_pending_count /= 0 then
             exit;
@@ -152,10 +152,13 @@ begin
 
         POKE(x"7506",x"91");
 
-        for i in 1 to 100000 loop
+        for i in 1 to 1000000 loop
           clock_tick;
           if debug_write_count /= 0 then
             exit;
+          end if;
+          if debug_write_pending_count > 1 then
+            assert false report "debug_write_pending_count should only get to 1, but it got to " & integer'image(debug_write_pending_count);
           end if;
         end loop;
 
@@ -167,7 +170,7 @@ begin
         end if;
 
         report "debug_write_pending_count = " & integer'image(debug_write_pending_count);
-        assert false report "debug_write_count = " & integer'image(debug_write_count);
+        report "debug_write_count = " & integer'image(debug_write_count);
         
       end if;
     end loop;

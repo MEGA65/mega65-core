@@ -99,8 +99,8 @@ architecture behavioural of keypad_i2c is
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal busy_count : integer range 0 to 255 := 150;
-  signal last_busy_count : integer range 0 to 255 := 150;
+  signal busy_count : integer range 0 to 255 := 0;
+  signal last_busy_count : integer range 0 to 255 := 0;
   signal last_busy : std_logic := '1';
 
   subtype uint8 is unsigned(7 downto 0);
@@ -205,12 +205,19 @@ begin
       if cs='1' and fastio_write='1' then
         if fastio_addr(7)='0' then
           -- This is nice and easy here, because we have 8 identical I2C IO expanders
-          write_reg(7 downto 3) <= (others => '0');
-          write_reg(2 downto 0) <= fastio_addr(2 downto 0);
-          write_addr(7 downto 4) <= "0100";
-          write_addr(3 downto 1) <= fastio_addr(5 downto 3);
-          write_addr(0) <= '0';
-          write_val <= fastio_wdata;
+          if write_job_pending='0' then
+            write_reg(7 downto 3) <= (others => '0');
+            write_reg(2 downto 0) <= fastio_addr(2 downto 0);
+            write_addr(7 downto 4) <= "0100";
+            write_addr(3 downto 1) <= fastio_addr(5 downto 3);
+            write_addr(0) <= '0';
+            write_val <= fastio_wdata;
+            write_job_pending <= '1';
+            debug_write_pending_count <= debug_write_pending_count + 1;
+            report "asserting write_job_pending";
+          else
+            report "A subsequent write job was dispatched before the current one was executed. This can happen if a fastio request is held >1 cycle, or if the user doesn't wait for the previous write job to finish.";
+          end if;
         elsif fastio_addr(7 downto 0) = x"F0" then
           i2c1_debug_scl <= '0';
           debug_status(0) <= '0';
@@ -718,6 +725,7 @@ begin
           command_en <= '0';
           busy_count <= 0;
           last_busy <= '1';
+          report "Clearing write_job_pending";
           write_job_pending <= '0';
       end case;
 
