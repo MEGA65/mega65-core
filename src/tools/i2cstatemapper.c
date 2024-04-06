@@ -18,6 +18,8 @@ struct entry e[] = {
 // so we have to schedule multiple jobs.
 
 #ifdef KEYPAD
+  { 0x02, 0x00, 0x01, 0x40, "Dummy to prevent writes messing with reads of IO Expander #0"},
+  
   { 0x40, 0x00, 0x01, 0x00, "IO Expander #0 regs 0-1" }, 
   { 0x40, 0x02, 0x03, 0x02, "IO Expander #0 regs 2-3" }, 
   { 0x40, 0x04, 0x05, 0x04, "IO Expander #0 regs 4-5" }, 
