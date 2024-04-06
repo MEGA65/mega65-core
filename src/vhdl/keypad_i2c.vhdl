@@ -688,7 +688,7 @@ begin
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
           if last_busy_count /= busy_count then
-            report "Writing to register $" & to_hstring(write_reg);
+            report "Writing to register $" & to_hexstring(write_reg);
           end if;
           i2c1_rw <= '0';
           command_en <= '1';
@@ -699,7 +699,7 @@ begin
         when max_state+2 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
-            report "Writing value $" & to_hstring(write_val) & " to register";
+            report "Writing value $" & to_hexstring(write_val) & " to register";
           end if;
           -- Make sure we send a STOP before the next command starts
           -- NOTE: This is done above in the incrementer for busy_count
