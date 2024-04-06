@@ -507,7 +507,7 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 69 then
-            bytes(busy_count - 1 - 69 + 16) <= i2c1_rdata;
+            bytes(busy_count - 1 - 69 + 32) <= i2c1_rdata;
           end if;
         when 72 =>
           report "IO Expander #4 regs 2-3";
@@ -520,7 +520,7 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 73 then
-            bytes(busy_count - 1 - 73 + 18) <= i2c1_rdata;
+            bytes(busy_count - 1 - 73 + 34) <= i2c1_rdata;
           end if;
         when 76 =>
           report "IO Expander #4 regs 4-5";
@@ -533,7 +533,7 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 77 then
-            bytes(busy_count - 1 - 77 + 20) <= i2c1_rdata;
+            bytes(busy_count - 1 - 77 + 36) <= i2c1_rdata;
           end if;
         when 80 =>
           report "IO Expander #4 regs 6-7";
@@ -546,7 +546,7 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 81 then
-            bytes(busy_count - 1 - 81 + 22) <= i2c1_rdata;
+            bytes(busy_count - 1 - 81 + 38) <= i2c1_rdata;
           end if;
         when 84 =>
           report "IO Expander #5 regs 0-1";
