@@ -369,7 +369,13 @@ begin
 
         sdcard_reset_sequence;
         -- Verify that reading a couple of different sectors works
-        -- sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true);
+
+      elsif run("SD card can read multiple requested sectors") then
+
+        sdcard_reset_sequence;
+        -- Verify that reading a couple of different sectors works
+        sdcard_read_sector(1, true);
         sdcard_read_sector(0, true);
         
       end if;

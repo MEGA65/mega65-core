@@ -449,7 +449,7 @@ begin
               state_v := START_TX;
               rtnState_v := WAIT_FOR_HOST_RW;
             elsif rd_i = '1' then  -- send READ command and address to the SD card.
-              report "SDCARD: Saw read request";
+              report "SDCARD: Saw read request, sending read block command";
               cs_bo <= '0';              -- Enable the SD card.
               txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
@@ -501,6 +501,7 @@ begin
                 byteCnt_v := byteCnt_v - 1;
                 report "SDCARD: Found start token $" & to_hstring(rx_v);
               else  -- Getting anything else means something strange has happened.
+                report "SDCARD: Expected either no token = $FF or data token =$FE, but saw %" & to_hstring(rx_v);
                 state_v := REPORT_ERROR;
               end if;
             elsif byteCnt_v >= 3 then  -- Now bytes of data from the SD card are received.
