@@ -886,6 +886,11 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  sdcache0: if with_sdcache generate
+    sdcache: entity work.ram8x32768 port map (
+      );
+  end generate;
+  
   rawencoder0: entity work.raw_bits_to_gaps port map (
     clock40mhz => clock,
     enabled => raw_encoding,
