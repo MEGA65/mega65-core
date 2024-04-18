@@ -588,6 +588,7 @@ begin
           when START_TX =>
             -- Start sending command/data by lowering SCLK and outputing MSB of command/data
             -- so it has plenty of setup before the rising edge of SCLK.
+            report "SDCARD: Sending command " & to_hstring(txData_v);
             sclk_r           <= '0';  -- Lower the SCLK (although it should already be low).
             sclkPhaseTimer_v := clkDivider_v;  -- Set the duration of the low SCLK.
             mosi_o           <= tx_v(tx_v'high);  -- Output MSB of command/data.

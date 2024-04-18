@@ -216,7 +216,7 @@ begin
               -- Send CRC and cease reading
               sdcard_state <= READ_BLOCK_CRC;
               bits_remaining <= 7;
-              bytes_remaining <= 1;
+              bytes_remaining <= 0;
             end if;
           end if;
         when READ_BLOCK_CRC =>
@@ -225,6 +225,7 @@ begin
             bits_remaining <= bits_remaining - 1;
           else
             if bytes_remaining /= 0 then
+              report "sending next CRC byte";
               bits_remaining <= 7;
               bytes_remaining <= bytes_remaining - 1;
             else
