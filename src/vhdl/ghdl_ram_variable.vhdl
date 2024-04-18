@@ -6,22 +6,23 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-ENTITY ram8x32768 IS
+ENTITY ram_variable IS
+  generic ( size : integer );
   PORT (
     clkr : IN STD_LOGIC;
     clkw : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer range 0 to 32767;
+    write_address : IN integer range 0 to (size - 1);
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer range 0 to 32767;
+    address : IN integer range 0 to (size - 1);
     rdata : OUT unsigned(7 DOWNTO 0)
     );
-END ram8x4096;
+END ram_variable;
 
-architecture behavioural of ram8x4096 is
+architecture behavioural of ram_variable is
 
-  type ram_t is array (0 to 32767) of unsigned(7 downto 0);
+  type ram_t is array (0 to (size-1)) of unsigned(7 downto 0);
   signal ram : ram_t := (
     others => x"00");
 
