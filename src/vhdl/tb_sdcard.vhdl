@@ -50,6 +50,7 @@ architecture test_arch of tb_sdcard is
   signal sector_count : integer := 1; -- slot 0 holds the dummy "all zeroes" sector
 
   signal flash_address : unsigned(47 downto 0);
+  signal flash_address_expected : unsigned(47 downto 0);
   signal last_flash_address : unsigned(47 downto 0);
   signal flash_rdata : unsigned(7 downto 0);
   signal flash_slot : integer := 0;
@@ -229,6 +230,8 @@ begin
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
       POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
       POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
+      flash_address_expected(47 downto 41) <= (others => '0');
+      flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
       POKE(x"D680",x"02"); -- Read single sector
       -- Allow enough time to read the whole sector
       for i in 1 to 20000 loop
@@ -245,7 +248,8 @@ begin
         assert false report "SD card error following request to read single sector " & integer'image(sector);
       end if;
       if flash_address(8 downto 0) /= "000000000" then
-        assert false report "SD card did not read exactly 512 bytes of data: Lower 9 bits = " & integer'image(to_integer(flash_address(8 downto 0)));
+        report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
+        assert false report "SD card did not read exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
       end if;
       if to_integer(flash_address(40 downto 9)) /= (sector+1) then
         assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
@@ -333,7 +337,7 @@ begin
       elsif run("SD card can read a single sector") then
 
         sdcard_reset_sequence;
-        sdcard_read_sector(1);
+        sdcard_read_sector(0);
         
       end if;
     end loop;

@@ -26,7 +26,8 @@ architecture cheap_imitation of sdcard_model is
     CMD_PROCESS,
     SEND_R1,
     READ_BLOCK,
-    READ_BLOCK_LOOP
+    READ_BLOCK_LOOP,
+    READ_BLOCK_CRC
     );
   
   signal sdcard_state : sd_card_state_t := IDLE;
@@ -212,10 +213,24 @@ begin
               bits_remaining <= 7;
             else
               report "SDCARDMODEL: Finished sending sector bytes";
-              
+              -- Send CRC and cease reading
+              sdcard_state <= READ_BLOCK_CRC;
+              bits_remaining <= 7;
+              bytes_remaining <= 1;
             end if;
           end if;
-          
+        when READ_BLOCK_CRC =>
+          miso_i <= '0';
+          if bits_remaining /= 0 then
+            bits_remaining <= bits_remaining - 1;
+          else
+            if bytes_remaining /= 0 then
+              bits_remaining <= 7;
+              bytes_remaining <= bytes_remaining - 1;
+            else
+              sdcard_state <= IDLE;
+            end if;
+          end if;
         when others =>
           assert false report "sdcard_state in illegal state '" & sd_card_state_t'image(sdcard_state) & "'";
       end case;      

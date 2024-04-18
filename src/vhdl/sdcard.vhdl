@@ -499,6 +499,7 @@ begin
               elsif rx_v = START_TOKEN_C then
                 rtnData_v := true;  -- Found the start token, so now start returning data byes to the host.
                 byteCnt_v := byteCnt_v - 1;
+                report "SDCARD: Found start token $" & to_hstring(rx_v);
               else  -- Getting anything else means something strange has happened.
                 state_v := REPORT_ERROR;
               end if;
@@ -510,6 +511,7 @@ begin
             elsif byteCnt_v = 1 then    -- Receive the 2nd
               byteCnt_v := byteCnt_v - 1;
             else    -- Reading is done, so deselect the SD card.
+              report "SDCARD: Finished reading block";
               sclk_r     <= '0';
               bitCnt_v   := 2;
               state_v    := DESELECT;
