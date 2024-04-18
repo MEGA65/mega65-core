@@ -147,6 +147,7 @@ begin
   main : process
 
     variable v : unsigned(15 downto 0);
+    variable target_flash_slot : integer := 0;
 
     procedure clock_tick is
       variable slot_num : integer := 0;
@@ -208,9 +209,20 @@ begin
     
     procedure PEEK(addr : unsigned(15 downto 0) ) is
     begin
-      sdcardio_cs <= '1';
-      fastio_addr(11 downto 0) <= addr(11 downto 0);
-      fastio_addr(19 downto 12) <= x"d3";
+      sdcardio_cs <= '0';
+      sector_cs <= '0';
+      sector_cs_fast <= '0';
+      if addr(15 downto 8) = x"D6" then
+        sdcardio_cs <= '1';
+        fastio_addr(11 downto 0) <= addr(11 downto 0);
+        fastio_addr(19 downto 12) <= x"d3";
+      elsif addr(15 downto 8) = x"de" or addr(15 downto 8) = x"df" then
+        sector_cs <= '1';
+        sector_cs_fast <= '1';
+        fastio_addr <= (others => '0');
+        fastio_addr(8 downto 0) <= addr(8 downto 0);
+      end if;
+        
       fastio_write <= '0';
       fastio_read <= '1';
       -- Wait two full 41MHz clock ticks to make sure any latency is
@@ -240,7 +252,22 @@ begin
           report "SD card READY following READ SECTOR after " & integer'image(i) & " read cycles.";
           exit;
         end if;
+        if i = 1000 then
+          target_flash_slot := flash_slot;
+        end if;
       end loop;
+
+      -- Verify that we read the sector correctly
+      for i in 0 to 511 loop
+        PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
+        if fastio_rdata /= sector_slots(target_flash_slot)(i) then
+          assert false report "Expected byte " & integer'image(i) & " of read sector to be $" & to_hexstring(sector_slots(target_flash_slot)(i))
+            & ", but saw $" & to_hexstring(fastio_rdata);
+        end if;
+      end loop;
+      
+      -- Verify that flash memory read pointer has been set correctly
+      PEEK(x"D680");
       if fastio_rdata(1 downto 0) /= "00" then
         assert false report "SD card did not return READY following request to read single sector " & integer'image(sector);
       end if;
