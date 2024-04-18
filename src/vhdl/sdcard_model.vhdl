@@ -201,7 +201,7 @@ begin
             miso_i <= flash_byte(7);
             flash_byte(7 downto 1) <= flash_byte(6 downto 0);
           end if;
-          if bits_remaining = 0 then
+          if bits_remaining = 0 and bytes_remaining /= 0 then
             flash_address <= flash_address + 1;
             report "SDCARDMODEL: Advancing flash_address from $" & to_hexstring(flash_address);
           end if;
