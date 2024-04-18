@@ -236,7 +236,7 @@ begin
       
     end procedure;
 
-    procedure sdcard_read_sector(sector : integer) is
+    procedure sdcard_read_sector(sector : integer; verify : boolean) is
     begin
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
@@ -258,13 +258,17 @@ begin
       end loop;
 
       -- Verify that we read the sector correctly
-      for i in 0 to 511 loop
-        PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
-        if fastio_rdata /= sector_slots(target_flash_slot)(i) then
-          assert false report "Expected byte " & integer'image(i) & " of read sector to be $" & to_hexstring(sector_slots(target_flash_slot)(i))
-            & ", but saw $" & to_hexstring(fastio_rdata);
-        end if;
-      end loop;
+      if verify then
+        for i in 0 to 511 loop
+          PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
+          if fastio_rdata /= sector_slots(target_flash_slot)(i) then
+            assert false report "Expected byte " & integer'image(i) & " of read sector (slot " &
+              integer'image(target_flash_slot) & " = sector " & integer'image(sector_numbers(target_flash_slot) ) & ")" &
+              " to be $" & to_hexstring(sector_slots(target_flash_slot)(i))
+              & ", but saw $" & to_hexstring(fastio_rdata);
+          end if;
+        end loop;
+      end if;
       
       -- Verify that flash memory read pointer has been set correctly
       PEEK(x"D680");
@@ -364,7 +368,9 @@ begin
       elsif run("SD card can read a single sector") then
 
         sdcard_reset_sequence;
-        sdcard_read_sector(0);
+        -- Verify that reading a couple of different sectors works
+        -- sdcard_read_sector(1, true);
+        sdcard_read_sector(0, true);
         
       end if;
     end loop;
