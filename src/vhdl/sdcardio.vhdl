@@ -736,7 +736,7 @@ architecture behavioural of sdcardio is
   signal cache_state_waddr : integer range 0 to (cache_size-1) := 0;
   signal cache_state_raddr : integer range 0 to (cache_size-1) := 0;
   signal cache_state_wdata : unsigned(35 downto 0) := (others => '0');
-  signal cache_state_rdata : unsigned(35 downto 0) := (others => '0');
+  signal cache_state_rdata : unsigned(35 downto 0) := (others => '0');  
 
   -- Used to clear cache state when reseting SD cards
   signal cache_ready : std_logic := '0';
@@ -755,6 +755,10 @@ architecture behavioural of sdcardio is
   signal cache_sector_lookup_in_progress : std_logic := '0';
   signal cache_has_match : std_logic := '0';
   signal cache_match_slot : integer := 0;
+
+  -- Set if a sector write is to a sector that is in the cache and therefore
+  -- should be updated.
+  signal cache_write_back : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -4821,12 +4825,34 @@ begin  -- behavioural
         when WriteSector =>
           -- Begin writing a sector into the buffer
           if sdio_busy='0' and sdcard_busy='0' then
-            report "SDWRITE: Busy flag clear; writing value $" & to_hexstring(f011_buffer_rdata);
-            sd_dowrite <= '1';
-            sdio_busy <= '1';
-            skip <= 0;
-            sd_wrote_byte <= '0';
-            sd_state <= WritingSector;
+            if sd_sector_modified='0' and cache_sector_lookup_in_progress='0' then
+              report "SDWRITE: Busy flag clear; writing value $" & to_hexstring(f011_buffer_rdata);
+              sd_dowrite <= '1';
+              sdio_busy <= '1';
+              skip <= 0;
+              sd_wrote_byte <= '0';
+              sd_state <= WritingSector;
+              if cache_has_match='1' then
+                cache_write_back <= '1';
+                -- Start with waddr one below start of sector,
+                -- since we will add one to it when writing each byte
+                -- XXX - Will this cause problems for cache slot 0, that
+                -- has a base address of 0? It should just happily wrap.
+                cache_waddr <= cache_match_slot * 512 - 1;
+              else
+                cache_write_back <= '0';
+              end if;
+            else
+              -- Wait for SD cache state lookup to finish
+              null;
+            end if;
+
+            -- Find out if the sector is cached, and if so, invalidate the
+            -- cache slot (or better yet, update the contents).
+            
+
+            
+            
           else
             report "SDWRITE: Waiting for busy flag to clear...";
             sd_dowrite <= '0';
@@ -4840,6 +4866,19 @@ begin  -- behavioural
             else
               sd_wdata <= f011_buffer_rdata;
             end if;
+            cache_w <= '0';
+            cache_cs <= '0';
+            if cache_write_back = '1' then
+              if sd_fill_mode='1' then
+                cache_wdata <= sd_fill_value;
+              else
+                cache_wdata <= f011_buffer_rdata;
+              end if;
+              cache_w <= '1';
+              cache_cs <= '1';
+              cache_waddr <= cache_waddr + 1;
+            end if;
+            
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
 
