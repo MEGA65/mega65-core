@@ -3089,7 +3089,7 @@ begin  -- behavioural
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   else
-                    report "SDCARDIO: Attempting to read a sector";
+                    report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy);
                     sd_state <= ReadSectorCacheCheck;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -3998,18 +3998,29 @@ begin  -- behavioural
           end if;
 
         when ReadSectorCacheCheck =>
-          if cache_sector_lookup_in_progress = '1' then
-            -- Waiting for completion of scan of the cache for the
-            -- requested sector. 
-            sd_state <= ReadSectorCacheCheck;
-          else
-            -- Once we know if the sector is in the cache, read it via
-            -- the appropriate path.
-            if cache_has_match='1' then
-              sd_state <= ReadCachedSector;
+
+          if sdcard_busy='0' then          
+            sdio_busy <= '1';
+          
+            if cache_sector_lookup_in_progress = '1' then
+              -- Waiting for completion of scan of the cache for the
+              -- requested sector. 
+              sd_state <= ReadSectorCacheCheck;
             else
-              sd_state <= ReadSector;
+              -- Once we know if the sector is in the cache, read it via
+              -- the appropriate path.
+              if cache_has_match='1' then
+                sd_state <= ReadCachedSector;
+              else
+                sd_state <= ReadSector;
+              end if;
             end if;
+          else
+            -- Request was made while still busy -- do nothing
+            report "SDCARDIO: Ignoring read request while SD card state machine and/or interface is still busy: sdio_busy="
+              & std_logic'image(sdio_busy) & ", sdcard_busy=" & std_logic'image(sdcard_busy);
+            sd_state <= Idle;
+            sdio_error <= '1';
           end if;
 
         when ReadCachedSector =>
@@ -4064,18 +4075,13 @@ begin  -- behavioural
           
         when ReadSector =>
           -- Begin reading a sector into the buffer
-          if sdio_busy='0' then
-            report "SDCARDIO: sdio_busy clear, so proceeding with read request";
-            sd_doread <= '1';
-            sd_state <= ReadingSector;
-            sdio_busy <= '1';
-            read_data_byte <= '0';
-            sd_handshake <= '0';
-            sd_handshake_internal <= '0';
-          else
-            report "SDCARDIO: sdio_busy asserted -- aborting read?";
-            sd_doread <= '0';
-          end if;
+          report "SDCARDIO: sdio_busy clear, so proceeding with read request";
+          sd_doread <= '1';
+          sd_state <= ReadingSector;
+          sdio_busy <= '1';
+          read_data_byte <= '0';
+          sd_handshake <= '0';
+          sd_handshake_internal <= '0';
 
         when ReadingSector =>
           if sd_data_ready='1' then
