@@ -39,8 +39,8 @@ begin  -- behavioural
     if(rising_edge(Clkw)) then
       if w='1' then
         ram(write_address) <= wdata;
-        report "writing $" & to_hstring(wdata) & " to sector buffer offset $"
-          & to_hstring(to_unsigned(write_address,12)) severity note;
+        report "writing $" & to_hexstring(wdata) & " to sector buffer offset $"
+          & to_hexstring(to_unsigned(write_address,20)) severity note;
       end if;
     end if;    
   end process;
