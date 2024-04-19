@@ -733,6 +733,9 @@ architecture behavioural of sdcardio is
   signal cache_state_raddr : integer range 0 to (cache_size-1) := 0;
   signal cache_state_wdata : unsigned(35 downto 0) := (others => '0');
   signal cache_state_rdata : unsigned(35 downto 0) := (others => '0');
+
+  signal cache_ready : std_logic := '0';
+  signal cache_clearing : std_logic := '1';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1362,7 +1365,7 @@ begin  -- behavioural
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
-          -- @IO:GS $D689.4 - RESERVED
+          -- @IO:GS $D689.4 - SD card cache ready
           -- @IO:GS $D689.5 - F011 swap drive 0 / 1
           -- @IO:GS $D689.6 - QSPI bytes not all identical during last read
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
@@ -1371,7 +1374,7 @@ begin  -- behavioural
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
-            fastio_rdata(4) <= '0';
+            fastio_rdata(4) <= cache_ready;
             fastio_rdata(5) <= f011_swap_drives;
             fastio_rdata(6) <= qspi_bytes_differ;
             fastio_rdata(7) <= f011sd_buffer_select;
@@ -1799,6 +1802,20 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      if cache_clearing='1' and cache_state_waddr /= (cache_size - 1) then
+        report "SDCACHE: Clearing cache slot " & integer'image(cache_state_waddr) & " state.";
+        cache_state_cs <= '1';
+        cache_state_w <= '1';
+        cache_state_waddr <= cache_state_waddr + 1;
+        cache_state_wdata <= (others => '0');
+      elsif cache_clearing='1' then
+        report "SDCACHE: Finished clearing cache state";
+        cache_state_w <= '0';
+        cache_state_cs <= '0';
+        cache_clearing <= '0';
+        cache_ready <= '1';
+      end if;
+      
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
         hw_errata_level_int <= x"ff";
@@ -2944,6 +2961,14 @@ begin  -- behavioural
 --                  sd_sector <= (others => '0');
                   sdio_busy <= '0';
 
+                  -- Clear SD card cache when reseting card
+                  -- in case its being used to swap cards
+                  cache_ready <= '0';
+                  cache_clearing <= '1';
+                  cache_state_waddr <= 0;
+                  cache_state_cs <= '1';
+                  cache_state_wdata <= (others => '0');
+                  
                 when x"10" =>
                   -- Reset SD card with flags specified
                   sd_reset <= '1';
@@ -2959,6 +2984,14 @@ begin  -- behavioural
 
                   read_on_idle <= '0';
 
+                  -- Clear SD card cache when reseting card
+                  -- in case its being used to swap cards
+                  cache_ready <= '0';
+                  cache_clearing <= '1';
+                  cache_state_waddr <= 0;
+                  cache_state_cs <= '1';
+                  cache_state_wdata <= (others => '0');
+                  
                 when x"01" =>
                   -- End reset
                   sd_reset <= '0';
