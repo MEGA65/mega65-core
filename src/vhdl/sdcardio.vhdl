@@ -726,6 +726,13 @@ architecture behavioural of sdcardio is
   signal cache_raddr : integer range 0 to (cache_size*512-1) := 0;
   signal cache_wdata : unsigned(7 downto 0) := (others => '0');
   signal cache_rdata : unsigned(7 downto 0) := (others => '0');
+
+  signal cache_state_cs : std_logic := '0';
+  signal cache_state_w : std_logic := '0';
+  signal cache_state_waddr : integer range 0 to (cache_size-1) := 0;
+  signal cache_state_raddr : integer range 0 to (cache_size-1) := 0;
+  signal cache_state_wdata : unsigned(35 downto 0) := (others => '0');
+  signal cache_state_rdata : unsigned(35 downto 0) := (others => '0');
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -905,7 +912,19 @@ begin  -- behavioural
         wdata => cache_wdata,
         address => cache_raddr,
         rdata => cache_rdata
-      );
+        );
+    sdcache_state: entity work.ram36_variable
+      generic map (size => cache_size)
+      port map (
+        clkr => clock,
+        clkw => clock,
+        cs => cache_state_cs,
+        w => cache_state_w,
+        write_address => cache_state_waddr,
+        wdata => cache_state_wdata,
+        address => cache_state_raddr,
+        rdata => cache_state_rdata
+        );
   end generate;
   
   rawencoder0: entity work.raw_bits_to_gaps port map (
