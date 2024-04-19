@@ -394,6 +394,21 @@ begin
         -- Verify that reading a couple of different sectors works
         sdcard_read_sector(1, true);
         sdcard_read_sector(0, true);
+
+      elsif run("Reading a sector places it in the cache") then
+        -- XXX Test by reading sesctor twice, and confirming the second time
+        -- reads much faster
+        assert false report "Test not implemented";
+
+      elsif run("Writing to SD card model works") then
+        -- XXX Check contents of SD card after writing
+        -- (our model probably only supports writing to sectors that had something
+        --  in them to begin with, but that's okay)
+        assert false report "functionality not yet implemented in sdcard_model.vhdl";
+      elsif run("Write-back to SD card cache updates cache") then
+        -- XXX Read, write, re-read and verify that 2nd read was from cache (fast)
+        -- and reflects the updated data.
+        assert false report "Test not implemented";
         
       end if;
     end loop;
