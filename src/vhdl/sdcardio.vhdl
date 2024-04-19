@@ -294,28 +294,31 @@ architecture behavioural of sdcardio is
 
   signal sector_buffer_mapped : std_logic := '0';
 
-  type sd_state_t is (Idle,                           -- 0x00
-                      ReadSector,                     -- 0x01
-                      ReadingSector,                  -- 0x02
-                      ReadingSectorAckByte,           -- 0x03
-                      DoneReadingSector,              -- 0x04
-                      FDCReadingSectorWait,           -- 0x05
-                      FDCReadingSector,               -- 0x06
-                      WriteSector,                    -- 0x07
-                      WritingSector,                  -- 0x08
-                      WritingSectorAckByte,           -- 0x09
-                      HyperTrapRead,                  -- 0x0A
-                      HyperTrapRead2,                 -- 0x0B
-                      HyperTrapWrite,                 -- 0x0C
-                      F011WriteSector,                -- 0x0D
-                      DoneWritingSector,              -- 0x0E
+  type sd_state_t is (Idle,
+                      ReadSectorCacheCheck,
+                      ReadCachedSector,
+                      ReadingCachedSector,
+                      ReadSector,
+                      ReadingSector,
+                      ReadingSectorAckByte,
+                      DoneReadingSector,
+                      FDCReadingSectorWait,
+                      FDCReadingSector,
+                      WriteSector,
+                      WritingSector,
+                      WritingSectorAckByte,
+                      HyperTrapRead,
+                      HyperTrapRead2,
+                      HyperTrapWrite,
+                      F011WriteSector,
+                      DoneWritingSector,
 
-                      FDCFormatTrackSyncWait,         -- 0x0F
-                      FDCFormatTrack,                 -- 0x10
-                      F011WriteSectorRealDriveWait,   -- 0x11
-                      F011WriteSectorRealDrive,       -- 0x12
-                      FDCAutoFormatTrackSyncWait,     -- 0x13
-                      FDCAutoFormatTrack,              -- 0x14
+                      FDCFormatTrackSyncWait,
+                      FDCFormatTrack,
+                      F011WriteSectorRealDriveWait,
+                      F011WriteSectorRealDrive,
+                      FDCAutoFormatTrackSyncWait,
+                      FDCAutoFormatTrack,
 
                       QSPI_Send_Command,
                       QSPI_Release_CS,
@@ -720,6 +723,7 @@ architecture behavioural of sdcardio is
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
+  signal cache_enable : std_logic := '1';
   signal cache_cs : std_logic := '0';
   signal cache_w : std_logic := '0';
   signal cache_waddr : integer range 0 to (cache_size*512-1) := 0;
@@ -734,9 +738,24 @@ architecture behavioural of sdcardio is
   signal cache_state_wdata : unsigned(35 downto 0) := (others => '0');
   signal cache_state_rdata : unsigned(35 downto 0) := (others => '0');
 
+  -- Used to clear cache state when reseting SD cards
   signal cache_ready : std_logic := '0';
   signal cache_clearing : std_logic := '1';
-  
+
+  -- Whenever we change the requested sector address, we need to rescan
+  -- through the cache state to see if we have a match. We do this so that
+  -- we can hide some of the latency of scanning linearly through the cache state
+  -- (we could search in parallel, or enforce some low associativity in the cache,
+  -- but it seems better for now at least to just make the cache fully associative,
+  -- i.e., any sector number can be held in any slot, since the number of slots
+  -- will not be too high (eg 128), and with this latency hiding trick, the additional
+  -- latency will be <128 cycles per sector read = <3.2 micro seconds.
+  -- But it can certainly be refined in the future.
+  signal sd_sector_modified : std_logic := '0';
+  signal cache_sector_lookup_in_progress : std_logic := '0';
+  signal cache_has_match : std_logic := '0';
+  signal cache_match_slot : integer := 0;
+
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1814,6 +1833,28 @@ begin  -- behavioural
         cache_state_cs <= '0';
         cache_clearing <= '0';
         cache_ready <= '1';
+      elsif sd_sector_modified = '1' then
+        sd_sector_modified <= '0';
+        cache_sector_lookup_in_progress <= '1';
+        cache_state_w <= '0';
+        cache_state_cs <= '1';
+        cache_state_raddr <= 0;
+      elsif cache_sector_lookup_in_progress='1' then
+        if cache_state_raddr /= (cache_size - 1) then
+          cache_state_raddr <= cache_state_raddr + 1;
+        else
+          cache_sector_lookup_in_progress <= '0';
+        end if;
+        if cache_state_rdata(31 downto 0) = sd_sector                  -- sector ID matches
+          and cache_state_rdata(32) = sd_interface_select_internal     -- SD card bus matches
+          and cache_state_rdata(35) = '1'                              -- Cache entry is valid
+        then
+          -- Found a match, so stop looking
+          cache_has_match <= '1';
+          cache_match_slot <= cache_state_raddr;
+          cache_sector_lookup_in_progress <= '0';
+        end if;
+        
       end if;
       
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
@@ -2676,6 +2717,7 @@ begin  -- behavioural
                       else
                         sd_sector <= diskimage2_sector + diskimage2_offset;
                       end if;
+                      sd_sector_modified <= '1';
                     end if;
                     if (virtualise_f011_drive0='1' and f011_ds="000")
                       or (virtualise_f011_drive1='1' and f011_ds="001")
@@ -2690,6 +2732,7 @@ begin  -- behavioural
                         sd_sector(16 downto 0) <= (others => '0');
                       end if;
                       sd_sector(31 downto 17) <= (others => '0');
+                      sd_sector_modified <= '1';
                     else
                       -- SD card
                       sd_state <= ReadSector;
@@ -2769,6 +2812,7 @@ begin  -- behavioural
                     else
                       sd_sector <= (others => '1');
                     end if;
+                    sd_sector_modified <= '1';
 
                     -- Check for writing to disk image vs virtualisation
                     if ((virtualise_f011_drive0='0' and f011_ds="000") or (virtualise_f011_drive1='0' and f011_ds="001"))
@@ -2788,6 +2832,7 @@ begin  -- behavioural
                         sd_sector(16 downto 0) <= (others => '0');
                       end if;
                       sd_sector(31 downto 17) <= (others => '0');
+                      sd_sector_modified <= '1';
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -3045,7 +3090,7 @@ begin  -- behavioural
                     sdio_fsm_error <= '1';
                   else
                     report "SDCARDIO: Attempting to read a sector";
-                    sd_state <= ReadSector;
+                    sd_state <= ReadSectorCacheCheck;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     -- Put into SD card buffer, not F011 buffer
@@ -3419,6 +3464,10 @@ begin  -- behavioural
                 when x"C1" => sd_interface_select <= '1';
                               sd_interface_select_internal <= '1';
 
+                -- Add commands to enable and disable the SD card cache
+                when x"cd" => cache_enable <= '0';
+                when x"ce" => cache_enable <= '1';
+                              
                 when others =>
                   sdio_error <= '1';
               end case;
@@ -3430,9 +3479,13 @@ begin  -- behavioural
               -- @IO:GS $D683 SD:SECTOR2 SD controller SD sector address (3rd byte)
               -- @IO:GS $D684 SD:SECTOR3 SD controller SD sector address (MSB)
               sd_sector(7 downto 0) <= fastio_wdata;
+              sd_sector_modified <= '1';
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
+                          sd_sector_modified <= '1';                          
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
+                          sd_sector_modified <= '1';
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+                          sd_sector_modified <= '1';
             when x"86" =>
               -- @IO:GS $D686 SD:FILLVAL WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
               sd_fill_value <= fastio_wdata;
@@ -3911,6 +3964,7 @@ begin  -- behavioural
           if read_on_idle='1' and sdio_busy='0' and sdcard_busy='0' then
             read_on_idle <= '0';
 
+            -- This read must _NOT_ use the cache, or it will be pointless.
             sd_state <= ReadSector;
             sdio_error <= '0';
             sdio_fsm_error <= '0';
@@ -3943,6 +3997,71 @@ begin  -- behavioural
             sd_state <= Idle;
           end if;
 
+        when ReadSectorCacheCheck =>
+          if cache_sector_lookup_in_progress = '1' then
+            -- Waiting for completion of scan of the cache for the
+            -- requested sector. 
+            sd_state <= ReadSectorCacheCheck;
+          else
+            -- Once we know if the sector is in the cache, read it via
+            -- the appropriate path.
+            if cache_has_match='1' then
+              sd_state <= ReadCachedSector;
+            else
+              sd_state <= ReadSector;
+            end if;
+          end if;
+
+        when ReadCachedSector =>
+          cache_raddr <= cache_match_slot * 512;
+          sdio_busy <= '1';
+          
+          
+        when ReadingCachedSector =>
+
+            if f011_sector_fetch='1' then
+              f011_rsector_found <= '1';
+              if f011_drq='1' then f011_lost <= '1'; end if;
+              f011_drq <= '1';
+              -- Update F011 sector buffer
+              f011_buffer_disk_pointer_advance <= '1';
+
+              -- Write to sector buffer
+              f011_buffer_write_address <= "110"&f011_buffer_disk_address;
+              f011_buffer_wdata <= unsigned(cache_rdata);
+              f011_buffer_write <= '1';
+
+              -- Defer any CPU write request, since we are writing
+              sb_cpu_write_request <= sb_cpu_write_request;
+              
+              -- Because the SD card cache interface is so fast (40MiB/sec),
+              -- the entire sector can become read, before the C65 DOS tries
+              -- to read the first byte. This means the EQ flag is set when
+              -- DOS thinks it means buffer empty, instead of buffer full.
+              f011_eq_inhibit <= '1';
+            else
+              -- SD-card direct access
+              -- Write to SD-card half of sector buffer
+              f011_buffer_write_address <= "111"&sd_buffer_offset;
+              f011_buffer_wdata <= unsigned(cache_rdata);
+              f011_buffer_write <= '1';
+            end if;
+
+            -- Advance pointer in SD-card buffer (this is
+            -- separate from the F011 buffer pointers, but is used for SD and
+            -- F011 requests, so that we know when we have read 512 bytes)
+            if sd_buffer_offset /= to_unsigned(512-1,9) then
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              cache_raddr <= cache_raddr + 1;
+            else
+              -- Finished reading sector
+              if f011_sector_fetch = '1' then
+                f011_sector_fetch <= '0';
+                f011_busy <= '0';
+              end if;
+              sd_state <= DoneReadingSector;
+            end if;
+          
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then
@@ -3950,9 +4069,6 @@ begin  -- behavioural
             sd_doread <= '1';
             sd_state <= ReadingSector;
             sdio_busy <= '1';
-            -- skip <= 2;
-            -- New sdcard.vhdl removes the tokens for us.
-            skip <= 0;
             read_data_byte <= '0';
             sd_handshake <= '0';
             sd_handshake_internal <= '0';
@@ -3967,44 +4083,41 @@ begin  -- behavioural
             -- A byte is ready to read, so store it
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
-            if skip=0 then
-              read_data_byte <= '1';
-              if f011_sector_fetch='1' then
-                f011_rsector_found <= '1';
-                if f011_drq='1' then f011_lost <= '1'; end if;
-                f011_drq <= '1';
-                -- Update F011 sector buffer
-                f011_buffer_disk_pointer_advance <= '1';
 
-                -- Write to sector buffer
-                f011_buffer_write_address <= "110"&f011_buffer_disk_address;
-                f011_buffer_wdata <= unsigned(sd_rdata);
-                f011_buffer_write <= '1';
+            read_data_byte <= '1';
+            if f011_sector_fetch='1' then
+              f011_rsector_found <= '1';
+              if f011_drq='1' then f011_lost <= '1'; end if;
+              f011_drq <= '1';
+              -- Update F011 sector buffer
+              f011_buffer_disk_pointer_advance <= '1';
 
-                -- Defer any CPU write request, since we are writing
-                sb_cpu_write_request <= sb_cpu_write_request;
+              -- Write to sector buffer
+              f011_buffer_write_address <= "110"&f011_buffer_disk_address;
+              f011_buffer_wdata <= unsigned(sd_rdata);
+              f011_buffer_write <= '1';
 
-                -- Because the SD card interface is so fast, the entire sector
-                -- can become read, before the C65 DOS tries to read the first
-                -- byte. This means the EQ flag is set when DOS thinks it means
-                -- buffer empty, instead of buffer full.
-                f011_eq_inhibit <= '1';
-              else
-                -- SD-card direct access
-                -- Write to SD-card half of sector buffer
-                f011_buffer_write_address <= "111"&sd_buffer_offset;
-                f011_buffer_wdata <= unsigned(sd_rdata);
-                f011_buffer_write <= '1';
-              end if;
-
-              -- Advance pointer in SD-card buffer (this is
-              -- separate from the F011 buffer pointers, but is used for SD and
-              -- F011 requests, so that we know when we have read 512 bytes)
-              sd_buffer_offset <= sd_buffer_offset + 1;
-
+              -- Defer any CPU write request, since we are writing
+              sb_cpu_write_request <= sb_cpu_write_request;
+              
+              -- Because the SD card interface is so fast, the entire sector
+              -- can become read, before the C65 DOS tries to read the first
+              -- byte. This means the EQ flag is set when DOS thinks it means
+              -- buffer empty, instead of buffer full.
+              f011_eq_inhibit <= '1';
             else
-              skip <= skip - 1;
+              -- SD-card direct access
+              -- Write to SD-card half of sector buffer
+              f011_buffer_write_address <= "111"&sd_buffer_offset;
+              f011_buffer_wdata <= unsigned(sd_rdata);
+              f011_buffer_write <= '1';
             end if;
+
+            -- Advance pointer in SD-card buffer (this is
+            -- separate from the F011 buffer pointers, but is used for SD and
+            -- F011 requests, so that we know when we have read 512 bytes)
+            sd_buffer_offset <= sd_buffer_offset + 1;
+
             sd_state <= ReadingSectorAckByte;
           else
             sd_handshake <= '0';
