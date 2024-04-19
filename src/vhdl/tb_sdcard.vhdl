@@ -365,15 +365,32 @@ begin
 
         sdcard_reset_sequence;
         
-      elsif run("SD card can read a single sector") then
+      elsif run("SD card can read a single sector (cache off)") then
 
         sdcard_reset_sequence;
+        POKE(x"D680",x"CD");
         -- Verify that reading a couple of different sectors works
         sdcard_read_sector(1, true);
 
-      elsif run("SD card can read multiple requested sectors") then
+      elsif run("SD card can read a single sector (cache on)") then
 
         sdcard_reset_sequence;
+        POKE(x"D680",x"CE");
+        -- Verify that reading a couple of different sectors works
+        sdcard_read_sector(1, true);
+
+      elsif run("SD card can read multiple requested sectors (cache off)") then
+
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CD");
+        -- Verify that reading a couple of different sectors works
+        sdcard_read_sector(1, true);
+        sdcard_read_sector(0, true);
+
+      elsif run("SD card can read multiple requested sectors (cache on)") then
+
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
         sdcard_read_sector(1, true);
         sdcard_read_sector(0, true);
