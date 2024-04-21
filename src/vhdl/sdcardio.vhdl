@@ -4071,7 +4071,8 @@ begin  -- behavioural
                   cache_state_wdata(35 downto 32) <= (others => '0');
 
                   -- Prep write address for sector
-                  cache_waddr <= to_integer(sdcache_next_slot) * 512;
+                  -- (we pre-increment during writing, so start one address lower)
+                  cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
                 end if;
                 sd_state <= ReadSector;
               end if;
@@ -4151,6 +4152,13 @@ begin  -- behavioural
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
 
+            if read_is_cacheable='1' then
+              cache_w <= '1';
+              cache_cs <= '1';
+              cache_waddr <= cache_waddr + 1;
+              cache_wdata <= sd_rdata;
+            end if;
+            
             read_data_byte <= '1';
             if f011_sector_fetch='1' then
               f011_rsector_found <= '1';
@@ -4209,6 +4217,19 @@ begin  -- behavioural
                 f011_sector_fetch <= '0';
                 f011_busy <= '0';
                 sd_state <= DoneReadingSector;
+
+                if read_is_cacheable='1' then
+                  -- Writing the last byte now, so also update the cache to
+                  -- indicate that the slot is valid.
+                  cache_state_w <= '1';
+                  cache_state_cs <= '1';
+                  cache_state_wdata(35) <= '1'; -- cache entry is valid
+                  cache_state_wdata(32) <= sd_interface_select_internal;
+                  cache_state_wdata(31 downto 0) <= sdcache_sector_being_read;
+                  cache_state_waddr <= sdcache_write_slot;
+                  report "SDCACHE: Marking cache slot " & integer'image(sdcache_write_slot) & " as valid following end of sector read";
+                end if;
+                
               else
                 -- Still more bytes to read.
                 sd_state <= ReadingSector;
