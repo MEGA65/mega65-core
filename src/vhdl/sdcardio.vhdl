@@ -764,6 +764,8 @@ architecture behavioural of sdcardio is
   signal sdcache_random_bit : std_logic;
   signal sdcache_next_slot_bit : integer := 0;
   signal sdcache_next_slot : unsigned(sdcache_address_bits -1 downto 0) := to_unsigned(0,sdcache_address_bits);
+  signal sdcache_write_slot : integer := 0;
+  signal sdcache_sector_being_read : unsigned(31 downto 0) := to_unsigned(0,32);
 
   signal read_is_cacheable : std_logic := '0';
 
@@ -4055,10 +4057,21 @@ begin  -- behavioural
                 report "SDCACHE: Cache hit for sector";
                 sd_state <= ReadCachedSector;
               else
-                report "SDCACHE: Cache miss for sector";
+                report "SDCACHE: Cache miss for sector. Will store in slot " & integer'image(to_integer(sdcache_next_slot));
                 if read_is_cacheable = '1' then
                   -- Determine where in the cache to write the sector.
-                  
+                  sdcache_write_slot <= to_integer(sdcache_next_slot);
+                  -- Update the cache slot to indicate which sector we are writing
+                  cache_state_w <= '1';
+                  cache_state_cs <= '1';
+                  cache_state_waddr <= to_integer(sdcache_next_slot);
+                  cache_state_wdata(31 downto 0) <= sd_sector;
+                  sdcache_sector_being_read <= sd_sector;
+                  -- But not yet loaded
+                  cache_state_wdata(35 downto 32) <= (others => '0');
+
+                  -- Prep write address for sector
+                  cache_waddr <= to_integer(sdcache_next_slot) * 512;
                 end if;
                 sd_state <= ReadSector;
               end if;
