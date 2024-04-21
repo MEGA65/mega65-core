@@ -18,7 +18,8 @@ architecture test_arch of tb_sdcard is
   signal clock41 : std_logic := '0';
   signal clock162 : std_logic := '0';
 
-  signal reset : std_logic := '0';
+  -- Do not hold reset line asserted low
+  signal reset : std_logic := '1';
   
   signal fastio_addr : unsigned(19 downto 0);
   signal fastio_wdata : unsigned(7 downto 0);
@@ -72,7 +73,7 @@ begin
   sdcard_controller0: entity work.sdcardio
   generic map ( target => simulation,
                 cpu_frequency => 40_500_000,
-                cache_size => 128 )  -- 128 sectors = 64KB
+                sdcache_address_bits => 7 )  -- 2^7 = 128 sectors = 64KB
     port map ( clock => clock41,
                pixelclk => pixelclock,
                reset => reset,
@@ -148,6 +149,7 @@ begin
 
     variable v : unsigned(15 downto 0);
     variable target_flash_slot : integer := 0;
+    variable read_duration : integer := 0;
 
     procedure clock_tick is
       variable slot_num : integer := 0;
@@ -250,6 +252,7 @@ begin
         PEEK(x"D680");
         if fastio_rdata(1 downto 0) = "00" then
           report "SD card READY following READ SECTOR after " & integer'image(i) & " read cycles.";
+          read_duration := i;
           exit;
         end if;
         if i = 1000 then
@@ -291,7 +294,7 @@ begin
     procedure sdcard_reset_sequence is
     begin
       -- This sequence will cause sdcard.vhdl to begin its initialisation sequence.
-      
+
       POKE(x"D680",x"00"); -- assert RESET
       POKE(x"D680",x"01"); -- release RESET
       
@@ -398,8 +401,18 @@ begin
       elsif run("Reading a sector places it in the cache") then
         -- XXX Test by reading sesctor twice, and confirming the second time
         -- reads much faster
-        assert false report "Test not implemented";
 
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");
+        -- Verify that reading a couple of different sectors works
+        sdcard_read_sector(1, true);
+        report "Uncached read required " & integer'image(read_duration) & " cycles.";
+        sdcard_read_sector(1, true);
+        report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
+        if read_duration > 5000 then
+          assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
+        end if;
+        
       elsif run("Writing to SD card model works") then
         -- XXX Check contents of SD card after writing
         -- (our model probably only supports writing to sectors that had something

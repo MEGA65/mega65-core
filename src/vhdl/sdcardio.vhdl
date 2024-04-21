@@ -58,7 +58,7 @@ entity sdcardio is
     target : mega65_target_t;
     cpu_frequency : integer;
     -- By default do not have a cache.
-    cache_size : integer := 0
+    sdcache_address_bits : integer := 0
     );
   port (
     clock : in std_logic;
@@ -723,6 +723,7 @@ architecture behavioural of sdcardio is
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
+  constant cache_size : integer := to_integer(to_unsigned(1,sdcache_address_bits) sll (sdcache_address_bits - 1 ));
   signal cache_enable : std_logic := '1';
   signal cache_cs : std_logic := '0';
   signal cache_w : std_logic := '0';
@@ -759,6 +760,12 @@ architecture behavioural of sdcardio is
   -- Set if a sector write is to a sector that is in the cache and therefore
   -- should be updated.
   signal cache_write_back : std_logic := '0';
+
+  signal sdcache_random_bit : std_logic;
+  signal sdcache_next_slot_bit : integer := 0;
+  signal sdcache_next_slot : unsigned(sdcache_address_bits -1 downto 0) := to_unsigned(0,sdcache_address_bits);
+
+  signal read_is_cacheable : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -926,6 +933,16 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  sdcachelfsr: entity work.lfsr16 port map (
+    name => "SDCACHE PRNG",
+    clock => clock,
+    reset => not reset,
+    seed => (others => '1'),
+    step => '1',
+    output => sdcache_random_bit
+    );
+  
+  
   sdcache0: if cache_size > 0 generate
     sdcache: entity work.ram_variable
       generic map ( size => cache_size * 512 )
@@ -1825,6 +1842,14 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- Update random SD cache slot for replacement
+      sdcache_next_slot(sdcache_next_slot_bit) <= sdcache_random_bit;
+      if sdcache_next_slot_bit < (sdcache_address_bits-1) then
+        sdcache_next_slot_bit <= sdcache_next_slot_bit + 1;
+      else
+        sdcache_next_slot_bit <= 0;
+      end if;
+      
       if cache_clearing='1' and cache_state_waddr /= (cache_size - 1) then
         report "SDCACHE: Clearing cache slot " & integer'image(cache_state_waddr) & " state.";
         cache_state_cs <= '1';
@@ -1838,6 +1863,7 @@ begin  -- behavioural
         cache_clearing <= '0';
         cache_ready <= '1';
       elsif sd_sector_modified = '1' then
+        report "SDCACHE: sd card sector number changed: (Re)starting lookup in cache";
         sd_sector_modified <= '0';
         cache_sector_lookup_in_progress <= '1';
         cache_state_w <= '0';
@@ -3084,8 +3110,13 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
 
-                when x"02" =>
+                when x"02" | x"22" =>
                   -- Read sector
+
+                  -- bit 5 = don't use cache for this read (neither read from
+                  -- it, nor cache the sector when read)
+                  read_is_cacheable <= not fastio_wdata(5);
+                  
                   sd_write_multi <= '0';
                   sd_write_multi_first <= '0';
                   sd_write_multi_last <= '0';
@@ -3094,7 +3125,13 @@ begin  -- behavioural
                     sdio_fsm_error <= '1';
                   else
                     report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy);
-                    sd_state <= ReadSectorCacheCheck;
+                    if fastio_wdata(5)='0' then
+                      -- Allow cache for this read
+                      sd_state <= ReadSectorCacheCheck;
+                    else
+                      -- Disable cache for this read
+                      sd_state <= ReadSector;
+                    end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     -- Put into SD card buffer, not F011 buffer
@@ -4008,14 +4045,21 @@ begin  -- behavioural
           
             if cache_sector_lookup_in_progress = '1' then
               -- Waiting for completion of scan of the cache for the
-              -- requested sector. 
+              -- requested sector.
+              report "SDCACHE: Waiting for sector lookup in cache to complete";
               sd_state <= ReadSectorCacheCheck;
             else
               -- Once we know if the sector is in the cache, read it via
               -- the appropriate path.
               if cache_has_match='1' then
+                report "SDCACHE: Cache hit for sector";
                 sd_state <= ReadCachedSector;
               else
+                report "SDCACHE: Cache miss for sector";
+                if read_is_cacheable = '1' then
+                  -- Determine where in the cache to write the sector.
+                  
+                end if;
                 sd_state <= ReadSector;
               end if;
             end if;

@@ -29,6 +29,7 @@ lib.add_source_files("src/vhdl/tb_sdcard.vhdl");
 lib.add_source_files("src/vhdl/debugtools.vhdl")
 lib.add_source_files("src/vhdl/cputypes.vhdl")
 lib.add_source_files("src/vhdl/victypes.vhdl")
+lib.add_source_files("src/vhdl/lfsr16.vhdl")
 lib.add_source_files("src/vhdl/sdcardio.vhdl")
 lib.add_source_files("src/vhdl/sdcard.vhdl")
 lib.add_source_files("src/vhdl/ghdl_ram8x4096_sync.vhdl")

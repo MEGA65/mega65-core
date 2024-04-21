@@ -29,7 +29,7 @@ begin  -- rtl
         state <= seed;
         output <= '1';
         since_reset <= 0;
-   --     report name & ": resetting state to $" & to_hstring(seed);
+        report name & ": resetting state to $" & to_hexstring(seed);
       elsif step='1' then
         -- step
         state(9 downto 0) <= state(10 downto 1);
