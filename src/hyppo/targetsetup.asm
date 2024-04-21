@@ -55,6 +55,7 @@ mps3_loop:
         lda mega65r3_i2c_settings,y
         iny
 
+	ldx #$ff		
 
         ;; Keep writing it until it gets written
 -
@@ -62,10 +63,22 @@ mps3_loop:
 
         inc $d020
         cmp [<zptempv32],z
-        bne -
+        beq mps3_loop
+	jsr i2c_job_delay
+	dex
+	bne -
 
         jmp mps3_loop
 
+i2c_job_delay:
+	phx
+	ldx #$00	
+-	
+	dex
+	bne -
+
+	rts
+	
 megaphone_r1_i2c_setup:
 
         ;; Start with backscreen very dim, to avoid inrush current
