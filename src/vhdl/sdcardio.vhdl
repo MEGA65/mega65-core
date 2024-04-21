@@ -723,7 +723,7 @@ architecture behavioural of sdcardio is
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
-  constant cache_size : integer := to_integer(to_unsigned(1,sdcache_address_bits) sll (sdcache_address_bits - 1 ));
+  constant cache_size : integer := to_integer(to_unsigned(1,sdcache_address_bits+1) sll (sdcache_address_bits));
   signal cache_enable : std_logic := '1';
   signal cache_cs : std_logic := '0';
   signal cache_w : std_logic := '0';
@@ -763,7 +763,7 @@ architecture behavioural of sdcardio is
 
   signal sdcache_random_bit : std_logic;
   signal sdcache_next_slot_bit : integer := 0;
-  signal sdcache_next_slot : unsigned(sdcache_address_bits -1 downto 0) := to_unsigned(0,sdcache_address_bits);
+  signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_write_slot : integer := 0;
   signal sdcache_sector_being_read : unsigned(31 downto 0) := to_unsigned(0,32);
 
@@ -945,7 +945,7 @@ begin  -- behavioural
     );
   
   
-  sdcache0: if cache_size > 0 generate
+  sdcache0: if (sdcache_address_bits > 0) generate
     sdcache: entity work.ram_variable
       generic map ( size => cache_size * 512 )
       port map (
@@ -1844,6 +1844,9 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      cache_w <= '0';
+      cache_state_w <= '0';
+      
       -- Update random SD cache slot for replacement
       sdcache_next_slot(sdcache_next_slot_bit) <= sdcache_random_bit;
       if sdcache_next_slot_bit < (sdcache_address_bits-1) then
