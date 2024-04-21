@@ -1856,7 +1856,7 @@ begin  -- behavioural
       end if;
       
       if cache_clearing='1' and cache_state_waddr /= (cache_size - 1) then
-        report "SDCACHE: Clearing cache slot " & integer'image(cache_state_waddr) & " state.";
+        -- report "SDCACHE: Clearing cache slot " & integer'image(cache_state_waddr) & " state.";
         cache_state_cs <= '1';
         cache_state_w <= '1';
         cache_state_waddr <= cache_state_waddr + 1;
@@ -4060,8 +4060,8 @@ begin  -- behavioural
                 report "SDCACHE: Cache hit for sector";
                 sd_state <= ReadCachedSector;
               else
-                report "SDCACHE: Cache miss for sector. Will store in slot " & integer'image(to_integer(sdcache_next_slot));
                 if read_is_cacheable = '1' then
+                  report "SDCACHE: Cache miss for sector. Will store in slot " & integer'image(to_integer(sdcache_next_slot));
                   -- Determine where in the cache to write the sector.
                   sdcache_write_slot <= to_integer(sdcache_next_slot);
                   -- Update the cache slot to indicate which sector we are writing
@@ -4076,6 +4076,8 @@ begin  -- behavioural
                   -- Prep write address for sector
                   -- (we pre-increment during writing, so start one address lower)
                   cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
+                else
+                  report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
                 end if;
                 sd_state <= ReadSector;
               end if;
@@ -4156,10 +4158,13 @@ begin  -- behavioural
             sd_handshake_internal <= '1';
 
             if read_is_cacheable='1' then
+              report "SDCACHE: Writing byte $" & to_hexstring(sd_rdata) & " into sector cache";
               cache_w <= '1';
               cache_cs <= '1';
               cache_waddr <= cache_waddr + 1;
               cache_wdata <= sd_rdata;
+            else
+              report "SDCACHE: not storing in cache because read_is_cacheable=0";
             end if;
             
             read_data_byte <= '1';
@@ -4232,7 +4237,6 @@ begin  -- behavioural
                   cache_state_waddr <= sdcache_write_slot;
                   report "SDCACHE: Marking cache slot " & integer'image(sdcache_write_slot) & " as valid following end of sector read";
                 end if;
-                
               else
                 -- Still more bytes to read.
                 sd_state <= ReadingSector;
@@ -4242,6 +4246,17 @@ begin  -- behavioural
               if (sd_buffer_offset = "000000000") and (read_data_byte='1') then
                 -- Finished reading SD-card sectory
                 sd_state <= DoneReadingSector;
+                if read_is_cacheable='1' then
+                  -- Writing the last byte now, so also update the cache to
+                  -- indicate that the slot is valid.
+                  cache_state_w <= '1';
+                  cache_state_cs <= '1';
+                  cache_state_wdata(35) <= '1'; -- cache entry is valid
+                  cache_state_wdata(32) <= sd_interface_select_internal;
+                  cache_state_wdata(31 downto 0) <= sdcache_sector_being_read;
+                  cache_state_waddr <= sdcache_write_slot;
+                  report "SDCACHE: Marking cache slot " & integer'image(sdcache_write_slot) & " as valid following end of sector read";
+                end if;
               else
                 -- Else keep on reading
                 sd_state <= ReadingSector;
