@@ -356,7 +356,9 @@ begin
         
         busy_o <= '1';  -- Busy by default. Only false when waiting for R/W from host or stalled by error.
 
-        report "SDCARD: state_v = " & FsmState_t'image(state_v);
+        if state_v /= wait_for_host_rw then
+          report "SDCARD: state_v = " & FsmState_t'image(state_v);
+        end if;
         
         case state_v is
           
