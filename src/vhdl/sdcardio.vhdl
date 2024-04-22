@@ -4047,18 +4047,19 @@ begin  -- behavioural
 
           if sdcard_busy='0' then          
             sdio_busy <= '1';
+            report "SDCACHE: asserting sdio_busy";
           
             if cache_sector_lookup_in_progress = '1' then
               -- Waiting for completion of scan of the cache for the
               -- requested sector.
-              report "SDCACHE: Waiting for sector lookup in cache to complete";
+              -- report "SDCACHE: Waiting for sector lookup in cache to complete";
               sd_state <= ReadSectorCacheCheck;
             else
               -- Once we know if the sector is in the cache, read it via
               -- the appropriate path.
               if cache_has_match='1' then
                 report "SDCACHE: Cache hit for sector";
-                sd_state <= ReadCachedSector;
+                sd_state <= ReadCachedSector;               
               else
                 if read_is_cacheable = '1' then
                   report "SDCACHE: Cache miss for sector. Will store in slot " & integer'image(to_integer(sdcache_next_slot));
@@ -4093,7 +4094,7 @@ begin  -- behavioural
         when ReadCachedSector =>
           cache_raddr <= cache_match_slot * 512;
           sdio_busy <= '1';
-          
+          sd_state <= ReadingCachedSector;
           
         when ReadingCachedSector =>
 

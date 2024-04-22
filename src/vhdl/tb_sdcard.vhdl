@@ -409,7 +409,7 @@ begin
         report "Uncached read required " & integer'image(read_duration) & " cycles.";
         sdcard_read_sector(1, true);
         report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
-        if read_duration > 5000 then
+        if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
         end if;
         
