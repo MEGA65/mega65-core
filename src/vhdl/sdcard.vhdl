@@ -228,6 +228,7 @@ begin
       CHK_ACMD41_RESPONSE,  -- Check if the SD card has left the IDLE state.     
       SEND_CMD55_FOR_ACMD6,                       -- Send CMD55 to the SD card. 
       SEND_CMD6,                       -- Send CMD6 to the SD card.
+      CHK_ACMD6_RESPONSE,  -- Check if the SD card has left the IDLE state.     
       WAIT_FOR_HOST_RW,  -- Wait for the host to issue a read or write command.
       RD_BLK,    -- Read a block of data from the SD card.
       WR_BLK,    -- Write a block of data to the SD card.
