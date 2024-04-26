@@ -11,6 +11,7 @@ entity sdcard_model is
          sclk_o : in std_logic;
          mosi_o : in std_logic;
          miso_i : out std_logic;
+         data : inout unsigned(3 downto 0);
 
          flash_address : out unsigned(47 downto 0);
          flash_rdata : in unsigned(7 downto 0)
@@ -150,7 +151,15 @@ begin
               flash_address(40 downto 9) <= cmd(39 downto 8);
               report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8));
             when 18 => -- CMD 18 : Read multiple blocks
-              null;
+              r1_response(2) <= '0';
+              next_sdcard_state <= READ_BLOCK;
+              bytes_remaining <= block_size;
+              bits_remaining <= 8;              
+              -- Address calculation assumes 512 byte blocks, regardless of
+              -- read block size.
+              flash_address <= (others => '0');
+              flash_address(40 downto 9) <= cmd(39 downto 8);
+              report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8)) & " onwards (multi-sector read)";              
             when 25 => -- CMD 25 : Write multiple blocks
               null;
             when 55 => -- ACMD 55 : Prefix to indicate following command is ACMD

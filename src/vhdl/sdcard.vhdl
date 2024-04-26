@@ -223,9 +223,11 @@ begin
       CHK_CMD0_RESPONSE,    -- Check card's R1 response to the CMD0.
       SEND_CMD8,   -- This command is needed to initialize SDHC cards.
       GET_CMD8_RESPONSE,                -- Get the R7 response to CMD8.
-      SEND_CMD55,                       -- Send CMD55 to the SD card. 
-      SEND_CMD41,                       -- Send CMD41 to the SD card.
+      SEND_CMD55_FOR_ACMD41,                       -- Send CMD55 to the SD card. 
+      SEND_CMD41,                       -- Send CMD41 to the SD card.      
       CHK_ACMD41_RESPONSE,  -- Check if the SD card has left the IDLE state.     
+      SEND_CMD55_FOR_ACMD6,                       -- Send CMD55 to the SD card. 
+      SEND_CMD6,                       -- Send CMD6 to the SD card.
       WAIT_FOR_HOST_RW,  -- Wait for the host to issue a read or write command.
       RD_BLK,    -- Read a block of data from the SD card.
       WR_BLK,    -- Write a block of data to the SD card.
@@ -269,10 +271,12 @@ begin
     -- Command bytes for various SD card operations.
     subtype Cmd_t is std_logic_vector(7 downto 0);
     constant CMD0_C          : Cmd_t := std_logic_vector(to_unsigned(16#40# + 0, Cmd_t'length));
+    constant CMD6_C          : Cmd_t := std_logic_vector(to_unsigned(16#40# + 6, Cmd_t'length));
     constant CMD8_C          : Cmd_t := std_logic_vector(to_unsigned(16#40# + 8, Cmd_t'length));
     constant CMD55_C         : Cmd_t := std_logic_vector(to_unsigned(16#40# + 55, Cmd_t'length));
     constant CMD41_C         : Cmd_t := std_logic_vector(to_unsigned(16#40# + 41, Cmd_t'length));
     constant READ_BLK_CMD_C  : Cmd_t := std_logic_vector(to_unsigned(16#40# + 17, Cmd_t'length));
+    constant READ_MULTI_BLK_CMD_C  : Cmd_t := std_logic_vector(to_unsigned(16#40# + 18, Cmd_t'length));
     constant WRITE_BLK_CMD_C : Cmd_t := std_logic_vector(to_unsigned(16#40# + 24, Cmd_t'length));
     constant WRITE_MULTI_BLK_CMD_C : Cmd_t := std_logic_vector(to_unsigned(16#40# + 25, Cmd_t'length));
     constant FLUSH_CACHE_CMD_C : Cmd_t := std_logic_vector(to_unsigned(16#40# + 23, Cmd_t'length));
@@ -405,9 +409,9 @@ begin
             getCmdResponse_v := false;  -- Not sending a command that generates a response.
             doDeselect_v     := true;  -- De-select card to end the command after getting the four bytes.
             state_v          := RX_BITS;  -- Go to FSM subroutine to get the R7 response.
-            rtnState_v       := SEND_CMD55;  -- Then go here (we don't care what the actual R7 response is).
+            rtnState_v       := SEND_CMD55_FOR_ACMD41;  -- Then go here (we don't care what the actual R7 response is).
 
-          when SEND_CMD55 =>  -- Send CMD55 as preamble of ACMD41 initialization command.
+          when SEND_CMD55_FOR_ACMD41 =>  -- Send CMD55 as preamble of ACMD41 initialization command.
             cs_bo            <= '0';     -- Enable the SD card.
             txCmd_v          := CMD55_C & x"00000000" & FAKE_CRC_C;
             bitCnt_v         := txCmd_v'length;  -- Set bit counter to the size of the command.
@@ -415,7 +419,7 @@ begin
             doDeselect_v     := true;  -- De-select SD card after this command finishes.
             state_v          := START_TX;  -- Go to FSM subroutine to send the command.
             rtnState_v       := SEND_CMD41;  -- Then go to this state after the command is sent.
-            
+
           when SEND_CMD41 =>  -- Send the SD card the initialization command.
             cs_bo            <= '0';     -- Enable the SD card.
             txCmd_v          := CMD41_C & x"40000000" & FAKE_CRC_C;
@@ -424,7 +428,7 @@ begin
             doDeselect_v     := true;  -- De-select SD card after this command finishes.
             state_v          := START_TX;  -- Go to FSM subroutine to send the command.
             rtnState_v       := CHK_ACMD41_RESPONSE;  -- Then check the response to the command.
-            
+
           when CHK_ACMD41_RESPONSE =>
             -- The CMD55, CMD41 sequence should cause the SD card to leave the IDLE state
             -- and become ready for SPI read/write operations. If still IDLE, then repeat the CMD55, CMD41 sequence.
@@ -433,7 +437,41 @@ begin
               state_v := WAIT_FOR_HOST_RW;  -- Start processing R/W commands from the host.
               report "SDCARD: Card is active, no errors after ACMD41 -- waiting for host to make request";
             elsif rx_v = IDLE_NO_ERRORS_C then  -- Still IDLE but no errors. 
-              state_v := SEND_CMD55;    -- Repeat the CMD55, CMD41 sequence.
+              state_v := SEND_CMD55_FOR_ACMD41;    -- Repeat the CMD55, CMD41 sequence.
+              report "SDCARD: Card is still idle after ACMD41 -- repeating request";
+            else                        -- Some error occurred.
+              state_v := REPORT_ERROR;  -- Report the error and stall.
+              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hstring(rx_v);
+            end if;
+                        
+          when SEND_CMD55_FOR_ACMD6 =>  -- Send CMD55 as preamble of ACMD41 initialization command.
+            cs_bo            <= '0';     -- Enable the SD card.
+            txCmd_v          := CMD55_C & x"00000000" & FAKE_CRC_C;
+            bitCnt_v         := txCmd_v'length;  -- Set bit counter to the size of the command.
+            getCmdResponse_v := true;  -- Sending a command that generates a response.
+            doDeselect_v     := true;  -- De-select SD card after this command finishes.
+            state_v          := START_TX;  -- Go to FSM subroutine to send the command.
+            rtnState_v       := SEND_CMD6;  -- Then go to this state after the command is sent.
+
+          when SEND_CMD6 =>  -- Send the SD card the initialization command.
+            cs_bo            <= '0';     -- Enable the SD card.
+            txCmd_v          := CMD6_C & x"40000000" & FAKE_CRC_C;
+            bitCnt_v         := txCmd_v'length;  -- Set bit counter to the size of the command.
+            getCmdResponse_v := true;  -- Sending a command that generates a response.
+            doDeselect_v     := true;  -- De-select SD card after this command finishes.
+            state_v          := START_TX;  -- Go to FSM subroutine to send the command.
+            rtnState_v       := CHK_ACMD6_RESPONSE;  -- Then check the response to the command.
+            
+
+          when CHK_ACMD6_RESPONSE =>
+            -- The CMD55, CMD41 sequence should cause the SD card to leave the IDLE state
+            -- and become ready for SPI read/write operations. If still IDLE, then repeat the CMD55, CMD41 sequence.
+            -- If one of the R1 error flags is set, then report the error and stall.
+            if rx_v = ACTIVE_NO_ERRORS_C then   -- Not IDLE, no errors.
+              state_v := WAIT_FOR_HOST_RW;  -- Start processing R/W commands from the host.
+              report "SDCARD: Card is active, no errors after ACMD41 -- waiting for host to make request";
+            elsif rx_v = IDLE_NO_ERRORS_C then  -- Still IDLE but no errors. 
+              state_v := SEND_CMD55_FOR_ACMD41;    -- Repeat the CMD55, CMD41 sequence.
               report "SDCARD: Card is still idle after ACMD41 -- repeating request";
             else                        -- Some error occurred.
               state_v := REPORT_ERROR;  -- Report the error and stall.
@@ -453,7 +491,7 @@ begin
             elsif rd_i = '1' then  -- send READ command and address to the SD card.
               report "SDCARD: Saw read request, sending read block command";
               cs_bo <= '0';              -- Enable the SD card.
-              txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              txCmd_v := READ_MULTI_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
               bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
               byteCnt_v  := RD_BLK_SZ_C;

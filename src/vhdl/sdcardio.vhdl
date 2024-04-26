@@ -761,6 +761,10 @@ architecture behavioural of sdcardio is
   -- should be updated.
   signal cache_write_back : std_logic := '0';
 
+  -- Set if the cache is to be pre-populated with bogus data to allow
+  -- testing of cache slot eviction.
+  signal cache_pre_populating : std_logic := '0';
+
   signal sdcache_random_bit : std_logic;
   signal sdcache_next_slot_bit : integer := 0;
   signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
@@ -1889,7 +1893,14 @@ begin  -- behavioural
           cache_match_slot <= cache_state_raddr;
           cache_sector_lookup_in_progress <= '0';
         end if;
-        
+      elsif cache_pre_populating='1' then
+        if cache_state_waddr /= (cache_size-1) then
+          cache_state_waddr <= cache_state_waddr + 1;
+          cache_state_w <= '1';
+          cache_state_cs <= '1';
+        else
+          cache_pre_populating <= '0';
+        end if;
       end if;
       
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
@@ -3115,6 +3126,16 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
 
+                when x"21" =>
+                  -- Mark cache as full of data for testing cache eviction / replacement
+                  cache_state_waddr <= 0;
+                  cache_state_wdata(35) <= '1'; -- cache entry is valid
+                  cache_state_wdata(32) <= sd_interface_select_internal; -- sd card matches
+                  -- Bogusly claim sector #42 is loaded in every cache slot
+                  cache_state_wdata(31 downto 0) <= to_unsigned(42,0);
+                  cache_state_w <= '1';
+                  cache_state_cs <= '1';
+                  cache_pre_populating <= '1';                  
                 when x"02" | x"22" =>
                   -- Read sector
 
