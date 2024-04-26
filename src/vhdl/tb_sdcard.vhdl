@@ -238,7 +238,7 @@ begin
       
     end procedure;
 
-    procedure sdcard_read_sector(sector : integer; verify : boolean) is
+    procedure sdcard_read_sector(sector : integer; verify : boolean; verify_sector_number : boolean) is
     begin
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
@@ -285,7 +285,7 @@ begin
         report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
         assert false report "SD card did not read exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
       end if;
-      if to_integer(flash_address(40 downto 9)) /= (sector+1) then
+      if verify_sector_number and to_integer(flash_address(40 downto 9)) /= (sector+1) then
         assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
           & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
       end if;
@@ -373,30 +373,30 @@ begin
         sdcard_reset_sequence;
         POKE(x"D680",x"CD");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true, true);
 
       elsif run("SD card can read a single sector (cache on)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true,true);
 
       elsif run("SD card can read multiple requested sectors (cache off)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CD");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true);
-        sdcard_read_sector(0, true);
+        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(0, true,true);
 
       elsif run("SD card can read multiple requested sectors (cache on)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true);
-        sdcard_read_sector(0, true);
+        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(0, true,true);
 
       elsif run("Reading a sector places it in the cache") then
         -- XXX Test by reading sesctor twice, and confirming the second time
@@ -405,9 +405,9 @@ begin
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true,true);
         report "Uncached read required " & integer'image(read_duration) & " cycles.";
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true,true);
         report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
@@ -425,14 +425,14 @@ begin
         end loop;
 
         -- Sector 42 should be present in the cache and read quickly.        
-        sdcard_read_sector(42, false);
+        sdcard_read_sector(42, false,false);
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus fast, but it wasn't.";
         end if;
         -- Now read a real sector, and make sure that it is fast the 2nd time.
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true,true);
         report "Uncached read required " & integer'image(read_duration) & " cycles.";
-        sdcard_read_sector(1, true);
+        sdcard_read_sector(1, true,true);
         report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
