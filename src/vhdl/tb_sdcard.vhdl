@@ -412,6 +412,32 @@ begin
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
         end if;
+
+      elsif run("Reading into the cache when full causes eviction and replacement") then
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");   -- enable cache
+
+        -- Mark cache as full of sector #42
+        POKE(x"D680",x"21");
+        -- Wait long enough for it to take effect
+        for i in 1 to 1024 loop
+          clock_tick;
+        end loop;
+
+        -- Sector 42 should be present in the cache and read quickly.        
+        sdcard_read_sector(42, false);
+        if read_duration > 1000 then
+          assert false report "Second read should have been from the cache, and thus fast, but it wasn't.";
+        end if;
+        -- Now read a real sector, and make sure that it is fast the 2nd time.
+        sdcard_read_sector(1, true);
+        report "Uncached read required " & integer'image(read_duration) & " cycles.";
+        sdcard_read_sector(1, true);
+        report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
+        if read_duration > 1000 then
+          assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
+        end if;
+        
         
       elsif run("Writing to SD card model works") then
         -- XXX Check contents of SD card after writing
