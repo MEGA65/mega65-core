@@ -1874,6 +1874,7 @@ begin  -- behavioural
       elsif sd_sector_modified = '1' then
         report "SDCACHE: sd card sector number changed: (Re)starting lookup in cache";
         sd_sector_modified <= '0';
+        cache_has_match <= '0';
         cache_sector_lookup_in_progress <= '1';
         cache_state_w <= '0';
         cache_state_cs <= '1';
@@ -1889,6 +1890,7 @@ begin  -- behavioural
           and cache_state_rdata(35) = '1'                              -- Cache entry is valid
         then
           -- Found a match, so stop looking
+          report "SDCACHE: HIT: slot " & integer'image(cache_state_raddr) & " : $" & to_hexstring(cache_state_rdata(31 downto 0)) & " = requested sector $" & to_hexstring(sd_sector);
           cache_has_match <= '1';
           cache_match_slot <= cache_state_raddr;
           cache_sector_lookup_in_progress <= '0';
@@ -4079,7 +4081,7 @@ begin  -- behavioural
               -- Once we know if the sector is in the cache, read it via
               -- the appropriate path.
               if cache_has_match='1' then
-                report "SDCACHE: Cache hit for sector";
+                report "SDCACHE: Cache hit for sector $" & to_hexstring(sd_sector);
                 sd_state <= ReadCachedSector;               
               else
                 if read_is_cacheable = '1' then
