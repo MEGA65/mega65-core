@@ -3132,7 +3132,7 @@ begin  -- behavioural
                   cache_state_wdata(35) <= '1'; -- cache entry is valid
                   cache_state_wdata(32) <= sd_interface_select_internal; -- sd card matches
                   -- Bogusly claim sector #42 is loaded in every cache slot
-                  cache_state_wdata(31 downto 0) <= to_unsigned(42,0);
+                  cache_state_wdata(31 downto 0) <= to_unsigned(42,32);
                   cache_state_w <= '1';
                   cache_state_cs <= '1';
                   cache_pre_populating <= '1';                  
