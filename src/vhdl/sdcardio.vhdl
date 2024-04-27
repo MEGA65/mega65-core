@@ -718,6 +718,11 @@ architecture behavioural of sdcardio is
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
+  signal last_f_index : std_logic := '0';
+  signal last_f_rdata : std_logic := '0';
+  signal disk_definitely_present : std_logic := '0';
+  signal disk_missing_timeout : integer := 0;
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1759,6 +1764,19 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      if f_index /= last_f_index or f_rdata /= last_f_rdata then
+        disk_definitely_present <= '1';
+        disk_missing_timeout <= 10_000_000;
+      else
+        if disk_missing_timeout /= 0 then
+          disk_missing_timeout <= disk_missing_timeout - 1;
+        else
+          disk_definitely_present <= '0';
+        end if;
+      end if;
+      last_f_index <= f_index;
+      last_f_rdata <= f_rdata;
+      
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
         hw_errata_level_int <= x"ff";
@@ -2171,14 +2189,20 @@ begin  -- behavioural
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
-        -- by stepping the disk (thus the ticking of
-        f011_disk_present <= '1';
+        -- by stepping the disk (thus the ticking of the drive)
+        -- We work around this by detecting if a disk is missing when
+        -- the motor is running by checking for no activity on F_RDATA
+        -- and F_INDEX for ~0.25 seconds        
+        f011_disk_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds = "001" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
-        -- by stepping the disk (thus the ticking of
-        f011_disk_present <= '1';
+        -- by stepping the disk (thus the ticking of the drive)
+        -- We work around this by detecting if a disk is missing when
+        -- the motor is running by checking for no activity on F_RDATA
+        -- and F_INDEX for ~0.25 seconds        
+        f011_disk_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif f011_ds="000" then
         f011_write_protected <= f011_disk1_write_protected;
@@ -2411,6 +2435,11 @@ begin  -- behavioural
               end if;
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
+              -- When turning the motor on, restart the disk detection process
+              if fastio_wdata(5)='1' then
+                disk_definitely_present <= '1';
+                disk_missing_timeout <= 10_000_000;
+              end if;
 
               if f011_ds /= fastio_wdata(2 downto 0) then
                 -- When switching drive, clear write gate
