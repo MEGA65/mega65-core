@@ -4380,7 +4380,14 @@ begin  -- behavioural
             sd_state <= F011WriteSectorRealDrive;
           end if;
 
-          if fdc_rotation_timeout_reserve_counter /= 0 then
+          if f011_disk_present = '0' then
+            f011_rnf <= '1';
+            fdc_read_request <= '0';
+            fdc_bytes_read(4) <= '1';
+            f011_busy <= '0';
+            sd_state <= Idle;
+            fdc_sector_operation <= '0';
+          elsif fdc_rotation_timeout_reserve_counter /= 0 then
             fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
           else
             -- Out of time: fail job
