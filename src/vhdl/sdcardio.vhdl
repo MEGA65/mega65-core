@@ -678,6 +678,10 @@ architecture behavioural of sdcardio is
   signal fw_no_data : std_logic := '0';
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
+  signal last_f_rdata : std_logic := '0';
+  signal disk_definitely_present : std_logic := '0';
+  signal disk_missing_timeout : integer := 0;
+  
   signal f_index_rising_edge : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
 
@@ -718,11 +722,6 @@ architecture behavioural of sdcardio is
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
-  signal last_f_index : std_logic := '0';
-  signal last_f_rdata : std_logic := '0';
-  signal disk_definitely_present : std_logic := '0';
-  signal disk_missing_timeout : integer := 0;
-  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1774,8 +1773,21 @@ begin  -- behavioural
           disk_definitely_present <= '0';
         end if;
       end if;
-      last_f_index <= f_index;
       last_f_rdata <= f_rdata;
+      -- Maintain de-bounced index hole sensor reading
+      f_index_history(6 downto 0) <= f_index_history(7 downto 1);
+      f_index_history(7) <= f_index;
+      f_index_rising_edge <= '0';
+      if f_index_history = x"00" then
+        last_f_index <= '0';
+      else
+        last_f_index <= '1';
+        if last_f_index='0' then
+          f_index_rising_edge <= '1';
+        end if;
+      end if;
+
+
       
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
@@ -1946,19 +1958,6 @@ begin  -- behavioural
         fdc_writing_cooldown <= fdc_writing_cooldown - 1;
       else
         fdc_writing <= '0';
-      end if;
-
-      -- Maintain de-bounced index hole sensor reading
-      f_index_history(6 downto 0) <= f_index_history(7 downto 1);
-      f_index_history(7) <= f_index;
-      f_index_rising_edge <= '0';
-      if f_index_history = x"00" then
-        last_f_index <= '0';
-      else
-        last_f_index <= '1';
-        if last_f_index='0' then
-          f_index_rising_edge <= '1';
-        end if;
       end if;
 
       fw_byte_valid <= '0';
