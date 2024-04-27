@@ -681,6 +681,7 @@ architecture behavioural of sdcardio is
   signal last_f_rdata : std_logic := '0';
   signal disk_definitely_present : std_logic := '0';
   signal disk_missing_timeout : integer := 0;
+  signal floppy_motor_running : std_logic := '0';
   
   signal f_index_rising_edge : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
@@ -1763,7 +1764,9 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
-      if f_index /= last_f_index or f_rdata /= last_f_rdata then
+      -- We can only detect the absence of a floppy drive when the motor is spinning.
+      -- So if the motor is not spinning, then assume a disk is present
+      if f_index /= last_f_index or f_rdata /= last_f_rdata or floppy_motor_running='0' then
         disk_definitely_present <= '1';
         disk_missing_timeout <= 10_000_000;
       else
@@ -2446,22 +2449,27 @@ begin  -- behavioural
               end if;
 
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
+              floppy_motor_running <= '0';
               if fastio_wdata(2 downto 1) = "00" then
                 if (fastio_wdata(0) xor f011_swap_drives) = '0' then
                   if use_real_floppy0='1' or silent_sdcard='0' then
                     f_motora <= not fastio_wdata(5); -- start motor on real drive
                     f_selecta <= not fastio_wdata(5);
+                    floppy_motor_running <= fastio_wdata(5);
                   else
                     f_motora <= '1';
                     f_selecta <= '1';
+                    floppy_motor_running <= '0';
                   end if;
                 else
                   if use_real_floppy2='1' or silent_sdcard='0' then
                     f_motorb <= not fastio_wdata(5); -- start motor on real drive
                     f_selectb <= not fastio_wdata(5);
+                    floppy_motor_running <= fastio_wdata(5);
                   else
                     f_motorb <= '1';
                     f_selectb <= '1';
+                    floppy_motor_running <= '0';
                   end if;
                 end if;
               end if;
@@ -3512,10 +3520,12 @@ begin  -- behavioural
 
               f_motora <= '1'; f_motorb <= '1';
               f_selecta <= '1'; f_selectb <= '1';
+              floppy_motor_running <= '0';
               if f011_ds(2 downto 1) = "00" then
                 if (f011_ds(0) xor f011_swap_drives) = '0' then
                   f_selecta <= fastio_wdata(5);
                   f_motora <= fastio_wdata(6);
+                  floppy_motor_running <= fastio_wdata(6);
                 else
                   f_selectb <= fastio_wdata(5);
                   f_motorb <= fastio_wdata(6);
