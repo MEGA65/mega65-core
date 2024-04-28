@@ -575,7 +575,7 @@ begin
               else
                 txData_v := START_TOKEN_MULTI_C;   -- Starting token for all
                                                    -- but last block of
-                                                   -- mult-sector write.
+                                                   -- multi-sector write.
               end if;
             elsif byteCnt_v >= 4 then   -- Now send bytes in the data block.
               hndShk_r <= '1';           -- Signal host to provide data.
@@ -587,14 +587,19 @@ begin
               state_v    := RX_BITS;  -- Get response of SD card to the write operation.
               rtnState_v := WR_BLK;
             else                        -- Check received response byte.
+              report "SDCARD: Received block write response $" & to_hstring(rx_v);
               if std_match(rx_v, DATA_ACCEPTED_C) then  -- Data block was accepted.
+                report "SDCARD: That's correct";
                 state_v := WR_WAIT;  -- Wait for the SD card to finish writing the data into Flash.
               else                      -- Data block was rejected.
+                report "SDCARD: That's an error";
                 error_o(15 downto 8) <= rx_v;
                 state_v := REPORT_ERROR;  -- Report the error.
               end if;
             end if;
-            byteCnt_v := byteCnt_v - 1;
+            if byteCnt_v /= 0 then
+              byteCnt_v := byteCnt_v - 1;
+            end if;
             
           when WR_WAIT =>  -- Wait for SD card to finish writing the data block.
             -- The SD card will pull MISO low while it is busy, and raise it when it is done.

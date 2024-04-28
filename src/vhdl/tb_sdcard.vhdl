@@ -177,10 +177,16 @@ begin
         end if;
       end if;
       if flash_address /= last_flash_address or flash_slot /= last_flash_slot then
-        report "SDCARDIMG: Reading $" & to_hexstring(sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))))
-          & " from (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";
-        flash_rdata <= sector_slots(flash_slot)(to_integer(flash_address(8 downto 0)));
-      end if;
+        if flash_write = '0' then
+          report "SDCARDIMG: Reading $" & to_hexstring(sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))))
+            & " from (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";        
+          flash_rdata <= sector_slots(flash_slot)(to_integer(flash_address(8 downto 0)));
+        else
+          report "SDCARDIMG: Writing $" & to_hexstring(flash_wdata)
+            & " to (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";        
+          sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))) <= flash_wdata;
+        end if;
+      end if;        
 
       last_flash_address <= flash_address;
       last_flash_slot <= flash_slot;
@@ -360,8 +366,8 @@ begin
         report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
         assert false report "SD card did not write exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
       end if;
-      if verify_sector_number and to_integer(flash_address(40 downto 9)) /= (sector+1) then
-        assert false report "SD card did not write the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
+      if verify_sector_number and to_integer(flash_address(40 downto 9)) /= sector then
+        assert false report "SD card did not write the correct sector (expected to see $" & to_hexstring(to_unsigned(sector,32))
           & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
       end if;
     end procedure;

@@ -30,10 +30,16 @@ architecture cheap_imitation of sdcard_model is
     SEND_R1,
     WRITE_TOKEN_WAIT,
     WRITE_BLOCK,
+    WRITE_BLOCK_ACK,
     READ_BLOCK,
     READ_BLOCK_LOOP,
     READ_BLOCK_CRC
     );
+
+  constant TOKEN_DATA_ACCEPTED : unsigned(7 downto 0) := "00000101";
+  constant TOKEN_SINGLE_START : unsigned(7 downto 0) := x"FE";
+  constant TOKEN_MULTI_START : unsigned(7 downto 0) := x"FC";
+  constant TOKEN_MULTI_END : unsigned(7 downto 0) := x"FD";
   
   signal sdcard_state : sd_card_state_t := IDLE;
   signal next_sdcard_state : sd_card_state_t := IDLE;
@@ -56,6 +62,7 @@ architecture cheap_imitation of sdcard_model is
   signal bytes_remaining : integer range 0 to 4096 := 0;
 
   signal byte : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal write_multi : std_logic := '0';
   
 begin
 
@@ -211,16 +218,13 @@ begin
           else
             report "SDCARDMODEL: Received token byte $" & to_hexstring(byte);
             bits_remaining <= 7;
-            if byte = x"FE" then
+            bytes_remaining <= 513; -- 512-1 + 2 bytes of dummy CRC
+            if byte = TOKEN_SINGLE_START then
               write_multi <= '0';
               sdcard_state <= WRITE_BLOCK;
-              bytes_remaining <= 511;
-              bits_remaining <= 7;
-            elsif byte = x"FC" then
+            elsif byte = TOKEN_MULTI_START then
               write_multi <= '1';
               sdcard_state <= WRITE_BLOCK;
-              bytes_remaining <= 511;
-              bits_remaining <= 7;
             end if;
           end if;
           
@@ -231,15 +235,32 @@ begin
             bits_remaining <= bits_remaining - 1;
           else
             report "SDCARDMODEL: Received data byte $" & to_hexstring(byte);
-            flash_write <= '1';
-            flash_address <= flash_address + 1;
-            flash_wdata <= byte;
+            if bytes_remaining > 1 then
+              flash_write <= '1';
+              flash_address <= flash_address + 1;
+              flash_wdata <= byte;
+            end if;
             bits_remaining <= 7;
             if bytes_remaining /= 0 then
               bytes_remaining <= bytes_remaining - 1;
             else
               report "SDCARDMODEL: Received data sector";
+              sdcard_state <= WRITE_BLOCK_ACK;
+              bits_remaining <= 7;
+              miso_i <= TOKEN_DATA_ACCEPTED(7);
+              byte <= TOKEN_DATA_ACCEPTED;
             end if;
+          end if;
+
+        when WRITE_BLOCK_ACK =>
+          miso_i <= byte(6);
+          byte(6 downto 1) <= byte(5 downto 0);
+          if bits_remaining /= 0 then
+            bits_remaining <= bits_remaining - 1;
+          elsif write_multi='1' then
+            sdcard_state <= WRITE_TOKEN_WAIT;
+          else
+            sdcard_state <= IDLE;
           end if;
           
         when READ_BLOCK =>
