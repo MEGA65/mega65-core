@@ -2196,6 +2196,7 @@ begin  -- behavioural
         -- the motor is running by checking for no activity on F_RDATA
         -- and F_INDEX for ~0.25 seconds        
         f011_disk_present <= disk_definitely_present;
+        f011_disk1_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds = "001" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
@@ -2205,6 +2206,7 @@ begin  -- behavioural
         -- the motor is running by checking for no activity on F_RDATA
         -- and F_INDEX for ~0.25 seconds        
         f011_disk_present <= disk_definitely_present;
+        f011_disk2_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif f011_ds="000" then
         f011_write_protected <= f011_disk1_write_protected;
