@@ -304,6 +304,7 @@ architecture behavioural of sdcardio is
                       DoneReadingSector,
                       FDCReadingSectorWait,
                       FDCReadingSector,
+                      SDWriteSector,
                       WriteSector,
                       WritingSector,
                       WritingSectorAckByte,
@@ -3182,8 +3183,8 @@ begin  -- behavioural
                       sdio_error <= '1';
                       sdio_fsm_error <= '1';
                     else
-                      report "SDWRITE: Commencing write";
-                      sd_state <= WriteSector;
+                      report "SDWRITE: Commencing write (single sector)";
+                      sd_state <= SDWriteSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -3209,8 +3210,8 @@ begin  -- behavioural
                       sdio_error <= '1';
                       sdio_fsm_error <= '1';
                     else
-                      report "SDWRITE: Commencing write";
-                      sd_state <= WriteSector;
+                      report "SDWRITE: Commencing write (multi-sector)";
+                      sd_state <= SDWriteSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -3233,7 +3234,7 @@ begin  -- behavioural
                       sdio_fsm_error <= '1';
                     else
                       report "SDWRITE: Commencing write";
-                      sd_state <= WriteSector;
+                      sd_state <= SDWriteSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -3256,7 +3257,7 @@ begin  -- behavioural
                       sdio_fsm_error <= '1';
                     else
                       report "SDWRITE: Commencing write";
-                      sd_state <= WriteSector;
+                      sd_state <= SDWriteSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -4942,9 +4943,13 @@ begin  -- behavioural
           sd_handshake_internal <= '0';
 
           sd_state <= WriteSector;
+        when SDWriteSector =>
+          sdio_busy <= '1';
+          sd_state <= WriteSector;
         when WriteSector =>
           -- Begin writing a sector into the buffer
-          if sdio_busy='0' and sdcard_busy='0' then
+          report "SDCARDIO: WriteSector state: sdio_busy = " & std_logic'image(sdio_busy);
+          if sdcard_busy='0' then
             if sd_sector_modified='0' and cache_sector_lookup_in_progress='0' then
               report "SDWRITE: Busy flag clear; writing value $" & to_hexstring(f011_buffer_rdata);
               sd_dowrite <= '1';
@@ -4952,6 +4957,8 @@ begin  -- behavioural
               skip <= 0;
               sd_wrote_byte <= '0';
               sd_state <= WritingSector;
+              -- Find out if the sector is cached, and if so, invalidate the
+              -- cache slot (or better yet, update the contents).                       
               if cache_has_match='1' then
                 cache_write_back <= '1';
                 -- Start with waddr one below start of sector,
@@ -4964,15 +4971,9 @@ begin  -- behavioural
               end if;
             else
               -- Wait for SD cache state lookup to finish
-              null;
+              report "SDWRITE: Waiting for SD cache lookup to complete";
             end if;
 
-            -- Find out if the sector is cached, and if so, invalidate the
-            -- cache slot (or better yet, update the contents).
-            
-
-            
-            
           else
             report "SDWRITE: Waiting for busy flag to clear...";
             sd_dowrite <= '0';

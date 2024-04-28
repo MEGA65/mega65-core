@@ -569,6 +569,7 @@ begin
             if byteCnt_v = WR_BLK_SZ_C then
               txData_v := NO_TOKEN_C;  -- Hold MOSI high for one byte before data block goes out.
             elsif byteCnt_v = WR_BLK_SZ_C - 1 then     -- Send start token.
+              report "SDCARD: Sending start token";
               if write_multi = '0' then
                 txData_v := START_TOKEN_C;   -- Starting token for data block.
               else

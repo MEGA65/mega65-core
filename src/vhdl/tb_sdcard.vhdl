@@ -54,6 +54,8 @@ architecture test_arch of tb_sdcard is
   signal flash_address_expected : unsigned(47 downto 0);
   signal last_flash_address : unsigned(47 downto 0);
   signal flash_rdata : unsigned(7 downto 0);
+  signal flash_wdata : unsigned(7 downto 0);
+  signal flash_write : std_logic;
   signal flash_slot : integer := 0;
   signal last_flash_slot : integer := 0;
   
@@ -67,7 +69,9 @@ begin
                miso_i => miso_i,
 
                flash_address => flash_address,
-               flash_rdata => flash_rdata
+               flash_rdata => flash_rdata,
+               flash_wdata => flash_wdata,
+               flash_write => flash_write
                );
   
   sdcard_controller0: entity work.sdcardio
@@ -324,7 +328,10 @@ begin
       POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
       flash_address_expected(47 downto 41) <= (others => '0');
       flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
+
+      POKE(x"D680",x"57"); -- open the write gate
       POKE(x"D680",x"03"); -- Write single sector
+
       -- Allow enough time to write the whole sector
       for i in 1 to 20000 loop
         PEEK(x"D680");
@@ -337,8 +344,11 @@ begin
           target_flash_slot := flash_slot;
         end if;
       end loop;
-
-      -- Verify that flash memory read pointer has been set correctly
+      if fastio_rdata(1 downto 0) /= "00" then
+        assert false report "SD card never went ready after write";
+      end if;
+      
+      -- Verify that flash memory address pointer has been set correctly
       PEEK(x"D680");
       if fastio_rdata(1 downto 0) /= "00" then
         assert false report "SD card did not return READY following request to write single sector " & integer'image(sector);

@@ -14,7 +14,9 @@ entity sdcard_model is
          data : inout unsigned(3 downto 0);
 
          flash_address : out unsigned(47 downto 0);
-         flash_rdata : in unsigned(7 downto 0)
+         flash_rdata : in unsigned(7 downto 0);
+         flash_wdata : out unsigned(7 downto 0);
+         flash_write : out std_logic := '0'
          );
   
 end entity;
@@ -26,6 +28,8 @@ architecture cheap_imitation of sdcard_model is
     CMD_RX,
     CMD_PROCESS,
     SEND_R1,
+    WRITE_TOKEN_WAIT,
+    WRITE_BLOCK,
     READ_BLOCK,
     READ_BLOCK_LOOP,
     READ_BLOCK_CRC
@@ -50,6 +54,8 @@ architecture cheap_imitation of sdcard_model is
   signal flash_byte : unsigned(7 downto 0) := x"99";
   signal bits_remaining : integer range 0 to 8 := 0;
   signal bytes_remaining : integer range 0 to 4096 := 0;
+
+  signal byte : unsigned(7 downto 0) := to_unsigned(0,8);
   
 begin
 
@@ -74,6 +80,8 @@ begin
         report "SDCARDMODEL: state = " & sd_card_state_t'image(sdcard_state);
         last_sdcard_state <= sdcard_state;
       end if;
+
+      flash_write <= '0';
       
       case sdcard_state is
         when IDLE => sdcard_state <= CMD_RX;
@@ -159,9 +167,15 @@ begin
               -- read block size.
               flash_address <= (others => '0');
               flash_address(40 downto 9) <= cmd(39 downto 8);
-              report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8)) & " onwards (multi-sector read)";              
+              report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8)) & " onwards (multi-sector read)";
+            when 24 => -- CMD 24 : Write single block
+              r1_response(2) <= '0'; -- Accept command              
+              next_sdcard_state <= WRITE_TOKEN_WAIT;
+              bits_remaining <= 8;
             when 25 => -- CMD 25 : Write multiple blocks
-              null;
+              r1_response(2) <= '0'; -- Accept command              
+              next_sdcard_state <= WRITE_TOKEN_WAIT;
+              bits_remaining <= 8;
             when 55 => -- ACMD 55 : Prefix to indicate following command is ACMD
               next_cmd_is_acmd <= '1';
               r1_response(2) <= '0';
@@ -188,6 +202,46 @@ begin
             report "SDCARDMODEL: Done sending R1. Advancing to " & sd_card_state_t'image(next_sdcard_state);
           end if;
 
+        when WRITE_TOKEN_WAIT =>
+          -- Wait for $FE "start data" token
+          byte(0) <= mosi_o;
+          byte(7 downto 1) <= byte(6 downto 0);
+          if bits_remaining /= 0 then
+            bits_remaining <= bits_remaining - 1;
+          else
+            report "SDCARDMODEL: Received token byte $" & to_hexstring(byte);
+            bits_remaining <= 7;
+            if byte = x"FE" then
+              write_multi <= '0';
+              sdcard_state <= WRITE_BLOCK;
+              bytes_remaining <= 511;
+              bits_remaining <= 7;
+            elsif byte = x"FC" then
+              write_multi <= '1';
+              sdcard_state <= WRITE_BLOCK;
+              bytes_remaining <= 511;
+              bits_remaining <= 7;
+            end if;
+          end if;
+          
+        when WRITE_BLOCK =>
+          byte(0) <= mosi_o;
+          byte(7 downto 1) <= byte(6 downto 0);
+          if bits_remaining /= 0 then
+            bits_remaining <= bits_remaining - 1;
+          else
+            report "SDCARDMODEL: Received data byte $" & to_hexstring(byte);
+            flash_write <= '1';
+            flash_address <= flash_address + 1;
+            flash_wdata <= byte;
+            bits_remaining <= 7;
+            if bytes_remaining /= 0 then
+              bytes_remaining <= bytes_remaining - 1;
+            else
+              report "SDCARDMODEL: Received data sector";
+            end if;
+          end if;
+          
         when READ_BLOCK =>
           -- Send $FE "start data" token
           miso_i <= '1';
