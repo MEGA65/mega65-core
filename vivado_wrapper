@@ -4,7 +4,7 @@
 if [ -z "$VIVADODIR" ]; then
   # workaround for wrongly chosen VIVADO install path
   if [ -e /opt/Xilinx/Vivado/Vivado ]; then
-    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/* /opt/Xilinx/Vivado/Vivado/* | sort | tail -1`
+    VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/Vivado/* /opt/Xilinx/Vivado/* | sort | grep -v "Vivado/xic" | tail -1`
   else
     VIVADODIR=`/bin/ls -1d /opt/Xilinx/Vivado/* | sort | tail -1`
   fi

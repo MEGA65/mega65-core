@@ -678,6 +678,11 @@ architecture behavioural of sdcardio is
   signal fw_no_data : std_logic := '0';
   signal f_index_history : std_logic_vector(7 downto 0) := (others => '1');
   signal last_f_index : std_logic := '0';
+  signal last_f_rdata : std_logic := '0';
+  signal disk_definitely_present : std_logic := '0';
+  signal disk_missing_timeout : integer := 0;
+  signal floppy_motor_running : std_logic := '0';
+  
   signal f_index_rising_edge : std_logic := '0';
   signal step_countdown : integer range 0 to 511 := 0;
 
@@ -1759,6 +1764,34 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- We can only detect the absence of a floppy drive when the motor is spinning.
+      -- So if the motor is not spinning, then assume a disk is present
+      if f_index /= last_f_index or f_rdata /= last_f_rdata or floppy_motor_running='0' then
+        disk_definitely_present <= '1';
+        disk_missing_timeout <= 10_000_000;
+      else
+        if disk_missing_timeout /= 0 then
+          disk_missing_timeout <= disk_missing_timeout - 1;
+        else
+          disk_definitely_present <= '0';
+        end if;
+      end if;
+      last_f_rdata <= f_rdata;
+      -- Maintain de-bounced index hole sensor reading
+      f_index_history(6 downto 0) <= f_index_history(7 downto 1);
+      f_index_history(7) <= f_index;
+      f_index_rising_edge <= '0';
+      if f_index_history = x"00" then
+        last_f_index <= '0';
+      else
+        last_f_index <= '1';
+        if last_f_index='0' then
+          f_index_rising_edge <= '1';
+        end if;
+      end if;
+
+
+      
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
         hw_errata_level_int <= x"ff";
@@ -1928,19 +1961,6 @@ begin  -- behavioural
         fdc_writing_cooldown <= fdc_writing_cooldown - 1;
       else
         fdc_writing <= '0';
-      end if;
-
-      -- Maintain de-bounced index hole sensor reading
-      f_index_history(6 downto 0) <= f_index_history(7 downto 1);
-      f_index_history(7) <= f_index;
-      f_index_rising_edge <= '0';
-      if f_index_history = x"00" then
-        last_f_index <= '0';
-      else
-        last_f_index <= '1';
-        if last_f_index='0' then
-          f_index_rising_edge <= '1';
-        end if;
       end if;
 
       fw_byte_valid <= '0';
@@ -2171,14 +2191,22 @@ begin  -- behavioural
       if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
-        -- by stepping the disk (thus the ticking of
-        f011_disk_present <= '1';
+        -- by stepping the disk (thus the ticking of the drive)
+        -- We work around this by detecting if a disk is missing when
+        -- the motor is running by checking for no activity on F_RDATA
+        -- and F_INDEX for ~0.25 seconds        
+        f011_disk_present <= disk_definitely_present;
+        f011_disk1_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds = "001" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
-        -- by stepping the disk (thus the ticking of
-        f011_disk_present <= '1';
+        -- by stepping the disk (thus the ticking of the drive)
+        -- We work around this by detecting if a disk is missing when
+        -- the motor is running by checking for no activity on F_RDATA
+        -- and F_INDEX for ~0.25 seconds        
+        f011_disk_present <= disk_definitely_present;
+        f011_disk2_present <= disk_definitely_present;
         f011_write_protected <= not f_writeprotect;
       elsif f011_ds="000" then
         f011_write_protected <= f011_disk1_write_protected;
@@ -2411,6 +2439,11 @@ begin  -- behavioural
               end if;
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
+              -- When turning the motor on, restart the disk detection process
+              if fastio_wdata(5)='1' then
+                disk_definitely_present <= '1';
+                disk_missing_timeout <= 10_000_000;
+              end if;
 
               if f011_ds /= fastio_wdata(2 downto 0) then
                 -- When switching drive, clear write gate
@@ -2418,22 +2451,27 @@ begin  -- behavioural
               end if;
 
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
+              floppy_motor_running <= '0';
               if fastio_wdata(2 downto 1) = "00" then
                 if (fastio_wdata(0) xor f011_swap_drives) = '0' then
                   if use_real_floppy0='1' or silent_sdcard='0' then
                     f_motora <= not fastio_wdata(5); -- start motor on real drive
                     f_selecta <= not fastio_wdata(5);
+                    floppy_motor_running <= fastio_wdata(5);
                   else
                     f_motora <= '1';
                     f_selecta <= '1';
+                    floppy_motor_running <= '0';
                   end if;
                 else
                   if use_real_floppy2='1' or silent_sdcard='0' then
                     f_motorb <= not fastio_wdata(5); -- start motor on real drive
                     f_selectb <= not fastio_wdata(5);
+                    floppy_motor_running <= fastio_wdata(5);
                   else
                     f_motorb <= '1';
                     f_selectb <= '1';
+                    floppy_motor_running <= '0';
                   end if;
                 end if;
               end if;
@@ -3484,10 +3522,12 @@ begin  -- behavioural
 
               f_motora <= '1'; f_motorb <= '1';
               f_selecta <= '1'; f_selectb <= '1';
+              floppy_motor_running <= '0';
               if f011_ds(2 downto 1) = "00" then
                 if (f011_ds(0) xor f011_swap_drives) = '0' then
                   f_selecta <= fastio_wdata(5);
                   f_motora <= fastio_wdata(6);
+                  floppy_motor_running <= fastio_wdata(6);
                 else
                   f_selectb <= fastio_wdata(5);
                   f_motorb <= fastio_wdata(6);
@@ -4352,7 +4392,14 @@ begin  -- behavioural
             sd_state <= F011WriteSectorRealDrive;
           end if;
 
-          if fdc_rotation_timeout_reserve_counter /= 0 then
+          if f011_disk_present = '0' then
+            f011_rnf <= '1';
+            fdc_read_request <= '0';
+            fdc_bytes_read(4) <= '1';
+            f011_busy <= '0';
+            sd_state <= Idle;
+            fdc_sector_operation <= '0';
+          elsif fdc_rotation_timeout_reserve_counter /= 0 then
             fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
           else
             -- Out of time: fail job
@@ -4465,7 +4512,14 @@ begin  -- behavioural
           if fdc_read_request='1' then
             -- We have an FDC request in progress.
 
-            if fdc_rotation_timeout_reserve_counter /= 0 then
+            if f011_disk_present = '0' then
+              f011_rnf <= '1';
+              fdc_read_request <= '0';
+              fdc_bytes_read(4) <= '1';
+              f011_busy <= '0';
+              sd_state <= Idle;
+              fdc_sector_operation <= '0';
+            elsif fdc_rotation_timeout_reserve_counter /= 0 then
               fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
             else
               -- Out of time: fail job
