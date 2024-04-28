@@ -223,9 +223,15 @@ begin
             if byte = TOKEN_SINGLE_START then
               write_multi <= '0';
               sdcard_state <= WRITE_BLOCK;
+              -- Initially decrement flash_address so that we can use simple
+              -- pre-increment logic in loop
+              flash_address <= flash_address - 1;
             elsif byte = TOKEN_MULTI_START then
               write_multi <= '1';
               sdcard_state <= WRITE_BLOCK;
+              -- Initially decrement flash_address so that we can use simple
+              -- pre-increment logic in loop
+              flash_address <= flash_address - 1;
             end if;
           end if;
           
