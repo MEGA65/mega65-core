@@ -156,7 +156,7 @@ begin
       variable sector_found : boolean := false;
     begin
 
-      -- Simulate SD card flash memory
+      -- Simulate flash memory for sdcard_model.
       if flash_address(47 downto 9) /= last_flash_address(47 downto 9) then
         report "SDCARDIMG: Selecting sector $" & to_hexstring(flash_address) & " (prev was $" & to_hexstring(last_flash_address) & ")";
         flash_slot <= 0;
@@ -194,16 +194,27 @@ begin
 
     procedure POKE(addr : unsigned(15 downto 0); data : unsigned(7 downto 0)) is
     begin
-      sdcardio_cs <= '1';
       fastio_addr(11 downto 0) <= addr(11 downto 0);
       fastio_addr(19 downto 12) <= x"d3";
       fastio_wdata <= data;
       fastio_write <= '1';
       fastio_read <= '0';
+
+      sdcardio_cs <= '0';
+      sector_cs <= '0';
+      sector_cs_fast <= '0';
+      if addr(15 downto 8) = x"de" or addr(15 downto 8) = x"df" then
+        sector_cs <= '1';
+        sector_cs_fast <= '1';
+      else
+        sdcardio_cs <= '1';
+      end if;
+        
       -- Wait one full 41MHz clock tick
       for i in 1 to 8 loop
         clock_tick;
       end loop;
+
       fastio_write <= '0';
       sdcardio_cs <= '0';
       
@@ -287,6 +298,60 @@ begin
       end if;
       if verify_sector_number and to_integer(flash_address(40 downto 9)) /= (sector+1) then
         assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
+          & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
+      end if;
+    end procedure;
+
+    procedure fill_sector_buffer(first_byte : unsigned(7 downto 0)) is
+      variable val : unsigned(7 downto 0);
+    begin
+      val := first_byte;
+      for i in 0 to 511 loop
+        POKE(to_unsigned(56832 + i,16), val);
+        if val /= x"ff" then
+          val := val + 1;
+        else
+          val := to_unsigned(0,8);
+        end if;
+      end loop;
+    end procedure;
+    
+    procedure sdcard_write_sector(sector : integer; verify_sector_number : boolean) is
+    begin
+      POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
+      POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
+      POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
+      POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
+      flash_address_expected(47 downto 41) <= (others => '0');
+      flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
+      POKE(x"D680",x"03"); -- Write single sector
+      -- Allow enough time to write the whole sector
+      for i in 1 to 20000 loop
+        PEEK(x"D680");
+        if fastio_rdata(1 downto 0) = "00" then
+          report "SD card READY following WRITE SECTOR after " & integer'image(i) & " read cycles.";
+          read_duration := i;
+          exit;
+        end if;
+        if i = 1000 then
+          target_flash_slot := flash_slot;
+        end if;
+      end loop;
+
+      -- Verify that flash memory read pointer has been set correctly
+      PEEK(x"D680");
+      if fastio_rdata(1 downto 0) /= "00" then
+        assert false report "SD card did not return READY following request to write single sector " & integer'image(sector);
+      end if;
+      if fastio_rdata(6 downto 5) /= "00" then
+        assert false report "SD card error following request to write single sector " & integer'image(sector);
+      end if;
+      if flash_address(8 downto 0) /= "000000000" then
+        report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
+        assert false report "SD card did not write exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
+      end if;
+      if verify_sector_number and to_integer(flash_address(40 downto 9)) /= (sector+1) then
+        assert false report "SD card did not write the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
           & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
       end if;
     end procedure;
@@ -440,10 +505,19 @@ begin
         
         
       elsif run("Writing to SD card model works") then
-        -- XXX Check contents of SD card after writing
-        -- (our model probably only supports writing to sectors that had something
-        --  in them to begin with, but that's okay)
-        assert false report "functionality not yet implemented in sdcard_model.vhdl";
+
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");   -- enable cache
+
+        -- Prepare sector buffer full of values, the first of which is $42.
+        fill_sector_buffer(x"42");
+
+        -- Write that to sector 1
+        sdcard_write_sector(1,true);
+
+        -- Check that reading sector after write works
+        sdcard_read_sector(1, true,true);
+                     
       elsif run("Write-back to SD card cache updates cache") then
         -- XXX Read, write, re-read and verify that 2nd read was from cache (fast)
         -- and reflects the updated data.
