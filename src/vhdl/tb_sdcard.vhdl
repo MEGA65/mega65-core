@@ -56,7 +56,6 @@ architecture test_arch of tb_sdcard is
   signal flash_rdata : unsigned(7 downto 0);
   signal flash_wdata : unsigned(7 downto 0);
   signal flash_write : std_logic;
-  signal flash_slot : integer := 0;
   signal last_flash_slot : integer := 0;
   
 begin
@@ -154,6 +153,7 @@ begin
     variable v : unsigned(15 downto 0);
     variable target_flash_slot : integer := 0;
     variable read_duration : integer := 0;
+    variable flash_slot : integer := 0;
 
     procedure clock_tick is
       variable slot_num : integer := 0;
@@ -163,10 +163,10 @@ begin
       -- Simulate flash memory for sdcard_model.
       if flash_address(47 downto 9) /= last_flash_address(47 downto 9) then
         report "SDCARDIMG: Selecting sector $" & to_hexstring(flash_address) & " (prev was $" & to_hexstring(last_flash_address) & ")";
-        flash_slot <= 0;
+        flash_slot := 0;
         for i in 1 to (sector_count-1) loop
           if to_integer(flash_address(47 downto 9)) = sector_numbers(i) then
-            flash_slot <= i;
+            flash_slot := i;
             report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
             sector_found := true;
             exit;

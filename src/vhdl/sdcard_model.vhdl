@@ -82,6 +82,7 @@ begin
       next_cmd_is_acmd <= '0';
       sdcard_idle <= '1';
       flash_address <= (others => '0');
+      flash_write <= '0';
     elsif rising_edge(sclk_o) then
       if sdcard_state /= last_sdcard_state then
         report "SDCARDMODEL: state = " & sd_card_state_t'image(sdcard_state);
