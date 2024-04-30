@@ -160,18 +160,33 @@ end
 
 // Waveform Output Selector
 always @(posedge (clock)) begin
-	case (control[7:4])
-		4'b0001: wave_out = triangle;
-		4'b0010: wave_out = sawtooth;
-		4'b1010: wave_out = supersawtooth;
-		4'b0011: wave_out = {st_out, 4'b1111};
-		4'b0100: wave_out = pulse;
-		4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
-		4'b0110: wave_out = {ps_out, 4'b1111}  & pulse;
-		4'b0111: wave_out = {pst_out, 4'b1111}	 & pulse;
-		4'b1000: wave_out = noise;
-		//default: wave_out = 0;
-	endcase
+	//case (control[7:4])
+	//	4'b0001: wave_out = triangle;
+	//	4'b0010: wave_out = sawtooth;
+	//	4'b1010: wave_out = supersawtooth;
+	//	4'b0011: wave_out = {st_out, 4'b1111};
+	//	4'b0100: wave_out = pulse;
+	//	4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
+	//	4'b0110: wave_out = {ps_out, 4'b1111}  & pulse;
+	//	4'b0111: wave_out = {pst_out, 4'b1111}	 & pulse;
+	//	4'b1000: wave_out = noise;
+	//	//default: wave_out = 0;
+	//endcase
+	if (control[7:4]) begin
+		wave_out = 12'hfff;
+		if (`tri_ctrl) begin
+			wave_out = wave_out & triangle;
+		end
+		if (`saw_ctrl) begin
+			wave_out = wave_out & sawtooth;
+		end
+		if (`pulse_ctrl) begin
+			wave_out = wave_out & pulse;
+		end
+		if (`noise_ctrl) begin
+			wave_out = wave_out & noise;
+		end
+	end
 end
 
 
