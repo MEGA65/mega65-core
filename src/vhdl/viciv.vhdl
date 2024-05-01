@@ -417,7 +417,6 @@ architecture Behavioral of viciv is
   signal screen_ram_buffer_dout : unsigned(7 downto 0) := x"00";
 
   -- Internal registers used to keep track of the screen ram for the current row
-  signal screen_row_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal screen_row_current_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
   signal full_colour_fetch_count : integer range 0 to 8 := 0;
@@ -3311,7 +3310,6 @@ begin
         displayline0 <= '1';
         indisplay := '0';
         report "clearing indisplay because xcounter=0" severity note;
-        screen_row_address <= screen_ram_base(19 downto 0);
         display_row_number <= to_unsigned(0,8);
 
         -- Reset VIC-II raster counter to first raster for top of frame
@@ -3508,16 +3506,6 @@ begin
 
         if bump_screen_row_address='1' then
           bump_screen_row_address <= '0';
-
-          -- Compute the address for the screen row.
-          if (text_mode='0') and (sixteenbit_charset='1') then
-            -- 16bit charset mode + bitmap mode = 2 bytes screen memory per card,
-            -- so that we can pick foreground and background colours from full
-            -- 256-colour palette.
-            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
-          else
-            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
-          end if;
 
           if before_y_chargen_start='0' then
             -- Increment card number every "bad line"
@@ -4338,7 +4326,7 @@ begin
           -- In 16-bit character mode we also need to read the 2nd colour byte,
           -- which are doing now, so we need to advance colourramaddress ready
           -- to read the low colour byte of the next character.
-          report "COLOURRAM: Incrementing colourramaddress";
+          report "COLOURRAM: Incrementing colourramaddress from $" & to_hexstring(colourramaddress);
           colourramaddress <= colourramaddress + 1;
           report "reading high colour byte";
 
@@ -4478,7 +4466,7 @@ begin
           end if;
 
           -- Schedule next colour ram byte
-          report "COLOURRAM: Incrementing colourramaddress";
+          report "COLOURRAM: Incrementing colourramaddress from $" & to_hexstring(colourramaddress);
           colourramaddress <= colourramaddress + 1;
 
           if viciii_extended_attributes='1' or glyph_full_colour='1' then
@@ -4612,7 +4600,7 @@ begin
           end if;
 
           -- Schedule next colour ram byte
-          report "COLOURRAM: Incrementing colourramaddress";
+          report "COLOURRAM: Incrementing colourramaddress from $" & to_hexstring(colourramaddress);
           colourramaddress <= colourramaddress + 1;
 
           raster_fetch_state <= PaintMemWait;
