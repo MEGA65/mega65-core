@@ -439,10 +439,10 @@ architecture Behavioral of viciv is
   signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal last_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal final_ramaccess_is_sprite_data_fetch : std_logic := '0';
-  signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal this_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal next_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal last_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal final_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
   signal next_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal this_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal last_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
@@ -4108,7 +4108,7 @@ begin
             next_ramaccess_is_screen_row_fetch <= '1';
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
-            next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
+            next_ramaccess_screen_row_buffer_address <= to_unsigned(0,10);
             next_screen_row_fetch_address <= screen_row_current_address;
 
             -- Set pipeline delay countdown for investigating the 16-bit tokens
