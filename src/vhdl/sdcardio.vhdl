@@ -296,6 +296,7 @@ architecture behavioural of sdcardio is
 
   type sd_state_t is (Idle,
                       ReadSectorCacheCheck,
+                      ReadCachedWaitForSector,
                       ReadCachedSector,
                       ReadingCachedSector,
                       ReadSector,
@@ -3166,8 +3167,7 @@ begin  -- behavioural
                     when others =>
                       sd_read_request_type <= DATA;
                   end case;
-                    
-                  
+                                      
                   -- bit 5 = don't use cache for this read (neither read from
                   -- it, nor cache the sector when read)
                   read_is_cacheable <= not fastio_wdata(5);
@@ -3185,7 +3185,7 @@ begin  -- behavioural
                       sd_state <= ReadSectorCacheCheck;
                     else
                       -- Disable cache for this read
-                      sd_state <= ReadSector;
+                      sd_state <= ReadSectorCMD12;
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -3210,7 +3210,7 @@ begin  -- behavioural
                       sdio_fsm_error <= '1';
                     else
                       report "SDWRITE: Commencing write (single sector)";
-                      sd_state <= SDWriteSector;
+                      sd_state <= SDWriteSectorCMD12;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -4107,47 +4107,57 @@ begin  -- behavioural
             else
               -- Once we know if the sector is in the cache, read it via
               -- the appropriate path.
+
               if cache_has_match='1' then
                 report "SDCACHE: Cache hit for sector $" & to_hexstring(sd_sector);
                 sd_state <= ReadCachedSector;               
               else
                 if read_is_cacheable = '1' then
-                  report "SDCACHE: Cache miss for sector.";
-                  -- Determine where in the cache to write the sector.
-                  -- Update the cache slot to indicate which sector we are writing
-                  cache_state_w <= '1';
-                  cache_state_cs <= '1';
-                  -- Cache is partitioned in two halves: One for file system structures,
-                  -- and the other for data blocks
-                  case sd_read_request_type is
-                    when FS_MISC =>
-                      report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot));
-                      cache_state_waddr <= to_integer(sdcache_next_slot);
-                      sdcache_write_slot <= to_integer(sdcache_next_slot);
-                      read_ahead_count <= 0;
-                    when FS_FAT | FS_DIR =>
-                      report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
-                      cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
-                      sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
-                      read_ahead_count <= 7;
-                    when others =>
-                      report "Will cache DATA sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
-                      cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
-                      sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
-                      read_ahead_count <= 7;
-                  end case;
-                  cache_state_wdata(31 downto 0) <= sd_sector;
-                  sdcache_sector_being_read <= sd_sector;
-                  -- But not yet loaded
-                  cache_state_wdata(35 downto 32) <= (others => '0');
 
-                  -- Prep write address for sector
-                  -- (we pre-increment during writing, so start one address lower)
-                  cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
+                  -- XXX Also just wait if the SD card interface is currently reading
+                  -- any sector in the cluster where the requested sector resides via
+                  -- the read-ahead functionality.
+                  if read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
+                    report "SDCACHE: READ-AHEAD will deliver this sector soon";
+                    sd_state <= ReadCachedWaitForSector;
+                  else
+                    report "SDCACHE: Cache miss for sector.";
+                    -- Determine where in the cache to write the sector.
+                    -- Update the cache slot to indicate which sector we are writing
+                    cache_state_w <= '1';
+                    cache_state_cs <= '1';
+                    -- Cache is partitioned in two halves: One for file system structures,
+                    -- and the other for data blocks
+                    case sd_read_request_type is
+                      when FS_MISC =>
+                        report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot));
+                        cache_state_waddr <= to_integer(sdcache_next_slot);
+                        sdcache_write_slot <= to_integer(sdcache_next_slot);
+                        read_ahead_count <= 0;
+                      when FS_FAT | FS_DIR =>
+                        report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                        cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
+                        sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
+                        read_ahead_count <= 7;
+                      when others =>
+                        report "Will cache DATA sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                        cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                        sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                        read_ahead_count <= 7;
+                    end case;
+                    cache_state_wdata(31 downto 0) <= sd_sector;
+                    sdcache_sector_being_read <= sd_sector;
+                    -- But not yet loaded
+                    cache_state_wdata(35 downto 32) <= (others => '0');
+
+                    -- Prep write address for sector
+                    -- (we pre-increment during writing, so start one address lower)
+                    cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
+                  end if;
                 else
                   report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
                 end if;
-                sd_state <= ReadSector;
+                sd_state <= ReadSectorCMD12;
               end if;
             end if;
           else
@@ -4156,6 +4166,19 @@ begin  -- behavioural
               & std_logic'image(sdio_busy) & ", sdcard_busy=" & std_logic'image(sdcard_busy);
             sd_state <= Idle;
             sdio_error <= '1';
+          end if;
+
+        when ReadCachedWaitForSector =>
+          -- A read-ahead operation will read the sector we are looking for,
+          -- so periodically prod the cache lookup process until it appears, at
+          -- which time move to ReadCachedSector
+          if cache_sector_lookup_in_progress='0' then
+            if cache_has_match = '1' Then
+              sd_state <= ReadCachedSector;
+            else
+              -- Trigger the cache scan to occur again
+              sd_sector_modified <= '1';
+            end if;
           end if;
 
         when ReadCachedSector =>
