@@ -69,6 +69,8 @@ architecture cheap_imitation of sdcard_model is
   signal byte : unsigned(7 downto 0) := to_unsigned(0,8);
   signal write_multi : std_logic := '0';
   
+  signal multi_sector_read : std_logic := '0';
+
 begin
 
   process (cs_bo, sclk_o, mosi_o) is
@@ -158,7 +160,9 @@ begin
                 null; 
               end if;
             when 12 => -- CMD 12 : Stop reading data
-              r1_response(2) <= '0'; -- Accept command              
+              r1_response(2) <= '0'; -- Accept command
+              multi_sector_read <= '0';
+                            
             when 16 => -- CMD 16 : Change R/W block size
               null;
             when 17 => -- CMD 17 : Read single block
@@ -171,6 +175,7 @@ begin
               flash_address <= (others => '0');
               flash_address(40 downto 9) <= cmd(39 downto 8);
               report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8));
+              multi_sector_read <= '0';
             when 18 => -- CMD 18 : Read multiple blocks
               r1_response(2) <= '0';
               next_sdcard_state <= READ_BLOCK;
@@ -181,6 +186,7 @@ begin
               flash_address <= (others => '0');
               flash_address(40 downto 9) <= cmd(39 downto 8);
               report "SDCARDMODE: Reading " & integer'image(block_size) & " bytes from sector $" & to_hexstring(cmd(39 downto 8)) & " onwards (multi-sector read)";
+              multi_sector_read <= '1';
             when 24 => -- CMD 24 : Write single block
               r1_response(2) <= '0'; -- Accept command              
               next_sdcard_state <= WRITE_TOKEN_WAIT;
@@ -284,11 +290,21 @@ begin
           sdcard_state <= READ_BLOCK_LOOKUP_DELAY;
           read_block_countdown <= 200 * 8 - 2;
           miso_i <= '1';
+          if cmd_phase = 0 and mosi_o='0' then
+            cmd_phase <= 1;
+            sdcard_state <= CMD_RX;
+            report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
+          end if;
         when READ_BLOCK_LOOKUP_DELAY =>
           if read_block_countdown /= 0 then
             read_block_countdown <= read_block_countdown - 1;
           else
             sdcard_state <= READ_BLOCK_SEND_START_TOKEN;
+          end if;
+          if cmd_phase = 0 and mosi_o='0' then
+            cmd_phase <= 1;
+            sdcard_state <= CMD_RX;
+            report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
           end if;
         when READ_BLOCK_SEND_START_TOKEN =>
           -- Send $FE "start data" token
@@ -302,6 +318,11 @@ begin
             cmd_phase <= 0;
             bits_remaining <= 7;
             sdcard_state <= READ_BLOCK_LOOP;
+          end if;
+          if cmd_phase = 0 and mosi_o='0' then
+            cmd_phase <= 1;
+            sdcard_state <= CMD_RX;
+            report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
           end if;
         when READ_BLOCK_LOOP =>
           if bits_remaining = 7 then
@@ -330,6 +351,11 @@ begin
               bytes_remaining <= 0;
             end if;
           end if;
+          if cmd_phase = 0 and mosi_o='0' then
+            cmd_phase <= 1;
+            sdcard_state <= CMD_RX;
+            report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
+          end if;
         when READ_BLOCK_CRC =>
           miso_i <= '0';
           if bits_remaining /= 0 then
@@ -340,8 +366,19 @@ begin
               bits_remaining <= 7;
               bytes_remaining <= bytes_remaining - 1;
             else
-              sdcard_state <= IDLE;
+              if multi_sector_read='0' then
+                sdcard_state <= IDLE;
+              else
+                -- Start reading the next sector.
+                -- This continues until a CMD12 STOP TRANSMISSION command is seen.
+                sdcard_state <= READ_BLOCK_SEND_START_TOKEN;
+              end if;                
             end if;
+          end if;
+          if cmd_phase = 0 and mosi_o='0' then
+            cmd_phase <= 1;
+            sdcard_state <= CMD_RX;
+            report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
           end if;
         when others =>
           assert false report "sdcard_state in illegal state '" & sd_card_state_t'image(sdcard_state) & "'";
