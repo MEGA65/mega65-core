@@ -539,7 +539,21 @@ begin
       elsif run("Write-back to SD card cache updates cache") then
         -- XXX Read, write, re-read and verify that 2nd read was from cache (fast)
         -- and reflects the updated data.
-        assert false report "Test not implemented";
+
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");   -- enable cache
+
+        -- Prepare sector buffer full of values, the first of which is $42.
+        fill_sector_buffer(x"42");
+
+        -- Write that to sector 1
+        sdcard_write_sector(1,true);
+
+        -- Check that reading sector after write works
+        sdcard_read_sector(1, true,true);
+        if read_duration > 1000 then
+          assert false report "Read after write should have been from the cache, and thus faster, but it wasn't.";
+        end if;
         
       end if;
     end loop;
