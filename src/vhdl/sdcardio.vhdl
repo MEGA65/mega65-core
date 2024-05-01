@@ -769,8 +769,14 @@ architecture behavioural of sdcardio is
   signal sdcache_random_bit : std_logic;
   signal sdcache_next_slot_bit : integer := 0;
   signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
+  signal sdcache_next_slot_aligned : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_write_slot : integer := 0;
   signal sdcache_sector_being_read : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal read_ahead_count : integer range 0 to 7 := 0;
+
+  type   sd_read_request_type_t is (
+    FS_MISC, FS_FAT, FS_DIR, DATA);
+  signal sd_read_request_type : sd_read_request_type_t := DATA;
 
   signal read_is_cacheable : std_logic := '0';
 
@@ -1853,8 +1859,16 @@ begin  -- behavioural
       cache_state_w <= '0';
       
       -- Update random SD cache slot for replacement
+      -- The random slot number has only half the cache size as range,
+      -- because we partition the cache between file system structures and
+      -- data block read requests.
       sdcache_next_slot(sdcache_next_slot_bit) <= sdcache_random_bit;
-      if sdcache_next_slot_bit < (sdcache_address_bits-1) then
+      sdcache_next_slot(sdcache_address_bits-1) <= '0';
+      -- And the same, but aligned to a cluster for data block, directory and FAT sector reads.
+      sdcache_next_slot_aligned(sdcache_next_slot_bit) <= sdcache_random_bit;
+      sdcache_next_slot_aligned(sdcache_address_bits-1) <= '0';
+      sdcache_next_slot_aligned(2 downto 0) <= "000";
+      if sdcache_next_slot_bit < (sdcache_address_bits-2) then
         sdcache_next_slot_bit <= sdcache_next_slot_bit + 1;
       else
         sdcache_next_slot_bit <= 0;
@@ -3139,9 +3153,21 @@ begin  -- behavioural
                   cache_state_w <= '1';
                   cache_state_cs <= '1';
                   cache_pre_populating <= '1';                  
-                when x"02" | x"22" =>
+                when x"02" | x"07" | x"08" | x"09" | x"22" =>
                   -- Read sector
 
+                  case fastio_wdata is
+                    when x"07" => -- cached misc FS read
+                      sd_read_request_type <= FS_MISC;
+                    when x"08" => -- cached FAT sector read
+                      sd_read_request_type <= FS_FAT;
+                    when x"09" => -- cached DIR sector read
+                      sd_read_request_type <= FS_DIR;
+                    when others =>
+                      sd_read_request_type <= DATA;
+                  end case;
+                    
+                  
                   -- bit 5 = don't use cache for this read (neither read from
                   -- it, nor cache the sector when read)
                   read_is_cacheable <= not fastio_wdata(5);
@@ -4086,13 +4112,30 @@ begin  -- behavioural
                 sd_state <= ReadCachedSector;               
               else
                 if read_is_cacheable = '1' then
-                  report "SDCACHE: Cache miss for sector. Will store in slot " & integer'image(to_integer(sdcache_next_slot));
+                  report "SDCACHE: Cache miss for sector.";
                   -- Determine where in the cache to write the sector.
-                  sdcache_write_slot <= to_integer(sdcache_next_slot);
                   -- Update the cache slot to indicate which sector we are writing
                   cache_state_w <= '1';
                   cache_state_cs <= '1';
-                  cache_state_waddr <= to_integer(sdcache_next_slot);
+                  -- Cache is partitioned in two halves: One for file system structures,
+                  -- and the other for data blocks
+                  case sd_read_request_type is
+                    when FS_MISC =>
+                      report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot));
+                      cache_state_waddr <= to_integer(sdcache_next_slot);
+                      sdcache_write_slot <= to_integer(sdcache_next_slot);
+                      read_ahead_count <= 0;
+                    when FS_FAT | FS_DIR =>
+                      report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                      cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
+                      sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
+                      read_ahead_count <= 7;
+                    when others =>
+                      report "Will cache DATA sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                      cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                      sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                      read_ahead_count <= 7;
+                  end case;
                   cache_state_wdata(31 downto 0) <= sd_sector;
                   sdcache_sector_being_read <= sd_sector;
                   -- But not yet loaded
