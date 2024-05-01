@@ -760,7 +760,7 @@ architecture behavioural of sdcardio is
 
   -- Set if a sector write is to a sector that is in the cache and therefore
   -- should be updated.
-  signal cache_write_back : std_logic := '0';
+  signal cache_write_update : std_logic := '0';
 
   -- Set if the cache is to be pre-populated with bogus data to allow
   -- testing of cache slot eviction.
@@ -4960,14 +4960,16 @@ begin  -- behavioural
               -- Find out if the sector is cached, and if so, invalidate the
               -- cache slot (or better yet, update the contents).                       
               if cache_has_match='1' then
-                cache_write_back <= '1';
+                cache_write_update <= '1';
                 -- Start with waddr one below start of sector,
                 -- since we will add one to it when writing each byte
                 -- XXX - Will this cause problems for cache slot 0, that
                 -- has a base address of 0? It should just happily wrap.
                 cache_waddr <= cache_match_slot * 512 - 1;
+                report "CACHEWRITE: Writing back to cache";
               else
-                cache_write_back <= '0';
+                cache_write_update <= '0';
+                report "CACHEWRITE: Sector was not in cache. No write-back";
               end if;
             else
               -- Wait for SD cache state lookup to finish
@@ -4989,7 +4991,7 @@ begin  -- behavioural
             end if;
             cache_w <= '0';
             cache_cs <= '0';
-            if cache_write_back = '1' then
+            if cache_write_update = '1' then
               if sd_fill_mode='1' then
                 cache_wdata <= sd_fill_value;
               else
