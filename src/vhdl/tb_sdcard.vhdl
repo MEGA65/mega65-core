@@ -556,10 +556,39 @@ begin
         sdcard_write_sector(1,true);
 
         -- Check that reading sector after write works
+        -- This relies on the fact that sector writes are always synchronous, so any changes to the
+        -- cache and SD card will alread be committed, by the time the next read request can be made.
         sdcard_read_sector(1, true,false);
         if read_duration > 1000 then
           assert false report "Read after write should have been from the cache, and thus faster, but it wasn't.";
         end if;
+        
+      elsif run("Cache Read-Ahead") then
+        -- The cache read-ahead is a work-around for slow SD cards, including for Mirage's MEGApple
+        -- demo for which the industrial grade class 4 SD cards are too slow.  The extra speed is
+        -- obtained by using multi-block reads, and terminating them if the next block requested is
+        -- not the block currently being read or the next block that is about to be read.  The SD
+        -- card cache should read-ahead one cluster's worth of blocks in all likelihood, in order
+        -- to get a decent speed up.  To make the cache perform better, this probably means that we
+        -- need to make data block requests load into the cache at cluster-aligned slots, and be
+        -- placed in consecutive slots, so that we don't have parts of clusters ejecting parts of other
+        -- clusters all the time, reducing cache effectiveness.
+
+        -- We should also inidcate whether a read request is for a data block, in which case the 
+        -- read-ahead for a whole cluster makes sense, or if it is for a file system structure, in
+        -- which case it might not make sense. We also intend to partition the cache, so that half is
+        -- used for file system structures and half for data, so that directory searches and seeking
+        -- through files can be faster.
+
+        -- It's an open question as to whether we should always cache a cluster's worth of sectors for
+        -- file system structures.  For the file system descriptor block etc, it probably isn't helpful
+        -- as those are only 2 or 3 sectors long compared with 8 sector clusters.  FAT sectors are only
+        -- needed once per 128 data clusters = 512KB of data, so the benefit there is probably less.
+        -- But for directories, it makes a lot of sense to do the read-ahead.  I guess I'll have soom
+        -- booleans for controlling this, so that we can measure the impact of each of those decisions
+        -- and change them at run-time as well.
+        
+        -- Let's start by partitioning the cache for file system structures vs data blocks.
         
       end if;
     end loop;
