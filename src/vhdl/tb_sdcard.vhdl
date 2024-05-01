@@ -165,7 +165,7 @@ begin
         report "SDCARDIMG: Selecting sector $" & to_hexstring(flash_address) & " (prev was $" & to_hexstring(last_flash_address) & ")";
         flash_slot := 0;
         for i in 1 to (sector_count-1) loop
-          if to_integer(flash_address(47 downto 9)) = sector_numbers(i) then
+            if safe_to_integer(flash_address(47 downto 9)) = sector_numbers(i) then
             flash_slot := i;
             report "SDCARDIMG: Sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
             sector_found := true;
