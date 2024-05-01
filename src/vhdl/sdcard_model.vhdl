@@ -32,6 +32,8 @@ architecture cheap_imitation of sdcard_model is
     WRITE_BLOCK,
     WRITE_BLOCK_ACK,
     READ_BLOCK,
+    READ_BLOCK_LOOKUP_DELAY,
+    READ_BLOCK_SEND_START_TOKEN,
     READ_BLOCK_LOOP,
     READ_BLOCK_CRC
     );
@@ -40,10 +42,13 @@ architecture cheap_imitation of sdcard_model is
   constant TOKEN_SINGLE_START : unsigned(7 downto 0) := x"FE";
   constant TOKEN_MULTI_START : unsigned(7 downto 0) := x"FC";
   constant TOKEN_MULTI_END : unsigned(7 downto 0) := x"FD";
-  
+
+
   signal sdcard_state : sd_card_state_t := IDLE;
   signal next_sdcard_state : sd_card_state_t := IDLE;
   signal last_sdcard_state : sd_card_state_t := IDLE;
+
+  signal read_block_countdown : integer := 0;
 
   signal cmd_phase : integer range 0 to 47 := 0;
 
@@ -275,8 +280,17 @@ begin
           else
             sdcard_state <= IDLE;
           end if;
-          
         when READ_BLOCK =>
+          sdcard_state <= READ_BLOCK_LOOKUP_DELAY;
+          read_block_countdown <= 200 * 8 - 2;
+          miso_i <= '1';
+        when READ_BLOCK_LOOKUP_DELAY =>
+          if read_block_countdown /= 0 then
+            read_block_countdown <= read_block_countdown - 1;
+          else
+            sdcard_state <= READ_BLOCK_SEND_START_TOKEN;
+          end if;
+        when READ_BLOCK_SEND_START_TOKEN =>
           -- Send $FE "start data" token
           miso_i <= '1';
           report "SDCARDMODEL: Sending start token bit " & integer'image(cmd_phase);
