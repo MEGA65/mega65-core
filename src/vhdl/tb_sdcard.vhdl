@@ -589,7 +589,27 @@ begin
         -- and change them at run-time as well.
         
         -- Let's start by partitioning the cache for file system structures vs data blocks.
-        
+        -- That's now largely in place, but not yet tested.
+
+        -- Next we need to implement multi-sector writes.
+        -- First step is making the sdcard_model be able to receive a CMD12 during a sector
+        -- read and to abort the read.  At the moment sdcard_model only watches for incoming commands
+        -- during the idle state.  It needs to also look during any of the block read related states
+        -- as well.
+
+        -- Then we need for sdcardio to loop through reading data sectors until all read-ahead has
+        -- occurred, or a new SD card operation is requested by the user.  The data sector start times
+        -- only need to be bit aligned, not byte aligned in multi-sector reads, so we just need to
+        -- watch for a single 0 bit.  One very simple approach is to simply send a CMD12 before any 
+        -- other command, as it will ensure that the SD card is back to the idle state. Again, we need
+        -- to take care to identify when a request is made to read or write a sector that is currently
+        -- being read via the look-head cache. This has to happen in sdcard.vhdl, and we then need to
+        -- have a protocol to communicate this between it and sdcardio. It should be possible to base
+        -- it off the multi-sector write logic.
+
+        -- Reading two consecutive sectors should result in the 2nd sector reading faster,
+        -- because the read-ahead will already be doing its thing.  
+
       end if;
     end loop;
     test_runner_cleanup(runner);

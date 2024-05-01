@@ -773,6 +773,7 @@ architecture behavioural of sdcardio is
   signal sdcache_next_slot_aligned : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_write_slot : integer := 0;
   signal sdcache_sector_being_read : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal read_ahead_sector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal read_ahead_count : integer range 0 to 7 := 0;
 
   type   sd_read_request_type_t is (
@@ -3185,7 +3186,7 @@ begin  -- behavioural
                       sd_state <= ReadSectorCacheCheck;
                     else
                       -- Disable cache for this read
-                      sd_state <= ReadSectorCMD12;
+                      sd_state <= ReadSector;
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -3210,7 +3211,7 @@ begin  -- behavioural
                       sdio_fsm_error <= '1';
                     else
                       report "SDWRITE: Commencing write (single sector)";
-                      sd_state <= SDWriteSectorCMD12;
+                      sd_state <= SDWriteSector;
                       sdio_error <= '0';
                       sdio_fsm_error <= '0';
                       f011_sector_fetch <= '0';
@@ -4134,16 +4135,19 @@ begin  -- behavioural
                         cache_state_waddr <= to_integer(sdcache_next_slot);
                         sdcache_write_slot <= to_integer(sdcache_next_slot);
                         read_ahead_count <= 0;
+                        read_ahead_sector <= (others => '1');
                       when FS_FAT | FS_DIR =>
                         report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
                         sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
                         read_ahead_count <= 7;
+                        read_ahead_sector <= sd_sector;
                       when others =>
                         report "Will cache DATA sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                         sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                         read_ahead_count <= 7;
+                        read_ahead_sector <= sd_sector;
                     end case;
                     cache_state_wdata(31 downto 0) <= sd_sector;
                     sdcache_sector_being_read <= sd_sector;
@@ -4157,7 +4161,7 @@ begin  -- behavioural
                 else
                   report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
                 end if;
-                sd_state <= ReadSectorCMD12;
+                sd_state <= ReadSector;
               end if;
             end if;
           else
