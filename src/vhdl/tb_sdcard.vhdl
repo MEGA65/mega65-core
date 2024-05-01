@@ -184,6 +184,7 @@ begin
         else
           report "SDCARDIMG: Writing $" & to_hexstring(flash_wdata)
             & " to (" & integer'image(flash_slot) & "," & integer'image(to_integer(flash_address(8 downto 0))) & ")";        
+            report "SDCARDIMG: Full flash write address = $" & to_hexstring(flash_address);
           sector_slots(flash_slot)(to_integer(flash_address(8 downto 0))) <= flash_wdata;
         end if;
       end if;        
@@ -334,6 +335,7 @@ begin
       POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
       flash_address_expected(47 downto 41) <= (others => '0');
       flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
+      flash_address_expected(8 downto 0) <= (others => '1');
 
       POKE(x"D680",x"57"); -- open the write gate
       POKE(x"D680",x"03"); -- Write single sector
@@ -362,9 +364,9 @@ begin
       if fastio_rdata(6 downto 5) /= "00" then
         assert false report "SD card error following request to write single sector " & integer'image(sector);
       end if;
-      if flash_address(8 downto 0) /= "000000000" then
+      if flash_address(8 downto 0) /= "111111111" then
         report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
-        assert false report "SD card did not write exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
+        assert false report "SD card did not write exactly 512 bytes of data. " & integer'image(1+to_integer(flash_address(8 downto 0)));
       end if;
       if verify_sector_number and to_integer(flash_address(40 downto 9)) /= sector then
         assert false report "SD card did not write the correct sector (expected to see $" & to_hexstring(to_unsigned(sector,32))

@@ -180,10 +180,14 @@ begin
               r1_response(2) <= '0'; -- Accept command              
               next_sdcard_state <= WRITE_TOKEN_WAIT;
               bits_remaining <= 8;
+              flash_address <= (others => '0');
+              flash_address(40 downto 9) <= cmd(39 downto 8);
             when 25 => -- CMD 25 : Write multiple blocks
               r1_response(2) <= '0'; -- Accept command              
               next_sdcard_state <= WRITE_TOKEN_WAIT;
               bits_remaining <= 8;
+              flash_address <= (others => '0');
+              flash_address(40 downto 9) <= cmd(39 downto 8);
             when 55 => -- ACMD 55 : Prefix to indicate following command is ACMD
               next_cmd_is_acmd <= '1';
               r1_response(2) <= '0';
@@ -226,12 +230,14 @@ begin
               -- Initially decrement flash_address so that we can use simple
               -- pre-increment logic in loop
               flash_address <= flash_address - 1;
+              report "SDCARDMODEL: Writing sector at $" & to_hexstring(flash_address);
             elsif byte = TOKEN_MULTI_START then
               write_multi <= '1';
               sdcard_state <= WRITE_BLOCK;
               -- Initially decrement flash_address so that we can use simple
               -- pre-increment logic in loop
               flash_address <= flash_address - 1;
+              report "SDCARDMODEL: Writing sector at $" & to_hexstring(flash_address);
             end if;
           end if;
           
