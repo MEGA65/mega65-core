@@ -1105,7 +1105,7 @@ begin
       addrb  => std_logic_vector(screen_ram_buffer_read_address(9 downto 0))
       );
 
-8ug  colourram: block
+  colourram: block
   begin
     colourram1 : entity work.ram8x32k
       PORT MAP (
