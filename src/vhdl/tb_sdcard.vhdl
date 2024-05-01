@@ -303,9 +303,12 @@ begin
       if fastio_rdata(6 downto 5) /= "00" then
         assert false report "SD card error following request to read single sector " & integer'image(sector);
       end if;
-      if flash_address(8 downto 0) /= "000000000" then
-        report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
-        assert false report "SD card did not read exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
+      if read_duration > 1000 then
+        -- For non-cached reads, check the last flash address accessed
+        if flash_address(8 downto 0) /= "000000000" then
+          report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
+          assert false report "SD card did not read exactly 512 bytes of data. " & integer'image(to_integer(flash_address(8 downto 0)));
+       end if;
       end if;
       if verify_sector_number and to_integer(flash_address(40 downto 9)) /= (sector+1) then
         assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
@@ -543,14 +546,17 @@ begin
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");   -- enable cache
 
+        -- Read a sector, causing it to be cached
+        sdcard_read_sector(1,true,true);
+
         -- Prepare sector buffer full of values, the first of which is $42.
         fill_sector_buffer(x"42");
 
-        -- Write that to sector 1
+        -- Write that to sector 1. This should cause both the sector and the cache to be updated
         sdcard_write_sector(1,true);
 
         -- Check that reading sector after write works
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,false);
         if read_duration > 1000 then
           assert false report "Read after write should have been from the cache, and thus faster, but it wasn't.";
         end if;
