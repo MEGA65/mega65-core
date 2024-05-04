@@ -772,7 +772,7 @@ architecture behavioural of sdcardio is
   signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_next_slot_aligned : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_write_slot : integer := 0;
-  signal sdcache_sector_being_read : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal sdcache_sector_being_read : unsigned(31 downto 0) := x"12345678";
   signal read_ahead_sector : unsigned(31 downto 0) := to_unsigned(0,32);
   signal read_ahead_count : integer range 0 to 7 := 0;
 
@@ -3148,6 +3148,7 @@ begin  -- behavioural
                 when x"21" =>
                   -- Mark cache as full of data for testing cache eviction / replacement
                   cache_state_waddr <= 0;
+                  report "SDCACHE: Filling cache with dummy data";
                   cache_state_wdata(35) <= '1'; -- cache entry is valid
                   cache_state_wdata(32) <= sd_interface_select_internal; -- sd card matches
                   -- Bogusly claim sector #42 is loaded in every cache slot
@@ -3169,9 +3170,6 @@ begin  -- behavioural
                       sd_read_request_type <= DATA;
                   end case;
                                       
-                  -- bit 5 = don't use cache for this read (neither read from
-                  -- it, nor cache the sector when read)
-                  read_is_cacheable <= not fastio_wdata(5);
                   
                   sd_write_multi <= '0';
                   sd_write_multi_first <= '0';
@@ -3184,9 +3182,12 @@ begin  -- behavioural
                     if fastio_wdata(5)='0' and cache_enable='1' then
                       -- Allow cache for this read
                       sd_state <= ReadSectorCacheCheck;
+                      read_is_cacheable <= '1';
+                      sdcache_sector_being_read <= sd_sector;
                     else
                       -- Disable cache for this read
                       sd_state <= ReadSector;
+                      read_is_cacheable <= '0';
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -4049,8 +4050,8 @@ begin  -- behavioural
             f011_buffer_wdata <= fastio_wdata;
             f011_buffer_write <= '1';
 
-            report "QSPI: Writing $" & to_hexstring(fastio_wdata) & " into sector buffer @ $"
-              & to_hexstring(fastio_addr(11 downto 0));
+--            report "QSPI: Writing $" & to_hexstring(fastio_wdata) & " into sector buffer @ $"
+--              & to_hexstring(fastio_addr(11 downto 0));
 
           end if;
 
@@ -4150,6 +4151,7 @@ begin  -- behavioural
                         read_ahead_sector <= sd_sector;
                     end case;
                     cache_state_wdata(31 downto 0) <= sd_sector;
+                    report "SDCACHE: Setting sdcache_sector_being_read to $" & to_hexstring(sdcache_sector_being_read);
                     sdcache_sector_being_read <= sd_sector;
                     -- But not yet loaded
                     cache_state_wdata(35 downto 32) <= (others => '0');
@@ -4326,6 +4328,7 @@ begin  -- behavioural
                   -- indicate that the slot is valid.
                   cache_state_w <= '1';
                   cache_state_cs <= '1';
+                  report "SDCACHE: Marking sector $" & to_hexstring(sdcache_sector_being_read) & " as occupying cache slot " & integer'image(sdcache_write_slot);
                   cache_state_wdata(35) <= '1'; -- cache entry is valid
                   cache_state_wdata(32) <= sd_interface_select_internal;
                   cache_state_wdata(31 downto 0) <= sdcache_sector_being_read;
@@ -4342,6 +4345,7 @@ begin  -- behavioural
                 -- Finished reading SD-card sectory
                 sd_state <= DoneReadingSector;
                 if read_is_cacheable='1' then
+                  report "SDCACHE: Marking sector $" & to_hexstring(sdcache_sector_being_read) & " as occupying cache slot " & integer'image(sdcache_write_slot);
                   -- Writing the last byte now, so also update the cache to
                   -- indicate that the slot is valid.
                   cache_state_w <= '1';
