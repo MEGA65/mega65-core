@@ -772,8 +772,8 @@ architecture behavioural of sdcardio is
   signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_next_slot_aligned : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_write_slot : integer := 0;
-  signal sdcache_sector_being_read : unsigned(31 downto 0) := x"12345678";
-  signal read_ahead_sector : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal sdcache_sector_being_read : unsigned(31 downto 0) := (others => '1');
+  signal read_ahead_sector : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_count : integer range 0 to 7 := 0;
 
   type   sd_read_request_type_t is (
@@ -4159,6 +4159,7 @@ begin  -- behavioural
                     -- Prep write address for sector
                     -- (we pre-increment during writing, so start one address lower)
                     cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
+                    report "SDCACHE: Setting pre-decremented write address to $" & to_hexstring(to_unsigned(to_integer(sdcache_next_slot) * 512 -1,24));
                   end if;
                 else
                   report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
