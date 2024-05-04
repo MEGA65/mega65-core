@@ -3181,7 +3181,7 @@ begin  -- behavioural
                     sdio_fsm_error <= '1';
                   else
                     report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy);
-                    if fastio_wdata(5)='0' then
+                    if fastio_wdata(5)='0' and cache_enable='1' then
                       -- Allow cache for this read
                       sd_state <= ReadSectorCacheCheck;
                     else
