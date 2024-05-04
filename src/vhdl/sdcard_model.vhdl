@@ -290,7 +290,7 @@ begin
           sdcard_state <= READ_BLOCK_LOOKUP_DELAY;
           read_block_countdown <= 200 * 8 - 2;
           miso_i <= '1';
-          if cmd_phase = 0 and mosi_o='0' then
+          if mosi_o='0' then
             cmd_phase <= 1;
             sdcard_state <= CMD_RX;
             report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
@@ -301,7 +301,7 @@ begin
           else
             sdcard_state <= READ_BLOCK_SEND_START_TOKEN;
           end if;
-          if cmd_phase = 0 and mosi_o='0' then
+          if mosi_o='0' then
             cmd_phase <= 1;
             sdcard_state <= CMD_RX;
             report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
@@ -319,7 +319,7 @@ begin
             bits_remaining <= 7;
             sdcard_state <= READ_BLOCK_LOOP;
           end if;
-          if cmd_phase = 0 and mosi_o='0' then
+          if mosi_o='0' then
             cmd_phase <= 1;
             sdcard_state <= CMD_RX;
             report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
@@ -351,7 +351,7 @@ begin
               bytes_remaining <= 0;
             end if;
           end if;
-          if cmd_phase = 0 and mosi_o='0' then
+          if mosi_o='0' then
             cmd_phase <= 1;
             sdcard_state <= CMD_RX;
             report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
@@ -375,7 +375,7 @@ begin
               end if;                
             end if;
           end if;
-          if cmd_phase = 0 and mosi_o='0' then
+          if mosi_o='0' then
             cmd_phase <= 1;
             sdcard_state <= CMD_RX;
             report "SDCARDMODEL: LOWFIDELITY BEHAVIOUR: Aborting read command due to commencement of another command.";
