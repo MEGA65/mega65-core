@@ -260,11 +260,30 @@ begin
       
     end procedure;
 
+    procedure fill_sector_buffer(first_byte : unsigned(7 downto 0)) is
+      variable val : unsigned(7 downto 0);
+    begin
+      val := first_byte;
+      for i in 0 to 511 loop
+        POKE(to_unsigned(56832 + i,16), val);
+        if val /= x"ff" then
+          val := val + 1;
+        else
+          val := to_unsigned(0,8);
+        end if;
+      end loop;
+    end procedure;
+        
     procedure sdcard_read_sector(sector : integer; verify : boolean; verify_sector_number : boolean; message : string) is
       variable first_offset : integer := 0;
       variable expected : string(1 to (6 + 16 * 3 - 1));
       variable actual : string(1 to (6 + 16 * 3 - 1));
     begin
+
+      -- Fill read sector buffer with fluff, so we can tell if anything was
+      -- actually read or not.
+      fill_sector_buffer(x"BD");
+      
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
       POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
@@ -341,20 +360,6 @@ begin
       report "READSECTOR: " & message & " succeeded.";
     end procedure;
 
-    procedure fill_sector_buffer(first_byte : unsigned(7 downto 0)) is
-      variable val : unsigned(7 downto 0);
-    begin
-      val := first_byte;
-      for i in 0 to 511 loop
-        POKE(to_unsigned(56832 + i,16), val);
-        if val /= x"ff" then
-          val := val + 1;
-        else
-          val := to_unsigned(0,8);
-        end if;
-      end loop;
-    end procedure;
-    
     procedure sdcard_write_sector(sector : integer; verify_sector_number : boolean) is
     begin
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
@@ -496,9 +501,7 @@ begin
         sdcard_reset_sequence;
         POKE(x"D680",x"CD");
         -- Verify that reading a couple of different sectors works
-        fill_sector_buffer(x"42");
         sdcard_read_sector(1, true,true,"first read (sector 1)");
-        fill_sector_buffer(x"42");
         sdcard_read_sector(0, true,true,"second read (sector 0)");
 
       elsif run("SD card can read multiple requested sectors (cache on)") then
