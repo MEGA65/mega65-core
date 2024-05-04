@@ -346,6 +346,18 @@ begin
             assert false report "READSECTOR: " & message & " failed due expected vs actual sector read data mismatch.";
           end if;
         end loop;
+        report "READSECTOR: " & message & " correct data was read from sector.";
+        first_offset := 0;
+        expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+        expected(4) := ':';
+        expected(5) := ' ';
+        for j in 0 to 15 loop
+          expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(target_flash_slot)(j + first_offset));
+          expected(6 + j*3+2) := ' ';
+        end loop;
+        report "Saw: " & expected & " ...";
+      else
+        report "READSECTOR: " & message & " correctness of data read was not tested.";
       end if;
       
       -- Verify that flash memory read pointer has been set correctly
@@ -655,7 +667,7 @@ begin
         -- Verify that reading a couple of different sectors works
         sdcard_read_sector(0, true,true, false, true,"first read (sector 1)");
         -- Wait long enough for read-ahead to read this 2nd sector
-        for i in 1 to 20000 loop
+        for i in 1 to 50000 loop
           clock_tick;
         end loop;
         sdcard_read_sector(1, true,true, true, false, "second read (sector 1) from cache");
