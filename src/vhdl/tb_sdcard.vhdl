@@ -650,6 +650,8 @@ begin
         -- Reading two consecutive sectors should result in the 2nd sector reading faster,
         -- because the read-ahead will already be doing its thing.  
 
+        assert false report "Test not implemented";
+        
       end if;
     end loop;
     test_runner_cleanup(runner);
