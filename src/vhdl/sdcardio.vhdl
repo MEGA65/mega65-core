@@ -4129,7 +4129,7 @@ begin  -- behavioural
                   -- any sector in the cluster where the requested sector resides via
                   -- the read-ahead functionality.
                   if read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
-                    report "SDCACHE: READ-AHEAD will deliver this sector soon";
+                    report "SDCACHE: READAHEAD will deliver this sector soon: read_ahead_sector=$" & to_hexstring(read_ahead_sector) & ", reading " & integer'image(read_ahead_count) & " more sectors";
                     sd_state <= ReadCachedWaitForSector;
                   else
                     report "SDCACHE: Cache miss for sector.";
@@ -4150,14 +4150,20 @@ begin  -- behavioural
                         report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
                         sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
-                        read_ahead_count <= 7;
-                        read_ahead_sector <= sd_sector;
+                        if sd_sector(2 downto 0) = "000" then
+                          read_ahead_count <= 7;
+                          read_ahead_sector <= sd_sector;
+                          report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                        end if;
                       when others =>
                         report "Will cache DATA sector in slot " & integer'image((cache_size/2) + to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                         sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
-                        read_ahead_count <= 7;
-                        read_ahead_sector <= sd_sector;
+                        if sd_sector(2 downto 0) = "000" then
+                          read_ahead_count <= 7;
+                          read_ahead_sector <= sd_sector;
+                          report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                        end if;
                     end case;
                     cache_state_wdata(31 downto 0) <= sd_sector;
                     report "SDCACHE: Setting sdcache_sector_being_read to $" & to_hexstring(sdcache_sector_being_read);
@@ -4187,6 +4193,7 @@ begin  -- behavioural
           -- which time move to ReadCachedSector
           if cache_sector_lookup_in_progress='0' then
             if cache_has_match = '1' Then
+              report "READAHEAD: Sector arrived in cache";
               sd_state <= ReadCachedSector;
             else
               -- Trigger the cache scan to occur again
@@ -4341,6 +4348,17 @@ begin  -- behavioural
                   cache_state_wdata(31 downto 0) <= sdcache_sector_being_read;
                   cache_state_waddr <= sdcache_write_slot;
                   report "SDCACHE: Marking cache slot " & integer'image(sdcache_write_slot) & " as valid following end of sector read";
+
+                  if read_ahead_count /= 0 then
+                    report "READAHEAD: Scheduling next sector in read-ahead (" & integer'image(read_ahead_count) & " sectors still to go)";
+                    sdcache_write_slot <= sdcache_write_slot + 1;
+                    update_cache_waddr <= '1';
+                    read_ahead_count <= read_ahead_count - 1;
+                  else
+                    -- Abort reading ahead
+                    report "READAHEAD: Finished reading ahead";
+                    read_ahead_sector <= (others => '1');
+                  end if;
                 end if;
               else
                 -- Still more bytes to read.
