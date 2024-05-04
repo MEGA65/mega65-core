@@ -260,7 +260,7 @@ begin
       
     end procedure;
 
-    procedure sdcard_read_sector(sector : integer; verify : boolean; verify_sector_number : boolean) is
+    procedure sdcard_read_sector(sector : integer; verify : boolean; verify_sector_number : boolean; message : string) is
       variable first_offset : integer := 0;
       variable expected : string(1 to (6 + 16 * 3 - 1));
       variable actual : string(1 to (6 + 16 * 3 - 1));
@@ -309,14 +309,12 @@ begin
               expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(target_flash_slot)(j + first_offset));
               PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
               actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
-              if j < 15 then
-                expected(6 + j*3+2) := ' ';
-                actual(6 + j*3+2) := ' ';
-              end if;
+              expected(6 + j*3+2) := ' ';
+              actual(6 + j*3+2) := ' ';
             end loop;
             report "Expected to see: " & expected;
             report "   Actually saw: " & actual;
-            assert false report "Test failure due expected vs actual sector read data mismatch.";
+            assert false report "READSECTOR: " & message & " failed due expected vs actual sector read data mismatch.";
           end if;
         end loop;
       end if;
@@ -340,6 +338,7 @@ begin
         assert false report "SD card did not read the correct sector (expected to see $" & to_hexstring(to_unsigned(sector + 1,32))
           & ", but saw $" & to_hexstring(flash_address(40 downto 9)) & ").";
       end if;
+      report "READSECTOR: " & message & " succeeded.";
     end procedure;
 
     procedure fill_sector_buffer(first_byte : unsigned(7 downto 0)) is
@@ -484,31 +483,31 @@ begin
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CD");
-        -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true, true);
+        sdcard_read_sector(1, true, true, "first read (sector 1)");
 
       elsif run("SD card can read a single sector (cache on)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
-        -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true, "first read (sector 1)");
 
       elsif run("SD card can read multiple requested sectors (cache off)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CD");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true,true);
-        sdcard_read_sector(0, true,true);
+        fill_sector_buffer(x"42");
+        sdcard_read_sector(1, true,true,"first read (sector 1)");
+        fill_sector_buffer(x"42");
+        sdcard_read_sector(0, true,true,"second read (sector 0)");
 
       elsif run("SD card can read multiple requested sectors (cache on)") then
 
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true,true);
-        sdcard_read_sector(0, true,true);
+        sdcard_read_sector(1, true,true,"first read (sector 1)");
+        sdcard_read_sector(0, true,true,"second read (sector 0)");
 
       elsif run("Reading a sector places it in the cache") then
         -- XXX Test by reading sesctor twice, and confirming the second time
@@ -517,9 +516,9 @@ begin
         sdcard_reset_sequence;
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true,"first read (sector 1)");
         report "Uncached read required " & integer'image(read_duration) & " cycles.";
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true,"second read (sector 1) from cache");
         report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
@@ -537,14 +536,14 @@ begin
         end loop;
 
         -- Sector 42 should be present in the cache and read quickly.        
-        sdcard_read_sector(42, false,false);
+        sdcard_read_sector(42, false,false,"dummy sector 42");
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus fast, but it wasn't.";
         end if;
         -- Now read a real sector, and make sure that it is fast the 2nd time.
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true,"Read of sector 1 while cache full");
         report "Uncached read required " & integer'image(read_duration) & " cycles.";
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true,"Read of sector 1 from cache after evicting a dummy sector");
         report "Cached read (repeated read of same sector) required " & integer'image(read_duration) & " cycles.";
         if read_duration > 1000 then
           assert false report "Second read should have been from the cache, and thus faster, but it wasn't.";
@@ -563,7 +562,7 @@ begin
         sdcard_write_sector(1,true);
 
         -- Check that reading sector after write works
-        sdcard_read_sector(1, true,true);
+        sdcard_read_sector(1, true,true,"Reading sector 1 from cache after writing to it");
                      
       elsif run("Write-back to SD card cache updates cache") then
         -- XXX Read, write, re-read and verify that 2nd read was from cache (fast)
@@ -573,7 +572,7 @@ begin
         POKE(x"D680",x"CE");   -- enable cache
 
         -- Read a sector, causing it to be cached
-        sdcard_read_sector(1,true,true);
+        sdcard_read_sector(1,true,true,"Read sector 1 to cache it");
 
         -- Prepare sector buffer full of values, the first of which is $42.
         fill_sector_buffer(x"42");
@@ -584,7 +583,7 @@ begin
         -- Check that reading sector after write works
         -- This relies on the fact that sector writes are always synchronous, so any changes to the
         -- cache and SD card will alread be committed, by the time the next read request can be made.
-        sdcard_read_sector(1, true,false);
+        sdcard_read_sector(1, true,false,"Read sector 1 from cache after writing to it");
         if read_duration > 1000 then
           assert false report "Read after write should have been from the cache, and thus faster, but it wasn't.";
         end if;
