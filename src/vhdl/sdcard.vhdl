@@ -242,6 +242,7 @@ begin
       PULSE_SCLK,  -- Issue some clock pulses. (Must enter with sclk at zero.)
       REPORT_ERROR                      -- Report error and stall until reset.
       );
+    variable last_state_v    : FsmState_t := START_INIT;  -- Current state of the FSM.
     variable state_v    : FsmState_t := START_INIT;  -- Current state of the FSM.
     variable rtnState_v : FsmState_t;  -- State FSM returns to when FSM subroutine completes.
 
@@ -361,8 +362,9 @@ begin
         
         busy_o <= '1';  -- Busy by default. Only false when waiting for R/W from host or stalled by error.
 
-        if state_v /= wait_for_host_rw then
+        if state_v /= last_state_v then
           report "SDCARD: state_v = " & FsmState_t'image(state_v);
+          last_state_v := state_v;
         end if;
         
         case state_v is
@@ -536,7 +538,7 @@ begin
               byteCnt_v := byteCnt_v - 1;
             elsif byteCnt_v = RD_BLK_SZ_C -1 then  -- Then look for the data block start token.
               if rx_v = NO_TOKEN_C then  -- Receiving 0xFF means the card hasn't responded yet. Keep trying.
-                null;
+                report "SDCARD: Waiting for data TX from SD card to start...";
               elsif rx_v = START_TOKEN_C then
                 rtnData_v := true;  -- Found the start token, so now start returning data byes to the host.
                 byteCnt_v := byteCnt_v - 1;
@@ -635,7 +637,7 @@ begin
           when START_TX =>
             -- Start sending command/data by lowering SCLK and outputing MSB of command/data
             -- so it has plenty of setup before the rising edge of SCLK.
-            report "SDCARD: Sending command " & to_hstring(txData_v);
+            report "SDCARD: Sending command $" & to_hstring(txData_v);
             sclk_r           <= '0';  -- Lower the SCLK (although it should already be low).
             sclkPhaseTimer_v := clkDivider_v;  -- Set the duration of the low SCLK.
             mosi_o           <= tx_v(tx_v'high);  -- Output MSB of command/data.
@@ -654,6 +656,13 @@ begin
                 tx_v     := tx_v(tx_v'high-1 downto 0) & '1';
                 bitCnt_v := bitCnt_v - 1;
               else
+
+                report "SDCARD: Releasing mosi_o after sending command";
+                
+                -- Release MOSI_O back high, so that the card can't think we are
+                -- about to send a new command.
+                mosi_o <= '1';
+                
                 if getCmdResponse_v then
                   state_v  := GET_CMD_RESPONSE;  -- Get a response to the command from the SD card.
                   bitCnt_v := Response_t'length - 1;  -- Length of the expected response.
@@ -665,6 +674,7 @@ begin
             end if;
 
           when GET_CMD_RESPONSE =>  -- Get the response of the SD card to a command.
+
             if sclk_r = '1' and miso_i = '0' then  -- MISO will be held high by SD card until 1st bit of R1 response, which is 0.
               -- Shift in the MSB bit of the response.
               rx_v     := rx_v(rx_v'high-1 downto 0) & miso_i;
