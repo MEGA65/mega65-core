@@ -300,6 +300,7 @@ architecture behavioural of sdcardio is
                       ReadCachedSector,
                       ReadingCachedSector,
                       ReadSector,
+                      ReadAheadSector,
                       ReadingSector,
                       ReadingSectorAckByte,
                       DoneReadingSector,
@@ -782,6 +783,7 @@ architecture behavioural of sdcardio is
 
   signal read_is_cacheable : std_logic := '0';
   signal update_cache_waddr : std_logic := '0';
+  signal reading_ahead : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -3187,7 +3189,14 @@ begin  -- behavioural
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   else
-                    report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy);
+                    report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy)
+                      & ", sd_sector=$" & to_hexstring(sd_sector);
+
+                    -- XXX Handle situation where a read-ahead is in progress.
+                    -- We should abort any read-ahead that is not going to read
+                    -- our requested sector if we want to minimise latency.
+                    -- But that also requires some additional logic. We'll see.
+                    
                     if fastio_wdata(5)='0' and cache_enable='1' then
                       -- Allow cache for this read
                       sd_state <= ReadSectorCacheCheck;
@@ -3203,6 +3212,11 @@ begin  -- behavioural
                     -- Put into SD card buffer, not F011 buffer
                     f011_sector_fetch <= '0';
                     sd_buffer_offset <= (others => '0');
+
+                    -- Cancel any existing read-ahead job
+                    read_ahead_count <= 0;
+                    reading_ahead <= '0';
+                    read_ahead_sector <= (others => '1');
                   end if;
 
                 when x"03" =>
@@ -4261,6 +4275,15 @@ begin  -- behavioural
           sd_handshake <= '0';
           sd_handshake_internal <= '0';
 
+        when ReadAheadSector =>
+          -- Begin reading a sector into the buffer
+          report "SDCARDIO: Reading ahead the next sector";
+          sd_doread <= '1';
+          sd_state <= ReadingSector;
+          read_data_byte <= '0';
+          sd_handshake <= '0';
+          sd_handshake_internal <= '0';
+          
         when ReadingSector =>
           if sd_data_ready='1' then
             sd_doread <= '0';
@@ -4354,6 +4377,7 @@ begin  -- behavioural
                     sdcache_write_slot <= sdcache_write_slot + 1;
                     update_cache_waddr <= '1';
                     read_ahead_count <= read_ahead_count - 1;
+                    sd_state <= ReadSector;
                   else
                     -- Abort reading ahead
                     report "READAHEAD: Finished reading ahead";
@@ -4369,17 +4393,32 @@ begin  -- behavioural
               if (sd_buffer_offset = "000000000") and (read_data_byte='1') then
                 -- Finished reading SD-card sectory
                 sd_state <= DoneReadingSector;
+
                 if read_is_cacheable='1' then
-                  report "SDCACHE: Marking sector $" & to_hexstring(sdcache_sector_being_read) & " as occupying cache slot " & integer'image(sdcache_write_slot);
                   -- Writing the last byte now, so also update the cache to
                   -- indicate that the slot is valid.
                   cache_state_w <= '1';
                   cache_state_cs <= '1';
+                  report "SDCACHE: Marking sector $" & to_hexstring(sdcache_sector_being_read) & " as occupying cache slot " & integer'image(sdcache_write_slot);
                   cache_state_wdata(35) <= '1'; -- cache entry is valid
                   cache_state_wdata(32) <= sd_interface_select_internal;
                   cache_state_wdata(31 downto 0) <= sdcache_sector_being_read;
                   cache_state_waddr <= sdcache_write_slot;
                   report "SDCACHE: Marking cache slot " & integer'image(sdcache_write_slot) & " as valid following end of sector read";
+
+                  if read_ahead_count /= 0 then
+                    report "READAHEAD: Scheduling next sector in read-ahead (" & integer'image(read_ahead_count) & " sectors still to go)";
+                    sdcache_write_slot <= sdcache_write_slot + 1;
+                    update_cache_waddr <= '1';
+                    read_ahead_count <= read_ahead_count - 1;
+                    sd_state <= ReadAheadSector;
+                    reading_ahead <= '1';
+                  else
+                    -- Abort reading ahead
+                    report "READAHEAD: Finished reading ahead";
+                    read_ahead_sector <= (others => '1');
+                    reading_ahead <= '0';
+                  end if;
                 end if;
               else
                 -- Else keep on reading
