@@ -261,6 +261,9 @@ begin
     end procedure;
 
     procedure sdcard_read_sector(sector : integer; verify : boolean; verify_sector_number : boolean) is
+      variable first_offset : integer := 0;
+      variable expected : string(1 to (6 + 16 * 3 - 1));
+      variable actual : string(1 to (6 + 16 * 3 - 1));
     begin
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
@@ -287,10 +290,33 @@ begin
         for i in 0 to 511 loop
           PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
           if fastio_rdata /= sector_slots(target_flash_slot)(i) then
-            assert false report "Expected byte " & integer'image(i) & " of read sector (slot " &
+            report "Expected byte " & integer'image(i) & " of read sector (slot " &
               integer'image(target_flash_slot) & " = sector " & integer'image(sector_numbers(target_flash_slot) ) & ")" &
               " to be $" & to_hexstring(sector_slots(target_flash_slot)(i))
               & ", but saw $" & to_hexstring(fastio_rdata);
+            if i > 8 then
+              first_offset := i-8;
+            else
+              first_offset := 0;
+            end if;
+            expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+            expected(4) := ':';
+            expected(5) := ' ';
+            actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+            actual(4) := ':';
+            actual(5) := ' ';
+            for j in 0 to 15 loop
+              expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(target_flash_slot)(j + first_offset));
+              PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
+              actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
+              if j < 15 then
+                expected(6 + j*3+2) := ' ';
+                actual(6 + j*3+2) := ' ';
+              end if;
+            end loop;
+            report "Expected to see: " & expected;
+            report "   Actually saw: " & actual;
+            assert false report "Test failure due expected vs actual sector read data mismatch.";
           end if;
         end loop;
       end if;
