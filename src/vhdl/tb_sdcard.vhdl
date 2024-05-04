@@ -650,7 +650,16 @@ begin
         -- Reading two consecutive sectors should result in the 2nd sector reading faster,
         -- because the read-ahead will already be doing its thing.  
 
-        assert false report "Test not implemented";
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");
+        -- Verify that reading a couple of different sectors works
+        sdcard_read_sector(0, true,true, false, true,"first read (sector 1)");
+        -- Wait long enough for read-ahead to read this 2nd sector
+        for i in 1 to 20000 loop
+          clock_tick;
+        end loop;
+        sdcard_read_sector(1, true,true, true, false, "second read (sector 1) from cache");
+
         
       end if;
     end loop;
