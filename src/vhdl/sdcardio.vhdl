@@ -771,7 +771,7 @@ architecture behavioural of sdcardio is
   signal sdcache_next_slot_bit : integer := 0;
   signal sdcache_next_slot : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
   signal sdcache_next_slot_aligned : unsigned(sdcache_address_bits-1 downto 0) := to_unsigned(0,sdcache_address_bits);
-  signal sdcache_write_slot : integer := 0;
+  signal sdcache_write_slot : integer := 999999;
   signal sdcache_sector_being_read : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_sector : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_count : integer range 0 to 7 := 0;
@@ -781,6 +781,7 @@ architecture behavioural of sdcardio is
   signal sd_read_request_type : sd_read_request_type_t := DATA;
 
   signal read_is_cacheable : std_logic := '0';
+  signal update_cache_waddr : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1859,7 +1860,15 @@ begin  -- behavioural
 
       cache_w <= '0';
       cache_state_w <= '0';
-      
+
+      if update_cache_waddr='1' then
+        -- Prep write address for sector
+        -- (we pre-increment during writing, so start one address lower)
+        cache_waddr <= sdcache_write_slot * 512 -1;
+        report "SDCACHE: Setting pre-decremented write address to $" & to_hexstring(to_unsigned(sdcache_write_slot * 512 - 1,24));
+        update_cache_waddr <= '0';
+      end if;
+        
       -- Update random SD cache slot for replacement
       -- The random slot number has only half the cache size as range,
       -- because we partition the cache between file system structures and
@@ -4144,7 +4153,7 @@ begin  -- behavioural
                         read_ahead_count <= 7;
                         read_ahead_sector <= sd_sector;
                       when others =>
-                        report "Will cache DATA sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                        report "Will cache DATA sector in slot " & integer'image((cache_size/2) + to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                         sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                         read_ahead_count <= 7;
@@ -4156,10 +4165,7 @@ begin  -- behavioural
                     -- But not yet loaded
                     cache_state_wdata(35 downto 32) <= (others => '0');
 
-                    -- Prep write address for sector
-                    -- (we pre-increment during writing, so start one address lower)
-                    cache_waddr <= to_integer(sdcache_next_slot) * 512 -1;
-                    report "SDCACHE: Setting pre-decremented write address to $" & to_hexstring(to_unsigned(to_integer(sdcache_next_slot) * 512 -1,24));
+                    update_cache_waddr <= '1';
                   end if;
                 else
                   report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
@@ -4256,7 +4262,7 @@ begin  -- behavioural
             sd_handshake_internal <= '1';
 
             if read_is_cacheable='1' then
-              report "SDCACHE: Writing byte $" & to_hexstring(sd_rdata) & " into sector cache";
+              report "SDCACHE: Writing byte $" & to_hexstring(sd_rdata) & " into sector cache at $" & to_hexstring(to_unsigned(cache_waddr+1,24));
               cache_w <= '1';
               cache_cs <= '1';
               cache_waddr <= cache_waddr + 1;
