@@ -561,7 +561,9 @@ begin
         POKE(x"D680",x"CE");
         -- Verify that reading a couple of different sectors works
         sdcard_read_sector(1, true,true, false, true, "first read (sector 1)");
-        sdcard_read_sector(0, true,true, false, true, "second read (sector 0)");
+        -- Allow flash address to have moved on, since this request will trigger
+        -- a read-ahead.
+        sdcard_read_sector(0, true,false, false, true, "second read (sector 0)");
 
       elsif run("Reading a sector places it in the cache") then
         -- XXX Test by reading sesctor twice, and confirming the second time
