@@ -418,7 +418,7 @@ begin
       POKE(x"D683",to_unsigned(sector,32)(23 downto 16));
       POKE(x"D684",to_unsigned(sector,32)(31 downto 24));
       flash_address_expected(47 downto 41) <= (others => '0');
-      flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
+      flash_address_expected(40 downto 9) <= to_unsigned(sector,32);
       flash_address_expected(8 downto 0) <= (others => '1');
 
       POKE(x"D680",x"57"); -- open the write gate
@@ -448,6 +448,12 @@ begin
       if fastio_rdata(6 downto 5) /= "00" then
         assert false report "SD card error following request to write single sector " & integer'image(sector);
       end if;
+
+      -- Allow a few cycles for the last byte to be written
+      for i in 1 to 1000 loop
+        clock_tick;
+      end loop;
+        
       if flash_address(8 downto 0) /= "111111111" then
         report "SD card flash address = $" & to_hexstring(flash_address) & ", expected to see $" & to_hexstring(flash_address_expected);
         assert false report "SD card did not write exactly 512 bytes of data. " & integer'image(1+to_integer(flash_address(8 downto 0)));
