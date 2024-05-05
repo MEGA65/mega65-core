@@ -4409,6 +4409,7 @@ begin  -- behavioural
                     sdcache_write_slot <= sdcache_write_slot + 1;
                     update_cache_waddr <= '1';
                     read_ahead_count <= read_ahead_count - 1;
+                    sdcache_sector_being_read <= sdcache_sector_being_read + 1;
                     sd_state <= ReadSector;
                     sdio_busy_ext <= '0';
                   else
@@ -4443,12 +4444,15 @@ begin  -- behavioural
                   if read_ahead_count /= 0 then
                     report "READAHEAD: Scheduling next sector in read-ahead (" & integer'image(read_ahead_count) & " sectors still to go)";
                     sdcache_write_slot <= sdcache_write_slot + 1;
+                    sdcache_sector_being_read <= sdcache_sector_being_read + 1;
                     update_cache_waddr <= '1';
                     read_ahead_count <= read_ahead_count - 1;
                     sd_state <= ReadAheadSector;
                     reading_ahead <= '1';
-                    report "READAHEAD: Clearing sdio_busy_ext due to completion of read of initial sector";
-                    sdio_busy_ext <= '0';
+                    if read_ahead_count = 7 then
+                      report "READAHEAD: Clearing sdio_busy_ext due to completion of read of initial sector";
+                      sdio_busy_ext <= '0';
+                    end if;
                   else
                     -- Abort reading ahead
                     report "READAHEAD: Finished reading ahead";
