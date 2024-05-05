@@ -154,6 +154,10 @@ begin
     variable target_flash_slot : integer := 0;
     variable read_duration : integer := 0;
     variable flash_slot : integer := 0;
+    variable requested_flash_slot : integer := 0;
+    variable requested_sector_found : boolean := false;
+    variable requested_sector : integer := 0;
+    variable last_requested_sector : integer := 0;
 
     procedure clock_tick is
       variable slot_num : integer := 0;
@@ -293,6 +297,25 @@ begin
       -- Fill read sector buffer with fluff, so we can tell if anything was
       -- actually read or not.
       fill_sector_buffer(x"BD");
+
+      requested_sector := sector;
+
+      if requested_sector /= last_requested_sector then
+        last_requested_sector := requested_sector;
+        requested_flash_slot := 0;
+        requested_sector_found := false;
+        for i in 1 to (sector_count-1) loop
+            if requested_sector = sector_numbers(i) then
+            requested_flash_slot := i;
+            report "SDCARDIMG: Requested sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
+            requested_sector_found := true;
+            exit;
+          end if;
+        end loop;
+      end if;
+      if requested_sector_found = false then
+        report "SDCARDIMG: WARNING: Attempted to read a sector that is not present in the SD card image (or is all zeroes)";
+      end if;
       
       POKE(x"D681",to_unsigned(sector,32)(7 downto 0));
       POKE(x"D682",to_unsigned(sector,32)(15 downto 8));
@@ -320,36 +343,70 @@ begin
 
       -- Verify that we read the sector correctly
       if verify then
-        for i in 0 to 511 loop
-          PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
-          if fastio_rdata /= sector_slots(target_flash_slot)(i) then
-            report "Expected byte " & integer'image(i) & " of read sector (slot " &
-              integer'image(target_flash_slot) & " = sector " & integer'image(sector_numbers(target_flash_slot) ) & ")" &
-              " to be $" & to_hexstring(sector_slots(target_flash_slot)(i))
-              & ", but saw $" & to_hexstring(fastio_rdata);
-            if i > 8 then
-              first_offset := i-8;
-            else
-              first_offset := 0;
+        if requested_sector_found = false then
+          -- Dummy sector: Should be all zeroes
+          for i in 0 to 511 loop
+            PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
+            if fastio_rdata /= x"00" then
+              report "Expected byte " & integer'image(i) & " of read sector (slot " &
+                integer'image(requested_flash_slot) & " = sector " & integer'image(sector_numbers(requested_flash_slot) ) & ")" &
+                " to be $00 (non-mapped sector)"
+                & ", but saw $" & to_hexstring(fastio_rdata);
+              if i > 8 then
+                first_offset := i-8;
+              else
+                first_offset := 0;
+              end if;
+              expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+              expected(4) := ':';
+              expected(5) := ' ';
+              actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+              actual(4) := ':';
+              actual(5) := ' ';
+              for j in 0 to 15 loop
+                expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(to_unsigned(0,8));
+                PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
+                actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
+                expected(6 + j*3+2) := ' ';
+                actual(6 + j*3+2) := ' ';
+              end loop;
+              report "Expected to see: " & expected;
+              report "   Actually saw: " & actual;
+              assert false report "READSECTOR: " & message & " failed due expected vs actual sector read data mismatch.";
             end if;
-            expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
-            expected(4) := ':';
-            expected(5) := ' ';
-            actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
-            actual(4) := ':';
-            actual(5) := ' ';
-            for j in 0 to 15 loop
-              expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(target_flash_slot)(j + first_offset));
-              PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
-              actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
-              expected(6 + j*3+2) := ' ';
-              actual(6 + j*3+2) := ' ';
-            end loop;
-            report "Expected to see: " & expected;
-            report "   Actually saw: " & actual;
-            assert false report "READSECTOR: " & message & " failed due expected vs actual sector read data mismatch.";
-          end if;
-        end loop;
+          end loop;
+        else
+          for i in 0 to 511 loop
+            PEEK(to_unsigned(56832 + i,16));  -- $DE00 + i
+            if fastio_rdata /= sector_slots(requested_flash_slot)(i) then
+              report "Expected byte " & integer'image(i) & " of read sector (slot " &
+                integer'image(requested_flash_slot) & " = sector " & integer'image(sector_numbers(requested_flash_slot) ) & ")" &
+                " to be $" & to_hexstring(sector_slots(requested_flash_slot)(i))
+                & ", but saw $" & to_hexstring(fastio_rdata);
+              if i > 8 then
+                first_offset := i-8;
+              else
+                first_offset := 0;
+              end if;
+              expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+              expected(4) := ':';
+              expected(5) := ' ';
+              actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+              actual(4) := ':';
+              actual(5) := ' ';
+              for j in 0 to 15 loop
+                expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(requested_flash_slot)(j + first_offset));
+                PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
+                actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
+                expected(6 + j*3+2) := ' ';
+                actual(6 + j*3+2) := ' ';
+              end loop;
+              report "Expected to see: " & expected;
+              report "   Actually saw: " & actual;
+              assert false report "READSECTOR: " & message & " failed due expected vs actual sector read data mismatch.";
+            end if;
+          end loop;
+        end if;
         report "READSECTOR: " & message & " correct data was read from sector.";
         -- Display first and last 16 bytes of sector
         first_offset := 0;
