@@ -1575,8 +1575,7 @@ begin
     generic map (
       cpu_frequency => cpu_frequency,
       target => target,
-      cache_enable => true,
-      cache_address_bits => 7)
+      sdcache_address_bits => 7)
     port map (
     pixelclk => pixelclk,
     clock => cpuclock,
