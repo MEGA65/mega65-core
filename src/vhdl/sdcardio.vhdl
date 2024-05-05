@@ -1874,11 +1874,13 @@ begin  -- behavioural
 
       cache_w <= '0';
       cache_state_w <= '0';
-
-      if reading_ahead='0' or to_integer(hw_errata_level_int) < 3 then
-        sdcard_busy_ext <= sdcard_busy;
-      else
+      
+      -- We want to conceal sdcard_busy flag if and only if a read-ahead is in
+      -- progress.
+      if reading_ahead='1' and to_integer(hw_errata_level_int) >= 3 then
         sdcard_busy <= '0';
+      else
+        sdcard_busy_ext <= sdcard_busy;
       end if;
       
       if update_cache_waddr='1' then
