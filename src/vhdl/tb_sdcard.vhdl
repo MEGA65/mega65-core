@@ -302,6 +302,7 @@ begin
       flash_address_expected(40 downto 9) <= to_unsigned(sector+1,32);
       POKE(x"D680",x"02"); -- Read single sector
       -- Allow enough time to read the whole sector
+      read_duration := 0;
       for i in 1 to 20000 loop
         PEEK(x"D680");
         if fastio_rdata(1 downto 0) = "00" then
@@ -313,6 +314,9 @@ begin
           target_flash_slot := flash_slot;
         end if;
       end loop;
+      if read_duration = 0 then
+        report "WARNING: SD card did not present READY before we gave up waiting";
+      end if;
 
       -- Verify that we read the sector correctly
       if verify then
@@ -348,14 +352,25 @@ begin
         end loop;
         report "READSECTOR: " & message & " correct data was read from sector.";
         first_offset := 0;
-        expected(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
-        expected(4) := ':';
-        expected(5) := ' ';
+        actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+        actual(4) := ':';
+        actual(5) := ' ';
         for j in 0 to 15 loop
-          expected(6 + j*3 to 6 + j*3 + 1) := to_hexstring(sector_slots(target_flash_slot)(j + first_offset));
-          expected(6 + j*3+2) := ' ';
+          PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
+          actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
+          actual(6 + j*3+2) := ' ';
         end loop;
-        report "Saw: " & expected & " ...";
+        report "Saw: " & actual & " ...";
+        first_offset := 512 - 16;
+        actual(1 to 3) := to_hexstring(to_unsigned(first_offset,12));
+        actual(4) := ':';
+        actual(5) := ' ';
+        for j in 0 to 15 loop
+          PEEK(to_unsigned(56832 + j + first_offset,16));  -- $DE00 + i
+          actual(6 + j*3 to 6 + j*3 + 1) := to_hexstring(fastio_rdata);
+          actual(6 + j*3+2) := ' ';
+        end loop;
+        report "...  " & actual;
       else
         report "READSECTOR: " & message & " correctness of data read was not tested.";
       end if;
@@ -363,6 +378,7 @@ begin
       -- Verify that flash memory read pointer has been set correctly
       PEEK(x"D680");
       if fastio_rdata(1 downto 0) /= "00" then
+        report "SD card BUSY flag (re-)asserted";
         assert false report "SD card did not return READY following request to read single sector " & integer'image(sector);
       end if;
       if fastio_rdata(6 downto 5) /= "00" then
