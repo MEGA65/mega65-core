@@ -1954,8 +1954,10 @@ begin  -- behavioural
       end if;
 
       if pending_sdcard_job='1' then
-        report "JOBQUEUE: Asserting sdio_busy_ext due to a pending job";
-        sdio_busy_ext <= '1';
+        if sdio_busy_ext='0' then
+          report "JOBQUEUE: Asserting sdio_busy_ext due to a pending job";
+          sdio_busy_ext <= '1';
+        end if;
       end if;
       if pending_sdcard_job='1' and sdio_busy_int='0' then
         report "JOBQUEUE: Dispatching SD card job $" & to_hexstring(sdcard_job_id);
@@ -1967,49 +1969,6 @@ begin  -- behavioural
             sd_dowrite <= '1';
             sd_handshake <= '0';
             sd_handshake_internal <= '0';
-          when x"02" | x"07" | x"08" | x"09" | x"22" =>
-            -- Read sector
-
-            sdio_busy_ext <= '1';
-            
-            case sdcard_job_id is
-              when x"07" => -- cached misc FS read
-                sd_read_request_type <= FS_MISC;
-              when x"08" => -- cached FAT sector read
-                sd_read_request_type <= FS_FAT;
-              when x"09" => -- cached DIR sector read
-                sd_read_request_type <= FS_DIR;
-              when others =>
-                sd_read_request_type <= DATA;
-            end case;
-            
-            sd_write_multi <= '0';
-            sd_write_multi_first <= '0';
-            sd_write_multi_last <= '0';
-
-            report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic'image(sdio_busy_int)
-              & ", sd_sector=$" & to_hexstring(sd_sector);
-              
-            if sdcard_job_id(5)='0' and cache_enable='1' then
-              -- Allow cache for this read
-              sd_state <= ReadSectorCacheCheck;
-              read_is_cacheable <= '1';
-              sdcache_sector_being_read <= sd_sector;
-            else
-              -- Disable cache for this read
-              sd_state <= ReadSector;
-              read_is_cacheable <= '0';
-            end if;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            -- Put into SD card buffer, not F011 buffer
-            f011_sector_fetch <= '0';
-            sd_buffer_offset <= (others => '0');
-            
-            -- Cancel any existing read-ahead job
-            read_ahead_count <= 0;
-            reading_ahead <= '0';
-            read_ahead_sector <= (others => '1');
 
           when x"03" =>
             -- Write sector
@@ -3312,9 +3271,44 @@ begin  -- behavioural
                   if sdio_busy_ext = '0' then
                     report "JOBQUEUE: Asserting sdio_busy_ext due to read job submission";
                     sdio_busy_ext <= '1';
-                    pending_sdcard_job <= '1';
-                    sdcard_job_id <= fastio_wdata;
-                    report "JOBQUEUE: Queueing read of sector $" & to_hexstring(sd_sector);
+                    report "JOBQUEUE: Immediate issue of read of sector $" & to_hexstring(sd_sector);
+
+                    sdio_busy_ext <= '1';
+            
+                    case sdcard_job_id is
+                      when x"07" => -- cached misc FS read
+                        sd_read_request_type <= FS_MISC;
+                      when x"08" => -- cached FAT sector read
+                        sd_read_request_type <= FS_FAT;
+                      when x"09" => -- cached DIR sector read
+                        sd_read_request_type <= FS_DIR;
+                      when others =>
+                        sd_read_request_type <= DATA;
+                    end case;
+                    
+                    sd_write_multi <= '0';
+                    sd_write_multi_first <= '0';
+                    sd_write_multi_last <= '0';
+                    
+                    report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic'image(sdio_busy_int)
+                      & ", sd_sector=$" & to_hexstring(sd_sector);
+                    
+                    if sdcard_job_id(5)='0' and cache_enable='1' then
+                      -- Allow cache for this read
+                      sd_state <= ReadSectorCacheCheck;
+                      read_is_cacheable <= '1';
+                      sdcache_sector_being_read <= sd_sector;
+                    else
+                      -- Disable cache for this read
+                      sd_state <= ReadSector;
+                      read_is_cacheable <= '0';
+                    end if;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    -- Put into SD card buffer, not F011 buffer
+                    f011_sector_fetch <= '0';
+                    sd_buffer_offset <= (others => '0');
+                    
                   else
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -4165,13 +4159,20 @@ begin  -- behavioural
             else
               if read_is_cacheable = '1' then
                 
-                -- XXX Also just wait if the SD card interface is currently reading
+                -- Also just wait if the SD card interface is currently reading
                 -- any sector in the cluster where the requested sector resides via
                 -- the read-ahead functionality.
                 if read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
                   report "SDCACHE: READAHEAD will deliver this sector soon: read_ahead_sector=$" & to_hexstring(read_ahead_sector) & ", reading " & integer'image(read_ahead_count) & " more sectors";
                   sd_state <= ReadCachedWaitForSector;
                 else
+
+                  -- Cancel any existing read-ahead job, since it won't
+                  -- help us.                  
+                  read_ahead_count <= 0;
+                  reading_ahead <= '0';
+                  read_ahead_sector <= (others => '1');
+                  
                   sd_state <= ReadCacheMissWaitForSDController;
                 end if;
               else
