@@ -286,9 +286,15 @@ architecture behavioural of sdcardio is
   signal sd_fill_mode    : std_logic := '0';
   signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
 
-  -- IO mapped register to indicate if SD card interface is busy
-  signal sdio_busy : std_logic := '0';
+  -- IO mapped register to indicate if SD card interface is busy.
+  -- Does not show if we are doing a read-ahead in the background
+  signal sdio_busy_ext : std_logic := '0';
+  -- Are we busy talking to the internal SD controller, either servicing an
+  -- externally visible job, or quietly performing a read-ahead in the background?
+  signal sdio_busy_int : std_logic := '0';
+  -- Is the low-level SD controller busy?
   signal sdcard_busy : std_logic := '0';
+  
   signal sdio_error : std_logic := '0';
   signal sdio_fsm_error : std_logic := '0';
 
@@ -784,6 +790,8 @@ architecture behavioural of sdcardio is
   signal read_is_cacheable : std_logic := '0';
   signal update_cache_waddr : std_logic := '0';
   signal reading_ahead : std_logic := '0';
+  signal pending_sdcard_job : std_logic := '0';
+  signal sdcard_job_id : unsigned(7 downto 0) := to_unsigned(0,8);
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1166,7 +1174,7 @@ begin  -- behavioural
   end process;
 
   -- XXX also implement F011 floppy controller emulation.
-  process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
+  process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy_ext, sdio_busy_int,
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
@@ -1404,7 +1412,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= sd_reset;
             fastio_rdata(1) <= sdcard_busy;  -- Whether the SD card thinks it is busy
-            fastio_rdata(0) <= sdio_busy;  -- Whether we think we are busy
+            fastio_rdata(0) <= sdio_busy_ext;  -- Whether we indicate that we are busy
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
           when x"82" => fastio_rdata <= sd_sector(15 downto 8); -- SD-control
@@ -1931,6 +1939,123 @@ begin  -- behavioural
         else
           cache_pre_populating <= '0';
         end if;
+      end if;
+
+      if pending_sdcard_job='1' and sdio_busy_int='0' then
+        pending_sdcard_job <= '0';
+        case sdcard_job_id is
+          when x"0c" =>
+            -- Request flush of write cache on SD card
+            sd_doread <= '1';
+            sd_dowrite <= '1';
+            sd_handshake <= '0';
+            sd_handshake_internal <= '0';
+          when x"02" | x"07" | x"08" | x"09" | x"22" =>
+            -- Read sector
+
+            case sdcard_job_id is
+              when x"07" => -- cached misc FS read
+                sd_read_request_type <= FS_MISC;
+              when x"08" => -- cached FAT sector read
+                sd_read_request_type <= FS_FAT;
+              when x"09" => -- cached DIR sector read
+                sd_read_request_type <= FS_DIR;
+              when others =>
+                sd_read_request_type <= DATA;
+            end case;
+            
+            sd_write_multi <= '0';
+            sd_write_multi_first <= '0';
+            sd_write_multi_last <= '0';
+
+            report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic_vector'image(sdio_busy_int)
+              & ", sd_sector=$" & to_hexstring(sd_sector);
+              
+            if sdcard_job_id(5)='0' and cache_enable='1' then
+              -- Allow cache for this read
+              sd_state <= ReadSectorCacheCheck;
+              read_is_cacheable <= '1';
+              sdcache_sector_being_read <= sd_sector;
+            else
+              -- Disable cache for this read
+              sd_state <= ReadSector;
+              read_is_cacheable <= '0';
+            end if;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            -- Put into SD card buffer, not F011 buffer
+            f011_sector_fetch <= '0';
+            sd_buffer_offset <= (others => '0');
+            
+            -- Cancel any existing read-ahead job
+            read_ahead_count <= 0;
+            reading_ahead <= '0';
+            read_ahead_sector <= (others => '1');
+
+          when x"03" =>
+            -- Write sector
+
+            sd_write_multi <= '0';
+            sd_write_multi_first <= '0';
+            sd_write_multi_last <= '0';
+              
+            report "SDWRITE: Commencing write (single sector)";
+            sd_state <= SDWriteSector;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            f011_sector_fetch <= '0';
+              
+            sd_wrote_byte <= '0';
+            sd_buffer_offset <= (others => '0');
+
+          when x"04" =>
+            -- Multi-sector write: first sector
+            sd_write_multi <= '1';
+            sd_write_multi_first <= '1';
+            sd_write_multi_last <= '0';
+
+            report "SDWRITE: Commencing write (multi-sector)";
+            sd_state <= SDWriteSector;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            f011_sector_fetch <= '0';
+            
+            sd_wrote_byte <= '0';
+            sd_buffer_offset <= (others => '0');
+
+          when x"05" =>
+            -- Multi-sector write: neither first nor last sector
+            sd_write_multi <= '1';
+            sd_write_multi_first <= '0';
+            sd_write_multi_last <= '0';
+
+            report "SDWRITE: Commencing write";
+            sd_state <= SDWriteSector;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            f011_sector_fetch <= '0';
+            
+            sd_wrote_byte <= '0';
+            sd_buffer_offset <= (others => '0');
+            
+          when x"06" =>
+            -- Multi-sector write: neither first nor last sector
+            sd_write_multi <= '1';
+            sd_write_multi_first <= '0';
+            sd_write_multi_last <= '1';
+
+            report "SDWRITE: Commencing write";
+            sd_state <= SDWriteSector;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            f011_sector_fetch <= '0';
+            
+            sd_wrote_byte <= '0';
+            sd_buffer_offset <= (others => '0');
+            
+          when others =>
+            null;
+        end case;
       end if;
       
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
@@ -3080,7 +3205,8 @@ begin  -- behavioural
                   sdio_fsm_error <= '0';
                   -- Don't reset sector number on reset
 --                  sd_sector <= (others => '0');
-                  sdio_busy <= '0';
+                  sdio_busy_ext <= '0';
+                  sdio_busy_int <= '0';
 
                   -- Clear SD card cache when reseting card
                   -- in case its being used to swap cards
@@ -3101,7 +3227,8 @@ begin  -- behavioural
                   sd_write_multi <= '0';
                   sd_write_multi_first <= '0';
                   sd_write_multi_last <= '0';
-                  sdio_busy <= '0';
+                  sdio_busy_ext <= '0';
+                  sdio_busy_int <= '0';
 
                   read_on_idle <= '0';
 
@@ -3130,11 +3257,9 @@ begin  -- behavioural
 
                 when x"0c" =>
                   -- Request flush of write cache on SD card
-                  if sdio_busy='0' then
-                    sd_doread <= '1';
-                    sd_dowrite <= '1';
-                    sd_handshake <= '0';
-                    sd_handshake_internal <= '0';
+                  if sdio_busy_ext = '0' then
+                    pending_sdcard_job <= '1';
+                    sdcard_job_id <= fastio_wdata;
                   else
                     sd_doread <= '0';
                     sd_dowrite <= '0';
@@ -3170,153 +3295,37 @@ begin  -- behavioural
                 when x"02" | x"07" | x"08" | x"09" | x"22" =>
                   -- Read sector
 
-                  case fastio_wdata is
-                    when x"07" => -- cached misc FS read
-                      sd_read_request_type <= FS_MISC;
-                    when x"08" => -- cached FAT sector read
-                      sd_read_request_type <= FS_FAT;
-                    when x"09" => -- cached DIR sector read
-                      sd_read_request_type <= FS_DIR;
-                    when others =>
-                      sd_read_request_type <= DATA;
-                  end case;
-                                      
-                  
-                  sd_write_multi <= '0';
-                  sd_write_multi_first <= '0';
-                  sd_write_multi_last <= '0';
-                  if sdio_busy='1' then
+                  if sdio_busy_ext = '0' then
+                    sdio_busy_ext <= '1';
+                    pending_sdcard_job <= '1';
+                    sdcard_job_id <= fastio_wdata;
+                  else
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
-                  else
-                    report "SDCARDIO: Attempting to read a sector, sdio_busy = " & std_logic'image(sdio_busy)
-                      & ", sd_sector=$" & to_hexstring(sd_sector);
-
-                    -- XXX Handle situation where a read-ahead is in progress.
-                    -- We should abort any read-ahead that is not going to read
-                    -- our requested sector if we want to minimise latency.
-                    -- But that also requires some additional logic. We'll see.
-                    
-                    if fastio_wdata(5)='0' and cache_enable='1' then
-                      -- Allow cache for this read
-                      sd_state <= ReadSectorCacheCheck;
-                      read_is_cacheable <= '1';
-                      sdcache_sector_being_read <= sd_sector;
-                    else
-                      -- Disable cache for this read
-                      sd_state <= ReadSector;
-                      read_is_cacheable <= '0';
-                    end if;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- Put into SD card buffer, not F011 buffer
-                    f011_sector_fetch <= '0';
-                    sd_buffer_offset <= (others => '0');
-
-                    -- Cancel any existing read-ahead job
-                    read_ahead_count <= 0;
-                    reading_ahead <= '0';
-                    read_ahead_sector <= (others => '1');
                   end if;
+                  
+                when x"03" | x"04" | x"05" | x"06" =>
+                  -- Write sector (single or multi-sector)
 
-                when x"03" =>
-                  -- Write sector
-                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                  if sdio_busy_ext='1' then
+                    report "SDWRITE: sdio_busy is set, not writing";
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  elsif (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
                     or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
                   then
+                    sdio_busy_ext <= '1';
+                    pending_sdcard_job <= '1';
+                    sdcard_job_id <= fastio_wdata;
+
                     write_sector0_gate_open <= '0';
                     write_sector_gate_open <= '0';
-                    sd_write_multi <= '0';
-                    sd_write_multi_first <= '0';
-                    sd_write_multi_last <= '0';
-                    if sdio_busy='1' then
-                      report "SDWRITE: sdio_busy is set, not writing";
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else
-                      report "SDWRITE: Commencing write (single sector)";
-                      sd_state <= SDWriteSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                      f011_sector_fetch <= '0';
-
-                      sd_wrote_byte <= '0';
-                      sd_buffer_offset <= (others => '0');
-                    end if;
                   else
                     report "SDWRITE: Attempt to write a sector without opening the gate";
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   end if;
-                when x"04" =>
-                  -- Multi-sector write: first sector
-                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
-                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
-                  then
-                    sd_write_multi <= '1';
-                    sd_write_multi_first <= '1';
-                    sd_write_multi_last <= '0';
-                    if sdio_busy='1' then
-                      report "SDWRITE: sdio_busy is set, not writing";
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else
-                      report "SDWRITE: Commencing write (multi-sector)";
-                      sd_state <= SDWriteSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                      f011_sector_fetch <= '0';
-
-                      sd_wrote_byte <= '0';
-                      sd_buffer_offset <= (others => '0');
-                    end if;
-                  end if;
-                when x"05" =>
-                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
-                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
-                  then
-                    -- Multi-sector write: neither first nor last sector
-                    sd_write_multi <= '1';
-                    sd_write_multi_first <= '0';
-                    sd_write_multi_last <= '0';
-                    if sdio_busy='1' then
-                      report "SDWRITE: sdio_busy is set, not writing";
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else
-                      report "SDWRITE: Commencing write";
-                      sd_state <= SDWriteSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                      f011_sector_fetch <= '0';
-
-                      sd_wrote_byte <= '0';
-                      sd_buffer_offset <= (others => '0');
-                    end if;
-                  end if;
-                when x"06" =>
-                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
-                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
-                  then
-                    -- Multi-sector write: final sector
-                    sd_write_multi <= '1';
-                    sd_write_multi_first <= '0';
-                    sd_write_multi_last <= '1';
-                    if sdio_busy='1' then
-                      report "SDWRITE: sdio_busy is set, not writing";
-                      sdio_error <= '1';
-                      sdio_fsm_error <= '1';
-                    else
-                      report "SDWRITE: Commencing write";
-                      sd_state <= SDWriteSector;
-                      sdio_error <= '0';
-                      sdio_fsm_error <= '0';
-                      f011_sector_fetch <= '0';
-
-                      sd_wrote_byte <= '0';
-                      sd_buffer_offset <= (others => '0');
-                    end if;
-                  end if;
+                      
                 when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
 
@@ -3333,7 +3342,7 @@ begin  -- behavioural
                     sd_state <= qspi_write_256;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3343,7 +3352,7 @@ begin  -- behavioural
                     sd_state <= qspi_write_512;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3353,7 +3362,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_read_512;
                   else
                     -- Permission denied
@@ -3367,7 +3376,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
@@ -3381,7 +3390,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3403,7 +3412,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3426,7 +3435,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching verify command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
@@ -3440,7 +3449,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3457,7 +3466,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3480,7 +3489,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= QSPI_Release_CS;
@@ -3502,7 +3511,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3519,7 +3528,7 @@ begin  -- behavioural
                   -- SPI Clear status register. Allowed from user land
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   qspi_read_sector_phase <= 0;
                   qspi_action_state <= QSPI_Release_CS;
@@ -3533,7 +3542,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= x"00000000";
                   qspi_read_sector_phase <= 0;
@@ -3548,7 +3557,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -4038,7 +4047,7 @@ begin  -- behavioural
 
       if last_sd_error /= x"0000" then
         sdio_error <= '1';
-        sdio_busy <= '0';
+        sdio_busy_ext <= '0';
         sd_state <= Idle;
       end if;
 
@@ -4051,7 +4060,9 @@ begin  -- behavioural
       case sd_state is
 
         when Idle =>
-          sdio_busy <= '0';
+          sdio_busy_int <= '0';
+          sdio_busy_ext <= '0';
+
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
           f_wgate <= '1';
@@ -4082,7 +4093,7 @@ begin  -- behavioural
           -- ready.  This is to work around a bug we have seen where the SD card
           -- low-level controller locks up on the first read attempt, unless it
           -- happens VERY soon after reset completes.
-          if read_on_idle='1' and sdio_busy='0' and sdcard_busy='0' then
+          if read_on_idle='1' and sdio_busy_int='0' and sdcard_busy='0' then
             read_on_idle <= '0';
 
             -- This read must _NOT_ use the cache, or it will be pointless.
@@ -4121,8 +4132,8 @@ begin  -- behavioural
         when ReadSectorCacheCheck =>
 
           if sdcard_busy='0' then          
-            sdio_busy <= '1';
-            report "SDCACHE: asserting sdio_busy";
+            sdio_busy_int <= '1';
+            report "SDCACHE: asserting sdio_busy_int";
           
             if cache_sector_lookup_in_progress = '1' then
               -- Waiting for completion of scan of the cache for the
@@ -4195,8 +4206,10 @@ begin  -- behavioural
             end if;
           else
             -- Request was made while still busy -- do nothing
-            report "SDCARDIO: Ignoring read request while SD card state machine and/or interface is still busy: sdio_busy="
-              & std_logic'image(sdio_busy) & ", sdcard_busy=" & std_logic'image(sdcard_busy);
+            report "SDCARDIO: Ignoring read request while SD card state machine and/or interface is still busy: sdio_busy_int="
+              & std_logic'image(sdio_busy_int) & "sdio_busy_ext="
+              & std_logic'image(sdio_busy_ext) &
+              ", sdcard_busy=" & std_logic'image(sdcard_busy);
             sd_state <= Idle;
             sdio_error <= '1';
           end if;
@@ -4217,7 +4230,6 @@ begin  -- behavioural
 
         when ReadCachedSector =>
           cache_raddr <= cache_match_slot * 512;
-          sdio_busy <= '1';
           sd_state <= ReadingCachedSector;
           
         when ReadingCachedSector =>
@@ -4267,10 +4279,10 @@ begin  -- behavioural
           
         when ReadSector =>
           -- Begin reading a sector into the buffer
-          report "SDCARDIO: sdio_busy clear, so proceeding with read request";
+          report "SDCARDIO: Proceeding with read request";
           sd_doread <= '1';
           sd_state <= ReadingSector;
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
           read_data_byte <= '0';
           sd_handshake <= '0';
           sd_handshake_internal <= '0';
@@ -4279,6 +4291,7 @@ begin  -- behavioural
           -- Begin reading a sector into the buffer
           report "SDCARDIO: Reading ahead the next sector";
           sd_doread <= '1';
+          sdio_busy_int <= '1';
           sd_state <= ReadingSector;
           read_data_byte <= '0';
           sd_handshake <= '0';
@@ -5082,16 +5095,16 @@ begin  -- behavioural
 
           sd_state <= WriteSector;
         when SDWriteSector =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
           sd_state <= WriteSector;
         when WriteSector =>
           -- Begin writing a sector into the buffer
-          report "SDCARDIO: WriteSector state: sdio_busy = " & std_logic'image(sdio_busy);
+          report "SDCARDIO: WriteSector state: sdio_busy_int = " & std_logic'image(sdio_busy_int);
           if sdcard_busy='0' then
             if sd_sector_modified='0' and cache_sector_lookup_in_progress='0' then
               report "SDWRITE: Busy flag clear; writing value $" & to_hexstring(f011_buffer_rdata);
               sd_dowrite <= '1';
-              sdio_busy <= '1';
+              sdio_busy_int <= '1';
               skip <= 0;
               sd_wrote_byte <= '0';
               sd_state <= WritingSector;
@@ -5180,12 +5193,14 @@ begin  -- behavioural
           end if;
 
         when DoneReadingSector =>
-          sdio_busy <= '0';
+          sdio_busy_ext <= '0';
+          sdio_busy_int <= '0';
           f011_busy <= '0';
           sd_state <= Idle;
 
         when DoneWritingSector =>
-          sdio_busy <= '0';
+          sdio_busy_int <= '0';
+          sdio_busy_ext <= '0';
           sd_state <= Idle;
           if f011_busy='1' then
             f011_busy <= '0';
@@ -5341,18 +5356,21 @@ begin  -- behavioural
             sd_state <= QSPI_read_phase1;
           else
             sd_state <= Idle;
-            sdio_busy <= '0';
+            sdio_busy_int <= '0';
+            sdio_busy_ext <= '0';
           end if;
           qspi_clock_int <= '1';
         when QSPI_qwrite_512 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_512 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
@@ -5360,21 +5378,24 @@ begin  -- behavioural
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI_write_phase1;
         when QSPI_qwrite_256 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_qwrite_16 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
           qspi_clock_int <= '1';
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_256 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
           qspidb_oe <= '1';
@@ -5408,7 +5429,8 @@ begin  -- behavioural
             sd_state <= QSPI_qwrite_phase1;
           else
             sd_state <= Idle;
-            sdio_busy <= '0';
+            sdio_busy_int <= '1';
+            sdio_busy_ext <= '1';
           end if;
 
         when QSPI_write_phase1 =>
@@ -5437,7 +5459,8 @@ begin  -- behavioural
               sd_state <= QSPI_write_phase1;
             else
               sd_state <= Idle;
-              sdio_busy <= '0';
+              sdio_busy_int <= '1';
+              sdio_busy_ext <= '1';
             end if;
           else
             qspi_bit_counter <= qspi_bit_counter + 1;
@@ -5470,7 +5493,8 @@ begin  -- behavioural
               sd_state <= SPI_read_phase1;
             else
               sd_state <= Idle;
-              sdio_busy <= '0';
+              sdio_busy_int <= '1';
+              sdio_busy_ext <= '1';
               qspicsn <= '1';
             end if;
           else
@@ -5480,14 +5504,16 @@ begin  -- behavioural
 
 
         when QSPI4_write_512 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
           sd_buffer_offset <= to_unsigned(0,9);
           sd_state <= QSPI4_write_phase1;
         when QSPI4_write_256 =>
-          sdio_busy <= '1';
+          sdio_busy_int <= '1';
+          sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
