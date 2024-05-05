@@ -243,8 +243,6 @@ architecture behavioural of sdcardio is
 
   signal sd_interface_select_internal : std_logic := '0';
 
-  signal read_on_idle : std_logic := '0';
-
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
 
   signal aclMOSIinternal : std_logic := '0';
@@ -3234,8 +3232,6 @@ begin  -- behavioural
                   sdio_busy_ext <= '0';
                   sdio_busy_int <= '0';
 
-                  read_on_idle <= '0';
-
                   -- Clear SD card cache when reseting card
                   -- in case its being used to swap cards
                   cache_ready <= '0';
@@ -3253,16 +3249,11 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
 
-                  -- Queue an automatic read for as soon as the SD card
-                  -- goes idle. This is to work around a bug we have seen where
-                  -- if you don't request a read from the SD card soon enough after
-                  -- reset, then no read will ever succeed.
-                  read_on_idle <= '0';
-
                 when x"0c" =>
                   -- Request flush of write cache on SD card
                   if sdio_busy_ext = '0' then
                     pending_sdcard_job <= '1';
+                    report "JOBQUEUE: Queueing write flush";
                     sdcard_job_id <= fastio_wdata;
                   else
                     sd_doread <= '0';
@@ -3303,6 +3294,7 @@ begin  -- behavioural
                     sdio_busy_ext <= '1';
                     pending_sdcard_job <= '1';
                     sdcard_job_id <= fastio_wdata;
+                    report "JOBQUEUE: Queueing read of sector $" & to_hexstring(sd_sector);
                   else
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -3320,6 +3312,7 @@ begin  -- behavioural
                   then
                     sdio_busy_ext <= '1';
                     pending_sdcard_job <= '1';
+                    report "JOBQUEUE: Queueing write to sector $" & to_hexstring(sd_sector);
                     sdcard_job_id <= fastio_wdata;
 
                     write_sector0_gate_open <= '0';
@@ -4092,22 +4085,6 @@ begin  -- behavioural
 
           end if;
 
-          -- Automatically read a sector when reset is released and the card is
-          -- ready.  This is to work around a bug we have seen where the SD card
-          -- low-level controller locks up on the first read attempt, unless it
-          -- happens VERY soon after reset completes.
-          if read_on_idle='1' and sdio_busy_int='0' and sdcard_busy='0' then
-            read_on_idle <= '0';
-
-            -- This read must _NOT_ use the cache, or it will be pointless.
-            sd_state <= ReadSector;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            -- Put into SD card buffer, not F011 buffer
-            f011_sector_fetch <= '0';
-            sd_buffer_offset <= (others => '0');
-          end if;
-
         -- Trap to hypervisor when accessing SD card if virtualised.
         -- Wait until hypervisor kicks in before releasing request.
         when HyperTrapRead =>
@@ -4175,6 +4152,7 @@ begin  -- behavioural
                         sdcache_write_slot <= to_integer(sdcache_next_slot);
                         read_ahead_count <= 0;
                         read_ahead_sector <= (others => '1');
+                        report "READAHEAD: Disabled due to FS_MISC request type";
                       when FS_FAT | FS_DIR =>
                         report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
                         cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
@@ -4183,6 +4161,8 @@ begin  -- behavioural
                           read_ahead_count <= 7;
                           read_ahead_sector <= sd_sector;
                           report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                        else
+                          report "READAHEAD: Disabled due to non-aligned sector number";
                         end if;
                       when others =>
                         report "Will cache DATA sector in slot " & integer'image((cache_size/2) + to_integer(sdcache_next_slot_aligned));
@@ -4192,6 +4172,8 @@ begin  -- behavioural
                           read_ahead_count <= 7;
                           read_ahead_sector <= sd_sector;
                           report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                        else
+                          report "READAHEAD: Disabled due to non-aligned sector number";
                         end if;
                     end case;
                     cache_state_wdata(31 downto 0) <= sd_sector;
