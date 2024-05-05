@@ -4147,7 +4147,6 @@ begin  -- behavioural
         when ReadSectorCacheCheck =>
 
           sdio_busy_int <= '1';
-          report "SDCACHE: asserting sdio_busy_int";
           
           if cache_sector_lookup_in_progress = '1' then
             -- Waiting for completion of scan of the cache for the
