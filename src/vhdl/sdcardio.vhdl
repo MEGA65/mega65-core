@@ -2302,6 +2302,9 @@ begin  -- behavioural
       if write_sector_gate_timeout /= 0 then
         write_sector_gate_timeout <= write_sector_gate_timeout - 1;
       else
+        if write_sector_gate_open = '1' then 
+          report "WRITEGATE: Clearing write gate due to timeout";
+        end if;
         write_sector0_gate_open <= '0';
         write_sector_gate_open <= '0';
       end if;
@@ -3370,6 +3373,7 @@ begin  -- behavioural
                     sdcard_job_id <= fastio_wdata;
                     report "JOBQUEUE: Queueing write to sector $" & to_hexstring(sd_sector);
 
+                    report "WRITEGATE: Clearing write gate due to write command issue";
                     write_sector0_gate_open <= '0';
                     write_sector_gate_open <= '0';
                   else

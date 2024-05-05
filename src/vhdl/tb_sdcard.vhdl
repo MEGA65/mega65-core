@@ -475,7 +475,13 @@ begin
       flash_address_expected(40 downto 9) <= to_unsigned(sector,32);
       flash_address_expected(8 downto 0) <= (others => '1');
 
-      POKE(x"D680",x"57"); -- open the write gate
+      report "WRITESECTOR: Opening write gate";
+      if sector /= 0 then
+        POKE(x"D680",x"57"); -- open the write gate
+      else
+        POKE(x"D680",x"4D"); -- open the MBR write gate
+      end if;
+      report "WRITESECTOR: Write command issued";
       POKE(x"D680",x"03"); -- Write single sector
 
       -- Allow enough time to write the whole sector
@@ -672,6 +678,24 @@ begin
         -- Check that reading sector after write works (it won't be cached yet,
         -- though)
         sdcard_read_sector(1, true,true, false, true, "Reading sector 1 from cache after writing to it");
+
+      elsif run("Back-to-Back Writes work") then
+
+        sdcard_reset_sequence;
+        POKE(x"D680",x"CE");   -- enable cache
+
+        -- Prepare sector buffer full of values, the first of which is $42.
+        fill_sector_buffer(x"42");
+
+        -- Write that to sector 1
+        sdcard_write_sector(1,true);
+        -- .. and sector 0
+        sdcard_write_sector(0,true);
+
+        -- Check that reading sector after write works (it won't be cached yet,
+        -- though)
+        sdcard_read_sector(1, true,true, false, true, "Reading sector 1 from cache after writing to it");
+        sdcard_read_sector(0, true,true, false, true, "Reading sector 0 from cache after writing to it");
                      
       elsif run("Write-back to SD card cache updates cache") then
         -- XXX Read, write, re-read and verify that 2nd read was from cache (fast)
