@@ -1899,9 +1899,11 @@ begin  -- behavioural
       sdcache_next_slot(sdcache_next_slot_bit) <= sdcache_random_bit;
       sdcache_next_slot(sdcache_address_bits-1) <= '0';
       -- And the same, but aligned to a cluster for data block, directory and FAT sector reads.
-      if cache_enable then
+      if sdcache_address_bits > 0 then
         sdcache_next_slot_aligned(sdcache_next_slot_bit) <= sdcache_random_bit;
-        sdcache_next_slot_aligned(sdcache_address_bits-1) <= '0';      
+        sdcache_next_slot_aligned(sdcache_address_bits-1) <= '0';
+      end if;
+      if sdcache_address_bits > 3 then
         sdcache_next_slot_aligned(2 downto 0) <= "000";
       end if;
       if sdcache_next_slot_bit < (sdcache_address_bits-2) then
