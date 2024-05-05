@@ -89,6 +89,7 @@ begin
       next_cmd_is_acmd <= '0';
       sdcard_idle <= '1';
       flash_address <= (others => '0');
+      report "SDCARDMODEL: Reseting flash_address due to CS high";
       flash_write <= '0';
     elsif rising_edge(sclk_o) then
       if sdcard_state /= last_sdcard_state then

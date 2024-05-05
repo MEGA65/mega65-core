@@ -796,6 +796,7 @@ architecture behavioural of sdcardio is
   signal reading_ahead : std_logic := '0';
   signal pending_sdcard_job : std_logic := '0';
   signal sdcard_job_id : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal read_during_read_ahead : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1957,87 +1958,161 @@ begin  -- behavioural
         if sdio_busy_ext='0' then
           report "JOBQUEUE: Asserting sdio_busy_ext due to a pending job";
           sdio_busy_ext <= '1';
+        end if;        
+        
+        if sdio_busy_int='1' then
+          case sdcard_job_id is
+            when x"02" | x"07" | x"08" | x"09" =>
+              if reading_ahead = '1' and read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
+                -- Requested sector is in the process of being read via the
+                -- read-ahead mechanism OR has already been read by the
+                -- read-ahead mechanism.
+
+                -- Stimulate cache search repeatedly until we find the sector
+                -- is loaded
+                if cache_has_match='0' and cache_sector_lookup_in_progress='0' then
+                  sd_sector_modified <= '1';
+                end if;
+
+                if cache_has_match='1' then
+                  -- Note that this read should be handled by the read-ahead
+                  -- state machine, if it's not already being done so.
+                  if read_during_read_ahead='0' then
+                    report "READAHEAD: Requesting async read of sector during read-ahead from cache slot " & integer'image(cache_match_slot)
+                      & " for sector $" & to_hexstring(sd_sector);
+                    read_during_read_ahead <= '1';
+                    cache_raddr <=  cache_match_slot * 512;
+                  end if;
+                end if;                  
+                
+              end if;
+              
+            when others =>
+              null;
+          end case;
+            
+        else
+          report "JOBQUEUE: Dispatching SD card job $" & to_hexstring(sdcard_job_id);
+          pending_sdcard_job <= '0';
+          case sdcard_job_id is
+            when x"0c" =>
+              -- Request flush of write cache on SD card
+              sd_doread <= '1';
+              sd_dowrite <= '1';
+              sd_handshake <= '0';
+              sd_handshake_internal <= '0';
+              
+            when x"02" | x"07" | x"08" | x"09" | x"22" =>
+              -- Read a sector -- but not via read-ahead.
+              -- Read-ahead is handled in-line in the state-machine
+              
+              report "JOBQUEUE: Immediate issue of read of sector $" & to_hexstring(sd_sector);
+
+              sdio_busy_ext <= '1';
+              
+              case sdcard_job_id is
+                when x"07" => -- cached misc FS read
+                  sd_read_request_type <= FS_MISC;
+                when x"08" => -- cached FAT sector read
+                  sd_read_request_type <= FS_FAT;
+                when x"09" => -- cached DIR sector read
+                  sd_read_request_type <= FS_DIR;
+                when others =>
+                  sd_read_request_type <= DATA;
+              end case;
+              
+              sd_write_multi <= '0';
+              sd_write_multi_first <= '0';
+              sd_write_multi_last <= '0';
+              
+              report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic'image(sdio_busy_int)
+                & ", sd_sector=$" & to_hexstring(sd_sector);
+              
+              if sdcard_job_id(5)='0' and cache_enable='1' then
+                -- Allow cache for this read
+                sd_state <= ReadSectorCacheCheck;
+                read_is_cacheable <= '1';
+                sdcache_sector_being_read <= sd_sector;
+              else
+                -- Disable cache for this read
+                sd_state <= ReadSector;
+                read_is_cacheable <= '0';
+              end if;
+              sdio_error <= '0';
+              sdio_fsm_error <= '0';
+              -- Put into SD card buffer, not F011 buffer
+              f011_sector_fetch <= '0';
+              sd_buffer_offset <= (others => '0');            
+              
+            when x"03" =>
+              -- Write sector
+              
+              sdio_busy_ext <= '1';
+              
+              sd_write_multi <= '0';
+              sd_write_multi_first <= '0';
+              sd_write_multi_last <= '0';
+              
+              report "SDWRITE: Commencing write (single sector)";
+              sd_state <= SDWriteSector;
+              sdio_error <= '0';
+              sdio_fsm_error <= '0';
+              f011_sector_fetch <= '0';
+              
+              sd_wrote_byte <= '0';
+              sd_buffer_offset <= (others => '0');
+              
+            when x"04" =>
+              -- Multi-sector write: first sector
+              sd_write_multi <= '1';
+              sd_write_multi_first <= '1';
+              sd_write_multi_last <= '0';
+              
+              report "SDWRITE: Commencing write (multi-sector)";
+              sd_state <= SDWriteSector;
+              sdio_error <= '0';
+              sdio_fsm_error <= '0';
+              f011_sector_fetch <= '0';
+              
+              sd_wrote_byte <= '0';
+              sd_buffer_offset <= (others => '0');
+              
+            when x"05" =>
+              -- Multi-sector write: neither first nor last sector
+              sd_write_multi <= '1';
+              sd_write_multi_first <= '0';
+              sd_write_multi_last <= '0';
+              
+              report "SDWRITE: Commencing write";
+              sd_state <= SDWriteSector;
+              sdio_error <= '0';
+              sdio_fsm_error <= '0';
+              f011_sector_fetch <= '0';
+              
+              sd_wrote_byte <= '0';
+              sd_buffer_offset <= (others => '0');
+              
+            when x"06" =>
+              -- Multi-sector write: neither first nor last sector
+              sd_write_multi <= '1';
+              sd_write_multi_first <= '0';
+              sd_write_multi_last <= '1';
+              
+              report "SDWRITE: Commencing write";
+              sd_state <= SDWriteSector;
+              sdio_error <= '0';
+              sdio_fsm_error <= '0';
+              f011_sector_fetch <= '0';
+              
+              sd_wrote_byte <= '0';
+              sd_buffer_offset <= (others => '0');
+              
+            when others =>
+              null;
+          end case;
         end if;
       end if;
-      if pending_sdcard_job='1' and sdio_busy_int='0' then
-        report "JOBQUEUE: Dispatching SD card job $" & to_hexstring(sdcard_job_id);
-        pending_sdcard_job <= '0';
-        case sdcard_job_id is
-          when x"0c" =>
-            -- Request flush of write cache on SD card
-            sd_doread <= '1';
-            sd_dowrite <= '1';
-            sd_handshake <= '0';
-            sd_handshake_internal <= '0';
-
-          when x"03" =>
-            -- Write sector
-
-            sdio_busy_ext <= '1';
-            
-            sd_write_multi <= '0';
-            sd_write_multi_first <= '0';
-            sd_write_multi_last <= '0';
-              
-            report "SDWRITE: Commencing write (single sector)";
-            sd_state <= SDWriteSector;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            f011_sector_fetch <= '0';
-              
-            sd_wrote_byte <= '0';
-            sd_buffer_offset <= (others => '0');
-
-          when x"04" =>
-            -- Multi-sector write: first sector
-            sd_write_multi <= '1';
-            sd_write_multi_first <= '1';
-            sd_write_multi_last <= '0';
-
-            report "SDWRITE: Commencing write (multi-sector)";
-            sd_state <= SDWriteSector;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            f011_sector_fetch <= '0';
-            
-            sd_wrote_byte <= '0';
-            sd_buffer_offset <= (others => '0');
-
-          when x"05" =>
-            -- Multi-sector write: neither first nor last sector
-            sd_write_multi <= '1';
-            sd_write_multi_first <= '0';
-            sd_write_multi_last <= '0';
-
-            report "SDWRITE: Commencing write";
-            sd_state <= SDWriteSector;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            f011_sector_fetch <= '0';
-            
-            sd_wrote_byte <= '0';
-            sd_buffer_offset <= (others => '0');
-            
-          when x"06" =>
-            -- Multi-sector write: neither first nor last sector
-            sd_write_multi <= '1';
-            sd_write_multi_first <= '0';
-            sd_write_multi_last <= '1';
-
-            report "SDWRITE: Commencing write";
-            sd_state <= SDWriteSector;
-            sdio_error <= '0';
-            sdio_fsm_error <= '0';
-            f011_sector_fetch <= '0';
-            
-            sd_wrote_byte <= '0';
-            sd_buffer_offset <= (others => '0');
-            
-          when others =>
-            null;
-        end case;
-      end if;
-      
+    
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
         hw_errata_level_int <= x"ff";
@@ -3268,47 +3343,12 @@ begin  -- behavioural
                 when x"02" | x"07" | x"08" | x"09" | x"22" =>
                   -- Read sector
 
+                  read_during_read_ahead <= '0';
+                  
                   if sdio_busy_ext = '0' then
-                    report "JOBQUEUE: Asserting sdio_busy_ext due to read job submission";
-                    sdio_busy_ext <= '1';
-                    report "JOBQUEUE: Immediate issue of read of sector $" & to_hexstring(sd_sector);
-
-                    sdio_busy_ext <= '1';
-            
-                    case sdcard_job_id is
-                      when x"07" => -- cached misc FS read
-                        sd_read_request_type <= FS_MISC;
-                      when x"08" => -- cached FAT sector read
-                        sd_read_request_type <= FS_FAT;
-                      when x"09" => -- cached DIR sector read
-                        sd_read_request_type <= FS_DIR;
-                      when others =>
-                        sd_read_request_type <= DATA;
-                    end case;
-                    
-                    sd_write_multi <= '0';
-                    sd_write_multi_first <= '0';
-                    sd_write_multi_last <= '0';
-                    
-                    report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic'image(sdio_busy_int)
-                      & ", sd_sector=$" & to_hexstring(sd_sector);
-                    
-                    if sdcard_job_id(5)='0' and cache_enable='1' then
-                      -- Allow cache for this read
-                      sd_state <= ReadSectorCacheCheck;
-                      read_is_cacheable <= '1';
-                      sdcache_sector_being_read <= sd_sector;
-                    else
-                      -- Disable cache for this read
-                      sd_state <= ReadSector;
-                      read_is_cacheable <= '0';
-                    end if;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    -- Put into SD card buffer, not F011 buffer
-                    f011_sector_fetch <= '0';
-                    sd_buffer_offset <= (others => '0');
-                    
+                    pending_sdcard_job <= '1';
+                    sdio_busy_ext <= '1';                    
+                    sdcard_job_id <= fastio_wdata;
                   else
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -3327,8 +3367,8 @@ begin  -- behavioural
                     report "JOBQUEUE: Asserting sdio_busy_ext due to write job submission";
                     sdio_busy_ext <= '1';
                     pending_sdcard_job <= '1';
-                    report "JOBQUEUE: Queueing write to sector $" & to_hexstring(sd_sector);
                     sdcard_job_id <= fastio_wdata;
+                    report "JOBQUEUE: Queueing write to sector $" & to_hexstring(sd_sector);
 
                     write_sector0_gate_open <= '0';
                     write_sector_gate_open <= '0';
@@ -4322,7 +4362,7 @@ begin  -- behavioural
             -- A byte is ready to read, so store it
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
-
+            
             if read_is_cacheable='1' then
               report "SDCACHE: Writing byte $" & to_hexstring(sd_rdata) & " into sector cache at $" & to_hexstring(to_unsigned(cache_waddr+1,24));
               cache_w <= '1';
@@ -4373,7 +4413,42 @@ begin  -- behavioural
             sd_handshake_internal <= '0';
           end if;
 
+          -- Service cache read during read-ahead
+          if read_during_read_ahead='1' then
+            f011_buffer_write_address <= "111"&to_unsigned(cache_raddr,9);      
+            f011_buffer_wdata <= unsigned(cache_rdata);
+            f011_buffer_write <= '1';
+            report "READAHEAD: Writing byte $" & to_hexstring(cache_rdata) & " at offset $" & to_hexstring(to_unsigned(cache_raddr,9));
+            if to_integer(to_unsigned(cache_raddr,9)) /= 511 then
+              cache_raddr <= cache_raddr + 1;
+            else
+              read_during_read_ahead <= '0';
+              sdio_busy_ext <= '0';
+              pending_sdcard_job <= '0';
+              report "READAHEAD: Finished delivering cached sector during read-ahead";
+            end if;
+
+          end if;
+          
         when ReadingSectorAckByte =>
+
+          -- Service cache read during read-ahead
+          if read_during_read_ahead='1' then
+            f011_buffer_write_address <= "111"&to_unsigned(cache_raddr,9);      
+            f011_buffer_wdata <= unsigned(cache_rdata);
+            f011_buffer_write <= '1';
+            report "READAHEAD: Writing byte $" & to_hexstring(cache_rdata) & " at offset $" & to_hexstring(to_unsigned(cache_raddr,9));
+            if to_integer(to_unsigned(cache_raddr,9)) /= 511 then
+              cache_raddr <= cache_raddr + 1;
+            else
+              read_during_read_ahead <= '0';
+              sdio_busy_ext <= '0';
+              pending_sdcard_job <= '0';
+              report "READAHEAD: Finished delivering cached sector during read-ahead";
+            end if;
+
+          end if;
+          
           -- Wait until controller acknowledges that we have acked it
           sd_handshake <= '0';
           sd_handshake_internal <= '0';
@@ -4445,6 +4520,9 @@ begin  -- behavioural
                     report "READAHEAD: Scheduling next sector in read-ahead (" & integer'image(read_ahead_count) & " sectors still to go)";
                     sdcache_write_slot <= sdcache_write_slot + 1;
                     sdcache_sector_being_read <= sdcache_sector_being_read + 1;
+                    -- XXX Until we implement true multi-sector reads we have
+                    -- to fudge things by issuing sequential single sector reads
+                    sd_sector <= sd_sector + 1;
                     update_cache_waddr <= '1';
                     read_ahead_count <= read_ahead_count - 1;
                     sd_state <= ReadAheadSector;

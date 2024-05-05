@@ -157,7 +157,6 @@ begin
     variable requested_flash_slot : integer := 0;
     variable requested_sector_found : boolean := false;
     variable requested_sector : integer := 0;
-    variable last_requested_sector : integer := 0;
 
     procedure clock_tick is
       variable slot_num : integer := 0;
@@ -300,19 +299,17 @@ begin
 
       requested_sector := sector;
 
-      if requested_sector /= last_requested_sector then
-        last_requested_sector := requested_sector;
-        requested_flash_slot := 0;
-        requested_sector_found := false;
-        for i in 1 to (sector_count-1) loop
-            if requested_sector = sector_numbers(i) then
-            requested_flash_slot := i;
-            report "SDCARDIMG: Requested sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
-            requested_sector_found := true;
-            exit;
-          end if;
-        end loop;
-      end if;
+      requested_flash_slot := 0;
+      requested_sector_found := false;
+      for i in 1 to (sector_count-1) loop
+        if requested_sector = sector_numbers(i) then
+          requested_flash_slot := i;
+          report "SDCARDIMG: Requested sector $" & to_hexstring(flash_address(47 downto 9)) & " maps to sector slot " & integer'image(i);
+          requested_sector_found := true;
+          exit;
+        end if;
+      end loop;
+
       if requested_sector_found = false then
         report "SDCARDIMG: WARNING: Attempted to read a sector that is not present in the SD card image (or is all zeroes)";
       end if;
@@ -750,8 +747,13 @@ begin
         -- We allow flash address to be elsewhere, since we expect read-ahead
         -- to be happening
         sdcard_read_sector(0, true,false, false, true,"first read (sector 1)");
+
+        -- Fill sector buffer with fluff so that we can tell if we have really
+        -- received something
+        fill_sector_buffer(x"42");
+
         -- Wait long enough for read-ahead to read this 2nd sector
-        for i in 1 to 50000 loop
+        for i in 1 to 100_000 loop
           clock_tick;
         end loop;
         sdcard_read_sector(1, true,false, true, false, "second read (sector 1) from cache");
