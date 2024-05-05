@@ -113,6 +113,7 @@
 library IEEE; -- , XESS;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
+use work.debugtools.all;
 --use XESS.CommonPckg.all;
 
 package SdCardPckg is
@@ -444,7 +445,7 @@ begin
               report "SDCARD: Card is still idle after ACMD41 -- repeating request";
             else                        -- Some error occurred.
               state_v := REPORT_ERROR;  -- Report the error and stall.
-              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hstring(rx_v);
+              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hexstring(rx_v);
             end if;
                         
           when SEND_CMD55_FOR_ACMD6 =>  -- Send CMD55 as preamble of ACMD41 initialization command.
@@ -478,7 +479,7 @@ begin
               report "SDCARD: Card is still idle after ACMD41 -- repeating request";
             else                        -- Some error occurred.
               state_v := REPORT_ERROR;  -- Report the error and stall.
-              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hstring(rx_v);
+              report "SDCARD: Error detected in response to ACMD41 : rx_v = $" & to_hexstring(rx_v);
             end if;
             
           when WAIT_FOR_HOST_RW =>  -- Wait for the host to read or write a block of data from the SD card.
@@ -542,9 +543,9 @@ begin
               elsif rx_v = START_TOKEN_C then
                 rtnData_v := true;  -- Found the start token, so now start returning data byes to the host.
                 byteCnt_v := byteCnt_v - 1;
-                report "SDCARD: Found start token $" & to_hstring(rx_v);
+                report "SDCARD: Found start token $" & to_hexstring(rx_v);
               else  -- Getting anything else means something strange has happened.
-                report "SDCARD: Expected either no token = $FF or data token =$FE, but saw %" & to_hstring(rx_v);
+                report "SDCARD: Expected either no token = $FF or data token =$FE, but saw %" & to_hexstring(rx_v);
                 state_v := REPORT_ERROR;
               end if;
             elsif byteCnt_v >= 3 then  -- Now bytes of data from the SD card are received.
@@ -589,7 +590,7 @@ begin
               state_v    := RX_BITS;  -- Get response of SD card to the write operation.
               rtnState_v := WR_BLK;
             else                        -- Check received response byte.
-              report "SDCARD: Received block write response $" & to_hstring(rx_v);
+              report "SDCARD: Received block write response $" & to_hexstring(rx_v);
               if std_match(rx_v, DATA_ACCEPTED_C) then  -- Data block was accepted.
                 report "SDCARD: That's correct";
                 state_v := WR_WAIT;  -- Wait for the SD card to finish writing the data into Flash.
@@ -637,7 +638,7 @@ begin
           when START_TX =>
             -- Start sending command/data by lowering SCLK and outputing MSB of command/data
             -- so it has plenty of setup before the rising edge of SCLK.
-            report "SDCARD: Sending command $" & to_hstring(txData_v);
+            report "SDCARD: Sending command $" & to_hexstring(txData_v);
             sclk_r           <= '0';  -- Lower the SCLK (although it should already be low).
             sclkPhaseTimer_v := clkDivider_v;  -- Set the duration of the low SCLK.
             mosi_o           <= tx_v(tx_v'high);  -- Output MSB of command/data.
@@ -699,7 +700,7 @@ begin
                 if rtnData_v then       -- Send the received data to the host.
                   data_o   <= rx_v;     -- Output received data to the host.
                   hndShk_r <= '1';  -- Signal to the host that the data is ready.
-                  report "SDCARD: Received byte $" & to_hstring(rx_v);
+                  report "SDCARD: Received byte $" & to_hexstring(rx_v);
                 end if;
                 if doDeselect_v then
                   bitCnt_v := 1;
