@@ -292,6 +292,11 @@ architecture behavioural of sdcardio is
   signal sdio_busy_int : std_logic := '0';
   -- Is the low-level SD controller busy?
   signal sdcard_busy : std_logic := '0';
+  -- And do we tell the outside world that it's busy?
+  -- For backwards compatibility we should lie to say that it isn't busy when a
+  -- background read-ahead is going on, unless the hardware errata level is high
+  -- enough.
+  signal sdcard_busy_ext : std_logic := '0';
   
   signal sdio_error : std_logic := '0';
   signal sdio_fsm_error : std_logic := '0';
@@ -300,6 +305,7 @@ architecture behavioural of sdcardio is
 
   type sd_state_t is (Idle,
                       ReadSectorCacheCheck,
+                      ReadCacheMissWaitForSDController,
                       ReadCachedWaitForSector,
                       ReadCachedSector,
                       ReadingCachedSector,
@@ -1409,7 +1415,7 @@ begin  -- behavioural
             fastio_rdata(4) <= sdhc_mode;
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= sd_reset;
-            fastio_rdata(1) <= sdcard_busy;  -- Whether the SD card thinks it is busy
+            fastio_rdata(1) <= sdcard_busy_ext;  -- Whether the SD card thinks it is busy
             fastio_rdata(0) <= sdio_busy_ext;  -- Whether we indicate that we are busy
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
@@ -1869,6 +1875,12 @@ begin  -- behavioural
       cache_w <= '0';
       cache_state_w <= '0';
 
+      if reading_ahead='0' or to_integer(hw_errata_level_int) < 3 then
+        sdcard_busy_ext <= sdcard_busy;
+      else
+        sdcard_busy <= '0';
+      end if;
+      
       if update_cache_waddr='1' then
         -- Prep write address for sector
         -- (we pre-increment during writing, so start one address lower)
@@ -1940,6 +1952,7 @@ begin  -- behavioural
       end if;
 
       if pending_sdcard_job='1' then
+        report "JOBQUEUE: Asserting sdio_busy_ext due to a pending job";
         sdio_busy_ext <= '1';
       end if;
       if pending_sdcard_job='1' and sdio_busy_int='0' then
@@ -1955,6 +1968,8 @@ begin  -- behavioural
           when x"02" | x"07" | x"08" | x"09" | x"22" =>
             -- Read sector
 
+            sdio_busy_ext <= '1';
+            
             case sdcard_job_id is
               when x"07" => -- cached misc FS read
                 sd_read_request_type <= FS_MISC;
@@ -1997,6 +2012,8 @@ begin  -- behavioural
           when x"03" =>
             -- Write sector
 
+            sdio_busy_ext <= '1';
+            
             sd_write_multi <= '0';
             sd_write_multi_first <= '0';
             sd_write_multi_last <= '0';
@@ -3291,6 +3308,7 @@ begin  -- behavioural
                   -- Read sector
 
                   if sdio_busy_ext = '0' then
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to read job submission";
                     sdio_busy_ext <= '1';
                     pending_sdcard_job <= '1';
                     sdcard_job_id <= fastio_wdata;
@@ -3310,6 +3328,7 @@ begin  -- behavioural
                   elsif (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
                     or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
                   then
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to write job submission";
                     sdio_busy_ext <= '1';
                     pending_sdcard_job <= '1';
                     report "JOBQUEUE: Queueing write to sector $" & to_hexstring(sd_sector);
@@ -3339,6 +3358,7 @@ begin  -- behavioural
                     sd_state <= qspi_write_256;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                   else
                     -- Permission denied
@@ -3349,6 +3369,7 @@ begin  -- behavioural
                     sd_state <= qspi_write_512;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                   else
                     -- Permission denied
@@ -3359,6 +3380,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_read_512;
                   else
@@ -3373,6 +3395,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                   sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
@@ -3387,6 +3410,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -3409,6 +3433,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -3432,6 +3457,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching verify command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                   sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
@@ -3446,6 +3472,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -3463,6 +3490,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -3486,6 +3514,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     qspi_read_sector_phase <= 0;
@@ -3508,6 +3537,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -3525,6 +3555,7 @@ begin  -- behavioural
                   -- SPI Clear status register. Allowed from user land
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                   sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   qspi_read_sector_phase <= 0;
@@ -3539,6 +3570,7 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                   sdio_busy_ext <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= x"00000000";
@@ -3554,6 +3586,7 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
                     sdio_busy_ext <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
@@ -4051,7 +4084,8 @@ begin  -- behavioural
       last_sd_state_t <= sd_state;
       last_f011_drq <= f011_drq;
       if sd_state /= last_sd_state_t or f011_drq /= last_f011_drq then
-        report "FLOP: sd_state=" & sd_state_t'image(sd_state) & ", f011_drq=" & std_logic'image(f011_drq);
+        report "FLOP: sd_state=" & sd_state_t'image(sd_state) & ", f011_drq=" & std_logic'image(f011_drq)
+          & ", sdio_busy_ext=" & std_logic'image(sdio_busy_ext);
       end if;
 
       case sd_state is
@@ -4112,95 +4146,91 @@ begin  -- behavioural
 
         when ReadSectorCacheCheck =>
 
-          if sdcard_busy='0' then          
-            sdio_busy_int <= '1';
-            report "SDCACHE: asserting sdio_busy_int";
+          sdio_busy_int <= '1';
+          report "SDCACHE: asserting sdio_busy_int";
           
-            if cache_sector_lookup_in_progress = '1' then
-              -- Waiting for completion of scan of the cache for the
-              -- requested sector.
-              -- report "SDCACHE: Waiting for sector lookup in cache to complete";
-              sd_state <= ReadSectorCacheCheck;
-            else
-              -- Once we know if the sector is in the cache, read it via
-              -- the appropriate path.
-
-              if cache_has_match='1' then
-                report "SDCACHE: Cache hit for sector $" & to_hexstring(sd_sector);
-                sd_state <= ReadCachedSector;               
-              else
-                if read_is_cacheable = '1' then
-
-                  -- XXX Also just wait if the SD card interface is currently reading
-                  -- any sector in the cluster where the requested sector resides via
-                  -- the read-ahead functionality.
-                  if read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
-                    report "SDCACHE: READAHEAD will deliver this sector soon: read_ahead_sector=$" & to_hexstring(read_ahead_sector) & ", reading " & integer'image(read_ahead_count) & " more sectors";
-                    sd_state <= ReadCachedWaitForSector;
-                  else
-                    report "SDCACHE: Cache miss for sector.";
-                    -- Determine where in the cache to write the sector.
-                    -- Update the cache slot to indicate which sector we are writing
-                    cache_state_w <= '1';
-                    cache_state_cs <= '1';
-                    -- Cache is partitioned in two halves: One for file system structures,
-                    -- and the other for data blocks
-                    case sd_read_request_type is
-                      when FS_MISC =>
-                        report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot));
-                        cache_state_waddr <= to_integer(sdcache_next_slot);
-                        sdcache_write_slot <= to_integer(sdcache_next_slot);
-                        read_ahead_count <= 0;
-                        read_ahead_sector <= (others => '1');
-                        report "READAHEAD: Disabled due to FS_MISC request type";
-                      when FS_FAT | FS_DIR =>
-                        report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
-                        cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
-                        sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
-                        if sd_sector(2 downto 0) = "000" then
-                          read_ahead_count <= 7;
-                          read_ahead_sector <= sd_sector;
-                          report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
-                        else
-                          report "READAHEAD: Disabled due to non-aligned sector number";
-                        end if;
-                      when others =>
-                        report "Will cache DATA sector in slot " & integer'image((cache_size/2) + to_integer(sdcache_next_slot_aligned));
-                        cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
-                        sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
-                        if sd_sector(2 downto 0) = "000" then
-                          read_ahead_count <= 7;
-                          read_ahead_sector <= sd_sector;
-                          report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
-                        else
-                          report "READAHEAD: Disabled due to non-aligned sector number";
-                        end if;
-                    end case;
-                    cache_state_wdata(31 downto 0) <= sd_sector;
-                    report "SDCACHE: Setting sdcache_sector_being_read to $" & to_hexstring(sdcache_sector_being_read);
-                    sdcache_sector_being_read <= sd_sector;
-                    -- But not yet loaded
-                    cache_state_wdata(35 downto 32) <= (others => '0');
-
-                    update_cache_waddr <= '1';
-                  end if;
-                else
-                  report "SDCACHE: Cache miss, but read is not marked cacheable, so not caching the results of the read";
-                end if;
-                sd_state <= ReadSector;
-              end if;
-            end if;
+          if cache_sector_lookup_in_progress = '1' then
+            -- Waiting for completion of scan of the cache for the
+            -- requested sector.
+            -- report "SDCACHE: Waiting for sector lookup in cache to complete";
+            sd_state <= ReadSectorCacheCheck;
           else
-            -- Request was made while still busy -- do nothing
-            report "SDCARDIO: Ignoring read request while SD card state machine and/or interface is still busy: sdio_busy_int="
-              & std_logic'image(sdio_busy_int) & "sdio_busy_ext="
-              & std_logic'image(sdio_busy_ext) &
-              ", sdcard_busy=" & std_logic'image(sdcard_busy);
-            sd_state <= Idle;
-            sdio_busy_ext <= '0';
-            sdio_error <= '1';
-          end if;
+            -- Once we know if the sector is in the cache, read it via
+            -- the appropriate path.
 
+            if cache_has_match='1' then
+              report "SDCACHE: Cache hit for sector $" & to_hexstring(sd_sector);
+              sd_state <= ReadCachedSector;               
+            else
+              if read_is_cacheable = '1' then
+                
+                -- XXX Also just wait if the SD card interface is currently reading
+                -- any sector in the cluster where the requested sector resides via
+                -- the read-ahead functionality.
+                if read_ahead_sector(31 downto 3) = sd_sector(31 downto 3) then
+                  report "SDCACHE: READAHEAD will deliver this sector soon: read_ahead_sector=$" & to_hexstring(read_ahead_sector) & ", reading " & integer'image(read_ahead_count) & " more sectors";
+                  sd_state <= ReadCachedWaitForSector;
+                else
+                  sd_state <= ReadCacheMissWaitForSDController;
+                end if;
+              else
+                report "SDCACHE: Non-cacheable read, so not checking if sector is in cache";
+                sd_state <= ReadCacheMissWaitForSDController;
+              end if;                
+            end if;
+          end if;
+          
+        when ReadCacheMissWaitForSDController =>
+
+          if sdcard_busy = '0' then
+            report "SDCACHE: Cache miss for sector.";
+            -- Determine where in the cache to write the sector.
+            -- Update the cache slot to indicate which sector we are writing
+            cache_state_w <= '1';
+            cache_state_cs <= '1';
+            -- Cache is partitioned in two halves: One for file system structures,
+            -- and the other for data blocks
+            case sd_read_request_type is
+              when FS_MISC =>
+                report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot));
+                cache_state_waddr <= to_integer(sdcache_next_slot);
+                sdcache_write_slot <= to_integer(sdcache_next_slot);
+                read_ahead_count <= 0;
+                read_ahead_sector <= (others => '1');
+                report "READAHEAD: Disabled due to FS_MISC request type";
+              when FS_FAT | FS_DIR =>
+                report "Will cache FS sector in slot " & integer'image(to_integer(sdcache_next_slot_aligned));
+                cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
+                sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
+                if sd_sector(2 downto 0) = "000" then
+                  read_ahead_count <= 7;
+                  read_ahead_sector <= sd_sector;
+                  report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                else
+                  report "READAHEAD: Disabled due to non-aligned sector number";
+                end if;
+              when others =>
+                report "Will cache DATA sector in slot " & integer'image((cache_size/2) + to_integer(sdcache_next_slot_aligned));
+                cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
+                if sd_sector(2 downto 0) = "000" then
+                  read_ahead_count <= 7;
+                  read_ahead_sector <= sd_sector;
+                  report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
+                else
+                  report "READAHEAD: Disabled due to non-aligned sector number";
+                end if;
+            end case;
+            cache_state_wdata(31 downto 0) <= sd_sector;
+            report "SDCACHE: Setting sdcache_sector_being_read to $" & to_hexstring(sdcache_sector_being_read);
+            sdcache_sector_being_read <= sd_sector;
+            -- But not yet loaded
+            cache_state_wdata(35 downto 32) <= (others => '0');
+            
+            update_cache_waddr <= '1';
+          end if;
+          sd_state <= ReadSector;          
+          
         when ReadCachedWaitForSector =>
           -- A read-ahead operation will read the sector we are looking for,
           -- so periodically prod the cache lookup process until it appears, at
@@ -4378,6 +4408,7 @@ begin  -- behavioural
                     update_cache_waddr <= '1';
                     read_ahead_count <= read_ahead_count - 1;
                     sd_state <= ReadSector;
+                    sdio_busy_ext <= '0';
                   else
                     -- Abort reading ahead
                     report "READAHEAD: Finished reading ahead";
@@ -4393,6 +4424,7 @@ begin  -- behavioural
               if (sd_buffer_offset = "000000000") and (read_data_byte='1') then
                 -- Finished reading SD-card sectory
                 sd_state <= DoneReadingSector;
+                sdio_busy_ext <= '0';
 
                 if read_is_cacheable='1' then
                   -- Writing the last byte now, so also update the cache to
@@ -4413,6 +4445,8 @@ begin  -- behavioural
                     read_ahead_count <= read_ahead_count - 1;
                     sd_state <= ReadAheadSector;
                     reading_ahead <= '1';
+                    report "READAHEAD: Clearing sdio_busy_ext due to completion of read of initial sector";
+                    sdio_busy_ext <= '0';
                   else
                     -- Abort reading ahead
                     report "READAHEAD: Finished reading ahead";
@@ -5358,6 +5392,7 @@ begin  -- behavioural
           qspi_clock_int <= '1';
         when QSPI_qwrite_512 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
@@ -5366,6 +5401,7 @@ begin  -- behavioural
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_512 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
@@ -5375,6 +5411,7 @@ begin  -- behavioural
           sd_state <= QSPI_write_phase1;
         when QSPI_qwrite_256 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
@@ -5383,6 +5420,7 @@ begin  -- behavioural
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_qwrite_16 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
@@ -5391,6 +5429,7 @@ begin  -- behavioural
           sd_state <= QSPI_qwrite_phase1;
         when QSPI_write_256 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '0';
@@ -5501,6 +5540,7 @@ begin  -- behavioural
 
         when QSPI4_write_512 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '1';
@@ -5509,6 +5549,7 @@ begin  -- behavioural
           sd_state <= QSPI4_write_phase1;
         when QSPI4_write_256 =>
           sdio_busy_int <= '1';
+          report "JOBQUEUE: Asserting sdio_busy_ext due to QSPI job";
           sdio_busy_ext <= '1';
           sdio_error <= '0';
           qspidb_tristate <= '1';
