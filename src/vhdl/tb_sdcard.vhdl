@@ -756,7 +756,11 @@ begin
         for i in 1 to 100_000 loop
           clock_tick;
         end loop;
-        sdcard_read_sector(1, true,false, true, false, "second read (sector 1) from cache");
+        sdcard_read_sector(1, true,false, true, false, "second read (sector 1) via read-ahead");
+
+        -- Read yet again to make sure that it works fine, even after already
+        -- in cache from read-ahead
+        sdcard_read_sector(1, true,false, true, false, "third read (sector 1) from cache");
 
         
       end if;
