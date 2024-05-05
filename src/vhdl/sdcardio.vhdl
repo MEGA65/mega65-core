@@ -1941,7 +1941,11 @@ begin  -- behavioural
         end if;
       end if;
 
+      if pending_sdcard_job='1' then
+        sdio_busy_ext <= '1';
+      end if;
       if pending_sdcard_job='1' and sdio_busy_int='0' then
+        report "JOBQUEUE: Dispatching SD card job $" & to_hexstring(sdcard_job_id);
         pending_sdcard_job <= '0';
         case sdcard_job_id is
           when x"0c" =>
@@ -1968,7 +1972,7 @@ begin  -- behavioural
             sd_write_multi_first <= '0';
             sd_write_multi_last <= '0';
 
-            report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic_vector'image(sdio_busy_int)
+            report "SDCARDIO: Attempting to read a sector, sdio_busy_int = " & std_logic'image(sdio_busy_int)
               & ", sd_sector=$" & to_hexstring(sd_sector);
               
             if sdcard_job_id(5)='0' and cache_enable='1' then
@@ -4061,7 +4065,6 @@ begin  -- behavioural
 
         when Idle =>
           sdio_busy_int <= '0';
-          sdio_busy_ext <= '0';
 
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
@@ -4127,6 +4130,7 @@ begin  -- behavioural
           hyper_trap_f011_write <= '1';
           if hypervisor_mode='1' then
             sd_state <= Idle;
+            sdio_busy_ext <= '0';
           end if;
 
         when ReadSectorCacheCheck =>
@@ -4211,6 +4215,7 @@ begin  -- behavioural
               & std_logic'image(sdio_busy_ext) &
               ", sdcard_busy=" & std_logic'image(sdcard_busy);
             sd_state <= Idle;
+            sdio_busy_ext <= '0';
             sdio_error <= '1';
           end if;
 
@@ -4482,6 +4487,7 @@ begin  -- behavioural
             f_wgate <= '1';
             f011_busy <= '0';
             sd_state <= Idle;
+            sdio_busy_ext <= '0';
           end if;
 
           last_fw_no_data <= fw_no_data;
@@ -4553,6 +4559,7 @@ begin  -- behavioural
             f_wgate <= '1';
             f011_busy <= '0';
             sd_state <= Idle;
+            sdio_busy_ext <= '0';
             fdc_sector_operation <= '0';
           end if;
 
@@ -4827,6 +4834,7 @@ begin  -- behavioural
             fdc_bytes_read(4) <= '1';
             f011_busy <= '0';
             sd_state <= Idle;
+            sdio_busy_ext <= '0';
             fdc_sector_operation <= '0';
           end if;
 
@@ -4915,6 +4923,7 @@ begin  -- behavioural
                 f_wgate <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                sdio_busy_ext <= '0';
                 fdc_sector_operation <= '0';
             end case;
           end if;
@@ -4940,6 +4949,7 @@ begin  -- behavioural
               fdc_bytes_read(4) <= '1';
               f011_busy <= '0';
               sd_state <= Idle;
+              sdio_busy_ext <= '0';
               fdc_sector_operation <= '0';
             end if;
 
@@ -4965,6 +4975,7 @@ begin  -- behavioural
                 fdc_bytes_read(4) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                sdio_busy_ext <= '0';
                 fdc_sector_operation <= '0';
               end if;
             end if;
@@ -5019,6 +5030,7 @@ begin  -- behavioural
                 fdc_bytes_read(1) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                sdio_busy_ext <= '0';
                 fdc_sector_operation <= '0';
               end if;
             end if;
@@ -5075,6 +5087,7 @@ begin  -- behavioural
                 fdc_bytes_read(1) <= '1';
                 f011_busy <= '0';
                 sd_state <= Idle;
+                sdio_busy_ext <= '0';
                 fdc_sector_operation <= '0';
               end if;
             end if;
@@ -5291,6 +5304,7 @@ begin  -- behavioural
           qspi_clock_int <= '0';
           qspicsn <= '1';
           sd_state <= Idle;
+          sdio_busy_ext <= '0';
         when SPI_read_512 =>
           -- Tristate SI and SO
           report "QSPI: in SPI_read_512";
@@ -5429,8 +5443,8 @@ begin  -- behavioural
             sd_state <= QSPI_qwrite_phase1;
           else
             sd_state <= Idle;
-            sdio_busy_int <= '1';
-            sdio_busy_ext <= '1';
+            sdio_busy_int <= '0';
+            sdio_busy_ext <= '0';
           end if;
 
         when QSPI_write_phase1 =>
@@ -5459,8 +5473,8 @@ begin  -- behavioural
               sd_state <= QSPI_write_phase1;
             else
               sd_state <= Idle;
-              sdio_busy_int <= '1';
-              sdio_busy_ext <= '1';
+              sdio_busy_int <= '0';
+              sdio_busy_ext <= '0';
             end if;
           else
             qspi_bit_counter <= qspi_bit_counter + 1;
@@ -5493,8 +5507,8 @@ begin  -- behavioural
               sd_state <= SPI_read_phase1;
             else
               sd_state <= Idle;
-              sdio_busy_int <= '1';
-              sdio_busy_ext <= '1';
+              sdio_busy_int <= '0';
+              sdio_busy_ext <= '0';
               qspicsn <= '1';
             end if;
           else
@@ -5530,6 +5544,7 @@ begin  -- behavioural
           end if;
           -- XXX INCOMPLETE!
           sd_state <= Idle;
+          sdio_busy_ext <= '0';
       end case;
 
     end if;
