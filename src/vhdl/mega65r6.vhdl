@@ -1017,8 +1017,6 @@ begin
 
           sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,          
           sdram_slow_clock => sdram_slow_clock,
-          sdram_clk_1 => sdram_clk_1,
-          sdram_clk_0 => sdram_clk_0,
 
           eth_load_enabled => eth_load_enable,
 
