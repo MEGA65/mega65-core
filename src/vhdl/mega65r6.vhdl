@@ -547,7 +547,9 @@ architecture Behavioral of container is
   signal vdac_clk_i : std_logic;
 
   signal sdram_slow_clock : std_logic;
-
+  signal sdram_clk_0 : std_logic;
+  signal sdram_clk_1 : std_logic;
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -848,8 +850,8 @@ begin
     port map (
       c  => clock162,
       ce => '1',
-      d1 => '1',
-      d2 => '0',
+      d1 => sdram_clk_1,
+      d2 => sdram_clk_0,
       s  =>  '0',
       r  =>  '0',
       q  => sdram_clk
@@ -861,6 +863,8 @@ begin
     port map (
       pixelclock => pixelclock,
       identical_clocks => sdram_slow_clock,
+      sdram_clk_0 => sdram_clk_0,
+      sdram_clk_1 => sdram_clk_1,
       clock162 => clock162,
       clock162r => clock162m,
 
@@ -1011,8 +1015,10 @@ begin
           clock27 => clock27,
           clock50mhz      => ethclock,
 
-          sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,
+          sdram_t_or_hyperram_f => sdram_t_or_hyperram_f,          
           sdram_slow_clock => sdram_slow_clock,
+          sdram_clk_1 => sdram_clk_1,
+          sdram_clk_0 => sdram_clk_0,
 
           eth_load_enabled => eth_load_enable,
 

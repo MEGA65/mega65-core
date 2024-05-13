@@ -14,6 +14,9 @@ entity sdram_controller is
 
         clock162r  : in std_logic;      -- read register clock
 
+        sdram_clk_0 : out std_logic;
+        sdram_clk_1 : out std_logic;
+        
         identical_clocks : in std_logic;
 
         -- Option to ignore 100usec initialisation sequence for SDRAM (to
@@ -193,6 +196,11 @@ architecture tacoma_narrows of sdram_controller is
 
   signal resets : unsigned(7 downto 0) := x"00";
 
+  signal sdram_clk_0_int : std_logic := '0';
+  signal sdram_clk_1_int : std_logic := '1';
+  signal sdram_clk_0_drive : std_logic := '0';
+  signal sdram_clk_1_drive : std_logic := '1';
+
 begin
 
   process(clock162r) is
@@ -251,6 +259,11 @@ begin
   begin
     if rising_edge(clock162) then
 
+      sdram_clk_0_drive <= sdram_clk_0_int;
+      sdram_clk_1_drive <= sdram_clk_1_int;
+      sdram_clk_0 <= sdram_clk_0_drive;
+      sdram_clk_1 <= sdram_clk_1_drive;
+      
       sdram_dq   <= (others => 'Z');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
@@ -507,6 +520,9 @@ begin
                   sdram_init_phase <= 0;
                   sdram_do_init <= '1';
                   write_latched <= '0';
+                  -- @IO:GS $C000000 SDRAM:RESET Reset SDRAM controller and select clock polarity.
+                  sdram_clk_0 <= wdata_latched(0);
+                  sdram_clk_1 <= wdata_latched(1);
                 else
                   -- Read non-RAM address
                   sdram_state <= NON_RAM_READ;
