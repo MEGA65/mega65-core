@@ -200,14 +200,22 @@ architecture tacoma_narrows of sdram_controller is
   signal sdram_clk_1_int : std_logic := '1';
   signal sdram_clk_0_drive : std_logic := '0';
   signal sdram_clk_1_drive : std_logic := '1';
-
+  signal latch_on_falling_edge : std_logic := '1';
+  
 begin
 
-  process(clock162r) is
+  process(clock162,clock162r) is
   begin
 
     if rising_edge(clock162r) then
-      sdram_dq_latched <= sdram_dq;
+      if latch_on_falling_edge='1' then
+        sdram_dq_latched <= sdram_dq;
+      end if;
+    end if;
+    if rising_edge(clock162) then
+      if latch_on_falling_edge='0' then
+        sdram_dq_latched <= sdram_dq;
+      end if;
     end if;
   end process;
 
@@ -523,6 +531,7 @@ begin
                   -- @IO:GS $C000000 SDRAM:RESET Reset SDRAM controller and select clock polarity.
                   sdram_clk_0_int <= wdata_latched(0);
                   sdram_clk_1_int <= wdata_latched(1);
+                  latch_on_falling_edge <= wdata_latched(2);
                 else
                   -- Read non-RAM address
                   sdram_state <= NON_RAM_READ;
