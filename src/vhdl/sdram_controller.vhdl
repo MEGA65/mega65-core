@@ -207,6 +207,10 @@ architecture tacoma_narrows of sdram_controller is
   signal extra_latency_drive : std_logic := '0';
   signal extra_latency_int : std_logic := '0';
   signal extra_latency : std_logic := '0';
+  signal clock_invert_on_write_drive : std_logic := '0';
+  signal clock_invert_on_write_int : std_logic := '0';
+  signal clock_invert_on_write : std_logic := '0';
+  signal clock_invert : std_logic := '0';
   
 begin
 
@@ -273,6 +277,9 @@ begin
   begin
     if rising_edge(clock162) then
 
+      clock_invert_on_write_drive <= clock_invert_on_write_int;
+      clock_invert_on_write <= clock_invert_on_write_drive;
+      
       latch_on_falling_edge_drive <= latch_on_falling_edge_int;
       latch_on_falling_edge <= latch_on_falling_edge_drive;
       
@@ -280,10 +287,10 @@ begin
       extra_latency <= extra_latency_drive;
 
       sdram_clk_0_drive <= sdram_clk_0_int;
-      sdram_clk_0 <= sdram_clk_0_drive;
+      sdram_clk_0 <= sdram_clk_0_drive xor clock_invert;
 
       sdram_clk_1_drive <= sdram_clk_1_int;
-      sdram_clk_1 <= sdram_clk_1_drive;
+      sdram_clk_1 <= sdram_clk_1_drive xor clock_invert;
       
       sdram_dq   <= (others => 'Z');
       sdram_dqml <= '1';
@@ -546,6 +553,7 @@ begin
                   sdram_clk_1_int <= wdata_latched(1);
                   latch_on_falling_edge_int <= wdata_latched(2);
                   extra_latency_int <= wdata_latched(3);
+                  clock_invert_on_write_int <= wdata_latched(4);
                 else
                   -- Read non-RAM address
                   sdram_state <= NON_RAM_READ;
@@ -595,6 +603,8 @@ begin
                   if write_latched = '1' then
                     report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
                     sdram_state <= WRITE_1;
+                    -- Allow inversion of SDRAM clock on writes to improve timing
+                    clock_invert <= clock_invert_on_write;
                   end if;
                   sdram_dq(7 downto 0)  <= wdata_latched;
                   sdram_dq(15 downto 8) <= wdata_hi_latched;
