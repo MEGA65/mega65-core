@@ -126,6 +126,7 @@ architecture tacoma_narrows of sdram_controller is
                          READ_WAIT,
                          READ_WAIT_2,
                          READ_WAIT_3,
+                         READ_WAIT_3A,
                          READ_WAIT_4,
                          READ_0,
                          READ_1,
@@ -201,6 +202,11 @@ architecture tacoma_narrows of sdram_controller is
   signal sdram_clk_0_drive : std_logic := '0';
   signal sdram_clk_1_drive : std_logic := '1';
   signal latch_on_falling_edge : std_logic := '1';
+  signal latch_on_falling_edge_drive : std_logic := '1';
+  signal latch_on_falling_edge_int : std_logic := '1';
+  signal extra_latency_drive : std_logic := '0';
+  signal extra_latency_int : std_logic := '0';
+  signal extra_latency : std_logic := '0';
   
 begin
 
@@ -267,9 +273,16 @@ begin
   begin
     if rising_edge(clock162) then
 
+      latch_on_falling_edge_drive <= latch_on_falling_edge_int;
+      latch_on_falling_edge <= latch_on_falling_edge_drive;
+      
+      extra_latency_drive <= extra_latency_int;
+      extra_latency <= extra_latency_drive;
+
       sdram_clk_0_drive <= sdram_clk_0_int;
-      sdram_clk_1_drive <= sdram_clk_1_int;
       sdram_clk_0 <= sdram_clk_0_drive;
+
+      sdram_clk_1_drive <= sdram_clk_1_int;
       sdram_clk_1 <= sdram_clk_1_drive;
       
       sdram_dq   <= (others => 'Z');
@@ -531,7 +544,8 @@ begin
                   -- @IO:GS $C000000 SDRAM:RESET Reset SDRAM controller and select clock polarity.
                   sdram_clk_0_int <= wdata_latched(0);
                   sdram_clk_1_int <= wdata_latched(1);
-                  latch_on_falling_edge <= wdata_latched(2);
+                  latch_on_falling_edge_int <= wdata_latched(2);
+                  extra_latency_int <= wdata_latched(3);
                 else
                   -- Read non-RAM address
                   sdram_state <= NON_RAM_READ;
@@ -673,8 +687,14 @@ begin
             if identical_clocks='1' then
               sdram_state <= READ_0;
             end if;
+            if extra_latency='0' then
+              sdram_state <= READ_WAIT_4;
+            end if;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
+          when READ_WAIT_3A =>
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
+            sdram_emit_command(CMD_NOP);            
           when READ_WAIT_4 =>
             sdram_dqml <= '0'; sdram_dqmh <= '0';
             sdram_emit_command(CMD_NOP);
