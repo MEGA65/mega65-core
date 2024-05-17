@@ -133,6 +133,7 @@ architecture tacoma_narrows of sdram_controller is
                          READ_2,
                          READ_3,
                          READ_4,
+                         WRITE_CLOCK_WAIT,
                          WRITE_1,
                          WRITE_2,
                          CLOSE_FOR_REFRESH,
@@ -605,6 +606,9 @@ begin
                     sdram_state <= WRITE_1;
                     -- Allow inversion of SDRAM clock on writes to improve timing
                     clock_invert <= clock_invert_on_write;
+                    if clock_invert_on_write = '1' then
+                      sdram_state <= WRITE_CLOCK_WAIT;
+                    end if;
                   end if;
                   sdram_dq(7 downto 0)  <= wdata_latched;
                   sdram_dq(15 downto 8) <= wdata_hi_latched;
@@ -683,6 +687,11 @@ begin
             if write_latched = '1' then
               report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
               sdram_state <= WRITE_1;
+              -- Allow inversion of SDRAM clock on writes to improve timing
+              clock_invert <= clock_invert_on_write;
+              if clock_invert_on_write = '1' then
+                sdram_state <= WRITE_CLOCK_WAIT;
+              end if;
             end if;
             sdram_dq(7 downto 0)  <= wdata_latched;
             sdram_dq(15 downto 8) <= wdata_hi_latched;
@@ -733,6 +742,11 @@ begin
             report "BUSY: Clearing after read";
             busy                     <= '0';
             sdram_state              <= IDLE;
+
+            -- Allow time for SDRAM clock to be inverted
+          when WRITE_CLOCK_WAIT =>
+            sdram_emit_command(CMD_NOP);
+            sdram_dqml <= '0'; sdram_dqmh <= '0';
           when WRITE_1 =>
             sdram_emit_command(CMD_WRITE);
             sdram_a(12)         <= '0';
