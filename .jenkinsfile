@@ -45,7 +45,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -78,6 +77,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Set build result') {
             steps {
                 script {
