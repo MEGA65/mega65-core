@@ -375,7 +375,7 @@ set Tac3    5.4  ; # access (clock to output) time for CAS latency 3
 set Toh3    2.5  ; # output hold time for CAS latency 3
 
 #create_clock -name clki -period $Trefclk [get_ports clki]
-create_generated_clock -name clock162 -multiply_by 1 -source [get_pins OBUF_SDRAM_CLK/I] [get_ports sdram_clk]
+create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDRAM_CLK/I] [get_ports sdram_clk]
 
 # As we setup dq a cycle before, and hold it a cycle after, we can actually
 # relax sdram_dq output quite a bit, instead of constraining it
