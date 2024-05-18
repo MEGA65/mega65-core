@@ -389,6 +389,19 @@ create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDC
 set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
 set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 
+# Put the SDRAM ports directly in the IOBs to prevent place and route variation
+set_property IOB true [get_ports sdram_clk]
+set_property IOB true [get_ports sdram_cle]
+set_property IOB true [get_ports sdram_cas_n]
+set_property IOB true [get_ports sdram_ras_n]
+set_property IOB true [get_ports sdram_we_n]
+set_property IOB true [get_ports sdram_cs_n]
+set_property IOB true [get_ports sdram_dqml]
+set_property IOB true [get_ports sdram_dqmh]
+set_property IOB true [get_ports sdram_a[*]]
+set_property IOB true [get_ports sdram_ba[*]]
+set_property IOB true [get_ports sdram_dq[*]]
+
 # One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
 #set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
 #set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
