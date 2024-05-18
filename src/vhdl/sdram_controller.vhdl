@@ -550,6 +550,7 @@ begin
                   sdram_init_phase <= 0;
                   sdram_do_init <= '1';
                   write_latched <= '0';
+                  sdram_100us_countdown <= 16_200; 
                   -- @IO:GS $C000000 SDRAM:RESET Reset SDRAM controller and select clock polarity.
                   sdram_clk_0_int <= wdata_latched(0);
                   sdram_clk_1_int <= wdata_latched(1);
