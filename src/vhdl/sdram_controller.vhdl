@@ -215,7 +215,7 @@ architecture tacoma_narrows of sdram_controller is
   signal clock_invert_on_write : std_logic := '0';
   signal clock_invert : std_logic := '0';
 
-  signal debug_register_enabled : boolean := false;
+  signal debug_register_enabled : boolean := true;
   
 begin
 
