@@ -199,16 +199,16 @@ architecture tacoma_narrows of sdram_controller is
 
   signal resets : unsigned(7 downto 0) := x"00";
 
-  signal sdram_clk_0_int : std_logic := '1';
-  signal sdram_clk_1_int : std_logic := '0';
+  signal sdram_clk_0_int : std_logic := '0';
   signal sdram_clk_0_drive : std_logic := '0';
+  signal sdram_clk_1_int : std_logic := '1';
   signal sdram_clk_1_drive : std_logic := '1';
-  signal latch_on_falling_edge : std_logic := '1';
-  signal latch_on_falling_edge_drive : std_logic := '1';
-  signal latch_on_falling_edge_int : std_logic := '1';
-  signal extra_latency_drive : std_logic := '1';
-  signal extra_latency_int : std_logic := '1';
-  signal extra_latency : std_logic := '1';
+  signal latch_on_falling_edge : std_logic := '0';
+  signal latch_on_falling_edge_drive : std_logic := '0';
+  signal latch_on_falling_edge_int : std_logic := '0';
+  signal extra_latency_drive : std_logic := '0';
+  signal extra_latency_int : std_logic := '0';
+  signal extra_latency : std_logic := '0';
   signal clock_invert_on_write_drive : std_logic := '0';
   signal clock_invert_on_write_int : std_logic := '0';
   signal clock_invert_on_write : std_logic := '0';
