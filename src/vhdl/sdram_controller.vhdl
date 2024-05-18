@@ -202,9 +202,9 @@ architecture tacoma_narrows of sdram_controller is
   signal sdram_clk_1_int : std_logic := '0';
   signal sdram_clk_0_drive : std_logic := '0';
   signal sdram_clk_1_drive : std_logic := '1';
-  signal latch_on_falling_edge : std_logic := '0';
-  signal latch_on_falling_edge_drive : std_logic := '0';
-  signal latch_on_falling_edge_int : std_logic := '0';
+  signal latch_on_falling_edge : std_logic := '1';
+  signal latch_on_falling_edge_drive : std_logic := '1';
+  signal latch_on_falling_edge_int : std_logic := '1';
   signal extra_latency_drive : std_logic := '1';
   signal extra_latency_int : std_logic := '1';
   signal extra_latency : std_logic := '1';
