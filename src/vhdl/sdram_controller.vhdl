@@ -110,6 +110,7 @@ architecture tacoma_narrows of sdram_controller is
     2      => CMD_PRECHARGE,
     6      => CMD_AUTO_REFRESH,
     16     => CMD_AUTO_REFRESH,
+    28     => CMD_SET_MODE_REG,
     29     => CMD_SET_MODE_REG,
     30     => CMD_SET_MODE_REG,
     others => CMD_NOP);
@@ -479,7 +480,6 @@ begin
       if sdram_init_phase = 0 and sdram_do_init = '1' then
         report "SDRAM: Starting SDRAM initialisation sequence";
         sdram_init_phase <= 1;
-        resets <= resets + 1;
       end if;
       if sdram_prepped = '0' then
         if sdram_init_phase /= 0 then
@@ -517,6 +517,7 @@ begin
           report "SDRAM: Clearing BUSY at end of initialisation sequence";
         elsif sdram_init_phase /= 0 then
           sdram_init_phase <= sdram_init_phase + 1;
+          resets <= resets + 1;
         end if;
       else
         -- SDRAM is ready
