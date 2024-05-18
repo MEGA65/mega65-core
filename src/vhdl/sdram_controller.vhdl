@@ -110,6 +110,7 @@ architecture tacoma_narrows of sdram_controller is
     2      => CMD_PRECHARGE,
     6      => CMD_AUTO_REFRESH,
     16     => CMD_AUTO_REFRESH,
+    29     => CMD_SET_MODE_REG,
     30     => CMD_SET_MODE_REG,
     others => CMD_NOP);
 
