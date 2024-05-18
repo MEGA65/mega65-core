@@ -359,12 +359,12 @@ set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DR
 # We are being quite conservative here, and requiring it to be much more precisely near
 # the middle of this range.
 # Clock duration is 6.17 ns
-#set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
-#set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+set_input_delay  -min [expr 3.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+set_input_delay  -max [expr 5] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
 # Max = trace delay (= ~0.2ns?) - Tsu (=1.5ns) =
-#set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
+set_output_delay  -max [expr 3] [get_clocks sdram_clk] [get_ports sdram_dq[*]]
 # Min = - (trace delay + Th) = ~1ns
-#set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
+set_output_delay  -min [expr -1.5] [get_clocks sdram_clk] [get_ports sdram_[*]]
 
 # Adam's better way:
 set Trefclk 10.0 ; # 100 MHz reference clock input to MMCM
@@ -389,7 +389,8 @@ create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDR
 set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
 set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 
-# Put the SDRAM ports directly in the IOBs to prevent place and route variation
+# Try to put the SDRAM ports directly in the IOBs to prevent place and route variation
+# (This will probably not work, and will give CRITICAL WARNINGs instead, but we can try)
 set_property IOB true [get_ports sdram_clk]
 set_property IOB true [get_ports sdram_cke]
 set_property IOB true [get_ports sdram_cas_n]
@@ -403,8 +404,8 @@ set_property IOB true [get_ports sdram_ba[*]]
 set_property IOB true [get_ports sdram_dq[*]]
 
 # One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
-#set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
-#set_multicycle_path 1 -hold  -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_multicycle_path 2 -setup -start -from clock163 -to sdram_clk -through [get_ports sdram_dq[*]]
+#set_multicycle_path 1 -hold  -start -from clock163 -to sdram_clk -through [get_ports sdram_dq[*]]
 #set_input_delay  -max [expr $Tpcb+$Tac3]  -clock sdram_clk [get_ports sdram_dq]
 #set_input_delay  -min [expr $Tpcb+$Toh3]  -clock sdram_clk [get_ports sdram_dq]
 
@@ -412,8 +413,8 @@ set_property IOB true [get_ports sdram_dq[*]]
 set ratio 4; # ratio of launch to latch clock
 set n_setup [expr $ratio]
 set n_hold  [expr $ratio-1]
-set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
-set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
+set_multicycle_path $n_setup -setup -start -from clock163 -to u_clock41
+set_multicycle_path $n_hold  -hold  -start -from clock163 -to u_clock41
 
 
 ## Hyper RAM
@@ -629,7 +630,7 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 #    CLKOUT2             => u_clock81p,
 #    CLKOUT3             => u_clock41,
 #    CLKOUT4             => u_clock27,
-#    CLKOUT5             => u_clock162,
+#    CLKOUT5             => u_clock163,
 #    CLKOUT6             => u_clock270,
 # mmcm_adv1_eth:
 #    CLKOUT1             => u_clock50,
