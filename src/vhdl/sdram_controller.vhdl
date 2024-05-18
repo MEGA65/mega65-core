@@ -214,6 +214,8 @@ architecture tacoma_narrows of sdram_controller is
   signal clock_invert_on_write_int : std_logic := '0';
   signal clock_invert_on_write : std_logic := '0';
   signal clock_invert : std_logic := '0';
+
+  signal debug_register_enabled : boolean := false;
   
 begin
 
@@ -542,7 +544,7 @@ begin
             elsif read_latched = '1' or write_latched = '1' then
               if latched_addr(26) = '1' then
                 report "NONRAMACCESS: Non-RAM access detected";
-                if write_latched = '1' then
+                if write_latched = '1' and debug_register_enabled then
                   -- Repeat SDRAM initialisation sequence whenver a non-RAM
                   -- address is written.
                   -- XXX Used to debug whether SDRAM initialisation is sometimes
