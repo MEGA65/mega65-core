@@ -1369,6 +1369,14 @@ begin  -- behavioural
             fastio_rdata <= f011_reg_pcode;
           when "01111" => -- @IO:GS $D08F - Set/get MISCIO:HWERRATA MEGA65 hardware errata level
             fastio_rdata <= hw_errata_level_int;
+          when "11000" => -- @IO:GS $D090 - Read-ahead sector byte 0 (DEBUG)
+            fastio_rdata <= read_ahead_sector(7 downto 0);
+          when "11001" => -- @IO:GS $D090 - Read-ahead sector byte 1 (DEBUG)
+            fastio_rdata <= read_ahead_sector(15 downto 8);
+          when "11010" => -- @IO:GS $D090 - Read-ahead sector byte 2 (DEBUG)
+            fastio_rdata <= read_ahead_sector(23 downto 16);
+          when "11011" => -- @IO:GS $D090 - Read-ahead sector byte 3 (DEBUG)
+            fastio_rdata <= read_ahead_sector(31 downto 24);
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
           when "11100" => -- @IO:GS $D09C - Last byte low-level SD controller read from card (DEBUG)
@@ -3278,6 +3286,7 @@ begin  -- behavioural
                   cache_state_waddr <= 0;
                   cache_state_cs <= '1';
                   cache_state_wdata <= (others => '0');
+                  read_ahead_sector <= (others => '1');
                   
                 when x"10" =>
                   -- Reset SD card with flags specified
@@ -3300,6 +3309,7 @@ begin  -- behavioural
                   cache_state_waddr <= 0;
                   cache_state_cs <= '1';
                   cache_state_wdata <= (others => '0');
+                  read_ahead_sector <= (others => '1');
                   
                 when x"01" =>
                   -- End reset
