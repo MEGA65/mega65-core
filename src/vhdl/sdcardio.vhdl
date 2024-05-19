@@ -1415,7 +1415,7 @@ begin  -- behavioural
 --        report "reading SDCARD register $" & to_hexstring(fastio_addr(7 downto 0)) severity note;
         case fastio_addr(7 downto 0) is
           -- @IO:GS $D680.0 - SD controller BUSY flag
-          -- @IO:GS $D680.1 - SD controller BUSY flag
+          -- @IO:GS $D680.1 - SD card bus BUSY flag (hardware errata level >= 3)
           -- @IO:GS $D680.2 - SD controller RESET flag
           -- @IO:GS $D680.3 - SD controller sector buffer mapped flag
           -- @IO:GS $D680.4 - SD controller SDHC mode flag
@@ -1895,7 +1895,7 @@ begin  -- behavioural
       -- We want to conceal sdcard_busy flag if and only if a read-ahead is in
       -- progress.
       if reading_ahead='1' and to_integer(hw_errata_level_int) >= 3 then
-        sdcard_busy <= '0';
+        sdcard_busy_ext <= '0';
       else
         sdcard_busy_ext <= sdcard_busy;
       end if;
