@@ -1377,7 +1377,7 @@ begin  -- behavioural
             fastio_rdata <= read_ahead_sector(23 downto 16);
           when "10011" => -- @IO:GS $D093 - Read-ahead sector byte 2 (DEBUG)
             fastio_rdata <= read_ahead_sector(31 downto 24);
-          when "10011" => -- @IO:GS $D094 - Read-ahead and cache flags (DEBUG)
+          when "10100" => -- @IO:GS $D094 - Read-ahead and cache flags (DEBUG)
             fastio_rdata(7) <= reading_ahead;
             fastio_rdata(6) <= cache_enable;
             fastio_rdata(5) <= to_std_logic(read_ahead_enable);
