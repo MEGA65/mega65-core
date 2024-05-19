@@ -786,6 +786,7 @@ architecture behavioural of sdcardio is
   signal sdcache_sector_being_read : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_sector : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_count : integer range 0 to 7 := 0;
+  signal read_ahead_enable : boolean := false;
 
   type   sd_read_request_type_t is (
     FS_MISC, FS_FAT, FS_DIR, DATA);
@@ -3669,6 +3670,8 @@ begin  -- behavioural
                               sd_interface_select_internal <= '1';
 
                 -- Add commands to enable and disable the SD card cache
+                when x"cb" => read_ahead_enable <= false;              
+                when x"cc" => read_ahead_enable <= true;              
                 when x"cd" => cache_enable <= '0';
                 when x"ce" => cache_enable <= '1';
                               
@@ -4253,7 +4256,11 @@ begin  -- behavioural
                 cache_state_waddr <= to_integer(sdcache_next_slot_aligned);
                 sdcache_write_slot <= to_integer(sdcache_next_slot_aligned);
                 if sd_sector(2 downto 0) = "000" then
-                  read_ahead_count <= 7;
+                  if read_ahead_enable then
+                    read_ahead_count <= 7;
+                  else
+                    read_ahead_count <= 0;
+                  end if;
                   read_ahead_sector <= sd_sector;
                   report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
                 else
@@ -4264,7 +4271,11 @@ begin  -- behavioural
                 cache_state_waddr <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                 sdcache_write_slot <= (cache_size/2) + to_integer(sdcache_next_slot_aligned);
                 if sd_sector(2 downto 0) = "000" then
-                  read_ahead_count <= 7;
+                  if read_ahead_enable then
+                    read_ahead_count <= 7;
+                  else
+                    read_ahead_count <= 0;
+                  end if;
                   read_ahead_sector <= sd_sector;
                   report "READAHEAD: Will read 8 sectors from sector $" & to_hexstring(sd_sector);
                 else
