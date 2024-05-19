@@ -3096,9 +3096,7 @@ msg_charromloaded:      !text "LOADED CHARROM.M65"
                         !8 0
 msg_megaromloaded:      !text "LOADED MEGA65.ROM"
                         !8 0
-msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD >=4GB..."
-                        !8 0
-msg_foundsdcard:        !text "SD CARD IS NOT SDHC. MUST BE SDHC."
+msg_tryingsdcard:       !text "LOOKING FOR SDHC CARD..."
                         !8 0
 msg_foundsdhccard:      !text "FOUND AND RESET SDHC CARD"
                         !8 0

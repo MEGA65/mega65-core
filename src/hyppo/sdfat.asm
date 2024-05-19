@@ -49,47 +49,12 @@ l7:     ;; MBR is sector 0
         ;; SD cards only read on 512 byte aligned addresses.
         ;; SDHC addresses by sector, so all addresses are valid
 
-        ;; Clear SDHC flag to begin with (flag persists through reset)
-        lda #$40
+        ;; Always use SDHC mode.  We no longer support SD cards at all with the new cache.
+        lda #$41
         sta $d680
-
-        ;; Attempt non-aligned read
-        lda #$02
-        sta sd_address_byte0
-        sta $d680
-
-sdhccheckwait:
-        jsr sdreadytest
-        bcs issdhc
-        bne sdhccheckwait
-
-        ;; Normal SD (SDSC) card
-
-        lda #$00
-        sta sd_address_byte0
 
         ;; Reset after SDHC test for normal SD mode
         jsr sd_resetsequence
-
-        ;; XXX - We no longer support standard SD cards, so
-        ;; we display an error and infinite loop.
-
-        ldx #<msg_foundsdcard
-        ldy #>msg_foundsdcard
-        jsr printmessage
-
-@unsupportedcard:
-        inc $D020
-        jmp @unsupportedcard
-
-issdhc:
-        ldx #<msg_foundsdhccard
-        ldy #>msg_foundsdhccard
-        jsr printmessage
-
-        ;; set SDHC flag
-        lda #$41
-        sta $d680
 
         jmp sd_readsector
 
