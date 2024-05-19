@@ -763,6 +763,10 @@ normalboot:
         ldy #>msg_tryingsdcard
         jsr printmessage
 
+	;; Disable SD card hardware cache for now
+	lda #$cd
+	sta $d680
+	
         ;; Work out if we are using primary or secondard SD card
 
         ;; First try resetting card 1 (external)
