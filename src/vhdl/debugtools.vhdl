@@ -14,12 +14,23 @@ package debugtools is
     function to_hexstring(sv: signed) return string;
     function safe_to_integer(sv : unsigned) return integer;
     procedure HWRITE(L:inout LINE; VALUE:in BIT_VECTOR;
-    JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0);
+                     JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0);
+    function to_std_logic(foo : boolean) return std_logic;
 
 end debugtools;
 
 package body debugtools is
 
+  function to_std_logic(foo : boolean) return std_logic is
+  begin
+    if foo then
+      return '1';
+    else
+      return '0';
+    end if;
+  end function;
+
+  
       procedure HWRITE(L:inout LINE; VALUE:in BIT_VECTOR;
     JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0) is      
       variable quad: bit_vector(0 to 3);
