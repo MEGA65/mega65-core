@@ -1377,7 +1377,7 @@ begin  -- behavioural
             fastio_rdata <= read_ahead_sector(23 downto 16);
           when "11011" => -- @IO:GS $D094 - Read-ahead and cache flags (DEBUG)
             fastio_rdata(7) <= reading_ahead;
-            fastio_rdata(6) <= cache_enabled;
+            fastio_rdata(6) <= cache_enable;
             fastio_rdata(5) <= to_std_logic(read_ahead_enable);
             fastio_rdata(4) <= cache_has_match;
             fastio_rdata(3) <= read_during_read_ahead;
