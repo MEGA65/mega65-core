@@ -1384,6 +1384,10 @@ begin  -- behavioural
             fastio_rdata(4) <= cache_has_match;
             fastio_rdata(3) <= read_during_read_ahead;
             fastio_rdata(2 downto 0) <= to_unsigned(read_ahead_count,3);
+          when "10101" => -- @IO:GS $D095 - low-level SD state (DEBUG)
+            fastio_rdata <= (others => '0');
+            fastio_rdata(1) <= sdcard_busy;
+            fastio_rdata(0) <= last_sd_error;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
           when "11100" => -- @IO:GS $D09C - Last byte low-level SD controller read from card (DEBUG)
