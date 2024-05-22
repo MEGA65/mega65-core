@@ -867,13 +867,11 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 # NNEW MEGAFLASH BUILD
 #
 MFLASH_QSPI_C = \
-	$(UTILDIR)/qspicommon.c \
-	$(UTILDIR)/qspireconfig.c
+	$(UTILDIR)/qspicommon.c
 
 MFLASH_QSPI_H = \
 	$(UTILDIR)/version.h \
-	$(UTILDIR)/qspicommon.h \
-	$(UTILDIR)/qspireconfig.h
+	$(UTILDIR)/qspicommon.h
 
 MFLASH_BASE_H = \
 	$(UTILDIR)/mhexes.h \
@@ -882,7 +880,8 @@ MFLASH_BASE_H = \
 	$(UTILDIR)/crc32accl.h \
 	$(UTILDIR)/mf_progress.h \
 	$(UTILDIR)/mf_selectcore.h \
-	$(UTILDIR)/mf_hlflash.h
+	$(UTILDIR)/mf_hlflash.h \
+	$(UTILDIR)/qspireconfig.h
 
 MFLASH_BASE_OBJ = \
 	$(UTILDIR)/mhexes.o \
@@ -891,7 +890,8 @@ MFLASH_BASE_OBJ = \
 	$(UTILDIR)/crc32accl.o \
 	$(UTILDIR)/mf_progress.o \
 	$(UTILDIR)/mf_selectcore.o \
-	$(UTILDIR)/mf_hlflash.o
+	$(UTILDIR)/mf_hlflash.o \
+	$(UTILDIR)/qspireconfig.o
 
 MFLASH_CORE_H = \
 	$(UTILDIR)/mf_screens.h \
