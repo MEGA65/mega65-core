@@ -29,9 +29,7 @@ uint32_t nhsd_fat32_data_sectors = 0; // TODO: OPT unused
 uint32_t nhsd_fat32_sectors_per_fat = 0; // TODO: OPT only used one time in init
 uint32_t nhsd_fat32_cluster2_sector = 0;
 
-uint32_t nhsd_open_cluster = 0;
-uint32_t nhsd_open_sector = 0;
-uint8_t nhsd_open_sector_in_cluster = 0;
+nhsd_position_t nhsd_open_pos = {0, 0, 0};
 uint16_t nhsd_open_offset_in_sector = 0;
 
 nhsd_dirent_t nhsd_dirent;
@@ -221,9 +219,9 @@ uint8_t nhsd_open_inode(uint32_t inode, uint8_t mode)
   if (nhsd_init_state & NHSD_INIT_OPENMASK)
     return NHSD_ERR_ALREADY_OPEN;
 
-  nhsd_open_cluster = inode;
-  nhsd_open_sector_in_cluster = 0;
-  nhsd_open_sector = (nhsd_open_cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
+  nhsd_open_pos.cluster = inode;
+  nhsd_open_pos.sector_in_cluster = 0;
+  nhsd_open_pos.sector = (nhsd_open_pos.cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
 
   nhsd_init_state |= (mode & NHSD_INIT_OPENMASK);
 
@@ -397,23 +395,23 @@ uint8_t nhsd_findfile(const char *filename)
 uint8_t nhsd_read()
 {
   uint8_t err;
-  uint32_t the_sector = nhsd_open_sector;
+  uint32_t the_sector = nhsd_open_pos.sector;
 
   if (!(nhsd_init_state & NHSD_INIT_OPENMASK))
     return NHSD_ERR_FILE_NOT_OPEN;
 
-  if (!nhsd_open_cluster)
+  if (!nhsd_open_pos.cluster)
     return NHSD_ERR_EOF;
 
-  nhsd_open_sector_in_cluster++;
-  nhsd_open_sector++;
-  if (nhsd_open_sector_in_cluster >= nhsd_fat32_sectors_per_cluster) {
-    nhsd_open_sector_in_cluster = 0;
-    nhsd_open_cluster = nhsd_fat32_nextcluster(nhsd_open_cluster);
-    if (nhsd_open_cluster >= 0x0ffffff0 || (!nhsd_open_cluster)) {
-      nhsd_open_cluster = 0;
+  nhsd_open_pos.sector_in_cluster++;
+  nhsd_open_pos.sector++;
+  if (nhsd_open_pos.sector_in_cluster >= nhsd_fat32_sectors_per_cluster) {
+    nhsd_open_pos.sector_in_cluster = 0;
+    nhsd_open_pos.cluster = nhsd_fat32_nextcluster(nhsd_open_pos.cluster);
+    if (nhsd_open_pos.cluster >= 0x0ffffff0 || (!nhsd_open_pos.cluster)) {
+      nhsd_open_pos.cluster = 0;
     }
-    nhsd_open_sector = (nhsd_open_cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
+    nhsd_open_pos.sector = (nhsd_open_pos.cluster - 2) * nhsd_fat32_sectors_per_cluster + nhsd_fat32_cluster2_sector;
   }
 
   if ((err = nhsd_readsector(the_sector)))

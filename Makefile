@@ -925,7 +925,7 @@ $(UTILDIR)/%.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/work/$*.s $<
+	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -DQSPI_FLASH_INSPECT -O -o $(UTILDIR)/work/$*.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
 
 # remember: version.s needs to be first!
@@ -942,6 +942,8 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c 
 
 #
 # MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
+#
+# TODO: A100T and A200T are no longer used
 #
 $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)

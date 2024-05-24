@@ -48,6 +48,19 @@
 extern uint8_t nhsd_init_state;
 
 /*
+ * current file possition
+ *
+ * This can be used to save a position in an open file or to set it
+ * from a  stored value
+ */
+typedef struct {
+  uint32_t cluster;
+  uint32_t sector;
+  uint8_t sector_in_cluster;
+} nhsd_position_t;
+extern nhsd_position_t nhsd_open_pos;
+
+/*
  * Directory struct
  */
 typedef struct {
