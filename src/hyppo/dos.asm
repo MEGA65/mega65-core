@@ -129,7 +129,7 @@ trap_task_get_mapping:
 	bcc @bad
 	ldy #5
 @copyloop:
-	lda hypervisor_maplolo,y
+	lda hypervisor_maplohi,y
 	sta (<hypervisor_userspace_copy_vector),y
 	dey
 	bpl @copyloop
@@ -143,7 +143,7 @@ trap_task_set_mapping:
 	ldy #5
 @copyloop2:
 	lda (<hypervisor_userspace_copy_vector),y
-	sta hypervisor_maplolo,y
+	sta hypervisor_maplohi,y
 	dey
 	bpl @copyloop2
 	sec
