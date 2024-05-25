@@ -33,49 +33,56 @@ uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
 #define SECTORBUFFER 0x8000000L
 #endif
 
-#if QSPI_FLASH_INSPECT
+#ifdef QSPI_FLASH_INSPECT
 void flash_inspector(void)
 {
-  uint8_t x;
   uint16_t i;
   uint32_t addr = 0;
 
+  mhx_clearscreen(0x20, MHX_A_WHITE);
+  mhx_write_xy(1, 24, "Navigation: , DOWN LEFT RIGHT UP . ;", MHX_A_LGREY);
+  mhx_hl_lines(24, 24, MHX_A_INVERT | MHX_A_LGREY);
+
   while (1) {
     read_data(addr);
-    mhx_writef(MHX_W_CLRHOME MHX_W_WHITE "Flash @ $%08lx:", addr);
+    mhx_set_xy(1, 0);
+    mhx_writef("Flash @ $%08lx", addr);
+    mhx_hl_lines(0, 0, MHX_A_INVERT | MHX_A_LGREY);
+    mhx_setattr(MHX_A_WHITE);
     for (i = 0; i < 256; i++) {
       if (!(i & 15))
-        mhx_writef("\n%02x: ", i);
+        mhx_writef("\n  %02x: ", i);
       mhx_writef("%02x", data_buffer[i]);
     }
 
-    x = 0;
-    while (!x) {
-      x = PEEK(0xd610);
-    }
-
-    POKE(0xd610, 0);
-    switch (x) {
-    case 0x13:
-      addr = 0;
+    mhx_getkeycode(0);
+    switch (mhx_lastkey.code.key) {
+    case 0x13: // HOME
+      addr &= (SLOT_SIZE - 1) ^ 0xffffffff;
       break;
-    case 0x91:
+    case 0x1d: // RIGHT
       addr += 0x100;
       break;
-    case 0x11:
+    case 0x9d: // LEFT
       addr -= 0x100;
       break;
-    case 0x1d:
+    case 0x91: // DOWN
+      addr += 0x1000;
+      break;
+    case 0x11: // UP
+      addr -= 0x1000;
+      break;
+    case '.': // PERIOD/LESSER
       addr += 0x10000;
       break;
-    case 0x9d:
+    case ',': // KOMMA/GREATER
       addr -= 0x10000;
       break;
-    case '.':
-      addr += 0x800000;
+    case ';': // SEMIKOLON
+      addr += SLOT_SIZE;
       break;
-    case ',':
-      addr -= 0x800000;
+    case ':': // COLON
+      addr -= SLOT_SIZE;
       break;
     case 0x03:
       return;
@@ -118,6 +125,10 @@ void flash_inspector(void)
       mhx_press_any_key(0, MHX_A_NOCOLOR);
     */
     }
+    if (addr > 0xff0fffff)
+      addr = 0;
+    else if (addr > (slot_count * SLOT_SIZE))
+      addr = (slot_count * SLOT_SIZE) - 0x100;
   }
 }
 #endif
@@ -329,6 +340,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   return mfhf_core_file_state;
 }
 
+#ifdef NO_ATTIC
 int8_t mfhf_load_sector_to_buffer(uint32_t addr)
 {
   uint32_t offset;
@@ -351,10 +363,13 @@ int8_t mfhf_load_sector_to_buffer(uint32_t addr)
   }
   return 0;
 }
+#endif /* NO_ATTIC */
 
 int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t size)
 {
+#ifdef NO_ATTIC
   uint8_t err;
+#endif /* NO_ATTIC */
 
   /*mhx_writef(MHX_W_HOME MHX_W_WHITE "C %08lx %08lx %08lx             ", attic_addr, flash_addr, size);
   mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);*/
@@ -433,7 +448,10 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 {
   uint32_t wraddr;
-  uint8_t tries, err;
+  uint8_t tries;
+#ifdef NO_ATTIC
+  uint8_t err;
+#endif /* NO_ATTIC */
 
   // Do a dummy read to clear any pending stuck QSPI commands
   // (else we get incorrect return value from QSPI verify command)

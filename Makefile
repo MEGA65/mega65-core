@@ -880,7 +880,6 @@ MFLASH_BASE_H = \
 	$(UTILDIR)/crc32accl.h \
 	$(UTILDIR)/mf_progress.h \
 	$(UTILDIR)/mf_selectcore.h \
-	$(UTILDIR)/mf_hlflash.h \
 	$(UTILDIR)/qspireconfig.h
 
 MFLASH_BASE_OBJ = \
@@ -890,23 +889,26 @@ MFLASH_BASE_OBJ = \
 	$(UTILDIR)/crc32accl.o \
 	$(UTILDIR)/mf_progress.o \
 	$(UTILDIR)/mf_selectcore.o \
-	$(UTILDIR)/mf_hlflash.o \
 	$(UTILDIR)/qspireconfig.o
 
 MFLASH_CORE_H = \
 	$(UTILDIR)/mf_screens.h \
+	$(UTILDIR)/mf_hlflash.h \
 	$(MFLASH_BASE_H)
 
 MFLASH_CORE_OBJ = \
 	$(UTILDIR)/mf_screens.o \
+	$(UTILDIR)/mf_hlflash.o \
 	$(MFLASH_BASE_OBJ)
 
 MFLASH_SOLO_H = \
 	$(UTILDIR)/mf_screens_solo.h \
+	$(UTILDIR)/mf_hlflash.h \
 	$(MFLASH_BASE_H)
 
 MFLASH_SOLO_OBJ = \
 	$(UTILDIR)/mf_screens_solo.o \
+	$(UTILDIR)/mf_hlflash_noattic.o \
 	$(MFLASH_BASE_OBJ)
 
 MFLASH_CORE_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
@@ -922,6 +924,13 @@ $(UTILDIR)/%.o: $(UTILDIR)/%.s
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $<
 
 $(UTILDIR)/%.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
+	@if [ ! -e $(UTILDIR)/work ]; then \
+		mkdir $(UTILDIR)/work; \
+	fi
+	$(CC65) $(MEGA65LIBCINC) -O -o $(UTILDIR)/work/$*.s $<
+	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
+
+$(UTILDIR)/%_noattic.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi

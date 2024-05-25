@@ -881,9 +881,8 @@ void main(void)
 #ifdef QSPI_FLASH_INSPECT
     case 0x06: // CTRL-F
       // Flash memory monitor
-      mhx_clearscreen(0x20, MHX_A_WHITE);
       flash_inspector();
-      mhx_clearscreen(0x20, MHX_A_WHITE);
+      redraw_menu = REDRAW_CLEAR;
       break;
 #endif
 // slot 0 flashing is only done with PRG and DIP 3!
