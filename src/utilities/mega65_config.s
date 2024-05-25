@@ -149,7 +149,10 @@ tabHelpIdx	=	$06
 
 
 optDfltBase	=	$C000
-optSessBase	=	$C200
+; this was $c200, but it is never set anywhere, only used to copy values from in apply config
+; probably an artifact from the past, as currently the session state is directly saved inside the
+; menu.
+optSessBase	=	optDfltBase
 
 
 	.if	C64_MODE
