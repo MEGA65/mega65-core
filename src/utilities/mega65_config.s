@@ -20,6 +20,10 @@
 ;TODO
 ;
 ;HISTORY
+;		25MAY2024	ograf		01.04
+;			-	set optSessBase to optDfltBase (fixes apply problem)
+;			-	force first MAC octet unicast local on save and random generation
+;			-	add info about 'R' and 'U' keys with MAC input
 ;		09APR2024	dengland	01.04
 ;			-	Fix MAC address incorrect input with hex digits
 ;			-	Do not call SaveSessionOpts
@@ -2253,6 +2257,12 @@ doSaveOpt:
 		LDA	(ptrOptsTemp), Y
 		INC	readTemp2
 
+		CPX #$00
+		BNE @notFirstOctet
+		AND #$FE
+		ORA #$02	; Make MAC Locally administered unicast
+
+@notFirstOctet:
 		LDY	readTemp0
 
 ;		STA	(ptrTempData), Y
@@ -3235,6 +3245,12 @@ doRndMACInp:
 		JSR	getRandomByte
 		PLY
 
+		CPY #$00
+		BNE @notFirstOctet
+		AND #$FE
+		ORA #$02	; Make MAC Locally administered unicast
+@notFirstOctet:
+
 ;		STA	optDfltBase + 6, Y
 		STA	(ptrNextInsP), Y
 
@@ -3266,8 +3282,8 @@ doUniMACInp_cont:
 ;		LDA	optDfltBase + 6
 		LDA	(ptrNextInsP), Y
 
-		ORA	#$02	; Make "locally administered"
-		AND	#$FE 	; Make unicast
+		AND	#$FE
+		ORA	#$02	; Make MAC Locally administered unicast
 
 ;		STA	optDfltBase + 6
 		STA	(ptrNextInsP), Y

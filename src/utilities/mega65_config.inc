@@ -281,9 +281,9 @@ networkOptions0:
 	.byte		$00, $00, $00, $00, $00, $00
 
 	.byte		$10
-	.defPStr	"the 2nd nybble may only be one of"
+	.defPStr	"press 'r' for random mac"
 	.byte		$10
-	.defPStr	"'2', '6', 'a', 'e'"
+	.defPStr	"press 'u' to validate mac"
 	.byte		$00
 networkOptions0_end:
 	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"
