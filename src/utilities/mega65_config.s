@@ -2,7 +2,7 @@
 ;M65 Configuration Utility
 ;===============================================================================
 ;
-;Version 01.02
+;Version 01.04
 ;Copyright (c) 2022 M.E.G.A., Daniel England
 ;
 ;Written by Daniel England for the MEGA65 project.
@@ -20,10 +20,18 @@
 ;TODO
 ;
 ;HISTORY
+;		09APR2024	dengland	01.04
+;			-	Fix MAC address incorrect input with hex digits
+;			-	Do not call SaveSessionOpts
+;		25FEB2024	dengland	01.03
+;			-	Fix input bug for MAC address causing value of "3A" to appear
+;				erroneously.
 ;		20JAN2024	kibo		01.03
 ;			-	Add option DISK IMAGE DRIVE NOISE to tab CHIPSET
 ;			-	Moved settings for DMAgic and LONG FN SUPPORT to new page
 ;			-	Set DMAgic F018B and SID8580 as defaults
+;		19JAN2024	dengland	01.03
+;			-	Fix bug preventing options on further chipset pages being read.
 ;		13NOV2023	dengland	01.02
 ;			-	Do not actually reset the machine when "exiting".  Instead,
 ;				show a message to prompt the user into doing so.
@@ -300,7 +308,7 @@ footerLine:
 	.byte		"                                page  / "
 
 infoText0:
-	.byte		"- version 01.03              B"
+	.byte		"- version 01.04              B"
 infoText1:
 	.if	C64_MODE
 	.byte		"- press f8 for help          B"
@@ -1861,7 +1869,7 @@ saveDefaultOpts:
 
 	.if	.not C64_MODE
 		JSR	hypervisorSaveConfig
-		JSR	hypervisorApplyConfig
+;		JSR	hypervisorApplyConfig
 	.endif
 
 		RTS
@@ -3189,7 +3197,7 @@ doTestMACKeys:
 		BCS	@exit
 
 		SEC
-		SBC	#$37
+		SBC	#$57
 		JSR	doAppMACChar
 		RTS
 
@@ -3365,12 +3373,16 @@ doDelMACChar:
 ;-------------------------------------------------------------------------------
 doAppMACChar:
 ;-------------------------------------------------------------------------------
+;	Store modified input
 		STA	dispOptTemp0
 
+;	At end??
 		LDA	currMACByte
 		CMP	#$06
 		BEQ	@exit
 
+
+;	Display raw input
 		LDY	#$00
 		TXA
 	.if	C64_MODE
@@ -3380,6 +3392,7 @@ doAppMACChar:
 	.endif
 		ORA	#$80
 		STA	(ptrCrsrSPos), Y
+
 
 		LDA	currMACNybb
 		BEQ	@isHigh
@@ -3848,7 +3861,12 @@ doPerformSaveAction:
 		BNE	@exit
 
 		JSR	saveDefaultOpts
-		JSR	saveSessionOpts
+
+;dengland
+;	Don't do this anymore to see if we no longer get the video configuration
+;	issue.
+;		JSR	saveSessionOpts
+
 		LDA	#$01
 		STA	progTermint
 
