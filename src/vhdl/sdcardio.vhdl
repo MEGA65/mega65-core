@@ -1387,7 +1387,8 @@ begin  -- behavioural
             fastio_rdata(5) <= to_std_logic(read_ahead_enable);
             fastio_rdata(4) <= cache_has_match;
             fastio_rdata(3) <= read_during_read_ahead;
-            fastio_rdata(2 downto 0) <= to_unsigned(read_ahead_count,3);
+            fastio_rdata(2) <= sdcard_busy_reset_latch;
+            fastio_rdata(1 downto 0) <= to_unsigned(read_ahead_count,2);
           when "10101" => -- @IO:GS $D095 - low-level SD state (DEBUG)
             fastio_rdata <= (others => '0');
             fastio_rdata(0) <= sdcard_busy;
