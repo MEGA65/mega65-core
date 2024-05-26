@@ -279,7 +279,7 @@ def parse_text(screen: dict, line: str) -> bool:
     if screen['size'][0] > 0 and len(cline) < screen['size'][0]:
         cline += bytes([screen['_curcol']] * (screen['size'][0] - len(cline)))
     if screen['array'] and tline[-1] != ascii2screen(screen['fillchar'][0])[0]:
-        sys.stderr.write(f'ERROR: array requires EOS, but line {len(screen['txtram'])+1} ends without, please make screen wider!\n')
+        sys.stderr.write(f"ERROR: array requires EOS, but line {len(screen['txtram'])+1} ends without, please make screen wider!\n")
         sys.exit(1)
     if DEBUG: sys.stderr.write(f"EOL\ntline = {repr(tline)}\ncline = {cline}\n")
     screen['txtram'].append(tline)
