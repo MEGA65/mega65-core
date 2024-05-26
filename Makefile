@@ -880,7 +880,7 @@ MFLASH_BASE_H = \
 	$(UTILDIR)/crc32accl.h \
 	$(UTILDIR)/mf_progress.h \
 	$(UTILDIR)/mf_selectcore.h \
-	$(UTILDIR)/qspireconfig.h
+	$(UTILDIR)/mf_utility.h
 
 MFLASH_BASE_OBJ = \
 	$(UTILDIR)/mhexes.o \
@@ -889,7 +889,7 @@ MFLASH_BASE_OBJ = \
 	$(UTILDIR)/crc32accl.o \
 	$(UTILDIR)/mf_progress.o \
 	$(UTILDIR)/mf_selectcore.o \
-	$(UTILDIR)/qspireconfig.o
+	$(UTILDIR)/mf_utility.o
 
 MFLASH_CORE_H = \
 	$(UTILDIR)/mf_screens.h \
@@ -938,14 +938,14 @@ $(UTILDIR)/%_noattic.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
 
 # remember: version.s needs to be first!
-$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/qspireconfig.c $(UTILDIR)/qspireconfig.h $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	mkdir -p $(SDCARD_DIR)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source -DA200T \
 		-o $(SDCARD_DIR)/ONBOARD.M65 -DSTANDALONE \
 		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
-		$(UTILDIR)/version.s $< $(UTILDIR)/qspireconfig.c $(MEGA65LIBCLIB)
+		$(UTILDIR)/version.s $< $(MEGA65LIBCLIB)
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 

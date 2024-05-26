@@ -7,8 +7,6 @@
 #include <time.h>
 #include <random.h>
 
-#include "qspireconfig.h"
-
 short i, y;
 unsigned char crt_mode = 1;
 unsigned char last_video_mode = 0;
@@ -712,10 +710,6 @@ void main(void)
         lpoke(0xffd3680, 0x03); // actually write the sector
         while (lpeek(0xffd3680) & 0x03)
           continue;
-
-        // Now restart by reconfiguring the FPGA -- DONT DO THAT!
-        // as this will start slot 0
-        // reconfig_fpga(0);
 
         printf("%c\n\n\n\n\n\n\n\n\n\n\n"
                "   Please POWER-CYCLE your MEGA65 now\n"

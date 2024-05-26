@@ -11,6 +11,7 @@
 #include "mf_selectcore.h"
 #include "crc32accl.h"
 #include "qspicommon.h"
+#include "mf_utility.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
@@ -34,7 +35,7 @@ uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
 #endif
 
 #ifdef QSPI_FLASH_INSPECT
-void flash_inspector(void)
+void mfhl_flash_inspector(void)
 {
   uint16_t i;
   uint32_t addr = 0;
@@ -229,7 +230,9 @@ int8_t mfhf_load_core() {
       first = 0;
     }
     update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
-    update_crc32(addr_len - addr - 256 > 255 ? 0 : addr_len - addr - 256, buffer+256);
+    if (addr_len - addr > 255) {
+      update_crc32(addr_len - addr - 256 > 255 ? 0 : addr_len - addr - 256, buffer + 256);
+    }
 #else
     lcopy((long)buffer, 0x8000000L + addr, 512);
 #endif
@@ -568,11 +571,12 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    */
 
 #ifdef NO_ATTIC
-  if ((cnt = nhsd_open(mfsc_corefile_inode))) {
-    // Couldn't open the file.
-    mfhf_display_sderror("Could not open core file!", cnt);
-    return 0;
-  }
+  if (selected_file == MFSC_FILE_VALID)
+    if ((cnt = nhsd_open(mfsc_corefile_inode))) {
+      // Couldn't open the file.
+      mfhf_display_sderror("Could not open core file!", cnt);
+      return 0;
+    }
 #endif
 
   // cover STOP menubar option with warning

@@ -8,6 +8,7 @@
 
 #include "mhexes.h"
 #include "nohysdc.h"
+#include "mf_utility.h"
 #include "mf_selectcore.h"
 #include "qspicommon.h"
 
@@ -60,8 +61,6 @@ unsigned char mfsc_bitstream_magic[] = "MEGA65BITSTREAM0";
 #define mega65core_magic mfsc_bitstream_magic
 #include <cbm_screen_charmap.h>
 
-#define erase_message "- Erase Slot -"
-
 #define FILELIST_MAX 1024
 #define FILEINODE_ADDRESS 0x40000UL
 #define FILESCREEN_ADDRESS 0x42000UL
@@ -69,21 +68,6 @@ unsigned char mfsc_bitstream_magic[] = "MEGA65BITSTREAM0";
 uint32_t mfsc_corefile_inode;
 uint32_t mfsc_corefile_size;
 char mfsc_corefile_displayname[40];
-
-char *mfsc_corefile_error_message[6] = {
-#define MFSC_CF_ERROR_OPEN 1
-  "Could not open core file!",
-#define MFSC_CF_ERROR_READ 2
-  "Failed to read core file header!",
-#define MFSC_CF_ERROR_SIG 3
-  "Core signature not found!",
-#define MFSC_CF_ERROR_SIZE 4
-  "Core file to large or corrupt!",
-#define MFSC_CF_ERROR_HWMODEL 5
-  "Core hardware model mismatch!",
-#define MFSC_CF_ERROR_FACTORY 6
-  "Not a MEGA65 Factory core!",
-};
 
 /*
  * int8_t mfsc_checkcore(require_mega)
@@ -171,7 +155,7 @@ int8_t mfsc_checkcore(uint8_t require_mega)
     mfsc_corehdr_erase_list[1] = R095_ERASE_LIST[1];
   }
 
-  return 0;
+  return MFSC_CF_NO_ERROR;
 }
 
 void mfsc_draw_list(void)
@@ -374,13 +358,13 @@ uint8_t mfsc_selectcore(uint8_t slot)
           mhx_draw_rect(3, 15, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
           mhx_write_xy(4, 16, mfsc_corehdr_name, MHX_A_WHITE|MHX_A_INVERT);
           mhx_write_xy(4, 17, mfsc_corehdr_version, MHX_A_WHITE|MHX_A_INVERT);
-          mhx_write_xy(4, 18, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 18, mhx_screen_get_line(&mf_screens_core_error, core_check, (char *)&buffer), MHX_A_WHITE|MHX_A_INVERT);
         }
         else {
           mhx_draw_rect(3, 5, 32, 3, " Corefile ", MHX_A_WHITE|MHX_A_INVERT, 1);
           mhx_write_xy(4, 6, mfsc_corehdr_name, MHX_A_WHITE|MHX_A_INVERT);
           mhx_write_xy(4, 7, mfsc_corehdr_version, MHX_A_WHITE|MHX_A_INVERT);
-          mhx_write_xy(4, 8, core_check ? mfsc_corefile_error_message[core_check - 1] : "", MHX_A_WHITE|MHX_A_INVERT);
+          mhx_write_xy(4, 8, mhx_screen_get_line(&mf_screens_core_error, core_check, (char *)&buffer), MHX_A_WHITE|MHX_A_INVERT);
         }
       }
       usleep(10000);

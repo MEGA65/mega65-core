@@ -58,7 +58,7 @@ Type CONFIRM to proceed, or press
 !endtext
 !screen=menu
 !size=40x20
-!nocolorram=1
+!nocolorram=true
 !background=6
 !foreground=1
 /123456789012345678901234567890123456789
@@ -83,4 +83,83 @@ Type CONFIRM to proceed, or press
  <F8> Flash Slot           <STOP> Abort
  Don't interrupt power supply nor touch
        the device while flashing!
+!endtext
+!screen=core_error
+!size=40x0
+!nocolorram=true
+!background=6
+!foreground=1
+!array=true
+/123456789012345678901234567890123456789
+!text
+!idx MFSC_CF_NO_ERROR
+
+!idx MFSC_CF_ERROR_OPEN
+Could not open core file!
+!idx MFSC_CF_ERROR_READ
+Failed to read core file header!
+!idx MFSC_CF_ERROR_SIG
+Core signature not found!
+!idx MFSC_CF_ERROR_SIZE
+Core file to large or corrupt!
+!idx MFSC_CF_ERROR_HWMODEL
+Core hardware model mismatch!
+!idx MFSC_CF_ERROR_FACTORY
+Not a MEGA65 Factory core!
+!endtext
+!screen=mega65_target
+!size=20x0
+!nocolorram=true
+!background=6
+!foreground=1
+!array=true
+!struct=BB
+/123456789012345678901234567890123456789
+!text
+{*0x01}{*8}MEGA65 R1
+{*0x02}{*4}MEGA65 R2
+{*0x03}{*8}MEGA65 R3
+{*0x04}{*8}MEGA65 R4
+{*0x05}{*8}MEGA65 R5
+{*0x06}{*8}MEGA65 R6
+{*0x21}{*4}MEGAphone R1
+{*0x22}{*4}MEGAphone R4
+{*0x40}{*4}Nexys4
+{*0x41}{*4}Nexys4DDR
+{*0x42}{*4}Nexys4DDR-widget
+{*0x60}{*4}QMTECH A100T
+{*0x61}{*8}QMTECH A200T
+{*0x62}{*8}QMTECH A325T
+{*0xFD}{*4}Wukong A100T
+{*0xFE}{*8}Simulation
+{*0x00}{*0}Unknown
+!endtext
+!screen=format_help
+!size=0x0
+!nocolorram=true
+!formatstring=true
+!text
+{WHT}{CLR}
+  Core hash:
+    %02x%02x%02x%02x%s
+  MEGAFLASH version:
+    %s
+  Slot 0 Version:
+    %s
+
+  Hardware information
+    Model ID:   $%02X
+    Model name: %s
+    Slots:      %d (each %d MB)
+    Slot Size:  %ld ($%02x page max)
+
+  Cartridge: %s
+  Autoselect Slot: %d
+{EOS}{!MF_SCREEN_FMTHELP_CRTDBG}{LGY}
+  Cartridge DEBUG
+     DIP4: %d   SC: %02X
+    $D67E: %02X (now %02X)
+    $8004: %02X %02X %02X %02X %02X %02X
+    $C007:          %02X %02X %02X
+{WHT}
 !endtext

@@ -11,14 +11,11 @@
 #include "crc32accl.h"
 #include "nohysdc.h"
 #include "mf_selectcore.h"
+#include "mf_utility.h"
 
 #include <cbm_screen_charmap.h>
 
 unsigned char slot_count = 0;
-
-uint8_t SLOT_MB = 1;
-uint8_t SLOT_SIZE_PAGE_MAX = 1 << 4;
-uint32_t SLOT_SIZE = 1L << 20;
 
 short i, x, y, z;
 
@@ -49,76 +46,9 @@ unsigned char data_buffer[512];
 // used by SD card routines
 unsigned char buffer[512];
 
-uint8_t hw_model_id = 0;
-char *hw_model_name;
-
 unsigned short mb = 0;
 
-/***************************************************************************
-
- FPGA / Core file / Hardware platform routines
-
- ***************************************************************************/
-
-typedef struct {
-  int model_id;
-  uint8_t slot_mb;
-  char *name;
-} mega_models_t;
-
-// clang-format off
-mega_models_t mega_models[] = {
-  { 0x01, 8, "MEGA65 R1" },
-  { 0x02, 4, "MEGA65 R2" },
-  { 0x03, 8, "MEGA65 R3" },
-  { 0x04, 8, "MEGA65 R4" },
-  { 0x05, 8, "MEGA65 R5" },
-  { 0x06, 8, "MEGA65 R6" },
-  { 0x21, 4, "MEGAphone R1" },
-  { 0x22, 4, "MEGAphone R4" },
-  { 0x40, 4, "Nexys4" },
-  { 0x41, 4, "Nexys4DDR" },
-  { 0x42, 4, "Nexys4DDR-widget" },
-  { 0x60, 4, "QMTECH A100T"},
-  { 0x61, 8, "QMTECH A200T"},
-  { 0x62, 8, "QMTECH A325T"},
-  { 0xFD, 4, "Wukong A100T" },
-  { 0xFE, 8, "Simulation" },
-  { 0x00, 0, "Unknown" }
-};
 // clang-format on
-
-char *get_model_name(uint8_t model_id)
-{
-  uint8_t k;
-
-  for (k = 0; mega_models[k].model_id; k++)
-    if (model_id == mega_models[k].model_id)
-      return mega_models[k].name;
-
-  return NULL;
-}
-
-int8_t probe_hardware_version(void)
-{
-  uint8_t k;
-
-  hw_model_id = PEEK(0xD629);
-
-  for (k = 0; mega_models[k].model_id; k++)
-    if (hw_model_id == mega_models[k].model_id) {
-      // we need to set those according to the hardware found
-      SLOT_SIZE_PAGE_MAX = SLOT_MB = mega_models[k].slot_mb;
-      SLOT_SIZE_PAGE_MAX <<= 4;
-      SLOT_SIZE = ((uint32_t)SLOT_SIZE_PAGE_MAX) << 16;
-      hw_model_name = mega_models[k].name;
-      return 0;
-    }
-
-  hw_model_name = mega_models[k].name; // unknown
-  return -1;
-}
-
 /***************************************************************************
 
  High-level flashing routines

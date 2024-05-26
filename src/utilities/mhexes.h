@@ -182,10 +182,24 @@ uint8_t mhx_ascii2screen(uint8_t ascii, uint8_t def);
  *   s: a string in screencode
  *
  * returns the length of the string s, up until
- * the terminating MHX_W_EOS (0x80).
+ * the terminating MHX_C_EOS (0x80).
  *
  */
 uint16_t mhx_strlen(char *s);
+
+/*
+ * char *mhx_strlen(dst, src, maxlen)
+ *
+ * parameters:
+ *   dst: destination string
+ *   src: source string
+ *   maxlen: maximum number of chars to copy to dst
+ *
+ * copies a max of maxlen chars from src to dst,
+ * terminating at MHX_C_EOS (0x80).
+ *
+ */
+char *mhx_strncpy(char *dst, char *src, uint16_t maxlen);
 
 /*
  * mhx_clearscreen(code, color)
@@ -513,5 +527,40 @@ uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr);
  *
  */
 mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr);
+
+/*
+ * char *mhx_screen_get_line(screen, offset)
+ *
+ * parameters:
+ *   screen: a screen definition in memory (see struct above)
+ *   index: line index into the screen array
+ *   buffer: a buffer to hold the line data. This needs to have
+ *           a size of 41 bytes minimum.
+ *
+ * copies a line from a predefined screen from attic ram into
+ * the provided buffer.
+ *
+ */
+char *mhx_screen_get_line(mhx_screen_t *screen, uint8_t index, char *buffer);
+
+/*
+ * char *mhx_screen_get_format(screen, index, char *buffer)
+ *
+ * parameters:
+ *   screen: a screen definition in memory (see struct above)
+ *   offset: character index into the format string
+ *   length: how many bytes to copy
+ *   buffer: a buffer to hold the line data. This needs to have
+ *           a size of length bytes minimum.
+ *
+ * returns:
+ *   buffer
+ *
+ * Copies a string from a screen into the buffer to be used as a
+ * format string with mhx_writef. It adds offset to screen_start
+ * and copies length bytes into buffer.
+ * 
+ */
+char *mhx_screen_get_format(mhx_screen_t *screen, uint16_t offset, uint16_t length, char *buffer);
 
 #endif /* MHEXES_H */

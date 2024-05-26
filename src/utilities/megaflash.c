@@ -9,12 +9,12 @@
 #include <6502.h>
 
 #include "qspicommon.h"
-#include "qspireconfig.h"
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_progress.h"
 #include "mf_selectcore.h"
 #include "mf_hlflash.h"
+#include "mf_utility.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
@@ -75,6 +75,7 @@ uint8_t old_flash_chip = 0;
 typedef struct {
   char name[17];
   char short_name[6];
+  char help[5];
   uint8_t bits;
   uint8_t slot;
 } corecap_def_t;
@@ -85,10 +86,10 @@ typedef struct {
 #define CORECAP_C64 2
 #define CORECAP_C128 3
 corecap_def_t corecap_def[CORECAP_DEF_MAX] = {
-  {"Default Core",     "[ALL]", CORECAP_SLOT_DEFAULT, 0xff},
-  {"MEGA65 Cartridge", "[M65]", CORECAP_CART_M65,     0xff},
-  {"C64 Cartridge",    "[C64]", CORECAP_CART_C64,     0xff},
-  {"C128 Cartridge",   "[128]", CORECAP_CART_C128,    0xff},
+  {"Default Core",     "[ALL]", "none", CORECAP_SLOT_DEFAULT, 0xff},
+  {"MEGA65 Cartridge", "[M65]", "M65",  CORECAP_CART_M65,     0xff},
+  {"C64 Cartridge",    "[C64]", "C64",  CORECAP_CART_C64,     0xff},
+  {"C128 Cartridge",   "[128]", "C128", CORECAP_CART_C128,    0xff},
 };
 
 #include <cbm_petscii_charmap.h>
@@ -160,32 +161,7 @@ unsigned char scan_core_information(unsigned char search_flags);
 
 void display_version(void)
 {
-#ifndef STANDALONE
-  unsigned char search_cart, selected;
-#endif
-
-/*
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME MHX_W_YELLOW
-             "Test: " MHX_W_BLACK MHX_W_REVON "$%03X" MHX_W_REVOFF MHX_W_BROWN " $%4x" MHX_W_WHITE "\n"
-             "%s\n"
-             "dec($f1ae)=%07d oct($4711)=%7o\n", 0xa, 0x9f, "abcDEF123", 0xf1ae, 0x4711);
-*/
-
-  mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "\n"
-         "  Core hash:\n    %02x%02x%02x%02x%s\n"
-         "  MEGAFLASH version:\n    %s\n"
-         "  Slot 0 Version:\n    %s\n\n"
-         "  Hardware information\n"
-         "    Model ID:   $%02X\n"
-         "    Model name: %s\n"
-         "    Slots:      %d (each %d MB)\n",
-         PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), booted_via_jtag ? " (booted via JTAG)" : "",
-         utilVersion,
-         slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
-         hw_model_id, hw_model_name, slot_count, SLOT_MB);
-#ifdef QSPI_VERBOSE
-  mhx_writef("    Slot Size:  %ld ($%02x page max)\n", (long)SLOT_SIZE, SLOT_SIZE_PAGE_MAX);
-#endif
+  uint8_t search_cart = 0, selected = -1, cc = 0;
 
 #ifndef STANDALONE
   // if this is the core megaflash, display boot slot selection information
@@ -193,43 +169,41 @@ void display_version(void)
   selected = scan_core_information(search_cart);
   if (selected == 0xff)
     selected = 1 + ((PEEK(0xD69D) >> 3) & 1);
-
-  mhx_writef("\n  Cartridge: ");
-  switch (search_cart) {
-  case CORECAP_CART_C64:
-    mhx_writef(corecap_def[CORECAP_C64].short_name + 1);
-    break;
-  case CORECAP_CART_C128:
-    mhx_writef(corecap_def[CORECAP_C128].short_name + 1);
-    break;
-  case CORECAP_CART_M65:
-    mhx_writef(corecap_def[CORECAP_M65].short_name + 1);
-    break;
-  default:
-    mhx_writef("none ");
-    break;
-  }
-  mhx_move_xy(-1, 0);
-  mhx_writef(" \n  Autoselect Slot: %d\n", selected);
-  selected = 0;
-  // rescan real core information for menu
-  scan_core_information(0);
+  for (; cc < CORECAP_DEF_MAX; cc++)
+    if (corecap_def[cc].bits == search_cart)
+      break;
+  if (cc == CORECAP_DEF_MAX)
+    cc = 0;
 #endif
 
+  mhx_writef(mhx_screen_get_format(&mf_screens_format_help, 0, MF_SCREEN_FMTHELP_CRTDBG, (char *)&buffer),
+         PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), booted_via_jtag ? " (booted via JTAG)" : "",
+         utilVersion,
+         slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
+         hw_model_id, hw_model_name, slot_count, SLOT_MB, (long)SLOT_SIZE, SLOT_SIZE_PAGE_MAX,
+         corecap_def[cc].help, selected);
+
+#ifndef STANDALONE
+  selected = 0;
+#endif
   // wait for ESC or RUN/STOP
   do {
     mhx_getkeycode(0);
 #ifndef STANDALONE
     // extra boot/cart debug information on F1, so we don't confuse the user
     if (mhx_lastkey.code.key == 0xf1 && !selected) {
-      mhx_writef(MHX_W_LGREY "\n   DIP4: %d\n  $D67E: $%02X (now $%02X)\n", 1 + ((PEEK(0xD69D) >> 3) & 1), exrom_game, PEEK(0xD67EU));
-      mhx_writef("  $8004: %02X %02X %02X %02X %02X %02X\n", cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4],
-          cart_id[5]);
-      mhx_writef("  $C007:          %02X %02X %02X\n" MHX_W_WHITE, cart_id[6], cart_id[7], cart_id[8]);
+      mhx_writef(mhx_screen_get_format(&mf_screens_format_help, MF_SCREEN_FMTHELP_CRTDBG, mf_screens_format_help.screen_size - MF_SCREEN_FMTHELP_CRTDBG, (char *)&buffer),
+                 1 + ((PEEK(0xD69D) >> 3) & 1), search_cart, exrom_game, PEEK(0xD67EU),
+                 cart_id[0], cart_id[1], cart_id[2], cart_id[3], cart_id[4], cart_id[5], cart_id[6], cart_id[7], cart_id[8]);
       selected = 1;
     }
 #endif
   } while (mhx_lastkey.code.key != 0x1b && mhx_lastkey.code.key != 0x03);
+
+#ifndef STANDALONE
+  // rescan real core information for menu
+  scan_core_information(0);
+#endif
 }
 
 uint8_t first_flash_read = 1;
@@ -551,7 +525,7 @@ void perhaps_reconfig(uint8_t slot)
     mhx_clear_keybuffer();
     mhx_until_keys_released();
     if (!slot || slot_core[slot].valid != 0)
-      reconfig_fpga(slot * SLOT_SIZE + 4096);
+      mfut_reconfig_fpga(slot * SLOT_SIZE + 4096);
   }
   mhx_flashscreen(MHX_A_RED, 150);
 }
@@ -615,7 +589,7 @@ void main(void)
 #endif
 
   // we need to probe the hardware now, as we are going into the menu
-  if (probe_hardware_version())
+  if (mfut_probe_hardware_version())
     hard_exit();
 
 #ifndef STANDALONE
@@ -712,7 +686,7 @@ void main(void)
         while (r == PEEK(0xD7FA));
         r = PEEK(0xD7FA);
         while (r == PEEK(0xD7FA));
-        reconfig_fpga(SLOT_SIZE * selected + 4096);
+        mfut_reconfig_fpga(SLOT_SIZE * selected + 4096);
       }
       else if (slot_core[selected].valid == SLOT_EMPTY) {
         // Empty slot -- ignore and resume
@@ -735,7 +709,7 @@ void main(void)
 #include <cbm_screen_charmap.h>
   mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "\njtagflash Version\n  %s\n", utilVersion);
 
-  if (probe_hardware_version()) {
+  if (mfut_probe_hardware_version()) {
     mhx_writef("\nUnknown hardware model id $%02X\n", hw_model_id);
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
     hard_exit();
@@ -881,7 +855,7 @@ void main(void)
 #ifdef QSPI_FLASH_INSPECT
     case 0x06: // CTRL-F
       // Flash memory monitor
-      flash_inspector();
+      mfhl_flash_inspector();
       redraw_menu = REDRAW_CLEAR;
       break;
 #endif

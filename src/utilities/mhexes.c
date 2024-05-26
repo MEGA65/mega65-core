@@ -46,6 +46,22 @@ uint16_t mhx_strlen(char *s)
   return size;
 }
 
+char *mhx_strncpy(char *dst, char *src, uint16_t maxlen)
+{
+  char *res = dst;
+
+  while (maxlen > 0) {
+    *dst = *src;
+    if (*src == MHX_C_EOS)
+      break;
+    src++;
+    dst++;
+    maxlen--;
+  }
+
+  return res;
+}
+
 void mhx_clearscreen(uint8_t code, uint8_t color)
 {
   // wait for raster leaving screen
@@ -423,4 +439,18 @@ void mhx_copyscreen(mhx_screen_t *screen)
 
   // set cursor
   mhx_set_xy(screen->cursor_x, screen->cursor_y);
+}
+
+char *mhx_screen_get_line(mhx_screen_t *screen, uint8_t index, char *buffer)
+{
+  lcopy(screen->screen_start + screen->cursor_x * index, (long)buffer, 40);
+  buffer[40] = 0x80;
+  return buffer;
+}
+
+char *mhx_screen_get_format(mhx_screen_t *screen, uint16_t offset, uint16_t length, char *buffer)
+{
+  lcopy(screen->screen_start + offset, (long)buffer, length);
+  buffer[length + 1] = '\x00';
+  return buffer;
 }

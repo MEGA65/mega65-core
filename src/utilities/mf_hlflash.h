@@ -18,6 +18,16 @@ extern uint8_t mfhf_slot0_erase_list[];
 #define MFHF_LC_ATTICOK   1
 #define MFHF_LC_FROMDISK  2
 
+#ifdef QSPI_FLASH_INSPECT
+/*
+ * mfhl_flash_inspector
+ *
+ * for debugging, gives a view into flash
+ *
+ */
+void mfhl_flash_inspector(void);
+#endif /* QSPI_FLASH_INSPECT */
+
 /*
  * int8_t mfhf_load_core()
  *

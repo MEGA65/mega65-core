@@ -42,12 +42,6 @@
 #endif
 #endif
 
-extern uint8_t SLOT_MB;
-extern uint8_t SLOT_SIZE_PAGE_MAX;
-extern uint32_t SLOT_SIZE;
-
-extern uint8_t hw_model_id;
-extern char *hw_model_name;
 extern unsigned char slot_count;
 
 extern unsigned char bash_bits;
@@ -79,9 +73,7 @@ extern unsigned char part[256];
 // extern short i, x, y, z;
 // extern unsigned long addr, addr_len;
 
-int8_t probe_hardware_version(void);
 unsigned char probe_qspi_flash(void);
-void flash_inspector(void);
 
 void read_registers(void);
 void query_flash_protection(unsigned long addr_in_sector);
