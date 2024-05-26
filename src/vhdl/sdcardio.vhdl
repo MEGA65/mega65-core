@@ -297,6 +297,10 @@ architecture behavioural of sdcardio is
   -- background read-ahead is going on, unless the hardware errata level is high
   -- enough.
   signal sdcard_busy_ext : std_logic := '0';
+  -- When we reset the SD card low-level interface, to preserve previous
+  -- semantics we latch the busy state until we see a positive edge on sdio_busy
+  signal sdcard_busy_reset_latch : std_logic := '0';  
+  signal last_sdcard_busy : std_logic := '0';
   
   signal sdio_error : std_logic := '0';
   signal sdio_fsm_error : std_logic := '0';
@@ -1435,7 +1439,7 @@ begin  -- behavioural
             fastio_rdata(4) <= sdhc_mode;
             fastio_rdata(3) <= sector_buffer_mapped;
             fastio_rdata(2) <= sd_reset;
-            fastio_rdata(1) <= sdcard_busy_ext;  -- Whether the SD card thinks it is busy
+            fastio_rdata(1) <= sdcard_busy_ext or sdcard_busy_reset_latch;  -- Whether the SD card thinks it is busy
             fastio_rdata(0) <= sdio_busy_ext;  -- Whether we indicate that we are busy
 
           when x"81" => fastio_rdata <= sd_sector(7 downto 0); -- SD-control, LSByte of address
@@ -1892,6 +1896,12 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- Hold sdcard_busy_ext high until we see a negative edge on sdcard_busy
+      last_sdcard_busy <= sdcard_busy;
+      if last_sdcard_busy = '1' and sdcard_busy='0' then
+        sdcard_busy_reset_latch <= '0';
+      end if;
+      
       cache_w <= '0';
       cache_state_w <= '0';
       
@@ -3288,6 +3298,7 @@ begin  -- behavioural
 --                  sd_sector <= (others => '0');
                   sdio_busy_ext <= '0';
                   sdio_busy_int <= '0';
+                  sdcard_busy_reset_latch <= '1';
 
                   -- Clear SD card cache when reseting card
                   -- in case its being used to swap cards
@@ -3311,6 +3322,7 @@ begin  -- behavioural
                   sd_write_multi_last <= '0';
                   sdio_busy_ext <= '0';
                   sdio_busy_int <= '0';
+                  sdcard_busy_reset_latch <= '1';
 
                   -- Clear SD card cache when reseting card
                   -- in case its being used to swap cards
