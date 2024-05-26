@@ -245,7 +245,7 @@ def parse_text(screen: dict, line: str) -> bool:
         elif match.group(1).startswith('*'):
             sdata.append(int(match.group(1)[1:], 0))
         elif match.group(1).startswith('!'):
-            screen['defines'].append(f'#define {match.group(1)[1:]} {len(MHX_NL.join(screen['txtram'] + [tline]))}')
+            screen['defines'].append(f"#define {match.group(1)[1:]} {len(MHX_NL.join(screen['txtram'] + [tline]))}")
         elif len(match.group(1)) == 3:
             if screen['formatstring']:
                 if match.group(1) not in MHX_FORMAT:
