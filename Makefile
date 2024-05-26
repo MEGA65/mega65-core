@@ -898,7 +898,7 @@ MFLASH_CORE_H = \
 
 MFLASH_CORE_OBJ = \
 	$(UTILDIR)/mf_screens.o \
-	$(UTILDIR)/mf_hlflash.o \
+	$(UTILDIR)/mf_hlflash_noattic.o \
 	$(MFLASH_BASE_OBJ)
 
 MFLASH_SOLO_H = \
@@ -908,7 +908,7 @@ MFLASH_SOLO_H = \
 
 MFLASH_SOLO_OBJ = \
 	$(UTILDIR)/mf_screens_solo.o \
-	$(UTILDIR)/mf_hlflash_noattic.o \
+	$(UTILDIR)/mf_hlflash_debug.o \
 	$(MFLASH_BASE_OBJ)
 
 MFLASH_CORE_REQ = $(MFLASH_QSPI_H) $(MFLASH_CORE_H) $(MFLASH_QSPI_C) $(MFLASH_CORE_OBJ)
@@ -934,7 +934,14 @@ $(UTILDIR)/%_noattic.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -DQSPI_FLASH_INSPECT -O -o $(UTILDIR)/work/$*.s $<
+	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -O -o $(UTILDIR)/work/$*.s $<
+	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
+
+$(UTILDIR)/%_debug.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
+	@if [ ! -e $(UTILDIR)/work ]; then \
+		mkdir $(UTILDIR)/work; \
+	fi
+	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -O -o $(UTILDIR)/work/$*.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
 
 # remember: version.s needs to be first!

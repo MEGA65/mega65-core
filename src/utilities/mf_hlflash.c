@@ -209,7 +209,7 @@ int8_t mfhf_load_core() {
   for (addr = 0; addr < mfsc_corehdr_length; addr += 512) {
 #ifdef NO_ATTIC
     if ((addr & 0xffffUL) == 0) {
-      mhx_writef(MHX_W_HOME MHX_W_WHITE "%08lx %08lx %08lx %02x", clusterptr, nhsd_open_pos.cluster, nhsd_open_pos.sector, nhsd_open_pos.sector_in_cluster);
+      /*mhx_writef(MHX_W_HOME MHX_W_WHITE "%08lx %08lx %08lx %02x", clusterptr, nhsd_open_pos.cluster, nhsd_open_pos.sector, nhsd_open_pos.sector_in_cluster);*/
       lcopy((long)&nhsd_open_pos, clusterptr, sizeof(nhsd_position_t));
       clusterptr += sizeof(nhsd_position_t);
     }
