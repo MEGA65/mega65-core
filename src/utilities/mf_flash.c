@@ -81,6 +81,8 @@ unsigned char probe_qspi_flash(void)
 
   slot_count = size / SLOT_MB;
 
+  num_4k_sectors = 0;
+
   if (erase_block_sizes[qspi_flash_erase_block_size_4k])
     flash_sector_bits = 12;
   if (erase_block_sizes[qspi_flash_erase_block_size_32k])
@@ -131,13 +133,13 @@ void erase_sector(unsigned long address_in_sector)
 {
     enum qspi_flash_erase_block_size erase_block_size;
 
-    if ( flash_sector_bits = 12 )
+    if ( flash_sector_bits == 12 )
         erase_block_size = qspi_flash_erase_block_size_4k;
-    else if ( flash_sector_bits = 15 )
+    else if ( flash_sector_bits == 15 )
         erase_block_size = qspi_flash_erase_block_size_32k;
-    else if ( flash_sector_bits = 16 )
+    else if ( flash_sector_bits == 16 )
         erase_block_size = qspi_flash_erase_block_size_64k;
-    else if ( flash_sector_bits = 17 )
+    else if ( flash_sector_bits == 17 )
         erase_block_size = qspi_flash_erase_block_size_256k;
     else
         return;
