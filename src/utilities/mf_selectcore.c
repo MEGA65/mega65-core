@@ -10,7 +10,7 @@
 #include "nohysdc.h"
 #include "mf_utility.h"
 #include "mf_selectcore.h"
-#include "qspicommon.h"
+#include "mf_buffers.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"

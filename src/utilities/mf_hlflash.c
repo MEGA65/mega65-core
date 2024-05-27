@@ -10,7 +10,8 @@
 #include "nohysdc.h"
 #include "mf_selectcore.h"
 #include "crc32accl.h"
-#include "qspicommon.h"
+#include "mf_buffers.h"
+#include "mf_flash.h"
 #include "mf_utility.h"
 
 #ifdef STANDALONE
@@ -386,7 +387,8 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
         mfhf_display_sderror("Sector read error!", err);
         return 1;
       }
-    lcopy(SECTORBUFFER + (attic_addr & 0xffff), QSPI_FLASH_BUFFER, 512);
+    // lcopy(SECTORBUFFER + (attic_addr & 0xffff), QSPI_FLASH_BUFFER, 512);
+    lcopy(SECTORBUFFER + (attic_addr & 0xffff), data_buffer, 512);
 #else
     lcopy(SECTORBUFFER + attic_addr, QSPI_FLASH_BUFFER, 512);
 #endif /* NO_ATTIC */
@@ -456,6 +458,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
   uint8_t err;
 #endif /* NO_ATTIC */
 
+
   // Do a dummy read to clear any pending stuck QSPI commands
   // (else we get incorrect return value from QSPI verify command)
   // TODO: get rid of this
@@ -505,7 +508,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
     // secret Ctrl-F (keycode 0x06) will launch flash inspector,
     // but only if QSPI_FLASH_INSPECTOR is defined!
     // otherwise: endless loop!
-#ifdef QSPI_FLASH_INSPECTOR
+#ifdef QSPI_FLASH_INSPECT
     mhx_writef("Press Ctrl-F for Flash Inspector.\n");
 
     while (PEEK(0xD610))
@@ -514,7 +517,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       POKE(0xD610, 0);
     while (PEEK(0xD610))
       POKE(0xD610, 0);
-    flash_inspector();
+    mfhl_flash_inspector();
 #else
     // TODO: re-erase start of slot 0, reprogram flash to start slot 1
     mhx_writef("\nPlease turn the system off!\n");

@@ -8,7 +8,8 @@
 
 #include <6502.h>
 
-#include "qspicommon.h"
+#include "mf_buffers.h"
+#include "mf_flash.h"
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_progress.h"
@@ -740,13 +741,13 @@ void main(void)
   }
 
   // currently flashing is only possible on r3a or later
-  if (hw_model_id < 3 || hw_model_id > 9 || num_4k_sectors || flash_sector_bits != 18) {
-    mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Flashing is currently not\n"
-               "supported on your platform, please use\n"
-               "alternative ways.\n\n");
-    old_flash_chip = 1;
-    mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
-  }
+  // if (hw_model_id < 3 || hw_model_id > 9 || num_4k_sectors || flash_sector_bits != 18) {
+  //   mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Flashing is currently not\n"
+  //              "supported on your platform, please use\n"
+  //              "alternative ways.\n\n");
+  //   old_flash_chip = 1;
+  //   mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
+  // }
 
 #ifdef LAZY_ATTICRAM_CHECK
   // quick and dirty attic ram check
@@ -914,17 +915,17 @@ void main(void)
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
-      if (old_flash_chip) {
-        mhx_flashscreen(MHX_A_YELLOW, 150);
-        continue;
-      }
+      // if (old_flash_chip) {
+      //   mhx_flashscreen(MHX_A_YELLOW, 150);
+      //   continue;
+      // }
 
 #ifdef LAZY_ATTICRAM_CHECK
 
-      if (atticram_bad) {
-        mhx_flashscreen(MHX_A_RED, 150);
-        continue;
-      }
+      // if (atticram_bad) {
+      //   mhx_flashscreen(MHX_A_RED, 150);
+      //   continue;
+      // }
 #endif
       edit_slot(selected_reflash_slot);
 #if 0
