@@ -387,10 +387,9 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
         mfhf_display_sderror("Sector read error!", err);
         return 1;
       }
-    // lcopy(SECTORBUFFER + (attic_addr & 0xffff), QSPI_FLASH_BUFFER, 512);
-    lcopy(SECTORBUFFER + (attic_addr & 0xffff), data_buffer, 512);
+    lcopy(SECTORBUFFER + (attic_addr & 0xffff), (unsigned long)data_buffer, 512);
 #else
-    lcopy(SECTORBUFFER + attic_addr, QSPI_FLASH_BUFFER, 512);
+    lcopy(SECTORBUFFER + attic_addr, (unsigned long)data_buffer, 512);
 #endif /* NO_ATTIC */
 
     if (!verify_data_in_place(flash_addr)) {
@@ -419,10 +418,11 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 
 int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 {
+  uint32_t addr = start_addr;
   uint32_t size;
 
-  while (start_addr < end_addr) {
-    if (start_addr < (uint32_t)num_4k_sectors << 12)
+  while (addr < end_addr) {
+    if (addr < (uint32_t)num_4k_sectors << 12)
       size = 4096UL;
     else
       size = 1UL << ((uint32_t)flash_sector_bits);
@@ -438,13 +438,12 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
 #endif
 
     POKE(0xD020, 2);
-    erase_sector(start_addr); // qspi lowlevel, needs returncode! erase could fail!
-    read_data(0xffffffff); // needed?
+    erase_sector(addr); // qspi lowlevel, needs returncode! erase could fail!
     POKE(0xD020, 0);
 
-    mfp_set_area(start_addr >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
+    mfp_set_area((addr - start_addr) >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
 
-    start_addr += size;
+    addr += size;
   }
 
   return 0;
@@ -458,20 +457,14 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
   uint8_t err;
 #endif /* NO_ATTIC */
 
-
-  // Do a dummy read to clear any pending stuck QSPI commands
-  // (else we get incorrect return value from QSPI verify command)
-  // TODO: get rid of this
-  while (!verify_data_in_place(0UL))
-    read_data(0UL);
-
   // try 10 times to erase/write the sector
   for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
     // Verify the sector to see if it is already correct
     if (!mfhf_sectors_differ(addr - end_addr, addr, size)) {
-      mfp_set_area(addr >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
+      mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
       break;
     }
+
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
 
@@ -479,12 +472,15 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
     for (wraddr = addr + size; wraddr > addr; wraddr -= 256) {
 #ifdef NO_ATTIC
       // we might need to read the sector into bank 5
-      if ((wraddr & 0xffffUL) == 0)
-        if ((err = mfhf_load_sector_to_buffer(wraddr - 0x10000U))) {
+      if ((wraddr & 0xffffUL) == 0) {
+        if ((err = mfhf_load_sector_to_buffer(wraddr - end_addr - 0x10000U))) {
           mfhf_display_sderror("Sector read error!", err);
           return 1;
         }
+      }
+
       lcopy(SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU), (unsigned long)data_buffer, 256);
+
       /* mhx_set_xy(0, 1);
       mhx_writef("%08lx %08lx %08lx ", wraddr - 256, (wraddr - 256 - end_addr) & 0xffffU, SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU));
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR); */
@@ -496,7 +492,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       POKE(0xD020, 3);
       program_page(wraddr - 256, 256);
       POKE(0xD020, 0);
-      mfp_progress(wraddr - 256);
+      mfp_progress(wraddr - 256 - end_addr);
     }
   }
 
@@ -585,12 +581,6 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   // cover STOP menubar option with warning
   lcopy((long)mf_screens_menu.screen_start + 9 * 80, mhx_base_scr + 23*40, 80);
   mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
-
-  // Read a few times to make sure transient initial read problems disappear
-  // TODO: get rid of this by fixing underlaying problem!
-  read_data(0);
-  read_data(0);
-  read_data(0);
 
   /*
    * Special handling for slot 0
