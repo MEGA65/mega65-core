@@ -615,10 +615,7 @@ begin
 
       led(12 downto 0) => led(12 downto 0),
       led(15 downto 13) => dummy,
-      dipsw(0) => '0',
-      dipsw(1) => sw(11), -- switch 11 turns on ethernet remote control 
-      dipsw(2) => '0',
-      dipsw(3) => '0',
+      dipsw(3 downto 0) => sw(3 downto 0),
       dipsw(4) => '0',
       sw => sw,
       btn => btn,
