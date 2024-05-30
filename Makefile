@@ -1001,7 +1001,7 @@ $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65L
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
 		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_HW_ASSIST -DQSPI_VERBOSE $< \
 		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
