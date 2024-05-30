@@ -3134,20 +3134,22 @@ begin  -- behavioural
                   write_sector_gate_timeout <= 40000; -- about 1ms
                 when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
                   if hypervisor_mode='1' or dipsw(2)='1' then
-                    sd_state <= qspi_write_256;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
+                    sd_state <= qspi_write_256;
                   else
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
                 when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
                   if hypervisor_mode='1' or dipsw(2)='1' then
-                    sd_state <= qspi_write_512;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
+                    sd_state <= qspi_write_512;
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3157,7 +3159,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_read_512;
                   else
                     -- Permission denied
@@ -3171,7 +3174,8 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
@@ -3185,7 +3189,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3207,7 +3212,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3230,7 +3236,8 @@ begin  -- behavioural
                   report "QSPI: Dispatching verify command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
@@ -3244,7 +3251,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3261,7 +3269,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3284,7 +3293,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= QSPI_Release_CS;
@@ -3306,7 +3316,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3323,8 +3334,9 @@ begin  -- behavioural
                   -- SPI Clear status register. Allowed from user land
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
-                  sd_state <= qspi_send_command;
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
+                sd_state <= qspi_send_command;
                   qspi_read_sector_phase <= 0;
                   qspi_action_state <= QSPI_Release_CS;
                   spi_flash_cmd_byte <= x"30";
@@ -3337,7 +3349,8 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= x"00000000";
                   qspi_read_sector_phase <= 0;
@@ -3352,7 +3365,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -4760,6 +4774,7 @@ begin  -- behavioural
         when QSPI_send_command =>
           report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
             & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
+          sdio_busy <= '1';
           if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
             qspi_clock_int <= '1';
           else
@@ -4842,8 +4857,9 @@ begin  -- behavioural
           qspicsn <= '1';
           sd_state <= Idle;
         when SPI_read_512 =>
-          -- Tristate SI and SO
           report "QSPI: in SPI_read_512";
+          sdio_busy <= '1';
+          -- Tristate SI and SO
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
           sd_buffer_offset <= to_unsigned(0,9);
@@ -4852,6 +4868,8 @@ begin  -- behavioural
           -- (used for speeding up erasure checking of flash)
           qspi_bytes_differ <= '0';
         when QSPI_read_512 =>
+          report "QSPI: in QSPI_read_512";
+          sdio_busy <= '1';
           -- Tristate SI and SO
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
