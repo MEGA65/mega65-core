@@ -1289,8 +1289,8 @@ begin  -- behavioural
         -- microSD controller registers
 --        report "reading SDCARD register $" & to_hstring(fastio_addr(7 downto 0)) severity note;
         case fastio_addr(7 downto 0) is
-          -- @IO:GS $D680.0 - SD controller BUSY flag
-          -- @IO:GS $D680.1 - SD controller BUSY flag
+          -- @IO:GS $D680.0 - SD controller SDIO BUSY flag
+          -- @IO:GS $D680.1 - SD controller SDCARD BUSY flag
           -- @IO:GS $D680.2 - SD controller RESET flag
           -- @IO:GS $D680.3 - SD controller sector buffer mapped flag
           -- @IO:GS $D680.4 - SD controller SDHC mode flag
