@@ -14,8 +14,8 @@ void hw_assisted_read_512(unsigned long address, unsigned char * data)
     POKE(0xD680, 0x5f); // Set number of dummy cycles
     POKE(0xD680, 0x53); // QSPI Flash Sector read command
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted read operation to finish.
+    while (PEEK(0xD680) & 1);
 
     // Copy data to buffer provided by the caller.
     if (data != NULL)
@@ -35,8 +35,8 @@ char hw_assisted_verify_512(unsigned long address, const unsigned char * data)
     POKE(0xD680, 0x5f); // Set number of dummy cycles
     POKE(0xD680, 0x56); // QSPI Flash Sector verify command
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted verify operation to finish.
+    while (PEEK(0xD680) & 1);
 
     return (PEEK(0xD689) & 0x40) ? -1 : 0;
 }
@@ -50,8 +50,12 @@ void hw_assisted_erase_parameter_sector(unsigned long address)
     POKE(0xD684, address >> 24);
     POKE(0xd680, 0x59);
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted erase operation to finish. Hardware assisted
+    // erase operations finish as soon as the corresponding SPI command has
+    // been transmitted to the flash device. The caller is responsible for
+    // waiting until the flash device has finished the erase command by polling
+    // the status register.
+    while (PEEK(0xD680) & 1);
 }
 
 void hw_assisted_erase_sector(unsigned long address)
@@ -63,8 +67,12 @@ void hw_assisted_erase_sector(unsigned long address)
     POKE(0xD684, address >> 24);
     POKE(0xd680, 0x58);
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted erase operation to finish. Hardware assisted
+    // erase operations finish as soon as the corresponding SPI command has
+    // been transmitted to the flash device. The caller is responsible for
+    // waiting until the flash device has finished the erase command by polling
+    // the status register.
+    while (PEEK(0xD680) & 1);
 }
 
 void hw_assisted_program_page_256(unsigned long address, const unsigned char * data)
@@ -79,8 +87,12 @@ void hw_assisted_program_page_256(unsigned long address, const unsigned char * d
     POKE(0xD684, address >> 24);
     POKE(0xD680, 0x55);
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted program page operation to finish. Hardware
+    // assisted program page operations finish as soon as the corresponding SPI
+    // command has been transmitted to the flash device. The caller is
+    // responsible for waiting until the flash device has finished the program
+    // page command by polling the status register.
+    while (PEEK(0xD680) & 1);
 }
 
 void hw_assisted_program_page_512(unsigned long address, const unsigned char * data)
@@ -93,8 +105,12 @@ void hw_assisted_program_page_512(unsigned long address, const unsigned char * d
     POKE(0xD684, address >> 24);
     POKE(0xD680, 0x54);
 
-    // Wait for CS# to go high. This is a work-around for the sdio_busy flag.
-    while (!(PEEK(0xD6CC) & 64));
+    // Wait for hardware assisted program page operation to finish. Hardware
+    // assisted program page operations finish as soon as the corresponding SPI
+    // command has been transmitted to the flash device. The caller is
+    // responsible for waiting until the flash device has finished the program
+    // page command by polling the status register.
+    while (PEEK(0xD680) & 1);
 }
 
 // TODO: Function to read CFI block using SPI command 0x9B; POKE 0x6B to $D680.
