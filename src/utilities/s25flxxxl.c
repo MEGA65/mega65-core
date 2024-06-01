@@ -6,9 +6,7 @@
 #include "qspihwassist.h"
 #include "qspibitbash.h"
 
-#ifdef QSPI_VERBOSE
 #include "mhexes.h"
-#endif
 
 static unsigned char read_status_register_1(void)
 {
@@ -59,35 +57,17 @@ static struct s25flxxxl_status read_status(void)
     return status;
 }
 
-static BOOL erase_error_occurred(const struct s25flxxxl_status * status)
-{
-    return (status->sr2 & 0x40 ? TRUE : FALSE);
-}
+#define erase_error_occurred(status) (status.sr2 & 0x40 ? TRUE : FALSE)
 
-static BOOL program_error_occurred(const struct s25flxxxl_status * status)
-{
-    return (status->sr2 & 0x20 ? TRUE : FALSE);
-}
+#define program_error_occurred(status) (status.sr2 & 0x20 ? TRUE : FALSE)
 
-static BOOL write_enabled(const struct s25flxxxl_status * status)
-{
-    return (status->sr1 & 0x02 ? TRUE : FALSE);
-}
+#define write_enabled(status) (status.sr1 & 0x02 ? TRUE : FALSE)
 
-static BOOL write_in_progress(const struct s25flxxxl_status * status)
-{
-    return (status->sr1 & 0x01 ? TRUE : FALSE);
-}
+#define write_in_progress(status) (status.sr1 & 0x01 ? TRUE : FALSE)
 
-static BOOL busy(const struct s25flxxxl_status * status)
-{
-    return (status->sr1 & 0x03 ? TRUE : FALSE);
-}
+#define busy(status) (status.sr1 & 0x03 ? TRUE : FALSE)
 
-static BOOL error_occurred(const struct s25flxxxl_status * status)
-{
-    return (status->sr2 & 0x60 ? TRUE : FALSE);
-}
+#define error_occurred(status) (status.sr2 & 0x60 ? TRUE : FALSE)
 
 static void clear_status(void)
 {
@@ -95,7 +75,7 @@ static void clear_status(void)
     for (;;)
     {
         status = read_status();
-        if (!busy(&status) && !error_occurred(&status))
+        if (!busy(status) && !error_occurred(status))
         {
             break;
         }
@@ -109,13 +89,13 @@ static char wait_status(void)
     for (;;)
     {
         status = read_status();
-        if (!busy(&status))
+        if (!busy(status))
         {
             break;
         }
     }
 
-    return (error_occurred(&status) ? 1 : 0);
+    return (error_occurred(status) ? 1 : 0);
 }
 
 struct s25flxxxl
@@ -470,12 +450,14 @@ static char s25flxxxl_program(void * qspi_flash_device, enum qspi_flash_page_siz
     return wait_status();
 }
 
+/*
 static char s25flxxxl_get_manufacturer(void * qspi_flash_device, const char ** manufacturer)
 {
     (void) qspi_flash_device;
     *manufacturer = "Infineon";
     return 0;
 }
+*/
 
 static char s25flxxxl_get_size(void * qspi_flash_device, unsigned int * size)
 {
@@ -504,7 +486,7 @@ static struct s25flxxxl _s25flxxxl = {{
     s25flxxxl_verify,
     s25flxxxl_erase,
     s25flxxxl_program,
-    s25flxxxl_get_manufacturer,
+    // s25flxxxl_get_manufacturer,
     s25flxxxl_get_size,
     s25flxxxl_get_page_size,
     s25flxxxl_get_erase_block_size_support

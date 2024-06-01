@@ -272,23 +272,23 @@ int8_t mfhf_load_core() {
 #ifndef NO_ATTIC
   // check crc32 of file as a check for ATTIC RAM, too
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Checking CRC32 ", MHX_A_WHITE);
-  make_crc32_tables(data_buffer, buffer);
+  make_crc32_tables(data_buffer, cfi_data);
   init_crc32();
   for (first = 1, addr = 0; addr < mfsc_corehdr_length; addr += 256) {
     // we don't need the part string anymore, so we reuse this buffer
     // note: part is only used in probe_qspi_flash
-    lcopy(0x8000000L + addr, (long)part, 256);
+    lcopy(0x8000000L + addr, (long)buffer, 256);
     if (first) {
       // the first sector has the real length and the CRC32
-      addr_len = *(uint32_t *)(part + MFSC_COREHDR_LENGTH);
-      core_crc = *(uint32_t *)(part + MFSC_COREHDR_CRC32);
+      addr_len = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
+      core_crc = *(uint32_t *)(buffer + MFSC_COREHDR_CRC32);
       // set CRC bytes to pre-calculation value
-      *(uint32_t *)(part + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
+      *(uint32_t *)(buffer + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
       if (addr_len != mfsc_corehdr_length)
         break;
       first = 0;
     }
-    update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, part);
+    update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
     mfp_progress(addr);
     // let user abort load
     mhx_getkeycode(MHX_GK_PEEK);

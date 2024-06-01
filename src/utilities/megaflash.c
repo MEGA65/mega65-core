@@ -579,6 +579,7 @@ void main(void)
   MF_SCREENS_INIT;
   mhx_screencolor(MHX_A_BLUE, MHX_A_BLACK);
   mhx_clearscreen(' ', MHX_A_WHITE);
+  mhx_setattr(MHX_A_WHITE);
 
 #ifdef STANDALONE
   // setup OPENROM palette in standalone mode
@@ -917,6 +918,7 @@ void main(void)
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
+      // TODO: put in again
       // if (old_flash_chip) {
       //   mhx_flashscreen(MHX_A_YELLOW, 150);
       //   continue;
@@ -924,6 +926,7 @@ void main(void)
 
 #ifdef LAZY_ATTICRAM_CHECK
 
+      // TODO: put in again
       // if (atticram_bad) {
       //   mhx_flashscreen(MHX_A_RED, 150);
       //   continue;

@@ -6,6 +6,4 @@ unsigned char data_buffer[512];
 // used by SD card routines
 unsigned char buffer[512];
 
-unsigned char part[256];
-
 unsigned char cfi_data[512];

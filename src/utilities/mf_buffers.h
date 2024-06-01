@@ -3,7 +3,6 @@
 
 extern unsigned char data_buffer[512];
 extern unsigned char buffer[512];
-extern unsigned char part[256];
 extern unsigned char cfi_data[512];
 
 #endif // MF_BUFFERS_H

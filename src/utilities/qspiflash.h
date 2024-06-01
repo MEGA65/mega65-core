@@ -39,7 +39,7 @@ struct qspi_flash_interface
     char (*verify) (void * qspi_flash_device, unsigned long address, unsigned char * data, unsigned int size);
     char (*erase) (void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, unsigned long address);
     char (*program) (void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data);
-    char (*get_manufacturer) (void * qspi_flash_device, const char ** manufacturer);
+    // char (*get_manufacturer) (void * qspi_flash_device, const char ** manufacturer);
     char (*get_size) (void * qspi_flash_device, unsigned int * size);
     char (*get_page_size) (void * qspi_flash_device, enum qspi_flash_page_size * page_size);
     char (*get_erase_block_size_support) (void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, BOOL * is_supported);
@@ -82,7 +82,7 @@ char qspi_flash_program(void * qspi_flash_device, enum qspi_flash_page_size page
 /*
   Return the name of the flash device manufacturer.
 */
-char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufacturer);
+// char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufacturer);
 
 /*
   Return the size of the flash memory array in megabytes (MB).

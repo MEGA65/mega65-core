@@ -1,8 +1,8 @@
 #include <stddef.h>
 
 #include "qspiflash.h"
-#include "s25flxxxl.h"
-#include "s25flxxxs.h"
+//#include "s25flxxxl.h"
+//#include "s25flxxxs.h"
 
 char qspi_flash_init(void * qspi_flash_device)
 {
@@ -54,6 +54,7 @@ char qspi_flash_program(void * qspi_flash_device, enum qspi_flash_page_size page
     return interface->program(qspi_flash_device, page_size, address, data);
 }
 
+/*
 char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufacturer)
 {
     const struct qspi_flash_interface * interface = qspi_flash_device;
@@ -63,6 +64,7 @@ char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufac
     }
     return interface->get_manufacturer(qspi_flash_device, manufacturer);
 }
+*/
 
 char qspi_flash_get_size(void * qspi_flash_device, unsigned int * size)
 {

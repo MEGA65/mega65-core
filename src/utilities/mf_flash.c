@@ -21,7 +21,7 @@ void * qspi_flash_device = NULL;
 unsigned char probe_qspi_flash(void)
 {
   uint8_t i;
-  const char * manufacturer = NULL;
+  // const char * manufacturer = NULL;
   unsigned int size;
   enum qspi_flash_page_size page_size;
   unsigned int page_size_bytes;
@@ -35,12 +35,20 @@ unsigned char probe_qspi_flash(void)
   }
 
   // Select the flash chip driver based on the hardware model ID.
+#if defined(QSPI_STANDALONE)
   if (hw_model_id == 0x60 || hw_model_id == 0x61 || hw_model_id == 0x62 || hw_model_id == 0xFD) {
     qspi_flash_device = s25flxxxl;
   }
   else {
     qspi_flash_device = s25flxxxs;
   }
+#elif defined(QSPI_S25FLXXXL)
+  qspi_flash_device = s25flxxxl;
+#elif defined(QSPI_S25FLXXXS)
+  qspi_flash_device = s25flxxxs;
+#else
+#error "failed to select low level flash device"
+#endif
 
   mhx_writef("Probing flash...");
 
@@ -51,10 +59,10 @@ unsigned char probe_qspi_flash(void)
   }
   mhx_writef(" OK\n\n");
 
-  if (qspi_flash_get_manufacturer(qspi_flash_device, &manufacturer) != 0)
-  {
-    return -1;
-  }
+  // if (qspi_flash_get_manufacturer(qspi_flash_device, &manufacturer) != 0)
+  // {
+  //   return -1;
+  // }
 
   if (qspi_flash_get_size(qspi_flash_device, &size) != 0)
   {
@@ -92,10 +100,12 @@ unsigned char probe_qspi_flash(void)
   if (erase_block_sizes[qspi_flash_erase_block_size_256k])
     flash_sector_bits = 18;
 
-  mhx_writef("Manufacturer = %s\n"
+#ifdef QSPI_VERBOSE
+  mhx_writef(// "Manufacturer = %s\n"
              "Flash size   = %u MB\n"
              "Flash slots  = %u x %u MB\n",
-             manufacturer, size, (unsigned int) slot_count, (unsigned int) SLOT_MB);
+             // manufacturer,
+             size, (unsigned int) slot_count, (unsigned int) SLOT_MB);
   mhx_writef("Erase sizes  =");
   if (erase_block_sizes[qspi_flash_erase_block_size_4k])
     mhx_writef(" 4K");
@@ -109,6 +119,7 @@ unsigned char probe_qspi_flash(void)
   mhx_writef("Page size    = %u\n", page_size_bytes);
   mhx_writef("\n");
   mhx_press_any_key(0, MHX_A_NOCOLOR);
+#endif
 
   return 0;
 }
