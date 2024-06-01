@@ -340,11 +340,11 @@ unsigned char confirm_slot0_flash()
   char slot_magic[] = "MEGA65   ";
 #include <ascii_charmap.h>
   if (strncmp(slot_core[1].name, slot_magic, 9)) {
-    mhx_copyscreen(&mf_screens_slot1_not_m65);
+    mhx_screen_display(&mf_screens_slot1_not_m65);
     if (!mhx_check_input("CONFIRM\r", MHX_CI_CHECKCASE|MHX_CI_PRINT, MHX_A_YELLOW))
       return 0;
   }
-  mhx_copyscreen(&mf_screens_slot0_warning);
+  mhx_screen_display(&mf_screens_slot0_warning);
   return mhx_check_input("CONFIRM\r", MHX_CI_CHECKCASE|MHX_CI_PRINT, MHX_A_YELLOW);
 }
 #include <cbm_screen_charmap.h>
@@ -430,7 +430,7 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   mfp_set_area(0, slot_core[selected_slot].length >> 16, '*', MHX_A_WHITE);
 
   // copy footer from upper memory
-  lcopy(mf_screens_menu.screen_start + 40*10 + ((selected_slot | booted_via_jtag) ? 160 : 0) + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  lcopy(mf_screens_menu.screen_start + MFMENU_EDIT_FOOTER * 40 + ((selected_slot | booted_via_jtag) ? 160 : 0) + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }
@@ -739,6 +739,7 @@ void main(void)
 #endif
   }
 
+#if 0
   // currently flashing is only possible on r3a or later
   if (hw_model_id < 3 || hw_model_id > 9 || num_4k_sectors || flash_sector_bits != 18) {
     mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Flashing is currently not\n"
@@ -747,6 +748,7 @@ void main(void)
     old_flash_chip = 1;
     mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
   }
+#endif
 
 #ifdef LAZY_ATTICRAM_CHECK
   // quick and dirty attic ram check
@@ -803,7 +805,7 @@ void main(void)
         }
       }
       // Draw footer line with instructions
-      lcopy(mf_screens_menu.screen_start, mhx_base_scr + 24*40, 40);
+      lcopy(mf_screens_menu.screen_start + MFMENU_MAIN_FOOTER * 40, mhx_base_scr + 24*40, 40);
       // set slot number
       mhx_putch_xy(7, 24, 0x30 + MAX_SLOTS - 1, MHX_A_NOCOLOR);
       mhx_putch_xy(31, 24, 0x30 + MAX_SLOTS - 1, MHX_A_NOCOLOR);

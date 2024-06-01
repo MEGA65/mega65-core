@@ -242,19 +242,6 @@ void mhx_screencolor(uint8_t back, uint8_t border);
 void mhx_flashscreen(uint8_t color, uint16_t delay);
 
 /*
- * mhx_copyscreen(screen)
- *
- * parameters:
- *   screen: a screen definition in memory (see struct above)
- *
- * copies a predefined screen from attic ram into
- * screen memory and sets the current cursor position
- * using mhx_set_xy.
- *
- */
-void mhx_copyscreen(mhx_screen_t *screen);
-
-/*
  * mhx_hl_lines(line_start, line_end, attr)
  *
  * parameters:
@@ -529,6 +516,20 @@ uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr);
 mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr);
 
 /*
+ * mhx_screen_display(screen)
+ *
+ * parameters:
+ *   screen: a screen definition in memory (see struct above)
+ *
+ * Copies a predefined screen from ram into
+ * screen memory and sets the current cursor position
+ * using mhx_set_xy.
+ * Will wait for raster to leave screen before copying.
+ *
+ */
+void mhx_screen_display(mhx_screen_t *screen);
+
+/*
  * char *mhx_screen_get_line(screen, offset)
  *
  * parameters:
@@ -537,8 +538,8 @@ mhx_keycode_t mhx_press_any_key(uint8_t flags, uint8_t attr);
  *   buffer: a buffer to hold the line data. This needs to have
  *           a size of 41 bytes minimum.
  *
- * copies a line from a predefined screen from attic ram into
- * the provided buffer.
+ * Copies a line from a predefined screen from ram into
+ * the provided buffer. The size is hardcoded to 40 bytes.
  *
  */
 char *mhx_screen_get_line(mhx_screen_t *screen, uint8_t index, char *buffer);

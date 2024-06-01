@@ -863,9 +863,26 @@ $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(LD65) $< -Ln $*.label -vm --mapfile $*.map -o $*.prg
 
-#
-# NNEW MEGAFLASH BUILD
-#
+#-----------------------------------------------------------------------------
+#                               ONBOARDING
+#-----------------------------------------------------------------------------
+
+# remember: version.s needs to be first!
+$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
+	$(call mbuild_header,$@)
+	mkdir -p $(SDCARD_DIR)
+	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
+		$(MEGA65LIBCINC) -O --add-source -DA200T \
+		-o $(SDCARD_DIR)/ONBOARD.M65 -DSTANDALONE \
+		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
+		$(UTILDIR)/version.s $< $(MEGA65LIBCLIB)
+# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
+	$(call mbuild_sizecheck,30719,$@)
+
+#-----------------------------------------------------------------------------
+#                            MEGAFLASH BUILD
+#-----------------------------------------------------------------------------
+
 MFLASH_QSPI_C = \
 	$(UTILDIR)/qspicommon.c
 
@@ -941,23 +958,13 @@ $(UTILDIR)/%_debug.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DNO_ATTIC -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -O -o $(UTILDIR)/work/$*.s $<
+	$(CC65) $(MEGA65LIBCINC) -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -O -o $(UTILDIR)/work/$*.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*.list $(UTILDIR)/work/$*.s
-
-# remember: version.s needs to be first!
-$(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(MEGA65LIBCLIB) $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	mkdir -p $(SDCARD_DIR)
-	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
-		$(MEGA65LIBCINC) -O --add-source -DA200T \
-		-o $(SDCARD_DIR)/ONBOARD.M65 -DSTANDALONE \
-		-Ln $(UTILDIR)/onboard.label --listing $(UTILDIR)/onboard.list --mapfile $(UTILDIR)/onboard.map \
-		$(UTILDIR)/version.s $< $(MEGA65LIBCLIB)
-# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
-	$(call mbuild_sizecheck,30719,$@)
 
 #
 # MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
+# in addition util-core.cfg is used to move BSS and stack behind HYPPE starting at C000
+# all string data is placed into upper memory (see shadowram entry)
 #
 # TODO: A100T and A200T are no longer used
 #
@@ -967,9 +974,8 @@ $(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) 
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $(UTILDIR)/megaflash-a100t.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
+		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DTAB_FOR_MENU $< \
 		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
-# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
 $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
@@ -980,10 +986,10 @@ $(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_REQ) 
 		-Ln $*.label --listing $*.list --mapfile $*.map \
 		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
 		$(MFLASH_CORE_LINK) $(MEGA65LIBCLIB)
-# Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
 
 # The following is a megaflash that can be started on the system (dip switch 3 on!), mainly for debugging, but also for production and recovery
+# it can get bigger, but it also has all the string/screen data in code segment instead of upper memory!
 $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
@@ -993,9 +999,10 @@ $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65L
 		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
-#
-# OLD MEGAFLASH BUILD, not working, probably
-#
+#-----------------------------------------------------------------------------
+# OLD MEGAFLASH BUILD, not working
+#-----------------------------------------------------------------------------
+
 $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h $(UTILDIR)/qspijoy.c $(UTILDIR)/qspijoy.h $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
@@ -1004,6 +1011,8 @@ $(UTILDIR)/joyflash-a200t.prg:       $(UTILDIR)/joyflash.c $(UTILDIR)/version.h 
 		$< $(MEGA65LIBCLIB) $(UTILDIR)/qspijoy.c
 # Top must be below < 0x8000 after loading, so that it doesn't overlap with hypervisor
 	$(call mbuild_sizecheck,30719,$@)
+
+#-----------------------------------------------------------------------------
 
 $(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
@@ -1099,6 +1108,22 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	$(SUBMODULEUPDATE)
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
+
+#-----------------------------------------------------------------------------
+#                               SHADOWRAM
+#-----------------------------------------------------------------------------
+#
+# Shadowram is the initial chipram memory content of the system booting up
+# It is directly inserted into the bitstream. It contains stuff like the ROM,
+# but also utilities so that we don't need to load them from sd card.
+#
+# shadowram*.vhdl is referenced in the vivado/*_gen.tcl script.
+#
+# MEGAFLASH screens ($(UTILDIR)/mf_screens.bin) are build in the MEGAFLASH
+# section they place all string data into upper memory to have more code space
+# available address is calculates by screenbuilder, see megaflash.scr header
+# for definition.
+#
 $(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(UTILDIR)/megaflash-a100t.prg $(UTILDIR)/mf_screens.adr $(UTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(UTILDIR)/mf_screens.bin@`cat $(UTILDIR)/mf_screens.adr` $(UTILDIR)/megaflash-a100t.prg@50000

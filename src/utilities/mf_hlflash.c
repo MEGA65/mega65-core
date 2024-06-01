@@ -37,19 +37,23 @@ uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
 #ifdef QSPI_FLASH_INSPECT
 void mfhl_flash_inspector(void)
 {
+  uint8_t clear = 1;
   uint16_t i;
   uint32_t addr = 0;
 
-  mhx_clearscreen(0x20, MHX_A_WHITE);
-  mhx_write_xy(1, 24, "Navigation: , DOWN LEFT RIGHT UP . ;", MHX_A_LGREY);
-  mhx_hl_lines(24, 24, MHX_A_INVERT | MHX_A_LGREY);
-
   while (1) {
+    if (clear) {
+      mhx_clearscreen(0x20, MHX_A_WHITE);
+      lcopy((long)mf_screens_menu.screen_start + MFMENU_INSPECT_HEADER * 40, mhx_base_scr, 40);
+      lcopy((long)mf_screens_menu.screen_start + MFMENU_INSPECT_FOOTER * 40, mhx_base_scr + 23*40, 80);
+      mhx_hl_lines(0, 0, MHX_A_INVERT | MHX_A_LGREY);
+      mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
+      clear = 0;
+    }
+
     read_data(addr);
-    mhx_set_xy(1, 0);
-    mhx_writef("Flash @ $%08lx", addr);
-    mhx_hl_lines(0, 0, MHX_A_INVERT | MHX_A_LGREY);
-    mhx_setattr(MHX_A_WHITE);
+    mhx_set_xy(7, 0);
+    mhx_writef(MHX_W_REVON MHX_W_LGREY "%07lx" MHX_W_WHITE MHX_W_REVOFF, addr);
     for (i = 0; i < 256; i++) {
       if (!(i & 15))
         mhx_writef("\n  %02x: ", i);
@@ -60,6 +64,9 @@ void mfhl_flash_inspector(void)
     switch (mhx_lastkey.code.key) {
     case 0x13: // HOME
       addr &= (SLOT_SIZE - 1) ^ 0xffffffff;
+      break;
+    case 0x93: // CLRHOME
+      addr = 0;
       break;
     case 0x1d: // RIGHT
       addr += 0x100;
@@ -86,6 +93,7 @@ void mfhl_flash_inspector(void)
       addr -= SLOT_SIZE;
       break;
     case 0x03:
+    case 0x1f:
       return;
     /*
     case 0x50:
@@ -93,42 +101,36 @@ void mfhl_flash_inspector(void)
       query_flash_protection(addr);
       mhx_press_any_key(0, MHX_A_NOCOLOR);
       break;
-    case 0x54:
-    case 0x74:
-      // T = Test
+    */
+    case 0xf2: // F2
+      clear = 1;
+      mhx_writef("\n\nReally?");
+      mhx_getkeycode(MHX_GK_WAIT);
+      if (mhx_lastkey.code.key != 89)
+        break;
       // Erase page, write page, read it back
+      mhx_writef("\nErase... ");
       erase_sector(addr);
       // Some known data
-      for (i = 0; i < 256; i++) {
+      for (i = 4; i < 256; i++) {
         data_buffer[i] = i;
-        data_buffer[0x1ff - i] = i;
       }
       data_buffer[0] = addr >> 24L;
       data_buffer[1] = addr >> 16L;
       data_buffer[2] = addr >> 8L;
       data_buffer[3] = addr >> 0L;
-      addr += 256;
-      data_buffer[0x100] = addr >> 24L;
-      data_buffer[0x101] = addr >> 16L;
-      data_buffer[0x102] = addr >> 8L;
-      data_buffer[0x103] = addr >> 0L;
-      addr -= 256;
-      //        lfill(QSPI_FLASH_BUFFER,0xFF,0x200);
-      mhx_writef("E: %02x %02x %02x\n", lpeek(QSPI_FLASH_BUFFER), lpeek(0xffd6e01), lpeek(0xffd6e02));
-      mhx_writef("F: %02x %02x %02x\n", lpeek(QSPI_FLASH_BUFFER + 0x100), lpeek(0xffd6f01), lpeek(0xffd6f02));
-      mhx_writef("P: %02x %02x %02x\n", data_buffer[0], data_buffer[1], data_buffer[2]);
       // Now program it
-      unprotect_flash(addr);
-      query_flash_protection(addr);
-      mhx_writef("About to call program_page()\n");
+      mhx_writef("Program... \n");
       //        program_page(addr,page_size);
       program_page(addr, 256);
+      // dummy read!
+      read_data(0);
       mhx_press_any_key(0, MHX_A_NOCOLOR);
-    */
+      break;
     }
     if (addr > 0xff0fffff)
       addr = 0;
-    else if (addr > (slot_count * SLOT_SIZE))
+    else if (addr >= (slot_count * SLOT_SIZE))
       addr = (slot_count * SLOT_SIZE) - 0x100;
   }
 }
@@ -580,7 +582,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
 #endif
 
   // cover STOP menubar option with warning
-  lcopy((long)mf_screens_menu.screen_start + 9 * 80, mhx_base_scr + 23*40, 80);
+  lcopy((long)mf_screens_menu.screen_start + MFMENU_EDIT_FLASHING * 40, mhx_base_scr + 23*40, 80);
   mhx_hl_lines(23, 24, MHX_A_LGREY|MHX_A_INVERT);
 
   // Read a few times to make sure transient initial read problems disappear

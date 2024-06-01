@@ -5,7 +5,7 @@
 !size=40x25
 !background=6
 !foreground=1
-/123456789012345678901234567890123456789
+#123456789012345678901234567890123456789
 !text
 {8}
   ** MEGA65 core in slot 1 missing! **
@@ -57,14 +57,17 @@ Type CONFIRM to proceed, or press
 <RUN/STOP> to abort: {C}
 !endtext
 !screen=menu
-!size=40x20
+!size=40x0
 !nocolorram=true
 !background=6
 !foreground=1
-/123456789012345678901234567890123456789
+#123456789012345678901234567890123456789
 !text
+!idx MFMENU_MAIN_FOOTER
   <0>-<X> Launch   <CTRL>+<1>-<X> Edit
+!idx MFMENU_SELECT_HEADER
       Select core file for slot X
+!idx MFMENU_SELECT_FOOTER
  <F5> Internal SD  <F7> Directory: ROOT
  <RETURN> Select file      <STOP> Abort
  <F5> External SD  <F7> Directory: ROOT
@@ -73,6 +76,7 @@ Type CONFIRM to proceed, or press
  <RETURN> Select file      <STOP> Abort
  <F5> External SD  <F7> Directory: CORE
  <RETURN> Select file      <STOP> Abort
+!idx MFMENU_EDIT_FOOTER
  <F3> Load Core
                            <STOP> Abort
  <F3> Load Core
@@ -81,8 +85,14 @@ Type CONFIRM to proceed, or press
                            <STOP> Abort
  <F3> Load Core    <F4> Erase Slot
  <F8> Flash Slot           <STOP> Abort
+!idx MFMENU_EDIT_FLASHING
  Don't interrupt power supply nor touch
        the device while flashing!
+!idx MFMENU_INSPECT_HEADER
+ Page $0000000          Flash Inspector
+!idx MFMENU_INSPECT_FOOTER
+                             <ESC> Exit
+ <:> <,> <DN> <LT> -- <RT> <UP> <.> <;>
 !endtext
 !screen=core_error
 !size=40x0
@@ -90,7 +100,7 @@ Type CONFIRM to proceed, or press
 !background=6
 !foreground=1
 !array=true
-/123456789012345678901234567890123456789
+#123456789012345678901234567890123456789
 !text
 !idx MFSC_CF_NO_ERROR
 
@@ -114,7 +124,7 @@ Not a MEGA65 Factory core!
 !foreground=1
 !array=true
 !struct=BB
-/123456789012345678901234567890123456789
+#123456789012345678901234567890123456789
 !text
 {*0x01}{*8}MEGA65 R1
 {*0x02}{*4}MEGA65 R2

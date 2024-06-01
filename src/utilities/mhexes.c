@@ -208,6 +208,7 @@ void mhx_write(char *text, uint8_t attr)
   }
 }
 
+// TODO: negative numbers
 void mhx_writef(char *format, ...)
 {
   char out, *sub = NULL;
@@ -428,14 +429,15 @@ uint8_t mhx_check_input(char *match, uint8_t flags, uint8_t attr)
   return 1;
 }
 
-void mhx_copyscreen(mhx_screen_t *screen)
+void mhx_screen_display(mhx_screen_t *screen)
 {
   // wait for raster leaving screen
   while (!(PEEK(0xD011)&0x80));
 
   // copy stuff
   lcopy(screen->screen_start, mhx_base_scr, screen->screen_size);
-  lcopy(screen->color_start, mhx_base_col24, screen->color_size);
+  if (screen->color_size)
+    lcopy(screen->color_start, mhx_base_col24, screen->color_size);
 
   // set cursor
   mhx_set_xy(screen->cursor_x, screen->cursor_y);

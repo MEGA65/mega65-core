@@ -518,12 +518,8 @@ void erase_sector(unsigned long address_in_sector)
 
   // spi_cs_high();
 
-  {
-    // Give command time to be sent before we do anything else
-    unsigned char b;
-    for (b = 0; b < 200; b++)
-      continue;
-  }
+  // wait until busy is cleared
+  while (PEEK(0xD680) & 3);
 
   reg_sr1 = 0x03;
   while (reg_sr1 & 0x03) {

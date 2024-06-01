@@ -298,8 +298,8 @@ restart_dirload:
 void mfsc_draw_header(uint8_t selected_dir, uint8_t slot)
 {
   // copy header and footer from upper memory
-  lcopy((long)mf_screens_menu.screen_start + 40, mhx_base_scr, 40);
-  lcopy((long)mf_screens_menu.screen_start + ((selected_dir & 0x3) + 1) * 80, mhx_base_scr + 23*40, 80);
+  lcopy((long)mf_screens_menu.screen_start + MFMENU_SELECT_HEADER * 40, mhx_base_scr, 40);
+  lcopy((long)mf_screens_menu.screen_start + (MFMENU_SELECT_FOOTER * 40) + ((selected_dir & 0x3) * 80), mhx_base_scr + 23*40, 80);
   // set slot number in header
   mhx_putch_xy(32, 0, 0x30 + slot, MHX_A_NOCOLOR);
   // invert and color header and footer
