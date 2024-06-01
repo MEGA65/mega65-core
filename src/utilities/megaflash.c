@@ -8,7 +8,8 @@
 
 #include <6502.h>
 
-#include "qspicommon.h"
+#include "mf_buffers.h"
+#include "mf_flash.h"
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_progress.h"
@@ -916,17 +917,17 @@ void main(void)
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
 #endif
-      if (old_flash_chip) {
-        mhx_flashscreen(MHX_A_YELLOW, 150);
-        continue;
-      }
+      // if (old_flash_chip) {
+      //   mhx_flashscreen(MHX_A_YELLOW, 150);
+      //   continue;
+      // }
 
 #ifdef LAZY_ATTICRAM_CHECK
 
-      if (atticram_bad) {
-        mhx_flashscreen(MHX_A_RED, 150);
-        continue;
-      }
+      // if (atticram_bad) {
+      //   mhx_flashscreen(MHX_A_RED, 150);
+      //   continue;
+      // }
 #endif
       edit_slot(selected_reflash_slot);
 #if 0

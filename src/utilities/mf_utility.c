@@ -3,8 +3,8 @@
 #include <hal.h>
 #include <memory.h>
 #include <string.h>
-#include "qspicommon.h"
 #include "mhexes.h"
+#include "mf_buffers.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"

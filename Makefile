@@ -884,17 +884,27 @@ $(SDCARD_DIR)/ONBOARD.M65:       $(UTILDIR)/onboard.c $(UTILDIR)/version.s $(MEG
 #-----------------------------------------------------------------------------
 
 MFLASH_QSPI_C = \
-	$(UTILDIR)/qspicommon.c
+	$(UTILDIR)/qspiflash.c \
+	$(UTILDIR)/s25flxxxl.c \
+	$(UTILDIR)/s25flxxxs.c \
+	$(UTILDIR)/qspihwassist.c \
+	$(UTILDIR)/qspibitbash.c
 
 MFLASH_QSPI_H = \
 	$(UTILDIR)/version.h \
-	$(UTILDIR)/qspicommon.h
+	$(UTILDIR)/qspiflash.h \
+	$(UTILDIR)/s25flxxxl.h \
+	$(UTILDIR)/s25flxxxs.h \
+	$(UTILDIR)/qspihwassist.h \
+	$(UTILDIR)/qspibitbash.h
 
 MFLASH_BASE_H = \
 	$(UTILDIR)/mhexes.h \
 	$(UTILDIR)/mhx_bin2scr.h \
 	$(UTILDIR)/nohysdc.h \
 	$(UTILDIR)/crc32accl.h \
+	$(UTILDIR)/mf_buffers.h \
+	$(UTILDIR)/mf_flash.h \
 	$(UTILDIR)/mf_progress.h \
 	$(UTILDIR)/mf_selectcore.h \
 	$(UTILDIR)/mf_utility.h
@@ -904,6 +914,8 @@ MFLASH_BASE_OBJ = \
 	$(UTILDIR)/mhx_bin2scr.o \
 	$(UTILDIR)/nohysdc.o \
 	$(UTILDIR)/crc32accl.o \
+	$(UTILDIR)/mf_buffers.o \
+	$(UTILDIR)/mf_flash.o \
 	$(UTILDIR)/mf_progress.o \
 	$(UTILDIR)/mf_selectcore.o \
 	$(UTILDIR)/mf_utility.o
@@ -995,7 +1007,7 @@ $(UTILDIR)/mflash.prg:       $(UTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEGA65L
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
 		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE $< \
+		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_HW_ASSIST -DQSPI_VERBOSE $< \
 		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
