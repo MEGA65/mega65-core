@@ -426,9 +426,8 @@ static char s25flxxxs_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
 static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data)
 {
     const struct s25flxxxs * self = (const struct s25flxxxs *) qspi_flash_device;
-    unsigned int page_size_bytes = (self->page_size == qspi_flash_page_size_256) ? 256 : 512;
 
-    if (page_size != self->page_size)
+    if (page_size == qspi_flash_page_size_512 && self->page_size == qspi_flash_page_size_256)
     {
         // Unsupported page size.
         return 1;
@@ -446,7 +445,7 @@ static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_siz
         return 1;
     }
 
-    if ((address & 0x1ff) && (self->page_size != qspi_flash_page_size_256))
+    if ((address & 0x1ff) && (page_size != qspi_flash_page_size_256))
     {
         // Address not aligned to page boundary.
         return 1;
@@ -455,7 +454,7 @@ static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_siz
     clear_status();
     write_enable();
 #ifdef QSPI_HW_ASSIST
-    if (self->page_size == qspi_flash_page_size_256)
+    if (page_size == qspi_flash_page_size_256)
     {
         hw_assisted_program_page_256(address, data);
     }
@@ -465,6 +464,7 @@ static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_siz
     }
 #else
     {
+        unsigned int page_size_bytes = (page_size == qspi_flash_page_size_256) ? 256 : 512;
         unsigned int i;
 
         spi_clock_high();
