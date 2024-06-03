@@ -150,7 +150,7 @@ void erase_sector(unsigned long address_in_sector)
         erase_block_size = qspi_flash_erase_block_size_32k;
     else if ( flash_sector_bits == 16 )
         erase_block_size = qspi_flash_erase_block_size_64k;
-    else if ( flash_sector_bits == 17 )
+    else if ( flash_sector_bits == 18 )
         erase_block_size = qspi_flash_erase_block_size_256k;
     else
         return;
