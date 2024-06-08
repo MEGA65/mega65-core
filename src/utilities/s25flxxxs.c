@@ -451,6 +451,15 @@ static char s25flxxxs_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
         return 1;
     }
 
+    // Try to unprotect the requested sector.
+    if (erase_block_size == qspi_flash_erase_block_size_256k)
+    {
+        if (write_dynamic_protection_bits((address >> 18) << 18, FALSE) != 0)
+        {
+            return 1;
+        }
+    }
+
     clear_status();
     write_enable();
 #ifdef QSPI_HW_ASSIST
