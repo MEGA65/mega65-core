@@ -293,54 +293,6 @@ static char s25flxxxs_init(void * qspi_flash_device)
     }
 
 #ifdef QSPI_VERBOSE
-    {
-        unsigned char spi_tx[5];
-        unsigned char access_register;
-        uint16_t i;
-
-        mhx_clearscreen(0x20, MHX_A_WHITE);
-        mhx_set_xy(7, 0);
-        mhx_writef("Persistent protection bits:\n");
-        for (i = 0; i < 256; i++)
-        {
-            spi_tx[0] = 0xe2;
-            spi_tx[1] = (i >> 6); // address >> 24;
-            spi_tx[2] = (i << 2); // address >> 16;
-            spi_tx[3] = 0x00; // address >> 8;
-            spi_tx[4] = 0x00; // address >> 0;
-            spi_transaction(spi_tx, 6, &access_register, 1);
-
-            if (!(i & 15)) mhx_writef("\n  %02x: ", i);
-            mhx_writef("%02x", access_register);
-        }
-
-        mhx_clear_keybuffer();
-        mhx_until_keys_released();
-        mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
-
-        mhx_clearscreen(0x20, MHX_A_WHITE);
-        mhx_set_xy(7, 0);
-        mhx_writef("Dynamic protection bits:\n");
-        for (i = 0; i < 256; i++)
-        {
-            spi_tx[0] = 0xe0;
-            spi_tx[1] = (i >> 6); // address >> 24;
-            spi_tx[2] = (i << 2); // address >> 16;
-            spi_tx[3] = 0x00; // address >> 8;
-            spi_tx[4] = 0x00; // address >> 0;
-            spi_transaction(spi_tx, 6, &access_register, 1);
-
-            if (!(i & 15)) mhx_writef("\n  %02x: ", i);
-            mhx_writef("%02x", access_register);
-        }
-
-        mhx_clear_keybuffer();
-        mhx_until_keys_released();
-        mhx_press_any_key(MHX_AK_IGNORETAB, MHX_A_WHITE);
-    }
-#endif
-
-#ifdef QSPI_VERBOSE
     mhx_writef("Flash size = %d MB\n", self->size);
     mhx_writef("Latency cycles = %d\n", self->read_latency_cycles);
     mhx_writef("Sector size (K) = %d\n", (self->erase_block_size == qspi_flash_erase_block_size_256k) ? 256 : 64);
