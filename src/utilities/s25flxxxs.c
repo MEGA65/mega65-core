@@ -297,7 +297,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
     mhx_writef("Latency cycles = %d\n", self->read_latency_cycles);
     mhx_writef("Sector size (K) = %d\n", (self->erase_block_size == qspi_flash_erase_block_size_256k) ? 256 : 64);
     mhx_writef("Page size = %d\n", (self->page_size == qspi_flash_page_size_256) ? 256 : 512);
-    mhx_writef("DYB lock boot %d\n", self->dyb_lock_boot_enabled ? 1 : 0);
+    mhx_writef("DYB lock boot = %d\n", self->dyb_lock_boot_enabled ? 1 : 0);
     mhx_writef("Quad mode = %d\n", quad_mode_enabled ? 1 : 0);
     mhx_writef("Registers = %02X %02X %02X\n", read_status_register_1(), read_status_register_2(), read_configuration_register_1());
 #endif
