@@ -25,6 +25,7 @@ uint8_t mfp_progress_lines;
 // 16k block base progress
 uint16_t mfp_progress_last;
 uint8_t mfp_progress_attr;
+uint8_t mfp_progress_mask;
 
 // sub 64k progress in 16k blocks
 uint8_t mfp_screencode_up[4] = { 0x7e, 0x61, 0x6c|0x80, 0xa0 };
@@ -53,10 +54,12 @@ void mfp_init_progress(uint8_t maxmb, uint8_t yp, uint8_t screencode, char *titl
   if (maxmb > 8)
     maxmb = 8;
 
+  mfp_progress_mask = (maxmb << 4) - 1;
+
   mfp_progress_lines = maxmb >> 1;
   if (maxmb & 1) mfp_progress_lines++;
 
-  mhx_draw_rect(0, yp, 38, mfp_progress_lines, title, attr, 1);
+  mhx_draw_rect(0, yp, 38, 4, title, attr, 1);
   for (i = 0; i < mfp_progress_lines; i++) {
     mhx_set_xy(1, yp + i + 1);
     mhx_writef("%XM ", i<<1);
@@ -87,9 +90,10 @@ void mfp_set_progress(uint8_t pos, uint8_t screencode, uint8_t attr)
     return;
 
   // limit to 8M = 128 chars of 64K each
-  pos &= 0x7f;
-  mhx_set_xy(4 + (pos & 31) + ((pos & 31) >> 3), mfp_progress_top + (pos >> 5));
-  mhx_putch(screencode, attr);
+  if (pos <= mfp_progress_mask) {
+    mhx_set_xy(4 + (pos & 31) + ((pos & 31) >> 3), mfp_progress_top + (pos >> 5));
+    mhx_putch(screencode, attr);
+  }
 }
 
 /*
@@ -110,8 +114,8 @@ void mfp_set_progress(uint8_t pos, uint8_t screencode, uint8_t attr)
  */
 void mfp_set_area(uint16_t start_block, uint8_t num_blocks, uint8_t screencode, uint8_t attr)
 {
-  start_block &= 0x7f;
-  while (num_blocks && start_block < 0x80) {
+  start_block &= mfp_progress_mask;
+  while (num_blocks && start_block <= mfp_progress_mask) {
     mfp_set_progress(start_block++, screencode, attr);
     num_blocks--;
   }

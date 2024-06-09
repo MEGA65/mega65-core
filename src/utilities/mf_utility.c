@@ -13,7 +13,7 @@
 #endif
 
 uint8_t SLOT_MB = 1;
-uint8_t SLOT_SIZE_PAGE_MAX = 1 << 4;
+uint8_t SLOT_SIZE_PAGE_MASK = (1 << 4) - 1;
 uint32_t SLOT_SIZE = 1L << 20;
 
 uint8_t hw_model_id = 0;
@@ -43,9 +43,10 @@ int8_t mfut_probe_hardware_version(void)
     if (MFUT_BUF2MOD(model_id) == 0)
       break;
     if (MFUT_BUF2MOD(model_id) == hw_model_id) {
-      SLOT_SIZE_PAGE_MAX = SLOT_MB = MFUT_BUF2MOD(slot_mb);
-      SLOT_SIZE_PAGE_MAX <<= 4;
-      SLOT_SIZE = ((uint32_t)SLOT_SIZE_PAGE_MAX) << 16;
+      SLOT_SIZE_PAGE_MASK = SLOT_MB = MFUT_BUF2MOD(slot_mb);
+      SLOT_SIZE_PAGE_MASK <<= 4;
+      SLOT_SIZE = ((uint32_t)SLOT_SIZE_PAGE_MASK) << 16;
+      SLOT_SIZE_PAGE_MASK--;
       mhx_strncpy(hw_model_name, buffer + sizeof(mega_models_t), 20);
       return 0;
     }

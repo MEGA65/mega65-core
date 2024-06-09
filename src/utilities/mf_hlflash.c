@@ -179,7 +179,7 @@ int8_t mfhf_load_core() {
   lfill(mhx_base_scr + 23*40, 0xa0, 60);
 
   // setup progress bar
-  mfp_init_progress(8, 17, '-', " Load Core ", MHX_A_WHITE);
+  mfp_init_progress(SLOT_MB, 17, '-', " Load Core ", MHX_A_WHITE);
   if (mfsc_corehdr_length < SLOT_SIZE) {
     // fill unused slot area grey
     length = mfsc_corehdr_length >> 16;
@@ -321,7 +321,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   lfill(mhx_base_scr + 23*40, 0xa0, 60);
 
   // setup progress bar
-  mfp_init_progress(8, 17, '-', " Read Core Header ", MHX_A_WHITE);
+  mfp_init_progress(SLOT_MB, 17, '-', " Read Core Header ", MHX_A_WHITE);
 
   // load core from qspi to attic ram
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
@@ -535,7 +535,7 @@ void mfhf_calc_el_addr(const uint8_t el_sector, uint32_t *addr, uint32_t *size)
 {
   uint32_t mask;
 
-  *addr = ((uint32_t)(el_sector & (SLOT_SIZE_PAGE_MAX - 1))) << 16;
+  *addr = ((uint32_t)(el_sector & SLOT_SIZE_PAGE_MASK)) << 16;
   if (num_4k_sectors && *addr <= (uint32_t)num_4k_sectors << 12)
     // always do 64k
     *size = 1L << 16;

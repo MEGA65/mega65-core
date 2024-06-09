@@ -2,7 +2,7 @@
 #define MF_UTILITY_H 1
 
 extern uint8_t SLOT_MB;
-extern uint8_t SLOT_SIZE_PAGE_MAX;
+extern uint8_t SLOT_SIZE_PAGE_MASK;
 extern uint32_t SLOT_SIZE;
 
 extern uint8_t hw_model_id;

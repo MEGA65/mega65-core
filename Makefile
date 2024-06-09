@@ -998,13 +998,13 @@ $(UTILDIR)/%_sa.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 		mkdir $(UTILDIR)/work; \
 	fi
 	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -O -o $(UTILDIR)/work/$*_sa.s $<
+#	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -DQSPI_HW_ASSIST -DNO_ATTIC -O -o $(UTILDIR)/work/$*_sa.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*_sa.list $(UTILDIR)/work/$*_sa.s
 
+#
 # MAX SIZE for all flashers is 0x77ff = 30719, see hyppo/main.asm:flashmenu_dmalist
 # in addition util-core.cfg is used to move BSS and stack behind HYPPE starting at C000
 # all string data is placed into upper memory (see shadowram entry)
-#
-# TODO: A100T and A200T are no longer used
 #
 $(UTILDIR)/megaflash-devpcb.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_DEV_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
@@ -1012,7 +1012,7 @@ $(UTILDIR)/megaflash-devpcb.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_DEV_
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA100T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DTAB_FOR_MENU $< \
+		-DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DTAB_FOR_MENU $< \
 		$(MFLASH_CORE_DEV_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
@@ -1022,7 +1022,7 @@ $(UTILDIR)/megaflash-m65pcb.prg:       $(UTILDIR)/megaflash.c $(MFLASH_CORE_M65_
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DA200T -DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
+		-DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
 		$(MFLASH_CORE_M65_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 

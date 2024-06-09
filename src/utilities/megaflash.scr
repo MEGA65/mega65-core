@@ -161,7 +161,7 @@ Not a MEGA65 Factory core!
     Model ID:   $%02X
     Model name: %s
     Slots:      %d (each %d MB)
-    Slot Size:  %ld ($%02x page max)
+    Slot Size:  %ld ($%02x page mask)
 
   Cartridge: %s
   Autoselect Slot: %d
