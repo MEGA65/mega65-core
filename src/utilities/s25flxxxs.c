@@ -129,7 +129,7 @@ static uint16_t read_asp_register()
     unsigned char spi_tx[] = {0x2b};
     unsigned char spi_rx[] = {0x00, 0x00};
     spi_transaction(spi_tx, 1, spi_rx, 2);
-    return ((uint16_t) spi_rx[1]) << 8 + spi_rx[0];
+    return (((uint16_t) spi_rx[1]) << 8) + spi_rx[0];
 }
 
 static char write_dynamic_protection_bits(unsigned long address, BOOL protect)
