@@ -62,6 +62,8 @@ static struct s25flxxxs_status read_status(void)
 
 #define error_occurred(status) (status.sr1 & 0x60 ? TRUE : FALSE)
 
+#define dyb_lock_boot_enabled(aspr) (aspr & 0x10 ? FALSE : TRUE)
+
 static void clear_status(void)
 {
     struct s25flxxxs_status status;
@@ -122,7 +124,15 @@ static char enable_quad_mode(void)
     return wait_status();
 }
 
-char write_dynamic_protection_bits(unsigned long address, BOOL protect)
+static uint16_t read_asp_register()
+{
+    unsigned char spi_tx[] = {0x2b};
+    unsigned char spi_rx[] = {0x00, 0x00};
+    spi_transaction(spi_tx, 1, spi_rx, 2);
+    return ((uint16_t) spi_rx[1]) << 8 + spi_rx[0];
+}
+
+static char write_dynamic_protection_bits(unsigned long address, BOOL protect)
 {
     unsigned char spi_tx[6];
 
@@ -149,6 +159,7 @@ struct s25flxxxs
     unsigned char read_latency_cycles;
     enum qspi_flash_erase_block_size erase_block_size;
     enum qspi_flash_page_size page_size;
+    BOOL dyb_lock_boot_enabled;
 };
 
 static char s25flxxxs_reset(void * qspi_flash_device)
@@ -177,6 +188,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
     const uint8_t spi_tx[] = {0x9f};
     uint8_t spi_rx[44] = {0x00};
     unsigned char cr1;
+    uint16_t aspr;
     BOOL quad_mode_enabled;
 
     // Software reset.
@@ -221,11 +233,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
         return 1;
     }
 
-    if (spi_rx[3] != 0x4d)
-    {
-        return 1;
-    }
-
+    // Determine sector architecture.
     if (spi_rx[4] == 0x00)
     {
         // Uniform 256K sectors.
@@ -241,6 +249,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
         return 1;
     }
 
+    // Determine latency cycle count.
     cr1 = read_configuration_register_1();
     self->read_latency_cycles = ((cr1 >> 6) == 3) ? 0 : 8;
 
@@ -260,13 +269,20 @@ static char s25flxxxs_init(void * qspi_flash_device)
         return 1;
     }
 
+    // Determine if DYB lock boot is enabled.
+    aspr = read_asp_register();
+#ifdef QSPI_VERBOSE
+    mhx_writef("ASPR = %04X\n", aspr);
+#endif
+    self->dyb_lock_boot_enabled = dyb_lock_boot_enabled(aspr);
+
     // Enable quad mode if it is not enabled, and verify.
     quad_mode_enabled = cr1 & 0x02;
     if (!quad_mode_enabled)
     {
         if (enable_quad_mode() != 0)
         {
-           return 1;
+            return 1;
         }
         cr1 = read_configuration_register_1();
         quad_mode_enabled = cr1 & 0x02;
@@ -281,6 +297,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
     mhx_writef("Latency cycles = %d\n", self->read_latency_cycles);
     mhx_writef("Sector size (K) = %d\n", (self->erase_block_size == qspi_flash_erase_block_size_256k) ? 256 : 64);
     mhx_writef("Page size = %d\n", (self->page_size == qspi_flash_page_size_256) ? 256 : 512);
+    mhx_writef("DYB lock boot = %d\n", self->dyb_lock_boot_enabled ? 1 : 0);
     mhx_writef("Quad mode = %d\n", quad_mode_enabled ? 1 : 0);
     mhx_writef("Registers = %02X %02X %02X\n", read_status_register_1(), read_status_register_2(), read_configuration_register_1());
 #endif
@@ -398,9 +415,28 @@ static char s25flxxxs_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
 {
     const struct s25flxxxs * self = (const struct s25flxxxs *) qspi_flash_device;
 
+    // Check pre-condition.
     if (erase_block_size != self->erase_block_size)
     {
         return 1;
+    }
+
+    // Disable dynamic sector protection for the sector.
+    if (self->dyb_lock_boot_enabled)
+    {
+        if (erase_block_size == qspi_flash_erase_block_size_256k)
+        {
+            if (write_dynamic_protection_bits((address >> 18) << 18, FALSE) != 0)
+            {
+                return 1;
+            }
+        }
+        else
+        {
+            // The combination of DYB lock boot and a 64K/4K mixed sector
+            // architecture is currently not supported.
+            return 1;
+        }
     }
 
     clear_status();
