@@ -207,24 +207,6 @@ void display_version(void)
 #endif
 }
 
-uint8_t first_flash_read = 1;
-void do_first_flash_read(unsigned long addr)
-{
-  uint16_t x;
-
-  // Work around weird flash thing where first read of a sector reads rubbish
-  // TODO: is this really required?
-  read_data(addr);
-  for (x = 0; x < 256; x++) {
-    if (data_buffer[0] != 0xee)
-      break;
-    usleep(50000L);
-    read_data(addr);
-    read_data(addr);
-  }
-  first_flash_read = 0;
-}
-
 /*
  * uchar scan_core_information(search_flags)
  *
@@ -241,9 +223,6 @@ unsigned char scan_core_information(unsigned char search_flags)
 {
   short slot, j;
   unsigned char found = 0xff, default_slot = 0xff, flagmask = CORECAP_USED;
-
-  if (first_flash_read)
-    do_first_flash_read(0);
 
   for (j = 0; j < CORECAP_DEF_MAX; j++)
     corecap_def[j].slot = 0xff;
