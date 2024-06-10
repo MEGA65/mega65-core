@@ -282,8 +282,14 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
 {
     char result = 0;
 
+    if (data == NULL)
+    {
+        // Invalid data pointer.
+        return 1;
+    }
+
 #ifdef QSPI_HW_ASSIST
-    if (data != NULL && size == 512)
+    if (size == 512)
     {
         // Use hardware acceleration if possible.
         result = hw_assisted_verify_512(address, data);
@@ -292,6 +298,7 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
 #endif
     {
         const struct s25flxxxl * self = (const struct s25flxxxl *) qspi_flash_device;
+        unsigned int i;
 
         spi_clock_high();
         spi_cs_low();
@@ -303,30 +310,12 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
         spi_tx_byte(address >> 0);
         spi_output_disable();
         spi_idle_clocks(self->read_latency_cycles);
-        if (data == NULL)
+        for (i = 0; i < size; ++i)
         {
-            unsigned int i;
-
-            for (i = 0; i < size; ++i)
+            if (qspi_rx_byte() != data[i])
             {
-                if (qspi_rx_byte() != 0)
-                {
-                    result = 1;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            unsigned int i;
-
-            for (i = 0; i < size; ++i)
-            {
-                if (qspi_rx_byte() != data[i])
-                {
-                    result = 1;
-                    break;
-                }
+                result = 1;
+                break;
             }
         }
         spi_cs_high();

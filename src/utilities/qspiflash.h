@@ -59,8 +59,7 @@ char qspi_flash_read(void * qspi_flash_device, unsigned long address, unsigned c
 
 /*
   Read bytes from flash memory and compare against the data provided by the
-  caller. If data is NULL, verify that all bytes read from flash are equal to
-  zero.
+  caller.
 */
 char qspi_flash_verify(void * qspi_flash_device, unsigned long address, unsigned char * data, unsigned int size);
 
