@@ -14,6 +14,8 @@ extern uint8_t mfhf_slot_mb;
 extern uint32_t mfhf_slot_size;
 extern uint8_t mfhf_slot0_erase_list[];
 
+extern unsigned char slot_count;
+
 #define MFHF_LC_NOTLOADED 0
 #define MFHF_LC_ATTICOK   1
 #define MFHF_LC_FROMDISK  2
@@ -27,6 +29,41 @@ extern uint8_t mfhf_slot0_erase_list[];
  */
 void mfhl_flash_inspector(void);
 #endif /* QSPI_FLASH_INSPECT */
+
+/*
+ * int8_t mfhf_init()
+ *
+ * side effects:
+ *   slot_count: set to the number of flash slots available
+ *
+ * returns:
+ *   int8_t(bool): 0 - success
+ *                 1 - initialization failed
+ *
+ * Initialize the high level flash routines. This function
+ * should be called before calling any of the other high
+ * level flash routines.
+ */
+int8_t mfhf_init();
+
+/*
+ * int8_t mfhf_read_core_header_from_flash()
+ *
+ * parameters:
+ *   slot: slot to load header from
+ *
+ * side effects:
+ *   data_buffer: contains the header contents
+ *
+ * returns:
+ *   int8_t(bool): 0 - success
+ *                 1 - invalid slot specified
+ *
+ * Read the first 512 bytes of the specified slot form flash
+ * into data_buffer.
+ *
+ */
+int8_t mfhf_read_core_header_from_flash(uint8_t slot);
 
 /*
  * int8_t mfhf_load_core()

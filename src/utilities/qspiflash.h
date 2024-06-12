@@ -99,6 +99,12 @@ char qspi_flash_get_page_size(void * qspi_flash_device, enum qspi_flash_page_siz
 char qspi_flash_get_erase_block_size_support(void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, BOOL * is_supported);
 
 /*
+  Convenience function that returns that largest supported erase block size for
+  the specified flash device.
+*/
+char qspi_flash_get_max_erase_block_size(void * qspi_flash_device, enum qspi_flash_erase_block_size * max_erase_block_size);
+
+/*
   Covenience function that returns the size of an erase block in bytes.
 */
 char get_erase_block_size_in_bytes(enum qspi_flash_erase_block_size erase_block_size, unsigned long * size);
@@ -107,11 +113,5 @@ char get_erase_block_size_in_bytes(enum qspi_flash_erase_block_size erase_block_
   Convenience function that returns the size of a page in bytes.
 */
 char get_page_size_in_bytes(enum qspi_flash_page_size page_size, unsigned int * size);
-
-/*
-  Convenience function that returns that largest supported erase block size for
-  the specified flash device.
-*/
-char get_max_erase_block_size(void * qspi_flash_device, enum qspi_flash_erase_block_size * max_erase_block_size);
 
 #endif /* QSPIFLASH_H */

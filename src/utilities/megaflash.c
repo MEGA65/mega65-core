@@ -9,7 +9,6 @@
 #include <6502.h>
 
 #include "mf_buffers.h"
-#include "mf_flash.h"
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_progress.h"
@@ -229,7 +228,7 @@ unsigned char scan_core_information(unsigned char search_flags)
 
   for (slot = 0; slot < slot_count; slot++) {
     // read first sector from flash slot
-    read_data(slot * SLOT_SIZE);
+    mfhf_read_core_header_from_flash(slot);
 
     // check for bitstream magic
     slot_core[slot].valid = SLOT_VALID;
@@ -599,7 +598,7 @@ void main(void)
     hard_exit();
   }
 
-  probe_qspi_flash(); // sets slot_count
+  mfhf_init();
 
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
@@ -695,7 +694,7 @@ void main(void)
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
     hard_exit();
   }
-  if (probe_qspi_flash()) {
+  if (mfhf_init()) {
     // print it a second time, screen has scrolled!
     mhx_writef("\njtagflash Version\n  %s\n", utilVersion);
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
