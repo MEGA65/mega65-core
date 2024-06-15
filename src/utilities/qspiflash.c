@@ -1,8 +1,6 @@
 #include <stddef.h>
 
 #include "qspiflash.h"
-//#include "s25flxxxl.h"
-//#include "s25flxxxs.h"
 
 char qspi_flash_init(void * qspi_flash_device)
 {
