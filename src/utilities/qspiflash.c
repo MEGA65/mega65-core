@@ -54,18 +54,6 @@ char qspi_flash_program(void * qspi_flash_device, enum qspi_flash_page_size page
     return interface->program(qspi_flash_device, page_size, address, data);
 }
 
-/*
-char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufacturer)
-{
-    const struct qspi_flash_interface * interface = qspi_flash_device;
-    if (interface == NULL || interface->get_manufacturer == NULL)
-    {
-        return -1;
-    }
-    return interface->get_manufacturer(qspi_flash_device, manufacturer);
-}
-*/
-
 char qspi_flash_get_size(void * qspi_flash_device, unsigned int * size)
 {
     const struct qspi_flash_interface * interface = qspi_flash_device;

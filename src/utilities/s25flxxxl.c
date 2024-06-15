@@ -439,15 +439,6 @@ static char s25flxxxl_program(void * qspi_flash_device, enum qspi_flash_page_siz
     return wait_status();
 }
 
-/*
-static char s25flxxxl_get_manufacturer(void * qspi_flash_device, const char ** manufacturer)
-{
-    (void) qspi_flash_device;
-    *manufacturer = "Infineon";
-    return 0;
-}
-*/
-
 static char s25flxxxl_get_size(void * qspi_flash_device, unsigned int * size)
 {
     const struct s25flxxxl * self = (const struct s25flxxxl *) qspi_flash_device;
@@ -475,7 +466,6 @@ static struct s25flxxxl _s25flxxxl = {{
     s25flxxxl_verify,
     s25flxxxl_erase,
     s25flxxxl_program,
-    // s25flxxxl_get_manufacturer,
     s25flxxxl_get_size,
     s25flxxxl_get_page_size,
     s25flxxxl_get_erase_block_size_support
