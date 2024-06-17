@@ -978,14 +978,14 @@ $(UTILDIR)/%_devpcb.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_S25FLXXXL -DNO_ATTIC -O -o $(UTILDIR)/work/$*_devpcb.s $<
+	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_NO_BIT_BASH -DQSPI_S25FLXXXL -DNO_ATTIC -O -o $(UTILDIR)/work/$*_devpcb.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*_devpcb.list $(UTILDIR)/work/$*_devpcb.s
 
 $(UTILDIR)/%_m65pcb.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(UTILDIR)/work ]; then \
 		mkdir $(UTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_S25FLXXXS -O -o $(UTILDIR)/work/$*_m65pcb.s $<
+	$(CC65) $(MEGA65LIBCINC) -DQSPI_HW_ASSIST -DQSPI_NO_BIT_BASH -DQSPI_S25FLXXXS -O -o $(UTILDIR)/work/$*_m65pcb.s $<
 	$(CA65) -o $@ --listing $(UTILDIR)/$*_m65pcb.list $(UTILDIR)/work/$*_m65pcb.s
 
 $(UTILDIR)/%_sa.o: $(UTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
