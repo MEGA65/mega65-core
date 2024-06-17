@@ -39,7 +39,6 @@ struct qspi_flash_interface
     char (*verify) (void * qspi_flash_device, unsigned long address, unsigned char * data, unsigned int size);
     char (*erase) (void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, unsigned long address);
     char (*program) (void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data);
-    // char (*get_manufacturer) (void * qspi_flash_device, const char ** manufacturer);
     char (*get_size) (void * qspi_flash_device, unsigned int * size);
     char (*get_page_size) (void * qspi_flash_device, enum qspi_flash_page_size * page_size);
     char (*get_erase_block_size_support) (void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, BOOL * is_supported);
@@ -59,8 +58,7 @@ char qspi_flash_read(void * qspi_flash_device, unsigned long address, unsigned c
 
 /*
   Read bytes from flash memory and compare against the data provided by the
-  caller. If data is NULL, verify that all bytes read from flash are equal to
-  zero.
+  caller.
 */
 char qspi_flash_verify(void * qspi_flash_device, unsigned long address, unsigned char * data, unsigned int size);
 
@@ -80,11 +78,6 @@ char qspi_flash_erase(void * qspi_flash_device, enum qspi_flash_erase_block_size
 char qspi_flash_program(void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data);
 
 /*
-  Return the name of the flash device manufacturer.
-*/
-// char qspi_flash_get_manufacturer(void * qspi_flash_device, const char ** manufacturer);
-
-/*
   Return the size of the flash memory array in megabytes (MB).
 */
 char qspi_flash_get_size(void * qspi_flash_device, unsigned int * size);
@@ -100,6 +93,12 @@ char qspi_flash_get_page_size(void * qspi_flash_device, enum qspi_flash_page_siz
 char qspi_flash_get_erase_block_size_support(void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, BOOL * is_supported);
 
 /*
+  Convenience function that returns that largest supported erase block size for
+  the specified flash device.
+*/
+char qspi_flash_get_max_erase_block_size(void * qspi_flash_device, enum qspi_flash_erase_block_size * max_erase_block_size);
+
+/*
   Covenience function that returns the size of an erase block in bytes.
 */
 char get_erase_block_size_in_bytes(enum qspi_flash_erase_block_size erase_block_size, unsigned long * size);
@@ -108,11 +107,5 @@ char get_erase_block_size_in_bytes(enum qspi_flash_erase_block_size erase_block_
   Convenience function that returns the size of a page in bytes.
 */
 char get_page_size_in_bytes(enum qspi_flash_page_size page_size, unsigned int * size);
-
-/*
-  Convenience function that returns that largest supported erase block size for
-  the specified flash device.
-*/
-char get_max_erase_block_size(void * qspi_flash_device, enum qspi_flash_erase_block_size * max_erase_block_size);
 
 #endif /* QSPIFLASH_H */

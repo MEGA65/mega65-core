@@ -913,19 +913,16 @@ MFLASH_BASE_OBJ = \
 
 MFLASH_CORE_H = \
 	$(UTILDIR)/mf_screens.h \
-	$(UTILDIR)/mf_flash.h \
 	$(UTILDIR)/mf_hlflash.h \
 	$(MFLASH_BASE_H)
 
 MFLASH_SOLO_H = \
 	$(UTILDIR)/mf_screens_solo.h \
-	$(UTILDIR)/mf_flash.h \
 	$(UTILDIR)/mf_hlflash.h \
 	$(MFLASH_BASE_H)
 
 MFLASH_CORE_DEV_OBJ = \
 	$(UTILDIR)/mf_screens.o \
-	$(UTILDIR)/mf_flash_devpcb.o \
 	$(UTILDIR)/mf_hlflash_devpcb.o \
 	$(UTILDIR)/qspiflash_devpcb.o \
 	$(UTILDIR)/s25flxxxl_devpcb.o \
@@ -935,7 +932,6 @@ MFLASH_CORE_DEV_OBJ = \
 
 MFLASH_CORE_M65_OBJ = \
 	$(UTILDIR)/mf_screens.o \
-	$(UTILDIR)/mf_flash_m65pcb.o \
 	$(UTILDIR)/mf_hlflash_m65pcb.o \
 	$(UTILDIR)/qspiflash_m65pcb.o \
 	$(UTILDIR)/s25flxxxs_m65pcb.o \
@@ -945,7 +941,6 @@ MFLASH_CORE_M65_OBJ = \
 
 MFLASH_SOLO_OBJ = \
 	$(UTILDIR)/mf_screens_solo.o \
-	$(UTILDIR)/mf_flash_sa.o \
 	$(UTILDIR)/mf_hlflash_sa.o \
 	$(UTILDIR)/qspiflash_sa.o \
 	$(UTILDIR)/s25flxxxl_sa.o \

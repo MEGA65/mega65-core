@@ -9,7 +9,6 @@
 #include <6502.h>
 
 #include "mf_buffers.h"
-#include "mf_flash.h"
 #include "mhexes.h"
 #include "nohysdc.h"
 #include "mf_progress.h"
@@ -207,24 +206,6 @@ void display_version(void)
 #endif
 }
 
-uint8_t first_flash_read = 1;
-void do_first_flash_read(unsigned long addr)
-{
-  uint16_t x;
-
-  // Work around weird flash thing where first read of a sector reads rubbish
-  // TODO: is this really required?
-  read_data(addr);
-  for (x = 0; x < 256; x++) {
-    if (data_buffer[0] != 0xee)
-      break;
-    usleep(50000L);
-    read_data(addr);
-    read_data(addr);
-  }
-  first_flash_read = 0;
-}
-
 /*
  * uchar scan_core_information(search_flags)
  *
@@ -242,15 +223,12 @@ unsigned char scan_core_information(unsigned char search_flags)
   short slot, j;
   unsigned char found = 0xff, default_slot = 0xff, flagmask = CORECAP_USED;
 
-  if (first_flash_read)
-    do_first_flash_read(0);
-
   for (j = 0; j < CORECAP_DEF_MAX; j++)
     corecap_def[j].slot = 0xff;
 
   for (slot = 0; slot < slot_count; slot++) {
     // read first sector from flash slot
-    read_data(slot * SLOT_SIZE);
+    mfhf_read_core_header_from_flash(slot);
 
     // check for bitstream magic
     slot_core[slot].valid = SLOT_VALID;
@@ -621,7 +599,7 @@ void main(void)
     hard_exit();
   }
 
-  probe_qspi_flash(); // sets slot_count
+  mfhf_init();
 
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
@@ -717,7 +695,7 @@ void main(void)
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
     hard_exit();
   }
-  if (probe_qspi_flash()) {
+  if (mfhf_init()) {
     // print it a second time, screen has scrolled!
     mhx_writef("\njtagflash Version\n  %s\n", utilVersion);
     mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
