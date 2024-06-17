@@ -583,10 +583,11 @@ void main(void)
 
 #ifdef STANDALONE
   // setup OPENROM palette in standalone mode
+  POKE(0xd030U, PEEK(0xd030U) | 0x04); // switch to RAM palette
   for (i = 0; i < 16; i++) {
-    POKE(0xd100 + i, openrom_palette[i].r);
-    POKE(0xd200 + i, openrom_palette[i].g);
-    POKE(0xd300 + i, openrom_palette[i].b);
+    POKE(0xd100U + i, openrom_palette[i].r);
+    POKE(0xd200U + i, openrom_palette[i].g);
+    POKE(0xd300U + i, openrom_palette[i].b);
   }
 #endif
 
