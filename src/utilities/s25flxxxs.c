@@ -186,7 +186,7 @@ static char s25flxxxs_init(void * qspi_flash_device)
 {
     struct s25flxxxs * self = (struct s25flxxxs *) qspi_flash_device;
     const uint8_t spi_tx[] = {0x9f};
-    uint8_t spi_rx[44] = {0x00};
+    uint8_t spi_rx[5] = {0x00};
     unsigned char cr1;
     uint16_t aspr;
     BOOL quad_mode_enabled;
@@ -202,10 +202,10 @@ static char s25flxxxs_init(void * qspi_flash_device)
 #endif
 
     // Read RDID to confirm manufacturer and model, and get density.
-    spi_transaction(spi_tx, 1, spi_rx, 44);
+    spi_transaction(spi_tx, 1, spi_rx, 5);
 
 #ifdef QSPI_VERBOSE
-    mhx_writef("CFI = %02X %02X %02X %02X %02X %02X\n", spi_rx[0], spi_rx[1], spi_rx[2], spi_rx[3], spi_rx[4], spi_rx[42]);
+    mhx_writef("CFI = %02X %02X %02X %02X %02X\n", spi_rx[0], spi_rx[1], spi_rx[2], spi_rx[3], spi_rx[4]);
 #endif
 
     if (spi_rx[0] != 0x01)
@@ -233,16 +233,18 @@ static char s25flxxxs_init(void * qspi_flash_device)
         return 1;
     }
 
-    // Determine sector architecture.
+    // Determine sector architecture and page buffer size.
     if (spi_rx[4] == 0x00)
     {
-        // Uniform 256K sectors.
+        // Uniform 256K sectors, 512 byte page buffer.
         self->erase_block_size = qspi_flash_erase_block_size_256k;
+        self->page_size = qspi_flash_page_size_512;
     }
     else if (spi_rx[4] == 0x01)
     {
-        // Mixed 4K / 64K sectors.
+        // Mixed 4K / 64K sectors, 256 byte page buffer.
         self->erase_block_size = qspi_flash_erase_block_size_64k;
+        self->page_size = qspi_flash_page_size_256;
     }
     else
     {
@@ -253,21 +255,17 @@ static char s25flxxxs_init(void * qspi_flash_device)
     cr1 = read_configuration_register_1();
     self->read_latency_cycles = ((cr1 >> 6) == 3) ? 0 : 8;
 
-    // Determine page size.
-    if (spi_rx[42] == 0x08)
-    {
-        // Page size 256 bytes.
-        self->page_size = qspi_flash_page_size_256;
-    }
-    else if (spi_rx[42] == 0x09)
-    {
-        // Page size 512 bytes.
-        self->page_size = qspi_flash_page_size_512;
-    }
-    else
-    {
-        return 1;
-    }
+    // // Determine page size.
+    // if (spi_rx[42] == 0x08)
+    // {
+    // }
+    // else if (spi_rx[42] == 0x09)
+    // {
+    // }
+    // else
+    // {
+    //     return 1;
+    // }
 
     // Determine if DYB lock boot is enabled.
     aspr = read_asp_register();
