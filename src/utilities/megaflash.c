@@ -406,7 +406,9 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   }
 
   mfp_init_progress(SLOT_MB, 17, '-', " Slot Contents ", MHX_A_WHITE);
-  mfp_set_area(0, slot_core[selected_slot].length ? slot_core[selected_slot].length >> 16 : SLOT_SIZE_PAGE_MASK + 1, slot_core[selected_slot].length && slot_core[selected_slot].valid == SLOT_VALID ? '*' : '?', MHX_A_WHITE);
+  if (slot_core[selected_slot].valid != SLOT_EMPTY)
+    mfp_set_area(0, slot_core[selected_slot].length ? slot_core[selected_slot].length >> 16 : SLOT_SIZE_PAGE_MASK + 1,
+                 slot_core[selected_slot].length && slot_core[selected_slot].valid == SLOT_VALID ? '*' : '?', MHX_A_WHITE);
 
   // copy footer from upper memory
   lcopy(mf_screens_menu.screen_start + MFMENU_EDIT_FOOTER * 40 + ((selected_slot | booted_via_jtag) ? 160 : 0) + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);

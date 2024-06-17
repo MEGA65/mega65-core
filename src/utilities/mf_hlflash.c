@@ -544,7 +544,7 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
     }
     POKE(0xD020, 0);
 
-    mfp_set_area((addr - start_addr) >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
+    mfp_set_area(addr >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
 
     addr += size;
   }
