@@ -99,6 +99,36 @@ void spi_tx_byte(unsigned char byte)
     }
 }
 
+unsigned char qspi_rx_byte(void)
+{
+    unsigned char byte = 0;
+
+    spi_clock_low();
+    byte |= PEEK(BITBASH_PORT) & 0x0f;
+    spi_clock_high();
+
+    byte <<= 4;
+
+    spi_clock_low();
+    byte |= PEEK(BITBASH_PORT) & 0x0f;
+    spi_clock_high();
+
+    return byte;
+}
+
+void qspi_tx_byte(unsigned char byte)
+{
+    unsigned char port_value;
+
+    port_value = PEEK(BITBASH_PORT) & 0xf0;
+    spi_clock_low();
+    POKE(BITBASH_PORT, port_value | ((byte & 0xf0) >> 4));
+    spi_clock_high();
+    spi_clock_low();
+    POKE(BITBASH_PORT, port_value | (byte & 0x0f));
+    spi_clock_high();
+}
+
 void spi_idle_clocks(unsigned char count)
 {
     for (; count > 0; --count)
@@ -136,34 +166,4 @@ void spi_clock_low(void)
 void spi_clock_high(void)
 {
     POKE(CLOCKCTL_PORT, 0x02);
-}
-
-unsigned char qspi_rx_byte(void)
-{
-    unsigned char byte = 0;
-
-    spi_clock_low();
-    byte |= PEEK(BITBASH_PORT) & 0x0f;
-    spi_clock_high();
-
-    byte <<= 4;
-
-    spi_clock_low();
-    byte |= PEEK(BITBASH_PORT) & 0x0f;
-    spi_clock_high();
-
-    return byte;
-}
-
-void qspi_tx_byte(unsigned char byte)
-{
-    unsigned char port_value;
-
-    port_value = PEEK(BITBASH_PORT) & 0xf0;
-    spi_clock_low();
-    POKE(BITBASH_PORT, port_value | ((byte & 0xf0) >> 4));
-    spi_clock_high();
-    spi_clock_low();
-    POKE(BITBASH_PORT, port_value | (byte & 0x0f));
-    spi_clock_high();
 }
