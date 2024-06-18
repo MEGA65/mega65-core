@@ -38,6 +38,11 @@ static void write_enable(void)
     spi_transaction_tx8(0x06);
 }
 
+static void write_disable(void)
+{
+    spi_transaction_tx8(0x04);
+}
+
 static void clear_status_register(void)
 {
     spi_transaction_tx8(0x30);
@@ -65,37 +70,51 @@ static struct s25flxxxl_status read_status(void)
 
 #define write_in_progress(status) (status.sr1 & 0x01 ? TRUE : FALSE)
 
-#define busy(status) (status.sr1 & 0x03 ? TRUE : FALSE)
-
 #define error_occurred(status) (status.sr2 & 0x60 ? TRUE : FALSE)
 
 static void clear_status(void)
 {
     struct s25flxxxl_status status;
-    for (;;)
+
+    // In the event of an error, the flash chip remains busy. That is, the Write
+    // In Progress (WIP) bit in the status register remains set while the
+    // Program Error (P_ERR) bit and/or the Erase Error (E_ERR) bit in the
+    // status register is set. The Clear Status Register command resets both
+    // error bits, which in turn allows the WIP bit to clear.
+    //
+    // However, the Clear Status Register command does *not* affect the Write
+    // Enable Latch (WEL) bit. This bit needs to be cleared using the Write
+    // Disable command, which is ignored while the WIP bit is set.
+    //
+    // Therefore, the proper sequence is to issue the Clear Status Register to
+    // clear the error bits, allowing the WIP bit to clear, and then issue the
+    // Write Disable command to clear the WEL bit.
+
+    for (status = read_status(); error_occurred(status) || write_in_progress(status); status = read_status())
     {
-        status = read_status();
-        if (!busy(status) && !error_occurred(status))
-        {
-            break;
-        }
         clear_status_register();
+    }
+
+    for (status = read_status(); write_enabled(status); status = read_status())
+    {
+        write_disable();
     }
 }
 
 static char wait_status(void)
 {
     struct s25flxxxl_status status;
-    for (;;)
+
+    for (status = read_status(); write_enabled(status) || write_in_progress(status); status = read_status())
     {
-        status = read_status();
-        if (!busy(status))
+        if (error_occurred(status))
         {
-            break;
+            clear_status();
+            return 1;
         }
     }
 
-    return (error_occurred(status) ? 1 : 0);
+    return 0;
 }
 
 struct s25flxxxl
