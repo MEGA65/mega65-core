@@ -255,18 +255,6 @@ static char s25flxxxs_init(void * qspi_flash_device)
     cr1 = read_configuration_register_1();
     self->read_latency_cycles = ((cr1 >> 6) == 3) ? 0 : 8;
 
-    // // Determine page size.
-    // if (spi_rx[42] == 0x08)
-    // {
-    // }
-    // else if (spi_rx[42] == 0x09)
-    // {
-    // }
-    // else
-    // {
-    //     return 1;
-    // }
-
     // Determine if DYB lock boot is enabled.
     aspr = read_asp_register();
 #ifdef QSPI_VERBOSE
