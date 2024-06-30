@@ -20,6 +20,7 @@ src/diskmenu_c000.bin
 src/tests/*.prg
 src/tools/*.prg
 src/utilities/*.prg
+src/utilities/megaflash/*.prg
 src/utilities/userwarning.c
 src/monitor/gen_dis
 src/tools/ftphelper.c
@@ -47,8 +48,12 @@ src/utilities/*.list
 src/utilities/*.map
 src/utilities/*.label
 src/utilities/*.lbl
-src/utilities/work/
-src/utilities/mf_screens*
+src/utilities/megaflash/*.list
+src/utilities/megaflash/*.map
+src/utilities/megaflash/*.label
+src/utilities/megaflash/*.lbl
+src/utilities/megaflash/work/
+src/utilities/megaflash/mf_screens*
 monitor.list
 monitor.map
 monitor.label

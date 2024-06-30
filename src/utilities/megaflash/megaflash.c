@@ -15,6 +15,7 @@
 #include "mf_selectcore.h"
 #include "mf_hlflash.h"
 #include "mf_utility.h"
+#include "../version.h"
 
 #ifdef STANDALONE
 #include "mf_screens_solo.h"
@@ -46,8 +47,6 @@ struct rgb openrom_palette[] = {
 #else
 #include "mf_screens.h"
 #endif
-
-#include "version.h"
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;
