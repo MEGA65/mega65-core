@@ -9,8 +9,6 @@
 #include <6502.h>
 
 #include "qspijoy.h"
-// not needed, no slot 0 flashing in core flasher!
-// #include "userwarning.c"
 
 unsigned char joy_x = 100;
 unsigned char joy_y = 100;

@@ -843,10 +843,6 @@ $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
-$(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65_DEPEND)
-	$(call mbuild_header,$@)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< 
-
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $<
