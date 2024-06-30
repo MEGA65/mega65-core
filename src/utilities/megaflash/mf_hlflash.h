@@ -18,7 +18,7 @@ extern unsigned char slot_count;
 #define MFHF_LC_ATTICOK   1
 #define MFHF_LC_FROMDISK  2
 
-#ifdef QSPI_FLASH_INSPECT
+#ifdef FLASH_INSPECT
 /*
  * mfhl_flash_inspector
  *
@@ -26,7 +26,7 @@ extern unsigned char slot_count;
  *
  */
 void mfhl_flash_inspector(void);
-#endif /* QSPI_FLASH_INSPECT */
+#endif /* FLASH_INSPECT */
 
 /*
  * int8_t mfhf_init()

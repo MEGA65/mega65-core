@@ -657,7 +657,8 @@ void main(void)
       // determine boot slot by flags (default search is for default slot)
       selected = scan_core_information(search_cart);
 
-#ifdef DANDEBUG
+#if 0
+      // DEBUG: interrupt boot and first display what slot we will boot
       mhx_writef("Selected Slot: %08x (V:%02x)\n\n", selected, slot_core[selected].valid);
       mhx_press_any_key(0,0);
 #endif
@@ -764,8 +765,6 @@ void main(void)
   // Scan for existing bitstreams and locate first default slot
   scan_core_information(0);
 
-#if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
-
 #include <cbm_screen_charmap.h>
 
   selected = 0;
@@ -836,7 +835,7 @@ void main(void)
       // Launch selected slot
       perhaps_reconfig(selected);
       break;
-#ifdef QSPI_FLASH_INSPECT
+#ifdef FLASH_INSPECT
     case 0x06: // CTRL-F
       // Flash memory monitor
       mfhl_flash_inspector();
@@ -844,7 +843,7 @@ void main(void)
       break;
 #endif
 // slot 0 flashing is only done with PRG and DIP 3!
-#if QSPI_FLASH_SLOT0
+#if FIRMWARE_UPGRADE
     case 0x7e: // TILDE (MEGA-LT)
       // ask for confirmation
       if (confirm_slot0_flash()) {
@@ -893,7 +892,7 @@ void main(void)
     }
 
     // extra security against slot 0 flashing
-#ifdef QSPI_FLASH_SLOT0
+#ifdef FIRMWARE_UPGRADE
     if (selected_reflash_slot < slot_count) {
 #else
     if (selected_reflash_slot > 0 && selected_reflash_slot < slot_count) {
@@ -938,31 +937,6 @@ void main(void)
     // restore black border
     POKE(0xD020, 0);
   }
-#else /* FIRMWARE_UPGRADE && STANDALONE */
-  if (!confirm_slot0_flash()) {
-    mhx_writef("\n\nABORTED!\n");
-    mhx_press_any_key(MHX_AK_ATTENTION, MHX_A_RED);
-    hard_exit();
-  }
-
-#include <ascii_charmap.h>
-// misappropiate variable
-#define err selected
-  // only use internal slot
-  if ((err = nhsd_init(0, buffer))) {
-    mhx_writef(MHX_W_RED "ERROR: failed to init internal SD card (%x)" MHX_W_WHITE "\n", err);
-    hard_exit();
-  }
-  if ((err = nhsd_findfile("UPGRADE0.COR"))) {
-    mhx_writef(MHX_W_RED "ERROR: failed to find UPGRADE0.COR on\ninternal SD card (%d)" MHX_W_WHITE "\n", err);
-    hard_exit();
-  }
-#include <cbm_screen_charmap.h>
-  memcpy(mfsc_corefile_displayname, "UPGRADE0.COR", 12);
-  memset(mfsc_corefile_displayname + 12, 0x20, 28);
-  mfsc_corefile_displayname[39] = MHX_C_EOS;
-  reflash_slot(0, MFSC_FILE_VALID, slot_core[0].version);
-#endif
 
   hard_exit();
 }

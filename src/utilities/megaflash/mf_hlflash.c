@@ -42,7 +42,7 @@ unsigned char slot_count = 0;
 #define SECTORBUFFER 0x8000000L
 #endif
 
-#ifdef QSPI_FLASH_INSPECT
+#ifdef FLASH_INSPECT
 void mfhl_flash_inspector(void)
 {
   uint8_t clear = 1;
@@ -152,7 +152,7 @@ int8_t mfhf_init() {
   }
 
   // Select the flash chip device driver based on the hardware model ID.
-#if defined(QSPI_STANDALONE)
+#if defined(STANDALONE)
   if (hw_model_id == 0x60 || hw_model_id == 0x61 || hw_model_id == 0x62 || hw_model_id == 0xFD) {
     qspi_flash_device = s25flxxxl;
   }
@@ -605,9 +605,9 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
     mhx_writef("ERROR: Could not write to flash after\n%d tries.\n", tries);
 
     // secret Ctrl-F (keycode 0x06) will launch flash inspector,
-    // but only if QSPI_FLASH_INSPECTOR is defined!
+    // but only if FLASH_INSPECT is defined!
     // otherwise: endless loop!
-#ifdef QSPI_FLASH_INSPECT
+#ifdef FLASH_INSPECT
     mhx_writef("Press Ctrl-F for Flash Inspector.\n");
 
     while (PEEK(0xD610))
@@ -730,9 +730,10 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   // only flash up to the files length
   addr = end_addr + mfu_slot_size;
 
-#undef SHORTFLASHDEBUG
+// define this to get some debug during flashing
+#undef _SHORTFLASHDEBUG
 
-#ifdef SHORTFLASHDEBUG
+#ifdef _SHORTFLASHDEBUG
   mhx_set_xy(0,0);
   mhx_writef(MHX_W_WHITE "end  = %08lx\naddr = %08lx\n", end_addr, addr);
   mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
@@ -741,14 +742,14 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   while (addr > end_addr) {
     addr -= size;
 
-#ifdef SHORTFLASHDEBUG
+#ifdef _SHORTFLASHDEBUG
     mhx_writef(MHX_W_WHITE MHX_W_HOME "addr = %08lx\nsize = %08lx\n                  \n                  \n                     \n", addr, size);
 #endif
 
     // if we are flashing a file, skip over sectors without data
     // this works because at this point addr points at the start of the sector that is being flashed
     if ((addr - end_addr) >= mfsc_corehdr_length) {
-#ifdef SHORTFLASHDEBUG
+#ifdef _SHORTFLASHDEBUG
       mhx_writef("skip\n");
 #endif
       continue;
@@ -763,7 +764,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
       }
     }
 
-#ifdef SHORTFLASHDEBUG
+#ifdef _SHORTFLASHDEBUG
     mhx_press_any_key(MHX_AK_NOMESSAGE, 0);
 #endif
 

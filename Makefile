@@ -990,8 +990,8 @@ $(MFUTILDIR)/%_sa.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 	@if [ ! -e $(MFUTILDIR)/work ]; then \
 		mkdir $(MFUTILDIR)/work; \
 	fi
-	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -O -o $(MFUTILDIR)/work/$*_sa.s $<
-#	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DQSPI_FLASH_INSPECT -DQSPI_VERBOSE -DQSPI_HW_ASSIST -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_sa.s $<
+	$(CC65) $(MEGA65LIBCINC) -DSTANDALONE -DFLASH_INSPECT -DQSPI_VERBOSE -O -o $(MFUTILDIR)/work/$*_sa.s $<
+#	$(CC65) $(MEGA65LIBCINC) -DQSPI_STANDALONE -DFLASH_INSPECT -DQSPI_VERBOSE -DQSPI_HW_ASSIST -DNO_ATTIC -O -o $(MFUTILDIR)/work/$*_sa.s $<
 	$(CA65) -o $@ --listing $(MFUTILDIR)/$*_sa.list $(MFUTILDIR)/work/$*_sa.s
 
 #
@@ -1005,7 +1005,7 @@ $(MFUTILDIR)/megaflash-devpcb.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 -DTAB_FOR_MENU $< \
+		-DFIRMWARE_UPGRADE -DTAB_FOR_MENU $< \
 		$(MFLASH_CORE_DEV_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
@@ -1015,7 +1015,7 @@ $(MFUTILDIR)/megaflash-m65pcb.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_
 		$(MEGA65LIBCINC) -O --add-source \
 		-o $*.prg \
 		-Ln $*.label --listing $*.list --mapfile $*.map \
-		-DFIRMWARE_UPGRADE -DQSPI_FLASH_SLOT0 $< \
+		-DFIRMWARE_UPGRADE $< \
 		$(MFLASH_CORE_M65_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
@@ -1026,7 +1026,7 @@ $(MFUTILDIR)/mflash.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_SOLO_REQ) $(MEG
 	$(CL65NC) --config $(UTILDIR)/util-std.cfg \
 		$(MEGA65LIBCINC) -O -o $@ \
 		--add-source -Ln $*.label --listing $*.list --mapfile $*.map \
-		-DSTANDALONE -DQSPI_FLASH_SLOT0 -DQSPI_ERASE_ZERO -DQSPI_FLASH_INSPECT -DQSPI_HW_ASSIST -DQSPI_VERBOSE $< \
+		-DSTANDALONE -DFLASH_INSPECT -DFIRMWARE_UPGRADE -DFIRMWARE_ERASE -DQSPI_HW_ASSIST -DQSPI_VERBOSE $< \
 		$(MFLASH_SOLO_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,43000,$@)
 
