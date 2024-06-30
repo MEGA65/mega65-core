@@ -118,7 +118,7 @@ int8_t mfsc_checkcore(uint8_t require_mega)
 
   // check core file size
   mfsc_corehdr_length = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
-  if (mfsc_corehdr_length > SLOT_SIZE) {
+  if (mfsc_corehdr_length > mfu_slot_size) {
     return MFSC_CF_ERROR_SIZE;
   }
 

@@ -12,9 +12,9 @@
 #include "mf_screens.h"
 #endif
 
-uint8_t SLOT_MB = 1;
-uint8_t SLOT_SIZE_PAGE_MASK = (1 << 4) - 1;
-uint32_t SLOT_SIZE = 1L << 20;
+uint8_t mfu_slot_mb = 1;
+uint8_t mfu_slot_pagemask = (1 << 4) - 1;
+uint32_t mfu_slot_size = 1L << 20;
 
 uint8_t hw_model_id = 0;
 char hw_model_name[20] = "Unknown";
@@ -43,10 +43,10 @@ int8_t mfut_probe_hardware_version(void)
     if (MFUT_BUF2MOD(model_id) == 0)
       break;
     if (MFUT_BUF2MOD(model_id) == hw_model_id) {
-      SLOT_SIZE_PAGE_MASK = SLOT_MB = MFUT_BUF2MOD(slot_mb);
-      SLOT_SIZE_PAGE_MASK <<= 4;
-      SLOT_SIZE = ((uint32_t)SLOT_SIZE_PAGE_MASK) << 16;
-      SLOT_SIZE_PAGE_MASK--;
+      mfu_slot_pagemask = mfu_slot_mb = MFUT_BUF2MOD(slot_mb);
+      mfu_slot_pagemask <<= 4;
+      mfu_slot_size = ((uint32_t)mfu_slot_pagemask) << 16;
+      mfu_slot_pagemask--;
       mhx_strncpy(hw_model_name, buffer + sizeof(mega_models_t), 20);
       return 0;
     }

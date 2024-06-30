@@ -1,9 +1,9 @@
 #ifndef MF_UTILITY_H
 #define MF_UTILITY_H 1
 
-extern uint8_t SLOT_MB;
-extern uint8_t SLOT_SIZE_PAGE_MASK;
-extern uint32_t SLOT_SIZE;
+extern uint8_t mfu_slot_mb;
+extern uint8_t mfu_slot_pagemask;
+extern uint32_t mfu_slot_size;
 
 extern uint8_t hw_model_id;
 extern char hw_model_name[];

@@ -10,8 +10,6 @@
 #define MFHF_FLAG_VISUAL   0b00000001
 #define MFHF_FLAG_PROGRESS 0b00000010
 
-extern uint8_t mfhf_slot_mb;
-extern uint32_t mfhf_slot_size;
 extern uint8_t mfhf_slot0_erase_list[];
 
 extern unsigned char slot_count;

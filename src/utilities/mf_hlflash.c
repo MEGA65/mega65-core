@@ -25,8 +25,6 @@
 
 #define MFHF_FLASH_MAX_RETRY 10
 
-uint8_t mfhf_slot_mb = 1;
-uint32_t mfhf_slot_size = 1L << 20;
 uint8_t mfhf_slot0_erase_list[16] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 uint8_t mfhf_core_file_state = MFHF_LC_NOTLOADED;
@@ -73,7 +71,7 @@ void mfhl_flash_inspector(void)
     mhx_getkeycode(0);
     switch (mhx_lastkey.code.key) {
     case 0x13: // HOME
-      addr &= (SLOT_SIZE - 1) ^ 0xffffffff;
+      addr &= (mfu_slot_size - 1) ^ 0xffffffff;
       break;
     case 0x93: // CLRHOME
       addr = 0;
@@ -97,10 +95,10 @@ void mfhl_flash_inspector(void)
       addr -= 0x10000;
       break;
     case ';': // SEMIKOLON
-      addr += SLOT_SIZE;
+      addr += mfu_slot_size;
       break;
     case ':': // COLON
-      addr -= SLOT_SIZE;
+      addr -= mfu_slot_size;
       break;
     case 0x03:
     case 0x1f:
@@ -139,8 +137,8 @@ void mfhl_flash_inspector(void)
     }
     if (addr > 0xff0fffff)
       addr = 0;
-    else if (addr >= (slot_count * SLOT_SIZE))
-      addr = (slot_count * SLOT_SIZE) - 0x100;
+    else if (addr >= (slot_count * mfu_slot_size))
+      addr = (slot_count * mfu_slot_size) - 0x100;
   }
 }
 #endif
@@ -181,7 +179,7 @@ int8_t mfhf_init() {
     return 1;
   }
 
-  slot_count = size / SLOT_MB;
+  slot_count = size / mfu_slot_mb;
 
 #ifdef QSPI_VERBOSE
   {
@@ -207,7 +205,7 @@ int8_t mfhf_init() {
 
     mhx_writef("Flash size   = %u MB\n"
                "Flash slots  = %u x %u MB\n",
-               size, (unsigned int) slot_count, (unsigned int) SLOT_MB);
+               size, (unsigned int) slot_count, (unsigned int) mfu_slot_mb);
     mhx_writef("Erase sizes  =");
     if (erase_block_sizes[qspi_flash_erase_block_size_4k])
       mhx_writef(" 4K");
@@ -232,7 +230,7 @@ int8_t mfhf_read_core_header_from_flash(uint8_t slot) {
   if (slot >= slot_count) return 1;
 
   // Read core header for the specified slot.
-  qspi_flash_read(qspi_flash_device, slot * SLOT_SIZE, data_buffer, 512);
+  qspi_flash_read(qspi_flash_device, slot * mfu_slot_size, data_buffer, 512);
   return 0;
 }
 
@@ -278,8 +276,8 @@ int8_t mfhf_load_core() {
   lfill(mhx_base_scr + 23*40, 0xa0, 60);
 
   // setup progress bar
-  mfp_init_progress(SLOT_MB, 17, '-', " Load Core ", MHX_A_WHITE);
-  if (mfsc_corehdr_length < SLOT_SIZE) {
+  mfp_init_progress(mfu_slot_mb, 17, '-', " Load Core ", MHX_A_WHITE);
+  if (mfsc_corehdr_length < mfu_slot_size) {
     // fill unused slot area grey
     length = mfsc_corehdr_length >> 16;
     if (mfsc_corehdr_length & 0xffff)
@@ -420,11 +418,11 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   lfill(mhx_base_scr + 23*40, 0xa0, 60);
 
   // setup progress bar
-  mfp_init_progress(SLOT_MB, 17, '-', " Read Core Header ", MHX_A_WHITE);
+  mfp_init_progress(mfu_slot_mb, 17, '-', " Read Core Header ", MHX_A_WHITE);
 
   // load core from qspi to attic ram
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
-  for (flash_addr = SLOT_SIZE * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
+  for (flash_addr = mfu_slot_size * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
     qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512);;
     lcopy((long)&data_buffer, 0x8000000L + addr, 512);
     mfp_progress(addr);
@@ -591,7 +589,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       lcopy(SECTORBUFFER + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
 #endif /* NO_ATTIC */
       // display sector on screen
-      // lcopy(SECTORBUFFER+wraddr-SLOT_SIZE*slot,0x0400+17*40,256);
+      // lcopy(SECTORBUFFER+wraddr-mfu_slot_size*slot,0x0400+17*40,256);
       POKE(0xD020, 3);
       if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
         break;
@@ -638,7 +636,7 @@ void mfhf_calc_el_addr(const uint8_t el_sector, uint32_t *addr, uint32_t *size)
 {
   uint32_t mask;
 
-  *addr = ((uint32_t)(el_sector & SLOT_SIZE_PAGE_MASK)) << 16;
+  *addr = ((uint32_t)(el_sector & mfu_slot_pagemask)) << 16;
   get_erase_block_size_in_bytes(mfhf_erase_block_size, size);
   // we need to align the address to the bits
   mask = 0UL - *size; // size to get mask
@@ -700,11 +698,11 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    */
 
   // set end_addr to the START OF THE SLOT (flashing downwards!)
-  end_addr = SLOT_SIZE * slot;
+  end_addr = mfu_slot_size * slot;
 
   /*
   mhx_set_xy(0, 1);
-  mhx_writef(MHX_W_WHITE "SLOT_SIZE = %08lx  \nSLOT      = %d\nend_addr  = %08lx  \n", SLOT_SIZE, slot, end_addr);
+  mhx_writef(MHX_W_WHITE "SLOT_SIZE = %08lx  \nSLOT      = %d\nend_addr  = %08lx  \n", mfu_slot_size, slot, end_addr);
   */
 
   // Setup progress bar
@@ -713,7 +711,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   if (selected_file == MFSC_FILE_ERASE)
     // if we are flashing slot 0 or erasing a slot, we
     // erase the full slot first
-    size = SLOT_SIZE;
+    size = mfu_slot_size;
   else {
     // if we are not flashing factory slot, just erase the first sector
     // to get rid of the core header and at least the sector after that
@@ -730,7 +728,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Flash Core to Slot ", MHX_A_WHITE);
 
   // only flash up to the files length
-  addr = end_addr + SLOT_SIZE;
+  addr = end_addr + mfu_slot_size;
 
 #undef SHORTFLASHDEBUG
 

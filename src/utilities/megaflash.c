@@ -180,7 +180,7 @@ void display_version(void)
          PEEK(0xD635), PEEK(0xD634), PEEK(0xD633), PEEK(0xD632), booted_via_jtag ? " (booted via JTAG)" : "",
          utilVersion,
          slot_core[0].valid == SLOT_EMPTY ? "empty factory slot!" : slot_core[0].version,
-         hw_model_id, hw_model_name, slot_count, SLOT_MB, (long)SLOT_SIZE, SLOT_SIZE_PAGE_MASK,
+         hw_model_id, hw_model_name, slot_count, mfu_slot_mb, (long)mfu_slot_size, mfu_slot_pagemask,
          corecap_def[cc].help, selected);
 
 #ifndef STANDALONE
@@ -405,9 +405,9 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
     mhx_hl_lines(11, 16, MHX_A_MGREY);
   }
 
-  mfp_init_progress(SLOT_MB, 17, '-', " Slot Contents ", MHX_A_WHITE);
+  mfp_init_progress(mfu_slot_mb, 17, '-', " Slot Contents ", MHX_A_WHITE);
   if (slot_core[selected_slot].valid != SLOT_EMPTY)
-    mfp_set_area(0, slot_core[selected_slot].length ? slot_core[selected_slot].length >> 16 : SLOT_SIZE_PAGE_MASK + 1,
+    mfp_set_area(0, slot_core[selected_slot].length ? slot_core[selected_slot].length >> 16 : mfu_slot_pagemask + 1,
                  slot_core[selected_slot].length && slot_core[selected_slot].valid == SLOT_VALID ? '*' : '?', MHX_A_WHITE);
 
   // copy footer from upper memory
@@ -506,7 +506,7 @@ void perhaps_reconfig(uint8_t slot)
     mhx_clear_keybuffer();
     mhx_until_keys_released();
     if (!slot || slot_core[slot].valid != 0)
-      mfut_reconfig_fpga(slot * SLOT_SIZE + 4096);
+      mfut_reconfig_fpga(slot * mfu_slot_size + 4096);
   }
   mhx_flashscreen(MHX_A_RED, 150);
 }
@@ -669,7 +669,7 @@ void main(void)
         while (r == PEEK(0xD7FA));
         r = PEEK(0xD7FA);
         while (r == PEEK(0xD7FA));
-        mfut_reconfig_fpga(SLOT_SIZE * selected + 4096);
+        mfut_reconfig_fpga(mfu_slot_size * selected + 4096);
       }
       else if (slot_core[selected].valid == SLOT_EMPTY) {
         // Empty slot -- ignore and resume
