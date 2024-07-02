@@ -20,6 +20,10 @@ This is the Summer 2024 Release.
   - QSPI: Read errors due to skipping dummy (latency) cycles
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
 - Bugfixes:
+  - RRB Reverse Y-row adjust
+    [#796](https://github.com/MEGA65/mega65-core/issues/796)
+  - RTS immediate mode instruction completely broken
+    [#790](https://github.com/MEGA65/mega65-core/issues/790)
   - CONFIGURE: POWER-CYCLE screen has color issue on VGA only
     [#788](https://github.com/MEGA65/mega65-core/issues/788)
   - CONFIGURE: MAC address typed in is not correctly mangled
