@@ -770,8 +770,8 @@ GS $D68A.0 SD:CDC00 (read only) Set if colour RAM at $DC00
 GS $D68A.1 SD:VICIII (read only) Set if VIC-IV or ethernet IO bank visible
 GS $D68A.2 SD:VFDC0 (read only) Set if drive 0 is virtualised (sectors delivered via serial monitor interface)
 GS $D68A.3 SD:VFDC1 (read only) Set if drive 1 is virtualised (sectors delivered via serial monitor interface)
-GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 mega image if set (otherwise 800KiB 1581 or D65 image)
-GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 image if set (otherwise 800KiB 1581 or D65 image)
+GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 if set, otherwise D81 (also see SDFDC:D0MD)
+GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 if set, otherwise D81 (also see SDFDC:D1MD)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 drive 0 disk image enable
 GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive.
@@ -783,9 +783,9 @@ GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real fl
 GS $D68B.4 SDFDC:D1P F011 drive 1 media present
 GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
 GS $D68B.6 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 0
-GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 image if set (otherwise 800KiB 1581 image)
+GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 if set, otherwise D81 (also see SDFDC:D0D64)
 GS $D68B.7 F011:MDISK0 Enable D65 ``MEGA Disk'' for F011 emulated drive 1
-GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 image if set (otherwise 800KiB 1581 image)
+GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 if set, otherwise D81 (also see SDFDC:D1D64)
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 drive 0 disk image address on SD card

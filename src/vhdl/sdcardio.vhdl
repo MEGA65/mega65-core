@@ -3390,8 +3390,8 @@ begin  -- behavioural
               -- ==================================================================
 
             when x"8a" =>
-              -- @IO:GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 image if set (otherwise 800KiB 1581 or D65 image)
-              -- @IO:GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 mega image if set (otherwise 800KiB 1581 or D65 image)
+              -- @IO:GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 if set, otherwise D81 (also see SDFDC:D1MD)
+              -- @IO:GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 if set, otherwise D81 (also see SDFDC:D0MD)
               if hypervisor_mode='1' then
                 f011_d64_disk <= fastio_wdata(6);
                 f011_d64_disk2 <= fastio_wdata(7);
@@ -3410,8 +3410,8 @@ begin  -- behavioural
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
               end if;
-              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 image if set (otherwise 800KiB 1581 image)
-              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 image if set (otherwise 800KiB 1581 image)
+              -- @IO:GS $D68B.7 SDFDC:D1MD F011 drive 1 disk image is D65 if set, otherwise D81 (also see SDFDC:D1D64)
+              -- @IO:GS $D68B.6 SDFDC:D0MD F011 drive 0 disk image is D65 if set, otherwise D81 (also see SDFDC:D0D64)
               -- @IO:GS $D68B.5 SDFDC:D1WP Write enable F011 drive 1
               -- @IO:GS $D68B.4 SDFDC:D1P F011 drive 1 media present
               -- @IO:GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive.
