@@ -15,6 +15,7 @@
 #include "mf_selectcore.h"
 #include "mf_hlflash.h"
 #include "mf_utility.h"
+//#include "qspiflash.h"
 #include "../version.h"
 
 #ifdef STANDALONE
@@ -125,6 +126,10 @@ uint8_t exrom_game = 0xff;
 // #if !defined(FIRMWARE_UPGRADE) || !defined(STANDALONE)
 uint8_t selected_reflash_slot, selected_file;
 // #endif
+#ifdef LAZY_ATTICRAM_CHECK
+uint8_t atticram_bad = 0;
+#endif
+
 #ifndef STANDALONE
 
 char cart_id[9];
@@ -360,6 +365,14 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   mhx_writef("Edit Slot #%d", selected_slot);
   mhx_hl_lines(0, 0, MHX_A_INVERT | MHX_A_LGREY);
 
+#ifdef STANDALONE
+  // make attic ram selection switchable
+  mhx_write_xy(0, 1, "<M-A> ATTICRAM", mfhf_attic_disabled?MHX_A_MGREY:MHX_A_YELLOW);
+  mhx_write_xy(15, 1, mfhf_attic_disabled?"OFF":" ON", mfhf_attic_disabled?MHX_A_MGREY:MHX_A_YELLOW);
+  // mhx_write_xy(22, 1, "<M-B> HWACCCEL", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
+  // mhx_write_xy(37, 1, qspi_force_bitbash?"OFF":" ON", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
+#endif
+
   mhx_draw_rect(0, 2, 38, 2, " Current ", MHX_A_NOCOLOR, 0);
   mhx_set_xy(1,3);
   mhx_writef(MHX_W_LGREY "Name: " MHX_W_WHITE "%s", slot_core[selected_slot].name);
@@ -449,6 +462,24 @@ uint8_t edit_slot(uint8_t selected_slot)
       draw_edit_slot(selected_slot, loaded);
       continue;
     }
+
+#ifdef STANDALONE
+    // M-A toggles ATTIC RAM
+    if (mhx_lastkey.code.key == 0xc1 && !atticram_bad) {
+      mfhf_attic_disabled ^= 1;
+      draw_edit_slot(selected_slot, loaded);
+      continue;
+    }
+
+    /*
+    // M-B toggles BITBASH
+    if (mhx_lastkey.code.key == 0xc2) {
+      qspi_force_bitbash ^= 1;
+      draw_edit_slot(selected_slot, loaded);
+      continue;
+    }
+    */
+#endif
 
     // F3 loads a core
     if (mhx_lastkey.code.key == 0xf3) {
@@ -541,9 +572,6 @@ void main(void)
   uint8_t i;
 #ifndef STANDALONE
   uint8_t r;
-#endif
-#ifdef LAZY_ATTICRAM_CHECK
-  uint8_t atticram_bad = 0;
 #endif
 
   mega65_io_enable();
@@ -735,27 +763,29 @@ void main(void)
 
 #ifdef LAZY_ATTICRAM_CHECK
   // quick and dirty attic ram check
-  dma_poke(0x8000000l, 0x55);
-  if (dma_peek(0x8000000l) != 0x55)
+  lpoke(0x8000000l, 0x55);
+  if (lpeek(0x8000000l) != 0x55)
     atticram_bad = 1;
   else {
-    dma_poke(0x8000000l, 0xaa);
-    if (dma_peek(0x8000000l) != 0xaa)
+    lpoke(0x8000000l, 0xaa);
+    if (lpeek(0x8000000l) != 0xaa)
       atticram_bad = 1;
     else {
-      dma_poke(0x8000000l, 0xff);
-      if (dma_peek(0x8000000l) != 0xff)
+      lpoke(0x8000000l, 0xff);
+      if (lpeek(0x8000000l) != 0xff)
         atticram_bad = 1;
       else {
-        dma_poke(0x8000000l, 0x00);
-        if (dma_peek(0x8000000l) != 0x00)
+        lpoke(0x8000000l, 0x00);
+        if (lpeek(0x8000000l) != 0x00)
           atticram_bad = 1;
       }
     }
   }
-  if (atticram_bad)
+  if (atticram_bad) {
     mhx_writef(MHX_W_YELLOW "WARNING:" MHX_W_WHITE " Your system does not support\n"
-           "attic ram, flashing has been " MHX_W_LRED "disabled" MHX_W_WHITE "!\n\n");
+           "attic ram! Flashing will be slower!\n\n");
+    mfhf_attic_disabled = 1;
+  }
 
   // if we gave some warning, wait for a keypress before continuing
   if (booted_via_jtag || atticram_bad)

@@ -14,6 +14,10 @@ extern uint8_t mfhf_slot0_erase_list[];
 
 extern unsigned char slot_count;
 
+#ifdef STANDALONE
+extern uint8_t mfhf_attic_disabled;
+#endif
+
 #define MFHF_LC_NOTLOADED 0
 #define MFHF_LC_ATTICOK   1
 #define MFHF_LC_FROMDISK  2

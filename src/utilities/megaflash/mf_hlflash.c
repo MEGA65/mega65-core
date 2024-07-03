@@ -35,11 +35,19 @@ static void * qspi_flash_device = NULL;
 unsigned char slot_count = 0;
 
 
-#ifdef NO_ATTIC
-#define SECTORBUFFER 0x50000L
-#define CLUSTERBUFFER 0x40000L
+#define SECTORBUFFER_ATTIC 0x8000000L
+#define SECTORBUFFER_NOATTIC 0x50000L
+#if defined(STANDALONE)
+uint32_t SECTORBUFFER = SECTORBUFFER_ATTIC;
+#elif defined(NO_ATTIC)
+#define SECTORBUFFER SECTORBUFFER_NOATTIC
 #else
-#define SECTORBUFFER 0x8000000L
+#define SECTORBUFFER SECTORBUFFER_ATTIC
+#endif
+#define CLUSTERBUFFER 0x40000L
+
+#ifdef STANDALONE
+uint8_t mfhf_attic_disabled = 0;
 #endif
 
 #ifdef FLASH_INSPECT
@@ -266,9 +274,9 @@ int8_t mfhf_load_core() {
   uint8_t err, first;
   uint16_t length;
   uint32_t addr, addr_len, core_crc;
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
   uint32_t clusterptr;
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
 
   mfhf_core_file_state = MFHF_LC_NOTLOADED;
 
@@ -297,45 +305,66 @@ int8_t mfhf_load_core() {
 
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
+#ifdef STANDALONE
+  if (mfhf_attic_disabled) {
+    SECTORBUFFER = SECTORBUFFER_NOATTIC;
+  }
+  else {
+    SECTORBUFFER = SECTORBUFFER_ATTIC;
+  }
+#endif
+
   // load file to attic ram
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
   make_crc32_tables(data_buffer, cfi_data);
   init_crc32();
   /* we need a chain of the 64k cluster starts, to iterate backwards later*/
   clusterptr = CLUSTERBUFFER;
   first = 1;
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
   mfp_start(0, MFP_DIR_UP, 0x5f, MHX_A_WHITE, " Load Core ", MHX_A_WHITE);
   for (addr = 0; addr < mfsc_corehdr_length; addr += 512) {
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
+    // save cluster to clusterlist
     if ((addr & 0xffffUL) == 0) {
       /*mhx_writef(MHX_W_HOME MHX_W_WHITE "%08lx %08lx %08lx %02x", clusterptr, nhsd_open_pos.cluster, nhsd_open_pos.sector, nhsd_open_pos.sector_in_cluster);*/
       lcopy((long)&nhsd_open_pos, clusterptr, sizeof(nhsd_position_t));
       clusterptr += sizeof(nhsd_position_t);
     }
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
     if ((err = nhsd_read()))
       break;
-#ifdef NO_ATTIC
-    if (first) {
-      // the first sector has the real length and the CRC32
-      addr_len = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
-      core_crc = *(uint32_t *)(buffer + MFSC_COREHDR_CRC32);
-      // set CRC bytes to pre-calculation value
-      *(uint32_t *)(buffer + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
-      if (addr_len != mfsc_corehdr_length) {
-        err = NHSD_ERR_INVALID_MBR;
-        break;
+#ifdef STANDALONE
+    if (mfhf_attic_disabled) {
+#endif/* STANDALONE */
+#if defined(NO_ATTIC) || defined(STANDALONE)
+      if (first) {
+        // the first sector has the real length and the CRC32
+        addr_len = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
+        core_crc = *(uint32_t *)(buffer + MFSC_COREHDR_CRC32);
+        // set CRC bytes to pre-calculation value
+        *(uint32_t *)(buffer + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
+        if (addr_len != mfsc_corehdr_length) {
+          err = NHSD_ERR_INVALID_MBR;
+          break;
+        }
+        first = 0;
       }
-      first = 0;
+      update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
+      if (addr_len - addr > 255) {
+        update_crc32(addr_len - addr - 256 > 255 ? 0 : addr_len - addr - 256, buffer + 256);
+      }
+#endif /* NO_ATTIC || STANDALONE */
+#ifdef STANDALONE
     }
-    update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
-    if (addr_len - addr > 255) {
-      update_crc32(addr_len - addr - 256 > 255 ? 0 : addr_len - addr - 256, buffer + 256);
+    else {
+#endif /* STANDALONE */
+#if !defined(NO_ATTIC) || defined(STANDALONE)
+      lcopy((long)buffer, 0x8000000L + addr, 512);
+#endif /* !NO_ATTIC || STANDALONE*/
+#ifdef STANDALONE
     }
-#else
-    lcopy((long)buffer, 0x8000000L + addr, 512);
-#endif
+#endif/* STANDALONE */
     mfp_progress(addr);
     // let user abort load
     mhx_getkeycode(MHX_GK_PEEK);
@@ -343,66 +372,82 @@ int8_t mfhf_load_core() {
       return 0;
   }
   if (err != NHSD_ERR_NOERROR) {
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
+#if defined(STANDALONE)
+    if (mfhf_attic_disabled && err == NHSD_ERR_INVALID_MBR)
+#else /* NO_ATTIC */
     if (err == NHSD_ERR_INVALID_MBR)
+#endif /* STANDALONE */
       mfhf_display_sderror("Core length header offset error!", err);
     else
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
       mfhf_display_sderror("Error while loading core file!", err);
     return 0;
   }
   nhsd_close();
 
-#if NO_ATTIC
-  if (core_crc != get_crc32() || first) {
-    mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
-    return MFHF_LC_NOTLOADED;
-  } else
-    mfhf_core_file_state = MFHF_LC_ATTICOK;
-#endif /* NO_ATTIC */
+#if defined(NO_ATTIC) || defined(STANDALONE)
+#ifdef STANDALONE
+  if (mfhf_attic_disabled) {
+#endif/* STANDALONE */
+    if (core_crc != get_crc32() || first) {
+      mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
+      return MFHF_LC_NOTLOADED;
+    } else
+      mfhf_core_file_state = MFHF_LC_ATTICOK;
+#ifdef STANDALONE
+  }
+#endif/* STANDALONE */
+#endif /* NO_ATTIC || STANDALONE */
 
   if (addr & 0xffff)
     mfp_set_area(addr >> 16, 1, 0x5f, MHX_A_WHITE);
 
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
-#ifndef NO_ATTIC
-  // check crc32 of file as a check for ATTIC RAM, too
-  mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Checking CRC32 ", MHX_A_WHITE);
-  make_crc32_tables(data_buffer, cfi_data);
-  init_crc32();
-  for (first = 1, addr = 0; addr < mfsc_corehdr_length; addr += 256) {
-    // we don't need the part string anymore, so we reuse this buffer
-    // note: part is only used in probe_qspi_flash
-    lcopy(0x8000000L + addr, (long)buffer, 256);
-    if (first) {
-      // the first sector has the real length and the CRC32
-      addr_len = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
-      core_crc = *(uint32_t *)(buffer + MFSC_COREHDR_CRC32);
-      // set CRC bytes to pre-calculation value
-      *(uint32_t *)(buffer + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
-      if (addr_len != mfsc_corehdr_length)
-        break;
-      first = 0;
+#ifdef STANDALONE
+  if (!mfhf_attic_disabled) {
+#endif/* STANDALONE */
+#if !defined(NO_ATTIC) || defined(STANDALONE)
+    // check crc32 of file as a check for ATTIC RAM, too
+    mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Checking CRC32 ", MHX_A_WHITE);
+    make_crc32_tables(data_buffer, cfi_data);
+    init_crc32();
+    for (first = 1, addr = 0; addr < mfsc_corehdr_length; addr += 256) {
+      // we don't need the part string anymore, so we reuse this buffer
+      // note: part is only used in probe_qspi_flash
+      lcopy(0x8000000L + addr, (long)buffer, 256);
+      if (first) {
+        // the first sector has the real length and the CRC32
+        addr_len = *(uint32_t *)(buffer + MFSC_COREHDR_LENGTH);
+        core_crc = *(uint32_t *)(buffer + MFSC_COREHDR_CRC32);
+        // set CRC bytes to pre-calculation value
+        *(uint32_t *)(buffer + MFSC_COREHDR_CRC32) = 0xf0f0f0f0UL;
+        if (addr_len != mfsc_corehdr_length)
+          break;
+        first = 0;
+      }
+      update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
+      mfp_progress(addr);
+      // let user abort load
+      mhx_getkeycode(MHX_GK_PEEK);
+      if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
+        return 0;
     }
-    update_crc32(addr_len - addr > 255 ? 0 : addr_len - addr, buffer);
-    mfp_progress(addr);
-    // let user abort load
-    mhx_getkeycode(MHX_GK_PEEK);
-    if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
-      return 0;
-  }
-  if (core_crc == get_crc32() && !first)
-    mfhf_core_file_state = MFHF_LC_ATTICOK;
-  mfp_set_area(0, length, mfhf_core_file_state != MFHF_LC_ATTICOK ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state != MFHF_LC_ATTICOK ? MHX_A_RED : MHX_A_GREEN));
+    if (core_crc == get_crc32() && !first)
+      mfhf_core_file_state = MFHF_LC_ATTICOK;
+    mfp_set_area(0, length, mfhf_core_file_state != MFHF_LC_ATTICOK ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state != MFHF_LC_ATTICOK ? MHX_A_RED : MHX_A_GREEN));
 
-  if (mfhf_core_file_state != MFHF_LC_ATTICOK) {
-    mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
-    return MFHF_LC_NOTLOADED;
+    if (mfhf_core_file_state != MFHF_LC_ATTICOK) {
+      mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
+      return MFHF_LC_NOTLOADED;
+    }
+    // set potentially changed flags after load & crc check
+    lpoke(0x8000000L + MFSC_COREHDR_BOOTFLAGS, mfsc_corehdr_bootflags);
+#endif /* !NO_ATTIC || STANDALONE */
+#ifdef STANDALONE
   }
-  // set potentially changed flags after load & crc check
-  lpoke(0x8000000L + MFSC_COREHDR_BOOTFLAGS, mfsc_corehdr_bootflags);
-#endif /* !NO_ATTIC */
+#endif/* STANDALONE */
 
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
@@ -443,7 +488,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   return mfhf_core_file_state;
 }
 
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
 int8_t mfhf_load_sector_to_buffer(uint32_t addr)
 {
   uint32_t offset;
@@ -466,30 +511,41 @@ int8_t mfhf_load_sector_to_buffer(uint32_t addr)
   }
   return 0;
 }
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
 
 int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t size)
 {
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
   uint8_t err;
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
 
   /*mhx_writef(MHX_W_HOME MHX_W_WHITE "C %08lx %08lx %08lx             ", attic_addr, flash_addr, size);
   mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);*/
 
   while (size > 0) {
 
-#ifdef NO_ATTIC
-    // we might need to read the sector into bank 5
-    if ((attic_addr & 0xffffUL) == 0)
-      if ((err = mfhf_load_sector_to_buffer(attic_addr))) {
-        mfhf_display_sderror("Sector read error!", err);
-        return 1;
-      }
-    lcopy(SECTORBUFFER + (attic_addr & 0xffff), (unsigned long)data_buffer, 512);
-#else
-    lcopy(SECTORBUFFER + attic_addr, (unsigned long)data_buffer, 512);
+#ifdef STANDALONE
+      if (mfhf_attic_disabled) {
+#endif/* STANDALONE */
+#if defined(NO_ATTIC) || defined(STANDALONE)
+      // we might need to read the sector into bank 5
+      if ((attic_addr & 0xffffUL) == 0)
+        if ((err = mfhf_load_sector_to_buffer(attic_addr))) {
+          mfhf_display_sderror("Sector read error!", err);
+          return 1;
+        }
+      lcopy(SECTORBUFFER + (attic_addr & 0xffff), (unsigned long)data_buffer, 512);
+#endif /* NO_ATTIC || STANDALONE */
+#ifdef STANDALONE
+    }
+    else {
+#endif /* STANDALONE */
+#if !defined(NO_ATTIC) || defined(STANDALONE)
+      lcopy(SECTORBUFFER + attic_addr, (unsigned long)data_buffer, 512);
 #endif /* NO_ATTIC */
+#ifdef STANDALONE
+    }
+#endif /* STANDALONE */
 
     if (qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512) != 0) {
 #if 0
@@ -554,9 +610,9 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 {
   uint32_t wraddr;
   uint8_t tries;
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
   uint8_t err;
-#endif /* NO_ATTIC */
+#endif /* NO_ATTIC || STANDALONE */
 
   // try 10 times to erase/write the sector
   for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
@@ -571,23 +627,34 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 
     // Program sector
     for (wraddr = addr + size; wraddr > addr; wraddr -= 256) {
-#ifdef NO_ATTIC
-      // we might need to read the sector into bank 5
-      if ((wraddr & 0xffffUL) == 0) {
-        if ((err = mfhf_load_sector_to_buffer(wraddr - end_addr - 0x10000U))) {
-          mfhf_display_sderror("Sector read error!", err);
-          return 1;
+#ifdef STANDALONE
+      if (mfhf_attic_disabled) {
+#endif /* STANDALONE */
+#if defined(NO_ATTIC) || defined(STANDALONE)
+        // we might need to read the sector into bank 5
+        if ((wraddr & 0xffffUL) == 0) {
+          if ((err = mfhf_load_sector_to_buffer(wraddr - end_addr - 0x10000U))) {
+            mfhf_display_sderror("Sector read error!", err);
+            return 1;
+          }
         }
+
+        lcopy(SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU), (unsigned long)data_buffer, 256);
+
+        /* mhx_set_xy(0, 1);
+        mhx_writef("%08lx %08lx %08lx ", wraddr - 256, (wraddr - 256 - end_addr) & 0xffffU, SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU));
+        mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR); */
+#endif /* NO_ATTIC || STANDALONE */
+#ifdef STANDALONE
       }
-
-      lcopy(SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU), (unsigned long)data_buffer, 256);
-
-      /* mhx_set_xy(0, 1);
-      mhx_writef("%08lx %08lx %08lx ", wraddr - 256, (wraddr - 256 - end_addr) & 0xffffU, SECTORBUFFER + ((wraddr - 256 - end_addr) & 0xffffU));
-      mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR); */
-#else
-      lcopy(SECTORBUFFER + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
-#endif /* NO_ATTIC */
+      else {
+#endif /* STANDALONE */
+#if !defined(NO_ATTIC) || defined(STANDALONE)
+        lcopy(SECTORBUFFER + wraddr - 256 - end_addr, (unsigned long)data_buffer, 256);
+#endif /* !NO_ATTIC || STANDALONE */
+#ifdef STANDALONE
+      }
+#endif /* STANDALONE */
       // display sector on screen
       // lcopy(SECTORBUFFER+wraddr-mfu_slot_size*slot,0x0400+17*40,256);
       POKE(0xD020, 3);
@@ -665,14 +732,18 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    * 
    */
 
-#ifdef NO_ATTIC
+#if defined(NO_ATTIC) || defined(STANDALONE)
+#ifdef STANDALONE
+  if (mfhf_attic_disabled && selected_file == MFSC_FILE_VALID)
+#else
   if (selected_file == MFSC_FILE_VALID)
+#endif /* STANDALONE */
     if ((cnt = nhsd_open(mfsc_corefile_inode))) {
       // Couldn't open the file.
       mfhf_display_sderror("Could not open core file!", cnt);
       return 0;
     }
-#endif
+#endif /* NOATTIC || STANDALONE */
 
   // cover STOP menubar option with warning
   lcopy((long)mf_screens_menu.screen_start + MFMENU_EDIT_FLASHING * 40, mhx_base_scr + 23*40, 80);
@@ -686,6 +757,9 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
    *
    */
   if (!slot) {
+    // TODO: erase list is in 64k granularity, r3a+ has 256k erase blocks,
+    // so it is possible that multiple 64k erase list entries refer to the
+    // same 256k block. fix this.
     for (cnt = 0; cnt < 16 && mfhf_slot0_erase_list[cnt] != 0xff; cnt++) {
       mfhf_calc_el_addr(mfhf_slot0_erase_list[cnt], &addr, &size);
       mfhf_erase_some_sectors(addr, addr + size);

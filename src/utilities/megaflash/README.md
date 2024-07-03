@@ -46,8 +46,7 @@ specific) and `mflash.prg` (standalone debug version).
 
 **TAB_FOR_MENU**
 : normally holding NO-SCROLL will interrupt boot and bring up the MEGAFLASH menu. With
-this enabled you can alos use the TAB key instead. This is good for dev boards with a
-C64 keyboard attached.
+this enabled you can also use the TAB key instead.
 
 ### QSPI Driver Low-Level
 
@@ -61,7 +60,7 @@ C64 keyboard attached.
 : remove all bit bashing code (this enables **QSPI_HW_ASSIST**)
 
 **QSPI_S25FLXXXL**
-: include s25flxxxl driver (nexys and wukong pcbs)
+: include s25flxxxl driver (wukong pcbs)
 
 **QSPI_S25FLXXXS**
-: include s25flxxxs driver (mega65 pcbs)
+: include s25flxxxs driver (mega65 pcbs and nexys boards)
