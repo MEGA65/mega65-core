@@ -450,8 +450,8 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_videobuffer.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl \
 			$(VHDLSRCDIR)/asym_ram.vhdl \
-			$(VHDLSRCDIR)/shadowram-a100t.vhdl \
-			$(VHDLSRCDIR)/shadowram-a200t.vhdl
+			$(VHDLSRCDIR)/shadowram-s25flxxxl.vhdl \
+			$(VHDLSRCDIR)/shadowram-s25flxxxs.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 			$(VHDLSRCDIR)/sdcard.vhdl \
@@ -524,7 +524,7 @@ simulate-nvc:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(info =============================================================)
 	$(info ~~~~~~~~~~~~~~~~> Making: $@)
 	$(NVC) -M 256m --work=UNISIM -a --relaxed $(UNISIM_VHDL)
-	$(NVC) -M 256m -L . -a --relaxed $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SIMULATIONVHDL) $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fake_expansion_port.vhdl -e cpu_test -r
+	$(NVC) -M 256m -L . -a --relaxed $(VHDLSRCDIR)/shadowram-s25flxxxl.vhdl $(SIMULATIONVHDL) $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fake_expansion_port.vhdl -e cpu_test -r
 
 
 # GHDL with llvm backend
@@ -999,7 +999,7 @@ $(MFUTILDIR)/%_sa.o: $(MFUTILDIR)/%.c $(MFLASH_CORE_H) $(MFLASH_SOLO_H)
 # in addition util-core.cfg is used to move BSS and stack behind HYPPE starting at C000
 # all string data is placed into upper memory (see shadowram entry)
 #
-$(MFUTILDIR)/megaflash-devpcb.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_DEV_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(MFUTILDIR)/megaflash-s25flxxxl.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_DEV_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
@@ -1009,7 +1009,7 @@ $(MFUTILDIR)/megaflash-devpcb.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_
 		$(MFLASH_CORE_DEV_LINK) $(MEGA65LIBCLIB)
 	$(call mbuild_sizecheck,30719,$@)
 
-$(MFUTILDIR)/megaflash-m65pcb.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_M65_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
+$(MFUTILDIR)/megaflash-s25flxxxs.prg:       $(MFUTILDIR)/megaflash.c $(MFLASH_CORE_M65_REQ) $(MEGA65LIBCLIB) $(CC65_DEPEND)
 	$(call mbuild_header,$@)
 	$(CL65NC) --config $(UTILDIR)/util-core.cfg \
 		$(MEGA65LIBCINC) -O --add-source \
@@ -1155,13 +1155,17 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 # available address is calculates by screenbuilder, see megaflash.scr header
 # for definition.
 #
-$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-devpcb.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
+# The difference in shadowram is the hardcoded driver in MEGAFLASH
+# - s25flxxxl for qmtech and wukong
+# - s25flxxxs for m65pcbs and nexys boards
+#
+$(VHDLSRCDIR)/shadowram-s25flxxxl.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-s25flxxxl.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-devpcb.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-s25flxxxl.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-s25flxxxl.prg@50000
 
-$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-m65pcb.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
+$(VHDLSRCDIR)/shadowram-s25flxxxs.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(SDCARD_DIR)/ONBOARD.M65 $(MFUTILDIR)/megaflash-s25flxxxs.prg $(MFUTILDIR)/mf_screens.adr $(MFUTILDIR)/mf_screens.bin
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-m65pcb.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-s25flxxxs.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(SDCARD_DIR)/ONBOARD.M65@40000 $(MFUTILDIR)/mf_screens.bin@`cat $(MFUTILDIR)/mf_screens.adr` $(MFUTILDIR)/megaflash-s25flxxxs.prg@50000
 
 $(VHDLSRCDIR)/shadowram-cpusim.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(UTILDIR)/cpusim.prg
 	mkdir -p $(SDCARD_DIR)
@@ -1361,7 +1365,7 @@ clean:
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
 	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/colourram.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/uart_monitor.vhdl
-	rm -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(VHDLSRCDIR)/shadowram-a100t.vhdl $(VHDLSRCDIR)/termmem.vhdl $(VHDLSRCDIR)/oskmem.vhdl
+	rm -f $(VHDLSRCDIR)/shadowram-*.vhdl $(VHDLSRCDIR)/termmem.vhdl $(VHDLSRCDIR)/oskmem.vhdl
 	rm -f $(BINDIR)/monitor.m65 src/monitor/monitor.list src/monitor/monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables

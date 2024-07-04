@@ -25,8 +25,8 @@ end of bank 4. `screenbuilder.py` is used to archive this.
 
 # Building
 
-The global Makefile has targets for `megaflash-*.prg` (integrated versions, platform
-specific) and `mflash.prg` (standalone debug version).
+The global Makefile has targets for `megaflash-*.prg` (integrated versions, flash chip
+specific) and `mflash.prg` (standalone debug version, driver autodetect).
 
 ## Compiler Defines
 

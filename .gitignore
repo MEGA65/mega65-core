@@ -76,8 +76,7 @@ src/vhdl/charrom.vhdl
 src/vhdl/colourram.vhdl
 src/vhdl/hyppo.vhdl
 src/vhdl/oskmem.vhdl
-src/vhdl/shadowram-a100t.vhdl
-src/vhdl/shadowram-a200t.vhdl
+src/vhdl/shadowram-s25fl*.vhdl
 src/vhdl/termmem.vhdl
 src/vhdl/uart_monitor.vhdl
 src/vhdl/uart_monitor.vhdl.tmp
