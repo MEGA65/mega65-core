@@ -59,7 +59,7 @@ void mfp_init_progress(uint8_t maxmb, uint8_t yp, uint8_t screencode, char *titl
   mfp_progress_lines = maxmb >> 1;
   if (maxmb & 1) mfp_progress_lines++;
 
-  mhx_draw_rect(0, yp, 38, 4, title, attr, 1);
+  mhx_draw_rect(0, yp, 38, mfp_progress_lines, title, attr, 1);
   for (i = 0; i < mfp_progress_lines; i++) {
     mhx_set_xy(1, yp + i + 1);
     mhx_writef("%XM ", i<<1);

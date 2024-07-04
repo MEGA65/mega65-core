@@ -547,6 +547,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
     }
 #endif /* STANDALONE */
 
+    POKE(0xD020, 7);
     if (qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512) != 0) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
@@ -564,6 +565,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 #endif
       return 1;
     }
+    POKE(0xD020, 0);
     attic_addr += 512;
     flash_addr += 512;
     size -= 512;
