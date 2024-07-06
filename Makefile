@@ -181,7 +181,7 @@ SDCARD_FILES= \
 	$(SDCARD_DIR)/ETHLOAD.M65
 
 FLASHER_FILES= \
-	$(UTILDIR)/mflash.prg
+	$(UTILDIR)/megaflash/mflash.prg
 
 CHECK_CURRENT_TARGETS=check-mega65r4 check-mega65r3 check-mega65r2 check-nexys4ddr-widget
 
