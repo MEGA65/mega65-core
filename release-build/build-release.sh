@@ -48,42 +48,8 @@ shorten_name () {
   echo ${name:0:6}
 }
 
-# check if we are in jenkins environment
-if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
-    BIT2COR=${SCRIPTPATH}/mega65-tools/bin/bit2core
-    BIT2MCS=${SCRIPTPATH}/mega65-tools/bin/bit2mcs
-    REGTEST=${SCRIPTPATH}/mega65-tools/src/tests/regression-test.sh
-else
-    BIT2COR=bit2core
-    BIT2MCS=bit2mcs
-    # tools on the same level as the mega65-core repo
-    REGTEST=${REPOPATH}/../mega65-tools/src/tests/regression-test.sh
-fi
-
-rom_first () {
-    for file in $@; do
-        if [[ ${file##*/} = "MEGA65.ROM" ]]; then
-            echo ${file}
-        fi
-    done
-    # this needs to be found fast, too!
-    for file in $@; do
-        if [[ ${file##*/} = "ETHLOAD.M65" ]]; then
-            echo ${file}
-        fi
-    done
-    for file in $@; do
-        if [[ ${file##*/} = "FREEZER.M65" ]]; then
-            echo ${file}
-        fi
-    done
-    # we remove ONBOARD.M65 here. it is in the core, no need to put it on the SD!
-    for file in $@; do
-        if [[ ${file##*/} != "MEGA65.ROM" && ${file##*/} != "FREEZER.M65" && ${file##*/} != "ETHLOAD.M65" && ${file##*/} != "ONBOARD.M65" ]]; then
-            echo ${file}
-        fi
-    done
-}
+CORETOOL=${SCRIPTPATH}/mega65-tools/bin/coretool
+REGTEST=${SCRIPTPATH}/mega65-tools/src/tests/regression-test.sh
 
 TAG="NULL"
 REPACK=0
@@ -230,7 +196,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
     # we don't need ONBOARD.M65
     rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
-    cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
+    cp ${REPOPATH}/src/utilities/megaflash/mflash.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
     cp ${BITPATHBASE}.log ${PKGPATH}/log/
@@ -272,13 +238,13 @@ fi
 echo "Building COR/MCS"
 echo
 if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${BIT2COR} nexys4ddrwidget ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target nexys4ddrwidget --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${BIT2COR} mega65r2 ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target mega65r2 --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 else
-    ${BIT2COR} ${MODEL} ${PKGPATH}/${BITBASE}.bit MEGA65 "${VERSION:0:31}" ${PKGPATH}/${BITBASE}.cor =def,m65,c64 +fac $( rom_first ${PKGPATH}/sdcard-files/* ) ${EXTRA_FILES}
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
 fi
-${BIT2MCS} ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs 0
+${CORETOOL} --verify ${PKGPATH}/${BITBASE}.cor
 
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     ARCFILE=${PKGBASE}/${MODEL}-${BRANCH}-build-${BUILD_NUMBER}.7z
