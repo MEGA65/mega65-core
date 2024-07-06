@@ -280,6 +280,10 @@ networkOptions0:
 	.defPStr	"mac address:"
 	.byte		$00, $00, $00, $00, $00, $00
 
+	.byte		$10
+	.defPStr	"press 'r' for random mac"
+	.byte		$10
+	.defPStr	"press 'u' to validate mac"
 	.byte		$00
 networkOptions0_end:
 	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"

@@ -2307,7 +2307,7 @@ keyboardread:
 @checkkey:
         cmp #$30
         bcc kr2
-        cmp #$39
+        cmp #$3a
         bcc kr1
 kr2:    lda #$20 ;; default to space
 kr1:
