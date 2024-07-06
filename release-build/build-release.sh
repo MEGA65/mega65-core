@@ -91,8 +91,11 @@ done
 
 BITMODEL=${MODEL}
 MODELRENAME=0
+BUILDMCS=0
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
+    # only for DEVKITs!
+    BUILDMCS=1
 elif [[ ${MODEL} = "mega65r4" ]]; then
     RM_TARGET="MEGA65R4 boards -- MEGA65 R4 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r5" ]]; then
@@ -107,8 +110,10 @@ elif [[ ${MODEL} = "mega65r5_6" ]]; then
     MODELRENAME=1
 elif [[ ${MODEL} = "mega65r2" ]]; then
     RM_TARGET="MEGA65R2 boards -- Limited Testkit (Artix A7 100T FPGA)"
+    BUILDMCS=1
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
     RM_TARGET="Nexys4DDR boards -- Nexys4DDR, NexysA7 (Artix A7 100T FPGA)"
+    BUILDMCS=1
 else
     usage "unknown model ${MODEL}"
 fi
@@ -243,6 +248,9 @@ elif [[ ${MODEL} == "mega65r2" ]]; then
     ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target mega65r2 --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 else
     ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
+fi
+if [[ ${BUILDMCS} -eq 1 ]]; then
+    ${CORETOOL} --convert ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs
 fi
 ${CORETOOL} --verify ${PKGPATH}/${BITBASE}.cor
 
