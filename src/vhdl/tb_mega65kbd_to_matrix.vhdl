@@ -25,7 +25,7 @@ architecture tb of tb_mega65kbd_to_matrix is
   signal kio9 : std_logic := 'H'; -- data output to keyboard / I2C CLK line
   signal kio10 : std_logic; -- data input from keyboard
   signal matrix_col : std_logic_vector(7 downto 0);
-  signal matrix_col_idx : integer range 0 to 8;
+  signal matrix_col_idx : integer range 0 to 15;
   signal delete_out : std_logic;
   signal return_out : std_logic;
   signal fastkey_out : std_logic;

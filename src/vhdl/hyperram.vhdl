@@ -1008,6 +1008,7 @@ begin
         write_request_latch <= '0';
 
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
+          -- @IO:GS $BFFFFF0 - $BFFFFFF HYRAM!DEBUG Special HyperRAM setting registers used for debugging
           case address(3 downto 0) is
             when x"0" =>
               write_continues_max <= to_integer(wdata);

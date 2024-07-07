@@ -51,12 +51,12 @@ entity keymapper is
     restore_ps2 : in std_logic;
 
     -- This is the keyboard matrix column we are currently sourcing from all KB input modules.
-    matrix_col_idx : out integer range 0 to 8;
+    matrix_col_idx : out integer range 0 to 15;
     
     -- (more or less) continuously scanning combined matrix output that other blocks can either
     -- make use of directly or snoop into local copies.
     matrix_combined_col : out std_logic_vector(7 downto 0);
-    matrix_combined_col_idx : out integer range 0 to 8;
+    matrix_combined_col_idx : out integer range 0 to 15;
     
     -- RESTORE when held or double-tapped does special things
     restore_out : out std_logic := '1';
@@ -103,10 +103,10 @@ architecture behavioural of keymapper is
   signal capslock_xor : std_logic := '0';
   
   -- new compact LUT based keyboard matrix
-  type matrix_array_t is array(0 to 8) of std_logic_vector(7 downto 0);
+  type matrix_array_t is array(0 to 15) of std_logic_vector(7 downto 0);
 
   --signal matrix_array : matrix_array_t;
-  signal m_col_idx : integer range 0 to 8 := 0;
+  signal m_col_idx : integer range 0 to 15 := 0;
   signal km_input : std_logic_vector(7 downto 0);
   
   -- PS2 keyboard emulated joystick
@@ -131,7 +131,7 @@ architecture behavioural of keymapper is
   signal portb_pins : std_logic_vector(7 downto 0);
 
   -- The current column we're scanning from the matrix and the matrix ram output
-  signal scan_idx : integer range 0 to 9 := 9;
+  signal scan_idx : integer range 0 to 15 := 9;
   signal scan_col : std_logic_vector(7 downto 0); 
 
   -- These hold the intermediate values as we sweep.
@@ -145,10 +145,10 @@ architecture behavioural of keymapper is
   
     component kb_matrix_ram is
     port (ClkA : in std_logic;
-          addressa : in integer range 0 to 8;
+          addressa : in integer range 0 to 15;
           wea : in std_logic;
           dia : in unsigned(7 downto 0);
-          addressb : in integer range 0 to 8;
+          addressb : in integer range 0 to 15;
           dob : out unsigned(7 downto 0)
           );
   end component;

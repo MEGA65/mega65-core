@@ -19,7 +19,7 @@ entity keyboard_to_matrix is
         
         -- Virtualised keyboard matrix
         matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
-        matrix_col_idx : in integer range 0 to 8
+        matrix_col_idx : in integer range 0 to 15
         
         );
 

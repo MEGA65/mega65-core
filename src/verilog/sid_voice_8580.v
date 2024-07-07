@@ -132,46 +132,61 @@ always @(posedge clock) begin
 							(!oscillator[19] && osc_edge) ? 1'b0 :
 							osc_edge;
 							
-      lfsr_noise      <= (oscillator[19] && !osc_edge) ?
-						   {lfsr_noise[21],
-							wave_out[11],
-							lfsr_noise[19],
-							wave_out[10],
-							lfsr_noise[17:15],
-							wave_out[9],
-							lfsr_noise[13:12],
-							wave_out[8],
-							lfsr_noise[10],
-							wave_out[7],
-							lfsr_noise[8:6],
-							wave_out[6],
-							lfsr_noise[4:3],
-							wave_out[5],
-							lfsr_noise[1],
-							wave_out[4],
-							(lfsr_noise[17] ^ lfsr_noise[22] ^ reset ^ `test_ctrl)}
-							: lfsr_noise;
+//      lfsr_noise      <= (oscillator[19] && !osc_edge) ?
+//						   {lfsr_noise[21],
+//							wave_out[11],
+//							lfsr_noise[19],
+//							wave_out[10],
+//							lfsr_noise[17:15],
+//							wave_out[9],
+//							lfsr_noise[13:12],
+//							wave_out[8],
+//							lfsr_noise[10],
+//							wave_out[7],
+//							lfsr_noise[8:6],
+//							wave_out[6],
+//							lfsr_noise[4:3],
+//							wave_out[5],
+//							lfsr_noise[1],
+//							wave_out[4],
+//							(lfsr_noise[17] ^ lfsr_noise[22] ^ reset ^ `test_ctrl)}
+//							: lfsr_noise;
                      
-//		lfsr_noise <= 	(oscillator[19] && !osc_edge) ?
-//							{lfsr_noise[21:0], (lfsr_noise[22] | `test_ctrl) ^ lfsr_noise[17]} :
-//							lfsr_noise;
+		lfsr_noise <= 	(oscillator[19] && !osc_edge) ?
+							{lfsr_noise[21:0], (lfsr_noise[22] | `test_ctrl) ^ lfsr_noise[17]} :
+							lfsr_noise;
     end
 end
 
 // Waveform Output Selector
 always @(posedge (clock)) begin
-	case (control[7:4])
-		4'b0001: wave_out = triangle;
-		4'b0010: wave_out = sawtooth;
-		4'b1010: wave_out = supersawtooth;
-		4'b0011: wave_out = {st_out, 4'b1111};
-		4'b0100: wave_out = pulse;
-		4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
-		4'b0110: wave_out = {ps_out, 4'b1111}  & pulse;
-		4'b0111: wave_out = {pst_out, 4'b1111}	 & pulse;
-		4'b1000: wave_out = noise;
-		//default: wave_out = 0;
-	endcase
+	//case (control[7:4])
+	//	4'b0001: wave_out = triangle;
+	//	4'b0010: wave_out = sawtooth;
+	//	4'b1010: wave_out = supersawtooth;
+	//	4'b0011: wave_out = {st_out, 4'b1111};
+	//	4'b0100: wave_out = pulse;
+	//	4'b0101: wave_out = {p_t_out, 4'b1111}	 & pulse;
+	//	4'b0110: wave_out = {ps_out, 4'b1111}  & pulse;
+	//	4'b0111: wave_out = {pst_out, 4'b1111}	 & pulse;
+	//	4'b1000: wave_out = noise;
+	//	//default: wave_out = 0;
+	//endcase
+	if (control[7:4]) begin
+		wave_out = 12'hfff;
+		if (`tri_ctrl) begin
+			wave_out = wave_out & triangle;
+		end
+		if (`saw_ctrl) begin
+			wave_out = wave_out & sawtooth;
+		end
+		if (`pulse_ctrl) begin
+			wave_out = wave_out & pulse;
+		end
+		if (`noise_ctrl) begin
+			wave_out = wave_out & noise;
+		end
+	end
 end
 
 

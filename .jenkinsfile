@@ -11,6 +11,7 @@ pipeline {
     stages {
         stage('Setup toolchain') {
             steps {
+                sh 'echo -n "LOCAL CC65 VERSION: " && cc65 --version'
                 sh 'release-build/prepare.sh prunepkg'
             }
         }
@@ -19,9 +20,10 @@ pipeline {
                 sh 'make cleanall'
             }
         }
-        stage('Build Freezer') {
+        stage('Build Freezer & Flasher') {
             steps {
                 sh 'make freezer_files'
+                sh 'make flasher_files'
             }
         }
         stage('Build MEGA65R6') {
@@ -43,6 +45,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -51,7 +54,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Build MEGA65R3') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -60,8 +62,6 @@ pipeline {
                 }
             }
         }
-        /*
-        // r2 build cureently fail, put pack in if you fixed the problem
         stage('Build MEGA65R2') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -70,7 +70,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Build Nexys4DDR-Widget') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {

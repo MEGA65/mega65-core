@@ -444,10 +444,10 @@ architecture Behavioural of gs4510 is
   signal audio_dma_multed : s16_0to3 := (others => to_signed(0,17));
   signal audio_dma_pan_multed : s16_0to3 := (others => to_signed(0,17));
   
---dengland Please fix the function for dma_saturated_add
--- signal audio_dma_left_temp : signed(16 downto 0) := (others => '0');
--- signal audio_dma_right_temp : signed(16 downto 0) := (others => '0');
--- signal audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
+  --dengland Please fix the function for dma_saturated_add
+  -- signal audio_dma_left_temp : signed(16 downto 0) := (others => '0');
+  -- signal audio_dma_right_temp : signed(16 downto 0) := (others => '0');
+  -- signal audio_dma_mix_temp  : signed(16 downto 0) := (others => '0');
 
 
 
@@ -455,7 +455,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_left_saturated : std_logic := '0';
   signal audio_dma_right_saturated : std_logic := '0';  
 
---dengland
+  --dengland
   signal audio_dma_left_vol_sat : std_logic := '0';
   signal audio_dma_right_vol_sat : std_logic := '0';
 
@@ -806,9 +806,9 @@ architecture Behavioural of gs4510 is
   signal ocean_cart_lo_bank : unsigned(7 downto 0) := x"20";
   signal ocean_cart_hi_bank : unsigned(7 downto 0) := x"20";
   
--- Indicate source of operand for instructions
--- Note that ROM is actually implemented using
--- power-on initialised RAM in the FPGA mapped via our io interface.
+  -- Indicate source of operand for instructions
+  -- Note that ROM is actually implemented using
+  -- power-on initialised RAM in the FPGA mapped via our io interface.
   signal accessing_shadow : std_logic;
   signal accessing_rom : std_logic;
   signal accessing_fastio : std_logic;
@@ -816,7 +816,7 @@ architecture Behavioural of gs4510 is
   signal accessing_hyppo_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
   signal accessing_charrom_fastio : std_logic;
---  signal accessing_ram : std_logic;
+  -- signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
   signal accessing_cpuport : std_logic;
   signal accessing_hypervisor : std_logic;
@@ -1199,7 +1199,7 @@ architecture Behavioural of gs4510 is
   signal a_lsr : unsigned(7 downto 0);
   signal a_xor : unsigned(7 downto 0);
   signal a_and : unsigned(7 downto 0);
---  signal a_neg : unsigned(7 downto 0); -- TODO: This is apparently not used. Perhaps remote it ?
+  -- signal a_neg : unsigned(7 downto 0); -- TODO: This is apparently not used. Perhaps remote it ?
 
   signal a_neg_z : std_logic;
   
@@ -1420,9 +1420,9 @@ architecture Behavioural of gs4510 is
     
     others => ( mcInstructionFetch => '1', others => '0'));
 
--- Each math unit takes two inputs and gives one output.
--- The second input may be ignored for some math units.
--- Also, each math unit has the ability to be a 32 bit
+  -- Each math unit takes two inputs and gives one output.
+  -- The second input may be ignored for some math units.
+  -- Also, each math unit has the ability to be a 32 bit
   -- adder instead of its special function.
   -- Finally, each unit can be made to latch, and only output
   -- its value periodically, so that iterative functions can
@@ -1786,7 +1786,7 @@ begin
       variable t : string(1 to 100) := (others => ' ');
       variable virtual_reg_p : std_logic_vector(7 downto 0);
     begin
---pragma synthesis_off      
+      --pragma synthesis_off      
       if last_bytecount > 0 then
         -- Program counter
         s(1) := '$';
@@ -1934,7 +1934,7 @@ begin
         -- Display disassembly
         report s severity note;
       end if;
---pragma synthesis_on
+      --pragma synthesis_on
     end procedure;
 
     procedure reset_cpu_state is
@@ -2474,7 +2474,7 @@ begin
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
---dengland
+            --dengland
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
                             audio_dma_left_vol_sat & audio_dma_right_vol_sat & "00" & 
                             audio_dma_swap & audio_dma_saturation_enable;
@@ -2991,7 +2991,7 @@ begin
               value(0) := '1'; -- Set if power is on, clear if power is off
               return value;
             when x"fe" =>
-              -- @IO:GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready
+              -- @IO:GS $D7FE.7 CPU:HWRNG!NOTRDY Hardware Real RNG random number not ready (read only)
               value(0) := slow_prefetch_enable;
               value(1) := ocean_cart_mode;
               value(2) := slow_cache_enable;
@@ -3497,6 +3497,8 @@ begin
           power_down <= value(0);
         elsif (long_address = x"FFD27FE") or (long_address = x"FFD37FE") then
           -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+          -- @IO:GS $D7FE.2 CPU:SLOWCACHE Enable slow line caching for Attic RAM
+          -- @IO:GS $D7FE.3 CPU:SLOWCACHE!ADV Enable slow line cache advance for Attic RAM
           -- @IO:GS $D7FE.4 CPU:SELSDRAM Selects SDRAM instead of HyperRAM for Attic RAM where available
           -- @IO:GS $D7FE.5 CPU:SLOWSDRAM Selects slow (81MHz) SDRAM clock
           slow_prefetch_enable <= value(0);
@@ -3520,7 +3522,7 @@ begin
       shadow_wdata <= value;
       
       if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
-        report "writing to chip RAM addr=$" & to_hstring(long_address) severity note;
+        report "writing to chip RAM addr=$" & to_hstring(long_address) & " value = $" & to_hexstring(value) severity note;
         is_pending_dma_access <= '0';
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
@@ -3879,7 +3881,7 @@ begin
       return tmp(11 downto 0);
     end function alu_op_sub;
 
---dengland PLEASE FIXME
+    --dengland PLEASE FIXME
     function audio_dma_saturated_add( value1 : signed(16 downto 0);
                                       value2 : signed(16 downto 0))
       return signed is
@@ -3897,7 +3899,7 @@ begin
 
       return result(16 downto 0);
     end function;
---
+    --
 
     function multiply_by_volume_coefficient( value : signed(15 downto 0);
                                              volume : unsigned(7 downto 0))
@@ -3918,8 +3920,8 @@ begin
         result(15 downto 0) := result_signed(23 downto 8);
 
 
---dengland This shouldn't be happening!
---  with only an actual 16 and 8 bits, we should never go beyond 24.
+        --dengland This shouldn't be happening!
+        --  with only an actual 16 and 8 bits, we should never go beyond 24.
 
         if  value(15) /= result_signed(24) then
           result(16) := '1';
@@ -4102,13 +4104,13 @@ begin
         end if;
 
 
---dengland
+        --dengland
         if audio_dma_enables(i)='1' then
           audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
           audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
 
         else
---      if audio_dma_enables(i)='0' then
+          -- if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
           audio_dma_pan_multed(i) <= (others => '0');
         end if;
@@ -4116,14 +4118,14 @@ begin
       end loop;
 
 
---dengland
+      --dengland
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
---      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
---                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
+      --      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
+      --                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
 
 
---        audio_dma_left_temp := audio_dma_saturated_add(audio_dma_multed(0), audio_dma_multed(1));
+      -- audio_dma_left_temp := audio_dma_saturated_add(audio_dma_multed(0), audio_dma_multed(1));
 
       audio_dma_left_temp := (audio_dma_multed(0)(15) & audio_dma_multed(0)(15 downto 0)) + 
                              (audio_dma_multed(1)(15) & audio_dma_multed(1)(15 downto 0));
@@ -4135,7 +4137,7 @@ begin
         audio_dma_left_temp(16):= '0';
       end if;
 
---        audio_dma_right_temp := audio_dma_saturated_add(audio_dma_pan_multed(2), audio_dma_pan_multed(3));
+      -- audio_dma_right_temp := audio_dma_saturated_add(audio_dma_pan_multed(2), audio_dma_pan_multed(3));
 
       audio_dma_right_temp := (audio_dma_pan_multed(2)(15) & audio_dma_pan_multed(2)(15 downto 0)) + 
                               (audio_dma_pan_multed(3)(15) & audio_dma_pan_multed(3)(15 downto 0));
@@ -4147,7 +4149,7 @@ begin
       end if;
 
 
---        audio_dma_mix_temp := audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+      -- audio_dma_mix_temp := audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
 
       audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
                             (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
@@ -4158,8 +4160,8 @@ begin
         audio_dma_mix_temp(16):= '0';
       end if;
 
--- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
---  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
+      -- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
+      --  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
 
       if  audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
           audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' then
@@ -4174,7 +4176,7 @@ begin
           audio_dma_right_temp(16) = '1' or
           audio_dma_mix_temp(16) = '1' then
 
---      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
+        -- if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
           if audio_dma_mix_temp(15) = '1' then
@@ -4192,11 +4194,11 @@ begin
       end if;
 
 
---      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
---                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
---      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+      --      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
+      --                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
+      --      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
  
---        audio_dma_right_temp <= audio_dma_saturated_add(audio_dma_multed(2), audio_dma_multed(3));
+      --        audio_dma_right_temp <= audio_dma_saturated_add(audio_dma_multed(2), audio_dma_multed(3));
 
       audio_dma_right_temp := (audio_dma_multed(2)(15) & audio_dma_multed(2)(15 downto 0)) + 
                               (audio_dma_multed(3)(15) & audio_dma_multed(3)(15 downto 0));
@@ -4207,7 +4209,7 @@ begin
         audio_dma_right_temp(16):= '0';
       end if;
 
---        audio_dma_left_temp <= audio_dma_saturated_add(audio_dma_pan_multed(0), audio_dma_pan_multed(1));
+      -- audio_dma_left_temp <= audio_dma_saturated_add(audio_dma_pan_multed(0), audio_dma_pan_multed(1));
 
       audio_dma_left_temp :=  (audio_dma_pan_multed(0)(15) & audio_dma_pan_multed(0)(15 downto 0)) + 
                               (audio_dma_pan_multed(1)(15) & audio_dma_pan_multed(1)(15 downto 0));
@@ -4218,7 +4220,7 @@ begin
         audio_dma_left_temp(16):= '0';
       end if;
 
---        audio_dma_mix_temp <= audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
+      -- audio_dma_mix_temp <= audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
 
       audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
                             (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
@@ -4229,7 +4231,7 @@ begin
         audio_dma_mix_temp(16):= '0';
       end if;
 
---  Warn but do not use
+      --  Warn but do not use
 
       if  audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
           audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' then
@@ -4376,11 +4378,11 @@ begin
       -- crossing trick to get the address to the shadowram a cycle early
 
       last_pending_dma_target <= pending_dma_target;
---      last_pending_dma_target2 <= last_pending_dma_target;
+      --      last_pending_dma_target2 <= last_pending_dma_target;
       is_pending_dma_access_lower_latched_last <= is_pending_dma_access_lower_latched;
       if is_pending_dma_access_lower_latched_last='1'
         and last_pending_dma_target = pending_dma_target
---        and last_pending_dma_target2 = last_pending_dma_target
+        -- and last_pending_dma_target2 = last_pending_dma_target
         and pending_dma_target /= 0 then
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
@@ -4611,7 +4613,7 @@ begin
         audio_dma_stop <= (others => '0');
         audio_dma_pending <= (others => '0');
         audio_dma_pending_msb <= (others => '0');
---      audio_dma_current_addr <= (others => to_unsigned(0,24));
+        --audio_dma_current_addr <= (others => to_unsigned(0,24));
         audio_dma_last_current_addr_set_flag <= (others => '0');
         audio_dma_timing_counter <= (others => to_unsigned(0,25));
         audio_dma_last_timing_counter_set_flag <= (others => '0');
@@ -4645,7 +4647,7 @@ begin
         end if;
 
         if audio_dma_enables(i)='0' then
---        report "Audio DMA channel " & integer'image(i) & " disabled.";
+          -- report "Audio DMA channel " & integer'image(i) & " disabled.";
           null;
         end if;
       end loop;
@@ -5190,9 +5192,9 @@ begin
       if ((monitor_mem_trace_mode='0' or
            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
           and (monitor_mem_attention_request_drive='0'))
--- PGS 20190510: Required for simulation to work, but breaks monitor memory
--- access when synthesised.
---        or ( monitor_mem_trace_toggle = 'U' or monitor_mem_attention_request_drive = 'U' )
+        -- PGS 20190510: Required for simulation to work, but breaks monitor memory
+        -- access when synthesised.
+        --        or ( monitor_mem_trace_toggle = 'U' or monitor_mem_attention_request_drive = 'U' )
       then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
@@ -5294,7 +5296,7 @@ begin
       end if;
 
       monitor_instruction_strobe <= '0';
---      report "monitor_instruction_strobe CLEARED";    
+      -- report "monitor_instruction_strobe CLEARED";    
 
       -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
@@ -5355,7 +5357,7 @@ begin
 
           colour_ram_cs <= '0';
           fastio_write <= '0';
---          fastio_read <= '0';
+          --fastio_read <= '0';
           --chipram_we <= '0';
           slow_access_write_drive <= '0';
 
@@ -5481,6 +5483,9 @@ begin
               stack_pop := '1';
               state <= RTS1;
             when RTS =>
+              if reg_addressingmode = M_immnn then
+                reg_arg1 <= memory_read_value;
+              end if;
               stack_pop := '1';
               state <= RTS1;
             when RTS1 =>
@@ -5501,6 +5506,13 @@ begin
                 reg_pc <= (memory_read_value&reg_pc(7 downto 0))+1;
               else
                 reg_pc <= (memory_read_value&reg_pc(7 downto 0));
+              end if;
+              if reg_addressingmode = M_immnn then  -- RTS immediate mode needs to adapt the stack pointer
+                temp9 := ('0'&reg_sp) + ('0'&reg_arg1);
+                reg_sp <= temp9(7 downto 0);
+                if flag_e='0' and temp9(8)='1' then
+                  reg_sph <= reg_sph + 1;
+                end if;
               end if;
               state <= RTS3;
             when RTS3 =>
@@ -6374,9 +6386,9 @@ begin
             when DMAgicCopyWrite =>
 
               -- Remember value just read
-              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+              report "DMAgicCopyWrite: dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
                 &"."&to_hstring(dmagic_src_addr(7 downto 0))
-                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&"), memory_read_value=$" & to_hexstring(memory_read_value);
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
@@ -6868,6 +6880,10 @@ begin
                         report "Far-RTS";
                         state <= Flat32RTS;
                       end if;
+                    elsif memory_read_value=x"62" then
+                                        -- Fast-track RTS immediate mode
+                      pc_inc := '1';
+                      state <= RTS;
                     elsif memory_read_value=x"40" then
                                         -- Fast-track RTI
                       state <= RTI;
@@ -9942,7 +9958,7 @@ begin
               -- that might change that view, we enforce a brief pause of the CPU.
               -- XXX Should no longer be necessary, now that we reconstruct and
               -- de-glitch the keyboard matrix in keymapper.vhdl
---              io_settle_trigger <= not io_settle_trigger;
+              --  io_settle_trigger <= not io_settle_trigger;
               
             end if;
             

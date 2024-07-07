@@ -128,7 +128,7 @@ entity machine is
          slowram_cache_line_inc_toggle : out std_logic := '0';
          slowram_cache_line_dec_toggle : out std_logic := '0';
 
-         sector_buffer_mapped : buffer std_logic;
+         sector_buffer_mapped : out std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";
@@ -373,7 +373,7 @@ entity machine is
          ----------------------------------------------------------------------
 
         -- Widget board / MEGA65R2 keyboard
-        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col_idx : out integer range 0 to 15 := 0;
         widget_matrix_col : in std_logic_vector(7 downto 0);
         widget_restore : in std_logic;
         widget_capslock : in std_logic;
@@ -670,7 +670,7 @@ architecture Behavioral of machine is
 
   -- Video pipeline plumbing
   signal pixel_x_viciv : integer;
-  signal pixel_strobe_viciv : std_logic := '0';
+  signal pixel_strobe_viciv : std_logic;
   signal vgared_viciv : unsigned(7 downto 0);
   signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_viciv : unsigned(7 downto 0);
@@ -768,6 +768,8 @@ architecture Behavioral of machine is
   signal osk_touch2_key : unsigned(7 downto 0) := x"FF";
   signal osk_touch2_key_driver : unsigned(7 downto 0) := x"FF";
 
+  signal sector_buffer_mapped_int : std_logic := '0';
+  
   signal secure_mode_flag : std_logic := '0';
   signal secure_mode_from_monitor : std_logic := '0';
   signal secure_mode_triage_required : std_logic := '0';
@@ -864,6 +866,8 @@ begin
     combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if rising_edge(cpuclock) then
 
+      sector_buffer_mapped <= sector_buffer_mapped_int;
+      
       -- Select either direct-connected dipswitches (upto R4) or the dip
       -- switches as read from the I2C IO expander (R5)
       if target = mega65r5 or target = mega65r6 then
@@ -1159,7 +1163,7 @@ begin
       -- Hypervisor signals: we need to tell hyppo memory whether
       -- to map or not, and we also need to be able to set the VIC-III
       -- IO mode.
-      privileged_access => cpu_hypervisor_mode,
+      cpu_hypervisor_mode => cpu_hypervisor_mode,
       iomode_set => iomode_set,
       iomode_set_toggle => iomode_set_toggle,
 
@@ -1249,7 +1253,7 @@ begin
       fastio_write => fastio_write,
       fastio_wdata => fastio_wdata,
       fastio_rdata => fastio_rdata,
-      sector_buffer_mapped => sector_buffer_mapped,
+      sector_buffer_mapped => sector_buffer_mapped_int,
       fastio_vic_rdata => fastio_vic_rdata,
       fastio_colour_ram_rdata => colour_ram_fastio_rdata,
       fastio_charrom_rdata => charrom_fastio_rdata,
@@ -1738,7 +1742,7 @@ begin
       btn => btn,
 --    seg_led => seg_led_data,
       viciii_iomode => viciii_iomode,
-      sector_buffer_mapped => sector_buffer_mapped,
+      sector_buffer_mapped => sector_buffer_mapped_int,
 
       -- CPU status for sending to ethernet frame packer
 
@@ -1793,18 +1797,18 @@ begin
       key_up => keyup,
 
       fa_fire => fa_fire,
-      fa_up => fa_up,
-      fa_left => fa_left,
-      fa_down => fa_down,
-      fa_right => fa_right,
+      fa_up => fa_up_mout,
+      fa_left => fa_left_mout,
+      fa_down => fa_down_mout,
+      fa_right => fa_right_mout,
       fa_potx => fa_potx,
       fa_poty => fa_poty,
 
       fb_fire => fb_fire,
-      fb_up => fb_up,
-      fb_left => fb_left,
-      fb_down => fb_down,
-      fb_right => fb_right,
+      fb_up => fb_up_mout,
+      fb_left => fb_left_mout,
+      fb_down => fb_down_mout,
+      fb_right => fb_right_mout,
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 

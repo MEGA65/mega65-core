@@ -2035,10 +2035,13 @@ go64:
 l40a:
 	;; Wait for user to press RUN/STOP to continue booting
 	lda ascii_key_in
+	beq l40b
 	cmp #$03
 	beq l41
+	sta ascii_key_in
+l40b:
 	inc $d020
-	jmp l40a
+	bra l40a
 l41:
 	;; remove RUN/STOP from key queue
 	sta ascii_key_in
@@ -2304,7 +2307,7 @@ keyboardread:
 @checkkey:
         cmp #$30
         bcc kr2
-        cmp #$39
+        cmp #$3a
         bcc kr1
 kr2:    lda #$20 ;; default to space
 kr1:

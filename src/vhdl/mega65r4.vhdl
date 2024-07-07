@@ -83,6 +83,7 @@ entity container is
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
          cart_ctrl_dir : out std_logic;
+         cart_ctrl_en : out std_logic;
          cart_haddr_dir : out std_logic;
          cart_laddr_dir : out std_logic;
          cart_data_en : out std_logic;
@@ -406,7 +407,7 @@ architecture Behavioral of container is
 
   signal cart_access_count : unsigned(7 downto 0);
 
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col_idx : integer range 0 to 15 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
@@ -690,12 +691,9 @@ begin
       p2lo => p2lo,
       p2hi => p2hi,
 
-      -- XXX The first revision of the R3 expansion board has the video
-      -- connector mis-wired.  So we put luma out everywhere, so that
-      -- we can still pick it up on a normally wired video cable
       luma => luma,
-      chroma => luma,
-      composite => luma,
+      chroma => chroma,
+      composite => composite,
       audio => luma
 
       );
@@ -930,6 +928,7 @@ begin
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
+      cart_ctrl_en => cart_ctrl_en,
       cart_haddr_dir => cart_haddr_dir,
       cart_laddr_dir => cart_laddr_dir,
       cart_data_dir => cart_data_dir,
@@ -1029,8 +1028,8 @@ begin
           no_hyppo => '0',
 
           luma => luma,
---          chroma => luma,
---          composite => luma,
+          chroma => chroma,
+          composite => composite,
 
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,

@@ -367,7 +367,7 @@ architecture Behavioral of container is
 
   signal cart_access_count : unsigned(7 downto 0);
 
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col_idx : integer range 0 to 15 := 0;
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
@@ -648,6 +648,7 @@ begin
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
       cart_ctrl_dir => cart_ctrl_dir,
+      cart_ctrl_en => cart_ctrl_en,
       cart_haddr_dir => cart_haddr_dir,
       cart_laddr_dir => cart_laddr_dir,
       cart_data_dir => cart_data_dir,

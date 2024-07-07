@@ -833,6 +833,7 @@ architecture Behavioral of viciv is
   signal background_colour_select : unsigned(1 downto 0) := "00";
   signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
   signal glyph_y_offset : integer range 0 to 7 := 0;
+  signal glyph_nve_y_offset : std_logic := '0';
   signal glyph_colour_drive : unsigned(7 downto 0) := x"00";
   signal glyph_colour_drive2 : unsigned(7 downto 0) := x"00";
   signal glyph_colour : unsigned(7 downto 0) := x"00";
@@ -2118,6 +2119,7 @@ begin
       if reset='0' then
         -- Reset sprites to normal behaviour on reset
         sprite_horizontal_tile_enables <= (others => '0');
+        sprite_v400s <= (others => '0');
         sprite_v400_super_msbs <= (others => '0');
         sprite_alpha_blend_enables <= (others => '0');
         sprite_bitplane_enables <= (others => '0');
@@ -3413,6 +3415,9 @@ begin
 
         -- Reset glyph Y offset each raster line
         glyph_y_offset <= 0;
+        
+        -- Reset glyph using nve y offset
+        glyph_nve_y_offset <= '0';
 
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
@@ -4431,19 +4436,36 @@ begin
             -- from character ROM.  As we only have 2^16 positions, the glyphs
             -- must be in only the first 512KB of chipram.
             glyph_data_address(19) <= '0';
+
+            -- if vertical flip bit is set fetch the char data with 7 - chargen_y
             if glyph_flip_vertical='1' then
-              glyph_data_address(18 downto 6) <= glyph_number(12 downto 0);
-              glyph_data_address(5 downto 3) <= not chargen_y_hold;
+              -- Allow setting an offset in the glyph address for easier
+              -- free vertical positioning of RRB soft-sprites
+              if glyph_nve_y_offset='1' then
+                -- -ve offset visibly moves the char data down the screen
+                glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & not chargen_y_hold) - glyph_y_offset;
+              else
+                -- +ve offset visibly moves the char data up the screen
+                glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & not chargen_y_hold) + glyph_y_offset;
+              end if;
             else
               -- Allow setting an offset in the glyph address for easier
               -- free vertical positioning of RRB soft-sprites
-              glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & chargen_y_hold) + glyph_y_offset;
+              if glyph_nve_y_offset='1' then
+                -- -ve offset visibly moves the char data down the screen
+                glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & chargen_y_hold) - glyph_y_offset;
+              else
+                -- +ve offset visibly moves the char data up the screen
+                glyph_data_address(18 downto 3) <= (glyph_number(12 downto 0) & chargen_y_hold) + glyph_y_offset;
+              end if;
             end if;
+
             if glyph_flip_horizontal='1' then
               glyph_data_address(2 downto 0) <= "111";
             else
               glyph_data_address(2 downto 0) <= "000";
             end if;
+
             character_data_from_rom <= '0';
           else
             -- Normal character glyph fetched relative to character_set_address.
@@ -4796,6 +4818,9 @@ begin
 
               -- Allow setting of the glyph y offset in GOTO tokens
               glyph_y_offset <= to_integer(glyph_width_deduct(2 downto 0));
+
+              -- Allow setting of y offset to be -ve instead of the default +pve
+              glyph_nve_y_offset <= glyph_number(12);
 
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
@@ -5692,6 +5717,9 @@ begin
       --But delay them for the video pipeline depth.
       --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles
       xcounter_out <= xcounter_pipeline_delayed;
+
+      report "VICIV: xcounter=" & integer'image(to_integer(xcounter))
+        & ", ycounter=" & integer'image(to_integer(ycounter));
 
       sprite_h640_delayed <= sprite_h640;
       sprite_v400s_delayed <= sprite_v400s;
