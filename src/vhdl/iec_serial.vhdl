@@ -1468,7 +1468,7 @@ begin
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
                       micro_wait(t_f);
-                      wait_data_low <= '0';
+                      wait_data_low <= '1';
                       report "IEC: Waiting for device to acknowledge byte";
           when 424 =>
             if iec_data_i='0' then
