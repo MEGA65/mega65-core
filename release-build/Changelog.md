@@ -20,6 +20,8 @@ This is the Summer 2024 Release.
   - QSPI: Read errors due to skipping dummy (latency) cycles
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
 - Bugfixes:
+  - Fix pblock component assignment
+    [PR#806](https://github.com/MEGA65/mega65-core/pull/806)
   - RRB Reverse Y-row adjust
     [#796](https://github.com/MEGA65/mega65-core/issues/796)
   - RTS immediate mode instruction completely broken
