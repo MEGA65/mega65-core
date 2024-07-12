@@ -349,6 +349,10 @@ set_property -dict {PACKAGE_PIN AA6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST D
 set_property -dict {PACKAGE_PIN W5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[13]]
 set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[14]]
 set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[15]]
+# Place SDRAM close to I/O pins
+create_pblock pblock_sdram
+add_cells_to_pblock pblock_sdram [get_cells [list *.sdramctrl0]]
+resize_pblock pblock_sdram -add {SLICE_X150Y100:SLICE_X163Y149}
 
 # Constrain input and output times for SDRAM pins
 # DQ pins must have an input delay in a fairly narrow range from about 2.9ns to 5.8ns.
@@ -414,7 +418,7 @@ set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_cs0]
 # Place HyperRAM close to I/O pins
 create_pblock pblock_hyperram
-add_cells_to_pblock pblock_hyperram [get_cells [list hyperram0]]
+add_cells_to_pblock pblock_hyperram [get_cells [list *.hram0]]
 resize_pblock pblock_hyperram -add {SLICE_X0Y186:SLICE_X35Y224}
 resize_pblock pblock_hyperram -add {SLICE_X8Y175:SLICE_X23Y186}
 
