@@ -1,15 +1,55 @@
-extern struct m65_tm tm_start;
-extern struct m65_tm tm_now;
+#ifndef QSPICOMMON_H
+#define QSPICOMMON_H
+/*
+ * QSPI tools that are used to flash the QSPI,
+ * used in: MEGAFLASH and derivates
+ */
 
-#ifdef A100T
-#define SLOT_SIZE (4L * 1048576L)
-#define SLOT_MB 4
-#else
-#define SLOT_MB 8
-#define SLOT_SIZE (8L * 1048576L)
+/*
+ * Compile time options:
+ *
+ * Hardware releated:
+ *   STANDALONE         - build standalone version instead of CORE-integrated version
+ *                        sets slot size based on detected hardware
+ *   A100T              - FPGA model A100T with 4MB slot size
+ *                        sets slot size to 4MB
+ *                        sets TAB_FOR_MENU
+ *   A200T              - FPGA model A200T with 8MB slot size
+ *                        sets slot size to 8MB
+ *   TAB_FOR_MENU       - allow TAB key to enter MENU (default: NO SCROLL only)
+ *
+ * QSPI Verbosity & Debugging:
+ *   QSPI_VERBOSE       - more verbose QSPI probing output (not inteded for CORE inclusion)
+ *   QSPI_DEBUG         - even more output and debug testing (implies QSPI_VERBOSE)
+ *
+ * QSPI Options:
+ *   QSPI_FLASH_SLOT0   - allow flashing of slot 0
+ *   QSPI_ERASE_ZERO    - allow erasing of slot 0
+ *   QSPI_FLASH_INSPECT - enable flash inspector tool
+ *   FIRMWARE_UPGRADE   - this removes file selection from slot 0 flashing,
+ *                        just uses UPGRADE0.COR instead
+ *
+ * Control scheme:
+ *   WITH_JOYSTICK      - enable joystick navigation in file selector
+ *
+ */
+
+#include <stdint.h>
+
+#ifdef QSPI_DEBUG
+#ifndef QSPI_VERBOSE
+#define QSPI_VERBOSE 1
+#endif
 #endif
 
+extern uint8_t SLOT_MB;
+extern uint8_t SLOT_SIZE_PAGE_MAX;
+extern uint32_t SLOT_SIZE;
+
+extern uint8_t hw_model_id;
+extern char *hw_model_name;
 extern unsigned char slot_count;
+
 extern unsigned char bash_bits;
 extern unsigned int page_size;
 extern unsigned char latency_code;
@@ -27,21 +67,20 @@ extern unsigned short cfi_length;
 extern unsigned char flash_sector_bits;
 extern unsigned char last_sector_num;
 extern unsigned char sector_num;
-
-extern unsigned char reconfig_disabled;
+extern unsigned int num_4k_sectors;
 
 extern unsigned char data_buffer[512];
-extern unsigned char bitstream_magic[16];
 
 extern unsigned short mb;
 
 extern unsigned char buffer[512];
+extern unsigned char part[256];
 
-extern short i, x, y, z;
+// extern short i, x, y, z;
+// extern unsigned long addr, addr_len;
 
-void probe_qspi_flash(void);
-void reflash_slot(unsigned char slot);
-void reconfig_fpga(unsigned long addr);
+int8_t probe_hardware_version(void);
+unsigned char probe_qspi_flash(void);
 void flash_inspector(void);
 
 void read_registers(void);
@@ -51,10 +90,12 @@ void flash_reset(void);
 unsigned char check_input(char *m, uint8_t case_sensitive);
 void unprotect_flash(unsigned long addr_in_sector);
 unsigned char verify_data_in_place(unsigned long start_address);
-void progress_bar(unsigned char onesixtieths);
+void progress_bar(unsigned int add_pages, char *action);
 void read_data(unsigned long start_address);
 void program_page(unsigned long start_address, unsigned int page_size);
+void erase_some_sectors(unsigned long end_addr, unsigned char progress);
 void erase_sector(unsigned long address_in_sector);
+unsigned char flash_region_differs(unsigned long attic_addr, unsigned long flash_addr, long size);
 void enable_quad_mode(void);
 char *get_model_name(uint8_t model_id);
 
@@ -62,7 +103,7 @@ void spi_clock_low(void);
 void spi_clock_high(void);
 void spi_cs_low(void);
 void spi_cs_high(void);
-unsigned char press_any_key(unsigned char attention, unsigned char nomessage);
+unsigned char read_joystick_input(void);
 void delay(void);
 void spi_tx_byte(unsigned char b);
 unsigned char qspi_rx_byte(void);
@@ -74,11 +115,8 @@ void spi_write_enable(void);
 void spi_clear_sr1(void);
 void spi_write_disable(void);
 
-//#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
+// #define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
-
-#define CASE_INSENSITIVE 0
-#define CASE_SENSITIVE 1
 
 /*
   $D6C8-B = address for FPGA to boot from in flash
@@ -102,17 +140,8 @@ void spi_write_disable(void);
 #define CLOCKCTL_PORT 0xD6CDU
 
 /*
-  Here are our routines for accessing the SD card without relying on the
-  hypervisor.  Note that we can't even assume that the hypervisor has
-  found and reset the SD card, because of the very early point at which
-  the flash menu gets called.  "Alles muss man selber machen" ;)
-  Oh, yes, and we have only about 5KB space left in this utility, before
-  we start having memory overrun problems. So we have to keep this
-  absolutely minimalistic.
+ * QSPI Flash Buffer Address
  */
+#define QSPI_FLASH_BUFFER 0xFFD6E00L
 
-#define sd_sectorbuffer 0xffd6e00L
-#define sd_ctl 0xd680L
-#define sd_addr 0xd681L
-
-extern const unsigned long sd_timeout_value;
+#endif /* QSPICOMMON_H */

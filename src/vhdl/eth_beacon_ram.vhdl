@@ -10,9 +10,9 @@ ENTITY beaconram IS
   PORT (
     clk : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer;
+    write_address : IN integer range 0 to 67;
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer;
+    address : IN integer range 0 to 2047;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
 END beaconram;
@@ -80,7 +80,11 @@ begin  -- behavioural
       chks_bytes_left <= 2;
     end procedure;
   begin
-    rdata <= ram(address);
+    if address < 68 then
+      rdata <= ram(address);
+    else
+      rdata <= x"42";
+    end if;
 
     if(rising_edge(clk)) then
       if w='1' then

@@ -19,7 +19,7 @@ fi
 echo
 echo "Removing and recloning mega65-tools..."
 rm -rf mega65-tools
-git clone  --depth 1 --branch development https://github.com/MEGA65/mega65-tools.git || ( echo "failed to clone mega65-tools"; exit 2 )
+git clone --depth 1 --branch development https://github.com/MEGA65/mega65-tools.git || ( echo "failed to clone mega65-tools"; exit 2 )
 
 echo
 echo "Building tools..."

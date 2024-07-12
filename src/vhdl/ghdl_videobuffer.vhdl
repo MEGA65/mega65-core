@@ -19,18 +19,18 @@ architecture behavioural of videobuffer is
 
   type ram_t is array (0 to 4095) of std_logic_vector(7 downto 0);
   signal ram : ram_t := (
-    others => x"65" );
+    others => x"42" );
 
 begin
   PROCESS(Clka,clkb,addrb,ram)
 BEGIN
-  --report "viciv reading charrom address $"
-  --  & to_hstring(address)
-  --  & " = " & integer'image(to_integer(address))
-  --  & " -> $" & to_hstring(ram(to_integer(address)))
-  --  severity note;
+  report "VIDEOBUFFER: Reading address $"
+    & to_hexstring(unsigned(addrb))
+    & " = " & integer'image(to_integer(unsigned(addrb)))
+    & " -> $" & to_hexstring(ram(to_integer(unsigned(addrb))))
+    severity note;
   if rising_edge(clkb) then
-    doutb <= ram(to_integer(unsigned(addrb)));
+    doutb <= ram(to_integer(unsigned(addrb)));    
   end if;
 
   if(rising_edge(Clka)) then 

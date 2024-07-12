@@ -7,8 +7,8 @@ entity visual_keyboard is
   port (
     pixelclock : in std_logic;
 
-    ycounter_in : in integer;
-    xcounter_in : in integer;
+    ycounter_in : in integer range 0 to 2047;
+    xcounter_in : in integer range 0 to 4095;
     
     lcd_display_enable : in std_logic; -- is pixel in frame?
     pixel_strobe_in : in std_logic;

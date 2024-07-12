@@ -34,7 +34,7 @@ entity mega65kbd_to_matrix is
     kbd_bitbash_sdadrive : in std_logic := '0';
     
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
-    matrix_col_idx : in integer range 0 to 8;
+    matrix_col_idx : in integer range 0 to 15;
 
     delete_out : out std_logic;
     return_out : out std_logic;

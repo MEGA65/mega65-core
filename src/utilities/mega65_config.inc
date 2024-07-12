@@ -70,7 +70,7 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$02			;bits for testing/setting
 	.byte		$01			;bits for testing/setting
-	.defPStr	"joystick 1 mouse mode:"	;label
+	.defPStr	"joy 1 mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"amiga to 1351 enabled"	;option set
 
@@ -78,15 +78,15 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$08			;bits for testing/setting
 	.byte		$04			;bits for testing/setting
-	.defPStr	"joystick 1 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joy 1 1351 de-jitter:"	;label
+	.defPStr	'on'		;option unset
+	.defPStr	"off"	;option set
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
 ;	.byte		$01			;bits for testing/setting
 	.byte		$02			;bits for testing/setting
-	.defPStr	"joystick 2 mouse mode:"	;label
+	.defPStr	"joy 2 mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"amiga to 1351 enabled"	;option set
 
@@ -94,9 +94,9 @@ inputOptions0:
 	.word		$0005			;offset into config table
 ;	.byte		$04			;bits for testing/setting
 	.byte		$08			;bits for testing/setting
-	.defPStr	"joystick 2 amiga mouse detection:"	;label
-	.defPStr	'conservative'		;option unset
-	.defPStr	"aggressive"	;option set
+	.defPStr	"joy 2 1351 de-jitter:"	;label
+	.defPStr	'on'		;option unset
+	.defPStr	"off"	;option set
 
 
 	.byte		$00			;end of list type
@@ -110,7 +110,7 @@ inputPageIndex:
 ;-------------------------------------------------------------------------------
 ;Chipset tab
 ;-------------------------------------------------------------------------------
-chipsetPageCnt 	=	1
+chipsetPageCnt 	=	2
 
 chipsetOptions0:
 	.byte		$60
@@ -122,13 +122,6 @@ chipsetOptions0:
 	.word		$01f3
 	.defPStr	"date (dd-mmm-yyyy):"
 	.byte		$00, $00, $00
-
-	.byte		$20			;option input type
-	.word		$0020			;offset into config table
-	.byte		$01			;bits for testing/setting
-	.defPStr	"dmagic revision:"	;label
-	.defPStr	'f018 (rom < 910523)'		;option unset
-	.defPStr	"f018b"	;option set
 
 	.byte		$20			;option input type
 	.word		$0004			;offset into config table
@@ -148,19 +141,40 @@ chipsetOptions0:
 	.byte		$00, $00, $00, $00
 
 	.byte		$20			;option input type
-	.word		$000F			;offset into config table
-	.byte		$80			;bits for testing/setting
-	.defPStr	"long fn support:"	;label
-	.defPStr	"disable";option unset
-	.defPStr	'enable';option set
-
-
+	.word		$0004			;offset into config table
+	.byte		$08			;bits for testing/setting
+	.defPStr	"disk image drive noise:"
+	.defPStr	"enable"		;option unset
+	.defPStr	"disable"		;option set
+	
 	.byte		$00			;end of list type
 chipsetOptions0_end:
 	.assert		(chipsetOptions0_end - chipsetOptions0) < 256, error, "Chipset Options 0 too large!"
 
+chipsetOptions1:
+	.byte		$20			;option input type
+	.word		$0020			;offset into config table
+	.byte		$01			;bits for testing/setting
+	.defPStr	"dmagic revision:"	;label
+	.defPStr	'f018 (rom < 910523)'	;option unset
+	.defPStr	"f018b"			;option set
+
+	.byte		$20			;option input type
+	.word		$000F			;offset into config table
+	.byte		$80			;bits for testing/setting
+	.defPStr	"long fn support:"	;label
+	.defPStr	"disable"		;option unset
+	.defPStr	'enable'		;option set
+
+	.byte 		$00			;end of list type
+
+chipsetOptions1_end:
+	.assert		(chipsetOptions1_end - chipsetOptions1) < 256, error, "Chipset Options 1 too large!"
+
+
 chipsetPageIndex:
 	.word		chipsetOptions0
+	.word		chipsetOptions1		
 
 
 ;-------------------------------------------------------------------------------
@@ -266,6 +280,10 @@ networkOptions0:
 	.defPStr	"mac address:"
 	.byte		$00, $00, $00, $00, $00, $00
 
+	.byte		$10
+	.defPStr	"press 'r' for random mac"
+	.byte		$10
+	.defPStr	"press 'u' to validate mac"
 	.byte		$00
 networkOptions0_end:
 	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"
