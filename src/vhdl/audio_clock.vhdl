@@ -84,7 +84,7 @@ begin
         clkout0_duty_cycle      => 0.5,
         clkout0_phase           => 0.0,
         clkout0_use_fine_ps     => false,
-        clkout1_divide          => 20,
+        clkout1_divide          => 20,     -- 1200 / 20 = 60 MHz
         clkout1_duty_cycle      => 0.5,
         clkout1_phase           => 0.0,
         clkout1_use_fine_ps     => false,
