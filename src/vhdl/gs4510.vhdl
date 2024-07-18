@@ -441,6 +441,17 @@ architecture Behavioural of gs4510 is
   
 
   --dengland
+  signal audio_dma_irqenb : std_logic_vector(0 to 3) := (others => '0');
+  signal audio_dma_irqflg : std_logic_vector(0 to 3) := (others => '0');
+  signal audio_dma_irqofs : u7_0to3 := (others => to_unsigned(0,8));
+--  signal audio_dma_irqaddr : u23_0to3 := (others => to_unsigned(-1,24));
+--  signal audio_dma_irqltch : std_logic_vector(0 to 3) := (others => '0');
+--  signal audio_dma_irqlast : u23_0to3 := (others => to_unsigned(0,24));
+  signal audio_dma_irqdebuga : u7_0to3 := (others => to_unsigned(0,8));
+  signal audio_dma_irqdebugb : u7_0to3 := (others => to_unsigned(0,8));
+
+
+
   signal audio_dma_multed : s16_0to3 := (others => to_signed(0,17));
   signal audio_dma_pan_multed : s16_0to3 := (others => to_signed(0,17));
   
@@ -732,6 +743,20 @@ architecture Behavioural of gs4510 is
   signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
+
+--dengland
+--  signal irq_internal : std_logic := '0';
+    shared variable irq_internal : std_logic := '0';
+--  shared variable audio_dma_irqltch : std_logic_vector(0 to 3) := (others => '0');
+    shared variable audio_dma_irqcalc : unsigned(23 downto 0) := (others => '0');
+    shared variable audio_dma_irqaddr : unsigned(23 downto 0) := (others => '0');
+    shared variable audio_dma_calctop : unsigned(23 downto 0) := (others => '0');
+
+    shared variable audio_dma_irqtemp : unsigned(23 downto 0) := (others => '0');
+
+    shared variable audio_dma_irqevent : std_logic_vector(0 to 3) := (others => '0');
+
+
   signal nmi_state : std_logic := '1';
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_last : std_logic := '0';
@@ -2042,10 +2067,17 @@ begin
         if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
           irq_pending <= '1';
         else
-          irq_pending <= '0';
+--dengland
+          if  (irq_internal = '0') or (irq_defer_active='1') or (flag_i='1') then
+            irq_internal := '0';
+            irq_pending <= '0';
+            audio_dma_irqevent := "0000";
+          end if;
         end if;
       else
+        irq_internal := '0';
         irq_pending <= '0';
+        audio_dma_irqevent := "0000";
       end if;
 
       -- Allow hypervisor to ban interrupts for 65,535 48MHz CPU cycles,
@@ -2479,6 +2511,33 @@ begin
                             audio_dma_left_vol_sat & audio_dma_right_vol_sat & "00" & 
                             audio_dma_swap & audio_dma_saturation_enable;
 
+            when x"13" => return 
+                audio_dma_irqflg(0) & 
+                audio_dma_irqflg(1) &
+                audio_dma_irqflg(2) &
+                audio_dma_irqflg(3) &
+                audio_dma_irqenb(0) &
+                audio_dma_irqenb(1) &
+                audio_dma_irqenb(2) &
+                audio_dma_irqenb(3);
+
+            when x"14" => 
+--                audio_dma_irqltch(0) <= '0';
+                return audio_dma_irqofs(0);
+            when x"15" => 
+--                audio_dma_irqltch(1) <= '0';
+                return audio_dma_irqofs(1);
+            when x"16" => 
+--                audio_dma_irqltch(2) <= '0';
+                return audio_dma_irqofs(2);
+            when x"17" => 
+--                audio_dma_irqltch(3) <= '0';
+                return audio_dma_irqofs(3);
+            when x"18" =>
+              return audio_dma_irqdebuga(0);
+            when x"19" =>
+              return audio_dma_irqdebugb(0);
+              
             -- @IO:GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
             -- @IO:GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
             -- @IO:GS $D71E DMA:CH2LVOL Audio DMA channel 2 left channel volume
@@ -3357,8 +3416,59 @@ begin
           cpu_pcm_bypass_int <= value(4);
           pwm_mode_select_int <= value(3);
         elsif long_address(7 downto 0) = x"12" then
+        -- @IO:GS $D712.0   CPU:AUDIODMA Enable saturation
+        -- @IO:GS $D712.1   CPU:AUDIODMA Channel swap
           audio_dma_swap <= value(1);
           audio_dma_saturation_enable <= value(0);
+--dengland
+      elsif long_address(7 downto 0) = x"13" then
+        -- @IO:GS $D713.7   CPU:AUDIODMA CHN 0 IRQ FLG
+        -- @IO:GS $D713.6   CPU:AUDIODMA CHN 1 IRQ FLG
+        -- @IO:GS $D713.5   CPU:AUDIODMA CHN 2 IRQ FLG
+        -- @IO:GS $D713.4   CPU:AUDIODMA CHN 3 IRQ FLG
+        -- @IO:GS $D713.3   CPU:AUDIODMA CHN 0 IRQ ENB
+        -- @IO:GS $D713.2   CPU:AUDIODMA CHN 1 IRQ ENB
+        -- @IO:GS $D713.1   CPU:AUDIODMA CHN 2 IRQ ENB
+        -- @IO:GS $D713.0   CPU:AUDIODMA CHN 3 IRQ ENB
+            audio_dma_irqflg(0) <= value(7); 
+            audio_dma_irqflg(1) <= value(6); 
+            audio_dma_irqflg(2) <= value(5); 
+            audio_dma_irqflg(3) <= value(4); 
+            audio_dma_irqenb(0) <= value(3); 
+            audio_dma_irqenb(1) <= value(2); 
+            audio_dma_irqenb(2) <= value(1); 
+            audio_dma_irqenb(3) <= value(0); 
+
+--          audio_dma_irqltch := (others => '1');
+
+--          audio_dma_irqaddr <= (others => x"FFFFFF");
+
+      elsif long_address(7 downto 0) = x"14" then
+        -- @IO:GS $D714   CPU:AUDIODMA CHN 0 IRQ OFS MB
+--          audio_dma_irqltch(0) <= '0';
+            audio_dma_irqofs(0) <= value;
+--          audio_dma_irqltch(0) := '1';
+--          audio_dma_irqaddr(0) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"15" then
+        -- @IO:GS $D715   CPU:AUDIODMA CHN 1 IRQ OFS MB
+--          audio_dma_irqltch(1) <= '0';
+            audio_dma_irqofs(1) <= value;
+--          audio_dma_irqltch(1) := '1';
+--          audio_dma_irqaddr(1) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"16" then
+        -- @IO:GS $D716   CPU:AUDIODMA CHN 2 IRQ OFS MB
+--          audio_dma_irqltch(2) <= '0';
+            audio_dma_irqofs(2) <= value;
+--          audio_dma_irqltch(2) := '1';
+--          audio_dma_irqaddr(2) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"17" then
+        -- @IO:GS $D717   CPU:AUDIODMA CHN 3 IRQ OFS MB
+--          audio_dma_irqltch(3) <= '0';
+            audio_dma_irqofs(3) <= value;
+--          audio_dma_irqltch(3) := '1';
+--          audio_dma_irqaddr(3) <= x"FFFFFF";
+          
+          
         elsif long_address(7 downto 0) = x"1C" then
           audio_dma_pan_volume(0) <= value;
         elsif long_address(7 downto 0) = x"1D" then
@@ -4179,10 +4289,13 @@ begin
         -- if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
+--dengland Correction as when originally developing noted by kibo
           if audio_dma_mix_temp(15) = '1' then
-            audio_dma_left <= (others => '0');
+            audio_dma_left(15) <= '0';
+            audio_dma_left(14 downto 0) <= (others => '1');
           else
-            audio_dma_left <= (others => '1');
+            audio_dma_left(15) <= '1';
+            audio_dma_left(14 downto 0) <= (others => '0');
           end if;
         else
           audio_dma_left <= audio_dma_mix_temp(15 downto 0);
@@ -4546,6 +4659,59 @@ begin
               ;
           end if;
         else
+--dengland
+--        When not blocked and there is audio to output (address selected)...
+--        if  (audio_dma_sample_valid(i) = '1') then
+--        and (audio_dma_irqltch(i) = '0') 
+
+--            audio_dma_irqtemp := "00000000" & audio_dma_irqofs(i)(7 downto 0) & "00000000";
+--            audio_dma_calctop := x"010000" - audio_dma_base_addr(i)(15 downto 0) + audio_dma_top_addr(i)(15 downto 0);
+--            audio_dma_irqaddr := audio_dma_calctop - audio_dma_irqtemp;
+--          Calculate current address relative to 0
+--            audio_dma_irqcalc := x"010000" - audio_dma_current_addr(i)(15 downto 0) + audio_dma_top_addr(i);
+
+              audio_dma_irqaddr := (audio_dma_base_addr(i)(23 downto 16) & audio_dma_irqofs(i)(7 downto 0) & audio_dma_top_addr(i)(7 downto 0));
+              audio_dma_irqtemp := (audio_dma_base_addr(i)(23 downto 16) & audio_dma_top_addr(i)(15 downto 0));
+              audio_dma_irqcalc := (audio_dma_irqtemp - audio_dma_irqaddr);
+
+--            audio_dma_irqdebuga(i) <= audio_dma_irqaddr(15 downto 8);
+--            audio_dma_irqdebugb(i) <= audio_dma_irqcalc(15 downto 8);
+
+            if  (audio_dma_irqenb(i) = '1') then
+--            and (irq_internal = '0') then
+--              if  (audio_dma_irqcalc(15 downto 0) <= audio_dma_irqaddr(15 downto 0)) then
+----            and (audio_dma_irqlast(i)(15 downto 8) /= audio_dma_current_addr(i)(15 downto 8)) thenq
+----              audio_dma_irqltch(i) <= '1';
+
+              if audio_dma_current_addr(i)(15 downto 0) >= audio_dma_irqcalc(15 downto 0) then
+--              audio_dma_irqflg(i) <= '1';
+--              audio_dma_irqevent(i):= '1';
+
+                if audio_dma_irqevent(i) = '0' then
+                  audio_dma_irqflg(i) <= '1';
+--                audio_dma_enables(i) <= '0';
+                  audio_dma_irqevent(i):= '1';
+
+                  audio_dma_irqenb(i) <= '0';
+                end if;
+
+                if  irq_internal = '0' then
+                  irq_internal := '1';
+                  irq_pending <= '1';
+                end if;
+
+--              audio_dma_irqlast(i) <= audio_dma_current_addr(i);
+              end if;
+            end if;
+--        else 
+--        if (audio_dma_pending(i) = '1') then
+--          audio_dma_irqltch(i) := '0';
+--          audio_dma_irqlast(i) <= x"FFFFFF";
+--        end if;
+--        end if;
+
+
+
           if false then
             report "Audio DMA channel " & integer'image(i) & " enabled: ";
             report "Audio DMA channel " & integer'image(i) 
@@ -4617,6 +4783,14 @@ begin
         audio_dma_last_current_addr_set_flag <= (others => '0');
         audio_dma_timing_counter <= (others => to_unsigned(0,25));
         audio_dma_last_timing_counter_set_flag <= (others => '0');
+
+--dengland
+        audio_dma_irqenb <= (others => '0');
+        audio_dma_irqflg <= (others => '0');
+        audio_dma_irqevent := (others => '0');
+        audio_dma_irqofs <= (others => to_unsigned(0,8));
+--      audio_dma_irqltch <= (others => '0');
+		irq_internal := '0';
       end if;
       
       report "tick";
@@ -5525,6 +5699,15 @@ begin
               state <= fast_fetch_state;
               monitor_instruction_strobe <= '1';
               report "monitor_instruction_strobe assert";
+--dengland
+
+              if  irq_internal = '1' then  
+                irq_pending <= '0';
+                irq_internal := '0';
+                audio_dma_irqevent:= "0000";
+              end if;
+
+
             when ProcessorHold =>
                                         -- Hold CPU while blocked by monitor
 
