@@ -2490,7 +2490,7 @@ begin
 
             -- @IO:GS $D720.7 DMA:CH0!EN@CHXEN Enable Audio DMA channel X
             -- @IO:GS $D720.6 DMA:CH0!LOOP@CHXLOOP Enable Audio DMA channel X looping
-            -- @IO:GS $D720.5 DMA:CH0!SGN@CHXSGN Enable Audio DMA channel X signed samples
+            -- @IO:GS $D720.5 DMA:CH0!SGN@CHXUSGN Audio DMA channel X sample sign: 0=signed, 1=unsigned
             -- @IO:GS $D720.4 DMA:CH0!SINE@CHXSINE Audio DMA channel X play 32-sample sine wave instead of DMA data
             -- @IO:GS $D720.3 DMA:CH0!STP@CHXSTP Audio DMA channel X stop flag
             -- @IO:GS $D720.0-1 DMA:CH0!SBITS@CHXSBITS Audio DMA channel X sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
