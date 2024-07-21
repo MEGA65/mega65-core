@@ -36,6 +36,9 @@ This is the Summer 2024 Release.
     [#781](https://github.com/MEGA65/mega65-core/issues/781)
   - Alternate ROMs in Slot 9
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
+- Documentation:
+  - CHXSGN is described inverted
+    [#807](https://github.com/MEGA65/mega65-core/pull/807)
 - Changes probably already fixed in 0.96 (or earlier)
   - Thumbnails are blank in freezer
     [#757](https://github.com/MEGA65/mega65-core/issues/757)
