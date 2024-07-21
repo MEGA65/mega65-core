@@ -22,7 +22,7 @@ extern uint16_t mfp_progress_last;
 extern uint8_t mfp_progress_top;
 
 // set last from a 32bit address
-#define mfp_set_progress_last(addr) mfp_progress_last = (addr >> 14) & 0xffff
+#define mfp_set_progress_last(addr) mfp_progress_last = (addr >> 14) & 0x1ff
 
 #define mfp_progress_stop() mfp_progress_top = 0xff
 
@@ -59,6 +59,20 @@ void mfp_init_progress(uint8_t maxmb, uint8_t yp, uint8_t screencode, char *titl
  *
  */
 void mfp_set_area(uint16_t start_block, uint8_t num_blocks, uint8_t screencode, uint8_t attr);
+
+/*
+ * void mfp_change_code(uint8_t direction, uint8_t full_code, uint8_t progress_attr)
+ *
+ * parameters:
+ *   direction: either MFP_DIR_UP or MFP_DIR_DOWN
+ *   full_code: use this screencode for a filled block
+ *   progress_attr: attribute for drawing progress chars
+ *
+ * changes full code and screen attr, but keeps the rest of the
+ * progress bar intact
+ *
+ */
+void mfp_change_code(uint8_t direction, uint8_t full_code, uint8_t progress_attr);
 
 /*
  * void mfp_start(last, direction, full_code, progress_attr, *title, attr)

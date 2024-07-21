@@ -522,6 +522,8 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
   /*mhx_writef(MHX_W_HOME MHX_W_WHITE "C %08lx %08lx %08lx             ", attic_addr, flash_addr, size);
   mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);*/
 
+  mfp_change_code(MFP_DIR_UP, 'V', MHX_A_INVERT|MHX_A_YELLOW);
+
   while (size > 0) {
 
 #ifdef STANDALONE
@@ -547,7 +549,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
     }
 #endif /* STANDALONE */
 
-    POKE(0xD020, 7);
+    POKE(0xD020U, MHX_A_YELLOW);
     if (qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512) != 0) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
@@ -565,7 +567,8 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 #endif
       return 1;
     }
-    POKE(0xD020, 0);
+    POKE(0xD020U, MHX_A_BLACK);
+    mfp_progress(flash_addr);
     attic_addr += 512;
     flash_addr += 512;
     size -= 512;
@@ -594,11 +597,11 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
     mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 #endif
 
-    POKE(0xD020, 2);
+    POKE(0xD020U, MHX_A_LRED);
     if (qspi_flash_erase(qspi_flash_device, mfhf_erase_block_size, addr) != 0) {
       return 1;
     }
-    POKE(0xD020, 0);
+    POKE(0xD020U, MHX_A_BLACK);
 
     mfp_set_area(addr >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
 
@@ -623,6 +626,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
       break;
     }
+    mfp_change_code(MFP_DIR_DOWN, 'P', MHX_A_INVERT|MHX_A_CYAN);
 
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
@@ -659,11 +663,11 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 #endif /* STANDALONE */
       // display sector on screen
       // lcopy(SECTORBUFFER+wraddr-mfu_slot_size*slot,0x0400+17*40,256);
-      POKE(0xD020, 3);
+      POKE(0xD020U, MHX_A_CYAN);
       if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
         break;
       }
-      POKE(0xD020, 0);
+      POKE(0xD020U, MHX_A_BLACK);
       mfp_progress(wraddr - 256 - end_addr);
     }
   }
@@ -691,7 +695,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
     mhx_writef("\nPlease turn the system off!\n");
     // don't let the user do anything else
     while (1)
-      POKE(0xD020, PEEK(0xD020) & 0xf);
+      POKE(0xD020U, PEEK(0xD020U) & 0xf);
 #endif
     // don't do anything else, as this will result in slot 0 corruption
     // as global addr gets changed by flash_inspector

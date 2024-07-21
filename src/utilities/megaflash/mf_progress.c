@@ -122,6 +122,28 @@ void mfp_set_area(uint16_t start_block, uint8_t num_blocks, uint8_t screencode, 
 }
 
 /*
+ * void mfp_change_code(uint8_t direction, uint8_t full_code, uint8_t progress_attr)
+ *
+ * parameters:
+ *   direction: either MFP_DIR_UP or MFP_DIR_DOWN
+ *   full_code: use this screencode for a filled block
+ *   progress_attr: attribute for drawing progress chars
+ *
+ * changes full code and screen attr, but keeps the rest of the
+ * progress bar intact
+ *
+ */
+void mfp_change_code(uint8_t direction, uint8_t full_code, uint8_t progress_attr)
+{
+  mfp_progress_direction = direction == MFP_DIR_UP ? MFP_DIR_UP : MFP_DIR_DOWN;
+  mfp_screencode_cur = direction == MFP_DIR_UP ? mfp_screencode_up : mfp_screencode_dn;
+  mfp_screencode_up[3] = mfp_screencode_dn[0] = full_code;
+  mfp_progress_attr = progress_attr;
+  mfp_progress_last = 0xffff;
+}
+
+
+/*
  * void mfp_start(last, direction, full_code, progress_attr title, attr)
  *
  * parameters:
@@ -145,11 +167,7 @@ void mfp_start(uint32_t last, uint8_t direction, uint8_t full_code, uint8_t prog
     return;
 
   mhx_draw_rect(0, mfp_progress_top - 1, 38, mfp_progress_lines, title, attr, 0);
-  mfp_progress_direction = direction == MFP_DIR_UP ? MFP_DIR_UP : MFP_DIR_DOWN;
-  mfp_screencode_cur = direction == MFP_DIR_UP ? mfp_screencode_up : mfp_screencode_dn;
-  mfp_set_progress_last(last);
-  mfp_screencode_up[3] = mfp_screencode_dn[0] = full_code;
-  mfp_progress_attr = progress_attr;
+  mfp_change_code(direction, full_code, progress_attr);
 }
 
 /*
@@ -163,10 +181,9 @@ void mfp_start(uint32_t last, uint8_t direction, uint8_t full_code, uint8_t prog
  */
 void mfp_progress(uint32_t addr)
 {
-  addr = (addr >> 14) & 0xffff;
+  addr = (addr >> 14) & 0x1ff;
   if (mfp_progress_last != (uint16_t)addr) {
     mfp_progress_last = (uint16_t)addr;
     mfp_set_progress(mfp_progress_last >> 2, mfp_screencode_cur[mfp_progress_last & 0x3], mfp_progress_attr);
-    // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
   }
 }
