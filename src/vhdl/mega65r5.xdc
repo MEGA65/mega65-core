@@ -554,7 +554,7 @@ set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] e
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
-set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports pmod2_en]
+set_property -dict {PACKAGE_PIN J16 IOSTANDARD LVCMOS33} [get_ports pmod1_en]
 set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
 set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
