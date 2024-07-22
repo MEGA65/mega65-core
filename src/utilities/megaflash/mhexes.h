@@ -152,7 +152,8 @@ extern mhx_keycode_t mhx_lastkey;
 #define MHX_CI_CHECKCASE 1 // also check character case
 #define MHX_CI_PRINT 2 // print out typed characters
 
-// flags for mhx_press_any_key
+// flags for mhx_press_any_key, can be or'ed together
+#define MHX_AK_DEFAULT   0 // nothing special
 #define MHX_AK_ATTENTION 1 // colorcycle border while waiting
 #define MHX_AK_NOMESSAGE 2 // dont' write "Press any key to continue\n"
 #define MHX_AK_IGNORETAB 4 // ignore the TAB key

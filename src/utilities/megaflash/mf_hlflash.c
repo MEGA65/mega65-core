@@ -23,6 +23,21 @@
 #include "mf_screens.h"
 #endif
 
+/*
+ * Progressbar "Theme"
+ *
+ * The colors are used both for the progress bar as well as for the border
+ */
+#define MFHF_PT_ERROR  MHX_A_RED
+#define MFHF_PT_ERASE  MHX_A_LRED
+#define MFHF_PT_VERIFY MHX_A_YELLOW
+#define MFHF_PT_WRITE  MHX_A_CYAN
+#define MFHF_PT_DONE   MHX_A_WHITE
+#define MFHF_PT_BORDERFLASH 1
+/*
+ * End of Theme
+ */
+
 #define MFHF_FLASH_MAX_RETRY 10
 
 uint8_t mfhf_slot0_erase_list[16] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
@@ -549,7 +564,9 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
     }
 #endif /* STANDALONE */
 
+#if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MHX_A_YELLOW);
+#endif
     if (qspi_flash_verify(qspi_flash_device, flash_addr, data_buffer, 512) != 0) {
 #if 0
 //#ifdef SHOW_FLASH_DIFF
@@ -567,7 +584,9 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
 #endif
       return 1;
     }
+#if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MHX_A_BLACK);
+#endif
     mfp_progress(flash_addr);
     attic_addr += 512;
     flash_addr += 512;
@@ -597,13 +616,17 @@ int8_t mfhf_erase_some_sectors(uint32_t start_addr, uint32_t end_addr)
     mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 #endif
 
-    POKE(0xD020U, MHX_A_LRED);
+#if MFHF_PT_BORDERFLASH
+    POKE(0xD020U, MFHF_PT_ERASE);
+#endif
     if (qspi_flash_erase(qspi_flash_device, mfhf_erase_block_size, addr) != 0) {
       return 1;
     }
+#if MFHF_PT_BORDERFLASH
     POKE(0xD020U, MHX_A_BLACK);
+#endif
 
-    mfp_set_area(addr >> 16, size >> 16, '0', MHX_A_INVERT|MHX_A_LRED);
+    mfp_set_area(addr >> 16, size >> 16, '0', MHX_A_INVERT|MFHF_PT_ERASE);
 
     addr += size;
   }
@@ -623,10 +646,10 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
   for (tries = 0; tries < MFHF_FLASH_MAX_RETRY; tries++) {
     // Verify the sector to see if it is already correct
     if (!mfhf_sectors_differ(addr - end_addr, addr, size)) {
-      mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MHX_A_WHITE);
+      mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MFHF_PT_DONE);
       break;
     }
-    mfp_change_code(MFP_DIR_DOWN, 'P', MHX_A_INVERT|MHX_A_CYAN);
+    mfp_change_code(MFP_DIR_DOWN, 'P', MHX_A_INVERT|MFHF_PT_WRITE);
 
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
@@ -663,11 +686,15 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
 #endif /* STANDALONE */
       // display sector on screen
       // lcopy(SECTORBUFFER+wraddr-mfu_slot_size*slot,0x0400+17*40,256);
-      POKE(0xD020U, MHX_A_CYAN);
+#if MFHF_PT_BORDERFLASH
+      POKE(0xD020U, MFHF_PT_WRITE);
+#endif
       if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
         break;
       }
+#if MFHF_PT_BORDERFLASH
       POKE(0xD020U, MHX_A_BLACK);
+#endif
       mfp_progress(wraddr - 256 - end_addr);
     }
   }
@@ -786,7 +813,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   */
 
   // Setup progress bar
-  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Erasing Slot ", MHX_A_WHITE);
+  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MFHF_PT_ERASE, " Erasing Slot ", MHX_A_WHITE);
 
   if (selected_file == MFSC_FILE_ERASE)
     // if we are flashing slot 0 or erasing a slot, we
@@ -805,7 +832,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   if (selected_file == MFSC_FILE_ERASE)
     goto mfhf_flash_finish;
 
-  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MHX_A_WHITE, " Flash Core to Slot ", MHX_A_WHITE);
+  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MFHF_PT_DONE, " Flash Core to Slot ", MHX_A_WHITE);
 
   // only flash up to the files length
   addr = end_addr + mfu_slot_size;
@@ -866,7 +893,11 @@ mfhf_flash_finish:
   mhx_draw_rect(4, 12, 30, 2, "Finished Flashing", MHX_A_GREEN, 1);
   mhx_write_xy(5, 13, (selected_file == MFSC_FILE_VALID) ? "Core was successfully flashed." : "Slot was successfully erased.", MHX_A_GREEN);
   mhx_set_xy(5, 14);
+#if MFHF_PT_BORDERFLASH
   mhx_press_any_key(MHX_AK_ATTENTION, MHX_A_GREEN);
+#else
+  mhx_press_any_key(MHX_AK_DEFAULT, MHX_A_GREEN);
+#endif
 
   return 0;
 }
