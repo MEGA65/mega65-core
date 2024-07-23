@@ -305,7 +305,11 @@ static char s25flxxxs_read(void * qspi_flash_device, unsigned long address, unsi
     }
 
 #ifdef QSPI_HW_ASSIST
+#if defined(STANDALONE) && !defined(QSPI_NO_BIT_BASH)
+    if (!qspi_force_bitbash && size == 512)
+#else
     if (size == 512)
+#endif
     {
         // Use hardware acceleration if possible.
         return hw_assisted_read_512(address, data, self->read_latency_cycles);
@@ -349,7 +353,11 @@ static char s25flxxxs_verify(void * qspi_flash_device, unsigned long address, un
     }
 
 #ifdef QSPI_HW_ASSIST
+#if defined(STANDALONE) && !defined(QSPI_NO_BIT_BASH)
+    if (!qspi_force_bitbash && size == 512)
+#else
     if (size == 512)
+#endif
     {
         // Use hardware acceleration if possible.
         return hw_assisted_verify_512(address, data, self->read_latency_cycles);
@@ -395,9 +403,6 @@ static char s25flxxxs_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
         return 1;
     }
 
-#if !defined(QSPI_HW_ASSIST) && defined(QSPI_NO_BIT_BASH)
-    return 1;
-#else
     // Disable dynamic sector protection for the sector.
     if (self->dyb_lock_boot_enabled)
     {
@@ -418,19 +423,33 @@ static char s25flxxxs_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
 
     clear_status();
     write_enable();
-#ifdef QSPI_HW_ASSIST
-    hw_assisted_erase_sector(address);
-#else
-    spi_tx[0] = 0xdc;
-    spi_tx[1] = address >> 24;
-    spi_tx[2] = address >> 16;
-    spi_tx[3] = address >> 8;
-    spi_tx[4] = address >> 0;
 
-    spi_transaction(spi_tx, 5, NULL, 0);
+#ifdef QSPI_HW_ASSIST
+#ifdef STANDALONE
+    if (!qspi_force_bitbash) {
+#else
+    if (1) {
+#endif
+        hw_assisted_erase_sector(address);
+    }
+#endif
+
+#ifndef QSPI_NO_BIT_BASH
+#ifdef QSPI_HW_ASSIST
+    else {
+#else
+    {
+#endif
+        spi_tx[0] = 0xdc;
+        spi_tx[1] = address >> 24;
+        spi_tx[2] = address >> 16;
+        spi_tx[3] = address >> 8;
+        spi_tx[4] = address >> 0;
+
+        spi_transaction(spi_tx, 5, NULL, 0);
+    }
 #endif
     return wait_status();
-#endif
 }
 
 static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_size page_size, unsigned long address, const unsigned char * data)
@@ -465,39 +484,50 @@ static char s25flxxxs_program(void * qspi_flash_device, enum qspi_flash_page_siz
         return 1;
     }
 
-#if !defined(QSPI_HW_ASSIST) && defined(QSPI_NO_BIT_BASH)
-    return 1;
-#else
     clear_status();
     write_enable();
+
 #ifdef QSPI_HW_ASSIST
-    if (page_size == qspi_flash_page_size_256)
-    {
-        hw_assisted_program_page_256(address, data);
-    }
-    else
-    {
-        hw_assisted_program_page_512(address, data);
-    }
+#ifdef STANDALONE
+    if (!qspi_force_bitbash) {
 #else
-    spi_clock_high();
-    spi_cs_low();
-    spi_output_enable();
-    spi_tx_byte(0x34);
-    spi_tx_byte(address >> 24);
-    spi_tx_byte(address >> 16);
-    spi_tx_byte(address >> 8);
-    spi_tx_byte(address >> 0);
-    for (i = 0; i < page_size_bytes; ++i)
-    {
-        qspi_tx_byte(data[i]);
+    if (1) {
+#endif
+        if (page_size == qspi_flash_page_size_256)
+        {
+            hw_assisted_program_page_256(address, data);
+        }
+        else
+        {
+            hw_assisted_program_page_512(address, data);
+        }
     }
-    spi_output_disable();
-    spi_cs_high();
-    spi_clock_high();
+#endif
+
+#ifndef QSPI_NO_BIT_BASH
+#ifdef QSPI_HW_ASSIST
+    else {
+#else
+    {
+#endif
+        spi_clock_high();
+        spi_cs_low();
+        spi_output_enable();
+        spi_tx_byte(0x34);
+        spi_tx_byte(address >> 24);
+        spi_tx_byte(address >> 16);
+        spi_tx_byte(address >> 8);
+        spi_tx_byte(address >> 0);
+        for (i = 0; i < page_size_bytes; ++i)
+        {
+            qspi_tx_byte(data[i]);
+        }
+        spi_output_disable();
+        spi_cs_high();
+        spi_clock_high();
+    }
 #endif
     return wait_status();
-#endif
 }
 
 static char s25flxxxs_get_size(void * qspi_flash_device, unsigned int * size)

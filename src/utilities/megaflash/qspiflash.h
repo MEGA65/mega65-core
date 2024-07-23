@@ -1,10 +1,18 @@
 #ifndef QSPIFLASH_H
 #define QSPIFLASH_H
 
+#if !defined(QSPI_HW_ASSIST) && defined(QSPI_NO_BIT_BASH)
+#error You can't use QSPI_NO_BIT_BASH without enabling QSPI_HW_ASSIST!
+#endif
+
 typedef enum { FALSE, TRUE } BOOL;
 
 #define QSPI_FLASH_SUCCESS  ( 0)
 #define QSPI_FLASH_ERROR    (-1)
+
+#ifdef STANDALONE
+extern char qspi_force_bitbash;
+#endif
 
 /*
   Uniform erase block sizes.

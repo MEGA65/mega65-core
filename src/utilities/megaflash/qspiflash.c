@@ -2,6 +2,10 @@
 
 #include "qspiflash.h"
 
+#ifdef STANDALONE
+char qspi_force_bitbash = 0;
+#endif
+
 char qspi_flash_init(void * qspi_flash_device)
 {
     const struct qspi_flash_interface * interface = qspi_flash_device;

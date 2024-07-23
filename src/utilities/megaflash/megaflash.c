@@ -14,6 +14,7 @@
 #include "mf_progress.h"
 #include "mf_selectcore.h"
 #include "mf_hlflash.h"
+#include "qspiflash.h"
 #include "mf_utility.h"
 //#include "qspiflash.h"
 #include "../version.h"
@@ -369,8 +370,8 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
   // make attic ram selection switchable
   mhx_write_xy(0, 1, "<M-A> ATTICRAM", mfhf_attic_disabled?MHX_A_MGREY:MHX_A_YELLOW);
   mhx_write_xy(15, 1, mfhf_attic_disabled?"OFF":" ON", mfhf_attic_disabled?MHX_A_MGREY:MHX_A_YELLOW);
-  // mhx_write_xy(22, 1, "<M-B> HWACCCEL", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
-  // mhx_write_xy(37, 1, qspi_force_bitbash?"OFF":" ON", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
+  mhx_write_xy(22, 1, "<M-B> HWACCCEL", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
+  mhx_write_xy(37, 1, qspi_force_bitbash?"OFF":" ON", qspi_force_bitbash?MHX_A_MGREY:MHX_A_YELLOW);
 #endif
 
   mhx_draw_rect(0, 2, 38, 2, " Current ", MHX_A_NOCOLOR, 0);
@@ -471,14 +472,12 @@ uint8_t edit_slot(uint8_t selected_slot)
       continue;
     }
 
-    /*
     // M-B toggles BITBASH
     if (mhx_lastkey.code.key == 0xc2) {
       qspi_force_bitbash ^= 1;
       draw_edit_slot(selected_slot, loaded);
       continue;
     }
-    */
 #endif
 
     // F3 loads a core

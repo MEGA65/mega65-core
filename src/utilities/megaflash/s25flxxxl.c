@@ -263,7 +263,11 @@ static char s25flxxxl_read(void * qspi_flash_device, unsigned long address, unsi
     }
 
 #ifdef QSPI_HW_ASSIST
+#if defined(STANDALONE) && !defined(QSPI_NO_BIT_BASH)
+    if (!qspi_force_bitbash && size == 512)
+#else
     if (size == 512)
+#endif
     {
         // Use hardware acceleration if possible.
         return hw_assisted_read_512(address, data, self->read_latency_cycles);
@@ -307,7 +311,11 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
     }
 
 #ifdef QSPI_HW_ASSIST
+#if defined(STANDALONE) && !defined(QSPI_NO_BIT_BASH)
+    if (!qspi_force_bitbash && size == 512)
+#else
     if (size == 512)
+#endif
     {
         // Use hardware acceleration if possible.
         return hw_assisted_verify_512(address, data, self->read_latency_cycles);
@@ -315,6 +323,9 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
 #endif
 
 #ifndef QSPI_NO_BIT_BASH
+#ifdef QSPI_HW_ASSIST
+    else {
+#endif
     spi_clock_high();
     spi_cs_low();
     spi_output_enable();
@@ -335,18 +346,24 @@ static char s25flxxxl_verify(void * qspi_flash_device, unsigned long address, un
     spi_cs_high();
     spi_clock_high();
     return 0;
-#else
-    return 1;
+#ifdef QSPI_HW_ASSIST
+    }
 #endif
+#endif
+    return 1;
 }
 
 static char s25flxxxl_erase(void * qspi_flash_device, enum qspi_flash_erase_block_size erase_block_size, unsigned long address)
 {
     (void) qspi_flash_device;
 
+#ifdef STANDALONE
+    if (!qspi_force_bitbash) {
+#endif
+
 #ifdef QSPI_HW_ASSIST
-    // Use hardware acceleration if possible (4K and 64K sectors).
     if (erase_block_size == qspi_flash_erase_block_size_4k || erase_block_size == qspi_flash_erase_block_size_64k)
+    // Use hardware acceleration if possible (4K and 64K sectors).
     {
         clear_status();
         write_enable();
@@ -360,7 +377,15 @@ static char s25flxxxl_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
         }
         return wait_status();
     }
-#elif !defined(QSPI_NO_BIT_BASH)
+#endif
+
+#ifdef STANDALONE
+    }
+    else {
+#endif
+
+#ifndef QSPI_NO_BIT_BASH
+#if defined(STANDALONE) || !defined(QSPI_HW_ASSIST)
     if (erase_block_size == qspi_flash_erase_block_size_4k)
     {
         unsigned char spi_tx[5];
@@ -394,7 +419,6 @@ static char s25flxxxl_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
     }
 #endif
 
-#ifndef QSPI_NO_BIT_BASH
     // Use a software implementation for 32K sectors.
     if (erase_block_size == qspi_flash_erase_block_size_32k)
     {
@@ -410,6 +434,9 @@ static char s25flxxxl_erase(void * qspi_flash_device, enum qspi_flash_erase_bloc
         write_enable();
         spi_transaction(spi_tx, 5, NULL, 0);
         return wait_status();
+    }
+#endif
+#ifdef STANDALONE
     }
 #endif
 
@@ -432,32 +459,42 @@ static char s25flxxxl_program(void * qspi_flash_device, enum qspi_flash_page_siz
         return 1;
     }
 
-#if !defined(QSPI_HW_ASSIST) && defined(QSPI_NO_BIT_BASH)
-    return 1;
-#else
     clear_status();
     write_enable();
 #ifdef QSPI_HW_ASSIST
-    hw_assisted_program_page_256(address, data);
-#elif !defined(QSPI_NO_BIT_BASH)
-    spi_clock_high();
-    spi_cs_low();
-    spi_output_enable();
-    spi_tx_byte(0x34);
-    spi_tx_byte(address >> 24);
-    spi_tx_byte(address >> 16);
-    spi_tx_byte(address >> 8);
-    spi_tx_byte(address >> 0);
-    for (i = 0; i < 256; ++i)
-    {
-        qspi_tx_byte(data[i]);
+#ifdef STANDALONE
+    if (!qspi_force_bitbash) {
+#else
+    if (1) {
+#endif
+        hw_assisted_program_page_256(address, data);
     }
-    spi_output_disable();
-    spi_cs_high();
-    spi_clock_high();
+#endif
+
+#ifndef QSPI_NO_BIT_BASH
+#ifdef QSPI_HW_ASSIST
+    else {
+#else
+    {
+#endif
+        spi_clock_high();
+        spi_cs_low();
+        spi_output_enable();
+        spi_tx_byte(0x34);
+        spi_tx_byte(address >> 24);
+        spi_tx_byte(address >> 16);
+        spi_tx_byte(address >> 8);
+        spi_tx_byte(address >> 0);
+        for (i = 0; i < 256; ++i)
+        {
+            qspi_tx_byte(data[i]);
+        }
+        spi_output_disable();
+        spi_cs_high();
+        spi_clock_high();
+    }
 #endif
     return wait_status();
-#endif
 }
 
 static char s25flxxxl_get_size(void * qspi_flash_device, unsigned int * size)
