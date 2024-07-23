@@ -341,7 +341,7 @@ void mhx_writef(char *format, ...)
 
 void mhx_putch_offset(int8_t offset, uint8_t screencode, uint8_t attr)
 {
-  POKE((void *)(mhx_saddr + offset), screencode | (attr & MHX_A_INVERT));
+  POKE((void *)(mhx_saddr + offset), screencode ^ (attr & MHX_A_INVERT));
   if (!(attr & MHX_A_NOCOLOR))
     POKE((void *)(mhx_caddr + offset), attr & MHX_A_COLORMASK);
   if (!offset)
