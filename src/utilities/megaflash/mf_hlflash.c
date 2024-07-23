@@ -537,7 +537,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
   /*mhx_writef(MHX_W_HOME MHX_W_WHITE "C %08lx %08lx %08lx             ", attic_addr, flash_addr, size);
   mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);*/
 
-  mfp_change_code(MFP_DIR_UP, 'V', MHX_A_INVERT|MHX_A_YELLOW);
+  mfp_change_code(MFP_DIR_UP, 'V'|MHX_A_INVERT, MHX_A_YELLOW);
 
   while (size > 0) {
 
@@ -649,7 +649,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       mfp_set_area((addr - end_addr) >> 16, size >> 16, '*', MHX_A_INVERT|MFHF_PT_DONE);
       break;
     }
-    mfp_change_code(MFP_DIR_DOWN, 'P', MHX_A_INVERT|MFHF_PT_WRITE);
+    mfp_change_code(MFP_DIR_DOWN, 'P'|MHX_A_INVERT, MFHF_PT_WRITE);
 
     // Erase Sector
     mfhf_erase_some_sectors(addr, addr + size);
@@ -813,7 +813,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   */
 
   // Setup progress bar
-  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MFHF_PT_ERASE, " Erasing Slot ", MHX_A_WHITE);
+  mfp_start(0, MFP_DIR_DOWN, '*'|MHX_A_INVERT, MFHF_PT_ERASE, " Erasing Slot ", MHX_A_WHITE);
 
   if (selected_file == MFSC_FILE_ERASE)
     // if we are flashing slot 0 or erasing a slot, we
@@ -832,7 +832,7 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   if (selected_file == MFSC_FILE_ERASE)
     goto mfhf_flash_finish;
 
-  mfp_start(0, MFP_DIR_DOWN, '*', MHX_A_INVERT|MFHF_PT_DONE, " Flash Core to Slot ", MHX_A_WHITE);
+  mfp_start(0, MFP_DIR_DOWN, '*'|MHX_A_INVERT, MFHF_PT_DONE, " Flash Core to Slot ", MHX_A_WHITE);
 
   // only flash up to the files length
   addr = end_addr + mfu_slot_size;

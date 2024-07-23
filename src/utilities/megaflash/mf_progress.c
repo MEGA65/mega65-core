@@ -29,7 +29,7 @@ uint8_t mfp_progress_mask;
 
 // sub 64k progress in 16k blocks
 uint8_t mfp_screencode_up[4] = { 0x7e, 0x61, 0x6c|0x80, 0xa0 };
-uint8_t mfp_screencode_dn[4] = { 0xa0, 0x7e|0x80, 0x61|0x80, 0x6c };
+uint8_t mfp_screencode_dn[4] = { 0xa0, 0x7b|0x80, 0x61|0x80, 0x7c };
 uint8_t *mfp_screencode_cur;
 
 /*
@@ -167,7 +167,7 @@ void mfp_start(uint32_t last, uint8_t direction, uint8_t full_code, uint8_t prog
     return;
 
   mhx_draw_rect(0, mfp_progress_top - 1, 38, mfp_progress_lines, title, attr, 0);
-  mfp_change_code(direction, full_code, progress_attr);
+  mfp_change_code(direction, full_code, progress_attr & 0x7f); // don't allow invert here!
 }
 
 /*
