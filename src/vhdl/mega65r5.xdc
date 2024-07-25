@@ -633,10 +633,15 @@ set_false_path -from [get_clocks clock41] -to [get_clocks clock50]
 set_false_path -from [get_clocks clock50] -to [get_clocks clock41]
 
 ## Fix 12.288MHz clock generation clock domain crossing
-set_false_path -from [get_clocks clock41] -to [get_clocks clock60]
+set_max_delay 2.0 -datapath_only -from [get_clocks clock41] -to [get_clocks clock60]
+
+# The real clock is around 12 MHz. Make the constraint for 60/4 = 15 MHz.
+create_generated_clock -name audio_clk -divide_by 4 -source [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1] [get_pins AUDIO_TONE/CLOCK/clk_u_reg/Q]
+set_max_delay 2.0 -datapath_only -from [get_clocks clock41] -to [get_clocks audio_clk]
 
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
      -group { clock41 clock81p clock27 clock163 clock325 } \
      -group { clock50 clock200}
+
