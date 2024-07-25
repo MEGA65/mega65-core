@@ -29,8 +29,8 @@ create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
 # On board LEDs direct connected to main FPGA on R4, not via MAX10
-set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
-set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
+#set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
+#set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
 
 
 # CBM-488/IEC serial port
@@ -114,14 +114,14 @@ resize_pblock pblock_cart -add {SLICE_X0Y137:SLICE_X7Y185}
 # C65 Keyboard
 #
 
-set_property -dict {PACKAGE_PIN E13 IOSTANDARD LVCMOS33} [get_ports kb_tck]
-set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports kb_tdo]
-set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports kb_tms]
-set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports kb_tdi]
+#set_property -dict {PACKAGE_PIN E13 IOSTANDARD LVCMOS33} [get_ports kb_tck]
+#set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports kb_tdo]
+#set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports kb_tms]
+#set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports kb_tdi]
 set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports kb_io0]
 set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports kb_io1]
 set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
-set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
+#set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 # Place Keyboard close to I/O pins
 create_pblock pblock_kbd0
 add_cells_to_pblock pblock_kbd0 [get_cells [list *.kbd0]]
@@ -136,11 +136,11 @@ set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_drain
 
 # Output lines on joysticks allow pulling the joystick lines low on R4
 # However, these pins are also shared with the new DBG header, except for DBG11
-set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
+#set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
 
 # Joystick port power control/sensing
-set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
-set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
+#set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
+#set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
 
 
 # Joystick port A
@@ -245,7 +245,7 @@ set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable_n]
-set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
+#set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
 
 # I2C bus for on-board peripherals
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
@@ -261,7 +261,7 @@ set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports board_sda]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports cec_a]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
 set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports hdmi_hiz]
-set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
+#set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # Other things I don't yet know
 
@@ -295,7 +295,7 @@ set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_sda]
 # PWM Audio
 #
 # XXX - Are the following still used?
-set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
+#set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 
 
 ##USB HID (PS/2)
@@ -507,17 +507,17 @@ set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
 
 set hr0_dq_ports    [get_ports hr_d[*]]
-set hr2_dq_ports    [get_ports hr2_d[*]]
+#set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
 # (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
 set_max_delay -from [get_clocks clock163] -to ${hr0_dq_ports} 23
-set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
+#set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
 set_max_delay -to [get_clocks clock163] -from ${hr0_dq_ports} 23
-set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
+#set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
 set_max_delay -from [get_clocks clock163] -to hr_rwds 23
-set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
+#set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
 set_max_delay -to [get_clocks clock163] -from hr_rwds 23
-set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
+#set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
 
 #set_input_delay -clock [get_clocks clock163]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
 #set_input_delay -clock [get_clocks clock163] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
@@ -531,7 +531,7 @@ set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
 
 ##SMSC Ethernet PHY
 #
-set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {eth_led[1]}]
+#set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {eth_led[1]}]
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[0]}]
 set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[1]}]
 set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports {eth_txd[0]}]
@@ -554,14 +554,14 @@ set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] e
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
-set_property -dict {PACKAGE_PIN J16 IOSTANDARD LVCMOS33} [get_ports pmod1_en]
-set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
-set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
-set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
+#set_property -dict {PACKAGE_PIN J16 IOSTANDARD LVCMOS33} [get_ports pmod1_en]
+#set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
+#set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
+#set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
 
 
 ##Micro SD Connector (x2 on r2 PCB)
-set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
+#set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
@@ -575,8 +575,8 @@ set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33} [get_ports sdClock]
 set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33} [get_ports sdReset]
 set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33} [get_ports sdMISO]
 set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
-set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sdWP]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
+#set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sdWP]
+#set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
 #set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[0]}]
 #set_property -dict { PACKAGE_PIN C18 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[1]}]
 #set_property -dict { PACKAGE_PIN C19 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[2]}]
