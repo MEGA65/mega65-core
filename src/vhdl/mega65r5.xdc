@@ -379,7 +379,7 @@ set Tac3    5.4  ; # access (clock to output) time for CAS latency 3
 set Toh3    2.5  ; # output hold time for CAS latency 3
 
 #create_clock -name clki -period $Trefclk [get_ports clki]
-create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDCLK/I] [get_ports sdram_clk]
+create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins ODDR_SDCLK/C] [get_ports sdram_clk]
 
 # As we setup dq a cycle before, and hold it a cycle after, we can actually
 # relax sdram_dq output quite a bit, instead of constraining it
@@ -403,8 +403,8 @@ set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 set ratio 4; # ratio of launch to latch clock
 set n_setup [expr $ratio]
 set n_hold  [expr $ratio-1]
-set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
-set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
+set_multicycle_path $n_setup -setup -start -from clock163 -to clock41
+set_multicycle_path $n_hold  -hold  -start -from clock163 -to clock41
 
 
 ## Hyper RAM
@@ -545,9 +545,10 @@ set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_p
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 #set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_crs_dv]
 
-create_generated_clock -name eth_rx_clock -source [get_pins clocks1/mmcm_adv1_eth/CLKOUT1] [get_ports {eth_clock}]
-set_input_delay -clock [get_clocks eth_rx_clock] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
-set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] eth_rxd[0]}]
+create_generated_clock -name eth_rx_clock -multiply_by 1 -source [get_pins clocks1/mmcm_adv1_eth/CLKOUT1] [get_ports {eth_clock}]
+#set_input_delay -clock [get_clocks eth_rx_clock] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
+#set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] eth_rxd[0]}]
+set_max_delay 2.5 -datapath_only -from [get_ports {eth_rxd[1] eth_rxd[0]}]
 
 ##USB-RS232 Interface
 #
