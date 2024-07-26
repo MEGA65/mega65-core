@@ -390,8 +390,8 @@ create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins ODDR_SDC
 #  set_output_delay -max [expr -(6.17-$Tpcb+$Tsu)]   -clock sdram_clk [get_ports sdram_dq]
 #  set_output_delay -min [expr 6.17-($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 # or just use a multi-cycle path (and keeping the first correct delays)
-set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
-set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+#set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+#set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 
 # One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
 #set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
