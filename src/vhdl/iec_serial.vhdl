@@ -141,7 +141,7 @@ architecture questionable of iec_serial is
   constant c_t_dc_ms : integer :=   64;  -- C64 PRG says can be infinte, we
                                          -- limit to 64 milliseconds
   constant c_t_bb    : integer :=  100;  -- C64 PRG says >= 100 usec
-  constant c_t_ha_ms : integer :=   64;  -- = T_H in C64 PRG, infinite
+  constant c_t_ha_ms : integer :=    0;  -- = T_H in C64 PRG, infinite
   constant c_t_st    : integer :=   70;  -- C64 PRG says >= 20 usec
   constant c_t_vt    : integer :=   70;  -- C64 PRG says >= 20 usec
   constant c_t_al    : integer := 1000;  -- Not specified by C64 PRG
@@ -155,7 +155,7 @@ architecture questionable of iec_serial is
   constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
 
   constant c_t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
-  constant c_t_jd    : integer :=  320;  -- JiffyDOS CLK hold time for detection
+  constant c_t_jd    : integer :=  400;  -- JiffyDOS CLK hold time for detection
   constant c_t_j0    : integer :=   37;  -- JiffyDOS RX setup time
   constant c_t_j1    : integer :=   14;  -- JiffyDOS RX start time
   constant c_t_j2    : integer :=   10;  -- JiffyDOS RX 
@@ -986,7 +986,11 @@ begin
             -- and then continue. If we wait <40 usec the drive will miss
             -- the pulse, and think it has to wait for another pulse on CLK.
             -- If we wait >200usec, then it will think it is EOI.
-            micro_wait(t_ha);
+            if t_ha > 0 then
+              micro_wait(t_ha);
+            else
+              report "IEC: Waiting forever for listener ready: DATA pulled high";
+            end if;
             wait_data_high <= '1';
 
           when 125 =>
@@ -1068,7 +1072,7 @@ begin
             micro_wait(t_pullup);
           when 145 =>
             if probe_jiffydos='1' then
-              -- Release DATA, and wait for at least 300usec, to see if data
+              -- Release DATA, and wait for at least 400usec, to see if data
               -- goes low.  If yes, device supports JiffyDOS.
               d('1'); data_low_observed <= '0'; micro_wait(t_jd);
             else
