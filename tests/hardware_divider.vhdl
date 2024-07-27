@@ -6,6 +6,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use ieee.math_real.all;
 
 library vunit_lib;
 context vunit_lib.vunit_context;
@@ -17,31 +18,29 @@ end entity;
 architecture tb of tb_example is
 
   type test_vector is record
-    n : unsigned(31 downto 0);
-    d : unsigned(31 downto 0);
-    q_expected : unsigned(63 downto 0);
+    n : natural;
+    d : natural;
   end record;
 
-  type test_vectors is array(0 to 999) of test_vector;
+  type test_vectors is array(natural range <>) of test_vector;
 
-  
+
   signal clock : std_logic := '0';
   signal div_n : unsigned(31 downto 0);
   signal div_d : unsigned(31 downto 0);
   signal div_q : unsigned(63 downto 0);
-  signal div_start_over : std_logic := '0';  
-  signal div_busy : std_logic := '0';  
-  
-  signal v : test_vectors := (
-    0 => (n=>x"0000145B",d=>x"000000C1",q_expected=>x"0000001B00000000"), -- 5211/193
-    1 => (n=>x"00006F90",d=>x"0000000A",q_expected=>x"00000B2800000000"), -- 28560/10
-    2 => (n=>x"00000001",d=>x"00000040",q_expected=>x"0000000004000000"), -- 1/64
-    3 => (n=>x"00000001",d=>x"00000100",q_expected=>x"0000000001000000"), -- 1/256
-    4 => (n=>x"80000000",d=>x"C0000000",q_expected=>x"00000000AAAAAAAA"), -- 2147483648/3221225472
-    5 => (n=>x"00000001",d=>x"00000064",q_expected=>x"00000000028f5c29"), -- 1/100
-    6 => (n=>x"00006468",d=>x"00000009",q_expected=>x"00000B2800000000"), -- 25704/9
-    others => (n=>to_unsigned(0,32), d=>to_unsigned(0,32), q_expected=>to_unsigned(0,64)));
-  
+  signal div_start_over : std_logic := '0';
+  signal div_busy : std_logic := '0';
+
+  constant v : test_vectors := (
+    (5211, 193),
+    (28560,10),
+    (1, 64),
+    (1, 256),
+    (1, 100),
+    (25704, 9)
+  );
+
 begin
 
   fd0: entity work.fast_divide
@@ -54,48 +53,57 @@ begin
       busy => div_busy
       );
 
-  
+
   main : process
+
+    pure function get_expected_result(n : natural; d : natural) return unsigned is
+      variable quot_real : real;
+      variable frac_real : real;
+      variable res_slv : unsigned(63 downto 0);
+    begin
+      quot_real := real(n) / real(d);
+      res_slv(63 downto 32) := to_unsigned(integer(quot_real), 32);
+      frac_real := quot_real - floor(quot_real);
+      res_slv(31 downto 0) := to_unsigned(integer(frac_real * 2.0**32), 32);
+      return res_slv;
+    end function get_expected_result;
+
+    procedure verify(n : natural; d : natural) is
+      variable res_slv : unsigned(63 downto 0);
+    begin
+      report "Testing " & to_string(n) & "/" & to_string(d);
+      res_slv := get_expected_result(n, d);
+
+      div_n <= to_unsigned(n, 32);
+      div_d <= to_unsigned(d, 32);
+      div_start_over <= '1';
+      for tick in 1 to 16 loop
+        clock <= '0'; wait for 10 ns;
+        clock <= '1'; wait for 10 ns;
+        div_start_over <= '0';
+      end loop;
+      assert div_busy='0'
+        report "Divider still busy after 16 clocks";
+      assert div_q = res_slv
+        report "Wrong result: Got:" & to_hstring(div_q) & ", expected:" & to_hstring(res_slv);
+    end procedure verify;
+
   begin
     test_runner_setup(runner, runner_cfg);
 
     while test_suite loop
 
       if run("Divider passes collected test values") then
-
-        for i in 0 to 999 loop
-          if v(i).n /= to_unsigned(0,32) or v(i).d /= to_unsigned(0,32) or v(i).q_expected /= to_unsigned(0,64) then
-            div_n <= v(i).n;
-            div_d <= v(i).d;
-            div_start_over <= '1';
-            for tick in 1 to 16 loop
-              clock <= '0'; wait for 10 ns;
-              clock <= '1'; wait for 10 ns;
-              div_start_over <= '0';
-            end loop;
-            if div_busy='1' then
-              assert false report "Divider still busy after 5 clocks";
-            end if;
-            if div_q /= v(i).q_expected then
-              assert false report "Test vector #" & integer'image(i) & " FAIL: " &
-                "Dividing $" & to_hstring(v(i).n) & " / $" & to_hstring(v(i).d)
-                & " yielded $" & to_hstring(div_q(63 downto 32)) & "." & to_hstring(div_q(31 downto 0))
-                & " instead of correct result $" & to_hstring(v(i).q_expected(63 downto 32))
-                & "." & to_hstring(v(i).q_expected(31 downto 0));
-            else
-              report "Test vector #" & integer'image(i) & " SUCCESS: Dividing $" & to_hstring(v(i).n) & " / $" & to_hstring(v(i).d)
-                & " yielded $" & to_hstring(div_q(63 downto 32)) & "." & to_hstring(div_q(31 downto 0));
-            end if;
-          end if;
+        for i in 0 to v'length-1 loop
+          verify(v(i).n, v(i).d);
         end loop;
-        
-        report "No errors detected";
 
+        report "No errors detected";
       end if;
     end loop;
-    
+
     test_runner_cleanup(runner); -- Simulation ends here
   end process;
+
 end architecture;
 
-  
