@@ -568,10 +568,10 @@ begin
                   if write_latched = '1' then
                     report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
                     sdram_state <= WRITE_1;
+                    sdram_dq_out(7 downto 0)  <= wdata_latched;
+                    sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+                    sdram_dq_oe_n <= (others => '0');
                   end if;
-                  sdram_dq_out(7 downto 0)  <= wdata_latched;
-                  sdram_dq_out(15 downto 8) <= wdata_hi_latched;
-                  sdram_dq_oe_n <= (others => '0');
 
                 end if;
 
