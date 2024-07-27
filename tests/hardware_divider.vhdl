@@ -32,6 +32,8 @@ architecture tb of tb_example is
   signal div_start_over : std_logic := '0';
   signal div_busy : std_logic := '0';
 
+  signal diff_one_count : natural := 0;
+
   constant v : test_vectors := (
     (5211, 193),
     (28560,10),
@@ -62,17 +64,23 @@ begin
       variable res_slv : unsigned(63 downto 0);
     begin
       quot_real := real(n) / real(d);
-      res_slv(63 downto 32) := to_unsigned(integer(quot_real), 32);
+      res_slv(63 downto 32) := to_unsigned(integer(floor(quot_real)), 32);
       frac_real := quot_real - floor(quot_real);
-      res_slv(31 downto 0) := to_unsigned(integer(frac_real * 2.0**32), 32);
+      if frac_real < 0.5 then
+        res_slv(31 downto 0) := to_unsigned(integer(frac_real * 2.0**32), 32);
+      else
+        res_slv(31 downto 0) := "1" & to_unsigned(integer((frac_real-0.5) * 2.0**32), 31);
+      end if;
       return res_slv;
     end function get_expected_result;
 
     procedure verify(n : natural; d : natural) is
       variable res_slv : unsigned(63 downto 0);
+      variable diff : unsigned(63 downto 0) := (others => '0');
     begin
       report "Testing " & to_string(n) & "/" & to_string(d);
       res_slv := get_expected_result(n, d);
+      report "Expecting " & to_hstring(res_slv(63 downto 32)) & "." & to_hstring(res_slv(31 downto 0));
 
       div_n <= to_unsigned(n, 32);
       div_d <= to_unsigned(d, 32);
@@ -84,8 +92,19 @@ begin
       end loop;
       assert div_busy='0'
         report "Divider still busy after 16 clocks";
-      assert div_q = res_slv
+      if div_q > res_slv then
+        diff := div_q - res_slv;
+      end if;
+      if div_q < res_slv then
+        diff := res_slv - div_q;
+      end if;
+      assert diff = 0 or diff = 1
         report "Wrong result: Got:" & to_hstring(div_q) & ", expected:" & to_hstring(res_slv);
+      if diff = 1 then
+        diff_one_count <= diff_one_count + 1;
+        report "diff encountered";
+      end if;
+
     end procedure verify;
 
   begin
@@ -94,10 +113,24 @@ begin
     while test_suite loop
 
       if run("Divider passes collected test values") then
+        for n in 1 to 100 loop
+          verify(n, 7);
+          verify(n, 8);
+          verify(n, 9);
+        end loop;
+
+        for d in 1 to 100 loop
+          verify(7, d);
+          verify(8, d);
+          verify(9, d);
+        end loop;
+
         for i in 0 to v'length-1 loop
           verify(v(i).n, v(i).d);
         end loop;
 
+        assert diff_one_count = 0
+          report to_string(diff_one_count) & " rounding errors detected";
         report "No errors detected";
       end if;
     end loop;

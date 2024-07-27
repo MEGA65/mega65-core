@@ -96,7 +96,7 @@ begin
           -- giving a result of 1.999999999
           temp64(67 downto 0) := nn;
           temp64(73 downto 68) := (others => '0');
-          temp64 := temp64 + 1;
+          temp64 := temp64 + 8;
           report "temp64=$" & to_hstring(temp64);
           busy <= '0';
           q <= temp64(67 downto 4);
