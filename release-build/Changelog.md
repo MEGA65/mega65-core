@@ -21,9 +21,9 @@ This is the Summer 2024 Release.
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
 - Bugfixes:
   - Fix critical warnings and SDRAM DQ drive
-    [PR#813](https://github.com/MEGA65/mega65-core/pull/813)
+    [PR#812](https://github.com/MEGA65/mega65-core/pull/813)
   - Fix pmod1_en for mega65r4,5,6
-    [#809](https://github.com/MEGA65/mega65-core/pull/809)
+    [#809](https://github.com/MEGA65/mega65-core/issues/809)
   - Fix pblock component assignment
     [PR#806](https://github.com/MEGA65/mega65-core/pull/806)
   - RRB Reverse Y-row adjust
@@ -34,6 +34,8 @@ This is the Summer 2024 Release.
     [#788](https://github.com/MEGA65/mega65-core/issues/788)
   - CONFIGURE: MAC address typed in is not correctly mangled
     [#787](https://github.com/MEGA65/mega65-core/issues/787)
+  - HW Division round off problem
+    [786](https://github.com/MEGA65/mega65-core/issues/786)
   - A few modern C64 carts not detected as C64 carts by core selector
     [#781](https://github.com/MEGA65/mega65-core/issues/781)
   - Alternate ROMs in Slot 9
