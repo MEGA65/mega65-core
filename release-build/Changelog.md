@@ -20,6 +20,8 @@ This is the Summer 2024 Release.
   - QSPI: Read errors due to skipping dummy (latency) cycles
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
 - Bugfixes:
+  - Fix critical warnings and SDRAM DQ drive
+    [PR#813](https://github.com/MEGA65/mega65-core/pull/813)
   - Fix pmod1_en for mega65r4,5,6
     [#809](https://github.com/MEGA65/mega65-core/pull/809)
   - Fix pblock component assignment
