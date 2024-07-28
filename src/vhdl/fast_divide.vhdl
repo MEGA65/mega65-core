@@ -24,7 +24,7 @@ architecture wattle_and_daub of fast_divide is
   signal state : state_t := idle;
   signal steps_remaining : integer range 0 to 5 := 0;
 
-  signal dd : unsigned(35 downto 0) := to_unsigned(0,36);
+  signal dd : unsigned(67 downto 0) := to_unsigned(0,68);
   signal nn : unsigned(67 downto 0) := to_unsigned(0,68);
 
   pure function count_leading_zeros(arg : unsigned(31 downto 0)) return natural is
@@ -42,7 +42,8 @@ begin
   process (clock) is
     variable temp64 : unsigned(73 downto 0) := to_unsigned(0,74);
     variable temp96 : unsigned(105 downto 0) := to_unsigned(0,106);
-    variable f : unsigned(37 downto 0) := to_unsigned(0,38);
+    variable temp138 : unsigned(137 downto 0) := to_unsigned(0,138);
+    variable f : unsigned(69 downto 0) := to_unsigned(0,70);
     variable leading_zeros : natural range 0 to 31;
     variable new_dd : unsigned( 35 downto 0);
     variable new_nn : unsigned( 67 downto 0);
@@ -54,32 +55,38 @@ begin
       -- report "q$" & to_hstring(q) & " = n$" & to_hstring(n) & " / d$" & to_hstring(d);
       case state is
         when idle =>
-          -- Deal with divide by zero
-          if dd = to_unsigned(0,36) then
-            q <= (others => '1');
-            busy <= '0';
-          end if;
+          null;
         when step =>
           report "nn=$" & to_hstring(nn(67 downto 36)) & "." & to_hstring(nn(35 downto 4)) & "." & to_hstring(nn(3 downto 0))
-            & " / $" & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
+            & " / dd=$" & to_hstring(dd(67 downto 36)) & "." & to_hstring(dd(35 downto 4)) & "." & to_hstring(dd(3 downto 0));
 
         -- f = 2 - dd
-          f := to_unsigned(0,38);
-          f(37) := '1';
+          f := to_unsigned(0,70);
+          f(69) := '1';
           f := f - dd;
           report "f = $" & to_hstring(f);
 
           -- Now multiply both nn and dd by f
-          temp96 := nn * f;
-          nn <= temp96(103 downto 36);
-          report "temp96=$" & to_hstring(temp96);
+          temp138 := nn * f;
+          -- Check whether to round up
+          if temp138(67) = '1' then
+             nn <= temp138(135 downto 68) + 1;
+          else
+             nn <= temp138(135 downto 68);
+          end if;
+          report "temp138=$" & to_hstring(temp138);
 
-          temp64 := dd * f;
-          dd <= temp64(71 downto 36);
-          report "temp64=$" & to_hstring(temp64);
+          temp138 := dd * f;
+          -- Check whether to round up, but avoid overflow
+          if temp138(67) = '1' and temp138(135 downto 68) /= X"FFFFFFFFFFFFFFFFF" then
+             dd <= temp138(135 downto 68) + 1;
+          else
+             dd <= temp138(135 downto 68);
+          end if;
+          report "temp138=$" & to_hstring(temp138);
 
           -- Perform number of required steps, or abort early if we can
-          if steps_remaining /= 0 and dd /= x"FFFFFFFFF" then
+          if steps_remaining /= 0 and dd /= x"FFFFFFFFFFFFFFFFF" then
             steps_remaining <= steps_remaining - 1;
           else
             state <= output;
@@ -89,7 +96,7 @@ begin
           -- giving a result of 1.999999999
           temp64(67 downto 0) := nn;
           temp64(73 downto 68) := (others => '0');
-          temp64 := temp64 + 1;
+          temp64 := temp64 + 8;
           report "temp64=$" & to_hstring(temp64);
           busy <= '0';
           q <= temp64(67 downto 4);
@@ -107,7 +114,7 @@ begin
         report "Normalised to $" & to_hstring(new_nn(67 downto 36)) & "." &
           to_hstring(new_nn(35 downto 4)) & "." & to_hstring(new_nn(3 downto 0))
           & " / $" & to_hstring(new_dd(35 downto 4)) & "." & to_hstring(new_dd(3 downto 0));
-        dd <= new_dd;
+        dd <= new_dd & X"00000000";
         nn <= new_nn;
         state <= step;
         steps_remaining <= 5;
