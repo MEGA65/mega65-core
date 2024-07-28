@@ -48,6 +48,21 @@ shorten_name () {
   echo ${name:0:6}
 }
 
+# generate_version BRANCH BUILDNUM HASH
+generate_version () {
+  name=$1
+  num=$2
+  hash=$3
+  # release + version?
+  if [[ $name =~ ^release-(([0-9])\.([0-9][0-9]?))$ ]]; then
+    name="Rel ${BASH_REMATCH[1]} RC#$num $hash"
+  else
+    name="$1 #$num $hash"
+  fi
+  # cut after 6 chars
+  echo ${name}
+}
+
 CORETOOL=${SCRIPTPATH}/mega65-tools/bin/coretool
 REGTEST=${SCRIPTPATH}/mega65-tools/src/tests/regression-test.sh
 
@@ -145,8 +160,7 @@ fi
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
-        # Release hack
-        VERSION="Rel 0.96 RC#${BUILD_NUMBER} ${HASH}"
+        VERSION="$(generate_version ${BRANCH_NAME} ${BUILD_NUMBER} ${HASH})"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
@@ -159,6 +173,7 @@ else
     PKGNAME=${MODEL}-${BRANCH}-${HASH}
     VERSION=${VERSION/HASH/$HASH}
 fi
+VERSION=${VERSION:0:31}
 
 PKGBASE=${SCRIPTPATH}/pkg
 PKGPATH=${PKGBASE}/${PKGNAME}
