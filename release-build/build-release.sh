@@ -135,7 +135,7 @@ echo
 echo "Bitstream found: ${BITNAME}"
 echo
 # hack for packaging r6 bitstreams as r5 cores
-if [[ ${MODELRENAME} ]]; then
+if [[ ${MODELRENAME} -eq 1 ]]; then
     BITBASE=${MODEL}-${BITBASE#*-}
     echo "NOTE: packaging ${BITMODEL} COR as ${BITBASE} using model ${MODEL} instead!"
     echo
