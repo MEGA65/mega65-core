@@ -193,7 +193,19 @@ architecture tacoma_narrows of sdram_controller is
 
   signal resets : unsigned(7 downto 0) := x"00";
 
+  signal sdram_dq_out : unsigned(15 downto 0);
+  signal sdram_dq_oe_n : std_logic_vector(15 downto 0);
+
+  attribute iob : string;
+  attribute iob of sdram_dq_out : signal is "true";
+  attribute iob of sdram_dq_oe_n : signal is "true";
+  attribute iob of sdram_dq_latched : signal is "true";
+
 begin
+
+  sdram_dq_gen : for i in sdram_dq'range generate
+     sdram_dq(i) <= sdram_dq_out(i) when sdram_dq_oe_n(i) = '0' else 'Z';
+  end generate sdram_dq_gen;
 
   process(clock162r) is
   begin
@@ -251,7 +263,7 @@ begin
   begin
     if rising_edge(clock162) then
 
-      sdram_dq   <= (others => 'Z');
+      sdram_dq_oe_n <= (others => '1');
       sdram_dqml <= '1';
       sdram_dqmh <= '1';
 
@@ -556,9 +568,10 @@ begin
                   if write_latched = '1' then
                     report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
                     sdram_state <= WRITE_1;
+                    sdram_dq_out(7 downto 0)  <= wdata_latched;
+                    sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+                    sdram_dq_oe_n <= (others => '0');
                   end if;
-                  sdram_dq(7 downto 0)  <= wdata_latched;
-                  sdram_dq(15 downto 8) <= wdata_hi_latched;
 
                 end if;
 
@@ -608,8 +621,9 @@ begin
             if write_latched = '1' then
               -- Setup write data early, to handle marginal timing
               -- more safely (saves us needing separate read latch clock)
-              sdram_dq(7 downto 0)  <= wdata_latched;
-              sdram_dq(15 downto 8) <= wdata_hi_latched;
+              sdram_dq_out(7 downto 0)  <= wdata_latched;
+              sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+              sdram_dq_oe_n             <= (others => '0');
               sdram_dqmh            <= latched_wen_hi;
               sdram_dqml            <= latched_wen_lo;
             end if;
@@ -635,8 +649,9 @@ begin
               report "SDRAM: Issuing WRITE command after ROW_ACTIVATE";
               sdram_state <= WRITE_1;
             end if;
-            sdram_dq(7 downto 0)  <= wdata_latched;
-            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_out(7 downto 0)  <= wdata_latched;
+            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_oe_n             <= (others => '0');
           when READ_WAIT =>
             read_jobs  <= read_jobs + 1;
             sdram_dqml <= '0'; sdram_dqmh <= '0';
@@ -685,8 +700,9 @@ begin
             sdram_a(10)         <= '0';  -- Disable auto precharge
             sdram_a(9 downto 0) <= latched_addr(10 downto 1);
 
-            sdram_dq(7 downto 0)  <= wdata_latched;
-            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_out(7 downto 0)  <= wdata_latched;
+            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_oe_n             <= (others => '0');
 
             -- DQM lines are high to ignore a byte, and low to accept one
             sdram_dqmh <= latched_wen_hi;
@@ -698,8 +714,9 @@ begin
             busy          <= '0';
             write_latched <= '0';
           when WRITE_2 =>
-            sdram_dq(7 downto 0)  <= wdata_latched;
-            sdram_dq(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_out(7 downto 0)  <= wdata_latched;
+            sdram_dq_out(15 downto 8) <= wdata_hi_latched;
+            sdram_dq_oe_n             <= (others => '0');
             sdram_state           <= IDLE;
           when CLOSE_FOR_REFRESH   => sdram_emit_command(CMD_NOP);
           when CLOSE_FOR_REFRESH_2 => sdram_emit_command(CMD_NOP);
