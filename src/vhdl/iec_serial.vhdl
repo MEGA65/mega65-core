@@ -1469,12 +1469,23 @@ begin
                       report "IEC: Sending bit 7 = " & std_logic'image(iec_data_out(0));
           when 422 => c('1'); micro_wait(t_vt);
           when 423 => c('0'); d('1');
+            -- Wait for device to release data before looking for down
+            -- transition to acknowledge the byte.
+                      micro_wait(t_vt);
+                      wait_data_high <= '1';
+          when 424 =>
+            if iec_data_i='1' then
             -- Allow device 1000usec = 1ms to acknowledge byte by
             -- pulling data low
                       micro_wait(t_f);
                       wait_data_low <= '1';
                       report "IEC: Waiting for device to acknowledge byte";
-          when 424 =>
+            else
+              -- timeout
+              iec_state <= iec_state + 2;
+              wait_msec <= 0;
+            end if;
+          when 425 =>
             if iec_data_i='0' then
               report "IEC: Device acknowledged receipt of byte";
               iec_state <= iec_state + 2;
@@ -1482,7 +1493,7 @@ begin
             else
               report "IEC: Timedout waiting for device to acknowledge receipt of byte";
             end if;
-          when 425 =>
+          when 426 =>
             -- Timeout detected acknowledging byte
 
             -- Timeout has occurred: DEVICE NOT PRESENT
@@ -1498,8 +1509,8 @@ begin
 
             iec_busy <= '0';
 
-          when 426 => micro_wait(t_bb);
-          when 427 =>
+          when 427 => micro_wait(t_bb);
+          when 428 =>
             -- Successfully sent byte
             report "IEC: Successfully completed sending byte without attention";
             iec_devinfo(7) <= '1';
@@ -1531,13 +1542,14 @@ begin
           when 484 => d(not iec_data_out(1)); c(not iec_data_out(3)); micro_wait(t_j9);
           when 485 => d(not iec_data_out(0)); c(not iec_data_out(2)); micro_wait(t_j10);
           when 486 => d('0');                 c(send_eoi);            micro_wait(t_j11);
-          when 487 => c('0');                                         micro_wait(t_j12);
+          when 487 => d('1');                 c('0');                 micro_wait(t_j12);
           when 488 => c('0');
                       if iec_data_i='1' then
                         -- ERROR: Report timeout
                         iec_dev_listening <= '0';
-                        iec_devinfo(1) <= '1';
-                        iec_devinfo(0) <= '1'; -- while outputting data
+                        iec_devinfo <= x"00";
+                        iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
+                        iec_status(0) <= '1'; -- ... WHILE WE WERE TALKING
                         iec_busy <= '0';
                         iec_state_reached <= to_unsigned(iec_state,12);
                         iec_state <= 0;
