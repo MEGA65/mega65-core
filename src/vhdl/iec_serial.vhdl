@@ -1235,7 +1235,23 @@ begin
                         d('0');
                         micro_wait(t_ei);
                       end if;
-          when 303 => d('1'); wait_clk_low <= '1'; 
+          when 303 => d('1');
+                      -- TODO: Make t_XXXX register for this value
+                      micro_wait(200);
+                      wait_clk_low <= '1';
+                      iec_state <= 330;
+          when 330 =>
+            if iec_clk_i = '0' then
+              -- saw clock go low, continue normally
+              iec_state <= 304;
+            else
+              -- clock never went low, this is an indicator of a drive error
+              -- could be no such file, etc.
+              iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
+              iec_status(0) <= '0'; -- ... WHILE WE WERE LISTENING
+              iec_state <= 0;
+              iec_busy <= '0';
+            end if;
           when 304 =>
             -- Get ready to receive first bit
             -- If CLK goes high first, it's slow protocol.
@@ -1302,7 +1318,7 @@ begin
 
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
-
+          -- WARNING: when 330 => break out above
             -- Receiving using fast protocol
           when 350 => wait_srq_high <= '1';
           when 351 => wait_srq_low <= '1'; iec_data(6) <= iec_data_i; iec_data(7 downto 1) <= iec_data(6 downto 0);
