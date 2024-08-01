@@ -1240,7 +1240,6 @@ begin
                         micro_wait(t_ei);
                       end if;
           when 303 => d('1');
-                      -- TODO: Make t_XXXX register for this value
                       micro_wait(t_rt);
                       wait_clk_low <= '1';
           when 304 =>
