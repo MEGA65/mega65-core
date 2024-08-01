@@ -153,6 +153,7 @@ architecture questionable of iec_serial is
   constant c_t_ye    : integer :=  250;  -- C64 PRG says 250
   constant c_t_ei    : integer :=   80;  -- C64 PRG says min 60
   constant c_t_ar    : integer :=   20;  -- Not specified by C64 PRG
+  constant c_t_rt    : integer :=  200;  -- C64 PRG says 200 usec max
 
   constant c_t_jt    : integer :=  600;  -- JiffyDOS delay after turn-around
   constant c_t_jd    : integer :=  400;  -- JiffyDOS CLK hold time for detection
@@ -195,6 +196,7 @@ architecture questionable of iec_serial is
   signal t_ye : integer;
   signal t_ei : integer;
   signal t_ar : integer;
+  signal t_rt : integer;  -- slow read time out
 
   signal t_at : integer;
   signal t_ha : integer;
@@ -358,6 +360,7 @@ begin
         t_ye <= c_t_ye;
         t_ei <= c_t_ei;
         t_ar <= c_t_ar;
+        t_rt <= c_t_rt;
 
         t_jt <= c_t_jt;
         t_j0 <= c_t_j0;
@@ -774,6 +777,7 @@ begin
           when x"A1" => t_pullup <= to_integer(iec_data_out); iec_data <= to_unsigned(t_pullup,8);
           when x"A2" => t_jd <= to_integer(iec_data_out&to_unsigned(0,2)); iec_data <= to_unsigned(t_jd,10)(9 downto 2);
           when x"A3" => t_j12 <= to_integer(iec_data_out); iec_data <= to_unsigned(t_j12,8);
+          when x"A4" => t_rt <= to_integer(iec_data_out); iec_data <= to_unsigned(t_rt,8);
                          
           when x"d0" =>
             -- Trigger begin collecting debug info during job
@@ -1237,14 +1241,10 @@ begin
                       end if;
           when 303 => d('1');
                       -- TODO: Make t_XXXX register for this value
-                      micro_wait(200);
+                      micro_wait(t_rt);
                       wait_clk_low <= '1';
-                      iec_state <= 330;
-          when 330 =>
-            if iec_clk_i = '0' then
-              -- saw clock go low, continue normally
-              iec_state <= 304;
-            else
+          when 304 =>
+            if iec_clk_i = '1' then
               -- clock never went low, this is an indicator of a drive error
               -- could be no such file, etc.
               iec_status(1) <= '1'; -- TIMEOUT OCCURRED ...
@@ -1252,7 +1252,7 @@ begin
               iec_state <= 0;
               iec_busy <= '0';
             end if;
-          when 304 =>
+          when 305 =>
             -- Get ready to receive first bit
             -- If CLK goes high first, it's slow protocol.
             -- But if SRQ goes low first, it's fast protocol
@@ -1274,36 +1274,36 @@ begin
 
               iec_state <= iec_state + 1;
             end if;
-          when 305 => wait_clk_low <= '1';
-          when 306 => wait_clk_high <= '1';
-          when 307 => iec_data(7) <= iec_data_i;
+          when 306 => wait_clk_low <= '1';
+          when 307 => wait_clk_high <= '1';
+          when 308 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 308 => wait_clk_high <= '1';
-          when 309 => iec_data(7) <= iec_data_i;
+          when 309 => wait_clk_high <= '1';
+          when 310 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 310 => wait_clk_high <= '1';
-          when 311 => iec_data(7) <= iec_data_i;
+          when 311 => wait_clk_high <= '1';
+          when 312 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 312 => wait_clk_high <= '1';
-          when 313 => iec_data(7) <= iec_data_i;
+          when 313 => wait_clk_high <= '1';
+          when 314 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 314 => wait_clk_high <= '1';
-          when 315 => iec_data(7) <= iec_data_i;
+          when 315 => wait_clk_high <= '1';
+          when 316 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 316 => wait_clk_high <= '1';
-          when 317 => iec_data(7) <= iec_data_i;
+          when 317 => wait_clk_high <= '1';
+          when 318 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 318 => wait_clk_high <= '1';
-          when 319 => iec_data(7) <= iec_data_i;
+          when 319 => wait_clk_high <= '1';
+          when 320 => iec_data(7) <= iec_data_i;
                       iec_data(6 downto 0) <= iec_data(7 downto 1);
                       wait_clk_low <= '1';
-          when 320 =>
+          when 321 =>
             d('0');
             report "IEC: Successfully completed receiving SLOW byte = $" & to_hexstring(iec_data) & ", EOI=" & std_logic'image(eoi_detected);
             iec_devinfo(7) <= '1';
@@ -1318,7 +1318,7 @@ begin
 
             iec_state_reached <= to_unsigned(iec_state,12);
             iec_state <= 0;
-          -- WARNING: when 330 => break out above
+
             -- Receiving using fast protocol
           when 350 => wait_srq_high <= '1';
           when 351 => wait_srq_low <= '1'; iec_data(6) <= iec_data_i; iec_data(7 downto 1) <= iec_data(6 downto 0);
