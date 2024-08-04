@@ -72,7 +72,7 @@ int main(int argc,char **argv)
     exit(-1);
   }
 
-#define MAX_ROM 65536
+#define MAX_ROM (800*1024)
   unsigned char rom[MAX_ROM];
 
   int rom_size = 0;
