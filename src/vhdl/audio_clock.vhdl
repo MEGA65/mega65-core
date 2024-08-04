@@ -16,6 +16,7 @@
 --------------------------------------------------------------------------------
 
 library ieee;
+use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 
 library unisim;
@@ -27,7 +28,7 @@ entity audio_clock is
         ratio   : integer   -- clk to fs frequency ratio
     );
     port (
-
+      select_44100 : in std_logic;
         rsti    : in    std_logic;          -- reset in
         clki    : in    std_logic;          -- reference clock in
         rsto    : out   std_logic;          -- reset out (from MMCM lock status)
@@ -40,16 +41,14 @@ end entity audio_clock;
 architecture synth of audio_clock is
 
     signal locked   : std_logic;     -- MMCM lock status
+    signal clk_60_u : std_logic;     -- 60MHz unbuffered clock
+    signal clk_60   : std_logic;     -- 60MHz intermediate clock
     signal clk_u    : std_logic;     -- unbuffered output clock
     signal clko_fb  : std_logic;     -- unbuffered feedback clock
     signal clki_fb  : std_logic;    -- feedback clock
     signal count    : integer range 0 to ratio-1;
+    signal clk12288_counter : unsigned(26 downto 0) := to_unsigned(0,27);
 
-    -- Assume input clock is 50MHz
-    constant mmcm_vco_mul   : real      := 96.0;  -- 50MHz x 96 = 4.8GHz
-    constant mmcm_vco_div   : integer   := 5;     -- 4.8GHz / 5 = 960 MHz
-    constant mmcm_o_div     : real      := 78.125; -- 960 MHz / 78.125 =
-                                                      -- 12.288 MHz
 
     ----------------------------------------------------------------------
 
@@ -85,7 +84,7 @@ begin
         clkout0_duty_cycle      => 0.5,
         clkout0_phase           => 0.0,
         clkout0_use_fine_ps     => false,
-        clkout1_divide          => 1,
+        clkout1_divide          => 20,     -- 1200 / 20 = 60 MHz
         clkout1_duty_cycle      => 0.5,
         clkout1_phase           => 0.0,
         clkout1_use_fine_ps     => false,
@@ -135,9 +134,9 @@ begin
         clkfbout        => clko_fb,
         clkfboutb       => open,
         clkfbstopped    => open,
-        clkout0         => clk_u,
+        clkout0         => open,
         clkout0b        => open,
-        clkout1         => open,
+        clkout1         => clk_60_u,
         clkout1b        => open,
         clkout2         => open,
         clkout2b        => open,
@@ -171,6 +170,44 @@ begin
             O   => clki_fb
         );
 
+    BUFG_60: unisim.vcomponents.bufg
+        port map (
+            I   => clk_60_u,
+            O   => clk_60
+        );
+
     rsto <= not locked;
 
+    process(clk_60)
+    begin
+      if rising_edge(clk_60) then
+        -- 12.228 MHz is our goal, and we clock at 60MHz
+        -- So we want to add 0.2038 x 2 = 0.4076 of a
+        -- half-clock counter every cycle.
+        -- 27487791 / 2^26 = .409600005
+        -- 60MHz x .409600005 / 2 = 12.288000.137 MHz
+        -- i.e., well within the jitter of everything
+
+        -- N5998A HDMI protocol analyser claims we are producing only 47764 samples
+        -- per second, instead of 48000.
+        -- Also, some TVs might not do 48KHz, so we will make it run-time
+        -- switchable to 44.1KHz.
+        -- This requires an 11.2896 MHz clock instead of 12.288MHz
+        -- 25254408 / 2^26 = 0.376320004
+        -- 60MHz x .376320004 / 2 = 11.289600134
+        -- i.e., with error in the milli-samples-per-second range
+        if select_44100 = '0' then
+          -- 48KHz
+          clk12288_counter <= clk12288_counter + 27487791;
+        else
+          -- 44.1KHz
+          clk12288_counter <= clk12288_counter + 25254408;
+        end if;
+
+
+        -- Then pick out the right bit of our counter to
+        -- get a very-close-to-12.288MHz-indeed clock
+        clk_u <= clk12288_counter(26);
+      end if;
+    end process;
 end architecture synth;

@@ -19,7 +19,7 @@ entity keyboard_complex is
 
     -- Keyboard
     porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-    portb_pins : in  std_logic_vector(7 downto 0);
+    portb_pins : inout  std_logic_vector(7 downto 0);
     scan_mode : in std_logic_vector(1 downto 0);
     scan_rate : in unsigned(7 downto 0);
     keyboard_restore : in std_logic := '1';
