@@ -144,7 +144,7 @@ entity iomapper is
         reset_monitor_count : in unsigned(11 downto 0);
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : in  std_logic_vector(7 downto 0);
+        portb_pins : inout  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
         key_left : in std_logic;
         key_up : in std_logic;
@@ -315,7 +315,7 @@ entity iomapper is
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
-    ethernet_cpu_arrest : out std_logic;
+    ethernet_cpu_arrest : out std_logic := '0';
 
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
@@ -586,7 +586,7 @@ architecture behavioral of iomapper is
   signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
 
   signal cia1_irq : std_logic;
-  signal ethernet_irq : std_logic;
+  signal ethernet_irq : std_logic := '1';
   signal uart_irq : std_logic;
 
   signal audio_mix_reg : unsigned(7 downto 0) := x"FF";
@@ -597,7 +597,7 @@ architecture behavioral of iomapper is
   signal pcm_left : signed(15 downto 0) := x"FFFF";
   signal pcm_right : signed(15 downto 0) := x"FFFF";
 
-  signal cpu_ethernet_stream : std_logic;
+  signal cpu_ethernet_stream : std_logic := '0';
 
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
@@ -1199,7 +1199,7 @@ begin
     end generate;
 
 
-  eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t generate
+  eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t and target /= wukong generate
     ethernet0 : entity work.ethernet
       generic map (
         num_buffers => num_eth_rx_buffers
