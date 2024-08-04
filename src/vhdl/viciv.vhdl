@@ -2757,7 +2757,7 @@ begin
           -- @IO:GS $D062 VIC-IV:SCRNPTRBNK screen RAM precise base address (bits 23 - 16)
           screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=99 then
-          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 31 - 24)
+          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 27 - 24)
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
           -- @IO:GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
           -- row (MSBs)

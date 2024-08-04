@@ -243,7 +243,7 @@ GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
 GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV:SCRNPTRMSB screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV:SCRNPTRBNK screen RAM precise base address (bits 23 - 16)
-GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 31 - 24)
+GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 27 - 24)
 GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
 GS $D063.6 VIC-IV:FCOLMCM enable 256 colours in multicolour text mode
 GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
