@@ -82,11 +82,12 @@ begin
     addressa => to_integer(d81_address(19 downto 0)),
     wea => '0',
     doa => d81_rdata,
+    dia => (others => '0'),
 
     -- CPU interface
-    clkb => clock,
-    addressb => to_integer(address(14 downto 0)),
-    dob => rom_rdata
+    clkb => '1',
+    addressb => 0
+
     );
 
   
@@ -127,7 +128,7 @@ begin
 
       fastio_read => fastio81_read,
       fastio_write => fastio81_write,
-      fastio_address => fastio81_address,
+      fastio_address => fastio81_addr,
       fastio_wdata => fastio81_wdata,
       fastio_rdata => fastio81_rdata,
       cs_driverom => '0',
