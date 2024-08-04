@@ -22,6 +22,13 @@ architecture test_arch of tb_iec_serial is
   signal fastio_read : std_logic := '0';
   signal fastio_wdata : unsigned(7 downto 0);
   signal fastio_rdata : unsigned(7 downto 0);
+
+  signal fastio81_addr : unsigned(19 downto 0) := (others => '0');
+  signal fastio81_write : std_logic := '0';
+  signal fastio81_read : std_logic := '0';
+  signal fastio81_wdata : unsigned(7 downto 0);
+  signal fastio81_rdata : unsigned(7 downto 0);
+  signal cs81_driveram : std_logic := '0';
   
   signal debug_state : unsigned(11 downto 0);
   signal debug_usec : unsigned(7 downto 0);
@@ -100,12 +107,13 @@ begin
     port map (
       clock => clock41,
 
-      fastio_read => '0',
-      fastio_write => '0',
-      fastio_address => to_unsigned(0,20),
-      fastio_wdata => x"00",
+      fastio_read => fastio81_read,
+      fastio_write => fastio81_write,
+      fastio_address => fastio81_address,
+      fastio_wdata => fastio81_wdata,
+      fastio_rdata => fastio81_rdata,
       cs_driverom => '0',
-      cs_driveram => '0',
+      cs_driveram => cs81_driveram,
 
       last_rx_byte => c1581_received_byte,
       
@@ -268,6 +276,27 @@ begin
           clock_tick;
         end loop;
         fastio_write <= '0';
+    end procedure;
+
+    procedure PEEK81(a : unsigned(15 downto 0)) is
+    begin
+        fastio81_addr(3 downto 0) <= a(3 downto 0);
+        fastio81_read <= '1';
+        for i in 1 to 8 loop
+          clock_tick;
+        end loop;
+        fastio81_read <= '0';      
+    end procedure;
+    
+    procedure POKE81(a : unsigned(15 downto 0); v : unsigned(7 downto 0)) is
+    begin
+        fastio81_addr(3 downto 0) <= a(3 downto 0);
+        fastio81_wdata <= v;
+        fastio81_write <= '1';
+        for i in 1 to 4 loop
+          clock_tick;
+        end loop;
+        fastio81_write <= '0';
     end procedure;
 
     procedure wait_a_while(t : integer) is
