@@ -100,6 +100,10 @@ architecture Behavioral of container is
   signal portp       : unsigned(7 downto 0);
   signal portp_drive : unsigned(7 downto 0);
 
+  -- Wukong keyboard portb pin reflection and carge control
+  signal portb_charge_pins : std_logic;
+  signal portb_pins_in : std_logic_vector(7 downto 0);
+
   -- Audio (PCM).
   constant clock_frequency      : integer := 40500000;
   constant target_sample_rate   : integer := 48000;
@@ -375,7 +379,8 @@ begin
 
       -- CIA1 ports (physical keyboard and joysticks).
       porta_pins    => porta_pins,
-      portb_pins    => portb_pins,
+      portb_pins    => portb_pins_in,
+      portb_charge_pins => portb_charge_pins,
       caps_lock_key => '1',
       keyleft       => '0',
       keyup         => '0',
@@ -478,6 +483,16 @@ begin
         acr_counter <= 0;
       end if;
     end if;
+  end process;
+
+  process (portb_pins, portb_charge_pins) is
+  begin
+    if portb_charge_pins = '1' then
+      portb_pins <= (others => '1');
+    else
+      portb_pins <= (others => 'Z');
+    end if;
+    portb_pins_in <= portb_pins;
   end process;
 
   -- Various processing steps synchronized to the CPU clock.

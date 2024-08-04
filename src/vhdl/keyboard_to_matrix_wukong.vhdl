@@ -9,7 +9,8 @@ entity keyboard_to_matrix is
     port (
         clk                  : in    std_logic;
         porta_pins           : inout std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins           : inout std_logic_vector(7 downto 0) := (others => 'Z');
+        portb_pins           : in std_logic_vector(7 downto 0);
+        portb_charge_pins    : out   std_logic := '0';
         keyboard_column8_out : out   std_logic := '1';
         key_left             : in    std_logic;
         key_up               : in    std_logic;
@@ -44,39 +45,45 @@ begin
         variable counter    : integer range 0 to 255       := 0;
         variable state      : integer range 0 to 15        := 0;
         variable column     : integer range 0 to 7         := 0;
-        variable portb0     : std_logic_vector(7 downto 0) := (others => '1');
-        variable portb1     : std_logic_vector(7 downto 0) := (others => '1');
-        variable portb2     : std_logic_vector(7 downto 0) := (others => '1');
+        variable portb_debounced  : std_logic_vector(7 downto 0) := (others => '1');
     begin
         if rising_edge(clk) then
+
+            -- Debounce portb pins
+            portb_debounced := portb_debounced and portb_pins;
 
             keyram_wea <= (others => '0');
             matrix_dia <= (others => '1');
             scan_phase <= 0;
 
             -- Scan physical keyboard
+            -- For the Wukong board, this is done by first charging both the
+            -- porta and portb pins high, and then stopping charging the portb
+            -- pins, so that when a porta pin is pulled low, it can be reflected
+            -- on the appropriate portb pin(s) corresponding to where keys have
+            -- been pressed.
             if counter = 0 then
 
                 if state = 0 then
-                    -- Clear output.
+                    -- Tristate porta pins
                     porta_pins <= (others => 'Z');
                     counter := 32;
                     state := 1;
 
                 elsif state = 1 then
-                    -- Clear output.
-                    portb_pins <= (others => '1');
+                    -- Charge pins on portb to go high
+                    portb_charge_pins <= '1';
                     counter := 32;
                     state := 2;
 
                 elsif state = 2 then
-                    -- Clear output.
-                    portb_pins <= (others => 'Z');
+                    -- Stop charging pins on portb
+                    portb_charge_pins <= '0';
                     counter := 32;
                     state := 3;
 
                 elsif state = 3 then
-                    -- Clear output.
+                    -- Drive all porta pins high
                     porta_pins <= (others => '1');
                     counter := 32;
                     state := 4;
@@ -99,26 +106,13 @@ begin
                         when 6 => porta_pins <= "10111111";
                         when 7 => porta_pins <= "01111111";
                     end case;
-                    counter := 64;
+                    counter := 192;
                     state := 6;
+                    portb_debounced := (others => '1');
 
                 elsif state = 6 then
-                    -- Read port B.
-                    portb0 := portb_pins;
-                    counter := 64;
-                    state := 7;
 
-                elsif state = 7 then
-                    -- Read port B.
-                    portb1 := portb_pins;
-                    counter := 64;
-                    state := 8;
-
-                elsif state = 8 then
-                    -- Read port B.
-                    portb2 := portb_pins;
-
-                    matrix_dia <= portb0 or portb1 or portb2;
+                    matrix_dia <= portb_debounced;
                     keyram_wea <= (others => '1');
                     scan_phase <= column;
 

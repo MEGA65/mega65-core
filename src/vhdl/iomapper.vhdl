@@ -144,7 +144,8 @@ entity iomapper is
         reset_monitor_count : in unsigned(11 downto 0);
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : inout  std_logic_vector(7 downto 0);
+        portb_pins : in  std_logic_vector(7 downto 0);
+        portb_charge_pins : out std_logic;
         keyboard_column8_out : out std_logic;
         key_left : in std_logic;
         key_up : in std_logic;
@@ -1056,6 +1057,7 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
+    portb_charge_pins => portb_charge_pins,
 
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
