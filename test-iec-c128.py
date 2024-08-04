@@ -18,6 +18,7 @@ lib.add_source_files("src/vhdl/ghdl_ram8x4096_sync.vhdl")
 lib.add_source_files("src/vhdl/internal1581.vhdl")
 lib.add_source_files("src/vhdl/dpram8x4096.vhdl")
 lib.add_source_files("src/vhdl/driverom1581.vhdl")
+lib.add_source_files("src/vhdl/d81.vhdl")
 lib.add_source_files("src/vhdl/simple_cpu6502.vhdl")
 lib.add_source_files("src/vhdl/cia6526.vhdl")
 
