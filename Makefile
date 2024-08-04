@@ -786,7 +786,8 @@ test-iec-c128:	$(TOOLDIR)/mkdriverom $(CBMCONVERT)
 	rm -fr vunit_out
 # we have to put some file in the image, or cbmconvert will abort
 	$(CBMCONVERT) -v2 -D8o test-iec.d81 Makefile
-	$(TOOLDIR)/mkdriverom test-iec.d81 | sed 's/driverom/d81/g' > src/vhdl/d81.vhdl
+	dd if=test-iec.d81 of=test-iec.d81.40 bs=10240 count=1 skip=39
+	$(TOOLDIR)/mkdriverom test-iec.d81.40 | sed 's/driverom/d81/g' > src/vhdl/d81.vhdl
 	$(TOOLDIR)/mkdriverom ../jiffy_dos/1581-rom.318045-02.bin > src/vhdl/driverom1581.vhdl
 	./test-iec-c128.py -p16
 
