@@ -69,9 +69,27 @@ architecture test_arch of tb_iec_serial is
   signal power_up : boolean := true;
 
   signal c1581_received_byte : unsigned(7 downto 0); 
+
+  signal d81_address : unsigned(19 downto 0);
+  signal d81_rdata : unsigned(7 downto 0);
   
 begin
 
+  d81: entity work.d81 port map (
+    -- Fast IO interface
+    clka => '1',
+    csa => '1',
+    addressa => to_integer(d81_address(19 downto 0)),
+    wea => '0',
+    doa => d81_rdata,
+
+    -- CPU interface
+    clkb => clock,
+    addressb => to_integer(address(14 downto 0)),
+    dob => rom_rdata
+    );
+
+  
   iec0: entity work.iec_serial generic map (
     cpu_frequency => 40_500_500,
     with_debug => true
@@ -227,6 +245,13 @@ begin
       
     end procedure;
 
+    procedure load_dirtrack is
+    begin
+      report "IEC: Loading track 40 into 1581 directory cache from d81.vhdl";
+      
+    end procedure;
+    
+    
     procedure atn_release is
     begin
       report "IEC: Release ATN line and abort any command in progress";
@@ -922,6 +947,14 @@ begin
         iec_rx(x"30");
         iec_rx(x"30");
         iec_rx_eoi(x"0D");        
+
+      elsif run("Load dummy data into 1581 track cache") then
+
+        -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
+        -- Send TALK to device 8, channel 15, and read back 00,OK,00,00 message
+        
+        boot_1581;
+        load_dirtrack;
         
       end if;
     end loop;
