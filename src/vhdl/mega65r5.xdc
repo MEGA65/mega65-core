@@ -124,8 +124,8 @@ set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
 #set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 # Place Keyboard close to I/O pins
 create_pblock pblock_kbd0
-add_cells_to_pblock pblock_kbd0 [get_cells [list *.kbd0]]
-resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X7Y243}
+add_cells_to_pblock pblock_kbd0 [get_cells [list *.kbd0 *.mk2]]
+resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X15Y243}
 
 # Paddles
 set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
