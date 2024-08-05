@@ -409,6 +409,7 @@ int getUpdate(void)
 	      }
 	      if (c1581) {
 		// From chapter 10 of 1581 user guide
+		// and also from the 1581 ROM routine list in https://www.lyonlabs.org/commodore/onrequest/The_1581_Toolkit.pdf
 		  switch(pc) {
 		  case 0xFF00: fprintf(stderr,"$%04X            1581: Jump to main IDLE loop\n",pc); break;
 		  case 0xFF03: fprintf(stderr,"$%04X            1581: Jump to IRQ handler\n",pc); break;

@@ -326,8 +326,9 @@ begin
         POKE81(to_unsigned(12*256 + i,16), d81_rdata);
       end loop;
       -- Set track cache track and side numbers
-      POKE81(to_unsigned(149,16),to_unsigned(40,8));
-      POKE81(to_unsigned(151,16),to_unsigned(0,8));
+      POKE81(to_unsigned(149,16),to_unsigned(39,8));  -- physical track number
+      POKE81(to_unsigned(150,16),to_unsigned(40,8));  -- translated track number
+      POKE81(to_unsigned(151,16),to_unsigned(0,8));   -- side number
       
       report "IEC: Finished loading directory track into cache";
   
@@ -957,13 +958,60 @@ begin
         iec_rx(x"30");
         iec_rx_eoi(x"0D");        
 
-      elsif run("Load dummy data into 1581 track cache") then
+      elsif run("Load directory") then
 
-        -- Send LISTEN to device 8, channel 15, send the "UI-" command, then
-        -- Send TALK to device 8, channel 15, and read back 00,OK,00,00 message
         
         boot_1581;
-        load_dirtrack;
+
+        -- Modify 1581's RAM contents, so that it thinks track 40 has been
+        -- loaded already
+        -- load_dirtrack;
+        
+        report "IEC: Commencing sending DEVICE 8 LISTEN ($2B) byte under ATN";
+        atn_tx_byte(x"28"); -- Device 8 LISTEN
+
+        report "IEC: Commencing sending OPEN SECONDARY ADDRESS 0 byte under ATN";
+        atn_tx_byte(x"F0");
+
+        get_drive_capability;
+        
+        report "Clearing ATN";
+        atn_release;       
+        
+        report "IEC: Sending $ filename";
+        iec_tx_eoi(x"24");  -- $
+             
+        report "IEC: Sending UNLISTEN to device 8";
+        atn_tx_byte(x"3F");
+           
+        report "Clearing ATN";
+        atn_release;
+
+        report "IEC: Allow 1581 time to process the $ filename.";
+        wait_a_while(300_000);
+        
+        report "IEC: Request read command channel 0 of device 8";
+        atn_tx_byte(x"48");
+        atn_tx_byte(x"60");
+
+        report "IEC: Commencing turn-around to listen";
+        tx_to_rx_turnaround;
+
+        report "IEC: Trying to receive a byte";
+        -- Check for "00, OK,00,00" message
+        iec_rx(x"30");
+        iec_rx(x"30");
+        iec_rx(x"2C");
+        iec_rx(x"20");
+        iec_rx(x"4F");
+        iec_rx(x"4B");
+        iec_rx(x"2C");
+        iec_rx(x"30");
+        iec_rx(x"30");
+        iec_rx(x"2C");
+        iec_rx(x"30");
+        iec_rx(x"30");
+        iec_rx_eoi(x"0D");        
         
       end if;
     end loop;
