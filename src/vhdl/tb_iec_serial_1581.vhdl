@@ -246,13 +246,6 @@ begin
       
     end procedure;
 
-    procedure load_dirtrack is
-    begin
-      report "IEC: Loading track 40 into 1581 directory cache from d81.vhdl";
-      
-    end procedure;
-    
-    
     procedure atn_release is
     begin
       report "IEC: Release ATN line and abort any command in progress";
@@ -324,6 +317,21 @@ begin
         end loop;
         fastio81_write <= '0';
     end procedure;
+
+    procedure load_dirtrack is
+    begin
+      report "IEC: Loading track 40 into 1581 directory cache from d81.vhdl";
+      for i in 0 to (5*1024) loop
+        d81_address <= to_unsigned(i,20);
+        POKE81(to_unsigned(12*256 + i,16), d81_rdata);
+      end loop;
+      -- Set track cache track and side numbers
+      POKE81(to_unsigned(149,16),to_unsigned(40,8));
+      POKE81(to_unsigned(151,16),to_unsigned(0,8));
+      
+      report "IEC: Finished loading directory track into cache";
+  
+    end procedure;       
 
     procedure wait_a_while(t : integer) is
     begin        
