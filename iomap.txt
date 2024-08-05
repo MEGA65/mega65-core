@@ -1069,7 +1069,7 @@ GS $D71F DMA:CH3LVOL Audio DMA channel 3 left channel volume
 GS $D720.0-1 DMA:CH0!SBITS@CHXSBITS Audio DMA channel X sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
 GS $D720.3 DMA:CH0!STP@CHXSTP Audio DMA channel X stop flag
 GS $D720.4 DMA:CH0!SINE@CHXSINE Audio DMA channel X play 32-sample sine wave instead of DMA data
-GS $D720.5 DMA:CH0!SGN@CHXSGN Enable Audio DMA channel X signed samples
+GS $D720.5 DMA:CH0!SGN@CHXUSGN Audio DMA channel X sample sign: 0=signed, 1=unsigned
 GS $D720.6 DMA:CH0!LOOP@CHXLOOP Enable Audio DMA channel X looping
 GS $D720.7 DMA:CH0!EN@CHXEN Enable Audio DMA channel X
 GS $D721 DMA:CH0BADDRL@CHXBADDRL Audio DMA channel X base address LSB
