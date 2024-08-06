@@ -4291,11 +4291,13 @@ begin
         if audio_dma_saturation_enable='1' then
 --dengland Correction as when originally developing noted by kibo
           if audio_dma_mix_temp(15) = '1' then
-            audio_dma_left(15) <= '0';
-            audio_dma_left(14 downto 0) <= (others => '1');
+--          audio_dma_left(15) <= '0';
+--          audio_dma_left(14 downto 0) <= (others => '1');
+            audio_dma_left <= (others => '0');
           else
-            audio_dma_left(15) <= '1';
-            audio_dma_left(14 downto 0) <= (others => '0');
+--          audio_dma_left(15) <= '1';
+--          audio_dma_left(14 downto 0) <= (others => '0');
+            audio_dma_left <= (others => '1');
           end if;
         else
           audio_dma_left <= audio_dma_mix_temp(15 downto 0);
