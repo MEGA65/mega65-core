@@ -239,7 +239,7 @@ begin
       report "IEC: Allowing time for 1581 to boot";
       
       -- Give the 1581 just time enough to boot
-      for i in 1 to 1_950_000 loop
+      for i in 1 to 2_800_000 loop
         clock_tick;
       end loop;
       report "1581BOOT: Time for drive to boot expired";
