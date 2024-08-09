@@ -72,6 +72,9 @@ architecture test_arch of tb_iec_serial is
 
   signal d81_address : unsigned(19 downto 0);
   signal d81_rdata : unsigned(7 downto 0);
+
+  signal host_reset : std_logic := '0';
+  signal host_reset_countdown : integer range 0 to 7 := 7;
   
 begin
 
@@ -98,6 +101,7 @@ begin
     port map (
     clock => clock41,
     clock81 => pixelclock,
+    reset_in => host_reset,
 
     fastio_addr => fastio_addr,
     fastio_write => fastio_write,
@@ -226,8 +230,16 @@ begin
             drive_cycle_countdown <= drive_cycle_countdown - 1;
             f1581_cycle_strobe <= '0';
           else
-            drive_cycle_countdown <= 40;
+            drive_cycle_countdown <= 20;
             f1581_cycle_strobe <= '1';
+            -- Release /RESET line on 4541 IEC host controller after a few cycles.
+            -- This is necessary as host timing values are only loaded by the
+            -- 4541 when reset is low.
+            if host_reset_countdown > 0 then
+              host_reset_countdown <= host_reset_countdown - 1;
+            else
+              host_reset <= '1';
+            end if;
           end if;
         end if;
       end if;
