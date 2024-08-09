@@ -243,13 +243,14 @@ begin
       cia_portb_in(7) <= not iec_atn_i;
       cia_flag_in <= iec_atn_i;
 
-      iec_data_o <= '1';
-      iec_clk_o <= '1';
-      if cia_portb_out(1) = '1' and cia_portb_out_en_n(1)='0' then
-        iec_data_o <= '0';
+      iec_data_o <= '0';
+      if cia_portb_out(1) = '0' and cia_portb_out_en_n(1)='1' then
+        iec_data_o <= '1';
       end if;
-      if cia_portb_out(3) = '1' and cia_portb_out_en_n(3)='0' then
-        iec_clk_o <= '0';
+
+      iec_clk_o <= '0';
+      if cia_portb_out(3) = '0' and cia_portb_out_en_n(3)='1' then
+        iec_clk_o <= '1';
       end if;
 
       cia_spin <= iec_srq_i;
