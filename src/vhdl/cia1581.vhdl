@@ -152,6 +152,7 @@ architecture behavioural of cia6526 is
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
   signal clear_isr_count : unsigned(4 downto 0) := "00000";
   signal clear_isr_bits : unsigned(7 downto 0) := x"00";
+  signal clear_isr_countdown : integer range 0 to 63 := 0;
   
   signal todcounter : integer := 0;
 
@@ -657,6 +658,15 @@ begin  -- behavioural
         strobe_pc<='0';
       end if;
 
+      if clear_isr_countdown /= 0 then
+        clear_isr_countdown <= clear_isr_countdown - 1;
+      end if;
+      if clear_isr_countdown = 1 then
+        clear_isr <= '1';
+        clear_isr_bits <= reg_isr;
+        clear_isr_count <= clear_isr_count + 1;
+      end if;      
+      
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
         --report "Performing side-effects of reading from CIA register $" & to_hexstring(register_number) severity note;
@@ -680,9 +690,7 @@ begin  -- behavioural
             read_tod_dsecs <= reg_tod_dsecs;
           when x"0d" =>
             -- Reading ICR/ISR clears all interrupts
-            clear_isr <= '1';
-            clear_isr_bits <= reg_isr;
-            clear_isr_count <= clear_isr_count + 1;
+            clear_isr_countdown <= 40;
           when others => null;
         end case;
       end if;

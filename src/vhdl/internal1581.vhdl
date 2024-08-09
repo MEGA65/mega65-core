@@ -151,7 +151,11 @@ begin
     dob => rom_rdata
     );
 
-  cia: entity work.cia6526 port map (
+  cia: entity work.cia6526
+    generic map (
+      unit => x"8"
+      )
+    port map (
     cpuclock => clock,
     phi0_1mhz => cia_phase2_clock,
     todclock => cia_phase2_clock,
