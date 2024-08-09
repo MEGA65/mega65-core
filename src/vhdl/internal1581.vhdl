@@ -128,7 +128,7 @@ begin
     dina => std_logic_vector(fastio_wdata),
     unsigned(douta) => fastio_rdata,
 
-    enb => cs_ram,  -- 1541 CPU side
+    enb => cs_ram,  -- 1581 CPU side
     clkb => clock,
     web(0) => ram_write_enable,
     addrb => std_logic_vector(address(12 downto 0)),
@@ -204,6 +204,10 @@ begin
 
     if rising_edge(clock) then
 
+      if address = x"0076" and ram_write_enable='1' then
+        report "1581: FSFLAGS writing $" & to_hexstring(wdata);
+      end if;
+      
       -- Generate exactly 2MHz strobes for the CIA
       if phi_2_1mhz_counter < (405 - 20) then
         phi_2_1mhz_counter <= phi_2_1mhz_counter + 20;
