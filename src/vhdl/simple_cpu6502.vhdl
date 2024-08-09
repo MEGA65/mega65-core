@@ -691,7 +691,13 @@ begin
               when I_AND => reg_a <= alu_and; set_nz(alu_and);
               when I_ORA => reg_a <= alu_ora; set_nz(alu_ora);
               when I_EOR => reg_a <= alu_eor; set_nz(alu_eor);
-              when I_BIT => set_nz(data_i); flag_v <= data_i(6);
+              when I_BIT => flag_n <= data_i(7);
+                            flag_v <= data_i(6);
+                            if (reg_a and data_i) = to_unsigned(0,8) then
+                              flag_z <= '1';
+                            else
+                              flag_z <= '0';
+                            end if;
               when I_INC | I_DEC | I_ROL | I_ROR | I_LSR | I_ASL =>
                 -- Read-modify-write instruction
                 -- These write back the original value, before writing back the
