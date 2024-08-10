@@ -72,8 +72,8 @@ architecture behavioural of cia6526 is
   
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_portb_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '1');
+  signal reg_portb_ddr : std_logic_vector(7 downto 0) := (others => '1');
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 

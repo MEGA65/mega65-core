@@ -25,7 +25,9 @@ entity cpu6502 is
     reset : in std_logic;
     sync : buffer std_logic;
     t : out unsigned(2 downto 0);
-    write_n : out std_logic
+    write_n : out std_logic;
+
+    silence_internal_drive : in std_logic := '0'    
     );
 end entity cpu6502;
 
@@ -359,7 +361,9 @@ begin
         case cpu_state is
           when poreset =>
             address <= x"FFFC";
-            report "1541CPU: Power-on RESET commenced";
+            if silence_internal_drive='0' then
+              report "1541CPU: Power-on RESET commenced";
+            end if;
             cpu_state <= vector0;
           when interrupt =>
             -- Push PCH
@@ -399,20 +403,28 @@ begin
             address <= x"FFF8";
             if reset='0' then
               address(3 downto 0) <= x"c";
-              report "1541CPU: RESET commenced";
+              if silence_internal_drive='0' then
+                report "1541CPU: RESET commenced";
+              end if;
             elsif nmi_pending='1' then
               address(3 downto 0) <= x"a";
-              report "1541CPU: NMI commenced";
+              if silence_internal_drive='0' then
+                report "1541CPU: NMI commenced";
+              end if;
               nmi_pending <= '0';
             else
               address(3 downto 0) <= x"e";
-              report "1541CPU: IRQ commenced";
+              if silence_internal_drive='0' then
+                report "1541CPU: IRQ commenced";
+              end if;
             end if;
             cpu_state <= vector0;
             -- XXX Push flags and return address to stack
             flag_i <= '1';
           when vector0 =>
-            report "1541CPU: Reading interrupt vector from $" & to_hexstring(address);
+            if silence_internal_drive='0' then
+              report "1541CPU: Reading interrupt vector from $" & to_hexstring(address);
+            end if;
             reg_pc(7 downto 0) <= data_i;
             address <= address;
             address(0) <= '1';
@@ -422,7 +434,9 @@ begin
             address <= address;
             address(0) <= '1';
             cpu_state <= opcode_fetch;
-            report "1541CPU: Read interrupt vector. Jumping to $" & to_hexstring(data_i) & to_hexstring(reg_pc(7 downto 0));
+            if silence_internal_drive='0' then
+              report "1541CPU: Read interrupt vector. Jumping to $" & to_hexstring(data_i) & to_hexstring(reg_pc(7 downto 0));
+            end if;
           when opcode_fetch =>
             if (irq='0' and flag_i='0') or nmi_pending='1' or reset='0' then
               cpu_state <= interrupt;

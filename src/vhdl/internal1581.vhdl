@@ -49,6 +49,8 @@ entity internal1581 is
     iec_data_o : out std_logic := '1';
     iec_srq_o : out std_logic := '1';
 
+    silence_internal_drive : in std_logic := '0';
+    
     -- Interface to SD card data feed
     -- Here we read non-GCR bytes and turn them to GCR.
     -- We thus have a current byte, and then ask for the next when we will need
@@ -134,7 +136,9 @@ begin
     web(0) => ram_write_enable,
     addrb => std_logic_vector(address(12 downto 0)),
     dinb => std_logic_vector(wdata),
-    unsigned(doutb) => ram_rdata
+    unsigned(doutb) => ram_rdata,
+
+    silence_internal_drive => silence_internal_drive
     );
 
   rom: entity work.driverom port map (
@@ -201,7 +205,9 @@ begin
     address => address,
     address_next => address_next_internal,
     data_i => rdata,
-    data_o => wdata
+    data_o => wdata,
+
+    silence_internal_drive => silence_internal_drive
     );
 
   process(clock,address,address_next_internal,cs_ram,ram_rdata,cs_rom,rom_rdata,cia_data_out,cpu_write_n)
@@ -250,7 +256,7 @@ begin
       if cia_portb_out(1) = '0' and cia_portb_out_en_n(1)='1' then
         -- Implement U7 NAND gate that also allows DATA to be pulled low by
         -- ATN_ACK line.
-        if atn_ack /= '1' or iec_atn_i /= '1' then
+        if atn_ack /= '1' or iec_atn_i /= '1' or silence_internal_drive='1' then
           iec_data_o <= '1';
         end if;
       end if;

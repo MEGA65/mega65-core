@@ -75,6 +75,8 @@ architecture test_arch of tb_iec_serial is
 
   signal host_reset : std_logic := '0';
   signal host_reset_countdown : integer range 0 to 7 := 7;
+
+  signal silence_internal_drive : std_logic := '0';
   
 begin
 
@@ -130,6 +132,8 @@ begin
     port map (
       clock => clock41,
 
+      silence_internal_drive => silence_internal_drive,
+      
       fastio_read => fastio81_read,
       fastio_write => fastio81_write,
       fastio_address => fastio81_addr,
@@ -619,10 +623,20 @@ begin
         -- Hold 1581 under reset, so that it can't answer
         f1581_reset_n <= '0';
 
+        silence_internal_drive <= '1';
+
+        -- wait for host reset to complete
+        while host_reset_countdown /= 0 loop
+          clock_tick;
+        end loop;
+        for i in 1 to 1000 loop
+          clock_tick;
+        end loop;
+
         POKE(x"D699",x"29"); -- Access device 9 (drive is device 8, so shouldn't respond)
         POKE(x"D698",x"30"); -- Trigger ATN write
 
-        wait_and_check_READY(400000);
+        wait_and_check_READY(4000000);
 
         fail_if_DEVICE_PRESENT;
         fail_if_NO_TIMEOUT;
