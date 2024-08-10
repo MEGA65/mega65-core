@@ -294,7 +294,7 @@ begin
 
       -- Export last byte written to 1581 RX byte location to support automated
       -- tests of IEC communications in tb_iec_serial.vhdl
-      if address = x"0085" and cpu_write_n='0' then
+      if address = x"0054" and cpu_write_n='0' then
         last_rx_byte <= wdata;
       end if;
       
