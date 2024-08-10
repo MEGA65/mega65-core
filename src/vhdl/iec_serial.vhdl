@@ -993,7 +993,7 @@ begin
             if t_ha > 0 then
               micro_wait(t_ha);
             else
-              report "IEC: Waiting forever for listener ready: DATA pulled high";
+              report "IEC: Waiting forever for listener ready: will be indicated by DATA=5V";
             end if;
             wait_data_high <= '1';
 

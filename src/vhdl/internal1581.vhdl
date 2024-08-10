@@ -112,6 +112,7 @@ architecture romanesque_revival of internal1581 is
   signal cia_phase2_clock : std_logic := '0';
   
   signal fast_serial_direction : std_logic;
+  signal atn_ack : std_logic;
   
 begin
 
@@ -172,10 +173,12 @@ begin
     fastio_wdata => wdata,
     fastio_rdata => cia_data_out,
 
-    portaout => cia_porta_out_en_n,
+    portaddr => cia_porta_out_en_n,
+    portaout => cia_porta_out,
     portain => cia_porta_in,
 
-    portbout => cia_portb_out_en_n,
+    portbddr => cia_portb_out_en_n,
+    portbout => cia_portb_out,
     portbin => cia_portb_in,
 
     flagin => cia_flag_in,
@@ -237,7 +240,7 @@ begin
       -- cia_portb_out(1) == iec_data_o (see below)
       cia_portb_in(2) <= not iec_clk_i;
       -- cia_portb_out(3) == iec_clk_o (see below)
-      -- cia_portb_out(4) == atn_ack (not used)
+      cia_portb_out(4) <= atn_ack;
       cia_portb_out(5) <= fast_serial_direction;
       cia_portb_in(6) <= '1'; -- f_write_protect_n
       cia_portb_in(7) <= not iec_atn_i;
@@ -245,8 +248,13 @@ begin
 
       iec_data_o <= '0';
       if cia_portb_out(1) = '0' and cia_portb_out_en_n(1)='1' then
-        iec_data_o <= '1';
+        -- Implement U7 NAND gate that also allows DATA to be pulled low by
+        -- ATN_ACK line.
+        if atn_ack /= '1' or iec_atn_i /= '1' then
+          iec_data_o <= '1';
+        end if;
       end if;
+      
 
       iec_clk_o <= '0';
       if cia_portb_out(3) = '0' and cia_portb_out_en_n(3)='1' then
