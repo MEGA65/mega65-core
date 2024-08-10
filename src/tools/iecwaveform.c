@@ -367,7 +367,7 @@ int getUpdate(void)
 	    int r = sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/tb_iec_serial.vhdl:%*d:%*d:@%lld%[^:]:(report note): IECBUSSTATE: ATN='%d', CLK(c64)='%d', CLK(1541)='%d', DATA(c64)='%d', DATA(1541)='%d', DATA(dummy)='%d'",
 			   &time_val,time_units,
 			   &atn,&clk_c64,&clk_1541,&data_c64,&data_1541,&data_dummy);
-	    // if (strstr(line,"IECBUSSTATE")) fprintf(stderr,"DEBUG: r=%d, Line = '%s'\n",r,line);
+	    if (strstr(line,"IECBUSSTATE")) fprintf(stderr,"DEBUG: r=%d, Line = '%s'\n",r,line);
 
 	    if (r==8) {
 	      int ofs=0;
@@ -719,12 +719,13 @@ int getUpdate(void)
 		  case 0xAB09: fprintf(stderr,"$%04X        1581: SETVERIFY Check verify mode select value either zero or one\n",pc); break;
 		  case 0xAB1D: fprintf(stderr,"$%04X        1581: SIGNATURERTN ROM signature analysis routine test ROM via checksum\n",pc); break;
 		  case 0xABCF: fprintf(stderr,"$%04X        1581: ATN Routine for controlling the serial bus (serial bus ATN server)\n",pc); break;
+		  case 0xAC60: fprintf(stderr,"$%04X        1581: Assert ATN_ACK\n",pc); break;
 		  case 0xACBB: fprintf(stderr,"$%04X        1581: BUS2INPUT Switch 1581 bus to input\n",pc); break;
 		  case 0xACD4: fprintf(stderr,"$%04X        1581: BUS2OUTPUT Switch 1581 bus to output\n",pc); break;
-		  case 0xACE8: fprintf(stderr,"$%04X        1581: DATALOW Data line set low\n",pc); break;
-		  case 0xACF1: fprintf(stderr,"$%04X        1581: DATAHI Data line set high\n",pc); break;
-		  case 0xACFA: fprintf(stderr,"$%04X        1581: CLOCKHI Clock line set high\n",pc); break;
-		  case 0xAD03: fprintf(stderr,"$%04X        1581: CLOCKLOW Clock line set low\n",pc); break;
+		  case 0xACE8: fprintf(stderr,"$%04X        1581: DATALOW Data line set low (5V)\n",pc); break;
+		  case 0xACF1: fprintf(stderr,"$%04X        1581: DATAHI Data line set high (0V)\n",pc); break;
+		  case 0xACFA: fprintf(stderr,"$%04X        1581: CLOCKHI Clock line set high (0V)\n",pc); break;
+		  case 0xAD03: fprintf(stderr,"$%04X        1581: CLOCKLOW Clock line set low (5V)\n",pc); break;
 		  case 0xAD0C: fprintf(stderr,"$%04X        1581: SERVAL Values read from serial bus\n",pc); break;
 		  case 0xAD2F: fprintf(stderr,"$%04X        1581: DELAY1 Cycle delay\n",pc); break;
 		  case 0xAD34: fprintf(stderr,"$%04X        1581: DELAY2 Cycle delay\n",pc); break;
