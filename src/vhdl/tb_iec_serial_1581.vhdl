@@ -672,6 +672,7 @@ begin
         -- Hold simulated 1581 under reset, so that it can't interfere
         -- (JiffyDOS ROM at least holds DATA low during boot-up).
         f1581_reset_n <= '0';
+        silence_internal_drive <= '1';
 
         POKE(x"D699",x"28"); -- Access device 8
         POKE(x"D698",x"30"); -- Trigger ATN write
