@@ -3426,14 +3426,14 @@ begin
           audio_dma_saturation_enable <= value(0);
 --dengland
       elsif long_address(7 downto 0) = x"13" then
-            -- @IO:GS $D713.0 DMA:CH0ENA@CHXENA AudioDMA IRQ Channel X enabled
-            -- @IO:GS $D713.1 DMA:CH1ENA @CHXENA
-            -- @IO:GS $D713.2 DMA:CH2ENA @CHXENA
-            -- @IO:GS $D713.3 DMA:CH3ENA @CHXENA
-            -- @IO:GS $D713.4 DMA:CH0FLG@CHXFLG AudioDMA IRQ Channel X event triggered flag
-            -- @IO:GS $D713.5 DMA:CH1FLG @CHXFLG
-            -- @IO:GS $D713.6 DMA:CH2FLG @CHXFLG
-            -- @IO:GS $D713.7 DMA:CH3FLG @CHXFLG
+            -- @IO:GS $D713.0 DMA:IRQ!CH3ENA@CHXENA AudioDMA IRQ Channel X enabled
+            -- @IO:GS $D713.1 DMA:IRQ!CH2ENA @CHXENA
+            -- @IO:GS $D713.2 DMA:IRQ!CH1ENA @CHXENA
+            -- @IO:GS $D713.3 DMA:IRQ!CH0ENA @CHXENA
+            -- @IO:GS $D713.4 DMA:IRQ!CH3FLG@CHXFLG AudioDMA IRQ Channel X event triggered flag
+            -- @IO:GS $D713.5 DMA:IRQ!CH2FLG @CHXFLG
+            -- @IO:GS $D713.6 DMA:IRQ!CH1FLG @CHXFLG
+            -- @IO:GS $D713.7 DMA:IRQ!CH0FLG @CHXFLG
             audio_dma_irqflg(0) <= value(7); 
             audio_dma_irqflg(1) <= value(6); 
             audio_dma_irqflg(2) <= value(5); 
@@ -3448,25 +3448,25 @@ begin
 --          audio_dma_irqaddr <= (others => x"FFFFFF");
 
       elsif long_address(7 downto 0) = x"14" then
-        -- @IO:GS $D714 DMA:CH0OFFS@CHXOFFS Audio DMA Channel X IRQ Address Offset (bits 15 - 8)
+        -- @IO:GS $D714 DMA:IRQ!CH0OFFS@CHXOFFS Audio DMA Channel X IRQ Address Offset (bits 15 - 8)
 --          audio_dma_irqltch(0) <= '0';
             audio_dma_irqofs(0) <= value;
 --          audio_dma_irqltch(0) := '1';
 --          audio_dma_irqaddr(0) <=  x"FFFFFF";
       elsif long_address(7 downto 0) = x"15" then
-        -- @IO:GS $D715 DMA:CH1OFFS @CHXOFFS
+        -- @IO:GS $D715 DMA:IRQ!CH1OFFS @CHXOFFS
 --          audio_dma_irqltch(1) <= '0';
             audio_dma_irqofs(1) <= value;
 --          audio_dma_irqltch(1) := '1';
 --          audio_dma_irqaddr(1) <=  x"FFFFFF";
       elsif long_address(7 downto 0) = x"16" then
-        -- @IO:GS $D716 DMA:CH2OFFS @CHXOFFS
+        -- @IO:GS $D716 DMA:IRQ!CH2OFFS @CHXOFFS
 --          audio_dma_irqltch(2) <= '0';
             audio_dma_irqofs(2) <= value;
 --          audio_dma_irqltch(2) := '1';
 --          audio_dma_irqaddr(2) <=  x"FFFFFF";
       elsif long_address(7 downto 0) = x"17" then
-        -- @IO:GS $D717 DMA:CH3OFFS @CHXOFFS
+        -- @IO:GS $D717 DMA:IRQ!CH3OFFS @CHXOFFS
 --          audio_dma_irqltch(3) <= '0';
             audio_dma_irqofs(3) <= value;
 --          audio_dma_irqltch(3) := '1';
