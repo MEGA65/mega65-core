@@ -674,6 +674,14 @@ begin
         f1581_reset_n <= '0';
         silence_internal_drive <= '1';
 
+        -- wait for host reset to complete
+        while host_reset_countdown /= 0 loop
+          clock_tick;
+        end loop;
+        for i in 1 to 1000 loop
+          clock_tick;
+        end loop;
+        
         POKE(x"D699",x"28"); -- Access device 8
         POKE(x"D698",x"30"); -- Trigger ATN write
 
