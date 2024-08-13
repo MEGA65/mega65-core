@@ -705,6 +705,11 @@ begin
               when I_AND => reg_a <= alu_and; set_nz(alu_and);
               when I_ORA => reg_a <= alu_ora; set_nz(alu_ora);
               when I_EOR => reg_a <= alu_eor; set_nz(alu_eor);
+              when I_ADC => add_result := alu_op_add(reg_a,data_i);
+                            reg_a <= add_result(7 downto 0);
+                            flag_c <= add_result(8);  flag_z <= add_result(9);
+                            flag_v <= add_result(10); flag_n <= add_result(11);
+                
               when I_BIT => flag_n <= data_i(7);
                             flag_v <= data_i(6);
                             if (reg_a and data_i) = to_unsigned(0,8) then
