@@ -115,6 +115,9 @@ architecture romanesque_revival of internal1581 is
   
   signal fast_serial_direction : std_logic;
   signal atn_ack : std_logic;
+
+  signal last_address : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal report_read : std_logic := '0';
   
 begin
 
@@ -300,8 +303,22 @@ begin
 
       -- Export last byte written to 1581 RX byte location to support automated
       -- tests of IEC communications in tb_iec_serial.vhdl
-      if address = x"0054" and cpu_write_n='0' then
-        last_rx_byte <= wdata;
+      -- Also report 
+      report_read <= '0';
+      last_address <= address;
+      if last_address /= address then
+        if address = x"0054" and cpu_write_n='0' then
+          last_rx_byte <= wdata;
+        end if;
+        if address = x"0051" and cpu_write_n='0' then
+          report "1581DOS: Setting EOI byte to $" & to_hexstring(wdata);
+        end if;
+        if address = x"0051" and cpu_write_n='1' then
+          report_read <= '1';
+        end if;
+      end if;
+      if report_read='1' and cpu_write_n='1' then
+        report "1581DOS: Reading EOI byte value $" & to_hexstring(rdata);
       end if;
       
     end if;
