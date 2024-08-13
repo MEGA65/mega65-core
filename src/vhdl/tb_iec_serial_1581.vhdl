@@ -357,6 +357,29 @@ begin
           assert false report "Read-back of 1581 RAM at $" & to_hexstring(to_unsigned(12*256 + i,16)) & " yielded $" & to_hexstring(fastio81_rdata) & " instead of $" & to_hexstring(d81_rdata);
         end if;
       end loop;
+
+      -- BAM sector 1 to 40 at $0A00
+      for i in 0 to 255 loop
+        d81_address <= to_unsigned(1*256 + i,20);
+        clock_tick; clock_tick;
+        POKE81(to_unsigned(10*256 + i,16), d81_rdata);
+        PEEK81(to_unsigned(10*256 + i,16));
+      end loop;
+      -- Disk header to $0800
+      for i in 0 to 255 loop
+        d81_address <= to_unsigned(0*256 + i,20);
+        clock_tick; clock_tick;
+        POKE81(to_unsigned(9*256 + i,16), d81_rdata);
+        PEEK81(to_unsigned(9*256 + i,16));
+      end loop;
+      -- First directory sector to $0900
+      for i in 0 to 255 loop
+        d81_address <= to_unsigned(3*256 + i,20);
+        clock_tick; clock_tick;
+        POKE81(to_unsigned(8*256 + i,16), d81_rdata);
+        PEEK81(to_unsigned(8*256 + i,16));
+      end loop;
+      
       -- Set track cache track and side numbers
       POKE81(to_unsigned(149,16),to_unsigned(39,8));  -- physical track number
       POKE81(to_unsigned(150,16),to_unsigned(40,8));  -- translated track number
