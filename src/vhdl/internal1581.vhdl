@@ -306,9 +306,10 @@ begin
       -- Also report 
       report_read <= '0';
       last_address <= address;
-      if last_address /= address then
+      if last_address /= address or cpu_write_n='0' then
         if address = x"0054" and cpu_write_n='0' then
           last_rx_byte <= wdata;
+          report "1581DOS: Setting last RX byte to $" & to_hexstring(wdata);
         end if;
         if address = x"0051" and cpu_write_n='0' then
           report "1581DOS: Setting EOI byte to $" & to_hexstring(wdata);
