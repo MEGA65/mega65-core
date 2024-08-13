@@ -2560,18 +2560,18 @@ begin
             -- @IO:GS $D721 DMA:CH0BADDRLSB@CHXBADDRLSB Audio DMA channel X base address (bits 0 - 7)
             -- @IO:GS $D722 DMA:CH0BADDRMSB@CHXBADDRMSB Audio DMA channel X base address bits 8 - 15)
             -- @IO:GS $D723 DMA:CH0BADDRBNK@CHXBADDRBNK Audio DMA channel X base address (bits 16 - 23)
-            -- @IO:GS $D724 DMA:CH0FREQL@CHXFREQL Audio DMA channel X frequency (bits 0 - 7)
-            -- @IO:GS $D725 DMA:CH0FREQC@CHXFREQC Audio DMA channel X frequency (bits 8 - 15)
-            -- @IO:GS $D726 DMA:CH0FREQM@CHXFREQM Audio DMA channel X frequency (bits 16 - 23)
+            -- @IO:GS $D724 DMA:CH0FREQ0@CHXFREQ0 Audio DMA channel X frequency (bits 0 - 7)
+            -- @IO:GS $D725 DMA:CH0FREQ1@CHXFREQ1 Audio DMA channel X frequency (bits 8 - 15)
+            -- @IO:GS $D726 DMA:CH0FREQ2@CHXFREQ2 Audio DMA channel X frequency (bits 16 - 23)
             -- @IO:GS $D727 DMA:CH0TADDRLSB@CHXTADDRL Audio DMA channel X top address (bits 0 - 7)
             -- @IO:GS $D728 DMA:CH0TADDRMSB@CHXTADDRM Audio DMA channel X top address (bits 8 - 15)
             -- @IO:GS $D729 DMA:CH0VOLUME@CHXVOLUME Audio DMA channel X playback volume
             -- @IO:GS $D72A DMA:CH0CURADDRLSB@CHXCURADDRLSB Audio DMA channel X current address (bits 0 - 7)
             -- @IO:GS $D72B DMA:CH0CURADDRMSB@CHXCURADDRMSB Audio DMA channel X current address (bits 8 - 15)
             -- @IO:GS $D72C DMA:CH0CURADDRBNK@CHXCURADDRBNK Audio DMA channel X current address (bits 16 - 23)
-            -- @IO:GS $D72D DMA:CH0TMRADDRLSB@CHXTMRADDRLSB Audio DMA channel X timing counter (bits 0 - 7)
-            -- @IO:GS $D72E DMA:CH0TMRADDRMSB@CHXTMRADDRMSB Audio DMA channel X timing counter (bits 8 - 15)
-            -- @IO:GS $D72F DMA:CH0TMRADDRBNK@CHXTMRADDRBNK Audio DMA channel X timing counter (bits 16 - 23)
+            -- @IO:GS $D72D DMA:CH0TMGCNT0@CHXTMGCNT0 Audio DMA channel X timing counter (bits 0 - 7)
+            -- @IO:GS $D72E DMA:CH0TMGCNT1@CHXTMGCNT1 Audio DMA channel X timing counter (bits 8 - 15)
+            -- @IO:GS $D72F DMA:CH0TMGCNT2@CHXTMGCNT2 Audio DMA channel X timing counter (bits 16 - 23)
 
             -- @IO:GS $D730.7 DMA:CH1!EN @CHXEN
             -- @IO:GS $D730.6 DMA:CH1!LOOP @CHXLOOP
@@ -2582,18 +2582,18 @@ begin
             -- @IO:GS $D731 DMA:CH1BADDRLSB @CHXBADDRLSB
             -- @IO:GS $D732 DMA:CH1BADDRMSB @CHXBADDRMSB
             -- @IO:GS $D733 DMA:CH1BADDRBNK @CHXBADDRBNK
-            -- @IO:GS $D734 DMA:CH1FREQL @CHXFREQL
-            -- @IO:GS $D735 DMA:CH1FREQC @CHXFREQC
-            -- @IO:GS $D736 DMA:CH1FREQM @CHXFREQM
+            -- @IO:GS $D734 DMA:CH1FREQ0 @CHXFREQ0
+            -- @IO:GS $D735 DMA:CH1FREQ1 @CHXFREQ1
+            -- @IO:GS $D736 DMA:CH1FREQ2 @CHXFREQ2
             -- @IO:GS $D737 DMA:CH1TADDRLSB @CHXTADDRLSB
             -- @IO:GS $D738 DMA:CH1TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D739 DMA:CH1VOLUME @CHXVOLUME
             -- @IO:GS $D73A DMA:CH1CURADDRLSB @CHXCURADDRLSB
             -- @IO:GS $D73B DMA:CH1CURADDRMSB @CHXCURADDRMSB
             -- @IO:GS $D73C DMA:CH1CURADDRBNK @CHXCURADDRBNK
-            -- @IO:GS $D73D DMA:CH1TMRADDRLSB @CHXTMRADDRLSB
-            -- @IO:GS $D73E DMA:CH1TMRADDRMSB @CHXTMRADDRMSB
-            -- @IO:GS $D73F DMA:CH1TMRADDRBNK @CHXTMRADDRBNK
+            -- @IO:GS $D73D DMA:CH1TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D73E DMA:CH1TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D73F DMA:CH1TMGCNT2 @CHXTMGCNT2
 
             -- @IO:GS $D740.7 DMA:CH2!EN @CHXEN
             -- @IO:GS $D740.6 DMA:CH2!LOOP @CHXLOOP
@@ -2604,18 +2604,18 @@ begin
             -- @IO:GS $D741 DMA:CH2BADDRLSB @CHXBADDRLSB
             -- @IO:GS $D742 DMA:CH2BADDRMSB @CHXBADDRMSB
             -- @IO:GS $D743 DMA:CH2BADDRBNK @CHXBADDRBNK
-            -- @IO:GS $D744 DMA:CH2FREQL @CHXFREQL
-            -- @IO:GS $D745 DMA:CH2FREQC @CHXFREQC
-            -- @IO:GS $D746 DMA:CH2FREQM @CHXFREQM
+            -- @IO:GS $D744 DMA:CH2FREQ0 @CHXFREQ0
+            -- @IO:GS $D745 DMA:CH2FREQ1 @CHXFREQ1
+            -- @IO:GS $D746 DMA:CH2FREQ2 @CHXFREQ2
             -- @IO:GS $D747 DMA:CH2TADDRLSB @CHXTADDRLSB
             -- @IO:GS $D748 DMA:CH2TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D749 DMA:CH2VOLUME @CHXVOLUME
             -- @IO:GS $D74A DMA:CH2CURADDRLSB @CHXCURADDRLSB
             -- @IO:GS $D74B DMA:CH2CURADDRMSB @CHXCURADDRMSB
             -- @IO:GS $D74C DMA:CH2CURADDRBNK @CHXCURADDRBNK
-            -- @IO:GS $D74D DMA:CH2TMRADDRLSB @CHXTMRADDRLSB
-            -- @IO:GS $D74E DMA:CH2TMRADDRMSB @CHXTMRADDRMSB
-            -- @IO:GS $D74F DMA:CH2TMRADDRBNK @CHXTMRADDRBNK
+            -- @IO:GS $D74D DMA:CH2TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D74E DMA:CH2TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D74F DMA:CH2TMGCNT2 @CHXTMGCNT2
 
             -- @IO:GS $D750.7 DMA:CH3!EN @CHXEN
             -- @IO:GS $D750.6 DMA:CH3!LOOP @CHXLOOP
@@ -2626,18 +2626,18 @@ begin
             -- @IO:GS $D751 DMA:CH3BADDRLSB @CHXBADDRLSB
             -- @IO:GS $D752 DMA:CH3BADDRMSB @CHXBADDRMSB
             -- @IO:GS $D753 DMA:CH3BADDRBNK @CHXBADDRBNK
-            -- @IO:GS $D754 DMA:CH3FREQL @CHXFREQL
-            -- @IO:GS $D755 DMA:CH3FREQC @CHXFREQC
-            -- @IO:GS $D756 DMA:CH3FREQM @CHXFREQM
+            -- @IO:GS $D754 DMA:CH3FREQ0 @CHXFREQ0
+            -- @IO:GS $D755 DMA:CH3FREQ1 @CHXFREQ1
+            -- @IO:GS $D756 DMA:CH3FREQ2 @CHXFREQ2
             -- @IO:GS $D757 DMA:CH3TADDRLSB @CHXTADDRLSB
             -- @IO:GS $D758 DMA:CH3TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D759 DMA:CH3VOLUME @CHXVOLUME
             -- @IO:GS $D75A DMA:CH3CURADDRLSB @CHXCURADDRLSB
             -- @IO:GS $D75B DMA:CH3CURADDRMSB @CHXCURADDRMSB
             -- @IO:GS $D75C DMA:CH3CURADDRBNK @CHXCURADDRBNK
-            -- @IO:GS $D75D DMA:CH3TMRADDRLSB @CHXTMRADDRLSB
-            -- @IO:GS $D75E DMA:CH3TMRADDRMSB @CHXTMRADDRMSB
-            -- @IO:GS $D75F DMA:CH3TMRADDRBNK @CHXTMRADDRBNK
+            -- @IO:GS $D75D DMA:CH3TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D75E DMA:CH3TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D75F DMA:CH3TMGCNT2 @CHXTMGCNT2
 
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
                             audio_dma_sine_wave(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
