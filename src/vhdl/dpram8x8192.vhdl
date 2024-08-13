@@ -46,6 +46,8 @@ architecture behavioural of dpram8x8192 is
   shared variable RAM : ram_type := (
     others => (others => '0'));
 
+  signal last_addrb : std_logic_vector(ADDR_WIDTH-1 downto 0);
+  
 begin
 
   -------	 Port A	-------
@@ -56,6 +58,7 @@ begin
         for i in 0 to NB_COL-1 loop
           if wea(i) = '1' then
             RAM(to_integer(unsigned(addra((ADDR_WIDTH-1) downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dina((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
+            report "1581RAM: Back-channel write to $" & to_hexstring(unsigned(addra)) & " of $" & to_hexstring(dina);
           end if;			 
         end loop;
       end if;
@@ -82,6 +85,10 @@ begin
           end if;
         end loop;
         doutb <= RAM(to_integer(unsigned(addrb((ADDR_WIDTH-1) downto 0))));
+      if to_integer(unsigned(addrb)) >= (3*256) and addrb /= last_addrb then
+        report "1581RAM: Reading buffer address $" & to_hexstring(unsigned(addrb));
+        last_addrb <= addrb;
+      end if;
       end if;
     end if;
   end process;
