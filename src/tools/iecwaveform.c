@@ -342,7 +342,7 @@ int openFile(char *port)
 
 long long time_val;
 unsigned int atn, clk_c64, clk_1541, data_c64, data_1541, data_dummy;
-unsigned int iec_state,instr_num,pc;
+unsigned int iec_state,instr_num,pc,reg_a;
 char time_units[8192];
 
 int bit_num=0;
@@ -397,8 +397,8 @@ int getUpdate(void)
 	      fprintf(stderr,"%s\n",&line[ofs+1]);
 	    }
 	    
-	    if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/simple_cpu6502.vhdl:%*d:%*d:@%lld%[^:]:(report note): Instr#:%d PC: $%x",
-		       &time_val,time_units,&instr_num,&pc)==4) {
+	    if (sscanf(line,"/home/paul/Projects/mega65/mega65-core/src/vhdl/simple_cpu6502.vhdl:%*d:%*d:@%lld%[^:]:(report note): Instr#:%d PC: $%x, A:%02X",
+		       &time_val,time_units,&instr_num,&pc,&reg_a)==5) {
 
 	      pc=pc &0xffff;
 	      
@@ -958,7 +958,10 @@ int getUpdate(void)
 		  case 0xFF36: fprintf(stderr,"$%04X        1581: LISTEN Execute the JLISTEN routine via an indirect jump to the vector at $01B4. JLISTEN at $AEB8\n",pc); break;
 		  case 0xFF39: fprintf(stderr,"$%04X        1581: LCC Execute the JLCC routine via an indirect jump to the vector at $01B6. JLCC at $C0BE\n",pc); break;
 		  case 0xFF3C: fprintf(stderr,"$%04X        1581: TRANSTS Execute the JTRANSTS routine via an indirect jump to the vector at $01B8. JTRANSTS at $CEDC\n",pc); break;
-		  case 0xFF3F: fprintf(stderr,"$%04X        1581: CMDERR Execute the CMDERR routine via an indirect jump to the vector at $01BA. CMDERR at $A7F1\n",pc); break;
+		  case 0xFF3F:
+		    fprintf(stderr,"$%04X        1581: CMDERR Error = $%02x\n",pc,reg_a);
+		    // fprintf(stderr,"$%04X        1581: CMDERR Execute the CMDERR routine via an indirect jump to the vector at $01BA. CMDERR at $A7F1\n",pc);
+		    break;
 		  case 0xFF42: fprintf(stderr,"$%04X        1581: STROBECTRLER Not used by DOS\n",pc); break;
 		  case 0xFF54: fprintf(stderr,"$%04X        1581: CBMBOOT Execute the JSTROBE_CTRLER routine via a direct jump to $FF54. JSTROBE_CTRLER at $959D\n",pc); break;
 		  case 0xFF57: fprintf(stderr,"$%04X        1581: CBMBOOTRTN Execute the JCBMBOOT routine via a direct jump to $FF57. JCBMBOOT at $A938\n",pc); break;
