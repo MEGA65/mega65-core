@@ -313,25 +313,33 @@ begin
         fastio_write <= '0';
     end procedure;
 
+    -- XXX This routine doesn't seem to work
     procedure PEEK81(a : unsigned(15 downto 0)) is
     begin
-        fastio81_addr(3 downto 0) <= a(3 downto 0);
-        fastio81_read <= '1';
-        for i in 1 to 8 loop
-          clock_tick;
-        end loop;
-        fastio81_read <= '0';      
+      fastio81_addr(19 downto 16) <= "0000";
+      fastio81_addr(15 downto 0) <= a;
+      cs81_driveram <= '1';
+      fastio81_read <= '1';
+      for i in 1 to 8 loop
+        clock_tick;
+      end loop;
+      cs81_driveram <= '1';
+      fastio81_read <= '0';      
     end procedure;
-    
+
+    -- XXX Does this routine work?
     procedure POKE81(a : unsigned(15 downto 0); v : unsigned(7 downto 0)) is
     begin
-        fastio81_addr(3 downto 0) <= a(3 downto 0);
-        fastio81_wdata <= v;
-        fastio81_write <= '1';
-        for i in 1 to 4 loop
-          clock_tick;
-        end loop;
-        fastio81_write <= '0';
+      fastio81_addr(19 downto 16) <= "0000";
+      fastio81_addr(15 downto 0) <= a;
+      cs81_driveram <= '1';
+      fastio81_wdata <= v;
+      fastio81_write <= '1';
+      for i in 1 to 4 loop
+        clock_tick;
+      end loop;
+      fastio81_write <= '0';
+      cs81_driveram <= '0';
     end procedure;
 
     procedure load_dirtrack is
@@ -466,7 +474,15 @@ begin
       end if;
     end procedure;        
 
-    
+    procedure check_1581_last_rx_byte ( v : unsigned(7 downto 0)) is
+    begin
+      if c1581_received_byte /= v then
+        assert false report "1581 expected to receive $" & to_hexstring(v) & ", but received $" & to_hexstring(c1581_received_byte);
+      else
+        report "1581 correctly received the byte $" & to_hexstring(c1581_received_byte);
+      end if;
+    end procedure;          
+        
     procedure atn_tx_byte(v : unsigned(7 downto 0)) is
     begin
       report "IEC: atn_tx_byte($" & to_hexstring(v) & ")";
@@ -478,17 +494,11 @@ begin
       fail_if_BUSY;
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
+
+      check_1581_last_rx_byte(v);
+      
     end procedure;    
 
-    procedure check_1581_last_rx_byte ( v : unsigned(7 downto 0)) is
-    begin
-      if c1581_received_byte /= v then
-        assert false report "1581 expected to receive $" & to_hexstring(v) & ", but received $" & to_hexstring(c1581_received_byte);
-      else
-        report "1581 correctly received the byte $" & to_hexstring(c1581_received_byte);
-      end if;
-    end procedure;          
-    
     procedure iec_tx(v : unsigned(7 downto 0)) is
     begin 
       report "IEC: iec_tx($" & to_hexstring(v) & ")";
@@ -544,6 +554,8 @@ begin
       fail_if_DEVICE_NOT_PRESENT;
       fail_if_TIMEOUT;
 
+      report "IEC: tx_to_rx_turnaround() complete.";
+      
     end procedure;
 
     procedure iec_rx(expected : unsigned(7 downto 0)) is
@@ -998,40 +1010,62 @@ begin
         
         boot_1581;
 
+        report "CHECKPOINT 1";
+        
         -- Modify 1581's RAM contents, so that it thinks track 40 has been
         -- loaded already
-        -- load_dirtrack;
+        load_dirtrack;
         
         report "IEC: Commencing sending DEVICE 8 LISTEN ($28) byte under ATN";
         atn_tx_byte(x"28"); -- Device 8 LISTEN
 
+        report "CHECKPOINT 2";
+
         report "IEC: Commencing sending OPEN SECONDARY ADDRESS 0 byte under ATN";
         atn_tx_byte(x"F0");
 
+        report "CHECKPOINT 3";
+
         get_drive_capability;
+        
+        report "CHECKPOINT 4";
         
         report "Clearing ATN";
         atn_release;       
-        
+
+        report "CHECKPOINT 5";
+
         report "IEC: Sending $ filename";
         iec_tx_eoi(x"24");  -- $
-             
+
+        report "CHECKPOINT 6";
+        
         report "IEC: Sending UNLISTEN to device 8";
         atn_tx_byte(x"3F");
-           
+
+        report "CHECKPOINT 7";
+        
         report "Clearing ATN";
         atn_release;
 
+        report "CHECKPOINT 8";
+        
         report "IEC: Allow 1581 time to process the $ filename.";
-        wait_a_while(300_000);
+        wait_a_while(3_000_000);
+
+        report "CHECKPOINT 9";
         
         report "IEC: Request read command channel 0 of device 8";
         atn_tx_byte(x"48");
+        report "CHECKPOINT 10";
         atn_tx_byte(x"60");
+        report "CHECKPOINT 11";
 
         report "IEC: Commencing turn-around to listen";
         tx_to_rx_turnaround;
 
+        report "CHECKPOINT 12";
+        
         report "IEC: Trying to receive a byte";
         -- Check for "00, OK,00,00" message
         iec_rx(x"30");
@@ -1047,6 +1081,7 @@ begin
         iec_rx(x"30");
         iec_rx(x"30");
         iec_rx_eoi(x"0D");        
+
         
       end if;
     end loop;
