@@ -731,6 +731,7 @@ int getUpdate(void)
 		  case 0xAD34: fprintf(stderr,"$%04X        1581: DELAY2 Cycle delay\n",pc); break;
 		  case 0xAD3C: fprintf(stderr,"$%04X        1581: UICMD \"UI\" command bus mode command 1541/1540 speed\n",pc); break;
 		  case 0xAD5C: fprintf(stderr,"$%04X        1581: TALK Serial bus talk routine\n",pc); break;
+		  case 0xAE42: fprintf(stderr,"$%04X        1581: ACPTR (Serial bus receive byte)\n",pc); break;
 		  case 0xAEB8: fprintf(stderr,"$%04X        1581: LISTEN Serial bus listen routine\n",pc); break;
 		  case 0xAED9: fprintf(stderr,"$%04X        1581: RESETBUS Reset bus control register and wait for next command\n",pc); break;
 		  case 0xAEEA: fprintf(stderr,"$%04X        1581: SETSERIAL Setup fast serial direction as input or output (carry set = SPOUT, carry clear = SPINP)\n",pc); break;
