@@ -57,7 +57,7 @@ generate_version () {
   if [[ $name =~ ^release-(([0-9])\.([0-9][0-9]?))$ ]]; then
     name="Rel ${BASH_REMATCH[1]} RC#$num $hash"
   else
-    name="$1 #$num $hash"
+    name="${name:0:17} #$num $hash"
   fi
   # cut after 6 chars
   echo ${name}
