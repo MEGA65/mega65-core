@@ -19,8 +19,11 @@ This is the Summer 2024 Release.
     [#763](https://github.com/MEGA65/mega65-core/issues/763)
   - QSPI: Read errors due to skipping dummy (latency) cycles
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
+- Features:
+  - Audio DMA IRQs for advanced buffering
+    [#811](https://github.com/MEGA65/mega65-core/issues/811)
 - Bugfixes:
-  -  Sprites not correctly hidden by border
+  - Sprites not correctly hidden by border
     [#815](https://github.com/MEGA65/mega65-core/issues/815)
   - Fix critical warnings and SDRAM DQ drive
     [PR#812](https://github.com/MEGA65/mega65-core/pull/813)
@@ -43,6 +46,7 @@ This is the Summer 2024 Release.
   - Alternate ROMs in Slot 9
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
 - Documentation:
+  - Hyppo Register docstring updates
   - CHXSGN is described inverted
     [#807](https://github.com/MEGA65/mega65-core/pull/807)
 - Changes probably already fixed in 0.96 (or earlier)
