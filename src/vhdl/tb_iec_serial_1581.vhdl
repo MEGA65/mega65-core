@@ -82,7 +82,7 @@ begin
 
   d81: entity work.d81 port map (
     -- Fast IO interface
-    clka => '1',
+    clka => pixelclock,
     csa => '1',
     addressa => to_integer(d81_address(19 downto 0)),
     wea => '0',
@@ -311,6 +311,9 @@ begin
           clock_tick;
         end loop;
         fastio_write <= '0';
+        for i in 1 to 4 loop
+          clock_tick;
+        end loop;
     end procedure;
 
     -- XXX This routine doesn't seem to work
@@ -320,7 +323,7 @@ begin
       fastio81_addr(15 downto 0) <= a;
       cs81_driveram <= '1';
       fastio81_read <= '1';
-      for i in 1 to 8 loop
+      for i in 1 to 16 loop
         clock_tick;
       end loop;
       cs81_driveram <= '1';
@@ -347,7 +350,12 @@ begin
       report "IEC: Loading track 40 into 1581 directory cache from d81.vhdl";
       for i in 0 to (5*1024) loop
         d81_address <= to_unsigned(i,20);
+        clock_tick; clock_tick;
         POKE81(to_unsigned(12*256 + i,16), d81_rdata);
+        PEEK81(to_unsigned(12*256 + i,16));
+        if d81_rdata /= fastio81_rdata then
+          assert false report "Read-back of 1581 RAM at $" & to_hexstring(to_unsigned(12*256 + i,16)) & " yielded $" & to_hexstring(fastio81_rdata) & " instead of $" & to_hexstring(d81_rdata);
+        end if;
       end loop;
       -- Set track cache track and side numbers
       POKE81(to_unsigned(149,16),to_unsigned(39,8));  -- physical track number
