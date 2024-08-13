@@ -13,7 +13,7 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 
 
-entity dpram8x4096 is
+entity dpram8x8192 is
   generic (
     SIZE	 : integer := 8192;
     ADDR_WIDTH : integer := 13;
@@ -38,9 +38,9 @@ entity dpram8x4096 is
     silence_internal_drive : in std_logic := '0'    
     );
   
-end dpram8x4096;
+end dpram8x8192;
 
-architecture behavioural of dpram8x4096 is
+architecture behavioural of dpram8x8192 is
 
   type ram_type is array (0 to SIZE-1) of std_logic_vector (NB_COL*COL_WIDTH-1 downto 0);
   shared variable RAM : ram_type := (

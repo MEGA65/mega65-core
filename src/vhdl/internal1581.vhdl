@@ -60,10 +60,10 @@ entity internal1581 is
     sd_data_byte : in unsigned(7 downto 0);
     sd_data_ready_toggle : in std_logic;
     sd_data_request_toggle : out std_logic := '0';
-    sd_1541_enable : out std_logic := '0'; -- data flows only when enabled,
+    sd_1581_enable : out std_logic := '0'; -- data flows only when enabled,
                                            -- i.e., when we think the motor is
                                            -- on
-    sd_1541_track : out unsigned(5 downto 0) := to_unsigned(18,6)
+    sd_1581_track : out unsigned(5 downto 0) := to_unsigned(18,6)
 
     );
 end entity internal1581;
@@ -121,7 +121,7 @@ architecture romanesque_revival of internal1581 is
   
 begin
 
-  ram: entity work.dpram8x4096 generic map (
+  ram: entity work.dpram8x8192 generic map (
     SIZE => 8192,
     ADDR_WIDTH => 13
     )
@@ -144,7 +144,7 @@ begin
     silence_internal_drive => silence_internal_drive
     );
 
-  rom: entity work.driverom port map (
+  rom: entity work.driverom1581 port map (
     -- Fast IO interface
     clka => clock,
     csa => cs_driverom,

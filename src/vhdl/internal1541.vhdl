@@ -257,7 +257,7 @@ begin
     unsigned(doutb) => ram_rdata
     );
 
-  rom: entity work.driverom port map (
+  rom: entity work.driverom1541 port map (
     -- Fast IO interface
     clka => clock,
     csa => cs_driverom,

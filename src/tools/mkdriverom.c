@@ -7,7 +7,7 @@ char *top="library IEEE;\n"
 "use ieee.numeric_std.all;\n"
 "\n"
 "--\n"
-"entity driverom is\n"
+"entity driverom%s is\n"
 "  port (ClkA : in std_logic;\n"
 "        addressa : in integer; -- range 0 to %d;\n"
 "        wea : in std_logic;\n"
@@ -20,9 +20,9 @@ char *top="library IEEE;\n"
 "        addressb : in integer;\n"
 "        dob : out unsigned(7 downto 0)\n"
 "        );\n"
-"end driverom;\n"
+"end driverom%s;\n"
 "\n"
-"architecture Behavioral of driverom is\n"
+"architecture Behavioral of driverom%s is\n"
 "\n"
 "  signal write_count : unsigned(7 downto 0) := x\"00\";\n"
 "  signal no_write_count : unsigned(7 downto 0) := x\"00\";\n"
@@ -93,16 +93,19 @@ int main(int argc,char **argv)
   }
 
   fprintf(stderr,"INFO: Read %d total ROM bytes\n",rom_size);
-
+  char *drivemodel="";
+    
   if (rom_size==16384) {
     // Mask out 1541 RAM/ROM tests on startup to speed it up
     fprintf(stderr,"INFO: Assuming 16KB ROM is for 1541, and masking out RAM/ROM startup tests\n");
     for(int i=0xEAA7;i<=0xEB21;i++) {
       rom[i-0xc000]=0xea;
     }
+    drivemodel="1541";
   }
   if (rom_size==32768) {
     // Mask out 1581 RAM/ROM tests on startup to speed it up
+    drivemodel="1581";
     fprintf(stderr,"INFO: Assuming 32KB ROM is for 1581, and masking out RAM/ROM startup tests\n");
     for(int i=0xAF4E;i<=0xAFBF;i++) {
       rom[i-0x8000]=0xea;
@@ -119,7 +122,7 @@ int main(int argc,char **argv)
     for(int i=0x959F;i<=0x95A6;i++) rom[i-0x8000]= 0xea; 
   }
   
-  fprintf(stdout,top,rom_size-1,rom_size-1);
+  fprintf(stdout,top,drivemodel,rom_size-1,drivemodel,drivemodel,rom_size-1);
   for(int i=0;i<rom_size-1;i++) printf(" %d => x\"%02x\",\n",i,rom[i]);
   printf(" %d => x\"%02x\"\n",rom_size-1,rom[rom_size-1]);
   fprintf(stdout,"%s",bottom);
