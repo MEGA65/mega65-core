@@ -441,6 +441,17 @@ architecture Behavioural of gs4510 is
   
 
   --dengland
+  signal audio_dma_irqenb : std_logic_vector(0 to 3) := (others => '0');
+  signal audio_dma_irqflg : std_logic_vector(0 to 3) := (others => '0');
+  signal audio_dma_irqofs : u7_0to3 := (others => to_unsigned(0,8));
+--  signal audio_dma_irqaddr : u23_0to3 := (others => to_unsigned(-1,24));
+--  signal audio_dma_irqltch : std_logic_vector(0 to 3) := (others => '0');
+--  signal audio_dma_irqlast : u23_0to3 := (others => to_unsigned(0,24));
+  signal audio_dma_irqdebuga : u7_0to3 := (others => to_unsigned(0,8));
+  signal audio_dma_irqdebugb : u7_0to3 := (others => to_unsigned(0,8));
+
+
+
   signal audio_dma_multed : s16_0to3 := (others => to_signed(0,17));
   signal audio_dma_pan_multed : s16_0to3 := (others => to_signed(0,17));
   
@@ -732,6 +743,20 @@ architecture Behavioural of gs4510 is
   signal map_interrupt_inhibit : std_logic := '0';
   signal nmi_pending : std_logic := '0';
   signal irq_pending : std_logic := '0';
+
+--dengland
+--  signal irq_internal : std_logic := '0';
+    shared variable irq_internal : std_logic := '0';
+--  shared variable audio_dma_irqltch : std_logic_vector(0 to 3) := (others => '0');
+    shared variable audio_dma_irqcalc : unsigned(23 downto 0) := (others => '0');
+    shared variable audio_dma_irqaddr : unsigned(23 downto 0) := (others => '0');
+    shared variable audio_dma_calctop : unsigned(23 downto 0) := (others => '0');
+
+    shared variable audio_dma_irqtemp : unsigned(23 downto 0) := (others => '0');
+
+    shared variable audio_dma_irqevent : std_logic_vector(0 to 3) := (others => '0');
+
+
   signal nmi_state : std_logic := '1';
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_last : std_logic := '0';
@@ -2042,10 +2067,17 @@ begin
         if ((irq = '0') and (flag_i='0')) and (irq_defer_active='0') then
           irq_pending <= '1';
         else
-          irq_pending <= '0';
+--dengland
+          if  (irq_internal = '0') or (irq_defer_active='1') or (flag_i='1') then
+            irq_internal := '0';
+            irq_pending <= '0';
+            audio_dma_irqevent := "0000";
+          end if;
         end if;
       else
+        irq_internal := '0';
         irq_pending <= '0';
+        audio_dma_irqevent := "0000";
       end if;
 
       -- Allow hypervisor to ban interrupts for 65,535 48MHz CPU cycles,
@@ -2467,7 +2499,7 @@ begin
             when x"10" => return "00" & badline_extra_cycles  & charge_for_branches_taken & vdc_enabled & slow_interrupts & badline_enable;
             -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
-            -- @IO:GS $D711.5 DMA:AUD!WRBLK Audio DMA block writes (samples still get read) 
+            -- @IO:GS $D711.5 DMA:AUD!WRBLK Audio DMA block writes (samples still get read)
             -- @IO:GS $D711.4 DMA:NOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 DMA:AUD!BLKTO Audio DMA block timeout (read only) DEBUG
@@ -2475,10 +2507,41 @@ begin
                           
             -- XXX DEBUG registers for audio DMA
             --dengland
+            -- @IO:GS $D712.7 DMA:DBG!LFTSAT Audio DMA Left Saturated (read only)
+            -- @IO:GS $D712.6 DMA:DBG!RGTSAT Audio DMA Right Saturated (read only)
+            -- @IO:GS $D712.5 DMA:DBGPAN!LFTSAT Audio DMA Pan Left Saturated (read only)
+            -- @IO:GS $D712.4 DMA:DBGPAN!RGTSAT Audio DMA Pan Right Saturated (read only)
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
                             audio_dma_left_vol_sat & audio_dma_right_vol_sat & "00" & 
                             audio_dma_swap & audio_dma_saturation_enable;
 
+            when x"13" => return 
+                audio_dma_irqflg(0) & 
+                audio_dma_irqflg(1) &
+                audio_dma_irqflg(2) &
+                audio_dma_irqflg(3) &
+                audio_dma_irqenb(0) &
+                audio_dma_irqenb(1) &
+                audio_dma_irqenb(2) &
+                audio_dma_irqenb(3);
+
+            when x"14" => 
+--                audio_dma_irqltch(0) <= '0';
+                return audio_dma_irqofs(0);
+            when x"15" => 
+--                audio_dma_irqltch(1) <= '0';
+                return audio_dma_irqofs(1);
+            when x"16" => 
+--                audio_dma_irqltch(2) <= '0';
+                return audio_dma_irqofs(2);
+            when x"17" => 
+--                audio_dma_irqltch(3) <= '0';
+                return audio_dma_irqofs(3);
+            when x"18" =>
+              return audio_dma_irqdebuga(0);
+            when x"19" =>
+              return audio_dma_irqdebugb(0);
+              
             -- @IO:GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
             -- @IO:GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
             -- @IO:GS $D71E DMA:CH2LVOL Audio DMA channel 2 left channel volume
@@ -2494,21 +2557,21 @@ begin
             -- @IO:GS $D720.4 DMA:CH0!SINE@CHXSINE Audio DMA channel X play 32-sample sine wave instead of DMA data
             -- @IO:GS $D720.3 DMA:CH0!STP@CHXSTP Audio DMA channel X stop flag
             -- @IO:GS $D720.0-1 DMA:CH0!SBITS@CHXSBITS Audio DMA channel X sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-            -- @IO:GS $D721 DMA:CH0BADDRL@CHXBADDRL Audio DMA channel X base address LSB
-            -- @IO:GS $D722 DMA:CH0BADDRC@CHXBADDRC Audio DMA channel X base address middle byte
-            -- @IO:GS $D723 DMA:CH0BADDRM@CHXBADDRM Audio DMA channel X base address MSB
-            -- @IO:GS $D724 DMA:CH0FREQL@CHXFREQL Audio DMA channel X frequency LSB
-            -- @IO:GS $D725 DMA:CH0FREQC@CHXFREQC Audio DMA channel X frequency middle byte
-            -- @IO:GS $D726 DMA:CH0FREQM@CHXFREQM Audio DMA channel X frequency MSB
-            -- @IO:GS $D727 DMA:CH0TADDRL@CHXTADDRL Audio DMA channel X top address LSB
-            -- @IO:GS $D728 DMA:CH0TADDRM@CHXTADDRM Audio DMA channel X top address MSB
+            -- @IO:GS $D721 DMA:CH0BADDRLSB@CHXBADDRLSB Audio DMA channel X base address (bits 0 - 7)
+            -- @IO:GS $D722 DMA:CH0BADDRMSB@CHXBADDRMSB Audio DMA channel X base address bits 8 - 15)
+            -- @IO:GS $D723 DMA:CH0BADDRBNK@CHXBADDRBNK Audio DMA channel X base address (bits 16 - 23)
+            -- @IO:GS $D724 DMA:CH0FREQ0@CHXFREQ0 Audio DMA channel X frequency (bits 0 - 7)
+            -- @IO:GS $D725 DMA:CH0FREQ1@CHXFREQ1 Audio DMA channel X frequency (bits 8 - 15)
+            -- @IO:GS $D726 DMA:CH0FREQ2@CHXFREQ2 Audio DMA channel X frequency (bits 16 - 23)
+            -- @IO:GS $D727 DMA:CH0TADDRLSB@CHXTADDRL Audio DMA channel X top address (bits 0 - 7)
+            -- @IO:GS $D728 DMA:CH0TADDRMSB@CHXTADDRM Audio DMA channel X top address (bits 8 - 15)
             -- @IO:GS $D729 DMA:CH0VOLUME@CHXVOLUME Audio DMA channel X playback volume
-            -- @IO:GS $D72A DMA:CH0CURADDRL@CHXCURADDRL Audio DMA channel X current address LSB
-            -- @IO:GS $D72B DMA:CH0CURADDRC@CHXCURADDRC Audio DMA channel X current address middle byte
-            -- @IO:GS $D72C DMA:CH0CURADDRM@CHXCURADDRM Audio DMA channel X current address MSB
-            -- @IO:GS $D72D DMA:CH0TMRADDRL@CHXTMRADDRL Audio DMA channel X timing counter LSB
-            -- @IO:GS $D72E DMA:CH0TMRADDRC@CHXTMRADDRC Audio DMA channel X timing counter middle byte
-            -- @IO:GS $D72F DMA:CH0TMRADDRM@CHXTMRADDRM Audio DMA channel X timing counter MSB
+            -- @IO:GS $D72A DMA:CH0CURADDRLSB@CHXCURADDRLSB Audio DMA channel X current address (bits 0 - 7)
+            -- @IO:GS $D72B DMA:CH0CURADDRMSB@CHXCURADDRMSB Audio DMA channel X current address (bits 8 - 15)
+            -- @IO:GS $D72C DMA:CH0CURADDRBNK@CHXCURADDRBNK Audio DMA channel X current address (bits 16 - 23)
+            -- @IO:GS $D72D DMA:CH0TMGCNT0@CHXTMGCNT0 Audio DMA channel X timing counter (bits 0 - 7)
+            -- @IO:GS $D72E DMA:CH0TMGCNT1@CHXTMGCNT1 Audio DMA channel X timing counter (bits 8 - 15)
+            -- @IO:GS $D72F DMA:CH0TMGCNT2@CHXTMGCNT2 Audio DMA channel X timing counter (bits 16 - 23)
 
             -- @IO:GS $D730.7 DMA:CH1!EN @CHXEN
             -- @IO:GS $D730.6 DMA:CH1!LOOP @CHXLOOP
@@ -2516,21 +2579,21 @@ begin
             -- @IO:GS $D730.4 DMA:CH1!SINE @CHXSINE
             -- @IO:GS $D730.3 DMA:CH1!STP @CHXSTP
             -- @IO:GS $D730.0-1 DMA:CH1!SBITS @CHXSBITS
-            -- @IO:GS $D731 DMA:CH1BADDRL @CHXBADDRL
-            -- @IO:GS $D732 DMA:CH1BADDRC @CHXBADDRC
-            -- @IO:GS $D733 DMA:CH1BADDRM @CHXBADDRM
-            -- @IO:GS $D734 DMA:CH1FREQL @CHXFREQL
-            -- @IO:GS $D735 DMA:CH1FREQC @CHXFREQC
-            -- @IO:GS $D736 DMA:CH1FREQM @CHXFREQM
-            -- @IO:GS $D737 DMA:CH1TADDRL @CHXTADDRL
-            -- @IO:GS $D738 DMA:CH1TADDRM @CHXTADDRM
+            -- @IO:GS $D731 DMA:CH1BADDRLSB @CHXBADDRLSB
+            -- @IO:GS $D732 DMA:CH1BADDRMSB @CHXBADDRMSB
+            -- @IO:GS $D733 DMA:CH1BADDRBNK @CHXBADDRBNK
+            -- @IO:GS $D734 DMA:CH1FREQ0 @CHXFREQ0
+            -- @IO:GS $D735 DMA:CH1FREQ1 @CHXFREQ1
+            -- @IO:GS $D736 DMA:CH1FREQ2 @CHXFREQ2
+            -- @IO:GS $D737 DMA:CH1TADDRLSB @CHXTADDRLSB
+            -- @IO:GS $D738 DMA:CH1TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D739 DMA:CH1VOLUME @CHXVOLUME
-            -- @IO:GS $D73A DMA:CH1CURADDRL @CHXCURADDRL
-            -- @IO:GS $D73B DMA:CH1CURADDRC @CHXCURADDRC
-            -- @IO:GS $D73C DMA:CH1CURADDRM @CHXCURADDRM
-            -- @IO:GS $D73D DMA:CH1TMRADDRL @CHXTMRADDRL
-            -- @IO:GS $D73E DMA:CH1TMRADDRC @CHXTMRADDRC
-            -- @IO:GS $D73F DMA:CH1TMRADDRM @CHXTMRADDRM
+            -- @IO:GS $D73A DMA:CH1CURADDRLSB @CHXCURADDRLSB
+            -- @IO:GS $D73B DMA:CH1CURADDRMSB @CHXCURADDRMSB
+            -- @IO:GS $D73C DMA:CH1CURADDRBNK @CHXCURADDRBNK
+            -- @IO:GS $D73D DMA:CH1TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D73E DMA:CH1TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D73F DMA:CH1TMGCNT2 @CHXTMGCNT2
 
             -- @IO:GS $D740.7 DMA:CH2!EN @CHXEN
             -- @IO:GS $D740.6 DMA:CH2!LOOP @CHXLOOP
@@ -2538,21 +2601,21 @@ begin
             -- @IO:GS $D740.4 DMA:CH2!SINE @CHXSINE
             -- @IO:GS $D740.3 DMA:CH2!STP @CHXSTP
             -- @IO:GS $D740.0-1 DMA:CH2!SBITS @CHXSBITS
-            -- @IO:GS $D741 DMA:CH2BADDRL @CHXBADDRL
-            -- @IO:GS $D742 DMA:CH2BADDRC @CHXBADDRC
-            -- @IO:GS $D743 DMA:CH2BADDRM @CHXBADDRM
-            -- @IO:GS $D744 DMA:CH2FREQL @CHXFREQL
-            -- @IO:GS $D745 DMA:CH2FREQC @CHXFREQC
-            -- @IO:GS $D746 DMA:CH2FREQM @CHXFREQM
-            -- @IO:GS $D747 DMA:CH2TADDRL @CHXTADDRL
-            -- @IO:GS $D748 DMA:CH2TADDRM @CHXTADDRM
+            -- @IO:GS $D741 DMA:CH2BADDRLSB @CHXBADDRLSB
+            -- @IO:GS $D742 DMA:CH2BADDRMSB @CHXBADDRMSB
+            -- @IO:GS $D743 DMA:CH2BADDRBNK @CHXBADDRBNK
+            -- @IO:GS $D744 DMA:CH2FREQ0 @CHXFREQ0
+            -- @IO:GS $D745 DMA:CH2FREQ1 @CHXFREQ1
+            -- @IO:GS $D746 DMA:CH2FREQ2 @CHXFREQ2
+            -- @IO:GS $D747 DMA:CH2TADDRLSB @CHXTADDRLSB
+            -- @IO:GS $D748 DMA:CH2TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D749 DMA:CH2VOLUME @CHXVOLUME
-            -- @IO:GS $D74A DMA:CH2CURADDRL @CHXCURADDRL
-            -- @IO:GS $D74B DMA:CH2CURADDRC @CHXCURADDRC
-            -- @IO:GS $D74C DMA:CH2CURADDRM @CHXCURADDRM
-            -- @IO:GS $D74D DMA:CH2TMRADDRL @CHXTMRADDRL
-            -- @IO:GS $D74E DMA:CH2TMRADDRC @CHXTMRADDRC
-            -- @IO:GS $D74F DMA:CH2TMRADDRM @CHXTMRADDRM
+            -- @IO:GS $D74A DMA:CH2CURADDRLSB @CHXCURADDRLSB
+            -- @IO:GS $D74B DMA:CH2CURADDRMSB @CHXCURADDRMSB
+            -- @IO:GS $D74C DMA:CH2CURADDRBNK @CHXCURADDRBNK
+            -- @IO:GS $D74D DMA:CH2TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D74E DMA:CH2TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D74F DMA:CH2TMGCNT2 @CHXTMGCNT2
 
             -- @IO:GS $D750.7 DMA:CH3!EN @CHXEN
             -- @IO:GS $D750.6 DMA:CH3!LOOP @CHXLOOP
@@ -2560,23 +2623,22 @@ begin
             -- @IO:GS $D750.4 DMA:CH3!SINE @CHXSINE
             -- @IO:GS $D750.3 DMA:CH3!STP @CHXSTP
             -- @IO:GS $D750.0-1 DMA:CH3!SBITS @CHXSBITS
-            -- @IO:GS $D751 DMA:CH3BADDRL @CHXBADDRL
-            -- @IO:GS $D752 DMA:CH3BADDRC @CHXBADDRC
-            -- @IO:GS $D753 DMA:CH3BADDRM @CHXBADDRM
-            -- @IO:GS $D754 DMA:CH3FREQL @CHXFREQL
-            -- @IO:GS $D755 DMA:CH3FREQC @CHXFREQC
-            -- @IO:GS $D756 DMA:CH3FREQM @CHXFREQM
-            -- @IO:GS $D757 DMA:CH3TADDRL @CHXTADDRL
-            -- @IO:GS $D758 DMA:CH3TADDRM @CHXTADDRM
+            -- @IO:GS $D751 DMA:CH3BADDRLSB @CHXBADDRLSB
+            -- @IO:GS $D752 DMA:CH3BADDRMSB @CHXBADDRMSB
+            -- @IO:GS $D753 DMA:CH3BADDRBNK @CHXBADDRBNK
+            -- @IO:GS $D754 DMA:CH3FREQ0 @CHXFREQ0
+            -- @IO:GS $D755 DMA:CH3FREQ1 @CHXFREQ1
+            -- @IO:GS $D756 DMA:CH3FREQ2 @CHXFREQ2
+            -- @IO:GS $D757 DMA:CH3TADDRLSB @CHXTADDRLSB
+            -- @IO:GS $D758 DMA:CH3TADDRMSB @CHXTADDRMSB
             -- @IO:GS $D759 DMA:CH3VOLUME @CHXVOLUME
-            -- @IO:GS $D75A DMA:CH3CURADDRL @CHXCURADDRL
-            -- @IO:GS $D75B DMA:CH3CURADDRC @CHXCURADDRC
-            -- @IO:GS $D75C DMA:CH3CURADDRM @CHXCURADDRM
-            -- @IO:GS $D75D DMA:CH3TMRADDRL @CHXTMRADDRL
-            -- @IO:GS $D75E DMA:CH3TMRADDRC @CHXTMRADDRC
-            -- @IO:GS $D75F DMA:CH3TMRADDRM @CHXTMRADDRM
+            -- @IO:GS $D75A DMA:CH3CURADDRLSB @CHXCURADDRLSB
+            -- @IO:GS $D75B DMA:CH3CURADDRMSB @CHXCURADDRMSB
+            -- @IO:GS $D75C DMA:CH3CURADDRBNK @CHXCURADDRBNK
+            -- @IO:GS $D75D DMA:CH3TMGCNT0 @CHXTMGCNT0
+            -- @IO:GS $D75E DMA:CH3TMGCNT1 @CHXTMGCNT1
+            -- @IO:GS $D75F DMA:CH3TMGCNT2 @CHXTMGCNT2
 
-            -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
                             audio_dma_sine_wave(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
@@ -3307,7 +3369,7 @@ begin
         if long_address(7 downto 0) = x"00" then        
           -- Set low order bits of DMA list address
           reg_dmagic_addr(7 downto 0) <= value;
-          -- @IO:C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
+          -- @IO:C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB (bits 0 - 7), trigger DMA when written.
           -- DMA gets triggered when we write here. That actually happens through
           -- memory_access_write.
           -- We also clear out the upper address bits in case an enhanced job had
@@ -3315,13 +3377,14 @@ begin
           reg_dmagic_addr(27 downto 23) <= (others => '0');        
         elsif long_address(7 downto 0) = x"0E" then
           -- Set low order bits of DMA list address, without starting
-          -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
+          -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (bits 0 - 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
           reg_dmagic_addr(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"01" then
-          -- @IO:C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
+          -- @IO:C65 $D701 DMA:ADDRMSB DMA list address high byte (bits 8 - 15).
           reg_dmagic_addr(15 downto 8) <= value;
         elsif long_address(7 downto 0) = x"02" then
-          -- @IO:C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
+          -- @IO:C65 $D702.0-6 DMA:ADDRBANK DMA list address bank (bits 16 - 22). Writing clears \$D704.
+          -- @IO:C65 $D702.7 DMA:WITHIO DMA withio flag (unused)
           reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
           reg_dmagic_addr(27 downto 23) <= (others => '0');
           reg_dmagic_withio <= value(7);
@@ -3329,16 +3392,16 @@ begin
           -- @IO:GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
           support_f018b <= value(0);	-- setable dmagic mode
         elsif long_address(7 downto 0) = x"04" then
-          -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
+          -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte (bits 20 - 27). Overlaps with ADDRBANK!
           reg_dmagic_addr(27 downto 20) <= value;
         elsif long_address(7 downto 0) = x"05" then
-          -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
+          -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address (bits 0 - 7), and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
           reg_dmagic_addr(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"06" then
-          -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address, and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
+          -- @IO:GS $D706 DMA:ETRIGMAPD Set low-order byte of DMA list address (bits 0 - 7), and trigger Enhanced DMA job, with list in current CPU memory map (uses DMA option list)
           reg_dmagic_addr(7 downto 0) <= value;
         elsif long_address(7 downto 0) = x"07" then
-          -- @IO:GS $D707 - Trigger Enhanced DMAgic job inline (i.e., beginning at PC value, and setting PC to end of job when done)
+          -- @IO:GS $D707 DMA:ETRIGINLINE Trigger Enhanced DMAgic job inline (i.e., beginning at PC value, and setting PC to end of job when done)
           
         elsif long_address(7 downto 0) = x"10" then
           -- @IO:GS $D710.0   CPU:BADLEN Enable badline emulation
@@ -3357,8 +3420,59 @@ begin
           cpu_pcm_bypass_int <= value(4);
           pwm_mode_select_int <= value(3);
         elsif long_address(7 downto 0) = x"12" then
+        -- @IO:GS $D712.0 DMA:SATURATE Audio DMA Enable saturation
+        -- @IO:GS $D712.1 DMA:CHANSWAP Audio DMA Channel swap
           audio_dma_swap <= value(1);
           audio_dma_saturation_enable <= value(0);
+--dengland
+      elsif long_address(7 downto 0) = x"13" then
+            -- @IO:GS $D713.0 DMA:IRQ!CH3ENA@CHXENA AudioDMA IRQ Channel X enabled
+            -- @IO:GS $D713.1 DMA:IRQ!CH2ENA @CHXENA
+            -- @IO:GS $D713.2 DMA:IRQ!CH1ENA @CHXENA
+            -- @IO:GS $D713.3 DMA:IRQ!CH0ENA @CHXENA
+            -- @IO:GS $D713.4 DMA:IRQ!CH3FLG@CHXFLG AudioDMA IRQ Channel X event triggered flag
+            -- @IO:GS $D713.5 DMA:IRQ!CH2FLG @CHXFLG
+            -- @IO:GS $D713.6 DMA:IRQ!CH1FLG @CHXFLG
+            -- @IO:GS $D713.7 DMA:IRQ!CH0FLG @CHXFLG
+            audio_dma_irqflg(0) <= value(7); 
+            audio_dma_irqflg(1) <= value(6); 
+            audio_dma_irqflg(2) <= value(5); 
+            audio_dma_irqflg(3) <= value(4); 
+            audio_dma_irqenb(0) <= value(3); 
+            audio_dma_irqenb(1) <= value(2); 
+            audio_dma_irqenb(2) <= value(1); 
+            audio_dma_irqenb(3) <= value(0); 
+
+--          audio_dma_irqltch := (others => '1');
+
+--          audio_dma_irqaddr <= (others => x"FFFFFF");
+
+      elsif long_address(7 downto 0) = x"14" then
+        -- @IO:GS $D714 DMA:IRQ!CH0OFFS@CHXOFFS Audio DMA Channel X IRQ Address Offset (bits 15 - 8)
+--          audio_dma_irqltch(0) <= '0';
+            audio_dma_irqofs(0) <= value;
+--          audio_dma_irqltch(0) := '1';
+--          audio_dma_irqaddr(0) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"15" then
+        -- @IO:GS $D715 DMA:IRQ!CH1OFFS @CHXOFFS
+--          audio_dma_irqltch(1) <= '0';
+            audio_dma_irqofs(1) <= value;
+--          audio_dma_irqltch(1) := '1';
+--          audio_dma_irqaddr(1) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"16" then
+        -- @IO:GS $D716 DMA:IRQ!CH2OFFS @CHXOFFS
+--          audio_dma_irqltch(2) <= '0';
+            audio_dma_irqofs(2) <= value;
+--          audio_dma_irqltch(2) := '1';
+--          audio_dma_irqaddr(2) <=  x"FFFFFF";
+      elsif long_address(7 downto 0) = x"17" then
+        -- @IO:GS $D717 DMA:IRQ!CH3OFFS @CHXOFFS
+--          audio_dma_irqltch(3) <= '0';
+            audio_dma_irqofs(3) <= value;
+--          audio_dma_irqltch(3) := '1';
+--          audio_dma_irqaddr(3) <= x"FFFFFF";
+          
+          
         elsif long_address(7 downto 0) = x"1C" then
           audio_dma_pan_volume(0) <= value;
         elsif long_address(7 downto 0) = x"1D" then
@@ -4179,9 +4293,14 @@ begin
         -- if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
+--dengland Correction as when originally developing noted by kibo
           if audio_dma_mix_temp(15) = '1' then
+--          audio_dma_left(15) <= '0';
+--          audio_dma_left(14 downto 0) <= (others => '1');
             audio_dma_left <= (others => '0');
           else
+--          audio_dma_left(15) <= '1';
+--          audio_dma_left(14 downto 0) <= (others => '0');
             audio_dma_left <= (others => '1');
           end if;
         else
@@ -4546,6 +4665,59 @@ begin
               ;
           end if;
         else
+--dengland
+--        When not blocked and there is audio to output (address selected)...
+--        if  (audio_dma_sample_valid(i) = '1') then
+--        and (audio_dma_irqltch(i) = '0') 
+
+--            audio_dma_irqtemp := "00000000" & audio_dma_irqofs(i)(7 downto 0) & "00000000";
+--            audio_dma_calctop := x"010000" - audio_dma_base_addr(i)(15 downto 0) + audio_dma_top_addr(i)(15 downto 0);
+--            audio_dma_irqaddr := audio_dma_calctop - audio_dma_irqtemp;
+--          Calculate current address relative to 0
+--            audio_dma_irqcalc := x"010000" - audio_dma_current_addr(i)(15 downto 0) + audio_dma_top_addr(i);
+
+              audio_dma_irqaddr := (audio_dma_base_addr(i)(23 downto 16) & audio_dma_irqofs(i)(7 downto 0) & audio_dma_top_addr(i)(7 downto 0));
+              audio_dma_irqtemp := (audio_dma_base_addr(i)(23 downto 16) & audio_dma_top_addr(i)(15 downto 0));
+              audio_dma_irqcalc := (audio_dma_irqtemp - audio_dma_irqaddr);
+
+--            audio_dma_irqdebuga(i) <= audio_dma_irqaddr(15 downto 8);
+--            audio_dma_irqdebugb(i) <= audio_dma_irqcalc(15 downto 8);
+
+            if  (audio_dma_irqenb(i) = '1') then
+--            and (irq_internal = '0') then
+--              if  (audio_dma_irqcalc(15 downto 0) <= audio_dma_irqaddr(15 downto 0)) then
+----            and (audio_dma_irqlast(i)(15 downto 8) /= audio_dma_current_addr(i)(15 downto 8)) thenq
+----              audio_dma_irqltch(i) <= '1';
+
+              if audio_dma_current_addr(i)(15 downto 0) >= audio_dma_irqcalc(15 downto 0) then
+--              audio_dma_irqflg(i) <= '1';
+--              audio_dma_irqevent(i):= '1';
+
+                if audio_dma_irqevent(i) = '0' then
+                  audio_dma_irqflg(i) <= '1';
+--                audio_dma_enables(i) <= '0';
+                  audio_dma_irqevent(i):= '1';
+
+                  audio_dma_irqenb(i) <= '0';
+                end if;
+
+                if  irq_internal = '0' then
+                  irq_internal := '1';
+                  irq_pending <= '1';
+                end if;
+
+--              audio_dma_irqlast(i) <= audio_dma_current_addr(i);
+              end if;
+            end if;
+--        else 
+--        if (audio_dma_pending(i) = '1') then
+--          audio_dma_irqltch(i) := '0';
+--          audio_dma_irqlast(i) <= x"FFFFFF";
+--        end if;
+--        end if;
+
+
+
           if false then
             report "Audio DMA channel " & integer'image(i) & " enabled: ";
             report "Audio DMA channel " & integer'image(i) 
@@ -4617,6 +4789,14 @@ begin
         audio_dma_last_current_addr_set_flag <= (others => '0');
         audio_dma_timing_counter <= (others => to_unsigned(0,25));
         audio_dma_last_timing_counter_set_flag <= (others => '0');
+
+--dengland
+        audio_dma_irqenb <= (others => '0');
+        audio_dma_irqflg <= (others => '0');
+        audio_dma_irqevent := (others => '0');
+        audio_dma_irqofs <= (others => to_unsigned(0,8));
+--      audio_dma_irqltch <= (others => '0');
+		irq_internal := '0';
       end if;
       
       report "tick";
@@ -4891,21 +5071,21 @@ begin
           if (last_write_address(7 downto 0) = x"49") and hypervisor_mode='1' then
             hyper_pc(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
+                                          -- @IO:GS $D64A HCPU:MAPLO0 Hypervisor MAPLO register storage (high bits)
           if (last_write_address(7 downto 0) = x"4A") and hypervisor_mode='1' then
             hyper_map_low <= std_logic_vector(last_value(7 downto 4));
             hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
           end if;
-                                          -- @IO:GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
+                                          -- @IO:GS $D64B HCPU:MAPLO1 Hypervisor MAPLO register storage (low bits)
           if (last_write_address(7 downto 0) = x"4B") and hypervisor_mode='1' then
             hyper_map_offset_low(7 downto 0) <= last_value;
           end if;
-                                          -- @IO:GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
+                                          -- @IO:GS $D64C HCPU:MAPHI0 Hypervisor MAPHI register storage (high bits)
           if (last_write_address(7 downto 0) = x"4C") and hypervisor_mode='1' then
             hyper_map_high <= std_logic_vector(last_value(7 downto 4));
             hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
           end if;
-                                          -- @IO:GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
+                                          -- @IO:GS $D64D HCPU:MAPHI1 Hypervisor MAPHI register storage (low bits)
           if (last_write_address(7 downto 0) = x"4D") and hypervisor_mode='1' then
             hyper_map_offset_high(7 downto 0) <= last_value;
           end if;
@@ -4939,47 +5119,49 @@ begin
           if (last_write_address(7 downto 0) = x"54") and hypervisor_mode='1' then
             hyper_dmagic_dst_mb <= last_value;
           end if;
-                                          -- @IO:GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
+                                          -- @IO:GS $D655 HCPU:DMALADDR0 Hypervisor DMAGic list address bits 0-7
           if (last_write_address(7 downto 0) = x"55") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(7 downto 0) <= last_value;
           end if;
-                                          -- @IO:GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
+                                          -- @IO:GS $D656 HCPU:DMALADDR1 Hypervisor DMAGic list address bits 15-8
           if (last_write_address(7 downto 0) = x"56") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
+                                          -- @IO:GS $D657 HCPU:DMALADDR2 Hypervisor DMAGic list address bits 23-16
           if (last_write_address(7 downto 0) = x"57") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(23 downto 16) <= last_value;
           end if;
-                                          -- @IO:GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
+                                          -- @IO:GS $D658 HCPU:DMALADDR3 Hypervisor DMAGic list address bits 27-24
           if (last_write_address(7 downto 0) = x"58") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
           end if;
                                           -- @IO:GS $D659 - Hypervisor virtualise hardware flags
-                                          -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
-                                          -- @IO:GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
+                                          -- @IO:GS $D659.0 HCPU:VFLOP0 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+                                          -- @IO:GS $D659.1 HCPU:VFLOP1 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
           if (last_write_address(7 downto 0) = x"59") and hypervisor_mode='1' then
             virtualise_sd0 <= last_value(0);
             virtualise_sd1 <= last_value(1);
           end if;
-                                          -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
+                                          -- @IO:GS $D65D.0-3 HCPU:VPG!DIRTY Hypervisor page dirty
+                                          -- @IO:GS $D65D.4 HCPU:VPG!ACTIVE Hypervisor page active
+                                          -- @IO:GS $D65D.6-7 HCPU:VIRT!PAGE0 Hypervisor current virtual page number (bits 0 - 1)
           if (last_write_address(7 downto 0) = x"5D") and hypervisor_mode='1' then
             reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
             reg_pageactive <= last_value(4);
             reg_pages_dirty <= std_logic_vector(last_value(3 downto 0));
           end if;
-                                          -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
+                                          -- @IO:GS $D65E HCPU:VIRTPAGE1 Hypervisor current virtual page number (bits 2 - 9)
           if (last_write_address(7 downto 0) = x"5E") and hypervisor_mode='1' then
             reg_pagenumber(9 downto 2) <= last_value;
           end if;
-                                          -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
+                                          -- @IO:GS $D65F HCPU:VIRTPAGE2 Hypervisor current virtual page number (bits 10 - 17)
           if (last_write_address(7 downto 0) = x"5F") and hypervisor_mode='1' then
             reg_pagenumber(17 downto 10) <= last_value;
           end if;
-                                          -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
-                                          -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
-                                          -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
-                                          -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+                                          -- @IO:GS $D660 HCPU:VPG0LOG0@VPGXLOG0 Hypervisor virtual memory page X logical page (bits 0 - 7)
+                                          -- @IO:GS $D661 HCPU:VPG0LOG1@VPGXLOG1 Hypervisor virtual memory page X logical page (bits 8 - 15)
+                                          -- @IO:GS $D662 HCPU:VPG0PHY0@VPGXPHY0 Hypervisor virtual memory page X physical page (bits 0 - 7)
+                                          -- @IO:GS $D663 HCPU:VPG0PHY1@VPGXPHY1 Hypervisor virtual memory page X physical page (bits 8 - 15)
           if (last_write_address(7 downto 0) = x"60") and hypervisor_mode='1' then
             reg_page0_logical(7 downto 0) <= last_value;
           end if;
@@ -4992,10 +5174,10 @@ begin
           if (last_write_address(7 downto 0) = x"63") and hypervisor_mode='1' then
             reg_page0_physical(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
-                                          -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
-                                          -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
-                                          -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+                                          -- @IO:GS $D664 HCPU:VPG1LOG0 @VPGXLOG0
+                                          -- @IO:GS $D665 HCPU:VPG1LOG1 @VPGXLOG1
+                                          -- @IO:GS $D666 HCPU:VPG1PHY0 @VPGXPHY0
+                                          -- @IO:GS $D667 HCPU:VPG1PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"64") and hypervisor_mode='1' then
             reg_page1_logical(7 downto 0) <= last_value;
           end if;
@@ -5009,10 +5191,10 @@ begin
             reg_page1_physical(15 downto 8) <= last_value;
           end if;
 
-                                          -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
-                                          -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
-                                          -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
-                                          -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+                                          -- @IO:GS $D668 HCPU:VPG2LOG0 @VPGXLOG0
+                                          -- @IO:GS $D669 HCPU:VPG2LOG1 @VPGXLOG1
+                                          -- @IO:GS $D66A HCPU:VPG2PHY0 @VPGXPHY0
+                                          -- @IO:GS $D66B HCPU:VPG2PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"68") and hypervisor_mode='1' then
             reg_page2_logical(7 downto 0) <= last_value;
           end if;
@@ -5025,10 +5207,10 @@ begin
           if (last_write_address(7 downto 0) = x"6B") and hypervisor_mode='1' then
             reg_page2_physical(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
-                                          -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
-                                          -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
-                                          -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
+                                          -- @IO:GS $D66C HCPU:VPG3LOG0 @VPGXLOG0
+                                          -- @IO:GS $D66D HCPU:VPG3LOG1 @VPGXLOG1
+                                          -- @IO:GS $D66E HCPU:VPG3PHY0 @VPGXPHY0
+                                          -- @IO:GS $D66F HCPU:VPG3PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"6C") and hypervisor_mode='1' then
             reg_page3_logical(7 downto 0) <= last_value;
           end if;
@@ -5525,6 +5707,15 @@ begin
               state <= fast_fetch_state;
               monitor_instruction_strobe <= '1';
               report "monitor_instruction_strobe assert";
+--dengland
+
+              if  irq_internal = '1' then  
+                irq_pending <= '0';
+                irq_internal := '0';
+                audio_dma_irqevent:= "0000";
+              end if;
+
+
             when ProcessorHold =>
                                         -- Hold CPU while blocked by monitor
 
