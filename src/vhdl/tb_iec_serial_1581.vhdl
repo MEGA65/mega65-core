@@ -365,19 +365,19 @@ begin
         POKE81(to_unsigned(10*256 + i,16), d81_rdata);
         PEEK81(to_unsigned(10*256 + i,16));
       end loop;
-      -- Disk header to $0800
+      -- Disk header to $0900
       for i in 0 to 255 loop
         d81_address <= to_unsigned(0*256 + i,20);
         clock_tick; clock_tick;
         POKE81(to_unsigned(9*256 + i,16), d81_rdata);
         PEEK81(to_unsigned(9*256 + i,16));
       end loop;
-      -- First directory sector to $0900
+      -- First directory sector to $0700
       for i in 0 to 255 loop
         d81_address <= to_unsigned(3*256 + i,20);
         clock_tick; clock_tick;
-        POKE81(to_unsigned(8*256 + i,16), d81_rdata);
-        PEEK81(to_unsigned(8*256 + i,16));
+        POKE81(to_unsigned(7*256 + i,16), d81_rdata);
+        PEEK81(to_unsigned(7*256 + i,16));
       end loop;
       
       -- Set track cache track and side numbers
@@ -1138,6 +1138,11 @@ begin
         iec_rx(x"00");
         iec_rx(x"01");
         iec_rx(x"01");
+        -- It succeeds to here, then gets wrong data, because contents of
+        -- buffer at $08xx are being set by 1581 DOS, and I haven't looked into
+        -- what I have wrong in the side-loading of the track 40 cache etc.
+        -- I'm not worried about it for now, because the test getting this far
+        -- proves that LOAD starts to work, which is all I was testing. #736
         iec_rx(x"DC");
         iec_rx(x"00");
         iec_rx(x"20");

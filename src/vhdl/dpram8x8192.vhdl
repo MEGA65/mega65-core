@@ -81,14 +81,18 @@ begin
             RAM(to_integer(unsigned(addrb((ADDR_WIDTH-1) downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dinb((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
             if silence_internal_drive='0' then
               report "1581RAM: Writing $" & to_hexstring(dinb) & " to address $" & to_hexstring(to_unsigned(to_integer(unsigned(addrb)),16));
-            end if;
+              if to_integer(unsigned(addrb)) >= (3*256) and addrb /= last_addrb then
+                report "1581RAM: Writing buffer address $" & to_hexstring(unsigned(addrb)) & " = $" & to_hexstring(dinb);
+                last_addrb <= addrb;
+              end if;
+            end if;            
           end if;
         end loop;
         doutb <= RAM(to_integer(unsigned(addrb((ADDR_WIDTH-1) downto 0))));
-      if to_integer(unsigned(addrb)) >= (3*256) and addrb /= last_addrb then
-        report "1581RAM: Reading buffer address $" & to_hexstring(unsigned(addrb));
-        last_addrb <= addrb;
-      end if;
+        if to_integer(unsigned(addrb)) >= (3*256) and addrb /= last_addrb then
+          report "1581RAM: Reading buffer address $" & to_hexstring(unsigned(addrb)) & " = $" & to_hexstring(RAM(to_integer(unsigned(addrb((ADDR_WIDTH-1) downto 0)))));
+          last_addrb <= addrb;
+        end if;
       end if;
     end if;
   end process;
