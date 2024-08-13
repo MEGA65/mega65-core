@@ -353,6 +353,11 @@ begin
       POKE81(to_unsigned(149,16),to_unsigned(39,8));  -- physical track number
       POKE81(to_unsigned(150,16),to_unsigned(40,8));  -- translated track number
       POKE81(to_unsigned(151,16),to_unsigned(0,8));   -- side number
+
+      -- Spoof disk 0 ready, and without errors
+      POKE81(x"008A",x"00");
+      POKE81(x"006E",x"00");
+      
       
       report "IEC: Finished loading directory track into cache";
   
