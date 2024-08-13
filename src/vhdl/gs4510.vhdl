@@ -5071,21 +5071,21 @@ begin
           if (last_write_address(7 downto 0) = x"49") and hypervisor_mode='1' then
             hyper_pc(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
+                                          -- @IO:GS $D64A HCPU:MAPLO0 Hypervisor MAPLO register storage (high bits)
           if (last_write_address(7 downto 0) = x"4A") and hypervisor_mode='1' then
             hyper_map_low <= std_logic_vector(last_value(7 downto 4));
             hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
           end if;
-                                          -- @IO:GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
+                                          -- @IO:GS $D64B HCPU:MAPLO1 Hypervisor MAPLO register storage (low bits)
           if (last_write_address(7 downto 0) = x"4B") and hypervisor_mode='1' then
             hyper_map_offset_low(7 downto 0) <= last_value;
           end if;
-                                          -- @IO:GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
+                                          -- @IO:GS $D64C HCPU:MAPHI0 Hypervisor MAPHI register storage (high bits)
           if (last_write_address(7 downto 0) = x"4C") and hypervisor_mode='1' then
             hyper_map_high <= std_logic_vector(last_value(7 downto 4));
             hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
           end if;
-                                          -- @IO:GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
+                                          -- @IO:GS $D64D HCPU:MAPHI1 Hypervisor MAPHI register storage (low bits)
           if (last_write_address(7 downto 0) = x"4D") and hypervisor_mode='1' then
             hyper_map_offset_high(7 downto 0) <= last_value;
           end if;
@@ -5119,47 +5119,49 @@ begin
           if (last_write_address(7 downto 0) = x"54") and hypervisor_mode='1' then
             hyper_dmagic_dst_mb <= last_value;
           end if;
-                                          -- @IO:GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
+                                          -- @IO:GS $D655 HCPU:DMALADDR0 Hypervisor DMAGic list address bits 0-7
           if (last_write_address(7 downto 0) = x"55") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(7 downto 0) <= last_value;
           end if;
-                                          -- @IO:GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
+                                          -- @IO:GS $D656 HCPU:DMALADDR1 Hypervisor DMAGic list address bits 15-8
           if (last_write_address(7 downto 0) = x"56") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
+                                          -- @IO:GS $D657 HCPU:DMALADDR2 Hypervisor DMAGic list address bits 23-16
           if (last_write_address(7 downto 0) = x"57") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(23 downto 16) <= last_value;
           end if;
-                                          -- @IO:GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
+                                          -- @IO:GS $D658 HCPU:DMALADDR3 Hypervisor DMAGic list address bits 27-24
           if (last_write_address(7 downto 0) = x"58") and hypervisor_mode='1' then
             hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
           end if;
                                           -- @IO:GS $D659 - Hypervisor virtualise hardware flags
-                                          -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
-                                          -- @IO:GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
+                                          -- @IO:GS $D659.0 HCPU:VFLOP0 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+                                          -- @IO:GS $D659.1 HCPU:VFLOP1 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
           if (last_write_address(7 downto 0) = x"59") and hypervisor_mode='1' then
             virtualise_sd0 <= last_value(0);
             virtualise_sd1 <= last_value(1);
           end if;
-                                          -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
+                                          -- @IO:GS $D65D.0-3 HCPU:VPG!DIRTY Hypervisor page dirty
+                                          -- @IO:GS $D65D.4 HCPU:VPG!ACTIVE Hypervisor page active
+                                          -- @IO:GS $D65D.6-7 HCPU:VIRT!PAGE0 Hypervisor current virtual page number (bits 0 - 1)
           if (last_write_address(7 downto 0) = x"5D") and hypervisor_mode='1' then
             reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
             reg_pageactive <= last_value(4);
             reg_pages_dirty <= std_logic_vector(last_value(3 downto 0));
           end if;
-                                          -- @IO:GS $D65E - Hypervisor current virtual page number (mid byte)
+                                          -- @IO:GS $D65E HCPU:VIRTPAGE1 Hypervisor current virtual page number (bits 2 - 9)
           if (last_write_address(7 downto 0) = x"5E") and hypervisor_mode='1' then
             reg_pagenumber(9 downto 2) <= last_value;
           end if;
-                                          -- @IO:GS $D65F - Hypervisor current virtual page number (high byte)
+                                          -- @IO:GS $D65F HCPU:VIRTPAGE2 Hypervisor current virtual page number (bits 10 - 17)
           if (last_write_address(7 downto 0) = x"5F") and hypervisor_mode='1' then
             reg_pagenumber(17 downto 10) <= last_value;
           end if;
-                                          -- @IO:GS $D660 - Hypervisor virtual memory page 0 logical page low byte
-                                          -- @IO:GS $D661 - Hypervisor virtual memory page 0 logical page high byte
-                                          -- @IO:GS $D662 - Hypervisor virtual memory page 0 physical page low byte
-                                          -- @IO:GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+                                          -- @IO:GS $D660 HCPU:VPG0LOG0@VPGXLOG0 Hypervisor virtual memory page X logical page (bits 0 - 7)
+                                          -- @IO:GS $D661 HCPU:VPG0LOG1@VPGXLOG1 Hypervisor virtual memory page X logical page (bits 8 - 15)
+                                          -- @IO:GS $D662 HCPU:VPG0PHY0@VPGXPHY0 Hypervisor virtual memory page X physical page (bits 0 - 7)
+                                          -- @IO:GS $D663 HCPU:VPG0PHY1@VPGXPHY1 Hypervisor virtual memory page X physical page (bits 8 - 15)
           if (last_write_address(7 downto 0) = x"60") and hypervisor_mode='1' then
             reg_page0_logical(7 downto 0) <= last_value;
           end if;
@@ -5172,10 +5174,10 @@ begin
           if (last_write_address(7 downto 0) = x"63") and hypervisor_mode='1' then
             reg_page0_physical(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D664 - Hypervisor virtual memory page 1 logical page low byte
-                                          -- @IO:GS $D665 - Hypervisor virtual memory page 1 logical page high byte
-                                          -- @IO:GS $D666 - Hypervisor virtual memory page 1 physical page low byte
-                                          -- @IO:GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+                                          -- @IO:GS $D664 HCPU:VPG1LOG0 @VPGXLOG0
+                                          -- @IO:GS $D665 HCPU:VPG1LOG1 @VPGXLOG1
+                                          -- @IO:GS $D666 HCPU:VPG1PHY0 @VPGXPHY0
+                                          -- @IO:GS $D667 HCPU:VPG1PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"64") and hypervisor_mode='1' then
             reg_page1_logical(7 downto 0) <= last_value;
           end if;
@@ -5189,10 +5191,10 @@ begin
             reg_page1_physical(15 downto 8) <= last_value;
           end if;
 
-                                          -- @IO:GS $D668 - Hypervisor virtual memory page 2 logical page low byte
-                                          -- @IO:GS $D669 - Hypervisor virtual memory page 2 logical page high byte
-                                          -- @IO:GS $D66A - Hypervisor virtual memory page 2 physical page low byte
-                                          -- @IO:GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+                                          -- @IO:GS $D668 HCPU:VPG2LOG0 @VPGXLOG0
+                                          -- @IO:GS $D669 HCPU:VPG2LOG1 @VPGXLOG1
+                                          -- @IO:GS $D66A HCPU:VPG2PHY0 @VPGXPHY0
+                                          -- @IO:GS $D66B HCPU:VPG2PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"68") and hypervisor_mode='1' then
             reg_page2_logical(7 downto 0) <= last_value;
           end if;
@@ -5205,10 +5207,10 @@ begin
           if (last_write_address(7 downto 0) = x"6B") and hypervisor_mode='1' then
             reg_page2_physical(15 downto 8) <= last_value;
           end if;
-                                          -- @IO:GS $D66C - Hypervisor virtual memory page 3 logical page low byte
-                                          -- @IO:GS $D66D - Hypervisor virtual memory page 3 logical page high byte
-                                          -- @IO:GS $D66E - Hypervisor virtual memory page 3 physical page low byte
-                                          -- @IO:GS $D66F - Hypervisor virtual memory page 3 physical page high byte
+                                          -- @IO:GS $D66C HCPU:VPG3LOG0 @VPGXLOG0
+                                          -- @IO:GS $D66D HCPU:VPG3LOG1 @VPGXLOG1
+                                          -- @IO:GS $D66E HCPU:VPG3PHY0 @VPGXPHY0
+                                          -- @IO:GS $D66F HCPU:VPG3PHY0 @VPGXPHY1
           if (last_write_address(7 downto 0) = x"6C") and hypervisor_mode='1' then
             reg_page3_logical(7 downto 0) <= last_value;
           end if;

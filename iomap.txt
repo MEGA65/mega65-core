@@ -619,13 +619,13 @@ GS $D648 HCPU:PCL Hypervisor PC-low register storage
 GS $D649 CPU:HTRAP09 @HTRAPXX
 GS $D649 HCPU:PCH Hypervisor PC-high register storage
 GS $D64A CPU:HTRAP0A @HTRAPXX
-GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
+GS $D64A HCPU:MAPLO0 Hypervisor MAPLO register storage (high bits)
 GS $D64B CPU:HTRAP0B @HTRAPXX
-GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
+GS $D64B HCPU:MAPLO1 Hypervisor MAPLO register storage (low bits)
 GS $D64C CPU:HTRAP0C @HTRAPXX
-GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
+GS $D64C HCPU:MAPHI0 Hypervisor MAPHI register storage (high bits)
 GS $D64D CPU:HTRAP0D @HTRAPXX
-GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
+GS $D64D HCPU:MAPHI1 Hypervisor MAPHI register storage (low bits)
 GS $D64E CPU:HTRAP0E @HTRAPXX
 GS $D64E HCPU:MAPLOMB Hypervisor MAPLO mega-byte number register storage
 GS $D64F CPU:HTRAP0F @HTRAPXX
@@ -643,58 +643,60 @@ GS $D653 HCPU:DMASRCMB Hypervisor DMAgic source MB
 GS $D654 CPU:HTRAP14 @HTRAPXX
 GS $D654 HCPU:DMADSTMB Hypervisor DMAgic destination MB
 GS $D655 CPU:HTRAP15 @HTRAPXX
-GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
+GS $D655 HCPU:DMALADDR0 Hypervisor DMAGic list address bits 0-7
 GS $D656 CPU:HTRAP16 @HTRAPXX
-GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
+GS $D656 HCPU:DMALADDR1 Hypervisor DMAGic list address bits 15-8
 GS $D657 CPU:HTRAP17 @HTRAPXX
-GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
+GS $D657 HCPU:DMALADDR2 Hypervisor DMAGic list address bits 23-16
 GS $D658 CPU:HTRAP18 @HTRAPXX
-GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
-GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
-GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
+GS $D658 HCPU:DMALADDR3 Hypervisor DMAGic list address bits 27-24
+GS $D659.0 HCPU:VFLOP0 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+GS $D659.1 HCPU:VFLOP1 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
 GS $D659 CPU:HTRAP19 @HTRAPXX
 GS $D659 - Hypervisor virtualise hardware flags
 GS $D65A CPU:HTRAP1A @HTRAPXX
 GS $D65B CPU:HTRAP1B @HTRAPXX
 GS $D65C CPU:HTRAP1C @HTRAPXX
+GS $D65D.0-3 HCPU:VPG!DIRTY Hypervisor page dirty
+GS $D65D.4 HCPU:VPG!ACTIVE Hypervisor page active
+GS $D65D.6-7 HCPU:VIRT!PAGE0 Hypervisor current virtual page number (bits 0 - 1)
 GS $D65D CPU:HTRAP1D @HTRAPXX
-GS $D65D - Hypervisor current virtual page number (low byte)
 GS $D65E CPU:HTRAP1E @HTRAPXX
-GS $D65E - Hypervisor current virtual page number (mid byte)
+GS $D65E HCPU:VIRTPAGE1 Hypervisor current virtual page number (bits 2 - 9)
 GS $D65F CPU:HTRAP1F @HTRAPXX
-GS $D65F - Hypervisor current virtual page number (high byte)
+GS $D65F HCPU:VIRTPAGE2 Hypervisor current virtual page number (bits 10 - 17)
 GS $D660 CPU:HTRAP20 @HTRAPXX
-GS $D660 - Hypervisor virtual memory page 0 logical page low byte
+GS $D660 HCPU:VPG0LOG0@VPGXLOG0 Hypervisor virtual memory page X logical page (bits 0 - 7)
 GS $D661 CPU:HTRAP21 @HTRAPXX
-GS $D661 - Hypervisor virtual memory page 0 logical page high byte
+GS $D661 HCPU:VPG0LOG1@VPGXLOG1 Hypervisor virtual memory page X logical page (bits 8 - 15)
 GS $D662 CPU:HTRAP22 @HTRAPXX
-GS $D662 - Hypervisor virtual memory page 0 physical page low byte
+GS $D662 HCPU:VPG0PHY0@VPGXPHY0 Hypervisor virtual memory page X physical page (bits 0 - 7)
 GS $D663 CPU:HTRAP23 @HTRAPXX
-GS $D663 - Hypervisor virtual memory page 0 physical page high byte
+GS $D663 HCPU:VPG0PHY1@VPGXPHY1 Hypervisor virtual memory page X physical page (bits 8 - 15)
 GS $D664 CPU:HTRAP24 @HTRAPXX
-GS $D664 - Hypervisor virtual memory page 1 logical page low byte
+GS $D664 HCPU:VPG1LOG0 @VPGXLOG0
 GS $D665 CPU:HTRAP25 @HTRAPXX
-GS $D665 - Hypervisor virtual memory page 1 logical page high byte
+GS $D665 HCPU:VPG1LOG1 @VPGXLOG1
 GS $D666 CPU:HTRAP26 @HTRAPXX
-GS $D666 - Hypervisor virtual memory page 1 physical page low byte
+GS $D666 HCPU:VPG1PHY0 @VPGXPHY0
 GS $D667 CPU:HTRAP27 @HTRAPXX
-GS $D667 - Hypervisor virtual memory page 1 physical page high byte
+GS $D667 HCPU:VPG1PHY0 @VPGXPHY1
 GS $D668 CPU:HTRAP28 @HTRAPXX
-GS $D668 - Hypervisor virtual memory page 2 logical page low byte
+GS $D668 HCPU:VPG2LOG0 @VPGXLOG0
 GS $D669 CPU:HTRAP29 @HTRAPXX
-GS $D669 - Hypervisor virtual memory page 2 logical page high byte
+GS $D669 HCPU:VPG2LOG1 @VPGXLOG1
 GS $D66A CPU:HTRAP2A @HTRAPXX
-GS $D66A - Hypervisor virtual memory page 2 physical page low byte
+GS $D66A HCPU:VPG2PHY0 @VPGXPHY0
 GS $D66B CPU:HTRAP2B @HTRAPXX
-GS $D66B - Hypervisor virtual memory page 2 physical page high byte
+GS $D66B HCPU:VPG2PHY0 @VPGXPHY1
 GS $D66C CPU:HTRAP2C @HTRAPXX
-GS $D66C - Hypervisor virtual memory page 3 logical page low byte
+GS $D66C HCPU:VPG3LOG0 @VPGXLOG0
 GS $D66D CPU:HTRAP2D @HTRAPXX
-GS $D66D - Hypervisor virtual memory page 3 logical page high byte
+GS $D66D HCPU:VPG3LOG1 @VPGXLOG1
 GS $D66E CPU:HTRAP2E @HTRAPXX
-GS $D66E - Hypervisor virtual memory page 3 physical page low byte
+GS $D66E HCPU:VPG3PHY0 @VPGXPHY0
 GS $D66F CPU:HTRAP2F @HTRAPXX
-GS $D66F - Hypervisor virtual memory page 3 physical page high byte
+GS $D66F HCPU:VPG3PHY0 @VPGXPHY1
 GS $D670 CPU:HTRAP30 @HTRAPXX
 GS $D670 HCPU:GEORAMBASE Hypervisor GeoRAM base address (x MB)
 GS $D671 CPU:HTRAP31 @HTRAPXX
