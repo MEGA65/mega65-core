@@ -50,6 +50,7 @@ architecture synth of audio_clock is
   signal clki_fb  : std_logic;    -- feedback clock
   signal count    : integer range 0 to ratio-1;
   signal clk12288_counter : unsigned(26 downto 0) := to_unsigned(0,27);
+  signal select_44100_sync : std_logic;
   
 
     ----------------------------------------------------------------------
@@ -183,6 +184,10 @@ begin
     process(clk_60)
     begin 
       if rising_edge(clk_60) then
+        -- The input select_44100 is asynchronous to this clock, so first pass it through
+        -- a register.
+        select_44100_sync <= select_44100;
+
         -- 12.228 MHz is our goal, and we clock at 60MHz
         -- So we want to add 0.2038 x 2 = 0.4076 of a
         -- half-clock counter every cycle.
@@ -198,7 +203,7 @@ begin
         -- 25254408 / 2^26 = 0.376320004
         -- 60MHz x .376320004 / 2 = 11.289600134
         -- i.e., with error in the milli-samples-per-second range
-        if select_44100 = '0' then
+        if select_44100_sync = '0' then
           -- 48KHz
           clk12288_counter <= clk12288_counter + 27487791;
         else

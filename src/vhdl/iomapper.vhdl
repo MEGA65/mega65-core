@@ -145,6 +145,7 @@ entity iomapper is
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
+        portb_charge_pins : out std_logic;
         keyboard_column8_out : out std_logic;
         key_left : in std_logic;
         key_up : in std_logic;
@@ -312,7 +313,7 @@ entity iomapper is
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
-    ethernet_cpu_arrest : out std_logic;
+    ethernet_cpu_arrest : out std_logic := '0';
 
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
@@ -597,7 +598,7 @@ architecture behavioral of iomapper is
   signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
 
   signal cia1_irq : std_logic;
-  signal ethernet_irq : std_logic;
+  signal ethernet_irq : std_logic := '1';
   signal uart_irq : std_logic;
   signal iec_irq : std_logic;
 
@@ -609,7 +610,7 @@ architecture behavioral of iomapper is
   signal pcm_left : signed(15 downto 0) := x"FFFF";
   signal pcm_right : signed(15 downto 0) := x"FFFF";
 
-  signal cpu_ethernet_stream : std_logic;
+  signal cpu_ethernet_stream : std_logic := '0';
 
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
@@ -1097,6 +1098,7 @@ begin
 
     porta_pins => porta_pins,
     portb_pins => portb_pins,
+    portb_charge_pins => portb_charge_pins,
 
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
@@ -1240,7 +1242,7 @@ begin
     end generate;
 
 
-  eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t generate
+  eth0: if target /= megaphoner4 and target /= qmtecha100t and target /= qmtecha200t and target /= qmtechk325t and target /= wukong generate
     ethernet0 : entity work.ethernet
       generic map (
         num_buffers => num_eth_rx_buffers

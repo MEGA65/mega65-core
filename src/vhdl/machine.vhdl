@@ -192,6 +192,7 @@ entity machine is
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
          portb_pins : in  std_logic_vector(7 downto 0);
+         portb_charge_pins : out std_logic;
          keyleft : in std_logic;
          keyup : in std_logic;
          keyboard_column8 : out std_logic := '1';

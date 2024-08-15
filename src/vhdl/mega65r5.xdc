@@ -29,8 +29,8 @@ create_generated_clock -name clock60  [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1]
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
 # On board LEDs direct connected to main FPGA on R4, not via MAX10
-set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
-set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
+#set_property -dict {PACKAGE_PIN V19 IOSTANDARD LVCMOS33} [get_ports led_g]
+#set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVCMOS33} [get_ports led_r]
 
 
 # CBM-488/IEC serial port
@@ -108,24 +108,24 @@ set_property -dict {PACKAGE_PIN K18 IOSTANDARD LVCMOS33} [get_ports {cart_a[1]}]
 set_property -dict {PACKAGE_PIN K19 IOSTANDARD LVCMOS33} [get_ports {cart_a[0]}]
 # Place Cartidge near IO Pins
 create_pblock pblock_cart
-add_cells_to_pblock pblock_cart [get_cells [list slow_devices0/cartport0]]
+add_cells_to_pblock pblock_cart [get_cells [list *.slow_devices0/cartport0]]
 resize_pblock pblock_cart -add {SLICE_X0Y137:SLICE_X7Y185}
 
 # C65 Keyboard
 #
 
-set_property -dict {PACKAGE_PIN E13 IOSTANDARD LVCMOS33} [get_ports kb_tck]
-set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports kb_tdo]
-set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports kb_tms]
-set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports kb_tdi]
+#set_property -dict {PACKAGE_PIN E13 IOSTANDARD LVCMOS33} [get_ports kb_tck]
+#set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports kb_tdo]
+#set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports kb_tms]
+#set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports kb_tdi]
 set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports kb_io0]
 set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports kb_io1]
 set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
-set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
+#set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 # Place Keyboard close to I/O pins
 create_pblock pblock_kbd0
-add_cells_to_pblock pblock_kbd0 [get_cells [list kbd0]]
-resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X7Y243}
+add_cells_to_pblock pblock_kbd0 [get_cells [list *.kbd0 *.mk2]]
+resize_pblock pblock_kbd0 -add {SLICE_X0Y225:SLICE_X15Y243}
 
 # Paddles
 set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
@@ -136,11 +136,11 @@ set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_drain
 
 # Output lines on joysticks allow pulling the joystick lines low on R4
 # However, these pins are also shared with the new DBG header, except for DBG11
-set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
+#set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports dbg[11]]
 
 # Joystick port power control/sensing
-set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
-set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
+#set_property -dict {PACKAGE_PIN D19 IOSTANDARD LVCMOS33} [get_ports joystick_5v_disable]
+#set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports joystick_5v_powergood]
 
 
 # Joystick port A
@@ -245,7 +245,7 @@ set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
 set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable_n]
-set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
+#set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
 
 # I2C bus for on-board peripherals
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
@@ -261,7 +261,7 @@ set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVCMOS33} [get_ports board_sda]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports cec_a]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
 set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports hdmi_hiz]
-set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
+#set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # Other things I don't yet know
 
@@ -295,7 +295,7 @@ set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports audio_sda]
 # PWM Audio
 #
 # XXX - Are the following still used?
-set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
+#set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 
 
 ##USB HID (PS/2)
@@ -353,6 +353,10 @@ set_property -dict {PACKAGE_PIN AA6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST D
 set_property -dict {PACKAGE_PIN W5 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[13]]
 set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[14]]
 set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 16} [get_ports sdram_dq[15]]
+# Place SDRAM close to I/O pins
+create_pblock pblock_sdram
+add_cells_to_pblock pblock_sdram [get_cells [list *.sdramctrl0]]
+resize_pblock pblock_sdram -add {SLICE_X150Y100:SLICE_X163Y149}
 
 # Constrain input and output times for SDRAM pins
 # DQ pins must have an input delay in a fairly narrow range from about 2.9ns to 5.8ns.
@@ -375,7 +379,7 @@ set Tac3    5.4  ; # access (clock to output) time for CAS latency 3
 set Toh3    2.5  ; # output hold time for CAS latency 3
 
 #create_clock -name clki -period $Trefclk [get_ports clki]
-create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDCLK/I] [get_ports sdram_clk]
+create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins ODDR_SDCLK/C] [get_ports sdram_clk]
 
 # As we setup dq a cycle before, and hold it a cycle after, we can actually
 # relax sdram_dq output quite a bit, instead of constraining it
@@ -386,8 +390,8 @@ create_generated_clock -name sdram_clk -multiply_by 1 -source [get_pins OBUF_SDC
 #  set_output_delay -max [expr -(6.17-$Tpcb+$Tsu)]   -clock sdram_clk [get_ports sdram_dq]
 #  set_output_delay -min [expr 6.17-($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 # or just use a multi-cycle path (and keeping the first correct delays)
-set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
-set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
+#set_output_delay -max [expr $Tpcb+$Tsu]   -clock sdram_clk [get_ports sdram_dq]
+#set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 
 # One of the following seems to cause unwarranted delay by 5.6 ns, preventing timing closure
 #set_multicycle_path 2 -setup -start -from clock162 -to sdram_clk -through [get_ports sdram_dq[*]]
@@ -399,8 +403,8 @@ set_output_delay -min [expr -($Th-$Tpcb)] -clock sdram_clk [get_ports sdram_dq]
 set ratio 4; # ratio of launch to latch clock
 set n_setup [expr $ratio]
 set n_hold  [expr $ratio-1]
-set_multicycle_path $n_setup -setup -start -from clock162 -to u_clock41
-set_multicycle_path $n_hold  -hold  -start -from clock162 -to u_clock41
+set_multicycle_path $n_setup -setup -start -from clock163 -to clock41
+set_multicycle_path $n_hold  -hold  -start -from clock163 -to clock41
 
 
 ## Hyper RAM
@@ -418,7 +422,7 @@ set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr_cs0]
 # Place HyperRAM close to I/O pins
 create_pblock pblock_hyperram
-add_cells_to_pblock pblock_hyperram [get_cells [list hyperram0]]
+add_cells_to_pblock pblock_hyperram [get_cells [list *.hram0]]
 resize_pblock pblock_hyperram -add {SLICE_X0Y186:SLICE_X35Y224}
 resize_pblock pblock_hyperram -add {SLICE_X8Y175:SLICE_X23Y186}
 
@@ -503,17 +507,17 @@ set dqs_in_min_dly -0.5
 set dqs_in_max_dly  0.5
 
 set hr0_dq_ports    [get_ports hr_d[*]]
-set hr2_dq_ports    [get_ports hr2_d[*]]
+#set hr2_dq_ports    [get_ports hr2_d[*]]
 # Set 6ns max delay to/from various HyperRAM pins
 # (But add 17ns extra, because of weird ways Vivado calculates the apparent latency)
 set_max_delay -from [get_clocks clock163] -to ${hr0_dq_ports} 23
-set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
+#set_max_delay -from [get_clocks clock163] -to ${hr2_dq_ports} 23
 set_max_delay -to [get_clocks clock163] -from ${hr0_dq_ports} 23
-set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
+#set_max_delay -to [get_clocks clock163] -from ${hr2_dq_ports} 23
 set_max_delay -from [get_clocks clock163] -to hr_rwds 23
-set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
+#set_max_delay -from [get_clocks clock163] -to hr2_rwds 23
 set_max_delay -to [get_clocks clock163] -from hr_rwds 23
-set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
+#set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
 
 #set_input_delay -clock [get_clocks clock163]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
 #set_input_delay -clock [get_clocks clock163] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
@@ -527,7 +531,7 @@ set_max_delay -to [get_clocks clock163] -from hr2_rwds 23
 
 ##SMSC Ethernet PHY
 #
-set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {eth_led[1]}]
+#set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {eth_led[1]}]
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[0]}]
 set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[1]}]
 set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports {eth_txd[0]}]
@@ -541,23 +545,24 @@ set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_p
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 #set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_crs_dv]
 
-create_generated_clock -name eth_rx_clock -source [get_pins clocks1/mmcm_adv1_eth/CLKOUT1] [get_ports {eth_clock}]
-set_input_delay -clock [get_clocks eth_rx_clock] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
-set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] eth_rxd[0]}]
+create_generated_clock -name eth_rx_clock -multiply_by 1 -source [get_pins clocks1/mmcm_adv1_eth/CLKOUT1] [get_ports {eth_clock}]
+#set_input_delay -clock [get_clocks eth_rx_clock] -max 15 [get_ports {eth_rxd[1] eth_rxd[0]}]
+#set_input_delay -clock [get_clocks eth_rx_clock] -min 5 [get_ports {eth_rxd[1] eth_rxd[0]}]
+set_max_delay 2.5 -datapath_only -from [get_ports {eth_rxd[1] eth_rxd[0]}]
 
 ##USB-RS232 Interface
 #
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
-set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports pmod2_en]
-set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
-set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
-set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
+#set_property -dict {PACKAGE_PIN J16 IOSTANDARD LVCMOS33} [get_ports pmod1_en]
+#set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports pmod1_flag]
+#set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports pmod2_en]
+#set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports pmod2_flag]
 
 
 ##Micro SD Connector (x2 on r2 PCB)
-set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
+#set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
@@ -571,8 +576,8 @@ set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33} [get_ports sdClock]
 set_property -dict {PACKAGE_PIN B15 IOSTANDARD LVCMOS33} [get_ports sdReset]
 set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS33} [get_ports sdMISO]
 set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
-set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sdWP]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
+#set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sdWP]
+#set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
 #set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[0]}]
 #set_property -dict { PACKAGE_PIN C18 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[1]}]
 #set_property -dict { PACKAGE_PIN C19 IOSTANDARD LVCMOS33 } [get_ports {sd_dat[2]}]
@@ -629,10 +634,15 @@ set_false_path -from [get_clocks clock41] -to [get_clocks clock50]
 set_false_path -from [get_clocks clock50] -to [get_clocks clock41]
 
 ## Fix 12.288MHz clock generation clock domain crossing
-set_false_path -from [get_clocks clock41] -to [get_clocks clock60]
+set_max_delay 2.0 -datapath_only -from [get_clocks clock41] -to [get_clocks clock60]
+
+# The real clock is around 12 MHz. Make the constraint for 60/4 = 15 MHz.
+create_generated_clock -name audio_clk -divide_by 4 -source [get_pins AUDIO_TONE/CLOCK/MMCM/CLKOUT1] [get_pins AUDIO_TONE/CLOCK/clk_u_reg/Q]
+set_max_delay 2.0 -datapath_only -from [get_clocks clock41] -to [get_clocks audio_clk]
 
 ## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
      -group { clock41 clock81p clock27 clock163 clock325 } \
      -group { clock50 clock200}
+

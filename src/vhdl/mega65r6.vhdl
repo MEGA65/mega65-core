@@ -46,7 +46,7 @@ entity container is
 
          -- Interface for physical keyboard
          kb_io0 : inout std_logic;
-         kb_io1 : out std_logic;
+         kb_io1 : inout std_logic;
          kb_io2 : in std_logic;
 
          -- Direct joystick lines
@@ -476,6 +476,23 @@ architecture Behavioral of container is
   signal portp : unsigned(7 downto 0);
   signal portp_drive : unsigned(7 downto 0);
 
+  -- Assume MK-II keyboard on power on, for the reasons explained further down
+  -- in the file
+  signal mk1_connected : std_logic := '0';
+  signal mkii_counter : integer range 0 to 5000 := 5000;
+  signal xil_io1 : std_logic;
+  signal xil_io2 : std_logic;
+  signal xil_io3 : std_logic;
+  signal mk2_xil_io1 : std_logic;
+  signal mk2_xil_io2 : std_logic;
+  signal mk2_xil_io3 : std_logic;
+  signal mk2_io1 : std_logic;
+  signal mk2_io2 : std_logic;
+  signal mk2_io1_in : std_logic;
+  signal mk2_io2_in : std_logic;
+  signal mk2_io1_en : std_logic;
+  signal mk2_io2_en : std_logic;
+
   signal qspi_clock : std_logic;
   signal qspidb_oe : std_logic;
   signal qspidb_out : unsigned(3 downto 0);
@@ -759,6 +776,23 @@ begin
       temp => fpga_temperature);
 
   kk0: if true generate
+  mk2: entity work.mk2_to_mk1 
+    port map (
+      cpuclock => cpuclock,
+
+      mk2_xil_io1 => mk2_xil_io1,
+      mk2_xil_io2 => mk2_xil_io2,
+      mk2_xil_io3 => mk2_xil_io3,
+
+      mk2_io1_in => mk2_io1_in,
+      mk2_io1 => mk2_io1,
+      mk2_io1_en => mk2_io1_en,
+
+      mk2_io2_in => mk2_io2_in,
+      mk2_io2 => mk2_io2,
+      mk2_io2_en => mk2_io2_en
+
+      );
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       cpuclock => cpuclock,
@@ -775,9 +809,12 @@ begin
       flopledsd => flopledsd_drive,
       flopmotor => flopmotor_drive,
 
-      kio8 => kb_io0,
-      kio9 => kb_io1,
-      kio10 => kb_io2,
+      -- kio8 => kb_io0,
+      -- kio9 => kb_io1,
+      -- kio10 => kb_io2,
+      kio8 => xil_io1,
+      kio9 => xil_io2,
+      kio10 => xil_io3,
 
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
@@ -1424,6 +1461,59 @@ begin
       fa_poty <= paddle(1);
       fb_potx <= paddle(2);
       fb_poty <= paddle(3);
+
+      -- Detect MK-I keyboard by looking for KIO10 going high, as MK-II keyboard
+      -- holds this line forever low.  As MK-I will start with KIO10 high, we can
+      -- assume MK-II keyboard, and correct our decision in 1 clock tick if it was
+      -- wrong.  Doing it the other way around would cause fake key presses during
+      -- the 5000 cycles while we wait to decide it really is a MK-II keyboard.
+      -- led(4) <= mk1_connected;
+      if to_X01(kb_io2) = '1' then
+        mkii_counter <= 0;
+        mk1_connected <= '1';
+        if mk1_connected='0' then
+          report "Switching to MK-I keyboard protocol";
+        end if;
+      else
+        if mkii_counter < 5000 then
+          mkii_counter <= mkii_counter + 1;
+        else
+          mk1_connected <= '0';
+          if mk1_connected='1' then
+            report "Switching to MK-II keyboard protocol";
+          end if;
+        end if;
+      end if;
+    end if;
+    
+    if mk1_connected='1' then
+      -- Connect MK-I keyboard to keyboard decoder
+      kb_io0 <= xil_io1;
+      kb_io1 <= xil_io2;
+      xil_io3 <= kb_io2;
+    else
+      -- MK-II keyboard connected
+
+      -- Make tri-state link from keyboard connector to MK-II controller
+      mk2_io1_in <= kb_io0;
+      if mk2_io1_en='1' then
+        kb_io0 <= mk2_io1; 
+      else
+        kb_io0 <= 'Z'; 
+      end if;
+      mk2_io2_in <= kb_io1;
+      if mk2_io2_en='1' then
+--        report "io2 drive : k_io2 <= " & std_logic'image(mk2_io2);
+        kb_io1 <= mk2_io2;
+      else
+--        report "io2 Z";
+        kb_io1 <= 'Z';
+      end if;
+      
+      -- Connect Xilinx MK-I interface to MK-II controller
+      mk2_xil_io1 <= xil_io1;
+      mk2_xil_io2 <= xil_io2;
+      xil_io3 <= mk2_xil_io3;
 
     end if;
 

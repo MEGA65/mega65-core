@@ -20,7 +20,7 @@ entity clocking50mhz is
       clock100   : out std_logic;
       clock135p  : out std_logic;
       clock135n  : out std_logic;
-      clock135n2  : out std_logic;
+      clock270   : out std_logic;
       clock162   : out std_logic;
       clock200   : out std_logic;
       clock324   : out std_logic
@@ -147,11 +147,12 @@ begin
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT6 = CLK_OUT7 = duplicate inverted 135MHz clock for comparison
-    CLKOUT6_DIVIDE       => 6,
-    CLKOUT6_PHASE        => 180.000,
+    -- CLKOUT6 = clock270 = 270MHz
+    CLKOUT6_DIVIDE       => 3,
+    CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
+
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks
@@ -164,7 +165,7 @@ begin
     CLKOUT3             => clock41,
     CLKOUT4             => clock27,
     CLKOUT5             => clock162,
-    CLKOUT6             => clock135n2,
+    CLKOUT6             => clock270,
     -- Input clock control
     CLKFBIN             => clk_fb,
     CLKIN1              => clock10125mhz,
