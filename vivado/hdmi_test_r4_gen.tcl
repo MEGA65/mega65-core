@@ -132,6 +132,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shadowram-a200t.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/cic_interpolator.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pdm_to_pcm.vhdl"]"\
@@ -692,6 +693,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sdcardio.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/cic_interpolator.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
