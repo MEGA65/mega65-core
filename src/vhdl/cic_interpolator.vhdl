@@ -85,7 +85,7 @@ begin
                         comb3_state <= comb2;
 
                         -- Output the zero-stuffed result
-                        output_sample <= std_logic_vector(to_signed(comb3, 16));
+                        output_sample <= to_signed(comb3, 16);
                         output_valid <= '1';
 
                         -- Increment the counter or reset if done

@@ -444,7 +444,7 @@ begin
 
   digifilterleft0: entity work.cic_interpolator port map (
     clk => cpuclock,
-    reset_n => reset,
+    reset_n => '1',
     sample_in => pcm_unfiltered_left,
     sample_valid => digi_filter_strobe,
     output_sample => pcm_filtered_left
@@ -452,7 +452,7 @@ begin
   
   digifilterright0: entity work.cic_interpolator port map (
     clk => cpuclock,
-    reset_n => reset,
+    reset_n => '1',
     sample_in => pcm_unfiltered_right,
     sample_valid => digi_filter_strobe,
     output_sample => pcm_filtered_right

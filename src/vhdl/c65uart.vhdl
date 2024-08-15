@@ -24,7 +24,7 @@ entity c65uart is
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
-    digi_filter_divisor : out std_logic := to_unsigned(0,8);
+    digi_filter_divisor : out unsigned(7 downto 0) := to_unsigned(0,8);
     digi_filter_enable : out std_logic := '0';
     
     max10_fpga_date : in unsigned(15 downto 0);
