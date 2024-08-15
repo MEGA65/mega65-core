@@ -135,6 +135,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/shadowram-a200t.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/cic_interpolator.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pdm_to_pcm.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pcm_to_pdm.vhdl"]"\
