@@ -38,6 +38,9 @@ entity audio_complex is
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out signed(15 downto 0) := x"FFFF";
 
+    digi_filter_enable : in std_logic := '0';
+    digi_filter_divisor : in unsigned(7 downto 0) := to_unsigned(0,8);
+    
     -- Volume knobs
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
     volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
@@ -195,9 +198,17 @@ architecture elizabethan of audio_complex is
 
   signal pcm_selected_left : signed(15 downto 0) := x"0000";
   signal pcm_selected_right : signed(15 downto 0) := x"0000";
+  signal pcm_unfiltered_left : signed(15 downto 0) := x"0000";
+  signal pcm_unfiltered_right : signed(15 downto 0) := x"0000";
+  signal pcm_filtered_left : signed(15 downto 0) := x"0000";
+  signal pcm_filtered_right : signed(15 downto 0) := x"0000";
   
   signal ampPWM_l_in : signed(15 downto 0);
   signal ampPWM_r_in : signed(15 downto 0);
+
+  signal digi_filter_strobe : std_logic := '1';
+  signal digi_filter_counter : integer range 0 to 255 := 0;
+  signal digi_filter_divisor_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   
   -- add two signed integers, peak if overflow, used to try and fix the SIDs
   -- hardcoding this to 16 bits because i'm lazy ngl
@@ -431,14 +442,43 @@ begin
     outputs(15) => dummy7
     );   
 
-  pcm_selected_left <= pcm_left when cpu_pcm_enable='0' else cpu_pcm_left;
-  pcm_selected_right <= pcm_right when cpu_pcm_enable='0' else cpu_pcm_right;
+  digifilterleft0: entity work.cic_interpolator port map (
+    clk => cpuclock,
+    reset_n => reset,
+    sample_in => pcm_unfiltered_left,
+    sample_valid => digi_filter_strobe,
+    output_sample => pcm_filtered_left
+    );
+  
+  digifilterright0: entity work.cic_interpolator port map (
+    clk => cpuclock,
+    reset_n => reset,
+    sample_in => pcm_unfiltered_right,
+    sample_valid => digi_filter_strobe,
+    output_sample => pcm_filtered_right
+    );
+  
+  pcm_unfiltered_left <= pcm_left when cpu_pcm_enable='0' else cpu_pcm_left;
+  pcm_unfiltered_right <= pcm_right when cpu_pcm_enable='0' else cpu_pcm_right;
+
+  pcm_selected_left <= pcm_unfiltered_left when digi_filter_enable='0' else pcm_filtered_left;
+  pcm_selected_right <= pcm_unfiltered_right when digi_filter_enable='0' else pcm_filtered_right;
   
   process (cpuclock) is
   begin    
     
     if rising_edge(cpuclock) then
 
+      -- Implement variable cut-off frequency for digit filter
+      digi_filter_divisor_drive <= digi_filter_divisor;
+      if digi_filter_counter = 0 then
+        digi_filter_strobe <= '1';
+        digi_filter_counter <= to_integer(digi_filter_divisor_drive);
+      else
+        digi_filter_strobe <= '0';
+        digi_filter_counter <= digi_filter_counter - 1;
+      end if;        
+      
       pwm_mode <= pwm_mode_select;
       
       report "pcm_selected_left = $" & to_hstring(pcm_selected_left)

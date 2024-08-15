@@ -647,6 +647,9 @@ architecture behavioral of iomapper is
   signal board_major_int : unsigned(3 downto 0);
   signal board_minor_int : unsigned(3 downto 0) := x"0";
 
+  signal digi_filter_divisor : unsigned(7 downto 0);
+  signal digi_filter_enable : std_logic;
+  
 begin
 
   block1: block
@@ -896,6 +899,9 @@ begin
       last_reset_source => last_reset_source,
       reset_monitor_count => reset_monitor_count,
 
+      digi_filter_divisor => digi_filter_divisor,
+      digi_filter_enable => digi_filter_enable,
+      
       accessible_key_event => accessible_key_event,
       accessible_key_enable => accessible_key_enable,
       accessible_key_extradim => dim_shift,
@@ -1305,6 +1311,9 @@ begin
     cpu_pcm_bypass => cpu_pcm_bypass,
     pwm_mode_select => pwm_mode_select,
 
+    digi_filter_divisor => digi_filter_divisor,
+    digi_filter_enable => digi_filter_enable,
+          
     -- MEMS microphone inputs (2 x strings of 2)
     micData0 => micData0,
     micData1 => micData1,

@@ -24,6 +24,9 @@ entity c65uart is
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
+    digi_filter_divisor : out std_logic := to_unsigned(0,8);
+    digi_filter_enable : out std_logic := '0';
+    
     max10_fpga_date : in unsigned(15 downto 0);
     max10_fpga_commit : in unsigned(31 downto 0);
 
@@ -274,6 +277,7 @@ architecture behavioural of c65uart is
 
   signal accessible_key_extradim_int : std_logic := '0';
 
+  signal digi_filter_divisor_int : unsigned(7 downto 0) := to_unsigned(0,8);
   
 begin  -- behavioural
 
@@ -621,6 +625,13 @@ begin  -- behavioural
           when x"3C" => sid_mode_int <= fastio_wdata(3 downto 0);
                         dc_track_enable_int <= fastio_wdata(4);
           when x"3D" => dc_track_rate <= fastio_wdata(7 downto 0);
+          when x"3E" => digi_filter_divisor_int <= fastio_wdata;
+                        digi_filter_divisor <= fastio_wdata;
+                        if fastio_wdata = x"00" then
+                          digi_filter_enable <= '0';
+                        else
+                          digi_filter_enable <= '1';
+                        end if;
           when others => null;
         end case;
       end if;
@@ -912,7 +923,9 @@ begin  -- behavioural
                       fastio_rdata(7 downto 5) <= last_reset_source;
         -- @IO:GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
         when x"3d" => fastio_rdata <= dc_track_rate_int;
-        when x"3e" => fastio_rdata <= reset_monitor_count(7 downto 0);
+        -- @IO:GS $D63E AUDIOMIX:DFDIV Digital audio filter divisor (0 =
+        -- disabled, 255 = lowest filter fequency)
+        when x"3e" => fastio_rdata <= digi_filter_divisor_int;
         when x"3f" => fastio_rdata(3 downto 0) <= reset_monitor_count(11 downto 8);
                       fastio_rdata(7 downto 4) <= x"0";
 
