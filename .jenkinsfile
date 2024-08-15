@@ -26,14 +26,6 @@ pipeline {
                 sh 'make flasher_files'
             }
         }
-        stage('Build WukongA100Tv2') {
-            steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
-                    sh 'make bin/wukong.bit'
-                    sh 'release-build/build-release.sh wukong JENKINSGEN'
-                }
-            }
-        }
         stage('Build MEGA65R6') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -53,6 +45,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -85,14 +78,13 @@ pipeline {
                 }
             }
         }
-        */
         stage('Set build result') {
             steps {
                 script {
                     def files = findFiles(glob: 'release-build/pkg/*.7z')
                     // number of total architectures needs to be changed in next line,
                     // if we add or subtract build targets!
-                    if (files.length < 2) {
+                    if (files.length < 3) {
                         currentBuild.result = 'UNSTABLE'
                     } else if (files.length == 0) {
                         currentBuild.result = 'FAILURE'
