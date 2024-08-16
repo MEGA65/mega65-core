@@ -937,6 +937,7 @@ architecture Behavioral of viciv is
   signal pixel_alt_palette : std_logic := '0';
   signal postsprite_inborder : std_logic := '0';
   signal inborder_drive : std_logic := '0';
+  signal inborder_drive2 : std_logic := '0';
   signal xfrontporch : std_logic := '0';
   signal xfrontporch_drive : std_logic := '0';
   signal xbackporch : std_logic := '0';
@@ -1275,7 +1276,7 @@ begin
               x1280_in => to_xposition(vicii_xcounter_640),
               y_in => to_yposition(vicii_sprite_ycounter),
               yfine_in => to_yposition(vicii_ycounter_v400),
-              border_in => inborder_drive,
+              border_in => inborder_drive2,
               alt_palette_in => pixel_alt_palette,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
@@ -1328,7 +1329,7 @@ begin
           reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
           reg_h640,reg_h1280,reg_v400,reg_interlace,xcounter_drive,ycounter_drive,
           horizontal_filter,xfrontporch_drive,chargen_active_drive,
-          inborder_drive,chargen_active_soon_drive,card_number_drive,
+          chargen_active_soon_drive,card_number_drive,
           bitplanes_x_start,bitplanes_y_start,dat_y,dat_x,dat_bitplane_offset,
           bitplane_addresses,vicii_2mhz_internal,viciii_fast_internal,
           bitplane_mode,bitplane_enables,bitplane_addresses,bitplane_complements,
@@ -2226,7 +2227,6 @@ begin
       debug_raster_buffer_read_address_drive2 <= debug_raster_buffer_read_address_drive;
       debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
 
-      inborder_drive <= inborder;
       chargen_active_soon_drive <= chargen_active_soon;
       cycles_to_next_card_drive <= cycles_to_next_card;
       chargen_active_drive <= chargen_active;
@@ -2757,7 +2757,7 @@ begin
           -- @IO:GS $D062 VIC-IV:SCRNPTRBNK screen RAM precise base address (bits 23 - 16)
           screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=99 then
-          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 31 - 24)
+          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 27 - 24)
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
           -- @IO:GS $D063.4-5 VIC-IV:CHRCOUNT Number of characters to display per
           -- row (MSBs)
@@ -2995,7 +2995,8 @@ begin
 
   end process;
 
-  process(pixelclock,all_pause,reg_h640,ramaddress,this_screen_row_fetch_address,glyph_full_colour) is
+  process(pixelclock,all_pause,reg_h640,ramaddress,this_screen_row_fetch_address,glyph_full_colour,
+          inborder,inborder_drive,inborder_drive2) is
     variable indisplay : std_logic := '0';
     variable card_bg_colour : unsigned(7 downto 0) := (others => '0');
     variable card_fg_colour : unsigned(7 downto 0) := (others => '0');
@@ -3057,6 +3058,8 @@ begin
       paint_ramdata <= ramdata_drive;
 
       sprite_fetch_drive <= '0';
+      inborder_drive2 <= inborder_drive;
+      inborder_drive <= inborder;
 
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);

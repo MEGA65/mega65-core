@@ -12,7 +12,7 @@ usage () {
     echo "  -repack   don't copy new stuff, redo cor and mcs, make new 7z"
     echo "  -tag TAG  TAG defaults to the 6 first characters of the branch, use"
     echo "            this for setting something like 'release-0.95'"
-    echo "  MODEL     one of mega65r[23456], nexys4ddr-widget, mega65r5_6"
+    echo "  MODEL     one of mega65r[23456], nexys4ddr-widget, mega65r5_6, wukong"
     echo "  VERSION   version string to put before the hash into the core version"
     echo "            maximum 31 chars. The string HASH will be replaced by the"
     echo "            hash of the build."
@@ -57,7 +57,7 @@ generate_version () {
   if [[ $name =~ ^release-(([0-9])\.([0-9][0-9]?))$ ]]; then
     name="Rel ${BASH_REMATCH[1]} RC#$num $hash"
   else
-    name="$1 #$num $hash"
+    name="${name:0:17} #$num $hash"
   fi
   # cut after 6 chars
   echo ${name}
@@ -129,6 +129,8 @@ elif [[ ${MODEL} = "mega65r2" ]]; then
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
     RM_TARGET="Nexys4DDR boards -- Nexys4DDR, NexysA7 (Artix A7 100T FPGA)"
     BUILDMCS=1
+elif [[ ${MODEL} = "wukong" ]]; then
+    RM_TARGET="Wukong board -- TEST for WukongA100T-v2 (Artix A7 100T FPGA 7a100tfgg676)"
 else
     usage "unknown model ${MODEL}"
 fi
@@ -259,6 +261,8 @@ echo "Building COR/MCS"
 echo
 if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
     ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target nexys4ddrwidget --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
+elif [[ ${MODEL} == "wukong" ]]; then
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target wukong --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 elif [[ ${MODEL} == "mega65r2" ]]; then
     ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target mega65r2 --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 else

@@ -217,6 +217,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mk2_to_mk1.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/matrix_to_ascii.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
@@ -469,6 +470,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/mega65kbd_to_matrix.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/mk2_to_mk1.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
