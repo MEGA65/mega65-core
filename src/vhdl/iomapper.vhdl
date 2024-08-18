@@ -811,7 +811,11 @@ begin
     portaddr => cia1porta_ddr,
     portbddr => cia1portb_ddr,
     flagin => '1',
-    spin => '1',
+
+    spin => iec_srq_external,
+    spout => spout,
+    sp_ddr => spddr,
+    
     countin => '1'
     );
   end block;
@@ -892,10 +896,8 @@ begin
     portbin => userport_in,
     portbout => userport_out,
     flagin => '1',
-    spin => iec_srq_external,
-    spout => spout,
-    sp_ddr => spddr,
-    countin => '1'
+    countin => '1',
+    spin => '1'
     );
   end block;
 
