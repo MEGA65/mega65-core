@@ -132,6 +132,8 @@ Note: It is possible that not all changes were marked with the milestone.
     [#771](https://github.com/MEGA65/mega65-core/issues/771)
   - Right most character pixel not drawn with H640 disabled
     [#682](https://github.com/MEGA65/mega65-core/issues/682)
+  - RRB GOTOX is off by 1
+    [#337](https://github.com/MEGA65/mega65-core/issues/337)
   - Hyppo All-RAM access (ROMLOAD, fonts)
     [#634](https://github.com/MEGA65/mega65-core/issues/634)
     [#676](https://github.com/MEGA65/mega65-core/issues/676)
