@@ -132,7 +132,7 @@ set_property -dict {PACKAGE_PIN Y19  IOSTANDARD LVCMOS33} [get_ports iec_clk_o]
 set_property -dict {PACKAGE_PIN Y18  IOSTANDARD LVCMOS33 PULLUP true} [get_ports iec_clk_i]
 set_property -dict {PACKAGE_PIN U20  IOSTANDARD LVCMOS33} [get_ports iec_srq_o]
 set_property -dict {PACKAGE_PIN AA18 IOSTANDARD LVCMOS33} [get_ports iec_srq_i]
-set_property -dict {PACKAGE_PIN AB20 IOSTANDARD LVCMOS33} [get_ports iec_srq_en_n]
+set_property -dict {PACKAGE_PIN AB20 IOSTANDARD LVCMOS33} [get_ports iec_srq_en]
 
 # C64 Cartridge port control lines
 # *_dir=1 means FPGA->Port, =0 means Port->FPGA
