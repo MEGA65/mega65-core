@@ -791,6 +791,8 @@ architecture behavioural of sdcardio is
   signal read_ahead_sector : unsigned(31 downto 0) := (others => '1');
   signal read_ahead_count : integer range 0 to 7 := 0;
   signal read_ahead_enable : boolean := false;
+  signal multi_sector_read_enabled : std_logic := '0';
+  signal multi_sector_read_enabled_int : std_logic := '0';
 
   type   sd_read_request_type_t is (
     FS_MISC, FS_FAT, FS_DIR, DATA);
@@ -907,6 +909,7 @@ begin  -- behavioural
       last_state_o => last_sd_state,
       last_sd_rxbyte => last_sd_rxbyte,
       error_o => last_sd_error,
+      multi_sector_read_enabled => multi_sector_read_enabled,
       clear_error => sd_clear_error,
 
       busy_o => sdcard_busy,
@@ -1391,6 +1394,7 @@ begin  -- behavioural
             fastio_rdata(1 downto 0) <= to_unsigned(read_ahead_count,2);
           when "10101" => -- @IO:GS $D095 - low-level SD state (DEBUG)
             fastio_rdata <= (others => '0');
+            fastio_rdata(1) <= multi_sector_read_enabled_int;
             fastio_rdata(0) <= sdcard_busy;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
@@ -3828,6 +3832,9 @@ begin  -- behavioural
               if hypervisor_mode='1' then
                 diskimage2_sector(31 downto 24) <= fastio_wdata;
               end if;
+            when x"95" =>
+              multi_sector_read_enabled_int <= fastio_wdata(1);
+              multi_sector_read_enabled <= fastio_wdata(1);
             when x"96" =>
               autotune_enable <= fastio_wdata(7);
 

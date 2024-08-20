@@ -135,6 +135,7 @@ package SdCardPckg is
       write_multi : in std_logic                     := '0';  -- for all but last block of multi-block write
       write_multi_first : in std_logic               := '0';  -- for first block of multi-block write
       write_multi_last : in std_logic                := '0';  -- for last block of multi-block write
+      multi_sector_read_enabled : in std_logic       := '0';  -- enable multi-block reads
       addr_i     : in  std_logic_vector(31 downto 0) := x"00000000";  -- Block address.
       data_i     : in  std_logic_vector(7 downto 0)  := x"00";  -- Data to write to block.
 
@@ -494,7 +495,11 @@ begin
             elsif rd_i = '1' then  -- send READ command and address to the SD card.
               report "SDCARD: Saw read request, sending read block command";
               cs_bo <= '0';              -- Enable the SD card.
-              txCmd_v := READ_MULTI_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              if multi_sector_read_enabled = '1' then
+                txCmd_v := READ_MULTI_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              else
+                txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              end if;
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
               bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
               byteCnt_v  := RD_BLK_SZ_C;
