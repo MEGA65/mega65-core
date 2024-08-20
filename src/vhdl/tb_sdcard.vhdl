@@ -452,7 +452,7 @@ begin
       end if;
       if must_be_from_cache then
         if read_duration > 1000 then
-          assert false report "SD card did not read the sector from the cache, but it should have";
+          assert false report "SD card did not read the sector from the cache, but it should have (read duration = " & integer'image(read_duration)  & ")";
         end if;
       end if;
       
@@ -766,7 +766,8 @@ begin
         -- because the read-ahead will already be doing its thing.  
 
         sdcard_reset_sequence;
-        POKE(x"D680",x"CE");
+        POKE(x"D680",x"CE"); -- enable cache
+        POKE(x"D680",x"CC"); -- enable read-ahead
         -- Verify that reading a couple of different sectors works
         -- We allow flash address to be elsewhere, since we expect read-ahead
         -- to be happening
