@@ -184,6 +184,7 @@ entity SdCardCtrl is
     write_multi : in std_logic                     := '0';  -- for all but last block of multi-block write
     write_multi_first : in std_logic               := '0';  -- for first block of multi-block write
     write_multi_last : in std_logic                := '0';  -- for last block of multi-block write
+    multi_sector_read_enabled : in std_logic       := '0';  -- enable multi-block reads
     addr_i     : in  std_logic_vector(31 downto 0) := x"00000000";  -- Block address.
     data_i     : in  std_logic_vector(7 downto 0)  := x"00";  -- Data to write to block.
     data_o     : out std_logic_vector(7 downto 0)  := x"00";  -- Data read from block.
