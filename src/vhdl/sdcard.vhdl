@@ -215,6 +215,8 @@ architecture arch of SdCardCtrl is
   signal sclk_r   : std_logic := '0';  -- Register output drives SD card clock.
   signal hndShk_r : std_logic := '0';  -- Register output drives handshake output to host.
 
+  signal deferred_error : std_logic := '0';  
+  
 begin
   
   process(clk_i)  -- FSM process for the SD card controller.
@@ -316,8 +318,6 @@ begin
     variable doDeselect_v     : boolean;  -- When true, de-select SD card after a command is issued.
     variable doStopTrans_v    : boolean;
 
-    signal deferred_error : std_logic := '0';
-    
   begin
     if rising_edge(clk_i) then
 
