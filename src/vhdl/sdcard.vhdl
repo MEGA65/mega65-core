@@ -316,6 +316,8 @@ begin
     variable doDeselect_v     : boolean;  -- When true, de-select SD card after a command is issued.
     variable doStopTrans_v    : boolean;
 
+    signal deferred_error : std_logic := '0';
+    
   begin
     if rising_edge(clk_i) then
 
@@ -333,6 +335,7 @@ begin
         state_v          := START_INIT;  -- Send the FSM to the initialization entry-point.
         sclkPhaseTimer_v := 0;  -- Don't delay the initialization right after reset.
         busy_o           <= '1';  -- Busy while the SD card interface is being initialized.
+        deferred_error <= '0';
 
         report "SDCARD: reset_i asserted";
         
@@ -484,6 +487,7 @@ begin
             end if;
             
           when WAIT_FOR_HOST_RW =>  -- Wait for the host to read or write a block of data from the SD card.
+            deferred_error <= '0';
             clkDivider_v     := SCLK_PHASE_PERIOD_C - 1;  -- Set SPI clock frequency for normal operation.
             getCmdResponse_v := true;  -- Get R1 response to any commands issued to the SD card.
             if rd_i = '1' and wr_i = '1' then
@@ -551,7 +555,12 @@ begin
 --                report "SDCARD: Found start token $" & to_hexstring(rx_v);
               else  -- Getting anything else means something strange has happened.
 --                report "SDCARD: Expected either no token = $FF or data token =$FE, but saw %" & to_hexstring(rx_v);
-                state_v := REPORT_ERROR;
+                -- state_v <= REPORT_ERROR;
+                deferred_error <= true;
+                error_o <= x"4242";
+                data_o   <= rx_v;     -- Output received data to the host.
+                hndShk_r <= '1';  -- Signal to the host that the data is ready.
+                
               end if;
             elsif byteCnt_v >= 3 then  -- Now bytes of data from the SD card are received.
               rtnData_v := true;        -- Return this data to the host.
@@ -744,6 +753,7 @@ begin
           when REPORT_ERROR =>  -- Report the error code and stall here until a reset occurs.
             error_o(rx_v'range) <= rx_v;  -- Output the SD card response as the error code.
             busy_o              <= '0';  -- Not busy.
+            deferred_error      <= '0';
 
             if clear_error='1' then
               sclk_r     <= '0';
