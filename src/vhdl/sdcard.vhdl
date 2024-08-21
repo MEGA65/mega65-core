@@ -335,7 +335,7 @@ begin
         state_v          := START_INIT;  -- Send the FSM to the initialization entry-point.
         sclkPhaseTimer_v := 0;  -- Don't delay the initialization right after reset.
         busy_o           <= '1';  -- Busy while the SD card interface is being initialized.
-        deferred_error <= '0';
+        deferred_error   <= '0';
 
         report "SDCARD: reset_i asserted";
         
@@ -556,7 +556,7 @@ begin
               else  -- Getting anything else means something strange has happened.
 --                report "SDCARD: Expected either no token = $FF or data token =$FE, but saw %" & to_hexstring(rx_v);
                 -- state_v <= REPORT_ERROR;
-                deferred_error <= true;
+                deferred_error <= '1';
                 error_o <= x"4242";
                 data_o   <= rx_v;     -- Output received data to the host.
                 hndShk_r <= '1';  -- Signal to the host that the data is ready.
