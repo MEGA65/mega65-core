@@ -1061,9 +1061,6 @@ dos_clear_filedescriptors:
 ;;
 dos_read_partitiontable:
 
-	inc $d020
-	jmp dos_read_partitiontable
-	
         ;; clear error code
         ;;
         lda #0
