@@ -674,6 +674,10 @@ begin
           when x"72" => -- Drive IEC reset pin 0V
             iec_reset_n <= '0';
             iec_reset_int <= '0';
+          when x"4C" => -- Release all lines
+            a('1'); d('1'); c('1'); s('1');
+            iec_reset_n <= '1';
+            iec_reset_int <= '1';
             
             -- Allow enabling and disabling of JiffyDOS offering
           when x"4A" => jiffydos_enabled <= '1';
@@ -683,6 +687,12 @@ begin
             -- and also c128 fast serial
           when x"46" => c128fast_enabled <= '1';
           when x"66" => c128fast_enabled <= '0';
+          when x"50" => -- Enable protocol extensions
+            jiffydos_enabled <= '1';
+            c128fast_enabled <= '1';
+          when x"70" => -- Disable protocol extensions
+            jiffydos_enabled <= '0';
+            c128fast_enabled <= '0';
             
             -- Protocol level commands
           when x"30" => -- Request device attention (send data byte under attention)
