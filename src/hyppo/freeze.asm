@@ -90,7 +90,8 @@ unfreeze_next_region:
         ;; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
         ;; 1. Detach
-        jsr dos_d81detach
+        ldx #%11000010
+        jsr dos_attach
 
         ;; 2. Copy filename for image 0
         ldx currenttask_d81_image0_namelen
@@ -111,7 +112,8 @@ copy:   lda currenttask_d81_image0_name,x
         pha
 
         ;; 4. Try to reattach it
-        jsr dos_d81attach0
+        ldx #$00
+        jsr dos_attach
 
         ;; 5. Mark write enabled if required
         pla
@@ -142,7 +144,8 @@ copy1:  lda currenttask_d81_image1_name,x
         pha
 
         ;; 4. Try to reattach it
-        jsr dos_d81attach1
+        ldx #$01
+        jsr dos_attach
 
         ;; 5. Mark write enabled if required
         pla

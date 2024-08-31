@@ -1153,7 +1153,8 @@ f011Virtualised:
         bcc d81attachfail
         jsr dos_closefile
 
-        jsr dos_d81attach0
+        ldx #$00
+        jsr dos_attach
         bcc d81attachfail
 
         ldx #<msg_d81mounted
@@ -3475,6 +3476,8 @@ dos_scratch_vector:
 dos_scratch_byte_1:
         !8 0
 dos_scratch_byte_2:
+        !8 0
+dos_attach_offset:
         !8 0
 
         ;; Vectors for copying data between hypervisor and user-space

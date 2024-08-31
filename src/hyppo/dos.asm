@@ -76,13 +76,13 @@ dos_and_process_trap_table:
 
         ;; $40 - $4E
         ;;
-        !16 trap_dos_d81attach0
-        !16 trap_dos_d81detach
+        !16 trap_dos_d81attach0               ;; DOS 1.2 compatibility - DEPRECATED in favor of trap_dos_attach
+        !16 trap_dos_d81detach                ;; DOS 1.2 compatibility - DEPRECATED in favor of trap_dos_attach
         !16 trap_dos_d81write_en
-        !16 trap_dos_d81attach1
+        !16 trap_dos_d81attach1               ;; DOS 1.2 compatibility - DEPRECATED in favor of trap_dos_attach
         !16 trap_dos_get_proc_desc
-        !16 trap_dos_d81detach0
-        !16 trap_dos_d81detach1
+        !16 trap_dos_attach
+        !16 invalid_subfunction
         !16 invalid_subfunction
 
         ;; $50 - $5E
@@ -932,7 +932,8 @@ trap_dos_d81attach0:
 
         +Checkpoint "trap_dos_d81attach0"
 
-        jsr dos_d81attach0
+        ldx #$00
+        jsr dos_attach
         jmp return_from_trap_with_carry_flag
 
 ;;         ========================
@@ -941,32 +942,29 @@ trap_dos_d81attach1:
 
         +Checkpoint "trap_dos_d81attach1"
 
-        jsr dos_d81attach1
+        ldx #$01
+        jsr dos_attach
         jmp return_from_trap_with_carry_flag
 
 ;;         ========================
 
 trap_dos_d81detach:
 
-        jsr dos_d81detach
+        +Checkpoint "trap_dos_d81detach"
+
+        ldx #%11000010          ;; detach both drives, don't attach real drives
+        jsr dos_attach
 
         jmp return_from_trap_with_success
 
 ;;         ========================
 
-trap_dos_d81detach0:
+trap_dos_attach:
+
+        +Checkpoint "trap_dos_attach"
 
         ldx hypervisor_x
-        jsr dos_d81detach0
-
-        jmp return_from_trap_with_success
-
-;;         ========================
-
-trap_dos_d81detach1:
-
-        ldx hypervisor_x
-        jsr dos_d81detach1
+        jsr dos_attach
 
         jmp return_from_trap_with_success
 
@@ -4257,88 +4255,76 @@ dsn_eon:
 
 ;;         ========================
 
-dos_d81detach:
-	;; Detaches both drive 0 and drive 1
-	
-        ldx #0
-        jsr dos_d81detach0
-        bra dos_d81detach1
+        ;; Flags lookup tables
+        ;; drive 0    drive 1    drive 0+1  drive 0+1
+dos_attach_imgena_bits          ;; $d68b
+        !8 %00000111, %00111000, %00111111, %00111111
+dos_attach_typeflg_bits         ;; $d68b/a
+        !8 %01000000, %10000000, %11000000, %11000000
+dos_attach_realdrv_bits         ;; $d6a1
+        !8 %00000001, %00000100, %00000101, %00000101
 
-dos_d81detach0:
-        ;; Detaches drive 0 and optionally mounts real drive
-        ;; Inputs X = 1 mount real drive
+dos_attach:
+        ;; NEW CALL DOS 1.3
+        ;;
+        ;; handles both attaching and detaching images and real drives
+        ;;
+        ;; X.0 - which drive 0 or 1
+        ;; X.1 - detach both drives if set (ignored for attach)
+        ;; X.6 - don't attach real drive if set (ignored for attach)
+        ;; X.7 - select mode 0 - attach, 1 - detach
 
-        lda #%01000111
-        trb $d68b		; clear mount, d81/d65 flags
-        lda #%01000000
-        trb $d68a               ; clear d64/d71 flags
+        ;; set the attach bits according to the selected drives
+        txa
+        bmi @detach_multi_drive ;; only detach supports both drives at once
+        and #$01                ;; limit to 1
+@detach_multi_drive:
+        and #$03                ;; limit to 3
+        tay                     ;; offset into dos_attach_*_bits tables
 
-        cpx #$01
-        bne @nodrive0
-        lda #%00000001
-        tsb $d6a1               ; enable real drive 0
-@nodrive0:
+        txa                     ;; sets N and Z flags
+        bpl dos_diskattach      ;; bit 7 not set (N flag), so we want to attach
 
+        ;; now we detach the drives
+        lda dos_attach_typeflg_bits,y
+        trb $d68a               ;; clear d64/d71 flags
+        ora dos_attach_imgena_bits,y
+        trb $d68b		;; clear mount, d81/d65 flags
+
+        txa
+        bit #$40
+        bne @attach_detach_proc
+        lda dos_attach_realdrv_bits,y
+        tsb $d6a1               ;; enable real drives
+
+@attach_detach_proc:
+        txa
+        and #$03
+        tax
         lda #d81_image_flag_mounted
+        cpx #$02
+        bcs @attach_detach_both
+        cmp #$00
+        bne @attach_detach_1
         trb currenttask_d81_image0_flags
-
-        sec
-        rts
-
-dos_d81detach1:
-        ;; Detaches drive 0 and optionally mounts real drive
-        ;; Inputs X = 1 mount real drive
-
-        lda #%10111000
-        trb $d68b		; clear mount, d81/d65 flags
-        lda #%10000000
-        trb $d68a               ; clear d64/d71 flags
-
-        cpx #$01
-        bne @nodrive0
-        lda #%00000100
-        tsb $d6a1               ; enable real drive 0
-@nodrive0:
-
-        lda #d81_image_flag_mounted
+        bra @attach_detach_done
+@attach_detach_both:
+        trb currenttask_d81_image0_flags
+@attach_detach_1:
         trb currenttask_d81_image1_flags
+@attach_detach_done:
 
         sec
         rts
 
-d81attach_bits:
-        ;; imageena   typeflag   realdrive
-        ;; $d68b      $d68b/a    $d6a1
-        !8 %00000111, %01000000, %00000001   ; drive 0
-        ;; %00111000, %10000000, %00000100   ; drive 1
-
-dos_d81attach0:
-        ;; set flags for drive 0
-        lda #%00000111
-        sta d81attach_bits
-        lda #%01000000
-        sta d81attach_bits+1
-        lda #%00000001
-        sta d81attach_bits+2
-        bra dos_d81attach
-
-dos_d81attach1:
-        ;; set flags for drive 1
-        lda #%00111000
-        sta d81attach_bits
-        lda #%10000000
-        sta d81attach_bits+1
-        lda #%00000100
-        sta d81attach_bits+2
-        bra dos_d81attach
-
-dos_d81attach:
-	;; d81attach_bits determines on which drive it works
+dos_diskattach:
+	;; dos_attach_bits determines on which drive it works
         ;;
         ;; Assumes only that D81 file name has been set with dos_setname.
         ;;
+        sty <dos_attach_offset  ;; save Y offset into dos_attach_*_bits
         jsr dos_findfile
-        bcs d81a1
+        bcs @d81a1
 
         lda #dos_errorcode_file_not_found
         clc
@@ -4346,70 +4332,109 @@ dos_d81attach:
 
 ;;         ========================
 
-d81a1:  ;; Why do we call closefile here?
+@d81a1:
+        ;; Why do we call closefile here?
         ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
         jsr dos_d81check
-        bcs d81a1a
+        bcs @d81a1a
+        clc
         rts
-d81a1a:	
 
-        ;; copy sector number from $D681 to $D68c
+@d81a1a:
+        ;; copy sector number from $D681 to DxSTARTSEC (D68C or D690)
         ;;
+        ldz #$03                ;; disk 0 is D68C-D68F
+        lda <dos_attach_offset  ;; fetch disk offset
+        beq @attach_disk_0
+        ldz #$07                ;; disk 1 is D690-D693
+
+        lda #%00000001
+        bit $d68b               ;; check if disk 0 is image
+        beq @attach_copy_sector ;; no image -> proceed
+        bra @attach_check_double
+
+@attach_disk_0:
+        lda #%00001000
+        bit $d68b               ;; check if disk 1 is image
+        beq @attach_copy_sector ;; no image -> proceed
+
+@attach_check_double
+        tza
+        eor #$04
+        tay
         ldx #$03
 -       lda $d681,x		;; resolved sector number
-        sta $d68c,x  		;; sector number of disk image #0
+        cmp $d68c,y  		;; sector number of disk image
+        bne @attach_copy_sector
+        dey
+        dex
+        bpl -
+
+        ;; same sector number, error out
+        lda #dos_errorcode_double_attach
+        clc
+        rts
+
+@attach_copy_sector:
+        tza
+        tay
+        ldx #$03
+-       lda $d681,x		;; resolved sector number
+        sta $d68c,y  		;; sector number of disk image
+        dey
         dex
         bpl -
 
         ;; disable real floppy
-        lda d81attach_bits+2
+        lda <dos_attach_offset
+        lda dos_attach_realdrv_bits,y
         trb $d6a1
         
         ;; Set flags to indicate it is mounted (and read-write).
         ;; clear D65 mega disk flag,
         ;; But don't mess up the flags for the 2nd drive
-	lda d81attach_bits
+	lda dos_attach_imgena_bits,y
         tsb $d68b
 	;; Clear D64 flag
-	lda d81attach_bits+1
+	lda dos_attach_typeflg_bits,y
         tax
 	trb $d68a
 
 	;; Check what dos_d81check detected
         lda d81_lasttype
         cmp #64
-	bne not_d64
+	bne @not_d64
 
 	;; Set D64 flag
 	txa
 	tsb $d68a
-	bra d81attach_typeset
+	bra @d81attach_typeset
 	
-not_d64:
+@not_d64:
 	cmp #71
-	bne not_d71
+	bne @not_d71
 
 	;; D71 disk image
 	;; Set both the D64 and the D65 flags to mean "big D64" = D71 image
 	txa
 	tsb $d68a
 	tsb $d68b
-	bra d81attach_typeset
+	bra @d81attach_typeset
 
-not_d71:
+@not_d71:
 	cmp #65
-	bne d81attach_typeset
+	bne @d81attach_typeset
 
         ;; D65 disk image
         ;; Set megadisk flag
 	txa
 	tsb $d68b
 
-d81attach_typeset:
+@d81attach_typeset:
         cpx #$80
-        beq d81attach1_typeset
+        beq @d81attach1_typeset
 
         +Checkpoint "dos_d81attach0 <success>"
 
@@ -4445,7 +4470,7 @@ d81attach_typeset:
         sec
         rts
 
-d81attach1_typeset:
+@d81attach1_typeset:
 
         +Checkpoint "dos_d81attach1 <success>"
 
