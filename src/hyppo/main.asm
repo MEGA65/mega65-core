@@ -385,7 +385,7 @@ invalid_subfunction:
 ;;     DOS, process control and related functions trap
 ;;     ---------------------------------------------------------------- */
 !src "dos.asm"
-!src "dos_write.asm"
+;!src "dos_write.asm"   ; LV - commented out because doesn't seem to be used
 
 ;; /*  -------------------------------------------------------------------
 ;;     Virtual memory and memory management
@@ -3103,28 +3103,28 @@ msg_foundsdhccard:      !text "FOUND AND RESET SDHC CARD"
                         !8 0
 msg_sdcarderror:        !text "ERROR READING FROM SD CARD"
                         !8 0
-msg_sdredoread:         !text "RE-READING SDCARD"
-                        !8 0
+;; msg_sdredoread:      !text "RE-READING SDCARD"
+;;                      !8 0
 msg_nosdcard:           !text "NO SDCARD, TRYING BUILT-IN ROM"
                         !8 0
 msg_badformat:          !text "BAD MBR OR DOS BOOT SECTOR."
                         !8 0
-msg_sdcardfound:        !text "READ PARTITION TABLE FROM SDCARD"
-                        !8 0
-msg_foundromfile:       !text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
-                        !8 0
+;; msg_sdcardfound:     !text "READ PARTITION TABLE FROM SDCARD"
+;;                      !8 0
+;; msg_foundromfile:    !text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
+;;                      !8 0
 msg_diskcount:          !text "DISK-COUNT=$$, DEFAULT-DISK=$$"
                         !8 0
 ;; msg_diskdata0:       !text "DISK-TABLE:"
 ;;                      !8 0
 ;; msg_diskdata:        !text "BB$$:$$.$$.$$.$$.$$.$$.$$.$$"
 ;;                      !8 0
-msg_filelengths:        !text "LOOKING FOR $$ BYTES, I SEE $$ BYTES"
-                        !8 0
+;; msg_filelengths:     !text "LOOKING FOR $$ BYTES, I SEE $$ BYTES"
+;;                      !8 0
 msg_fileopenerror:      !text "COULD NOT OPEN ROM FILE FOR READING"
                         !8 0
-msg_readingfile:        !text "READING ROM FILE..."
-                        !8 0
+;; msg_readingfile:     !text "READING ROM FILE..."
+;;                      !8 0
 msg_romfilelongerror:   !text "ROM TOO LONG: (READ $$$$ PAGES)"
                         !8 0
 msg_romfileshorterror:  !text "ROM TOO SHORT: (READ $$$$ PAGES)"
@@ -3143,8 +3143,8 @@ msg_dipswitch3on:       !text "SW3 OFF OR PRESS RUN/STOP TO CONTINUE."
                         !8 0
 msg_romnotfound:        !text "COULD NOT FIND ROM MEGA65XXROM"
                         !8 0
-msg_foundhickup:        !text "LOADING HICKUP.M65 INTO HYPERVISOR"
-                        !8 0
+;;msg_foundhickup:      !text "LOADING HICKUP.M65 INTO HYPERVISOR"
+;;                      !8 0
 msg_no1541rom:          !text "COULD NOT LOAD 1541ROM.M65"
                         !8 0
 ;; msg_nohickup:        !text "NO HICKUP.M65 TO LOAD (OR BROKEN)"
@@ -3153,9 +3153,9 @@ msg_no1541rom:          !text "COULD NOT LOAD 1541ROM.M65"
 ;;                      !8 0
 msg_alreadyhicked:      !text "RUNNING HICKED HYPERVISOR"
                         !8 0
-msg_lookingfornextsector:
-                        !text "LOOKING FOR NEXT SECTOR OF FILE"
-                        !8 0
+;;msg_lookingfornextsector:
+;;                      !text "LOOKING FOR NEXT SECTOR OF FILE"
+;;                      !8 0
 msg_nologo:             !text "COULD NOT LOAD BANNER.M65 (ERRNO:$$)"
                         !8 0
 msg_cdrootfailed:       !text "COULD NOT CHDIR TO / (ERRNO:$$)"
@@ -3217,8 +3217,8 @@ txt_ETHLOAD:		!text "ETHLOAD.M65"
             ;; mode set to NTSC (60Hz), else as PAL (50Hz).
             ;; This is to allow us to boot in PAL by default, except for
             ;; those who have a monitor that cannot do 50Hz.
-txt_NTSC:               !text "NTSC"
-                        !8 0
+;; txt_NTSC:            !text "NTSC"
+;;                      !8 0
 
 ;;         ========================
 
@@ -3332,14 +3332,15 @@ dos_disk_cwd_cluster:
 
 ;;         ========================
 
-        ;; Current point in open directory
-        ;;
-dos_opendir_cluster:
+        ;; start of directory entry. Used to 'rewind' to start of directory entry after readdir/findfile.
+        ;; These fields must be contiguous, as dos_readdir_storecurrententry and dos_readdir_retreivelastentry rely on it.
+
+dos_direntstart_cluster:
         !8 0,0,0,0
-dos_opendir_sector:
+dos_direntstart_sectorincluster:
         !8 0
-dos_opendir_entry:
-        !8 0
+dos_direntstart_offsetinsector:
+        !8 0,0
 
 ;;         ========================
 
@@ -3408,11 +3409,11 @@ dos_current_sector_in_cluster:  !8 0
         dos_filedescriptor_offset_diskid = 0
         dos_filedescriptor_offset_mode = 1
         dos_filedescriptor_offset_startcluster = 2
+;;
+;; These last four fields must be contiguous,
+;; as dos_rmfile and dos_open_current_file rely on it.
+;;
         dos_filedescriptor_offset_currentcluster = 6
-;;
-;; These last three fields must be contiguous, as dos_open_current_file
-;; relies on it.
-;;
         dos_filedescriptor_offset_sectorincluster = 10
         dos_filedescriptor_offset_offsetinsector = 11
         dos_filedescriptor_offset_fileoffset = 13
@@ -3497,6 +3498,9 @@ zptempv32b:
         !16 0,0
 dos_file_loadaddress:
         !16 0,0
+
+Qone:
+        !8 1,0,0,0
 
 !if DEBUG_HYPPO {
         ;; Used for checkpoint debug system of hypervisor
