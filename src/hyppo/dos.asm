@@ -36,31 +36,31 @@ dos_and_process_trap_table:
         !16 trap_dos_getdefaultdrive
         !16 trap_dos_getcurrentdrive          ;; appears out-of-order (is far below)
         !16 trap_dos_selectdrive
-        !16 trap_dos_getdisksize              ;; not currently implememted
-        !16 trap_dos_getcwd                   ;; not currently implememted
+        !16 trap_dos_getdisksize              ;; not currently implemented
+        !16 trap_dos_getcwd                   ;; not currently implemented
         !16 trap_dos_chdir                    
-        !16 trap_dos_mkdir                    ;; not currently implememted
+        !16 trap_dos_mkdir                    ;; not currently implemented
 
         ;; $10 - $1E
         ;;
-        !16 trap_dos_rmdir                    ;; not currently implememted
+        !16 trap_dos_rmdir                    ;; not currently implemented
         !16 trap_dos_opendir
         !16 trap_dos_readdir
         !16 trap_dos_closedir
         !16 trap_dos_openfile
-        !16 trap_dos_readfile                 
-        !16 trap_dos_writefile                ;; not currently implememted
+        !16 trap_dos_readfile
+        !16 trap_dos_writefile
         !16 trap_dos_mkfile                   ;; implementation started
 
         ;; $20 - $2E
         ;;
         !16 trap_dos_closefile
         !16 trap_dos_closeall
-        !16 trap_dos_seekfile                 ;; not currently implememted
-        !16 trap_dos_rmfile                   ;; not currently implememted
-        !16 trap_dos_fstat                    ;; not currently implememted
-        !16 trap_dos_rename                   ;; not currently implememted
-        !16 trap_dos_filedate                 ;; not currently implememted
+        !16 trap_dos_seekfile                 ;; not currently implemented
+        !16 trap_dos_rmfile
+        !16 trap_dos_fstat                    ;; implementation started
+        !16 trap_dos_rename                   ;; not currently implemented
+        !16 trap_dos_filedate                 ;; not currently implemented
         !16 trap_dos_setname
 
         ;; $30 - $3E
@@ -87,25 +87,25 @@ dos_and_process_trap_table:
 
         ;; $50 - $5E
         ;;
-        !16 trap_dos_gettasklist              ;; not currently implememted
-        !16 trap_dos_sendmessage              ;; not currently implememted
-        !16 trap_dos_receivemessage           ;; not currently implememted
-        !16 trap_dos_writeintotask            ;; not currently implememted
-        !16 trap_dos_readoutoftask            ;; not currently implememted
+        !16 trap_dos_gettasklist              ;; not currently implemented
+        !16 trap_dos_sendmessage              ;; not currently implemented
+        !16 trap_dos_receivemessage           ;; not currently implemented
+        !16 trap_dos_writeintotask            ;; not currently implemented
+        !16 trap_dos_readoutoftask            ;; not currently implemented
         !16 invalid_subfunction
         !16 invalid_subfunction
         !16 invalid_subfunction
 
         ;; $60 - $6E
         ;;
-        !16 trap_dos_terminateothertask       ;; not currently implememted
-        !16 trap_dos_create_task_native       ;; not currently implememted
-        !16 trap_dos_load_into_task           ;; not currently implememted
-        !16 trap_dos_create_task_c64          ;; not currently implememted
-        !16 trap_dos_create_task_c65          ;; not currently implememted
-        !16 trap_dos_exit_and_switch_to_task  ;; not currently implememted
-        !16 trap_dos_switch_to_task           ;; not currently implememted
-        !16 trap_dos_exit_task                ;; not currently implememted
+        !16 trap_dos_terminateothertask       ;; not currently implemented
+        !16 trap_dos_create_task_native       ;; not currently implemented
+        !16 trap_dos_load_into_task           ;; not currently implemented
+        !16 trap_dos_create_task_c64          ;; not currently implemented
+        !16 trap_dos_create_task_c65          ;; not currently implemented
+        !16 trap_dos_exit_and_switch_to_task  ;; not currently implemented
+        !16 trap_dos_switch_to_task           ;; not currently implemented
+        !16 trap_dos_exit_task                ;; not currently implemented
 
         ;; $70 - $7E
         ;;
@@ -799,6 +799,19 @@ trap_dos_readfile:
 	jsr dos_readfile	
         jmp return_from_trap_with_carry_flag
 
+trap_dos_writefile:
+	jsr dos_writefile	
+	jmp return_from_trap_with_carry_flag
+
+trap_dos_rmfile:
+        jsr dos_rmfile
+	jmp return_from_trap_with_carry_flag
+
+trap_dos_fstat:
+        jsr dos_fstat
+        jmp return_from_trap_with_carry_flag
+
+;;         ========================
 
 trap_dos_cdrootdir:
 	ldx hypervisor_x
@@ -1013,10 +1026,7 @@ trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_mkdir:
 trap_dos_rmdir:
-trap_dos_writefile:
 trap_dos_seekfile:
-trap_dos_rmfile:
-trap_dos_fstat:
 trap_dos_rename:
 trap_dos_filedate:
 trap_dos_gettasklist:
@@ -2394,6 +2404,30 @@ dff1:   lda dos_disk_cwd_cluster,x
 
 ;;         ========================
 
+dos_readdir_storecurrententry
+        ;; store current cluster/sector/offset to rewind to later for rmfile
+        ldy #$00
+        ldx dos_current_file_descriptor_offset
+-       lda dos_file_descriptors + dos_filedescriptor_offset_currentcluster,x
+        sta dos_direntstart_cluster,y
+        inx
+        iny
+        cpy #$07
+        bne -
+        rts
+
+dos_readdir_retreivelastentry
+        ;; retrieve current cluster/sector/offset to for rmfile
+        ldy #$00
+        ldx dos_current_file_descriptor_offset
+-       lda dos_direntstart_cluster,y
+        sta dos_file_descriptors + dos_filedescriptor_offset_currentcluster,x
+        inx
+        iny
+        cpy #$07
+        bne -
+        rts
+
 dos_readdir:
 
         ;; Get the current file entry, and advance pointer
@@ -2477,7 +2511,6 @@ drd_notadir:
 ;;         ========================
 
 drd_isdir:
-
         ;; Clear dirent structure
         ;; WARNING - Uses carnal knowledge to know that dirent structure is
         ;; 64+1+11+4+4+1 = 85 contiguous bytes
@@ -2834,6 +2867,8 @@ drce_cont_next_part:
 drce_normalrecord:
         ;; PGS: We have found a short name.
 
+        ;; start of short filename. store entry for use by fstat and rmfile
+        jsr dos_readdir_storecurrententry
 
         +Checkpoint "processing SHORT-name"
 
@@ -3327,7 +3362,21 @@ dfrcs1: lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 
 dos_file_read_current_sector:
 
-        jsr dos_get_file_descriptor_offset
+        jsr dos_file_update_sector_offset
+        jmp sd_readsector
+
+;;         ========================
+
+dos_file_write_current_sector:
+
+        jsr dos_file_update_sector_offset
+        jmp sd_writesector
+
+;;         ========================
+
+dos_file_update_sector_offset:
+
+       jsr dos_get_file_descriptor_offset
         jsr dos_set_current_cluster_from_file
         jsr dos_cluster_to_sector
 
@@ -3355,7 +3404,7 @@ gotFDOffset:
         ;;
         jsr sdsector_add_uint8
 
-        jmp sd_readsector
+        rts
 
 ;;         ========================
 
@@ -3806,8 +3855,7 @@ dos_load_y_based_on_dos_bytes_remaining:
         sta dos_bytes_remaining+3
         rts
 
-
-dos_readfile:
+dos_updatereturnsize:
 
 ;; 	ldx dos_bytes_remaining+3 
 ;; 	jsr checkpoint_bytetohex
@@ -3888,24 +3936,294 @@ dos_readfile:
 	;; Store number of bytes read in X and Y for calling process
 	stx hypervisor_x
 	sty hypervisor_y
+
+        jsr sd_map_sectorbuffer
+
+        rts
+
+dos_readfile:
+
+        jsr dos_updatereturnsize
+        bcs +
+        rts
+
++	;; Now read sector and return
+        jsr dos_file_read_current_sector
+        bcs drwf_readwritesuccess
+	rts
 	
-	;; Now read sector and return
+;;         ========================
+
+dos_writefile:
+
+        jsr dos_updatereturnsize
+        bcs +
+        rts
+
++	;; Now write sector and return
+        jsr dos_file_write_current_sector
+        bcs drwf_readwritesuccess
+        rts
+
+drwf_readwritesuccess:
+        jsr dos_file_advance_to_next_sector
+
+        sec
+        rts
 	
+;;         ========================
+
+dos_rmfile:
+        jsr dos_readdir_retreivelastentry
         jsr sd_map_sectorbuffer
         jsr dos_file_read_current_sector
-        bcs drf_gotsector
-	rts
-	
-drf_gotsector:
-	;; Then advance to next sector.
-	;; Ignore the error, as the EOF will get picked up on the next call.
 
-	jsr dos_file_advance_to_next_sector
+        lda dos_direntstart_offsetinsector+0
+        sta <(dos_scratch_vector+0)
+        lda dos_direntstart_offsetinsector+1
+        clc
+        adc #$de   ;; high byte of SD card sector buffer
+        sta <(dos_scratch_vector+1)
 
-	sec
-	rts
-	
-	
+        ldy #$00
+        lda #$e5
+        sta (<dos_scratch_vector),y
+
+        jsr write_non_mbr_sector
+        jsr sd_wait_for_ready
+
+        ;; Work out where it will be in the 2nd FAT
+        lda dos_disk_table_offset
+        ora #fs_fat32_length_of_fat
+        tay
+        ldx #0
+-       lda $d681,x
+        adc dos_disk_table,y
+        iny
+        inx
+        cpx #4
+        bne -
+
+        ;; Write FAT sector to FAT2
+        jsr write_non_mbr_sector
+        jsr sd_wait_for_ready
+
+        ldx #$03
+-       lda dos_dirent_cluster+0,x
+        sta dos_current_cluster+0,x
+        dex
+        bpl -
+
+        ; start clearing fat entries until eof or fail
+-       jsr dos_rmfile_rmchainentry
+        bcc +
+        jmp -
+
++       sec
+        rts
+
+dos_rmfile_rmchainentry:
+
+        ;; Remember low byte of cluster number so that we can pull the
+        ;; cluster number for the next cluster out of the FAT sector
+        lda dos_current_cluster
+        sta dos_scratch_byte_1
+
+        jsr dos_cluster_to_fat_sector
+
+        ;; copy from current cluster to SD sector address register
+        ldx #$03
+        php
+drf2:   lda dos_current_cluster,x
+        sta $d681,x
+        dex
+        bpl drf2
+
+drf3:   plp
+        lda dos_current_cluster,x
+        adc #$00                                ; carry (set/cleared at end of dos_cluster_to_fat_sector)
+        sta dos_current_cluster,x
+        php
+        inx
+        cpx #$04
+        bne drf3
+
+        plp
+
+        ;; read FAT sector
+        jsr sd_readsector
+        bcs +
+        jmp dos_return_error_already_set
+
++       jsr sd_map_sectorbuffer
+
+        ;; now read the right four bytes out.
+        ;; cluster number needs to be shifted left 2 bits.
+        ;; we only need the lowest order byte.
+        ;; Get low byte of old cluster number from dos_scratch_byte_1
+        ;; where we put it.
+        lda dos_scratch_byte_1          ; 63 entries in half of fat sector = 111111
+        asl
+        asl
+        tax                             ; we've multiplied by 2 and gotten rid of the high sector bit ($40)
+
+        ;; get offset to current cluster field in current file descriptor ...
+        lda dos_current_file_descriptor_offset
+        ora #dos_filedescriptor_offset_currentcluster
+        tay
+
+        ;; ... and keep it handy, because we will need it a few times
+        sty dos_scratch_byte_2
+
+        ;; get offset of current cluster number field in file descriptor
+        ;; so that we can write the new cluster number in there.
+        ldy dos_scratch_byte_2
+
+        ldz #$00
+        lda dos_scratch_byte_1
+        and #$40
+        bne drf_high
+
+drf_low:
+        lda sd_sectorbuffer,x
+        sta dos_file_descriptors,y
+        sta $1800,y
+        inx
+        iny
+        inz
+        cpz #$04
+        bne drf_low
+        bra drf_check
+
+drf_high:
+        lda sd_sectorbuffer+$100,x
+        sta dos_file_descriptors,y
+        inx
+        iny
+        inz
+        cpz #$04
+        bne drf_high
+
+drf_check:
+        ;; get current cluster field address again
+        ldy dos_scratch_byte_2
+
+        ;; First, only the lower 28-bits are valid
+        lda dos_file_descriptors+3,y
+        and #$0f
+        sta dos_file_descriptors+3,y
+
+        ;; Now check for special values:
+        ;; cluster 0 is invalid (can this ever happen in a cluster chain?)
+        lda dos_file_descriptors+3,y
+        ora dos_file_descriptors+2,y
+        ora dos_file_descriptors+1,y
+        ora dos_file_descriptors,y
+        cmp #$00
+        beq drf_fail
+
+        ;; $?FFFFFF7 = bad cluster
+        ;; $?FFFFFF8-$?FFFFFFF = end of file
+        ;; (we'll treat anything from $FFFFFF0-F as eof/bad/invalid for simplicity)
+        lda dos_file_descriptors+3,y
+        cmp #$0f
+        bne drf_ok                              ; not $0f -> regular data file
+        lda dos_file_descriptors+2,y
+        and dos_file_descriptors+1,y
+        cmp #$ff
+        bne drf_ok                              ; not $ffff -> regular data file
+        lda dos_file_descriptors,y
+        and #$f0
+        cmp #$f0
+        beq drf_eof                             ; $0ffffff? -> eof marker
+
+drf_ok:
+        jsr drf_clearwriteandincreasesector
+        sec
+        rts
+
+drf_eof:
+        jsr drf_clearwriteandincreasesector
+        clc
+        rts
+
+drf_fail:
+        clc
+        rts
+
+drf_clearwriteandincreasesector
+        lda dos_scratch_byte_1
+        asl
+        asl
+        tax
+
+        ldz #$00
+        lda dos_scratch_byte_1
+        and #$40
+        bne drf_ok_clearinhighsector
+
+drf_ok_clearinlowsector:
+        lda #$00
+-       sta sd_sectorbuffer,x
+        inx
+        inz
+        cpz #$04
+        bne -
+        bra drf_ok_cleardone
+
+drf_ok_clearinhighsector:
+        lda #$00
+-       sta sd_sectorbuffer+$100,x
+        inx
+        inz
+        cpz #$04
+        bne -
+
+drf_ok_cleardone:
+        jsr sd_writesector
+        lda dos_file_descriptors+0,y
+        sta dos_current_cluster+0
+        lda dos_file_descriptors+1,y
+        sta dos_current_cluster+1
+        lda dos_file_descriptors+2,y
+        sta dos_current_cluster+2
+        lda dos_file_descriptors+3,y
+        sta dos_current_cluster+3
+        rts
+
+;;         ========================
+
+dos_fstat
+
+        ;; rewind to start of directory entry
+        jsr dos_readdir_retreivelastentry
+        jsr sd_map_sectorbuffer
+        jsr dos_file_read_current_sector
+
+        ldy #32
+        lda dos_current_file_descriptor_offset
+        ora #dos_filedescriptor_offset_offsetinsector
+        tax
+        lda dos_file_descriptors,x
+        sta (<hypervisor_userspace_copy_vector),y       ; write directory entry offset to userland+32
+        sta <dos_scratch_vector
+        lda dos_file_descriptors+1,x
+        iny
+        sta (<hypervisor_userspace_copy_vector),y       ; write directory entry offset to userland+33
+        clc
+        adc #$de   ;; high byte of SD card sector buffer
+        sta <(dos_scratch_vector+1)
+
+        ldy #0                                       ;; copy first 32 bytes of directory entry to userland+0
+tdfs:   lda (<dos_scratch_vector),y
+        sta (<hypervisor_userspace_copy_vector),y
+        iny
+        cpy #32
+        bne tdfs
+
+        sec
+        rts       
+
 ;;         ========================
 
 dos_setname:

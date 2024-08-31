@@ -385,7 +385,7 @@ invalid_subfunction:
 ;;     DOS, process control and related functions trap
 ;;     ---------------------------------------------------------------- */
 !src "dos.asm"
-!src "dos_write.asm"
+;; !src "dos_write.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     Virtual memory and memory management
@@ -2249,15 +2249,16 @@ dos_disk_cwd_cluster:
 
 ;;         ========================
 
-        ;; Current point in open directory
-        ;;
-dos_opendir_cluster:
-        !8 0,0,0,0
-dos_opendir_sector:
-        !8 0
-dos_opendir_entry:
-        !8 0
+        ;; start of directory entry. Used to 'rewind' to start of directory entry to do rmfile.
+        ;; These fields must be contiguous, as dos_readdir_storecurrententry and dos_readdir_retreivelastentry rely on it.
 
+dos_direntstart_cluster:
+        !8 0,0,0,0
+dos_direntstart_sectorincluster:
+        !8 0
+dos_direntstart_offsetinsector:
+        !8 0,0
+        
 ;;         ========================
 
         ;; WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
@@ -2325,11 +2326,11 @@ dos_current_sector_in_cluster:  !8 0
         dos_filedescriptor_offset_diskid = 0
         dos_filedescriptor_offset_mode = 1
         dos_filedescriptor_offset_startcluster = 2
+;;
+;; These last four fields must be contiguous,
+;; as dos_rmfile and dos_open_current_file rely on it.
+;;
         dos_filedescriptor_offset_currentcluster = 6
-;;
-;; These last three fields must be contiguous, as dos_open_current_file
-;; relies on it.
-;;
         dos_filedescriptor_offset_sectorincluster = 10
         dos_filedescriptor_offset_offsetinsector = 11
         dos_filedescriptor_offset_fileoffset = 13

@@ -17,7 +17,7 @@
          dos_errorcode_too_many_reserved_clusters = $04
          dos_errorcode_not_two_fats = $05
          dos_errorcode_too_few_clusters = $06
-         dos_errorcode_read_timeout = $07
+         dos_errorcode_readwrite_timeout = $07
          dos_errorcode_partition_error = $08
          dos_errorcode_invalid_address = $10
          dos_errorcode_illegal_value = $11
