@@ -1,6 +1,6 @@
 ;; /*  -------------------------------------------------------------------
 ;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-;;     Paul Gardner-Stephen, 2014-2019.
+;;     Paul Gardner-Stephen, 2014-2024.
 
 ;;     This file is included in hyppo.a65 in the reset_entry routine.
 ;;     i.e., anything put here is executed before reset resumes.

@@ -1,6 +1,6 @@
 ;; /*  -------------------------------------------------------------------
 ;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-;;     Paul Gardner-Stephen, 2014-2019.
+;;     Paul Gardner-Stephen, 2014-2024.
 ;;     ---------------------------------------------------------------- */
 reset_cartridge:
         ldz #$00

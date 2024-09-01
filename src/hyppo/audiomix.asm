@@ -1,12 +1,12 @@
 ;; /*  -------------------------------------------------------------------
 ;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-;;     Paul Gardner-Stephen, 2014-2019.
+;;     Paul Gardner-Stephen, 2014-2024.
 ;;     ---------------------------------------------------------------- */
 audiomix_setup:
 
         ;; Set all audio mixer coefficients to silent by default
         ldx #$00
-        txa 
+        txa
 aml1:
         jsr audiomix_setcoefficient
         inx
@@ -18,10 +18,10 @@ aml1:
         jsr audiomix_set2coefficients
         ldx #$de
         jsr audiomix_set2coefficients
-	;; And also for speaker / HDMI audio outputs
-	;; Now we have a fun problem: Internal speakers need it MUCH louder than HDMI
-	;; and we wouldn't be able to set the two independently.
-	lda #$ff
+        ;; And also for speaker / HDMI audio outputs
+        ;; Now we have a fun problem: Internal speakers need it MUCH louder than HDMI
+        ;; and we wouldn't be able to set the two independently.
+        lda #$ff
         ldx #$1e
         jsr audiomix_set2coefficients
         ldx #$3e
@@ -29,17 +29,17 @@ aml1:
 
         jsr audio_set_stereo
 
-	;; Set OPL / FM / SFX / Adlib volume to max on all channels
-	lda #$0c
+        ;; Set OPL / FM / SFX / Adlib volume to max on all channels
+        lda #$0c
 fmvolloop:
-	tax
-	lda #$ff
-	jsr audiomix_set2coefficients
-	txa
-	clc
-	adc #$20
-	bcc fmvolloop
-	
+        tax
+        lda #$ff
+        jsr audiomix_set2coefficients
+        txa
+        clc
+        adc #$20
+        bcc fmvolloop
+
 
 audio_set_mono:
         ;; Left and right SID volume levels
@@ -81,7 +81,7 @@ audiomix_set_sid_lr_coefficients:
         ldx #$32
         jmp audiomix_set2coefficients
 
-audiomix_set_sid_rl_coefficients:	
+audiomix_set_sid_rl_coefficients:
         ldx #$c2
         jsr audiomix_set2coefficients
         ldx #$d2
@@ -97,23 +97,23 @@ audiomix_set_sid_rl_coefficients:
         ldx #$20
         jsr audiomix_set2coefficients
         ldx #$30
-        jmp audiomix_set2coefficients        	
-	
+        jmp audiomix_set2coefficients
+
 audio_set_stereo:
         ;; Left and right SID volume levels
         ;; for stereo operation
         lda #$be
-	jsr audiomix_set_sid_lr_coefficients
+        jsr audiomix_set_sid_lr_coefficients
         lda #$40
-	jmp audiomix_set_sid_rl_coefficients
+        jmp audiomix_set_sid_rl_coefficients
 
 audio_set_stereomirrored:
         ;; Left and right SID volume levels
         ;; for stereo operation
         lda #$40
-	jsr audiomix_set_sid_lr_coefficients
+        jsr audiomix_set_sid_lr_coefficients
         lda #$be
-	jmp audiomix_set_sid_rl_coefficients
+        jmp audiomix_set_sid_rl_coefficients
 
 audiomix_setcoefficient:
         stx audiomix_addr

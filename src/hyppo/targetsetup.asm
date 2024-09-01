@@ -1,10 +1,15 @@
+;; /*  -------------------------------------------------------------------
+;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+;;     Paul Gardner-Stephen, 2014-2024.
+;;     ---------------------------------------------------------------- */
+
         ;; Setup functions for MEGAphone.
         ;; Basically setup the I2C IO expanders with sensible values, turning
         ;; all peripherals on.
 
 targetspecific_setup:
 
-	;; Setup common I2C area 32-bit pointer
+        ;; Setup common I2C area 32-bit pointer
         lda #<$7000
         sta zptempv32+0
         lda #>$7000
@@ -13,23 +18,23 @@ targetspecific_setup:
         sta zptempv32+2
         lda #>$0FFD
         sta zptempv32+3
-	
-	;; Apply I2C settings based on target ID
-	lda $d629
-	cmp #$03
-	beq mega65r3_i2c_setup
-	cmp #$04
-	beq mega65r4_i2c_setup
-	lda $d629
-	cmp #$20
-	beq megaphone_r1_i2c_setup
-	rts
+
+        ;; Apply I2C settings based on target ID
+        lda $d629
+        cmp #$03
+        beq mega65r3_i2c_setup
+        cmp #$04
+        beq mega65r4_i2c_setup
+        lda $d629
+        cmp #$20
+        beq megaphone_r1_i2c_setup
+        rts
 
 mega65r4_i2c_setup:
-	;; XXX - Add setup for MEGA65R4 board here
-	rts
+        ;; XXX - Add setup for MEGA65R4 board here
+        rts
 
-mega65r3_i2c_setup:	
+mega65r3_i2c_setup:
 
         lda #>$7100
         sta zptempv32+1
@@ -53,21 +58,21 @@ mps3_loop:
 
         ;; Keep writing it until it gets written
 -
- 	sta [<zptempv32],z
+         sta [<zptempv32],z
 
-	inc $d020	
+        inc $d020
         cmp [<zptempv32],z
         bne -
 
         jmp mps3_loop
-	
+
 megaphone_r1_i2c_setup:
 
         ;; Start with backscreen very dim, to avoid inrush current
         ;; causing FGPA power rail to sag.
         lda #$01
         sta $d6f0
-	
+
         lda #$00
         sta $d020
         ldy #$00
@@ -128,7 +133,7 @@ megaphone_r1_i2c_settings:
 
         !8 $FF,$FF ;; End of list marker
 
-mega65r3_i2c_settings:	
+mega65r3_i2c_settings:
         ;; Speaker amplifier configuration
         !8 $e1,$FF   ;; Left volume initial mute
         !8 $e2,$FF   ;; Right volume initial mute

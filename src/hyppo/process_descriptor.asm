@@ -1,6 +1,6 @@
 ;; /*  -------------------------------------------------------------------
 ;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-;;     Paul Gardner-Stephen, 2014-2019.
+;;     Paul Gardner-Stephen, 2014-2024.
 ;;     ---------------------------------------------------------------- */
 
         ;; Process descriptor block (fixed 256 bytes)
@@ -10,7 +10,7 @@
 
         ;; Process description (first 128 bytes)
 
-	start = *
+        start = *
 currenttask_block:
 
         ;; Tasks are idenfied by what amounts to an 8-bit process id.
@@ -40,15 +40,15 @@ currenttask_d81_image0_name:
 currenttask_d81_image1_name:
         !text "                                "
 
-	;; DOS work area is full, so some things over-flow here:
-	
-	;; Used to temporarily stash the currently read SD card sector.
-	;; (mostly to hide when we have to read a FAT sector during file
-	;; access)
+        ;; DOS work area is full, so some things over-flow here:
+
+        ;; Used to temporarily stash the currently read SD card sector.
+        ;; (mostly to hide when we have to read a FAT sector during file
+        ;; access)
 dos_stashed_sd_sector_number:
-	!8 0,0,0,0
-	
-	
+        !8 0,0,0,0
+
+
         ;; Make sure we don't over-flow the available space
         * = start + $80
 

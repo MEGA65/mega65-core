@@ -1,6 +1,6 @@
 ;; /*  -------------------------------------------------------------------
 ;;     MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
-;;     Paul Gardner-Stephen, 2014-2019.
+;;     Paul Gardner-Stephen, 2014-2024.
 
 ;;     These routines provide support for FAT32 and SDCARD support.
 ;;     ---------------------------------------------------------------- */
@@ -97,22 +97,22 @@ issdhc:
 ;;     SD Card access routines
 ;;     ---------------------------------------------------------------- */
 
-sd_open_write_gate:	
-	lda #$57
-	sta $d680
-	rts
+sd_open_write_gate:
+        lda #$57
+        sta $d680
+        rts
 
 write_non_mbr_sector:
-	jsr sd_open_write_gate
-	jmp write_sector_trigger
+        jsr sd_open_write_gate
+        jmp write_sector_trigger
 write_mbr_sector:
-	lda #$4D
-	sta $d680
-write_sector_trigger:	
-	lda #$03
-	sta $d680
-	rts
-	
+        lda #$4D
+        sta $d680
+write_sector_trigger:
+        lda #$03
+        sta $d680
+        rts
+
 
 sd_wait_for_ready:
         jsr sdtimeoutreset
