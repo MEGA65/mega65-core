@@ -955,7 +955,7 @@ trap_dos_d81detach:
         ldx #%11000010          ;; detach both drives, don't attach real drives
         jsr dos_attach
 
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_carry_flag
 
 ;;         ========================
 
@@ -966,7 +966,7 @@ trap_dos_attach:
         ldx hypervisor_x
         jsr dos_attach
 
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_carry_flag
 
 ;;         ========================
 
@@ -4269,10 +4269,10 @@ dos_attach:
         ;;
         ;; handles both attaching and detaching images and real drives
         ;;
-        ;; X.0 - which drive 0 or 1
-        ;; X.1 - detach both drives if set (ignored for attach)
-        ;; X.6 - don't attach real drive if set (ignored for attach)
-        ;; X.7 - select mode 0 - attach, 1 - detach
+        ;; X.0 - DRVNUM  select drive 0 or 1
+        ;; X.1 - BOTHDRV (MODE=detach) selects both drives
+        ;; X.6 - NOREAL  (MODE=detach) don't attach real drive if set
+        ;; X.7 - MODE    select mode 0 - attach, 1 - detach
 
         ;; set the attach bits according to the selected drives
         txa
@@ -4323,6 +4323,16 @@ dos_diskattach:
         ;; Assumes only that D81 file name has been set with dos_setname.
         ;;
         sty <dos_attach_offset  ;; save Y offset into dos_attach_*_bits
+
+        ;; Check if the filename of the disk image is too long
+        ldx dos_requested_filename_len
+        cpx #d81_image_max_namelen
+        bcc @d81lenok
+        lda #dos_errorcode_name_too_long
+        clc
+        rts
+
+@d81lenok
         jsr dos_findfile
         bcs @d81a1
 
@@ -4444,10 +4454,6 @@ dos_diskattach:
 
         ldx dos_requested_filename_len
 
-        ;; Check if the filename of the disk image is too long
-        cpx #d81_image_max_namelen
-        bcs @d81NameTooLongForProcessDescriptor
-
         ;; Name not too long, save name and length
         stx currenttask_d81_image0_namelen
         ldx #0
@@ -4456,16 +4462,6 @@ dos_diskattach:
         inx
         cpx currenttask_d81_image0_namelen
         bne -
-
-        sec
-        rts
-
-@d81NameTooLongForProcessDescriptor:
-        ;; Name is too long, so don't save it.
-        ;; This means that the disk image will unmount on freeze, and will not re-mount after
-        ;; XXX - This should probably be an error.
-        lda #0
-        sta currenttask_d81_image0_namelen
 
         sec
         rts
@@ -4480,10 +4476,6 @@ dos_diskattach:
 
         ldx dos_requested_filename_len
 
-        ;; Check if the filename of the disk image is too long
-        cpx #d81_image_max_namelen
-        bcs @d81NameTooLongForProcessDescriptor1
-
         ;; Name not too long, save name and length
         stx currenttask_d81_image1_namelen
         ldx #0
@@ -4492,16 +4484,6 @@ dos_diskattach:
         inx
         cpx currenttask_d81_image1_namelen
         bne -
-
-        sec
-        rts
-
-@d81NameTooLongForProcessDescriptor1:
-        ;; Name is too long, so don't save it.
-        ;; This means that the disk image will unmount on freeze, and will not re-mount after
-        ;; XXX - This should probably be an error.
-        lda #0
-        sta currenttask_d81_image1_namelen
 
         sec
         rts
