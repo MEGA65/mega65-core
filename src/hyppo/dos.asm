@@ -4581,6 +4581,7 @@ not_a_frag:
         inc <d81_clustercount
         bne l96
         inc <d81_clustercount+1
+        beq d81wronglength      ;; overflow means wrong length
 l96:
 
         ;; increment expected cluster number
@@ -4608,11 +4609,6 @@ l96:
 
         ;; we have read to end of D81 file, and it is contiguous
         ;; now check that it is the right length
-
-        ;; that is to much!
-        lda <d81_clustercount+2
-        ora <d81_clustercount+3
-        bne d81wronglength
 
         ;; It might also be a D64 (1541) or D71 (1571) disk image,
         ;; so check for 683x256/4096 = 42.6875 = 43 clusters or
