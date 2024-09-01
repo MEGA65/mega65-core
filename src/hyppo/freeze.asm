@@ -89,73 +89,63 @@ unfreeze_next_region:
 
         ;; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
-        ;; 1. Detach
-        ldx #%11000010
+        ;; keep old flags, dos_attach in detach mode does reset those
+        lda currenttask_d81_image1_flags
+        pha
+        lda currenttask_d81_image0_flags
+        pha
+
+        ;; 0. Detach both drives
+        ldx #%10000010
         jsr dos_attach
 
-        ;; 2. Copy filename for image 0
+        ;; 1. Check if image was attached
+        pla
+        and #d81_image_flag_mounted
+        beq noImage0ToRemount
+
+        ;; 2. Copy filename for image 0 (emulating dos_setname)
         ldx currenttask_d81_image0_namelen
-        beq noD81Image0ToRemount
+        beq noImage0ToRemount
         ldx #0
-copy:   lda currenttask_d81_image0_name,x
+-       lda currenttask_d81_image0_name,x
         sta dos_requested_filename,x
         inx
         cpx currenttask_d81_image0_namelen
-        bne copy
+        bne -
         lda #0
         sta dos_requested_filename,x
         stx dos_requested_filename_len
-
-        ;; 3. Remember write-enable flag
-        lda currenttask_d81_image0_flags
-        and #d81_image_flag_write_en
-        pha
 
         ;; 4. Try to reattach it
         ldx #$00
         jsr dos_attach
 
-        ;; 5. Mark write enabled if required
+noImage0ToRemount:
+
+        ;; 1. Check if image was attached
         pla
-        cmp #$00
-        beq noD81Image0ToRemount
+        and #d81_image_flag_mounted
+        beq noImage1ToRemount
 
-        ;; 6. Re-enable write access on the disk image
-        jsr dos_d81write_en
-
-noD81Image0ToRemount:
-
-        ;; 2. Copy filename for image 0
+        ;; 2. Copy filename for image 1 (emulating dos_setname)
         ldx currenttask_d81_image1_namelen
-        beq noD81Image1ToRemount
+        beq noImage1ToRemount
         ldx #0
-copy1:  lda currenttask_d81_image1_name,x
+-       lda currenttask_d81_image1_name,x
         sta dos_requested_filename,x
         inx
         cpx currenttask_d81_image1_namelen
-        bne copy1
+        bne -
         lda #0
         sta dos_requested_filename,x
         stx dos_requested_filename_len
-
-        ;; 3. Remember write-enable flag
-        lda currenttask_d81_image1_flags
-        and #d81_image_flag_write_en
-        pha
 
         ;; 4. Try to reattach it
         ldx #$01
         jsr dos_attach
 
-        ;; 5. Mark write enabled if required
-        pla
-        cmp #$00
-        beq noD81Image1ToRemount
-
-        ;; 6. Re-enable write access on the disk image
-        jsr dos_d81write_en
-
-noD81Image1ToRemount:
+noImage1ToRemount:
 
         ;; Turn SID volume registers back on, as those registers
         ;; cannot be frozen.

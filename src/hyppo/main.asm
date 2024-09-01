@@ -2764,9 +2764,9 @@ run_util_in_hypervisor_context:
         ;; XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
         ;; Hypervisor memory map!
         lda #$00
-        !8 $5B ;; tab
+        tab
         ldy #$01
-        !8 $2B ;; tys
+        tys
 
         jsr setup_for_openrom
         ;; XXX Work around bug in OpenROMs that erases our banner palette when we do this
@@ -3477,8 +3477,6 @@ dos_scratch_byte_1:
         !8 0
 dos_scratch_byte_2:
         !8 0
-dos_attach_offset:
-        !8 0
 
         ;; Vectors for copying data between hypervisor and user-space
         ;;
@@ -3547,7 +3545,7 @@ file_pagesread:
         !16 0
 
         ;; Variables for testing of D81 boot image
-d81_lasttype:
+disk_lasttype:
         !8 0
 d81_clusternumber:
         !32 0
@@ -3559,6 +3557,8 @@ d71_clustersneeded:
         !16 0
 d81_clustercount:
         !16 0
+dos_attach_offset:
+        !8 0
 
         ;; Make sure we pad to full size
         * = Hyppo_End

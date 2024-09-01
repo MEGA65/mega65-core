@@ -4301,7 +4301,8 @@ dos_attach:
         txa
         and #$03
         tax
-        lda #d81_image_flag_mounted
+        ;; mark currenttask images as unmounted
+        lda #(d81_image_flag_mounted | d81_image_flag_write_en)
         cpx #$02
         bcs @attach_detach_both
         cmp #$00
@@ -4314,8 +4315,7 @@ dos_attach:
         trb currenttask_d81_image1_flags
 @attach_detach_done:
 
-        sec
-        rts
+        jmp dos_return_success
 
 dos_diskattach:
         ;; dos_attach_bits determines on which drive it works
@@ -4329,16 +4329,14 @@ dos_diskattach:
         cpx #d81_image_max_namelen
         bcc @d81lenok
         lda #dos_errorcode_name_too_long
-        clc
-        rts
+        jmp dos_return_error
 
 @d81lenok
         jsr dos_findfile
         bcs @d81a1
 
-        lda #dos_errorcode_file_not_found
-        clc
-        rts
+        ;; dos_findfile sets the error
+        jmp dos_return_error_already_set
 
 ;;         ========================
 
@@ -4347,10 +4345,9 @@ dos_diskattach:
         ;; -> because dos_findfile/first only closes on file_not_found
         jsr dos_closefile
 
-        jsr dos_d81check
+        jsr dos_checkimage
         bcs @d81a1a
-        clc
-        rts
+        jmp dos_return_error_already_set
 
 @d81a1a:
         ;; copy sector number from $D681 to DxSTARTSEC (D68C or D690)
@@ -4384,8 +4381,7 @@ dos_diskattach:
 
         ;; same sector number, error out
         lda #dos_errorcode_double_attach
-        clc
-        rts
+        jmp dos_return_error
 
 @attach_copy_sector:
         tza
@@ -4412,8 +4408,8 @@ dos_diskattach:
         tax
         trb $d68a
 
-        ;; Check what dos_d81check detected
-        lda d81_lasttype
+        ;; Check what dos_checkimage detected
+        lda <disk_lasttype
         cmp #64
         bne @not_d64
 
@@ -4446,10 +4442,10 @@ dos_diskattach:
         cpx #$80
         beq @d81attach1_typeset
 
-        +Checkpoint "dos_d81attach0 <success>"
+        +Checkpoint "dos_attach 0 <success>"
 
         ;; Save name and set mount flag for disk image in process descriptor block
-        lda #d81_image_flag_mounted
+        lda #(d81_image_flag_mounted | d81_image_flag_write_en)
         sta currenttask_d81_image0_flags
 
         ldx dos_requested_filename_len
@@ -4463,15 +4459,14 @@ dos_diskattach:
         cpx currenttask_d81_image0_namelen
         bne -
 
-        sec
-        rts
+        bra @attach_success
 
 @d81attach1_typeset:
 
-        +Checkpoint "dos_d81attach1 <success>"
+        +Checkpoint "dos_attach 1 <success>"
 
         ;; Save name and set mount flag for disk image in process descriptor block
-        lda #d81_image_flag_mounted
+        lda #(d81_image_flag_mounted | d81_image_flag_write_en)
         sta currenttask_d81_image1_flags
 
         ldx dos_requested_filename_len
@@ -4485,11 +4480,10 @@ dos_diskattach:
         cpx currenttask_d81_image1_namelen
         bne -
 
-        sec
-        rts
+@attach_success:
+        jmp dos_return_success
 
-
-dos_d81check:
+dos_checkimage:
         ;; now we need to check that the file is long enough,
         ;; and also that the clusters are contiguous.
 
@@ -4501,7 +4495,7 @@ dos_d81check:
         jsr dos_openfile
         bcs @fileOpenedOk
 @fileNotOpenedOk:
-        jmp not81
+        jmp dos_return_error_already_set
 @fileOpenedOk:
 
         ;; work out how many clusters we need
@@ -4512,22 +4506,22 @@ dos_d81check:
         ;; TODO: D65 clusters are not calculated yet, but hardcoded below
         ;;
         lda #$00
-        sta d81_clustercount
-        sta d81_clustercount+1
+        sta <d81_clustercount
+        sta <d81_clustercount+1
         lda #<1600
-        sta d81_clustersneeded
+        sta <d81_clustersneeded
         lda #>1600
-        sta d81_clustersneeded+1
+        sta <d81_clustersneeded+1
         ;; 1541 - rounded up to 512b sectors 344*512 = 176128, D64 = 174848
         lda #<344
-        sta d64_clustersneeded
+        sta <d64_clustersneeded
         lda #>344
-        sta d64_clustersneeded+1
+        sta <d64_clustersneeded+1
         ;; 1571 - rounded up to 512b sectors 688*512 = 352256, D71 = 349696
         lda #<688
-        sta d71_clustersneeded
+        sta <d71_clustersneeded
         lda #>688
-        sta d71_clustersneeded+1
+        sta <d71_clustersneeded+1
 
         ;; get sectors per cluster of disk
         ;;
@@ -4541,12 +4535,12 @@ l94:    tza
         tza
         lsr
         taz
-        lsr d81_clustersneeded+1
-        ror d81_clustersneeded
-        lsr d64_clustersneeded+1
-        ror d64_clustersneeded
-        lsr d71_clustersneeded+1
-        ror d71_clustersneeded
+        lsr <d81_clustersneeded+1
+        ror <d81_clustersneeded
+        lsr <d64_clustersneeded+1
+        ror <d64_clustersneeded
+        lsr <d71_clustersneeded+1
+        ror <d71_clustersneeded
         jmp l94
 
 d81firstcluster:
@@ -4584,37 +4578,31 @@ not_a_frag:
 
         ;; increment number of clusters found so far
         ;;
-        inc d81_clustercount
+        inc <d81_clustercount
         bne l96
-        inc d81_clustercount+1
+        inc <d81_clustercount+1
 l96:
 
         ;; increment expected cluster number
         ;;
         clc
-        lda d81_clusternumber
+        lda <d81_clusternumber
         adc #$01
-        sta d81_clusternumber
-        lda d81_clusternumber+1
+        sta <d81_clusternumber
+        lda <d81_clusternumber+1
         adc #$00
-        sta d81_clusternumber+1
-        lda d81_clusternumber+2
+        sta <d81_clusternumber+1
+        lda <d81_clusternumber+2
         adc #$00
-        sta d81_clusternumber+2
-        lda d81_clusternumber+3
+        sta <d81_clusternumber+2
+        lda <d81_clusternumber+3
         adc #$00
-        sta d81_clusternumber+3
+        sta <d81_clusternumber+3
 
         jsr dos_file_advance_to_next_cluster
         bcs d81nextcluster
 
-        ;; The above continues until EOF is reached, so clear DOS
-        ;; error after.
-        ;;
-        lda #$00
-        sta dos_error_code
-
-        +Checkpoint "dos_d81attach <measured end of image>"
+        +Checkpoint "dos_checkimage <measured end of image>"
 
         jsr dos_closefile
 
@@ -4622,18 +4610,18 @@ l96:
         ;; now check that it is the right length
 
         ;; that is to much!
-        lda d81_clustercount+2
-        ora d81_clustercount+3
+        lda <d81_clustercount+2
+        ora <d81_clustercount+3
         bne d81wronglength
 
         ;; It might also be a D64 (1541) or D71 (1571) disk image,
         ;; so check for 683x256/4096 = 42.6875 = 43 clusters or
         ;; double that for D71
-        lda d81_clustercount+1
-        cmp d64_clustersneeded+1
+        lda <d81_clustercount+1
+        cmp <d64_clustersneeded+1
         bne not_1541
-        lda d81_clustercount
-        cmp d64_clustersneeded
+        lda <d81_clustercount
+        cmp <d64_clustersneeded
         bne not_1541_2
 
         ;;  IS a d64 sized file
@@ -4641,12 +4629,12 @@ l96:
         bra d81_is_good
 
 not_1541_2:
-        lda d81_clustercount+1
+        lda <d81_clustercount+1
 not_1541:
-        cmp d71_clustersneeded+1
+        cmp <d71_clustersneeded+1
         bne not_1571
-        lda d81_clustercount
-        cmp d71_clustersneeded
+        lda <d81_clustercount
+        cmp <d71_clustersneeded
         bne not_1571_2
 
         ;; IS a d71 sized file
@@ -4654,14 +4642,14 @@ not_1541:
         bra d81_is_good
 
 not_1571_2:
-        lda d81_clustercount+1
+        lda <d81_clustercount+1
 not_1571:
         ;; First check if we read enough for 85 tracks x 64 sectors x 2 sides = 5,570,560 bytes
         ;; = 1,360 clusters = $0550 clusters
         ;; XXX - This currently assumes 8 sectors per cluster = 4KB sectors
         cmp #$05
         bne not_mega_floppy
-        lda d81_clustercount
+        lda <d81_clustercount
         cmp #$50
         bne not_mega_floppy_2
 
@@ -4669,20 +4657,20 @@ not_1571:
         bra d81_is_good
 
 not_mega_floppy_2:
-        lda d81_clustersneeded+1
+        lda <d81_clustersneeded+1
 not_mega_floppy:
         ;; D81 image?
-        cmp d81_clustercount+1
+        cmp <d81_clustercount+1
         bne d81wronglength
-        lda d81_clustersneeded
-        cmp d81_clustercount
+        lda <d81_clustersneeded
+        cmp <d81_clustercount
         bne d81wronglength
 
         lda #81
 
 d81_is_good:
         ;; disk image size is good. save type on stack for later
-        sta d81_lasttype
+        sta <disk_lasttype
 
         ;; Get cluster number again, convert to sector, and copy to
         ;; SD controller FDC emulation disk image offset registers
@@ -4699,40 +4687,26 @@ l94c:   lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
 
         jsr dos_cluster_to_sector
 
-        sec
-        rts
-
+        jmp dos_return_success
 
 ;;         ========================
 
 d81wronglength:
-        +Checkpoint "dos_d81attach <wrong length>"
+        +Checkpoint "dos_attach <wrong length>"
 
         lda #dos_errorcode_image_wrong_length
-        sta dos_error_code
-        clc
-        rts
+        jmp dos_return_error
 
 ;;         ========================
 
 d81isfragged:
-        +Checkpoint "dos_d81attach <fragmented>"
+        +Checkpoint "dos_attach <fragmented>"
 
         ;; close dangeling open descriptor
         jsr dos_closefile
 
         lda #dos_errorcode_image_fragmented
-        sta dos_error_code
-        clc
-        rts
-
-;;         ========================
-
-not81:
-        +Checkpoint "dos_d81attach <file not found>"
-
-        clc
-        rts
+        jmp dos_return_error
 
 ;;         ========================
 

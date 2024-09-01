@@ -3404,9 +3404,7 @@ begin  -- behavioural
                 f011_disk2_write_protected <= not fastio_wdata(5);
                 -- GI: I note that the vhdl refers to them as disk1 and disk2, whereas our documentation prefers to call them
                 --     drive0 and drive1. So I will adjust the comments here to suit our documentation.
-                -- @IO:GS $D68B.2 - F011 drive 0 write protect
                 f011_disk1_write_protected <= not fastio_wdata(2);
-                -- @IO:GS $D68B.1 - F011 drive 0 present
                 f011_disk1_present <= fastio_wdata(1);
                 f011_disk2_present <= fastio_wdata(4);
               end if;
@@ -3419,8 +3417,6 @@ begin  -- behavioural
               -- @IO:GS $D68B.1 SDFDC:D0P F011 drive 0 media present
               -- @IO:GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive.
               diskimage2_enable <= fastio_wdata(3);
-
-              -- @IO:GS $D68B.0 - F011 drive 0 disk image enable
               diskimage1_enable <= fastio_wdata(0);
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
