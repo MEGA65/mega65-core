@@ -4388,7 +4388,7 @@ dos_diskattach:
         bpl -
 
         ;; disable real floppy
-        lda <dos_attach_offset
+        ldy <dos_attach_offset
         lda dos_attach_realdrv_bits,y
         trb $d6a1
         
