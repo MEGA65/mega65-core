@@ -89,20 +89,9 @@ unfreeze_next_region:
 
         ;; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
-        ;; keep old flags, dos_attach in detach mode does reset those
-        lda currenttask_d81_image1_flags
-        pha
-        lda currenttask_d81_image0_flags
-        pha
-
-        ;; 0. Detach both drives
+        ;; 1. Detach both drives
         ldx #%10000010
         jsr dos_attach
-
-        ;; 1. Check if image was attached
-        pla
-        and #d81_image_flag_mounted
-        beq noImage0ToRemount
 
         ;; 2. Copy filename for image 0 (emulating dos_setname)
         ldx currenttask_d81_image0_namelen
@@ -122,11 +111,6 @@ unfreeze_next_region:
         jsr dos_attach
 
 noImage0ToRemount:
-
-        ;; 1. Check if image was attached
-        pla
-        and #d81_image_flag_mounted
-        beq noImage1ToRemount
 
         ;; 2. Copy filename for image 1 (emulating dos_setname)
         ldx currenttask_d81_image1_namelen
