@@ -188,6 +188,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/gs4510.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/upscaler.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/r3_expansion.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/exp_board_serial_rings.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/neotrng.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fast_divide.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdram.vhdl"]"\

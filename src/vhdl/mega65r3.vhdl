@@ -268,6 +268,9 @@ end container;
 
 architecture Behavioral of container is
 
+  signal buffereduart_rx : std_logic_vector(7 downto 0) := (others => '1');
+  signal buffereduart_tx : std_logic_vector(7 downto 0);  
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -478,11 +481,10 @@ architecture Behavioral of container is
 
   signal dvi_select : std_logic := '0';
 
-  signal luma : unsigned(7 downto 0);
-  signal chroma : unsigned(7 downto 0);
-  signal composite : unsigned(7 downto 0);
-
   signal eth_load_enable : std_logic;
+
+  signal accessory_rx : std_logic;
+  signal accessory_tx : std_logic;
   
 begin
 
@@ -597,25 +599,6 @@ begin
         tmds => tmds
         );
 
-  expansionboard0: entity work.r3_expansion
-    port map (
-      cpuclock => cpuclock,
-      clock27 => clock27,
-      clock81 => pixelclock,
-      clock270 => clock270,
-
-      p1lo => p1lo,
-      p1hi => p1hi,
-      p2lo => p2lo,
-      p2hi => p2hi,
-      
-      luma => luma,
-      chroma => chroma,
-      composite => composite,
-      audio => luma
-      
-      );
-  
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
@@ -855,9 +838,18 @@ begin
           uartclock       => cpuclock, -- Match CPU clock
           clock162 => clock162,
           clock200 => clock200,
+          clock270 => clock270,
           clock27 => clock27,
           clock50mhz      => ethclock,
 
+          p1lo => p1lo,
+          p1hi => p1hi,
+          p2lo => p2lo,
+          p2hi => p2hi,
+
+          accessory_tx => accessory_tx,
+          accessory_rx => accessory_rx,
+                    
           eth_load_enabled => eth_load_enable,
           
           hyper_addr => hyper_addr,
@@ -898,10 +890,6 @@ begin
           fm_right => fm_right,
           
           no_hyppo => '0',
-
-          luma => luma,
-          chroma => chroma,
-          composite => composite,
           
           vsync           => v_vsync,
           vga_hsync       => v_vga_hsync,
@@ -931,7 +919,9 @@ begin
           iec_atn_o => iec_atn_drive,
           iec_bus_active => iec_bus_active,     
           
---      buffereduart_rx => '1',
+          buffereduart_rx => buffereduart_rx,
+          buffereduart_tx => buffereduart_tx,
+
           buffereduart_ringindicate => (others => '0'),
           
           porta_pins => column(7 downto 0),
@@ -1117,6 +1107,10 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
+    -- Connect expansion board accessory interface
+    buffereduart_rx(0) <= accessory_rx;
+    accessory_tx <= buffereduart_tx(0);
+    
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
