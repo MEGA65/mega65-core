@@ -95,6 +95,7 @@ set obj [get_filesets sources_1]
 set files [list \
  "[file normalize "$origin_dir/ipcore_dir/dotclock100.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/porttypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhd"]"\

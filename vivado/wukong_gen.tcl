@@ -97,6 +97,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/clock50to100.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/porttypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhdl"]"\

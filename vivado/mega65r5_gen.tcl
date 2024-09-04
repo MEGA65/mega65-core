@@ -96,6 +96,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/clocking.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/porttypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/porttypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
