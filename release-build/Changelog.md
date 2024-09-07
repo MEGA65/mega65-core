@@ -27,6 +27,8 @@ This is the Summer 2024 Release.
   - Add support for the DIY Keyboard to mega65r4-6 (tdeval)
     [PR#804](https://github.com/MEGA65/mega65-core/pull/804)
 - Bugfixes:
+  - POT lines jittering in bit 1
+    [#828](https://github.com/MEGA65/mega65-core/issues/828)
   - CIA Oneshot timer handled incorrectly
     [#821](https://github.com/MEGA65/mega65-core/issues/821)
   - Sprites not correctly hidden by border
