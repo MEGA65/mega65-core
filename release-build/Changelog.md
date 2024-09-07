@@ -37,6 +37,14 @@ This is the Summer 2024 Release.
     [#809](https://github.com/MEGA65/mega65-core/issues/809)
   - Fix pblock component assignment (tdeval)
     [PR#806](https://github.com/MEGA65/mega65-core/pull/806)
+  - Various audio mixing and SID fixes (MassiveBattlebotsFan)
+    [#801](https://github.com/MEGA65/mega65-core/issues/801)
+    - Direct drive audio DAC has unusual stepwise behaviors
+      [#794](https://github.com/MEGA65/mega65-core/issues/794)
+    - Direct drive audio DAC has unusual stepwise behaviors
+      [#793](https://github.com/MEGA65/mega65-core/issues/793)
+    - SID 8580 won't play certain notes on first invocation
+      [#631](https://github.com/MEGA65/mega65-core/issues/631)
   - RRB Reverse Y-row adjust
     [#796](https://github.com/MEGA65/mega65-core/issues/796)
   - RTS immediate mode instruction completely broken
