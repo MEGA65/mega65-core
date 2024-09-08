@@ -27,6 +27,10 @@ This is the Summer 2024 Release.
   - Add support for the DIY Keyboard to mega65r4-6 (tdeval)
     [PR#804](https://github.com/MEGA65/mega65-core/pull/804)
 - Bugfixes:
+  - POT lines jittering in bit 1
+    [#828](https://github.com/MEGA65/mega65-core/issues/828)
+  - CIA Oneshot timer handled incorrectly
+    [#821](https://github.com/MEGA65/mega65-core/issues/821)
   - Sprites not correctly hidden by border
     [#815](https://github.com/MEGA65/mega65-core/issues/815)
   - Fix critical warnings and SDRAM DQ drive (MJoergen)
@@ -35,6 +39,14 @@ This is the Summer 2024 Release.
     [#809](https://github.com/MEGA65/mega65-core/issues/809)
   - Fix pblock component assignment (tdeval)
     [PR#806](https://github.com/MEGA65/mega65-core/pull/806)
+  - Various audio mixing and SID fixes (MassiveBattlebotsFan)
+    [#801](https://github.com/MEGA65/mega65-core/issues/801)
+    - Direct drive audio DAC has unusual stepwise behaviors
+      [#794](https://github.com/MEGA65/mega65-core/issues/794)
+    - Direct drive audio DAC has unusual stepwise behaviors
+      [#793](https://github.com/MEGA65/mega65-core/issues/793)
+    - SID 8580 won't play certain notes on first invocation
+      [#631](https://github.com/MEGA65/mega65-core/issues/631)
   - RRB Reverse Y-row adjust
     [#796](https://github.com/MEGA65/mega65-core/issues/796)
   - RTS immediate mode instruction completely broken
@@ -49,6 +61,8 @@ This is the Summer 2024 Release.
     [#781](https://github.com/MEGA65/mega65-core/issues/781)
   - Alternate ROMs in Slot 9
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
+  - sdcardio: D6A1.3 SDFDC:SILENT seems to have no effect
+    [#621](https://github.com/MEGA65/mega65-core/issues/621)
 - Build framework:
   - Switch to mega65-tools release 1.00, use coretool, don't build MCS for everything
     [#792](https://github.com/MEGA65/mega65-core/issues/792)
@@ -132,6 +146,8 @@ Note: It is possible that not all changes were marked with the milestone.
     [#771](https://github.com/MEGA65/mega65-core/issues/771)
   - Right most character pixel not drawn with H640 disabled
     [#682](https://github.com/MEGA65/mega65-core/issues/682)
+  - RRB GOTOX is off by 1
+    [#337](https://github.com/MEGA65/mega65-core/issues/337)
   - Hyppo All-RAM access (ROMLOAD, fonts)
     [#634](https://github.com/MEGA65/mega65-core/issues/634)
     [#676](https://github.com/MEGA65/mega65-core/issues/676)

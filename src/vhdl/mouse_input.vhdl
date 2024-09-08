@@ -472,7 +472,7 @@ begin
           if pota_x_counter > to_integer(pota_x_internal_stabilised) + 2 then
             ma_x_hist <= '1';
           end if;
-          if potb_y_counter < to_integer(potb_y_internal_stabilised) - 2 then
+          if pota_y_counter < to_integer(pota_y_internal_stabilised) - 2 then
             ma_y_hist <= '0';
           end if;          
           if pota_y_counter > to_integer(pota_y_internal_stabilised) + 2 then

@@ -2524,7 +2524,7 @@ begin
           -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
           rom_at_e000 <= fastio_wdata(7);
           reg_rom_e000 <= fastio_wdata(7);
-          -- @IO:C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
+          -- @IO:C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset (not implemented)
           reg_c65_charset <= fastio_wdata(6);
           -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
           rom_at_c000 <= fastio_wdata(5);
