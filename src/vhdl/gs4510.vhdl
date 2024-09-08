@@ -6163,10 +6163,10 @@ begin
               if reg_dmagic_draw_spiral = '1' then
                 -- Draw the dreaded Shallan Spriral
                 case reg_dmagic_spiral_phase is
-                  when "00" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 1;
-                  when "01" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 40;
-                  when "10" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 1;
-                  when others => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 40;
+                  when "00" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  + 1;
+                  when "01" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  + 40;
+                  when "10" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  - 1;
+                  when others => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  - 40;
                 end case;
                 if reg_dmagic_spiral_len_remaining /= 0 then
                   reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len_remaining - 1;
@@ -6189,11 +6189,11 @@ begin
                   -- Normal fill
                   if dmagic_dest_hold='0' then
                     if dmagic_dest_direction='0' then
-                      dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
+                      dmagic_dest_addr(34 downto 0)
+                      <= dmagic_dest_addr(34 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(27 downto 0)
-                    <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(34 downto 0)
+                    <= dmagic_dest_addr(34 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
               else
@@ -6564,11 +6564,11 @@ begin
                 end if;
               elsif dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr(27 downto 0)
-                    <= dmagic_src_addr(27 downto 0) + reg_dmagic_src_skip;
+                  dmagic_src_addr(35 downto 0)
+                    <= dmagic_src_addr(35 downto 0) + reg_dmagic_src_skip;
                 else
-                  dmagic_src_addr(27 downto 0)
-                    <= dmagic_src_addr(27 downto 0) - reg_dmagic_src_skip;
+                  dmagic_src_addr(35 downto 0)
+                    <= dmagic_src_addr(35 downto 0) - reg_dmagic_src_skip;
                 end if;
               end if;
                                         -- Set IO visibility for destination
@@ -6753,11 +6753,11 @@ begin
                   -- end of line mode case
                 elsif dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
+                    dmagic_dest_addr(34 downto 0)
+                      <= dmagic_dest_addr(34 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(34 downto 0)
+                      <= dmagic_dest_addr(34 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
                                         -- XXX we compare count with 1 before decrementing.
