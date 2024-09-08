@@ -603,6 +603,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal reg_dmagic_cross_mb_boundaries : std_logic := '0';
   signal reg_dmagic_use_transparent_value : std_logic := '0';
   signal reg_dmagic_transparent_value : unsigned(7 downto 0) := x"00";
 
@@ -3843,6 +3844,7 @@ begin
 
     procedure dmagic_reset_options is
     begin
+      reg_dmagic_cross_mb_boundaries <= '0';
       reg_dmagic_use_transparent_value <= '0';
       reg_dmagic_src_mb <= x"00";
       reg_dmagic_dst_mb <= x"00";
@@ -5997,9 +5999,10 @@ begin
                     when x"00" =>
                       report "End of Enhanced DMA option list.";
                       state <= DMAgicReadList;
-                      -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
-                      -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
-                      
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $01 = Enable src/dst addresses crossing MB boundaries.
+                    when x"01" => reg_dmagic_cross_mb_boundaries <= '1';
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.  
                     when x"06" => reg_dmagic_use_transparent_value <= '0';               
                     when x"07" => reg_dmagic_use_transparent_value <= '1';               
                     -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
@@ -6162,12 +6165,21 @@ begin
               -- in the C65 specifications document
               if reg_dmagic_draw_spiral = '1' then
                 -- Draw the dreaded Shallan Spriral
-                case reg_dmagic_spiral_phase is
-                  when "00" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  + 1;
-                  when "01" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  + 40;
-                  when "10" => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  - 1;
-                  when others => dmagic_dest_addr(34 downto 8) <= dmagic_dest_addr(34 downto 8)  - 40;
-                end case;
+                if reg_dmagic_cross_mb_boundaries='1' then
+                  case reg_dmagic_spiral_phase is
+                    when "00" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  + 1;
+                    when "01" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  + 40;
+                    when "10" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  - 1;
+                    when others => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  - 40;
+                  end case;
+                else
+                  case reg_dmagic_spiral_phase is
+                    when "00" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 1;
+                    when "01" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 40;
+                    when "10" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 1;
+                    when others => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 40;
+                  end case;
+                end if;
                 if reg_dmagic_spiral_len_remaining /= 0 then
                   reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len_remaining - 1;
                 else
@@ -6186,14 +6198,20 @@ begin
                 end if;
                 
               elsif reg_dmagic_line_mode = '0' then
-                  -- Normal fill
-                  if dmagic_dest_hold='0' then
-                    if dmagic_dest_direction='0' then
-                      dmagic_dest_addr(34 downto 0)
-                      <= dmagic_dest_addr(34 downto 0) + reg_dmagic_dst_skip;
+                -- Normal fill
+                if dmagic_dest_hold='0' then
+                  if dmagic_dest_direction='0' then
+                    if reg_dmagic_cross_mb_boundaries='1' then
+                      dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8) + reg_dmagic_dst_skip;
+                    else
+                      dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8) + reg_dmagic_dst_skip;
+                    end if;
                   else
-                    dmagic_dest_addr(34 downto 0)
-                    <= dmagic_dest_addr(34 downto 0) - reg_dmagic_dst_skip;
+                    if reg_dmagic_cross_mb_boundaries='1' then
+                      dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8) - reg_dmagic_dst_skip;
+                    else
+                      dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8) - reg_dmagic_dst_skip;
+                    end if;
                   end if;
                 end if;
               else
@@ -6564,11 +6582,17 @@ begin
                 end if;
               elsif dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr(35 downto 0)
-                    <= dmagic_src_addr(35 downto 0) + reg_dmagic_src_skip;
+                  if reg_dmagic_cross_mb_boundaries='1' then
+                    dmagic_src_addr(35 downto 0) <= dmagic_src_addr(35 downto 0) + reg_dmagic_src_skip;
+                  else
+                    dmagic_src_addr(27 downto 0) <= dmagic_src_addr(27 downto 0) + reg_dmagic_src_skip;
+                  end if;
                 else
-                  dmagic_src_addr(35 downto 0)
-                    <= dmagic_src_addr(35 downto 0) - reg_dmagic_src_skip;
+                  if reg_dmagic_cross_mb_boundaries='1' then
+                    dmagic_src_addr(35 downto 0) <= dmagic_src_addr(35 downto 0) - reg_dmagic_src_skip;
+                  else
+                    dmagic_src_addr(27 downto 0) <= dmagic_src_addr(27 downto 0) - reg_dmagic_src_skip;
+                  end if;
                 end if;
               end if;
                                         -- Set IO visibility for destination
@@ -6753,11 +6777,17 @@ begin
                   -- end of line mode case
                 elsif dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(34 downto 0)
-                      <= dmagic_dest_addr(34 downto 0) + reg_dmagic_dst_skip;
+                    if reg_dmagic_cross_mb_boundaries='1' then
+                      dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) + reg_dmagic_dst_skip;
+                    else
+                      dmagic_dest_addr(27 downto 0) <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
+                    end if;
                   else
-                    dmagic_dest_addr(34 downto 0)
-                      <= dmagic_dest_addr(34 downto 0) - reg_dmagic_dst_skip;
+                    if reg_dmagic_cross_mb_boundaries='1' then
+                      dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) - reg_dmagic_dst_skip;
+                    else
+                      dmagic_dest_addr(27 downto 0) <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
+                    end if;
                   end if;
                 end if;
                                         -- XXX we compare count with 1 before decrementing.
