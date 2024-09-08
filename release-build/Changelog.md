@@ -61,6 +61,8 @@ This is the Summer 2024 Release.
     [#781](https://github.com/MEGA65/mega65-core/issues/781)
   - Alternate ROMs in Slot 9
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
+  - sdcardio: D6A1.3 SDFDC:SILENT seems to have no effect
+    [#621](https://github.com/MEGA65/mega65-core/issues/621)
 - Build framework:
   - Switch to mega65-tools release 1.00, use coretool, don't build MCS for everything
     [#792](https://github.com/MEGA65/mega65-core/issues/792)
