@@ -69,9 +69,10 @@ uint8_t old_flash_chip = 0;
 #define CORECAP_UNDEFINED    0b01111000 // free for further expansion
 #define CORECAP_SLOT_DEFAULT 0b10000000
 
-#define SLOT_EMPTY   0x00
-#define SLOT_INVALID 0x01
-#define SLOT_VALID   0x80
+#define SLOT_EMPTY    0x00
+#define SLOT_INVALID  0x01
+#define SLOT_QSPIFAIL 0x02
+#define SLOT_VALID    0x80
 
 typedef struct {
   char name[17];
@@ -233,36 +234,39 @@ unsigned char scan_core_information(unsigned char search_flags)
 
   for (slot = 0; slot < slot_count; slot++) {
     // read first sector from flash slot
-    mfhf_read_core_header_from_flash(slot);
-
-    // check for bitstream magic
-    slot_core[slot].valid = SLOT_VALID;
-    for (j = 0; j < 16; j++)
-      if (data_buffer[MFSC_COREHDR_MAGIC + j] != mfsc_bitstream_magic[j]) {
-        slot_core[slot].valid = SLOT_INVALID;
-        break;
-      }
-
-    if (slot_core[slot].valid == SLOT_VALID) {
-      slot_core[slot].capabilities = data_buffer[MFSC_COREHDR_BOOTCAPS] & CORECAP_USED;
-      // needed for flag editing
-      slot_core[slot].real_flags = data_buffer[MFSC_COREHDR_BOOTFLAGS];
-      // mask out flags from prior slots, slot 0 never has flags enabled!
-      slot_core[slot].flags = data_buffer[MFSC_COREHDR_BOOTFLAGS] & flagmask;
-      // remove flags from flagmask (we only find the first flag of a kind)
-      flagmask ^= slot_core[slot].flags;
-      if (search_flags && found == 0xff && (slot_core[slot].flags & search_flags))
-        found = slot;
-      if (default_slot == 0xff && (slot_core[slot].flags & CORECAP_SLOT_DEFAULT))
-        default_slot = slot;
+    if (mfhf_read_core_header_from_flash(slot)) {
+      slot_core[slot].valid = SLOT_QSPIFAIL;
     }
     else {
-      slot_core[slot].capabilities = slot_core[slot].flags = 0;
-      // check if slot is empty (all FF)
-      for (j = 0; j < 512 && data_buffer[j] == 0xff; j++)
-        ;
-      if (j == 512)
-        slot_core[slot].valid = SLOT_EMPTY;
+      // check for bitstream magic
+      slot_core[slot].valid = SLOT_VALID;
+      for (j = 0; j < 16; j++)
+        if (data_buffer[MFSC_COREHDR_MAGIC + j] != mfsc_bitstream_magic[j]) {
+          slot_core[slot].valid = SLOT_INVALID;
+          break;
+        }
+
+      if (slot_core[slot].valid == SLOT_VALID) {
+        slot_core[slot].capabilities = data_buffer[MFSC_COREHDR_BOOTCAPS] & CORECAP_USED;
+        // needed for flag editing
+        slot_core[slot].real_flags = data_buffer[MFSC_COREHDR_BOOTFLAGS];
+        // mask out flags from prior slots, slot 0 never has flags enabled!
+        slot_core[slot].flags = data_buffer[MFSC_COREHDR_BOOTFLAGS] & flagmask;
+        // remove flags from flagmask (we only find the first flag of a kind)
+        flagmask ^= slot_core[slot].flags;
+        if (search_flags && found == 0xff && (slot_core[slot].flags & search_flags))
+          found = slot;
+        if (default_slot == 0xff && (slot_core[slot].flags & CORECAP_SLOT_DEFAULT))
+          default_slot = slot;
+      }
+      else {
+        slot_core[slot].capabilities = slot_core[slot].flags = 0;
+        // check if slot is empty (all FF)
+        for (j = 0; j < 512 && data_buffer[j] == 0xff; j++)
+          ;
+        if (j == 512)
+          slot_core[slot].valid = SLOT_EMPTY;
+      }
     }
 
     // if we are searching for a slot, we can cut the process short...
@@ -278,17 +282,17 @@ unsigned char scan_core_information(unsigned char search_flags)
         slot_core[slot].version[j] = mhx_ascii2screen(data_buffer[MFSC_COREHDR_VERSION + j], ' ');
       }
       slot_core[slot].length = *(uint32_t *)(data_buffer + MFSC_COREHDR_LENGTH);
-    }
-    if (slot == 0) {
-      // slot 0 is always displayed as FACTORY CORE
-      memcpy(slot_core[slot].name, "MEGA65 FACTORY CORE", 19);
-      // copy erase list from header or set r0.95 default
-      memset(mfhf_slot0_erase_list, 0xff, 16);
-      if (data_buffer[MFSC_COREHDR_INSTFLAGS] & MFSC_COREINST_ERASELIST)
-        memcpy(mfhf_slot0_erase_list, data_buffer + MFSC_COREHDR_ERASELIST, 16);
-      else if (!memcmp(slot_core[slot].version, R095_VER_STUB, R095_VER_STUB_SIZE)) {
-        mfhf_slot0_erase_list[0] = R095_ERASE_LIST[0];
-        mfhf_slot0_erase_list[1] = R095_ERASE_LIST[1];
+      if (slot == 0) {
+        // slot 0 is always displayed as FACTORY CORE
+        memcpy(slot_core[slot].name, "MEGA65 FACTORY CORE", 19);
+        // copy erase list from header or set r0.95 default
+        memset(mfhf_slot0_erase_list, 0xff, 16);
+        if (data_buffer[MFSC_COREHDR_INSTFLAGS] & MFSC_COREINST_ERASELIST)
+          memcpy(mfhf_slot0_erase_list, data_buffer + MFSC_COREHDR_ERASELIST, 16);
+        else if (!memcmp(slot_core[slot].version, R095_VER_STUB, R095_VER_STUB_SIZE)) {
+          mfhf_slot0_erase_list[0] = R095_ERASE_LIST[0];
+          mfhf_slot0_erase_list[1] = R095_ERASE_LIST[1];
+        }
       }
     }
     else if (slot_core[slot].valid == SLOT_EMPTY) {
@@ -299,6 +303,11 @@ unsigned char scan_core_information(unsigned char search_flags)
     else if (slot_core[slot].valid == SLOT_INVALID) {
       // no bitstream magic at the start of the slot
       memcpy(slot_core[slot].name, "UNKNOWN CONTENT", 15);
+      slot_core[slot].length = 0;
+    }
+    else if (slot_core[slot].valid == SLOT_QSPIFAIL) {
+      // no bitstream magic at the start of the slot
+      memcpy(slot_core[slot].name, "QSPI READ FAILURE", 17);
       slot_core[slot].length = 0;
     }
     slot_core[slot].name[32] = '\x0';
@@ -424,7 +433,16 @@ void draw_edit_slot(uint8_t selected_slot, uint8_t loaded)
                  slot_core[selected_slot].length && slot_core[selected_slot].valid == SLOT_VALID ? '*' : '?', MHX_A_WHITE);
 
   // copy footer from upper memory
-  lcopy(mf_screens_menu.screen_start + MFMENU_EDIT_FOOTER * 40 + ((selected_slot | booted_via_jtag) ? 160 : 0) + ((selected_file != MFSC_FILE_INVALID || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) ? 80 : 0), mhx_base_scr + 23*40, 80);
+  lcopy(mf_screens_menu.screen_start + MFMENU_EDIT_FOOTER * 40 +
+        ((selected_slot | booted_via_jtag) ? 160 : 0) +
+        ((selected_file != MFSC_FILE_INVALID
+#if defined(STANDALONE)
+          || (!mfhf_attic_disabled && slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags)
+#elif !defined(NO_ATTIC)
+          || slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags
+#endif
+         ) ? 80 : 0),
+        mhx_base_scr + 23*40, 80);
   // color and invert lines
   mhx_hl_lines(23, 24, MHX_A_INVERT | MHX_A_LGREY);
 }
@@ -514,6 +532,17 @@ uint8_t edit_slot(uint8_t selected_slot)
         return 0;
       // otherwise perhaps only flags have changed?
       } else if (slot_core[selected_slot].real_flags != mfsc_corehdr_bootflags) {
+        // TODO: this requires ATTIC RAM!!!
+#ifdef NO_ATTIC
+        mhx_flashscreen(MHX_A_RED, 150);
+        continue;
+#else
+#ifdef STANDALONE
+        if (mfhf_attic_disabled) {
+          mhx_flashscreen(MHX_A_RED, 150);
+          continue;
+        }
+#endif
         // we default to loading 256k (this is the sector size on r3a+)
         // TODO: make this independet of flash chip geometry
         if (mfhf_load_core_from_flash(selected_slot, 0x40000L)) {
@@ -521,6 +550,8 @@ uint8_t edit_slot(uint8_t selected_slot)
           mfhf_flash_core(selected_file, selected_slot);
           scan_core_information(0);
         }
+#endif /* !NO_ATTIC */
+        // TODO: display failure
         return 0;
       }
     }
@@ -534,7 +565,7 @@ void perhaps_reconfig(uint8_t slot)
   if (!booted_via_jtag) {
     mhx_clear_keybuffer();
     mhx_until_keys_released();
-    if (!slot || slot_core[slot].valid != 0)
+    if (!slot || slot_core[slot].valid != SLOT_EMPTY)
       mfut_reconfig_fpga(slot * mfu_slot_size + 4096);
   }
   mhx_flashscreen(MHX_A_RED, 150);
@@ -627,7 +658,11 @@ void main(void)
     hard_exit();
   }
 
-  mfhf_init();
+  if (mfhf_init()) {
+    mhx_writef("\n" MHX_W_ORANGE "Failed to init QSPI flash!" MHX_W_WHITE "\n\njtagflash Version\n  %s\n", utilVersion);
+    mhx_press_any_key(MHX_AK_ATTENTION|MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
+    hard_exit();
+  }
 
   // The following section starts a core, but only if certain keys
   // are NOT pressed, depending on the system
@@ -827,7 +862,7 @@ void main(void)
     // highlight slot
     if (last_selected < MAX_SLOTS)
       mhx_hl_lines(last_selected*3, last_selected*3 + 2, MHX_A_REVERT|MHX_A_WHITE);
-    mhx_hl_lines(selected*3, selected*3 + 2, MHX_A_INVERT|(slot_core[selected].valid == SLOT_VALID ? MHX_A_WHITE : (slot_core[selected].valid == SLOT_INVALID ? MHX_A_RED : MHX_A_YELLOW)));
+    mhx_hl_lines(selected*3, selected*3 + 2, MHX_A_INVERT|(slot_core[selected].valid == SLOT_VALID ? MHX_A_WHITE : (slot_core[selected].valid == SLOT_EMPTY ? MHX_A_YELLOW : MHX_A_RED)));
     last_selected = selected;
 
     mhx_getkeycode(0);

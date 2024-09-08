@@ -82,13 +82,17 @@ void mfhl_flash_inspector(void)
       clear = 0;
     }
 
-    qspi_flash_read(qspi_flash_device, addr, data_buffer, 512);;
     mhx_set_xy(7, 0);
-    mhx_writef(MHX_W_REVON MHX_W_LGREY "%07lx" MHX_W_WHITE MHX_W_REVOFF, addr);
-    for (i = 0; i < 256; i++) {
-      if (!(i & 15))
-        mhx_writef("\n  %02x: ", i);
-      mhx_writef("%02x", data_buffer[i]);
+    if (!qspi_flash_read(qspi_flash_device, addr, data_buffer, 512)) {
+      mhx_writef(MHX_W_REVON MHX_W_LGREY "%07lx" MHX_W_WHITE MHX_W_REVOFF, addr);
+      for (i = 0; i < 256; i++) {
+        if (!(i & 15))
+          mhx_writef("\n  %02x: ", i);
+        mhx_writef("%02x", data_buffer[i]);
+      }
+    }
+    else {
+      mhx_writef(MHX_W_ORANGE "-- Failed to read sector! --" MHX_W_WHITE);
     }
 
     mhx_getkeycode(0);
@@ -154,7 +158,7 @@ void mfhl_flash_inspector(void)
       mhx_writef("Program... \n");
       qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, addr, data_buffer);
       // dummy read!
-      qspi_flash_read(qspi_flash_device, 0, data_buffer, 512);;
+      qspi_flash_read(qspi_flash_device, 0, data_buffer, 512); // discard result, we reread anyways
       mhx_press_any_key(0, MHX_A_NOCOLOR);
       break;
     }
@@ -253,12 +257,15 @@ int8_t mfhf_read_core_header_from_flash(uint8_t slot) {
   if (slot >= slot_count) return 1;
 
   // Read core header for the specified slot.
-  qspi_flash_read(qspi_flash_device, slot * mfu_slot_size, data_buffer, 512);
-  return 0;
+  return qspi_flash_read(qspi_flash_device, slot * mfu_slot_size, data_buffer, 512);
 }
 
-void mfhf_display_sderror(char *error, uint8_t error_code) {
-  mhx_draw_rect(3, 12, 32, 2, "Load Error", MHX_A_ORANGE, 1);
+#define mfhf_display_sderror(error, code) mfhf_display_error("Load Error", error, code)
+
+#define mfhf_display_flasherror(error) mfhf_display_error("Flash Error", error, NHSD_ERR_NOERROR)
+
+void mfhf_display_error(char *title, char *error, uint8_t error_code) {
+  mhx_draw_rect(3, 12, 32, 2, title, MHX_A_ORANGE, 1);
   mhx_write_xy(20 - (mhx_strlen(error) >> 1), 13, error, MHX_A_ORANGE);
   if (error_code != NHSD_ERR_NOERROR) {
     mhx_set_xy(9, 14);
@@ -315,7 +322,7 @@ int8_t mfhf_load_core() {
   if ((err = nhsd_open(mfsc_corefile_inode))) {
     // Couldn't open the file.
     mfhf_display_sderror("Could not open core file!", err);
-    return 0;
+    return MFHF_LC_NOTLOADED;
   }
 
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
@@ -384,7 +391,7 @@ int8_t mfhf_load_core() {
     // let user abort load
     mhx_getkeycode(MHX_GK_PEEK);
     if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
-      return 0;
+      return MFHF_LC_NOTLOADED;
   }
   if (err != NHSD_ERR_NOERROR) {
 #if defined(NO_ATTIC) || defined(STANDALONE)
@@ -397,7 +404,7 @@ int8_t mfhf_load_core() {
     else
 #endif /* NO_ATTIC || STANDALONE */
       mfhf_display_sderror("Error while loading core file!", err);
-    return 0;
+    return MFHF_LC_NOTLOADED;
   }
   nhsd_close();
 
@@ -447,7 +454,7 @@ int8_t mfhf_load_core() {
       // let user abort load
       mhx_getkeycode(MHX_GK_PEEK);
       if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
-        return 0;
+        return MFHF_LC_NOTLOADED;
     }
     if (core_crc == get_crc32() && !first)
       mfhf_core_file_state = MFHF_LC_ATTICOK;
@@ -469,6 +476,7 @@ int8_t mfhf_load_core() {
   return mfhf_core_file_state;
 }
 
+// TODO: for atticless systems this does not work
 int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   uint32_t addr, flash_addr;
 
@@ -483,11 +491,12 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   // load core from qspi to attic ram
   mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Read Core Header ", MHX_A_WHITE);
   for (flash_addr = mfu_slot_size * slot, addr = 0; addr < addr_len; flash_addr += 512, addr += 512) {
-    qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512);;
+    if (qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512))
+      return MFHF_LC_NOTLOADED;
     lcopy((long)&data_buffer, 0x8000000L + addr, 512);
     mfp_progress(addr);
     if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
-      return mfhf_core_file_state;
+      return MFHF_LC_NOTLOADED;
   }
 
   // set potentially changed flags after load & crc check
@@ -498,7 +507,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
 
   // do a dummy sdcard action in hope that this resets the bus
   // TODO: solve underlaying problem!
-  nhsd_init(NHSD_INIT_BUS0_FB1, buffer);
+  //nhsd_init(NHSD_INIT_BUS0_FB1, buffer);
 
   return mfhf_core_file_state;
 }
@@ -573,7 +582,7 @@ int8_t mfhf_sectors_differ(uint32_t attic_addr, uint32_t flash_addr, uint32_t si
       mhx_writef("\nVerify error  ");
       mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
       mhx_writef(MHX_W_WHITE MHX_W_CLRHOME "attic_addr=$%08lX, flash_addr=$%08lX\n", attic_addr, flash_addr);
-      qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512);;
+      qspi_flash_read(qspi_flash_device, flash_addr, data_buffer, 512);
       lcopy(SECTORBUFFER + (attic_addr & 0xffff), (long)buffer, 512);
       debug_memory_block(MHX_AK_NOMESSAGE, flash_addr);
       debug_memory_block(256, flash_addr);
@@ -690,6 +699,7 @@ int8_t mfhf_flash_sector(uint32_t addr, uint32_t end_addr, uint32_t size)
       POKE(0xD020U, MFHF_PT_WRITE);
 #endif
       if (qspi_flash_program(qspi_flash_device, qspi_flash_page_size_256, wraddr - 256, data_buffer) != 0) {
+        // if one write fails, we need to abort, re-erase, and start over! So break out of the inner write loop
         break;
       }
 #if MFHF_PT_BORDERFLASH
@@ -795,7 +805,12 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
     // same 256k block. fix this.
     for (cnt = 0; cnt < 16 && mfhf_slot0_erase_list[cnt] != 0xff; cnt++) {
       mfhf_calc_el_addr(mfhf_slot0_erase_list[cnt], &addr, &size);
-      mfhf_erase_some_sectors(addr, addr + size);
+      if (!cnt && mfhf_erase_some_sectors(addr, addr + size)) {
+        // only fail if this was the first sector we wanted to erase!
+        // otherwise slot 0 is broken anyways, so try to continue
+        mfhf_display_flasherror("Pre-flash erase failed!");
+        return 0;
+      }
     }
     // find end of erase list
     for (el_pos = 15; el_pos > -1 && mfsc_corehdr_erase_list[el_pos] == 0xff; el_pos--);
@@ -826,7 +841,11 @@ int8_t mfhf_flash_core(uint8_t selected_file, uint8_t slot) {
   }
 
   // now erase what is needed
-  mfhf_erase_some_sectors(end_addr, end_addr + size);
+  if (mfhf_erase_some_sectors(end_addr, end_addr + size) && slot) {
+    // we only display the error and abort if this is not slot 0
+    mfhf_display_flasherror("Header erase failed!");
+    return 0;
+  }
 
   // if it was erase only, we jump to the end!
   if (selected_file == MFSC_FILE_ERASE)

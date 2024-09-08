@@ -71,8 +71,7 @@ int8_t mfhf_read_core_header_from_flash(uint8_t slot);
  * int8_t mfhf_load_core()
  *
  * Returns:
- *   int8_t(bool): 0 - load succeeded
- *                 1 - load failed / abort
+ *   int8_t: one of MFHF_LC_* constants (see above)
  *
  * Loads the selected core into attic ram and does a crc32
  * check. Will ask for confirmation if crc32 check fails.
@@ -89,6 +88,9 @@ int8_t mfhf_load_core();
  * parameters:
  *   slot: flash slot to load from
  *   addr_len: how many bytes should be loaded
+ *
+ * Returns:
+ *   int8_t: one of MFHF_LC_* constants (see above)
  *
  * side effects:
  *   mfhf_core_file_state
