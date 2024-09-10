@@ -220,7 +220,7 @@ This is the Batch 2 Release (October 2022).
 
 - MEGAFLASH/jtagflash security fixes
   [#589](https://github.com/MEGA65/mega65-core/issues/589)
-  [#612](https://github.com/MEGA65/mega65-core/issues/612)
+  [#616](https://github.com/MEGA65/mega65-core/issues/616)
   [#611](https://github.com/MEGA65/mega65-core/issues/611)
   [#612](https://github.com/MEGA65/mega65-core/issues/612)
 - Fixed placement of I/O components to improve build quality
