@@ -1759,24 +1759,13 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- backwards compability to $D07A.5 VIC-IV:NOBUGCOMPAT
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
         hw_errata_level_int <= x"ff";
         hw_errata_level <= x"ff";
       end if;
 
-      if hw_errata_disable_toggle /= hw_errata_disable_toggle_last then
-        hw_errata_disable_toggle_last <= hw_errata_disable_toggle;
-        hw_errata_level_int <= x"00";
-        hw_errata_level <= x"00";
-      end if;
-
-      if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
-        hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
-        hw_errata_level_int <= x"ff";
-        hw_errata_level <= x"ff";
-      end if;
-      
       if hw_errata_disable_toggle /= hw_errata_disable_toggle_last then
         hw_errata_disable_toggle_last <= hw_errata_disable_toggle;
         hw_errata_level_int <= x"00";
