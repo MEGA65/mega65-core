@@ -1259,7 +1259,7 @@ begin  -- behavioural
             -- Register $D07A.5 VIC-IV:NOBUGCOMPAT will set this to 0 or hw_errata_level_max!
             -- There is no feedback from this register back to NOBUGCOMPAT!
             --
-            -- TODO: please document new errate levels here, and please **also** add HWERRATA:LEVEL where you use it!
+            -- TODO: please document new errata levels here, and please **also** add HWERRATA:LEVEL where you use it!
             -- TODO: if adding a new level, remember to raise hw_errata_level_max constant!
             --
             -- HWERRATA Table:
