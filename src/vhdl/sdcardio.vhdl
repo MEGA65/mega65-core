@@ -1259,13 +1259,13 @@ begin  -- behavioural
             -- Register $D07A.5 VIC-IV:NOBUGCOMPAT will set this to 0 or hw_errata_level_max!
             -- There is no feedback from this register back to NOBUGCOMPAT!
             --
-            -- TODO: please document new errate levels here, please add HWERRATA:LEVEL where you use it!
+            -- TODO: please document new errate levels here, and please **also** add HWERRATA:LEVEL where you use it!
             -- TODO: if adding a new level, remember to raise hw_errata_level_max constant!
             --
             -- HWERRATA Table:
-            -- 1 - VIC-IV XSCL position shifted in H640 mode.
-            -- 2 - VIC-IV Character attribute combinations.
-            -- !!not merged!! 3 - SDCARD SD Card Busy Flag behaviour.
+            -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
+            -- HWERRATA:2 - VIC-IV Character attribute combinations.
+            -- !!not merged!! HWERRATA:3 - SDCARD SD Card Busy Flag behaviour.
             --
             fastio_rdata <= hw_errata_level_int;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
