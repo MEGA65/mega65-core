@@ -63,8 +63,8 @@ entity viciv is
     hypervisor_mode : in std_logic;
 
     hw_errata_level : in unsigned(7 downto 0);
-    hw_errata_enable_toggle : inout std_logic := '0';
-    hw_errata_disable_toggle : inout std_logic := '0';
+    hw_errata_enable_toggle : inout std_logic;
+    hw_errata_disable_toggle : inout std_logic;
 
     xcounter_out : out integer range 0 to 4095 := 0;
     ycounter_out : out integer range 0 to 2047 := 0;
