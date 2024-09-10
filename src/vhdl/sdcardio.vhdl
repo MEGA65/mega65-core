@@ -1265,7 +1265,6 @@ begin  -- behavioural
             -- HWERRATA Table:
             -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
             -- HWERRATA:2 - VIC-IV Character attribute combinations.
-            -- !!not merged!! HWERRATA:3 - SDCARD SD Card Busy Flag behaviour.
             --
             fastio_rdata <= hw_errata_level_int;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
