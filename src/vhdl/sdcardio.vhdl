@@ -714,6 +714,7 @@ architecture behavioural of sdcardio is
   signal crc_force_delay_counter : integer range 0 to 12 := 0;
   signal crc_force_delay : std_logic := '0';
 
+  constant hw_errata_level_max : unsigned(7 downto 0) := x"02";
   signal hw_errata_level_int : unsigned(7 downto 0) := x"00";
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
@@ -1252,7 +1253,20 @@ begin  -- behavioural
           when "01010" => -- $D08A
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
-          when "01111" => -- @IO:GS $D08F - Set/get MISCIO:HWERRATA MEGA65 hardware errata level
+          when "01111" =>
+            -- @IO:GS $D08F Set/get MISCIO:HWERRATA MEGA65 hardware errata level
+            --
+            -- Register $D07A.5 VIC-IV:NOBUGCOMPAT will set this to 0 or hw_errata_level_max!
+            -- There is no feedback from this register back to NOBUGCOMPAT!
+            --
+            -- TODO: please document new errate levels here, please add HWERRATA:LEVEL where you use it!
+            -- TODO: if adding a new level, remember to raise hw_errata_level_max constant!
+            --
+            -- HWERRATA Table:
+            -- 1 - VIC-IV XSCL position shifted in H640 mode.
+            -- 2 - VIC-IV Character attribute combinations.
+            -- !!not merged!! 3 - SDCARD SD Card Busy Flag behaviour.
+            --
             fastio_rdata <= hw_errata_level_int;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
@@ -1762,8 +1776,8 @@ begin  -- behavioural
       -- backwards compability to $D07A.5 VIC-IV:NOBUGCOMPAT
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
-        hw_errata_level_int <= x"ff";
-        hw_errata_level <= x"ff";
+        hw_errata_level_int <= hw_errata_level_max;
+        hw_errata_level <= hw_errata_level_max;
       end if;
 
       if hw_errata_disable_toggle /= hw_errata_disable_toggle_last then
@@ -2857,8 +2871,13 @@ begin  -- behavioural
               -- @IO:C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
               null;
             when "01111" =>
-              hw_errata_level <= fastio_wdata;
-              hw_errata_level_int <= fastio_wdata;
+              if fastio_wdata >= hw_errata_level_max then
+                hw_errata_level <= hw_errata_level_max;
+                hw_errata_level_int <= hw_errata_level_max;
+              else
+                hw_errata_level <= fastio_wdata;
+                hw_errata_level_int <= fastio_wdata;
+              end if;
             when others => null;
 
           end case;
