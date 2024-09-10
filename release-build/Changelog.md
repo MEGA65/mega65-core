@@ -19,6 +19,8 @@ This is the Summer 2024 Release.
     [#763](https://github.com/MEGA65/mega65-core/issues/763)
   - QSPI: Read errors due to skipping dummy (latency) cycles
     [#762](https://github.com/MEGA65/mega65-core/issues/762)
+  - CARTRIDGE: define a MEGA65 style cartridge
+    [#711](https://github.com/MEGA65/mega65-core/issues/711)
 - Features:
   - Audio DMA IRQs for advanced buffering
     [#811](https://github.com/MEGA65/mega65-core/issues/811)
@@ -26,6 +28,8 @@ This is the Summer 2024 Release.
     [PR#808](https://github.com/MEGA65/mega65-core/pull/808)
   - Add support for the DIY Keyboard to mega65r4-6 (tdeval)
     [PR#804](https://github.com/MEGA65/mega65-core/pull/804)
+  - CONFIG: Add option to disable floppy drive sounds while accessing SD
+    [#622](https://github.com/MEGA65/mega65-core/issues/622)
 - Bugfixes:
   - POT lines jittering in bit 1
     [#828](https://github.com/MEGA65/mega65-core/issues/828)
@@ -103,9 +107,9 @@ Note: It is possible that not all changes were marked with the milestone.
     [#567](https://github.com/MEGA65/mega65-core/issues/567)
     [#684](https://github.com/MEGA65/mega65-core/issues/684)
   - Add LFN support to core picker
-     [#697](https://github.com/MEGA65/mega65-core/issues/697)
+    [#697](https://github.com/MEGA65/mega65-core/issues/697)
   - Set autoboot slot via flashmenu
-     [#370](https://github.com/MEGA65/mega65-core/issues/370)
+    [#370](https://github.com/MEGA65/mega65-core/issues/370)
 - **Ethernet Support** for system tools (mega65_ftp and etherload)
   [#565](https://github.com/MEGA65/mega65-core/issues/565)
   [#633](https://github.com/MEGA65/mega65-core/issues/633)
@@ -124,6 +128,10 @@ Note: It is possible that not all changes were marked with the milestone.
     [PR#650](https://github.com/MEGA65/mega65-core/pull/650)
   - MK-II Keyboard support for 100T boards and Nexys
     [#637](https://github.com/MEGA65/mega65-core/issues/637)
+- New Features:
+  - Complete D619 PETSCIIKEY implementation
+    [PR#720](https://github.com/MEGA65/mega65-core/pull/720)
+    [#582](https://github.com/MEGA65/mega65-core/issues/582)
 - Bugfixes:
   - C65 VIC bug compability flag
     [#685](https://github.com/MEGA65/mega65-core/issues/685)
@@ -131,7 +139,7 @@ Note: It is possible that not all changes were marked with the milestone.
     [#694](https://github.com/MEGA65/mega65-core/issues/694)
   - Wrong VIC-II multicolour colours
     [#571](https://github.com/MEGA65/mega65-core/issues/571)
-    [PR#657](https://github.com/MEGA65/mega65-core/issues/657)
+    [PR#657](https://github.com/MEGA65/mega65-core/pull/657)
   - Missing pixel lines
     [#671](https://github.com/MEGA65/mega65-core/issues/671)
     [#681](https://github.com/MEGA65/mega65-core/issues/681)
@@ -245,6 +253,8 @@ This is the Batch 2 Release (October 2022).
   [#587](https://github.com/MEGA65/mega65-core/issues/587)
 - Matrix monitor @ fix
   [#596](https://github.com/MEGA65/mega65-core/issues/596)
+- check if hyppo_configsector_apply handles PAL/NTSC switch correctly
+  [#615](https://github.com/MEGA65/mega65-core/issues/615)
 - FREEZER updates (mounting, audiomixer, sprited, romload)
   [#548](https://github.com/MEGA65/mega65-core/issues/548)
   [#590](https://github.com/MEGA65/mega65-core/issues/590)
