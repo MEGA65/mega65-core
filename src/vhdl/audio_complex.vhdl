@@ -276,12 +276,10 @@ begin
 
   i2sclock2: entity work.i2s_clock
     generic map (
-      -- Modems and some other peripherals only need 8KHz,
-      clock_frequency => clock_frequency,
       sample_rate => 44100
       )
     port map (
-    cpuclock => cpuclock,
+    clock50mhz => cpuclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int);
   
