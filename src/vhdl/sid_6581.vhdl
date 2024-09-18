@@ -559,7 +559,7 @@ begin
                 -- @IO:GS $D404.0 SID:VOICE1!CTRLGATE@VOICEX!CTRLGATE Voice X Gate Bit (1 = Start, 0 = Release)
                 -- @IO:GS $D405.7-4 SID:ENV1!ATTDUR@ENVX!ATTDUR Envelope Generator X Attack Cycle Duration
                 -- @IO:GS $D405.3-0 SID:ENV1!DECDUR@ENVX!DECDUR Envelope Generator X Decay Cycle Duration
-                -- @IO:GS $D406.7-4 SID:ENV1!SUSDUR@ENVX!SUSDUR Envelope Generator X Sustain Cycle Duration
+                -- @IO:GS $D406.7-4 SID:ENV1!SUSLEV@ENVX!SUSLEV Envelope Generator X Sustain Level
                 -- @IO:GS $D406.3-0 SID:ENV1!RELDUR@ENVX!RELDUR Envelope Generator X Release Cycle Duration
                 -- @IO:GS $D407 SID:VOICE2!FRQLO @VOICEX!FRQLO
                 -- @IO:GS $D408 SID:VOICE2!FRQHI @VOICEX!FRQHI
@@ -576,7 +576,7 @@ begin
                 -- @IO:GS $D40B.0 SID:VOICE2!CTRLGATE @VOICEX!CTRLGATE
                 -- @IO:GS $D40C.7-4 SID:ENV2!ATTDUR @ENVX!ATTDUR
                 -- @IO:GS $D40C.3-0 SID:ENV2!DECDUR @ENVX!DECDUR
-                -- @IO:GS $D40D.7-4 SID:ENV2!SUSDUR @ENVX!SUSDUR
+                -- @IO:GS $D40D.7-4 SID:ENV2!LEVDUR @ENVX!LEVDUR
                 -- @IO:GS $D40D.3-0 SID:ENV2!RELDUR @ENVX!RELDUR
                 -- @IO:GS $D40E SID:VOICE3!FRQLO @VOICEX!FRQLO
                 -- @IO:GS $D40F SID:VOICE3!FRQHI @VOICEX!FRQHI
@@ -593,7 +593,7 @@ begin
                 -- @IO:GS $D412.0 SID:VOICE3!CTRLGATE @VOICEX!CTRLGATE
                 -- @IO:GS $D413.7-4 SID:ENV3!ATTDUR @ENVX!ATTDUR
                 -- @IO:GS $D413.3-0 SID:ENV3!DECDUR @ENVX!DECDUR
-                -- @IO:GS $D414.7-4 SID:ENV3!SUSDUR @ENVX!SUSDUR
+                -- @IO:GS $D414.7-4 SID:ENV3!LEVDUR @ENVX!SUSLEV
                 -- @IO:GS $D414.3-0 SID:ENV3!RELDUR @ENVX!RELDUR
                 -- @IO:GS $D415 SID:FLTR!CUTFRQLO@FLTR!CUTFRQLO Filter Cutoff Frequency Low
                 -- @IO:GS $D416 SID:FLTR!CUTFRQHI@FLTR!CUTFRQHI Filter Cutoff Frequency High
