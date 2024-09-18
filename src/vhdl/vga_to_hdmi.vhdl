@@ -337,19 +337,19 @@ begin
     pcm_cs_v(2) <= '1';              -- no copyright
     pcm_cs_v(3 to 5) <= "000";       -- 2 channels without pre-emphasis
     pcm_cs_v(6 to 7) <= "00";        -- channel status mode 0
-    pcm_cs_v(8 to 15) <= "01000000"; -- category code
+    pcm_cs_v(8 to 15) <= "01000001"; -- category code
     pcm_cs_v(16 to 19) <= "0000";    -- source - do not take into account
-    pcm_cs_v(20 to 23) <= "0000";    -- channel number - do not take into account
+    pcm_cs_v(20 to 23) <= "0000";    -- channel number - DYNAMIC (1/left or 2/right)
     pcm_cs_v(28 to 29) <= "00";      -- clock accuracy level 2
     pcm_cs_v(30) <= '0';             -- reserved
     pcm_cs_v(31) <= '0';             -- reserved
-    pcm_cs_v(32) <= '1';             -- max sample word length is 24 bits
-    pcm_cs_v(33 to 35) <= "000";     -- word length not indicated
+    pcm_cs_v(32) <= '0';             -- max sample word length is 20 bits
+    pcm_cs_v(33 to 35) <= "100";     -- sample word length is 16 bits
     pcm_cs_v(36 to 39) <= "0000";    -- original sample frequency not indicated
 
     process(pcm_rst,pcm_clk)
 
-        variable cs : std_logic;
+        variable cs, cs_l, cs_r : std_logic;
 
         function xor_v(v : std_logic_vector) return std_logic is
             variable i : integer;
@@ -394,30 +394,36 @@ begin
             else
               cs := '0';
             end if;
-                iec_sync <= '0';
-                if iec_count = 0 then
-                    iec_sync <= '1';
-                end if;
-                iec_l  <= pcm_l & x"00";
-                iec_lv <= '0';
-                iec_lu <= '0';
-                iec_lc <= cs;
-                iec_lp <= xor_v(pcm_l & cs & iec_sync);
-                iec_r  <= pcm_r & x"00";
-                iec_rv <= '0';
-                iec_ru <= '0';
-                iec_rc <= cs;
-                iec_rp <= xor_v(pcm_r & cs & iec_sync);
-                if iec_count = 191 then
-                    iec_count <= 0;
-                else
-                    iec_count <= iec_count+1;
-                end if;
-                iec_req <= '1';
-            elsif iec_ack = '1' then
-                iec_req <= '0';
+            cs_l := cs;
+            cs_r := cs;
+            if iec_count = 20 then
+              cs_l := '1'; -- set channel number for left channel
+            elsif iec_count = 21 then
+              cs_r := '1'; -- set channel number for right channel
             end if;
-
+            iec_sync <= '0';
+            if iec_count = 0 then
+                iec_sync <= '1';
+            end if;
+            iec_l  <= pcm_l & x"00";
+            iec_lv <= '0';
+            iec_lu <= '0';
+            iec_lc <= cs_l;
+            iec_lp <= xor_v(pcm_l & cs_l);
+            iec_r  <= pcm_r & x"00";
+            iec_rv <= '0';
+            iec_ru <= '0';
+            iec_rc <= cs_r;
+            iec_rp <= xor_v(pcm_r & cs_r);
+            if iec_count = 191 then
+              iec_count <= 0;
+            else
+              iec_count <= iec_count+1;
+            end if;
+            iec_req <= '1';
+          elsif iec_ack = '1' then
+              iec_req <= '0';
+          end if;
         end if;
     end process;
 
