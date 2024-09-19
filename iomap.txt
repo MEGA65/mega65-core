@@ -139,7 +139,7 @@ C65 $D030.2 VIC-III:PAL Use PALETTE ROM (0) or RAM (1) entries for colours 0 - 1
 C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
 C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
 C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
-C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
+C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset (not implemented)
 C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
 C64 $D030 SUMMARY: C128 2MHz emulation
 C65 $D030 SUMMARY:VIC-III Control Register A
@@ -282,7 +282,7 @@ GS $D079 VIC-IV:RASCMP Physical raster compare value to be used if FNRSTCMP is c
 GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
 GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
 GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
-GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set
+GS $D07A.5 VIC-IV:NOBUGCOMPAT *DEPRECATED*, use HWERRATA - Disables VIC-III / C65 Bug Compatibility Mode if set
 GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
 GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
 GS $D07B VIC-IV:DISP!ROWS Number of text rows to display
@@ -338,7 +338,7 @@ C65 $D087 FDC:DATA F011 FDC data register (read/write) for accessing the floppy 
 C65 $D088 FDC:CLOCK Set or read the clock pattern to be used when writing address and data marks. Should normally be left $FF
 C65 $D089 FDC:STEP Set or read the track stepping rate in 62.5 microsecond steps (normally 128, i.e., 8 milliseconds).
 C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
-GS $D08F - Set/get MISCIO:HWERRATA MEGA65 hardware errata level
+GS $D08F Set/get MISCIO:HWERRATA MEGA65 hardware errata level
 GS $D09B - FSM state of low-level SD controller (DEBUG)
 GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
@@ -529,8 +529,8 @@ GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
 GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
-GS $D613 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
-GS $D614 DEBUG:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
+GS $D613 UARTMISC:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
+GS $D614 UARTMISC:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
 GS $D615.0-6 UARTMISC:VIRTKEY1 Set to \$7F for no key down, else specify virtual key press.
 GS $D615.7 UARTMISC:OSKEN Enable display of on-screen keyboard composited overlay
 GS $D616.0-6 UARTMISC:VIRTKEY2 Set to \$7F for no key down, else specify 2nd virtual key press.

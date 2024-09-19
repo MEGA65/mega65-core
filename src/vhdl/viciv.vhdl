@@ -2924,7 +2924,7 @@ begin
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
-          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set (changes HWERRATA level)
+          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT *DEPRECATED*, use HWERRATA - Disables VIC-III / C65 Bug Compatibility Mode if set
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
