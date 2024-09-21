@@ -218,7 +218,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
     # we don't need ONBOARD.M65
     rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
-    cp ${REPOPATH}/src/utilities/mflash.prg ${PKGPATH}/flasher
+    cp ${REPOPATH}/src/utilities/megaflash/mflash.prg ${PKGPATH}/flasher
 
     cp ${BITPATH} ${PKGPATH}/${BITBASE}.bit
     cp ${BITPATHBASE}.log ${PKGPATH}/log/

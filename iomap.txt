@@ -734,8 +734,8 @@ GS $D67E CPU:HTRAP3E @HTRAPXX
 GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
 GS $D67F CPU:HTRAP3F @HTRAPXX
 GS $D67F HCPU:ENTEREXIT Writing trigger return from hypervisor
-GS $D680.0 - SD controller BUSY flag
-GS $D680.1 - SD controller BUSY flag
+GS $D680.0 - SD controller SDIO BUSY flag
+GS $D680.1 - SD controller SDCARD BUSY flag
 GS $D680.2 - SD controller RESET flag
 GS $D680.3 - SD controller sector buffer mapped flag
 GS $D680.4 - SD controller SDHC mode flag
