@@ -139,7 +139,7 @@ C65 $D030.2 VIC-III:PAL Use PALETTE ROM (0) or RAM (1) entries for colours 0 - 1
 C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
 C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
 C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
-C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
+C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset (not implemented)
 C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
 C64 $D030 SUMMARY: C128 2MHz emulation
 C65 $D030 SUMMARY:VIC-III Control Register A
@@ -406,7 +406,7 @@ GS $D40B.7 SID:VOICE2!CTRLRNW @VOICEX!CTRLRNW
 GS $D40C.3-0 SID:ENV2!DECDUR @ENVX!DECDUR
 GS $D40C.7-4 SID:ENV2!ATTDUR @ENVX!ATTDUR
 GS $D40D.3-0 SID:ENV2!RELDUR @ENVX!RELDUR
-GS $D40D.7-4 SID:ENV2!SUSLEV @ENVX!SUSLEV
+GS $D40D.7-4 SID:ENV2!LEVDUR @ENVX!LEVDUR
 GS $D40E SID:VOICE3!FRQLO @VOICEX!FRQLO
 GS $D40F SID:VOICE3!FRQHI @VOICEX!FRQHI
 GS $D410 SID:VOICE3!PWLO @VOICEX!PWLO
@@ -423,7 +423,7 @@ GS $D412.7 SID:VOICE3!CTRLRNW @VOICEX!CTRLRNW
 GS $D413.3-0 SID:ENV3!DECDUR @ENVX!DECDUR
 GS $D413.7-4 SID:ENV3!ATTDUR @ENVX!ATTDUR
 GS $D414.3-0 SID:ENV3!RELDUR @ENVX!RELDUR
-GS $D414.7-4 SID:ENV3!SUSLEV @ENVX!SUSLEV
+GS $D414.7-4 SID:ENV3!LEVDUR @ENVX!SUSLEV
 GS $D415 SID:FLTR!CUTFRQLO@FLTR!CUTFRQLO Filter Cutoff Frequency Low
 GS $D416 SID:FLTR!CUTFRQHI@FLTR!CUTFRQHI Filter Cutoff Frequency High
 GS $D417.0 SID:FLTR!V3OUT @FLTR!VXOUT
@@ -529,8 +529,8 @@ GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
 GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
-GS $D613 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
-GS $D614 DEBUG:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
+GS $D613 UARTMISC:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
+GS $D614 UARTMISC:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
 GS $D615.0-6 UARTMISC:VIRTKEY1 Set to \$7F for no key down, else specify virtual key press.
 GS $D615.7 UARTMISC:OSKEN Enable display of on-screen keyboard composited overlay
 GS $D616.0-6 UARTMISC:VIRTKEY2 Set to \$7F for no key down, else specify 2nd virtual key press.
@@ -1031,11 +1031,13 @@ C65 $D701 DMA:ADDRMSB DMA list address high byte (bits 8 - 15).
 C65 $D702.0-6 DMA:ADDRBANK DMA list address bank (bits 16 - 22). Writing clears \$D704.
 C65 $D702.7 DMA:WITHIO DMA withio flag (unused)
 GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
+GS $D703.1 DMA:NOMBWRAP Disable source and destination address wrap-around at MB boundaries (ignored in Hypervisor mode)
 GS $D704 DMA:ADDRMB DMA list address mega-byte (bits 20 - 27). Overlaps with ADDRBANK!
 GS $D705 DMA:ETRIG Set low-order byte of DMA list address (bits 0 - 7), and trigger Enhanced DMA job, with list address specified as 28-bit flat address (uses DMA option list)
 GS $D705 - Enhanced DMAgic job option $00 = End of options
+GS $D705 - Enhanced DMAgic job option $01 = Enable src/dst addresses crossing MB boundaries.
 GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
-GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
+GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.  
 GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
 GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
 GS $D705 - Enhanced DMAgic job option $0D = Write floppy raw flux (use with COPY)
