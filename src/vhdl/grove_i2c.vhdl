@@ -28,44 +28,44 @@
 -- 8-bit read addresses:
 -- 0xD1
 
--- @IO:GS $FFD7400-12 RTC:EXTRTC Optional Grove DS3231 External Real-time Clock
--- @IO:GS $FFD7400 RTC:EXTRTC!SEC External Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7401 RTC:EXTRTC!MIN External Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7402.0-5 RTC:EXTRTC!HOUR External Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7402.5 RTC:EXTRTC!HOURPM External Real-time Clock PM indicator (12h mode only)
--- @IO:GS $FFD7402.6 RTC:EXTRTC!HOUR12EN External Real-time Clock 12 hour mode enabled
--- @IO:GS $FFD7403 RTC:EXTRTC!DOW External Real-time Clock day of week value 1-7 (binary coded decimal)
--- @IO:GS $FFD7404 RTC:EXTRTC!DAY External Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7405.0-4 RTC:EXTRTC!MONTH External Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7405.7 RTC:EXTRTC!CENTURY External Real-time Clock year "carry"
--- @IO:GS $FFD7406 RTC:EXTRTC!YEAR External Real-time Clock year value (binary coded decimal)
--- @IO:GS $FFD7407.0-6 RTC:EXTRTC!A1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
--- @IO:GS $FFD7407.7 RTC:EXTRTC!A1M1 External Real-time Clock alarm 1 mask bits 1
--- @IO:GS $FFD7408.0-6 RTC:EXTRTC!A1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
--- @IO:GS $FFD7408.7 RTC:EXTRTC!A1M2 External Real-time Clock alarm 1 mask bits 2
--- @IO:GS $FFD7409.0-5 RTC:EXTRTC!A1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
--- @IO:GS $FFD7409.5 RTC:EXTRTC!A1HOURPM External Real-time Clock alarm 1 hours PM indicator
--- @IO:GS $FFD7409.6 RTC:EXTRTC!A1HOUR12EN External Real-time Clock alarm 1 12 hour mode enabled
--- @IO:GS $FFD7409.7 RTC:EXTRTC!A1M3 External Real-time Clock alarm 1 mask bits 3
--- @IO:GS $FFD740A.0-2 RTC:EXTRTC!A1DOW External Real-time Clock alarm 1 day of week value (binary coded decimal)
--- @IO:GS $FFD740A.0-5 RTC:EXTRTC!A1DATE External Real-time Clock alarm 1 date value (binary coded decimal)
--- @IO:GS $FFD740A.6 RTC:EXTRTC!A1DOWSEL External Real-time Clock alarm 1 select day of week match
--- @IO:GS $FFD740A.7 RTC:EXTRTC!A1M4 External Real-time Clock alarm 1 mask bits 4
--- @IO:GS $FFD740B.0-6 RTC:EXTRTC!A2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
--- @IO:GS $FFD740B.7 RTC:EXTRTC!A2M2 External Real-time Clock alarm 2 mask bits 2
--- @IO:GS $FFD740C.0-5 RTC:EXTRTC!A2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
--- @IO:GS $FFD740C.5 RTC:EXTRTC!A2HOURPM External Real-time Clock alarm 2 hours PM indicator
--- @IO:GS $FFD740C.6 RTC:EXTRTC!A2HOUR12EN External Real-time Clock alarm 2 12 hour mode enabled
--- @IO:GS $FFD740C.7 RTC:EXTRTC!A2M3 External Real-time Clock alarm 2 mask bits 3
--- @IO:GS $FFD740D.0-2 RTC:EXTRTC!A2DOW External Real-time Clock alarm 2 day of week value (binary coded decimal)
--- @IO:GS $FFD740D.0-5 RTC:EXTRTC!A2DATE External Real-time Clock alarm 2 date value (binary coded decimal)
--- @IO:GS $FFD740D.6 RTC:EXTRTC!A2DOWSEL External Real-time Clock alarm 2 select day of week match
--- @IO:GS $FFD740D.7 RTC:EXTRTC!A2M4 External Real-time Clock alarm 2 mask bits 4
--- @IO:GS $FFD740E RTC:EXTRTC!CTRL External Real-time Clock control
--- @IO:GS $FFD740F RTC:EXTRTC!ST External Real-time Clock control/status register
--- @IO:GS $FFD7410 RTC:EXTRTC!AGINGOFS External Real-time Clock aging offset (do not modify!)
--- @IO:GS $FFD7411 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (MSB)
--- @IO:GS $FFD7412 RTC:EXTRTC!TEMPMSB External Real-time Clock temperature (LSB)
+-- @IO:GS $FFD7400-12 RTC-GROV:EXTRTC Optional Grove DS3231 External Real-time Clock
+-- @IO:GS $FFD7400 RTC-GROV:EXTRTC!SEC External Real-time Clock seconds value (binary coded decimal)
+-- @IO:GS $FFD7401 RTC-GROV:EXTRTC!MIN External Real-time Clock minutes value (binary coded decimal)
+-- @IO:GS $FFD7402.0-5 RTC-GROV:EXTRTC!HOUR External Real-time Clock hours value (binary coded decimal)
+-- @IO:GS $FFD7402.5 RTC-GROV:EXTRTC!HOURPM External Real-time Clock PM indicator (12h mode only)
+-- @IO:GS $FFD7402.6 RTC-GROV:EXTRTC!HOUR12EN External Real-time Clock 12 hour mode enabled
+-- @IO:GS $FFD7403 RTC-GROV:EXTRTC!DOW External Real-time Clock day of week value 1-7 (binary coded decimal)
+-- @IO:GS $FFD7404 RTC-GROV:EXTRTC!DAY External Real-time Clock day of month value (binary coded decimal)
+-- @IO:GS $FFD7405.0-4 RTC-GROV:EXTRTC!MONTH External Real-time Clock month value (binary coded decimal)
+-- @IO:GS $FFD7405.7 RTC-GROV:EXTRTC!CENTURY External Real-time Clock year "carry"
+-- @IO:GS $FFD7406 RTC-GROV:EXTRTC!YEAR External Real-time Clock year value (binary coded decimal)
+-- @IO:GS $FFD7407.0-6 RTC-GROV:EXTRTC!A1SEC External Real-time Clock alarm 1 seconds value (binary coded decimal)
+-- @IO:GS $FFD7407.7 RTC-GROV:EXTRTC!A1M1 External Real-time Clock alarm 1 mask bits 1
+-- @IO:GS $FFD7408.0-6 RTC-GROV:EXTRTC!A1MIN External Real-time Clock alarm 1 minutes value (binary coded decimal)
+-- @IO:GS $FFD7408.7 RTC-GROV:EXTRTC!A1M2 External Real-time Clock alarm 1 mask bits 2
+-- @IO:GS $FFD7409.0-5 RTC-GROV:EXTRTC!A1HOUR External Real-time Clock alarm 1 hours value (binary coded decimal)
+-- @IO:GS $FFD7409.5 RTC-GROV:EXTRTC!A1HOURPM External Real-time Clock alarm 1 hours PM indicator
+-- @IO:GS $FFD7409.6 RTC-GROV:EXTRTC!A1HOUR12EN External Real-time Clock alarm 1 12 hour mode enabled
+-- @IO:GS $FFD7409.7 RTC-GROV:EXTRTC!A1M3 External Real-time Clock alarm 1 mask bits 3
+-- @IO:GS $FFD740A.0-2 RTC-GROV:EXTRTC!A1DOW External Real-time Clock alarm 1 day of week value (binary coded decimal)
+-- @IO:GS $FFD740A.0-5 RTC-GROV:EXTRTC!A1DATE External Real-time Clock alarm 1 date value (binary coded decimal)
+-- @IO:GS $FFD740A.6 RTC-GROV:EXTRTC!A1DOWSEL External Real-time Clock alarm 1 select day of week match
+-- @IO:GS $FFD740A.7 RTC-GROV:EXTRTC!A1M4 External Real-time Clock alarm 1 mask bits 4
+-- @IO:GS $FFD740B.0-6 RTC-GROV:EXTRTC!A2MIN External Real-time Clock alarm 2 minutes value (binary coded decimal)
+-- @IO:GS $FFD740B.7 RTC-GROV:EXTRTC!A2M2 External Real-time Clock alarm 2 mask bits 2
+-- @IO:GS $FFD740C.0-5 RTC-GROV:EXTRTC!A2HOUR External Real-time Clock alarm 2 hours value (binary coded decimal)
+-- @IO:GS $FFD740C.5 RTC-GROV:EXTRTC!A2HOURPM External Real-time Clock alarm 2 hours PM indicator
+-- @IO:GS $FFD740C.6 RTC-GROV:EXTRTC!A2HOUR12EN External Real-time Clock alarm 2 12 hour mode enabled
+-- @IO:GS $FFD740C.7 RTC-GROV:EXTRTC!A2M3 External Real-time Clock alarm 2 mask bits 3
+-- @IO:GS $FFD740D.0-2 RTC-GROV:EXTRTC!A2DOW External Real-time Clock alarm 2 day of week value (binary coded decimal)
+-- @IO:GS $FFD740D.0-5 RTC-GROV:EXTRTC!A2DATE External Real-time Clock alarm 2 date value (binary coded decimal)
+-- @IO:GS $FFD740D.6 RTC-GROV:EXTRTC!A2DOWSEL External Real-time Clock alarm 2 select day of week match
+-- @IO:GS $FFD740D.7 RTC-GROV:EXTRTC!A2M4 External Real-time Clock alarm 2 mask bits 4
+-- @IO:GS $FFD740E RTC-GROV:EXTRTC!CTRL External Real-time Clock control
+-- @IO:GS $FFD740F RTC-GROV:EXTRTC!ST External Real-time Clock control/status register
+-- @IO:GS $FFD7410 RTC-GROV:EXTRTC!AGINGOFS External Real-time Clock aging offset (do not modify!)
+-- @IO:GS $FFD7411 RTC-GROV:EXTRTC!TEMPMSB External Real-time Clock temperature (MSB)
+-- @IO:GS $FFD7412 RTC-GROV:EXTRTC!TEMPMSB External Real-time Clock temperature (LSB)
 
 
 

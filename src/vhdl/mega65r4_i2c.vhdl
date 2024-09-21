@@ -40,18 +40,39 @@
 -- 8-bit read addresses:
 -- 0xA9, 0xA1, 0xDF, 0xAF
 
--- @IO:GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+-- @IO:GS $FFD7100-$FFD7107 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
 -- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
--- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7112.0-5 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7112.5 RTC:RTC!HOURPM Real-time Clock PM indicator (12h mode only)
--- @IO:GS $FFD7112.7 RTC:RTC!HOUR24EN Real-time Clock 24 hour mode enabled
--- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
--- @IO:GS $FFD7116 RTC:RTCDOW Real-time Clock day of week value 0-6 (binary coded decimal)
+-- @IO:GS $FFD7110 RTC:RTCSEC Seconds value (binary coded decimal)
+-- @IO:GS $FFD7111 RTC:RTCMIN Minutes value (binary coded decimal)
+-- @IO:GS $FFD7112.0-5 RTC:RTC!HOUR Hours value (binary coded decimal)
+-- @IO:GS $FFD7112.5 RTC:RTC!HOURPM PM indicator (12h mode only)
+-- @IO:GS $FFD7112.7 RTC:RTC!HOUR24EN 24 hour mode enabled
+-- @IO:GS $FFD7113 RTC:RTCDAY Day of month value (binary coded decimal)
+-- @IO:GS $FFD7114 RTC:RTCMONTH Month value (binary coded decimal)
+-- @IO:GS $FFD7115 RTC:RTCYEAR Year value (binary coded decimal)
+-- @IO:GS $FFD7116 RTC:RTCDOW Day of week value 0-6 (binary coded decimal)
+-- @IO:GS $FFD7117.0-6 RTC-R4:ALMIN Alarm Minutes value 00-59 (binary coded decimal)
+-- @IO:GS $FFD7117.7 RTC-R4:AE\_M Alarm enable bit (togeter with AE_H and AE_L)
+-- @IO:GS $FFD7118.0-5 RTC-R4:ALHOURS Alarm Hour value 00-23 (binary coded decimal)
+-- @IO:GS $FFD7118.7 RTC-R4:AE\_H Alarm enable bit (togeter with AE_M and AE_D)
+-- @IO:GS $FFD7119.0-5 RTC-R4:ALDAY Alarm Date value 01-31 (binary coded decimal)
+-- @IO:GS $FFD7119.7 RTC-R4:AE\_D Alarm enable bit (togeter with AE_M and AE_H)
+-- @IO:GS $FFD711A RTC-R4:PCTCR0 Periodic countdown timer 0 control register (Lower Byte)
+-- @IO:GS $FFD711B.0-3 RTC-R4:PCTCR1 Periodic countdown timer 1 control register (High Byte)
+-- @IO:GS $FFD711C.7 RTC-R4:THF Status register: 1 indicates occurrance of temperature above high threshold value THT.
+-- @IO:GS $FFD711C.6 RTC-R4:TLF Status register: 1 indicates occurrance of temperature below low threshold value TLT.
+-- @IO:GS $FFD711C.5 RTC-R4:UF Status register: 1 indicates occurence of periodic timer update interrupt event.
+-- @IO:GS $FFD711C.4 RTC-R4:TF Status register: 1 indicates occurence of periodic countdown timer interrupt event.
+-- @IO:GS $FFD711C.3 RTC-R4:AF Status register: 1 indicates occurence of alarm interrupt event.
+-- @IO:GS $FFD711C.2 RTC-R4:EVF Status register: 1 indicates occurence of an external event.
+-- @IO:GS $FFD711C.1 RTC-R4:PORF Status register: 1 indicates invalid data due to power issue. Registers must be reinitialized.
+-- @IO:GS $FFD711C.0 RTC-R4:VLF Status register: 1 indicates invalid data due to power issue. Registers must be reinitialized.
+-- @IO:GS $FFD711D.7-4 RTC-R4:TEMPL Fractional part of the Temperature value [11:0] in two complements format.
+-- @IO:GS $FFD711D.3 RTC-R4:EEF 1 indicates that the EEPROM write access has failed.
+-- @IO:GS $FFD711D.2 RTC-R4:EEbusy 1 indicates that the EEPROM is currently busy and ignores further commands.
+-- @IO:GS $FFD711D.1 RTC-R4:CLKF 1 indicates the occurrence of an interrupt driven clock output on CLKOUT pin.
+-- @IO:GS $FFD711D.0 RTC-R4:BSF 1 indicates that a switchover from from main power to backup occurred.
+-- @IO:GS $FFD711D RTC-R4:TEMPH Integer part of the Termperature value [11.0] in two's complement format.
 
 
 -- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
