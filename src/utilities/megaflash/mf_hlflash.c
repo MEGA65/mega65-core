@@ -412,11 +412,13 @@ int8_t mfhf_load_core() {
 #ifdef STANDALONE
   if (mfhf_attic_disabled) {
 #endif/* STANDALONE */
-    if (core_crc != get_crc32() || first) {
+    mfhf_core_file_state = (core_crc != get_crc32() || first) ? MFHF_LC_NOTLOADED : MFHF_LC_FROMDISK;
+    mfp_set_area(0, length, mfhf_core_file_state != MFHF_LC_ATTICOK ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state != MFHF_LC_ATTICOK ? MHX_A_RED : MHX_A_GREEN));
+    if (mfhf_core_file_state != MFHF_LC_ATTICOK) {
       mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
-      return MFHF_LC_NOTLOADED;
-    } else
-      mfhf_core_file_state = MFHF_LC_ATTICOK;
+      return mfhf_core_file_state;
+    }
+    return mfhf_core_file_state;
 #ifdef STANDALONE
   }
 #endif/* STANDALONE */
@@ -506,7 +508,7 @@ int8_t mfhf_load_core_from_flash(uint8_t slot, uint32_t addr_len) {
   mfhf_core_file_state = MFHF_LC_ATTICOK;
 
   // do a dummy sdcard action in hope that this resets the bus
-  // TODO: solve underlaying problem!
+  // NOTE: underlaying problem seems to be solved, so this is commented out!
   //nhsd_init(NHSD_INIT_BUS0_FB1, buffer);
 
   return mfhf_core_file_state;
