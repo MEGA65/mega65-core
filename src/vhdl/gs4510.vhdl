@@ -300,6 +300,7 @@ architecture Behavioural of gs4510 is
   
   -- DMAgic settings
   signal support_f018b : std_logic := '0';
+  signal reg_dmagic_no_default_mb_wrap : std_logic := '0';
   signal job_is_f018b : std_logic := '0';
   signal job_uses_options : std_logic := '0';
 
@@ -603,6 +604,7 @@ architecture Behavioural of gs4510 is
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal reg_dmagic_cross_mb_boundaries : std_logic := '0';
   signal reg_dmagic_use_transparent_value : std_logic := '0';
   signal reg_dmagic_transparent_value : unsigned(7 downto 0) := x"00";
 
@@ -2491,7 +2493,7 @@ begin
             when x"01" => return reg_dmagic_addr(15 downto 8);
             when x"02" => return reg_dmagic_withio
                             & reg_dmagic_addr(22 downto 16);
-            when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
+            when x"03" => return reg_dmagic_status(7 downto 2) & reg_dmagic_no_default_mb_wrap & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
             -- @IO:GS $D70F.7 MATH:DIVBUSY Set if hardware divider is busy
             -- @IO:GS $D70F.6 MATH:MULBUSY Set if hardware multiplier is busy
@@ -3390,7 +3392,9 @@ begin
           reg_dmagic_withio <= value(7);
         elsif long_address(7 downto 0) = x"03" then
           -- @IO:GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
+          -- @IO:GS $D703.1 DMA:NOMBWRAP Disable source and destination address wrap-around at MB boundaries (ignored in Hypervisor mode)
           support_f018b <= value(0);	-- setable dmagic mode
+          reg_dmagic_no_default_mb_wrap <= value(1);
         elsif long_address(7 downto 0) = x"04" then
           -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte (bits 20 - 27). Overlaps with ADDRBANK!
           reg_dmagic_addr(27 downto 20) <= value;
@@ -3843,6 +3847,7 @@ begin
 
     procedure dmagic_reset_options is
     begin
+      reg_dmagic_cross_mb_boundaries <= '0';
       reg_dmagic_use_transparent_value <= '0';
       reg_dmagic_src_mb <= x"00";
       reg_dmagic_dst_mb <= x"00";
@@ -5997,9 +6002,10 @@ begin
                     when x"00" =>
                       report "End of Enhanced DMA option list.";
                       state <= DMAgicReadList;
-                      -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
-                      -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
-                      
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $01 = Enable src/dst addresses crossing MB boundaries.
+                    when x"01" => reg_dmagic_cross_mb_boundaries <= '1';
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.  
                     when x"06" => reg_dmagic_use_transparent_value <= '0';               
                     when x"07" => reg_dmagic_use_transparent_value <= '1';               
                     -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
@@ -6163,11 +6169,14 @@ begin
               if reg_dmagic_draw_spiral = '1' then
                 -- Draw the dreaded Shallan Spriral
                 case reg_dmagic_spiral_phase is
-                  when "00" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 1;
-                  when "01" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  + 40;
-                  when "10" => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 1;
-                  when others => dmagic_dest_addr(27 downto 8) <= dmagic_dest_addr(27 downto 8)  - 40;
+                  when "00" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  + 1;
+                  when "01" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  + 40;
+                  when "10" => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  - 1;
+                  when others => dmagic_dest_addr(35 downto 8) <= dmagic_dest_addr(35 downto 8)  - 40;
                 end case;
+                if (reg_dmagic_cross_mb_boundaries='0' and reg_dmagic_no_default_mb_wrap='0') or hypervisor_mode='1' then
+                  dmagic_dest_addr(35 downto 28) <= dmagic_dest_addr(35 downto 28); -- do not update MB part of address
+                end if;
                 if reg_dmagic_spiral_len_remaining /= 0 then
                   reg_dmagic_spiral_len_remaining <= reg_dmagic_spiral_len_remaining - 1;
                 else
@@ -6186,14 +6195,15 @@ begin
                 end if;
                 
               elsif reg_dmagic_line_mode = '0' then
-                  -- Normal fill
-                  if dmagic_dest_hold='0' then
-                    if dmagic_dest_direction='0' then
-                      dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
+                -- Normal fill
+                if dmagic_dest_hold='0' then
+                  if dmagic_dest_direction='0' then
+                    dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(27 downto 0)
-                    <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) - reg_dmagic_dst_skip;
+                  end if;
+                  if (reg_dmagic_cross_mb_boundaries='0' and reg_dmagic_no_default_mb_wrap='0') or hypervisor_mode='1' then
+                    dmagic_dest_addr(35 downto 28) <= dmagic_dest_addr(35 downto 28); -- do not update MB part of address
                   end if;
                 end if;
               else
@@ -6564,14 +6574,15 @@ begin
                 end if;
               elsif dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr(27 downto 0)
-                    <= dmagic_src_addr(27 downto 0) + reg_dmagic_src_skip;
+                  dmagic_src_addr(35 downto 0) <= dmagic_src_addr(35 downto 0) + reg_dmagic_src_skip;
                 else
-                  dmagic_src_addr(27 downto 0)
-                    <= dmagic_src_addr(27 downto 0) - reg_dmagic_src_skip;
+                  dmagic_src_addr(35 downto 0) <= dmagic_src_addr(35 downto 0) - reg_dmagic_src_skip;
+                end if;
+                if (reg_dmagic_cross_mb_boundaries='0' and reg_dmagic_no_default_mb_wrap='0') or hypervisor_mode='1' then
+                  dmagic_src_addr(35 downto 28) <= dmagic_src_addr(35 downto 28); -- do not update MB part of address
                 end if;
               end if;
-                                        -- Set IO visibility for destination
+              -- Set IO visibility for destination
               cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
@@ -6753,11 +6764,12 @@ begin
                   -- end of line mode case
                 elsif dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) + reg_dmagic_dst_skip;
+                    dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr(27 downto 0)
-                      <= dmagic_dest_addr(27 downto 0) - reg_dmagic_dst_skip;
+                    dmagic_dest_addr(35 downto 0) <= dmagic_dest_addr(35 downto 0) - reg_dmagic_dst_skip;
+                  end if;
+                  if (reg_dmagic_cross_mb_boundaries='0' and reg_dmagic_no_default_mb_wrap='0') or hypervisor_mode='1' then
+                    dmagic_dest_addr(35 downto 28) <= dmagic_dest_addr(35 downto 28); -- do not update MB part of address
                   end if;
                 end if;
                                         -- XXX we compare count with 1 before decrementing.
