@@ -513,9 +513,9 @@ architecture Behavioral of machine is
   signal dipsw_read : std_logic_vector(7 downto 0);
   signal dipsw_int : std_logic_vector(7 downto 0);
 
-  signal hw_errata_level : unsigned(7 downto 0);
-  signal hw_errata_enable_toggle : std_logic;
-  signal hw_errata_disable_toggle : std_logic;
+  signal hw_errata_level : unsigned(7 downto 0) := x"00";
+  signal hw_errata_enable_toggle : std_logic := '0';
+  signal hw_errata_disable_toggle : std_logic := '0';
 
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);

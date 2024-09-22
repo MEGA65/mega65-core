@@ -63,8 +63,8 @@ entity viciv is
     hypervisor_mode : in std_logic;
 
     hw_errata_level : in unsigned(7 downto 0);
-    hw_errata_enable_toggle : inout std_logic := '0';
-    hw_errata_disable_toggle : inout std_logic := '0';
+    hw_errata_enable_toggle : inout std_logic;
+    hw_errata_disable_toggle : inout std_logic;
 
     xcounter_out : out integer range 0 to 4095 := 0;
     ycounter_out : out integer range 0 to 2047 := 0;
@@ -2091,7 +2091,7 @@ begin
         prev_hw_errata_level <= hw_errata_level;
 
         -- Apply variable HW errata level settings
-        -- Level 1: VIC-III D016 Delta
+        -- HWERRATA:1 VIC-III D016 Delta
         if to_integer(hw_errata_level) > 0 then
           bug_compat_vic_iii_d016_delta <= 0;
           bug_compat_mode <= '0';
@@ -2099,7 +2099,7 @@ begin
           bug_compat_vic_iii_d016_delta <= 2;
           bug_compat_mode <= '1';
         end if;
-        -- Level 2: Character attribute fixes
+        -- HWERRATA:2 Character attribute fixes
         if to_integer(hw_errata_level) > 1 then
           bug_compat_char_attr <= '0';
         else
@@ -2924,7 +2924,7 @@ begin
           -- @IO:GS $D07A.0-2 VIC-IV:RASCMP!MSB Raster compare value MSB
           -- @IO:GS $D07A.3 VIC-IV:SPTR!CONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
           -- @IO:GS $D07A.4 VIC-IV:CHARY16 Alternate char ROM bank on alternate raster lines in V200
-          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT Disables VIC-III / C65 Bug Compatibility Mode if set
+          -- @IO:GS $D07A.5 VIC-IV:NOBUGCOMPAT *DEPRECATED*, use HWERRATA - Disables VIC-III / C65 Bug Compatibility Mode if set
           -- @IO:GS $D07A.6 VIC-IV:EXTIRQS Enable additional IRQ sources, e.g., raster X position.
           -- @IO:GS $D07A.7 VIC-IV:FNRST!CMP Raster compare is in physical rasters if clear, or VIC-II rasters if set
           irq_extras_enable <= fastio_wdata(6);
