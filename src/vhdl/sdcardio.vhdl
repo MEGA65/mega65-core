@@ -1253,7 +1253,7 @@ begin  -- behavioural
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
           when "01111" =>
-            -- @IO:GS $D08F Set/get MISCIO:HWERRATA MEGA65 hardware errata level
+            -- @IO:GS $D08F MISCIO:HWERRATA Set/get MEGA65 hardware errata level
             --
             -- Register $D07A.5 VIC-IV:NOBUGCOMPAT will set this to 0 or hw_errata_level_max!
             -- There is no feedback from this register back to NOBUGCOMPAT!
