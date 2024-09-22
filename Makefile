@@ -443,6 +443,7 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram18x2k.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x4096_sync.vhdl \
+			$(VHDLSRCDIR)/ghdl_ram8x4096_sync_2cs.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x512.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram9x4k.vhdl \

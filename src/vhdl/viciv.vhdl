@@ -411,8 +411,8 @@ architecture Behavioral of viciv is
   -- Interface to buffer for screen ram (converts 64 bits wide to 8 bits
   -- wide for us)
   signal screen_ram_buffer_write  : std_logic := '0';
-  signal screen_ram_buffer_read_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal screen_ram_buffer_write_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal screen_ram_buffer_read_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal screen_ram_buffer_write_address : unsigned(9 downto 0) := to_unsigned(0,10);
   signal screen_ram_buffer_din : unsigned(7 downto 0) := x"00";
   signal screen_ram_buffer_dout : unsigned(7 downto 0) := x"00";
 
@@ -439,10 +439,10 @@ architecture Behavioral of viciv is
   signal this_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal last_ramaccess_is_sprite_data_fetch : std_logic := '0';
   signal final_ramaccess_is_sprite_data_fetch : std_logic := '0';
-  signal this_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal this_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal next_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal last_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal final_ramaccess_screen_row_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
   signal next_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal this_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal last_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
@@ -517,7 +517,7 @@ architecture Behavioral of viciv is
   signal debug_pixel_green : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_pixel_blue : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_channel_select : std_logic_vector(1 downto 0) := "00";
-  signal debug_screen_ram_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_screen_ram_buffer_address : unsigned(9 downto 0) := to_unsigned(0,10);
   signal debug_raster_buffer_read_address : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_cycles_to_next_card : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -529,7 +529,7 @@ architecture Behavioral of viciv is
   signal debug_charaddress : unsigned(11 downto 0) := to_unsigned(0,12);
   signal debug_charrow : std_logic_vector(7 downto 0) := x"00";
 
-  signal debug_screen_ram_buffer_address_drive : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_screen_ram_buffer_address_drive : unsigned(9 downto 0) := to_unsigned(0,10);
   signal debug_cycles_to_next_card_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_fetch_state_drive : vic_chargen_fsm := Idle;
   signal debug_paint_fsm_state_drive : vic_paint_fsm := Idle;
@@ -541,7 +541,7 @@ architecture Behavioral of viciv is
   signal debug_raster_buffer_read_address_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address_drive : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal debug_screen_ram_buffer_address_drive2 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_fetch_state_drive2 : vic_chargen_fsm := Idle;
@@ -1103,8 +1103,8 @@ begin
       dina    => std_logic_vector(screen_ram_buffer_din),
       unsigned(doutb)   => screen_ram_buffer_dout,
       wea(0)  => screen_ram_buffer_write,
-      addra  => std_logic_vector(screen_ram_buffer_write_address(8 downto 0)),
-      addrb  => std_logic_vector(screen_ram_buffer_read_address(8 downto 0))
+      addra  => std_logic_vector(screen_ram_buffer_write_address(9 downto 0)),
+      addrb  => std_logic_vector(screen_ram_buffer_read_address(9 downto 0))
       );
 
   colourram: block
@@ -3404,7 +3404,7 @@ begin
         report "RASTER FETCH: start of fetch in preparation for the next raster";
 
         report "ZEROing screen_ram_buffer_read_address" severity note;
-        screen_ram_buffer_read_address <= to_unsigned(0,9);
+        screen_ram_buffer_read_address <= to_unsigned(0,10);
 
         -- Some house keeping first:
         -- Reset write address in raster buffer
@@ -3459,7 +3459,7 @@ begin
                            + safe_to_integer(first_card_of_row),20);
         end if;
         card_of_row <= (others =>'0');
-        screen_ram_buffer_write_address <= to_unsigned(0,9);
+        screen_ram_buffer_write_address <= to_unsigned(0,10);
         short_line <= '0';
         report "ZEROing screen_ram_buffer_write_address" severity note;
         -- Finally decide which way we should go
@@ -4115,7 +4115,7 @@ begin
             next_ramaccess_is_screen_row_fetch <= '1';
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
-            next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
+            next_ramaccess_screen_row_buffer_address <= to_unsigned(0,10);
             next_screen_row_fetch_address <= screen_row_current_address;
 
             -- Set pipeline delay countdown for investigating the 16-bit tokens
@@ -4245,7 +4245,7 @@ begin
           report "DRAWMASK: Reset drawmask to $ff";
 
           report "ZEROing screen_ram_buffer_read_address" severity note;
-          screen_ram_buffer_read_address <= to_unsigned(0,9);
+          screen_ram_buffer_read_address <= to_unsigned(0,10);
 
           character_number <= (others => '0');
           card_of_row <= (others => '0');
@@ -4274,7 +4274,7 @@ begin
 
           -- Work out exactly what mode we are in so that we can be a bit more
           -- efficient in the next cycle
-          if screen_ram_buffer_read_address = to_unsigned(0,9) then
+          if screen_ram_buffer_read_address = to_unsigned(0,10) then
             report "LEGACY: Char/bitmap data fetch: "
               & "chargen_y_hold = $" & to_hstring(chargen_y_hold)
               & ", chargen_y = $" & to_hstring(chargen_y)
