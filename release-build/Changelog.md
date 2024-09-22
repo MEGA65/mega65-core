@@ -23,6 +23,8 @@ This is the Summer 2024 Release.
   - CARTRIDGE: define a MEGA65 style cartridge
     [#711](https://github.com/MEGA65/mega65-core/issues/711)
 - Features:
+  - HWERRATA register should return maximum errata level supported
+    [#829](https://github.com/MEGA65/mega65-core/issues/829)
   - Allow DMA src/dst addresses to cross MB boundaries
     [#826](https://github.com/MEGA65/mega65-core/issues/826)
   - Audio DMA IRQs for advanced buffering
