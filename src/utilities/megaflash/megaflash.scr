@@ -1,0 +1,175 @@
+@memory_end=0x4ffff
+@memory_align=0x100
+@filename=mf_screens
+!screen=slot1_not_m65
+!size=40x25
+!background=6
+!foreground=1
+#123456789012345678901234567890123456789
+!text
+{8}
+  ** MEGA65 core in slot 1 missing! **
+{1}
+ An error while replacing slot 0 can
+ temporary brick your MEGA65, which can
+ {7}ONLY{1} be reverted using a JTAG adapter
+ or a MEGA65 core in slot 1.
+
+ If you are unsure about this, make
+ sure to first install a recent MEGA65
+ Core into slot 1. Then test if you can
+ use it to flash a core.
+
+ Otherwise you can confirm that you own
+ a {7}JTAG Adapter{1} and know how to use
+ it to recover your Factory Core
+ manually by typing CONFIRM, or press
+ <RUN/STOP> to abort: {C}
+!endtext
+!screen=slot0_warning
+!size=40x25
+!background=6
+!foreground=1
+!text
+{8}
+ ** You are about to replace slot 0! **
+{1}
+If this process fails or is interrupted,
+your {7}MEGA65 is softbricked{1}. Then you can
+either use the JTAG recovery procedure
+or wait ca. 30 sec until slot 1 starts.
+For this you need to make sure that your
+slot 1 MEGA65 core works correctly and
+you can use the flasher inside that
+core to reflash slot 0.
+
+If you are unsure about any of this,
+please contact us first!
+{7}
+ * I confirm that I am aware of the
+   risks involved and like to proceed.
+
+ * I confirm that I can start my MEGA65
+   without the need of slot 0 or can
+   access the flasher in slot 1.
+{}
+Type CONFIRM to proceed, or press
+<RUN/STOP> to abort: {C}
+!endtext
+!screen=menu
+!size=40x0
+!nocolorram=true
+!background=6
+!foreground=1
+#123456789012345678901234567890123456789
+!text
+!idx MFMENU_MAIN_FOOTER
+  <0>-<X> Launch   <CTRL>+<1>-<X> Edit
+!idx MFMENU_SELECT_HEADER
+      Select core file for slot X
+!idx MFMENU_SELECT_FOOTER
+ <F5> Internal SD  <F7> Directory: ROOT
+ <RETURN> Select file      <STOP> Abort
+ <F5> External SD  <F7> Directory: ROOT
+ <RETURN> Select file      <STOP> Abort
+ <F5> Internal SD  <F7> Directory: CORE
+ <RETURN> Select file      <STOP> Abort
+ <F5> External SD  <F7> Directory: CORE
+ <RETURN> Select file      <STOP> Abort
+!idx MFMENU_EDIT_FOOTER
+ <F3> Load Core
+                           <STOP> Abort
+ <F3> Load Core
+ <F8> Flash Slot           <STOP> Abort
+ <F3> Load Core    <F4> Erase Slot
+                           <STOP> Abort
+ <F3> Load Core    <F4> Erase Slot
+ <F8> Flash Slot           <STOP> Abort
+!idx MFMENU_EDIT_FLASHING
+ Don't interrupt power supply nor touch
+       the device while flashing!
+!idx MFMENU_INSPECT_HEADER
+ Page $0000000          Flash Inspector
+!idx MFMENU_INSPECT_FOOTER
+                             <ESC> Exit
+ <:> <,> <DN> <LT> -- <RT> <UP> <.> <;>
+!endtext
+!screen=core_error
+!size=40x0
+!nocolorram=true
+!background=6
+!foreground=1
+!array=true
+#123456789012345678901234567890123456789
+!text
+!idx MFSC_CF_NO_ERROR
+
+!idx MFSC_CF_ERROR_OPEN
+Could not open core file!
+!idx MFSC_CF_ERROR_READ
+Failed to read core file header!
+!idx MFSC_CF_ERROR_SIG
+Core signature not found!
+!idx MFSC_CF_ERROR_SIZE
+Core file to large or corrupt!
+!idx MFSC_CF_ERROR_HWMODEL
+Core hardware model mismatch!
+!idx MFSC_CF_ERROR_FACTORY
+Not a MEGA65 Factory core!
+!endtext
+!screen=mega65_target
+!size=20x0
+!nocolorram=true
+!background=6
+!foreground=1
+!array=true
+!struct=BB
+#123456789012345678901234567890123456789
+!text
+{*0x01}{*8}MEGA65 R1
+{*0x02}{*4}MEGA65 R2
+{*0x03}{*8}MEGA65 R3
+{*0x04}{*8}MEGA65 R4
+{*0x05}{*8}MEGA65 R5
+{*0x06}{*8}MEGA65 R6
+{*0x21}{*4}MEGAphone R1
+{*0x22}{*4}MEGAphone R4
+{*0x40}{*4}Nexys4
+{*0x41}{*4}Nexys4DDR
+{*0x42}{*4}Nexys4DDR-widget
+{*0x60}{*4}QMTECH A100T
+{*0x61}{*8}QMTECH A200T
+{*0x62}{*8}QMTECH A325T
+{*0xFD}{*4}Wukong A100T
+{*0xFE}{*8}Simulation
+{*0x00}{*0}Unknown
+!endtext
+!screen=format_help
+!size=0x0
+!nocolorram=true
+!formatstring=true
+!text
+{WHT}{CLR}
+  Core hash:
+    %02x%02x%02x%02x%s
+  MEGAFLASH version:
+    %s
+  Slot 0 Version:
+    %s
+
+  Hardware information
+    Model ID:   $%02X
+    Model name: %s
+    Slots:      %d (each %d MB)
+    Slot Size:  %ld ($%02x page mask)
+
+  Cartridge: %s
+  Autoselect Slot: %d
+{EOS}{!MF_SCREEN_FMTHELP_CRTDBG}{LGY}
+  Cartridge DEBUG
+     DIP4: %d   SC: %02X
+    $D67E: %02X (now %02X)
+    $8004: %02X %02X %02X %02X %02X %02X
+    $C007:          %02X %02X %02X
+{WHT}
+!endtext

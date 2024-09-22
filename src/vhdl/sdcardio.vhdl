@@ -69,7 +69,7 @@ entity sdcardio is
     floppy_last_gap : out unsigned(7 downto 0) := x"00";
     floppy_gap_strobe : out std_logic := '0';
 
-    hw_errata_level : out unsigned(7 downto 0) := x"00";
+    hw_errata_level : inout unsigned(7 downto 0);
     hw_errata_disable_toggle : in std_logic;
     hw_errata_enable_toggle : in std_logic;
 
@@ -714,7 +714,7 @@ architecture behavioural of sdcardio is
   signal crc_force_delay_counter : integer range 0 to 12 := 0;
   signal crc_force_delay : std_logic := '0';
 
-  signal hw_errata_level_int : unsigned(7 downto 0) := x"00";
+  constant hw_errata_level_max : unsigned(7 downto 0) := x"02";
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
@@ -1252,8 +1252,20 @@ begin  -- behavioural
           when "01010" => -- $D08A
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
-          when "01111" => -- @IO:GS $D08F - Set/get MISCIO:HWERRATA MEGA65 hardware errata level
-            fastio_rdata <= hw_errata_level_int;
+          when "01111" =>
+            -- @IO:GS $D08F MISCIO:HWERRATA Set/get MEGA65 hardware errata level
+            --
+            -- Register $D07A.5 VIC-IV:NOBUGCOMPAT will set this to 0 or hw_errata_level_max!
+            -- There is no feedback from this register back to NOBUGCOMPAT!
+            --
+            -- TODO: please document new errata levels here, and please **also** add HWERRATA:LEVEL where you use it!
+            -- TODO: if adding a new level, remember to raise hw_errata_level_max constant!
+            --
+            -- HWERRATA Table:
+            -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
+            -- HWERRATA:2 - VIC-IV Character attribute combinations.
+            --
+            fastio_rdata <= hw_errata_level;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
           when "11100" => -- @IO:GS $D09C - Last byte low-level SD controller read from card (DEBUG)
@@ -1284,8 +1296,8 @@ begin  -- behavioural
         -- microSD controller registers
 --        report "reading SDCARD register $" & to_hstring(fastio_addr(7 downto 0)) severity note;
         case fastio_addr(7 downto 0) is
-          -- @IO:GS $D680.0 - SD controller BUSY flag
-          -- @IO:GS $D680.1 - SD controller BUSY flag
+          -- @IO:GS $D680.0 - SD controller SDIO BUSY flag
+          -- @IO:GS $D680.1 - SD controller SDCARD BUSY flag
           -- @IO:GS $D680.2 - SD controller RESET flag
           -- @IO:GS $D680.3 - SD controller sector buffer mapped flag
           -- @IO:GS $D680.4 - SD controller SDHC mode flag
@@ -1759,27 +1771,14 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- backwards compability to $D07A.5 VIC-IV:NOBUGCOMPAT
       if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
         hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
-        hw_errata_level_int <= x"ff";
-        hw_errata_level <= x"ff";
+        hw_errata_level <= hw_errata_level_max;
       end if;
 
       if hw_errata_disable_toggle /= hw_errata_disable_toggle_last then
         hw_errata_disable_toggle_last <= hw_errata_disable_toggle;
-        hw_errata_level_int <= x"00";
-        hw_errata_level <= x"00";
-      end if;
-
-      if hw_errata_enable_toggle /= hw_errata_enable_toggle_last then
-        hw_errata_enable_toggle_last <= hw_errata_enable_toggle;
-        hw_errata_level_int <= x"ff";
-        hw_errata_level <= x"ff";
-      end if;
-      
-      if hw_errata_disable_toggle /= hw_errata_disable_toggle_last then
-        hw_errata_disable_toggle_last <= hw_errata_disable_toggle;
-        hw_errata_level_int <= x"00";
         hw_errata_level <= x"00";
       end if;
 
@@ -1915,7 +1914,6 @@ begin  -- behavioural
         -- Return to DD data rate on reset
         cycles_per_interval <= x"51";
         -- Also re-enable C65 bug compatibility
-        hw_errata_level_int <= x"00";
         hw_errata_level <= x"00";
       end if;
 
@@ -2868,8 +2866,11 @@ begin  -- behavioural
               -- @IO:C65 $D08A FDC:PCODE (Read only) returns the protection code of the most recently read sector. Was intended for rudimentary copy protection. Not implemented.
               null;
             when "01111" =>
-              hw_errata_level <= fastio_wdata;
-              hw_errata_level_int <= fastio_wdata;
+              if fastio_wdata >= hw_errata_level_max then
+                hw_errata_level <= hw_errata_level_max;
+              else
+                hw_errata_level <= fastio_wdata;
+              end if;
             when others => null;
 
           end case;
@@ -3096,20 +3097,22 @@ begin  -- behavioural
                   write_sector_gate_timeout <= 40000; -- about 1ms
                 when x"50" => -- P - Write 256 bytes to QSPI flash in 1-bit mode
                   if hypervisor_mode='1' or dipsw(2)='1' then
-                    sd_state <= qspi_write_256;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
+                    sd_state <= qspi_write_256;
                   else
                     -- Permission denied
                     sdio_error <= '1';
                   end if;
                 when x"51" => -- Q - Write 512 bytes to QSPI flash in 1-bit mode
                   if hypervisor_mode='1' or dipsw(2)='1' then
-                    sd_state <= qspi_write_512;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
+                    sd_state <= qspi_write_512;
                   else
                     -- Permission denied
                     sdio_error <= '1';
@@ -3119,7 +3122,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_read_512;
                   else
                     -- Permission denied
@@ -3133,13 +3137,15 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
                   qspi_action_state <= qspi_read_512;
                   qspi_verify_mode <= '0';
                   spi_flash_cmd_byte <= x"6c";
+                  spi_no_dummy_cycles <= '0';
                 when x"54" =>
                   -- T - Write a 512 byte region to QSPI flash, handling
                   -- all aspects of the transaction.  Sector address is taken
@@ -3147,7 +3153,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3169,7 +3176,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3192,7 +3200,8 @@ begin  -- behavioural
                   report "QSPI: Dispatching verify command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= sd_sector;
                   qspi_read_sector_phase <= 0;
@@ -3206,7 +3215,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3223,7 +3233,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3246,7 +3257,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     qspi_read_sector_phase <= 0;
                     qspi_action_state <= QSPI_Release_CS;
@@ -3268,7 +3280,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3285,8 +3298,9 @@ begin  -- behavioural
                   -- SPI Clear status register. Allowed from user land
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
-                  sd_state <= qspi_send_command;
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
+                sd_state <= qspi_send_command;
                   qspi_read_sector_phase <= 0;
                   qspi_action_state <= QSPI_Release_CS;
                   spi_flash_cmd_byte <= x"30";
@@ -3299,7 +3313,8 @@ begin  -- behavioural
                   report "QSPI: Dispatching command";
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sdio_busy <= '1';
+                  -- busy is set in state
+                  -- sdio_busy <= '1';
                   sd_state <= qspi_send_command;
                   spi_address <= x"00000000";
                   qspi_read_sector_phase <= 0;
@@ -3314,7 +3329,8 @@ begin  -- behavioural
                   if hypervisor_mode='1' or dipsw(2)='1' then
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
-                    sdio_busy <= '1';
+                    -- busy is set in state
+                    -- sdio_busy <= '1';
                     sd_state <= qspi_send_command;
                     spi_address <= sd_sector;
                     qspi_read_sector_phase <= 0;
@@ -3816,6 +3832,7 @@ begin  -- behavioural
           if qspi_release_cs_on_completion='1' then
             qspi_release_cs_on_completion <= '0';
             qspicsn <= '1';
+            qspi_csn_int <= '1';
           end if;
 
           if sectorbuffercs='1' and fastio_write='1' then
@@ -4706,6 +4723,7 @@ begin  -- behavioural
         when QSPI_send_command =>
           report "QSPI: send command phase" & integer'image(qspi_read_sector_phase)
             & ", cmd_only=" & std_logic'image(spi_flash_cmd_only);
+          sdio_busy <= '1';
           if qspi_read_sector_phase < 3 or (qspi_read_sector_phase mod 2 = 0) then
             qspi_clock_int <= '1';
           else
@@ -4773,9 +4791,9 @@ begin  -- behavioural
           end case;
           case qspi_read_sector_phase is
                             -- Release CS to ensure new transaction
-            when 0 | 1   => qspicsn <= '1';
+            when 0 | 1   => qspicsn <= '1'; qspi_csn_int <= '1';
                             -- Bring chip to attention
-            when 2       => qspicsn <= '0';
+            when 2       => qspicsn <= '0'; qspi_csn_int <= '0';
                             -- Send QSPI command
             when 3 | 4   => qspidb_oe <= '1'; qspidb_tristate <= '0';
                             qspidb(3 downto 1) <= "111";
@@ -4786,10 +4804,12 @@ begin  -- behavioural
         when QSPI_Release_CS =>
           qspi_clock_int <= '0';
           qspicsn <= '1';
+          qspi_csn_int <= '1';
           sd_state <= Idle;
         when SPI_read_512 =>
-          -- Tristate SI and SO
           report "QSPI: in SPI_read_512";
+          sdio_busy <= '1';
+          -- Tristate SI and SO
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
           sd_buffer_offset <= to_unsigned(0,9);
@@ -4798,6 +4818,8 @@ begin  -- behavioural
           -- (used for speeding up erasure checking of flash)
           qspi_bytes_differ <= '0';
         when QSPI_read_512 =>
+          report "QSPI: in QSPI_read_512";
+          sdio_busy <= '1';
           -- Tristate SI and SO
           qspidb_tristate <= '1';
           qspidb_oe <= '0';
@@ -4853,6 +4875,8 @@ begin  -- behavioural
           else
             sd_state <= Idle;
             sdio_busy <= '0';
+            qspicsn <= '1';
+            qspi_csn_int <= '1';
           end if;
           qspi_clock_int <= '1';
         when QSPI_qwrite_512 =>
@@ -4983,6 +5007,7 @@ begin  -- behavioural
               sd_state <= Idle;
               sdio_busy <= '0';
               qspicsn <= '1';
+              qspi_csn_int <= '1';
             end if;
           else
             qspi_bit_counter <= qspi_bit_counter + 1;

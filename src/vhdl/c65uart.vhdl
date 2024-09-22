@@ -777,10 +777,10 @@ begin  -- behavioural
           -- @IO:GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
           fastio_rdata(7) <= joyb_rotate_internal;
         when x"13" =>
-          -- @IO:GS $D613 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
+          -- @IO:GS $D613 UARTMISC:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
           fastio_rdata <= unsigned(portj_in);
         when x"14" =>
-          -- @IO:GS $D614 DEBUG:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
+          -- @IO:GS $D614 UARTMISC:KEYMATRIXSEL Select which 8-bit segment of combined keyboard matrix to read.
           fastio_rdata <= unsigned(portj_internal);
         when x"15" =>
           -- @IO:GS $D615.0-6 UARTMISC:VIRTKEY1 Set to \$7F for no key down, else specify virtual key press.

@@ -535,9 +535,8 @@ begin  -- behavioural
             & std_logic'image(sdr_bit_alternate);
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
-          if reg_timera_oneshot='0' then
-            reg_timera <= reg_timera_latch;
-          else
+          reg_timera <= reg_timera_latch;
+          if reg_timera_oneshot='1' then
             reg_timera_start <= '0';
           end if;
           reg_timera_has_ticked <= '0';
@@ -590,11 +589,10 @@ begin  -- behavioural
           -- underflow
           report "CIA" & to_hexstring(unit) & " timerb underflow";
           reg_isr(1) <= '1';
-          if reg_timerb_oneshot='0' then
-            report "CIA" & to_hexstring(unit) & " timerb set from latch";
-            reg_timerb <= reg_timerb_latch;
-          else
-            report "CIA" & to_hexstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
+          report "CIA" & to_hstring(unit) & " timerb set from latch";
+          reg_timerb <= reg_timerb_latch;
+          if reg_timerb_oneshot='1' then
+            report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
             reg_timerb_start <= '0';
           end if;
           reg_timerb_has_ticked <= '0';
