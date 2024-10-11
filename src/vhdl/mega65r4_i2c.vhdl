@@ -40,22 +40,105 @@
 -- 8-bit read addresses:
 -- 0xA9, 0xA1, 0xDF, 0xAF
 
--- @IO:GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+-- @IO:GS $FFD7100-$FFD7107 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
 -- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
--- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7112.0-5 RTC:RTC!HOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7112.5 RTC:RTC!HOURPM Real-time Clock PM indicator (12h mode only)
--- @IO:GS $FFD7112.7 RTC:RTC!HOUR24EN Real-time Clock 24 hour mode enabled
--- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
--- @IO:GS $FFD7116 RTC:RTCDOW Real-time Clock day of week value 0-6 (binary coded decimal)
-
-
+-- @IO:GS $FFD7110 RTC:RTCSEC Seconds value (binary coded decimal)
+-- @IO:GS $FFD7111 RTC:RTCMIN Minutes value (binary coded decimal)
+-- @IO:GS $FFD7112.0-6 RTC:RTC!HOUR Hours value (binary coded decimal)
+-- @IO:GS $FFD7112.7 RTC:Unused Always 1
+-- @IO:GS $FFD7113 RTC:RTCDAY Day of month value (binary coded decimal)
+-- @IO:GS $FFD7114 RTC:RTCMONTH Month value (binary coded decimal)
+-- @IO:GS $FFD7115 RTC:RTCYEAR Year value (binary coded decimal)
+-- @IO:GS $FFD7116 RTC-R4:RTCDOW Day of week value 0-6 (binary coded decimal)
+-- @IO:GS $FFD7117 RTC-R4:100THSEC Real-time Clock 100ths of seconds
+-- @IO:GS $FFD7118.0-6 RTC-R4:ALMINUTES Alarm Minutes value 00-59 (binary coded decimal)
+-- @IO:GS $FFD7118.7 RTC-R4:AE\_M Minutes Alarm Enable bit. Enables alarm together with AE_H and AE_D
+-- @IO:GS $FFD7119.0-5 RTC-R4:ALHOURS Alarm Hour value 00-23 (binary coded decimal)
+-- @IO:GS $FFD7119.7 RTC-R4:AE\_H Alarm enable bit (togeter with AE_M and AE_D)
+-- @IO:GS $FFD711A.0-5 RTC-R4:ALDAY Alarm Date value 01-31 (binary coded decimal)
+-- @IO:GS $FFD711A.7 RTC-R4:AE\_D Alarm enable bit (togeter with AE_M and AE_H)
+-- @IO:GS $FFD711B RTC-R4:PCTCR0 Periodic countdown timer 0 control register (Lower Byte)
+-- @IO:GS $FFD711C.0-3 RTC-R4:PCTCR1 Periodic countdown timer 1 control register (High Byte)
+-- @IO:GS $FFD711D.7 RTC-R4:THF Status register: 1 indicates occurrance of temperature above high threshold value THT.
+-- @IO:GS $FFD711D.6 RTC-R4:TLF Status register: 1 indicates occurrance of temperature below low threshold value TLT.
+-- @IO:GS $FFD711D.5 RTC-R4:UF Status register: 1 indicates occurence of periodic timer update interrupt event.
+-- @IO:GS $FFD711D.4 RTC-R4:TF Status register: 1 indicates occurence of periodic countdown timer interrupt event.
+-- @IO:GS $FFD711D.3 RTC-R4:AF Status register: 1 indicates occurence of alarm interrupt event.
+-- @IO:GS $FFD711D.2 RTC-R4:EVF Status register: 1 indicates occurence of an external event.
+-- @IO:GS $FFD711D.1 RTC-R4:PORF Status register: 1 indicates invalid data due to power issue. Registers must be reinitialized.
+-- @IO:GS $FFD711D.0 RTC-R4:VLF Status register: 1 indicates invalid data due to power issue. Registers must be reinitialized.
+-- @IO:GS $FFD711E.7-4 RTC-R4:TEMPL Fractional part of the Temperature value [11:0] in two complements format.
+-- @IO:GS $FFD711E.3 RTC-R4:EEF 1 indicates that the EEPROM write access has failed.
+-- @IO:GS $FFD711E.2 RTC-R4:EEbusy 1 indicates that the EEPROM is currently busy and ignores further commands.
+-- @IO:GS $FFD711E.1 RTC-R4:CLKF 1 indicates the occurrence of an interrupt driven clock output on CLKOUT pin.
+-- @IO:GS $FFD711E.0 RTC-R4:BSF 1 indicates that a switchover from from main power to backup occurred.
+-- @IO:GS $FFD711F RTC-R4:TEMPH Integer part of the Termperature value [11.0] in two's complement format.
+-- @IO:GS $FFD7120.0-1 RTC-R4:TD Timer Clock Frequency selection.
+-- @IO:GS $FFD7120.2 RTC-R4:EERD EEProm Memory Refresh Disable bit
+-- @IO:GS $FFD7120.3 RTC-R4:TE Periodic Countdown Timer Enable bit
+-- @IO:GS $FFD7120.4 RTC-R4:USEL Update Interrupt Select bit
+-- @IO:GS $FFD7120.5 RTC-R4:GP0 Register bit for general purpose use
+-- @IO:GS $FFD7120.6-7 RTC-R4:Unused Not implemented. Always returns 0
+-- @IO:GS $FFD7121.0 RTC-R4:STOP 1 stops timer and resets the clock prescaler frequencies.
+-- @IO:GS $FFD7121.1 RTC-R4:GP1 Register bit for general purpose use.
+-- @IO:GS $FFD7121.2 RTC-R4:EIE External Event Interrupt Enable bit.
+-- @IO:GS $FFD7121.3 RTC-R4:AIE Alarm interrupt Enable bit.
+-- @IO:GS $FFD7121.4 RTC-R4:TIE Periodic Countdown Timer Interrupt Enable bit.
+-- @IO:GS $FFD7121.5 RTC-R4:UIE Periodic Time Update Interrupt Enable bit.
+-- @IO:GS $FFD7121.6 RTC-R4:CLKIE Interrupt Controlled Clock Output Enable bit.
+-- @IO:GS $FFD7120.7 RTC-R4:Unused Not implemented. Always returns 0
+-- @IO:GS $FFD7122.0 RTC-R4:TLIE Temperature Low Interrupt Enable bit.
+-- @IO:GS $FFD7122.1 RTC-R4:THIE Termperature High Interrupt Enable bit.
+-- @IO:GS $FFD7122.2 RTC-R4:TLE Termperature Low Enable bit.
+-- @IO:GS $FFD7122.3 RTC-R4:THE Termperature High Enable bit
+-- @IO:GS $FFD7122.4 RTC-R4:BSIE Backup Switchover Interrupt Enable bit.
+-- @IO:GS $FFD7122.5-7 RTC-R4:Unused Bit not implemented. Always return 0
+-- @IO:GS $FFD7123.0 RTC-R4:TLOW Time Stamp TLow Overwrite bit.
+-- @IO:GS $FFD7123.1 RTC-R4:THOW Time Stamp THigh Overwrite bit.
+-- @IO:GS $FFD7123.2 RTC-R4:EVOW Time Stamp EVI Overwrite bit.
+-- @IO:GS $FFD7123.3 RTC-R4:TLR Time Stamp TLow Reset bit.
+-- @IO:GS $FFD7123.4 RTC-R4:THR Time Stamp THigh reset bit.
+-- @IO:GS $FFD7123.5 RTC-R4:EVR Time Stamp EVI Reset bit.
+-- @IO:GS $FFD7123.6-7 RTC-R4:Unused Bit not implemented. Always return 0
+-- @IO:GS $FFD7124.0 RTC-R4:CTLIE Clock output when TLow Interrupt Enable bit
+-- @IO:GS $FFD7124.1 RTC-R4:CTHIE Clock output when THigh Interrupt Enabled
+-- @IO:GS $FFD7124.2 RTC-R4:CUIE Clock output when Periodic Time Update Interrupt Enable bit.
+-- @IO:GS $FFD7124.3 RTC-R4:CTIE Clock output when Periodic Countdown Timer Interrupt Enable bit.
+-- @IO:GS $FFD7124.4 RTC-R4:CAIE Clock output when Alarm Interrupt Enable bit.
+-- @IO:GS $FFD7124.5 RTC-R4:CEIE Clock output when EVI Interrupt Enable bit.
+-- @IO:GS $FFD7124.6 RTC-R4:INTDE Interrupt Delay after CLKOUT On Enable bit.
+-- @IO:GS $FFD7124.7 RTC-R4:CLKD CLKOUT (switch) off Delay Value after I2C STOP Selection bit.
+-- @IO:GS $FFD7125.0 RTC-R4:ESYN External Event (EVI) Synchronization bit.
+-- @IO:GS $FFD7125.1-3 RTC-R4:Unused Bit not implemented. Always return 0
+-- @IO:GS $FFD7125.4-5 RTC-R4:ET Event Filtering Time set.
+-- @IO:GS $FFD7125.6 RTC-R4:EHL Event High/Low Level (Rising/Falling Edge) selection for detection
+-- @IO:GS $FFD7125.7 RTC-R4:CLKDE CLKOUT (switch) off Delay after I2C STOP Enable bit
+-- @IO:GS $FFD7126 RTC-R4:TLT Temperator Threshold Register: TLow Threshold
+-- @IO:GS $FFD7127 RTC-R4:THT Temperator Threshold Register: THigh Threshold
+-- @IO:GS $FFD7128 RTC-R4:TSTLowCount Time Stamp TLow Register: TS TLow Count
+-- @IO:GS $FFD7129.0-6 RTC-R4:TSTLowSec Time Stamp TLow Register: TS TLow Seconds
+-- @IO:GS $FFD712A.0-6 RTC-R4:TSTLowMin Time Stamp TLow Register: TS TLow Minutes
+-- @IO:GS $FFD712B.0-5 RTC-R4:TSTLowHrs Time Stamp TLow Register: TS TLow Hours
+-- @IO:GS $FFD712C.0-5 RTC-R4:TSTLowDat Time Stamp TLow Register: TS TLow Date
+-- @IO:GS $FFD712D.0-4 RTC-R4:TSTLowMonth Time Stamp TLow Register: TS TLow Month
+-- @IO:GS $FFD712E RTC-R4:TSTLowYear Time Stamp TLow Register: TS TLow Year
+-- @IO:GS $FFD712F RTC-R4:TSTHighCount Time Stamp THigh Register: TS TLow Count
+-- @IO:GS $FFD7130.0-6 RTC-R4:TSTHighSec Time Stamp THigh Register: TS TLow Seconds
+-- @IO:GS $FFD7131.0-6 RTC-R4:TSTHighMin Time Stamp THigh Register: TS TLow Minutes
+-- @IO:GS $FFD7132.0-5 RTC-R4:TSTHighHrs Time Stamp THigh Register: TS TLow Hours
+-- @IO:GS $FFD7133.0-5 RTC-R4:TSTHighDat Time Stamp THigh Register: TS TLow Date
+-- @IO:GS $FFD7134.0-4 RTC-R4:TSTHighMonth Time Stamp THigh Register: TS TLow Month
+-- @IO:GS $FFD7135 RTC-R4:TSTHighYear Time Stamp THigh Register: TS TLow Year
+-- @IO:GS $FFD7136 RTC-R4:TSEVICount Time Stamp EVI Register: TS EVI Count
+-- @IO:GS $FFD7137 RTC-R4:TSEVI100th Time Stamp EVI Register: TS EVI 100th Seconds
+-- @IO:GS $FFD7138.0-6 RTC-R4:TSEVISec Time Stamp THigh Register: TS TLow Seconds
+-- @IO:GS $FFD7139.0-6 RTC-R4:TSEVIMin Time Stamp THigh Register: TS TLow Minutes
+-- @IO:GS $FFD713A.0-5 RTC-R4:TSEVIHrs Time Stamp THigh Register: TS TLow Hours
+-- @IO:GS $FFD713B.0-5 RTC-R4:TSEVIDat Time Stamp THigh Register: TS TLow Date
+-- @IO:GS $FFD713C.0-4 RTC-R4:TSEVIMonth Time Stamp THigh Register: TS TLow Month
+-- @IO:GS $FFD713D RTC-R4:TSEVIYear Time Stamp THigh Register: TS TLow Year
+--
 -- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
-
 
 use WORK.ALL;
 
