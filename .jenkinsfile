@@ -70,7 +70,6 @@ pipeline {
                 }
             }
         }
-        /*
         stage('Build Nexys4DDR-Widget') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -79,7 +78,6 @@ pipeline {
                 }
             }
         }
-        */
         stage('Set build result') {
             steps {
                 script {
