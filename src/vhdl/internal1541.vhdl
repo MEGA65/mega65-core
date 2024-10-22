@@ -24,6 +24,11 @@ entity internal1541 is
 
     address_next : out unsigned(15 downto 0);
 
+    -- Device ID straps: 00 = 8, 11 = 11 (of course ;)
+    device_id_straps : in unsigned(1 downto 0) := "00";
+
+    last_rx_byte : out unsigned(7 downto 0);
+  
     -- Drive CPU clock strobes.
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
     -- so that fast loaders can be accelerated.
@@ -252,7 +257,7 @@ begin
     unsigned(doutb) => ram_rdata
     );
 
-  rom: entity work.driverom port map (
+  rom: entity work.driverom1541 port map (
     -- Fast IO interface
     clka => clock,
     csa => cs_driverom,
@@ -273,7 +278,7 @@ begin
     nmi => nmi,
     irq => irq,
     ready => drive_clock_cycle_strobe,
-    write_next => cpu_write_n,
+    write_n => cpu_write_n,
 --    sync => cpu_sync,
     address => address,
     address_next => address_next_internal,
@@ -305,6 +310,7 @@ begin
 
       via1_portb_in(0) <= not iec_data_i;
       via1_portb_in(2) <= not iec_clk_i;
+      via1_portb_in(6 downto 5) <= std_logic_vector(device_id_straps);
       via1_portb_in(7) <= not iec_atn_i;
       via1_ca1_in <= not iec_atn_i;
 
@@ -327,11 +333,14 @@ begin
     if address(15)='1' then
       -- ROM is repeated twice at $8000 and $C000
       cs_rom <= '1'; cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
+      -- report "1541: Accessing ROM address $" & to_hexstring(address);
     else
       cs_rom <= '0';
       case address(12 downto 10) is
         when "000" | "001" | "010" | "011" => -- $0000-$0FFF = RAM
           cs_ram <= '1'; cs_via1 <= '0'; cs_via2 <= '0';
+          -- report "1541: Accessing RAM address $" & to_hexstring(address) & ", wdata=$" & to_hexstring(fastio_wdata)
+          -- & ", write_n=" & std_logic'image(cpu_write_n);
         when "100" | "101" => -- $1000-$17FF = nothing
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
         when "110" => -- $1800-$1BFF = VIA1
@@ -341,6 +350,13 @@ begin
         when others =>
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
       end case;
+
+      -- Export last byte written to 1541 RX byte location to support automated
+      -- tests of IEC communications in tb_iec_serial.vhdl
+      if address = x"0085" and cpu_write_n='0' then
+        last_rx_byte <= wdata;
+      end if;
+      
     end if;
 
     via_address <= address(3 downto 0);

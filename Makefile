@@ -774,6 +774,28 @@ spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
 	$(GHDL) -m test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
 
+test-iec:	$(TOOLDIR)/mkdriverom
+	rm -fr vunit_out
+	$(TOOLDIR)/mkdriverom ../1540-c000.325302-01.bin ../1541-e000.901229-01.bin > src/vhdl/driverom1541.vhdl
+	./test-iec.py -p16
+
+test-iec-jd:	$(TOOLDIR)/mkdriverom
+	rm -fr vunit_out
+	$(TOOLDIR)/mkdriverom ../1540-c000.325302-01.bin ../jiffy_dos/1541-e000-jd6.00.bin > src/vhdl/driverom1541jd.vhdl
+	./test-iec-jd.py -p16
+
+test-iec-c128:	$(TOOLDIR)/mkdriverom $(CBMCONVERT)
+	rm -fr vunit_out
+# we have to put some file in the image, or cbmconvert will abort
+	$(CBMCONVERT) -v2 -D8o test-iec.d81 Makefile
+	dd if=test-iec.d81 of=test-iec.d81.40 bs=10240 count=1 skip=39
+	$(TOOLDIR)/mkdriverom test-iec.d81.40 | sed 's/driverom/d81/g' > src/vhdl/d81.vhdl
+	$(TOOLDIR)/mkdriverom ../jiffy_dos/1581-rom.318045-02.bin > src/vhdl/driverom1581.vhdl
+	./test-iec-c128.py -p16
+
+$(TOOLDIR)/mkdriverom:	$(TOOLDIR)/mkdriverom.c
+	$(CC) $(COPT) -o $@ $<
+
 $(TOOLDIR)/merge-issue:	$(TOOLDIR)/merge-issue.c
 	$(CC) $(COPT) -o $(TOOLDIR)/merge-issue $(TOOLDIR)/merge-issue.c
 

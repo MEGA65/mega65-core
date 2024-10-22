@@ -808,13 +808,15 @@ GS $D692 F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
 GS $D692 SDFDC:D1STARTSEC2 F011 drive 1 disk image address on SD card (3rd byte)
 GS $D693 F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
 GS $D693 SDFDC:D1STARTSEC3 F011 drive 1 disk image address on SD card (MSB)
+GS $D694 AUTOIEC:DATALOG0 Access integrated data logger in IEC controller
+GS $D695 AUTOIEC:DATALOG1 Access integrated data logger in IEC controller
 GS $D696 F011:AUTOTUNE Enable automatic track seeking for sector reads and writes
 GS $D697.0 AUTOIEC:IRQTOEN Enable timeout interrupt source if set
-GS $D697.1 AUTOIEC:IRQREADYEN Enable TX interrupt source if set
+GS $D697.1 AUTOIEC:IRQRDYEN Enable TX interrupt source if set
 GS $D697.2 AUTOIEC:IRQRXEN Enable RX interrupt source if set
 GS $D697.3 AUTOIEC:IRQEN Enable interrupts if set
 GS $D697.4 AUTOIEC:IRQTO Set if a protocol timeout has occurred, e.g., device not found.
-GS $D697.5 AUTOIEC:IRQREADY Set if ready to process a command
+GS $D697.5 AUTOIEC:IRQRDY Set if ready to process a command
 GS $D697.6 AUTOIEC:IRQRX Set if a byte has been received from a listener.
 GS $D697.7 AUTOIEC:IRQFLAG Interrupt flag. Set if any IRQ event is triggered.
 GS $D698.0 AUTOIEC:STDDIR Data direction when timeout occurred.
@@ -826,10 +828,10 @@ GS $D698.5 AUTOIEC:STSRQ State of SRQ line
 GS $D698.6 AUTOIEC:STNOEOI End of Indicate (EOI/EOF)
 GS $D698.7 AUTOIEC:STNODEV Device not present
 GS $D699 AUTOIEC:DATA Data byte read from IEC bus
-GS $D69A.0-3 AUTOIEC:DIDEVNUM Lower 4 bits of currently selected device number
+GS $D69A.0-3 AUTOIEC:DEVNUM Lower 4 bits of currently selected device number
 GS $D69A.4 AUTOIEC:DIATN Device is currently held under attention
-GS $D69A.5-6 AUTOIEC:DIPROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
-GS $D69A.7 AUTOIEC:DIPRESENT Device is present
+GS $D69A.5-6 AUTOIEC:PROT Device protocol support (5=C128/C65 FAST, bit 6 = JiffyDOS(tm))
+GS $D69A.7 AUTOIEC:PRESENT Device is present
 GS $D69B DEBUG:J21INL Status of M65 R3 J21 pins
 GS $D69C DEBUG:J21INH Status of M65 R3 J21 pins
 GS $D69D.0-4 DEBUG:DIPSW Status of M65 R3/R3A/R4 DIP switches

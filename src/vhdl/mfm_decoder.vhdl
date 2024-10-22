@@ -11,6 +11,47 @@
 -- for indicating to the caller when we have reached the gap data
 -- where it is safe to start re-writing the sector data.
 --
+-- It is also possible to directly support reading Amiga DD and HD
+-- disks using the information here:
+-- http://amigadev.elowar.com/read/ADCD_2.1/Devices_Manual_guide/node015B.html
+--
+-- Important bits follow:
+--
+--    Per-track Organization:
+--
+--        Nulls written as a gap, then 11 or 22 sectors of data.
+--        No gaps written between sectors.
+--
+--    Per-sector Organization:
+--
+--        All data is MFM encoded.  This is the pre-encoded contents
+--        of each sector:
+--
+--            two bytes of 00 data    (MFM = $AAAA each)
+--            two bytes of A1*        ("standard sync byte" -- MFM
+--                                     encoded A1 without a clock pulse)
+--                                    (MFM = $4489 each)
+--            one byte of format byte (Amiga 1.0 format = $FF)
+--            one byte of track number
+--            one byte of sector number
+--            one byte of sectors until end of write (NOTE 1)
+--                [above 4 bytes treated as one longword
+--                 for purposes of MFM encoding]
+--            16 bytes of OS recovery info (NOTE 2)
+--                [treated as a block of 16 bytes for encoding]
+--            four bytes of header checksum
+--                [treated as a longword for encoding]
+--            four bytes of data-area checksum
+--                [treated as a longword for encoding]
+--            512 bytes of data
+--                [treated as a block of 512 bytes for encoding]
+--
+-- In other words, Amiga disks have 2 rather than 3 sync bytes
+-- per sector, and then the type byte is $FF, followed by track
+-- and sector numbers, and 25 bytes we can ignore (if we don't
+-- care about Amiga disk checksums for now), then the 512 bytes
+-- of data for that sector.
+--
 -----------------------------------------------------------
 
 
@@ -111,6 +152,12 @@ architecture behavioural of mfm_decoder is
   signal crc_ready : std_logic;
   signal crc_value : unsigned(15 downto 0);
 
+  signal amiga_skip_bytes : integer := 0;
+  signal amiga_byte_0 : unsigned(7 downto 0);
+  signal amiga_byte_1 : unsigned(7 downto 0);
+  signal amiga_byte_2 : unsigned(7 downto 0);
+  signal amiga_byte_3 : unsigned(7 downto 0);
+  
   type MFMState is (
     WaitingForSync,
     TrackNumber,
@@ -123,6 +170,12 @@ architecture behavioural of mfm_decoder is
     SectorData,
     DataCRC1,
     DataCRC2,
+    AmigaByte1,
+    AmigaByte2,
+    AmigaByte3,
+    AmigaDecodeHeader,
+    AmigaSkipBytes,
+    AmigaSectorData,
     TrackInfo,
     TrackInfoRate,
     TrackInfoEncoding,
@@ -143,9 +196,7 @@ architecture behavioural of mfm_decoder is
   signal mfm_bit_valid : std_logic := '0';
   signal mfm_bit_in : std_logic := '0';
   signal mfm_sync_in : std_logic := '0';
-  signal mfm_byte_out : unsigned(7 downto 0) := x"00";
 
-  signal rll_byte_out : unsigned(7 downto 0) := x"00";
   signal rll_bit_valid : std_logic := '0';
   signal rll_bit_in : std_logic := '0';
   signal rll_sync_in : std_logic := '0';
@@ -237,8 +288,8 @@ begin
   
   process (clock40mhz,f_rdata,
            encoding_mode,
-           rll_bit_valid,rll_bit_in,rll_sync_in,rll_byte_out,
-           mfm_bit_valid,mfm_bit_in,mfm_sync_in,mfm_byte_out) is
+           rll_bit_valid,rll_bit_in,rll_sync_in,
+           mfm_bit_valid,mfm_bit_in,mfm_sync_in) is
   begin
 
     case encoding_mode is
@@ -246,12 +297,10 @@ begin
         bit_valid <= rll_bit_valid;
         bit_in <= rll_bit_in;
         sync_in <= rll_sync_in;
-        byte_out <= rll_byte_out;
       when others =>
         bit_valid <= mfm_bit_valid;
         bit_in <= mfm_bit_in;
         sync_in <= mfm_sync_in;
-        byte_out <= mfm_byte_out;
     end case;
     
     if rising_edge(clock40mhz) then
@@ -389,6 +438,21 @@ begin
         end if;
       elsif byte_valid_in='1' then
         sync_count <= 0;
+        if sync_count = 2 then
+          -- Well, Amiga disks are the only ones we support that have only 2
+          -- sync words before the data. Then it has a $FF, but that is encoded
+          -- with odd and even bytes separately, so we only see the top half in
+          -- the upper nybl. Then the even bits of the track number in the lower
+          -- nybl. So we have to check only the top 4 bits.
+          report "Saw byte $" & to_hexstring(byte_in) & " after 2 syncs";
+          if byte_in(7 downto 4) = x"F" then
+            -- Amiga sector marker.
+            -- See info block at top of file for how we have to handle these
+            report "AMIGA: Looks like an Amiga sector.";
+            amiga_byte_0 <= byte_in;
+            state <= AmigaByte1;
+          end if;
+        end if;
         if sync_count = 3 then
           -- First byte after a sync
           report "TRACKINFO: Post Sync byte = $" & to_hstring(byte_in);
@@ -456,6 +520,119 @@ begin
                 track_info_valid <= '1';
               end if;
               state <= WaitingForSync;
+            when AmigaByte1 =>
+              amiga_byte_1 <= byte_in;
+              state <= AmigaByte2;
+            when AmigaByte2 =>
+              amiga_byte_2 <= byte_in;
+              state <= AmigaByte3;
+            when AmigaByte3 =>
+              -- Decode the Amiga bytes
+              amiga_byte_0(6) <= amiga_byte_2(7);
+              amiga_byte_0(7) <= amiga_byte_0(7);
+              amiga_byte_0(4) <= amiga_byte_2(6);
+              amiga_byte_0(5) <= amiga_byte_0(6);
+              amiga_byte_0(2) <= amiga_byte_2(5);
+              amiga_byte_0(3) <= amiga_byte_0(5);
+              amiga_byte_0(0) <= amiga_byte_2(4);
+              amiga_byte_0(1) <= amiga_byte_0(4);
+
+              amiga_byte_1(6) <= amiga_byte_2(3);
+              amiga_byte_1(7) <= amiga_byte_0(3);
+              amiga_byte_1(4) <= amiga_byte_2(2);
+              amiga_byte_1(5) <= amiga_byte_0(2);
+              amiga_byte_1(2) <= amiga_byte_2(1);
+              amiga_byte_1(3) <= amiga_byte_0(1);
+              amiga_byte_1(0) <= amiga_byte_2(0);
+              amiga_byte_1(1) <= amiga_byte_0(0);
+
+              amiga_byte_2(6) <= byte_in(7);
+              amiga_byte_2(7) <= amiga_byte_1(7);
+              amiga_byte_2(4) <= byte_in(6);
+              amiga_byte_2(5) <= amiga_byte_1(6);
+              amiga_byte_2(2) <= byte_in(5);
+              amiga_byte_2(3) <= amiga_byte_1(5);
+              amiga_byte_2(0) <= byte_in(4);
+              amiga_byte_2(1) <= amiga_byte_1(4);
+
+              amiga_byte_3(6) <= byte_in(3);
+              amiga_byte_3(7) <= amiga_byte_1(3);
+              amiga_byte_3(4) <= byte_in(2);
+              amiga_byte_3(5) <= amiga_byte_1(2);
+              amiga_byte_3(2) <= byte_in(1);
+              amiga_byte_3(3) <= amiga_byte_1(1);
+              amiga_byte_3(0) <= byte_in(0);
+              amiga_byte_3(1) <= amiga_byte_1(0);
+
+              state <= AmigaDecodeHeader;
+
+            when AmigaDecodeHeader =>
+              report "AMIGA: Decoded header bytes ="
+                & " $" & to_hexstring(amiga_byte_0)
+                & " $" & to_hexstring(amiga_byte_1)
+                & " $" & to_hexstring(amiga_byte_2)
+                & " $" & to_hexstring(amiga_byte_3);
+              if amiga_byte_0 = x"FF" then
+                report "AMIGA: Data type field = $FF, treating as Amiga data sector. Reading 25 bytes of header data.";
+                seen_sector <= amiga_byte_2;
+                seen_track <= amiga_byte_1;
+                seen_side <= x"00"; -- Amiga disks don't encode the side
+                sector_size <= 512; -- Amiga disks have fixed sector size
+                amiga_skip_bytes <= 25;
+                state <= AmigaSkipBytes;
+              else
+                state <= WaitingForSync;
+              end if;
+              
+            when AmigaSkipBytes =>
+              if amiga_skip_bytes /= 0 then
+                amiga_skip_bytes <= amiga_skip_bytes - 1;
+              else
+                found_track <= seen_track;
+                found_sector <= seen_sector;
+                found_side <= seen_side;
+                if to_integer(target_track) = to_integer(seen_track) then
+                  found_track(7) <= '1';
+                end if;
+                if to_integer(target_sector) = to_integer(seen_sector) then
+                  found_sector(7) <= '1';
+                end if;
+                found_side(7) <= '1';
+                if (target_any='1')
+                  or (
+                    (to_integer(target_track) = to_integer(seen_track))
+                    and (to_integer(target_sector) = to_integer(seen_sector))) then
+                  sector_found <= '1';
+                  seen_valid <= '1';
+                  byte_count <= 0;
+                  report "AMIGA: Found sector to satisfy request: track $" & to_hexstring(seen_track) & ", sector $" & to_hexstring(seen_sector)
+                    & ". Proceeding to read sector data.";
+                  state <= AmigaSectorData;
+                else
+                  seen_valid <= '0';
+                  report "AMIGA: Track and sector do not match requested. Ignoring sector.";
+                  state <= WaitingForSync;
+                end if;
+              end if;
+            when AmigaSectorData =>
+              if (byte_count = 0) and (seen_valid='1') then
+                first_byte <= '1';
+              else
+                first_byte <= '0';
+              end if;
+              byte_out <= byte_in;
+              byte_valid <= seen_valid and byte_valid_in;
+              if byte_count < sector_size then
+                byte_count <= byte_count + 1;
+              else
+                report "AMIGA: Read complete sector. Signalling sector_end and clearing crc_error.";
+                -- We ignore CRC for Amiga disks for now.
+                crc_error <= '0';
+                -- Report end of sector
+                sector_end <= '1';
+                sector_found <= '0';
+                state <= WaitingForSync;
+              end if;
             when TrackNumber =>
               seen_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;

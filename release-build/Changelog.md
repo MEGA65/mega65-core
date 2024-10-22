@@ -23,6 +23,12 @@ This is the Summer 2024 Release.
   - CARTRIDGE: define a MEGA65 style cartridge
     [#711](https://github.com/MEGA65/mega65-core/issues/711)
 - Features:
+  - Implement hardware-accelerated cycle-exact IEC bus controller device
+    [#736](https://github.com/MEGA65/mega65-core/issues/736)
+    - Needed workaround for IEC transfer in 40 MHz mode
+      [#283](https://github.com/MEGA65/mega65-core/issues/283)
+    - IEC communications is flaky
+      [#341](https://github.com/MEGA65/mega65-core/issues/341)
   - HWERRATA register should return maximum errata level supported
     [#829](https://github.com/MEGA65/mega65-core/issues/829)
   - Allow DMA src/dst addresses to cross MB boundaries

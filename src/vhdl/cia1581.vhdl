@@ -72,8 +72,8 @@ architecture behavioural of cia6526 is
   
   signal reg_porta_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portb_out : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '0');
-  signal reg_portb_ddr : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_porta_ddr : std_logic_vector(7 downto 0) := (others => '1');
+  signal reg_portb_ddr : std_logic_vector(7 downto 0) := (others => '1');
   signal reg_porta_read : unsigned(7 downto 0) := (others => '0');
   signal reg_portb_read : unsigned(7 downto 0) := (others => '0');
 
@@ -152,6 +152,7 @@ architecture behavioural of cia6526 is
   signal clear_isr : std_logic := '0';  -- flag to clear ISR after reading
   signal clear_isr_count : unsigned(4 downto 0) := "00000";
   signal clear_isr_bits : unsigned(7 downto 0) := x"00";
+  signal clear_isr_countdown : integer range 0 to 63 := 0;
   
   signal todcounter : integer := 0;
 
@@ -535,8 +536,9 @@ begin  -- behavioural
             & std_logic'image(sdr_bit_alternate);
           reg_isr(0) <= '1';
           reg_timera_underflow <= '1';
-          reg_timera <= reg_timera_latch;
-          if reg_timera_oneshot='1' then
+          if reg_timera_oneshot='0' then
+            reg_timera <= reg_timera_latch;
+          else
             reg_timera_start <= '0';
           end if;
           reg_timera_has_ticked <= '0';
@@ -589,10 +591,11 @@ begin  -- behavioural
           -- underflow
           report "CIA" & to_hexstring(unit) & " timerb underflow";
           reg_isr(1) <= '1';
-          report "CIA" & to_hstring(unit) & " timerb set from latch";
-          reg_timerb <= reg_timerb_latch;
-          if reg_timerb_oneshot='1' then
-            report "CIA" & to_hstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
+          if reg_timerb_oneshot='0' then
+            report "CIA" & to_hexstring(unit) & " timerb set from latch";
+            reg_timerb <= reg_timerb_latch;
+          else
+            report "CIA" & to_hexstring(unit) & " setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
             reg_timerb_start <= '0';
           end if;
           reg_timerb_has_ticked <= '0';
@@ -655,6 +658,15 @@ begin  -- behavioural
         strobe_pc<='0';
       end if;
 
+      if clear_isr_countdown /= 0 then
+        clear_isr_countdown <= clear_isr_countdown - 1;
+      end if;
+      if clear_isr_countdown = 1 then
+        clear_isr <= '1';
+        clear_isr_bits <= reg_isr;
+        clear_isr_count <= clear_isr_count + 1;
+      end if;      
+      
       -- Check for register read side effects
       if fastio_write='0' and cs='1' then
         --report "Performing side-effects of reading from CIA register $" & to_hexstring(register_number) severity note;
@@ -678,9 +690,7 @@ begin  -- behavioural
             read_tod_dsecs <= reg_tod_dsecs;
           when x"0d" =>
             -- Reading ICR/ISR clears all interrupts
-            clear_isr <= '1';
-            clear_isr_bits <= reg_isr;
-            clear_isr_count <= clear_isr_count + 1;
+            clear_isr_countdown <= 40;
           when others => null;
         end case;
       end if;

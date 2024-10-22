@@ -248,17 +248,14 @@ architecture Behavioral of container is
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
-  signal iec_clk_en : std_logic := 'Z';
-  signal iec_data_en : std_logic := 'Z';
-  signal iec_srq_en : std_logic := 'Z';
-  signal iec_data_o : std_logic := 'Z';
-  signal iec_srq_o : std_logic := 'Z';
-  signal iec_reset : std_logic := 'Z';
-  signal iec_clk_o : std_logic := 'Z';
+  signal iec_clk_en_n : std_logic := 'Z';
+  signal iec_data_en_n : std_logic := 'Z';
+  signal iec_srq_en_n : std_logic := 'Z';
+  signal iec_reset_en_n : std_logic := 'Z';
   signal iec_data_i : std_logic := '1';
   signal iec_clk_i : std_logic := '1';
   signal iec_srq_i : std_logic := '1';
-  signal iec_atn : std_logic := 'Z';  
+  signal iec_atn_en_n : std_logic := 'Z';  
 
   
   -- XXX We should read the real temperature and feed this to the DDR controller
@@ -485,13 +482,10 @@ begin
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
-      iec_clk_en => iec_clk_en,
-      iec_data_en => iec_data_en,
-      iec_srq_en => iec_srq_en,
-      iec_data_o => iec_data_o,
-      iec_reset => iec_reset,
-      iec_clk_o => iec_clk_o,
-      iec_atn_o => iec_atn,
+      iec_clk_en_n => iec_clk_en_n,
+      iec_data_en_n => iec_data_en_n,
+      iec_srq_en_n => iec_srq_en_n,
+      iec_reset_en_n => iec_reset_en_n,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
       iec_srq_external => iec_srq_i,
