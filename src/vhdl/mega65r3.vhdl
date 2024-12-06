@@ -257,13 +257,13 @@ entity container is
          -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
-         RsRx : in std_logic
+         RsRx : in std_logic;
 
          ----------------------------------------------------------------------
          -- 6551's UART interface (typically routed to the user port)
          ----------------------------------------------------------------------
          c65_uart_tx : out std_logic;
-         c65_uart_rx : in std_logic
+         c65_uart_rx : in std_logic;
 
          );
 end container;
