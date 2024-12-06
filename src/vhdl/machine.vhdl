@@ -419,7 +419,7 @@ entity machine is
          btn : in std_logic_vector(4 downto 0);
 
          UART_TXD : out std_logic := '1';
-         RsRx : in std_logic;
+         RsRx : in std_logic := '1';
 
          sseg_ca : out std_logic_vector(7 downto 0) := (others => '0');
          sseg_an : out std_logic_vector(7 downto 0) := (others => '0')
