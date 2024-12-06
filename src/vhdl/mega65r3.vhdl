@@ -263,7 +263,7 @@ entity container is
          -- 6551's UART interface (typically routed to the user port)
          ----------------------------------------------------------------------
          c65_uart_tx : out std_logic;
-         c65_uart_rx : in std_logic;
+         c65_uart_rx : in std_logic
 
          );
 end container;
