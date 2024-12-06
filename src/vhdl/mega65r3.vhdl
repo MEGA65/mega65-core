@@ -1068,8 +1068,8 @@ begin
           fpga_temperature => fpga_temperature,
           
           -- uart monitor lines
-          UART_TXD => UART_TXD,
-          RsRx => RsRx,
+          -- UART_TXD => UART_TXD,
+          -- RsRx => RsRx,
           
           -- Ignore widget board interface and other things
           tmpint => '1',
