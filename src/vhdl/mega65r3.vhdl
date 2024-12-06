@@ -258,7 +258,13 @@ entity container is
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
          RsRx : in std_logic
-         
+
+         ----------------------------------------------------------------------
+         -- 6551's UART interface (typically routed to the user port)
+         ----------------------------------------------------------------------
+         c65_uart_tx : out std_logic;
+         c65_uart_rx : in std_logic
+
          );
 end container;
 
@@ -1061,6 +1067,7 @@ begin
           
           fpga_temperature => fpga_temperature,
           
+          -- uart monitor lines
           UART_TXD => UART_TXD,
           RsRx => RsRx,
           
@@ -1078,7 +1085,11 @@ begin
           
           sw => sw,
           dipsw => dipsw,
---      uart_rx => '1',
+
+          -- 6551's uart lines
+          uart_tx => c65_uart_tx,
+          uart_rx => c65_uart_rx,
+
           btn => (others => '1')
           
           );

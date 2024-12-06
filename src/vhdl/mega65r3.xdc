@@ -397,8 +397,8 @@ set_property -dict {PACKAGE_PIN M6   IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 
 ##USB-RS232 Interface
 #
-set_property -dict {PACKAGE_PIN L13  IOSTANDARD LVCMOS33} [get_ports UART_TXD]
-set_property -dict {PACKAGE_PIN L14  IOSTANDARD LVCMOS33} [get_ports RsRx]
+set_property -dict {PACKAGE_PIN L13  IOSTANDARD LVCMOS33} [get_ports c65_uart_tx]
+set_property -dict {PACKAGE_PIN L14  IOSTANDARD LVCMOS33} [get_ports c65_uart_rx]
 
 ##Interface to MAX10
 set_property -dict {PACKAGE_PIN M13  IOSTANDARD LVCMOS33} [get_ports max10_tx]
