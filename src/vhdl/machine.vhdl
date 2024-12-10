@@ -986,7 +986,7 @@ begin
       led(15) <= motor;
 
       -- Xray mode allows debugging raster time on VIC-IV
-      xray_mode <= sw(12);
+      xray_mode <= '0';
 
       segled_counter <= segled_counter + 1;
 
