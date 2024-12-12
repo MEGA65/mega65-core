@@ -115,28 +115,28 @@ begin
 
       if advance_pixel='1' then
         if sixteen_colour_mode='0' then
-            if v_byte_bits_available > 0 then   
-	      v_byte_bits_available := v_byte_bits_available - 1;
-	      pixel_out <= v_byte_buffer_head(7);
-	      v_byte_buffer_head(7 downto 1) := v_byte_buffer_head(6 downto 0);
-	      v_byte_buffer_head(0) := '0';
-	      --pixel_out <= '1';
-	      if v_byte_bits_available = 0 then
-	        -- We are using the last bit, so mark byte as empty.
-	        v_bb_valid_h := '0';
-	        if v_bb_valid_2='1' then
-	          -- Shuffle buffer down as required
-		  v_byte_buffer_head := byte_buffer_2;
-	  	  v_byte_bits_available := 8;
-		  v_bb_valid_h := '1';
-		  if v_bb_valid_3='1' then
-		    v_byte_buffer_2 := byte_buffer_3;
-		    v_bb_valid_2 := '1';
-		    v_bb_valid_3 := '0';
-		  else
-		    v_bb_valid_2 := '0';
-		  end if;
-	      end if;
+          if v_byte_bits_available > 0 then
+            v_byte_bits_available := v_byte_bits_available - 1;
+            pixel_out <= v_byte_buffer_head(7);
+            v_byte_buffer_head(7 downto 1) := v_byte_buffer_head(6 downto 0);
+            v_byte_buffer_head(0) := '0';
+            --pixel_out <= '1';
+            if v_byte_bits_available = 0 then
+              -- We are using the last bit, so mark byte as empty.
+              v_bb_valid_h := '0';
+              if v_bb_valid_2='1' then
+                -- Shuffle buffer down as required
+                v_byte_buffer_head := byte_buffer_2;
+                v_byte_bits_available := 8;
+                v_bb_valid_h := '1';
+                if v_bb_valid_3='1' then
+                  v_byte_buffer_2 := byte_buffer_3;
+                  v_bb_valid_2 := '1';
+                  v_bb_valid_3 := '0';
+                else
+                  v_bb_valid_2 := '0';
+                 end if;
+              end if;
             end if;
           end if;
         else

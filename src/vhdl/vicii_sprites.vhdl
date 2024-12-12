@@ -53,6 +53,7 @@ entity vicii_sprites is
 
     signal sprite_h640 : in std_logic;
     signal sprite_v400s : in std_logic_vector(7 downto 0);
+    signal bitplane_v400 : in std_logic;
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
     signal bitplanes_x_start : in unsigned(7 downto 0);
@@ -350,6 +351,7 @@ begin
              -- Bitplane mode information
              bitplane_h640 => bitplane_h640,
              bitplane_h1280 => bitplane_h1280,
+             bitplane_v400 => bitplane_v400,
              bitplane_mode_in => bitplane_mode_in,
              bitplane_enables_in => bitplane_enables_in,
              bitplane_complements_in => bitplane_complements_in,

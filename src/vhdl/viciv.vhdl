@@ -1236,6 +1236,7 @@ begin
 
               sprite_h640 => sprite_h640_delayed,
               sprite_v400s => sprite_v400s_delayed,
+              bitplane_v400 => reg_v400,
               bitplane_h640 => reg_h640_delayed,
               bitplane_h1280 => reg_h1280_delayed,
               bitplane_mode_in => bitplane_mode,
