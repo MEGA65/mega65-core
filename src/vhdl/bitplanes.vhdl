@@ -405,7 +405,7 @@ begin  -- behavioural
           v_yfine_early_trig := '1';
         else
           v_yfine_early_trig := '0';
-        end if
+        end if;
       elsif bitplane_h1280 = '1' then
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
           x_in_bitplanes_drive <= '0';
@@ -418,7 +418,7 @@ begin  -- behavioural
           v_yfine_early_trig := '1';
         else
           v_yfine_early_trig := '0';
-        end if
+        end if;
       end if;
       -- Clear bitplane byte numbers at the end of each raster
       x_in_bitplanes <= x_in_bitplanes_drive;
