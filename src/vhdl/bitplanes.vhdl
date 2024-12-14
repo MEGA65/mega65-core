@@ -237,20 +237,11 @@ begin  -- behavioural
         v_bitplane_x_start := bitplane_x_start;
       end if;
 
-      if bitplane_v400 = '1' then
-        -- new way to suit v400
-        if v_yfine_early_trig = '1' or (yfine_in mod 2) = 1 then
-          v_y_in := y_in + 1;
-        else
-          v_y_in := y_in;
-        end if;
+      -- old way to suit v200
+      if (yfine_in mod 2) = 0 then
+        v_y_in := y_in;
       else
-        -- old way to suit v200
-        if (yfine_in mod 2) = 0 then
-          v_y_in := y_in;
-        else
-          v_y_in := y_in + 1;
-        end if;
+        v_y_in := y_in + 1;
       end if;
 
       -- Pre-calculate some things to improve timing
