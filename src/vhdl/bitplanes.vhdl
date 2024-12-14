@@ -444,8 +444,8 @@ begin  -- behavioural
         x_in_bitplanes <= '0';
         bitplanes_reset <= "11111111";           -- flushes bitplane byte buffers
         bitplanes_data_in_valid <= "00000000";
-	bitplanes_advance_pixel <= "11111111";
-	fetch_ongoing <= '0';
+        bitplanes_advance_pixel <= "11111111";
+        fetch_ongoing <= '0';
       else
         bitplanes_reset <= "00000000";
       end if;
