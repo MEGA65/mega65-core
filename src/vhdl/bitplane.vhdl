@@ -135,7 +135,7 @@ begin
                   v_bb_valid_3 := '0';
                 else
                   v_bb_valid_2 := '0';
-                 end if;
+                end if;
               end if;
             end if;
           end if;

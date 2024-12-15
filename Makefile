@@ -808,6 +808,9 @@ $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(CC) $(COPT) -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
+$(SRCDIR)/_unused/ghdl-frame-gen: $(SRCDIR)/_unused/ghdl-frame-gen.c
+	$(CC) $(COPT) -o $(SRCDIR)/_unused/ghdl-frame-gen $(SRCDIR)/_unused/ghdl-frame-gen.c
+
 vfsimulate:	$(GHDL_DEPEND) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	$(call mbuild_header,$@)
 	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl

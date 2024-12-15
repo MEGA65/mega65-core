@@ -3782,8 +3782,8 @@ begin
       pixel_is_foreground_in <= pixel_is_foreground;
       pixel_is_background_in <= pixel_is_background;
 
-      --report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
-      --  & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
+      report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
+        & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
 
       -- One pixel delay required for alternate palette selection
       postsprite_alternate_palette_delayed <= postsprite_alternate_palette;
