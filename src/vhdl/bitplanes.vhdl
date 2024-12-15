@@ -219,6 +219,9 @@ begin  -- behavioural
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
+        -- report "y_in = " & integer'image(y_in);
+        -- report "yfine_in = " & integer'image(yfine_in);
+
       -- Process delayed signals for improving timing closure
       bitplanes_y_start_drive <= bitplanes_y_start;
       bitplane_data_offsets <= bitplane_data_offsets_next;
@@ -243,6 +246,13 @@ begin  -- behavioural
       else
         v_y_in := y_in + 1;
       end if;
+
+-- report "y_in = " & integer'image(y_in);
+-- report "yfine_in = " & integer'image(yfine_in);
+        report "GURCE:"
+          & " y_in = " & integer'image(y_in)
+          & " : yfine_in = " & integer'image(yfine_in)
+	  & " : v_y_in = " & integer'image(v_y_in);
 
       -- Pre-calculate some things to improve timing
       if v_y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then

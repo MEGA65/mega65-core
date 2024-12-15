@@ -553,6 +553,10 @@ reset_machine_state:
 reset_entry:
         sei
 
+lda #$e8 ; h640 and h400
+sta $d031
+jmp *
+
  	;; Put ZP and stack back where they belong
 	lda #$bf
 	tab

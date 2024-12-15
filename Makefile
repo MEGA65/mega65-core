@@ -401,7 +401,7 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/lfsr16.vhdl \
 			$(VHDLSRCDIR)/termmem.vhdl \
 			$(VHDLSRCDIR)/rain.vhdl \
 
-1541VHDL=		$(VHDLSRCDIR)/driverom.vhdl \
+1541VHDL=		$(VHDLSRCDIR)/driverom1541.vhdl \
 			$(VHDLSRCDIR)/dpram8x4096.vhdl \
 			$(VHDLSRCDIR)/simple_cpu6502.vhdl \
 			$(VHDLSRCDIR)/m6522.vhdl \
@@ -464,7 +464,7 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 SIMULATIONVHDL=		$(SUPPORTVHDL) \
 			$(VHDLSRCDIR)/gen_utils.vhdl \
 			$(VHDLSRCDIR)/conversions.vhdl \
-			$(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd \
+			$(VHDLSRCDIR)/s27kl0641.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
