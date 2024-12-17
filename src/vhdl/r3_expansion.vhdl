@@ -157,8 +157,9 @@ architecture gothic of r3_expansion is
         when composite =>   return composite_in;
         when audio_left =>  return audio_l_in;
         when audio_right => return audio_r_in;
-        when sinewave =>    return sinewave_val;
-        when sawtooth =>    return sawtooth_val;
+-- Disable full-swing sinewave and sawtooth signals as they may damage speakers. They were only for testing
+--        when sinewave =>    return sinewave_val;
+--        when sawtooth =>    return sawtooth_val;
         when others =>      return (others => '0');          
       end case;
   end source_select;          
@@ -239,9 +240,9 @@ begin
     
     
     if rising_edge(cpuclock) then
-      -- @IO:GS $FFD8000 ANALOGAV:CHANASEL Select source for analog output channel A
-      -- @IO:GS $FFD8001 ANALOGAV:CHANASEL Select source for analog output channel A
-      -- @IO:GS $FFD8002 ANALOGAV:CHANASEL Select source for analog output channel A
+      -- @IO:GS $FFD8000 ANALOGAV:CHANASELA Select source for analog output channel A
+      -- @IO:GS $FFD8001 ANALOGAV:CHANASELB Select source for analog output channel B
+      -- @IO:GS $FFD8002 ANALOGAV:CHANASELC Select source for analog output channel C
       if fastio_addr(19 downto 4) = x"D800" and fastio_write='1' then
         case fastio_addr(3 downto 0) is
           when x"0" => channel_a_source_cpu <= source_name_lookup(to_integer(fastio_wdata));
