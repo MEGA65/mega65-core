@@ -401,7 +401,7 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/lfsr16.vhdl \
 			$(VHDLSRCDIR)/termmem.vhdl \
 			$(VHDLSRCDIR)/rain.vhdl \
 
-1541VHDL=		$(VHDLSRCDIR)/driverom1541.vhdl \
+1541VHDL=		$(VHDLSRCDIR)/driverom.vhdl \
 			$(VHDLSRCDIR)/dpram8x4096.vhdl \
 			$(VHDLSRCDIR)/simple_cpu6502.vhdl \
 			$(VHDLSRCDIR)/m6522.vhdl \
