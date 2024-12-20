@@ -1361,6 +1361,8 @@ begin
       constant w : integer := 400; -- was 320
     begin
 
+      report "GIA: next_ramaddress = " & to_hexstring(next_ramaddress);
+
       -- Display is a fixed 600 pixels high, so set Y scaling appropriately
       chargen_y_scale_200 <= to_unsigned(2,8);
       chargen_y_scale_400 <= to_unsigned(1,8);
@@ -3117,17 +3119,20 @@ begin
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
       xcounter_delayed <= xcounter;
+      report "GI: external_pixel_strobe_in = " & std_logic'image(external_pixel_strobe_in)
+      	& ", pixel_newframe_internal = " & std_logic'image(pixel_newframe_internal);
 
       if pixel_newframe_internal='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
-        viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
         if viciii_blink_phase_counter = 30 then
           viciii_blink_phase_counter <= 0;
           viciii_blink_phase <= not viciii_blink_phase;
+        else
+          viciii_blink_phase_counter <= viciii_blink_phase_counter + 1;
         end if;
 
         -- 4Hz 1581 drive LED blink clock
-        drive_blink_phase_counter <= drive_blink_phase_counter + 1;
+        drive_blink_phase_counter <= (drive_blink_phase_counter + 1) mod 16;
         if drive_blink_phase_counter = 15 then
           drive_blink_phase_counter <= 0;
           drive_blink_phase <= not drive_blink_phase;
@@ -3147,10 +3152,14 @@ begin
         xcounter_pipeline_delayed <= 0;
       end if;
 
-      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and vga_in_frame='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' then -- and vga_in_frame='1' then
         raster_buffer_read_address(9 downto 0) <= raster_buffer_read_address_next(9 downto 0);
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         report "PIXEL pixel strobe edge";
+
+      report "GI: external_frame_x_zero_latched = " & std_logic'image(external_frame_x_zero_latched)
+        & ", external_pixel_strobe_log(0) = " & std_logic'image(external_pixel_strobe_log(0));
+	
         xcounter <= xcounter + 1;
         -- Allow H640 sprites to begin from far-left
         if (xcounter = sprite_first_x) or (sprite_h640='1') then
@@ -3581,7 +3590,9 @@ begin
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
 
-        vert_in_frame <= '0';
+	-- GI: I think I need to comment this line out in order for ghdl-frame-gen tool to work
+        -- vert_in_frame <= '0';
+
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
         if vert_in_frame = '1' then

@@ -6063,8 +6063,10 @@ begin
             when DMAgicGetReady =>
               report "DMAgic: got list: cmd=$"
                 & to_hstring(dmagic_cmd)
+                & ", srcbank=$" & to_hstring(dmagic_src_bank_temp)
                 & ", src=$"
                 & to_hstring(dmagic_src_addr(23 downto 8))
+                & ", destbank=$" & to_hstring(dmagic_dest_bank_temp)
                 & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
                 & ", count=$" & to_hstring(dmagic_count);
               -- If count=0, then it means 64KB

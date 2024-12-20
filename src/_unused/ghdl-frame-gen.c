@@ -9,14 +9,36 @@
 #include <strings.h>
 #include <string.h>
 
+#define BMP_WIDTH 860
+#define BMP_HEIGHT 700
+
 unsigned char bmpHeader[0x36] = { 0x42, 0x4d, 0x36, 0xa0, 0x8c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28,
-  0x00, 0x00, 0x00, 0x80, 0x07, 0x00, 0x00, 0xb0, 0x04, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, BMP_WIDTH % 256, BMP_WIDTH / 256, 0x00, 0x00, BMP_HEIGHT % 256, BMP_HEIGHT / 256, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-unsigned char palette[17][4] = { { 0, 0, 0, 0xff }, { 255, 255, 255, 0xff }, { 53, 67, 116, 0xff }, { 186, 172, 124, 0xff },
-  { 144, 72, 123, 0xff }, { 79, 151, 100, 0xff }, { 133, 50, 64, 0xff }, { 122, 205, 191, 0xff }, { 47, 91, 123, 0xff },
-  { 0, 69, 79, 0xff }, { 101, 114, 163, 0xff }, { 80, 80, 80, 0xff }, { 120, 120, 120, 0xff }, { 142, 215, 164, 0xff },
-  { 189, 106, 120, 0xff }, { 159, 159, 159, 0xff }, { 0, 255, 0, 0xff } };
+unsigned char palette[17][4] = {
+	// in (B,G,R,A) format
+	{ 0x00, 0x00, 0x00, 0xff },	// black
+	{ 0xf0, 0xf0, 0xf0, 0xff },	// white
+	{ 0x00, 0x00, 0xf0, 0xff },	// red
+	{ 0xf0, 0xf0, 0x00, 0xff },	// cyan
+
+  	{ 0xf0, 0x00, 0xf0, 0xff },	// purple
+	{ 0x00, 0xf0, 0x00, 0xff },	// green
+	{ 0xf0, 0x00, 0x00, 0xff },	// blue
+	{ 0x00, 0xf0, 0xf0, 0xff },	// yellow
+
+	{ 0x00, 0x60, 0xf0, 0xff },	// orange
+	{ 0x00, 0x40, 0xa0, 0xff },	// brown
+	{ 0x70, 0x70, 0xf0, 0xff },	// lt red (pink)
+	{ 0x50, 0x50, 0x50, 0xff },	// dk grey
+
+	{ 0x80, 0x80, 0x80, 0xff },	// grey
+	{ 0x90, 0xf0, 0x90, 0xff },	// lt green
+  	{ 0xf0, 0x90, 0x90, 0xff },	// lt blue
+	{ 0xb0, 0xb0, 0xb0, 0xff },	// lt grey
+
+	{ 0, 255, 0, 0xff } };
 
 int main(int argc, char **argv)
 {
@@ -32,7 +54,7 @@ int main(int argc, char **argv)
   fflush(out);
 
   // Write pixel at end of file so that even partially drawn frames should open
-  fseek(out, 0x36 + (1919 + 1199 * 1920) * 4, SEEK_SET);
+  fseek(out, 0x36 + (BMP_WIDTH-1 + (BMP_HEIGHT-1) * BMP_WIDTH) * 4, SEEK_SET);
   fwrite(palette[0], 4, 1, out);
 
   while (1) {
@@ -48,21 +70,24 @@ int main(int argc, char **argv)
     // if (strstr(line,"SPRITE: sprite #0 accepting data byte")) printf("%s",line);
     // if (strstr(line,"SPRITE: fetching sprite #0")) printf("%s",line);
     // if (strstr(line,"will fetch pointer value from")) printf("%s",line);
+    if (strstr(line, "error:") > 0) {
+      printf("%s\n", line);
+    }
 
     if (sscanf(line,
-            "viciv.vhdl:%*d:%*d:@%*[^:]:(report note): SPRITE: pre_pixel_colour = $%x, postsprite_pixel_colour = $%x",
+            "src/vhdl/viciv.vhdl:%*d:%*d:@%*[^:]:(report note): SPRITE: pre_pixel_colour = $%x, postsprite_pixel_colour = $%x",
             &char_pix, &sprite_pix)
         == 2) {
       if (sprite_pix != char_pix) {
         printf("Sprite pixel colour = $%02x at (%d,%d)\n", sprite_pix, x, y);
       }
     }
-    if (sscanf(line, "viciv.vhdl:%*d:%*d:@%*[^:]:(report note): PIXEL (%d,%d) = $%x, RGBA = $%x", &x, &y, &colour, &rgba)
+    if (sscanf(line, "src/vhdl/viciv.vhdl:%*d:%*d:@%*[^:]:(report note): PIXEL (%d,%d) : colour =\\ $%x, RGBA = $%x, alpha = $%*x,", &x, &y, &colour, &rgba)
         == 4) {
-      if (x < 1920 && y < 1200) {
-        int address = 0x36 + (x + (1199 - y) * 1920) * 4;
+      if (x < BMP_WIDTH && y < BMP_HEIGHT) {
+        int address = 0x36 + (x + (BMP_HEIGHT-1 - y) * BMP_WIDTH) * 4;
         fseek(out, address, SEEK_SET);
-        //	printf("%02x",colour); fflush(stdout);
+        	printf("colour = %02x, x=%d, y=%d\n",colour, x, y); fflush(stdout);
         if (colour > 15)
           colour = 16;
         fwrite(palette[colour], 4, 1, out);
