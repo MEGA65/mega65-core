@@ -336,19 +336,19 @@ begin  -- behavioural
       bitplanes_advance_pixel <= "00000000";
       bitplanedata_fetching <= '0';
 
-      if current_data_fetch < 7 then
+      if current_data_fetch > 0 then
 
         bitplanedata_fetching <= '1';
-        bitplanedata_fetch_bitplane <= current_data_fetch + 1;
-        if ((current_data_fetch + 1) mod 2) = 0 then
-          bitplanedatabuffer_address <= (current_data_fetch + 1)*512 + bitplanes_byte_number;
+        bitplanedata_fetch_bitplane <= current_data_fetch - 1;
+        if ((current_data_fetch - 1) mod 2) = 0 then
+          bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + bitplanes_byte_number;
         else
-          bitplanedatabuffer_address <= (current_data_fetch + 1)*512 + 256 + bitplanes_byte_number;
+          bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + 256 + bitplanes_byte_number;
         end if;
         bitplanedata_fetch_column <= bitplanes_byte_number;
-        current_data_fetch <= current_data_fetch + 1;
+        current_data_fetch <= current_data_fetch - 1;
 
-      elsif (bitplanes_data_request(0) = '1') and (fetch_ongoing = '0') then
+      elsif (bitplanes_data_request(7) = '1') and (fetch_ongoing = '0') then
 
         fetch_ongoing <= '1';
 
@@ -358,10 +358,10 @@ begin  -- behavioural
         -- ent_data_fetch <= 8;   -- triggers fetching data in the next cycle
 
         bitplanedata_fetching <= '1';
-        bitplanedata_fetch_bitplane <= 0;
-        bitplanedatabuffer_address <= (0)*512 + bitplanes_byte_numbers(0);
+        bitplanedata_fetch_bitplane <= 7;
+        bitplanedatabuffer_address <= (7)*512 + bitplanes_byte_numbers(0);
         bitplanedata_fetch_column <= bitplanes_byte_number;
-	current_data_fetch <= 0;
+	current_data_fetch <= 7;
 
       end if;
 
