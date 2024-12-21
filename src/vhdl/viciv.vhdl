@@ -4103,7 +4103,10 @@ begin
                      render_activity <= "000";
         when FetchScreenRamLine =>
           -- Make sure that painting is not in progress
-          if paint_ready='1' then
+          if bitplane_mode='1' then
+            paint_fsm_state <= Idle;
+            raster_fetch_state <= EndOfCharGen;
+          elsif paint_ready='1' then
             -- Set FSM state so that no painting occurs, and so that we
             -- continue to fetch the screen row.  Note that here we just
             -- schedule the memory reads.  The data is written elsewhere.  This
