@@ -59,7 +59,6 @@ entity bitplanes is
 
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
-    signal bitplane_v400 : in std_logic;
     signal bitplane_mode_in : in std_logic;
     signal bitplane_enables_in : in std_logic_vector(7 downto 0);
     signal bitplane_complements_in : in std_logic_vector(7 downto 0);
@@ -213,14 +212,10 @@ begin  -- behavioural
   main: process (pixelclock) is
     variable v_x_in : integer;
     variable v_y_in : integer;
-    variable v_yfine_early_trig :  std_logic := '0';
     variable v_bitplane_y_start : integer := 0;
     variable v_bitplane_x_start : integer := 0;
   begin  -- process main
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
-
-        -- report "y_in = " & integer'image(y_in);
-        -- report "yfine_in = " & integer'image(yfine_in);
 
       -- Process delayed signals for improving timing closure
       bitplanes_y_start_drive <= bitplanes_y_start;
@@ -240,19 +235,11 @@ begin  -- behavioural
         v_bitplane_x_start := bitplane_x_start;
       end if;
 
-      -- old way to suit v200
       if (yfine_in mod 2) = 0 then
         v_y_in := y_in;
       else
         v_y_in := y_in + 1;
       end if;
-
--- report "y_in = " & integer'image(y_in);
--- report "yfine_in = " & integer'image(yfine_in);
-        report "GURCE:"
-          & " y_in = " & integer'image(y_in)
-          & " : yfine_in = " & integer'image(yfine_in)
-	  & " : v_y_in = " & integer'image(v_y_in);
 
       -- Pre-calculate some things to improve timing
       if v_y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
@@ -305,13 +292,8 @@ begin  -- behavioural
           & " border_in=" & std_logic'image(border_in)
           & " bitplane_mode_in=" & std_logic'image(bitplane_mode_in)
           & " bitplane_drawing=" & std_logic'image(bitplane_drawing);
-        if (sprite_spritenumber_in mod 2) = 0 then
-          bitplanedatabuffer_waddress
-            <= (sprite_spritenumber_in mod 8)*512 + sprite_bytenumber_in;
-        else
-          bitplanedatabuffer_waddress
-            <= (sprite_spritenumber_in mod 8)*512 + 256 + sprite_bytenumber_in;
-        end if;
+        bitplanedatabuffer_waddress
+          <= (sprite_spritenumber_in mod 8)*512 + sprite_bytenumber_in;
         bitplanedatabuffer_wdata(7 downto 0) <= sprite_data_in;
         bitplanedatabuffer_write <= '1';
       end if;
@@ -340,13 +322,9 @@ begin  -- behavioural
 
         bitplanedata_fetching <= '1';
         bitplanedata_fetch_bitplane <= current_data_fetch - 1;
-        if ((current_data_fetch - 1) mod 2) = 0 then
-          bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + bitplanes_byte_number;
-        else
-          bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + 256 + bitplanes_byte_number;
-        end if;
+        bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + bitplanes_byte_number;
         bitplanedata_fetch_column <= bitplanes_byte_number;
-        current_data_fetch <= current_data_fetch - 1;
+	current_data_fetch <= current_data_fetch - 1;
 
       elsif (bitplanes_data_request(7) = '1') and (fetch_ongoing = '0') then
 
@@ -411,11 +389,6 @@ begin  -- behavioural
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
           x_in_bitplanes_drive <= '0';
         end if;
-        if v_x_in >= 320 then
-          v_yfine_early_trig := '1';
-        else
-          v_yfine_early_trig := '0';
-        end if;
       elsif bitplane_h1280 = '1' then
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
           x_in_bitplanes_drive <= '0';
@@ -423,11 +396,6 @@ begin  -- behavioural
       else
         if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
           x_in_bitplanes_drive <= '0';
-        end if;
-        if v_x_in >= 160 then
-          v_yfine_early_trig := '1';
-        else
-          v_yfine_early_trig := '0';
         end if;
       end if;
       -- Clear bitplane byte numbers at the end of each raster
@@ -454,8 +422,8 @@ begin  -- behavioural
         x_in_bitplanes <= '0';
         bitplanes_reset <= "11111111";           -- flushes bitplane byte buffers
         bitplanes_data_in_valid <= "00000000";
-        bitplanes_advance_pixel <= "11111111";
-        fetch_ongoing <= '0';
+	bitplanes_advance_pixel <= "11111111";
+	fetch_ongoing <= '0';
       else
         bitplanes_reset <= "00000000";
       end if;

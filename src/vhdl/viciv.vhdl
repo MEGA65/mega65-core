@@ -1236,7 +1236,6 @@ begin
 
               sprite_h640 => sprite_h640_delayed,
               sprite_v400s => sprite_v400s_delayed,
-              bitplane_v400 => reg_v400,
               bitplane_h640 => reg_h640_delayed,
               bitplane_h1280 => reg_h1280_delayed,
               bitplane_mode_in => bitplane_mode,
@@ -1360,8 +1359,6 @@ begin
     procedure viciv_calculate_modeline_dimensions is
       constant w : integer := 400; -- was 320
     begin
-
-      report "GIA: next_ramaddress = " & to_hexstring(next_ramaddress);
 
       -- Display is a fixed 600 pixels high, so set Y scaling appropriately
       chargen_y_scale_200 <= to_unsigned(2,8);
@@ -3119,8 +3116,6 @@ begin
       -- over 3 cycles, including one pure drive cycle, which should hopefully
       -- fix it once and for all.
       xcounter_delayed <= xcounter;
-      report "GI: external_pixel_strobe_in = " & std_logic'image(external_pixel_strobe_in)
-      	& ", pixel_newframe_internal = " & std_logic'image(pixel_newframe_internal);
 
       if pixel_newframe_internal='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
@@ -3152,14 +3147,10 @@ begin
         xcounter_pipeline_delayed <= 0;
       end if;
 
-      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' then -- and vga_in_frame='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and vga_in_frame='1' then
         raster_buffer_read_address(9 downto 0) <= raster_buffer_read_address_next(9 downto 0);
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         report "PIXEL pixel strobe edge";
-
-      report "GI: external_frame_x_zero_latched = " & std_logic'image(external_frame_x_zero_latched)
-        & ", external_pixel_strobe_log(0) = " & std_logic'image(external_pixel_strobe_log(0));
-	
         xcounter <= xcounter + 1;
         -- Allow H640 sprites to begin from far-left
         if (xcounter = sprite_first_x) or (sprite_h640='1') then
@@ -3590,9 +3581,7 @@ begin
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
 
-	-- GI: I think I need to comment this line out in order for ghdl-frame-gen tool to work
-        -- vert_in_frame <= '0';
-
+        vert_in_frame <= '0';
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
         if vert_in_frame = '1' then
@@ -3793,8 +3782,8 @@ begin
       pixel_is_foreground_in <= pixel_is_foreground;
       pixel_is_background_in <= pixel_is_background;
 
-      report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
-        & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
+      --report "SPRITE: pre_pixel_colour = $" & to_hstring(pixel_colour)
+      --  & ", postsprite_pixel_colour = $" & to_hstring(postsprite_pixel_colour);
 
       -- One pixel delay required for alternate palette selection
       postsprite_alternate_palette_delayed <= postsprite_alternate_palette;
