@@ -520,6 +520,13 @@ simulate:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -m -fsynopsys cpu_test
 	$(GHDL) -r cpu_test # --assert-level=warning
 
+sim-gcc:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+	$(info =============================================================)
+	$(info ~~~~~~~~~~~~~~~~> Making: $@)
+	ghdl -i $(SIMULATIONVHDL)
+	ghdl -m cpu_test
+	./cpu_test || ghdl -r cpu_test
+
 UNISIM_VHDL=/opt/Xilinx/Vivado/2019.2/ids_lite/ISE/vhdl/src/unisims/*.vhd /opt/Xilinx/Vivado/2019.2/ids_lite/ISE/vhdl/src/unisims/primitive/*.vhd
 
 simulate-nvc:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat

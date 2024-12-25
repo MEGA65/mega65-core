@@ -1441,8 +1441,8 @@ begin
       -- U and V can be positive or negative, so we need an extra bit of
       -- precision, and then just offset things, so that it stays in range
       -- 
-      -- U = – 0.147R – 0.289G + 0.436B = 0.492 (B – Y)
-      -- V = 0.615R – 0.515G – 0.100B = 0.877(R´ – Y)
+      -- U = - 0.147R - 0.289G + 0.436B = 0.492 (B - Y)
+      -- V = 0.615R - 0.515G - 0.100B = 0.877(R´ - Y)
       --
       -- We want the full-amplitude to be +/- 24.
       -- Experimentation yields a scaling factor of x100 to get this

@@ -1,0 +1,6 @@
+* text=auto
+*.vhdl text eol=lf
+*.vhd
+*.v
+*.bind text eol=lf
+*.sh text eol=lf
