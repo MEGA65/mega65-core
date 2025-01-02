@@ -2483,6 +2483,7 @@ begin
           -- @IO:C64 $D02C VIC-II:SPR5COL @SPRNCOL
           -- @IO:C64 $D02D VIC-II:SPR6COL @SPRNCOL
           -- @IO:C64 $D02E VIC-II:SPR7COL @SPRNCOL
+          -- @IO:C64 $D02F VIC-II:KEY Write $00 then $00 to enable C64/VIC-II IO registers
           if register_bank=x"D0" then
             sprite_colours(safe_to_integer(register_number)-39)(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
           else
