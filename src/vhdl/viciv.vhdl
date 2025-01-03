@@ -2492,10 +2492,11 @@ begin
         -- fiddle with registers in this range.
         -- NEW VIDEO REGISTERS
         elsif register_number=47 then
-          -- @IO:C65 $D02F VIC-III KEY register for unlocking extended registers.
-          -- @IO:C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
-          -- @IO:C65 $D02F Write anything else to return to C64/VIC-II IO map
+          -- @IO:C64 $D02F VIC-II:KEY Write $00 then $00 to enable C64/VIC-II IO registers
+          -- this is actually the default when not hitting any of the other keys, but we
+          -- promote writing 00, 00 to keep it more transparent for further expansions.
           viciii_iomode <= "00"; -- by default go back to VIC-II mode
+          -- @IO:C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
           if reg_key=x"a5" then
             if fastio_wdata=x"96" then
               -- C65 VIC-III mode
@@ -2507,7 +2508,7 @@ begin
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
             end if;
-          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
+          -- @IO:GS $D02F ETH:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
               -- C65GS Map ethernet frame buffer mode
