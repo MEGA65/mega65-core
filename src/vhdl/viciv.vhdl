@@ -2748,7 +2748,7 @@ begin
           -- @IO:GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
           sprite_h640_msbs <= fastio_wdata;
         elsif register_number=96 then
-          -- @IO:GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 0 - 7)
+          -- @IO:GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 7 - 0)
           screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=97 then
           -- @IO:GS $D061 VIC-IV:SCRNPTRMSB screen RAM precise base address (bits 15 - 8)
