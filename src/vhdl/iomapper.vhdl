@@ -414,7 +414,7 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
-  signal sid_mode : unsigned(3 downto 0); -- 1=8580, 0=6581
+  signal sid_mode : unsigned(4 downto 0); -- 1=8580, 0=6581
 
   signal the_button : std_logic;
   signal i2c_joya_fire_int : std_logic := '1';
@@ -492,15 +492,24 @@ architecture behavioral of iomapper is
   signal cia1portb_out : std_logic_vector(7 downto 0);
   signal cia1portb_in : std_logic_vector(7 downto 0);
 
-  signal leftsid_cs : std_logic;
+  signal leftsid_cs : std_logic := '0';
   signal leftsid_audio : signed(17 downto 0);
-  signal rightsid_cs : std_logic;
+  signal rightsid_cs : std_logic := '0';
   signal rightsid_audio : signed(17 downto 0);
-  signal frontsid_cs : std_logic;
+  signal frontsid_cs : std_logic := '0';
   signal frontsid_audio : signed(17 downto 0) := to_signed(0,18);
-  signal backsid_cs : std_logic;
+  signal backsid_cs : std_logic := '0';
   signal backsid_audio : signed(17 downto 0);
-
+  signal leftsid_combined, rightsid_combined : signed(17 downto 0) := (others => '0');
+  
+  -- SID filter coefficient chip select
+  signal filter_cs : std_logic := '0';
+  -- SuperSID wavetable chip selects, NYI
+  signal supersid_w1_cs, supersid_w2_cs : std_logic := '0';
+  signal supersid_w3_cs, supersid_w4_cs : std_logic := '0';
+  -- SID register loopback select, allows for reading normally write-only regs
+  signal reg_loopback_cs : std_logic := '0';
+  
   signal c65uart_cs : std_logic := '0';
   signal sdcardio_cs : std_logic := '0';
   signal sdcardio_cs_fast : std_logic := '0';
@@ -909,7 +918,8 @@ begin
       pixelclock => pixelclk,
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,
-      sid_mode => sid_mode,
+      sid_mode => sid_mode(3 downto 0),
+      dc_track_enable => sid_mode(4),
       osk_toggle_key => osk_toggle_key,
       joyswap_key => joyswap_key,
       reset => reset,
@@ -1132,101 +1142,37 @@ begin
     );
   end block;
 
- sidcblock: block
-  begin
-    sidc: entity work.sid_coeffs_mux port map (
-      clk => cpuclock,
-      addr0 => filter_table_addr0,
-      val0 => filter_table_val0,
-      addr1 => filter_table_addr1,
-      val1 => filter_table_val1,
-      addr2 => filter_table_addr2,
-      val2 => filter_table_val2,
-      addr3 => filter_table_addr3,
-      val3 => filter_table_val3
-      );
-    end block;
-
-  block6: block
-  begin
-    leftsid: entity work.sid6581 port map (
-    clk_1MHz => phi0_1mhz,
-    cpuclock => cpuclock,
-    reset => reset_high,
-    cs => leftsid_cs,
-    mode => sid_mode(0),
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potl_x,
-    pot_y => potl_y,
-    signed_audio => leftsid_audio,
-    filter_table_addr => filter_table_addr0,
-    filter_table_val => filter_table_val0
-    );
-  end block;
-
-  block7: block
-  begin
-  rightsid: entity work.sid6581 port map (
-    clk_1MHz => phi0_1mhz,
-    cpuclock => cpuclock,
-    reset => reset_high,
-    cs => rightsid_cs,
-    mode => sid_mode(1),
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potr_x,
-    pot_y => potr_y,
-    signed_audio => rightsid_audio,
-    filter_table_addr => filter_table_addr1,
-    filter_table_val => filter_table_val1
-    );
-  end block;
-
- block6b: block
-  begin
-    frontsid: entity work.sid6581 port map (
-    clk_1MHz => phi0_1mhz,
-    cpuclock => cpuclock,
-    reset => reset_high,
-    cs => frontsid_cs,
-    mode => sid_mode(2),
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potl_x,
-    pot_y => potl_y,
-    signed_audio => frontsid_audio,
-    filter_table_addr => filter_table_addr2,
-    filter_table_val => filter_table_val2
-    );
-  end block;
-
-  block7b: block
-  begin
-  backsid: entity work.sid6581 port map (
-    clk_1MHz => phi0_1mhz,
-    cpuclock => cpuclock,
-    reset => reset_high,
-    cs => backsid_cs,
-    mode => sid_mode(3),
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potr_x,
-    pot_y => potr_y,
-    signed_audio => backsid_audio,
-    filter_table_addr => filter_table_addr3,
-    filter_table_val => filter_table_val3
-    );
-  end block;
-
+  multisid: entity work.multisid(rtl)
+    port map (
+      cpuclock        => cpuclock,
+      phi0_1mhz       => phi0_1mhz,
+      reset_high      => reset_high,
+      w               => w,
+      leftsid_cs      => leftsid_cs,
+      rightsid_cs     => rightsid_cs,
+      frontsid_cs     => frontsid_cs,
+      backsid_cs      => backsid_cs,
+      supersid_w1_cs  => supersid_w1_cs,
+      supersid_w2_cs  => supersid_w2_cs,
+      supersid_w3_cs  => supersid_w3_cs,
+      supersid_w4_cs  => supersid_w4_cs,
+      reg_loopback_cs => reg_loopback_cs,
+      leftsid_out     => leftsid_audio,
+      rightsid_out    => rightsid_audio,
+      frontsid_out    => frontsid_audio,
+      backsid_out     => backsid_audio,
+      leftsid_combined => leftsid_combined,
+      rightsid_combined => rightsid_combined,
+      data_i          => data_i,
+      data_o          => data_o,
+      filter_cs       => filter_cs,
+      sid_mode        => sid_mode,
+      address         => unsigned(address(11 downto 0)),
+      potl_x          => potl_x,
+      potr_x          => potr_x,
+      potl_y          => potl_y,
+      potr_y          => potr_y);
+  
   vfpga:
     if false generate
       vfpga0:        entity work.vfpga_wrapper_8bit port map (
@@ -1357,11 +1303,14 @@ begin
     micLRSel => micLRSel,
     headphone_mic => headphone_mic,
 
-    leftsid_audio => leftsid_audio,
-    rightsid_audio => rightsid_audio,
-    frontsid_audio => frontsid_audio,
-    backsid_audio => backsid_audio,
+    -- leftsid_audio => leftsid_audio,
+    -- rightsid_audio => rightsid_audio,
+    -- frontsid_audio => frontsid_audio,
+    -- backsid_audio => backsid_audio,
 
+    leftsid_audio_combined => leftsid_combined,
+    rightsid_audio_combined => rightsid_combined,    
+    
     -- PDM audio output for various boards
     ampSD => ampSD,
     ampPWM_l => ampPWM_l,
@@ -2251,20 +2200,50 @@ begin
       end if;
 
       -- Now map the SIDs
-      -- @IO:C64 $D400-$D40F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
+      -- @IO:C64 $D400-$D41F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
       -- @IO:C64 $D420-$D43F = SID#2 (internally known as 'right SID #2' or as 'backsid')
       -- @IO:C64 $D440-$D45F = SID#3 (internally known as 'left SID #1' or as 'leftsid')
-      -- @IO:C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'backsid')
+      -- @IO:C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'frontsid')
       -- @IO:C64 $D480-$D4FF = repeated images of SIDs
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
+      -- $FFD05xx swaps left and right groups for compatibility with some dual SID music
       case address(19 downto 8) is
-        when x"D04" | x"D14" | x"D24" | x"D34" | x"D05" =>
-          leftsid_cs <= ((address(6) and not address(5)) xor address(8)) and lscs_en;
-          rightsid_cs <= (((not address(6)) and not address(5)) xor address(8)) and rscs_en;
-          frontsid_cs <= ((address(6) and address(5)) xor address(8)) and lscs_en;
-          backsid_cs <= (((not address(6)) and address(5)) xor address(8)) and rscs_en;
+        when x"D04" | x"D14" | x"D24" | x"D34" | x"650" =>
+          leftsid_cs <= (address(6) and not address(5)) and lscs_en;  -- $40-5F
+          rightsid_cs <= ((not address(6)) and not address(5)) and rscs_en;  -- $00-1F 
+          frontsid_cs <= (address(6) and address(5)) and lscs_en;  -- $60-$7F
+          backsid_cs <= ((not address(6)) and address(5)) and rscs_en;  -- $20-3F
+        when x"D05" =>                  -- SIDs are mirrored here, order is 3,4,1,2
+          rightsid_cs <= (address(6) and not address(5)) and rscs_en;  -- $40-5F
+          leftsid_cs <= ((not address(6)) and not address(5)) and lscs_en;  -- $00-1F 
+          backsid_cs <= (address(6) and address(5)) and rscs_en;  -- $60-$7F
+          frontsid_cs <= ((not address(6)) and address(5)) and lscs_en;  -- $20-3F
         when others => leftsid_cs <= '0'; rightsid_cs <= '0'; frontsid_cs <= '0'; backsid_cs <= '0';
+      end case;
+
+      -- @IO:GS $FF60000-$FF60FFF - SID filter coefficient table
+      -- $FF61000-$FF61FFF - SuperSID wavetable 1 (NYI)
+      -- $FF62000-$FF62FFF - SuperSID wavetable 2 (NYI)
+      -- $FF63000-$FF63FFF - SuperSID wavetable 3 (NYI)
+      -- $FF64000-$FF64FFF - SuperSID wavetable 4 (NYI)
+      -- @IO:GS $FF65000-$FF6507F - SID register loopback
+      -- @IO:GS $FF65080-$FF65FFF - Reserved register loopback
+      -- @IO:GS $FF66000-$FF6FFFF - Reserved
+      filter_cs <= '0';
+      supersid_w1_cs <= '0';
+      supersid_w2_cs <= '0';
+      supersid_w3_cs <= '0';
+      supersid_w4_cs <= '0';
+      reg_loopback_cs <= '0';
+      case address(19 downto 12) is
+        when x"60" => filter_cs <= '1';
+        when x"61" => supersid_w1_cs <= '1';
+        when x"62" => supersid_w2_cs <= '1';
+        when x"63" => supersid_w3_cs <= '1';
+        when x"64" => supersid_w4_cs <= '1';
+        when x"65" => reg_loopback_cs <= '1';
+        when others => null;
       end case;
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.

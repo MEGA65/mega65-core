@@ -121,6 +121,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/uart_rx_buffered.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/multisid.vhdl"]"\   
  "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\

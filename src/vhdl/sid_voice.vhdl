@@ -62,16 +62,16 @@ architecture Behavioral of sid_voice is
   
 -------------------------------------------------------------------------------
   
-  signal	accumulator					: unsigned(23 downto 0) := (others => '0');
+  signal	accumulator_latch				: unsigned(23 downto 0) := (others => '0');
   signal	accu_bit_prev				: std_logic := '0';
   signal	PA_MSB_in_prev				: std_logic := '0';
   
   -- this type of signal has only two states 0 or 1 (so no more bits are required)
   signal	pulse							: std_logic := '0';
-  signal	sawtooth						: unsigned(11 downto 0) := (others => '0');
   signal	triangle						: unsigned(11 downto 0) := (others => '0');
   signal	noise							: unsigned(11 downto 0) := (others => '0');
   signal	LFSR							: unsigned(22 downto 0) := (others => '0');
+  signal	LFSR_phase1						: unsigned(22 downto 0) := (others => '0');
   
   signal 	frequency					: unsigned(15 downto 0) := (others => '0');
   signal 	pulsewidth					: unsigned(11 downto 0) := (others => '0');
@@ -127,7 +127,7 @@ architecture Behavioral of sid_voice is
 begin
   
   -- output the Phase accumulator's MSB for sync and ringmod purposes
-  PA_MSB_out					<= accumulator(23);
+  PA_MSB_out					<= accumulator_latch(23);
   -- output the upper 8-bits of the waveform.
   -- Useful for random numbers (noise must be selected)
   Osc							<= signal_mux(11 downto 4);
@@ -151,6 +151,11 @@ begin
   -- "Hard Sync was accomplished by clearing the accumulator of an Oscillator
   -- based on the accumulator MSB of the previous oscillator."
   PhaseAcc:process(cpuclock)
+    variable sawtooth : unsigned(11 downto 0) := (others => '0');
+    variable signal_mux_var : unsigned(11 downto 0) := (others => '0');  -- VHDL is weird so we need a buffer
+    variable reset_cycle_ctr : unsigned(3 downto 0) := (others => '0');  -- Zero regs after 10 cycles
+    variable accumulator_temp : unsigned(23 downto 0) := (others => '0');
+    variable accumulator : unsigned(23 downto 0) := (others => '0');
   begin
     
     if rising_edge(cpuclock) then
@@ -168,10 +173,28 @@ begin
         -- the reset and test signal can stop the oscillator,
         -- stopping the oscillator is very useful when you want to play "samples"
         if ((reset = '1') or (test = '1') or ((sync = '1') and (PA_MSB_in_prev /= PA_MSB_in) and (PA_MSB_in = '0'))) then
-          accumulator <= (others => '0');
+
+          if reset = '1' and reset_cycle_ctr < x"0B" then
+            reset_cycle_ctr := reset_cycle_ctr + 1;
+          end if;
+          
+          accumulator_latch <= (others => '0');
+          accumulator := (others => '0');
+          
+          if reset_cycle_ctr > x"0A" then
+            LFSR <= (others => '0');
+          end if;
+                      
+          -- LFSR(0) <= LFSR(17) xor (LFSR(22) or reset or test);
         else
           -- accumulate the new phase (i.o.w. increment env_counter with the freq. value)
-          accumulator <= accumulator + ("0" & frequency);
+          -- if Control(4) = '1' then
+          --   accumulator_temp := accumulator(23) & (signal_mux(11 downto 1) and accumulator(22 downto 12))
+          --                       & accumulator(11 downto 0);
+          -- end if;
+
+          accumulator := accumulator_latch + ("0" & frequency);
+          reset_cycle_ctr := (others => '0');
         end if;
         
         -----------------------------------------------------------------------------------------------------------------
@@ -181,14 +204,16 @@ begin
         -- Sawtooth waveform :
         -- "The Sawtooth waveform was created by sending the upper 12-bits of the
         -- accumulator to the 12-bit Waveform D/A."
-        sawtooth	<= accumulator(23 downto 12);
+        accumulator_temp := (others => ((not Control(5)) and (((not PA_MSB_in) and ringmod) xor accumulator(23))));
+        sawtooth	:= accumulator(23) & (accumulator_temp(22 downto 12) xor accumulator(22 downto 12));
         
         --Pulse waveform :
         -- "The Pulse waveform was created by sending the upper 12-bits of the
         -- accumulator to a 12-bit digital comparator. The output of the comparator was
         -- either a one or a zero. This single output was then sent to all 12 bits of
         -- the Waveform D/A. "
-        if ((accumulator(23 downto 12)) >= pulsewidth) then
+        
+        if ((accumulator(23 downto 12)) >= pulsewidth) or (test = '1') then
           pulse <= '1';
         else
           pulse <= '0';
@@ -204,35 +229,35 @@ begin
 	-- oscillator in the EXOR function of the triangle waveform generator with the
 	-- accumulator MSB of the previous oscillator. That is why the triangle waveform
 	-- must be selected to use Ring Modulation."
-        if ringmod = '0' then	
-          -- no ringmodulation
-          triangle(11)<= accumulator(23) xor accumulator(22);
-          triangle(10)<= accumulator(23) xor accumulator(21);
-          triangle(9)	<= accumulator(23) xor accumulator(20);
-          triangle(8)	<= accumulator(23) xor accumulator(19);
-          triangle(7)	<= accumulator(23) xor accumulator(18);
-          triangle(6)	<= accumulator(23) xor accumulator(17);
-          triangle(5)	<= accumulator(23) xor accumulator(16);
-          triangle(4)	<= accumulator(23) xor accumulator(15);
-          triangle(3)	<= accumulator(23) xor accumulator(14);
-          triangle(2)	<= accumulator(23) xor accumulator(13);
-          triangle(1)	<= accumulator(23) xor accumulator(12);
-          triangle(0)	<= accumulator(23) xor accumulator(11);
-        else
-          -- ringmodulation by the other voice (previous voice)
-          triangle(11)<= PA_MSB_in xor accumulator(22);
-          triangle(10)<= PA_MSB_in xor accumulator(21);
-          triangle(9)	<= PA_MSB_in xor accumulator(20);
-          triangle(8)	<= PA_MSB_in xor accumulator(19);
-          triangle(7)	<= PA_MSB_in xor accumulator(18);
-          triangle(6)	<= PA_MSB_in xor accumulator(17);
-          triangle(5)	<= PA_MSB_in xor accumulator(16);
-          triangle(4)	<= PA_MSB_in xor accumulator(15);
-          triangle(3)	<= PA_MSB_in xor accumulator(14);
-          triangle(2)	<= PA_MSB_in xor accumulator(13);
-          triangle(1)	<= PA_MSB_in xor accumulator(12);
-          triangle(0)	<= PA_MSB_in xor accumulator(11);
-        end if;
+        -- if ringmod = '0' then	
+        --   -- no ringmodulation
+        --   triangle(11)<= accumulator(23) xor accumulator(22);
+        --   triangle(10)<= accumulator(23) xor accumulator(21);
+        --   triangle(9)	<= accumulator(23) xor accumulator(20);
+        --   triangle(8)	<= accumulator(23) xor accumulator(19);
+        --   triangle(7)	<= accumulator(23) xor accumulator(18);
+        --   triangle(6)	<= accumulator(23) xor accumulator(17);
+        --   triangle(5)	<= accumulator(23) xor accumulator(16);
+        --   triangle(4)	<= accumulator(23) xor accumulator(15);
+        --   triangle(3)	<= accumulator(23) xor accumulator(14);
+        --   triangle(2)	<= accumulator(23) xor accumulator(13);
+        --   triangle(1)	<= accumulator(23) xor accumulator(12);
+        --   triangle(0)	<= accumulator(23) xor accumulator(11);
+        -- else
+        --   -- ringmodulation by the other voice (previous voice)
+        --   triangle(11)<= PA_MSB_in xor accumulator(22);
+        --   triangle(10)<= PA_MSB_in xor accumulator(21);
+        --   triangle(9)	<= PA_MSB_in xor accumulator(20);
+        --   triangle(8)	<= PA_MSB_in xor accumulator(19);
+        --   triangle(7)	<= PA_MSB_in xor accumulator(18);
+        --   triangle(6)	<= PA_MSB_in xor accumulator(17);
+        --   triangle(5)	<= PA_MSB_in xor accumulator(16);
+        --   triangle(4)	<= PA_MSB_in xor accumulator(15);
+        --   triangle(3)	<= PA_MSB_in xor accumulator(14);
+        --   triangle(2)	<= PA_MSB_in xor accumulator(13);
+        --   triangle(1)	<= PA_MSB_in xor accumulator(12);
+        --   triangle(0)	<= PA_MSB_in xor accumulator(11);
+        -- end if;
         
         --Noise (23-bit Linear Feedback Shift Register, max combinations = 8388607) :
         -- "The Noise waveform was created using a 23-bit pseudo-random sequence
@@ -241,24 +266,27 @@ begin
         -- intermediate bits of the accumulator to keep the frequency content of the
         -- noise waveform relatively the same as the pitched waveforms.
         -- The upper 12-bits of the shift register were sent to the Waveform D/A."
-        noise	<= LFSR(22 downto 11);
-        -- the test signal can stop the oscillator,
-        -- stopping the oscillator is very useful when you want to play "samples"
-        if ((reset = '1') or (test = '1')) or LFSR = "00000000000000000000000" then
-          accu_bit_prev		<= '0';
-          -- the "seed" value (the value that eventually determines the output
-          -- pattern) may never be '0' otherwise the generator "locks up"
-          LFSR	<= "00000000000000000000001";
+        noise	<= LFSR(20) & LFSR(18) & LFSR(14) & LFSR(11) & LFSR(9) & LFSR(5) & LFSR(2) & LFSR(0) & "0000";
+
+
+        -- The LFSR interconnects the bits when accumulator bit 19 is 0, and latches when bit 19 is '1'
+
+        accu_bit_prev <= accumulator(19);
+        if (reset or test or (accumulator(19) and (not accu_bit_prev))) = '0' then
+          LFSR <= LFSR_phase1;
         else
-          accu_bit_prev	<= accumulator(19);
-          -- when not equal to ...
-          if	(accu_bit_prev /= accumulator(19)) then
-            LFSR(22 downto 1)	<= LFSR(21 downto 0);
-            LFSR(0) 					<= LFSR(17) xor LFSR(22);  -- see Xilinx XAPP052 for maximal LFSR taps
+          -- Simulate the pull-down effect selecting noise and another channel has on the LFSR
+          if(Control(7) = '1') then
+            LFSR_phase1(22 downto 1)   <= LFSR(21) & signal_mux(11) & LFSR(19) & signal_mux(10) & LFSR(17 downto 15)
+                                          & signal_mux(9) & LFSR(13 downto 12) & signal_mux(8) & LFSR(10) & signal_mux(7)
+                                          & LFSR(8 downto 6) & signal_mux(6) & LFSR(4 downto 3) & signal_mux(5)
+                                          & LFSR(1) & signal_mux(4);
           else
-            LFSR	 						<= LFSR;
+            LFSR_phase1(22 downto 1)	<= LFSR(21 downto 0);
           end if;
+          LFSR_phase1(0) <= LFSR(17) xor (LFSR(22) or reset or test);   -- see Xilinx XAPP052 for maximal LFSR taps
         end if;
+
         
         -- Waveform Output selector (MUX):
         -- "Since all of the waveforms were just digital bits, the Waveform Selector
@@ -269,19 +297,37 @@ begin
         -- which produced unpredictable results, so I didn't encourage this, especially
         -- since it could lock up the pseudo-random sequence generator by filling it
         -- with zeroes."
-        signal_mux(11) <= (triangle(11) and Control(4)) or (sawtooth(11) and Control(5)) or (pulse and Control(6)) or (noise(11) and Control(7));
-        signal_mux(10) <= (triangle(10) and Control(4)) or (sawtooth(10) and Control(5)) or (pulse and Control(6)) or (noise(10) and Control(7));
-        signal_mux(9)  <= (triangle(9)  and Control(4)) or (sawtooth(9)  and Control(5)) or (pulse and Control(6)) or (noise(9)  and Control(7));
-        signal_mux(8)  <= (triangle(8)  and Control(4)) or (sawtooth(8)  and Control(5)) or (pulse and Control(6)) or (noise(8)  and Control(7));
-        signal_mux(7)  <= (triangle(7)  and Control(4)) or (sawtooth(7)  and Control(5)) or (pulse and Control(6)) or (noise(7)  and Control(7));
-        signal_mux(6)  <= (triangle(6)  and Control(4)) or (sawtooth(6)  and Control(5)) or (pulse and Control(6)) or (noise(6)  and Control(7));
-        signal_mux(5)  <= (triangle(5)  and Control(4)) or (sawtooth(5)  and Control(5)) or (pulse and Control(6)) or (noise(5)  and Control(7));
-        signal_mux(4)  <= (triangle(4)  and Control(4)) or (sawtooth(4)  and Control(5)) or (pulse and Control(6)) or (noise(4)  and Control(7));
-        signal_mux(3)  <= (triangle(3)  and Control(4)) or (sawtooth(3)  and Control(5)) or (pulse and Control(6)) or (noise(3)  and Control(7));
-        signal_mux(2)  <= (triangle(2)  and Control(4)) or (sawtooth(2)  and Control(5)) or (pulse and Control(6)) or (noise(2)  and Control(7));
-        signal_mux(1)  <= (triangle(1)  and Control(4)) or (sawtooth(1)  and Control(5)) or (pulse and Control(6)) or (noise(1)  and Control(7));
-        signal_mux(0)  <= (triangle(0)  and Control(4)) or (sawtooth(0)  and Control(5)) or (pulse and Control(6)) or (noise(0)  and Control(7));
-        
+
+
+        if Control(7 downto 4) /= "0000" then
+          -- Initialize to 1s for ANDing
+          signal_mux_var := (others => '1');
+
+          -- Triangle
+          if Control(4) = '1' then
+            signal_mux_var := (sawtooth(10 downto 0) & '0') and signal_mux_var;
+          end if;
+
+          -- Sawtooth
+          if Control(5) = '1' then
+            signal_mux_var := signal_mux_var and sawtooth;
+          end if;
+
+          -- Pulse 
+          if Control(6) = '1' and pulse = '0' then
+            signal_mux_var := (others => '0');
+          end if;
+
+          -- Noise
+          if Control(7) = '1' then
+            signal_mux_var := signal_mux_var and noise;
+          end if;
+
+          signal_mux <= signal_mux_var;
+          if Control(5) = '1' then
+            accumulator(23) := signal_mux_var(11);
+          end if;
+        end if;
         -----------------------------------------------------------------------------------------------------------------
         -- Waveform envelope (volume) control
         -----------------------------------------------------------------------------------------------------------------
@@ -329,6 +375,8 @@ begin
         --voice, signal_mux(12bit) * env_counter(8bit), so the result will
         --require 20 bits !!
         signal_vol	<= signal_mux_clamped * env_counter;
+
+        accumulator_latch <= accumulator;
         
         -----------------------------------------------------------------------------------------------------------------
         -- Envelope Generator
@@ -585,8 +633,7 @@ begin
           when "1110" =>	divider_dec_rel <= 9191;	--release rate: (15000mS / 1uS per clockcycle) / 1632
           when "1111" =>	divider_dec_rel <= 14706;	--release rate: (24000mS / 1uS per clockcycle) / 1632
           when others =>	divider_dec_rel <= 0;			--
-        end case;              
-        
+        end case;
       end if;
       
       -- Reset and various other functions happen at full clock speed, so

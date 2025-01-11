@@ -905,7 +905,7 @@ begin  -- behavioural
         when x"3A" => fastio_rdata <= max10_fpga_commit(23 downto 16);
         when x"3B" => fastio_rdata <= max10_fpga_commit(31 downto 24);
         -- @IO:GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
-        -- @IO:GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer
+        -- @IO:GS $D63C.4 SID:SID!EX!ENA Enable extra SID registers
         -- @IO:GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
         when x"3c" => fastio_rdata(3 downto 0) <= sid_mode_int;
                       fastio_rdata(4) <= dc_track_enable_int;

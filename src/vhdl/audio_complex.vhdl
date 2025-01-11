@@ -54,10 +54,13 @@ entity audio_complex is
     fm_right : in signed(15 downto 0);
     
     -- Audio in from digital SIDs
-    leftsid_audio : in signed(17 downto 0);
-    rightsid_audio : in signed(17 downto 0);
-    frontsid_audio : in signed(17 downto 0);
-    backsid_audio : in signed(17 downto 0);
+    -- leftsid_audio : in signed(17 downto 0);
+    -- rightsid_audio : in signed(17 downto 0);
+    -- frontsid_audio : in signed(17 downto 0);
+    -- backsid_audio : in signed(17 downto 0);
+
+    leftsid_audio_combined : in signed(17 downto 0);
+    rightsid_audio_combined : in signed(17 downto 0);
     
     -- Audio in from $D6F8-B registers
     pcm_left : in signed(15 downto 0);
@@ -138,9 +141,8 @@ architecture elizabethan of audio_complex is
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
-  signal leftsid_audio_combined : signed(17 downto 0);
-  signal rightsid_audio_combined : signed(17 downto 0);
-
+  -- signal leftsid_audio_combined : signed(17 downto 0);
+  -- signal rightsid_audio_combined : signed(17 downto 0);
   
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
@@ -452,8 +454,8 @@ begin
       
       -- Combine the pairs of SIDs     
       -- use the overflow checking addition to be safe 
-      leftsid_audio_combined <= add_with_ovf(leftsid_audio, frontsid_audio);
-      rightsid_audio_combined <= add_with_ovf(rightsid_audio, backsid_audio);
+      -- leftsid_audio_combined <= add_with_ovf(leftsid_audio, frontsid_audio);
+      -- rightsid_audio_combined <= add_with_ovf(rightsid_audio, backsid_audio);
 
       if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;

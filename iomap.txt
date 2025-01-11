@@ -1,6 +1,11 @@
 C64 $0000000 6510/45GS10 CPU port DDR
-C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
+C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR. Write 65 to force 40MHz mode, or 64 to re-enable normal speed controls.
+C64 $0000001.0-2 CPU:C64MAP Processor port memory mapper
+C64 $0000001.3 Datasette output signal level (NYI?)
+C64 $0000001.4 Datasette button status, 0 = button pressed, 1 = no button pressed (NYI?)
+C64 $0000001.5 Datasette motor control, 0 = on, 1 = off (NYI?)
 C64 $0000001 6510/45GS10 CPU port data
+C64 $0000001.6-7 Unused
 C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
 C64 $0000002-$000FFFF - 64KB RAM
 C65 $0010000-$001FFFF - 64KB RAM
@@ -151,31 +156,31 @@ C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
 C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
 C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
 C65 $D031 SUMMARY:VIC-III Control Register B
-C65 $D032 - Bitplane enable bits
+C65 $D032 VIC-III:BPENABLE Bitplane enable bits
 C65 $D033-$D03A - VIC-III Bitplane addresses
-C65 $D033.1-3 VIC-III:B0ADEVN@BXADEVN Bitplane X address, even lines
-C65 $D033.5-7 VIC-III:B0ADODD@BXADODD Bitplane X address, odd lines
+C65 $D033.1-3 VIC-III:B0ADEVN@BXADEVN Even rows of even Bitplane X address[15:13] (for v200, even row drawn twice)
+C65 $D033.5-7 VIC-III:B0ADODD@BXADODD Odd rows of even Bitplane X address[15:13] (only used in v400 mode)
 C65 $D033 - Bitplane 0 address
-C65 $D034.1-3 VIC-III:B1ADEVN @BXADEVN
-C65 $D034.5-7 VIC-III:B1ADODD @BXADODD
+C65 $D034.1-3 VIC-III:B1ADEVN@BYADEVN Even rows of odd Bitplane Y address[15:13] (+64KB) (for v200, even row drawn twice)
+C65 $D034.5-7 VIC-III:B1ADODD@BYADODD Odd rows of odd Bitplane Y address[15:13] (+64KB) (only used in v400 mode)
 C65 $D034 - Bitplane 1 address
 C65 $D035.1-3 VIC-III:B2ADEVN @BXADEVN
 C65 $D035.5-7 VIC-III:B2ADODD @BXADODD
 C65 $D035 - Bitplane 2 address
-C65 $D036.1-3 VIC-III:B3ADEVN @BXADEVN
-C65 $D036.5-7 VIC-III:B3ADODD @BXADODD
+C65 $D036.1-3 VIC-III:B3ADEVN @BYADEVN
+C65 $D036.5-7 VIC-III:B3ADODD @BYADODD
 C65 $D036 - Bitplane 3 address
 C65 $D037.1-3 VIC-III:B4ADEVN @BXADEVN
 C65 $D037.5-7 VIC-III:B4ADODD @BXADODD
 C65 $D037 - Bitplane 4 address
-C65 $D038.1-3 VIC-III:B5ADEVN @BXADEVN
-C65 $D038.5-7 VIC-III:B5ADODD @BXADODD
+C65 $D038.1-3 VIC-III:B5ADEVN @BYADEVN
+C65 $D038.5-7 VIC-III:B5ADODD @BYADODD
 C65 $D038 - Bitplane 5 address
 C65 $D039.1-3 VIC-III:B6ADEVN @BXADEVN
 C65 $D039.5-7 VIC-III:B6ADODD @BXADODD
 C65 $D039 - Bitplane 6 address
-C65 $D03A.1-3 VIC-III:B7ADEVN @BXADEVN
-C65 $D03A.5-7 VIC-III:B7ADODD @BXADODD
+C65 $D03A.1-3 VIC-III:B7ADEVN @BYADEVN
+C65 $D03A.5-7 VIC-III:B7ADODD @BYADODD
 C65 $D03A - Bitplane 7 address
 C65 $D03B - Set bits to NOT bitplane contents
 C65 $D03B VIC-III:BPCOMP Complement bitplane flags
@@ -371,7 +376,7 @@ GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
 C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
-C64 $D400-$D40F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
+C64 $D400-$D41F = SID#1 (internally known as 'right SID #1' or as 'rightsid')
 GS $D400 SID:VOICE1!FRQLO@VOICEX!FRQLO Voice X Frequency Low
 GS $D401 SID:VOICE1!FRQHI@VOICEX!FRQHI Voice X Frequency High
 GS $D402 SID:VOICE1!PWLO@VOICEX!PWLO Voice X Pulse Waveform Width Low
@@ -425,9 +430,9 @@ GS $D414.3-0 SID:ENV3!RELDUR @ENVX!RELDUR
 GS $D414.7-4 SID:ENV3!LEVDUR @ENVX!SUSLEV
 GS $D415 SID:FLTR!CUTFRQLO@FLTR!CUTFRQLO Filter Cutoff Frequency Low
 GS $D416 SID:FLTR!CUTFRQHI@FLTR!CUTFRQHI Filter Cutoff Frequency High
-GS $D417.0 SID:FLTR!V3OUT @FLTR!VXOUT
+GS $D417.0 SID:FLTR!V1OUT @FLTR!VXOUT
 GS $D417.1 SID:FLTR!V2OUT @FLTR!VXOUT
-GS $D417.2 SID:FLTR!V1OUT@FLTR!VXOUT Filter Voice X Output
+GS $D417.2 SID:FLTR!V3OUT@FLTR!VXOUT Filter Voice X Output
 GS $D417.3 SID:FLTR!EXTINP@FLTR!EXTINP Filter External Input
 GS $D417.7-4 SID:FLTR!RESON@FLTR!RESON Filter Resonance
 GS $D418.0-3 SID:FLTR!VOL Filter Output Volume
@@ -439,9 +444,11 @@ GS $D419 SID:PADDLE1 Analog/Digital Converter: Game Paddle 1 (0-255)
 GS $D41A SID:PADDLE2 Analog/Digital Converter Game Paddle 2 (0-255)
 GS $D41B SID:OSC3RNG Oscillator 3 Random Number Generator
 GS $D41C SID:ENV3OUT Envelope Generator 3 Output
+GS $D41D SID:SID!PAN!LEFT SID left channel volume (requires SIDEXENA set)
+GS $D41E SID:SID!PAN!RIGHT SID right channel volume (requires SIDEXENA set)
 C64 $D420-$D43F = SID#2 (internally known as 'right SID #2' or as 'backsid')
 C64 $D440-$D45F = SID#3 (internally known as 'left SID #1' or as 'leftsid')
-C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'backsid')
+C64 $D460-$D47F = SID#4 (internally known as 'left SID #2' or as 'frontsid')
 C64 $D480-$D4FF = repeated images of SIDs
 GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
 C65 $D600 UART:DATA UART data register (read or write)
@@ -594,7 +601,7 @@ GS $D639 AUXFPGA:FWGIT0 2nd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63A AUXFPGA:FWGIT0 3rd byte of Auxilliary (MAX10) FPGA design git commit
 GS $D63B AUXFPGA:FWGIT0 MSB of Auxilliary (MAX10) FPGA design git commit
 GS $D63C.0-3 SID:SIDMODE Select SID mode: 0=6581, 1=8580
-GS $D63C.4 AUDIOMIX:DCTRKEN Enable DC offset subtraction in audio mixer
+GS $D63C.4 SID:SID!EX!ENA Enable extra SID registers
 GS $D63C.5-7 DEBUG:RESETSRC Source of last CPU reset
 GS $D63D AUDIOMIX:DCTIME Audio mixer DC-estimation time step. Lower values = faster updating of DC estimation, at the cost of making low-frequencies quieter.
 GS $D640 CPU:HTRAP00@HTRAPXX Writing triggers hypervisor trap \$XX
@@ -1533,6 +1540,11 @@ GS $DD1F.7 CIA2:ALRM!AMPM TOD Alarm AM/PM flag
 GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
 GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
 GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
+GS $FF60000-$FF60FFF - SID filter coefficient table
+GS $FF60000-$FF6FFFF SUMMARY:SIDDEBUG SID register loopback and filter table debug area
+GS $FF65000-$FF6507F - SID register loopback
+GS $FF65080-$FF65FFF - Reserved register loopback
+GS $FF66000-$FF6FFFF - Reserved
 GS $FF7E000-$FF7EFFF SUMMARY:CHARROM Simuated character ROM area (actually read/write)
 GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM area
 GS $FF7Exxx VIC-IV CHARROM write area

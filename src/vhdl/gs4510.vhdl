@@ -558,13 +558,15 @@ architecture Behavioural of gs4510 is
   constant palette_48mhz : unsigned(7 downto 0) := x"03";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
-
+  constant sidtable_40mhz : unsigned(7 downto 0) := x"03";
+  
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal palette_read_wait_states : unsigned(7 downto 0) := palette_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
-
+  signal sidtable_wait_states : unsigned(7 downto 0) := sidtable_40mhz;
+  
   -- Interface to slow device address space
   signal slow_access_request_toggle_drive : std_logic := '0';
   signal slow_access_write_drive : std_logic := '0';
@@ -2149,8 +2151,13 @@ begin
       shadow_write_flags(1) <= '1';
 
       report "MEMORY long_address = $" & to_hstring(long_address);
-      -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
+      -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR. Write 65 to force 40MHz mode, or 64 to re-enable normal speed controls.
       -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
+      -- @IO:C64 $0000001.0-2 CPU:C64MAP Processor port memory mapper
+      -- @IO:C64 $0000001.3 Datasette output signal level (NYI?)
+      -- @IO:C64 $0000001.4 Datasette button status, 0 = button pressed, 1 = no button pressed (NYI?)
+      -- @IO:C64 $0000001.5 Datasette motor control, 0 = on, 1 = off (NYI?)
+      -- @IO:C64 $0000001.6-7 Unused
       if (long_address(27 downto 6)&"00" = x"FFD364" or long_address(27 downto 6)&"00" = x"FFD264") and hypervisor_mode='1' then
         report "Preparing for reading hypervisor register";
         read_source <= HypervisorRegister;
@@ -2306,6 +2313,16 @@ begin
           -- 1 wait state when reading
           wait_states <= colourram_read_wait_states;
           if colourram_read_wait_states /= x"00" then
+            wait_states_non_zero <= '1';
+          else
+            wait_states_non_zero <= '0';
+          end if;
+        end if;
+
+        -- @IO:GS $FF60000-$FF6FFFF SUMMARY:SIDDEBUG SID register loopback and filter table debug area
+        if long_address(19 downto 16) = x"6" then
+          wait_states <= sidtable_wait_states;
+          if sidtable_wait_states /= x"00" then
             wait_states_non_zero <= '1';
           else
             wait_states_non_zero <= '0';

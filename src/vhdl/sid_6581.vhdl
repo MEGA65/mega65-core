@@ -82,22 +82,28 @@ use IEEE.numeric_std.all;
 -------------------------------------------------------------------------------
 
 entity sid6581 is
+  generic (
+    RESET_PAN_LEFT  : unsigned(7 downto 0) := x"80";
+    RESET_PAN_RIGHT : unsigned(7 downto 0) := x"80");
   port (
-    clk_1MHz			: in  std_logic;		-- main SID clock signal
+    clk_1MHz			        : in  std_logic;		-- main SID clock signal
     cpuclock				: in  std_logic;		-- main clock signal
     reset				: in  std_logic;		-- high active signal (reset when reset = '1')
     cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
     we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
+    loopback                            : in  std_logic;  -- Allow write-only regs to be read
     
-    mode : in std_logic; -- 0=6581, 1=8580
+    mode                                : in std_logic;  -- 0=6581, 1=8580
+    supersid                            : in std_logic;  -- 1=enable panning
     
     addr				: in  unsigned(4 downto 0);	-- address lines
     di					: in  unsigned(7 downto 0);	-- data in (to chip)
     do					: out unsigned(7 downto 0);	-- data out	(from chip)
     pot_x				: in  unsigned(7 downto 0);	-- paddle input-X
     pot_y				: in  unsigned(7 downto 0);	-- paddle input-Y
-    audio_data		: out unsigned(17 downto 0) := to_unsigned(0,18);
-    signed_audio		: out signed(17 downto 0) := to_signed(0,18);
+    audio_data		                : out unsigned(17 downto 0) := to_unsigned(0,18);
+    signed_audio		        : out signed(17 downto 0) := to_signed(0,18);
+    pan_left, pan_right                 : out unsigned(7 downto 0);
     
     filter_table_addr : out integer range 0 to 2047 := 0;
     filter_table_val : in unsigned(15 downto 0)
@@ -106,10 +112,11 @@ end sid6581;
 
 architecture Behavioral of sid6581 is
   
-  signal reset_drive : std_logic;
+  -- signal reset_drive : std_logic;
   
   signal clk_1MHz_en : std_logic := '1';
-  
+
+  signal databus : unsigned(7 downto 0) := (others => '0');
   
   signal Voice_1_Freq_lo	: unsigned(7 downto 0)	:= (others => '0');
   signal Voice_1_Freq_hi	: unsigned(7 downto 0)	:= (others => '0');
@@ -146,6 +153,8 @@ architecture Behavioral of sid6581 is
   signal Misc_Env3			: unsigned(7 downto 0)	:= (others => '0');
   signal Misc_Env3_6581			: unsigned(7 downto 0)	:= (others => '0');
   signal Misc_Env3_8580			: unsigned(7 downto 0);
+
+  signal reg_pan_left, reg_pan_right : unsigned(7 downto 0) := (others => '0');  -- Control SID panning
   
   signal do_buf				: unsigned(7 downto 0)	:= (others => '0');
   
@@ -228,7 +237,7 @@ begin
     port map(
       cpuclock => cpuclock,
       clk_1MHz				=> clk_1MHz,
-      reset					=> reset_drive,
+      reset					=> reset,
       Freq_lo				=> Voice_1_Freq_lo,
       Freq_hi				=> Voice_1_Freq_hi,
       Pw_lo					=> Voice_1_Pw_lo,
@@ -247,7 +256,7 @@ begin
     port map(
       cpuclock => cpuclock,
       clk_1MHz				=> clk_1MHz,
-      reset					=> reset_drive,
+      reset					=> reset,
       Freq_lo				=> Voice_2_Freq_lo,
       Freq_hi				=> Voice_2_Freq_hi,
       Pw_lo					=> Voice_2_Pw_lo,
@@ -266,7 +275,7 @@ begin
     port map(
       cpuclock => cpuclock,
       clk_1MHz				=> clk_1MHz,
-      reset					=> reset_drive,
+      reset					=> reset,
       Freq_lo				=> Voice_3_Freq_lo,
       Freq_hi				=> Voice_3_Freq_hi,
       Pw_lo					=> Voice_3_Pw_lo,
@@ -284,9 +293,9 @@ begin
   sid_voice_8580_1: entity work.sid_voice_8580
     port map(
       cpuclock => cpuclock,
-      clock                           => clk_1Mhz,
-      ce_1m				=> clk_1MHz_en,
-      reset					=> reset_drive,
+      clock                           => cpuclock,
+      ce_1m				=> clk_1MHz,
+      reset					=> reset,
       Freq_lo				=> Voice_1_Freq_lo,
       Freq_hi				=> Voice_1_Freq_hi,
       Pw_lo					=> Voice_1_Pw_lo,
@@ -310,9 +319,9 @@ begin
   sid_voice_8580_2: entity work.sid_voice_8580
     port map(
       cpuclock => cpuclock,
-      clock                           => clk_1Mhz,
-      ce_1m				=> clk_1MHz_en,
-      reset					=> reset_drive,
+      clock                           => cpuclock,
+      ce_1m				=> clk_1MHz,
+      reset					=> reset,
       Freq_lo				=> Voice_2_Freq_lo,
       Freq_hi				=> Voice_2_Freq_hi,
       Pw_lo					=> Voice_2_Pw_lo,
@@ -336,9 +345,9 @@ begin
   sid_voice_8580_3: entity work.sid_voice_8580
     port map(
       cpuclock => cpuclock,
-      clock                           => clk_1Mhz,
-      ce_1m				=> clk_1MHz_en,
-      reset					=> reset_drive,
+      clock                           => cpuclock,
+      ce_1m				=> clk_1MHz,
+      reset					=> reset,
       Freq_lo				=> Voice_3_Freq_lo,
       Freq_hi				=> Voice_3_Freq_hi,
       Pw_lo					=> Voice_3_Pw_lo,
@@ -371,28 +380,73 @@ begin
     if cs='1' then
       -- Read from SID-register
       -------------------------
-      case addr is
-        -- @IO:GS $D419 SID:PADDLE1 Analog/Digital Converter: Game Paddle 1 (0-255)
-        -- @IO:GS $D41A SID:PADDLE2 Analog/Digital Converter Game Paddle 2 (0-255)
-        -- @IO:GS $D41B SID:OSC3RNG Oscillator 3 Random Number Generator
-        -- @IO:GS $D41C SID:ENV3OUT Envelope Generator 3 Output
-        -------------------------------------- Misc
-        when "11001" => do <= pot_x;
-        when "11010" => do <= pot_Y;
-        when "11011" => do <= Misc_Osc3_Random;
-        when "11100" => do <= Misc_Env3;
-        --------------------------------------
-        when others => do <= x"FF";
-      end case;		
+      if loopback = '1' then
+        case addr is
+                                        -------------------------------------- Voice-1
+          when "00000" => do <=	Voice_1_Freq_lo;
+          when "00001" => do <=	Voice_1_Freq_hi;
+          when "00010" => do <=	Voice_1_Pw_lo;
+          when "00011" => do <=	Voice_1_Pw_hi;
+          when "00100" => do <=	Voice_1_Control;
+          when "00101" => do <=	Voice_1_Att_dec;
+          when "00110" => do <=	Voice_1_Sus_Rel;
+                                        --------------------------------------- Voice-2
+          when "00111" => do <=	Voice_2_Freq_lo;
+          when "01000" => do <=	Voice_2_Freq_hi;
+          when "01001" => do <=	Voice_2_Pw_lo;
+          when "01010" => do <=	Voice_2_Pw_hi;
+          when "01011" => do <=	Voice_2_Control;
+          when "01100" => do <=	Voice_2_Att_dec;
+          when "01101" => do <=	Voice_2_Sus_Rel;
+                                        --------------------------------------- Voice-3
+          when "01110" => do <=	Voice_3_Freq_lo;
+          when "01111" => do <=	Voice_3_Freq_hi;
+          when "10000" => do <=	Voice_3_Pw_lo;
+          when "10001" => do <=	Voice_3_Pw_hi;
+          when "10010" => do <=	Voice_3_Control;
+          when "10011" => do <=	Voice_3_Att_dec;
+          when "10100" => do <=	Voice_3_Sus_Rel;
+                                        --------------------------------------- Filter & volume
+          when "10101" => do <=	Filter_Fc_lo;	
+          when "10110" => do <=	Filter_Fc_hi;	
+          when "10111" => do <=	Filter_Res_Filt;	
+          when "11000" => do <=	Filter_Mode_Vol;
+                                        --------------------------------------
+          when "11001" => do <= pot_x;
+          when "11010" => do <= pot_Y;
+          when "11011" => do <= Misc_Osc3_Random;
+          when "11100" => do <= Misc_Env3;
+                                        --------------------------------------
+          when "11101" => if supersid = '1' then do <= reg_pan_left; else do <= databus; end if;
+          when "11110" => if supersid = '1' then do <= reg_pan_right; else do <= databus; end if;
+          when others => do <= databus;
+        end case;
+      else  
+        case addr is
+          -- @IO:GS $D419 SID:PADDLE1 Analog/Digital Converter: Game Paddle 1 (0-255)
+          -- @IO:GS $D41A SID:PADDLE2 Analog/Digital Converter Game Paddle 2 (0-255)
+          -- @IO:GS $D41B SID:OSC3RNG Oscillator 3 Random Number Generator
+          -- @IO:GS $D41C SID:ENV3OUT Envelope Generator 3 Output
+          -------------------------------------- Misc
+          when "11001" => do <= pot_x;
+          when "11010" => do <= pot_Y;
+          when "11011" => do <= Misc_Osc3_Random;
+          when "11100" => do <= Misc_Env3;
+          --------------------------------------
+          when "11101" => if supersid = '1' then do <= reg_pan_left; else do <= databus; end if;
+          when "11110" => if supersid = '1' then do <= reg_pan_right; else do <= databus; end if;
+          when others => do <= databus;
+        end case;
+      end if; 
     else
       do <= (others => 'Z');
     end if;
   end process;
   
   
-  process (cpuclock,reset_drive)
+  process (cpuclock,reset)
   begin
-    if reset_drive='1' then
+    if reset='1' then
       ff1<='0';
     else
       if rising_edge(cpuclock) then
@@ -407,7 +461,7 @@ begin
   process(cpuclock)
   begin
     if rising_edge(cpuclock) then
-      reset_drive <= reset;
+      -- reset <= reset;
       tick_q1 <= ff1;
       tick_q2 <= tick_q1;
       
@@ -440,9 +494,9 @@ begin
   input_valid <= '1' when tick_q1 /=tick_q2 else '0';
   
   
-  voice1_signed <= signed("0" & voice_1) - 2048 when mode='0' else signed("0" & voice_1_8580) - 2048;
-  voice2_signed <= signed("0" & voice_2) - 2048 when mode='0' else signed("0" & voice_2_8580) - 2048;
-  voice3_signed <= signed("0" & voice_3) - 2048 when mode='0' else signed("0" & voice_3_8580) - 2048;
+  voice1_signed <= signed("0" & voice_1) when mode='0' else signed("0" & voice_1_8580);
+  voice2_signed <= signed("0" & voice_2) when mode='0' else signed("0" & voice_2_8580);
+  voice3_signed <= signed("0" & voice_3) when mode='0' else signed("0" & voice_3_8580);
   
   misc_osc3_random <= misc_osc3_random_6581 when mode='0' else misc_osc3_random_8580;
   misc_env3 <= misc_env3_6581 when mode='0' else misc_env3_8580;
@@ -450,7 +504,7 @@ begin
   filters: entity work.sid_filters 
     port map (
       clk			=> cpuclock,
-      rst			=> reset_drive,
+      rst			=> reset,
       mode                    => mode,
       -- SID registers.
       Fc_lo			=> Filter_Fc_lo,
@@ -482,7 +536,7 @@ begin
   register_decoder:process(cpuclock)
   begin
     if rising_edge(cpuclock) then
-      if (reset_drive = '1') then
+      if (reset = '1') then
         --------------------------------------- Voice-1
         Voice_1_Freq_lo	<= (others => '0');
         Voice_1_Freq_hi	<= (others => '0');
@@ -512,6 +566,9 @@ begin
         Filter_Fc_hi		<= (others => '0');
         Filter_Res_Filt	<= (others => '0');
         Filter_Mode_Vol	<= (others => '0');
+
+        reg_pan_left <= RESET_PAN_LEFT;
+        reg_pan_right <= RESET_PAN_RIGHT;
       else
         Voice_1_Freq_lo	<= Voice_1_Freq_lo;
         Voice_1_Freq_hi	<= Voice_1_Freq_hi;
@@ -542,7 +599,8 @@ begin
         
         if (cs='1') then
           if (we='1') then	-- Write to SID-register
-                                            ------------------------
+            databus <= di;        -- cache data value for invalid readback
+                                        ------------------------
             case addr is
                 -- @IO:GS $D400 SID:VOICE1!FRQLO@VOICEX!FRQLO Voice X Frequency Low
                 -- @IO:GS $D401 SID:VOICE1!FRQHI@VOICEX!FRQHI Voice X Frequency High
@@ -599,9 +657,9 @@ begin
                 -- @IO:GS $D416 SID:FLTR!CUTFRQHI@FLTR!CUTFRQHI Filter Cutoff Frequency High
                 -- @IO:GS $D417.7-4 SID:FLTR!RESON@FLTR!RESON Filter Resonance
                 -- @IO:GS $D417.3 SID:FLTR!EXTINP@FLTR!EXTINP Filter External Input
-                -- @IO:GS $D417.2 SID:FLTR!V1OUT@FLTR!VXOUT Filter Voice X Output
+                -- @IO:GS $D417.2 SID:FLTR!V3OUT@FLTR!VXOUT Filter Voice X Output
                 -- @IO:GS $D417.1 SID:FLTR!V2OUT @FLTR!VXOUT
-                -- @IO:GS $D417.0 SID:FLTR!V3OUT @FLTR!VXOUT
+                -- @IO:GS $D417.0 SID:FLTR!V1OUT @FLTR!VXOUT
                 -- @IO:GS $D418.7 SID:FLTR!CUTV3 Filter Cut-Off Voice 3 Output (1 = off)
                 -- @IO:GS $D418.6 SID:FLTR!HIPASS Filter High-Pass Mode
                 -- @IO:GS $D418.5 SID:FLTR!BDPASS Filter Band-Pass Mode
@@ -640,10 +698,33 @@ begin
                                         --------------------------------------
               when others	=>	null;
             end case;
+
+            -- @IO:GS $D41D SID:SID!PAN!LEFT SID left channel volume (requires SIDEXENA set)
+            -- @IO:GS $D41E SID:SID!PAN!RIGHT SID right channel volume (requires SIDEXENA set)
+            if supersid = '1' then
+              case addr is
+                when "11101" => reg_pan_left <= di;
+                when "11110" => reg_pan_right <= di;
+                when others => null;
+              end case;
+            end if;
+          else
+            case addr is
+              when "11001" => databus <= pot_x;
+              when "11010" => databus <= pot_Y;
+              when "11011" => databus <= Misc_Osc3_Random;
+              when "11100" => databus <= Misc_Env3;
+              when "11101" => if supersid = '1' then databus <= reg_pan_left; end if;
+              when "11110" => if supersid = '1' then databus <= reg_pan_right; end if;
+              when others => null;
+            end case;
           end if;
         end if;
       end if;
     end if;
   end process;
+
+  pan_left <= reg_pan_left;
+  pan_right <= reg_pan_right;
   
 end Behavioral;
