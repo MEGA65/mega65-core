@@ -2199,7 +2199,7 @@ begin
         -- Enable VIC-II/III registers to force video mode settings when touched
         vicii_hot_regs_enable <= '1';
 
-        -- Set CPU to 48MHz
+        -- Set CPU to 40.5MHz
         viciv_fast_internal <= '1';
         viciii_fast_internal <= '1';
         vicii_2mhz_internal <= '0';
@@ -2502,16 +2502,16 @@ begin
               -- C65 VIC-III mode
               viciii_iomode <= "01";
             end if;
-          -- @IO:GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
+          -- @IO:GS $D02F VIC-IV:KEY Write $47 then $53 to enable MEGA65/VIC-IV IO registers
           elsif reg_key=x"47" then
             if fastio_wdata=x"53" then
-              -- C65GS VIC-IV mode
+              -- MEGA65 VIC-IV mode
               viciii_iomode <= "11";
             end if;
           -- @IO:GS $D02F ETH:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
-              -- C65GS Map ethernet frame buffer mode
+              -- MEGA65 Map ethernet frame buffer mode
               viciii_iomode <= "10";
             end if;
           end if;
@@ -2692,7 +2692,7 @@ begin
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
           compositer_enable <= fastio_wdata(7);
-          -- @IO:GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
+          -- @IO:GS $D054.6 VIC-IV:VFAST MEGA65 FAST mode (40.5MHz)
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
           pal_simulate <= fastio_wdata(5);
