@@ -22,7 +22,7 @@ programentrypoint:
 	; disable interrupts so we can single-step more easily
 	sei
 	
-	; Enable C65GS io
+	; Enable MEGA65 io
 	lda #$47
 	sta $d02f
 	lda #$53

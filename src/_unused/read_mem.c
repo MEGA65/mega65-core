@@ -1,5 +1,5 @@
 /*
-  Use serial monitor to extract memory contents from a running C65GS machine.
+  Use serial monitor to extract memory contents from a running MEGA65 machine.
 
 Copyright (C) 2014 Paul Gardner-Stephen
 Portions Copyright (C) 2013 Serval Project Inc.

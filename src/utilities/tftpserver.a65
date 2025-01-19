@@ -1,4 +1,4 @@
-; Ethernet controller test program for the C65GS
+; Ethernet controller test program for the MEGA65
 
 ; Include C64 BASIC program load header
 
@@ -17,7 +17,7 @@ iter1:	 .byte 0
 
 programentrypoint:
 	
-	; Enable C65GS io
+	; Enable MEGA65 io
 	lda #$47
 	sta $d02f
 	lda #$53

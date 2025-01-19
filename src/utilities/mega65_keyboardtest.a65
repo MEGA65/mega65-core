@@ -17,7 +17,7 @@ programentrypoint:
 
 	sei
 
-	; C65GS io
+	; MEGA65 io
 	lda #$47
 	sta $d02f
 	lda #$53

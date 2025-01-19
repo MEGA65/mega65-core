@@ -1264,7 +1264,7 @@ $(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
-# within both the c64 and the c65gs
+# within both the c64 and the mega65
 # note that the iomap.txt file already comes from github.
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
 iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl

@@ -1,7 +1,7 @@
 Introduction
 ----------
 
-The 65GS02 is the fast CPU core of the C65GS computer.  It is
+The 65GS02 is the fast CPU core of the MEGA65 computer.  It is
 basically a fast 6502 with increased IPC through the use of a 64bit
 memory bus.  The memory bus is separated into eight separately
 addressable columns, allowing the fetching of instructions in a single

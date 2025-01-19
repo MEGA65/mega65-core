@@ -135,7 +135,7 @@ C64 $D02E VIC-II:SPR7COL @SPRNCOL
 GS $D02F ETH:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
 C64 $D02F VIC-II:KEY Write $00 then $00 to enable C64/VIC-II IO registers
-GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
+GS $D02F VIC-IV:KEY Write $47 then $53 to enable MEGA65/VIC-IV IO registers
 C64 $D030.0 VIC-II:C128!FAST 2MHz select (for C128 2MHz emulation)
 C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
@@ -228,7 +228,7 @@ GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR!H640 Sprite H640 enable
 GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
-GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
+GS $D054.6 VIC-IV:VFAST MEGA65 FAST mode (40.5MHz)
 GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
 GS $D054 SUMMARY:VIC-IV Control register C
 GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)

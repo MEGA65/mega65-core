@@ -27,7 +27,7 @@ programentrypoint:
 	lda #$36
 	sta $01
 
-	; Enable C65GS IO
+	; Enable MEGA65 IO
 	lda #$47
 	sta $d02f
 	lda #$53

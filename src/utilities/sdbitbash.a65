@@ -17,7 +17,7 @@ iter1:	 .byte 0
 
 programentrypoint:
 	
-	; Enable C65GS io
+	; Enable MEGA65 io
 	lda #$47
 	sta $d02f
 	lda #$53

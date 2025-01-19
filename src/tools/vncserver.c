@@ -726,7 +726,7 @@ int main(int argc, char **argv)
     }
 
     if (len > 2100) {
-      // probably a C65GS compressed video frame.
+      // probably a MEGA65 compressed video frame.
       // printf("."); fflush(stdout);
 
       if (debug & 2) {

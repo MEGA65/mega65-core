@@ -1,4 +1,4 @@
--- Accelerated 6502-like CPU for the C65GS
+-- Accelerated 6502-like CPU for the MEGA65
 --
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2014
@@ -154,12 +154,12 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Control CPU speed.  Use 
     ---------------------------------------------------------------------------
-    --         C128 2MHZ ($D030)  : C65 FAST ($D031) : C65GS FAST ($D054)
+    --         C128 2MHZ ($D030)  : C65 FAST ($D031) : MEGA65 FAST ($D054)
     -- ~1MHz   0                  : 0                : X
     -- ~2MHz   1                  : 0                : 0
     -- ~3.5MHz 0                  : 1                : 0
-    -- 48MHz   1                  : X                : 1
-    -- 48MHz   X                  : 1                : 1
+    -- 40.5MHz 1                  : X                : 1
+    -- 40.5MHz X                  : 1                : 1
     ---------------------------------------------------------------------------    
     vicii_2mhz : in std_logic;
     viciii_fast : in std_logic;
@@ -470,7 +470,7 @@ begin
               when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
               when others =>
                 -- All else accesses IO
-                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- C64/C65/MEGA65 I/O is based on which secret knock has been applied
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
@@ -504,7 +504,7 @@ begin
               when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
               when others =>
                 -- All else accesses IO
-                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- C64/C65/MEGA65 I/O is based on which secret knock has been applied
                 -- to $D02F
                 temp_address(27 downto 12) := x"FFD3";
                 temp_address(13 downto 12) := unsigned(viciii_iomode);          
