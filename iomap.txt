@@ -149,8 +149,8 @@ C64 $D030 SUMMARY: C128 2MHz emulation
 C65 $D030 SUMMARY:VIC-III Control Register A
 C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
 C65 $D031.1 VIC-III:MONO Enable VIC-III MONO composite video output (colour if disabled)
-C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
-C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels
+C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented, disables PALEMU)
+C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels (disables PALEMU)
 C65 $D031.4 VIC-III:BPM Bit-Plane Mode
 C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
 C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
@@ -227,7 +227,7 @@ GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR!H640 Sprite H640 enable
-GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation
+GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation (disabled by V400 or H1280)
 GS $D054.6 VIC-IV:VFAST MEGA65 FAST mode (40.5MHz)
 GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
 GS $D054 SUMMARY:VIC-IV Control register C
