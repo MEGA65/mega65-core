@@ -82,7 +82,7 @@
   output wire monitor_mem_trace_toggle
     );
 
-  wire [191:0] history_wdata;
+  wire [199:0] history_wdata;
   
   // 16 byte wide section
   assign history_wdata[7:0] = monitor_p;
