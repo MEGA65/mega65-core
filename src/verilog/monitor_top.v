@@ -105,7 +105,7 @@
   assign history_wdata[126] = monitor_request_reflected;
   assign history_wdata[127] = monitor_interrupt_inhibit;
   
-  // 8 byte wide section, 2 unused bytes at top
+  // 9 byte wide section
   assign history_wdata[135:128] = { monitor_map_enables_high, monitor_map_offset_high[11:8] };
   assign history_wdata[143:136] = monitor_map_offset_high[7:0];
   assign history_wdata[151:144] = monitor_opcode;
@@ -121,7 +121,7 @@
   wire [7:0] history_rdata_lo;
   wire [7:0] history_rdata_hi;
   
-  wire [13:0] history_read_address_lo;
+  wire [12:0] history_read_address_lo;
   wire [12:0] history_read_address_hi;
   
   wire [9:0] history_read_index;
@@ -155,7 +155,7 @@
   // 128 bits, and write width for RAM1 is 72 bits.   The write side address width is 9 bits for both.
   // For the read side, RAM 0 is a 8Kx8b, and RAM 1 is a 8Kx8b.   The read side is mapped
   // into the 6502's address space via 16 and 8 byte windows.
-  asym_ram_sdp #(.WIDTHA(128),.SIZEA(512),.ADDRWIDTHA(9), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(14)) 
+  asym_ram_sdp #(.WIDTHA(128),.SIZEA(512),.ADDRWIDTHA(9), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(13)) 
                historyram0(
                .clkA(clock),.weA(history_write),.enaA(1),
                .addrA(history_write_index),.diA(history_wdata[127:0]),

@@ -23,7 +23,7 @@ begin
     16'b0000000z_zzzzzzzz: begin read_select = 1; ram_write = cpu_write; end  // $0000-$01ff - RAM (zero page + stack)
     16'b0111zzzz_zzzzzzzz: read_select = 5;                                   // $7000-$7fff - CPU State
     16'b1000zzzz_zzz0zzzz: read_select = 2;                                   // $8000-$800f - History Lo
-    16'b1000zzzz_zzz10zzz: read_select = 3;                                   // $8010-$8017 - History Hi
+    16'b1000zzzz_zzz1zzzz: read_select = 3;                                   // $8010-$801f - History Hi
     16'b1001zzzz_zzzzzzzz: begin read_select = 4; ctrl_write = cpu_write; ctrl_read = ~cpu_write; end // $9000-$9000 - Monitor Ctrl
     16'b1111zzzz_zzzzzzzz: read_select = 1;                                   // $f000-$ffff - Monitor "ROM"
     default :              read_select = 0;                                   // Nothing?
