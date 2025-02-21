@@ -160,6 +160,8 @@ entity gs4510 is
     monitor_map_offset_high : out unsigned(11 downto 0);
     monitor_map_enables_low : out unsigned(3 downto 0);
     monitor_map_enables_high : out unsigned(3 downto 0);
+    monitor_map_lo_mb : out unsigned(7 downto 0);
+    monitor_map_hi_mb : out unsigned(7 downto 0);
     monitor_interrupt_inhibit : out std_logic;
     monitor_memory_access_address : out unsigned(31 downto 0);
     monitor_cpuport : out unsigned(2 downto 0);
@@ -9157,6 +9159,8 @@ begin
   monitor_map_offset_high <= reg_offset_high; 
   monitor_map_enables_low <= unsigned(reg_map_low); 
   monitor_map_enables_high <= unsigned(reg_map_high); 
+  monitor_map_lo_mb <= unsigned(reg_mb_low);
+  monitor_map_hi_mb <= unsigned(reg_mb_high);
   
   -- alternate (new) combinatorial core memory address generation.
   process (state,reg_pc,vector,reg_t,hypervisor_mode,monitor_mem_attention_request_drive,monitor_mem_address_drive,

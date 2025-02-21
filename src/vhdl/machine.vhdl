@@ -1210,6 +1210,8 @@ begin
       monitor_map_offset_high => monitor_map_offset_high,
       monitor_map_enables_low => monitor_map_enables_low,
       monitor_map_enables_high => monitor_map_enables_high,
+      monitor_map_lo_mb => monitor_map_lo_mb,
+      monitor_map_hi_mb => monitor_map_hi_mb,
       monitor_memory_access_address => monitor_memory_access_address,
 
       monitor_mem_address => monitor_mem_address,
@@ -2048,6 +2050,8 @@ begin
     monitor_map_offset_high => monitor_map_offset_high,
     monitor_map_enables_low => monitor_map_enables_low,
     monitor_map_enables_high => monitor_map_enables_high,
+    monitor_map_lo_mb => monitor_map_lo_mb,
+    monitor_map_hi_mb => monitor_map_hi_mb,
     monitor_memory_access_address => monitor_memory_access_address,
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
