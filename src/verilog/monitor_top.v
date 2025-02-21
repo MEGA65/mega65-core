@@ -150,17 +150,17 @@
   assign history_read_address_lo = { history_read_index, cpu_address_next[3:0]};
   assign history_read_address_hi = { history_read_index, cpu_address_next[2:0]};
   
-  // Conceptually the history RAM is a dual ported 1024x24 byte RAM, broken up into
-  // a 1Kx16B and a 1Kx8B.   From the write side, the write width for RAM 0 is
-  // 128 bits, and write width for RAM1 is 64 bits.   The write side address width is 10 bits for both.
-  // For the read side, RAM 0 is a 16Kx8b, and RAM 1 is a 8Kx8b.   The read side is mapped
+  // Conceptually the history RAM is a dual ported 512 byte RAM, broken up into
+  // a 512Bx16B and a 512Bx9B.   From the write side, the write width for RAM 0 is
+  // 128 bits, and write width for RAM1 is 72 bits.   The write side address width is 9 bits for both.
+  // For the read side, RAM 0 is a 8Kx8b, and RAM 1 is a 8Kx8b.   The read side is mapped
   // into the 6502's address space via 16 and 8 byte windows.
-  asym_ram_sdp #(.WIDTHA(128),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(16384),.ADDRWIDTHB(14)) 
+  asym_ram_sdp #(.WIDTHA(128),.SIZEA(512),.ADDRWIDTHA(9), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(14)) 
                historyram0(
                .clkA(clock),.weA(history_write),.enaA(1),
                .addrA(history_write_index),.diA(history_wdata[127:0]),
                .clkB(clock),.enaB(1),.addrB(history_read_address_lo),.doB(history_rdata_lo));
-  asym_ram_sdp #(.WIDTHA(72),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(13))
+  asym_ram_sdp #(.WIDTHA(72),.SIZEA(512),.ADDRWIDTHA(9), .WIDTHB(8),.SIZEB(4608),.ADDRWIDTHB(13))
                historyram1(
                .clkA(clock),.weA(history_write),.enaA(1),
                .addrA(history_write_index),.diA(history_wdata[199:128]),
