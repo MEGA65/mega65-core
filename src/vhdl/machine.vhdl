@@ -486,6 +486,8 @@ architecture Behavioral of machine is
       monitor_map_offset_high : in unsigned(11 downto 0);
       monitor_map_enables_low : in unsigned(3 downto 0);
       monitor_map_enables_high : in unsigned(3 downto 0);
+      monitor_map_lo_mb : in unsigned(7 downto 0);
+      monitor_map_hi_mb : in unsigned(7 downto 0);
       monitor_interrupt_inhibit : in std_logic;
 
       monitor_char : in unsigned(7 downto 0);
