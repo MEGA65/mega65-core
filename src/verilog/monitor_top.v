@@ -65,6 +65,8 @@
   input [7:0] monitor_char,
   input monitor_char_toggle,
   output wire monitor_char_busy,
+  input [7:0] monitor_map_low_mb,
+  input [7:0] monitor_map_hi_mb,
 
   output wire [27:0] monitor_mem_address,
   input [7:0] monitor_mem_rdata,
@@ -111,8 +113,9 @@
   assign history_wdata[167:160] = monitor_arg2;
   assign history_wdata[175:168] = monitor_instruction;
   assign history_wdata[183:176] = monitor_roms;
-  assign history_wdata[191:184] = 8'h00;
-  
+  assign history_wdata[191:184] = monitor_map_hi_mb 
+  assign history_wdata[199:192] = monitor_map_lo_mb 
+
   wire [9:0] history_write_index;
   
   wire [7:0] history_rdata_lo;
@@ -157,10 +160,10 @@
                .clkA(clock),.weA(history_write),.enaA(1),
                .addrA(history_write_index),.diA(history_wdata[127:0]),
                .clkB(clock),.enaB(1),.addrB(history_read_address_lo),.doB(history_rdata_lo));
-  asym_ram_sdp #(.WIDTHA(64),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(13))
+  asym_ram_sdp #(.WIDTHA(72),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(13))
                historyram1(
                .clkA(clock),.weA(history_write),.enaA(1),
-               .addrA(history_write_index),.diA(history_wdata[191:128]),
+               .addrA(history_write_index),.diA(history_wdata[199:128]),
                .clkB(clock),.enaB(1),.addrB(history_read_address_hi),.doB(history_rdata_hi));
   
   // Recent CPU State RAM is relatively small, only 64 bits wide by 16 entires deep used to store all the states (and addresses)
