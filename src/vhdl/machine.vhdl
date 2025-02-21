@@ -630,6 +630,8 @@ architecture Behavioral of machine is
   signal monitor_map_offset_high : unsigned(11 downto 0);
   signal monitor_map_enables_low : unsigned(3 downto 0);
   signal monitor_map_enables_high : unsigned(3 downto 0);
+  signal monitor_map_lo_mb : unsigned(7 downto 0);
+  signal monitor_map_hi_mb : unsigned(7 downto 0);
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_setpc : std_logic;
