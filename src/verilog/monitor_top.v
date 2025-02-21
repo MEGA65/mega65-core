@@ -113,8 +113,8 @@
   assign history_wdata[167:160] = monitor_arg2;
   assign history_wdata[175:168] = monitor_instruction;
   assign history_wdata[183:176] = monitor_roms;
-  assign history_wdata[191:184] = monitor_map_hi_mb 
-  assign history_wdata[199:192] = monitor_map_lo_mb 
+  assign history_wdata[191:184] = monitor_map_hi_mb;
+  assign history_wdata[199:192] = monitor_map_lo_mb;
 
   wire [9:0] history_write_index;
   
