@@ -65,7 +65,7 @@
   input [7:0] monitor_char,
   input monitor_char_toggle,
   output wire monitor_char_busy,
-  input [7:0] monitor_map_low_mb,
+  input [7:0] monitor_map_lo_mb,
   input [7:0] monitor_map_hi_mb,
 
   output wire [27:0] monitor_mem_address,
