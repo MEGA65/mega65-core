@@ -198,7 +198,7 @@ uint8_t mfsc_load_dir(uint8_t new_dir)
   uint8_t fnlen, i, j, isroot = 0;
 
   // clear screen and display scanning message
-  mhx_draw_rect(6, 11, 26, 1, "Scanning directoy", MHX_A_WHITE|MHX_A_INVERT, 1);
+  mhx_draw_rect(6, 11, 26, 1, "Scanning directory", MHX_A_WHITE|MHX_A_INVERT, 1);
   mhx_set_xy(7, 12);
 
   // check if sd card is either not initialised or the wrong bus is selected
