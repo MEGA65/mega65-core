@@ -1,4 +1,4 @@
--- Accelerated 6502-like CPU for the C65GS
+-- Accelerated 6502-like CPU for the MEGA65
 --
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2018
@@ -211,12 +211,12 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- Control CPU speed.  Use 
     ---------------------------------------------------------------------------
-    --         C128 2MHZ ($D030)  : C65 FAST ($D031) : C65GS FAST ($D054)
+    --         C128 2MHZ ($D030)  : C65 FAST ($D031) : MEGA65 FAST ($D054)
     -- ~1MHz   0                  : 0                : X
     -- ~2MHz   1                  : 0                : 0
     -- ~3.5MHz 0                  : 1                : 0
-    -- 48MHz   1                  : X                : 1
-    -- 48MHz   X                  : 1                : 1
+    -- 40.5MHz 1                  : X                : 1
+    -- 40.5MHz X                  : 1                : 1
     ---------------------------------------------------------------------------    
     vicii_2mhz : in std_logic;
     viciii_fast : in std_logic;
@@ -3832,7 +3832,7 @@ begin
       --+-------+-------+-------+-------+-------+-------+-------+-------+
       --
 
-      -- C65GS extension: Set the MegaByte register for low and high mobies
+      -- MEGA65 extension: Set the MegaByte register for low and high mobies
       -- so that we can address all 256MB of RAM.
       if reg_x = x"0f" then
         reg_mb_low <= reg_a;
@@ -5286,7 +5286,7 @@ begin
                                           -- @IO:GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
                                           -- @IO:GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
                                           -- @IO:GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
-                                          -- @IO:GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+                                          -- @IO:GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 40.5MHz for userland (userland can override via POKE0)
                                           -- @IO:GS $D67D.5 HCPU:F4502 Hypervisor force CPU to 4502 personality, even in C64 IO mode.
                                           -- @IO:GS $D67D.6 HCPU:PIRQ Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
                                           -- @IO:GS $D67D.7 HCPU:PNMI Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
@@ -9283,7 +9283,7 @@ begin
             when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
             when others =>
               -- All else accesses IO
-              -- C64/C65/C65GS I/O is based on which secret knock has been applied
+              -- C64/C65/MEGA65 I/O is based on which secret knock has been applied
               -- to $D02F
               temp_address(27 downto 12) := x"FFD3";
               if hypervisor_mode='0' then

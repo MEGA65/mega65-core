@@ -1,6 +1,6 @@
 /*
-  Use libpcap to fetch raw video packets from C65GS, and then present them
-  via a UDP socket for reading by the C65GS vncserver.  The idea is to
+  Use libpcap to fetch raw video packets from MEGA65, and then present them
+  via a UDP socket for reading by the MEGA65 vncserver.  The idea is to
   separate the packet sniffer which needs root, from the part that listens
   to connections from the internet.
 
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
     const unsigned char *packet = pcap_next(descr, &hdr);
     if (packet) {
       if (hdr.caplen == 2132) {
-        // probably a C65GS compressed video frame.
+        // probably a MEGA65 compressed video frame.
         if (client_sock != -1)
           write(client_sock, packet, 2132);
       }

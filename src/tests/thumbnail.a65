@@ -13,7 +13,7 @@ iter1:	 .byte 0
 	 .checkpc 2079
 	 .advance 2079
 
-	 ; C65GS IO
+	 ; MEGA65 IO
 	 lda #$47
 	 sta $d02f
 	 lda #$53

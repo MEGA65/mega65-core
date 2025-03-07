@@ -185,7 +185,7 @@ The MEGA65 computer is planned to have several processing cores and video cores 
 
 For MEGA65 mode:
 
-- GS4510 (SailFish), a 4502 instruction-compatible processor with integrated MMU capable of addressing 256MB of RAM. This is effectively a 48MHz 4502-compatible CPU, except for the changes that allow access to additional address space.  Some instructions take one or two more cycles than on a real 4502, this being a small trade-off for approximately 15x higher clock speed than the C65’s 4502.
+- GS4510 (SailFish), a 4502 instruction-compatible processor with integrated MMU capable of addressing 256MB of RAM. This is effectively a 40.5MHz 4502-compatible CPU, except for the changes that allow access to additional address space.  Some instructions take one or two more cycles than on a real 4502, this being a small trade-off for approximately 15x higher clock speed than the C65’s 4502.
 
 - GS6569 VIC-IV (VampireSquid), a 6569-inspired video controller, directly driving a 1920x1200@60Hz VGA output, supporting a 256-colour palette drawn from a 24-bit* colour space, and higher-resolution modes, up to 1920x1200. All higher-resolution modes are normally text modes (although high-resolution VIC-II bitmap mode is also supported), using standard or 256-colour colour characters, so that high resolution modes can be used without consuming too much memory. Support for variable-width is also included, and anti-aliased characters are planned in the near future.
 
@@ -615,7 +615,7 @@ GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per characte
 GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for characF
 GS $D054.3 VIC-IV video output smear filter enable
-GS $D054.6 VIC-IV/MEGA65 FAST mode (48MHz)
+GS $D054.6 VIC-IV/MEGA65 FAST mode (40.5MHz)
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)

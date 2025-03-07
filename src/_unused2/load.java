@@ -48,7 +48,7 @@ public class load {
 		}
 		toSend = toSend + "\n";
 		outToServer.write(toSend.getBytes());
-		// C65GS serial interface writes a similar number of bytes back to us.  Allow for this to happen.
+		// MEGA65 serial interface writes a similar number of bytes back to us.  Allow for this to happen.
 		System.out.print(inFromServer.read());
 		//		System.out.println(toSend);
 	    }

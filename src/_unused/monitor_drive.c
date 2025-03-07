@@ -1,5 +1,5 @@
 /*
-  LOAD wedge for C65GS serial monitor.
+  LOAD wedge for MEGA65 serial monitor.
   Activates a break point at $F4A2, and then checks periodically to see if the
   CPU is there.  If so, extract file name, look for it in search path, and
   then either load it, set X & Y to upper address, and then return success (gf5a9),

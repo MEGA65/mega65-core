@@ -1067,7 +1067,7 @@ enhanced_io:
 		lda #$00
 		sta $D02F
 		rts
-l1:		; Enable VIC-IV / C65GS IO
+l1:		; Enable VIC-IV / MEGA65 IO
 		lda #$47
 		sta $D02F
 		lda #$53
