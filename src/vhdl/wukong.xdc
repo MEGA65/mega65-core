@@ -39,7 +39,7 @@ set_property -dict {PACKAGE_PIN P18 IOSTANDARD LVCMOS33                } [get_po
 # Buttons.
 ################################################################################
 set_property -dict {PACKAGE_PIN H7  IOSTANDARD LVCMOS33} [get_ports reset_button];
-#set_property -dict {PACKAGE_PIN M6  IOSTANDARD LVCMOS33} [get_ports button2     ];
+set_property -dict {PACKAGE_PIN M6  IOSTANDARD LVCMOS33} [get_ports restore_key ];
 
 ################################################################################
 # LEDs.

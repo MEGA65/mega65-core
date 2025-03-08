@@ -3,7 +3,4 @@
 
 extern void * const s25flxxxs;
 
-// char write_dynamic_protection_bits(unsigned int sector_number, BOOL protect);
-char write_dynamic_protection_bits(unsigned long address, BOOL protect);
-
 #endif
