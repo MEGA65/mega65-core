@@ -1147,6 +1147,12 @@ freeze_mem_list:
         !8 0
         !8 freeze_prep_none
 
+        ;; The reset of FFD3000 from last track (for drive initialization)
+        !32 $ffd3084
+        !16 $007C
+        !8 0
+        !8 freeze_prep_none
+
         ;; XXX - Other IO chips!
 
         ;; End of list

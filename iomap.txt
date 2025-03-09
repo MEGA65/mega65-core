@@ -135,7 +135,7 @@ C64 $D02E VIC-II:SPR7COL @SPRNCOL
 GS $D02F ETH:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
 C64 $D02F VIC-II:KEY Write $00 then $00 to enable C64/VIC-II IO registers
-GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
+GS $D02F VIC-IV:KEY Write $47 then $53 to enable MEGA65/VIC-IV IO registers
 C64 $D030.0 VIC-II:C128!FAST 2MHz select (for C128 2MHz emulation)
 C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
@@ -228,7 +228,7 @@ GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
 GS $D054.4 VIC-IV:SPR!H640 Sprite H640 enable
 GS $D054.5 VIC-IV:PALEMU Enable PAL CRT-like scan-line emulation (disabled by V400 or H1280)
-GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
+GS $D054.6 VIC-IV:VFAST MEGA65 FAST mode (40.5MHz)
 GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
 GS $D054 SUMMARY:VIC-IV Control register C
 GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
@@ -244,7 +244,7 @@ GS $D05D.6 VIC-IV:RST!DELEN Enable raster delay (delays raster counter and inter
 GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes. Touching registers while this is disabled will trigger a change when reenabling. Setting this to 0 will clear the recalc flag, canceling the recalculation.
 GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row (LSB)
 GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
-GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 0 - 7)
+GS $D060 VIC-IV:SCRNPTRLSB screen RAM precise base address (bits 7 - 0)
 GS $D061 VIC-IV:SCRNPTRMSB screen RAM precise base address (bits 15 - 8)
 GS $D062 VIC-IV:SCRNPTRBNK screen RAM precise base address (bits 23 - 16)
 GS $D063.0-3 VIC-IV:SCRNPTRMB screen RAM precise base address (bits 27 - 24)
@@ -727,7 +727,7 @@ GS $D67D.0 HCPU:RSVD RESERVED
 GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
 GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
-GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 40.5MHz for userland (userland can override via POKE0)
 GS $D67D.5 HCPU:F4502 Hypervisor force CPU to 4502 personality, even in C64 IO mode.
 GS $D67D.6 HCPU:PIRQ Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
 GS $D67D.7 HCPU:PNMI Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
@@ -781,11 +781,8 @@ GS $D68A.3 SD:VFDC1 (read only) Set if drive 1 is virtualised (sectors delivered
 GS $D68A.6 SDFDC:D0D64 F011 drive 0 disk image is D64 if set, otherwise D81 (also see SDFDC:D0MD)
 GS $D68A.7 SDFDC:D1D64 F011 drive 1 disk image is D64 if set, otherwise D81 (also see SDFDC:D1MD)
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
-GS $D68B.0 - F011 drive 0 disk image enable
 GS $D68B.0 SDFDC:D0IMG F011 drive 0 use disk image if set, otherwise use real floppy drive.
-GS $D68B.1 - F011 drive 0 present
 GS $D68B.1 SDFDC:D0P F011 drive 0 media present
-GS $D68B.2 - F011 drive 0 write protect
 GS $D68B.2 SDFDC:D0WP Write enable F011 drive 0
 GS $D68B.3 SDFDC:D1IMG F011 drive 1 use disk image if set, otherwise use real floppy drive.
 GS $D68B.4 SDFDC:D1P F011 drive 1 media present

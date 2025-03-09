@@ -29,10 +29,10 @@ int dumpImage()
 {
   printf("Decoded %d bytes of frame.\n", image_offset);
 
-  FILE *out = fopen("c65gs-screen.bmp", "w");
+  FILE *out = fopen("mega65-screen.bmp", "w");
 
   if (!out) {
-    fprintf(stderr, "could not create c65gs-screen.bmp\n");
+    fprintf(stderr, "could not create mega65-screen.bmp\n");
     exit(-1);
   }
 
@@ -59,7 +59,7 @@ int dumpImage()
     fwrite(linebuffer, 1920 * 4, 1, out);
   }
   fclose(out);
-  printf("Wrote c65gs-screen.bmp\n");
+  printf("Wrote mega65-screen.bmp\n");
 
   return 0;
 }
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
     const unsigned char *packet = pcap_next(descr, &hdr);
     if (packet) {
       if (hdr.caplen == 2132) {
-        // probably a C65GS compressed video frame.
+        // probably a MEGA65 compressed video frame.
 
         // stop if we see frame overflow
         // if (image_offset>=1920*1200) { exit(dumpImage()); }

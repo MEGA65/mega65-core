@@ -36,8 +36,9 @@ entity container is
     reset_button : in std_logic;
 
     -- Keyboard.
-    porta_pins : inout std_logic_vector(7 downto 0);
-    portb_pins : inout std_logic_vector(7 downto 0);
+    restore_key : in std_logic;
+    porta_pins  : inout std_logic_vector(7 downto 0);
+    portb_pins  : inout std_logic_vector(7 downto 0);
 
     -- Joysticks.
     fa_left  : in std_logic;
@@ -86,7 +87,6 @@ architecture Behavioral of container is
   signal pixelclock           : std_logic;
   signal clock27              : std_logic;
   signal clock270             : std_logic;
-  signal restore_key          : std_logic := '1';
   signal sector_buffer_mapped : std_logic;
   signal fpga_temperature     : std_logic_vector(11 downto 0) := (others => '0');
 

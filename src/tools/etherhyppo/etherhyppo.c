@@ -150,7 +150,7 @@ int main(int argc, char **argv)
   }
 
   if (runmode == 1) {
-    // Tell C65GS that we are all done
+    // Tell MEGA65 that we are all done
     int i;
     printf("Trying to start program ...\n");
     for (i = 0; i < 10; i++) {
@@ -167,7 +167,7 @@ int main(int argc, char **argv)
     }
   }
   else {
-    printf("Push mode -- leaving C65GS in etherhyppo.\n");
+    printf("Push mode -- leaving MEGA65 in etherhyppo.\n");
   }
 
   return 0;

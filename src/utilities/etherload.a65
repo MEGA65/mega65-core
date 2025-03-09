@@ -1,4 +1,4 @@
-; Simple ethernet programme loader for C65GS.
+; Simple ethernet programme loader for MEGA65.
 ; Reads and checks packets, and then runs code contained in the packets.
 ; This keeps the programme VERY small.
 ; Uses IPv6 and Neighbor Discovery (ND) advertisement.
@@ -9,7 +9,7 @@
 programentrypoint:
 	sei
 
-	; C65GS io
+	; MEGA65 io
 	lda #$47
 	sta $d02f
 	lda #$53

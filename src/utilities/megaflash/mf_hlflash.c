@@ -408,31 +408,22 @@ int8_t mfhf_load_core() {
   }
   nhsd_close();
 
-#if defined(NO_ATTIC) || defined(STANDALONE)
 #ifdef STANDALONE
   if (mfhf_attic_disabled) {
 #endif/* STANDALONE */
-    mfhf_core_file_state = (core_crc != get_crc32() || first) ? MFHF_LC_NOTLOADED : MFHF_LC_FROMDISK;
-    mfp_set_area(0, length, mfhf_core_file_state != MFHF_LC_ATTICOK ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state != MFHF_LC_ATTICOK ? MHX_A_RED : MHX_A_GREEN));
-    if (mfhf_core_file_state != MFHF_LC_ATTICOK) {
-      mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
-      return mfhf_core_file_state;
-    }
-    return mfhf_core_file_state;
-#ifdef STANDALONE
-  }
-#endif/* STANDALONE */
+#if defined(NO_ATTIC) || defined(STANDALONE)
+    if (core_crc == get_crc32() && !first)
+      mfhf_core_file_state = MFHF_LC_FROMDISK;
 #endif /* NO_ATTIC || STANDALONE */
-
-  if (addr & 0xffff)
-    mfp_set_area(addr >> 16, 1, 0x5f, MHX_A_WHITE);
-
-  // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
-
 #ifdef STANDALONE
-  if (!mfhf_attic_disabled) {
+  } else {
 #endif/* STANDALONE */
 #if !defined(NO_ATTIC) || defined(STANDALONE)
+    if (addr & 0xffff)
+      mfp_set_area(addr >> 16, 1, 0x5f, MHX_A_WHITE);
+
+    // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
+
     // check crc32 of file as a check for ATTIC RAM, too
     mfp_start(0, MFP_DIR_UP, 0xa0, MHX_A_WHITE, " Checking CRC32 ", MHX_A_WHITE);
     make_crc32_tables(data_buffer, cfi_data);
@@ -458,20 +449,20 @@ int8_t mfhf_load_core() {
       if (mhx_lastkey.code.key == 0x03 || mhx_lastkey.code.key == 0x1b)
         return MFHF_LC_NOTLOADED;
     }
+
     if (core_crc == get_crc32() && !first)
       mfhf_core_file_state = MFHF_LC_ATTICOK;
-    mfp_set_area(0, length, mfhf_core_file_state != MFHF_LC_ATTICOK ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state != MFHF_LC_ATTICOK ? MHX_A_RED : MHX_A_GREEN));
 
-    if (mfhf_core_file_state != MFHF_LC_ATTICOK) {
-      mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
-      return MFHF_LC_NOTLOADED;
-    }
     // set potentially changed flags after load & crc check
     lpoke(0x8000000L + MFSC_COREHDR_BOOTFLAGS, mfsc_corehdr_bootflags);
 #endif /* !NO_ATTIC || STANDALONE */
 #ifdef STANDALONE
   }
 #endif/* STANDALONE */
+
+  mfp_set_area(0, length, mfhf_core_file_state == MFHF_LC_NOTLOADED ? 'E' : ' ', MHX_A_INVERT|(mfhf_core_file_state == MFHF_LC_NOTLOADED ? MHX_A_RED : MHX_A_GREEN));
+  if (mfhf_core_file_state == MFHF_LC_NOTLOADED)
+    mfhf_display_sderror("CRC32 Checksum Error!", NHSD_ERR_NOERROR);
 
   // mhx_press_any_key(MHX_AK_NOMESSAGE, MHX_A_NOCOLOR);
 
