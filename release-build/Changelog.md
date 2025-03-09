@@ -1,19 +1,45 @@
 
 # Changelog
 
+This Changelog does provide a broad overview over the changes made, it
+does not aim to be complete.
+
 Please look into [mega65-core](https://github.com/MEGA65/mega65-core/),
 [mega65-freezemenu](https://github.com/MEGA65/mega65-freezemenu/), and
-[mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/)
-for a complete changelog.
+[mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/) git histories
+for complete changes.
 
-## Release 0.97 (tbd)
+Please check the [mega65-core repository](https://github.com/MEGA65/mega65-core/releases).
+for our tagged releases.
 
-This is the Summer 2024 Release.
+## Release 0.97 (tbd) TODO: add hash
 
-### Changes
+This is the first 2025 Release.
+
+You can find issues associated with this release by following these links:
+
+- [mega65-core](https://github.com/MEGA65/mega65-core/milestone/9?closed=1)
+- [mega65-freezemenu](https://github.com/MEGA65/mega65-freezemenu/milestone/7?closed=1)
+- [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/milestone/6?closed=1)
+
+Note: It is possible that not all changes were marked with the milestone.
+
+### ROM Release 0.97
+
+The 0.97 Release came with ROM Version 9204XX. TODO: insert version
+
+Please see the
+[ROM Changelog](https://github.com/MEGA65/mega65-rom-public/blob/main/CHANGELOG.md)
+for more information.
+
+### Changes 0.97
 
 - **MEGAFLASH**: refactor low level flashing interface
   [#782](https://github.com/MEGA65/mega65-core/issues/782):
+  - CRC check fix for attic-less boards (plus Wukong build fix)
+    [PR#839](https://github.com/MEGA65/mega65-core/pull/839)
+  - Update mf_selectcore.c to correct a small typo
+    [PR#875](https://github.com/MEGA65/mega65-core/pull/875)
   - QSPI: Some operations do not return to idle (CS# high, SCK high)
     [#764](https://github.com/MEGA65/mega65-core/issues/764)
   - QSPI: Busy flag sdio_busy is unreliable
@@ -23,12 +49,20 @@ This is the Summer 2024 Release.
   - CARTRIDGE: define a MEGA65 style cartridge
     [#711](https://github.com/MEGA65/mega65-core/issues/711)
 - Features:
+  - Disable PALEMU scanlines if V400 is enabled
+    [#854](https://github.com/MEGA65/mega65-core/issues/854)
+  - Various basic SID improvements from Bobby Tables fork
+    [PR#851](https://github.com/MEGA65/mega65-core/pull/851)
   - Implement hardware-accelerated cycle-exact IEC bus controller device
     [#736](https://github.com/MEGA65/mega65-core/issues/736)
     - Needed workaround for IEC transfer in 40 MHz mode
       [#283](https://github.com/MEGA65/mega65-core/issues/283)
     - IEC communications is flaky
       [#341](https://github.com/MEGA65/mega65-core/issues/341)
+    - Fix various issues found during testing
+      [PR#818](https://github.com/MEGA65/mega65-core/pull/818)
+    - 4541 - Add $4C, $50, and $70 commands
+      [PR#825](https://github.com/MEGA65/mega65-core/pull/825)
   - HWERRATA register should return maximum errata level supported
     [#829](https://github.com/MEGA65/mega65-core/issues/829)
   - Allow DMA src/dst addresses to cross MB boundaries
@@ -42,6 +76,14 @@ This is the Summer 2024 Release.
   - CONFIG: Add option to disable floppy drive sounds while accessing SD
     [#622](https://github.com/MEGA65/mega65-core/issues/622)
 - Bugfixes:
+  - add freeze region for 0xFFD3084
+    [PR#868](https://github.com/MEGA65/mega65-core/pull/868)
+  - fix Reverse shifting order of the CIA shift register
+    [#537](https://github.com/MEGA65/mega65-core/issues/537)
+    [PR#538](https://github.com/MEGA65/mega65-core/pull/538)
+  - Fix for blemishes in 640x400 - 16 colour bitplane mode
+    [#689](https://github.com/MEGA65/mega65-core/issues/689)
+    [PR#850](https://github.com/MEGA65/mega65-core/pull/850)
   - Disallow interrupts while stepping through code
     [#847](https://github.com/MEGA65/mega65-core/issues/847)
     [PR#848](https://github.com/MEGA65/mega65-core/pull/848)
@@ -85,11 +127,19 @@ This is the Summer 2024 Release.
     [#664](https://github.com/MEGA65/mega65-core/issues/664)
   - sdcardio: D6A1.3 SDFDC:SILENT seems to have no effect
     [#621](https://github.com/MEGA65/mega65-core/issues/621)
+- FREEZER (updated to 0.3.1)
+  - Key descriptions: HELP listed twice, F9 is not
+    [#90](https://github.com/MEGA65/mega65-freezemenu/issues/90)
+  - Tapping RESTORE key in Freezer menu causes unwanted chaotic behaviour
+    [#89](https://github.com/MEGA65/mega65-freezemenu/issues/89)
 - Build framework:
   - Switch to mega65-tools release 1.00, use coretool, don't build MCS for everything
     [#792](https://github.com/MEGA65/mega65-core/issues/792)
 - Documentation:
+  - Replace c65gs with mega65 and 48 MHz with 40.5 MHz
+    [PR#860](https://github.com/MEGA65/mega65-core/pull/860)
   - Hyppo Register docstring updates
+  - Various general Register docstring updates
   - CHXSGN is described inverted
     [#807](https://github.com/MEGA65/mega65-core/pull/807)
 - Changes probably already fixed in 0.96 (or earlier)
@@ -115,7 +165,15 @@ You can find issues associated with this release by following these links:
 
 Note: It is possible that not all changes were marked with the milestone.
 
-### Changes
+### ROM Release 0.96
+
+The 0.96 Release came with ROM Version 920395.
+
+Please see the
+[ROM Changelog](https://github.com/MEGA65/mega65-rom-public/blob/main/CHANGELOG.md)
+for more information.
+
+### Changes 0.96
 
 - **new MEGAFLASH** version [#683](https://github.com/MEGA65/mega65-core/issues/683):
   - More secure Slot 0 flashing
@@ -223,7 +281,7 @@ Note: It is possible that not all changes were marked with the milestone.
 - Documentation
   [#639](https://github.com/MEGA65/mega65-core/issues/639)
 
-### Known Bugs
+### Known Bugs 0.96
 
 - There are still some open issues with the Expansion Port, so some cartridges
   are not detected correctly by the MEGA65 core (moved to 0.97 Release)
@@ -235,6 +293,16 @@ Note: It is possible that not all changes were marked with the milestone.
 ## Release 0.95 (commit hash 93d55f0)
 
 This is the Batch 2 Release (October 2022).
+
+### ROM Release 0.95
+
+The 0.95 Release came with ROM Version 920377.
+
+Please see the
+[ROM Changelog](https://github.com/MEGA65/mega65-rom-public/blob/main/CHANGELOG.md)
+for more information.
+
+### Changes 0.95
 
 - MEGAFLASH/jtagflash security fixes
   [#589](https://github.com/MEGA65/mega65-core/issues/589)
@@ -327,3 +395,11 @@ This is the Batch 2 Release (October 2022).
 This is the Batch 1 Release (January 2022). Please look into
 [mega65-core](https://github.com/MEGA65/mega65-core/) for a
 complete changelog.
+
+### ROM Release 0.9
+
+The 0.9 Release came with ROM Version 920287.
+
+Please see the
+[ROM Changelog](https://github.com/MEGA65/mega65-rom-public/blob/main/CHANGELOG.md)
+for more information.
