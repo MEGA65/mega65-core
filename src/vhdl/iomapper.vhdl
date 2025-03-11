@@ -609,7 +609,7 @@ architecture behavioral of iomapper is
   signal cia1_irq : std_logic;
   signal ethernet_irq : std_logic := '1';
   signal uart_irq : std_logic;
-  signal iec_irq : std_logic;
+  signal iec_irq : std_logic := '1';
 
   signal audio_mix_reg : unsigned(7 downto 0) := x"FF";
   signal audio_mix_write : std_logic := '0';
