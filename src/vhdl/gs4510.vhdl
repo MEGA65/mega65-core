@@ -4254,75 +4254,53 @@ begin
       end loop;
 
 
-      --dengland
-      -- And from those, we compose the combined left and right values, with
-      -- saturation detection
-      --      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
-      --                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
+      audio_dma_left_temp := ('0' & audio_dma_multed(0)(15 downto 0)) + 
+                             ('0' & audio_dma_multed(1)(15 downto 0));
 
-
-      -- audio_dma_left_temp := audio_dma_saturated_add(audio_dma_multed(0), audio_dma_multed(1));
-
-      audio_dma_left_temp := (audio_dma_multed(0)(15) & audio_dma_multed(0)(15 downto 0)) + 
-                             (audio_dma_multed(1)(15) & audio_dma_multed(1)(15 downto 0));
-
-      if audio_dma_multed(0)(15) = audio_dma_multed(1)(15) 
-      and audio_dma_left_temp(16) /= audio_dma_multed(0)(15) then
+      if  audio_dma_multed(0)(15) = audio_dma_multed(1)(15) 
+      and audio_dma_left_temp(15) /= audio_dma_multed(0)(15) then
         audio_dma_left_temp(16) := '1';
       else  
         audio_dma_left_temp(16):= '0';
       end if;
 
-      -- audio_dma_right_temp := audio_dma_saturated_add(audio_dma_pan_multed(2), audio_dma_pan_multed(3));
-
-      audio_dma_right_temp := (audio_dma_pan_multed(2)(15) & audio_dma_pan_multed(2)(15 downto 0)) + 
-                              (audio_dma_pan_multed(3)(15) & audio_dma_pan_multed(3)(15 downto 0));
-      if audio_dma_pan_multed(2)(15) = audio_dma_pan_multed(3)(15) 
-      and audio_dma_right_temp(16) /= audio_dma_pan_multed(2)(15) then
+      audio_dma_right_temp := ('0' & audio_dma_pan_multed(2)(15 downto 0)) + 
+                              ('0' & audio_dma_pan_multed(3)(15 downto 0));
+      if  audio_dma_pan_multed(2)(15) = audio_dma_pan_multed(3)(15) 
+      and audio_dma_right_temp(15) /= audio_dma_pan_multed(2)(15) then
         audio_dma_right_temp(16) := '1';
       else  
         audio_dma_right_temp(16):= '0';
       end if;
 
 
-      -- audio_dma_mix_temp := audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
-
-      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
-                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
-      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
-      and audio_dma_left_temp(16) /= audio_dma_mix_temp(16) then
+      audio_dma_mix_temp := ('0' & audio_dma_left_temp(15 downto 0)) + 
+                            ('0' & audio_dma_right_temp(15 downto 0));
+      if  audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(15) /= audio_dma_mix_temp(15) then
         audio_dma_mix_temp(16) := '1';
       else  
         audio_dma_mix_temp(16):= '0';
       end if;
 
-      -- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
-      --  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
+-- Warn about this but it shouldn't be happening so we are going to ignore it for actual calculations
+--  Later, when the problem is properly diagnosed, use these to indicate saturation in panning
 
-      if  audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
-          audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' then
+      if audio_dma_left_temp(16) = '1'
+      or audio_dma_right_temp(16) = '1'
+      or audio_dma_mix_temp(16) = '1' then
         audio_dma_left_vol_sat <= '1';
       else
         audio_dma_left_vol_sat <= '0';
       end if;
 
-      if -- audio_dma_multed(0)(16) = '1' or audio_dma_multed(1)(16) = '1' or 
-          -- audio_dma_pan_multed(2)(16) = '1' or audio_dma_pan_multed(3)(16) = '1' or
-          audio_dma_left_temp(16) = '1' or
-          audio_dma_right_temp(16) = '1' or
-          audio_dma_mix_temp(16) = '1' then
-
-        -- if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
-        -- overflow: so saturate instead
+      if audio_dma_left_temp(16) = '1' 
+      or audio_dma_right_temp(16) = '1' 
+      or audio_dma_mix_temp(16) = '1' then
         if audio_dma_saturation_enable='1' then
---dengland Correction as when originally developing noted by kibo
           if audio_dma_mix_temp(15) = '1' then
---          audio_dma_left(15) <= '0';
---          audio_dma_left(14 downto 0) <= (others => '1');
             audio_dma_left <= (others => '0');
           else
---          audio_dma_left(15) <= '1';
---          audio_dma_left(14 downto 0) <= (others => '0');
             audio_dma_left <= (others => '1');
           end if;
         else
@@ -4335,59 +4313,45 @@ begin
       end if;
 
 
-      --      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
-      --                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
-      --      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
- 
-      --        audio_dma_right_temp <= audio_dma_saturated_add(audio_dma_multed(2), audio_dma_multed(3));
-
-      audio_dma_right_temp := (audio_dma_multed(2)(15) & audio_dma_multed(2)(15 downto 0)) + 
-                              (audio_dma_multed(3)(15) & audio_dma_multed(3)(15 downto 0));
-      if audio_dma_multed(2)(15) = audio_dma_multed(3)(15) 
-      and audio_dma_right_temp(16) /= audio_dma_multed(2)(15) then
+      audio_dma_right_temp := ('0' & audio_dma_multed(2)(15 downto 0)) + 
+                              ('0' & audio_dma_multed(3)(15 downto 0));
+      if  audio_dma_multed(2)(15) = audio_dma_multed(3)(15) 
+      and audio_dma_right_temp(15) /= audio_dma_multed(2)(15) then
         audio_dma_right_temp(16) := '1';
       else  
         audio_dma_right_temp(16):= '0';
       end if;
 
-      -- audio_dma_left_temp <= audio_dma_saturated_add(audio_dma_pan_multed(0), audio_dma_pan_multed(1));
-
-      audio_dma_left_temp :=  (audio_dma_pan_multed(0)(15) & audio_dma_pan_multed(0)(15 downto 0)) + 
-                              (audio_dma_pan_multed(1)(15) & audio_dma_pan_multed(1)(15 downto 0));
-      if audio_dma_pan_multed(0)(15) = audio_dma_pan_multed(1)(15) 
-      and audio_dma_left_temp(16) /= audio_dma_pan_multed(0)(15) then
+      audio_dma_left_temp :=  ('0' & audio_dma_pan_multed(0)(15 downto 0)) + 
+                              ('0' & audio_dma_pan_multed(1)(15 downto 0));
+      if  audio_dma_pan_multed(0)(15) = audio_dma_pan_multed(1)(15) 
+      and audio_dma_left_temp(15) /= audio_dma_pan_multed(0)(15) then
         audio_dma_left_temp(16) := '1';
       else  
         audio_dma_left_temp(16):= '0';
       end if;
 
-      -- audio_dma_mix_temp <= audio_dma_saturated_add(audio_dma_left_temp, audio_dma_right_temp);
-
-      audio_dma_mix_temp := (audio_dma_left_temp(15) & audio_dma_left_temp(15 downto 0)) + 
-                            (audio_dma_right_temp(15) & audio_dma_right_temp(15 downto 0));
-      if audio_dma_left_temp(15) = audio_dma_right_temp(15) 
-      and audio_dma_left_temp(16) /= audio_dma_mix_temp(15) then
+      audio_dma_mix_temp := ('0' & audio_dma_left_temp(15 downto 0)) + 
+                            ('0' & audio_dma_right_temp(15 downto 0));
+      if  audio_dma_left_temp(15) = audio_dma_right_temp(15) 
+      and audio_dma_left_temp(15) /= audio_dma_mix_temp(15) then
         audio_dma_mix_temp(16) := '1';
       else  
         audio_dma_mix_temp(16):= '0';
       end if;
 
-      --  Warn but do not use
-
-      if  audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
-          audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' then
+      if audio_dma_left_temp(16) = '1'
+      or audio_dma_right_temp(16) = '1'
+      or audio_dma_mix_temp(16) = '1' then
         audio_dma_right_vol_sat <= '1';
       else
         audio_dma_right_vol_sat <= '0';
       end if;
 
-      if -- audio_dma_multed(2)(16) = '1' or audio_dma_multed(3)(16) = '1' or 
-          --  audio_dma_pan_multed(0)(16) = '1' or audio_dma_pan_multed(1)(16) = '1' or
-          audio_dma_left_temp(16) = '1' or
-          audio_dma_right_temp(16) = '1' or
-          audio_dma_mix_temp(16) = '1' then
+      if audio_dma_left_temp(16) = '1' 
+      or audio_dma_right_temp(16) = '1' 
+      or audio_dma_mix_temp(16) = '1' then
 
-        -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
           if audio_dma_mix_temp(15) = '1' then
             audio_dma_right <= (others => '0');
