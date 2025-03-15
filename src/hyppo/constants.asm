@@ -140,9 +140,11 @@
         freeze_prep_viciv = 14
         freeze_prep_hyperregs = 16
 
+        ;; this is for all types of images, not only D81
         d81_image_max_namelen = 32
-        d81_image_flag_mounted = 1
-        d81_image_flag_write_en = 4
+        d81_image_flag_mounted =  %00000001     ; enable drive virtualisation
+        d81_image_flag_write_en = %00000100     ; enable write access to image
+        d81_image_flag_noreal   = %01000000     ; don't attach real drive
 
         syspart_error_readerror = $01
         syspart_error_badslotnum = $02

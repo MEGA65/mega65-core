@@ -4285,35 +4285,37 @@ dos_attach:
         txa                     ;; sets N and Z flags
         bpl dos_diskattach      ;; bit 7 not set (N flag), so we want to attach
 
+        and #$40
+        tax                     ;; we only need the noreal flag later
+
         ;; now we detach the drives
         lda dos_attach_typeflg_bits,y
         trb $d68a               ;; clear d64/d71 flags
         ora dos_attach_imgena_bits,y
         trb $d68b		;; clear mount, d81/d65 flags
 
-        txa
-        bit #$40
-        bne @attach_detach_proc
         lda dos_attach_realdrv_bits,y
-        tsb $d6a1               ;; enable real drives
+        cpx #$40                ;; check for noreal flag
+        beq @attach_detach_noreal
+        tsb $d6a1               ;; enable real drive(s)
+        lda #0
+        bra @attach_detach_flags
+@attach_detach_noreal:
+        trb $d6a1               ;; disable real drive(s)
+        lda #d81_image_flag_noreal
 
-@attach_detach_proc:
-        txa
-        and #$03
-        tax
-        ;; mark currenttask images as unmounted
-        lda #(d81_image_flag_mounted | d81_image_flag_write_en)
-        cpx #$02
-        bcs @attach_detach_both
-        cmp #$00
+        ;; set mount flags in currenttask
+@attach_detach_flags:
+        cpy #$00
         bne @attach_detach_1
-        trb currenttask_d81_image0_flags
-        bra @attach_detach_done
 @attach_detach_both:
-        trb currenttask_d81_image0_flags
+        sta currenttask_d81_image0_flags
+        bra @attach_detach_flags_done
 @attach_detach_1:
-        trb currenttask_d81_image1_flags
-@attach_detach_done:
+        sta currenttask_d81_image1_flags
+        cpy #$02
+        bcs @attach_detach_both
+@attach_detach_flags_done:
 
         jmp dos_return_success
 
