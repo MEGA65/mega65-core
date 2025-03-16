@@ -2508,8 +2508,8 @@ begin
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
-            -- @IO:GS $D712.7 DMA:DBG!LFTSAT Audio DMA Left Clipped (read only)
-            -- @IO:GS $D712.6 DMA:DBG!RGTSAT Audio DMA Right Clipped (read only)
+            -- @IO:GS $D712.7 DMA:DBG!LFTCLP Audio DMA Left Clipped (read only)
+            -- @IO:GS $D712.6 DMA:DBG!RGTCLP Audio DMA Right Clipped (read only)
             when x"12" => return audio_dma_left_clipped & audio_dma_right_clipped & "0000" & audio_dma_swap & "0";
 
             when x"13" => return 
