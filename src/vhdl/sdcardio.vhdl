@@ -3565,12 +3565,12 @@ begin  -- behavioural
               use_tib_info <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-              -- @IO:GS $D6AF.0 SD:VR!FOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.1 SD:VW!FOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.2 SD:VEQ!INH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.5 SD:VLOST Manually set f011_lost signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.0 SD:VR!FOUND Manually set f011_rsector_found signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.1 SD:VW!FOUND Manually set f011_wsector_found signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.2 SD:VEQ!INH Manually set f011_eq_inhibit signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.5 SD:VLOST Manually set f011_lost signal (intended for virtual F011 mode only)
               f011_rsector_found <= fastio_wdata(0);
               f011_wsector_found <= fastio_wdata(1);
               f011_eq_inhibit <= fastio_wdata(2);
