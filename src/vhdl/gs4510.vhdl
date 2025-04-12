@@ -4069,8 +4069,10 @@ begin
     -- in order to not perform line calculations on some
     -- cycles. This allows for scaling the source and destination
     -- lines down by an arbitrary amount.
-    variable line_skip_accumulator : unsigned(15 downto 0) := x"0100";
-    variable line_source_skip_accumulator : unsigned(15 downto 0) := x"0100";
+    variable line_skip_accumulator : unsigned(17 downto 0) := "01" & x"0000";
+    variable line_source_skip_accumulator : unsigned(17 downto 0) := "01" & x"0000";
+    variable line_dest_skip_rate_set : std_logic := '0';
+    variable line_source_skip_rate_set : std_logic := '0';
 
     variable add_result : unsigned(11 downto 0); -- has NVZC flags and result
     
@@ -5766,8 +5768,12 @@ begin
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
 
               -- Reset the line scaling accumulators
-              line_skip_accumulator := x"0100";
-              line_source_skip_accumulator := x"0100";
+              line_skip_accumulator := "01" & x"0000";
+              line_source_skip_accumulator := "01" & x"0000";
+
+              -- Reset skip rate override flags. Used to reset the skip rate units in line mode.
+              line_dest_skip_rate_set := '0';
+              line_source_skip_rate_set := '0';
             when DMAgicReadOptions =>
               reg_dmagic_addr <= reg_dmagic_addr + 1;
 
@@ -5788,12 +5794,16 @@ begin
                   when x"81" => reg_dmagic_dst_mb <= memory_read_value;
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $82 $xx = Set source skip rate (/256ths of bytes)
                   when x"82" => reg_dmagic_src_skip(7 downto 0) <= memory_read_value;
+                                line_source_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $83 $xx = Set source skip rate (whole bytes)
                   when x"83" => reg_dmagic_src_skip(15 downto 8) <= memory_read_value;
+                                line_source_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256ths of bytes)
                   when x"84" => reg_dmagic_dst_skip(7 downto 0) <= memory_read_value;
+                                line_dest_skip_rate_set := '1';
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
                   when x"85" => reg_dmagic_dst_skip(15 downto 8) <= memory_read_value;
+                                line_dest_skip_rate_set := '1';
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
                   when x"86" => reg_dmagic_transparent_value <= memory_read_value;
                   -- For hardware line drawing, we need to know about the
@@ -6069,11 +6079,16 @@ begin
                 -- We are in line mode.
 
                 if reg_dmagic_line_mode_skip_pixels="00" then
-                  line_skip_accumulator := line_skip_accumulator + reg_dmagic_dst_skip;
+                  if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" then
+                    line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
+                  else
+                    -- Since the skip rate isn't set, set scale to 1.
+                    line_skip_accumulator := "01" & x"0000";
+                  end if;
                 end if;
                 
                 -- Add fractional position
-                if line_skip_accumulator(15 downto 8) /= x"00" and reg_dmagic_line_mode_skip_pixels /= "11" then
+                if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels /= "11" then
                   reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
                 end if;
 
@@ -6099,13 +6114,13 @@ begin
                 -- pixel.  The first pixel will thus effectively be written to
                 -- twice.
                 if reg_dmagic_line_mode_skip_pixels="00" then
-                  if line_skip_accumulator(15 downto 8) /= x"00" then
+                  if line_skip_accumulator(17 downto 16) /= "00" then
                     if reg_dmagic_line_x_or_y='0' then
                       line_x_move := '1';
                     else
                       line_y_move := '1';
                     end if;
-                    line_skip_accumulator := x"00" & line_skip_accumulator(7 downto 0);
+                    line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                   end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
@@ -6306,10 +6321,14 @@ begin
                 -- We are in line mode.
 
                 if reg_dmagic_s_line_mode_skip_pixels="00" then
-                  line_source_skip_accumulator := line_source_skip_accumulator + reg_dmagic_src_skip;
+                  if line_source_skip_rate_set = '1' and reg_dmagic_src_skip /= x"0000" then
+                    line_source_skip_accumulator := line_source_skip_accumulator + ("00" & reg_dmagic_src_skip);
+                  else
+                    line_source_skip_accumulator := "01" & x"0000";
+                  end if;
                 end if;
 
-                if line_source_skip_accumulator(15 downto 8) /= x"00" and reg_dmagic_s_line_mode_skip_pixels /= "11" then
+                if line_source_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_s_line_mode_skip_pixels /= "11" then
                   -- Add fractional position
                   reg_dmagic_s_slope_fraction_start <= reg_dmagic_s_slope_fraction_start + reg_dmagic_s_slope;
                 end if;
@@ -6332,13 +6351,13 @@ begin
                 end if;
                 -- Also move major axis (which is always in the forward direction)
                 if reg_dmagic_s_line_mode_skip_pixels="00" then
-                  if line_source_skip_accumulator(15 downto 8) /= x"00" then
+                  if line_source_skip_accumulator(17 downto 16) /= "00" then
                     if reg_dmagic_s_line_x_or_y='0' then
                       line_x_move := '1';
                     else
                       line_y_move := '1';
                     end if;
-                    line_source_skip_accumulator := x"00" & line_source_skip_accumulator(7 downto 0);
+                    line_source_skip_accumulator := "00" & line_source_skip_accumulator(15 downto 0);
                   end if;
                 end if;
                 if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
@@ -6508,11 +6527,15 @@ begin
                   -- We are in line mode.
 
                   if reg_dmagic_line_mode_skip_pixels="00" then
-                    line_skip_accumulator := line_skip_accumulator + reg_dmagic_dst_skip;
+                    if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" then
+                      line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
+                    else
+                      line_skip_accumulator := "01" & x"0000";
+                    end if;
                   end if;
                   
                   -- Add fractional position
-                  if line_skip_accumulator(15 downto 8) /= x"00" and reg_dmagic_line_mode_skip_pixels /= "11" then
+                  if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels /= "11" then
                     reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
                   end if;
 
@@ -6534,13 +6557,13 @@ begin
                   end if;
                   -- Also move major axis (which is always in the forward direction)
                   if reg_dmagic_line_mode_skip_pixels="00" then
-                    if line_skip_accumulator(15 downto 8) /= x"00" then
+                    if line_skip_accumulator(17 downto 16) /= "00" then
                       if reg_dmagic_line_x_or_y='0' then
                         line_x_move := '1';
                       else
                         line_y_move := '1';
                       end if;
-                      line_skip_accumulator := x"00" & line_skip_accumulator(7 downto 0);
+                      line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                     end if;
                   end if;
                   if line_x_move='0' and line_y_move='1' and line_y_move_negative='0' then
