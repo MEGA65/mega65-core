@@ -1081,7 +1081,6 @@ architecture Behavioral of viciv is
   signal bug_compat_mode : std_logic := '1';
   signal prev_bug_compat_mode : std_logic := '1';
   signal bug_compat_vic_iii_d016_delta : integer := 2;
-  signal bug_compat_char_attr : std_logic := '1';
 
 begin
 
@@ -2098,12 +2097,6 @@ begin
         else
           bug_compat_vic_iii_d016_delta <= 2;
           bug_compat_mode <= '1';
-        end if;
-        -- HWERRATA:2 Character attribute fixes
-        if to_integer(hw_errata_level) > 1 then
-          bug_compat_char_attr <= '0';
-        else
-          bug_compat_char_attr <= '1';
         end if;
       end if;
 
@@ -3419,7 +3412,7 @@ begin
 
         -- Reset glyph Y offset each raster line
         glyph_y_offset <= 0;
-        
+
         -- Reset glyph using nve y offset
         glyph_nve_y_offset <= '0';
 
@@ -4571,69 +4564,34 @@ begin
             glyph_colour_drive(7 downto 4) <= colourramdata(7 downto 4);
           else
             if viciii_extended_attributes='1' then
-
-              if bug_compat_char_attr='1' then
-                -- VIC-III legacy behavior for character attributes
-                if colourramdata(4)='1' then
-                  -- Blinking glyph
-                  glyph_blink_drive <= '1';
-                  if colourramdata(5)='1'
-                    or colourramdata(6)='1'
-                    or colourramdata(7)='1' then
-                    -- Blinking attributes
-                    if viciii_blink_phase='1' then
-                      glyph_reverse_drive <= colourramdata(5);
-                      glyph_bold_drive <= colourramdata(6);
-                      glyph_colour_drive(4) <= colourramdata(6);
-                      if chargen_y_hold="111" then
-                        glyph_underline_drive <= colourramdata(7);
-                      end if;
+              -- VIC-III character attributes
+              if colourramdata(4)='1' then
+                -- Blinking glyph
+                glyph_blink_drive <= '1';
+                if colourramdata(5)='1'
+                  or colourramdata(6)='1'
+                  or colourramdata(7)='1' then
+                  -- Blinking attributes
+                  if viciii_blink_phase='1' then
+                    glyph_reverse_drive <= colourramdata(5);
+                    glyph_bold_drive <= colourramdata(6);
+                    glyph_colour_drive(4) <= colourramdata(6);
+                    if chargen_y_hold="111" then
+                      glyph_underline_drive <= colourramdata(7);
                     end if;
-                  else
-                    -- Just plain blinking character
-                    glyph_visible_drive <= viciii_blink_phase;
                   end if;
                 else
-                  -- Non-blinking attributes
-                  glyph_visible_drive <= '1';
-                  glyph_reverse_drive <= colourramdata(5);
-                  glyph_bold_drive <= colourramdata(6);
-                  glyph_colour_drive(4) <= colourramdata(6);
-                  if chargen_y_hold="111" then
-                    glyph_underline_drive <= colourramdata(7);
-                  end if;
+                  -- Just plain blinking character
+                  glyph_visible_drive <= viciii_blink_phase;
                 end if;
-
-              else  -- bug_compat_char_attr='0'
-                -- VIC-IV fix for character attributes:
-                -- reverse, blink, and underline to behave identically for
-                -- both lower palette (non-"bold") and upper/alternate palette
-                -- ("bold") characters.
+              else
+                -- Non-blinking attributes
+                glyph_visible_drive <= '1';
+                glyph_reverse_drive <= colourramdata(5);
+                glyph_bold_drive <= colourramdata(6);
                 glyph_colour_drive(4) <= colourramdata(6);
-                glyph_bold_drive <= colourramdata(6) and not colourramdata(5);
-                if colourramdata(4)='1' then
-                  -- Blinking glyph
-                  glyph_blink_drive <= '1';
-                  if colourramdata(5)='1'
-                    or colourramdata(7)='1' then
-                    -- Blinking attributes
-                    if viciii_blink_phase='1' then
-                      glyph_reverse_drive <= colourramdata(5);
-                      if chargen_y_hold="111" then
-                        glyph_underline_drive <= colourramdata(7);
-                      end if;
-                    end if;
-                  else
-                    -- Just plain blinking character
-                    glyph_visible_drive <= viciii_blink_phase;
-                  end if;
-                else
-                  -- Non-blinking attributes
-                  glyph_visible_drive <= '1';
-                  glyph_reverse_drive <= colourramdata(5);
-                  if chargen_y_hold="111" then
-                    glyph_underline_drive <= colourramdata(7);
-                  end if;
+                if chargen_y_hold="111" then
+                  glyph_underline_drive <= colourramdata(7);
                 end if;
               end if;
             end if;
