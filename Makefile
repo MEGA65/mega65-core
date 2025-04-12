@@ -249,7 +249,7 @@ $(MEGA65LIBCLIB):
 	make -C src/mega65-libc all
 	make -C src/mega65-libc clean
 
-cc65/bin/cc65:
+cc65/bin/cc65: cc65/bin/cc65
 	$(call mbuild_header,$@)
 	$(SUBMODULEUPDATE)
 	( cd cc65 && make -j 8 )
