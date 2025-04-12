@@ -169,10 +169,17 @@ module opl2(
   generate
     for (i = 0; i < 256; i = i + 1) begin: named
       always @ (posedge clk) begin
-        if (reset)
-          opl2_reg[i] <= 8'd0;
+        if (reset) begin
+          if ((i >= 192) && (i <= 200)) 
+            opl2_reg[i] <= 8'd240;
+          else
+            opl2_reg[i] <= 8'd0;
+        end
         else if (opl2_we && (opl2_adr == i))
-          opl2_reg[i] <= opl2_data;
+          if ((i >= 192) && (i <= 200)) 
+            opl2_reg[i][3:0] <= opl2_data[3:0];
+          else
+            opl2_reg[i] <= opl2_data;
       end
     end
   endgenerate

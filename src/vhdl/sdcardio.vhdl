@@ -714,7 +714,7 @@ architecture behavioural of sdcardio is
   signal crc_force_delay_counter : integer range 0 to 12 := 0;
   signal crc_force_delay : std_logic := '0';
 
-  constant hw_errata_level_max : unsigned(7 downto 0) := x"02";
+  constant hw_errata_level_max : unsigned(7 downto 0) := x"01";
   signal hw_errata_enable_toggle_last : std_logic := '0';
   signal hw_errata_disable_toggle_last : std_logic := '0';
 
@@ -1263,7 +1263,6 @@ begin  -- behavioural
             --
             -- HWERRATA Table:
             -- HWERRATA:1 - VIC-IV XSCL position shifted in H640 mode.
-            -- HWERRATA:2 - VIC-IV Character attribute combinations.
             --
             fastio_rdata <= hw_errata_level;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
@@ -2748,10 +2747,10 @@ begin  -- behavioural
 
                   f_selecta <= '1'; f_selectb <= '1';
                   if f011_ds(2 downto 1) = "00" then
-                    if (f011_ds(0) xor f011_swap_drives) = '0' and 
+                    if (f011_ds(0) xor f011_swap_drives) = '0' and
                        (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and
                           (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
@@ -2771,7 +2770,7 @@ begin  -- behavioural
                     if (f011_ds(0) xor f011_swap_drives) = '0' and
                        (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and
                           (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
@@ -2796,7 +2795,7 @@ begin  -- behavioural
                     if (f011_ds(0) xor f011_swap_drives) = '0' and
                        (use_real_floppy0='1' or silent_sdcard='0') then
                       f_selecta <= '0';
-                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and 
+                    elsif (f011_ds(0) xor f011_swap_drives) = '1' and
                           (use_real_floppy2='1' or silent_sdcard='0') then
                       f_selectb <= '0';
                     end if;
@@ -3566,12 +3565,12 @@ begin  -- behavioural
               use_tib_info <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-              -- @IO:GS $D6AF.0 SD:VR!FOUND Manually set f011_rsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.1 SD:VW!FOUND Manually set f011_wsector_found signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.2 SD:VEQ!INH Manually set f011_eq_inhibit signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (indented for virtual F011 mode only)
-              -- @IO:GS $D6AF.5 SD:VLOST Manually set f011_lost signal (indented for virtual F011 mode only)
+              -- @IO:GS $D6AF.0 SD:VR!FOUND Manually set f011_rsector_found signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.1 SD:VW!FOUND Manually set f011_wsector_found signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.2 SD:VEQ!INH Manually set f011_eq_inhibit signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.3 SD:VRNF Manually set f011_rnf signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.4 SD:VDRQ Manually set f011_drq signal (intended for virtual F011 mode only)
+              -- @IO:GS $D6AF.5 SD:VLOST Manually set f011_lost signal (intended for virtual F011 mode only)
               f011_rsector_found <= fastio_wdata(0);
               f011_wsector_found <= fastio_wdata(1);
               f011_eq_inhibit <= fastio_wdata(2);
