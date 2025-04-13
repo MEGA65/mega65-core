@@ -1135,6 +1135,13 @@ f011Virtualised:
         ;; Check internal drive / SD card status, and don't mount D81 if set to use internal drive
         ;; Not only would this be a waste of time, it also stomps the $D6A1 bit 0 that indicates
         ;; to use the internal drive.
+        ;; this also assumes that nothing is going on with the second drive, and as no
+        ;; production has a second drive, we put it in a defined state by setting it as noreal
+        ;; TODO: add mount options for the second drive to configure
+        lda #d81_image_flag_noreal
+        sta currenttask_d81_image1_flags
+        lda #0
+        sta currenttask_d81_image1_namelen
         lda $d6a1
         and #$01
         bne @dontMountD81
@@ -1173,8 +1180,13 @@ f011Virtualised:
 ;;         ========================
 
 d81attachfail:
-        ;; we couldn't find the D81 file, so tell the user
-        ;;
+        ;; we couldn't find the D81 file
+        ;; set no real drive flag
+        lda #d81_image_flag_noreal
+        sta currenttask_d81_image0_flags
+        lda #0
+        sta currenttask_d81_image0_namelen
+        ;; and tell the user
         ldx #<msg_nod81
         ldy #>msg_nod81
         jsr printmessage
@@ -3211,7 +3223,7 @@ txt_BOOTLOGOM65:        !text "BANNER.M65"
 txt_FREEZER:            !text "FREEZER.M65"
                         !8 0
 
-txt_ETHLOAD:                !text "ETHLOAD.M65"
+txt_ETHLOAD:            !text "ETHLOAD.M65"
                         !8 0
 
             ;; If this file is present, then machine starts up with video

@@ -484,6 +484,8 @@ done_audio:
         ;; Set F011 to use 3.5 drive or disk images
         lda $de04
         sta sd_fdc_select
+        ;; this **will** make the second drive unattached/nodisk!
+        ;; - we fix this for now in main.asm:1140
 
         ;; Enable/disable Amiga mouse support (emulates 1351 mouse)
         lda $de05
