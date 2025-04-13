@@ -6079,15 +6079,21 @@ begin
                 -- We are in line mode.
 
                 if reg_dmagic_line_mode_skip_pixels="00" then
+                  -- Accumulate scale value, but only if the skip rate was manually specified.
+                  -- A skip rate of $0000 is treated as skipping 1 byte per cycle (which
+                  -- equates to not scaling down) since not moving the address forwards at all
+                  -- in line mode does not make any sense.
                   if line_dest_skip_rate_set = '1' and reg_dmagic_dst_skip /= x"0000" then
                     line_skip_accumulator := line_skip_accumulator + ("00" & reg_dmagic_dst_skip);
                   else
-                    -- Since the skip rate isn't set, set scale to 1.
+                    -- Since the skip rate isn't set, don't scale.
                     line_skip_accumulator := "01" & x"0000";
                   end if;
                 end if;
                 
-                -- Add fractional position
+                -- Add fractional position, but only when DMAgic has waited for enough cycles, according
+                -- to the skip rate. The skip accumulators start at a value of $10000, so this will
+                -- always run in the first few cycles.
                 if line_skip_accumulator(17 downto 16) /= "00" and reg_dmagic_line_mode_skip_pixels /= "11" then
                   reg_dmagic_slope_fraction_start <= reg_dmagic_slope_fraction_start + reg_dmagic_slope;
                 end if;
@@ -6114,12 +6120,17 @@ begin
                 -- pixel.  The first pixel will thus effectively be written to
                 -- twice.
                 if reg_dmagic_line_mode_skip_pixels="00" then
+                  -- Only allow major axis movement when the skip accumulator
+                  -- is greater than $10000.
                   if line_skip_accumulator(17 downto 16) /= "00" then
                     if reg_dmagic_line_x_or_y='0' then
                       line_x_move := '1';
                     else
                       line_y_move := '1';
                     end if;
+                    -- Trim off the two most significant bits, but leave the rest
+                    -- of the skip accumulator intact, so that skip values greater
+                    -- than $8000 work correctly.
                     line_skip_accumulator := "00" & line_skip_accumulator(15 downto 0);
                   end if;
                 end if;
