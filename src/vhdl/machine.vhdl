@@ -486,6 +486,8 @@ architecture Behavioral of machine is
       monitor_map_offset_high : in unsigned(11 downto 0);
       monitor_map_enables_low : in unsigned(3 downto 0);
       monitor_map_enables_high : in unsigned(3 downto 0);
+      monitor_map_lo_mb : in unsigned(7 downto 0);
+      monitor_map_hi_mb : in unsigned(7 downto 0);
       monitor_interrupt_inhibit : in std_logic;
 
       monitor_char : in unsigned(7 downto 0);
@@ -630,6 +632,8 @@ architecture Behavioral of machine is
   signal monitor_map_offset_high : unsigned(11 downto 0);
   signal monitor_map_enables_low : unsigned(3 downto 0);
   signal monitor_map_enables_high : unsigned(3 downto 0);
+  signal monitor_map_lo_mb : unsigned(7 downto 0);
+  signal monitor_map_hi_mb : unsigned(7 downto 0);
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_setpc : std_logic;
@@ -1210,6 +1214,8 @@ begin
       monitor_map_offset_high => monitor_map_offset_high,
       monitor_map_enables_low => monitor_map_enables_low,
       monitor_map_enables_high => monitor_map_enables_high,
+      monitor_map_lo_mb => monitor_map_lo_mb,
+      monitor_map_hi_mb => monitor_map_hi_mb,
       monitor_memory_access_address => monitor_memory_access_address,
 
       monitor_mem_address => monitor_mem_address,
@@ -2048,6 +2054,8 @@ begin
     monitor_map_offset_high => monitor_map_offset_high,
     monitor_map_enables_low => monitor_map_enables_low,
     monitor_map_enables_high => monitor_map_enables_high,
+    monitor_map_lo_mb => monitor_map_lo_mb,
+    monitor_map_hi_mb => monitor_map_hi_mb,
     monitor_memory_access_address => monitor_memory_access_address,
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,

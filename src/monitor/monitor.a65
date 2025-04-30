@@ -61,12 +61,13 @@
       .alias      monitor_Arg2        $8014
       .alias      monitor_Instruction $8015
       .alias      monitor_roms        $8016
-      .alias      monitor_Unused1     $8017
+      .alias      monitor_MapHiMb     $8017
+      .alias      monitor_MapLoMb     $8018
       
-      .alias      hist_read_lo        $9000
-      .alias      hist_read_hi        $9001
-      .alias      hist_write_lo       $9002
-      .alias      hist_write_hi       $9003
+      .alias      hist_read_idx_lo    $9000
+      .alias      hist_read_idx_hi    $9001
+      .alias      hist_write_idx_lo   $9002
+      .alias      hist_write_idx_hi   $9003
       .alias      mon_trace           $9004
       .alias      mon_trace_step      $9005
       .alias      flag_mask_lo        $9006
@@ -409,8 +410,8 @@ backspace:
 ; -------------------------------------
 empty_command:
       lda         #0                ; reset history index
-      sta         hist_write_lo
-      sta         hist_write_hi
+      sta         hist_write_idx_lo
+      sta         hist_write_idx_hi
       lda         mon_trace
       ora         #trace_hist_en    ; also record history
       sta         mon_trace      
@@ -984,8 +985,8 @@ trace_cmd:
 *     jmp         next_command
 
 trace_hist:
-      stz         hist_write_lo
-      stz         hist_write_hi
+      stz         hist_write_idx_lo
+      stz         hist_write_idx_hi
       bra         do_trace
       
 trace_cont:
@@ -1146,9 +1147,9 @@ history_cmd:
       lda         hex_value+1
       cmp         #3
       bcs         bad_index
-      sta         hist_read_hi
+      sta         hist_read_idx_hi
       lda         hex_value+0
-      sta         hist_read_lo
+      sta         hist_read_idx_lo
       jsr         print_history
       jmp         next_command
       
@@ -1171,10 +1172,10 @@ _lp:  dex
       
       ; Set history read and write indices to max hardware index.  Controller will drop unimplemented bits.
       lda         #$ff
-      sta         hist_write_lo
-      sta         hist_write_hi
-      sta         hist_read_lo
-      sta         hist_read_hi
+      sta         hist_write_idx_lo
+      sta         hist_write_idx_hi
+      sta         hist_read_idx_lo
+      sta         hist_read_idx_hi
       lda         mon_trace
       ora         #trace_hist_en
       sta         mon_trace           ; This should enable history writes, which should
@@ -1830,7 +1831,7 @@ state_msg:
       .byte       13,10,"uS Address  Rd",13,10,0
       
 history_msg:
-      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH MAPL LAST-OP In     "
+      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH:MB MAPL:MB LAST-OP In     "
       .byte       "P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
 
 history_fmt:
@@ -1845,7 +1846,7 @@ history_fmt:
       ; $26 - ROM enables
       ; $27 - print five spaces
       ; High bit set implies printing a space first.       
-      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$90,$11,$8d,$0e,$80+$21,$15,$27
+      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$90,$11,$97,$8d,$0e,$98,$80+$21,$15,$27
       .byte       $80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+$25,$00+$26,$20
 
 bad_bitrate_msg:

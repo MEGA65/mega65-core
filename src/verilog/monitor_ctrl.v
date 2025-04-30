@@ -53,7 +53,7 @@ module monitor_ctrl(input clk, input reset, output reg reset_out,
                     `MARK_DEBUG input 		   write, `MARK_DEBUG input read,
 						   `MARK_DEBUG input [4:0] address, 
 						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
-				output reg [9:0]   history_write_index, output wire history_write, output reg [9:0] history_read_index,
+				output reg [8:0]   history_write_index, output wire history_write, output reg [8:0] history_read_index,
                     
                     /* CPU Memory Interface */
 				output wire [27:0] mem_address, 
@@ -273,7 +273,7 @@ begin
       if(address == `MON_READ_IDX_LO)
         history_read_index[7:0] <= di;
       if(address == `MON_READ_IDX_HI)
-        history_read_index[9:8] <= di[1:0];
+        history_read_index[8] <= di[0];
     end
 end
 
@@ -317,7 +317,7 @@ begin
     end
     if(address == `MON_WRITE_IDX_HI)
     begin
-      history_write_index[9:8] <= di[1:0];
+      history_write_index[8] <= di[0];
       mem_trace_reg[2] <= 0;
     end
     if(address == `MON_UART_STATUS)
@@ -371,7 +371,7 @@ begin
   else if(history_write == 1)
   begin
     // record history continuously until full.   The last slot is reserved for capturing current state.
-    if(history_write_index < 1022)
+    if(history_write_index < 510)
       history_write_index <= history_write_index + 1;
     else if(history_write_continuous)
       history_write_index <= 0; // Wrap around to 0

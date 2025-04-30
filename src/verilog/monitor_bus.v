@@ -5,7 +5,7 @@
 `define MARK_DEBUG
 `endif
 
-module monitor_bus(input clk, input [15:0] cpu_address, input cpu_write, input [7:0] history_lo, input [7:0] history_hi, input [7:0] mem, input [7:0] ctrl,
+module monitor_bus(input clk, input [15:0] cpu_address, input cpu_write, input [7:0] history, input [7:0] mem, input [7:0] ctrl,
                    input [7:0] cpu_state,
                    `MARK_DEBUG output reg ram_write, `MARK_DEBUG output reg ctrl_write, `MARK_DEBUG output reg ctrl_read, output reg [7:0] read_data);
 
@@ -22,8 +22,7 @@ begin
   casez(cpu_address[15:0])
     16'b0000000z_zzzzzzzz: begin read_select = 1; ram_write = cpu_write; end  // $0000-$01ff - RAM (zero page + stack)
     16'b0111zzzz_zzzzzzzz: read_select = 5;                                   // $7000-$7fff - CPU State
-    16'b1000zzzz_zzz0zzzz: read_select = 2;                                   // $8000-$800f - History Lo
-    16'b1000zzzz_zzz10zzz: read_select = 3;                                   // $8010-$8017 - History Hi
+    16'b1000zzzz_zzzzzzzz: read_select = 2;                                   // $8000-$8fff - History
     16'b1001zzzz_zzzzzzzz: begin read_select = 4; ctrl_write = cpu_write; ctrl_read = ~cpu_write; end // $9000-$9000 - Monitor Ctrl
     16'b1111zzzz_zzzzzzzz: read_select = 1;                                   // $f000-$ffff - Monitor "ROM"
     default :              read_select = 0;                                   // Nothing?
@@ -43,8 +42,7 @@ begin
   case(read_select_reg) // synthesis full_case parallel_case
     0: read_data = 8'h00;
     1: read_data = mem;
-    2: read_data = history_lo;
-    3: read_data = history_hi;
+    2: read_data = history;
     4: read_data = ctrl;
     5: read_data = cpu_state;
   endcase;

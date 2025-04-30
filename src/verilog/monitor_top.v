@@ -65,6 +65,8 @@
   input [7:0] monitor_char,
   input monitor_char_toggle,
   output wire monitor_char_busy,
+  input [7:0] monitor_map_lo_mb,
+  input [7:0] monitor_map_hi_mb,
 
   output wire [27:0] monitor_mem_address,
   input [7:0] monitor_mem_rdata,
@@ -80,7 +82,7 @@
   output wire monitor_mem_trace_toggle
     );
 
-  wire [191:0] history_wdata;
+  wire [255:0] history_wdata;
   
   // 16 byte wide section
   assign history_wdata[7:0] = monitor_p;
@@ -103,7 +105,7 @@
   assign history_wdata[126] = monitor_request_reflected;
   assign history_wdata[127] = monitor_interrupt_inhibit;
   
-  // 8 byte wide section, 2 unused bytes at top
+  // 9 byte wide section
   assign history_wdata[135:128] = { monitor_map_enables_high, monitor_map_offset_high[11:8] };
   assign history_wdata[143:136] = monitor_map_offset_high[7:0];
   assign history_wdata[151:144] = monitor_opcode;
@@ -111,17 +113,17 @@
   assign history_wdata[167:160] = monitor_arg2;
   assign history_wdata[175:168] = monitor_instruction;
   assign history_wdata[183:176] = monitor_roms;
-  assign history_wdata[191:184] = 8'h00;
+  assign history_wdata[191:184] = monitor_map_hi_mb;
+  assign history_wdata[199:192] = monitor_map_lo_mb;
+  assign history_wdata[255:200] = 56'h00;
+
+  wire [8:0] history_write_index;
   
-  wire [9:0] history_write_index;
+  wire [7:0] history_rdata;
   
-  wire [7:0] history_rdata_lo;
-  wire [7:0] history_rdata_hi;
+  wire [13:0] history_read_address;
   
-  wire [13:0] history_read_address_lo;
-  wire [12:0] history_read_address_hi;
-  
-  wire [9:0] history_read_index;
+  wire [8:0] history_read_index;
   
   `MARK_DEBUG wire [15:0] cpu_address_next;
   `MARK_DEBUG wire [7:0] cpu_di;
@@ -144,26 +146,19 @@
   assign reset_internal = ~reset;
   assign reset_out = ~reset_out_internal;
     
-  assign history_read_address_lo = { history_read_index, cpu_address_next[3:0]};
-  assign history_read_address_hi = { history_read_index, cpu_address_next[2:0]};
+  assign history_read_address = { history_read_index, cpu_address_next[4:0]};
   
-  // Conceptually the history RAM is a dual ported 1024x24 byte RAM, broken up into
-  // a 1Kx16B and a 1Kx8B.   From the write side, the write width for RAM 0 is
-  // 128 bits, and write width for RAM1 is 64 bits.   The write side address width is 10 bits for both.
-  // For the read side, RAM 0 is a 16Kx8b, and RAM 1 is a 8Kx8b.   The read side is mapped
-  // into the 6502's address space via 16 and 8 byte windows.
-  asym_ram_sdp #(.WIDTHA(128),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(16384),.ADDRWIDTHB(14)) 
+  // The history RAM is a dual ported 512Bx32B byte RAM.
+  // From the write side, the write width is 256 bits.  The write side address width is 9 bits.
+  // For the read side, RAM is a 16Kx1B.   The read side is mapped
+  // into the 6502's address space via 32 byte windows.
+  asym_ram_sdp #(.WIDTHA(256),.SIZEA(512),.ADDRWIDTHA(9), .WIDTHB(8),.SIZEB(16384),.ADDRWIDTHB(14)) 
                historyram0(
                .clkA(clock),.weA(history_write),.enaA(1),
-               .addrA(history_write_index),.diA(history_wdata[127:0]),
-               .clkB(clock),.enaB(1),.addrB(history_read_address_lo),.doB(history_rdata_lo));
-  asym_ram_sdp #(.WIDTHA(64),.SIZEA(1024),.ADDRWIDTHA(10), .WIDTHB(8),.SIZEB(8192),.ADDRWIDTHB(13))
-               historyram1(
-               .clkA(clock),.weA(history_write),.enaA(1),
-               .addrA(history_write_index),.diA(history_wdata[191:128]),
-               .clkB(clock),.enaB(1),.addrB(history_read_address_hi),.doB(history_rdata_hi));
+               .addrA(history_write_index),.diA(history_wdata),
+               .clkB(clock),.enaB(1),.addrB(history_read_address),.doB(history_rdata));
   
-  // Recent CPU State RAM is relatively small, only 64 bits wide by 16 entires deep used to store all the states (and addresses)
+  // Recent CPU State RAM is relatively small, only 64 bits wide by 16 entries deep used to store all the states (and addresses)
   // of the most recent instruction execution.   The output is directly mapped into 128 bytes of CPU
   // address space rather than using a read index register.
   asym_ram_sdp #(.WIDTHA(64),.SIZEA(16),.ADDRWIDTHA(4), .WIDTHB(8),.SIZEB(128),.ADDRWIDTHB(7)) 
@@ -209,7 +204,7 @@
                            .bit_rate_divisor(bit_rate_divisor),.rx(rx),.tx(tx),.activity(activity));
                         
   monitor_bus monitorbus(.clk(clock), .cpu_address(cpu_address_next), .cpu_write(cpu_write_next), 
-                         .history_lo(history_rdata_lo), .history_hi(history_rdata_hi), .cpu_state(cpu_state_rdata),
+                         .history(history_rdata), .cpu_state(cpu_state_rdata),
                          .mem(ram_do), .ctrl(monitor_do), .ram_write(ram_write),
                          .ctrl_write(ctrl_write), .ctrl_read(ctrl_read), .read_data(cpu_di));
                             
