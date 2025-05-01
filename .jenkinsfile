@@ -48,7 +48,7 @@ pipeline {
                 }
             }
         }
-        */
+        // we decided to cut r4 builds from general production
         stage('Build MEGA65R4') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
@@ -57,6 +57,7 @@ pipeline {
                 }
             }
         }
+        */
         stage('Build MEGA65R3') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', catchInterruptions: false) {
