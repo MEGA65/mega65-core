@@ -139,7 +139,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/audio_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pdm_to_pcm.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pcm_to_pdm.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/i2s_clock.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/i2s_clock_r3.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2s_transceiver.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pcm_clock.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pcm_transceiver.vhdl"]"\
