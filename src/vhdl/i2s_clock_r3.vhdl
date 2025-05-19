@@ -29,10 +29,11 @@ use work.debugtools.all;
 
 entity i2s_clock is
   generic (
+    clock_frequency : integer;  -- not really used here, but added just to make interface compatible with R6's newer 'i2s_clock.vhdl' implementation
     sample_rate : integer := 8000
     );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- I2S PCM audio interface
     i2s_clk : out std_logic := '0';
@@ -60,9 +61,9 @@ architecture brutalist of i2s_clock is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
       if clock_counter /= 0 then
         clock_counter <= clock_counter - 1;
       else
