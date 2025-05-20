@@ -34,7 +34,6 @@ entity audio_mixer is
     rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out signed(15 downto 0) := x"FFFF";
     modem_is_pcm_master : out std_logic := '0';
-    amplifier_enable : out std_logic := '0';
 
     -- Read in values from audio knobs
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
@@ -150,10 +149,6 @@ begin
         if reg_num = x"5E" then
           -- Bit 0 of coefficient register $5E controls PCM slave/master mode selection
           modem_is_pcm_master <= wdata(0);
-        end if;
-        if reg_num = x"FE" then
-          -- Bit 0 of coefficient register $FE controls audio amplifier
-          amplifier_enable <= wdata(0);
         end if;
         ram_we <= '1';
       elsif volume_knob1_target(3)='0' and volume_knob1 /= volume_knob1_last then
