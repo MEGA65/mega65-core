@@ -199,7 +199,8 @@ entity sdcardio is
     touch2_valid : out std_logic := '0';
     touch2_x : out unsigned(13 downto 0) := (others => '0');
     touch2_y : out unsigned(11 downto 0) := (others => '0');
-
+    -- R3 board amplifier chip
+    r3_amplifier_enable : out std_logic := '0';
 
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
@@ -3793,6 +3794,9 @@ begin  -- behavioural
             when x"FB" =>
               -- 16-bit digital audio out
               pcm_right(15 downto 8) <= signed(fastio_wdata);
+            when x"FE" =>
+              -- @IO:GS $D6FE.0 - Enable audio amplifier chip for R3 board
+              r3_amplifier_enable <= fastio_wdata(0);
             when others => null;
 
                            -- ================================================================== END

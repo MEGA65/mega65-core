@@ -118,7 +118,6 @@ entity audio_complex is
     ampPWM_r : out std_logic;
     pcspeaker_left : out std_logic;
     pcspeaker_right : out std_logic;
-    ampSD : out std_logic := '1';  -- default to amplifier on
     audio_left : out std_logic_vector(19 downto 0);
     audio_right : out std_logic_vector(19 downto 0);
     
@@ -377,7 +376,6 @@ begin
     rdata => audio_mix_rdata,
     audio_loopback => audio_loopback,
     modem_is_pcm_master => modem_is_pcm_master,
-    amplifier_enable => ampSD,
 
     volume_knob1 => volume_knob1,
     volume_knob2 => volume_knob2,

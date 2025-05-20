@@ -1312,7 +1312,6 @@ begin
     rightsid_audio_combined => rightsid_combined,    
     
     -- PDM audio output for various boards
-    ampSD => ampSD,
     ampPWM_l => ampPWM_l,
     ampPWM_r => ampPWM_r,
     pcspeaker_left => pcspeaker_left,
@@ -1690,8 +1689,10 @@ begin
     touch2_x => touch2_x,
     touch2_y => touch2_y,
 
-    last_scan_code => last_scan_code
+    last_scan_code => last_scan_code,
 
+    -- R3 board amplifier chip
+    r3_amplifier_enable => ampSD
     );
 
   process(reset)
