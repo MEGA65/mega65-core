@@ -9,8 +9,30 @@ Please look into [mega65-core](https://github.com/MEGA65/mega65-core/),
 [mega65-fdisk](https://github.com/MEGA65/mega65-fdisk/) git histories
 for complete changes.
 
+Starting with 0.98 we will also have Projects for each release, see
+the [GitHub Projects Page](https://github.com/orgs/MEGA65/projects/).
+
 Please check the [mega65-core repository](https://github.com/MEGA65/mega65-core/releases).
 for our tagged releases.
+
+## Release 0.98 (t.b.d.)
+
+This is perhaps the second release in 2025, we will see...
+
+You can find issues and pull requests ssociated with this release in the
+[Release 0.98 Project](https://github.com/orgs/MEGA65/projects/2/views/2).
+
+### ROM Release 0.98
+
+t.b.d.
+
+### Changes 0.98
+
+nothing here yet...
+
+### Known Bugs 0.98
+
+we'll see...
 
 ## Release 0.97 (10th Anniversary Edition)
 

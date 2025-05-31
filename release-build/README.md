@@ -1,16 +1,27 @@
 
-# MEGA65 Core Release 0.95
+# MEGA65 Core ${RM_BUILD}
 
 Target system: ${RM_TARGET}
 
+**WARNING:** This is an **unstable** and **experimental** test core. Please watch
+for files starting with `WARNING_` in the archive and read the logs if you want to
+know the test results.
+
+**NOTE:** The `#UNSAFE` tag in the version and the `ATTENTION_THIS_COULD_BRICK_YOUR_MEGA65`
+warning file in the archive refers to the possibility that a untested core *might*
+have a temporary negative effect on your system. But using a JTAG interface you
+are always able to restore your system to a working state.
+
 ## Contents
 
-- `*.bit`: bistream file for use with the JTAG adapter (direct transfer to FPGA)
-- `*.cor`: MEGA COR file for flashing with the MEGA65 Flasher
-- `*.mcs`: Vivado Format for flashing via JTAG using Vivado
+- `README.md`: this file
+- `Changelog.md`: the changes since last release (only updated on release)
+- `*.cor`: MEGA COR file for flashing with the MEGA65 Flasher.
+- `*.bit`: bistream file for use with the JTAG adapter (direct transfer to FPGA).
 - `sdcard-files`: all the basic files needed to add to your boot SD card
 - `extra`: contains files you normally don't need, like `HICKUP.M65`. Note: you **don't** need this!
-- `log`: regression test logs
+- `flasher`: this contains a standalone version of MEGAFLASH for convinience.
+- `log`: build and regression test logs.
 
 ## How to use a core
 
@@ -31,7 +42,3 @@ You will also need a ROM for your disk. Either get a
 patch your own, if you don't have access, by using a
 [ROM diff file](https://files.mega65.org?id=fd2c40b9-f337-41f7-8a81-0254b1e09fb5).
 ${RM_HASROM}
-## Known Problems
-
-- The FREEZER does support mounting of D64, but ROM 920377 has no working support for it
-- OpenROM only runs in PAL mode, see [core#362](https://github.com/MEGA65/mega65-core/issues/362)
