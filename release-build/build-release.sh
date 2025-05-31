@@ -8,7 +8,7 @@ REPOPATH=${SCRIPTPATH%/*}
 usage () {
     echo "Usage: ${SCRIPTNAME} [-noreg] [-repack] [-tag TAG] MODEL VERSION [EXTRA]"
     echo
-    echo "  -noreg    skip regression testing"
+    echo "  -noreg    skip regression testing (currently not supported)"
     echo "  -repack   don't copy new stuff, redo cor and mcs, make new 7z"
     echo "  -tag TAG  TAG defaults to the 6 first characters of the branch, use"
     echo "            this for setting something like 'release-0.95'"
@@ -53,11 +53,14 @@ generate_version () {
   name=$1
   num=$2
   hash=$3
+  noshorten=$4
   # release + version?
   if [[ $name =~ ^release-(([0-9])\.([0-9][0-9]?))$ ]]; then
     name="Rel ${BASH_REMATCH[1]} RC#$num $hash"
-  else
+  elif [[ -z $noshorten ]]; then
     name="${name:0:17} #$num $hash"
+  else
+    name="${name} #$num $hash"
   fi
   # cut after 6 chars
   echo ${name}
@@ -163,6 +166,7 @@ if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
     BRANCH=$(shorten_name $BRANCH_NAME)
     if [[ ${VERSION} = "JENKINSGEN" ]]; then
         VERSION="$(generate_version ${BRANCH_NAME} ${BUILD_NUMBER} ${HASH})"
+        RM_BUILD="$(generate_version ${BRANCH_NAME} ${BUILD_NUMBER} ${HASH} 1)"
     fi
     PKGNAME=${MODEL}-${BRANCH}-${BUILD_NUMBER}-${HASH}
 else
@@ -174,6 +178,7 @@ else
     fi
     PKGNAME=${MODEL}-${BRANCH}-${HASH}
     VERSION=${VERSION/HASH/$HASH}
+    RM_BUILD=${VERSION}
 fi
 VERSION=${VERSION:0:31}
 
@@ -203,7 +208,7 @@ echo "Creating info files from templates"
 echo
 for txtfile in README.md Changelog.md; do
     echo ".. ${txtfile}"
-    ( RM_TARGET=${RM_TARGET} envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile} )
+    ( RM_TARGET="${RM_TARGET}" RM_BUILD="${RM_BUILD}" RM_HASROM="${RM_HASROM}" envsubst < ${SCRIPTPATH}/${txtfile} > ${PKGPATH}/${txtfile} )
 done
 
 UNSAFE=0
@@ -215,6 +220,7 @@ if [[ ${REPACK} -eq 0 ]]; then
     if [[ ${ROM_FILE} != "" ]]; then
         cp ${ROM_FILE} ${PKGPATH}/sdcard-files/
     fi
+    cp ${SCRIPTPATH}/SDCARD-README.md ${PKGPATH}/sdcard-files/README.md
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
     # we don't need ONBOARD.M65
     rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65
