@@ -1990,7 +1990,6 @@ printhex:
         ;; INPUT: .Y, BG seems to be an offset, should be set to zero?
         ;; INPUT: .Z, value in Z-reg to be displayed omn the screen
         ;;
-	phx
         tza
         lsr
         lsr
@@ -1999,9 +1998,10 @@ printhex:
         jsr printhexdigit
         tza
         and #$0f
-printhexdigit:
+printhexdigit:	
         ;; find next $ sign to replace with hex digit
         ;;
+	phx
         tax
 phd3:   lda (<zptempp2),y
         cmp #$24
@@ -3095,7 +3095,7 @@ msg_noflashmenu:
 
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17"
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17X"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
