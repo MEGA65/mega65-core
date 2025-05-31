@@ -1990,6 +1990,7 @@ printhex:
         ;; INPUT: .Y, BG seems to be an offset, should be set to zero?
         ;; INPUT: .Z, value in Z-reg to be displayed omn the screen
         ;;
+	phx
         tza
         lsr
         lsr
@@ -2009,6 +2010,7 @@ phd3:   lda (<zptempp2),y
         iny
         cpy #$50
         bcc phd3
+	plx
         rts
 
 phd2:   txa
@@ -2019,6 +2021,7 @@ phd2:   txa
 phd1:   sta (<zptempp2),y
         iny
         iny
+	plx
         rts
 
 ;;         ========================
@@ -3258,7 +3261,9 @@ dos_disk_table:
         * = SysPartStructure_Start
 
 syspart_structure:
-
+	;; XXX - WARNING: The following structure must exactly match the on-disk format of the
+	;; system partition information structure.
+	
 syspart_start_sector:
         !8 0,0,0,0
 syspart_size_in_sectors:
@@ -3308,6 +3313,11 @@ syspart_service_slot_count:
 syspart_service_directory_sector_count:
         !8 0,0
 
+syspart_resources_area_start:
+	!8 0,0,0,0
+syspart_resources_area_size:
+	!8 0,0,0,0
+	
 ;; /*  -------------------------------------------------------------------
 ;;     Hypervisor DOS work area and scratch pad at $BC00-$BCFF
 ;;     ---------------------------------------------------------------- */
