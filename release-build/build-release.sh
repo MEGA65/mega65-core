@@ -109,29 +109,18 @@ done
 
 BITMODEL=${MODEL}
 MODELRENAME=0
-BUILDMCS=0
 if [[ ${MODEL} = "mega65r3" ]]; then
     RM_TARGET="MEGA65R3 boards -- DevKit, MEGA65 R3 and R3a (Artix A7 200T FPGA)"
-    # only for DEVKITs!
-    BUILDMCS=1
 elif [[ ${MODEL} = "mega65r4" ]]; then
     RM_TARGET="MEGA65R4 boards -- MEGA65 R4 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r5" ]]; then
     RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
 elif [[ ${MODEL} = "mega65r6" ]]; then
     RM_TARGET="MEGA65R6 boards -- MEGA65 R6 (Artix A7 200T FPGA)"
-elif [[ ${MODEL} = "mega65r5_6" ]]; then
-    # build r5 core package using r6 bitstream
-    RM_TARGET="MEGA65R5 boards -- MEGA65 R5 (Artix A7 200T FPGA)"
-    MODEL="mega65r5"
-    BITMODEL="mega65r6"
-    MODELRENAME=1
 elif [[ ${MODEL} = "mega65r2" ]]; then
     RM_TARGET="MEGA65R2 boards -- Limited Testkit (Artix A7 100T FPGA)"
-    BUILDMCS=1
 elif [[ ${MODEL} = "nexys4ddr-widget" ]]; then
     RM_TARGET="Nexys4DDR boards -- Nexys4DDR, NexysA7 (Artix A7 100T FPGA)"
-    BUILDMCS=1
 elif [[ ${MODEL} = "wukong" ]]; then
     RM_TARGET="Wukong board -- TEST for WukongA100T-v2 (Artix A7 100T FPGA 7a100tfgg676)"
 else
@@ -154,12 +143,6 @@ fi
 echo
 echo "Bitstream found: ${BITNAME}"
 echo
-# hack for packaging r6 bitstreams as r5 cores
-if [[ ${MODELRENAME} -eq 1 ]]; then
-    BITBASE=${MODEL}-${BITBASE#*-}
-    echo "NOTE: packaging ${BITMODEL} COR as ${BITBASE} using model ${MODEL} instead!"
-    echo
-fi
 
 # determine branch
 if [[ -n ${JENKINS_SERVER_COOKIE} ]]; then
@@ -263,19 +246,21 @@ fi
 # fi
 
 
-echo "Building COR/MCS"
+echo "Building COR"
 echo
-if [[ ${MODEL} == "nexys4ddr-widget" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target nexys4ddrwidget --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
-elif [[ ${MODEL} == "wukong" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target wukong --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
-elif [[ ${MODEL} == "mega65r2" ]]; then
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target mega65r2 --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
+# certain models with smaller core size can't handle the files...
+if [[ ${MODEL} == "XXX" ]]; then
+# but currently there are none!
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory
 else
-    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
-fi
-if [[ ${BUILDMCS} -eq 1 ]]; then
-    ${CORETOOL} --convert ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/${BITBASE}.mcs
+    ${CORETOOL} --build ${PKGPATH}/${BITBASE}.cor --target ${MODEL/-widget/widget} --bit ${PKGPATH}/${BITBASE}.bit --bit-name MEGA65 --bit-version "${VERSION:0:31}" --caps def,m65,c64 --install factory --smart-sort --add-files ${PKGPATH}/sdcard-files/* ${EXTRA_FILES}
+    if [[ ${MODEL} == "mega65r6" ]]; then
+        BITBASER5=mega65r5-${BITBASE#*-}
+        echo "NOTE: converting r6 cor file to r5 version"
+        mkdir ${PKGPATH}/beta-pcb
+        touch ${PKGPATH}/beta-pcb/r5-bit-is-the-same-as-r6
+        ${CORETOOL} --convert ${PKGPATH}/${BITBASE}.cor ${PKGPATH}/beta-pcb/${BITBASER5}.cor --target mega65r5 
+    fi
 fi
 ${CORETOOL} --verify ${PKGPATH}/${BITBASE}.cor
 
