@@ -649,6 +649,25 @@ msg_syspart_config_invalid:
         !text "SYSPART CONFIG INVALID. PLEASE SET."
         !8 0
 
+readsharedresourcetrap:
+	stq $d681
+	cpq syspart_resources_area_size
+	bcs bad_syspart_resource_sector_request
+	ldq syspart_resources_area_start
+	adcq $d681
+	;; Ask SD card to read the sector.
+	lda #$02
+	sta $d680
+	;; Note that we don't wait for the request to finish -- that's
+        ;; up to the end-user to do, so that we don't waste space here
+	;; in the hypervisor, where space is at an absolute premium.
+        jmp return_from_trap_with_success
+	
+bad_syspart_resource_sector_request:
+	;; Return "illegal value" if trying to read beyond end of region
+	lda #dos_errorcode_illegal_value
+	jmp return_from_trap_with_failure
+	
 syspart_trap:
         sei
         cld
