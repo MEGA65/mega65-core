@@ -77,8 +77,8 @@ trap_entry_points:
         eom                                     ;; refer serialwrite in this file
         jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
-        jmp nosuchtrap
-        eom
+	jmp readsharedresourcetrap              ;; Trap #$05
+        eom                                     ;; refer: syspart.asm
         jmp nosuchtrap
         eom
         jmp nosuchtrap
