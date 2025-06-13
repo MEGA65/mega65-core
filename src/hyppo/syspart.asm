@@ -652,8 +652,7 @@ msg_syspart_config_invalid:
 readsharedresourcetrap:
 	cpq syspart_resources_area_size
 	bcs bad_syspart_resource_sector_request
-	ldq syspart_resources_area_start
-	adcq $d681
+	adcq syspart_resources_area_start
 	stq $d681
 	;; Ask SD card to read the sector.
 	lda #$02
