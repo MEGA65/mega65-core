@@ -5942,8 +5942,7 @@ begin
                 dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb;
                 dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               end if;               
-              dmagic_src_addr(7 downto 0) <= (others => '0');
-              dmagic_dest_addr(7 downto 0) <= (others => '0');
+
               dmagic_src_io <= dmagic_src_bank_temp(7);
               if (job_is_f018b = '1') then
                 dmagic_src_direction <= dmagic_cmd(4);
