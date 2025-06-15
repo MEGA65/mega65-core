@@ -5898,12 +5898,12 @@ begin
               end if;
               dmagic_dest_addr(23 downto 16) <= dmagic_dest_bank_temp;
               dmagic_dest_addr(15 downto 8) <= dmagic_dest_addr(23 downto 16);
-              dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr_sub;
+              dmagic_dest_addr(7 downto 0) <= reg_dmagic_dest_addr_sub;
 
               dmagic_src_bank_temp <= dmagic_dest_addr(15 downto 8);
               dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
               dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
-              dmagic_src_addr(7 downto 0) <= dmagic_src_addr_sub;
+              dmagic_src_addr(7 downto 0) <= reg_dmagic_src_addr_sub;
               
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);              
