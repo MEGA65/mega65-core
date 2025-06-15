@@ -589,6 +589,8 @@ architecture Behavioural of gs4510 is
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal reg_dmagic_src_addr_sub : unsigned(7 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal reg_dmagic_dest_addr_sub : unsigned(7 downto 0)  := (others => '0'); -- in 256ths of bytes
   signal reg_dmagic_cross_mb_boundaries : std_logic := '0';
   signal reg_dmagic_use_transparent_value : std_logic := '0';
   signal reg_dmagic_transparent_value : unsigned(7 downto 0) := x"00";
@@ -3847,6 +3849,9 @@ begin
       reg_dmagic_src_skip <= x"0100";
       reg_dmagic_dst_skip <= x"0100";
 
+      reg_dmagic_src_addr_sub <= x"00";
+      reg_dmagic_dest_addr_sub <= x"00";
+      
       reg_dmagic_x8_offset <= x"0000";
       reg_dmagic_y8_offset <= x"0000";
       reg_dmagic_slope <= x"0000";
@@ -5812,6 +5817,12 @@ begin
                                 reg_dmagic_line_slope_negative <= memory_read_value(5);
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $90 $xx = Set bits 16 -- 23 of DMA length to allow DMA operations >64KB.
                   when x"90" => dmagic_count(23 downto 16) <= memory_read_value;
+                               
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $91 $xx = Set fractional part of source address
+                  when x"91" => reg_dmagic_src_addr_sub <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $92 $xx = Set fractional part of destination address
+                  when x"92" => reg_dmagic_dest_addr_sub <= memory_read_value;
+                                
                   -- Similar for reading from sources at funny angles, to more
                   -- readily support rotating textures
                   when x"97" => reg_dmagic_s_x8_offset(7 downto 0) <= memory_read_value;
@@ -5887,9 +5898,13 @@ begin
               end if;
               dmagic_dest_addr(23 downto 16) <= dmagic_dest_bank_temp;
               dmagic_dest_addr(15 downto 8) <= dmagic_dest_addr(23 downto 16);
+              dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr_sub;
+
               dmagic_src_bank_temp <= dmagic_dest_addr(15 downto 8);
               dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
               dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
+              dmagic_src_addr(7 downto 0) <= dmagic_src_addr_sub;
+              
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);              
               dmagic_cmd <= dmagic_count(7 downto 0);
