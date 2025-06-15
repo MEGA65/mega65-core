@@ -4359,7 +4359,7 @@ begin
             -- extended attributes.
 
             -- FCM/NCM + CHARY16 causes interlacing of two consecutive glyphs #902
-            if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(0)='1') or fullcolour_8bitchars='1') then
+            if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(4 downto 0) /= "00000") or fullcolour_8bitchars='1') then
               glyph_number(7 downto 0) <= glyph_number(7 downto 0) + 1;
               if glyph_number(7 downto 0) = x"ff" then
                 glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0) + 1;
