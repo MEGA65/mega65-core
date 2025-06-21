@@ -106,6 +106,7 @@ mps_loop:
         lda megaphone_r1_i2c_settings,y
         iny
 
+	ldx #$ff
 
         ;; Keep writing it until it gets written
 -
@@ -116,6 +117,9 @@ mps_loop:
         inc $d020
 
         cmp [<zptempv32],z
+	beq mps_loop
+	jsr i2c_job_delay
+	dex
         bne -
 
 
