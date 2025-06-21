@@ -35,7 +35,7 @@ mega65r4_i2c_setup:
         rts
 
 mega65r3_i2c_setup:
-
+	
         lda #>$7100
         sta zptempv32+1
         lda #$00
@@ -77,6 +77,7 @@ i2c_job_delay:
 	dex
 	bne -
 
+	plx
 	rts
 	
 megaphone_r1_i2c_setup:
