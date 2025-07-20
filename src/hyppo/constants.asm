@@ -3,8 +3,8 @@
 ;;     Paul Gardner-Stephen, 2014-2024.
 ;;     ---------------------------------------------------------------- */
 
-        os_version = $0102
-        dos_version = $0103
+        os_version = $0103      ; this should be the same as in main:msg_hyppo
+        dos_version = $0103     ; this should be the same as in main:msg_hyppo
         constant_partition_type_fat32_chs = $0b
         constant_partition_type_fat32_lba = $0c
         constant_partition_type_megea65_sys = $41
