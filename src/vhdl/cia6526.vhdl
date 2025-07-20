@@ -533,7 +533,7 @@ begin  -- behavioural
 --      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0_1mhz);
       if reg_timera_start='1' and hypervisor_mode='0' then
         if reg_timera_has_ticked='1' then
-          if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
+          if reg_timera = x"FFFF" then
             -- underflow
             report "CIA" & to_hexstring(unit) & " timera underflow (reg_serialport_direction="
               & std_logic'image(reg_serialport_direction) & ", sdr_bits_remaining = "
@@ -605,7 +605,7 @@ begin  -- behavioural
         report "CIA" & to_hexstring(unit) & " timerb running. reg_timerb = $" & to_hexstring(reg_timerb);
 
         if reg_timerb_has_ticked='1' then
-          if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
+          if reg_timerb = x"FFFF" then
             -- underflow
             report "CIA" & to_hexstring(unit) & " timerb underflow";
             reg_isr(1) <= '1';
