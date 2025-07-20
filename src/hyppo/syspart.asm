@@ -18,6 +18,9 @@
 ;;        These are internally just frozen programs with a valid service
 ;;        description header.
 
+;;     4. A space for shared resources (e.g., pre-rendered fonts for the
+;;        MEGAphone).
+	
 ;;     HEADER - First sector of partition
 
 ;;     $000-$00A "MEGA65SYS00" - Magic string and version indication
@@ -29,7 +32,11 @@
 ;;     $028-$02b Size of each installed service slot
 ;;     $02c-$02d Number of service slots
 ;;     $02e-$02f Number of sectors used for slot directory
-;;     $030-$1ff RESERVED
+;;     $030-$033 Starting sector within the SYSPART of the shared resource
+;;               area.
+;;     $034-$037 Number of sectors in the shared resource area.
+
+;;     $038-$1ff RESERVED
 
 ;;     Basically we have two main areas in the system partition for frozen
 ;;     programs, and for each we have a directory that allows for quick
@@ -81,6 +88,20 @@ launch_onboarding:
         ;; $8000-$BFFF where the hypervisor is mapped
         jmp run_util_in_hypervisor_context
 
+syspart_openerror:
+
+        ;; Report error opening system partition
+        ldx #<msg_syspart_open_error
+        ldy #>msg_syspart_open_error
+        jsr printmessage
+        ldy #$00
+        ldz syspart_error_code
+        jsr printhex
+        ldz #$00
+
+        clc
+        rts
+
 syspart_open:
         ;; Open a system partition.
         ;; At this point, only syspart_start_sector and
@@ -97,6 +118,7 @@ spo1:   lda syspart_start_sector,x
         sta syspart_error_code
         jsr sd_readsector
         bcc syspart_openerror
+	
 
         ;; Got First sector of system partition.
 
@@ -113,15 +135,25 @@ spo2:        lda $de00,x
         lda #$00
         sta syspart_error_code
 
-        ;; Copy bytes from offset $10 - $2F into syspart_structure
+        ;; Copy bytes from offset $10 - $37 into syspart_structure
         ;; XXX It is assumed that these fields are aligned with each other
         ldx #$10
 spo3:        lda $de00,x
         sta syspart_structure,x
         inx
-        cpx #$30
+        cpx #$38
         bne spo3
 
+	;; Add start of system partition to the start of the shared resource area.
+	;; This allows the hypervisor trap to simply add the requested sector within
+	;; the shared resource area to this field to determine the absolute SD card
+	;; sector number to fetch.
+	;; syspart_resources_area_start += syspart_start_sector
+	ldq syspart_resources_area_start
+	clc
+	adcq syspart_start_sector
+	stq syspart_resources_area_start
+	
         ;; Display info about # of freeze and service slots
         ldx #<msg_syspart_info
         ldy #>msg_syspart_info
@@ -137,15 +169,28 @@ spo3:        lda $de00,x
         jsr printhex
 
         ;; Show size of freeze slots
-        ldz syspart_freeze_slot_size_in_sectors+3
+	ldx #3
+sfssi_loop:	
+        lda syspart_freeze_slot_size_in_sectors+3,x
+	taz
         jsr printhex
-        ldz syspart_freeze_slot_size_in_sectors+2
-        jsr printhex
-        ldz syspart_freeze_slot_size_in_sectors+1
-        jsr printhex
-        ldz syspart_freeze_slot_size_in_sectors+0
-        jsr printhex
+	dex
+	bpl sfssi_loop
 
+        ;; Display info about # of freeze and service slots
+        ldx #<msg_syspart_info_2
+        ldy #>msg_syspart_info_2
+        jsr printmessage
+        ldy #$00
+	ldx #3
+spi2_loop:	
+        lda syspart_resources_area_size,x
+	taz
+        jsr printhex
+	dex
+	bpl spi2_loop
+	
+	
         lda #$01
         sta syspart_present
 
@@ -165,20 +210,6 @@ no_onboarding:
         jsr printmessage
 
 spo4:        sec
-        rts
-
-syspart_openerror:
-
-        ;; Report error opening system partition
-        ldx #<msg_syspart_open_error
-        ldy #>msg_syspart_open_error
-        jsr printmessage
-        ldy #$00
-        ldz syspart_error_code
-        jsr printhex
-        ldz #$00
-
-        clc
         rts
 
 do_launch_onboarding:
@@ -611,10 +642,31 @@ msg_syspart_ok:
 msg_syspart_info:
         !text "SYS: $$$$ FRZ + $$$$ SVC X $$$$$$$$"
         !8 0
+msg_syspart_info_2:
+        !text "SYS: $$$$$$$$ SECTORS FOR RESOURCES"
+        !8 0
 msg_syspart_config_invalid:
         !text "SYSPART CONFIG INVALID. PLEASE SET."
         !8 0
 
+readsharedresourcetrap:
+	cpq syspart_resources_area_size
+	bcs bad_syspart_resource_sector_request
+	adcq syspart_resources_area_start
+	stq $d681
+	;; Ask SD card to read the sector.
+	lda #$02
+	sta $d680
+	;; Note that we don't wait for the request to finish -- that's
+        ;; up to the end-user to do, so that we don't waste space here
+	;; in the hypervisor, where space is at an absolute premium.
+        jmp return_from_trap_with_success
+	
+bad_syspart_resource_sector_request:
+	;; Return "illegal value" if trying to read beyond end of region
+	lda #dos_errorcode_illegal_value
+	jmp return_from_trap_with_failure
+	
 syspart_trap:
         sei
         cld

@@ -77,8 +77,8 @@ trap_entry_points:
         eom                                     ;; refer serialwrite in this file
         jmp emulatortrap                        ;; Trap #$04
         eom                                     ;; Reserved for Xemu to use
-        jmp nosuchtrap
-        eom
+	jmp readsharedresourcetrap              ;; Trap #$05
+        eom                                     ;; refer: syspart.asm
         jmp nosuchtrap
         eom
         jmp nosuchtrap
@@ -1998,9 +1998,10 @@ printhex:
         jsr printhexdigit
         tza
         and #$0f
-printhexdigit:
+printhexdigit:	
         ;; find next $ sign to replace with hex digit
         ;;
+	phx
         tax
 phd3:   lda (<zptempp2),y
         cmp #$24
@@ -2009,6 +2010,7 @@ phd3:   lda (<zptempp2),y
         iny
         cpy #$50
         bcc phd3
+	plx
         rts
 
 phd2:   txa
@@ -2019,6 +2021,7 @@ phd2:   txa
 phd1:   sta (<zptempp2),y
         iny
         iny
+	plx
         rts
 
 ;;         ========================
@@ -3092,7 +3095,8 @@ msg_noflashmenu:
 
 msg_retryreadmbr:       !text "RE-TRYING TO READ MBR"
                         !8 0
-msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V00.17"
+                        ;; this should match constants:os_version, dos_version
+msg_hyppo:              !text "MEGA65 MEGAOS HYPERVISOR V01.03/V01.03"
                         !8 0
 msg_hyppohelpfirst:     !text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         !8 0
@@ -3258,11 +3262,15 @@ dos_disk_table:
         * = SysPartStructure_Start
 
 syspart_structure:
-
+	;; XXX - WARNING: The following structure must exactly match the on-disk format of the
+	;; system partition information structure.
+	
 syspart_start_sector:
         !8 0,0,0,0
 syspart_size_in_sectors:
         !8 0,0,0,0
+;; this is never used nor set, fdisk sets it to 1MB and points syspart_freeze_area_start to it
+;; so it could be calculated by multiplying syspart_freeze_area_start with sector size (512b)
 syspart_reserved:
         !8 0,0,0,0,0,0,0,0
 
@@ -3308,6 +3316,11 @@ syspart_service_slot_count:
 syspart_service_directory_sector_count:
         !8 0,0
 
+syspart_resources_area_start:
+	!8 0,0,0,0
+syspart_resources_area_size:
+	!8 0,0,0,0
+	
 ;; /*  -------------------------------------------------------------------
 ;;     Hypervisor DOS work area and scratch pad at $BC00-$BCFF
 ;;     ---------------------------------------------------------------- */
