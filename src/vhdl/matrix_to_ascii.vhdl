@@ -676,7 +676,7 @@ architecture behavioral of matrix_to_ascii is
     50 => x"1d",
     51 => x"ff", -- Home
     52 => x"ff", -- Right Shift
-    53 => x"1f",
+    53 => x"ff",
     54 => x"1e",
     55 => x"ff", -- Slash
     56 => x"90",
