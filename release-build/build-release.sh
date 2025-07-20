@@ -68,6 +68,7 @@ generate_version () {
 
 CORETOOL=${SCRIPTPATH}/mega65-tools/bin/coretool
 REGTEST=${SCRIPTPATH}/mega65-tools/src/tests/regression-test.sh
+PETCONV=${SCRIPTPATH}/mega65-tools/src/tools/petconv
 
 TAG="NULL"
 REPACK=0
@@ -204,6 +205,7 @@ if [[ ${REPACK} -eq 0 ]]; then
         cp ${ROM_FILE} ${PKGPATH}/sdcard-files/
     fi
     cp ${SCRIPTPATH}/SDCARD-README.md ${PKGPATH}/sdcard-files/README.md
+    ${PETCONV} ${SCRIPTPATH}/SDCARD-README.md > ${PKGPATH}/sdcard-files/TYPEME
     cp ${REPOPATH}/sdcard-files/* ${PKGPATH}/sdcard-files/
     # we don't need ONBOARD.M65
     rm -f ${PKGPATH}/sdcard-files/ONBOARD.M65

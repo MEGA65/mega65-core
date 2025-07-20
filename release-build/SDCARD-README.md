@@ -2,10 +2,10 @@
 
 This file was put here by fdisk sdcard population.
 
-We have a lot of information gathered on Filehost in the
-[MEGA65 SD card FAQ](https://files.mega65.org?ar=e8dcb0a3-894a-40ae-851c-b69620accebe)
-and the
-[Tutorial: How to prepare your SD card](https://files.mega65.org?ar=bf23ac42-5786-48f7-a117-4e6f81edd802).
+We have a lot of information gathered on Filehost in the Articles
+
+- [MEGA65 SD card FAQ](https://files.mega65.org?ar=e8dcb0a3-894a-40ae-851c-b69620accebe)
+- [Tutorial: How to prepare your SD card](https://files.mega65.org?ar=bf23ac42-5786-48f7-a117-4e6f81edd802)
 
 Some quick information:
 
