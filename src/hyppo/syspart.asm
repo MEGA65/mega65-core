@@ -88,6 +88,20 @@ launch_onboarding:
         ;; $8000-$BFFF where the hypervisor is mapped
         jmp run_util_in_hypervisor_context
 
+syspart_openerror:
+
+        ;; Report error opening system partition
+        ldx #<msg_syspart_open_error
+        ldy #>msg_syspart_open_error
+        jsr printmessage
+        ldy #$00
+        ldz syspart_error_code
+        jsr printhex
+        ldz #$00
+
+        clc
+        rts
+
 syspart_open:
         ;; Open a system partition.
         ;; At this point, only syspart_start_sector and
@@ -103,7 +117,7 @@ spo1:   lda syspart_start_sector,x
         lda #syspart_error_readerror
         sta syspart_error_code
         jsr sd_readsector
-        lbcc syspart_openerror
+        bcc syspart_openerror
 	
 
         ;; Got First sector of system partition.
@@ -114,7 +128,7 @@ spo1:   lda syspart_start_sector,x
         ldx #10
 spo2:        lda $de00,x
         cmp syspart_magic,x
-        lbne syspart_openerror
+        bne syspart_openerror
         dex
         bpl spo2
 
@@ -196,20 +210,6 @@ no_onboarding:
         jsr printmessage
 
 spo4:        sec
-        rts
-
-syspart_openerror:
-
-        ;; Report error opening system partition
-        ldx #<msg_syspart_open_error
-        ldy #>msg_syspart_open_error
-        jsr printmessage
-        ldy #$00
-        ldz syspart_error_code
-        jsr printhex
-        ldz #$00
-
-        clc
         rts
 
 do_launch_onboarding:
