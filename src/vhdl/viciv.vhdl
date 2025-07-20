@@ -4357,7 +4357,7 @@ begin
             -- We only allow 8192 characters in extended mode.
             -- The spare bits are used to provide some (hopefully useful)
             -- extended attributes.
-            
+
             -- FCM/NCM + CHARY16 causes interlacing of two consecutive glyphs #902
             if reg_char_y16='1' and charrow_repeated='1' and ((fullcolour_extendedchars='1' and screen_ram_buffer_dout(0)='1') or fullcolour_8bitchars='1') then
               glyph_number(7 downto 0) <= glyph_number(7 downto 0) + 1;
@@ -4368,8 +4368,8 @@ begin
               end if;
             else
               glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
-            end if;              
-            
+            end if;
+
             glyph_width_deduct(2 downto 0) <= screen_ram_buffer_dout(7 downto 5);
             glyph_width_deduct(3) <= '0';
             if screen_ram_buffer_dout = x"ff" then
