@@ -496,6 +496,7 @@ architecture Behavioral of viciv is
   signal paint_flip_horizontal : std_logic := '0';
   signal paint_foreground : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_background : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal paint_background_with_any_reverse : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_mc1 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_mc2 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_buffer_hflip_chardata : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -845,6 +846,7 @@ architecture Behavioral of viciv is
   signal glyph_bold_drive : std_logic := '0';
   signal glyph_underline_drive : std_logic := '0';
   signal glyph_underline : std_logic := '0';
+  signal glyph_xor : std_logic := '0';
   signal glyph_reverse : std_logic := '0';
   signal glyph_reverse_drive : std_logic := '0';
   signal glyph_full_colour : std_logic := '0';
@@ -4627,6 +4629,15 @@ begin
           glyph_underline <= glyph_underline_drive;
           glyph_bold <= glyph_bold_drive;
           glyph_colour_drive2 <= glyph_colour_drive;
+
+          -- Alpha blend mode glyphs invert pixel values (=intensities)
+          -- for reverse video mode.
+          -- (But FCM reverse just changes transparent pixel colours, and
+          --  is handled by paint_background_with_any_reverse).
+          if glyph_with_alpha='1' then
+            glyph_xor <= glyph_reverse_drive;
+          end if;
+          
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
           glyph_colour <= glyph_colour_drive2;
@@ -4671,7 +4682,7 @@ begin
                 full_colour_data(63 downto 56) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(63 downto 56) <= "11111111";
-              elsif glyph_reverse='1' and glyph_bold='0' then
+              elsif glyph_xor='1' then
                 full_colour_data(63 downto 56) <= hyper_data xor "11111111";
               else
                 full_colour_data(63 downto 56) <= hyper_data;
@@ -4682,7 +4693,7 @@ begin
                 full_colour_data(7 downto 0) <= "00000000";
               elsif glyph_underline='1' then
                 full_colour_data(7 downto 0) <= "11111111";
-              elsif glyph_reverse='1' and glyph_bold='0' then
+              elsif glyph_xor='1' then
                 full_colour_data(7 downto 0) <= hyper_data xor "11111111";
               else
                 full_colour_data(7 downto 0) <= hyper_data;
@@ -4722,7 +4733,7 @@ begin
           if glyph_visible='0' or draw_mask_blank='1' then
             full_colour_data(63 downto 56) <= "00000000";
           end if;
-          if glyph_reverse='1' and glyph_bold='0' then
+          if glyph_xor='1' then
             if glyph_4bit='0' or glyph_flip_horizontal='0' then
               -- Don't flip byte nybl order
               full_colour_data(63 downto 56) <= ramdata xor "11111111";
@@ -5206,6 +5217,13 @@ begin
           report "LEGACY: clearing paint_ready. full_colour_data=$" & to_hstring(full_colour_data);
           paint_full_colour_data <= full_colour_data;
           paint_bits_remaining <= paint_glyph_width - 1;
+          -- Reverse video mode for FCM/NCM changes whether foreground or
+          -- background colour is visible through transparent pixels.
+          if glyph_reverse='1' and glyph_bold='0' then
+            paint_background_with_any_reverse <= paint_foreground;
+          else
+            paint_background_with_any_reverse <= paint_background;
+          end if;      
           if paint_glyph_4bit='1' then
             paint_fsm_state <= Paint4bitColourPixels;
           else
@@ -5216,7 +5234,7 @@ begin
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             raster_buffer_write_data(8) <= force_chars_foreground;
-            raster_buffer_write_data(7 downto 0) <= paint_background;
+            raster_buffer_write_data(7 downto 0) <= paint_background_with_any_reverse;
           else
             -- foreground pixel
             if paint_with_alpha='0' then
@@ -5272,7 +5290,7 @@ begin
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             raster_buffer_write_data(8) <= force_chars_foreground;
-            raster_buffer_write_data(7 downto 0) <= paint_background;
+            raster_buffer_write_data(7 downto 0) <= paint_background_with_any_reverse;
           else
             -- foreground pixel
             if paint_with_alpha='0' then
