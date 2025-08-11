@@ -5221,7 +5221,7 @@ begin
           paint_bits_remaining <= paint_glyph_width - 1;
           -- Reverse video mode for FCM/NCM changes whether foreground or
           -- background colour is visible through transparent pixels.
-          if glyph_reverse='1' and glyph_bold='0' then
+          if glyph_reverse='1' and glyph_bold='0' and glyph_with_alpha='0' then
             paint_background_with_any_reverse <= paint_foreground;
           else
             paint_background_with_any_reverse <= paint_background;
