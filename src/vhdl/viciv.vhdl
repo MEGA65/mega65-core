@@ -4628,18 +4628,18 @@ begin
           glyph_bold <= glyph_bold_drive;
           glyph_colour_drive2 <= glyph_colour_drive;
 
+          raster_fetch_state <= PaintMemWait2;
+        when PaintMemWait2 =>
           -- Alpha blend mode glyphs invert pixel values (=intensities)
           -- for reverse video mode.
           -- (But FCM reverse just changes transparent pixel colours, and
           --  is handled by paint_background_with_any_reverse).
           if glyph_with_alpha='1' then
-            glyph_xor <= glyph_reverse_drive;
+            glyph_xor <= glyph_reverse;
           else
             glyph_xor <= '0';
-          end if;
-          
-          raster_fetch_state <= PaintMemWait2;
-        when PaintMemWait2 =>
+          end if;         
+
           glyph_colour <= glyph_colour_drive2;
           if glyph_4bit='0' then
             glyph_width <= 8 - safe_to_integer(glyph_width_deduct(2 downto 0));
@@ -4717,7 +4717,7 @@ begin
           -- Read and store the 8 bytes of data we need for a full-colour character
           report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata);
           if glyph_4bit='0' or glyph_flip_horizontal='0' then
-            -- Don't fly byte nybl order
+            -- Don't flip byte nybl order
             full_colour_data(63 downto 56) <= ramdata;
           else
             -- Do flip byte nybl order
