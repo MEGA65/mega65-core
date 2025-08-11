@@ -4634,6 +4634,8 @@ begin
           --  is handled by paint_background_with_any_reverse).
           if glyph_with_alpha='1' then
             glyph_xor <= glyph_reverse_drive;
+          else
+            glyph_xor <= '0';
           end if;
           
           raster_fetch_state <= PaintMemWait2;
