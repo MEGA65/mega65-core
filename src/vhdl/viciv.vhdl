@@ -871,7 +871,8 @@ architecture Behavioral of viciv is
   signal force_chars_foreground : std_logic := '1';
   signal force_chars_background : std_logic := '0';
   signal last_hyper_request_toggle : std_logic := '0';
-
+  signal transparent_pixel_will_come_from_primary_palette : std_logic := '0';
+  
   signal short_line : std_logic := '0';
   signal short_line_length : integer range 0 to 512;
   signal screen_ram_is_ff : std_logic := '0';
@@ -4796,11 +4797,9 @@ begin
             -- reversed or not.            
             if viciii_extended_attributes = '1' and glyph_4bit='0' and glyph_full_colour='1' then
               paint_alternate_palette <= glyph_bold;
-              bg_from_primary_palette <= '1';
             else
               -- Normal VIC-III interpretation
               paint_alternate_palette <= glyph_reverse and glyph_bold;
-              bg_from_primary_palette <= '0';
             end if;
 
             if glyph_goto='1' then
