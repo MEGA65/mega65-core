@@ -4580,12 +4580,12 @@ begin
           else
             if viciii_extended_attributes='1' then
               -- VIC-III character attributes
-              if colourramdata(4)='1' then
+              if colourramdata(4)='1' then    -- IF BLINK==1
                 -- Blinking glyph
                 glyph_blink_drive <= '1';
-                if colourramdata(5)='1'
-                  or colourramdata(6)='1'
-                  or colourramdata(7)='1' then
+                if colourramdata(5)='1'            -- IF REVERSE==1
+                  or colourramdata(6)='1'          --    OR BOLD==1
+                  or colourramdata(7)='1' then     --    OR UNDERLINE==1
                   -- Blinking attributes
                   if viciii_blink_phase='1' then
                     glyph_reverse_drive <= colourramdata(5);
@@ -4599,7 +4599,7 @@ begin
                   -- Just plain blinking character
                   glyph_visible_drive <= viciii_blink_phase;
                 end if;
-              else
+              else 
                 -- Non-blinking attributes
                 glyph_visible_drive <= '1';
                 glyph_reverse_drive <= colourramdata(5);
@@ -4788,7 +4788,18 @@ begin
             paint_blink <= glyph_blink;
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
-            paint_alternate_palette <= glyph_reverse and glyph_bold;
+
+            -- For FCM glyphs in VIC-III attribute mode, we wire BOLD directly
+            -- to the alternate palette selection, so that glyphs can be
+            -- reversed or not.            
+            if viciii_extended_attributes = '1' and glyph_4bit='0' and glyph_full_colour='1' then
+              paint_alternate_palette <= glyph_bold;
+              bg_from_primary_palette <= '1';
+            else
+              -- Normal VIC-III interpretation
+              paint_alternate_palette <= glyph_reverse and glyph_bold;
+              bg_from_primary_palette <= '0';
+            end if;
 
             if glyph_goto='1' then
 
@@ -5219,8 +5230,10 @@ begin
           -- background colour is visible through transparent pixels.
           if glyph_reverse='1' and glyph_bold='0' and glyph_with_alpha='0' then
             paint_background_with_any_reverse <= paint_foreground;
+            transparent_pixel_will_come_from_primary_palette <= '1';
           else
             paint_background_with_any_reverse <= paint_background;
+            transparent_pixel_will_come_from_primary_palette <= '0';
           end if;      
           if paint_glyph_4bit='1' then
             paint_fsm_state <= Paint4bitColourPixels;
@@ -5289,6 +5302,10 @@ begin
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             raster_buffer_write_data(8) <= force_chars_foreground;
             raster_buffer_write_data(7 downto 0) <= paint_background_with_any_reverse;
+            if transparent_pixel_will_come_from_primary_palette = '1' then
+              -- Overwrites default ALT palette selection logic
+              raster_buffer_write_data(17) <= '0';
+            end if;            
           else
             -- foreground pixel
             if paint_with_alpha='0' then
