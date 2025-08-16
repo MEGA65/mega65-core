@@ -4596,7 +4596,9 @@ begin
                   if viciii_blink_phase='1' then
                     glyph_reverse_drive <= colourramdata(5);
                     glyph_bold_drive <= colourramdata(6);
-                    glyph_colour_drive(4) <= colourramdata(6);
+                    if bold_is_alt='0' then
+                      glyph_colour_drive(4) <= colourramdata(6);
+                    end if;
                     if chargen_y_hold="111" then
                       glyph_underline_drive <= colourramdata(7);
                     end if;
@@ -4610,7 +4612,9 @@ begin
                 glyph_visible_drive <= '1';
                 glyph_reverse_drive <= colourramdata(5);
                 glyph_bold_drive <= colourramdata(6);
-                glyph_colour_drive(4) <= colourramdata(6);
+                if bold_is_alt='0' then
+                  glyph_colour_drive(4) <= colourramdata(6);
+                end if;
                 if chargen_y_hold="111" then
                   glyph_underline_drive <= colourramdata(7);
                 end if;
