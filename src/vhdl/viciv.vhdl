@@ -5363,7 +5363,7 @@ begin
           report "LEGACY: Painting mono card";
           -- Delay of paint_alternate_palette for mono is correct
           if bold_is_alt='1' then
-            paint_alternate_palette <= glypb_bold;
+            paint_alternate_palette <= glyph_bold;
           else
             paint_alternate_palette <= glyph_reverse and glyph_bold;
           end if;
@@ -5474,7 +5474,7 @@ begin
           -- to meet timing.
           -- Paint_alternate_palette seems to not work in multi-colour mode
           if bold_is_alt='1' then
-            paint_alternate_palette <= glypb_bold;
+            paint_alternate_palette <= glyph_bold;
           else
             paint_alternate_palette <= glyph_reverse and glyph_bold;
           end if;
