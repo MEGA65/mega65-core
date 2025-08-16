@@ -511,6 +511,7 @@ architecture Behavioral of viciv is
   signal pal_simulate : std_logic := '0';
   signal shadow_mask_enable : std_logic := '0';
   signal upscale_enable_int : std_logic := '0';
+  signal bold_is_alt : std_logic := '0';
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -1906,7 +1907,7 @@ begin
           fastio_rdata(7) <= vicii_is_raster_source;
           fastio_rdata(6) <= shadow_mask_enable;
           fastio_rdata(5) <= upscale_enable_int;
-          fastio_rdata(4) <= '0';
+          fastio_rdata(4) <= bold_is_alt;
           fastio_rdata(3 downto 0) <= std_logic_vector(ycounter_drive(11 downto 8));
         elsif register_number=84 then
                                         -- $D054 (53332) - New mode control register
@@ -2676,7 +2677,7 @@ begin
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
         -- @IO:GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
-        -- @IO:GS $D053.4 VIC-IV:RESERVED Reserved
+        -- @IO:GS $D053.4 VIC-IV:BOLDISALT When set, the BOLD attribute bit selects the alternate palette, without requiring REVERSE to also be set.
         -- @IO:GS $D053.5 VIC-IV:UPSCALE Enable integrated low-latency (130usec) 720p upscaler
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
         -- Allow setting of fine raster for IRQ (high bits)
@@ -2684,6 +2685,7 @@ begin
           -- @IO:GS $D053.7 VIC-IV:FNRST Read raster compare source (0=VIC-IV fine raster, 1=VIC-II raster), provides same value as set in FNRSTCMP
           shadow_mask_enable <= fastio_wdata(6);
           upscale_enable_int <= fastio_wdata(5);
+          bold_is_alt <= fastio_wdata(4);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
@@ -4528,6 +4530,7 @@ begin
             glyph_colour_drive(3 downto 0) <= colourramdata(3 downto 0);
           end if;
 
+          -- Why on earth do we do this? This carries these flags between glyphs?
           glyph_visible_drive <= glyph_visible;
           glyph_reverse_drive <= glyph_reverse;
           glyph_underline_drive <= glyph_underline;
@@ -4790,10 +4793,7 @@ begin
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
 
-            -- For FCM glyphs in VIC-III attribute mode, we wire BOLD directly
-            -- to the alternate palette selection, so that glyphs can be
-            -- reversed or not.            
-            if viciii_extended_attributes = '1' and glyph_4bit='0' and glyph_full_colour='1' then
+            if bold_is_alt = '1' then
               paint_alternate_palette <= glyph_bold;
             else
               -- Normal VIC-III interpretation
@@ -5227,7 +5227,7 @@ begin
           paint_bits_remaining <= paint_glyph_width - 1;
           -- Reverse video mode for FCM/NCM changes whether foreground or
           -- background colour is visible through transparent pixels.
-          if glyph_reverse='1' and glyph_bold='0' and glyph_with_alpha='0' then
+          if glyph_reverse='1' and (glyph_bold='0' or bold_is_alt='1') and glyph_with_alpha='0' then
             paint_background_with_any_reverse <= paint_foreground;
             transparent_pixel_will_come_from_primary_palette <= '1';
           else
@@ -5358,8 +5358,12 @@ begin
           -- to meet timing.
           report "LEGACY: Painting mono card";
           -- Delay of paint_alternate_palette for mono is correct
-          paint_alternate_palette <= glyph_reverse and glyph_bold;
-          if glyph_reverse='1' and glyph_bold='0' then
+          if bold_is_alt='1' then
+            paint_alternate_palette <= glypb_bold;
+          else
+            paint_alternate_palette <= glyph_reverse and glyph_bold;
+          end if;
+          if glyph_reverse='1' and (glyph_bold='0' or bold_is_alt='1') then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
@@ -5465,8 +5469,12 @@ begin
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
           -- Paint_alternate_palette seems to not work in multi-colour mode
-          paint_alternate_palette <= glyph_reverse and glyph_bold;
-          if glyph_reverse='1' and glyph_bold='0' then
+          if bold_is_alt='1' then
+            paint_alternate_palette <= glypb_bold;
+          else
+            paint_alternate_palette <= glyph_reverse and glyph_bold;
+          end if;
+          if glyph_reverse='1' and (glyph_bold='0' or bold_is_alt='1') then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
               paint_chardata(0)&paint_chardata(1)
