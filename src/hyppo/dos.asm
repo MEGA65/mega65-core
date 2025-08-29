@@ -829,7 +829,7 @@ trap_dos_chdir:
 
         +Checkpoint "trap_dos_chdir <success>"
 
-        jmp return_from_trap_with_success
+        jmp return_from_trap_with_success_and_zero_accumulator
 
 tdcd1:
         +Checkpoint "trap_dos_chdir <failure>"
