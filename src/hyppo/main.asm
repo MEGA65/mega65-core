@@ -319,7 +319,7 @@ nosuchtrap:
 return_from_trap_with_success_and_zero_accumulator:
 	lda #$00
 	sta hypervisor_a
-	jmp return_from_trap_with_success_and_zero_accumulator
+	jmp return_from_trap_with_success
 	
 return_from_trap_with_success_and_file_descriptor_in_a:
 
