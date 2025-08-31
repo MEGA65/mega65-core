@@ -5285,11 +5285,11 @@ begin
             end if;
           end if;
           paint_full_colour_data(59 downto 0) <= paint_full_colour_data(63 downto 4);
-          if raster_buffer_write_address(9 downto 0) /= "1111111111" then
+          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
-            raster_buffer_max_write_address <= "1111111111";
+            raster_buffer_max_write_address <= "1111111110";
           end if;
             
           if paint_full_colour_data(3 downto 0) /= x"0" or glyph_paint_background='1' then
@@ -5343,12 +5343,12 @@ begin
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
-          if raster_buffer_write_address(9 downto 0) /= "1111111111" then
+          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
 
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
-            raster_buffer_max_write_address <= "1111111111";
+            raster_buffer_max_write_address <= "1111111110";
           end if;
           if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) /= x"00" then
             raster_buffer_write <= '1';
@@ -5466,11 +5466,11 @@ begin
               raster_buffer_write_data(7 downto 0) <= paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
-            if raster_buffer_write_address(9 downto 0) /= "1111111111" then
+            if raster_buffer_write_address(9 downto 0) /= "1111111110" then
               raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
               raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
             else
-              raster_buffer_max_write_address <= "1111111111";
+              raster_buffer_max_write_address <= "1111111110";
             end if;
             if paint_buffer(0)='1' or glyph_paint_background='1' then
               raster_buffer_write <= '1';
@@ -5591,12 +5591,12 @@ begin
               when others =>
                 null;
             end case;
-            if raster_buffer_write_address(9 downto 0) /= "1111111111" then
+            if raster_buffer_write_address(9 downto 0) /= "1111111110" then
 
               raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
               raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
             else
-              raster_buffer_max_write_address <= "1111111111";
+              raster_buffer_max_write_address <= "1111111110";
             end if;
             if paint_buffer(1 downto 0) /= "00" or glyph_paint_background='1' then
               raster_buffer_write <= '1';
@@ -5609,12 +5609,12 @@ begin
           -- Stretch multi-colour pixels to be double width
           paint_fsm_state <= PaintMultiColourHold;
         when PaintMultiColourHold =>
-          if raster_buffer_write_address(9 downto 0) /= "1111111111" then
+          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
 
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
-            raster_buffer_max_write_address <= "1111111111";
+            raster_buffer_max_write_address <= "1111111110";
           end if;
           if paint_buffer(1 downto 0) /= "00" or glyph_paint_background='1' then
             raster_buffer_write <= '1';
