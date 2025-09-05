@@ -512,6 +512,7 @@ architecture Behavioral of viciv is
   signal shadow_mask_enable : std_logic := '0';
   signal upscale_enable_int : std_logic := '0';
   signal bold_is_alt : std_logic := '0';
+  signal rrb_wraparound_allowed : std_logic := '1';
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -967,7 +968,7 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
   signal raster_buffer_write : std_logic := '0';
 
-  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
+`  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
   signal raster_buffer_max_write_address_hold : unsigned(9 downto 0) := to_unsigned(0,9+1);
   signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
@@ -2128,7 +2129,8 @@ begin
         no_raster_buffer_delay <= '1';
         raster_buffer_double_line <= '0';
         reg_char_y16 <= '0';
-
+        rrb_wraparound_allowed <= '1';
+        bold_is_alt <= '0';        
       end if;
 
       -- Drive stage for data from hyper RAM and signals out to it
@@ -2686,6 +2688,7 @@ begin
           shadow_mask_enable <= fastio_wdata(6);
           upscale_enable_int <= fastio_wdata(5);
           bold_is_alt <= fastio_wdata(4);
+          rrb_wraparound_allowed <= not fastio_wdata(4);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
@@ -5285,7 +5288,7 @@ begin
             end if;
           end if;
           paint_full_colour_data(59 downto 0) <= paint_full_colour_data(63 downto 4);
-          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
+          if (raster_buffer_write_address(9 downto 0) /= "1111111110") or rrb_wraparound_allowed='1' then
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
@@ -5343,8 +5346,7 @@ begin
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
-          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
-
+          if (raster_buffer_write_address(9 downto 0) /= "1111111110") or rrb_wraparound_allowed='1' then
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
@@ -5466,7 +5468,7 @@ begin
               raster_buffer_write_data(7 downto 0) <= paint_background;
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
-            if raster_buffer_write_address(9 downto 0) /= "1111111110" then
+            if (raster_buffer_write_address(9 downto 0) /= "1111111110") or rrb_wraparound_allowed='1' then
               raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
               raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
             else
@@ -5591,8 +5593,7 @@ begin
               when others =>
                 null;
             end case;
-            if raster_buffer_write_address(9 downto 0) /= "1111111110" then
-
+            if (raster_buffer_write_address(9 downto 0) /= "1111111110") or rrb_wraparound_allowed='1' then
               raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
               raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
             else
@@ -5609,8 +5610,7 @@ begin
           -- Stretch multi-colour pixels to be double width
           paint_fsm_state <= PaintMultiColourHold;
         when PaintMultiColourHold =>
-          if raster_buffer_write_address(9 downto 0) /= "1111111110" then
-
+          if (raster_buffer_write_address(9 downto 0) /= "1111111110") or rrb_wraparound_allowed='1' then
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
           else
