@@ -514,6 +514,7 @@ architecture Behavioral of viciv is
   signal upscale_enable_int : std_logic := '0';
   signal bold_is_alt : std_logic := '0';
   signal rrb_wraparound_allowed : std_logic := '1';
+  signal rrb_overtime_allowed : std_logic := '1';
 
   signal debug_x : unsigned(13 downto 0) := "11111111111110";
   signal debug_y : unsigned(11 downto 0) := "111111111110";
@@ -2133,6 +2134,7 @@ begin
         raster_buffer_double_line <= '0';
         reg_char_y16 <= '0';
         rrb_wraparound_allowed <= '1';
+        rrb_overtime_allowed <= '1';
         bold_is_alt <= '0';        
       end if;
 
@@ -2955,8 +2957,9 @@ begin
           -- are fetched from.
           bitplane_bank_select <= unsigned(fastio_wdata(2 downto 0));
           dat_bitplane_bank <= unsigned(fastio_wdata(2 downto 0));
-          rrb_wraparound_allowed <= not fastio_wdata(3);
           -- @IO:GS $D07C.3 VIC-IV:NORRBWRAP Disables RRB address wrap-around when set.
+          rrb_wraparound_allowed <= not fastio_wdata(3);
+          rrb_overtime_allowed <= not fastio_wdata(3);
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
@@ -3469,6 +3472,7 @@ begin
         report "ZEROing screen_ram_buffer_write_address" severity note;
         -- Finally decide which way we should go
         if safe_to_integer(first_card_of_row) /= safe_to_integer(prev_first_card_of_row) then
+          raster_fetch_state_init <= FetchScreenRamLine;
           raster_fetch_state <= FetchScreenRamLine;
           -- From Section 3.5 of http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
           -- (but has problems for some reason)
@@ -3483,8 +3487,10 @@ begin
           end if;
         else
           report "noBADLINE" severity note;
+          raster_fetch_state_init <= FetchFirstCharacter;
           raster_fetch_state <= FetchFirstCharacter;
         end if;
+        raster_fetch_restart <= '1';
 
         -- Now check if we have tipped over from one logical pixel row to another.
         chargen_y <= chargen_y_next;
@@ -5212,6 +5218,12 @@ begin
         when others => null;
       end case;
 
+      -- Force abort of existing RRB line render if we've run out of cycles.
+      if raster_fetch_restart='1' and rrb_overtime_allowed='0' then        
+        raster_fetch_state <= raster_fetch_state_init;
+        raster_fetch_restart <= '0';
+      end if;
+      
       -- Push sprite data out in a drive cycle to improve timing closure.
       if sprite_fetch_drive = '1' then
         sprite_datavalid <= '1';
