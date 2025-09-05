@@ -2015,9 +2015,10 @@ begin
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count(7 downto 0));
         elsif register_number=124 then  -- $D307C
+          -- @IO:GS $D07C.3 RESERVED
           -- fastio_rdata(3 downto 0) <= x"F";
           fastio_rdata(2 downto 0) <= std_logic_vector(bitplane_bank_select);
-          fastio_rdata(3) <= '0';
+          fastio_rdata(3) <= not rrb_wraparound_allowed;
           fastio_rdata(4) <= hsync_polarity_internal;
           fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= "11";
@@ -2680,7 +2681,7 @@ begin
         -- vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
-        -- @IO:GS $D053.0-2 VIC-IV:FN!RASTER!MSB Read physical raster position
+        -- @IO:GS $D053.0-3 VIC-IV:FN!RASTER!MSB Read physical raster position
         -- @IO:GS $D053.4 VIC-IV:BOLDISALT When set, the BOLD attribute bit selects the alternate palette, without requiring REVERSE to also be set.
         -- @IO:GS $D053.5 VIC-IV:UPSCALE Enable integrated low-latency (130usec) 720p upscaler
         -- @IO:GS $D053.6 VIC-IV:SHDEMU Enable simulated shadow-mask (PALEMU must also be enabled)
@@ -2690,7 +2691,6 @@ begin
           shadow_mask_enable <= fastio_wdata(6);
           upscale_enable_int <= fastio_wdata(5);
           bold_is_alt <= fastio_wdata(4);
-          rrb_wraparound_allowed <= not fastio_wdata(4);
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
@@ -2955,7 +2955,8 @@ begin
           -- are fetched from.
           bitplane_bank_select <= unsigned(fastio_wdata(2 downto 0));
           dat_bitplane_bank <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D07C.3 VIC-IV:RESV @RESV
+          rrb_wraparound_allowed <= not fastio_wdata(3);
+          -- @IO:GS $D07C.3 VIC-IV:NORRBWRAP Disables RRB address wrap-around when set.
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
