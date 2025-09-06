@@ -484,6 +484,8 @@ architecture Behavioral of viciv is
                            SpriteDataFetch,
                            SpriteDataFetch2);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
+  signal raster_fetch_state_init : vic_chargen_fsm := Idle;
+  signal raster_fetch_restart : std_logic := '0';
   type vic_paint_fsm is (Idle,
                          PaintFullColour,Paint4bitColourPixels,PaintFullColourPixels,PaintFullColourDone,
                          PaintMono,PaintMonoDrive,PaintMonoBits,
